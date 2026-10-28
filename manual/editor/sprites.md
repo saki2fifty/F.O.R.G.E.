@@ -80,8 +80,8 @@ world geometry to match each rectangle.
 Every rectangle must fit the current image crop. In Sliced mode, every entry must
 leave a positive center after its borders. An invalid or incompatible replacement
 image keeps the complete last usable picture and size while reporting a diagnostic.
-Correct the list or image to retry. This workflow defines rectangles; it does not
-trim transparent pixels, rotate frames or create atlas mipmaps. Use the packing workflow below to combine separate images.
+Correct the list or image to retry. Use the frame metadata below for trimmed or
+stored-rotated images, or the packing workflow to generate them from separate images.
 
 ![Unequal Sprite frames, animated arrows and Sliced/Tiled examples](../images/sprite-frame-regions.png)
 
@@ -92,6 +92,35 @@ frames, crop-relative and to-edge selection, Sliced borders and mirrored Tiled f
 During Play, **Live gameplay** can temporarily edit the list. Save authored values
 to retain them for export; Stop restores the authored scene.
 
+## Keep trimmed or stored-rotated frames aligned
+
+Choose **Simple** image mode for frames with removed transparent edges or a stored
+quarter turn. Expand an item in **Frame regions** to edit its metadata:
+
+- `rotated_clockwise`: enable when its pixels are stored90 degrees clockwise in the image. Width and height still describe that stored rectangle; FORGE restores the visible orientation.
+- `source_width` and `source_height`: the original logical image dimensions before trimming. Zero infers that axis from the retained image after its stored turn is undone.
+- `trim_x` and `trim_y`: the retained image's top-left position inside the original logical canvas, before Sprite flips. The retained image must fit completely inside that canvas.
+
+Keep the Sprite's world width, height and pivot set for the full logical canvas.
+Removing transparent edges does not shrink its geometry, picking rectangle or
+bounds. Frame changes stay aligned, and Flip X/Y also mirror the retained offset.
+The sheet picker shows stored pixels and reports the selected logical canvas and
+turn; the Scene and Game views show the restored image.
+
+For actual trimming, publish a Material with **Blend** alpha and depth writes off.
+Ordinary untrimmed frames keep their existing material choices. Transformed frames
+cannot use Sliced or Tiled mode. If a frame or replacement Material is incompatible,
+FORGE reports the problem and retains the last usable picture and size. Correct
+the values to retry, then save the scene or publish its prefab source.
+
+Open Gallery **95-sprite-frame-metadata** to compare original transparent canvases
+on the left with trimmed, clockwise-stored frames on the right. The second pair
+uses Flip X; the bottom image shows the actual packed storage.
+
+![Original and packed arrow and marker pairs with the clockwise-stored PNG below](../images/sprite-trimmed-frames.png)
+
+Gallery95 keeps both visible pairs aligned while their packed Texture stores the retained pixels clockwise.
+
 ## Pack separate images into an atlas
 
 An atlas is one image containing several smaller images. It can let Sprites share
@@ -99,12 +128,16 @@ one Texture and Material while choosing different frame rectangles.
 
 1. Import and publish the source images as independent Texture assets. Use uncompressed sRGB RGBA8 color with opaque or straight alpha. Model-owned image members, HDR and premultiplied images are outside this packing profile.
 2. Stop Play. Select the Texture assets in Content, then choose **Create / Register → Pack sprite atlas...**. Content supplies its listed asset order; review the source order before copying.
-3. Enter an unused folder below **Assets** and a new `.png` filename. The parent folder must exist. **Maximum side** limits the generated image to at most4096 pixels per side. **Padding pixels** reserves space around every image; **Extrude image edges into padding** fills that space with the nearest edge pixel.
+3. Enter an unused folder below **Assets** and a new `.png` filename. The parent folder must exist. **Maximum side** limits the generated image to at most4096 pixels per side. **Padding pixels** reserves space around every image; **Extrude image edges into padding** fills that space with the nearest edge pixel. Enable **Trim transparent edges** to retain the original canvas metadata and a transparent filter ring while removing fully transparent outer pixels. **Allow stored quarter turns** permits90-degree clockwise storage. Both options start off; transformed frames require Simple Sprites.
 4. Choose **Prepare import**. This reads the published image pixels and generates a detached review. Check the layout and expand **Frame rectangles and source order**. The numbered rectangles show frame positions; they are not an image preview. **Back** changes the settings without creating files.
 5. Leave **Import with defaults after copying** enabled and choose **Copy sources**. After publication, the new PNG appears as an ordinary Texture in Content. Originals stay separate. Copying and asset publication are not Scene Undo operations.
 6. Choose **Copy atlas frames**, then close the dialog. Create and publish a **Sprite / image** Material using the new Texture. Assign that Material to a Sprite.
 7. Under the Sprite's **Sheet frames**, choose **Paste atlas frames**. This replaces the frame list, sets Frame to0 and turns off image cropping in one Scene Undo/Redo step. It checks the assigned Texture and dimensions. For a prefab source, it updates that source draft; publish the prefab to retain it.
 8. Choose a Frame or use **Choose frame...**. Set the Sprite's world width and height separately. Save the scene before Play or export.
+
+![Atlas options with transparent trimming and stored quarter turns enabled](../images/sprite-atlas-options.png)
+
+Choose trimming and stored turns before preparing the import review.
 
 ![Actual atlas review with numbered frame rectangles and copy controls](../images/sprite-atlas-review.png)
 
@@ -112,7 +145,11 @@ The packing review shows a layout of the Badge and Panel images. Rectangles reta
 the input frame order even when packing places a larger image first.
 
 Packing supports1–512 images, a64MiB decoded pixel budget and padding0–64 pixels.
-It uses complete image rectangles with no rotation or transparent-pixel trimming.
+Trimming removes only alpha-zero outer pixels; partially transparent pixels stay.
+Fully transparent images retain one transparent pixel and their original canvas.
+Input images may reach16384 pixels per side when trimming is enabled, within the
+same decoded pixel budget. Output remains bounded by **Maximum side**. Packing
+considers a bounded set of layouts and does not guarantee the smallest possible image.
 Source mip levels are not packed; Sprite sampling uses the base level. The output
 is a one-time image copy: changing an original does not update the generated PNG.
 Pack again into a new folder and update the Material/frame list when needed.

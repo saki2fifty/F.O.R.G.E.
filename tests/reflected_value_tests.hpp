@@ -26,6 +26,31 @@ inline void test_reflected_values() {
     auto invalid = [&](const Json& type, const Json& value) {
         reject([&] { valid(type, value); });
     };
+    const Json evolved{{"type", "struct"},
+                       {"fields",
+                        {{{"id", "required"}, {"type", "uint32"}},
+                         {{"id", "added"}, {"type", "bool"}, {"default_if_missing", false}}}}};
+    valid(evolved, {{"required", 7}});
+    valid(evolved, {{"required", 7}, {"added", true}});
+    invalid(evolved, {{"added", false}});
+    invalid(evolved, {{"required", 7}, {"added", 0}});
+    Json expanded{{"type", "struct"},
+                  {"fields", {{{"id", "text"}, {"type", "string"}}}},
+                  {"value_byte_limit", 131072},
+                  {"value_element_limit", 8192}};
+    valid(expanded, {{"text", std::string(70000, 'x')}});
+    auto common = expanded;
+    common.erase("value_byte_limit");
+    common.erase("value_element_limit");
+    invalid(common, {{"text", std::string(70000, 'x')}});
+    for (const Json limit : {Json(-1), Json(131073), Json(1.5), Json("131072")}) {
+        auto bad = expanded;
+        bad["value_byte_limit"] = limit;
+        invalid(bad, {{"text", "small"}});
+    }
+    auto missing_limit = expanded;
+    missing_limit.erase("value_element_limit");
+    invalid(missing_limit, {{"text", "small"}});
     const auto u64 = schema(flecs::U64), i64 = schema(flecs::I64);
     valid(u64, UINT64_MAX);
     valid(i64, INT64_MIN);

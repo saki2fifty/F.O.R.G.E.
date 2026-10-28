@@ -818,26 +818,67 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
         ecs_struct_desc_t frame_fields{};
         frame_fields.entity = frame_type.id();
         frame_fields.create_member_entities = true;
+        struct FrameMember {
+            const char* name;
+            std::size_t offset;
+            bool boolean = false;
+        };
+        const FrameMember frame_members[] = {
+            {"x", offsetof(SpriteFrameRegion, x)},
+            {"y", offsetof(SpriteFrameRegion, y)},
+            {"width", offsetof(SpriteFrameRegion, width)},
+            {"height", offsetof(SpriteFrameRegion, height)},
+            {"rotated_clockwise", offsetof(SpriteFrameRegion, rotated_clockwise), true},
+            {"source_width", offsetof(SpriteFrameRegion, source_width)},
+            {"source_height", offsetof(SpriteFrameRegion, source_height)},
+            {"trim_x", offsetof(SpriteFrameRegion, trim_x)},
+            {"trim_y", offsetof(SpriteFrameRegion, trim_y)}};
         unsigned frame_field = 0;
-        for (const auto& [name, offset] :
-             {std::pair{"x", offsetof(SpriteFrameRegion, x)},
-              std::pair{"y", offsetof(SpriteFrameRegion, y)},
-              std::pair{"width", offsetof(SpriteFrameRegion, width)},
-              std::pair{"height", offsetof(SpriteFrameRegion, height)}}) {
+        for (const auto& [name, offset, boolean] : frame_members) {
             auto& member = frame_fields.members[frame_field++];
             member.name = name;
-            member.type = w.id<std::uint32_t>();
+            member.type = boolean ? w.id<bool>() : w.id<std::uint32_t>();
             member.offset = int32_t(offset);
             member.use_offset = true;
-            member.range = {
-                std::string_view(name) == "x" || std::string_view(name) == "y" ? 0. : 1., 16384};
-            member.error_range = member.range;
+            if (!boolean) {
+                member.range = {
+                    std::string_view(name) == "width" || std::string_view(name) == "height" ? 1.
+                                                                                            : 0.,
+                    16384};
+                member.error_range = member.range;
+            }
         }
         if (!ecs_struct_init(w.c_ptr(), &frame_fields))
             throw std::runtime_error("Sprite frame region Meta registration failed");
+        const auto* frame_meta = ecs_get(w.c_ptr(), frame_type.id(), EcsType);
+        if (!frame_meta || frame_meta->partial)
+            throw std::runtime_error("Sprite frame region native Meta is incomplete");
+        for (const auto& [name, offset, boolean] : frame_members) {
+            const auto* member = ecs_struct_get_member(w.c_ptr(), frame_type.id(), name);
+            if (!member || std::size_t(member->offset) != offset ||
+                member->type != (boolean ? w.id<bool>() : w.id<std::uint32_t>()))
+                throw std::runtime_error(
+                    "Sprite frame region native Meta disagrees with typed layout");
+        }
+        w.component<ReflectedMemberDefault>(reflected_member_default_type);
+        for (const auto* field : {"source_width", "source_height", "trim_x", "trim_y"})
+            frame_type.lookup(field).template set<ReflectedMemberDefault>({0u});
+        frame_type.lookup("rotated_clockwise").template set<ReflectedMemberDefault>({false});
         for (const auto* field : {"x", "y", "width", "height"})
             frame_type.lookup(field).set_doc_brief("Whole pixels relative to the image crop's "
                                                    "top-left; width/height must be positive");
+        frame_type.lookup("source_width")
+            .set_doc_brief(
+                "Logical width before trimming; zero infers the unrotated retained width");
+        frame_type.lookup("source_height")
+            .set_doc_brief(
+                "Logical height before trimming; zero infers the unrotated retained height");
+        for (const auto* field : {"trim_x", "trim_y"})
+            frame_type.lookup(field).set_doc_brief(
+                "Retained image offset in its original logical canvas, before flips");
+        frame_type.lookup("rotated_clockwise")
+            .set_doc_brief("Stored pixels are turned clockwise by 90 degrees; Simple Sprites "
+                           "restore their orientation");
         w.component<std::vector<SpriteFrameRegion>>("forge.sprite_frame_regions")
             .opaque(reflected_vector<SpriteFrameRegion>);
         c.template member<AssetRef<MaterialAsset>>("material")
@@ -2741,7 +2782,9 @@ Json register_builtins(flecs::world& world, unsigned family) {
             c.lookup("material_parameters").set<ReflectedSequenceKey>({"slot", {"key"}});
         }
         if (name == "forge.sprite_renderer")
-            c.lookup("frame_regions").set<ReflectedSequenceLimit>({sprite_frame_region_limit});
+            c.lookup("frame_regions")
+                .set<ReflectedSequenceLimit>(
+                    {sprite_frame_region_limit, sprite_frame_value_byte_limit, 8192});
         std::vector<ReflectedAdapter> references;
         if (name == "forge.physics_joint" || name == "forge.physics_joint_2d" ||
             name == "forge.transform_animator" || name == "forge.camera_shot" ||

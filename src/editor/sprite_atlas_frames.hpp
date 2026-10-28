@@ -9,10 +9,11 @@ namespace forge::ui {
 // owns validation, prefab intent, Undo and persistence.
 inline nlohmann::json sprite_atlas_frame_values(std::string_view text, AssetId texture,
                                                 unsigned width, unsigned height) {
-    const auto value =
-        asset_detail::parse_bounded_json(std::as_bytes(std::span(text)), 65536, 20000, 16);
+    const auto value = asset_detail::parse_bounded_json(std::as_bytes(std::span(text)),
+                                                        sprite_frame_value_byte_limit, 20000, 16);
     if (!value.is_object() || value.size() != 6 ||
-        value.at("format") != "forge.sprite-atlas-layout" || value.at("version") != 1 || !texture ||
+        value.at("format") != "forge.sprite-atlas-layout" ||
+        (value.at("version") != 1 && value.at("version") != 2) || !texture ||
         value.at("texture") != texture.str() || value.at("width") != width ||
         value.at("height") != height)
         throw std::invalid_argument(

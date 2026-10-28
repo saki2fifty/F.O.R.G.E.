@@ -768,7 +768,8 @@ measurement. No mobile, calibration, fusion or orientation capability is adverti
 With asset-write permission, call `forge_asset_atlas_prepare` with ordered
 `textures` (1–512 Texture UUIDs) and `destination` (a new directory below Assets).
 Optional `filename` defaults to `atlas.png`; `max_size` defaults4096 (at most4096),
-`padding` defaults1 (0–64), `extrude` defaults true and `byte_limit` defaults64MiB
+`padding` defaults1 (0–64), `extrude` defaults true, `trim_transparent` and
+`allow_rotation` default false, and `byte_limit` defaults64MiB
 (at most64MiB). Only independent published sRGB RGBA8 Color textures are supported;
 originals are not modified. No external import-root grant is required.
 
@@ -785,4 +786,11 @@ existing source-document create/patch/save workflow. On the target Sprite use
 `region_enabled:false` together. Assign the Material through ordinary reflected
 properties and save the scene. Native paste additionally verifies the image ID/
 dimensions; clients should compare those before applying the returned mapping.
-Packing is one-shot, with no rotation, trimming, auto-repack or atlas mip claim.
+Returned layout version2 frames include rotated_clockwise, original source
+dimensions and retained offsets; existing reflected property discovery exposes
+the same optional/defaulted members. Transparent trimming keeps one available
+filter ring; stored turns are90 degrees clockwise. Transformed banks require
+image_mode0 (Simple); actual trim requires Blend with depth writes off. Frame
+payloads support512 expanded entries in the declared128KiB/8192-element envelope.
+Runtime/Scene/Prefab/history still use their existing owners and validation.
+Packing is one-shot, with no auto-repack or atlas-aware mip claim.

@@ -1,8 +1,20 @@
 #pragma once
+#include "sprite_region.hpp"
 #include <forge/material_asset.hpp>
 #include <stdexcept>
 
 namespace forge {
+inline bool sprite_trim_material_compatible(const MaterialData& material) {
+    return material.alpha == MaterialAlpha::Blend && !material.depth_write;
+}
+inline void validate_sprite_frame_material(const MaterialData& material,
+                                           std::span<const SpriteFrameRegion> frames) {
+    if (!sprite_trim_material_compatible(material))
+        for (const auto& frame : frames)
+            if (sprite_frame_canvas(frame).trimmed())
+                throw std::invalid_argument(
+                    "Trimmed Sprites require alpha blending with depth writes disabled");
+}
 // Material-owned surface intent for the initial base-level Sprite profile.
 // Atlas rectangles and modulation remain detached per-object numeric values.
 inline void validate_sprite_material_profile(const MaterialData& material) {

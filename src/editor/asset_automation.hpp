@@ -134,8 +134,10 @@ asset_automation_methods(Scene& scene, EditorFiles& files, ContentImports& impor
         "asset.atlas.prepare",
         "Pack ordered published independent sRGB Texture assets into a reviewed PNG source. "
         "No files change yet. Read asset.import.review, commit/cancel/close through asset.import; "
-        "results include the published Texture ID and ordered frame rectangles. One-shot packing, "
-        "no trimming, rotation, automatic repacking or atlas mips.",
+        "results include the published Texture ID and ordered frame metadata. Optional transparent "
+        "trimming preserves the original canvas and a filter ring; optional stored quarter turns "
+        "require Simple Sprites. Actual trim requires Blend with depth writes off. One-shot "
+        "packing; no automatic repacking or atlas mips.",
         "asset.write",
         automation_object({{"textures", automation_array(automation_uuid(), 512, 1)},
                            {"destination", automation_text(2047, 1)},
@@ -143,7 +145,9 @@ asset_automation_methods(Scene& scene, EditorFiles& files, ContentImports& impor
                            {"max_size", automation_integer(1, 4096)},
                            {"padding", automation_integer(0, 64)},
                            {"byte_limit", automation_integer(4, 64ull * 1024 * 1024)},
-                           {"extrude", {{"type", "boolean"}}}},
+                           {"extrude", {{"type", "boolean"}}},
+                           {"trim_transparent", {{"type", "boolean"}}},
+                           {"allow_rotation", {{"type", "boolean"}}}},
                           {"textures", "destination"}),
         true, [catalog, &files, &source](const Json& request) {
             (void)catalog();
@@ -155,6 +159,9 @@ asset_automation_methods(Scene& scene, EditorFiles& files, ContentImports& impor
             settings.padding = request.value("padding", settings.padding);
             settings.byte_limit = request.value("byte_limit", settings.byte_limit);
             settings.extrude = request.value("extrude", settings.extrude);
+            settings.trim_transparent =
+                request.value("trim_transparent", settings.trim_transparent);
+            settings.allow_rotation = request.value("allow_rotation", settings.allow_rotation);
             source.automation_prepare_atlas(
                 files.document, std::move(textures),
                 automation_relative_path(request.at("destination").get<std::string>()),

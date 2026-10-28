@@ -5,6 +5,7 @@
 #include "../model_importer.hpp"
 #include "../source_copy.hpp"
 #include "../sprite_atlas_source.hpp"
+#include "../sprite_frame_json.hpp"
 #include "content_imports.hpp"
 #include "file_dialog.hpp"
 #include "icons.hpp"
@@ -435,11 +436,16 @@ class SourceImport {
                 if (ImGui::InputInt("Padding pixels", &padding))
                     atlas_->settings.padding = unsigned(std::clamp(padding, 0, 64));
                 ImGui::Checkbox("Extrude image edges into padding", &atlas_->settings.extrude);
-                ImGui::Text("%zu inputs | 64 MiB pixel budget | No rotation or trimming",
-                            atlas_->textures.size());
+                ImGui::Checkbox("Trim transparent edges", &atlas_->settings.trim_transparent);
+                FORGE_UI_PROBE("atlas:trim");
+                ImGui::Checkbox("Allow stored quarter turns", &atlas_->settings.allow_rotation);
+                FORGE_UI_PROBE("atlas:rotation");
+                ImGui::Text("%zu inputs | 64 MiB pixel budget", atlas_->textures.size());
                 ui::help(
                     "Select independent Texture assets in Content. Base-level sRGB RGBA8 color "
-                    "images only. Packed atlas mips are not generated.");
+                    "images only. Trimming keeps a transparent filter ring and the original "
+                    "canvas. Transformed frames require Simple Sprites; actual trimming also "
+                    "requires Blend with depth writes off. Packed atlas mips are not generated.");
             } else
                 ui::help(
                     "Each input is placed in Source-1, Source-2 and so on within this new folder.");
@@ -617,6 +623,12 @@ class SourceImport {
                 ImGui::Text("%zu: %u,%u %u x %u", i, frame.at("x").get<unsigned>(),
                             frame.at("y").get<unsigned>(), frame.at("width").get<unsigned>(),
                             frame.at("height").get<unsigned>());
+                const auto region = detail::sprite_frame_value(frame);
+                const auto canvas = sprite_frame_canvas(region);
+                if (canvas.trimmed() || region.rotated_clockwise)
+                    ImGui::Text("  Canvas %u x %u | offset %u,%u | stored turn %s", canvas.width,
+                                canvas.height, canvas.x, canvas.y,
+                                region.rotated_clockwise ? "90 CW" : "none");
                 ImGui::TextWrapped(
                     "%s",
                     layout.at("inputs")[i].at("source").get_ref<const std::string&>().c_str());

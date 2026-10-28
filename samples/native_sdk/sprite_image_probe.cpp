@@ -29,14 +29,15 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char*, uint32_t) {
         .write<forge::SpriteRenderer>()
         .each([](flecs::entity actor, SpriteImageProbe& probe) {
             ++probe.ticks;
-            if (probe.ticks > 2 || !actor.has<forge::SpriteRenderer>())
+            if (probe.ticks > 3 || !actor.has<forge::SpriteRenderer>())
                 return;
             auto image = actor.get<forge::SpriteRenderer>();
-            image.image_mode = std::uint32_t(probe.ticks == 1 ? forge::SpriteImageMode::Sliced
-                                                              : forge::SpriteImageMode::Tiled);
+            image.image_mode = std::uint32_t(probe.ticks == 1   ? forge::SpriteImageMode::Sliced
+                                             : probe.ticks == 2 ? forge::SpriteImageMode::Tiled
+                                                                : forge::SpriteImageMode::Simple);
             image.pixels_per_meter = probe.ticks == 1 ? 4 : 6;
             image.border_left = image.border_right = image.border_top = image.border_bottom = 1;
-            image.flip_x = probe.ticks == 2;
+            image.flip_x = probe.ticks >= 2;
             image.region_enabled = true;
             image.region_x = probe.ticks == 1 ? 1 : 0;
             image.region_y = probe.ticks == 1 ? 0 : 1;
@@ -44,6 +45,12 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char*, uint32_t) {
             if (probe.ticks == 2) {
                 image.frame_regions = {{0, 0, 2, 2}, {2, 0, 1, 3}, {0, 2, 2, 1}};
                 image.frame = 2;
+            }
+            if (probe.ticks == 3) {
+                auto& frame = image.frame_regions.at(2);
+                frame.rotated_clockwise = true;
+                frame.source_width = frame.source_height = 3;
+                frame.trim_x = frame.trim_y = 1;
             }
             actor.set(image);
         })

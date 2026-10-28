@@ -15,7 +15,7 @@ Json extract(const Json& schema, const Json& value, unsigned depth) {
         Json result = value;
         for (const auto& field : schema.at("fields")) {
             const auto key = field.at("id").get<std::string>();
-            auto part = extract(field, value.at(key), depth + 1);
+            auto part = extract(field, reflected_member_value(field, value), depth + 1);
             if (part.is_null())
                 result.erase(key);
             else
@@ -49,7 +49,8 @@ Json merge(const Json& schema, const Json& known, const Json& extensions, unsign
         Json result = extensions.is_object() ? extensions : Json::object();
         for (const auto& field : schema.at("fields")) {
             const auto key = field.at("id").get<std::string>();
-            result[key] = merge(field, known.at(key), child(extensions, key), depth + 1);
+            result[key] = merge(field, reflected_member_value(field, known), child(extensions, key),
+                                depth + 1);
         }
         return result;
     }

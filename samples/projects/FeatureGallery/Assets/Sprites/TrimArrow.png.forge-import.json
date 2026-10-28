@@ -1,0 +1,52 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [],
+    "importer": "forge.texture.image",
+    "importer_revision": "a72711a84ab8aba2fcd68c6e2ac7fa005f4b3e86dcae32d1b171e06b00773837",
+    "key_version": 1,
+    "output_format": "forge.texture-bundle",
+    "output_version": 1,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {
+      "additional_usages": [],
+      "anisotropy": 1,
+      "compression": "none",
+      "filter": "linear",
+      "flip_green": false,
+      "flip_vertical": false,
+      "max_size": 16384,
+      "mips": false,
+      "premultiply": false,
+      "semantic": "auto",
+      "transfer": "auto",
+      "wrap": "clamp"
+    },
+    "settings_version": 1,
+    "source": "bfcf3745293b34b7c34240c0c5007135cf39d16829de3ffe9e44690773046dac",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.texture.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "999ec7fe-b465-485a-b380-d1cd255109ad",
+    "source": "Assets/Sprites/TrimArrow.png",
+    "source_digest": "bfcf3745293b34b7c34240c0c5007135cf39d16829de3ffe9e44690773046dac",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.texture.image",
+    "overrides": {
+      "filter": "linear",
+      "mips": false,
+      "wrap": "clamp"
+    },
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

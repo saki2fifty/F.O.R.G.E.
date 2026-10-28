@@ -5,6 +5,7 @@
 #include "mesh_draw_shader.hpp"
 #include "render_backend.hpp"
 #include "shader_runtime_backend.hpp"
+#include "sprite_material_profile.hpp"
 #include "texture_gpu.hpp"
 #include <algorithm>
 #include <bit>
@@ -51,6 +52,7 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
       sprite_(draw_profile == MeshDrawProfile::Sprite) {
     require(draw_profile == MeshDrawProfile::Mesh || sprite_, "unknown draw profile");
     require(!sprite_ || !surface, "Sprite draw profile does not admit custom surfaces");
+    sprite_trim_allowed_ = sprite_trim_material_compatible(source);
     device_ = presentation.device();
     material_surface_ = surface != nullptr;
     std::optional<PbrMaterialProfile> profile;
@@ -513,11 +515,15 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
         if (instances.empty()) {
             require(sprite, "Sprite draw requires its detached numeric values");
             validate_sprite_draw_values(*sprite);
+            require(!sprite->trimmed() || sprite_trim_allowed_,
+                    "Trimmed Sprite draws require blending without depth writes");
         }
         for (const auto& item : instances) {
             require(item.sprite, "Sprite instance requires its detached numeric values");
             require(!item.legacy_tint, "Sprite color must not use legacy blockout lighting");
             validate_sprite_draw_values(*item.sprite);
+            require(!item.sprite->trimmed() || sprite_trim_allowed_,
+                    "Trimmed Sprite instances require blending without depth writes");
         }
     } else
         for (const auto& item : instances)
@@ -763,6 +769,9 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
                 }
                 copied[i][5] = {float(values.image.mode), gpu(values.image.axes[0].repeat),
                                 gpu(values.image.axes[1].repeat), values.transpose_uv ? 1.f : 0.f};
+                if (values.image.mode == 0)
+                    for (unsigned lane = 0; lane < 4; ++lane)
+                        copied[i][3][lane] = gpu(values.quad_crop[lane]);
                 copied[i][6] = values.color;
                 for (unsigned axis = 0; axis < 2; ++axis) {
                     copied[i][7][axis] = gpu(values.region.origin[axis]);

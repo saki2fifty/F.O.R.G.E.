@@ -18,8 +18,26 @@ inline constexpr const char* reflected_sequence_key_type = "forge.meta.sequence_
 // A native member's semantic limit can narrow the common bounded vector envelope.
 struct ReflectedSequenceLimit {
     std::size_t maximum;
+    // Zero retains the common value envelope; layout/schema bounds do not expand.
+    std::size_t value_bytes = 0, value_elements = 0;
 };
 inline constexpr const char* reflected_sequence_limit_type = "forge.meta.sequence_limit";
+// Explicit additive native member evolution. Ordinary reflected members remain
+// required; a declared missing default is validated and copied with the schema.
+struct ReflectedMemberDefault {
+    nlohmann::json value;
+};
+inline constexpr const char* reflected_member_default_type = "forge.meta.member_default";
+struct ReflectedValueLimits {
+    std::size_t bytes = 65536, elements = 4096;
+};
+// Copied hints must fit fixed ceilings. Only explicitly annotated native
+// sequences expand the otherwise unchanged common payload envelope.
+ReflectedValueLimits reflected_value_limits(const nlohmann::json& schema);
+// The value must already have passed schema admission. Missing required members
+// still throw; only explicit native evolution annotations supply a default.
+const nlohmann::json& reflected_member_value(const nlohmann::json& field,
+                                             const nlohmann::json& object);
 // Explicit engine-owned reference/container adapters only. No arbitrary project opaque types.
 struct ReflectedAdapter {
     ecs_entity_t type;

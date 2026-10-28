@@ -1,0 +1,52 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [],
+    "importer": "forge.texture.image",
+    "importer_revision": "a72711a84ab8aba2fcd68c6e2ac7fa005f4b3e86dcae32d1b171e06b00773837",
+    "key_version": 1,
+    "output_format": "forge.texture-bundle",
+    "output_version": 1,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {
+      "additional_usages": [],
+      "anisotropy": 1,
+      "compression": "none",
+      "filter": "linear",
+      "flip_green": false,
+      "flip_vertical": false,
+      "max_size": 16384,
+      "mips": false,
+      "premultiply": false,
+      "semantic": "auto",
+      "transfer": "auto",
+      "wrap": "clamp"
+    },
+    "settings_version": 1,
+    "source": "36d1073a68e5f40cc5dcd60cfaa754884cf13bb941a195eec1d9a4b18ea9aa4e",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.texture.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "bbc7b1f1-7266-49d3-94b4-2083eccf17ff",
+    "source": "Assets/Sprites/TrimmedAtlas.png",
+    "source_digest": "36d1073a68e5f40cc5dcd60cfaa754884cf13bb941a195eec1d9a4b18ea9aa4e",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.texture.image",
+    "overrides": {
+      "filter": "linear",
+      "mips": false,
+      "wrap": "clamp"
+    },
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

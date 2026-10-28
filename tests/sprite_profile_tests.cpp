@@ -52,6 +52,26 @@ int main() {
 
         const auto material = original.materials.begin()->second->values;
         validate_sprite_material_profile(material);
+        std::vector<SpriteFrameRegion> frame_bank{{0, 0, 2, 1}, {2, 0, 1, 2}};
+        frame_bank.back().rotated_clockwise = true;
+        // Storage orientation alone does not change alpha/depth admission.
+        for (auto alpha : {MaterialAlpha::Opaque, MaterialAlpha::Mask, MaterialAlpha::Blend}) {
+            auto value = material;
+            value.alpha = alpha;
+            value.depth_write = true;
+            validate_sprite_frame_material(value, frame_bank);
+        }
+        frame_bank.back().source_width = 4;
+        frame_bank.back().trim_x = 1;
+        validate_sprite_frame_material(material, frame_bank);
+        for (auto alpha : {MaterialAlpha::Opaque, MaterialAlpha::Mask}) {
+            auto value = material;
+            value.alpha = alpha;
+            rejects([&] { validate_sprite_frame_material(value, frame_bank); });
+        }
+        auto depth_trim = material;
+        depth_trim.depth_write = true;
+        rejects([&] { validate_sprite_frame_material(depth_trim, frame_bank); });
         auto incompatible = [&](auto change) {
             auto value = material;
             change(value);

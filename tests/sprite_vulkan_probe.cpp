@@ -1,6 +1,7 @@
 #include "Graphics/GraphicsEngineVulkan/interface/EngineFactoryVk.h"
 #include "sprite_atlas_precision_tests.hpp"
 #include "sprite_bundle_render_tests.hpp"
+#include "sprite_frame_metadata_render_tests.hpp"
 #include "sprite_gallery_render_tests.hpp"
 #include "sprite_image_render_tests.hpp"
 #include "sprite_projection_render_tests.hpp"
@@ -27,6 +28,7 @@ int main(int argc, char** argv) {
                                            std::filesystem::path(argv[1]) / "image-fill");
         forge::test_sprite_bundle::exercise(presentation, context, read);
         forge::test_sprite_atlas_precision::exercise(presentation, context, read);
+        forge::test_sprite_frame_metadata_render::exercise(presentation, context, read);
         forge::test_sprite_scene_render::exercise(presentation, context, read,
                                                   std::filesystem::path(argv[1]) / "scene");
         forge::test_tile_map_render::exercise(presentation, context, read,

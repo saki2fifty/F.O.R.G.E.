@@ -1,20 +1,38 @@
 # README screenshots
 
-## Sprite atlas review
+## Sprite atlas options and review
 
-[Atlas review](../../../manual/images/sprite-atlas-review.png) is the complete
-1080×800 native SourceImport packing modal captured2026-10-28 from the local
-atlas-packing work based on2fa189907bc01fd2ec8746361cffcf55a8e29b1c.
-`tests/sprite_atlas_editor_tests.cpp` uses GCC12 Release/Linux and the pinned Dear
-ImGui SDL3 software backend. It imports the original Badge/Panel PNGs through the
-real asset worker, prepares the actual packing job and renders its numbered layout.
-It passes review/Back, locked copy, publication, clipboard and cancellation at
-1/1.5/2 scaling. The image is a wire layout, not a preview of image colors. The
-complete original PNG was copied without crop, resize, retouch or generated controls.
-SHA256:`45be66b78feb1394c29f8d8bc6ff9e29487e79030d3eaad7f3965c491d4dd349`. It was visually reviewed at normal scale.
-This is an isolated actual editor-control fixture, not full Windows Main, physical
-GPU/input acceptance or a new numbered delivery. The local validation/capture
-receipt records final fixture/owner hashes.
+[Atlas options](../../../manual/images/sprite-atlas-options.png) and
+[Atlas review](../../../manual/images/sprite-atlas-review.png) preserve complete
+1080×800 native SourceImport modal captures from the local frame-metadata work
+based on7d5db0e6c62bc09d223117952ef2eaf339d6caaf, captured2026-10-28.
+`tests/sprite_atlas_editor_tests.cpp` uses GCC12 Release/Linux with pinned Dear
+ImGui and SDL3 software rendering. The actual mouse controls enable transparent
+trimming and stored quarter turns, then prepare original Badge/Panel images
+through FORGE's supervised worker and normal source-import owner. Checks cover
+1/1.5/2 scaling, review/Back, lock, copy/publication, clipboard and cancellation.
+The review is a wire layout, not a color image preview. Complete PNG bytes are
+copied without crop, resize, retouch or generated controls. Final hashes and
+separate visual-review evidence are recorded in the local validation receipt.
+- sprite-atlas-options.png SHA256: `77edaa7447e5dad893772df45492ceed7157e6c983ad999c68ba3580f940789a`.
+- sprite-atlas-review.png SHA256: `9ceaeb7b5bb2fc98ef4869098826820cc6b6e21a332eaf043a6747027a7a98a7`.
+- sprite-trimmed-frames.png SHA256: `8f3688d0d598f41a3c887d2025e8952241ff2f767fb3aeefa3b6d31cfd14a711`.
+
+These are actual editor-control fixtures, not full Windows Main, physical GPU/
+input acceptance or a numbered delivery.
+
+[Trimmed canvases](../../../manual/images/sprite-trimmed-frames.png) is the complete
+640×360 Game output from original Gallery95 through the actual FrameRenderer/
+MeshResourceHost and published ordinary Texture/Material selections. The source
+is `gallery95-frame0-wide.ppm` from the final `forge_sprite_vulkan_probe` run,
+GCC12 Release/Linux, pinned Diligent Vulkan and llvmpipe LLVM15 software rendering.
+The P6 RGB capture was encoded as PNG with exact decompressed RGB equality; no
+crop, resize, pixel retouch, UI insertion or generated scene art was applied to
+the capture. Scene source PNGs are original deterministic FORGE fixtures. Separate
+direct/instanced original-versus-packed pixel checks cover all flips, both filters,
+transparent canvases and stored orientation. Source-free content relocation and
+last-good material/bounds checks are separate evidence. This image is Game output,
+not an editor-window capture or physical GPU/Windows acceptance.
 
 ## Local controller assignments and sensors
 

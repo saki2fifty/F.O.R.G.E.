@@ -1,5 +1,6 @@
 #pragma once
 #include <forge/identity.hpp>
+#include <forge/sprite_frames.hpp>
 #include <nlohmann/json.hpp>
 #include <stdexcept>
 #include <string_view>
@@ -61,7 +62,11 @@ struct RuntimePropertyTune {
         const bool collection =
             (material_type(result.type) && material_property(result.property)) ||
             (sprite_type(result.type) && result.property == "frame_regions");
-        const std::size_t value_limit = collection ? 64 * 1024 : 8192;
+        const std::size_t value_limit =
+            sprite_type(result.type) && result.property == "frame_regions"
+                ? sprite_frame_value_byte_limit
+            : collection ? 64 * 1024
+                         : 8192;
         if (result.type.empty() || result.type.size() > 128 || result.property.empty() ||
             result.property.size() > 128 || request.at("value").dump().size() > value_limit)
             throw std::runtime_error("Live property target/value exceeds limits");

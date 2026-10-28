@@ -1,0 +1,43 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [
+      {
+        "kind": "runtime",
+        "revision": "266e5ec98037200d3cdc9b65e9ae2c5cdf84d029e3bc9af38c0c10d7b79b8d7d",
+        "role": "material.texture:baseColorTexture",
+        "target": "a2d9387a-fce3-4f4d-b617-77e05cfb3abf",
+        "type": "texture"
+      }
+    ],
+    "importer": "forge.material.builtin",
+    "importer_revision": "831807e3831e7272d811165237d301414a4f61c63da6a80861c2926ded09a732",
+    "key_version": 1,
+    "output_format": "forge.material-bundle",
+    "output_version": 2,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {},
+    "settings_version": 1,
+    "source": "dd5b7d21300c9297b34aeb9321bff074e52fa32677f41aca7986f78308f65b69",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.material.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "da8b21ce-95e3-42d3-985c-0c3427130797",
+    "source": "Assets/Sprites/TrimMarker.material.json",
+    "source_digest": "dd5b7d21300c9297b34aeb9321bff074e52fa32677f41aca7986f78308f65b69",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.material.builtin",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

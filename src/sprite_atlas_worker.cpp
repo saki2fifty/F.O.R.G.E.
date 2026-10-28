@@ -27,7 +27,7 @@ std::vector<ArtifactFile> execute_sprite_atlas_source(const ImportProcessRequest
             throw std::runtime_error("Atlas image snapshot order/name changed");
         TextureLimits limits;
         limits.bytes = remaining;
-        limits.dimension = settings.max_size;
+        limits.dimension = settings.trim_transparent ? 16384 : settings.max_size;
         auto texture = decode_texture(input.bytes, limits);
         validate_sprite_texture_profile(texture);
         if (texture.format != TextureFormat::RGBA8Srgb || texture.mips != 1)

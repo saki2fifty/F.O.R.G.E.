@@ -1,0 +1,43 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [
+      {
+        "kind": "runtime",
+        "revision": "fddf13c5f4e42bd1a00d0b5f26693b2afc44425668748d9e0542d5dfc3f38d96",
+        "role": "material.texture:baseColorTexture",
+        "target": "bbc7b1f1-7266-49d3-94b4-2083eccf17ff",
+        "type": "texture"
+      }
+    ],
+    "importer": "forge.material.builtin",
+    "importer_revision": "831807e3831e7272d811165237d301414a4f61c63da6a80861c2926ded09a732",
+    "key_version": 1,
+    "output_format": "forge.material-bundle",
+    "output_version": 2,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {},
+    "settings_version": 1,
+    "source": "f4f35e7a272613277f251264ff2d237c04a58b58c371a26ccbf02ee37d2a12e7",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.material.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "6ffcb16d-68e0-40f0-b9cc-69c1e6b19f1c",
+    "source": "Assets/Sprites/TrimmedAtlas.material.json",
+    "source_digest": "f4f35e7a272613277f251264ff2d237c04a58b58c371a26ccbf02ee37d2a12e7",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.material.builtin",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

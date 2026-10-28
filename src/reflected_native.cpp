@@ -26,7 +26,7 @@ void write(ecs_meta_cursor_t& cursor, const Json& schema, const Json& value,
         for (const auto& field : schema.at("fields")) {
             const auto& name = field.at("id").get_ref<const std::string&>();
             checked(ecs_meta_member(&cursor, name.c_str()));
-            write(cursor, field, value.at(name), references);
+            write(cursor, field, reflected_member_value(field, value), references);
         }
         checked(ecs_meta_pop(&cursor));
     } else if (kind == "array" || kind == "vector") {
@@ -58,9 +58,10 @@ void write(ecs_meta_cursor_t& cursor, const Json& schema, const Json& value,
 struct Reader {
     ecs_world_t* world;
     std::span<const ReflectedAdapter> references;
+    ReflectedValueLimits limits;
     std::size_t elements = 0, bytes = 0;
     void consume(std::size_t count) {
-        if (count > 4096 - elements)
+        if (count > limits.elements - elements)
             throw std::runtime_error("Native reflected container budget exceeded");
         elements += count;
     }
@@ -68,9 +69,9 @@ struct Reader {
         if (!value)
             return {};
         std::size_t size = 0;
-        while (size < 65536 - bytes && value[size])
+        while (size < limits.bytes - bytes && value[size])
             ++size;
-        if (size == 65536 - bytes)
+        if (size == limits.bytes - bytes)
             throw std::runtime_error("Native reflected string budget exceeded");
         bytes += size;
         return {value, size};
@@ -258,7 +259,7 @@ ReflectedCandidate& ReflectedCandidate::operator=(ReflectedCandidate&& other) no
 Json read_reflected_native(flecs::world world, ecs_entity_t type, const void* value,
                            std::span<const ReflectedAdapter> references) {
     const auto schema = reflected_type_schema(world, type, references);
-    Reader reader{world.c_ptr(), references};
+    Reader reader{world.c_ptr(), references, reflected_value_limits(schema)};
     auto result = reader.read(type, schema, value);
     validate_reflected_json(schema, result);
     return result;

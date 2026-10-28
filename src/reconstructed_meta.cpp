@@ -160,15 +160,25 @@ struct Builder {
                 if (field.source->contains("error_range"))
                     ranges.error = range(field.source->at("error_range"));
                 consistent_ranges(ranges);
+                if (field.source->contains("default_if_missing")) {
+                    validate_reflected_json(*field.source, field.source->at("default_if_missing"));
+                    world.component<ReflectedMemberDefault>(reflected_member_default_type);
+                    member.set<ReflectedMemberDefault>({field.source->at("default_if_missing")});
+                }
                 if (ranges.value.min != ranges.value.max ||
                     ranges.warning.min != ranges.warning.max ||
                     ranges.error.min != ranges.error.max)
                     member.set<EcsMemberRanges>(ranges);
                 if (field.source->at("type") == "vector" &&
-                    field.source->at("maximum_count") != 4096) {
+                    (field.source->at("maximum_count") != 4096 ||
+                     field.source->contains("value_byte_limit") ||
+                     field.source->contains("value_element_limit"))) {
                     world.component<ReflectedSequenceLimit>(reflected_sequence_limit_type);
+                    const auto limits = reflected_value_limits(*field.source);
                     member.set<ReflectedSequenceLimit>(
-                        {field.source->at("maximum_count").get<std::size_t>()});
+                        {field.source->at("maximum_count").get<std::size_t>(),
+                         field.source->contains("value_byte_limit") ? limits.bytes : 0,
+                         field.source->contains("value_element_limit") ? limits.elements : 0});
                 }
                 if (field.source->contains("element_key") ||
                     field.source->contains("element_keys")) {

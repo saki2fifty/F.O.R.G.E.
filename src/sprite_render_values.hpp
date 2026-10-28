@@ -18,14 +18,26 @@ inline SpriteDrawValues sprite_draw_values(const SpriteRenderer& sprite,
             : std::nullopt;
     const auto region = sprite_frame_region(texture_width, texture_height, grid, sprite.frame, crop,
                                             sprite.frame_regions);
-    return {
-        sprite_region_mapping(region, texture_width, texture_height, sprite.flip_x, sprite.flip_y),
+    const auto* frame =
+        sprite.frame_regions.empty() ? nullptr : &sprite.frame_regions.at(sprite.frame);
+    const bool rotated = frame && frame->rotated_clockwise;
+    const auto canvas =
+        frame ? sprite_frame_canvas(*frame)
+              : SpriteFrameCanvas{region.width, region.height, region.width, region.height, 0, 0};
+    SpriteDrawValues result{
+        sprite_region_mapping(region, texture_width, texture_height,
+                              rotated ? !sprite.flip_y : sprite.flip_x,
+                              rotated ? sprite.flip_x : sprite.flip_y),
         {sprite.tint_r, sprite.tint_g, sprite.tint_b, sprite.tint_a},
         {sprite.image_mode,
-         {sprite_image_axis(sprite.image_mode, region.width, sprite.border_left,
+         {sprite_image_axis(sprite.image_mode, canvas.width, sprite.border_left,
                             sprite.border_right, sprite.width, sprite.pixels_per_meter),
-          sprite_image_axis(sprite.image_mode, region.height, sprite.border_top,
+          sprite_image_axis(sprite.image_mode, canvas.height, sprite.border_top,
                             sprite.border_bottom, sprite.height, sprite.pixels_per_meter)}}};
+    result.transpose_uv = rotated;
+    result.quad_crop = canvas.quad_region(sprite.flip_x, sprite.flip_y);
+    validate_sprite_draw_values(result);
+    return result;
 }
 inline SpriteDrawValues sprite_draw_values(const SpriteRenderer& sprite,
                                            const TextureData& source) {

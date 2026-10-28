@@ -1,6 +1,7 @@
 #pragma once
 #include "reconstructed_meta.hpp"
 #include "render_values.hpp"
+#include "sprite_frame_json.hpp"
 #include <forge/authoring.hpp>
 
 inline void test_sprite_frame_banks(const std::filesystem::path& root) {
@@ -29,8 +30,17 @@ inline void test_sprite_frame_banks(const std::filesystem::path& root) {
                 scene.document() == before && scene.redo() && scene.document() == authored,
             "Frame bank authoring did not preserve typed values and atomic history");
     std::vector<Json> invalid_banks{Json::array({frames[0]})};
-    for (const auto& [field, value] : std::vector<std::pair<std::string, Json>>{
-             {"x", -1}, {"y", .5}, {"width", 0}, {"height", 16385}, {"x", 4294967296ULL}}) {
+    for (const auto& [field, value] :
+         std::vector<std::pair<std::string, Json>>{{"x", -1},
+                                                   {"y", .5},
+                                                   {"width", 0},
+                                                   {"height", 16385},
+                                                   {"x", 4294967296ULL},
+                                                   {"rotated_clockwise", 1},
+                                                   {"source_width", 3},
+                                                   {"source_height", -1},
+                                                   {"trim_x", 1},
+                                                   {"trim_y", .5}}) {
         auto invalid = frames;
         invalid[0][field] = value;
         invalid_banks.push_back(std::move(invalid));
@@ -78,6 +88,23 @@ inline void test_sprite_frame_banks(const std::filesystem::path& root) {
                     sprite_frame_region_limit &&
                 scene.undo() && scene.document() == authored,
             "The advertised frame-bank ceiling did not admit through the shared value envelope");
+    auto metadata_row = frames.front();
+    metadata_row.update({{"rotated_clockwise", true},
+                         {"source_width", 16384},
+                         {"source_height", 16384},
+                         {"trim_x", 12345},
+                         {"trim_y", 12345}});
+    const Json expanded_full = std::vector<Json>(sprite_frame_region_limit, metadata_row);
+    require(expanded_full.dump().size() > 65536,
+            "Expanded frame regression did not exceed the old common byte envelope");
+    authoring_command(scene, "property.set_many",
+                      {{"entity", actor},
+                       {"component", "forge.sprite_renderer"},
+                       {"values", {{"frame_regions", expanded_full}, {"frame", 511}}}});
+    require(scene.entity(actor).get<SpriteRenderer>().frame_regions.back().rotated_clockwise &&
+                scene.entity(actor).get<SpriteRenderer>().frame_regions.back().trim_x == 12345 &&
+                scene.undo() && scene.document() == authored,
+            "512 expanded frames lost metadata, limits or atomic Undo");
     const auto world = engine.world().world();
     const detail::ReflectedAdapter adapters[] = {
         {world.id<AssetRef<MaterialAsset>>(), "asset_ref", MaterialAsset::type},
@@ -94,9 +121,18 @@ inline void test_sprite_frame_banks(const std::filesystem::path& root) {
     const detail::ReconstructedMeta metadata(copied, projection);
     const Json values{{"frame_regions", frames}};
     const detail::ReflectedCandidate candidate(copied, metadata.native_type(), values);
+    Json canonical_frames = Json::array();
+    for (const auto& row : frames)
+        canonical_frames.push_back(detail::sprite_frame_document(detail::sprite_frame_value(row)));
     require(detail::read_reflected_native(copied, metadata.native_type(), candidate.data()) ==
-                values,
+                Json{{"frame_regions", canonical_frames}},
             "Copied frame-bank metadata failed native value round-trip");
+    const detail::ReflectedCandidate expanded_candidate(copied, metadata.native_type(),
+                                                        {{"frame_regions", expanded_full}});
+    require(
+        detail::read_reflected_native(copied, metadata.native_type(), expanded_candidate.data()) ==
+            Json{{"frame_regions", expanded_full}},
+        "Copied native frame bank lost explicit payload limits or metadata");
     for (const Json count : {Json(0), Json(-1), Json(4097), Json(1.5)}) {
         auto invalid = projection;
         invalid["fields"][0]["maximum_count"] = count;

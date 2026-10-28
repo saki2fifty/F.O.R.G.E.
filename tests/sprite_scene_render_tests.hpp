@@ -304,6 +304,44 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
         settle(renderer);
         check(renderer.diagnostics().empty() && render() == magenta,
               "Restored bank image failed to retry the complete candidate");
+        // Numeric-only bank edits must recheck the material for the whole bank,
+        // including unselected frames, before replacing pose or resource state.
+        region.frame_regions.resize(1);
+        surface.values.alpha = MaterialAlpha::Opaque;
+        host->preview_material(material, surface);
+        settle(renderer);
+        check(renderer.diagnostics().empty() && render() == magenta,
+              "An ordinary frame incorrectly required transparent material semantics");
+        auto trimmed_frame = region.frame_regions.front();
+        trimmed_frame.source_width = trimmed_frame.source_height = 4;
+        trimmed_frame.trim_x = 1;
+        trimmed_frame.trim_y = 2;
+        region.frame_regions.push_back(trimmed_frame);
+        const auto old_width = region.width;
+        region.width = old_width * 2;
+        settle(renderer);
+        check(!renderer.diagnostics().empty() && render() == magenta,
+              "Numeric bank admission ignored an unselected trim or replaced last-good geometry");
+        region.width = old_width;
+        surface.values.alpha = MaterialAlpha::Blend;
+        host->preview_material(material, surface);
+        region.frame_regions = {trimmed_frame};
+        settle(renderer);
+        const auto trimmed_pixels = render();
+        const auto trimmed_bounds = renderer.bounds(scene, {first}, {});
+        check(renderer.diagnostics().empty() && trimmed_pixels != magenta && trimmed_bounds,
+              "A compatible trimmed candidate failed to retry or did not retain its canvas");
+        surface.values.depth_write = true;
+        host->preview_material(material, surface);
+        region.width = old_width * 2;
+        settle(renderer);
+        const auto rejected_bounds = renderer.bounds(scene, {first}, {});
+        check(!renderer.diagnostics().empty() && render() == trimmed_pixels && rejected_bounds &&
+                  rejected_bounds->minimum == trimmed_bounds->minimum &&
+                  rejected_bounds->maximum == trimmed_bounds->maximum,
+              "A depth-writing replacement damaged trimmed last-good pixels or bounds");
+        surface.values.depth_write = false;
+        host->preview_material(material, surface);
         region = legacy;
         settle(renderer);
         check(render() == cropped, "Bank tests changed the retained legacy image-region path");

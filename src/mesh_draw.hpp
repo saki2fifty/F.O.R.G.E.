@@ -64,7 +64,7 @@ class MeshDraw {
     Diligent::RefCntAutoPtr<Diligent::ITextureView> black_environment_;
     Diligent::RefCntAutoPtr<Diligent::ITextureView> black_background_;
     bool shadow_pass_{};
-    bool sprite_{};
+    bool sprite_{}, sprite_trim_allowed_{};
     bool lights_active_{};
     float volume_thickness_{};
     Diligent::RefCntAutoPtr<Diligent::IBuffer> morph_weights_, skin_, instances_;

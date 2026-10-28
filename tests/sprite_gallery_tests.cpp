@@ -98,9 +98,19 @@ int main(int argc, char** argv) {
         const auto gamepads = asset(catalog, "Scenes/92-multiple-gamepads.scene.json");
         const auto motion = asset(catalog, "Scenes/93-gamepad-motion.scene.json");
         const auto packed_atlas_scene = asset(catalog, "Scenes/94-sprite-atlas-packing.scene.json");
-        const std::array roots{
-            basics,       frames,   panels, regions,           banks, touch, gestures,
-            single_touch, gamepads, motion, packed_atlas_scene};
+        const auto metadata_scene = asset(catalog, "Scenes/95-sprite-frame-metadata.scene.json");
+        const std::array roots{basics,
+                               frames,
+                               panels,
+                               regions,
+                               banks,
+                               touch,
+                               gestures,
+                               single_touch,
+                               gamepads,
+                               motion,
+                               packed_atlas_scene,
+                               metadata_scene};
         const auto badge = asset(catalog, "Assets/Sprites/Badge.png");
         const auto sheet = asset(catalog, "Assets/Sprites/SignalSheet.png");
         const auto badge_material = asset(catalog, "Assets/Sprites/Badge.material.json");
@@ -140,6 +150,50 @@ int main(int argc, char** argv) {
             }
         };
         check_packed_pixels(root, catalog);
+        const auto metadata_texture = asset(catalog, "Assets/Sprites/TrimmedAtlas.png");
+        const auto metadata_material = asset(catalog, "Assets/Sprites/TrimmedAtlas.material.json");
+        const std::array originals{asset(catalog, "Assets/Sprites/TrimArrow.png"),
+                                   asset(catalog, "Assets/Sprites/TrimMarker.png")};
+        const std::vector<SpriteFrameRegion> metadata_frames{{2, 36, 20, 18, true, 48, 40, 15, 10},
+                                                             {2, 2, 16, 30, true, 64, 40, 17, 11}};
+        const auto check_metadata_pixels = [&](const auto& project, const AssetCatalog& current) {
+            const auto selection =
+                asset_detail::load_material_selection(project, current, {metadata_material});
+            validate_sprite_material_profile(selection.data.values);
+            validate_sprite_frame_material(selection.data.values, metadata_frames);
+            check(selection.data.textures.at("baseColorTexture").id == metadata_texture,
+                  "Gallery transformed material lost its ordinary Texture identity");
+            const auto atlas = asset_detail::load_texture_selection(
+                project, current, {metadata_texture}, TextureSemantic::Color);
+            check(atlas.value->width == 24 && atlas.value->height == 56 && atlas.value->mips == 1,
+                  "Transformed Gallery PNG changed dimensions or mip profile");
+            for (unsigned index = 0; index < originals.size(); ++index) {
+                const auto source = asset_detail::load_texture_selection(
+                    project, current, {originals[index]}, TextureSemantic::Color);
+                const auto& f = metadata_frames[index];
+                const auto rw = f.height, rh = f.width;
+                check(source.value->width == f.source_width &&
+                          source.value->height == f.source_height,
+                      "Gallery frame lost the original untrimmed logical canvas");
+                for (unsigned y = 0; y < source.value->height; ++y)
+                    for (unsigned x = 0; x < source.value->width; ++x) {
+                        const auto original = (std::size_t(y) * source.value->width + x) * 4;
+                        if (x < f.trim_x || y < f.trim_y || x - f.trim_x >= rw ||
+                            y - f.trim_y >= rh) {
+                            check(source.value->subresources[0][original + 3] == std::byte{},
+                                  "Gallery trimming removed an alpha-positive original pixel");
+                            continue;
+                        }
+                        const auto dx = f.x + rh - 1 - (y - f.trim_y), dy = f.y + x - f.trim_x;
+                        const auto packed = (std::size_t(dy) * atlas.value->width + dx) * 4;
+                        for (unsigned channel = 0; channel < 4; ++channel)
+                            check(source.value->subresources[0][original + channel] ==
+                                      atlas.value->subresources[0][packed + channel],
+                                  "Gallery trim/rotation changed a retained original RGBA texel");
+                    }
+            }
+        };
+        check_metadata_pixels(root, catalog);
         for (const auto id : {badge_material, sheet_material, panel_material}) {
             const auto selection = asset_detail::load_material_selection(root, catalog, {id});
             validate_sprite_material_profile(selection.data.values);
@@ -176,7 +230,8 @@ int main(int argc, char** argv) {
         EngineContext authored;
         Scene scene(authored.world());
         std::map<EntityId, SpriteRenderer> fill_values, region_values, bank_values, touch_values,
-            gesture_values, single_values, gamepad_values, motion_values, atlas_values;
+            gesture_values, single_values, gamepad_values, motion_values, atlas_values,
+            metadata_values;
         for (const auto id : roots) {
             scene.load(root / catalog.records().at(id).source);
             const auto rendered = extract_render_scene(scene.effective_document());
@@ -204,6 +259,9 @@ int main(int argc, char** argv) {
             if (id == packed_atlas_scene)
                 for (const auto& sprite : rendered.sprites)
                     atlas_values.emplace(sprite.entity, sprite.renderer);
+            if (id == metadata_scene)
+                for (const auto& sprite : rendered.sprites)
+                    metadata_values.emplace(sprite.entity, sprite.renderer);
             if (id == touch)
                 for (const auto& sprite : rendered.sprites)
                     touch_values.emplace(sprite.entity, sprite.renderer);
@@ -235,7 +293,7 @@ int main(int argc, char** argv) {
         std::filesystem::rename(package, relocated);
         const auto loaded = open_runtime_content(relocated, {"windows", "d3d12"});
         // Shared images/materials/animation plus the generated ordinary PNG/Material.
-        check(loaded.records().size() == roots.size() + 9,
+        check(loaded.records().size() == roots.size() + 15,
               "Sprite content dependency closure is incomplete or oversized");
         for (const auto& file : std::filesystem::recursive_directory_iterator(relocated)) {
             if (!file.is_regular_file())
@@ -253,6 +311,7 @@ int main(int argc, char** argv) {
         playback(relocated, loaded, regions, 6);
         playback(relocated, loaded, banks, 6);
         check_packed_pixels(relocated, loaded);
+        check_metadata_pixels(relocated, loaded);
         EngineContext runtime(WorldRole::Runtime);
         Scene restored(runtime.world());
         restored.restore_snapshot(load_game_scene(relocated, {packed_atlas_scene}));
@@ -265,6 +324,16 @@ int main(int argc, char** argv) {
                                     return row.second.frame_regions == packed_frames;
                                 }) == 2,
               "Source-free Gallery lost packed frame rectangles, values or identities");
+        restored.restore_snapshot(load_game_scene(relocated, {metadata_scene}));
+        std::map<EntityId, SpriteRenderer> relocated_metadata;
+        for (const auto& sprite : extract_render_scene(restored.effective_document()).sprites)
+            relocated_metadata.emplace(sprite.entity, sprite.renderer);
+        check(metadata_values.size() == 5 && relocated_metadata == metadata_values &&
+                  std::count_if(metadata_values.begin(), metadata_values.end(),
+                                [&](const auto& row) {
+                                    return row.second.frame_regions == metadata_frames;
+                                }) == 2,
+              "Source-free Gallery lost logical canvases, offsets, turns or Sprite identities");
         restored.restore_snapshot(load_game_scene(relocated, {panels}));
         const auto rendered = extract_render_scene(restored.effective_document());
         std::map<EntityId, SpriteRenderer> packed_values;

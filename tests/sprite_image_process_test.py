@@ -31,6 +31,12 @@ stamp = dict(format='forge.authored-component', version=1, module=declaration['m
              schema_version=declaration['schema_version'], digest=declaration['digest'])
 first = Worker(runtime, root)
 restored = None
+metadata_restored = None
+
+
+def frame_value(x, y, width, height, **metadata):
+    return dict(x=x, y=y, width=width, height=height, rotated_clockwise=False,
+                source_width=0, source_height=0, trim_x=0, trim_y=0) | metadata
 
 
 def region(image, x, y, width=3, height=3, enabled=True):
@@ -52,7 +58,10 @@ def live_region(worker, state):
                   entity=actor, type='forge.sprite_renderer')
     image = values(state)['forge.sprite_renderer']
     assert len(image['frame_regions']) == 3 and image['frame'] == 2, image
-    live_frames = [dict(x=0, y=0, width=2, height=3) for _ in range(512)]
+    live_frames = [frame_value(0, 0, 2, 3, rotated_clockwise=True,
+                               source_width=16384, source_height=16384,
+                               trim_x=12345, trim_y=12345) for _ in range(512)]
+    assert len(json.dumps(live_frames, separators=(',', ':'))) > 65536
     for property, value in (('frame', 0), ('frame_regions', live_frames)):
         changed = worker.request('property_tune', **target, property=property, value=value)
         assert changed['property_tune']['value'] == value, changed
@@ -134,15 +143,26 @@ try:
         assert image['future_sprite_extension'] == dict(keep=17), image
         assert image['width'] == 2 and image['height'] == 2, image
         assert image['frame'] == 2 and image['frame_regions'] == [
-            dict(x=0, y=0, width=2, height=2), dict(x=2, y=0, width=1, height=3),
-            dict(x=0, y=2, width=2, height=1)], image
+            frame_value(0, 0, 2, 2), frame_value(2, 0, 1, 3),
+            frame_value(0, 2, 2, 1)], image
         region(image, 0, 1)
+        third = worker.request('step')
+        image = values(third)['forge.sprite_renderer']
+        assert image['image_mode'] == 0 and image['frame_regions'][2] == frame_value(
+            0, 2, 2, 1, rotated_clockwise=True, source_width=3, source_height=3, trim_x=1, trim_y=1), image
+    checkpoint = third['recovery']
+    metadata_restored = Worker(runtime, root)
+    recovered = metadata_restored.request('replace', scene=checkpoint['scene'], recovery=checkpoint,
+                                         recovery_session=checkpoint['session'], recovery_tick=checkpoint['tick'])
+    assert values(recovered) == values(third)
     live_region(first, first.request('snapshot'))
     assert scene == original and hashlib.sha256(source.read_bytes()).hexdigest() == digest
 finally:
     first.close()
     if restored is not None:
         restored.close()
+    if metadata_restored is not None:
+        metadata_restored.close()
 
 # Exercise the other real host's candidate handoff and live property consumer,
 # with the same installed-only C++ component layout and fixed-system writes.
@@ -150,12 +170,12 @@ play = Runtime(runtime, ['--sdk-project', root, '--sdk-play', 'on', '--user-data
 try:
     initial = activate(play, scene, True)
     region(values(initial)['forge.sprite_renderer'], 0, 0, 0, 0, False)
-    for tick, x, y in ((1, 1, 0), (2, 0, 1)):
+    for tick, x, y in ((1, 1, 0), (2, 0, 1), (3, 0, 1)):
         state = play.request('step')
         mapped = values(state)
         assert mapped['project.sprite_image_probe']['ticks'] == tick
         image = mapped['forge.sprite_renderer']
-        assert image['image_mode'] == tick and image['pixels_per_meter'] == 2 + 2 * tick, image
+        assert image['image_mode'] == tick % 3 and image['pixels_per_meter'] == (4 if tick == 1 else 6), image
         assert image['future_sprite_extension'] == dict(keep=17), image
         region(image, x, y)
     live_region(play, state)

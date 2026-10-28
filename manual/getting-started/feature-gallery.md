@@ -237,3 +237,13 @@ with the same pixels selected from one generated PNG on the right. The bottom
 Sprite shows the whole atlas. Inspect the two packed Sprites' **Frame regions**;
 Frame0 selects Badge and Frame1 selects Panel. See [Sprite atlas packing](../editor/sprites.md)
 to generate your own PNG and apply its ordered frame rectangles.
+
+## Trimmed Sprite canvases
+
+Open **Scenes/95-sprite-frame-metadata.scene.json**. The originals on the left and
+packed frames on the right keep the same visible size, alignment and transparent
+canvas. The second pair uses Flip X; the bottom image shows clockwise storage.
+Inspect **Frame regions**, including the canvas dimensions, retained offsets and
+`rotated_clockwise`. Use Simple image mode and a Blend Material with depth writes
+off. Save the scene and set it as startup to export this comparison. See
+[Sprites and atlas packing](../editor/sprites.md) for the complete workflow.

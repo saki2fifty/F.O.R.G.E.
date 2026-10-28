@@ -147,11 +147,99 @@ void pixels() {
     stop.request_stop();
     rejects([&] { build_sprite_atlas(one, {}, stop.get_token()); });
 }
+void frame_metadata() {
+    auto sparse = image(13, 11, 19, TextureFormat::RGBA8Srgb);
+    for (unsigned y = 0; y < sparse.height; ++y)
+        for (unsigned x = 0; x < sparse.width; ++x)
+            sparse.subresources[0][(std::size_t(y) * sparse.width + x) * 4 + 3] =
+                (x >= 4 && x <= 5 && y >= 3 && y <= 7) ? std::byte{1} : std::byte{};
+    auto clear = image(9, 7, 51, TextureFormat::RGBA8Srgb);
+    for (std::size_t pixel = 0; pixel < std::size_t(clear.width) * clear.height; ++pixel)
+        clear.subresources[0][pixel * 4 + 3] = std::byte{};
+    const auto solid = image(6, 2, 83, TextureFormat::RGBA8Srgb);
+    const std::array<const TextureData*, 3> inputs{&sparse, &clear, &solid};
+    for (bool rotate : {false, true})
+        for (bool extrude : {false, true}) {
+            const SpriteAtlasPacking settings{16, 1, 4096, extrude, true, rotate};
+            const auto result = build_sprite_atlas(inputs, settings);
+            check(result.layout == build_sprite_atlas(inputs, settings).layout,
+                  "Transformed layout is not deterministic");
+            const auto& a = result.layout.frames[0];
+            const auto& b = result.layout.frames[1];
+            check(a.source_width == 13 && a.source_height == 11 && a.trim_x == 3 && a.trim_y == 2 &&
+                      (a.rotated_clockwise ? a.height : a.width) == 4 &&
+                      (a.rotated_clockwise ? a.width : a.height) == 7,
+                  "Alpha1 pixels or the available transparent filter ring were lost");
+            check(b.source_width == 9 && b.source_height == 7 && b.width == 1 && b.height == 1 &&
+                      b.trim_x == 0 && b.trim_y == 0 && !b.rotated_clockwise,
+                  "Fully transparent source lost its canvas or deterministic real texel");
+            for (std::size_t index = 0; index < inputs.size(); ++index) {
+                const auto& source = *inputs[index];
+                const auto& frame = result.layout.frames[index];
+                const auto rw = frame.rotated_clockwise ? frame.height : frame.width;
+                const auto rh = frame.rotated_clockwise ? frame.width : frame.height;
+                for (unsigned y = 0; y < source.height; ++y)
+                    for (unsigned x = 0; x < source.width; ++x) {
+                        const auto original = (std::size_t(y) * source.width + x) * 4;
+                        if (x < frame.trim_x || y < frame.trim_y || x - frame.trim_x >= rw ||
+                            y - frame.trim_y >= rh) {
+                            check(source.subresources[0][original + 3] == std::byte{},
+                                  "Trimming removed a visible original pixel");
+                            continue;
+                        }
+                        const auto sx = x - frame.trim_x, sy = y - frame.trim_y;
+                        const auto dx = frame.x + (frame.rotated_clockwise ? rh - 1 - sy : sx);
+                        const auto dy = frame.y + (frame.rotated_clockwise ? sx : sy);
+                        const auto destination = (std::size_t(dy) * result.texture.width + dx) * 4;
+                        check(std::equal(source.subresources[0].begin() + original,
+                                         source.subresources[0].begin() + original + 4,
+                                         result.texture.subresources[0].begin() + destination),
+                              "Trim/rotation changed a retained RGBA texel or input order");
+                    }
+                for (int y = -1; y <= int(frame.height); ++y)
+                    for (int x = -1; x <= int(frame.width); ++x) {
+                        if (x >= 0 && y >= 0 && x < int(frame.width) && y < int(frame.height))
+                            continue;
+                        const auto px = unsigned(std::clamp(x, 0, int(frame.width) - 1));
+                        const auto py = unsigned(std::clamp(y, 0, int(frame.height) - 1));
+                        const auto sx = frame.trim_x + (frame.rotated_clockwise ? py : px);
+                        const auto sy = frame.trim_y + (frame.rotated_clockwise ? rh - 1 - px : py);
+                        const auto original = (std::size_t(sy) * source.width + sx) * 4;
+                        const auto destination =
+                            (std::size_t(int(frame.y) + y) * result.texture.width +
+                             unsigned(int(frame.x) + x)) *
+                            4;
+                        for (unsigned channel = 0; channel < 4; ++channel)
+                            check(
+                                result.texture.subresources[0][destination + channel] ==
+                                    (extrude ? source.subresources[0][original + channel]
+                                             : std::byte{}),
+                                "Transformed padding edge/corner differs from its physical texel");
+                    }
+            }
+        }
+    const std::array<SpriteAtlasSize, 2> crossed{{{6, 2}, {2, 6}}};
+    const auto oriented = pack_sprite_atlas(crossed, {8, 0, 256, false, false, true});
+    check(oriented.width * oriented.height == 24 &&
+              std::any_of(oriented.frames.begin(), oriented.frames.end(),
+                          [](const auto& f) { return f.rotated_clockwise; }),
+          "Rotation option never used a quarter turn to fit complementary rectangles");
+    check(build_sprite_atlas(std::span(inputs).first(1), {8, 0, 4096, false, true, true})
+                  .layout.width <= 8,
+          "Output atlas bound was incorrectly used as the original logical canvas bound");
+    std::vector<SpriteFrameRegion> bad{{0, 0, 1, 1}};
+    bad[0].rotated_clockwise = true;
+    rejects([&] { pack_sprite_atlas_regions(bad); });
+    bad[0].rotated_clockwise = false;
+    bad[0].trim_x = 1;
+    rejects([&] { pack_sprite_atlas_regions(bad); });
+}
 } // namespace
 int main() {
     try {
         geometry();
         pixels();
+        frame_metadata();
         std::cout << "Independent bounded atlas geometry, ordering, budgets and exact "
                      "RGBA8/alpha/padding pixels passed\n";
     } catch (const std::exception& error) {

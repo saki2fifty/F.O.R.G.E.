@@ -133,10 +133,17 @@ void exercise(const std::filesystem::path& worker, const std::filesystem::path& 
     };
     frame();
     frame();
+    click("atlas:trim");
+    click("atlas:rotation");
+    if (scale == 1)
+        check(SDL_SavePNG(surface.get(), (scratch / "sprite-atlas-options.png").string().c_str()),
+              SDL_GetError());
     click("button:Prepare import");
     wait([&] { return source.review_ready(); });
     const auto first = source.operation();
     check(first.at("generated").at("inputs")[0].at("asset") == inputs[0].str() &&
+              first.at("generated").at("settings").at("trim_transparent") == true &&
+              first.at("generated").at("settings").at("allow_rotation") == true &&
               first.at("generated").at("frames").size() == 2 &&
               !std::filesystem::exists(root / "Assets/Atlas"),
           "Atlas review mutated files or lost input order");

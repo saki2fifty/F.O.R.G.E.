@@ -183,7 +183,7 @@ foreach(source include/forge/import_settings.hpp src/import_settings.cpp src/bou
 endforeach()
 string(SHA256 _forge_texture_recipe_fingerprint "${_forge_texture_recipe_inputs}")
 set(_forge_sprite_atlas_recipe_inputs "${_forge_texture_recipe_inputs}")
-foreach(source src/sprite_atlas_source.hpp src/sprite_atlas_source.cpp src/sprite_atlas_protocol.cpp src/sprite_atlas_worker.cpp src/sprite_atlas_packing.hpp src/sprite_atlas_packing.cpp src/sprite_material_profile.hpp include/forge/sprite_frames.hpp src/texture_png_encode.c src/texture_encode.h src/view_image_limits.h)
+foreach(source src/sprite_atlas_source.hpp src/sprite_atlas_source.cpp src/sprite_atlas_protocol.cpp src/sprite_atlas_worker.cpp src/sprite_atlas_packing.hpp src/sprite_atlas_packing.cpp src/sprite_material_profile.hpp src/sprite_frame_json.hpp src/sprite_region.hpp include/forge/sprite_frames.hpp src/texture_png_encode.c src/texture_encode.h src/view_image_limits.h)
  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/${source}")
  file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/${source}" digest)
  string(APPEND _forge_sprite_atlas_recipe_inputs ";${source}:${digest}")

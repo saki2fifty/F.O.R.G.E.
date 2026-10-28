@@ -194,14 +194,17 @@ for legacy in (False, True):
         assert mutate('forge_asset_files_close', job=job)['ok']
         assert config['token'] not in json.dumps(CAPTURE)
 
-        # Original solid-color images: actual published selections, isolated packing,
+        # Original images: actual published selections, isolated packing,
         # reviewed source copy and ordinary PNG cooking share the existing owner.
         image_ids = []
         for name, width, height, color in [('wide', 5, 2, (255, 23, 0, 255)),
-                                           ('tall', 2, 4, (0, 173, 255, 96))]:
+                                           ('tall', 2, 4, (0, 173, 255, 96)),
+                                           ('trim', 9, 11, (131, 13, 255, 1))]:
             def chunk(kind, data):
                 return struct.pack('>I', len(data)) + kind + data + struct.pack('>I', zlib.crc32(kind + data))
-            rows = b''.join(b'\x00' + bytes(color) * width for _ in range(height))
+            rows = b''.join(b'\x00' + b''.join(
+                bytes(color) if name != 'trim' or (3 <= x <= 4 and 4 <= y <= 7)
+                else bytes((*color[:3], 0)) for x in range(width)) for y in range(height))
             png = (b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>2I5B', width, height, 8, 6, 0, 0, 0))
                    + chunk(b'sRGB', b'\x00') + chunk(b'IDAT', zlib.compress(rows)) + chunk(b'IEND', b''))
             (root / 'Sources' / (name + '.png')).write_bytes(png)
@@ -221,8 +224,11 @@ for legacy in (False, True):
         index = root / 'Game/forge.assets.json'
         before = index.read_bytes()
         atlas_args = dict(textures=image_ids, destination='Assets/Packed', max_size=32,
-                          padding=2, extrude=True, byte_limit=4096)
+                          padding=2, extrude=True, byte_limit=4096,
+                          trim_transparent=True, allow_rotation=True)
         failed(mutate('forge_asset_atlas_prepare', **dict(atlas_args, max_size=4097)), 'invalid_arguments')
+        failed(mutate('forge_asset_atlas_prepare', **dict(atlas_args, trim_transparent=1)), 'invalid_arguments')
+        failed(mutate('forge_asset_atlas_prepare', **dict(atlas_args, allow_rotation='yes')), 'invalid_arguments')
         prepared = mutate('forge_asset_atlas_prepare', **atlas_args)
         assert prepared['ok'], prepared
         batch = prepared['result']['batch']
@@ -230,9 +236,15 @@ for legacy in (False, True):
                           lambda value: value['state'] in ('review', 'failed'))
         assert review['state'] == 'review', review
         generated = review['generated']
-        assert generated['kind'] == 'sprite_atlas' and len(generated['frames']) == 2
-        assert [frame['width'] for frame in generated['frames']] == [5, 2], generated
-        assert [frame['height'] for frame in generated['frames']] == [2, 4], generated
+        assert generated['kind'] == 'sprite_atlas' and len(generated['frames']) == 3
+        assert generated['version'] == 2 and generated['settings']['trim_transparent'] and generated['settings']['allow_rotation']
+        assert [frame['height'] if frame['rotated_clockwise'] else frame['width']
+                for frame in generated['frames']] == [5, 2, 4], generated
+        assert [frame['width'] if frame['rotated_clockwise'] else frame['height']
+                for frame in generated['frames']] == [2, 4, 6], generated
+        assert [frame['source_width'] for frame in generated['frames']] == [5, 2, 9]
+        assert [frame['source_height'] for frame in generated['frames']] == [2, 4, 11]
+        assert (generated['frames'][2]['trim_x'], generated['frames'][2]['trim_y']) == (2, 3)
         assert [image['asset'] for image in generated['inputs']] == image_ids
         assert review['file_count'] == 1 and review['files'][0]['destination'] == 'atlas.png'
         assert not (root / 'Game/Assets/Packed').exists() and index.read_bytes() == before

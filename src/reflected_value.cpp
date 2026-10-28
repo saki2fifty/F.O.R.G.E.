@@ -98,7 +98,8 @@ struct Projection {
         const auto& layout = storage(id);
         const auto* type = ecs_get(world, id, EcsType);
         if (!type || type->partial)
-            fail("reflection", "Missing or partial native Meta type");
+            fail("reflection." + text(ecs_get_name(world, id)),
+                 "Missing or partial native Meta type");
         stack.push_back(id);
         Json result;
         switch (type->kind) {
@@ -222,6 +223,11 @@ struct Projection {
                         limit->maximum > field.at("maximum_count").get<std::size_t>())
                         fail(m.name, "Collection limit must narrow a supported vector count");
                     field["maximum_count"] = limit->maximum;
+                    if (limit->value_bytes || limit->value_elements) {
+                        field["value_byte_limit"] = limit->value_bytes;
+                        field["value_element_limit"] = limit->value_elements;
+                        (void)reflected_value_limits(field);
+                    }
                 }
                 if (m.member)
                     presentation(world, m.member, field);
@@ -251,6 +257,17 @@ struct Projection {
                         field["maximum"] = range.max;
                     } else
                         field[key] = {{"minimum", range.min}, {"maximum", range.max}};
+                }
+                const auto default_type = ecs_lookup_path_w_sep(
+                    world, 0, reflected_member_default_type, "::", "::", false);
+                const auto* missing = default_type && m.member
+                                          ? static_cast<const ReflectedMemberDefault*>(
+                                                ecs_get_id(world, m.member, default_type))
+                                          : nullptr;
+                if (missing) {
+                    validate_reflected_json(field, missing->value);
+                    field["default_if_missing"] = missing->value;
+                    field["default"] = missing->value;
                 }
                 result["fields"].push_back(std::move(field));
             }
@@ -329,10 +346,13 @@ struct Projection {
 // Check before serialization so an adversarial JSON tree cannot allocate an
 // unbounded canonical string. Unknown fields receive the same envelope checks.
 struct Envelope {
+    ReflectedValueLimits limits;
     std::size_t bytes = 0, elements = 0;
     void add(std::size_t n) {
-        if (n > maximum_bytes - bytes)
-            fail("value", "Component payload exceeds 64 KiB");
+        if (n > limits.bytes - bytes)
+            fail("value", limits.bytes == maximum_bytes
+                              ? "Component payload exceeds 64 KiB"
+                              : "Component payload exceeds its declared byte budget");
         bytes += n;
     }
     void check(const Json& v, unsigned depth = 0) {
@@ -345,7 +365,7 @@ struct Envelope {
             if (s.find('\0') != std::string::npos)
                 fail("value", "Embedded NUL is not a reflected string");
         } else if (v.is_array() || v.is_object()) {
-            if (v.size() > maximum_elements - elements)
+            if (v.size() > limits.elements - elements)
                 fail("value", "Component container element budget exceeded");
             elements += v.size();
             for (auto it = v.begin(); it != v.end(); ++it) {
@@ -366,9 +386,12 @@ void validate(const Json& field, const Json& value, const std::string& path) {
             fail(path, "Expected struct object");
         for (const auto& child : field.at("fields")) {
             const auto name = child.at("id").get<std::string>();
-            if (!value.contains(name))
-                fail(path + "." + name, "Missing reflected property");
-            validate(child, value.at(name), path + "." + name);
+            if (!value.contains(name)) {
+                if (!child.contains("default_if_missing"))
+                    fail(path + "." + name, "Missing reflected property");
+                validate(child, child.at("default_if_missing"), path + "." + name);
+            } else
+                validate(child, value.at(name), path + "." + name);
         }
     } else if (kind == "array" || kind == "vector") {
         if (!value.is_array() ||
@@ -498,6 +521,45 @@ std::string reflected_sequence_identity(const Json& field, const Json& element) 
                ? element.at(field.at("element_key").get<std::string>()).get<std::string>()
                : std::string{};
 }
+ReflectedValueLimits reflected_value_limits(const Json& schema) {
+    unsigned nodes = 0;
+    const auto visit = [&](auto&& self, const Json& part, unsigned depth) -> ReflectedValueLimits {
+        if (depth > 8 || ++nodes > 4096)
+            fail("reflection", "Value envelope schema exceeds tree bounds");
+        ReflectedValueLimits result;
+        const auto kind = part.value("type", std::string{});
+        if (part.contains("value_byte_limit") || part.contains("value_element_limit")) {
+            if (kind != "struct" && kind != "vector" && kind != "array")
+                fail("reflection", "Value envelope annotations require a container");
+            const auto bounded = [&](const char* name, std::uint64_t minimum,
+                                     std::uint64_t maximum) {
+                if (!part.contains(name) || !part.at(name).is_number_integer() ||
+                    part.at(name).get<std::uint64_t>() < minimum ||
+                    part.at(name).get<std::uint64_t>() > maximum)
+                    fail("reflection", "Invalid bounded value envelope annotation");
+                return std::size_t(part.at(name).get<std::uint64_t>());
+            };
+            result = {bounded("value_byte_limit", 65536, 131072),
+                      bounded("value_element_limit", 4096, 8192)};
+        }
+        const auto inherit = [&](const Json& child) {
+            const auto limits = self(self, child, depth + 1);
+            result.bytes = std::max(result.bytes, limits.bytes);
+            result.elements = std::max(result.elements, limits.elements);
+        };
+        if (kind == "struct")
+            for (const auto& field : part.at("fields"))
+                inherit(field);
+        if (kind == "vector" || kind == "array")
+            inherit(part.at("element"));
+        return result;
+    };
+    return visit(visit, schema, 0);
+}
+const Json& reflected_member_value(const Json& field, const Json& object) {
+    const auto& name = field.at("id").get_ref<const std::string&>();
+    return object.contains(name) ? object.at(name) : field.at("default_if_missing");
+}
 nlohmann::json reflected_type_schema(flecs::world world, ecs_entity_t type,
                                      std::span<const ReflectedAdapter> references) {
     Projection projection{world.c_ptr(), references, {}, 0};
@@ -507,9 +569,12 @@ nlohmann::json reflected_type_schema(flecs::world world, ecs_entity_t type,
     return result;
 }
 void validate_reflected_json(const Json& schema, const Json& value) {
-    Envelope{}.check(value);
-    if (value.dump().size() > maximum_bytes)
-        fail("value", "Canonical component payload exceeds 64 KiB");
+    const auto limits = reflected_value_limits(schema);
+    Envelope{limits}.check(value);
+    if (value.dump().size() > limits.bytes)
+        fail("value", limits.bytes == maximum_bytes
+                          ? "Canonical component payload exceeds 64 KiB"
+                          : "Canonical component payload exceeds its declared byte budget");
     validate(schema, value, schema.value("id", std::string("component")));
 }
 } // namespace forge::detail

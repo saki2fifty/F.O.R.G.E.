@@ -14,6 +14,61 @@ void check(bool value, const char* why) {
     if (!value)
         throw std::runtime_error(why);
 }
+void frame_draw_metadata() {
+    SpriteRenderer sprite;
+    sprite.width = 4;
+    sprite.height = 3;
+    sprite.pivot_x = .2;
+    sprite.pivot_y = .8;
+    const auto world = sprite_world_transform(sprite, {});
+    for (bool rotated : {false, true})
+        for (bool flip_x : {false, true})
+            for (bool flip_y : {false, true}) {
+                SpriteFrameRegion frame{8, 4, rotated ? 2u : 3u, rotated ? 3u : 2u};
+                frame.rotated_clockwise = rotated;
+                frame.source_width = 9;
+                frame.source_height = 7;
+                frame.trim_x = 2;
+                frame.trim_y = 3;
+                sprite.frame_regions = {frame};
+                sprite.flip_x = flip_x;
+                sprite.flip_y = flip_y;
+                const auto draw = sprite_draw_values(sprite, 32, 16);
+                check(draw.trimmed() && draw.transpose_uv == rotated &&
+                          sprite_world_transform(sprite, {}) == world,
+                      "Frame metadata changed full logical geometry or lost storage rotation");
+                for (unsigned y = 0; y < 2; ++y)
+                    for (unsigned x = 0; x < 3; ++x) {
+                        // Locate an original texel center in the full displayed canvas.
+                        std::array<double, 2> q{(2 + x + .5) / 9, (3 + y + .5) / 7};
+                        if (flip_x)
+                            q[0] = 1 - q[0];
+                        if (flip_y)
+                            q[1] = 1 - q[1];
+                        for (unsigned axis = 0; axis < 2; ++axis)
+                            q[axis] = (q[axis] - draw.quad_crop[axis]) / draw.quad_crop[axis + 2];
+                        if (draw.transpose_uv)
+                            std::swap(q[0], q[1]);
+                        const std::array<double, 2> expected{(8 + (rotated ? 1 - y : x) + .5) / 32,
+                                                             (4 + (rotated ? x : y) + .5) / 16};
+                        for (unsigned axis = 0; axis < 2; ++axis)
+                            check(std::abs(draw.region.origin[axis] +
+                                           q[axis] * draw.region.scale[axis] - expected[axis]) <
+                                      1e-12,
+                                  "Trim, logical flip and stored turn selected the wrong original "
+                                  "texel");
+                    }
+                sprite.image_mode = 1;
+                bool rejected = false;
+                try {
+                    (void)sprite_draw_values(sprite, 32, 16);
+                } catch (const std::exception&) {
+                    rejected = true;
+                }
+                check(rejected, "Sliced mode admitted transformed frame metadata");
+                sprite.image_mode = 0;
+            }
+}
 void image_authoring(EngineContext& engine, Json legacy, EntityId actor,
                      const std::filesystem::path& root) {
     auto& image = legacy["entities"][0]["components"]["forge.sprite_renderer"];
@@ -170,6 +225,7 @@ int main(int argc, char** argv) {
         const std::filesystem::path root(argv[1]);
         std::filesystem::create_directories(root);
         test_sprite_frame_banks(root);
+        frame_draw_metadata();
         EngineContext engine;
         Scene scene(engine.world());
         const auto actor = EntityId::generate();

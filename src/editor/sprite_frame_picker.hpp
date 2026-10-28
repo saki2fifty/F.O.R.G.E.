@@ -33,10 +33,10 @@ class SpriteFramePicker {
                 if (!clipboard)
                     throw std::invalid_argument("Copy an atlas frame layout first");
                 std::size_t size = 0;
-                while (size <= 65536 && clipboard[size])
+                while (size <= sprite_frame_value_byte_limit && clipboard[size])
                     ++size;
-                if (size > 65536)
-                    throw std::invalid_argument("Atlas clipboard exceeds 64 KiB");
+                if (size > sprite_frame_value_byte_limit)
+                    throw std::invalid_argument("Atlas clipboard exceeds 128 KiB");
                 const auto image =
                     image_source ? image_source(context.material) : SpriteSheetImage{};
                 if (!image.ready())
@@ -267,6 +267,13 @@ class SpriteFramePicker {
                 ImGui::TextDisabled("Image: %u x %u pixels | Frame %u: %u x %u pixels",
                                     source.width, source.height, pending_, selected.width,
                                     selected.height);
+                const auto& frame = context.frame_regions.at(pending_);
+                const auto canvas = sprite_frame_canvas(frame);
+                if (canvas.trimmed() || frame.rotated_clockwise)
+                    ImGui::TextWrapped("Logical canvas: %u x %u | retained offset: %u,%u | "
+                                       "stored turn: %s. The sheet shows stored pixels.",
+                                       canvas.width, canvas.height, canvas.x, canvas.y,
+                                       frame.rotated_clockwise ? "90 CW" : "none");
             } else if (valid)
                 ImGui::TextDisabled("Image: %u x %u pixels | Cell: %u x %u pixels", source.width,
                                     source.height, first.width, first.height);

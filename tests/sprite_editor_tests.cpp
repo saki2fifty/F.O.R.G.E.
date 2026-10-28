@@ -251,6 +251,26 @@ void exercise(const std::filesystem::path& scratch, float scale) {
               !scene.entity(selected).get<SpriteRenderer>().region_enabled && scene.undo() &&
               scene.document() == simple_image && scene.redo() && scene.undo(),
           "Atlas paste bypassed the existing complete property edit or its single Undo/Redo step");
+    auto transformed_clipboard = atlas_clipboard;
+    transformed_clipboard["version"] = 2;
+    auto expanded_frame = transformed_clipboard["frames"][0];
+    expanded_frame.update({{"rotated_clockwise", true},
+                           {"source_width", 16384},
+                           {"source_height", 16384},
+                           {"trim_x", 12345},
+                           {"trim_y", 12345}});
+    transformed_clipboard["frames"] = std::vector<Json>(sprite_frame_region_limit, expanded_frame);
+    const auto expanded_text = transformed_clipboard.dump();
+    check(expanded_text.size() > 65536 && expanded_text.size() <= sprite_frame_value_byte_limit,
+          "Native clipboard fixture does not exercise the expanded frame envelope");
+    ImGui::SetClipboardText(expanded_text.c_str());
+    click("sprite:paste-atlas");
+    const auto& expanded_bank = scene.entity(selected).get<SpriteRenderer>().frame_regions;
+    check(expanded_bank.size() == sprite_frame_region_limit &&
+              expanded_bank.back().rotated_clockwise &&
+              expanded_bank.back().source_width == 16384 && expanded_bank.back().trim_y == 12345 &&
+              scene.undo() && scene.document() == simple_image && scene.redo() && scene.undo(),
+          "Native512-frame metadata paste lost values or atomic Scene history");
     const auto expect_bad_atlas = [&](const std::string& text) {
         ImGui::SetClipboardText(text.c_str());
         click("sprite:paste-atlas");
@@ -267,8 +287,14 @@ void exercise(const std::filesystem::path& scratch, float scale) {
     expect_bad_atlas(bad_atlas.dump());
     bad_atlas["frames"] = Json::array();
     expect_bad_atlas(bad_atlas.dump());
+    bad_atlas = transformed_clipboard;
+    bad_atlas["frames"][511]["source_width"] = 1;
+    expect_bad_atlas(bad_atlas.dump());
+    bad_atlas = transformed_clipboard;
+    bad_atlas["version"] = 3;
+    expect_bad_atlas(bad_atlas.dump());
     expect_bad_atlas("{broken}");
-    expect_bad_atlas(std::string(65537, 'x'));
+    expect_bad_atlas(std::string(sprite_frame_value_byte_limit + 1, 'x'));
     ImGui::SetClipboardText(atlas_clipboard.dump().c_str());
     click("sprite:paste-atlas");
     check(scene.undo() && scene.document() == simple_image,

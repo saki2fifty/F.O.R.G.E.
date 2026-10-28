@@ -30,7 +30,7 @@ SpriteAtlasSource prepare_sprite_atlas_source(const std::filesystem::path& worke
     bytes.clear();
     bytes.shrink_to_fit();
     std::set<AssetId> seen;
-    std::vector<SpriteAtlasSize> sizes;
+    std::vector<SpriteFrameRegion> regions;
     nlohmann::json sources = nlohmann::json::array();
     ImportProcessRequest request;
     request.payload = {{"recipe", sprite_atlas_source_recipe},
@@ -48,7 +48,7 @@ SpriteAtlasSource prepare_sprite_atlas_source(const std::filesystem::path& worke
                 "Atlas inputs must be published independent image textures; import them first");
         TextureLimits limits;
         limits.bytes = remaining;
-        limits.dimension = settings.max_size;
+        limits.dimension = settings.trim_transparent ? 16384 : settings.max_size;
         auto candidate =
             load_texture_selection(project, catalog, {id}, TextureSemantic::Color, limits, stop);
         auto texture = std::move(*candidate.value);
@@ -56,7 +56,7 @@ SpriteAtlasSource prepare_sprite_atlas_source(const std::filesystem::path& worke
         if (texture.format != TextureFormat::RGBA8Srgb)
             throw std::invalid_argument("Atlas PNG generation requires sRGB RGBA8 color images");
         remaining -= texture.byte_size();
-        sizes.push_back({texture.width, texture.height});
+        regions.push_back(sprite_atlas_image_region(texture, settings, stop));
         sources.push_back({{"asset", id.str()}, {"source", path_utf8(found->second.source)}});
         // Only admitted base pixels are sent; ordinary source mips are not
         // interpreted as a valid packed atlas mip chain.
@@ -65,7 +65,7 @@ SpriteAtlasSource prepare_sprite_atlas_source(const std::filesystem::path& worke
         request.inputs.push_back(
             {sprite_atlas_input_name(request.inputs.size()), encode_texture(texture, limits)});
     }
-    const auto expected = pack_sprite_atlas(sizes, settings, stop);
+    const auto expected = pack_sprite_atlas_regions(regions, settings, stop);
     auto files =
         run_import_process(worker, project, std::move(request), sprite_atlas_source_limits(), stop);
     check_stop();
@@ -74,7 +74,7 @@ SpriteAtlasSource prepare_sprite_atlas_source(const std::filesystem::path& worke
     const auto layout = std::find_if(files.begin(), files.end(),
                                      [](const auto& file) { return file.name == "layout.json"; });
     if (files.size() != 2 || png == files.end() || layout == files.end() ||
-        parse_bounded_json(layout->bytes, 65536, 20000, 16) !=
+        parse_bounded_json(layout->bytes, sprite_frame_value_byte_limit, 20000, 16) !=
             sprite_atlas_layout_document(expected))
         throw std::runtime_error("Atlas worker result does not match the captured input layout");
     constexpr std::array<unsigned char, 8> signature{137, 80, 78, 71, 13, 10, 26, 10};

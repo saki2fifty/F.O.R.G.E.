@@ -1,4 +1,5 @@
 #include "render_values.hpp"
+#include "sprite_frame_json.hpp"
 #include <cmath>
 #include <forge/render_view.hpp>
 #include <stdexcept>
@@ -52,11 +53,13 @@ void validate_sprite_renderer(const SpriteRenderer& value) {
         throw std::invalid_argument("Sprite grid/frame is outside the supported integer range");
     if (value.frame_regions.size() > sprite_frame_region_limit)
         throw std::invalid_argument("Sprite supports at most512 frame regions");
-    for (const auto& region : value.frame_regions)
-        if (region.x > 16384 || region.y > 16384 || !region.width || region.width > 16384 ||
-            !region.height || region.height > 16384)
+    for (const auto& region : value.frame_regions) {
+        const auto canvas = sprite_frame_canvas(region);
+        if (value.image_mode != std::uint32_t(SpriteImageMode::Simple) &&
+            (region.rotated_clockwise || canvas.trimmed()))
             throw std::invalid_argument(
-                "Sprite frame regions need whole pixel offsets0..16384 and extents1..16384");
+                "Trimmed or rotated Sprite frames require the Simple image mode");
+    }
     for (const auto pixel :
          {value.region_x, value.region_y, value.region_width, value.region_height})
         if (pixel > 16384)
@@ -85,8 +88,7 @@ Json render_value(const SpriteRenderer& p) {
     validate_sprite_renderer(p);
     auto frames = Json::array();
     for (const auto& region : p.frame_regions)
-        frames.push_back(
-            {{"x", region.x}, {"y", region.y}, {"width", region.width}, {"height", region.height}});
+        frames.push_back(sprite_frame_document(region));
     return {{"material", p.material.id ? Json(p.material.id) : Json()},
             {"enabled", p.enabled},
             {"visible", p.visible},
@@ -127,16 +129,8 @@ std::vector<SpriteFrameRegion> sprite_frame_regions_value(const Json& source) {
         throw std::invalid_argument("Sprite frame regions must be an array of at most512 entries");
     std::vector<SpriteFrameRegion> result;
     result.reserve(source.size());
-    for (const auto& row : source) {
-        const auto pixel = [&](const char* field, std::uint32_t minimum) {
-            const auto& value = row.at(field);
-            if (!value.is_number_integer() || value.get<std::uint64_t>() < minimum ||
-                value.get<std::uint64_t>() > 16384)
-                throw std::invalid_argument("Sprite frame region pixels are outside their range");
-            return value.get<std::uint32_t>();
-        };
-        result.push_back({pixel("x", 0), pixel("y", 0), pixel("width", 1), pixel("height", 1)});
-    }
+    for (const auto& row : source)
+        result.push_back(sprite_frame_value(row));
     return result;
 }
 SpriteRenderer sprite_renderer_value(const Json& p) {

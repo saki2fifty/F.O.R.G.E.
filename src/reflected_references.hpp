@@ -12,9 +12,17 @@ inline void remap(const nlohmann::json& schema, nlohmann::json& value, AssetId s
         if (!value.is_null())
             value = remap_entity_ref(value.get<EntityRef>(), source, destination, entities);
     } else if (kind == "struct") {
-        for (const auto& field : schema.at("fields"))
-            remap(field, value.at(field.at("id").get<std::string>()), source, destination,
-                  entities);
+        for (const auto& field : schema.at("fields")) {
+            const auto& key = field.at("id").get_ref<const std::string&>();
+            if (value.contains(key))
+                remap(field, value.at(key), source, destination, entities);
+            else {
+                auto default_value = reflected_member_value(field, value);
+                remap(field, default_value, source, destination, entities);
+                if (default_value != reflected_member_value(field, value))
+                    value[key] = std::move(default_value);
+            }
+        }
     } else if (kind == "array" || kind == "vector") {
         for (auto& element : value)
             remap(schema.at("element"), element, source, destination, entities);

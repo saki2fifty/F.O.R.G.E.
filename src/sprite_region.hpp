@@ -17,6 +17,31 @@ struct SpriteGridLayout {
     std::uint32_t columns = 1, rows = 1;
     std::uint32_t margin_x = 0, margin_y = 0, spacing_x = 0, spacing_y = 0;
 };
+struct SpriteFrameCanvas {
+    std::uint32_t width, height, retained_width, retained_height, x, y;
+    bool trimmed() const { return x || y || width != retained_width || height != retained_height; }
+    std::array<double, 4> quad_region(bool flip_x, bool flip_y) const {
+        return {double(flip_x ? width - x - retained_width : x) / width,
+                double(flip_y ? height - y - retained_height : y) / height,
+                double(retained_width) / width, double(retained_height) / height};
+    }
+};
+// One checked logical interpretation for authoring and draw preparation. Texture
+// fit remains a separate physical-rectangle check below.
+inline SpriteFrameCanvas sprite_frame_canvas(const SpriteFrameRegion& frame) {
+    if (frame.x > 16384 || frame.y > 16384 || !frame.width || frame.width > 16384 ||
+        !frame.height || frame.height > 16384 || frame.source_width > 16384 ||
+        frame.source_height > 16384 || frame.trim_x > 16384 || frame.trim_y > 16384)
+        throw std::invalid_argument("Sprite frame pixels exceed their whole-number bounds");
+    const auto retained_width = frame.rotated_clockwise ? frame.height : frame.width;
+    const auto retained_height = frame.rotated_clockwise ? frame.width : frame.height;
+    const auto width = frame.source_width ? frame.source_width : retained_width;
+    const auto height = frame.source_height ? frame.source_height : retained_height;
+    if (retained_width > width || retained_height > height ||
+        frame.trim_x > width - retained_width || frame.trim_y > height - retained_height)
+        throw std::invalid_argument("Retained Sprite pixels must fit their logical source canvas");
+    return {width, height, retained_width, retained_height, frame.trim_x, frame.trim_y};
+}
 inline SpritePixelRegion sprite_grid_region(std::uint32_t width, std::uint32_t height,
                                             const SpriteGridLayout& grid, std::uint64_t frame,
                                             std::optional<SpritePixelRegion> crop = {}) {
@@ -69,10 +94,12 @@ inline SpritePixelRegion sprite_frame_region(std::uint32_t width, std::uint32_t 
         throw std::invalid_argument("Sprite frame regions exceed the count or frame range");
     const auto area = sprite_grid_region(width, height, {}, 0, crop);
     // Admit the complete bank, so animation cannot expose an unchecked rectangle.
-    for (const auto& region : regions)
+    for (const auto& region : regions) {
+        (void)sprite_frame_canvas(region);
         if (!region.width || !region.height || region.x >= area.width || region.y >= area.height ||
             region.width > area.width - region.x || region.height > area.height - region.y)
             throw std::invalid_argument("Sprite frame region must fit its image crop");
+    }
     const auto& selected = regions[std::size_t(frame)];
     return {area.x + selected.x, area.y + selected.y, selected.width, selected.height};
 }

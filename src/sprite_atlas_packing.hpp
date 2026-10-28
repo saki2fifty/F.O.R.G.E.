@@ -13,6 +13,7 @@ struct SpriteAtlasPacking {
     unsigned max_size = 4096, padding = 1;
     std::size_t byte_limit = 64 * 1024 * 1024;
     bool extrude = true;
+    bool trim_transparent = false, allow_rotation = false;
     void validate() const;
 };
 struct SpriteAtlasLayout {
@@ -28,6 +29,13 @@ struct SpriteAtlasImage {
 // Bounded independent shelf search. Deterministic, without an optimality claim.
 SpriteAtlasLayout pack_sprite_atlas(std::span<const SpriteAtlasSize>, SpriteAtlasPacking = {},
                                     std::stop_token = {});
+// Shared original-image scan and region layout. Alpha-zero edges may be removed;
+// one available transparent ring stays for linear filtering. Original canvas and
+// retained offset survive packing; all-transparent images retain one real texel.
+SpriteFrameRegion sprite_atlas_image_region(const TextureData&, SpriteAtlasPacking = {},
+                                            std::stop_token = {});
+SpriteAtlasLayout pack_sprite_atlas_regions(std::span<const SpriteFrameRegion>,
+                                            SpriteAtlasPacking = {}, std::stop_token = {});
 // Copies admitted base-level RGBA8 color pixels unchanged; all images must have
 // the same transfer format. Padding can extrude the nearest edge; gaps stay clear.
 // Borrowed immutable images must outlive this call. No native decoder is invoked.

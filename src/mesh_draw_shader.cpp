@@ -272,6 +272,16 @@ float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
 )";
     if (sprite_profile)
         ps += R"(
+    // Simple mode reuses the otherwise unused slice row for the retained quad
+    // rectangle. Identity frames take the original path without inverse math.
+    if(input.SpriteImage.x==0 && any(input.SpriteX!=float4(0,0,1,1))) {
+        float2 local=(input.UV[0]-input.SpriteAtlas.xy)/input.SpriteAtlas.zw;
+        if(input.SpriteImage.w!=0)local=local.yx;
+        if(any(local<input.SpriteX.xy) || any(local>input.SpriteX.xy+input.SpriteX.zw))discard;
+        local=(local-input.SpriteX.xy)/input.SpriteX.zw;
+        if(input.SpriteImage.w!=0)local=local.yx;
+        input.UV[0]=input.SpriteAtlas.xy+local*input.SpriteAtlas.zw;
+    }
     if(input.SpriteImage.x!=0) {
         float2 local=input.UV[0];
         if(input.SpriteAtlas.z<0)local.x=1-local.x;

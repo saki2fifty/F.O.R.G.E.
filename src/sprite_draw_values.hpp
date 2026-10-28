@@ -13,12 +13,24 @@ struct SpriteDrawValues {
     std::array<float, 4> color{1, 1, 1, 1}; // Linear straight RGBA modulation.
     SpriteImageMapping image{};
     bool transpose_uv = false; // Swap frame-local axes before atlas flips; simple mode only.
+    // Retained image rectangle in the full logical quad after Sprite flips.
+    std::array<double, 4> quad_crop{0, 0, 1, 1};
+    bool trimmed() const { return quad_crop != std::array<double, 4>{0, 0, 1, 1}; }
 };
 inline void validate_sprite_draw_values(const SpriteDrawValues& values) {
     if (values.image.mode > 2)
         throw std::invalid_argument("Sprite draw image mode is unsupported");
     if (values.transpose_uv && values.image.mode)
         throw std::invalid_argument("Transposed Sprite UVs require the simple image mode");
+    if (values.trimmed() && values.image.mode)
+        throw std::invalid_argument("Trimmed Sprite UVs require the simple image mode");
+    for (unsigned axis = 0; axis < 2; ++axis) {
+        const auto origin = values.quad_crop[axis], extent = values.quad_crop[axis + 2];
+        if (!std::isfinite(origin) || !std::isfinite(extent) || origin < 0 || extent <= 0 ||
+            origin > 1 || extent > 1 ||
+            origin + extent > 1 + 64 * std::numeric_limits<double>::epsilon())
+            throw std::invalid_argument("Sprite retained quad region must fit its logical canvas");
+    }
     for (const auto& axis : values.image.axes) {
         for (const auto span :
              {axis.source_low, axis.source_high, axis.target_low, axis.target_high})

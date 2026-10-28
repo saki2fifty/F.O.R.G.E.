@@ -1,6 +1,7 @@
 """Admission and durable-identity check for shipped editable feature scenes."""
 import json
 import math
+import re
 from pathlib import Path
 import subprocess
 import sys
@@ -88,7 +89,7 @@ assert {'71-world-sprites.scene.json', '72-sprite-frame-animation.scene.json',
         '78-sprite-image-regions.scene.json',
         '79-one-way-platforms.scene.json', '80-xy-navigation.scene.json',
         '81-moving-tile-maps.scene.json', '82-tile-map-triggers.scene.json',
-        '83-audio-source-codecs.scene.json', '84-independent-audio.scene.json', '85-audio-filters.scene.json', '86-one-way-tile-maps.scene.json', '87-sprite-frame-regions.scene.json', '90-audio-echo.scene.json', '91-single-touch-gestures.scene.json', '92-multiple-gamepads.scene.json', '93-gamepad-motion.scene.json', '94-sprite-atlas-packing.scene.json'} <= {p.name for p in scenes}
+        '83-audio-source-codecs.scene.json', '84-independent-audio.scene.json', '85-audio-filters.scene.json', '86-one-way-tile-maps.scene.json', '87-sprite-frame-regions.scene.json', '90-audio-echo.scene.json', '91-single-touch-gestures.scene.json', '92-multiple-gamepads.scene.json', '93-gamepad-motion.scene.json', '94-sprite-atlas-packing.scene.json', '95-sprite-frame-metadata.scene.json'} <= {p.name for p in scenes}
 player_scene = json.loads((project_root / 'Scenes/92-multiple-gamepads.scene.json').read_text())
 assert player_scene['asset_id'] == by_source['Scenes/92-multiple-gamepads.scene.json']['id']
 players = [row for row in player_scene['entities'] if row['name'].startswith('Player ')]
@@ -160,6 +161,11 @@ def same_authored_value(actual, expected, location='$'):
     # differ by a final float32 ULP across platforms; document structure and
     # discrete identities must still match exactly.
     if isinstance(expected, dict):
+        if re.search(r'\.components\.forge\.sprite_renderer\.frame_regions\[\d+\]$', location):
+            # Legacy source rectangles omit the additive frame metadata. Keep
+            # every explicit value/extension exact while checking native defaults.
+            expected = dict(rotated_clockwise=False, source_width=0, source_height=0,
+                            trim_x=0, trim_y=0) | expected
         assert isinstance(actual, dict) and actual.keys() == expected.keys(), location
         for key in expected:
             same_authored_value(actual[key], expected[key], location + '.' + key)

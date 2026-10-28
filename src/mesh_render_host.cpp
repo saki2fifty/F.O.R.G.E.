@@ -651,6 +651,8 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
                     auto draw_mesh = mesh;
                     if (input.sprite) {
                         const auto& source = asset_detail::sprite_source_texture(*candidate);
+                        asset_detail::validate_sprite_frame_selection(*candidate,
+                                                                      entry.sprite->requested);
                         texture_width = source.width;
                         texture_height = source.height;
                         sprite_values = sprite_draw_values(entry.sprite->requested, texture_width,
@@ -733,6 +735,8 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
                 std::optional<SpriteDrawValues> sprite_values;
                 std::optional<MeshInstancePose> sprite_pose;
                 if (input.sprite) {
+                    asset_detail::validate_sprite_frame_selection(entry.ready->prepared(),
+                                                                  entry.sprite->requested);
                     sprite_values =
                         sprite_draw_values(entry.sprite->requested, entry.sprite->texture_width,
                                            entry.sprite->texture_height);

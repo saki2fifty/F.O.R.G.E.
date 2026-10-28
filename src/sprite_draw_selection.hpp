@@ -2,8 +2,14 @@
 #include "model_draw_candidate.hpp"
 #include "sprite_material_profile.hpp"
 #include <forge/engine_assets.hpp>
+#include <forge/render_components.hpp>
 
 namespace forge::asset_detail {
+inline void validate_sprite_frame_selection(const PreparedModelDraw& draw,
+                                            const SpriteRenderer& sprite) {
+    const auto material_id = draw.selection.parts.at(0).at(0).id;
+    validate_sprite_frame_material(draw.materials.at(material_id)->values, sprite.frame_regions);
+}
 // Validate one complete immutable selection before native allocation. Its texture
 // extent is also the authority for per-object atlas rectangles; no second source
 // table, resource key or texture lifetime is introduced.

@@ -82,12 +82,15 @@ no atlas asset, source registry, renderer or animation clock.
 ### Ordered frame regions
 
 SpriteRenderer.frame_regions is an optional ordered vector of up to512
-SpriteFrameRegion{x,y,width,height} values. An empty vector preserves the existing
+SpriteFrameRegion values. The original x/y/width/height fields describe physical
+texture rectangles. An empty vector preserves the existing
 uniform grid. Positive whole-pixel extents and offsets0..16384 use the current
 crop's top-left; frame selects a zero-based list entry. Grid fields remain authored
 but inactive with a bank. No Sprite/atlas asset identity or image registry is added.
-The installed value header participates in the matching SDK fingerprint; ABI1 C
-tables stay unchanged.
+The installed value header participates in the matching SDK fingerprint. Added
+metadata changes the C++ element layout from16 to36 bytes: modules must rebuild
+with the current matching SDK. ABI1 C tables stay unchanged; old exact-profile
+binaries are not compatible with this changed C++ value.
 
 The existing codec/Meta/Scene/Prefab/history owners admit and preserve the list.
 A native member annotation narrows the reflected collection bound; copied schema
@@ -102,11 +105,46 @@ Frame picking selects the first listed overlapping rectangle and ignores gaps.
 Timeline/fixed/presentation/recovery share the existing integer frame binding and
 clock; whole-clip admission uses bank count or old grid capacity. Runtime tuning
 uses the same field path in ordinary and SDK Play. The512-entry vector has the
-existing64KiB collection allowance. No new automation operation is needed; existing
+explicit128KiB/8192-container-element envelope; unrelated reflected values retain
+64KiB/4096. Native sequence annotations are preserved through copied Meta;
+container envelopes derive from annotated descendants. Native layout/schema limits
+remain unchanged. No new frame-edit automation operation is needed; existing
 property batches/history/Play/MCP discovery expose the data. Source-free original
 Gallery87 demonstrates unequal frames, animation, crop, Sliced and Tiled fill.
-Trimming, rotation metadata and atlas mip generation remain outside this rectangle
-workflow. Automatic packing uses the existing source/import owners described below.
+Frame metadata supports the Simple profile described below. Atlas-aware mip
+generation remains outside this workflow. Automatic packing uses the existing
+source/import owners described below.
+
+### Logical canvases and stored quarter turns
+
+Each frame optionally declares rotated_clockwise (false), source_width/source_height
+(0 each), and trim_x/trim_y (0 each). Width/height remain physical stored extents.
+A clockwise-stored frame resolves its retained logical width from physical height
+and its retained logical height from physical width. Each zero source axis infers
+that retained logical extent independently. Positive resolved canvases and offsets
+must fit0..16384; retained content must lie wholly within its canvas. Old four-field
+JSON and four-field C++ aggregate initializers retain their defaults.
+
+The shared private codec/canvas owner supplies whole-bank validation and detached
+draw interpretation. Explicit native missing-member defaults preserve legacy data
+through Meta/native reconstruction, opaque-extension traversal and entity-reference
+remapping; ordinary required members remain required. Trimming or stored turns
+require Simple mode. Actual trim additionally requires Blend with depth writes off,
+checked for the entire bank against both initial and numeric-only candidate paths.
+Invalid replacements retain the complete last-good geometry, resources and picture.
+
+World geometry, pivot, picking and culling remain the full logical Sprite rectangle.
+Logical flips mirror retained bounds as well as content. The existing Simple
+transpose path and unused Simple slice row carry the crop mapping in the unchanged
+nine-row instance layout. The fragment shader discards outside retained bounds and
+restores local coordinates before normal atlas sampling/clamping. Identity frames
+skip that inverse mapping. Existing untrimmed Simple/Sliced/Tiled and Tile Map
+instance paths retain their established interpretation. No alternate geometry,
+resource, material or atlas owner is introduced.
+
+Original Gallery95 compares full source canvases with trimmed, clockwise-stored
+frames, including a flipped pair. The installed Sprite sample writes metadata
+through typed C++, and existing live tuning/recovery consume the same values.
 
 Portable core/UI/installed-SDK/MCP/content checks and actual software-Vulkan pixels
 are separate from native Windows/full Main/physical acceptance. See the canonical
@@ -324,14 +362,24 @@ reported frame order always matches the caller's input order. It chooses among
 these candidates by area, longest side, then width; it does not claim optimal
 bin packing. Padding0–64 applies on all sides. Optional nearest-edge extrusion
 copies exact encoded RGBA bytes, including corner and transparent colors. Other
-gaps are zeroed. No rotation, trimming or atlas-aware mip generation is performed.
+gaps are zeroed. Defaults retain whole-image, unrotated packing. Optional rotation
+considers both orientations in the bounded shelf search, sorting by longer/shorter
+side; tie rules remain deterministic. It does not claim optimality. Optional
+transparent trimming scans exact alpha-zero pixels and retains one available
+transparent ring for linear filtering. Every retained RGBA texel is copied exactly,
+including the inverse clockwise pixel mapping and physical-edge extrusion. Fully
+transparent images retain one real top-left texel and their full original canvas.
+Input dimensions may reach16384 when trimming is enabled, within the same aggregate
+decoded byte budget; output PNG limits remain unchanged. No atlas-aware mip
+generation is performed.
 
 The parent snapshots admitted base pixels. Fixed private worker operation
 `forge.texture.atlas-source` uses the existing supervised asset worker, bounded
 transport/cancellation and native PNG encoder. It has no importer registry entry
 or persistent asset identity. Its revision covers its FORGE sources, settings
 contract, pinned encoder/toolchain seed and configuration. The parent checks the
-returned layout against captured dimensions and the bounded PNG header; the
+returned layout against the same shared original-image scan and layout owner,
+and checks the bounded PNG header; the
 ordinary PNG importer subsequently performs complete decode/cook admission.
 
 SourceCopy owns immutable generated bytes and creates one new Assets directory
@@ -343,8 +391,12 @@ return that actual ID. This is a one-shot normal PNG source, not a new atlas ass
 source registry, repack recipe or automatic original-source invalidation system.
 Normal future PNG reimports preserve that PNG's existing identity.
 
-The native review displays a wire layout and ordered source table. A bounded64KiB
+The native review displays a wire layout and ordered source table, including
+logical canvas/offset/turn details for transformed entries. A bounded128KiB
 clipboard carries only format/version, Texture ID, dimensions and frame values.
+New layout records use version2 with full metadata; version1 four-field clipboard
+records remain readable. Worker settings accept optional trim_transparent and
+allow_rotation booleans, both false by default.
 Paste verifies the assigned published image identity/dimensions and the complete
 frame bank. Existing property.set_many atomically replaces frame_regions, frame0
 and region_enabled=false with Scene history/prefab intent. Prefab source editing

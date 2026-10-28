@@ -23,6 +23,52 @@ template <class F> void rejects(F&& action) {
     }
     check(rejected, "Invalid sprite region/grid was admitted");
 }
+void frame_metadata() {
+    SpriteFrameRegion frame{4, 6, 3, 5};
+    auto canvas = sprite_frame_canvas(frame);
+    check(canvas.width == 3 && canvas.height == 5 && !canvas.trimmed(),
+          "Old four-field frames changed their logical size");
+    frame.rotated_clockwise = true;
+    canvas = sprite_frame_canvas(frame);
+    check(canvas.width == 5 && canvas.height == 3 && !canvas.trimmed(),
+          "Clockwise storage did not restore the logical source axes");
+    frame.source_width = 11;
+    frame.source_height = 9;
+    frame.trim_x = 2;
+    frame.trim_y = 1;
+    canvas = sprite_frame_canvas(frame);
+    check(canvas.width == 11 && canvas.height == 9 && canvas.retained_width == 5 &&
+              canvas.retained_height == 3 && canvas.trimmed(),
+          "Trimmed source canvas lost its retained pixels or original size");
+    for (bool flip_x : {false, true})
+        for (bool flip_y : {false, true}) {
+            const auto quad = canvas.quad_region(flip_x, flip_y);
+            near(quad[0], flip_x ? 4. / 11 : 2. / 11);
+            near(quad[1], flip_y ? 5. / 9 : 1. / 9);
+            near(quad[2], 5. / 11);
+            near(quad[3], 1. / 3);
+        }
+    check(sprite_frame_region(16, 16, {}, 0, {}, std::span(&frame, 1)) ==
+              SpritePixelRegion{4, 6, 3, 5},
+          "Logical canvas metadata changed physical texture admission");
+    auto bad = frame;
+    bad.source_width = 4;
+    rejects([&] { sprite_frame_canvas(bad); });
+    bad = frame;
+    bad.trim_x = 7;
+    rejects([&] { sprite_frame_canvas(bad); });
+    bad = frame;
+    bad.source_width = UINT32_MAX;
+    rejects([&] { sprite_frame_canvas(bad); });
+    bad = frame;
+    bad.source_height = 0;
+    rejects([&] { sprite_frame_canvas(bad); });
+    bad.trim_y = 0;
+    check(sprite_frame_canvas(bad).height == 3,
+          "Independently inferred source height requires an unrelated field edit");
+    const std::array whole_bank{frame, SpriteFrameRegion{0, 0, 2, 3, false, 1, 3}};
+    rejects([&] { sprite_frame_region(16, 16, {}, 0, {}, whole_bank); });
+}
 void image_mapping() {
     const auto large = sprite_image_axis(1, 10, 2, 3, 2, 10);
     near(large.source_low, .2);
@@ -226,6 +272,7 @@ void arbitrary_frames() {
 } // namespace
 int main() {
     try {
+        frame_metadata();
         image_mapping();
         sheet_selection();
         cropped_regions();

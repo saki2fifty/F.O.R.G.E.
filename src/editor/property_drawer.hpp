@@ -508,7 +508,15 @@ inline bool property_field_body(const std::filesystem::path& root, const Json& f
                 for (const auto& member : field.at("fields")) {
                     const auto key = member.at("id").get<std::string>();
                     ui::IdScope scope(key.c_str());
-                    changed |= property_field(root, member, value.at(key), commit_on_enter);
+                    if (value.contains(key))
+                        changed |= property_field(root, member, value.at(key), commit_on_enter);
+                    else {
+                        auto candidate = detail::reflected_member_value(member, value);
+                        if (property_field(root, member, candidate, commit_on_enter)) {
+                            value[key] = std::move(candidate);
+                            changed = true;
+                        }
+                    }
                 }
             } else
                 changed = property_collection(root, field, value, commit_on_enter);

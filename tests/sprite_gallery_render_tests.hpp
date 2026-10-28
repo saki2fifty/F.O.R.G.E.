@@ -28,8 +28,9 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
     auto* device = presentation.device();
     for (const auto source :
          {"Scenes/71-world-sprites.scene.json", "Scenes/72-sprite-frame-animation.scene.json",
-          "Scenes/78-sprite-image-regions.scene.json",
-          "Scenes/87-sprite-frame-regions.scene.json"}) {
+          "Scenes/78-sprite-image-regions.scene.json", "Scenes/87-sprite-frame-regions.scene.json",
+          "Scenes/95-sprite-frame-metadata.scene.json"}) {
+        const bool metadata = std::string_view(source).starts_with("Scenes/95");
         const bool bank = std::string_view(source).starts_with("Scenes/87");
         const bool regions = bank || std::string_view(source).starts_with("Scenes/78");
         const bool animated = regions || std::string_view(source).starts_with("Scenes/72");
@@ -66,17 +67,27 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
                           "Native Gallery images did not settle");
                 } while (game.pending());
                 check(game.diagnostics().empty() && game.game_scene() &&
-                          game.game_scene()->sprites.size() == (regions || !animated ? 6u : 5u),
+                          game.game_scene()->sprites.size() == (metadata               ? 5u
+                                                                : regions || !animated ? 6u
+                                                                                       : 5u),
                       "Actual Gallery image/material/Game consumer failed");
                 const auto sample = [&](double x, double y) {
-                    const auto vertical = regions ? 10. : 8.;
+                    const auto vertical = metadata ? 9. : regions ? 10. : 8.;
                     const auto px = unsigned(std::floor(width * .5 + x * height / vertical));
                     const auto py = unsigned(std::floor(height * .5 - y * height / vertical));
                     check(px < width && py < height,
                           "Gallery sample escaped its orthographic view");
                     return pixels[std::size_t(py) * width + px];
                 };
-                if (animated) {
+                if (metadata) {
+                    for (const auto x : {-2.4, 2.4}) {
+                        const auto arrow = sample(x, 1.6), marker = sample(x, -1.1);
+                        check(arrow[0] > arrow[1] && arrow[1] > arrow[2] && marker[1] > marker[0] &&
+                                  marker[2] > marker[0],
+                              "Original/trimmed/rotated Gallery canvases did not reach actual Game "
+                              "pixels");
+                    }
+                } else if (animated) {
                     const auto p = sample(0, regions ? 0 : 1.1);
                     check(p[3] == 255 && (frame == 0   ? p[1] > p[2] && p[2] > p[0]
                                           : frame == 1 ? p[2] > p[1] && p[1] > p[0]
@@ -96,7 +107,8 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
                               "Wide Gallery view lost the cyan image");
                     }
                 }
-                const auto name = std::string(bank       ? "gallery87-frame"
+                const auto name = std::string(metadata   ? "gallery95-frame"
+                                              : bank     ? "gallery87-frame"
                                               : regions  ? "gallery78-frame"
                                               : animated ? "gallery72-frame"
                                                          : "gallery71-frame") +
