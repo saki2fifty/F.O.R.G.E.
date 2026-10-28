@@ -228,6 +228,17 @@ std::optional<Json> GameHostControls::execute(std::uint64_t token, const Json& c
             throw std::runtime_error("This runtime host has no gamepad assignment adapter");
         }
         return Json(value);
+    } else if (operation == "gamepad_sensor") {
+        const auto value = command.get<GamepadSensorConfig>();
+        if (platform_.gamepad_sensor_poll) {
+            if (!platform_.gamepad_sensor_poll(token, value))
+                return std::nullopt;
+        } else if (platform_.gamepad_sensor) {
+            platform_.gamepad_sensor(value);
+        } else {
+            throw std::runtime_error("This runtime host has no gamepad motion adapter");
+        }
+        return Json(value);
     } else if (operation == "ui_navigation") {
         const auto direction = command.at("direction").get<std::string>();
         if (direction != "next" && direction != "previous" && direction != "accept")
@@ -386,6 +397,9 @@ void GameHostControls::publish() {
     state["gamepad_assignment_host"] =
         bool(platform_.gamepad_assign || platform_.gamepad_assign_poll);
     state["gamepads"] = platform_.gamepads ? platform_.gamepads() : GamepadTopology{};
+    state["gamepad_sensor_host"] = bool(platform_.gamepad_sensor || platform_.gamepad_sensor_poll);
+    state["gamepad_motion"] =
+        platform_.gamepad_motion ? platform_.gamepad_motion() : GamepadMotion{};
     state["error"] = error_.empty() ? state.at("error") : Json(error_);
     state["rebind"] = {{"listening", false}};
     if (state.at("state") == "running" || state.at("state") == "paused") {

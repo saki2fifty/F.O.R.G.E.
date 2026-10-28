@@ -44,7 +44,7 @@ For a two-dimensional movement action, use four bindings:
 
 Continuous axes are clamped; two-dimensional continuous input is normalized if its length exceeds one. Relative mouse deltas are not normalized. Mouse delta units are SDL motion units, and wheel values are scroll units; they are not automatically multiplied by frame time.
 
-Gamepad sticks range from -1 to 1; triggers range from 0 to 1. Set **deadzone**, such as `0.2`, to ignore small stick movement; the remaining range is rescaled. Use **pad.1.** through **pad.4.** controls for independent players. The shorter **pad.** controls follow one active controller: a deliberate button press or strong stick movement on another controller selects it after a short guard. C++ can request bounded controller vibration. Sensors are unavailable.
+Gamepad sticks range from -1 to 1; triggers range from 0 to 1. Set **deadzone**, such as `0.2`, to ignore small stick movement; the remaining range is rescaled. Use **pad.1.** through **pad.4.** controls for independent players. The shorter **pad.** controls follow one active controller: a deliberate button press or strong stick movement on another controller selects it after a short guard. C++ can request bounded controller vibration. Raw accelerometer and gyroscope support is described under Controller motion.
 
 ## Assign local controllers
 
@@ -61,6 +61,25 @@ Choose a player slot beside each connected controller.
 Disconnecting a controller releases its player's controls. Reassignment starts neutral and needs fresh input. The other numbered slots remain independent. Assignments last for the current host session; projects save action bindings, not connected-device identities. An exported game makes its own assignments as controllers connect. C++ menus can read and change those assignments through the Game service. Four numbered slots and up to sixteen connected controllers are supported; additional tracked controllers are unassigned.
 
 For a visible example, open **Scenes/92-multiple-gamepads.scene.json** in a writable Feature Gallery copy. It has four colored player markers and matching input actions. Build/register **CodeExamples/MultipleGamepads.cpp** with `forge_register_system_MultipleGamepads`, or build the matching SDK's `multiple_gamepads_gameplay` sample target. Move each marker with its player's left stick. Without that optional code, the markers stay still and Console can still show the actions. Save Settings and Scene, select it as startup, build current code, then export and test with your controllers.
+
+## Controller motion
+
+![Gamepad popup with native accelerometer and gyroscope controls](../images/gamepad-motion.png)
+
+Open a controller's Motion sensors section to configure its supported sensors.
+
+1. Connect a controller with an accelerometer or gyroscope. In **Game**, click **Gamepads...**, then expand **Motion sensors** beside that controller.
+2. Enable **Accelerometer** or **Gyroscope**. Unsupported sensors are disabled and marked **Not supported by this controller.** The reported rate is in Hz; unknown means the driver has not supplied a rate.
+3. Close the popup. Expand **Console → Controller motion** before capturing Game input, then start Play and click **Capture gameplay input**. Keep Console visible while Game owns input to see X/Y/Z readings and timestamps.
+4. Release capture to edit sensor options. Capture again and move the controller to obtain a new reading.
+
+Acceleration is in m/s² and includes gravity. Gyroscope values are angular speed in rad/s, positive counter-clockwise when viewed from the positive axis. The natural device frame is X right, Y up and Z toward you. Raw values are separate from normalized input actions; do not bind them as **pad.** stick axes. A sensor can be supported and enabled while no sample has arrived during the current capture interval. A measured zero is a real sample.
+
+Sensor modes default off and last for this host session. Stop clears gameplay readings; it does not save sensor modes or connected-device tokens. Capture/focus changes require new data. Reassignment and remapping clear the affected controllers' readings. Disconnect removes the connection. The host requests sensor disable when it closes its devices; native errors cannot guarantee physical hardware behavior.
+
+For a visible example, open **Scenes/93-gamepad-motion.scene.json** in a writable Feature Gallery copy. Build the matching SDK's **gamepad_motion_gameplay** target and register its module, or register **CodeExamples/GamepadMotion.cpp** with both `forge_register_system_GamepadMotion` and the unscaled `forge_control_GamepadMotion` callback. Installing this example opts into enabling Player 1's supported sensors. The left marker shows acceleration X/Y at 0.2 world units per m/s²; the right shows gyroscope X/Y at 1 world unit per rad/s. Display positions are bounded to the canvas. Without code or measured input, markers stay at their neutral positions.
+
+Save the Scene and Settings, select this Scene as startup, build current project code and export. The exported game configures its own connected controller through the sample's Game requests. The Game service is required for raw motion; an ordinary simulation profile without it leaves the example neutral. Motion support covers desktop controller accelerometers and gyroscopes. It does not provide calibration, orientation estimation, sensor fusion, raw touch-device sensors or mobile application packaging.
 
 ## Touch contacts
 

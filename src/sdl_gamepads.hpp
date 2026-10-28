@@ -5,6 +5,7 @@
 #include <cmath>
 #include <forge/input.hpp>
 #include <iostream>
+#include <iterator>
 #include <limits>
 #include <map>
 #include <memory>
@@ -16,7 +17,10 @@ namespace forge {
 class SdlGamepads {
   public:
     SdlGamepads() : namespace_(detail::uuid_text(detail::uuid_v4())) {}
-    ~SdlGamepads() { stop_rumble(); }
+    ~SdlGamepads() {
+        stop_rumble();
+        stop_sensors();
+    }
     SdlGamepads(const SdlGamepads&) = delete;
     SdlGamepads& operator=(const SdlGamepads&) = delete;
     std::vector<InputEvent> discover() {
@@ -52,18 +56,79 @@ class SdlGamepads {
         result.validate();
         return result;
     }
+    GamepadMotion motion(bool routed) const {
+        GamepadMotion result;
+        result.available = SDL_WasInit(SDL_INIT_GAMEPAD) != 0;
+        result.routed = result.available && routed && motion_routed_;
+        result.revision = revision_;
+        for (const auto& [id, pad] : pads_) {
+            GamepadMotionDevice device;
+            device.device = pad.token;
+            device.slot = pad.slot;
+            device.connected = SDL_GamepadConnected(pad.handle.get());
+            if (device.connected)
+                for (std::size_t index = 0; index < 2; ++index) {
+                    auto& sample = index ? device.gyroscope : device.accelerometer;
+                    const auto type = sensor_type(index);
+                    sample.supported = SDL_GamepadHasSensor(pad.handle.get(), type);
+                    if (!sample.supported)
+                        continue;
+                    sample.enabled = SDL_GamepadSensorEnabled(pad.handle.get(), type);
+                    const auto rate = SDL_GetGamepadSensorDataRate(pad.handle.get(), type);
+                    sample.rate_hz = std::isfinite(rate) && rate >= 0 ? rate : 0;
+                    const auto& reading = pad.motion[index];
+                    if (result.routed && sample.enabled && reading.valid) {
+                        sample.measured = true;
+                        sample.timestamp_ns = reading.timestamp_ns;
+                        sample.sensor_timestamp_ns = reading.sensor_timestamp_ns;
+                        sample.value = reading.value;
+                    }
+                }
+            result.devices.push_back(std::move(device));
+            if (id == active_)
+                result.active = pad.token;
+        }
+        result.validate();
+        return result;
+    }
+    // Routing changes require a new native event; queued pre-capture samples
+    // cannot reappear after a focus/modal/Stop or capture boundary.
+    void route_motion(bool routed) noexcept {
+        if (motion_routed_ == routed)
+            return;
+        motion_routed_ = routed;
+        const auto now = SDL_GetTicksNS();
+        for (auto& [id, pad] : pads_)
+            reset_motion(pad, now);
+    }
+    void configure_sensor(const GamepadSensorConfig& value) {
+        value.validate();
+        auto& pad = connection(value.revision, value.device);
+        const auto index = std::size_t(value.sensor);
+        const auto type = sensor_type(index);
+        if (!SDL_GamepadHasSensor(pad.handle.get(), type)) {
+            if (!value.enabled)
+                return;
+            throw std::runtime_error("The selected gamepad does not support this motion sensor");
+        }
+        if (SDL_GamepadSensorEnabled(pad.handle.get(), type) == value.enabled)
+            return;
+        revision_room();
+        if (!SDL_SetGamepadSensorEnabled(pad.handle.get(), type, value.enabled))
+            throw std::runtime_error(std::string("Gamepad sensor configuration failed: ") +
+                                     SDL_GetError());
+        if (SDL_GamepadSensorEnabled(pad.handle.get(), type) != value.enabled)
+            throw std::runtime_error("The native gamepad sensor mode did not match the request");
+        pad.motion[index] = {};
+        pad.motion[index].since_ns = SDL_GetTicksNS();
+        pad.sensor_stop_failed[index] = false;
+        ++revision_;
+    }
     // One owned topology edit. Prepare neutral values before native output or
     // routing changes; failed Stop leaves assignments unchanged and retryable.
     std::vector<InputEvent> assign(const GamepadAssignment& value) {
         value.validate();
-        if (value.revision != revision_)
-            throw std::runtime_error("Gamepad devices changed; refresh and try again");
-        auto found = std::find_if(pads_.begin(), pads_.end(), [&](const auto& row) {
-            return row.second.token == value.device;
-        });
-        if (found == pads_.end() || !SDL_GamepadConnected(found->second.handle.get()))
-            throw std::runtime_error("The selected gamepad connection is no longer available");
-        auto& selected = found->second;
+        auto& selected = connection(value.revision, value.device);
         if (selected.slot == value.slot)
             return {};
         revision_room();
@@ -79,6 +144,10 @@ class SdlGamepads {
                 : pads_.end();
         if (!stop_pad(selected) || (occupied != pads_.end() && !stop_pad(occupied->second)))
             throw std::runtime_error("Gamepad feedback could not stop; assignment was retained");
+        const auto now = SDL_GetTicksNS();
+        reset_motion(selected, now);
+        if (occupied != pads_.end())
+            reset_motion(occupied->second, now);
         if (occupied != pads_.end())
             occupied->second.slot = 0;
         selected.slot = value.slot;
@@ -125,6 +194,7 @@ class SdlGamepads {
     // Lifecycle always progresses. Indexed slots route independently; the
     // legacy active alias alone retains the deliberate 250ms switch guard.
     std::vector<InputEvent> event(const SDL_Event& event, bool accept, Uint64 now) {
+        route_motion(accept);
         if (accept &&
             ((event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat) ||
              event.type == SDL_EVENT_MOUSE_BUTTON_DOWN ||
@@ -146,6 +216,7 @@ class SdlGamepads {
             if (selected)
                 append_neutral(events, 0);
             stop_pad(found->second);
+            stop_sensors(found->second);
             pads_.erase(found);
             limit_warned_ = false;
             ++revision_;
@@ -172,8 +243,42 @@ class SdlGamepads {
                 append_neutral(events, 0);
             found->second.name = name(found->second.handle.get());
             stop_pad(found->second);
+            reset_motion(found->second, SDL_GetTicksNS());
             ++revision_;
             return events;
+        }
+        if (event.type == SDL_EVENT_GAMEPAD_SENSOR_UPDATE) {
+            const auto found = pads_.find(event.gsensor.which);
+            if (!accept || found == pads_.end() ||
+                !SDL_GamepadConnected(found->second.handle.get()))
+                return {};
+            const auto type = SDL_SensorType(event.gsensor.sensor);
+            if (type != SDL_SENSOR_ACCEL && type != SDL_SENSOR_GYRO)
+                return {};
+            auto& pad = found->second;
+            const auto index = type == SDL_SENSOR_ACCEL ? 0u : 1u;
+            auto& sample = pad.motion[index];
+            if (!SDL_GamepadSensorEnabled(pad.handle.get(), type) ||
+                event.gsensor.timestamp <= sample.since_ns ||
+                event.gsensor.timestamp < sample.timestamp_ns)
+                return {};
+            if (!event.gsensor.timestamp ||
+                !std::all_of(std::begin(event.gsensor.data), std::end(event.gsensor.data),
+                             [](float axis) { return std::isfinite(axis); })) {
+                const auto since = sample.since_ns;
+                sample = {};
+                sample.since_ns = since;
+                if (!pad.sensor_invalid_warned[index])
+                    SDL_LogWarn(SDL_LOG_CATEGORY_INPUT, "Invalid native gamepad motion sample");
+                pad.sensor_invalid_warned[index] = true;
+                return {};
+            }
+            sample.valid = true;
+            sample.timestamp_ns = event.gsensor.timestamp;
+            sample.sensor_timestamp_ns = event.gsensor.sensor_timestamp;
+            std::copy(std::begin(event.gsensor.data), std::end(event.gsensor.data),
+                      sample.value.begin());
+            return {};
         }
         if (!accept)
             return {};
@@ -237,7 +342,48 @@ class SdlGamepads {
         // Output may still need a physical Stop even after its requested expiry.
         bool feedback = false, stop_failed = false;
         std::uint32_t feedback_slot = 0;
+        struct Reading {
+            bool valid = false;
+            Uint64 since_ns = 0, timestamp_ns = 0, sensor_timestamp_ns = 0;
+            std::array<double, 3> value{};
+        };
+        std::array<Reading, 2> motion{};
+        std::array<bool, 2> sensor_stop_failed{}, sensor_invalid_warned{};
     };
+    static SDL_SensorType sensor_type(std::size_t index) {
+        return index ? SDL_SENSOR_GYRO : SDL_SENSOR_ACCEL;
+    }
+    static void reset_motion(Pad& pad, Uint64 now) noexcept {
+        for (auto& sample : pad.motion) {
+            sample = {};
+            sample.since_ns = now;
+        }
+    }
+    Pad& connection(std::uint64_t revision, const std::string& token) {
+        if (revision != revision_)
+            throw std::runtime_error("Gamepad devices changed; refresh and try again");
+        auto found = std::find_if(pads_.begin(), pads_.end(),
+                                  [&](const auto& row) { return row.second.token == token; });
+        if (found == pads_.end() || !SDL_GamepadConnected(found->second.handle.get()))
+            throw std::runtime_error("The selected gamepad connection is no longer available");
+        return found->second;
+    }
+    static void stop_sensors(Pad& pad) noexcept {
+        if (!SDL_GamepadConnected(pad.handle.get()))
+            return;
+        for (std::size_t index = 0; index < 2; ++index)
+            if (SDL_GamepadSensorEnabled(pad.handle.get(), sensor_type(index)) &&
+                !SDL_SetGamepadSensorEnabled(pad.handle.get(), sensor_type(index), false)) {
+                if (!pad.sensor_stop_failed[index])
+                    SDL_LogWarn(SDL_LOG_CATEGORY_INPUT, "Gamepad sensor disable failed: %s",
+                                SDL_GetError());
+                pad.sensor_stop_failed[index] = true;
+            }
+    }
+    void stop_sensors() noexcept {
+        for (auto& [id, pad] : pads_)
+            stop_sensors(pad);
+    }
     static void append_neutral(std::vector<InputEvent>& events, std::uint32_t slot) {
         for (const auto* leaf : buttons_)
             events.push_back({gamepad_control_id(slot, leaf), 0});
@@ -301,6 +447,7 @@ class SdlGamepads {
             return {};
         }
         pad.name = name(pad.handle.get());
+        reset_motion(pad, SDL_GetTicksNS());
         pad.token = namespace_ + ":" + std::to_string(id) + ":" + std::to_string(connections_ + 1);
         for (std::uint32_t slot = 1; slot <= gamepad_slot_limit; ++slot)
             if (std::none_of(pads_.begin(), pads_.end(),
@@ -328,6 +475,7 @@ class SdlGamepads {
     bool limit_warned_ = false;
     Uint64 switched_ = 0;
     bool gamepad_activity_ = false, activity_seen_ = false;
+    bool motion_routed_ = false;
     Uint64 activity_time_ = 0;
     void activity(bool gamepad, Uint64 now) {
         if (activity_seen_ && gamepad_activity_ != gamepad &&

@@ -36,6 +36,10 @@ struct GamePlatformControls {
     std::function<GamepadTopology()> gamepads;
     std::function<void(const GamepadAssignment&)> gamepad_assign;
     std::function<bool(std::uint64_t, const GamepadAssignment&)> gamepad_assign_poll;
+    // Raw physical units remain separate from normalized action controls.
+    std::function<GamepadMotion()> gamepad_motion;
+    std::function<void(const GamepadSensorConfig&)> gamepad_sensor;
+    std::function<bool(std::uint64_t, const GamepadSensorConfig&)> gamepad_sensor_poll;
 };
 // Reusable host executor. Game/menu policy lives in modules; this owner delegates
 // copied requests to existing session, storage, input and narrow platform adapters.
@@ -47,6 +51,9 @@ class GameHostControls {
     void pump(RuntimeClock::Time now);
     // Refresh copied time/status before callbacks without draining game requests.
     void sample_time(RuntimeClock::Time now);
+    // Refresh copied status/platform observations without sampling time,
+    // advancing simulation or draining pending requests.
+    void publish();
     void release_cursor();
     void diagnostic(std::string text) {
         error_ = std::move(text).substr(0, 1024);
@@ -67,7 +74,6 @@ class GameHostControls {
     bool poll_cursor_release(std::uint64_t token);
     std::uint64_t prepare(AssetId, const Json&, bool activate, bool run);
     void apply_settings(Json user);
-    void publish();
     GameSession& game_;
     std::shared_ptr<GameControlQueue> queue_;
     GameStorage& storage_;

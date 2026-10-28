@@ -1,4 +1,5 @@
 #pragma once
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <forge/identity.hpp>
@@ -116,6 +117,42 @@ struct GamepadAssignment {
     std::uint32_t slot = 0; // Zero unassigns this device.
     void validate() const;
 };
+enum class GamepadSensorKind { Accelerometer, Gyroscope };
+std::string_view gamepad_sensor_name(GamepadSensorKind);
+// Raw device-frame SI values. Rates are Hz (0 unknown), acceleration includes
+// gravity in m/s², and angular speed is rad/s. Neither value is an action axis.
+struct GamepadSensorSample {
+    bool supported = false, enabled = false, measured = false;
+    double rate_hz = 0;
+    std::uint64_t timestamp_ns = 0, sensor_timestamp_ns = 0;
+    std::array<double, 3> value{};
+    void validate(bool routed, bool connected) const;
+};
+struct GamepadMotionDevice {
+    std::string device;
+    std::uint32_t slot = 0;
+    bool connected = false;
+    GamepadSensorSample accelerometer, gyroscope;
+};
+struct GamepadMotion {
+    bool available = false, routed = false;
+    std::uint64_t revision = 0; // Connection/configuration revision, not sample time.
+    std::string active;
+    std::vector<GamepadMotionDevice> devices;
+    void validate() const;
+    void validate(const GamepadTopology&) const;
+};
+struct GamepadSensorConfig {
+    std::uint64_t revision = 0;
+    std::string device;
+    GamepadSensorKind sensor = GamepadSensorKind::Accelerometer;
+    bool enabled = false;
+    void validate() const;
+};
+void to_json(nlohmann::json&, const GamepadMotion&);
+void from_json(const nlohmann::json&, GamepadMotion&);
+void to_json(nlohmann::json&, const GamepadSensorConfig&);
+void from_json(const nlohmann::json&, GamepadSensorConfig&);
 void to_json(nlohmann::json&, const GamepadTopology&);
 void from_json(const nlohmann::json&, GamepadTopology&);
 void to_json(nlohmann::json&, const GamepadAssignment&);

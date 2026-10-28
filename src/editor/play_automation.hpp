@@ -21,6 +21,8 @@ struct PlayAutomationProviders {
     std::function<bool()> prepare_input;
     std::function<GamepadTopology()> gamepads;
     std::function<GamepadTopology(const GamepadAssignment&)> assign_gamepad;
+    std::function<GamepadMotion()> gamepad_motion;
+    std::function<GamepadMotion(const GamepadSensorConfig&)> configure_gamepad_sensor;
     std::function<bool(const std::string&, const std::string&, const std::optional<std::string>&)>
         ui_command;
 };
@@ -246,6 +248,17 @@ struct PlayAutomation {
                 files.document.check_ownership();
                 return Json(providers.gamepads ? providers.gamepads() : GamepadTopology{});
             }));
+        methods.push_back(automation_method(
+            "play.gamepads.motion",
+            "Read raw controller acceleration (m/s² including gravity) and angular speed "
+            "(rad/s) in the natural device frame: X right, Y up, Z toward the user. "
+            "Supported, enabled and measured are distinct. Samples require routed gameplay "
+            "input; an absent measurement is not measured zero. Read does not advance time.",
+            "play.read", automation_object(), false, [&files, providers](const Json&) {
+                files.document.check_ownership();
+                return Json(providers.gamepad_motion ? providers.gamepad_motion()
+                                                     : GamepadMotion{});
+            }));
         if (!permissions.execute)
             return methods;
         methods.push_back(automation_method(
@@ -275,6 +288,37 @@ struct PlayAutomation {
                                         {"slot", request.at("slot")}}
                                        .get<GamepadAssignment>();
                 return Json(providers.assign_gamepad(value));
+            },
+            true));
+        methods.push_back(automation_method(
+            "play.gamepads.sensor",
+            "Enable or disable a current connection's accelerometer or gyroscope using "
+            "the current revision/device from play.gamepads or play.gamepads.motion. "
+            "Sensors default off. Configuration is transient for this host session, "
+            "advances the shared device revision and has no authored Undo or saved identity.",
+            "play.execute",
+            automation_object(
+                {{"revision", automation_integer(1)},
+                 {"device", automation_text(128, 1)},
+                 {"sensor", {{"type", "string"}, {"enum", {"accelerometer", "gyroscope"}}}},
+                 {"enabled", {{"type", "boolean"}}}},
+                {"revision", "device", "sensor", "enabled"}),
+            true,
+            [&files, providers](const Json& request) {
+                files.document.check_ownership();
+                if (providers.control_unavailable) {
+                    const auto reason = providers.control_unavailable();
+                    if (!reason.empty())
+                        throw AuthoringError("play_busy", reason);
+                }
+                if (!providers.configure_gamepad_sensor)
+                    throw AuthoringError("not_ready", "No native gamepad motion host is available");
+                const auto value = Json{{"revision", request.at("revision")},
+                                        {"device", request.at("device")},
+                                        {"sensor", request.at("sensor")},
+                                        {"enabled", request.at("enabled")}}
+                                       .get<GamepadSensorConfig>();
+                return Json(providers.configure_gamepad_sensor(value));
             },
             true));
         methods.push_back(automation_method(

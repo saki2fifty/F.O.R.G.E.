@@ -1071,6 +1071,28 @@ needs `forge.input` and `forge.transforms`; no custom authored component. Withou
 the optional module, the markers remain authored. Save Scene/Settings, select 92
 as startup, build current source and export. Standalone creates its own
 assignments; connected device tokens are never saved. Four slots, 16 tracked
-connections, legacy active `pad.*` bindings remain supported. Sensors and separate
-per-player UI focus are unavailable. Physical Windows/controller verification is
+connections, legacy active `pad.*` bindings remain supported. Separate per-player UI focus is unavailable. Controller motion uses Gallery93. Physical Windows/controller verification is
 not implied by virtual-device tests.
+
+### 93 — Raw controller motion
+
+`Scenes/93-gamepad-motion.scene.json` shows two markers against a canvas camera.
+Original `CodeExamples/GamepadMotion.cpp` reads copied Game service sensor values,
+not normalized stick actions. Its unscaled `forge_control_GamepadMotion` explicitly
+opts into enabling Player1's supported accelerometer/gyroscope; its fixed
+`forge_register_system_GamepadMotion` displays X/Y at0.2 units per m/s² and1 unit
+per rad/s, bounded to the canvas. Missing measurements reset markers at the next
+fixed update; a paused view needs Step. There is no orientation/fusion estimate.
+Build the installed `gamepad_motion_gameplay` wrapper (`project.gamepad_motion`)
+or register both callbacks in your module. Dependencies are `forge.input`,
+`forge.transforms` and `forge.game`; Game is optional in ordinary simulation,
+where the markers remain neutral. No custom authored component is needed.
+
+In Game, **Gamepads... → Motion sensors** shows native modes/rates; capture input
+and monitor **Console → Controller motion** without surrendering Game focus.
+Modes/tokens are host-session state, never saved hardware identities. Save
+Scene/Settings, select93 as startup, build and export normally. The standalone
+sample enables its own Player1 sensors. Raw acceleration includes gravity;
+physical device support and Windows/MSVC/full Main/game acceptance are separate
+from software/virtual-controller tests. Raw touch-device sensors, mobile hosting,
+calibration and fusion remain outside this profile.

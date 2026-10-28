@@ -230,6 +230,13 @@ int main(int argc, char** argv) {
             gamepads.rumble(value);
         };
         platform.gamepads = [&] { return gamepads.snapshot(); };
+        platform.gamepad_motion = [&] {
+            const auto state = game.status().value("state", std::string{});
+            return gamepads.motion(focused && (state == "running" || state == "paused"));
+        };
+        platform.gamepad_sensor = [&](const GamepadSensorConfig& value) {
+            gamepads.configure_sensor(value);
+        };
         platform.gamepad_assign = [&](const GamepadAssignment& value) {
             const auto events = gamepads.assign(value);
             const auto state = game.status().value("state", std::string{});
@@ -242,6 +249,7 @@ int main(int argc, char** argv) {
         platform.input_device = [&] { return std::string(gamepads.activity()); };
         platform.settings = [&](const Json& value) { display(window.get(), value.at("display")); };
         platform.cursor = [&](bool capture) {
+            gamepads.route_motion(false);
             touches.reset();
             touch_ui_owned = false;
             if (!capture)
@@ -286,6 +294,7 @@ int main(int argc, char** argv) {
             if (fixture.frame_statistics)
                 fixture.frame_statistics_workflow.poll(window.get());
 #endif
+            gamepads.route_motion(active && focused);
             const auto touch_release = touches.synchronize(active && focused && !touch_ui_owned);
             if (active && !touch_release.empty())
                 game.input(touch_release);
@@ -323,6 +332,7 @@ int main(int argc, char** argv) {
                         ui.key(RmlSDL::ConvertKey(event.key.key), event.key.down, modifiers)) {
                         touches.reset();
                         game.input({{{}, 0, true}});
+                        gamepads.route_motion(false);
                     } else if (!event.key.repeat) {
                         const auto key = sdl_key_control(event.key.scancode);
                         if (!key.empty())
@@ -357,6 +367,7 @@ int main(int argc, char** argv) {
                     }
                     if (consumed) {
                         touches.reset();
+                        gamepads.route_motion(false);
                         game.input({{{}, 0, true}});
                     } else if (!sdl_touch_mouse_event(event)) {
                         const char* control =
@@ -433,12 +444,13 @@ int main(int argc, char** argv) {
                 } else if (now > deadline)
                     throw std::runtime_error("Scene preparation timed out before activation");
             } else if (active) {
-                game_controls.sample_time(now);
                 if (command_generation != presentation.generation()) {
+                    gamepads.route_motion(false);
                     gamepads.stop_rumble();
                     commands.reset(presentation.session(), presentation.generation());
                     command_generation = presentation.generation();
                 }
+                game_controls.sample_time(now);
                 if (auto command = ui.pending_command()) {
                     auto ack = commands.dispatch(*command, [&](const Json& request) {
                         auto service = std::static_pointer_cast<UiRuntime>(

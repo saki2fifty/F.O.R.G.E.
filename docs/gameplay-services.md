@@ -292,6 +292,7 @@ target with their own host.
 | `input_contexts` | `active` array | Replace active context set and neutralize old input |
 | `rumble` | numeric `low`/`high`0..1, integer `duration_ms`0..5000, optional `slot` 0..4 | Request bounded feedback; omitted/0 targets active,1..4 targets a logical player. Zero strengths with slot 0 stop all owned feedback; a numbered Stop affects one slot |
 | `gamepad_assign` | current `revision`, opaque `device`, integer `slot` 0..4 | Reassign a live connection;0 unassigns. The platform owner neutralizes affected slots and stops their feedback; stale connection/revision or native Stop failure rejects |
+| `gamepad_sensor` | current `revision`, opaque `device`, `sensor` accelerometer/gyroscope, Boolean `enabled` | Configure a supported live sensor; changed modes advance the device revision. Raw data requires native gameplay routing; no saved hardware identity |
 | `cursor` | `capture` | Request host capture/release; capture requires an adapter and focus |
 | `ui_navigation` | `direction`: next/previous/accept | Native RmlUi focus traversal/activation where supplied |
 | `rebind_begin` | `action`, `index`, optional `gamepad_slot`0..4 | Listen for a candidate; infer the gamepad namespace from the old binding unless supplied. Other players/aliases cannot capture it; keyboard/mouse/touch remain eligible |
@@ -410,3 +411,26 @@ cancellation and request-scope rules. Physical action happens once; dropping a
 completed receipt does not roll it back. Query reflects the latest observed
 topology and may follow the acknowledgement by a host publication interval.
 No C ABI callback/table/layout change or native dependency update is required.
+
+## Raw controller sensors
+
+`game_query.gamepad_motion` copies the raw controller observation described in
+[input](input.md); `gamepad_sensor_host` reports an actual configuration adapter,
+not hardware support. All platform adapters may be absent; unavailable differs
+from an available host with no devices or an enabled sensor with no measurement.
+The existing `gamepad_sensor` request takes current `revision`, opaque `device`,
+`sensor` (`accelerometer` or `gyroscope`) and Boolean `enabled`. Query immediately
+before constructing a request, inspect its scoped receipt and release it. A mode
+change advances the shared device/configuration revision; refresh before another
+configuration or assignment. Modes and tokens are transient, without authored
+Undo. Reads do not tick the simulation.
+
+GameHostControls delegates synchronous native configuration or a polled SDK
+`gamepad_sensor` effect. Value/receipt rules use the existing session/token/
+sequence/epoch path. Changed mode metadata does not advance the cursor epoch;
+its own acknowledgement remains valid. Data/configuration share GameInput and
+SdlGamepads with UI and automation. Core DTOs stay outside the installed SDK;
+clients use the existing copied Game JSON callbacks, without a C ABI change.
+The public `gamepad_motion_gameplay` example opts into supported Player1 sensors
+from unscaled controls and shows raw X/Y values on Gallery93 at fixed updates.
+The ordinary simulation profile without Game leaves its markers neutral.

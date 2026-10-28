@@ -2257,6 +2257,10 @@ int main(int argc, char** argv) {
                 return true;
             };
             play_providers.gamepads = [&] { return game_input.gamepads(); };
+            play_providers.gamepad_motion = [&] { return game_input.gamepad_motion(play); };
+            play_providers.configure_gamepad_sensor = [&](const forge::GamepadSensorConfig& value) {
+                return game_input.configure_gamepad_sensor(play, value);
+            };
             play_providers.assign_gamepad = [&](const forge::GamepadAssignment& value) {
                 return game_input.assign_gamepad(play, value);
             };
@@ -6748,6 +6752,7 @@ int main(int argc, char** argv) {
                     ImGui::TextWrapped("%s", play.status().c_str());
                     if (play.active()) {
                         forge::draw_input_monitor(play);
+                        forge::draw_motion_monitor(game_input, play);
                         const auto& timing = play.timing();
                         ImGui::Text(
                             "Tick: %llu | Fixed: %.0f Hz | Dropped: %llu | Clamped: %.3f s",

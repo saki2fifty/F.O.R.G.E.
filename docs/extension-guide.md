@@ -630,3 +630,30 @@ X±6/Y±3. Read `ForgeSdkActionV1::pressed`, not held, for each recognition puls
 Double tap also emits Tap; this example gives reset precedence. The classifier is
 owned by the physical input adapter; SDK/MCP semantic injection sends1/0 pulses
 directly and does not simulate an OS contact. Source values remain unchanged.
+
+## Raw controller motion example
+
+The installed `gamepad_motion_gameplay` sample wraps the original Gallery93
+`GamepadMotion.cpp`. Register its fixed system and unscaled control callback.
+It optionally admits Game, queries current motion capabilities, requests enabling
+supported Player1 sensors, inspects/releases receipts and refreshes the shared
+device revision between configuration requests. A failure at the same revision
+is not retried continuously. No C ABI changes or private core input headers are
+required: the module uses copied Game JSON and public transforms.
+
+`gamepad_motion:{available,routed,revision,active,devices}` contains raw sensor
+records `accelerometer`/`gyroscope`, each with supported/enabled/measured, rate_hz,
+timestamp_ns, sensor_timestamp_ns and value[3]. Acceleration is m/s² including
+gravity, gyro rad/s; natural device axes Xright/Yup/Ztoward user. Rates0 and sensor
+timestamp0 mean unknown. Event timestamps are nanoseconds, with positive values
+only for a measured sample. Unmeasured records have zero vectors/timestamps;
+measured zero remains distinct. No orientation/calibration/fusion is supplied.
+
+The `gamepad_sensor` request takes current revision/device, sensor and Boolean
+enabled. A changed mode advances the same revision as gamepad assignment. Read
+again before another request and never persist tokens. Capture/focus/Stop clear
+readings; raw data needs a fresh native event in current routing. Desktop SDK
+Play and standalone compose this host profile; ordinary simulation without Game
+leaves the example neutral. The fixed sample maps X/Y at0.2/1 world units per SI
+unit and bounds display positions to the canvas. Source-free export keeps Scene
+and Sprite identities; native configuration is repeated in the new host.

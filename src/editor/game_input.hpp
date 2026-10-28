@@ -64,6 +64,8 @@ class GameInput {
             }
             captured_ = true;
             relative_capture_ = false;
+            observe_input_reset(play);
+            pads_.route_motion(true);
             capture_error_.clear();
             return true;
         }
@@ -94,6 +96,8 @@ class GameInput {
         }
         captured_ = true;
         relative_capture_ = relative_mode;
+        observe_input_reset(play);
+        pads_.route_motion(true);
         capture_error_.clear();
         return true;
     }
@@ -103,6 +107,7 @@ class GameInput {
     // the physical cursor is freed. Headless (no cursor) clears routing
     // when keep_routing=false; retains it otherwise.
     void release(PlaySession& play, bool keep_routing) {
+        release_motion(play);
         touches_.reset();
         stop_rumble();
         if (cursor_) {
@@ -129,6 +134,7 @@ class GameInput {
     // down/up pair). The keep_routing flag controls only whether the
     // logical captured flag is retained for menu routing.
     bool release_checked(PlaySession& play, bool keep_routing = false) {
+        release_motion(play);
         touches_.reset();
         stop_rumble();
         if (!cursor_) {
@@ -203,7 +209,11 @@ class GameInput {
                 release(play);
         }
         session_ = play.session();
-        observe_touch_reset(play);
+        if (motion_generation_ != play.world_generation()) {
+            pads_.route_motion(false);
+            motion_generation_ = play.world_generation();
+        }
+        observe_input_reset(play);
         for (const auto& value : touches_.synchronize(captured_ && play.ready(), touch_viewport()))
             play.input_event(value);
         if (devices_dirty_) {
@@ -212,14 +222,19 @@ class GameInput {
                 play.input_event(value);
         }
         play.observe_gamepads(pads_.snapshot());
+        pads_.route_motion(captured_ && play.ready());
+        play.observe_gamepad_motion(gamepad_motion(play));
     }
     void finish_events(PlaySession& play, std::optional<Uint64> now = {}) {
-        observe_touch_reset(play);
+        observe_input_reset(play);
         for (const auto& value : now ? touches_.advance(*now) : touches_.advance())
             play.input_event(value);
+        play.observe_gamepads(pads_.snapshot());
+        play.observe_gamepad_motion(gamepad_motion(play));
     }
     // Returns true for input owned by gameplay. Window/lifecycle events still reach the UI.
     bool event(const SDL_Event& e, PlaySession& play) {
+        observe_input_reset(play);
         const auto pad_events = pads_.event(e, captured_ && play.ready(), SDL_GetTicks());
         for (const auto& value : pad_events)
             play.input_event(value);
@@ -249,7 +264,6 @@ class GameInput {
         }
         if (!pad_events.empty() && e.type != SDL_EVENT_GAMEPAD_REMOVED)
             return true;
-        observe_touch_reset(play);
         for (const auto& value : touches_.event(e, captured_ && play.ready(), touch_viewport()))
             play.input_event(value);
         if (touches_.owns(e) || (captured_ && sdl_touch_mouse_event(e)))
@@ -425,6 +439,16 @@ class GameInput {
     }
     void stop_rumble() noexcept { pads_.stop_rumble(); }
     GamepadTopology gamepads() const { return pads_.snapshot(); }
+    GamepadMotion gamepad_motion(const PlaySession& play) const {
+        return pads_.motion(captured_ && play.ready());
+    }
+    GamepadMotion configure_gamepad_sensor(PlaySession& play, const GamepadSensorConfig& value) {
+        pads_.configure_sensor(value);
+        play.observe_gamepads(pads_.snapshot());
+        auto result = gamepad_motion(play);
+        play.observe_gamepad_motion(result);
+        return result;
+    }
     GamepadTopology assign_gamepad(PlaySession& play, const GamepadAssignment& value) {
         // Reassigning at most two 21-control namespaces must not overflow and
         // trigger the queue's global emergency reset after a physical edit.
@@ -434,6 +458,7 @@ class GameInput {
             play.input_event(event);
         auto result = pads_.snapshot();
         play.observe_gamepads(result);
+        play.observe_gamepad_motion(gamepad_motion(play));
         return result;
     }
     void controls(PlaySession& play) {
@@ -475,6 +500,48 @@ class GameInput {
                     }
                 }
                 FORGE_UI_PROBE("gamepad:slot:" + device.device);
+                const auto motion = gamepad_motion(play);
+                const auto found =
+                    std::find_if(motion.devices.begin(), motion.devices.end(),
+                                 [&](const auto& row) { return row.device == device.device; });
+                const bool show_motion = ImGui::TreeNode("Motion sensors");
+                FORGE_UI_PROBE("gamepad:motion:" + device.device);
+                if (show_motion) {
+                    ImGui::TextWrapped(
+                        "Motion sensors default off. Enabling is temporary. Raw data "
+                        "requires captured gameplay input; capture again after closing this menu.");
+                    if (found != motion.devices.end())
+                        for (auto kind :
+                             {GamepadSensorKind::Accelerometer, GamepadSensorKind::Gyroscope}) {
+                            const auto& sensor = kind == GamepadSensorKind::Accelerometer
+                                                     ? found->accelerometer
+                                                     : found->gyroscope;
+                            const auto label = std::string(gamepad_sensor_name(kind));
+                            bool enabled = sensor.enabled;
+                            ImGui::BeginDisabled(!sensor.supported);
+                            const auto* title = kind == GamepadSensorKind::Accelerometer
+                                                    ? "Accelerometer"
+                                                    : "Gyroscope";
+                            if (ImGui::Checkbox(title, &enabled)) {
+                                try {
+                                    configure_gamepad_sensor(
+                                        play, {gamepads().revision, device.device, kind, enabled});
+                                    assignment_error_.clear();
+                                } catch (const std::exception& error) {
+                                    assignment_error_ = error.what();
+                                }
+                            }
+                            FORGE_UI_PROBE("gamepad:sensor:" + label + ":" + device.device);
+                            ImGui::EndDisabled();
+                            if (!sensor.supported)
+                                ImGui::TextUnformatted("Not supported by this controller.");
+                            else if (sensor.rate_hz > 0)
+                                ImGui::Text("Reported rate: %.1f Hz", sensor.rate_hz);
+                            else
+                                ImGui::TextUnformatted("Reported rate: unknown");
+                        }
+                    ImGui::TreePop();
+                }
                 ImGui::EndDisabled();
                 ImGui::PopID();
             }
@@ -510,19 +577,26 @@ class GameInput {
     }
 
   private:
+    void release_motion(PlaySession& play) {
+        pads_.route_motion(false);
+        play.observe_gamepad_motion(pads_.motion(false));
+    }
     std::optional<SdlTouches::Viewport> touch_viewport() const {
         if (!bounded_)
             return {};
         return SdlTouches::Viewport{origin_.x, origin_.y, size_.x, size_.y};
     }
-    void observe_touch_reset(const PlaySession& play) {
+    void observe_input_reset(const PlaySession& play) {
         if (touch_reset_serial_ != play.input_reset_serial()) {
             touches_.reset();
+            pads_.route_motion(false);
+            pads_.route_motion(captured_ && play.ready());
             touch_reset_serial_ = play.input_reset_serial();
         }
     }
     SdlTouches touches_;
     std::uint64_t touch_reset_serial_ = 0;
+    std::uint64_t motion_generation_ = 0;
     ImVec2 origin_{}, size_{};
     bool bounded_ = false;
     SdlGamepads pads_;
@@ -533,6 +607,51 @@ class GameInput {
          relative_capture_ = false;
     std::string session_;
 };
+inline void draw_motion_monitor(const GameInput& input, const PlaySession& play) {
+    if (!ImGui::CollapsingHeader("Controller motion"))
+        return;
+    const auto motion = input.gamepad_motion(play);
+    if (!motion.available) {
+        ImGui::TextUnformatted("No native controller motion host.");
+        return;
+    }
+    ImGui::TextUnformatted(motion.routed ? "Gameplay input routed"
+                                         : "Capture gameplay input for raw samples.");
+    const auto topology = input.gamepads();
+    for (const auto& device : motion.devices) {
+        const auto found =
+            std::find_if(topology.devices.begin(), topology.devices.end(),
+                         [&](const auto& row) { return row.device == device.device; });
+        if (found != topology.devices.end())
+            ImGui::TextWrapped("Player %u: %s", device.slot, found->name.c_str());
+        for (auto kind : {GamepadSensorKind::Accelerometer, GamepadSensorKind::Gyroscope}) {
+            const auto& sensor =
+                kind == GamepadSensorKind::Accelerometer ? device.accelerometer : device.gyroscope;
+            const auto* title =
+                kind == GamepadSensorKind::Accelerometer ? "Acceleration" : "Angular speed";
+            if (!sensor.supported)
+                ImGui::Text("%s: not supported", title);
+            else if (!sensor.enabled)
+                ImGui::Text("%s: disabled", title);
+            else if (!sensor.measured)
+                ImGui::Text("%s: enabled; no sample in this capture interval", title);
+            else {
+                ImGui::Text("%s: X %.3f  Y %.3f  Z %.3f %s", title, sensor.value[0],
+                            sensor.value[1], sensor.value[2],
+                            kind == GamepadSensorKind::Accelerometer ? "m/s²" : "rad/s");
+                ImGui::Text("Event: %llu ns | Sensor: %llu ns",
+                            static_cast<unsigned long long>(sensor.timestamp_ns),
+                            static_cast<unsigned long long>(sensor.sensor_timestamp_ns));
+            }
+        }
+    }
+    if (motion.devices.empty())
+        ImGui::TextUnformatted("No connected controllers.");
+    ui::help("Latest raw device-frame readings since capture/configuration. Acceleration includes "
+             "gravity; "
+             "gyroscope values are angular speed. This is not calibrated orientation. Reading does "
+             "not tick Play.");
+}
 inline void draw_input_monitor(const PlaySession& play) {
     if (!ImGui::CollapsingHeader("Gameplay input"))
         return;

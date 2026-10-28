@@ -31,10 +31,42 @@ std::uint32_t gamepad_slot_value(const Json& value) {
         throw std::runtime_error("Gamepad slot must be an integer in 0..4");
     return value.get<std::uint32_t>();
 }
-std::uint64_t gamepad_revision_value(const Json& value) {
-    if (!value.is_number_integer() || value < 0)
-        throw std::runtime_error("Gamepad revision must be an unsigned integer");
+std::uint64_t gamepad_unsigned(const Json& value, const char* field = "revision") {
+    if (!value.is_number_integer() ||
+        (!value.is_number_unsigned() && value.get<std::int64_t>() < 0))
+        throw std::runtime_error(std::string("Gamepad ") + field + " must be an unsigned integer");
     return value.get<std::uint64_t>();
+}
+Json sensor_sample_json(const GamepadSensorSample& sample) {
+    return {{"supported", sample.supported},
+            {"enabled", sample.enabled},
+            {"measured", sample.measured},
+            {"rate_hz", sample.rate_hz},
+            {"timestamp_ns", sample.timestamp_ns},
+            {"sensor_timestamp_ns", sample.sensor_timestamp_ns},
+            {"value", sample.value}};
+}
+GamepadSensorSample read_sensor_sample(const Json& value) {
+    gamepad_record(value, {"supported", "enabled", "measured", "rate_hz", "timestamp_ns",
+                           "sensor_timestamp_ns", "value"});
+    if (!value.at("supported").is_boolean() || !value.at("enabled").is_boolean() ||
+        !value.at("measured").is_boolean() || !value.at("rate_hz").is_number() ||
+        !value.at("value").is_array() || value.at("value").size() != 3)
+        throw std::runtime_error("Invalid gamepad sensor sample record");
+    GamepadSensorSample sample;
+    sample.supported = value.at("supported").get<bool>();
+    sample.enabled = value.at("enabled").get<bool>();
+    sample.measured = value.at("measured").get<bool>();
+    sample.rate_hz = value.at("rate_hz").get<double>();
+    sample.timestamp_ns = gamepad_unsigned(value.at("timestamp_ns"), "timestamp_ns");
+    sample.sensor_timestamp_ns =
+        gamepad_unsigned(value.at("sensor_timestamp_ns"), "sensor_timestamp_ns");
+    for (std::size_t i = 0; i < sample.value.size(); ++i) {
+        if (!value.at("value")[i].is_number())
+            throw std::runtime_error("Gamepad sensor values must be numeric SI coordinates");
+        sample.value[i] = value.at("value")[i].get<double>();
+    }
+    return sample;
 }
 } // namespace
 void GamepadAssignment::validate() const {
@@ -53,7 +85,7 @@ void from_json(const Json& json, GamepadAssignment& value) {
     if (!json.at("device").is_string() ||
         json.at("device").get_ref<const std::string&>().size() > 128)
         throw std::runtime_error("Gamepad device must be a bounded connection token");
-    GamepadAssignment candidate{gamepad_revision_value(json.at("revision")),
+    GamepadAssignment candidate{gamepad_unsigned(json.at("revision")),
                                 json.at("device").get<std::string>(),
                                 gamepad_slot_value(json.at("slot"))};
     candidate.validate();
@@ -100,7 +132,7 @@ void from_json(const Json& json, GamepadTopology& value) {
         throw std::runtime_error("Invalid gamepad topology record");
     GamepadTopology candidate;
     candidate.available = json.at("available").get<bool>();
-    candidate.revision = gamepad_revision_value(json.at("revision"));
+    candidate.revision = gamepad_unsigned(json.at("revision"));
     candidate.active = json.at("active").get<std::string>();
     for (const auto& row : json.at("devices")) {
         gamepad_record(row, {"device", "name", "slot", "connected", "rumble"});
@@ -113,6 +145,136 @@ void from_json(const Json& json, GamepadTopology& value) {
             {row.at("device").get<std::string>(), row.at("name").get<std::string>(),
              gamepad_slot_value(row.at("slot")), row.at("connected").get<bool>(),
              row.at("rumble").get<bool>()});
+    }
+    candidate.validate();
+    value = std::move(candidate);
+}
+std::string_view gamepad_sensor_name(GamepadSensorKind kind) {
+    switch (kind) {
+    case GamepadSensorKind::Accelerometer:
+        return "accelerometer";
+    case GamepadSensorKind::Gyroscope:
+        return "gyroscope";
+    }
+    throw std::runtime_error("Unsupported gamepad sensor kind");
+}
+void GamepadSensorConfig::validate() const {
+    if (!revision || !gamepad_token(device))
+        throw std::runtime_error("Sensor configuration needs a current device/revision");
+    (void)gamepad_sensor_name(sensor);
+}
+void to_json(Json& json, const GamepadSensorConfig& value) {
+    value.validate();
+    json = {{"revision", value.revision},
+            {"device", value.device},
+            {"sensor", gamepad_sensor_name(value.sensor)},
+            {"enabled", value.enabled}};
+}
+void from_json(const Json& json, GamepadSensorConfig& value) {
+    gamepad_record(json, {"revision", "device", "sensor", "enabled"}, {"operation"});
+    if (json.contains("operation") && json.at("operation") != "gamepad_sensor")
+        throw std::runtime_error("Unsupported gamepad sensor operation");
+    if (!json.at("device").is_string() ||
+        json.at("device").get_ref<const std::string&>().size() > 128 ||
+        !json.at("sensor").is_string() || !json.at("enabled").is_boolean())
+        throw std::runtime_error(
+            "Sensor configuration needs a device, sensor kind and enabled flag");
+    GamepadSensorKind kind;
+    if (json.at("sensor") == "accelerometer")
+        kind = GamepadSensorKind::Accelerometer;
+    else if (json.at("sensor") == "gyroscope")
+        kind = GamepadSensorKind::Gyroscope;
+    else
+        throw std::runtime_error("Gamepad sensor must be accelerometer or gyroscope");
+    GamepadSensorConfig candidate{gamepad_unsigned(json.at("revision")),
+                                  json.at("device").get<std::string>(), kind,
+                                  json.at("enabled").get<bool>()};
+    candidate.validate();
+    value = std::move(candidate);
+}
+void GamepadSensorSample::validate(bool routed, bool connected) const {
+    if (!std::isfinite(rate_hz) || rate_hz < 0 || (!supported && (enabled || rate_hz != 0)) ||
+        (enabled && !connected) ||
+        std::any_of(value.begin(), value.end(), [](double axis) { return !std::isfinite(axis); }))
+        throw std::runtime_error("Invalid gamepad sensor support, mode, rate or SI values");
+    if (measured) {
+        if (!supported || !enabled || !routed || !connected || !timestamp_ns)
+            throw std::runtime_error("Gamepad motion requires a fresh routed enabled sample");
+    } else if (timestamp_ns || sensor_timestamp_ns || value != std::array<double, 3>{})
+        throw std::runtime_error("Absent gamepad measurements must not carry stale data");
+}
+void GamepadMotion::validate() const {
+    if (devices.size() > gamepad_device_limit || (!devices.empty() && !revision) ||
+        (!available && (routed || revision || !active.empty() || !devices.empty())))
+        throw std::runtime_error("Invalid gamepad motion host observation");
+    std::set<std::string> tokens;
+    std::set<std::uint32_t> slots;
+    for (const auto& device : devices) {
+        if (!gamepad_token(device.device) || !tokens.insert(device.device).second ||
+            device.slot > gamepad_slot_limit || (device.slot && !slots.insert(device.slot).second))
+            throw std::runtime_error("Invalid gamepad motion connection or slot");
+        device.accelerometer.validate(routed, device.connected);
+        device.gyroscope.validate(routed, device.connected);
+    }
+    if (!active.empty() && !tokens.contains(active))
+        throw std::runtime_error("Active gamepad is absent from the motion observation");
+}
+void GamepadMotion::validate(const GamepadTopology& topology) const {
+    validate();
+    topology.validate();
+    if (available != topology.available || revision != topology.revision ||
+        active != topology.active || devices.size() != topology.devices.size())
+        throw std::runtime_error(
+            "Gamepad motion does not match the current connection observation");
+    for (const auto& device : devices) {
+        const auto found =
+            std::find_if(topology.devices.begin(), topology.devices.end(),
+                         [&](const auto& row) { return row.device == device.device; });
+        if (found == topology.devices.end() || found->slot != device.slot ||
+            (device.connected && !found->connected))
+            throw std::runtime_error("Gamepad motion contains a stale connection or slot");
+        // Native disconnect can occur between the two copied observations.
+        // A fresher disconnected/empty sample is safe; it cannot resurrect a
+        // connection already observed disconnected by the topology owner.
+    }
+}
+void to_json(Json& json, const GamepadMotion& value) {
+    value.validate();
+    Json devices = Json::array();
+    for (const auto& device : value.devices)
+        devices.push_back({{"device", device.device},
+                           {"slot", device.slot},
+                           {"connected", device.connected},
+                           {"accelerometer", sensor_sample_json(device.accelerometer)},
+                           {"gyroscope", sensor_sample_json(device.gyroscope)}});
+    json = {{"available", value.available},
+            {"routed", value.routed},
+            {"revision", value.revision},
+            {"active", value.active},
+            {"devices", std::move(devices)}};
+}
+void from_json(const Json& json, GamepadMotion& value) {
+    gamepad_record(json, {"available", "routed", "revision", "active", "devices"});
+    if (!json.at("available").is_boolean() || !json.at("routed").is_boolean() ||
+        !json.at("active").is_string() ||
+        json.at("active").get_ref<const std::string&>().size() > 128 ||
+        !json.at("devices").is_array() || json.at("devices").size() > gamepad_device_limit)
+        throw std::runtime_error("Invalid gamepad motion record");
+    GamepadMotion candidate;
+    candidate.available = json.at("available").get<bool>();
+    candidate.routed = json.at("routed").get<bool>();
+    candidate.revision = gamepad_unsigned(json.at("revision"));
+    candidate.active = json.at("active").get<std::string>();
+    for (const auto& row : json.at("devices")) {
+        gamepad_record(row, {"device", "slot", "connected", "accelerometer", "gyroscope"});
+        if (!row.at("device").is_string() ||
+            row.at("device").get_ref<const std::string&>().size() > 128 ||
+            !row.at("connected").is_boolean())
+            throw std::runtime_error("Invalid gamepad motion device record");
+        candidate.devices.push_back(
+            {row.at("device").get<std::string>(), gamepad_slot_value(row.at("slot")),
+             row.at("connected").get<bool>(), read_sensor_sample(row.at("accelerometer")),
+             read_sensor_sample(row.at("gyroscope"))});
     }
     candidate.validate();
     value = std::move(candidate);

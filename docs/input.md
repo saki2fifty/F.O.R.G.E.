@@ -20,7 +20,7 @@ Pause does not latch input. Step consumes the pending snapshot once; Resume cons
 
 Hello may carry simulation_hz and input_map; explicit runtime CLI frequency takes precedence. Existing protocol2 callers omitting them retain60Hz/empty-map behavior. Snapshot/Pause/Resume/Step requests may carry at most4096 ordered input_events. Existing session/request IDs reject stale envelopes. PlaySession retains a bounded queue; overflow replaces it with a neutral reset and diagnostic. Scene snapshots/persistence never contain transient input. Restart/recovery starts neutral; live module replacement clears input after successful load.
 
-Capture is explicit in the Game panel during Play. Keyboard/mouse events go exclusively to the captured game except Esc/F6/F7. Release before editor text input; text/popup/file-operation/focus gates release capture. Without capture all editor controls retain their existing routes. SdlGamepads owns up to16 connected SDL handles and four independent logical slots, plus the legacy active-controller alias. Disconnect neutralizes only the affected logical slot and active alias, then closes its handle. Sensors remain deferred; relative-mouse capture is supported through `GameInput::capture_checked(relative_mode=true)` so the cursor is hidden and motion continues without hitting the Game image edge.
+Capture is explicit in the Game panel during Play. Keyboard/mouse events go exclusively to the captured game except Esc/F6/F7. Release before editor text input; text/popup/file-operation/focus gates release capture. Without capture all editor controls retain their existing routes. SdlGamepads owns up to16 connected SDL handles and four independent logical slots, plus the legacy active-controller alias. Disconnect neutralizes only the affected logical slot and active alias, then closes its handle. Raw controller accelerometer/gyroscope observations use the separate motion profile below; relative-mouse capture is supported through `GameInput::capture_checked(relative_mode=true)` so the cursor is hidden and motion continues without hitting the Game image edge.
 
 ## Local controller slots
 
@@ -241,7 +241,7 @@ agent-only input transformations. See[the input guide](../manual/editor/input.md
 
 Editor touch follows current Game capture and image rectangle. GameInput observes PlaySession's local neutral-queue serial, so a UI/automation/overflow reset invalidates platform contacts before subsequent motion. This is a derived queue observation, not another authoritative input state. Focus/capture/Stop also reset contacts. SDL queues touch-generated mouse events before raw finger events. RuntimeUiInput's existing UI-button ownership blocks raw contacts during a claimed pointer gesture; unclaimed contacts reach GameInput, which suppresses synthetic mouse gameplay duplicates. Editor interaction outside capture retains SDL mouse emulation.
 
-The standalone host admits focused, unclaimed raw touch against the full window, with no relative mouse requirement. Existing Rml pointer callbacks claim a touch gesture before its raw finger DOWN; UI claims clear gameplay contacts and neutralize input. While UI owns its pointer gesture, other fingers cannot join gameplay. Focus/cursor/session changes clear contacts. Mouse-generated touch and touch-generated gameplay mouse values are filtered. Sensors/pen data, multiple-player device assignment and mobile hosting are not implemented.
+The standalone host admits focused, unclaimed raw touch against the full window, with no relative mouse requirement. Existing Rml pointer callbacks claim a touch gesture before its raw finger DOWN; UI claims clear gameplay contacts and neutralize input. While UI owns its pointer gesture, other fingers cannot join gameplay. Focus/cursor/session changes clear contacts. Mouse-generated touch and touch-generated gameplay mouse values are filtered. Raw touch-device sensors/pen data, per-player touch-device assignment and mobile hosting are not implemented. Controller accelerometer/gyroscope support is separate.
 
 Original Gallery88 and `TouchInput.hpp/TouchCursor.cpp` use four saved ActionIds, native fixed queries and ordinary Sprite/Transform values. The installed sample builds the same example source rather than copying behavior. Source-free content retains the canvas/image identity; physical/native Windows acceptance is separate.
 
@@ -298,3 +298,52 @@ within the canvas bounds. The installed `touch_gestures_gameplay` sample wraps b
 Gallery89 and91 systems, each scoped to its own Scene/entity. SDK values, C tables,
 ABI and dependency pins remain unchanged. Portable timing/queued-event tests do
 not establish physical touch latency, native Windows/Main or graphical export.
+
+## Raw controller motion
+
+`SdlGamepads` owns standard SDL accelerometers/gyroscopes on the same bounded
+connections as buttons, slots and rumble. `GamepadMotion` is copied physical data,
+not an InputMap control namespace: m/s² including gravity, rad/s angular speed,
+natural X-right/Y-up/Z-toward-user frame; gyro positive counter-clockwise viewed
+from the positive axis. No unit clamping, fusion, calibration or orientation is
+invented. Rates are Hz, zero unknown. SDL event and hardware sensor timestamps
+are unsigned nanoseconds; the latter may be zero/unknown and need not share a
+clock with the event timestamp. Values must be finite. The copied observation
+contains `{available,routed,revision,active,devices}`; each connection has device,
+slot, connected, accelerometer and gyroscope. A sample contains supported,
+enabled, measured, rate_hz, timestamp_ns, sensor_timestamp_ns and three-value
+`value`. Measured zero and absent measurement differ. An absent measurement has
+zero values/timestamps; measured requires connected/supported/enabled/routed and
+a positive event timestamp. It is the latest event received in the current
+routing interval, not a health/calibration claim or a complete sensor event log.
+
+`GamepadSensorConfig` validates current opaque device/revision, sensor name
+`accelerometer`/`gyroscope` and Boolean enabled. Configuration defaults off for a
+new native connection and is transient for this host session, not project data
+or authored Undo. A changed mode advances the same device revision as assignment;
+an idempotent mode does not. Unsupported enable, stale/foreign token/revision or
+native failure rejects. Failed native disable retains the observed mode and
+allows retry. Native device teardown requests disable and logs failure; a driver
+failure cannot promise physical shutdown.
+
+GameInput capture/focus/modal/Stop/input-neutral boundaries clear readings and
+require later native event timestamps. Stop does not persist configuration.
+Native remap and logical assignment clear only affected devices; disconnect
+removes the connection. Reading/masking data never advances time or changes
+routing. Malformed or nonfinite native data clears that sensor's last reading;
+pre-boundary/out-of-order events are ignored. Sensors do not steal the active
+button/stick controller or create action/rebind edges. The standalone composes
+the same owner with focused active Game routing and clears on cursor/UI/world
+boundaries. No mobile host or separate Joy-Con left/right sensor profile is claimed.
+
+SDK Play copies `gamepad_motion` on normal snapshot/pause/resume/step traffic.
+Continuous observations are deliberately absent from priority scheduler work, so
+motion cannot starve a queued clock control. Copied records validate before input
+submission and must match the current (or same-request) topology/revision/tokens/
+slots. A native disconnect may occur between observations: a newer disconnected/empty motion row is accepted against a still-connected topology, while a connected row cannot revive a token already observed disconnected. New topology without a matching motion observation invalidates old data.
+Motion and configuration do not change the cursor epoch or cancel their own
+mode acknowledgement. The existing Game service/platform-effect path owns
+configuration; no C ABI table/value layout or installed header change is needed.
+Ordinary simulation without Game reports raw motion unavailable. The native
+Game popup configures supported sensors; Console's Controller motion view reads
+this same owner only while expanded.

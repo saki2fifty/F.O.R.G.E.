@@ -48,9 +48,15 @@ int main(int argc, char** argv) {
             device.axis_mask = 63;
             device.button_mask = 32767;
             device.name = "FORGE MCP virtual gamepad";
-            for (unsigned player = 0; player < 5; ++player)
+            const std::array<SDL_VirtualJoystickSensorDesc, 2> sensors{
+                {{SDL_SENSOR_ACCEL, 100}, {SDL_SENSOR_GYRO, 200}}};
+            device.sensors = sensors.data();
+            device.SetSensorsEnabled = [](void*, bool) { return true; };
+            for (unsigned player = 0; player < 5; ++player) {
+                device.nsensors = player == 4 ? 0 : 2;
                 if (!SDL_AttachVirtualJoystick(&device))
                     throw std::runtime_error(SDL_GetError());
+            }
         }
         const bool sdk_play = argc == 8 && std::string(argv[7]) == "--sdk";
         if (argc == 8 && !sdk_play)
@@ -153,6 +159,10 @@ int main(int argc, char** argv) {
             };
             controls.prepare_input = [&] { return input.release_checked(play); };
             controls.gamepads = [&] { return input.gamepads(); };
+            controls.gamepad_motion = [&] { return input.gamepad_motion(play); };
+            controls.configure_gamepad_sensor = [&](const forge::GamepadSensorConfig& value) {
+                return input.configure_gamepad_sensor(play, value);
+            };
             controls.assign_gamepad = [&](const forge::GamepadAssignment& value) {
                 return input.assign_gamepad(play, value);
             };

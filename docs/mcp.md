@@ -739,3 +739,25 @@ Tap/Double tap/Hold/Swipe thresholds and cancellation are described in
 [input](input.md). No classifier-specific tool or separate input state is added.
 
 For exact relative observation, pause Play with physical capture released, submit the semantic batch, Step once and read `forge_play_input`. Step again to verify zero relative deltas. Active down/up in one batch retains both digital edges without discarding its movement. Keep existing revision/launch/session/generation guards; relative values do not allow analog deadzones/response curves. No new tools or authoring database.
+
+## Read and configure controller motion
+
+`forge_play_gamepads_motion` reads actual host raw sensor capabilities/modes and
+latest routed measurements, with SI units, nanosecond timestamps and the shared
+device revision. It uses the read grant and does not advance time. An unavailable
+host, unsupported sensor, disabled sensor and no measurement are distinct.
+`forge_play_gamepads_sensor` takes current `revision`, opaque `device`, `sensor`
+(`accelerometer`/`gyroscope`) and Boolean `enabled`, plus existing target/document
+expected revision/mutation sequence. It needs the execution grant, validates
+project ownership, rejects pending native controls/gestures and delegates to the
+same GameInput/SdlGamepads configuration as UI and SDK Game requests. Replay uses
+the existing sequence receipt. Stale/foreign tokens, invalid payloads, unsupported
+enable and native errors reject. This transient edit has no authored Undo and
+saves no device identity. A changed mode increments device revision; query again
+before another edit. Tools neither create hardware nor synthesize sensor events.
+
+Use normal source/build/scene/startup/export tools for the original Gallery93
+`GamepadMotion.cpp` workflow. Installing the example opts into enabling Player1's
+supported sensors through unscaled Game requests. Raw readings require current
+native gameplay routing; injecting an input action does not create a sensor
+measurement. No mobile, calibration, fusion or orientation capability is advertised.

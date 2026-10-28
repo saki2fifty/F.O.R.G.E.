@@ -18,7 +18,7 @@ namespace forge {
 //   effect entry: {token, sequence, epoch, kind, value}
 //   no `session` field on a per-entry basis — the enclosing snapshot
 //   is correlated via PlaySession::session()
-//   `kind` ∈ {"cursor", "navigation", "rumble", "gamepad_assign"}
+//   `kind` ∈ {"cursor", "navigation", "rumble", "gamepad_assign", "gamepad_sensor"}
 //   cursor: value is JSON bool (true = capture, false = release)
 //   navigation: value is JSON string (one of the documented
 //               navigate directions)
@@ -379,6 +379,16 @@ class SdkPlatformEffects {
             } catch (const std::exception& e) {
                 out.accepted = false;
                 out.diagnostic = std::string("play.platform_effects.gamepad_assign: ") + e.what();
+            }
+            return;
+        }
+        if (kind == "gamepad_sensor") {
+            try {
+                game_.configure_gamepad_sensor(play_, raw_value.get<GamepadSensorConfig>());
+                out.accepted = true;
+            } catch (const std::exception& e) {
+                out.accepted = false;
+                out.diagnostic = std::string("play.platform_effects.gamepad_sensor: ") + e.what();
             }
             return;
         }

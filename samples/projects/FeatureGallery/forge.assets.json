@@ -10385,6 +10385,14 @@
       "schema_version": 5,
       "dependencies": [],
       "metadata": {}
+    },
+    {
+      "id": "16800000-1680-4168-8168-168000000000",
+      "type": "scene",
+      "source": "Scenes/93-gamepad-motion.scene.json",
+      "schema_version": 5,
+      "dependencies": [],
+      "metadata": {}
     }
   ],
   "version": 2

@@ -1,18 +1,24 @@
 # README screenshots
 
-## Local gamepad assignments
+## Local controller assignments and sensors
 
-[Assignments](../../../manual/images/gamepad-assignments.png) is the complete
-600×450 native FORGE GameInput popup captured on 2026-10-27 by
-`tests/multiple_gamepads_ui_tests.cpp`, based on 229f1d1aa84c16d0e48500376cc7967e11f8f3d1
-with the local multiple-controller batch applied. The validation receipt records
-exact fixture/widget source hashes and the image. GCC12 Release, Linux, pinned
-Dear ImGui SDL3 software renderer; four actual SDL virtual controllers. The same
-real controls pass mouse opening, keyboard assignment and layout at 1/1.5/2 scales.
-This is an isolated editor-control fixture, not the full Windows Main or physical
-controller/GPU acceptance. Original/canonical PNG SHA256:
-`896fdd258d09e83583598b81c6e3c1bd13532432b31625d7701658c9440737a9`. Full original dimensions/pixels;
-no crop, resize, retouch, generated controls or duplicated image asset.
+[Assignments](../../../manual/images/gamepad-assignments.png) and
+[Motion sensors](../../../manual/images/gamepad-motion.png) are complete600×450
+native FORGE GameInput captures from2026-10-27, based on
+7bf6b3acf2a5992263339b1cf6bcfb2d7e89ad6f with the local raw-motion batch applied.
+`tests/multiple_gamepads_ui_tests.cpp` uses GCC12 Release, Linux, the pinned
+Dear ImGui SDL3 software renderer and four actual SDL virtual controllers with
+native sensor capabilities/rates. The same real widgets pass mouse sensor toggle,
+Tab/Space keyboard toggle, occupied-slot assignment and1/1.5/2-scale layout.
+The validation/capture receipt records exact fixture/owner hashes and images.
+These are isolated editor-control fixtures, not full Windows Main or physical
+controller/GPU acceptance. Original/canonical PNG SHA256 values:
+
+- gamepad-assignments.png: `f4ab28ab2f41807f8123aa9bbcd7bd4267631709e376d75542a113e510d2d5eb`
+- gamepad-motion.png: `56c497f3120183359449c98913a1db8ea48680f5c3dc432106ed3e6faef6e6b8`
+
+Full original PNG bytes/dimensions are preserved, with no crop, resize, retouch,
+generated controls or duplicate canonical image asset.
 
 ## Ordered Sprite frame regions
 

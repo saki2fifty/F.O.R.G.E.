@@ -1,5 +1,23 @@
 # 2026-10-27 — Runtime timing, input, profiling, audio and painted collision
 
+## Raw controller motion
+
+Desktop controller accelerometers and gyroscopes use the existing SDL connection,
+slot, Game service and SDK effect owners. Explicit transient sensor modes share
+the current device revision; raw SI vectors/timestamps remain separate from
+normalized actions. Capture/focus/Stop and scoped remap/assignment boundaries
+require fresh readings. Native **Gamepads... → Motion sensors**, **Console →
+Controller motion**, C++ Game queries/requests and MCP read/configuration use the
+same implementation. No dependency or C ABI table/value layout change.
+
+Original Gallery93 and the installed public **gamepad_motion_gameplay** module
+show raw acceleration/gyroscope X/Y. Installing the example opts into supported
+Player1 sensors through unscaled requests; ordinary simulation without Game stays
+neutral. The manual describes modes, units, captures, source/build/export and
+limits. This local work does not claim calibration/fusion/orientation, a mobile
+host, physical controllers or Windows/Main/game acceptance. No new numbered ZIP
+or remote promotion.
+
 ## Local controller assignments
 
 Four independent `pad.1.*` through `pad.4.*` action namespaces retain existing

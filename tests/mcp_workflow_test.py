@@ -114,9 +114,34 @@ for legacy in (False, True):
                 'forge_script_preview', 'forge_navigation_build', 'forge_navigation_overlay',
                 'forge_dependencies_save'} <= names
         if GAMEPADS_ONLY:
-            assert {'forge_play_gamepads', 'forge_play_gamepads_assign'} <= names
+            assert {'forge_play_gamepads', 'forge_play_gamepads_assign',
+                    'forge_play_gamepads_motion', 'forge_play_gamepads_sensor'} <= names
             devices = until(lambda: read('forge_play_gamepads'), lambda d: d['available'] and len(d['devices']) == 5)
             assert [d['slot'] for d in devices['devices']] == [1,2,3,4,0]
+            motion = read('forge_play_gamepads_motion')
+            assert motion['revision'] == devices['revision'] and not motion['routed']
+            assert motion['devices'][0]['gyroscope']['supported'] and not motion['devices'][4]['gyroscope']['supported']
+            assert not any(d['gyroscope']['enabled'] or d['gyroscope']['measured'] for d in motion['devices'])
+            sensor = dict(revision=motion['revision'],device=motion['devices'][0]['device'],sensor='gyroscope',enabled=True)
+            (root/'gesture').write_text('Native UI gesture')
+            failed(mutate('forge_play_gamepads_sensor',**sensor),'play_busy')
+            (root/'gesture').unlink()
+            command = arguments(**sensor)
+            enabled = client.tool('forge_play_gamepads_sensor',**command)
+            assert enabled['ok'] and enabled['result']['devices'][0]['gyroscope']['enabled'],enabled
+            replay = client.tool('forge_play_gamepads_sensor',**command)
+            assert replay['ok'] and replay['result'] == enabled['result']
+            assert enabled['result']['revision'] == motion['revision']+1 and not enabled['result']['routed']
+            assert not mutate('forge_play_gamepads_sensor',**sensor)['ok']
+            for bad in (dict(sensor='compass'), dict(enabled=1), dict(device='foreign:connection')):
+                invalid = {**sensor, 'revision':enabled['result']['revision'], **bad}
+                assert not mutate('forge_play_gamepads_sensor',**invalid)['ok']
+            assert not mutate('forge_play_gamepads_sensor',revision=enabled['result']['revision'],
+                              device=motion['devices'][4]['device'],sensor='gyroscope',enabled=True)['ok']
+            assert read('forge_play_gamepads_motion') == enabled['result']
+            ok('forge_play_gamepads_sensor',revision=enabled['result']['revision'],device=sensor['device'],
+               sensor='gyroscope',enabled=False)
+            devices = read('forge_play_gamepads')
             controls = {row['id']:row for row in read('forge_play_controls')['controls']}
             assert all(controls[f'pad.{p}.south']['digital'] and
                        controls[f'pad.{p}.left_trigger']['minimum'] == 0 for p in range(1,5))
@@ -168,6 +193,8 @@ for legacy in (False, True):
                 with editor(grant) as (_, limited_config), Client(limited_config, legacy) as limited:
                     granted = {t['name'] for t in limited.request('tools/list')['result']['tools']}
                     assert 'forge_play_gamepads' in granted
+                    assert 'forge_play_gamepads_motion' in granted
+                    assert ('forge_play_gamepads_sensor' in granted) == (grant == 'execute')
                     assert ('forge_play_gamepads_assign' in granted) == (grant == 'execute')
             print(('legacy' if legacy else 'current')+': real virtual-device assignment/scoped neutralization/stale and invalid requests passed')
             continue

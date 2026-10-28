@@ -143,6 +143,7 @@ struct SdkPlayRuntime::State {
     std::uint64_t editor_cursor_epoch = 0;
     std::string editor_input_device = "EditorHost";
     GamepadTopology editor_gamepads;
+    GamepadMotion editor_gamepad_motion;
     std::string last_initial_diagnostic;
     Json settings_error;
     // Pre-captured status / loading snapshots taken outside the
@@ -269,6 +270,11 @@ struct SdkPlayRuntime::State {
             return poll_effect(token, "rumble", Json(value));
         };
         platform.gamepads = [this] { return editor_gamepads; };
+        platform.gamepad_motion = [this] { return editor_gamepad_motion; };
+        platform.gamepad_sensor_poll = [this](std::uint64_t token,
+                                              const GamepadSensorConfig& value) {
+            return poll_effect(token, "gamepad_sensor", Json(value));
+        };
         platform.gamepad_assign_poll = [this](std::uint64_t token, const GamepadAssignment& value) {
             return poll_effect(token, "gamepad_assign", Json(value));
         };
@@ -1149,6 +1155,14 @@ Json SdkPlayRuntime::handle_inner(const Json& request, RuntimeClock::Time now) {
             gamepads = request.at("gamepads").get<GamepadTopology>();
         if (gamepads && gamepads->revision < s.editor_gamepads.revision)
             throw std::runtime_error("Gamepad observation revision cannot move backwards");
+        std::optional<GamepadMotion> motion;
+        if (request.contains("gamepad_motion")) {
+            if (command != "snapshot" && command != "pause" && command != "resume" &&
+                command != "step" && command != "play")
+                throw std::runtime_error("Gamepad motion requires input or clock traffic");
+            motion = request.at("gamepad_motion").get<GamepadMotion>();
+            motion->validate(gamepads ? *gamepads : s.editor_gamepads);
+        }
         // Input events must accompany a snapshot or clock control command,
         // exactly as runtime_main enforces. Empty arrays are rejected.
         if (request.contains("input_events")) {
@@ -1173,6 +1187,17 @@ Json SdkPlayRuntime::handle_inner(const Json& request, RuntimeClock::Time now) {
                 return s.build_error(id, std::string("input submit failed: ") + e.what());
             }
         }
+        if (gamepads) {
+            if (Json(*gamepads) != Json(s.editor_gamepads))
+                s.editor_gamepad_motion = {};
+            s.editor_gamepads = std::move(*gamepads);
+        }
+        if (motion)
+            s.editor_gamepad_motion = std::move(*motion);
+        // A raw reading carried by Step must be visible to that very tick's
+        // Game query. Publishing does not sample time or execute requests.
+        if (gamepads || motion)
+            s.host->publish();
         if (command == "quit") {
             // Explicit protocol quit. Latch immediately so subsequent
             // mutations are blocked; the response carries
@@ -1185,8 +1210,6 @@ Json SdkPlayRuntime::handle_inner(const Json& request, RuntimeClock::Time now) {
         if (command == "ping" || command == "snapshot") {
             // Snapshot consumes ack/epoch side-effects inline.
             if (command == "snapshot") {
-                if (gamepads)
-                    s.editor_gamepads = std::move(*gamepads);
                 if (request.contains("editor_epoch")) {
                     try {
                         s.apply_editor_epoch(request.at("editor_epoch"));

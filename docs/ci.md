@@ -1645,3 +1645,42 @@ Main/physical hardware and new Inspector captures remain separate acceptance gat
 `touch_input` includes queued native SDL centroid/log-distance/angle-aspect and branch-crossing cases, third-contact/pair replacement/coincidence/reset, quick-gesture edges and independent fixed/control one-latch consumption. Actual keep-routing release covers pending gesture neutralization. Settings touch/gesture cases select native controls at3scales; runtime_ui_input retains Rml capture ownership.
 
 `touch_gestures_process` and `native_sdk_touch_gestures_installed` exercise original Gallery89/91's exact C++ canvases, one-time application, bounded pan/scale, both Play hosts, source isolation and neutral restart; the installed module builds the shared example sources. `mcp_touch_gestures_stdio` covers discovery/units, native settings rejection/save and exact paused Step observations in both framings. Sprite Gallery cooks/includes89 and tests its relocated source-free identity/values. Existing raw88 consumers remain covered. Native Main/game_main/MSVC, actual touch hardware and graphical EXE acceptance are separate pending gates.
+
+## Desktop controller motion consumers
+
+`gamepad_motion_values` admits copied physical SI data, complete uint64 nanosecond
+timestamps, independent supported/enabled/measured states and atomic strict JSON
+records. It rejects malformed/unknown fields, nonfinite/stale payloads and stale
+tokens/slots; a fresher disconnected/empty row is safe, while resurrection is not.
+`gamepad_motion_devices` uses real pinned SDL virtual accelerometer/gyroscope
+queues, rates and native mode callbacks through SdlGamepads. It covers independent
+devices, disabled/routed data, pre-capture boundaries, native disable
+failure/retry, scoped remap/reassignment, malformed input, asynchronous disconnect
+between observations, stale tokens and normal teardown disable.
+
+`sdk_play_runtime` exercises copied raw data and sensor configuration over the
+existing scoped effect/ack path, including new revisions without cursor-epoch
+cancellation, invalid metadata and release/clock traffic. `gamepad_motion_process`
+runs the original public Gallery93 module: ordinary simulation is neutral without
+Game, SDK Play handles mode offers/acks and consumes the accompanying raw reading
+in the exact Step tick; paused reads do not advance simulation. The module opts
+into supported Player1 sensors through unscaled Game requests. The installed/
+relocated `native_sdk_gamepad_motion_installed` builds the same public example
+without core input headers. `gamepad_motion_play` additionally drives actual SDL
+sensor events, GameInput and the SDK platform-effects owner through native Play,
+focus/recapture/Stop and continuous-sample clock scheduling.
+
+`multiple_gamepads_ui` covers native mode checkboxes, reported rates, real mouse
+and Tab/Space interaction, occupied-slot assignment and1/1.5/2-scale layouts using
+the pinned ImGui SDL software backend. Captures preserve full original PNGs;
+provenance is in [README screenshots](images/readme/README.md). The same real
+native owner serves `mcp_multiple_gamepads_stdio` query/configuration, busy/grant,
+revision/sequence/replay, unsupported sensor, schema and foreign-token checks in
+both MCP framings. `sprite_gallery` includes Gallery93's source-free Sprite and
+Scene closure/relocation. Manual/package assembly suites remain separate.
+
+These are local CPU/native-library/software-renderer/virtual-controller checks,
+not Windows/MSVC full Main/game_main compilation, physical controller calibration,
+sensor latency, GPU performance or a graphical exported-game acceptance. The
+canonical pending Windows queue remains in the agent audit report. No numbered
+build or ZIP is created by this source-validation profile.

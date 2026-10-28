@@ -347,3 +347,15 @@ once from a registered fixed-step system, inspect its returned request on a late
 tick, and release it after completion. Source assets and the other Map instances
 remain independent. The matching SDK's `tile_physics_gameplay` sample exercises the
 helper through both Play hosts. No C++ module is required for Gallery77 itself.
+
+## Read controller motion
+
+`GamepadMotion.cpp` supplies both a fixed registration hook and the unscaled
+`forge_control_GamepadMotion` callback. Installing it opts into enabling Player1's
+supported sensors through scoped Game requests, inspecting/releasing receipts and
+refreshing revisions between requests. It avoids retry floods after failure at
+the same revision. The fixed system reads one copied query per update and places
+Gallery93's two markers from raw acceleration/gyroscope X/Y. No orientation or
+fusion is calculated. The public `gamepad_motion_gameplay` target wraps the same
+source; it allows Game optionally and leaves markers neutral in a simulation
+profile without that service. Register both callbacks in a custom project.

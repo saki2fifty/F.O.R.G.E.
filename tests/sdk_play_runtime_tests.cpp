@@ -258,6 +258,107 @@ void gamepad_assignment_effects() {
     check(!wire({{"platform_acks", Json::array({ack})}}).value("ok", true),
           "Retired assignment ack replayed");
 }
+void gamepad_motion_effects() {
+    Fixture f;
+    std::string session;
+    auto host = build_activated(f, session);
+    std::uint64_t id = 3;
+    auto wire = [&](Json value, const std::string& command = "snapshot") {
+        value["protocol"] = 2;
+        value["session"] = session;
+        value["id"] = ++id;
+        value["command"] = command;
+        return host->handle(value);
+    };
+    GamepadTopology topology{
+        true, 1, "host:motion", {{"host:motion", "Sensor controller", 1, true, false}}};
+    GamepadMotion motion{
+        true, false, 1, "host:motion", {{"host:motion", 1, true, {}, {true, false, false, 200}}}};
+    check(wire({{"gamepads", topology},
+                {"gamepad_motion", motion},
+                {"editor_epoch",
+                 {{"epoch", 1u}, {"captured", false}, {"input_device", "EditorHost"}}}})
+              .value("ok", false),
+          "Raw sensor capabilities were rejected");
+    host->pump(RuntimeClock::Clock::now());
+    auto service = f.capture.service;
+    check(service->query().at("gamepad_motion") == Json(motion) &&
+              service->query().at("gamepad_sensor_host") == true,
+          "Game service lost raw sensor capabilities or adapter availability");
+    Json request = GamepadSensorConfig{1, "host:motion", GamepadSensorKind::Gyroscope, true};
+    request["operation"] = "gamepad_sensor";
+    const auto token = service->request("game.test", request);
+    host->pump(RuntimeClock::Clock::now());
+    const auto offered = host->live_effects();
+    check(offered.size() == 1 && offered[0].at("kind") == "gamepad_sensor" &&
+              offered[0].at("value") ==
+                  Json(GamepadSensorConfig{1, "host:motion", GamepadSensorKind::Gyroscope, true}),
+          "Sensor mode did not use the existing scoped effect queue");
+    auto bad = Json(motion);
+    bad["devices"][0]["gyroscope"]["measured"] = true;
+    check(!wire({{"gamepad_motion", bad},
+                 {"input_events", Json::array({{{"control", ""}, {"value", 0}, {"reset", true}}})}})
+               .value("ok", true),
+          "Unmeasured/disabled sensor accepted fabricated data");
+    host->pump(RuntimeClock::Clock::now());
+    check(service->query().at("gamepad_motion") == Json(motion) && host->live_effects() == offered,
+          "Bad sensor packet changed the observation or cancelled a mode request");
+    motion.revision = topology.revision = 2;
+    motion.devices[0].gyroscope.enabled = true;
+    Json ack{{"session", session}, {"token", token},   {"sequence", offered[0].at("sequence")},
+             {"epoch", 1u},        {"accepted", true}, {"diagnostic", ""}};
+    check(wire({{"gamepads", topology},
+                {"gamepad_motion", motion},
+                {"platform_acks", Json::array({ack})}})
+              .value("ok", false),
+          "New configuration revision cancelled its own sensor acknowledgement");
+    host->pump(RuntimeClock::Clock::now());
+    check(service->inspect("game.test", token).state == "succeeded" && host->editor_epoch() == 1,
+          "Sensor configuration changed cursor epoch or lost its receipt");
+    service->release("game.test", token);
+    motion.routed = true;
+    auto& gyro = motion.devices[0].gyroscope;
+    gyro.measured = true;
+    gyro.timestamp_ns = 123456789;
+    gyro.sensor_timestamp_ns = 987654321;
+    gyro.value = {.25, -1.5, 2.5};
+    check(wire({{"gamepad_motion", motion}}, "pause").value("ok", false),
+          "Clock traffic rejected the accompanying raw sample");
+    host->pump(RuntimeClock::Clock::now());
+    const auto read = service->query();
+    check(read.at("gamepad_motion") == Json(motion) && service->query() == read,
+          "Raw SI sample changed or read advanced state/time");
+    auto stale = motion;
+    stale.devices[0].slot = 2;
+    check(!wire({{"gamepad_motion", stale}}).value("ok", true),
+          "Stale slot sensor data bypassed current topology validation");
+    check(!wire({{"gamepad_motion", motion}}, "ping").value("ok", true),
+          "Motion payload was accepted on an unrelated command");
+    motion.routed = false;
+    gyro.measured = false;
+    gyro.timestamp_ns = gyro.sensor_timestamp_ns = 0;
+    gyro.value = {};
+    check(wire({{"gamepad_motion", motion}}, "step").value("ok", false),
+          "Step rejected a routing-release observation");
+    host->pump(RuntimeClock::Clock::now());
+    check(service->query().at("gamepad_motion") == Json(motion),
+          "Step reused a raw sample after capture was released");
+    auto disconnected = motion;
+    disconnected.devices[0].connected = false;
+    disconnected.devices[0].gyroscope = {};
+    check(wire({{"gamepad_motion", disconnected}}).value("ok", false),
+          "A native disconnect between observations faulted an otherwise valid request");
+    topology.devices[0].connected = false;
+    check(wire({{"gamepads", topology}, {"gamepad_motion", disconnected}}).value("ok", false),
+          "Disconnected motion/topology observation was rejected");
+    check(!wire({{"gamepad_motion", motion}}).value("ok", true),
+          "An older raw observation resurrected a disconnected connection");
+    ++topology.revision;
+    check(wire({{"gamepads", topology}}).value("ok", false), "Legacy topology update failed");
+    host->pump(RuntimeClock::Clock::now());
+    check(!service->query().at("gamepad_motion").at("available").get<bool>(),
+          "Topology-only update retained stale sensor data");
+}
 void rumble_platform_effects() {
     Fixture f;
     std::string session;
@@ -2430,6 +2531,7 @@ int run() {
         platform_settings_applies_audio_and_input();
         rumble_platform_effects();
         gamepad_assignment_effects();
+        gamepad_motion_effects();
         live_cpu_profile_controls();
         live_audio_mix_controls();
         game_control_queue_pending_query_consults_active_endpoint();

@@ -90,6 +90,36 @@ void widgets(const std::filesystem::path& output, float scale) {
             check(SDL_SavePNG(surface.get(), (output / "gamepad-assignments.png").string().c_str()),
                   SDL_GetError());
         }
+        const auto motion_control = "gamepad:motion:" + initial.devices[0].device;
+        click(motion_control);
+        frame();
+        frame();
+        const auto sensor_control = "gamepad:sensor:gyroscope:" + initial.devices[0].device;
+        const auto revision = input.gamepads().revision;
+        click(sensor_control);
+        check(input.gamepad_motion(play).devices[0].gyroscope.enabled &&
+                  !input.gamepad_motion(play).devices[0].gyroscope.measured &&
+                  input.gamepads().revision == revision + 1,
+              "Native sensor checkbox lost its mode/revision or fabricated a measurement");
+        if (scale == 1)
+            check(SDL_SavePNG(surface.get(), (output / "gamepad-motion.png").string().c_str()),
+                  SDL_GetError());
+        // Mouse focus need not enable the visible keyboard navigation cursor.
+        // Reach the actual checkbox with Tab, without setting internal nav state.
+        io.AddMousePosEvent(-100, -100);
+        key(ImGuiKey_Tab);
+        for (unsigned step = 0; step < 32 && ImGui::GetCurrentContext()->NavId !=
+                                                 test::ui_targets.at(sensor_control).id;
+             ++step)
+            key(ImGuiKey_Tab);
+        check(ImGui::GetCurrentContext()->NavId == test::ui_targets.at(sensor_control).id,
+              "Keyboard navigation could not reach the motion sensor checkbox");
+        key(ImGuiKey_Space);
+        check(!input.gamepad_motion(play).devices[0].gyroscope.enabled,
+              "Keyboard toggle failed to disable the native motion sensor");
+        click(motion_control);
+        frame();
+        frame();
         click(slot_control);
         key(ImGuiKey_End);
         key(ImGuiKey_Enter);
@@ -119,6 +149,11 @@ int main(int argc, char** argv) {
         device.axis_mask = 63;
         device.button_mask = 32767;
         device.name = "FORGE virtual controller";
+        const std::array<SDL_VirtualJoystickSensorDesc, 2> sensors{
+            {{SDL_SENSOR_ACCEL, 100}, {SDL_SENSOR_GYRO, 200}}};
+        device.nsensors = 2;
+        device.sensors = sensors.data();
+        device.SetSensorsEnabled = [](void*, bool) { return true; };
         for (unsigned player = 0; player < 4; ++player)
             check(SDL_AttachVirtualJoystick(&device) != 0, SDL_GetError());
         for (float scale : {1.f, 1.5f, 2.f})

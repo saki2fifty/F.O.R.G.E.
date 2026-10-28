@@ -69,7 +69,7 @@ depends on the device and driver.
 - Unexpected contact number: a lower-numbered finger lifted and a new finger reused that free slot. Use contact-down/release transitions to track your own gesture.
 - Coordinates change near corners: use separate axis1 actions with zero deadzone and scale1.
 - Marker stays still: the Scene alone displays the authored marker. Build/register the optional C++ system, retain the Gallery ActionIds and capture Game input.
-- Native touch contacts, two-finger pan/pinch/rotation and single-finger classifications are supported in the desktop host. Pen data, sensors, mobile application packaging and per-player touch-device assignment are unavailable.
+- Native touch contacts, two-finger pan/pinch/rotation and single-finger classifications are supported in the desktop host. Pen data, raw touch-device sensors, mobile application packaging and per-player touch-device assignment are unavailable.
 
 ## Tap, hold and swipe actions
 
@@ -152,3 +152,5 @@ Gesture results depend on the touch driver supplying distinct finger positions;
 pressure is unnecessary for pan, pinch and rotation. Tap, double-tap, long-press
 and swipe classification use the single-contact controls described earlier in
 this guide. Inertia is unavailable.
+
+Controller accelerometers and gyroscopes use [Controller motion](input.md).
