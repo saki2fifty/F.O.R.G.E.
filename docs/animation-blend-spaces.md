@@ -107,6 +107,4 @@ original FORGE column; Gallery65 adds five two-axis positions, including two
 three-way interiors. Source-free relocated export needs no glTF or source JSON.
 Native Windows fixtures and physical acceptance are separate from local validation.
 
-Concept references only: [Godot's BlendSpace1D documentation](https://docs.godotengine.org/en/stable/classes/class_animationnodeblendspace1d.html)
-and [BlendSpace2D documentation](https://docs.godotengine.org/en/stable/classes/class_animationnodeblendspace2d.html).
 FORGE uses original source and its existing pinned Ozz sampling/blending dependency.

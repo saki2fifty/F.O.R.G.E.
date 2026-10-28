@@ -113,17 +113,8 @@ These are placement requirements, **not implemented features**.
 | Networking | Future project/runtime tools | Contextual diagnostics; no permanent default panel |
 | Version control | Optional tools/status integration | No permanent default panel |
 
-## Reference evidence
-
-Only Unity, Unreal and Godot inform game-editor conventions in this pass. FORGE keeps its own commands, ECS model and keybindings.
-
-- [Unreal viewport toolbar](https://dev.epicgames.com/documentation/en-us/unreal-engine/viewport-toolbar): task groups and viewport-local tools/overflow.
-- [Unreal Content Browser](https://dev.epicgames.com/documentation/en-us/unreal-engine/content-browser-in-unreal-engine): assets have a shared discovery home.
-- [Godot Inspector](https://docs.godotengine.org/en/stable/tutorials/editor/inspector_dock.html): contextual property inspection and resource editing.
-- [Unity positioning tools](https://docs.unity.com/en-us/engine/6000.7/manual/working-with-scenes/scenes-manage-gameobjects/positioning-game-objects): transform modes have toolbar and keyboard access. FORGE preserves its own R/S bindings.
-
-Implementation APIs are checked against the exact pinned upstream sources listed in [Editor UI](editor-ui.md); reference-editor conventions do not authorize dependency or authority changes.
-
+Implementation APIs are checked against the exact pinned upstream sources listed
+in [Editor UI](editor-ui.md). FORGE keeps its own commands, ECS model and keybindings.
 
 ## Supporting workspace and small windows
 

@@ -9,7 +9,7 @@ trailing whitespace. This asset may be used commercially. No Blender add-on or p
 
 Original Standard archive SHA256:
 `cc73fc4e495b82958207316596317a3f40b9fa38065bde1027937452da537724`.
-Source member: `Unreal-Godot/UAL1_Standard.glb`, with movement kept in place.
+Source member: `UAL1_Standard.glb`, with movement kept in place.
 The `_RM` root-motion variant is not used.
 
 `QuaterniusLocomotion.glb` retains the original mesh, skin, rest hierarchy and
