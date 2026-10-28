@@ -9,6 +9,12 @@ still governs DiligentFX effects and future history; motion/depth history, tempo
 AA, SSAO and reflections remain separate work. Windows acceptance is separate from
 local Vulkan pixel checks.
 
+[Automatic exposure](scene-auto-exposure.md) independently meters composed Game
+HDR color into a scalar GPU gain history through the existing frame/display owner.
+It needs compute support and explicit unscaled time/reset rules, but no motion,
+depth or upstream PostFXContext. This does not satisfy the temporal inputs below
+or expose the pinned upstream effects as working features.
+
 Verified2026-09-22 against pinned DiligentFX
 `aaa41d47a101d0bf1d12267c4a85b2d9b38cd1da`. This is an integration audit,
 not a claim that every linked upstream effect is available in FORGE.

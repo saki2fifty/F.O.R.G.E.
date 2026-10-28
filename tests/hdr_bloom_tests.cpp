@@ -1,5 +1,7 @@
 #include "asset_reference_impact.hpp"
+#include "auto_exposure_plan.hpp"
 #include "hdr_bloom_plan.hpp"
+#include "scene_auto_exposure_tests.hpp"
 #include "scene_color_tests.hpp"
 #include <forge/authoring.hpp>
 #include <forge/scene_render_settings.hpp>
@@ -92,12 +94,44 @@ void settings_and_history() {
     check(reopened.document() == good && scene_render_settings(reopened.document()).bloom.enabled,
           "Reopened Scene lost bloom intent");
 }
+void exposure_plans() {
+    const auto single = auto_exposure_plan(1, 1, 16384);
+    check(single.sample_width == 1 && single.sample_height == 1 && single.groups_x == 1 &&
+              single.groups_y == 1,
+          "Single-pixel metering plan is empty");
+    const auto odd = auto_exposure_plan(17, 9, 16384);
+    check(odd.sample_width == 17 && odd.sample_height == 9 && odd.groups_x == 2 &&
+              odd.groups_y == 2,
+          "Partial exposure tiles were truncated");
+    const auto large = auto_exposure_plan(3840, 2160, 16384);
+    check(large.sample_width == 256 && large.sample_height == 256 && large.groups_x == 16 &&
+              large.groups_y == 32 && auto_exposure_payload_bytes == 262224,
+          "Metering work or exact buffer payload escaped the fixed profile");
+    const auto row = auto_exposure_plan(16384, 1, 16384);
+    check(row.sample_width == 256 && row.sample_height == 1 && row.groups_y == 1,
+          "Thin HDR sources changed metering bounds");
+    rejects([&] { auto_exposure_plan(0, 1, 16384); });
+    rejects([&] { auto_exposure_plan(1, 0, 16384); });
+    rejects([&] { auto_exposure_plan(16385, 1, 16384); });
+    rejects([&] { auto_exposure_plan(1, 1, 0); });
+    rejects([&] { auto_exposure_plan(UINT32_MAX, 1, UINT32_MAX); });
+    check(auto_exposure_timing({}, 4).reset && auto_exposure_timing({}, 4).delta == 0 &&
+              !auto_exposure_timing(3, 3).reset && auto_exposure_timing(3, 3).delta == 0 &&
+              auto_exposure_timing(3, 3.125).delta == .125f &&
+              auto_exposure_timing(3, 400).delta == .25f && auto_exposure_timing(400, 3).reset,
+          "Exposure timing sampled simulation, advanced equal timestamps or missed a rewind");
+    rejects([&] { auto_exposure_timing({}, -1); });
+    rejects([&] { auto_exposure_timing({}, std::numeric_limits<double>::infinity()); });
+    rejects([&] { auto_exposure_timing(std::numeric_limits<double>::quiet_NaN(), 1); });
+}
 } // namespace
 int main() {
     try {
         plans();
         settings_and_history();
         test_scene_color_settings();
+        test_scene_auto_exposure_settings();
+        exposure_plans();
         std::cout << "HDR bloom admission and Scene ownership PASS\n";
         return 0;
     } catch (const std::exception& error) {

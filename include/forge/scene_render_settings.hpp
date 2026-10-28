@@ -38,12 +38,23 @@ struct SceneColorAdjustments {
     bool operator==(const SceneColorAdjustments&) const = default;
 };
 void validate_scene_color_adjustments(const SceneColorAdjustments&);
+// Automatic gain on the composed Game HDR image. Existing exposure remains an
+// additive manual compensation; Scene View retains its independent manual EV.
+struct SceneAutoExposure {
+    bool enabled = false;
+    float min_ev = -8, max_ev = 8;
+    float low_percentile = .02f, high_percentile = .98f, target_gray = .18f;
+    float speed_up = 1, speed_down = 3; // Exponential rates per unscaled second.
+    bool operator==(const SceneAutoExposure&) const = default;
+};
+void validate_scene_auto_exposure(const SceneAutoExposure&);
 struct SceneRenderSettings {
     SceneEnvironment environment;
     SceneShadows shadows;
     SceneBloom bloom;
     float exposure = 0; // Authored game exposure in stops; Scene preview has its own override.
     SceneColorAdjustments color_adjustments;
+    SceneAutoExposure auto_exposure;
     bool operator==(const SceneRenderSettings&) const = default;
 };
 SceneRenderSettings scene_render_settings(const nlohmann::json& scene);

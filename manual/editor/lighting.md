@@ -63,10 +63,54 @@ to retained earlier camera color again.
 
 **Exposure (stops)** affects the Game preview and is saved with the scene. Enter a
 value from **-20** through **+20** and press **Enter**. **+1** doubles the light before
-tone mapping; **-1** halves it. **0** restores normal exposure.
+tone mapping; **-1** halves it. With automatic exposure enabled, this value adds
+manual brightness compensation to the automatic gain. **0** adds no compensation.
 
 The Scene preview has a separate personal **View > Exposure** setting. This lets you
 inspect your work without changing the game's authored exposure. See [Viewport](viewport.md).
+
+## Adapt Game brightness automatically
+
+1. Stop Play and open **Tools > Scene lighting...**.
+2. Expand **Automatic exposure** and select **Enable automatic exposure**.
+3. Press Play. The first image sets its brightness immediately; later light changes gradually adjust the gain.
+4. Stop Play to adjust the settings. Press **Enter** to commit a typed value, then save the Scene. Undo restores each edit; Play and exported games use the saved settings.
+
+![Automatic exposure controls with gain limits, percentile fields and adaptation rates](../images/automatic-exposure.png)
+
+Set the brightness range and response in Automatic exposure.
+
+- **Minimum gain (stops)** and **Maximum gain (stops)** limit the automatic correction from -20 through +20. Minimum must not exceed maximum; +1 doubles linear light. Equal limits hold a fixed gain.
+- **Low percentile (%)** and **High percentile (%)** exclude dark and bright outliers from the light measurement. Each accepts 0–100 and low must be less than high. Defaults are 2 and 98. Empty black pixels are excluded already.
+- **Target gray (linear)** accepts 0.001–1 and defaults to 0.18. It sets the target before tone mapping and color grading, so it does not promise an exact final screen brightness.
+- **Brightening rate (1/s)** controls how quickly gain increases after the image becomes darker. **Darkening rate (1/s)** controls decreasing gain after brighter light. Both accept 0.01–20; larger values respond faster.
+- **Reset automatic exposure** disables the effect and restores its defaults in one Undo step. Unchecking Enable retains your chosen values for later use.
+
+Open Gallery **96-automatic-exposure** and press Play. Its sunlight switches from
+dim to bright after two seconds and returns to dim just after four seconds,
+repeating every eight seconds. Watch the initial brightness change settle. Stop,
+change the rates, save and try again. Export it as the startup Scene to compare the
+standalone result. No C++ module or compiler is required for this example.
+
+![Gallery sunlight immediately after becoming brighter, with pale columns and a bright floor](../images/automatic-exposure-transition.png)
+
+A light increase initially brightens the Game image.
+
+![The same Gallery columns after automatic exposure settles, with distinct colors and a gray floor](../images/automatic-exposure-settled.png)
+
+Automatic gain then brings the composed image toward the chosen target.
+
+Automatic exposure measures the composed Game image, including bloom, before
+manual compensation and grading. All camera rectangles share that measurement;
+the game HUD is drawn afterward. Scene View keeps its separate manual preview.
+Visual adaptation uses real elapsed presentation time, including while simulation
+is paused. New Scenes, changed cameras/viewports, resizing and newly ready resources
+restart the measurement, which can cause an immediate brightness change.
+
+The meter samples a bounded grid and excludes empty black and invalid pixels.
+There is no spot mask, per-camera exposure or HDR-monitor output mode. Strong gain
+limits can clip display detail. An unsupported compute device reports a rendering
+error when enabled; stop Play and disable the effect to use manual exposure.
 
 ## Adjust Scene colors
 

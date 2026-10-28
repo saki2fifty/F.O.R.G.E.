@@ -1,5 +1,34 @@
 # README screenshots
 
+## Automatic exposure controls and Game adaptation
+
+[Controls](../../../manual/images/automatic-exposure.png) is a complete900×900
+native FORGE Scene-lighting control capture from2026-10-28, based onf6bb9ce with
+the automatic-exposure batch applied. `tests/hdr_bloom_editor_tests.cpp` renders
+the real owner with pinned Dear ImGui/SDL3 software rendering, the product Lato
+font and GCC12 Release/Linux. The actual input suite separately covers all fields,
+percent conversion, Undo/reset, rejected-value recovery, timestamped Problems,
+Scene Save ownership and Play locks at1/1.5/2 scales and two window sizes. This
+focused control fixture is not a full Windows Main window or physical acceptance.
+
+[Transition](../../../manual/images/automatic-exposure-transition.png) and
+[settled image](../../../manual/images/automatic-exposure-settled.png) are complete
+640×360 actual Game images from original Gallery96 through FrameRenderer,
+MeshResourceHost and its normal held light-intensity clip/runtime simulation.
+`tests/auto_exposure_vulkan_probe.cpp` and its gallery header use the pinned
+Diligent Vulkan/DXC path on llvmpipe LLVM15 software rendering. The first is the
+bright-light transition; the second follows two seconds of exposure adaptation
+with the bright state held. Relocated source-free content produces exactly the
+same three initial/transition/settled RGB captures as the source project.
+
+All controls and pixels were visually reviewed as complete images. The control
+PNG is copied unchanged. Game P6 RGB is encoded losslessly as PNG with exact
+decompressed RGB verification, without crop, scaling, retouch, inserted controls
+or generated screenshot content. Canonical assets live only in `manual/images`.
+These captures do not establish Windows/D3D12 execution, physical GPU performance,
+physical input acceptance or a new numbered delivery. Exact hashes/build commands
+and review evidence are retained in the local automatic-exposure validation receipt.
+
 ## Sprite atlas options and review
 
 [Atlas options](../../../manual/images/sprite-atlas-options.png) and

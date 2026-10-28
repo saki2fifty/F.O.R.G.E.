@@ -79,6 +79,16 @@ commands therefore acquire bindings without another hand-maintained command list
 existing transaction semantics. Editor read-only grants list those four reads
 plus `forge_project_read`; isolated scene-only test hosts retain the four reads.
 
+`forge_scene_rendering_set` includes the Scene's optional `auto_exposure` section
+alongside manual exposure, lighting, bloom and color. For example, send
+`arguments: {"auto_exposure":{"enabled":true,"min_ev":-4,"max_ev":6,"low_percentile":0.1,"high_percentile":0.9,"target_gray":0.18,"speed_up":1,"speed_down":3}}`
+with the current discovered target/revision/sequence. Percentiles are normalized
+0–1; the human editor displays percentages. Partial sections preserve omitted
+values, inverted gain/percentile pairs reject atomically, and Undo/Redo use Scene
+history. Save through the existing document owner to retain settings for export.
+Read-only grants do not expose this mutation. These are authored Game settings,
+not a new live-Play control. See [automatic exposure](scene-auto-exposure.md).
+
 ### Document tools
 
 The native owner registrations in `document_automation.hpp` supply method names,

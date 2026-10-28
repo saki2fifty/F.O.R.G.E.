@@ -395,6 +395,7 @@ struct EditorFixture {
             throw std::runtime_error("WARP fixture queue failed");
         Diligent::ICommandQueueD3D12* queues[] = {queue};
         Diligent::EngineD3D12CreateInfo info;
+        info.Features.ComputeShaders = Diligent::DEVICE_FEATURE_STATE_OPTIONAL;
         info.Features.DurationQueries = Diligent::DEVICE_FEATURE_STATE_OPTIONAL;
         factory->AttachToD3D12Device(native.Get(), 1, queues, info, device, context);
     }

@@ -3,6 +3,7 @@
 #include "environment_sky.hpp"
 #include "hdr_bloom.hpp"
 #include "mesh_render_host.hpp"
+#include <optional>
 namespace forge {
 // Shared visual frame composition. No ImGui, editor camera, ECS ownership or
 // authoring service; both editor views and a future standalone host can call it.
@@ -11,12 +12,13 @@ class FrameRenderer {
     explicit FrameRenderer(DiligentPresentation&, std::string profile_view = "Game");
     void resources(std::shared_ptr<MeshResourceHost>);
     Diligent::ITextureView* game(Diligent::IDeviceContext*, const nlohmann::json&, unsigned width,
-                                 unsigned height);
+                                 unsigned height, double presentation_seconds = 0);
     Diligent::ITextureView* game(Diligent::IDeviceContext*, RenderScene, unsigned width,
-                                 unsigned height);
+                                 unsigned height, double presentation_seconds = 0);
     Diligent::ITextureView* render(Diligent::IDeviceContext*, const RenderScene&,
                                    std::span<const PreparedCamera>, unsigned width, unsigned height,
-                                   float exposure);
+                                   float exposure, const SceneAutoExposure* automatic = nullptr,
+                                   double presentation_seconds = 0);
     bool pending() const { return meshes_ && meshes_->pending(); }
     const std::vector<Diagnostic>& diagnostics() const { return diagnostics_; }
     std::size_t omitted_diagnostics() const { return omitted_; }
@@ -51,5 +53,16 @@ class FrameRenderer {
     std::vector<PreparedCamera> cameras_;
     std::vector<Diagnostic> diagnostics_;
     std::size_t omitted_ = 0;
+    struct ExposureView {
+        EntityId entity;
+        PixelViewport viewport;
+        std::uint32_t projection;
+        bool operator==(const ExposureView&) const = default;
+    };
+    std::vector<ExposureView> exposure_views_;
+    AssetId exposure_scene_;
+    std::array<unsigned, 2> exposure_extent_{};
+    std::optional<double> exposure_time_;
+    bool exposure_was_pending_ = false;
 };
 } // namespace forge

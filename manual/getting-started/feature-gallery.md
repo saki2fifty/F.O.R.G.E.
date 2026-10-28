@@ -9,6 +9,12 @@ Copy the whole gallery folder to a writable location before editing it. Choose
 **Transforms**, **Lighting**, **Physics**, **Cameras**, **Editable Mesh**, **Sculpt**, **Vertex Paint**, or **Transform Animation**. The project's `README.md`
 gives a short experiment and expected result for each scene.
 
+**96-automatic-exposure** animates ordinary sunlight from dim to bright and back.
+Press Play to watch brightness settle after each change, then stop and open
+**Tools > Scene lighting... > Automatic exposure** to adjust the rates, gain limits
+or target. Save and export the Scene to compare the same effect in a standalone
+game. See [Scene lighting](../editor/lighting.md) for controls and current limits.
+
 To export one, open and save that scene. In **Tools → Project Settings**, select
 **Use saved current scene as startup** and **Save Settings**. Then use **Run →
 Export Game...**, selecting the `runtime-kit` beside the packaged editor and an

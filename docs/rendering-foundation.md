@@ -424,11 +424,17 @@ overlap; order-independent transparency is not implemented.
 
 Editor Scene and current Game preview color targets are linear RGBA16F with D32
 depth. The reusable `DisplayResolve` calls the pinned Diligent `ToneMapping.fxh`
-PBR Neutral operator, applies manual exposure as `2^EV`, then calls native
+PBR Neutral operator after applying manual exposure as `2^EV`, then calls native
 `LinearToSRGB` once. The resulting RGBA8_UNORM display image contains encoded sRGB
 values; the current ImGui/UNORM swapchain presentation performs no second transfer.
 The grid and other editor overlays are composed after this resolve. The legacy
 LDR viewport construction remains available for existing regression comparisons.
+
+Composed Game images can enable [automatic exposure](scene-auto-exposure.md).
+The existing frame owner meters HDR color after camera-local bloom and before
+manual compensation/grading, retaining a bounded scalar gain history on the GPU.
+It borrows the host's unscaled presentation time and resets at explicit view/world/
+resource boundaries. Scene View and material/model previews retain manual exposure.
 
 The half-float lighting target represents finite magnitudes through65504. The
 resolve diagnoses nonfinite lighting/exposure results with magenta instead of

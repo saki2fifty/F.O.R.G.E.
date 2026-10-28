@@ -354,6 +354,7 @@ int main(int argc, char** argv) {
         RefCntAutoPtr<IDeviceContext> context;
         RefCntAutoPtr<ISwapChain> swap;
         EngineD3D12CreateInfo engine;
+        engine.Features.ComputeShaders = DEVICE_FEATURE_STATE_OPTIONAL;
         engine.Features.DurationQueries = DEVICE_FEATURE_STATE_OPTIONAL;
 #ifdef FORGE_UI_FIXTURE
         factory->SetMessageCallback(&forge::test::EditorFixture::message);
@@ -6188,7 +6189,7 @@ int main(int argc, char** argv) {
                         auto* texture =
                             game_view
                                 ? game_viewport->game(context, std::move(copied_game_scene),
-                                                      render_width, render_height)
+                                                      render_width, render_height, ImGui::GetTime())
                                 : viewport.render(context, rendered, render_width, render_height,
                                                   view_camera, view_cache.generation(),
                                                   performance.continuous,

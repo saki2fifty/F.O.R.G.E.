@@ -4,6 +4,68 @@
 #include <forge/scene_render_settings.hpp>
 #include <numbers>
 namespace forge::ui {
+inline void scene_auto_exposure_controls(const SceneAutoExposure& settings, bool locked,
+                                         const std::function<void(const Json&)>& commit) {
+    IdScope scope("auto_exposure");
+    const bool open = ImGui::CollapsingHeader("Automatic exposure");
+    FORGE_UI_PROBE("exposure:section");
+    if (!open)
+        return;
+    help("Adapt the composed Game image to positive HDR light. Scene View keeps its personal "
+         "manual preview. These are authored settings; save the Scene to retain them.");
+    DisabledScope disabled(locked);
+    bool enabled = settings.enabled;
+    if (ImGui::Checkbox("Enable automatic exposure", &enabled))
+        commit({{"auto_exposure", {{"enabled", enabled}}}});
+    FORGE_UI_PROBE("exposure:enabled");
+    auto field = [&](const char* label, const char* key, float value, const char* tip,
+                     float scale = 1) {
+        IdScope id(key);
+        property_label_row(label, tip);
+        value *= scale;
+        if (ImGui::InputFloat("##value", &value, 0, 0, "%.3f",
+                              ImGuiInputTextFlags_EnterReturnsTrue))
+            commit({{"auto_exposure", {{key, double(value) / scale}}}});
+        FORGE_UI_PROBE(std::string("exposure:") + key);
+        help(tip);
+    };
+    field("Minimum gain (stops)", "min_ev", settings.min_ev,
+          "Lower automatic gain limit, -20 to +20 stops. It must not exceed the maximum. "
+          "The separate Exposure value adds manual compensation.");
+    field("Maximum gain (stops)", "max_ev", settings.max_ev,
+          "Upper automatic gain limit, -20 to +20 stops. +1 doubles linear light. Enter commits.");
+    field("Low percentile (%)", "low_percentile", settings.low_percentile,
+          "Exclude this percentage of the darkest positive samples. 0–100; must be below the "
+          "high percentile. Empty black pixels do not contribute.",
+          100);
+    field("High percentile (%)", "high_percentile", settings.high_percentile,
+          "Keep samples up to this percentile, excluding brighter outliers. 0–100; must exceed "
+          "the low percentile.",
+          100);
+    field("Target gray (linear)", "target_gray", settings.target_gray,
+          "Target linear light from 0.001 to 1 before tone mapping; default 0.18. This is not "
+          "a promised display brightness after grading.");
+    field(
+        "Brightening rate (1/s)", "speed_up", settings.speed_up,
+        "Rate for increasing gain in darker light, 0.01–20 per unscaled second. Larger is faster.");
+    field("Darkening rate (1/s)", "speed_down", settings.speed_down,
+          "Rate for decreasing gain in brighter light, 0.01–20 per unscaled second. Simulation "
+          "pause/time scale does not change visual adaptation.");
+    if (button("Reset automatic exposure", "Disable automatic gain and restore its default limits, "
+                                           "percentiles, target and rates in one Undo step.")) {
+        const SceneAutoExposure defaults;
+        commit({{"auto_exposure",
+                 {{"enabled", defaults.enabled},
+                  {"min_ev", defaults.min_ev},
+                  {"max_ev", defaults.max_ev},
+                  {"low_percentile", defaults.low_percentile},
+                  {"high_percentile", defaults.high_percentile},
+                  {"target_gray", defaults.target_gray},
+                  {"speed_up", defaults.speed_up},
+                  {"speed_down", defaults.speed_down}}}});
+    }
+    FORGE_UI_PROBE("exposure:reset");
+}
 inline void scene_color_controls(const SceneColorAdjustments& settings, bool locked,
                                  const std::function<void(const Json&)>& commit) {
     IdScope scope("color_adjustments");
@@ -135,7 +197,9 @@ inline void scene_lighting(bool& open, Scene& scene, const AssetCatalog* catalog
                                   ImGuiInputTextFlags_EnterReturnsTrue))
                 commit({{"exposure", exposure}});
             help("Game-camera exposure from -20 to +20 stops. +1 doubles linear light before tone "
-                 "mapping. Enter commits.");
+                 "mapping. With automatic exposure, this adds brightness compensation. Enter "
+                 "commits.");
+            scene_auto_exposure_controls(settings.auto_exposure, locked, commit);
             scene_bloom_controls(settings.bloom, locked, commit);
             scene_color_controls(settings.color_adjustments, locked, commit);
             heading("Shadows", "Scene-wide shadow quality. Individual lights and mesh renderers "

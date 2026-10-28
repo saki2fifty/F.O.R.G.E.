@@ -11,6 +11,7 @@ set(forge_presentation_sources
  src/shadow_renderer.cpp
  src/transmission_background.cpp
  src/display_resolve.cpp
+ src/auto_exposure.cpp
  src/hdr_bloom.cpp
  src/texture_preview.cpp
  src/texture_gpu.cpp

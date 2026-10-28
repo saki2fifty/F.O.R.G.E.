@@ -1,4 +1,6 @@
 #include "editor/scene_lighting.hpp"
+#include <backends/imgui_impl_sdlrenderer3.h>
+#include <filesystem>
 #include <imgui_internal.h>
 #include <iostream>
 using namespace forge;
@@ -12,6 +14,7 @@ void interactions(float scale, ImVec2 display) {
     Scene scene(engine.world());
     auto extended = scene.document();
     extended["rendering"] = {{"version", 1u}, {"bloom", {{"extension", "retain"}}}};
+    extended["rendering"]["auto_exposure"] = {{"extension", "retain"}};
     scene.reset(extended);
     const auto original = scene.document();
     ImGui::CreateContext();
@@ -29,6 +32,7 @@ void interactions(float scale, ImVec2 display) {
     test::observe_ui = true;
     bool locked = false;
     bool color_controls = false;
+    bool automatic_controls = false;
     bool full_owner = false;
     std::string error;
     unsigned commits = 0;
@@ -50,7 +54,9 @@ void interactions(float scale, ImVec2 display) {
                     ++commits;
                     error.clear();
                 };
-                if (color_controls)
+                if (automatic_controls)
+                    ui::scene_auto_exposure_controls(settings.auto_exposure, locked, commit);
+                else if (color_controls)
                     ui::scene_color_controls(settings.color_adjustments, locked, commit);
                 else
                     ui::scene_bloom_controls(settings.bloom, locked, commit);
@@ -170,6 +176,52 @@ void interactions(float scale, ImVec2 display) {
     for (const char* key :
          {"color:enabled", "color:filter", "color:saturation", "color:contrast", "color:reset"})
         check(!test::ui_targets.at(key).enabled, "Authored color control enabled during Play");
+    locked = false;
+    automatic_controls = true;
+    frame();
+    click("exposure:section");
+    const auto before_auto = scene.document();
+    click("exposure:enabled");
+    const auto enabled_auto = scene.document();
+    check(scene_render_settings(enabled_auto).auto_exposure.enabled && scene.undo() &&
+              scene.document() == before_auto && scene.redo(),
+          "Automatic exposure checkbox bypassed Scene history");
+    for (const auto& [key, text] :
+         std::vector<std::pair<const char*, const char*>>{{"exposure:min_ev", "-4"},
+                                                          {"exposure:max_ev", "4"},
+                                                          {"exposure:low_percentile", "10"},
+                                                          {"exposure:high_percentile", "90"},
+                                                          {"exposure:target_gray", "0.2"},
+                                                          {"exposure:speed_up", "2"},
+                                                          {"exposure:speed_down", "5"}})
+        type(key, text);
+    check(error.empty() &&
+              scene_render_settings(scene.document()).auto_exposure ==
+                  SceneAutoExposure{true, -4, 4, .1f, .9f, .2f, 2, 5} &&
+              scene.document()["rendering"]["auto_exposure"]["extension"] == "retain",
+          "Automatic controls lost percent conversion, known fields or opaque data");
+    const auto before_bad_auto = scene.document();
+    type("exposure:low_percentile", "95");
+    check(!error.empty() && scene.document() == before_bad_auto,
+          "An inverted percentile edit mutated the Scene");
+    type("exposure:low_percentile", "5");
+    check(error.empty() &&
+              scene_render_settings(scene.document()).auto_exposure.low_percentile == .05f,
+          "Automatic input did not recover after rejected percentiles");
+    const auto before_auto_reset = scene.document();
+    click("exposure:reset");
+    check(scene_render_settings(scene.document()).auto_exposure == SceneAutoExposure{} &&
+              scene.undo() && scene.document() == before_auto_reset && scene.redo(),
+          "Reset automatic exposure was not one reversible operation");
+    locked = true;
+    frame();
+    for (const auto* key :
+         {"exposure:enabled", "exposure:min_ev", "exposure:max_ev", "exposure:low_percentile",
+          "exposure:high_percentile", "exposure:target_gray", "exposure:speed_up",
+          "exposure:speed_down", "exposure:reset"})
+        check(!test::ui_targets.at(key).enabled, "Automatic authoring control enabled during Play");
+    locked = false;
+    click("exposure:section");
     // Exercise the real Scene lighting owner, including its Problems integration,
     // rather than inferring recovery from the callback used above.
     locked = false;
@@ -185,17 +237,82 @@ void interactions(float scale, ImVec2 display) {
               scene_render_settings(scene.document()).color_adjustments.contrast == 1.25f &&
               context.task.owner == ui::DocumentTask::Scene,
           "Corrected Scene lighting left a stale Problem or routed Save/history to an asset");
+    click("exposure:section");
+    context.task.focus_document("material", "Material");
+    type("exposure:max_ev", "21");
+    check(context.problems.size() == 1 && !context.problems.items().front().occurred_at.empty(),
+          "Actual automatic exposure rejection did not create a timestamped Problem");
+    type("exposure:max_ev", "6");
+    check(context.problems.size() == 0 &&
+              scene_render_settings(scene.document()).auto_exposure.max_ev == 6 &&
+              context.task.owner == ui::DocumentTask::Scene,
+          "Corrected automatic exposure retained its Problem or changed asset-document ownership");
     test::observe_ui = false;
     ImGui::DestroyContext();
 }
+void capture(const std::filesystem::path& root) {
+    std::filesystem::create_directories(root);
+    const std::unique_ptr<SDL_Surface, decltype(&SDL_DestroySurface)> surface(
+        SDL_CreateSurface(900, 900, SDL_PIXELFORMAT_RGBA32), SDL_DestroySurface);
+    check(bool(surface), SDL_GetError());
+    const std::unique_ptr<SDL_Renderer, decltype(&SDL_DestroyRenderer)> renderer(
+        SDL_CreateSoftwareRenderer(surface.get()), SDL_DestroyRenderer);
+    check(bool(renderer), SDL_GetError());
+    const std::unique_ptr<ImGuiContext, decltype(&ImGui::DestroyContext)> context(
+        ImGui::CreateContext(), ImGui::DestroyContext);
+    check(ImGui_ImplSDLRenderer3_Init(renderer.get()),
+          "Native lighting capture backend unavailable");
+    struct Backend {
+        ~Backend() { ImGui_ImplSDLRenderer3_Shutdown(); }
+    } backend;
+    auto& io = ImGui::GetIO();
+    io.IniFilename = nullptr;
+    io.DisplaySize = {900, 900};
+    io.DeltaTime = 1.f / 60;
+    const auto font = std::filesystem::path(__FILE__).parent_path().parent_path() /
+                      "resources/ui/LatoLatin-Regular.ttf";
+    check(io.Fonts->AddFontFromFileTTF(font.string().c_str(), 16) != nullptr,
+          "Actual lighting font missing");
+    ui::style(1);
+    ui::EditorUiContext ui_context;
+    ui::ContextScope scope(ui_context);
+    EngineContext engine;
+    Scene scene(engine.world());
+    authoring_command(scene, "scene.rendering.set", {{"auto_exposure", {{"enabled", true}}}});
+    for (unsigned frame = 0; frame < 3; ++frame) {
+        ImGui_ImplSDLRenderer3_NewFrame();
+        ImGui::NewFrame();
+        ImGui::SetNextWindowPos({10, 10});
+        ImGui::SetNextWindowSize({880, 880});
+        ImGui::Begin("Scene lighting", nullptr,
+                     ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+        ImGui::SetNextItemOpen(true, ImGuiCond_Always);
+        ui::scene_auto_exposure_controls(
+            scene_render_settings(scene.document()).auto_exposure, false,
+            [&](const Json& patch) { authoring_command(scene, "scene.rendering.set", patch); });
+        ImGui::End();
+        ImGui::Render();
+        SDL_SetRenderDrawColor(renderer.get(), 9, 15, 18, 255);
+        SDL_RenderClear(renderer.get());
+        ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData(), renderer.get());
+        SDL_RenderPresent(renderer.get());
+    }
+    check(SDL_SavePNG(surface.get(), (root / "automatic-exposure.png").string().c_str()),
+          SDL_GetError());
+}
 } // namespace
-int main() {
+int main(int argc, char** argv) {
     try {
+        if (argc == 2) {
+            capture(std::filesystem::absolute(argv[1]));
+            return 0;
+        }
+        check(argc == 1, "Expected optional native lighting capture directory");
         for (float scale : {1.f, 1.5f, 2.f})
             for (const auto display : {ImVec2{2400, 1700}, ImVec2{960, 640}})
                 interactions(scale, display);
-        std::cout
-            << "Bloom/color actual input, rejection/recovery, read-only and Scene Undo PASS\n";
+        std::cout << "Bloom/color/automatic exposure actual input, rejection/recovery, read-only "
+                     "and Scene Undo PASS\n";
         return 0;
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

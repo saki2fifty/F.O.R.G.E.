@@ -1,5 +1,6 @@
 #include "frame_renderer.hpp"
 #include "Graphics/GraphicsTools/interface/MapHelper.hpp"
+#include "auto_exposure_plan.hpp"
 #include "render_projection.hpp"
 namespace forge {
 using namespace Diligent;
@@ -69,6 +70,9 @@ void FrameRenderer::resources(std::shared_ptr<MeshResourceHost> host) {
     sky_.select({});
     meshes_ = host ? std::make_unique<MeshSceneRenderer>(std::move(host), TEX_FORMAT_RGBA16_FLOAT)
                    : nullptr;
+    exposure_time_.reset();
+    exposure_views_.clear();
+    exposure_was_pending_ = false;
 }
 void FrameRenderer::targets(unsigned width, unsigned height) {
     const auto maximum = presentation_.device()->GetAdapterInfo().Texture.MaxTexture2DDimension;
@@ -118,13 +122,14 @@ void FrameRenderer::report(const Diagnostic& value) {
         ++omitted_;
 }
 ITextureView* FrameRenderer::game(IDeviceContext* context, const nlohmann::json& source,
-                                  unsigned width, unsigned height) {
-    return game(context, extract_render_scene(source), width, height);
+                                  unsigned width, unsigned height, double seconds) {
+    return game(context, extract_render_scene(source), width, height, seconds);
 }
 ITextureView* FrameRenderer::game(IDeviceContext* context, RenderScene scene, unsigned width,
-                                  unsigned height) {
+                                  unsigned height, double seconds) {
     const auto cameras = prepare_game_cameras(scene, width, height);
-    auto* result = render(context, scene, cameras.cameras, width, height, scene.settings.exposure);
+    auto* result = render(context, scene, cameras.cameras, width, height, scene.settings.exposure,
+                          &scene.settings.auto_exposure, seconds);
     for (const auto& error : cameras.diagnostics)
         report(error);
     omitted_ += cameras.omitted_diagnostics;
@@ -133,9 +138,18 @@ ITextureView* FrameRenderer::game(IDeviceContext* context, RenderScene scene, un
 }
 ITextureView* FrameRenderer::render(IDeviceContext* context, const RenderScene& scene,
                                     std::span<const PreparedCamera> cameras, unsigned width,
-                                    unsigned height, float exposure) {
+                                    unsigned height, float exposure,
+                                    const SceneAutoExposure* automatic, double seconds) {
     if (thread_ != std::this_thread::get_id() || !context)
         throw std::runtime_error("Frame rendering requires its presentation thread and context");
+    if (automatic)
+        validate_scene_auto_exposure(*automatic);
+    const bool adaptive = automatic && automatic->enabled;
+    const auto exposure_timing =
+        adaptive ? auto_exposure_timing(exposure_time_, seconds) : AutoExposureTiming{};
+    if (adaptive)
+        exposure_views_.reserve(
+            cameras.size()); // Stage allocation before rendering/history adoption.
     targets(width, height);
     if (cameras.data() != cameras_.data())
         cameras_.assign(cameras.begin(), cameras.end());
@@ -145,6 +159,18 @@ ITextureView* FrameRenderer::render(IDeviceContext* context, const RenderScene& 
         meshes_->update(scene);
         sky_.select(meshes_->environment());
     }
+    const bool pending_resources = pending();
+    bool reset_exposure = exposure_timing.reset || exposure_scene_ != scene.scene ||
+                          exposure_extent_ != std::array<unsigned, 2>{width, height} ||
+                          exposure_views_.size() != cameras.size() || pending_resources ||
+                          exposure_was_pending_;
+    if (adaptive && !reset_exposure)
+        for (std::size_t i = 0; i < cameras.size(); ++i)
+            if (exposure_views_[i] != ExposureView{cameras[i].entity, cameras[i].view.viewport,
+                                                   cameras[i].settings.projection}) {
+                reset_exposure = true;
+                break;
+            }
     auto* rtv = color_->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET);
     auto* dsv = depth_->GetDefaultView(TEXTURE_VIEW_DEPTH_STENCIL);
     {
@@ -209,8 +235,25 @@ ITextureView* FrameRenderer::render(IDeviceContext* context, const RenderScene& 
     }
     ++frames;
     auto timing = presentation_.gpu_scope(context, profile_view_.c_str(), "Display resolve");
-    return display_.resolve(context, color_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE), exposure,
-                            scene.settings.color_adjustments);
+    auto* result = display_.resolve(context, color_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE),
+                                    exposure, scene.settings.color_adjustments,
+                                    automatic ? *automatic : SceneAutoExposure{},
+                                    exposure_timing.delta, reset_exposure);
+    if (adaptive) {
+        exposure_views_.resize(cameras.size());
+        for (std::size_t i = 0; i < cameras.size(); ++i)
+            exposure_views_[i] = {cameras[i].entity, cameras[i].view.viewport,
+                                  cameras[i].settings.projection};
+        exposure_time_ = seconds;
+        exposure_scene_ = scene.scene;
+        exposure_extent_ = {width, height};
+        exposure_was_pending_ = pending_resources;
+    } else {
+        exposure_time_.reset();
+        exposure_views_.clear();
+        exposure_was_pending_ = false;
+    }
+    return result;
 }
 ITextureView* FrameRenderer::depth() const {
     return depth_ ? depth_->GetDefaultView(TEXTURE_VIEW_DEPTH_STENCIL) : nullptr;

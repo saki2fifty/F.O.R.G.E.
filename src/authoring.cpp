@@ -248,7 +248,7 @@ Json execute(detail::SceneDraft& scene, const std::string& op, const Json& a) {
         // Patch known fields and retain unknown future/plugin metadata verbatim.
         for (const auto& [key, value] : a.items()) {
             if (key == "environment" || key == "shadows" || key == "bloom" ||
-                key == "color_adjustments") {
+                key == "color_adjustments" || key == "auto_exposure") {
                 auto& env = rendering[key];
                 if (env.is_null())
                     env = Json::object();
@@ -591,12 +591,21 @@ Json authoring_commands() {
                             {"input_schema", object(properties, required)}});
     };
     add("scene.rendering.set", "Scene lighting and display",
-        "Change scene lighting, shadows, bloom, color adjustments or exposure in one undoable "
+        "Change scene lighting, shadows, bloom, color adjustments or manual/automatic exposure in "
+        "one undoable "
         "operation. "
         "Missing "
         "fields "
         "remain unchanged.",
         {{"exposure", number(-20, 20)},
+         {"auto_exposure", object({{"enabled", {{"type", "boolean"}}},
+                                   {"min_ev", number(-20, 20)},
+                                   {"max_ev", number(-20, 20)},
+                                   {"low_percentile", number(0, 1)},
+                                   {"high_percentile", number(0, 1)},
+                                   {"target_gray", number(.001, 1)},
+                                   {"speed_up", number(.01, 20)},
+                                   {"speed_down", number(.01, 20)}})},
          {"color_adjustments",
           object({{"enabled", {{"type", "boolean"}}},
                   {"filter",

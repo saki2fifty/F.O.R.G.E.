@@ -106,7 +106,7 @@ Diligent::ITextureView* GamePresentation::draw(GameSession& game, double time) {
     resources_->pump();
     auto scene = extract_render_scene(game.presentation());
     detail::bind_runtime_tile_maps(game.active().engine.world(), scene);
-    auto* image = active_->game(context_, std::move(scene), width_, height_);
+    auto* image = active_->game(context_, std::move(scene), width_, height_, time);
     resources_->submit();
     const auto status = game.status();
     ui_.accept(runtime_ui(game.active())

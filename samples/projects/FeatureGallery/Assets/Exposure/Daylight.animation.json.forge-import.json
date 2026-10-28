@@ -1,0 +1,35 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [],
+    "importer": "forge.animation.transform",
+    "importer_revision": "forge.animation.transform.v8",
+    "key_version": 1,
+    "output_format": "forge.transform-clip",
+    "output_version": 5,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {},
+    "settings_version": 1,
+    "source": "dc61534e8fbfd156ea4c912c5c7103c53389dfee6e2f65d25650d9555fe5ca8f",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.transform-animation.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "68d22705-0b64-4773-9661-8c28465e0d98",
+    "source": "Assets/Exposure/Daylight.animation.json",
+    "source_digest": "dc61534e8fbfd156ea4c912c5c7103c53389dfee6e2f65d25650d9555fe5ca8f",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.animation.transform",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

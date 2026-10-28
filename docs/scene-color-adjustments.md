@@ -18,7 +18,7 @@ shader-source rewrite or gameplay ABI/function-table extension is introduced.
 The existing DisplayResolve consumes these settings for Scene View and the composed
 Game image. The order is:
 
-1. Apply existing exposure and the enabled linear RGB filter to HDR lighting.
+1. Apply manual exposure, optional composed Game automatic gain, and the enabled linear RGB filter to HDR lighting.
 2. Run the existing pinned native PBR Neutral tone mapper.
 3. Adjust mapped linear RGB saturation around Rec.709 luminance using weights
    `[0.2126,0.7152,0.0722]`.
@@ -37,8 +37,9 @@ Settings affect all composed camera rectangles, sky, transparent geometry and bl
 They run once after camera composition; this is not a separate grade for each
 camera. Editor overlays/controls and the later runtime UI keep their own colors.
 Scene View's personal exposure remains independent from authored Game exposure.
-Clamping can remove dark/highlight detail at strong settings. There is no automatic
-exposure, white-balance temperature model, 3D LUT or HDR-monitor output claim.
+Clamping can remove dark/highlight detail at strong settings. Optional Game
+[automatic exposure](scene-auto-exposure.md) meters before these adjustments;
+white-balance temperature, 3D LUT and HDR-monitor output remain separate capabilities.
 
 ## Authoring and evidence
 

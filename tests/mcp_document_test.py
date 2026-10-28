@@ -106,6 +106,35 @@ for legacy in (False, True):
         assert status()['scene_path'] == 'Scenes/main.scene.json'
         assert not status()['dirty'] and status()['persisted']
         original = discover()['result']['target']
+        # Automatic exposure uses the same Scene operation, schema, revision,
+        # history and file owner as human authoring, in both MCP versions.
+        exposure_command = next(item for item in state['result']['commands']
+                                if item['id'] == 'scene.rendering.set')
+        exposure_schema = exposure_command['input_schema']['properties']['auto_exposure']
+        exposure_tool = next(item for item in catalog
+                             if item['name'] == 'forge_scene_rendering_set')
+        assert exposure_tool['inputSchema']['properties']['arguments']['properties']['auto_exposure'] == exposure_schema
+        assert set(exposure_schema['properties']) == {
+            'enabled', 'min_ev', 'max_ev', 'low_percentile', 'high_percentile',
+            'target_gray', 'speed_up', 'speed_down'}
+        assert exposure_schema['properties']['min_ev']['minimum'] == -20
+        assert exposure_schema['properties']['speed_down']['maximum'] == 20
+        before_exposure = discover()
+        exposure_arguments = arguments(arguments=dict(auto_exposure=dict(
+            enabled=True, min_ev=-4, max_ev=6, low_percentile=.1,
+            high_percentile=.9, target_gray=.2, speed_up=2, speed_down=4)))
+        changed = client.tool('forge_scene_rendering_set', **exposure_arguments)
+        assert changed['ok'] and changed['revision'] != before_exposure['revision'], changed
+        assert client.tool('forge_scene_rendering_set', **exposure_arguments) == changed
+        assert mutate('forge_history_undo')['result']['changed']
+        assert mutate('forge_history_redo')['result']['changed']
+        for bad in (dict(low_percentile=.95), dict(min_ev=7),
+                    dict(speed_up=0), dict(target_gray='0.2')):
+            before = discover()
+            result = mutate('forge_scene_rendering_set', arguments=dict(auto_exposure=bad))
+            assert not result['ok'] and discover()['revision'] == before['revision'], result
+        assert mutate('forge_scene_rendering_set',
+                      arguments=dict(auto_exposure=dict(speed_up=3)))['ok']
         # Existing project writer ownership remains exclusive across processes.
         lease = subprocess.run([sys.argv[1].replace('forge_tools', 'forge_live_tests'),
                                 '--lease', str(project)], input='', capture_output=True,
@@ -174,6 +203,9 @@ for legacy in (False, True):
         saved_path = project / 'Scenes/main.scene.json'
         saved_bytes = saved_path.read_bytes()
         saved_doc = json.loads(saved_bytes)
+        assert saved_doc['rendering']['auto_exposure'] == dict(
+            enabled=True, min_ev=-4, max_ev=6, low_percentile=.1,
+            high_percentile=.9, target_gray=.2, speed_up=3, speed_down=4)
         assert saved_doc['entities'][0]['name'] == 'Saved agent cube'
         body = saved_doc['entities'][0]['components']['forge.physics_body_2d']
         assert body['one_way'] and abs(body['one_way_margin'] - .05) < 1e-6, body
@@ -320,6 +352,14 @@ for mode, count in (('read', 5), ('edit', 38)):
         assert not any(item['name'].startswith('forge_document_') for item in catalog)
         state = client.tool('forge_discover')
         assert client.tool('forge_project_read', target=state['result']['target'])['ok']
+        if mode == 'read':
+            assert not any(item['name'] == 'forge_scene_rendering_set' for item in catalog)
+            denied = native(config, dict(api=1, method='scene.apply',
+                target=state['result']['target'], expected_revision=state['revision'],
+                commands=[dict(operation='scene.rendering.set', arguments=dict(
+                    auto_exposure=dict(enabled=True)))]), state['next_sequence'])
+            assert not denied['ok']
+            assert client.tool('forge_discover')['revision'] == state['revision']
         request = dict(api=1, method='document.save', target=state['result']['target'],
                        expected_revision=state['revision'])
         failed(native(config, request, state['next_sequence']), 'unknown_method')

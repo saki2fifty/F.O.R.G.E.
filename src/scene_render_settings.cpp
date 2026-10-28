@@ -1,6 +1,22 @@
 #include <cmath>
 #include <forge/scene_render_settings.hpp>
 namespace forge {
+void validate_scene_auto_exposure(const SceneAutoExposure& value) {
+    if (!std::isfinite(value.min_ev) || !std::isfinite(value.max_ev) || value.min_ev < -20 ||
+        value.max_ev > 20 || value.min_ev > value.max_ev)
+        throw std::runtime_error(
+            "Automatic exposure needs ordered finite EV limits within -20 to +20");
+    if (!std::isfinite(value.low_percentile) || !std::isfinite(value.high_percentile) ||
+        value.low_percentile < 0 || value.high_percentile > 1 ||
+        value.low_percentile >= value.high_percentile)
+        throw std::runtime_error("Automatic exposure needs ordered percentiles within 0 to 1");
+    if (!std::isfinite(value.target_gray) || value.target_gray < .001f || value.target_gray > 1 ||
+        !std::isfinite(value.speed_up) || !std::isfinite(value.speed_down) ||
+        value.speed_up < .01f || value.speed_up > 20 || value.speed_down < .01f ||
+        value.speed_down > 20)
+        throw std::runtime_error(
+            "Automatic exposure needs target gray0.001–1 and adaptation rates0.01–20");
+}
 void validate_scene_color_adjustments(const SceneColorAdjustments& value) {
     for (const auto channel : value.filter)
         if (!std::isfinite(channel) || channel < 0 || channel > 4)
@@ -37,6 +53,38 @@ SceneRenderSettings scene_render_settings(const nlohmann::json& scene) {
     if (ev < -20 || ev > 20)
         throw std::runtime_error("Game exposure must be between -20 and +20 stops");
     result.exposure = float(ev);
+    if (settings.contains("auto_exposure")) {
+        const auto& automatic = settings.at("auto_exposure");
+        if (!automatic.is_object())
+            throw std::runtime_error("Scene automatic exposure must be an object");
+        auto& value = result.auto_exposure;
+        if (automatic.contains("enabled")) {
+            if (!automatic.at("enabled").is_boolean())
+                throw std::runtime_error("Automatic exposure enabled must be boolean");
+            value.enabled = automatic.at("enabled").get<bool>();
+        }
+        const auto bounded = [&](const char* key, double fallback, double minimum, double maximum) {
+            const auto candidate = number(automatic, key, fallback);
+            if (candidate < minimum || candidate > maximum)
+                throw std::runtime_error(
+                    std::string("Automatic exposure value exceeds its range: ") + key);
+            return candidate;
+        };
+        const auto minimum = bounded("min_ev", value.min_ev, -20, 20);
+        const auto maximum = bounded("max_ev", value.max_ev, -20, 20);
+        const auto low = bounded("low_percentile", value.low_percentile, 0, 1);
+        const auto high = bounded("high_percentile", value.high_percentile, 0, 1);
+        if (minimum > maximum || low >= high)
+            throw std::runtime_error("Automatic exposure limits and percentiles must be ordered");
+        value.min_ev = float(minimum);
+        value.max_ev = float(maximum);
+        value.low_percentile = float(low);
+        value.high_percentile = float(high);
+        value.target_gray = float(bounded("target_gray", value.target_gray, .001, 1));
+        value.speed_up = float(bounded("speed_up", value.speed_up, .01, 20));
+        value.speed_down = float(bounded("speed_down", value.speed_down, .01, 20));
+        validate_scene_auto_exposure(value);
+    }
     if (settings.contains("color_adjustments")) {
         const auto& color = settings.at("color_adjustments");
         if (!color.is_object())

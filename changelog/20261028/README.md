@@ -1,4 +1,22 @@
-# 2026-10-28 — Sprite atlas packing and frame metadata
+# 2026-10-28 — Sprite atlas metadata and automatic exposure
+
+## Automatic Game exposure
+
+Default-off Scene exposure now meters composed HDR light with a bounded original
+GPU histogram and percentile-clipped log mean. Authored gain limits, target and
+asymmetric exponential rates share Scene Save/Undo, runtime extraction/export and
+the existing automation/MCP command. Manual EV adds compensation; Scene View keeps
+its personal manual preview. Host unscaled time and explicit view/resource reset
+rules own scalar history. Existing display/color/SDR behavior remains authoritative.
+
+Scene lighting provides enable, seven numeric controls and one-step reset, with
+percentages displayed for normalized percentile values. Gallery96 uses an original
+ordinary held light-intensity clip and editable Scene, requiring no C++ module.
+The native GPU probe covers independent metering/adaptation equations, partial bins,
+composition, reset boundaries and retained pixels; CPU/UI/MCP/runtime-package checks
+cover authoring and delivery consumers. Portable lighting-control registration also
+lets the same ImGui owner run outside the Windows Main test target. Windows/D3D12
+and physical acceptance remain separate; HDR-monitor output is not implemented.
 
 ## Trimmed canvases and stored quarter turns
 
