@@ -249,7 +249,8 @@ Json execute(detail::SceneDraft& scene, const std::string& op, const Json& a) {
         for (const auto& [key, value] : a.items()) {
             if (key == "environment" || key == "shadows" || key == "bloom" ||
                 key == "color_adjustments" || key == "auto_exposure" || key == "distance_fog" ||
-                key == "temporal_anti_aliasing" || key == "depth_of_field") {
+                key == "temporal_anti_aliasing" || key == "depth_of_field" ||
+                key == "motion_blur") {
                 auto& env = rendering[key];
                 if (env.is_null())
                     env = Json::object();
@@ -592,7 +593,8 @@ Json authoring_commands() {
                             {"input_schema", object(properties, required)}});
     };
     add("scene.rendering.set", "Scene lighting and display",
-        "Change scene lighting, shadows, temporal anti-aliasing, depth of field, distance fog, "
+        "Change scene lighting, shadows, temporal anti-aliasing, depth of field, motion blur, "
+        "distance fog, "
         "bloom, color "
         "adjustments or "
         "manual/automatic exposure in "
@@ -602,6 +604,9 @@ Json authoring_commands() {
         "fields "
         "remain unchanged.",
         {{"exposure", number(-20, 20)},
+         {"motion_blur", object({{"enabled", {{"type", "boolean"}}},
+                                 {"shutter", number(0, 1)},
+                                 {"max_pixels", number(0, 32)}})},
          {"depth_of_field", object({{"enabled", {{"type", "boolean"}}},
                                     {"focus_distance", number(.001, 1000000)},
                                     {"focus_range", number(.001, 1000000)},

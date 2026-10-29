@@ -25,6 +25,7 @@ Vulkan compile/device probes and unexecuted Metal/WebGPU mappings.
 | Environment/sky/IBL | Selected HDR/cube data, cached native prefiltering/BRDF LUT, sky and material illumination; scene-owned intensity/rotation | Resource/environment tests; native sky/IBL fixtures; no authored weather or atmospheric simulation |
 | Sprite/Tile frame mip filtering | Default-off Nearest/Linear level selection, isolated logical canvases, complete asynchronous replacement and shared texture residency | Numeric software Vulkan minification, trim/turn/fill/flip comparisons, Tile definition replacement, controls/MCP/installed SDK and source-free Gallery99. Windows/full editor/physical acceptance pending. [Contract](sprites.md#independent-frame-mip-filtering) |
 | Temporal anti-aliasing | Default-off per-view opaque/masked Mesh accumulation with real camera/object/morph/skin/instance motion, previous depth, bounded history and explicit capture sample resets | `temporal_filter_vulkan`, generated surface/graph checks in `sprite_vulkan`, Scene settings/UI/MCP and source-free Gallery102. Windows FXC/cooked-surface/full editor/physical GPU acceptance queued. [Contract](temporal-antialiasing.md) |
+| Motion blur | Default-off bounded surface exposure from real completed camera/Mesh/morph/skin/instance movement; optional AA, frozen forward capture samples, sharp current layers and queue-preserving fallback | `motion_blur_vulkan` analytic HDR/depth tests, actual Scene/Game and Gallery104, settings/UI/MCP and source-free relocation; real deformed/instanced producers in `temporal_filter_vulkan`. Full Windows/physical acceptance queued. [Contract](motion-blur.md) |
 | Depth of field | Default-off per-view spatial focus blur for depth-writing opaque/masked Mesh, before current-frame layers; bounded radius/payload and queue-preserving fallback | `depth_of_field_vulkan` independent HDR/depth oracle, actual Scene/Game and Gallery103, settings/UI/MCP and source-free relocation. Full Windows/physical acceptance queued. [Contract](depth-of-field.md) |
 | Distance fog | Optional radial linear-HDR geometry fading through Scene settings, alpha/mask and existing Mesh/Sprite/graph/custom surface wrappers | Numeric software Vulkan surface pixels, controls/MCP/history and source-free Gallery98; sky/background separate, no volumetrics/weather. [Contract](distance-fog.md) |
 | HDR and tone mapping | RGBA16F lighting, manual compensation and optional composed Game automatic exposure, native PBR Neutral tone map, one sRGB encoding into SDR display | Native `display_resolve_tests.hpp`, `frame_renderer_tests.hpp`, `auto_exposure_vulkan_probe.cpp`; bounded sampled histogram/adaptation, separate Scene View manual exposure; no HDR-monitor output |
@@ -46,7 +47,8 @@ blended and transmissive color draws; shadow casters submit separately. Conventi
 transparent part sorting cannot resolve all intersecting surfaces or cyclic overlaps.
 
 The forward pipeline supplies real view-local motion and previous depth for the
-original [temporal anti-aliasing profile](temporal-antialiasing.md).
+original [temporal anti-aliasing profile](temporal-antialiasing.md) and
+[surface motion blur](motion-blur.md).
 Original [spatial HDR bloom](hdr-bloom.md) uses a bounded color-only pass in Scene/Game.
 Upstream Bloom/TAA/SSAO/SSR/DoF integration remains explicitly dispositioned in the
 [exact-pin post-processing audit](rendering-postprocessing.md); FORGE's original

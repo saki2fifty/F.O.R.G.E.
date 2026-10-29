@@ -456,3 +456,26 @@ PNG conversion preserves all RGB bytes; no crop/retouch. Software Vulkan/lavapip
 source evidence does not establish full Windows editor, physical GPU or graphical
 exported-game acceptance. PNG SHA256:
 `75c2d61a8b749c0bb8001f221205929714571cb54b07e00caf914c01096ac0bb`.
+
+## Motion blur controls and Gallery
+
+[The canonical controls](../../../manual/images/motion-blur-controls.png) are the
+complete unretouched900x400 PNG from
+`forge_hdr_bloom_editor_tests <capture-directory> --motion`, using the production
+`scene_motion_controls`, pinned ImGui/SDL software renderer and ordinary Lato font.
+Scene owns enabled/shutter0.5/trail32. Input tests separately exercise all fields,
+Undo/reset, rejection/recovery and Play locks at three scales and two layouts.
+Source branch forge/motion-blur is based on287d0e6. This authentic widget image
+does not establish full Windows Main, physical input or GPU acceptance. PNG SHA256:
+`3e7a15983d903f7165f0f9647ed4f62b9333eb991d498e9c8a50dfc40c6aa818`.
+
+[The canonical Game image](../../../manual/images/motion-blur.png) is the complete
+640x360 readback from `motion_blur_vulkan`, `tests/motion_blur_gallery_tests.hpp`,
+RuntimeSimulation and shared FrameRenderer with original Gallery104. The left
+checker panel moves in front of the stationary panel; compatible surface detail
+softens horizontally. Wide and tall enabled/disabled captures check changed detail
+with exact alpha and clear background. The tall output retains the authored fixed
+camera aspect. Lossless PPM-to-PNG encoding preserves every RGB byte and dimension;
+no crop or retouch. These software Vulkan/lavapipe renders are distinct from
+Windows/full editor, physical GPU/input and graphical exported-game acceptance.
+PNG SHA256: `9b3804cb3ed5c0252c42233a05b13647c72eb76ffa0d96e9adf1fa5d7630c014`.

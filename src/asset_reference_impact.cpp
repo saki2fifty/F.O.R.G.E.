@@ -166,12 +166,13 @@ struct Inspect {
                     if (key != "version" && key != "exposure" && key != "environment" &&
                         key != "shadows" && key != "bloom" && key != "color_adjustments" &&
                         key != "auto_exposure" && key != "distance_fog" &&
-                        key != "temporal_anti_aliasing" && key != "depth_of_field")
+                        key != "temporal_anti_aliasing" && key != "depth_of_field" &&
+                        key != "motion_blur")
                         unknown("rendering." + key);
                 }
                 for (const auto* section :
                      {"environment", "shadows", "bloom", "color_adjustments", "auto_exposure",
-                      "distance_fog", "temporal_anti_aliasing", "depth_of_field"}) {
+                      "distance_fog", "temporal_anti_aliasing", "depth_of_field", "motion_blur"}) {
                     if (!doc.at("rendering").contains(section))
                         continue;
                     const std::set<std::string> known =
@@ -189,6 +190,8 @@ struct Inspect {
                         : std::string_view(section) == "depth_of_field"
                             ? std::set<std::string>{"enabled", "focus_distance", "focus_range",
                                                     "blur_radius"}
+                        : std::string_view(section) == "motion_blur"
+                            ? std::set<std::string>{"enabled", "shutter", "max_pixels"}
                         : std::string_view(section) == "auto_exposure"
                             ? std::set<std::string>{"enabled",         "min_ev",
                                                     "max_ev",          "low_percentile",

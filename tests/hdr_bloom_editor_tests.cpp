@@ -38,6 +38,7 @@ void interactions(float scale, ImVec2 display) {
     bool fog_controls = false;
     bool temporal_controls = false;
     bool focus_controls = false;
+    bool motion_controls = false;
     bool full_owner = false;
     std::string error;
     unsigned commits = 0;
@@ -59,7 +60,9 @@ void interactions(float scale, ImVec2 display) {
                     ++commits;
                     error.clear();
                 };
-                if (focus_controls)
+                if (motion_controls)
+                    ui::scene_motion_controls(settings.motion_blur, locked, commit);
+                else if (focus_controls)
                     ui::scene_focus_controls(settings.depth_of_field, locked, commit);
                 else if (temporal_controls)
                     ui::scene_temporal_controls(settings.temporal_anti_aliasing, locked, commit);
@@ -336,6 +339,38 @@ void interactions(float scale, ImVec2 display) {
     locked = false;
     click("focus:section");
     focus_controls = false;
+    motion_controls = true;
+    frame();
+    click("motion:section");
+    const auto before_motion = scene.document();
+    click("motion:enabled");
+    check(scene_render_settings(scene.document()).motion_blur.enabled && scene.undo() &&
+              scene.document() == before_motion && scene.redo(),
+          "Motion checkbox bypassed Scene history");
+    type("motion:shutter", "0.75");
+    type("motion:max_pixels", "24");
+    const auto moving = scene.document();
+    check(error.empty() &&
+              scene_render_settings(moving).motion_blur == SceneMotionBlur{true, .75f, 24},
+          "Typed motion controls lost values");
+    type("motion:shutter", "2");
+    check(!error.empty() && scene.document() == moving, "Invalid shutter changed Scene");
+    type("motion:shutter", "0.5");
+    check(error.empty() && scene_render_settings(scene.document()).motion_blur.shutter == .5f,
+          "Motion input did not recover after rejection");
+    const auto before_motion_reset = scene.document();
+    click("motion:reset");
+    check(scene_render_settings(scene.document()).motion_blur == SceneMotionBlur{} &&
+              scene.undo() && scene.document() == before_motion_reset && scene.redo(),
+          "Motion reset was not one reversible operation");
+    locked = true;
+    frame();
+    for (const auto* key :
+         {"motion:enabled", "motion:shutter", "motion:max_pixels", "motion:reset"})
+        check(!test::ui_targets.at(key).enabled, "Motion authored control enabled during Play");
+    locked = false;
+    click("motion:section");
+    motion_controls = false;
     // Exercise the real Scene lighting owner, including its Problems integration,
     // rather than inferring recovery from the callback used above.
     locked = false;
@@ -394,13 +429,25 @@ void interactions(float scale, ImVec2 display) {
               scene_render_settings(scene.document()).depth_of_field.blur_radius == 8 &&
               context.task.owner == ui::DocumentTask::Scene,
           "Corrected focus input retained its Problem or document ownership");
+    click("focus:section");
+    click("motion:section");
+    context.task.focus_document("material", "Material");
+    type("motion:max_pixels", "33");
+    check(context.problems.size() == 1 && !context.problems.items().front().occurred_at.empty(),
+          "Actual motion rejection lacked a timestamped Problem");
+    type("motion:max_pixels", "16");
+    check(context.problems.size() == 0 &&
+              scene_render_settings(scene.document()).motion_blur.max_pixels == 16 &&
+              context.task.owner == ui::DocumentTask::Scene,
+          "Corrected motion retained its Problem or document ownership");
     test::observe_ui = false;
     ImGui::DestroyContext();
 }
 void capture(const std::filesystem::path& root, std::string_view kind = {}) {
-    const bool fog = kind == "--fog", temporal = kind == "--temporal", focus = kind == "--focus";
+    const bool fog = kind == "--fog", temporal = kind == "--temporal", focus = kind == "--focus",
+               motion = kind == "--motion";
     std::filesystem::create_directories(root);
-    const int capture_height = fog ? 360 : temporal ? 420 : focus ? 440 : 900;
+    const int capture_height = fog ? 360 : temporal ? 420 : focus ? 440 : motion ? 400 : 900;
     const std::unique_ptr<SDL_Surface, decltype(&SDL_DestroySurface)> surface(
         SDL_CreateSurface(900, capture_height, SDL_PIXELFORMAT_RGBA32), SDL_DestroySurface);
     check(bool(surface), SDL_GetError());
@@ -429,7 +476,8 @@ void capture(const std::filesystem::path& root, std::string_view kind = {}) {
     Scene scene(engine.world());
     authoring_command(
         scene, "scene.rendering.set",
-        focus      ? Json{{"depth_of_field",
+        motion     ? Json{{"motion_blur", {{"enabled", true}, {"shutter", .5}, {"max_pixels", 32}}}}
+        : focus    ? Json{{"depth_of_field",
                            {{"enabled", true},
                             {"focus_distance", 10},
                             {"focus_range", 5},
@@ -449,7 +497,10 @@ void capture(const std::filesystem::path& root, std::string_view kind = {}) {
         const auto commit = [&](const Json& patch) {
             authoring_command(scene, "scene.rendering.set", patch);
         };
-        if (focus)
+        if (motion)
+            ui::scene_motion_controls(scene_render_settings(scene.document()).motion_blur, false,
+                                      commit);
+        else if (focus)
             ui::scene_focus_controls(scene_render_settings(scene.document()).depth_of_field, false,
                                      commit);
         else if (temporal)
@@ -468,7 +519,8 @@ void capture(const std::filesystem::path& root, std::string_view kind = {}) {
         ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData(), renderer.get());
         SDL_RenderPresent(renderer.get());
     }
-    check(SDL_SavePNG(surface.get(), (root / (focus      ? "depth-of-field-controls.png"
+    check(SDL_SavePNG(surface.get(), (root / (motion     ? "motion-blur-controls.png"
+                                              : focus    ? "depth-of-field-controls.png"
                                               : temporal ? "temporal-antialiasing-controls.png"
                                               : fog      ? "distance-fog-controls.png"
                                                          : "automatic-exposure.png"))
@@ -479,9 +531,10 @@ void capture(const std::filesystem::path& root, std::string_view kind = {}) {
 } // namespace
 int main(int argc, char** argv) {
     try {
-        if (argc == 2 || (argc == 3 && (std::string_view(argv[2]) == "--fog" ||
-                                        std::string_view(argv[2]) == "--temporal" ||
-                                        std::string_view(argv[2]) == "--focus"))) {
+        if (argc == 2 ||
+            (argc == 3 &&
+             (std::string_view(argv[2]) == "--fog" || std::string_view(argv[2]) == "--temporal" ||
+              std::string_view(argv[2]) == "--focus" || std::string_view(argv[2]) == "--motion"))) {
             capture(std::filesystem::absolute(argv[1]),
                     argc == 3 ? std::string_view(argv[2]) : std::string_view{});
             return 0;

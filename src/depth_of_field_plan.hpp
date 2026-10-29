@@ -1,10 +1,8 @@
 #pragma once
-#include <algorithm>
+#include "render_projection.hpp"
 #include <array>
-#include <cmath>
 #include <forge/render_view.hpp>
 #include <forge/scene_render_settings.hpp>
-#include <limits>
 #include <stdexcept>
 
 namespace forge {
@@ -23,17 +21,7 @@ inline DepthOfFieldPlan depth_of_field_plan(unsigned width, unsigned height, con
         throw std::invalid_argument("Depth of field camera rectangle exceeds target or budget");
     const std::array p{view.projection[10], view.projection[11], view.projection[14],
                        view.projection[15]};
-    if (!std::all_of(p.begin(), p.end(), [](float x) { return std::isfinite(x); }) ||
-        double(p[0]) * p[3] <= double(p[1]) * p[2])
-        throw std::invalid_argument("Depth of field requires a finite depth projection");
-    const auto distance = [&](double depth) {
-        return (double(p[1]) - depth * p[3]) / (depth * p[2] - p[0]);
-    };
-    const auto near_distance = distance(0);
-    const auto far_distance = p[2] == p[0] ? std::numeric_limits<double>::infinity() : distance(1);
-    if (!std::isfinite(near_distance) || std::isnan(far_distance) || near_distance <= 0 ||
-        far_distance <= near_distance)
-        throw std::invalid_argument("Depth of field requires positive forward near/far");
+    validate_forward_depth_projection(p);
     return {area, p, std::uint64_t(area.width) * area.height * 16};
 }
 } // namespace forge

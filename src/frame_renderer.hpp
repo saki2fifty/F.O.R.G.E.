@@ -14,6 +14,8 @@ class FrameRenderer {
   public:
     explicit FrameRenderer(DiligentPresentation&, std::string profile_view = "Game");
     void resources(std::shared_ptr<MeshResourceHost>);
+    // Presentation discontinuity reported by the existing preview/seek owner.
+    void invalidate_temporal_history();
     Diligent::ITextureView* game(Diligent::IDeviceContext*, const nlohmann::json&, unsigned width,
                                  unsigned height, double presentation_seconds = 0,
                                  const TemporalFrameSample* sample = nullptr);

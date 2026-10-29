@@ -25,6 +25,9 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
     bool close_cancelled = false;
     bool is_open() const { return bool(document_) || sequence_.is_open(); }
     bool sequence_mode() const { return sequence_.is_open(); }
+    std::uint64_t sequence_presentation_generation() const {
+        return sequence_.presentation_generation();
+    }
     void on_frame_export(std::function<void()> request, std::function<bool()> available) {
         sequence_.export_frames_requested = std::move(request);
         sequence_.export_frames_available = std::move(available);

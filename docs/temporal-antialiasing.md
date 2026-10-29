@@ -56,7 +56,8 @@ out-of-view, depth-inconsistent or invalid correspondence returns current color.
 The first/reset frame also returns current color. Alpha always comes from the
 current image, including history rejection and masked/custom/background alpha.
 Stability zero still uses the
-current jittered raster; disabling bypasses temporal rendering entirely.
+current jittered raster; disabling bypasses AA accumulation and jitter. The shared geometry history can
+continue supplying [motion blur](motion-blur.md).
 
 The frame owner first renders the unjittered camera background/sky. A color-only
 rectangle copy initializes the private view; motion clears to invalid and depth
@@ -93,7 +94,8 @@ A new sample/operation and leaving capture reset accumulation; capture readiness
 for eight completed frames before the existing readback/file owner proceeds.
 History is never serialized into Scene, capture receipts or runtime packages.
 
-Input targets use 28 texel bytes/pixel; accumulation uses 20, for 48 total. Game
+AA-only input targets use 28 texel bytes/pixel; accumulation uses 20, for 48 total.
+Optional motion blur adds its documented output/capture payload. Game
 admits at most eight accumulated cameras within a shared 512 MiB texture-payload
 estimate. Scene View has a separate 512 MiB estimate. Native allocation, driver,
 pipeline and retired-resource overhead are additional; this is not a physical
@@ -125,3 +127,13 @@ LeakSanitizer fails with the same 184-byte signature independently reproduced by
 a raw native draw without FORGE linked. Their leak checks are not reported as
 passes. Selected Scene/UI/codec consumers pass independently; no dependency patch,
 upgrade, driver change or sanitizer suppression is included.
+
+## Shared motion-blur mode
+
+The existing TemporalView also supplies [motion blur](motion-blur.md). Geometry
+correspondence and AA color accumulation have separate invalidation domains.
+A forward explicit sample resets AA but retains the preceding completed pose;
+new operations, backward samples and leaving capture invalidate correspondence.
+Blur captures preserve their first motion/depth field across AA warmup. No AA
+history or jitter is allocated/used in blur-only mode. See the motion-blur contract
+for actual mode payloads, raster alignment and Timeline seek ownership.

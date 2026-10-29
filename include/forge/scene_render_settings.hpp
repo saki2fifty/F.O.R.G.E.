@@ -72,6 +72,13 @@ struct SceneDepthOfField {
     bool operator==(const SceneDepthOfField&) const = default;
 };
 void validate_scene_depth_of_field(const SceneDepthOfField&);
+struct SceneMotionBlur {
+    bool enabled = false;
+    float shutter = .5f;
+    float max_pixels = 32;
+    bool operator==(const SceneMotionBlur&) const = default;
+};
+void validate_scene_motion_blur(const SceneMotionBlur&);
 struct SceneRenderSettings {
     SceneEnvironment environment;
     SceneShadows shadows;
@@ -82,6 +89,7 @@ struct SceneRenderSettings {
     SceneDistanceFog distance_fog;
     SceneTemporalAntiAliasing temporal_anti_aliasing;
     SceneDepthOfField depth_of_field;
+    SceneMotionBlur motion_blur;
     bool operator==(const SceneRenderSettings&) const = default;
 };
 SceneRenderSettings scene_render_settings(const nlohmann::json& scene);

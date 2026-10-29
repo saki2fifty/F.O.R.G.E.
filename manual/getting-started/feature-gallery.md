@@ -1,5 +1,12 @@
 # Explore the Feature Gallery
 
+**104-motion-blur** compares a moving checker panel with a stationary panel behind
+it. Press Play, then stop to adjust **Tools > Scene lighting... → Motion blur**.
+Select its sequence controller to inspect or capture the motion in Timeline.
+**103-depth-of-field** compares checker panels at three camera distances, while
+**102-temporal-antialiasing** compares moving foreground detail and thin edges.
+See [Scene lighting](../editor/lighting.md) for controls, saving and limits.
+
 **101-tile-collision-profiles** shows a cyan full-cell floor, mirrored amber
 convex ramps and pink decoration with no collision. Press Play: circles roll on
 the ramps and the box falls through the decoration to the floor. Stop, open

@@ -58,8 +58,13 @@ Do not label an untested conversion as supported.
 
 ## Cameras, lighting and effects
 
+The optional [surface motion-blur pass](motion-blur.md) reuses completed per-view
+Mesh geometry correspondence with AA enabled or disabled. The view owns bounded
+blur output and any frozen capture motion/depth; Timeline owns sampling and seeks.
+It precedes focus/current-frame layers and adds no separate clock or pose database.
+
 The optional [spatial depth-of-field pass](depth-of-field.md) uses current HDR and
-sampled depth per view. It follows temporal Mesh resolve, preserves the existing
+sampled depth per view. It follows temporal Mesh resolve and motion blur, preserves the existing
 queue and runs before current-frame layers and bloom. Existing frame/Scene depth
 targets expose sampling when their format supports it; unsupported views retain
 ordinary rendering with a warning. Its scratch and settings remain with current

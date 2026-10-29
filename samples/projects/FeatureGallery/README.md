@@ -1,5 +1,15 @@
 # Feature Gallery
 
+## Motion blur
+
+Open **Scenes/104-motion-blur.scene.json** and press Play. A checker panel moves
+in front of a stationary checker panel. Stop Play, open **Tools > Scene lighting...
+> Motion blur**, and compare **Shutter fraction** from 0 to 1 and **Maximum trail
+(px)** from 0 to 32. Zero keeps the view sharp. Save the Scene before exporting.
+The **Sequence - continuous checker motion** controller drives an existing clip
+through the Timeline; no C++ module is required. This bounded surface profile
+softens detail within compatible surfaces and preserves silhouettes.
+
 ## Depth of field
 
 Open **Scenes/103-depth-of-field.scene.json** and press Play. The three original

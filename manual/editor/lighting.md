@@ -1,7 +1,7 @@
 # Scene lighting
 
 Use **Tools > Scene lighting...**, or search for **Scene / Lighting** in the Command
-Palette, to change the scene's environment, shadows, focus blur, edge smoothing,
+Palette, to change the scene's environment, shadows, motion blur, focus blur, edge smoothing,
 distance fog and display brightness. These settings
 belong to the scene: **Save** keeps them, and **Undo / Redo** reverses each committed
 change. Opening this window keeps Scene as the active editing task.
@@ -43,6 +43,50 @@ Changes to intensity and rotation reuse the prepared environment; they do not re
 its lighting maps every frame. If a replacement cannot load, **Problems** explains the
 failure and the previous usable environment remains visible. Clear the field explicitly
 to remove that previous environment.
+
+## Blur moving geometry
+
+1. Stop Play and open **Tools > Scene lighting...**.
+2. Expand **Motion blur** and select **Enable motion blur**.
+3. Enter **Shutter fraction**, from **0 to 1**, and press **Enter**. A value of **0.5** spreads half of the movement since the previous completed image; **1** uses the full movement.
+4. Enter **Maximum trail (px)**, from **0 to 32**, and press **Enter** to cap the blur in each view's pixels. Either value at zero keeps the image sharp.
+5. Save the Scene, then press Play. Moving Mesh detail softens along its movement; a stationary view becomes sharp again. Exported games use the saved settings.
+
+![Motion blur enabled with shutter fraction 0.500 and maximum trail 32 pixels](../images/motion-blur-controls.png)
+
+Use shutter fraction for exposure strength and maximum trail for a view-pixel limit.
+
+**Reset motion blur** disables the effect and restores shutter **0.5** and trail
+**32** in one Undo step. Authored settings are read-only during Play.
+
+The effect uses completed camera and object movement, including animated morphs
+and skinning. It works with temporal anti-aliasing enabled or disabled and runs
+before depth of field. It averages available detail within a surface; it does not
+spread a silhouette into a different depth or movement region. Transparency,
+Sprites, Tile Maps, particles, sky and editor overlays stay sharp.
+
+Open **104-motion-blur** in the Feature Gallery and press Play to compare the
+moving checker panel with the stationary panel behind it. Stop Play to adjust the
+shutter or trail limit. The Scene uses a built-in animation workflow and needs no
+C++ module. Select its **Sequence - continuous checker motion** controller to
+inspect or capture its motion through the Timeline.
+
+![Moving checker panel softened horizontally beside sharp stationary checker detail](../images/motion-blur.png)
+
+Compare the softened moving detail on the left with the stationary checks on the right.
+
+The first image after a camera cut, manual Timeline seek, resize or resource
+replacement stays sharp. During sequence frame capture, forward samples use the
+preceding completed sample's motion and retain it while edge smoothing warms up.
+The first sample in an export has no preceding sample and stays sharp. Ending or
+cancelling capture discards that temporary motion field.
+
+Game cameras must clear both color and depth; participating Materials must test
+and write depth. Unsupported draw order, shaders or capacity keep ordinary
+rendering and report a warning. Up to eight Game views share a **512 MiB** texture
+payload estimate with edge smoothing and frozen motion; Scene preview has its own
+**512 MiB** estimate. Native allocation and temporary retirement overhead are
+additional. Reduce view size or disable the effect if a warning persists.
 
 ## Focus near and distant surfaces
 
@@ -95,7 +139,7 @@ allocation overhead are additional.
 Temporal anti-aliasing combines several rendered frames to reduce flickering along
 geometry edges. Higher stability retains more of the previous image; lower values
 respond faster. The allowed range is **0–0.95**. Zero keeps the current jittered
-image without blending older color. Uncheck Enable to return to ordinary rendering.
+image without blending older color. Uncheck Enable to disable edge smoothing; motion blur can continue independently.
 **Reset temporal anti-aliasing** disables it and restores stability **0.8** in one
 Undo step. Authored controls are read-only during Play.
 

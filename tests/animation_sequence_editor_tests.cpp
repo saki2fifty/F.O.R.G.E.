@@ -199,6 +199,7 @@ void exercise(const std::filesystem::path& gallery, const std::filesystem::path&
     const auto revision = scene.revision();
     click("sequence:preview");
     check(editor.preview_active(), "Sequence preview did not start");
+    const auto before_scrub = editor.sequence_presentation_generation();
     const auto span = target("sequence:span:" + actor);
     const auto box = test::ui_targets.at("sequence:span:" + actor);
     const ImVec2 sample{box.minimum.x + (box.maximum.x - box.minimum.x) * .25f, span.y};
@@ -214,7 +215,7 @@ void exercise(const std::filesystem::path& gallery, const std::filesystem::path&
         6;
     const double u = std::clamp((requested - 1) / 2, 0., 1.);
     const double expected_x = -3 + 6 * u * u * (3 - 2 * u);
-    const auto preview = editor.preview(scene.effective_document());
+    const auto preview = editor.preview(scene.document());
     bool found = false;
     for (const auto& row : preview.at("entities"))
         if (row.at("id") == actor) {
@@ -223,30 +224,38 @@ void exercise(const std::filesystem::path& gallery, const std::filesystem::path&
         }
     check(found && scene.document() == authored && scene.revision() == revision,
           "Preview changed authored Scene/history");
+    check(editor.sequence_presentation_generation() > before_scrub,
+          "Manual Timeline scrub did not signal a presentation discontinuity");
     const auto held = editor.begin_frame_export();
+    const auto frozen_generation = editor.sequence_presentation_generation();
     editor.sample_frame_export(held, 2);
     frame();
+    check(editor.sequence_presentation_generation() == frozen_generation,
+          "Explicit sampling/warmup changed its preview generation");
     editor.end_frame_export(held);
-    check(editor.preview_active() && editor.preview(scene.effective_document()) == preview,
+    check(editor.preview_active() && editor.preview(scene.document()) == preview,
           "Frame export failed to restore the prior scrubbed preview");
     click("sequence:play");
-    const auto before_hold = editor.preview(scene.effective_document());
+    const auto before_hold = editor.preview(scene.document());
     const auto playing_hold = editor.begin_frame_export();
     editor.sample_frame_export(playing_hold, 2);
-    const auto held_preview = editor.preview(scene.effective_document());
+    const auto held_preview = editor.preview(scene.document());
     frame();
     frame();
-    check(editor.preview(scene.effective_document()) == held_preview,
+    check(editor.preview(scene.document()) == held_preview,
           "Running preview advanced during frame sampling");
     editor.end_frame_export(playing_hold);
-    check(editor.preview(scene.effective_document()) == before_hold,
+    check(editor.preview(scene.document()) == before_hold,
           "Frame sampling failed to restore the running preview cursor");
+    const auto resumed_generation = editor.sequence_presentation_generation();
     frame();
-    check(editor.preview(scene.effective_document()) != before_hold &&
-              scene.document() == authored && scene.revision() == revision,
+    check(editor.preview(scene.document()) != before_hold && scene.document() == authored &&
+              scene.revision() == revision,
           "Frame sampling failed to resume preview playback without authored edits");
+    check(editor.sequence_presentation_generation() == resumed_generation,
+          "Continuous forward preview needlessly reset completed motion");
     editor.stop_preview();
-    check(editor.preview(scene.effective_document()) == scene.effective_document(),
+    check(editor.preview(scene.document()) == scene.document(),
           "Stopping preview did not restore authored view");
     type("sequence:start", "99");
     check(!editor.frame_export_ready(), "Pending fields admitted a frame export");
@@ -368,14 +377,15 @@ void exercise(const std::filesystem::path& gallery, const std::filesystem::path&
     mouse(shot_sample, false);
     frame();
     const auto shot_authored = scene.document();
-    const auto shot_render = extract_render_scene(editor.preview(scene.effective_document()));
+    const auto shot_render =
+        extract_render_scene(scene.preview_document(editor.preview(scene.document())));
     check(shot_render.cameras.size() == 1 &&
               shot_render.cameras.front().entity == EntityId::parse(other_camera),
           "Sequence preview did not project its selected Camera");
     check(scene.document() == shot_authored && !scene.entity(other_camera).get<Camera>().enabled,
           "Shot preview changed authored Camera values");
     editor.stop_preview();
-    check(editor.preview(scene.effective_document()) == scene.effective_document(),
+    check(editor.preview(scene.document()) == scene.document(),
           "Stopping shot preview did not restore authored composition");
     click("sequence:remove_shot");
     check(!scene.entity(shot).get<CameraShot>().sequence.entity &&

@@ -118,6 +118,7 @@ class AnimationSequenceEditor {
     }
     void stop_preview() { preview_ = playing_ = frame_exporting_ = false; }
     bool preview_active() const { return preview_ && ready_ && context_; }
+    std::uint64_t presentation_generation() const { return frame_export_serial_; }
     using FrameExportInfo = ui::SequenceFrameSourceInfo;
     bool frame_export_ready() const { return !frame_exporting_ && frame_source_current(); }
     FrameExportInfo frame_export_info() const {
@@ -215,6 +216,7 @@ class AnimationSequenceEditor {
                     seek_preview();
             }
             if (playing_ && preview_active()) {
+                const double prior_time = time_;
                 const auto config =
                     scene_->entity(controller_.entity.str()).get<AnimationSequence>();
                 time_ += std::clamp(seconds, 0., .25) * config.playback_speed;
@@ -224,7 +226,7 @@ class AnimationSequenceEditor {
                     time_ = config.duration;
                     playing_ = false;
                 }
-                seek_preview();
+                seek_preview(time_ >= prior_time);
             }
         } catch (const std::exception& e) {
             error_ = e.what();
@@ -258,7 +260,9 @@ class AnimationSequenceEditor {
                         row["components"][type.name][field] = value;
                 }
             const auto patch = context_->animation->presentation_properties(actor.id(), 1);
-            if (targets_.contains(id) && patch.is_object())
+            // Camera-shot selection also affects cameras without animation tracks.
+            // The runtime owns that decision; unrelated animators are disabled in Context.
+            if ((targets_.contains(id) || actor.has<Camera>()) && patch.is_object())
                 merge_animation_properties(row["components"], patch, context_->engine.world());
         }
         return source;
@@ -959,8 +963,13 @@ class AnimationSequenceEditor {
         FORGE_UI_PROBE("sequence:remove_cue");
         ImGui::EndDisabled();
     }
-    void seek_preview() {
+    void seek_preview(bool continuous = false) {
         try {
+            if (!continuous) {
+                if (frame_export_serial_ == std::numeric_limits<std::uint64_t>::max())
+                    throw std::runtime_error("Sequence preview generation exhausted");
+                ++frame_export_serial_;
+            }
             if (ready_ && context_)
                 AnimationPlaybackAccess::control(
                     *context_->animation, controller_,

@@ -22,7 +22,7 @@ inline void temporal_view_boundaries(forge::DiligentPresentation& presentation,
         texture(device, 23, 19, TEX_FORMAT_D32_FLOAT, BIND_DEPTH_STENCIL | BIND_SHADER_RESOURCE);
     auto wrong_depth = texture(device, 24, 19, TEX_FORMAT_D32_FLOAT, BIND_DEPTH_STENCIL);
     auto* dsv = depth->GetDefaultView(TEXTURE_VIEW_DEPTH_STENCIL);
-    reject([&] { TemporalView invalid(presentation, 47); });
+    reject([&] { TemporalView invalid(presentation, 27); });
     TemporalView view(presentation, 23 * 19 * TemporalView::bytes_per_pixel);
     reject([&] { view.begin(context, color, dsv); });
     reject([&] { view.resolve(context, .8f); });
@@ -60,6 +60,20 @@ inline void temporal_view_boundaries(forge::DiligentPresentation& presentation,
     view.invalidate();
     check(!view.valid() && view.samples() == 0 && view.previous_parts().empty(),
           "Temporal invalidation retained completed geometry or warmup");
+    const TemporalView::Options blur_options{false, {true, .5f, 32}};
+    check(TemporalView::payload_per_pixel(blur_options) == 36 &&
+              TemporalView::payload_per_pixel({true, {true}, MotionSnapshotAction::Refresh}) == 76,
+          "Shared view mode payload omitted blur, AA or frozen capture targets");
+    TemporalView blur_only(presentation, 23 * 19 * 36);
+    blur_only.prepare(current, false, blur_options);
+    check(blur_only.jitter() == std::array<float, 2>{} && blur_only.payload_bytes() == 23 * 19 * 36,
+          "Blur-only mode allocated AA history or jittered geometry");
+    blur_only.begin(context, color, dsv);
+    blur_only.resolve(context, .8f);
+    blur_only.complete();
+    reject([&] { blur_only.prepare(current, false); });
+    check(blur_only.valid() && blur_only.payload_bytes() == 23 * 19 * 36,
+          "Rejected AA growth lost the completed blur-only mode");
     context->SetRenderTargets(0, nullptr, nullptr, RESOURCE_STATE_TRANSITION_MODE_NONE);
     context->WaitForIdle();
     std::cout << "Temporal view target/budget/state boundaries and valid retry PASS\n";

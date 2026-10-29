@@ -262,10 +262,15 @@ ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsig
     const auto key = viewport_frame_key(generation, width, height, camera, grid);
     // Static blockout preview only. Play renders continuously; future time-dependent
     // materials/effects must also opt out of retained EDIT frames.
-    const bool temporal_enabled =
+    const bool aa_enabled =
         display_ && meshes_ && mesh_scene_ && mesh_scene_->settings.temporal_anti_aliasing.enabled;
+    const bool blur_enabled = display_ && meshes_ && mesh_scene_ &&
+                              mesh_scene_->settings.motion_blur.enabled &&
+                              mesh_scene_->settings.motion_blur.shutter != 0 &&
+                              mesh_scene_->settings.motion_blur.max_pixels != 0;
+    const bool temporal_enabled = aa_enabled || blur_enabled;
     if (!frame_ || *frame_ != key)
-        temporal_settle_ = 8;
+        temporal_settle_ = aa_enabled ? 8 : 2;
     const bool temporal_warming =
         temporal_enabled && temporal_ && temporal_->valid() && temporal_settle_ != 0;
     if (!live && !temporal_warming && frame_ && *frame_ == key) {
@@ -475,7 +480,7 @@ ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsig
                 meshes_->pending() || (!live && temporal_generation_ != generation);
             if (!temporal_)
                 temporal_ = std::make_unique<TemporalView>(presentation_, 512ull * 1024 * 1024);
-            temporal_->prepare(view, reset);
+            temporal_->prepare(view, reset, {bool(aa_enabled), mesh_scene_->settings.motion_blur});
             auto& pass = temporal_pass.emplace();
             pass.current = temporal_->current();
             pass.previous = temporal_->previous();

@@ -1,5 +1,19 @@
 # 2026-10-29 — Collision profiles, temporal anti-aliasing and depth of field
 
+## Surface motion blur
+
+- Added default-off Scene motion blur from completed Mesh/camera movement, shared
+  with optional edge accumulation, bounded per-view scratch and frozen sequence
+  capture motion. Current-frame layers and depth silhouettes remain sharp.
+- Added Scene lighting controls and shared authoring/automation/MCP validation,
+  history, discovery and saving. Added editable Gallery104 and source-free export.
+- Routed manual Timeline discontinuities through shared frame-history invalidation;
+  preserved runtime camera-shot patches on cameras without animation tracks.
+- Enabled the existing Timeline UI regression without requiring the Windows editor
+  host. Local software/native checks remain separate from queued Windows and
+  physical acceptance; native shutdown LSan remains explicitly open.
+
+
 ## Per-tile collision profiles
 
 Tile Set definitions support Full cell, None and convex polygons with 3–8

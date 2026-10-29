@@ -1,4 +1,5 @@
 #pragma once
+#include "motion_blur.hpp"
 // Uses the temporal probe's independent projection oracle and readback fixture.
 namespace test_temporal_mesh_motion {
 using Points = std::array<std::array<double, 3>, 3>;
@@ -181,6 +182,9 @@ static void exercise(forge::DiligentPresentation& presentation, IDeviceContext* 
     const auto old_clip = project(old_points, previous_view);
     const auto current_clip = project(current_points, current_view);
     DisplayResolve display(presentation);
+    MotionBlur blur(presentation);
+    auto blurred = texture(device, width, height, TEX_FORMAT_RGBA16_FLOAT,
+                           BIND_RENDER_TARGET | BIND_SHADER_RESOURCE);
     for (unsigned frame = 0; frame < 2; ++frame) {
         presentation.begin_frame();
         auto* dsv = depth->GetDefaultView(TEXTURE_VIEW_DEPTH_STENCIL);
@@ -243,6 +247,29 @@ static void exercise(forge::DiligentPresentation& presentation, IDeviceContext* 
         if (added)
             check(pixels[(*added)[1] * width + (*added)[0]][0] > 100,
                   "New batch member was omitted instead of marking motion invalid");
+        // Consume the actual generated Mesh motion, including posed/instanced
+        // producers. The independent motion oracle above validates those inputs.
+        MotionBlur::Input input;
+        input.color = color->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+        input.motion = motion_target->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+        input.depth = depth->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+        input.projection = {view.projection[10], view.projection[11], view.projection[14],
+                            view.projection[15]};
+        input.settings = {true, 1, 32};
+        blur.apply(context, input, blurred->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET));
+        auto* exposed =
+            display.resolve(context, blurred->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE), 0);
+        const auto filtered =
+            forge::test_sprite_draw::read_pixels(device, context, exposed->GetTexture());
+        if (!frame)
+            check(filtered == pixels, "First real Mesh frame blurred without correspondence");
+        if (added)
+            check(filtered[(*added)[1] * width + (*added)[0]] ==
+                      pixels[(*added)[1] * width + (*added)[0]],
+                  "New instance consumed an unrelated member's completed motion");
+        for (std::size_t i = 0; i < pixels.size(); ++i)
+            check(filtered[i][3] == pixels[i][3],
+                  "Deformed/instanced motion exposure changed current alpha");
         presentation.end_frame(context);
         context->FinishFrame();
         device->ReleaseStaleResources();

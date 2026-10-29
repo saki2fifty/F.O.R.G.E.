@@ -100,7 +100,7 @@ void frame_source(const std::filesystem::path& gallery, const std::filesystem::p
     check(!source.can_undo() && !source.can_redo(), "Capture allowed sequence history edits");
     for (double time : {0., 1.5, 3.}) {
         source.sample_frame_export(token, time);
-        const auto preview = source.preview(scene.effective_document());
+        const auto preview = source.preview(scene.document());
         const double u = std::clamp((time - .5) / 2, 0., 1.);
         bool found = false;
         for (const auto& row : preview.at("entities"))
@@ -110,12 +110,12 @@ void frame_source(const std::filesystem::path& gallery, const std::filesystem::p
                      -2 + 4 * u * u * (3 - 2 * u));
             }
         check(found, "Frame preview lost its moving actor");
-        const auto rendered = extract_render_scene(preview);
+        const auto rendered = extract_render_scene(scene.preview_document(preview));
         check(rendered.cameras.size() == 1 &&
                   rendered.cameras.front().entity == (time < 3 ? front : side),
               "Frame sample lost an exact sequence camera cut");
         source.poll(false, 10);
-        check(source.preview(scene.effective_document()) == preview,
+        check(source.preview(scene.document()) == preview,
               "Elapsed GUI time advanced a held frame sample");
     }
     rejected([&] { source.sample_frame_export(token, 6); }, "Exact loop endpoint accepted");

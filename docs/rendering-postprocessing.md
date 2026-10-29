@@ -6,7 +6,7 @@ and HDR composition. It adds no depth/motion history or post-processing targets.
 ## FORGE passes and upstream integration
 
 FORGE supplies independently authored [spatial HDR bloom](hdr-bloom.md),
-[automatic exposure](scene-auto-exposure.md), [spatial depth of field](depth-of-field.md) and
+[automatic exposure](scene-auto-exposure.md), [spatial depth of field](depth-of-field.md), [motion blur](motion-blur.md) and
 [temporal anti-aliasing](temporal-antialiasing.md) through the existing rendering
 owners. Bloom uses color only. Automatic exposure meters composed Game HDR into
 a scalar gain history. Temporal anti-aliasing supplies real per-view motion,

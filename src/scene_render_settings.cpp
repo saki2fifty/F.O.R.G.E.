@@ -1,6 +1,12 @@
 #include <cmath>
 #include <forge/scene_render_settings.hpp>
 namespace forge {
+void validate_scene_motion_blur(const SceneMotionBlur& value) {
+    if (!std::isfinite(value.shutter) || value.shutter < 0 || value.shutter > 1 ||
+        !std::isfinite(value.max_pixels) || value.max_pixels < 0 || value.max_pixels > 32)
+        throw std::runtime_error("Motion blur requires shutter fraction from 0 to 1 and maximum "
+                                 "trail from 0 to 32 pixels");
+}
 void validate_scene_depth_of_field(const SceneDepthOfField& value) {
     if (!std::isfinite(value.focus_distance) || value.focus_distance < .001f ||
         value.focus_distance > 1000000 || !std::isfinite(value.focus_range) ||
@@ -75,6 +81,24 @@ SceneRenderSettings scene_render_settings(const nlohmann::json& scene) {
     if (ev < -20 || ev > 20)
         throw std::runtime_error("Game exposure must be between -20 and +20 stops");
     result.exposure = float(ev);
+    if (settings.contains("motion_blur")) {
+        const auto& section = settings.at("motion_blur");
+        if (!section.is_object())
+            throw std::runtime_error("Scene motion blur must be an object");
+        auto& value = result.motion_blur;
+        if (section.contains("enabled")) {
+            if (!section.at("enabled").is_boolean())
+                throw std::runtime_error("Motion blur enabled must be boolean");
+            value.enabled = section.at("enabled").get<bool>();
+        }
+        const auto shutter = number(section, "shutter", value.shutter);
+        const auto pixels = number(section, "max_pixels", value.max_pixels);
+        if (shutter < 0 || shutter > 1 || pixels < 0 || pixels > 32)
+            throw std::runtime_error("Motion blur shutter or maximum trail is outside its range");
+        value.shutter = float(shutter);
+        value.max_pixels = float(pixels);
+        validate_scene_motion_blur(value);
+    }
     if (settings.contains("depth_of_field")) {
         const auto& section = settings.at("depth_of_field");
         if (!section.is_object())

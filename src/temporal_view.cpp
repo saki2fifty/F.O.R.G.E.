@@ -17,8 +17,8 @@ bool TemporalView::discontinuous(const CameraView& old, const CameraView& curren
                       current.position[2] - old.position[2]) > 10;
 }
 TemporalView::TemporalView(DiligentPresentation& presentation, std::uint64_t byte_limit)
-    : presentation_(presentation), byte_limit_(byte_limit), filter_(presentation, byte_limit) {
-    if (byte_limit < bytes_per_pixel)
+    : presentation_(presentation), byte_limit_(byte_limit) {
+    if (byte_limit < 28)
         throw std::invalid_argument("Temporal view budget cannot hold one pixel");
     ShaderCreateInfo ci;
     ci.SourceLanguage = SHADER_SOURCE_LANGUAGE_HLSL;
@@ -78,53 +78,118 @@ TemporalView::TemporalView(DiligentPresentation& presentation, std::uint64_t byt
 void TemporalView::invalidate() {
     valid_ = prepared_ = begun_ = resolved_ = false;
     samples_ = 0;
-    filter_.invalidate();
+    if (filter_)
+        filter_->invalidate();
+    frozen_valid_ = false;
     destination_.Release();
     destination_depth_.Release();
     previous_parts_.clear();
     pending_parts_.clear();
 }
-void TemporalView::prepare(const CameraView& view, bool reset) {
+void TemporalView::prepare(const CameraView& view, bool reset, const Options& options) {
+    validate_scene_motion_blur(options.motion_blur);
+    const bool blur = options.motion_blur.enabled && options.motion_blur.shutter != 0 &&
+                      options.motion_blur.max_pixels != 0;
+    const bool freeze = blur && options.snapshot != MotionSnapshotAction::Live;
+    const auto bpp = payload_per_pixel(options);
     const auto& v = view.viewport;
     const auto maximum = presentation_.device()->GetAdapterInfo().Texture.MaxTexture2DDimension;
     if (!v.width || !v.height || v.width > maximum || v.height > maximum ||
-        std::uint64_t(v.width) * v.height > byte_limit_ / bytes_per_pixel ||
+        std::uint64_t(v.width) * v.height > byte_limit_ / bpp ||
         !std::all_of(view.projection.begin(), view.projection.end(),
                      [](float x) { return std::isfinite(x); }))
         throw std::invalid_argument("Temporal view extent or projection exceeds its profile");
     if (begun_)
         throw std::logic_error("Temporal view has an unfinished frame");
-    if (!color_ || color_->GetDesc().Width != v.width || color_->GetDesc().Height != v.height) {
-        RefCntAutoPtr<ITexture> color, motion, depth;
+    const bool resized =
+        !color_ || color_->GetDesc().Width != v.width || color_->GetDesc().Height != v.height;
+    // Stage every required texture before publishing a new mode/extent. Native
+    // retirement and transient staging overhead are separate from payload admission.
+    RefCntAutoPtr<ITexture> color, motion, depth, blurred, frozen_motion, frozen_depth;
+    const auto create = [&](const char* name, TEXTURE_FORMAT format, BIND_FLAGS flags,
+                            RefCntAutoPtr<ITexture>& target) {
         TextureDesc desc;
-        desc.Name = "FORGE temporal view HDR";
+        desc.Name = name;
         desc.Type = RESOURCE_DIM_TEX_2D;
         desc.Width = v.width;
         desc.Height = v.height;
-        desc.Format = TEX_FORMAT_RGBA16_FLOAT;
-        desc.BindFlags = BIND_RENDER_TARGET | BIND_SHADER_RESOURCE;
-        presentation_.device()->CreateTexture(desc, nullptr, &color);
-        desc.Name = "FORGE temporal surface motion";
-        desc.Format = TEX_FORMAT_RGBA32_FLOAT;
-        presentation_.device()->CreateTexture(desc, nullptr, &motion);
-        desc.Name = "FORGE temporal current depth";
-        desc.Format = TEX_FORMAT_D32_FLOAT;
-        desc.BindFlags = BIND_DEPTH_STENCIL | BIND_SHADER_RESOURCE;
-        presentation_.device()->CreateTexture(desc, nullptr, &depth);
-        if (!color || !motion || !depth)
-            throw std::runtime_error("Temporal view allocation failed; previous targets retained");
+        desc.Format = format;
+        desc.BindFlags = flags;
+        presentation_.device()->CreateTexture(desc, nullptr, &target);
+        if (!target)
+            throw std::runtime_error("Temporal view allocation failed; prior mode retained");
+    };
+    if (resized) {
+        create("FORGE temporal view HDR", TEX_FORMAT_RGBA16_FLOAT,
+               BIND_RENDER_TARGET | BIND_SHADER_RESOURCE, color);
+        create("FORGE temporal surface motion", TEX_FORMAT_RGBA32_FLOAT,
+               BIND_RENDER_TARGET | BIND_SHADER_RESOURCE, motion);
+        create("FORGE temporal current depth", TEX_FORMAT_D32_FLOAT,
+               BIND_DEPTH_STENCIL | BIND_SHADER_RESOURCE, depth);
+    }
+    if (blur && (resized || !blurred_))
+        create("FORGE motion blur result", TEX_FORMAT_RGBA16_FLOAT,
+               BIND_RENDER_TARGET | BIND_SHADER_RESOURCE, blurred);
+    if (freeze && (resized || !frozen_motion_)) {
+        create("FORGE frozen sample motion", TEX_FORMAT_RGBA32_FLOAT,
+               BIND_RENDER_TARGET | BIND_SHADER_RESOURCE, frozen_motion);
+        create("FORGE frozen sample depth", TEX_FORMAT_D32_FLOAT,
+               BIND_DEPTH_STENCIL | BIND_SHADER_RESOURCE, frozen_depth);
+    }
+    std::unique_ptr<TemporalFilter> staged_filter;
+    std::unique_ptr<MotionBlur> staged_blur;
+    if (options.anti_aliasing && !filter_)
+        staged_filter = std::make_unique<TemporalFilter>(presentation_, byte_limit_);
+    if (blur && !blur_) {
+        staged_blur = std::make_unique<MotionBlur>(presentation_);
+        staged_blur->prepare();
+    }
+    if (resized) {
         color_ = std::move(color);
         motion_ = std::move(motion);
         depth_ = std::move(depth);
         reset = true;
     }
+    if (blurred)
+        blurred_ = std::move(blurred);
+    if (frozen_motion) {
+        frozen_motion_ = std::move(frozen_motion);
+        frozen_depth_ = std::move(frozen_depth);
+        frozen_valid_ = false;
+    }
+    if (staged_filter)
+        filter_ = std::move(staged_filter);
+    if (staged_blur)
+        blur_ = std::move(staged_blur);
+    if (!options.anti_aliasing)
+        filter_.reset();
+    if (!blur) {
+        blur_.reset();
+        blurred_.Release();
+    }
+    if (!freeze) {
+        frozen_motion_.Release();
+        frozen_depth_.Release();
+        frozen_valid_ = false;
+    }
+    if (options_.anti_aliasing != options.anti_aliasing)
+        reset = true;
+    options_ = options;
     if (reset)
         invalidate();
+    if (options.reset_accumulation) {
+        samples_ = 0;
+        if (filter_)
+            filter_->invalidate();
+    }
+    if (options.snapshot == MotionSnapshotAction::Refresh)
+        frozen_valid_ = false;
     pending_parts_.clear();
     area_ = v;
     current_ = view;
     current_.viewport = {0, 0, v.width, v.height};
-    jitter_ = TemporalFilter::jitter(samples_, v.width, v.height);
+    jitter_ = options.anti_aliasing ? TemporalFilter::jitter(samples_, v.width, v.height)
+                                    : std::array<float, 2>{};
     // Row-major projection, column vectors: add an NDC offset times clip W.
     for (unsigned c = 0; c < 4; ++c) {
         current_.projection[c] += jitter_[0] * view.projection[12 + c];
@@ -189,7 +254,33 @@ void TemporalView::resolve(IDeviceContext* context, float stability, bool comple
     input.previous_jitter = previous_jitter();
     input.stability = stability;
     input.reset = !valid_ || !complete_geometry;
-    auto* result = filter_.resolve(context, input);
+    auto* result = filter_ ? filter_->resolve(context, input) : input.color;
+    if (blur_ && complete_geometry) {
+        MotionBlur::Input motion_input;
+        motion_input.color = result;
+        motion_input.motion = input.motion;
+        motion_input.depth = input.depth;
+        const auto& p = current_.projection;
+        motion_input.projection = {p[10], p[11], p[14], p[15]};
+        motion_input.settings = options_.motion_blur;
+        if (frozen_motion_) {
+            if (!frozen_valid_) {
+                context->SetRenderTargets(0, nullptr, nullptr, RESOURCE_STATE_TRANSITION_MODE_NONE);
+                context->CopyTexture({motion_, RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
+                                      frozen_motion_, RESOURCE_STATE_TRANSITION_MODE_TRANSITION});
+                context->CopyTexture({depth_, RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
+                                      frozen_depth_, RESOURCE_STATE_TRANSITION_MODE_TRANSITION});
+                frozen_jitter_ = jitter_;
+                frozen_valid_ = true;
+            }
+            motion_input.motion = frozen_motion_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+            motion_input.motion_depth = frozen_depth_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+            motion_input.motion_offset = {(frozen_jitter_[0] - jitter_[0]) * .5f * area_.width,
+                                          (jitter_[1] - frozen_jitter_[1]) * .5f * area_.height};
+        }
+        blur_->apply(context, motion_input, blurred_->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET));
+        result = blurred_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+    }
     {
         MapHelper<float> data(context, rectangle_, MAP_WRITE, MAP_FLAG_DISCARD);
         data[0] = float(area_.x);

@@ -19,7 +19,7 @@ measuring positive view-space depth rather than radial distance.
 
 MeshSceneRenderer owns queue extraction, culling, sorting, batching and the eligible
 opaque/masked ordinary Mesh prefix. A borrowed PostMeshPass runs after optional
-temporal resolve and before current-frame layers; the renderer restores the camera
+temporal resolve/motion blur and before current-frame layers; the renderer restores the camera
 HDR/depth targets and rectangle even when optional work fails. It never reorders
 draws to create a prefix. Material part metadata derives depth-test/write admission
 from the existing prepared Material owner. Unsupported ordering or incomplete depth

@@ -1,6 +1,8 @@
 #pragma once
+#include "motion_blur.hpp"
 #include "temporal_filter.hpp"
 #include "temporal_geometry.hpp"
+#include "temporal_sample_policy.hpp"
 #include <forge/render_view.hpp>
 
 namespace forge {
@@ -9,7 +11,20 @@ namespace forge {
 class TemporalView {
   public:
     explicit TemporalView(DiligentPresentation&, std::uint64_t byte_limit);
-    void prepare(const CameraView&, bool reset);
+    struct Options {
+        bool anti_aliasing = true;
+        SceneMotionBlur motion_blur;
+        MotionSnapshotAction snapshot = MotionSnapshotAction::Live;
+        bool reset_accumulation = false;
+    };
+    void prepare(const CameraView& view, bool reset) { prepare(view, reset, Options{}); }
+    void prepare(const CameraView&, bool reset, const Options&);
+    static std::uint64_t payload_per_pixel(const Options& options) {
+        const bool blur = options.motion_blur.enabled && options.motion_blur.shutter != 0 &&
+                          options.motion_blur.max_pixels != 0;
+        return 28 + (options.anti_aliasing ? 20 : 0) + (blur ? 8 : 0) +
+               (blur && options.snapshot != MotionSnapshotAction::Live ? 20 : 0);
+    }
     void begin(Diligent::IDeviceContext*, Diligent::ITexture* composed_color,
                Diligent::ITextureView* composed_depth);
     void resolve(Diligent::IDeviceContext*, float stability, bool complete_geometry = true);
@@ -21,16 +36,27 @@ class TemporalView {
     std::array<float, 2> previous_jitter() const { return valid_ ? previous_jitter_ : jitter_; }
     bool valid() const { return valid_; }
     std::uint64_t samples() const { return samples_; }
+    std::uint64_t payload_bytes() const {
+        return color_ ? std::uint64_t(color_->GetDesc().Width) * color_->GetDesc().Height *
+                                (28 + (blurred_ ? 8 : 0) + (frozen_motion_ ? 20 : 0)) +
+                            (filter_ ? filter_->history_bytes() : 0)
+                      : 0;
+    }
     const TemporalMeshParts& previous_parts() const { return previous_parts_; }
     TemporalMeshParts& pending_parts() { return pending_parts_; }
-    // 28 bytes of input targets + 20 bytes of history per pixel, excluding native overhead.
+    // Default AA mode: 28 input + 20 history bytes/pixel. Other modes use payload_per_pixel.
     static constexpr std::uint64_t bytes_per_pixel = 48;
     static bool discontinuous(const CameraView& previous, const CameraView& current);
 
   private:
     DiligentPresentation& presentation_;
     const std::uint64_t byte_limit_;
-    TemporalFilter filter_;
+    std::unique_ptr<TemporalFilter> filter_;
+    std::unique_ptr<MotionBlur> blur_;
+    Options options_;
+    Diligent::RefCntAutoPtr<Diligent::ITexture> blurred_, frozen_motion_, frozen_depth_;
+    std::array<float, 2> frozen_jitter_{};
+    bool frozen_valid_ = false;
     Diligent::RefCntAutoPtr<Diligent::ITexture> color_, motion_, depth_;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> composite_;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> binding_;

@@ -1,8 +1,26 @@
 #pragma once
+#include <algorithm>
 #include <cmath>
 #include <forge/render_view.hpp>
+#include <limits>
 #include <optional>
+#include <stdexcept>
 namespace forge {
+// Shared forward depth admission for spatial passes. Projection maps positive
+// view distance into D3D [0,1]; finite near and finite/infinite far are supported.
+inline void validate_forward_depth_projection(const std::array<float, 4>& p) {
+    if (!std::all_of(p.begin(), p.end(), [](float x) { return std::isfinite(x); }) ||
+        double(p[0]) * p[3] <= double(p[1]) * p[2])
+        throw std::invalid_argument("Forward depth projection must be finite and increasing");
+    const auto distance = [&](double depth) {
+        return (double(p[1]) - depth * p[3]) / (depth * p[2] - p[0]);
+    };
+    const auto near_distance = distance(0);
+    const auto far_distance = p[2] == p[0] ? std::numeric_limits<double>::infinity() : distance(1);
+    if (!std::isfinite(near_distance) || std::isnan(far_distance) || near_distance <= 0 ||
+        far_distance <= near_distance)
+        throw std::invalid_argument("Forward depth projection requires positive near/far");
+}
 // Inverse of FORGE's admitted perspective/orthographic camera projection at
 // D3D depth [0,1]. Uses the same float projection as picking and rendering.
 inline std::optional<Double3> unproject_render_point(const CameraView& view, double x, double y,

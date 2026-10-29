@@ -1339,7 +1339,7 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
             const char* why =
                 "Opaque layers precede later Mesh draws; the view keeps ordinary draw ordering";
             if (temporal)
-                unavailable("render.temporal.unavailable", "Temporal anti-aliasing", why);
+                unavailable("render.temporal.unavailable", "Temporal surface effects", why);
             if (post_mesh)
                 unavailable("render.focus.unavailable", "Depth of field", why);
             temporal = nullptr;
@@ -1382,6 +1382,9 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
             for (const auto& item : queue)
                 if (temporal_item(item)) {
                     const auto& object = objects[item.object];
+                    if (!object.bundle->parts(object.lod)[item.key.part].depth_write)
+                        throw std::runtime_error(
+                            "Mesh material must test and write depth for temporal surface effects");
                     if (!object.bundle->temporal_prepared(object.lod, item.key.part)) {
                         std::size_t count = 0;
                         for (const auto& [key, weak] : bundles_) {
@@ -1404,7 +1407,7 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                 }
             std::sort(temporal->current_parts->begin(), temporal->current_parts->end());
         } catch (const std::exception& error) {
-            unavailable("render.temporal.unavailable", "Temporal anti-aliasing", error.what());
+            unavailable("render.temporal.unavailable", "Temporal surface effects", error.what());
             temporal = nullptr; // Entire view retains ordinary unjittered rendering.
         }
     }

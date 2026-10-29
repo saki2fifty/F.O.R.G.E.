@@ -14,6 +14,7 @@ set(forge_presentation_sources
  src/auto_exposure.cpp
  src/hdr_bloom.cpp
  src/depth_of_field.cpp
+ src/motion_blur.cpp
  src/temporal_filter.cpp
  src/temporal_view.cpp
  src/texture_preview.cpp

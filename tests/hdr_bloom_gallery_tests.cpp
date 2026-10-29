@@ -134,9 +134,10 @@ AssetId inspect_exposure(const std::filesystem::path& root) {
           "Gallery96 admission changed authored rendering settings");
     return found->first;
 }
-AssetId inspect_temporal(const std::filesystem::path& root) {
+AssetId inspect_temporal(const std::filesystem::path& root, bool motion = false) {
     const auto catalog = AssetCatalog::open_project(root);
-    const auto id = AssetId::parse("4df8a08b-a5e1-407b-8321-5f80efa720e2");
+    const auto id = AssetId::parse(motion ? "38a4d328-ee99-4b5e-88b0-907902377829"
+                                          : "4df8a08b-a5e1-407b-8321-5f80efa720e2");
     const auto source = read(root / catalog.records().at(id).source);
     EngineContext engine(WorldRole::Runtime, false, {animation_module(root)});
     Scene scene(engine.world());
@@ -150,18 +151,21 @@ AssetId inspect_temporal(const std::filesystem::path& root) {
     RuntimeSimulation simulation(engine.world(), scene);
     simulation.reset_presentation();
     const auto first = extract_render_scene(simulation.presentation(1));
-    for (unsigned i = 0; i < 90; ++i)
+    for (unsigned i = 0; i < (motion ? 15u : 90u); ++i)
         simulation.tick(1.f / 60);
     const auto second = extract_render_scene(simulation.presentation(1));
-    check(first.settings.temporal_anti_aliasing == SceneTemporalAntiAliasing{true, .85f} &&
-              first.meshes.size() == 22 && first.cameras.size() == 1 && first.lights.size() == 1 &&
-              first.diagnostics.empty() && second.diagnostics.empty(),
+    check((motion
+               ? first.settings.motion_blur == SceneMotionBlur{true, 1, 24}
+               : first.settings.temporal_anti_aliasing == SceneTemporalAntiAliasing{true, .85f}) &&
+              first.meshes.size() == (motion ? 256 : 22) && first.cameras.size() == 1 &&
+              first.lights.size() == 1 && first.diagnostics.empty() && second.diagnostics.empty(),
           "Temporal Gallery lost settings or shared geometry admission");
-    bool moved = false;
+    unsigned moved = 0;
     for (const auto& a : first.meshes)
         for (const auto& b : second.meshes)
-            moved |= a.entity == b.entity && a.world != b.world;
-    check(moved && read(root / catalog.records().at(id).source) == source,
+            moved += a.entity == b.entity && a.world != b.world;
+    check((motion ? moved == 128 : moved != 0) &&
+              read(root / catalog.records().at(id).source) == source,
           "Temporal Gallery did not animate independently of its saved Scene");
     return id;
 }
@@ -220,12 +224,14 @@ int main(int argc, char** argv) {
         const auto fog_scene = inspect_distance_fog(root);
         const auto temporal_scene = inspect_temporal(root);
         const auto focus_scene = inspect_focus(root);
+        const auto motion_scene = inspect_temporal(root, true);
         const std::array roots{source.at("asset_id").get<AssetId>(),
                                AssetId::parse("7456ed81-3d3b-45a6-8c7d-6b50073ad01a"),
                                exposure_scene,
                                fog_scene,
                                temporal_scene,
-                               focus_scene};
+                               focus_scene,
+                               motion_scene};
         {
             auto lease = std::make_shared<ProjectLease>(root);
             prepare_runtime_content_catalog(*lease, roots, {});
@@ -240,12 +246,13 @@ int main(int argc, char** argv) {
         expected.insert(AssetId::parse("4ab91f02-df69-47c5-a626-3b6c7504e954"));
         expected.insert(AssetId::parse("68d22705-0b64-4773-9661-8c28465e0d98"));
         expected.insert(AssetId::parse("399c3c5e-f4e9-4ccb-94b3-bc0e518c1ece"));
+        expected.insert(AssetId::parse("da50e938-f21b-4a87-b116-860bbbb7fdf3"));
         std::set<AssetId> actual;
         for (const auto& [id, record] : shipped.records()) {
             (void)record;
             actual.insert(id);
         }
-        check(actual == expected && expected.size() == 11,
+        check(actual == expected && expected.size() == 13,
               "Bloom/color/exposure/fog export changed its exact shared asset closure");
         check(!std::filesystem::exists(moved / "Assets/Exposure/Daylight.animation.json"),
               "Exposure clip source leaked into the runtime package");
@@ -265,6 +272,11 @@ int main(int argc, char** argv) {
               "Temporal Gallery relocation changed identity or leaked its animation source");
         check(inspect_focus(moved) == focus_scene,
               "Focus Gallery relocation changed its Scene identity or depth planes");
+        check(inspect_temporal(moved, true) == motion_scene &&
+                  !std::filesystem::exists(moved / "Assets/Physics2D/Platform.animation.json"),
+              "Motion Gallery relocation changed identity, motion or leaked clip source");
+        std::cout << "Gallery104 motion settings,128 inherited animated cells,128 static cells and "
+                     "source-free relocation PASS\n";
         std::cout
             << "Gallery103 focus settings, three depth planes and source-free relocation PASS\n";
         std::cout

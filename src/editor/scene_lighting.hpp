@@ -4,6 +4,40 @@
 #include <forge/scene_render_settings.hpp>
 #include <numbers>
 namespace forge::ui {
+inline void scene_motion_controls(const SceneMotionBlur& settings, bool locked,
+                                  const std::function<void(const Json&)>& commit) {
+    IdScope scope("motion_blur");
+    const bool open = ImGui::CollapsingHeader("Motion blur");
+    FORGE_UI_PROBE("motion:section");
+    if (!open)
+        return;
+    DisabledScope disabled(locked);
+    bool enabled = settings.enabled;
+    if (ImGui::Checkbox("Enable motion blur", &enabled))
+        commit({{"motion_blur", {{"enabled", enabled}}}});
+    FORGE_UI_PROBE("motion:enabled");
+    const auto field = [&](const char* label, const char* key, float value, const char* tip) {
+        IdScope id(key);
+        property_label_row(label, tip);
+        if (ImGui::InputFloat("##value", &value, 0, 0, "%.3f",
+                              ImGuiInputTextFlags_EnterReturnsTrue))
+            commit({{"motion_blur", {{key, value}}}});
+        FORGE_UI_PROBE(std::string("motion:") + key);
+    };
+    field("Shutter fraction", "shutter", settings.shutter,
+          "Fraction from 0 to 1 of movement since the previous completed image. Zero stays sharp.");
+    field("Maximum trail (px)", "max_pixels", settings.max_pixels,
+          "Cap from 0 to 32 view pixels. Zero stays sharp.");
+    if (button("Reset motion blur", "Disable blur and restore shutter 0.5, trail 32 pixels."))
+        commit({{"motion_blur", {{"enabled", false}, {"shutter", .5}, {"max_pixels", 32}}}});
+    FORGE_UI_PROBE("motion:reset");
+    ImGui::TextWrapped(
+        "Uses completed camera and Mesh movement, including morphs and skinning. "
+        "Works with temporal anti-aliasing on or off; runs before depth of field. "
+        "Depth and movement boundaries retain their silhouettes. Other layers stay sharp. "
+        "Game cameras must clear both color and depth. The first image after a reset stays sharp. "
+        "Scene Save and Undo include these settings.");
+}
 inline void scene_focus_controls(const SceneDepthOfField& settings, bool locked,
                                  const std::function<void(const Json&)>& commit) {
     IdScope scope("depth_of_field");
@@ -311,6 +345,7 @@ inline void scene_lighting(bool& open, Scene& scene, const AssetCatalog* catalog
                  "mapping. With automatic exposure, this adds brightness compensation. Enter "
                  "commits.");
             scene_auto_exposure_controls(settings.auto_exposure, locked, commit);
+            scene_motion_controls(settings.motion_blur, locked, commit);
             scene_focus_controls(settings.depth_of_field, locked, commit);
             scene_temporal_controls(settings.temporal_anti_aliasing, locked, commit);
             scene_distance_fog_controls(settings.distance_fog, locked, commit);

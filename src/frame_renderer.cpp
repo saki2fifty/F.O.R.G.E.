@@ -64,13 +64,21 @@ FrameRenderer::FrameRenderer(DiligentPresentation& presentation, std::string pro
         variable->Set(clear_color_);
     }
 }
-void FrameRenderer::resources(std::shared_ptr<MeshResourceHost> host) {
+void FrameRenderer::invalidate_temporal_history() {
     if (thread_ != std::this_thread::get_id())
-        throw std::runtime_error("Frame resources changed off presentation thread");
-    sky_.select({});
-    camera_effects_.clear();
+        throw std::runtime_error("Frame history changed off presentation thread");
+    for (auto& camera : camera_effects_)
+        if (camera.history)
+            camera.history->invalidate();
+    if (meshes_)
+        meshes_->commit_temporal_frame(false);
     temporal_time_.reset();
     temporal_sample_.reset();
+}
+void FrameRenderer::resources(std::shared_ptr<MeshResourceHost> host) {
+    invalidate_temporal_history();
+    sky_.select({});
+    camera_effects_.clear();
     meshes_ = host ? std::make_unique<MeshSceneRenderer>(std::move(host), TEX_FORMAT_RGBA16_FLOAT)
                    : nullptr;
     exposure_time_.reset();
@@ -154,6 +162,7 @@ ITextureView* FrameRenderer::render(IDeviceContext* context, const RenderScene& 
     validate_scene_distance_fog(scene.settings.distance_fog);
     validate_scene_temporal_anti_aliasing(scene.settings.temporal_anti_aliasing);
     validate_scene_depth_of_field(scene.settings.depth_of_field);
+    validate_scene_motion_blur(scene.settings.motion_blur);
     if (sample && (!sample->operation || !std::isfinite(sample->seconds) || sample->seconds < 0))
         throw std::invalid_argument(
             "Temporal frame sample requires an operation and finite nonnegative time");
@@ -189,7 +198,15 @@ ITextureView* FrameRenderer::render(IDeviceContext* context, const RenderScene& 
                 break;
             }
     const auto temporal_settings = scene.settings.temporal_anti_aliasing;
-    const bool temporal_enabled = temporal_settings.enabled && meshes_;
+    const bool aa_enabled = temporal_settings.enabled && meshes_;
+    const bool blur_enabled = meshes_ && scene.settings.motion_blur.enabled &&
+                              scene.settings.motion_blur.shutter != 0 &&
+                              scene.settings.motion_blur.max_pixels != 0;
+    const bool temporal_enabled = aa_enabled || blur_enabled;
+    const auto transition = temporal_sample_transition(temporal_sample_, sample_key);
+    const TemporalView::Options temporal_options{bool(aa_enabled), scene.settings.motion_blur,
+                                                 transition.motion, transition.reset_accumulation};
+    const auto temporal_bpp = TemporalView::payload_per_pixel(temporal_options);
     const bool focus_enabled = meshes_ && scene.settings.depth_of_field.enabled &&
                                scene.settings.depth_of_field.blur_radius != 0;
     const bool effects_enabled = temporal_enabled || focus_enabled;
@@ -199,7 +216,7 @@ ITextureView* FrameRenderer::render(IDeviceContext* context, const RenderScene& 
         temporal_scene_ != scene.scene || temporal_epoch_ != epoch ||
         temporal_extent_ != std::array<unsigned, 2>{width, height} ||
         temporal_settings_ != scene.settings || pending_resources || temporal_was_pending_ ||
-        temporal_sample_ != sample_key ||
+        transition.reset_geometry ||
         (!sample && (!temporal_time_ || !std::isfinite(seconds) || seconds < *temporal_time_ ||
                      seconds - *temporal_time_ > .5));
     bool same_cameras = camera_effects_.size() == cameras.size();
@@ -319,23 +336,20 @@ ITextureView* FrameRenderer::render(IDeviceContext* context, const RenderScene& 
                     if (!camera.settings.clear_color || !camera.settings.clear_depth)
                         throw std::runtime_error("Camera must clear both color and depth");
                     if (camera_index > 8 ||
-                        pixels > (temporal_budget - temporal_bytes) / TemporalView::bytes_per_pixel)
+                        pixels > (temporal_budget - temporal_bytes) / temporal_bpp)
                         throw std::runtime_error(
                             "Views exceed the eight-camera / 512 MiB temporal texture budget");
-                    temporal_bytes += pixels * TemporalView::bytes_per_pixel;
+                    temporal_bytes += pixels * temporal_bpp;
                     auto& state = *temporal_camera;
                     const auto& old = state.unjittered;
                     const bool reset = reset_temporal ||
                                        TemporalView::discontinuous(old, camera.view) ||
                                        state.layers != camera.settings.layers;
                     if (!state.history)
-                        state.history = std::make_unique<TemporalView>(
-                            presentation_, pixels * TemporalView::bytes_per_pixel);
-                    // A resized view needs a new budget-sized owner, before rendering.
-                    if (old.viewport.width != area.width || old.viewport.height != area.height)
-                        state.history = std::make_unique<TemporalView>(
-                            presentation_, pixels * TemporalView::bytes_per_pixel);
-                    state.history->prepare(camera.view, reset);
+                        state.history =
+                            std::make_unique<TemporalView>(presentation_, temporal_budget);
+                    // This owner stages extent/mode changes within the admitted view budget.
+                    state.history->prepare(camera.view, reset, temporal_options);
                     auto& pass = temporal_pass.emplace();
                     pass.current = state.history->current();
                     pass.previous = state.history->previous();
@@ -354,7 +368,7 @@ ITextureView* FrameRenderer::render(IDeviceContext* context, const RenderScene& 
                     temporal_camera->history.reset();
                     Diagnostic value{Severity::Warning,
                                      "render.temporal.unavailable",
-                                     std::string("Temporal anti-aliasing unavailable: ") +
+                                     std::string("Temporal surface effects unavailable: ") +
                                          error.what(),
                                      {}};
                     value.context.entity = camera.entity;
@@ -447,6 +461,8 @@ ITextureView* FrameRenderer::render(IDeviceContext* context, const RenderScene& 
     return result;
 }
 bool FrameRenderer::temporal_ready() const {
+    if (!temporal_settings_.temporal_anti_aliasing.enabled)
+        return true;
     return std::all_of(camera_effects_.begin(), camera_effects_.end(), [](const auto& camera) {
         return !camera.applied || (camera.history && camera.history->samples() >= 8);
     });
