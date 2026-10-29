@@ -1,11 +1,11 @@
-#include "screen_space_reflections.hpp"
+#include "surface_reflections.hpp"
 #include "Graphics/GraphicsTools/interface/MapHelper.hpp"
 #include "presentation_views.hpp"
 #include "render_projection.hpp"
 #include "surface_depth_shader.hpp"
 namespace forge {
 using namespace Diligent;
-void ScreenSpaceReflections::prepare() {
+void SurfaceReflections::prepare() {
     if (thread_ != std::this_thread::get_id())
         throw std::logic_error("Screen-space reflections require their presentation thread");
     if (pipeline_)
@@ -145,8 +145,8 @@ Result main(float4 position:SV_Position) {
     binding_ = std::move(binding);
     values_ = std::move(values);
 }
-void ScreenSpaceReflections::apply(IDeviceContext* context, const Input& input,
-                                   ITextureView* color_output, ITextureView* indirect_output) {
+void SurfaceReflections::apply(IDeviceContext* context, const Input& input,
+                               ITextureView* color_output, ITextureView* indirect_output) {
     validate_scene_screen_space_reflections(input.settings);
     if (thread_ != std::this_thread::get_id() || !context ||
         !complete_surface_view(input.color, TEX_FORMAT_RGBA16_FLOAT,

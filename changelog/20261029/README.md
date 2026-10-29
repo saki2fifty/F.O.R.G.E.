@@ -1,5 +1,21 @@
 # 2026-10-29 — Collision profiles and Scene surface effects
 
+## Local reflection probes
+
+- Added imported panorama/cube reflection maps in transformed box volumes with
+  world-distance edge fade, stable priority blending and optional box projection.
+  Base reflections change locally; global diffuse, sky and separate material
+  layers retain their existing lighting.
+- Reused texture/environment residency and surface-view ownership, including
+  per-camera representability checks, last-good maps and an explicit eight-probe
+  capacity fallback. Probe lighting composes before screen reflections and AO.
+- Added the creation recipe, Inspector fields and volume guides, shared
+  automation/MCP discovery, runtime scalar tuning and Gallery107.
+- Added the installed `ReflectionProbe` value header and matching SDK example.
+  The exact SDK fingerprint changes; existing modules need a matching rebuild.
+- These are local source changes. Windows/cooked D3D12 and physical acceptance
+  remain pending; no new numbered distribution is asserted here.
+
 ## Screen-space reflections
 
 - Added default-off current-depth base-specular reflections using actual mapped

@@ -103,6 +103,13 @@ inline void temporal_view_boundaries(forge::DiligentPresentation& presentation,
               !reflection.motion_output(),
           "Spatial reflections omitted their material/result targets or allocated motion");
     TemporalView reflected(presentation, 23 * 19 * 60);
+    auto probes = reflection;
+    probes.local_reflections = true;
+    check(TemporalView::payload_per_pixel(probes) == 68,
+          "Combined probe and screen reflections omitted updated specular storage");
+    probes.screen_space_reflections.enabled = false;
+    check(TemporalView::payload_per_pixel(probes) == 60 && !probes.motion_output(),
+          "Probe-only mode added motion or unnecessary specular scratch storage");
     reflected.prepare(current, false, reflection);
     check(reflected.payload_bytes() == 23 * 19 * 60 && reflected.jitter() == std::array<float, 2>{},
           "Reflection-only mode has incorrect targets or camera jitter");

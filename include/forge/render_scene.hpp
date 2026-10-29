@@ -1,4 +1,5 @@
 #pragma once
+#include <forge/reflection_probe.hpp>
 #include <forge/render_view.hpp>
 #include <forge/scene_render_settings.hpp>
 #include <forge/services.hpp>
@@ -28,6 +29,11 @@ struct RenderCamera {
 struct RenderLight {
     EntityId entity;
     LightView light;
+};
+struct RenderReflectionProbe {
+    EntityId entity;
+    ReflectionProbe probe;
+    AffineTransform world;
 };
 struct RenderMesh {
     EntityId entity;
@@ -92,6 +98,7 @@ struct RenderScene {
     std::vector<RenderModelAnimation> model_animations;
     std::vector<RenderSprite> sprites;
     std::vector<RenderTileMap> tile_maps;
+    std::vector<RenderReflectionProbe> reflection_probes;
 };
 // Malformed envelope/identity rejects the whole snapshot. Invalid per-component
 // producer values are diagnosed and omitted without touching authored state.

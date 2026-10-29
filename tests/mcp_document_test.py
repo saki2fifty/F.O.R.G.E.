@@ -71,6 +71,17 @@ for legacy in (False, True):
         catalog = client.request('tools/list')['result']['tools']
         assert len(catalog) == 42, len(catalog)
         state = discover()
+        probe_schema = next(c for c in state['result']['schema']['components']
+                            if c['id'] == 'forge.reflection_probe')
+        probe_fields = {field['id']: field for field in probe_schema['fields']}
+        assert probe_schema['optional'] and len(probe_fields) == 10
+        assert probe_fields['texture']['asset_type'] == 'texture'
+        assert probe_fields['half_extent_x']['minimum'] == .0001
+        assert probe_fields['half_extent_x']['maximum'] == 1000000
+        create_command = next(c for c in state['result']['commands'] if c['id'] == 'entity.create')
+        assert 'render.reflection_probe' in create_command['input_schema']['properties']['recipe']['enum']
+        create_tool = next(tool for tool in catalog if tool['name'] == 'forge_entity_create')
+        assert 'render.reflection_probe' in create_tool['inputSchema']['properties']['arguments']['properties']['recipe']['enum']
         body_schema = next(c for c in state['result']['schema']['components']
                            if c['id'] == 'forge.physics_body_2d')
         fields = {f['id']: f for f in body_schema['fields']}
@@ -319,11 +330,36 @@ for legacy in (False, True):
             assert not invalid['ok'] and discover()['revision'] == before_invalid['revision'], invalid
         assert mutate('forge_history_undo')['result']['changed']
         assert mutate('forge_history_redo')['result']['changed']
+        created_probe = mutate('forge_entity_create', arguments=dict(
+            recipe='render.reflection_probe', name='Room reflections'))
+        assert created_probe['ok'], created_probe
+        probe = created_probe['result']['results'][0]['selected']
+        probe_values = dict(texture='d4c60053-60c8-4456-8771-a7cf8182a902', intensity=2.5,
+                            half_extent_x=.0001, priority=-7, rotation_degrees=90,
+                            box_projection=False)
+        for field, value in probe_values.items():
+            request = arguments(arguments=dict(entity=probe, component='forge.reflection_probe',
+                                               field=field, value=value))
+            changed_probe = client.tool('forge_property_set', **request)
+            assert changed_probe['ok'], changed_probe
+            assert client.tool('forge_property_set', **request)['result'] == changed_probe['result']
+        for field, value in (('half_extent_x', .000099999999), ('priority', 2147483648),
+                             ('enabled', 1), ('intensity', -1)):
+            before_probe = discover()
+            invalid = mutate('forge_property_set', arguments=dict(entity=probe,
+                component='forge.reflection_probe', field=field, value=value))
+            assert not invalid['ok'] and discover()['revision'] == before_probe['revision'], invalid
+        assert mutate('forge_history_undo')['result']['changed']
+        assert mutate('forge_history_redo')['result']['changed']
         saved = mutate('forge_document_save')
         assert saved['ok'] and not saved['result']['rediscover'], saved
         saved_path = project / 'Scenes/main.scene.json'
         saved_bytes = saved_path.read_bytes()
         saved_doc = json.loads(saved_bytes)
+        saved_probe = next(entity for entity in saved_doc['entities'] if entity['id'] == probe)
+        assert saved_probe['name'] == 'Room reflections'
+        for field, value in probe_values.items():
+            assert saved_probe['components']['forge.reflection_probe'][field] == value
         assert saved_doc['rendering']['auto_exposure'] == dict(
             enabled=True, min_ev=-4, max_ev=6, low_percentile=.1,
             high_percentile=.9, target_gray=.2, speed_up=3, speed_down=4)

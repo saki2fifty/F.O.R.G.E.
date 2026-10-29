@@ -278,8 +278,9 @@ ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsig
         mesh_scene_->settings.screen_space_reflections.max_distance != 0 &&
         mesh_scene_->settings.screen_space_reflections.strength != 0 &&
         mesh_scene_->settings.screen_space_reflections.max_roughness != 0;
+    const bool local_reflections = display_ && meshes_ && !meshes_->reflection_probes().empty();
     const bool temporal_enabled =
-        aa_enabled || blur_enabled || occlusion_enabled || reflections_enabled;
+        aa_enabled || blur_enabled || occlusion_enabled || reflections_enabled || local_reflections;
     if (!frame_ || *frame_ != key)
         temporal_settle_ = aa_enabled ? 8 : blur_enabled ? 2 : 0;
     const bool temporal_warming =
@@ -496,6 +497,7 @@ ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsig
             options.motion_blur = mesh_scene_->settings.motion_blur;
             options.ambient_occlusion = mesh_scene_->settings.ambient_occlusion;
             options.screen_space_reflections = mesh_scene_->settings.screen_space_reflections;
+            options.local_reflections = local_reflections;
             temporal_->prepare(view, reset, options);
             auto& pass = temporal_pass.emplace();
             pass.current = temporal_->current();
@@ -510,8 +512,9 @@ ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsig
             pass.current_parts = &temporal_->pending_parts();
             pass.begin = [&] { temporal_->begin(context, color_, dsv); };
             pass.resolve = [&](bool complete) {
+                const auto probes = meshes_->reflection_probes(view);
                 temporal_->resolve(context, mesh_scene_->settings.temporal_anti_aliasing.stability,
-                                   complete);
+                                   complete, probes);
             };
         } else {
             temporal_.reset();

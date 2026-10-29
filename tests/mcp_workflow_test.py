@@ -15,6 +15,7 @@ NAVIGATION_ONLY = sys.argv[7:] == ['--navigation-only']
 SCOPE_TRACE_ONLY = sys.argv[7:] == ['--scope-trace-only']
 MAP_PROFILE_ONLY = sys.argv[7:] == ['--map-profile-only']
 SPRITE_FRAMES_ONLY = sys.argv[7:] == ['--sprite-frames-only']
+PROBES_ONLY = sys.argv[7:] == ['--reflection-probes-only']
 TIME_ONLY = sys.argv[7:] == ['--time-only']
 PROFILE_ONLY = sys.argv[7:] == ['--profile-only']
 GESTURES_ONLY = sys.argv[7:] == ['--gestures-only']
@@ -538,6 +539,55 @@ for legacy in (False, True):
             assert read('forge_scene_read') == authored
             continue
 
+        if PROBES_ONLY:
+            assert 'Reflection Probe' in advertised['forge_play_tune']['description']
+            actor = ok('forge_entity_create', arguments=dict(recipe='render.reflection_probe',
+                        name='MCP local reflection controls'))['results'][0]['selected']
+            ok('forge_property_set', arguments=dict(entity=actor, component='forge.reflection_probe',
+                   field='texture', value='d4c60053-60c8-4456-8771-a7cf8182a902'))
+            ok('forge_document_save')
+            authored = read('forge_scene_read')
+            ok('forge_play_start')
+            until(lambda: read('forge_play_status'), lambda row: row['ready'] and row['control_ready'])
+            control('forge_play_pause')
+            paused = until(lambda: read('forge_play_status'), lambda row: row['paused'] and row['control_ready'])
+            def runtime_probe():
+                snapshot = read('forge_play_snapshot')
+                return next(row['components']['forge.reflection_probe'] for row in snapshot['entities']
+                            if row['id'] == actor)
+            for field, value in [('enabled', False), ('intensity', 2.5), ('half_extent_x', .0001),
+                                 ('half_extent_y', 3.), ('half_extent_z', 4.), ('blend_distance', .5),
+                                 ('rotation_degrees', 90.), ('priority', -2147483648),
+                                 ('box_projection', False)]:
+                control('forge_play_tune', entity=actor, component='forge.reflection_probe',
+                        property=field, value=value)
+                ack = until(lambda: read('forge_play_status'), lambda row:
+                            not row['tune_pending'] and row['tune_ack'] is not None)
+                assert 'error' not in ack['tune_ack'] and runtime_probe()[field] == value, ack
+                assert ack['timing']['tick'] == paused['timing']['tick']
+            tuned = runtime_probe()
+            for field, value in [('half_extent_x', .000099), ('priority', 2147483648),
+                                 ('enabled', 1), ('intensity', -1)]:
+                control('forge_play_tune', entity=actor, component='forge.reflection_probe',
+                        property=field, value=value)
+                ack = until(lambda: read('forge_play_status'), lambda row:
+                            not row['tune_pending'] and row['tune_ack'] is not None)
+                assert 'error' in ack['tune_ack'] and runtime_probe() == tuned, ack
+                assert ack['timing']['tick'] == paused['timing']['tick']
+            state = until(lambda: read('forge_play_status'), lambda row: row['control_ready'])
+            failed(mutate('forge_play_tune', launch=state['launch'], session=state['session'],
+                          generation=state['generation'], entity=actor, component='forge.reflection_probe',
+                          property='texture', value=None), 'play_busy')
+            assert runtime_probe() == tuned
+            wrong = {key: paused[key] for key in ('launch', 'session', 'generation')}
+            wrong['generation'] += 1
+            failed(mutate('forge_play_tune', **wrong, entity=actor, component='forge.reflection_probe',
+                          property='intensity', value=1), 'stale_play')
+            control('forge_play_stop')
+            assert read('forge_scene_read') == authored
+            print(('legacy' if legacy else 'current') + ': probe recipe/Save, nine live controls, '
+                  'typed/map/stale rejection, paused clock and authored isolation passed')
+            continue
         if TIME_ONLY:
             assert "unscaled_time" in advertised["forge_play_status"]["description"]
             ok('forge_entity_create', arguments=dict(kind=0, name='Unscaled clock cube'))

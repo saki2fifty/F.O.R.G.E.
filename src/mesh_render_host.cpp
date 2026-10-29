@@ -535,11 +535,14 @@ std::uint64_t MeshSceneRenderer::pose_payload_bytes() const {
     }
     return bytes;
 }
-void MeshSceneRenderer::report(EntityId entity, const std::string& text, DrawScope draw_scope) {
+void MeshSceneRenderer::report(Diagnostic value) {
     if (diagnostics_.size() >= 256) {
         ++omitted_;
         return;
     }
+    diagnostics_.push_back(std::move(value));
+}
+void MeshSceneRenderer::report(EntityId entity, const std::string& text, DrawScope draw_scope) {
     Diagnostic value{Severity::Error,
                      draw_scope == DrawScope::Sprite     ? "render.sprite.resource"
                      : draw_scope == DrawScope::TileMap  ? "render.tile_map.resource"
@@ -554,7 +557,7 @@ void MeshSceneRenderer::report(EntityId entity, const std::string& text, DrawSco
                              : draw_scope == DrawScope::Particle ? "forge.particle_emitter"
                                                                  : "forge.mesh_renderer";
     value.context.source = "presentation";
-    diagnostics_.push_back(std::move(value));
+    report(std::move(value));
 }
 std::size_t MeshSceneRenderer::bundle_count() const {
     host_->check_thread();
@@ -587,7 +590,7 @@ MeshSceneRenderer::prepare_bundle(const asset_detail::PreparedModelDraw& prepare
     auto next = std::make_shared<MeshDrawBundle>(
         host_->presentation_, host_->context_, prepared, host_->gpu_meshes_, host_->gpu_textures_,
         color_, Diligent::TEX_FORMAT_D32_FLOAT, skinned, std::move(geometry), profile);
-    next->environment(environment_ready_);
+    next->environment(environment_.ready);
     bundles_[key] = next;
     return next;
 }
@@ -606,14 +609,14 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
         particle_instances_.clear();
         particle_bounds_.clear();
         bundles_.clear();
-        environment_ready_ = {};
-        environment_candidate_.reset();
-        environment_epoch_ = 0;
-        environment_error_.clear();
+        environment_ = {};
+        probe_entries_.clear();
+        reflection_probes_.clear();
         scene_ = scene.scene;
         changed = true;
     }
     changed |= update_environment(scene);
+    changed |= update_reflection_probes(scene);
     const ModelSceneIndex model_index(scene);
     auto particle_sources = prepare_particle_sources(scene);
     tile_images_ = prepare_tile_sources(scene);
@@ -788,7 +791,7 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
                     std::vector<float> thresholds;
                     for (const auto& lod : candidate->mesh->mesh.lods)
                         thresholds.push_back(lod.screen_coverage);
-                    native->environment(environment_ready_);
+                    native->environment(environment_.ready);
                     auto selected_pose = entry.stage_pose(std::move(pose));
                     entry.ready = std::move(native);
                     entry.parameters = std::move(parameters);
@@ -974,71 +977,6 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
     adopt_tile_images();
     return changed;
 }
-bool MeshSceneRenderer::update_environment(const RenderScene& scene) {
-    bool changed = false;
-    const auto source = scene.settings.environment.texture;
-    auto adopt = [&](EnvironmentLease next) {
-        for (auto& [id, entry] : entries_) {
-            (void)id;
-            if (entry.ready)
-                entry.ready->environment(next);
-        }
-        environment_ready_ = std::move(next);
-        changed = true;
-    };
-    if (source != environment_source_ || environment_epoch_ != host_->epoch_) {
-        environment_source_ = source;
-        environment_epoch_ = host_->epoch_;
-        environment_candidate_.reset();
-        environment_error_.clear();
-        changed = true;
-        if (!source.id)
-            adopt({});
-        else
-            try {
-                environment_candidate_ = asset_detail::request_texture(
-                    host_->textures_, host_->project_, host_->catalog_, source);
-            } catch (const std::exception& e) {
-                environment_error_ = e.what();
-            }
-    }
-    if (environment_candidate_) {
-        const auto info = environment_candidate_->inspect();
-        if (info.state == ResourceState::Ready) {
-            try {
-                const auto cpu = host_->textures_.acquire(*environment_candidate_);
-                if (!cpu)
-                    throw std::runtime_error("Environment selection became stale before adoption");
-                auto next = host_->environments_.acquire(cpu);
-                adopt(std::move(next));
-            } catch (const std::exception& e) {
-                environment_error_ = e.what();
-            }
-            environment_candidate_.reset();
-        } else if (info.state != ResourceState::Queued && info.state != ResourceState::Loading &&
-                   info.state != ResourceState::DependencyPending &&
-                   info.state != ResourceState::Replacing) {
-            environment_error_ =
-                info.diagnostic.empty() ? resource_state_name(info.state) : info.diagnostic;
-            environment_candidate_.reset();
-        }
-    }
-    if (!environment_error_.empty()) {
-        if (diagnostics_.size() < 256) {
-            Diagnostic error{Severity::Error,
-                             "render.environment.resource",
-                             environment_error_.substr(0, 4000) +
-                                 (environment_ready_ ? " (previous environment retained)" : ""),
-                             {}};
-            error.context.asset = scene.scene;
-            error.context.property = "rendering.environment.texture";
-            error.context.source = "presentation";
-            diagnostics_.push_back(std::move(error));
-        } else
-            ++omitted_;
-    }
-    return changed;
-}
 bool MeshSceneRenderer::pending() const {
     host_->check_thread();
     const bool particles =
@@ -1055,7 +993,10 @@ bool MeshSceneRenderer::pending() const {
         });
     const bool tiles = std::any_of(tile_sources_.begin(), tile_sources_.end(),
                                    [](const auto& row) { return row.second.pending; });
-    return particles || tiles || environment_candidate_.has_value() ||
+    const bool probes =
+        std::any_of(probe_entries_.begin(), probe_entries_.end(),
+                    [](const auto& row) { return row.second.environment.candidate.has_value(); });
+    return particles || tiles || probes || environment_.candidate.has_value() ||
            std::any_of(entries_.begin(), entries_.end(), [](const auto& pair) {
                return (pair.second.sprite && pair.second.sprite->mip_pending) ||
                       (pair.second.candidate &&
@@ -1476,8 +1417,8 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
         return motion;
     };
     EnvironmentLighting lighting;
-    if (environment_ready_)
-        lighting = {&environment_ready_.get(), scene.settings.environment.intensity,
+    if (environment_.ready)
+        lighting = {&environment_.ready.get(), scene.settings.environment.intensity,
                     scene.settings.environment.rotation};
     const bool needs_background =
         std::any_of(queue.begin(), queue.end(), [](const auto& item) { return item.transmission; });
@@ -1560,7 +1501,7 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
             const auto motion = motion_for(object, item.key.part);
             object.bundle->draw_part(
                 host_->context_, *object.world, draw_view, object.lights, object.lod, item.key.part,
-                environment_ready_ ? &lighting : nullptr,
+                environment_.ready ? &lighting : nullptr,
                 object.mesh->legacy_tint ? &*object.mesh->legacy_tint : nullptr,
                 &shadows_->lighting(), object.shadow_slots,
                 transmission.background ? &transmission : nullptr, object.pose,
@@ -1588,7 +1529,7 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                     const auto motion = motion_for(single, failed_item.key.part);
                     single.bundle->draw_part(
                         host_->context_, *single.world, draw_view, single.lights, single.lod,
-                        failed_item.key.part, environment_ready_ ? &lighting : nullptr,
+                        failed_item.key.part, environment_.ready ? &lighting : nullptr,
                         single.mesh->legacy_tint ? &*single.mesh->legacy_tint : nullptr,
                         &shadows_->lighting(), single.shadow_slots, nullptr, single.pose, {},
                         slot_parameters(single.parameters,

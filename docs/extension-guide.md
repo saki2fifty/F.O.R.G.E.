@@ -49,6 +49,17 @@ not expose the cooked texture loader. CMake checks that every public FORGE inclu
 reachable from the installed header list is also installed. The relocated SDK
 consumer independently verifies that boundary and the exact-version fingerprint.
 
+## Local reflection probe values
+
+Include `forge/reflection_probe.hpp` to access `forge::ReflectionProbe` from a
+matching-SDK Flecs system. It contains a typed TextureAsset reference and authored
+controls; it owns no GPU resource. Configure the installed sample normally and
+build target `reflection_probe_gameplay` for a small fixed-phase example. The
+system retains the assigned map while tuning intensity, yaw, box width, priority
+and box projection. The new installed header changes the exact fingerprint;
+rebuild existing modules with the matching SDK rather than editing their declared
+fingerprint. The renderer resolves maps through its ordinary resource owner.
+
 ## Small combined example
 
 `combined.cpp` registers an ordinary Flecs State component and a fixed-phase/tag system. The system reads a mapped ActionId, updates that component, queries physics/navigation when present, polls an allowed UI action, and publishes a copied UI value. It records diagnostics and CPU timing through the host. Scene entities still own authored state; the UI is a copy, not another authority. The example's State is transient and deliberately has no invented save/recovery serializer.

@@ -1,5 +1,11 @@
 # Explore the Feature Gallery
 
+**107-local-reflection-probes** supplies warm and cool imported reflection maps
+inside two overlapping boxes. Select either probe to adjust **Reflection map**,
+half extents, **Edge fade**, **Priority**, **Map rotation** or **Box projection**.
+Compare the smooth metal spheres and floor, then save and export the Scene.
+See [Scene lighting](../editor/lighting.md) for the workflow and limits.
+
 **106-screen-space-reflections** shows amber and blue blocks reflected in a smooth
 metal floor. In **Tools > Scene lighting... → Screen-space reflections**, toggle
 the effect and adjust distance, thickness, strength or maximum roughness. Keep

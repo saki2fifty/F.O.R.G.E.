@@ -653,7 +653,7 @@ inline bool property_field_body(const std::filesystem::path& root, const Json& f
         changed = numeric_property<float>(label.c_str(), ImGuiDataType_Float, "%.3f", value,
                                           commit_on_enter);
     else if (type == "float64")
-        changed = numeric_property<double>(label.c_str(), ImGuiDataType_Double, "%.3f", value,
+        changed = numeric_property<double>(label.c_str(), ImGuiDataType_Double, "%.9g", value,
                                            commit_on_enter);
     else if (type == "string") {
         auto buffer = value.get<std::string>();

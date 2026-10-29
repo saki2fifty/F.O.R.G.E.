@@ -4,6 +4,7 @@
 #include "render_bounds.hpp"
 #include "shadow_renderer.hpp"
 #include "sprite_frame_mips.hpp"
+#include "surface_reflections.hpp"
 #include "temporal_geometry.hpp"
 #include "tile_asset_resources.hpp"
 #include "tile_draw_values.hpp"
@@ -136,7 +137,11 @@ class MeshSceneRenderer {
                                                           double x, double y,
                                                           std::uint32_t layers = UINT32_MAX,
                                                           double point_line_radius = 5) const;
-    const EnvironmentLease& environment() const { return environment_ready_; }
+    const EnvironmentLease& environment() const { return environment_.ready; }
+    std::span<const SurfaceReflections::Probe> reflection_probes() const {
+        return reflection_probes_;
+    }
+    std::vector<SurfaceReflections::Probe> reflection_probes(const CameraView&);
 
   private:
     enum class DrawScope { Mesh, Particle, Sprite, TileMap };
@@ -197,7 +202,17 @@ class MeshSceneRenderer {
                                                        const asset_detail::PreparedModelDraw&,
                                                        EntityId, DrawScope, std::uint64_t image);
     std::map<asset_detail::PreparedModelDrawKey, std::weak_ptr<MeshDrawBundle>> bundles_;
+    struct EnvironmentSelection {
+        AssetRef<TextureAsset> source;
+        std::uint64_t epoch = UINT64_MAX;
+        std::optional<ResourceTicket> candidate;
+        EnvironmentLease ready;
+        std::string error;
+    };
+    bool resolve_environment(EnvironmentSelection&, AssetRef<TextureAsset>);
     bool update_environment(const RenderScene&);
+    bool update_reflection_probes(const RenderScene&);
+    void report(Diagnostic);
     void report(EntityId, const std::string&, DrawScope = DrawScope::Mesh);
     std::shared_ptr<MeshResourceHost> host_;
     std::unique_ptr<ShadowRenderer> shadows_;
@@ -207,11 +222,15 @@ class MeshSceneRenderer {
     const std::size_t draw_part_limit_;
     const std::uint64_t material_budget_;
     AssetId scene_;
-    AssetRef<TextureAsset> environment_source_;
-    std::uint64_t environment_epoch_ = 0;
-    std::optional<ResourceTicket> environment_candidate_;
-    EnvironmentLease environment_ready_;
-    std::string environment_error_;
+    EnvironmentSelection environment_;
+    struct ProbeEntry {
+        ReflectionProbe value;
+        AffineTransform world;
+        ReflectionProbeVolume volume;
+        EnvironmentSelection environment;
+    };
+    std::map<EntityId, ProbeEntry> probe_entries_;
+    std::vector<SurfaceReflections::Probe> reflection_probes_;
     struct DrawOwner {
         EntityId first;
         DrawScope second;

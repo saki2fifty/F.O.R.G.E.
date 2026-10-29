@@ -930,3 +930,17 @@ Runtime/Scene/Prefab/history still use their existing owners and validation.
 Packing is one-shot and does not automatically repack changed sources. Optional
 Sprite/Tile Map mip filtering prepares independent frame chains in the renderer;
 the generated source PNG remains an ordinary base image.
+
+## Local reflection probes
+
+Discovery includes recipe `render.reflection_probe` and optional component
+`forge.reflection_probe`. Use `forge_entity_create` with the recipe, then
+`forge_property_set` for its typed texture reference and scalar controls. The
+Scene grant, expected revision, replay, Undo and document-save rules are the same
+as the Inspector. Texture is an imported color/HDR cube or panorama; dimensions,
+finite ranges and signed 32-bit priority validate through the native component.
+Invalid candidates leave the revision unchanged. Live Play tuning admits its nine
+scalar controls through `play.tune` / `forge_play_tune`; texture assignment remains Edit-only.
+Use discovered tools/fields for the current connection and permissions. There is
+no agent-specific probe renderer or automatic map-capture tool. See
+[local reflection probes](local-reflection-probes.md) for rendering limits.

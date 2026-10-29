@@ -1631,6 +1631,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "1f955498-5eaa-46a7-9958-9678072dc24b",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/107-local-reflection-probes.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "1fd23db8-be6a-4ff7-969f-026b24b7fe45",
       "metadata": {},
       "schema_version": 3,
@@ -5280,6 +5290,35 @@
         "removed": false
       },
       "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "6ec03ae9-356c-47cc-a2d0-66752bb063bd",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "83ada29e6150e789ef90619bbced59c060fd41c92b8ba4e5333eacb54a459b33",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 2,
+          "importer": "forge.texture.image",
+          "importer_revision": "a72711a84ab8aba2fcd68c6e2ac7fa005f4b3e86dcae32d1b171e06b00773837",
+          "key": "30554eebfa4ea27344a126faab4f1a8abcef05abbdf8d746fdd2550aae0e7c8a",
+          "output_format": "forge.texture-bundle",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "6e500d6e7e08e5b11f498e154d26275d6288d83ed4b295b9c56c95d747c76521",
+          "settings_version": 1,
+          "sidecar_digest": "42a7fe78847065adb7e96d2bab8b25ea33ccb10cb7d350ba65f936ab4c056159",
+          "source_digest": "639762863b5ed142d5bfd97e7b3d7dbfa3e7b42ac8b6743d706a3d72bed8c251",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/ReflectionProbes/WarmRoom.png",
+      "source_dependencies": [],
+      "type": "texture"
     },
     {
       "dependencies": [],
@@ -9254,6 +9293,35 @@
         "removed": false
       },
       "type": "animation_clip"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "d26ec4ff-f4cb-47c6-bf5d-b99f6de97cb0",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "c3b8291d7013c9d00b0b7d3ec661eb606ee326ebb9ee19f46e0c2e3508468dd6",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 2,
+          "importer": "forge.texture.image",
+          "importer_revision": "a72711a84ab8aba2fcd68c6e2ac7fa005f4b3e86dcae32d1b171e06b00773837",
+          "key": "596e30496e72a178a0297645c603ec3b5ca388d3f35d37e448d6cbcc66cb3403",
+          "output_format": "forge.texture-bundle",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "6e500d6e7e08e5b11f498e154d26275d6288d83ed4b295b9c56c95d747c76521",
+          "settings_version": 1,
+          "sidecar_digest": "a02ad2e6fd624ad19cce9a59fc041e0edfdd532de0e92b37d2223069de323373",
+          "source_digest": "2cf4855a01006d3c9e86a9d3381b6efc3eafe732d6419c0d50bb84c837f99ca4",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/ReflectionProbes/CoolRoom.png",
+      "source_dependencies": [],
+      "type": "texture"
     },
     {
       "dependencies": [],

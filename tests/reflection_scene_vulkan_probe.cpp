@@ -1,6 +1,7 @@
 #include "Graphics/GraphicsEngineVulkan/interface/EngineFactoryVk.h"
 #include "editor/viewport.hpp"
 #include "frame_renderer.hpp"
+#include "reflection_probe_scene_tests.hpp"
 #include "sprite_draw_render_tests.hpp"
 #include <forge/authoring.hpp>
 #include <forge/game_content.hpp>
@@ -12,7 +13,7 @@ using forge::test_sprite_draw::check;
 namespace {
 void exercise(forge::DiligentPresentation& presentation, IDeviceContext* context,
               const std::filesystem::path& project, const std::filesystem::path& images,
-              const forge::AssetId& id) {
+              const forge::AssetId& id, bool probes_only, bool probe_gallery) {
     using namespace forge;
     std::filesystem::create_directories(images);
     auto host = std::make_shared<MeshResourceHost>(presentation, context, project, true);
@@ -49,9 +50,18 @@ void exercise(forge::DiligentPresentation& presentation, IDeviceContext* context
             throw std::runtime_error("Reflection scene: " + owner.diagnostics().front().text);
         return pixels;
     };
+    if (probe_gallery) {
+        test_reflection_probes::gallery(render, frame, ordinary, scene, images);
+        return;
+    }
     auto disabled = scene;
     disabled.settings.screen_space_reflections.enabled = false;
-    const auto reference = render(ordinary, disabled), reflected = render(frame, scene);
+    const auto reference = render(ordinary, disabled);
+    if (probes_only) {
+        test_reflection_probes::scene(render, frame, ordinary, disabled, reference);
+        return;
+    }
+    const auto reflected = render(frame, scene);
     std::size_t changes = 0;
     for (std::size_t i = 0; i < reference.size(); ++i) {
         changes += reference[i] != reflected[i];
@@ -252,7 +262,9 @@ void exercise(forge::DiligentPresentation& presentation, IDeviceContext* context
 } // namespace
 int main(int argc, char** argv) {
     try {
-        check(argc == 4, "Expected Gallery project, capture directory and scene ID");
+        check(argc == 4 || (argc == 5 && (std::string_view(argv[4]) == "--probes" ||
+                                          std::string_view(argv[4]) == "--probe-gallery")),
+              "Expected Gallery project, capture directory, scene ID and optional probe mode");
         RefCntAutoPtr<IRenderDevice> device;
         RefCntAutoPtr<IDeviceContext> context;
         EngineVkCreateInfo info;
@@ -260,7 +272,9 @@ int main(int argc, char** argv) {
         check(device && context, "Reflection Scene Vulkan device unavailable");
         forge::DiligentPresentation presentation(device);
         exercise(presentation, context, std::filesystem::absolute(argv[1]),
-                 std::filesystem::absolute(argv[2]), forge::AssetId::parse(argv[3]));
+                 std::filesystem::absolute(argv[2]), forge::AssetId::parse(argv[3]),
+                 argc == 5 && std::string_view(argv[4]) == "--probes",
+                 argc == 5 && std::string_view(argv[4]) == "--probe-gallery");
         return 0;
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

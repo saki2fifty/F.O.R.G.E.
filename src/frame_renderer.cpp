@@ -211,12 +211,14 @@ ITextureView* FrameRenderer::render(IDeviceContext* context, const RenderScene& 
     const bool reflections_enabled = meshes_ && reflections.enabled &&
                                      reflections.max_distance != 0 && reflections.strength != 0 &&
                                      reflections.max_roughness != 0;
+    const bool local_reflections = meshes_ && !meshes_->reflection_probes().empty();
     const bool temporal_enabled =
-        aa_enabled || blur_enabled || occlusion_enabled || reflections_enabled;
+        aa_enabled || blur_enabled || occlusion_enabled || reflections_enabled || local_reflections;
     const auto transition = temporal_sample_transition(temporal_sample_, sample_key);
     const TemporalView::Options temporal_options{bool(aa_enabled),  scene.settings.motion_blur,
                                                  transition.motion, transition.reset_accumulation,
-                                                 occlusion,         reflections};
+                                                 occlusion,         reflections,
+                                                 local_reflections};
     const auto temporal_bpp = TemporalView::payload_per_pixel(temporal_options);
     const bool focus_enabled = meshes_ && scene.settings.depth_of_field.enabled &&
                                scene.settings.depth_of_field.blur_radius != 0;
@@ -376,7 +378,8 @@ ITextureView* FrameRenderer::render(IDeviceContext* context, const RenderScene& 
                         history->begin(context, color_, dsv);
                     };
                     pass.resolve = [&, history = state.history.get()](bool complete) {
-                        history->resolve(context, temporal_settings.stability, complete);
+                        const auto probes = meshes_->reflection_probes(camera.view);
+                        history->resolve(context, temporal_settings.stability, complete, probes);
                     };
                 } catch (const std::exception& error) {
                     temporal_camera->history.reset();

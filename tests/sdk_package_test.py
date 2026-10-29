@@ -14,6 +14,7 @@ def validate_guides(stage):
                 assert resolved.is_relative_to(stage/'sdk') and resolved.is_file(), f'Broken installed guide link: {target}'
 
 focused_targets = {
+    '--reflection-probes-only': 'reflection_probe_gameplay',
     '--component-animation-only': 'component_animation_gameplay',
     '--motion-only': 'gamepad_motion_gameplay',
     '--navigation-only': 'planar_navigation_gameplay', '--time-only': 'time_scale_gameplay',
@@ -59,6 +60,13 @@ if len(sys.argv) == 5 and sys.argv[4] in focused_targets:
                             str(Path(__file__).resolve().parents[1]/'samples/projects/FeatureGallery')],
                            env=env, cwd=moved, check=True, timeout=90)
             print('Installed public controller-motion example and relocated runtime passed')
+            sys.exit(0)
+        if sys.argv[4] == '--reflection-probes-only':
+            assert (moved/'sdk/include/forge/reflection_probe.hpp').is_file()
+            subprocess.run([sys.executable, str(Path(__file__).with_name('reflection_probe_process_test.py')),
+                            str(moved/'bin'/('forge_runtime'+exe)), str(module), str(base/'probe-runtime')],
+                           env=env, cwd=moved, check=True, timeout=90)
+            print('Installed public reflection-probe header, relocated SDK, both hosts and recovery passed')
             sys.exit(0)
         if gamepads_only:
             subprocess.run([sys.executable, str(Path(__file__).with_name('multiple_gamepads_process_test.py')),

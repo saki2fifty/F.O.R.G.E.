@@ -1,5 +1,19 @@
 # Feature Gallery
 
+## Local reflection probes
+
+Open **Scenes/107-local-reflection-probes.scene.json** and press Play. Warm and
+cool imported room panoramas supply base reflections inside overlapping boxes.
+Stop and select **Warm reflection volume - priority 1** or **Cool reflection volume - priority 0** to change Enabled,
+Intensity, Half extent X/Y/Z, Edge fade, Priority, Map rotation or Box projection.
+Move/rotate/scale the probe to adjust its volume; press **F** to frame the outline.
+The lower-priority cool map is revealed as the warm map fades near its box edge.
+Outside both boxes the Scene environment remains. The maps do not capture Scene
+objects or change diffuse lighting. Keep at most eight active assigned probes.
+Scalar values can also be tested in Live gameplay; map assignment is Edit-only.
+Save the Scene and choose it as startup before export. The maps and cooked texture
+variants travel with the game; no C++ module is required.
+
 ## Screen-space reflections
 
 Open **Scenes/106-screen-space-reflections.scene.json** and press Play. Amber and

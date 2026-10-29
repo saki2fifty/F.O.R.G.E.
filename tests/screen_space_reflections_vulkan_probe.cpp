@@ -3,7 +3,7 @@
 #include "hdr_bloom_gpu_tests.hpp"
 #include "reflection_boundary_tests.hpp"
 #include "reflection_material_output_tests.hpp"
-#include "screen_space_reflections.hpp"
+#include "surface_reflections.hpp"
 #include <forge/render_view.hpp>
 #include <iostream>
 using namespace Diligent;
@@ -104,7 +104,7 @@ Result main(float4 p:SV_Position) {
 void exercise(forge::DiligentPresentation& presentation, IDeviceContext* context) {
     auto* device = presentation.device();
     Producer producer(presentation);
-    forge::ScreenSpaceReflections effect(presentation);
+    forge::SurfaceReflections effect(presentation);
     unsigned cases = 0;
     for (unsigned projection = 0; projection < 3; ++projection)
         for (bool larger : {false, true})
@@ -146,7 +146,7 @@ void exercise(forge::DiligentPresentation& presentation, IDeviceContext* context
                                           : scenario == 10 ? 5
                                           : scenario == 11 ? 2
                                                            : 0;
-                    forge::ScreenSpaceReflections::Input input;
+                    forge::SurfaceReflections::Input input;
                     input.color = targets[0]->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
                     input.indirect = targets[1]->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
                     input.surface = targets[2]->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);

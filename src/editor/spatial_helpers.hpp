@@ -2,6 +2,7 @@
 #include "../builtins.hpp"
 #include "authoring.hpp"
 #include "navigation_region_view.hpp"
+#include "reflection_probe_view.hpp"
 #include "spatial_component_value.hpp"
 #include "ui_probe.hpp"
 #include "widgets.hpp"
@@ -14,7 +15,7 @@ namespace forge::ui {
 struct SpatialMarker {
     std::string entity, name, note;
     Double3 position{};
-    bool camera = false, audio = false, navigation = false, obstacle = false;
+    bool camera = false, audio = false, navigation = false, obstacle = false, probe = false;
     bool enabled = true, selectable = true;
     float offset = 0;
     std::vector<std::pair<Double3, Double3>> lines;
@@ -35,11 +36,13 @@ inline std::vector<SpatialMarker> spatial_markers(const Json& source, unsigned w
     const auto policies = extract_node_policies(source);
     for (const auto& row : source.at("entities")) {
         const auto& c = row.at("components");
-        for (unsigned kind = 0; kind < 4; ++kind) {
+        for (unsigned kind = 0; kind < 5; ++kind) {
             const bool is_camera = kind == 0, is_audio = kind == 2, is_region = kind == 3;
+            const bool is_probe = kind == 4;
             const auto component = is_camera   ? "forge.camera"
                                    : is_audio  ? "forge.audio_source"
                                    : is_region ? "forge.navigation_region_2d"
+                                   : is_probe  ? "forge.reflection_probe"
                                                : "forge.light";
             if (!c.contains(component) || row.value("prefab", false) ||
                 !row.value("spatial_resolved", false))
@@ -53,6 +56,7 @@ inline std::vector<SpatialMarker> spatial_markers(const Json& source, unsigned w
             marker.camera = is_camera;
             marker.audio = is_audio;
             marker.navigation = is_region;
+            marker.probe = is_probe;
             if (is_audio && (c.contains("forge.camera") || c.contains("forge.light")))
                 marker.offset = 1.4f;
             if (!is_audio && c.contains("forge.camera") && c.contains("forge.light"))
@@ -76,7 +80,29 @@ inline std::vector<SpatialMarker> spatial_markers(const Json& source, unsigned w
                         previous = next;
                     }
                 };
-                if (is_region) {
+                if (is_probe) {
+                    const auto probe = reflection_probe_view(row);
+                    if (!probe)
+                        continue;
+                    const auto& settings = probe->probe;
+                    marker.enabled =
+                        settings.enabled && settings.texture.id && settings.intensity != 0;
+                    const auto box = [&](const auto& corners) {
+                        for (unsigned index = 0; index < 8; ++index)
+                            for (unsigned axis = 0; axis < 3; ++axis)
+                                if ((index & (1u << axis)) == 0)
+                                    line(corners[index], corners[index | (1u << axis)]);
+                    };
+                    box(probe->outline);
+                    if (probe->fade_outline)
+                        box(*probe->fade_outline);
+                    marker.note = settings.texture.id
+                                      ? "Priority " + std::to_string(settings.priority) +
+                                            " | Intensity " + helper_number(settings.intensity) +
+                                            " | Edge fade " +
+                                            helper_number(settings.blend_distance) + " world m"
+                                      : "Assign a color cube or panorama in Inspector";
+                } else if (is_region) {
                     const auto region = navigation_region_view(row);
                     if (!region)
                         continue;
@@ -238,13 +264,14 @@ inline std::vector<SpatialMarker> spatial_markers(const Json& source, unsigned w
                 marker.lines.clear();
                 marker.note = std::string("Invalid spatial helper: ") + error.what();
             }
-            marker.note = std::string(is_region   ? "Navigation Region 2D | "
+            marker.note = std::string(is_probe    ? "Reflection Probe | "
+                                      : is_region ? "Navigation Region 2D | "
                                       : is_camera ? "Camera | "
                                       : is_audio  ? "Sound | "
                                                   : "Light | ") +
                           marker.note;
             if (!marker.enabled)
-                marker.note += " | Disabled";
+                marker.note += is_probe ? " | Inactive" : " | Disabled";
             if (!marker.selectable)
                 marker.note += " | Selection locked";
             result.push_back(std::move(marker));
@@ -344,6 +371,7 @@ class SpatialHelpers {
                                : !marker.enabled ? IM_COL32(141, 150, 163, 210)
                                : marker.camera   ? IM_COL32(124, 195, 238, 240)
                                : marker.audio    ? IM_COL32(123, 226, 199, 240)
+                               : marker.probe    ? IM_COL32(183, 163, 246, 240)
                                                  : IM_COL32(241, 220, 139, 240);
             if (active)
                 for (const auto& [a, b] : marker.lines)
@@ -367,6 +395,14 @@ class SpatialHelpers {
                               color, 1.5f * interface_scale);
                 draw->AddLine(at(.55f, -.35f), at(.7f, 0), color, 1.5f * interface_scale);
                 draw->AddLine(at(.7f, 0), at(.55f, .35f), color, 1.5f * interface_scale);
+            } else if (marker.probe) {
+                draw->AddQuad(at(0, -.65f), at(.6f, -.3f), at(0, .05f), at(-.6f, -.3f), color,
+                              1.5f * interface_scale);
+                draw->AddPolyline(std::array<ImVec2, 5>{at(-.6f, -.3f), at(-.6f, .35f), at(0, .7f),
+                                                        at(.6f, .35f), at(.6f, -.3f)}
+                                      .data(),
+                                  5, color, 0, 1.5f * interface_scale);
+                draw->AddLine(at(0, .05f), at(0, .7f), color, 1.5f * interface_scale);
             } else {
                 draw->AddCircle(p, r * .35f, color, 16, 1.5f * interface_scale);
                 for (unsigned i = 0; i < 8; ++i) {

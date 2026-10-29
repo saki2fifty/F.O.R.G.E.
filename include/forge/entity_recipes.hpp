@@ -40,6 +40,8 @@ inline const std::vector<EntityRecipe>& entity_recipes() {
                "forge.navigation_agent"},
               {"ui.document", "UI Document", "UI", no_primitive, "forge.ui_document"}})
             out.push_back(recipe);
+        out.push_back({"render.reflection_probe", "Reflection Probe", "Rendering", no_primitive,
+                       "forge.reflection_probe"});
         return out;
     }();
     return recipes;

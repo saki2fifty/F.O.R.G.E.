@@ -1,6 +1,6 @@
 #pragma once
 #include "hdr_bloom_gpu_tests.hpp"
-#include "screen_space_reflections.hpp"
+#include "surface_reflections.hpp"
 #include <forge/render_view.hpp>
 #include <limits>
 #include <thread>
@@ -26,8 +26,8 @@ inline void boundaries(DiligentPresentation& presentation, Diligent::IDeviceCont
     RefCntAutoPtr<ITexture> depth;
     device->CreateTexture(d, nullptr, &depth);
     check(bool(depth), "Reflection admission depth allocation failed");
-    ScreenSpaceReflections effect(presentation);
-    ScreenSpaceReflections::Input input;
+    SurfaceReflections effect(presentation);
+    SurfaceReflections::Input input;
     input.color = color->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
     input.indirect = indirect->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
     auto* result = output->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET);

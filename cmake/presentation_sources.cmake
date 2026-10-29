@@ -16,7 +16,8 @@ set(forge_presentation_sources
  src/depth_of_field.cpp
  src/motion_blur.cpp
  src/ambient_occlusion.cpp
- src/screen_space_reflections.cpp
+ src/surface_reflections.cpp
+ src/surface_reflection_probes.cpp
  src/temporal_filter.cpp
  src/temporal_view.cpp
  src/texture_preview.cpp
@@ -26,6 +27,7 @@ set(forge_presentation_sources
  src/mesh_draw.cpp
  src/mesh_draw_bundle.cpp
  src/mesh_render_host.cpp
+ src/mesh_render_environment.cpp
  src/mesh_render_sprite_mips.cpp
  src/mesh_render_particles.cpp
  src/mesh_render_tiles.cpp

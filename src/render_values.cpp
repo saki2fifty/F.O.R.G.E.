@@ -4,6 +4,45 @@
 #include <forge/render_view.hpp>
 #include <stdexcept>
 namespace forge::detail {
+void validate_reflection_probe(const ReflectionProbe& value) {
+    const auto extent = [](double x) { return std::isfinite(x) && x >= .0001 && x <= 1000000; };
+    if (!std::isfinite(value.intensity) || value.intensity < 0 || value.intensity > 1000000 ||
+        !extent(value.half_extent_x) || !extent(value.half_extent_y) ||
+        !extent(value.half_extent_z) || !std::isfinite(value.blend_distance) ||
+        value.blend_distance < 0 || value.blend_distance > 1000000 ||
+        !std::isfinite(value.rotation_degrees))
+        throw std::invalid_argument(
+            "Reflection probe requires finite intensity/blend from 0 to 1000000, "
+            "half extents from 0.0001 to 1000000 metres and finite map rotation");
+}
+Json render_value(const ReflectionProbe& value) {
+    return {{"texture", value.texture.id ? Json(value.texture.id) : Json()},
+            {"enabled", value.enabled},
+            {"intensity", value.intensity},
+            {"half_extent_x", value.half_extent_x},
+            {"half_extent_y", value.half_extent_y},
+            {"half_extent_z", value.half_extent_z},
+            {"blend_distance", value.blend_distance},
+            {"rotation_degrees", value.rotation_degrees},
+            {"priority", value.priority},
+            {"box_projection", value.box_projection}};
+}
+ReflectionProbe reflection_probe_value(const Json& source) {
+    ReflectionProbe value;
+    value.texture = {source.at("texture").is_null() ? AssetId{}
+                                                    : source.at("texture").get<AssetId>()};
+    value.enabled = source.at("enabled").get<bool>();
+    value.intensity = source.at("intensity").get<double>();
+    value.half_extent_x = source.at("half_extent_x").get<double>();
+    value.half_extent_y = source.at("half_extent_y").get<double>();
+    value.half_extent_z = source.at("half_extent_z").get<double>();
+    value.blend_distance = source.at("blend_distance").get<double>();
+    value.rotation_degrees = source.at("rotation_degrees").get<double>();
+    value.priority = source.at("priority").get<std::int32_t>();
+    value.box_projection = source.at("box_projection").get<bool>();
+    validate_reflection_probe(value);
+    return value;
+}
 namespace {
 std::uint32_t sprite_mip_filter_value(const Json& source) {
     if (!source.contains("mip_filter"))

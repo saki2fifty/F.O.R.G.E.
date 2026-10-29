@@ -371,7 +371,8 @@ struct PlayAutomation {
         methods.push_back(automation_method(
             "play.tune",
             "Queue one reflected runtime property through the actual live-tuning "
-            "owner, including Sprite appearance/ordered frame regions and Navigation Agent "
+            "owner, including Reflection Probe scalar controls (map assignment is Edit-only), "
+            "Sprite appearance/ordered frame regions and Navigation Agent "
             "flags, speed, stopping distance and destination "
             "coordinates (not its NavMesh asset). Poll play.status.tune_ack for runtime "
             "validation. This never "

@@ -1,0 +1,531 @@
+{
+  "asset_id": "1f955498-5eaa-46a7-9958-9678072dc24b",
+  "entities": [
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 1.7777777777777777,
+          "background_a": 1.0,
+          "background_b": 0.03999999910593033,
+          "background_g": 0.02500000037252903,
+          "background_r": 0.014999999664723873,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 100.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.1,
+          "order": 0,
+          "orthographic_height": 5.0,
+          "orthographic_width": 0.0,
+          "projection": 0,
+          "vertical_fov": 1.0471975511965976,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 0.9950041770935059,
+          "x": 0.0998334139585495,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 2.4,
+          "z": -7.5
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "1bedfb6f-b088-499d-9fcf-d30f0733db99",
+      "name": "Camera - room reflections",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.light": {
+          "basis": 0,
+          "cast_shadows": false,
+          "color_b": 1.0,
+          "color_g": 1.0,
+          "color_r": 1.0,
+          "enabled": true,
+          "inner_cone": 0.0,
+          "intensity": 2.0,
+          "kind": 0,
+          "layers": 4294967295,
+          "outer_cone": 0.7853981633974483,
+          "range": 0.0,
+          "shadow_bias": 0.0010000000474974513,
+          "shadow_normal_bias": 0.019999999552965164
+        },
+        "forge.local_rotation": {
+          "w": 0.9476507306098938,
+          "x": 0.3193087875843048,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 4.0,
+          "z": -4.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "a66a74d8-73f0-4b78-8192-dbc5a8879adb",
+      "name": "Light - shared direct lighting",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 9.0,
+          "y": 0.20000000298023224,
+          "z": 8.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": -1.1,
+          "z": 1.5
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": false,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.550000011920929,
+                  0.5799999833106995,
+                  0.6399999856948853,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "metallicFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  1.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.15000000596046448,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.6399999856948853,
+          "g": 0.5799999833106995,
+          "r": 0.550000011920929
+        }
+      },
+      "id": "5c26c4f6-077a-45ca-b599-a128c83c38b5",
+      "name": "Reflective floor",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.7000000476837158,
+          "y": 1.7000000476837158,
+          "z": 1.7000000476837158
+        },
+        "forge.local_translation": {
+          "x": -2.2,
+          "y": 0.0,
+          "z": 1.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": false,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.800000011920929,
+                  0.800000011920929,
+                  0.800000011920929,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "metallicFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  1.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.11999999731779099,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "1c32b0ce-a595-49dc-910b-79f2d696f726",
+          "receive_shadows": true,
+          "visible": true
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.800000011920929,
+          "r": 0.800000011920929
+        }
+      },
+      "id": "cffc1151-e419-47af-9768-b19452e1ac94",
+      "name": "Warm room - smooth metal",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.7000000476837158,
+          "y": 1.7000000476837158,
+          "z": 1.7000000476837158
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 1.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": false,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.800000011920929,
+                  0.800000011920929,
+                  0.800000011920929,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "metallicFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  1.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.3499999940395355,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "1c32b0ce-a595-49dc-910b-79f2d696f726",
+          "receive_shadows": true,
+          "visible": true
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.800000011920929,
+          "r": 0.800000011920929
+        }
+      },
+      "id": "d86098c8-d9b4-49e5-a300-9d169e815049",
+      "name": "Overlap - softer metal",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.7000000476837158,
+          "y": 1.7000000476837158,
+          "z": 1.7000000476837158
+        },
+        "forge.local_translation": {
+          "x": 2.2,
+          "y": 0.0,
+          "z": 1.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": false,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.800000011920929,
+                  0.800000011920929,
+                  0.800000011920929,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "metallicFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  1.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.11999999731779099,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "1c32b0ce-a595-49dc-910b-79f2d696f726",
+          "receive_shadows": true,
+          "visible": true
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.800000011920929,
+          "r": 0.800000011920929
+        }
+      },
+      "id": "dc52865d-aaf0-46f8-8bbd-c67a99b6b42f",
+      "name": "Cool room - smooth metal",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -2.2,
+          "y": 0.0,
+          "z": 1.5
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.reflection_probe": {
+          "blend_distance": 1.0,
+          "box_projection": true,
+          "enabled": true,
+          "half_extent_x": 3.0,
+          "half_extent_y": 3.0,
+          "half_extent_z": 4.0,
+          "intensity": 2.0,
+          "priority": 1,
+          "rotation_degrees": 0.0,
+          "texture": "6ec03ae9-356c-47cc-a2d0-66752bb063bd"
+        }
+      },
+      "id": "c20c9ce0-12ea-4c32-93a2-5bf493968393",
+      "name": "Warm reflection volume - priority 1",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 2.2,
+          "y": 0.0,
+          "z": 1.5
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.reflection_probe": {
+          "blend_distance": 1.0,
+          "box_projection": true,
+          "enabled": true,
+          "half_extent_x": 3.0,
+          "half_extent_y": 3.0,
+          "half_extent_z": 4.0,
+          "intensity": 2.0,
+          "priority": 0,
+          "rotation_degrees": 0.0,
+          "texture": "d26ec4ff-f4cb-47c6-bf5d-b99f6de97cb0"
+        }
+      },
+      "id": "d662b97c-428e-4805-bcc8-189e8b48621c",
+      "name": "Cool reflection volume - priority 0",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    }
+  ],
+  "rendering": {
+    "environment": {
+      "intensity": 0.18,
+      "sky": false,
+      "texture": "d4c60053-60c8-4456-8771-a7cf8182a902"
+    },
+    "shadows": {
+      "enabled": false
+    },
+    "version": 1
+  },
+  "version": 3
+}

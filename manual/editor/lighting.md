@@ -44,6 +44,54 @@ its lighting maps every frame. If a replacement cannot load, **Problems** explai
 failure and the previous usable environment remains visible. Clear the field explicitly
 to remove that previous environment.
 
+## Add reflections for a room or region
+
+A **Reflection Probe** supplies an imported reflection map inside a box. Use one
+for a room whose walls should appear in nearby smooth surfaces even when those
+walls are outside the camera view. It does not photograph or bake your Scene.
+
+1. Import a cubemap or complete equirectangular panorama with **Color** or **HDR color** usage. See [Textures](textures.md).
+2. Choose **Entity > Create > Rendering > Reflection Probe** and select the new entity.
+3. In Inspector, assign **Reflection map**. Move the probe to the position from which the map was captured.
+4. Set **Half extent X**, **Half extent Y** and **Half extent Z** to half the box size. Entity rotation and scale also shape this region. Press **F** to frame its outline.
+5. Set **Edge fade** to the distance, in world metres, over which the map fades in from each box face. Zero gives a hard edge. A fade wider than the box can keep its maximum influence below full strength.
+6. Adjust **Intensity** and **Map rotation**. Rotation turns the map around world Y; it does not turn the box. **Box projection** corrects the sampled direction as the receiving surface moves away from the capture center. It works best when the box matches the captured room.
+7. Save the Scene. Play and exported games use the saved component and imported map.
+
+![Reflection Probe Inspector with map, box size, edge fade, rotation and priority controls](../images/local-reflection-probe-controls.png)
+
+**Half extent** is measured before entity scale; **Edge fade** is measured after
+that transform, in world metres. Higher **Priority** takes precedence in overlap;
+its edge fade reveals lower-priority maps and then the Scene environment. Equal
+priorities use stable entity order. **Enabled** off, an unassigned map or zero
+Intensity makes the probe inactive. Outside every box, the Scene environment remains.
+The map affects base reflections; diffuse light, the sky, clearcoat and sheen keep
+the Scene environment. It can supply reflections when global environment intensity
+is zero. Smooth lit metal makes the result easiest to see.
+
+Open **107-local-reflection-probes** in the Feature Gallery. Select **Warm reflection volume - priority 1**
+or **Cool reflection volume - priority 0**, toggle Enabled and compare the nearby spheres and floor.
+Move the probe or adjust its half extents, fade, priority or map rotation, then save.
+
+![Warm and cool imported maps reflecting on three metal spheres and a metal floor](../images/local-reflection-probes.png)
+
+The left and right regions use different maps; the middle sphere shows their overlap.
+During Play, the existing scalar controls appear under **Live gameplay**. These
+changes affect the running world. Stop restores saved authored values unless you
+keep selected fields through the tuning review. Assign maps while stopped.
+
+Use at most **eight active assigned probes**. Above that limit the view keeps
+global reflections and Problems reports the capacity warning. A failed replacement
+keeps the previous usable map; clearing the field removes it. Singular transforms
+and volumes that cannot be represented for a camera are skipped with a diagnostic.
+
+The same depth-writing Mesh, camera-clear, shader, draw-order and view-budget limits
+as screen-space reflections apply. Transparent objects, Sprites, Tile Maps,
+particles and overlays keep their existing path. Anisotropic surfaces retain the
+Scene environment. This feature does not capture maps, generate diffuse light or
+assign different probe masks to individual Meshes. Screen-space reflections can
+run afterward and retain the local map where their visible-depth samples miss.
+
 ## Reflect visible surfaces
 
 1. Stop Play and open **Tools > Scene lighting...**.

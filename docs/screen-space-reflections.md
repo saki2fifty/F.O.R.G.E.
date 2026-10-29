@@ -32,7 +32,9 @@ Nonzero anisotropy retains environment reflection. Unlit and final-color custom
 functions write zero receiver data; valid current opaque source color can still
 be reflected. Transmission and current-frame layers keep their existing path.
 This first profile traces one base-normal ray; it has no roughness convolution,
-independent coat/sheen rays, probes, hidden/off-screen geometry or multi-bounce GI.
+independent coat/sheen rays, hidden/off-screen geometry or multi-bounce GI.
+[Local imported probes](local-reflection-probes.md) are a separate pass before
+this trace; misses preserve their base reflection and combined AO sees final indirect.
 
 ## Current-depth trace
 
@@ -59,14 +61,15 @@ material parameters, camera rectangles and current-layer ordering. Unsupported
 shader/depth/order/capacity retains ordinary rendering with the established
 `render.temporal.unavailable` warning. Game cameras must clear color and depth.
 
-Order: opaque/masked Mesh → reflections → ambient occlusion → optional temporal
+Order: opaque/masked Mesh → optional local probes → screen reflections → ambient occlusion → optional temporal
 anti-aliasing → motion blur → depth of field → current layers → bloom/display.
 Spatial-only reflection has no camera jitter, motion field, pose history, color
 history, extra clock or warmup requirement. Scene can retain a completed image.
 
 At most eight Game views share the existing 512 MiB texture payload budget;
 Scene has its own budget. Bytes/pixel: reflection only 60, with occlusion 68;
-AA plus reflection 96, with occlusion 104; AA/motion/reflection 104, with occlusion
+Adding local probes and screen reflections together requires another8B/pixel.
+AA plus screen reflection alone 96, with occlusion 104; AA/motion/reflection 104, with occlusion
 112; frozen motion capture adds 20. Depth-of-field payload, native allocation,
 retirement and transient staging overhead are additional. Required targets stage
 before adopting an extent/mode; rejected growth preserves the prior mode.

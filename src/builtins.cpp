@@ -29,6 +29,8 @@ template <class T> Json encode(const T& p) {
         return render_value(p);
     else if constexpr (std::is_same_v<T, Light>)
         return render_value(p);
+    else if constexpr (std::is_same_v<T, ReflectionProbe>)
+        return render_value(p);
     else if constexpr (std::is_same_v<T, SpriteRenderer>)
         return render_value(p);
     else if constexpr (std::is_same_v<T, TileMapRenderer>)
@@ -282,6 +284,8 @@ template <class T> Value decode(const Json& p) {
         return camera_value(p);
     else if constexpr (std::is_same_v<T, Light>)
         return light_value(p);
+    else if constexpr (std::is_same_v<T, ReflectionProbe>)
+        return reflection_probe_value(p);
     else if constexpr (std::is_same_v<T, ModelSource>) {
         ModelSource value;
         if (!p.at("model").is_null())
@@ -711,6 +715,34 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             const auto* member = ecs_struct_get_member(w.c_ptr(), c.id(), field);
             if (!member || std::size_t(member->offset) != offset)
                 throw std::runtime_error("Camera native Meta disagrees with typed layout");
+        }
+    } else if constexpr (std::is_same_v<T, ReflectionProbe>) {
+        register_asset_ref<TextureAsset>(w, "forge.texture_ref");
+        c.template member<AssetRef<TextureAsset>>("texture")
+            .template member<bool>("enabled")
+            .template member<double>("intensity")
+            .template member<double>("half_extent_x")
+            .template member<double>("half_extent_y")
+            .template member<double>("half_extent_z")
+            .template member<double>("blend_distance")
+            .template member<double>("rotation_degrees")
+            .template member<std::int32_t>("priority")
+            .template member<bool>("box_projection");
+        for (const auto& [field, offset] :
+             {std::pair{"texture", offsetof(ReflectionProbe, texture)},
+              std::pair{"enabled", offsetof(ReflectionProbe, enabled)},
+              std::pair{"intensity", offsetof(ReflectionProbe, intensity)},
+              std::pair{"half_extent_x", offsetof(ReflectionProbe, half_extent_x)},
+              std::pair{"half_extent_y", offsetof(ReflectionProbe, half_extent_y)},
+              std::pair{"half_extent_z", offsetof(ReflectionProbe, half_extent_z)},
+              std::pair{"blend_distance", offsetof(ReflectionProbe, blend_distance)},
+              std::pair{"rotation_degrees", offsetof(ReflectionProbe, rotation_degrees)},
+              std::pair{"priority", offsetof(ReflectionProbe, priority)},
+              std::pair{"box_projection", offsetof(ReflectionProbe, box_projection)}}) {
+            const auto* member = ecs_struct_get_member(w.c_ptr(), c.id(), field);
+            if (!member || std::size_t(member->offset) != offset)
+                throw std::runtime_error(
+                    "Reflection probe native Meta disagrees with typed layout");
         }
     } else if constexpr (std::is_same_v<T, Light>) {
         c.template member<bool>("enabled")
@@ -1497,7 +1529,8 @@ const std::array<Builtin, builtin_count>& builtins() {
                           [](flecs::world& w) { return register_type<Light>(w, "forge.light"); }),
         descriptor<NodeVisibility>(
             "forge.node_visibility",
-            "Show meshes and lights in this structural subtree. Does not disable cameras, "
+            "Show meshes, lights and reflection probes in this structural subtree. Does not "
+            "disable cameras, "
             "animation, physics or selection; a hidden ancestor still hides this entity.",
             "unitless", {}, {},
             [](flecs::world&
@@ -1538,13 +1571,19 @@ const std::array<Builtin, builtin_count>& builtins() {
             "meters", .000001f, 10000,
             [](flecs::world&
                    w) { return register_type<CapsuleCollider2D>(w, "forge.capsule_collider_2d"); }),
-        descriptor<TileMapCollider2D>("forge.tile_map_collider_2d",
-                                      "Occupied cells in one Tile Map layer; requires a Static "
-                                      "or Kinematic Physics Body 2D; Sensor makes a trigger",
-                                      "unitless", {}, {}, [](flecs::world& w) {
-                                          return register_type<TileMapCollider2D>(
-                                              w, "forge.tile_map_collider_2d");
-                                      })};
+        descriptor<TileMapCollider2D>(
+            "forge.tile_map_collider_2d",
+            "Occupied cells in one Tile Map layer; requires a Static "
+            "or Kinematic Physics Body 2D; Sensor makes a trigger",
+            "unitless", {}, {},
+            [](flecs::world&
+                   w) { return register_type<TileMapCollider2D>(w, "forge.tile_map_collider_2d"); }),
+        descriptor<ReflectionProbe>(
+            "forge.reflection_probe",
+            "Local reflection map with box influence, edge fade and box projection", "unitless", {},
+            {}, [](flecs::world& w) {
+                return register_type<ReflectionProbe>(w, "forge.reflection_probe");
+            })};
     return types;
 }
 Json registration_options(const Builtin& type, const std::string& field) {
@@ -1567,6 +1606,47 @@ Json registration_options(const Builtin& type, const std::string& field) {
             "material slot overrides take precedence. Missing or foreign variants retain the "
             "previous usable draw and report an error.";
         value["nullable"] = true;
+    }
+    if (name == "forge.reflection_probe") {
+        static const std::map<std::string, const char*> labels = {
+            {"texture", "Reflection map"},      {"enabled", "Enabled"},
+            {"intensity", "Intensity"},         {"half_extent_x", "Half extent X"},
+            {"half_extent_y", "Half extent Y"}, {"half_extent_z", "Half extent Z"},
+            {"blend_distance", "Edge fade"},    {"rotation_degrees", "Map rotation"},
+            {"priority", "Priority"},           {"box_projection", "Box projection"}};
+        value["display_name"] = labels.at(field);
+        if (field == "texture") {
+            value["description"] =
+                "Imported color/HDR cubemap or full panorama. None keeps the scene environment.";
+        } else if (field == "enabled") {
+            value["description"] = "Use the assigned reflection map within this volume.";
+        } else if (field == "intensity") {
+            value["description"] = "Local base-reflection multiplier. Zero skips this probe; "
+                                   "diffuse lighting stays unchanged.";
+            value["minimum"] = 0;
+            value["maximum"] = 1000000;
+        } else if (field.starts_with("half_extent_")) {
+            value["description"] = "Half size of the local influence box before entity scale.";
+            value["minimum"] = .0001;
+            value["maximum"] = 1000000;
+            value["unit"] = "meters";
+        } else if (field == "blend_distance") {
+            value["description"] = "World distance inward from the box edge over which reflections "
+                                   "fade in. Zero gives a hard edge.";
+            value["minimum"] = 0;
+            value["maximum"] = 1000000;
+            value["unit"] = "meters";
+        } else if (field == "rotation_degrees") {
+            value["description"] =
+                "Map yaw around world Y, independent of the influence box transform.";
+            value["unit"] = "degrees";
+        } else if (field == "priority") {
+            value["description"] =
+                "Higher priorities take precedence; edge fades reveal lower-priority maps.";
+        } else if (field == "box_projection") {
+            value["description"] = "Correct sample directions to the influence box using this "
+                                   "entity as the map capture center.";
+        }
     }
     if (name == "forge.camera") {
         static const std::map<std::string, const char*> help = {
@@ -2817,6 +2897,7 @@ Json register_builtins(flecs::world& world, unsigned family) {
         add_reference.template operator()<ModelNodeAsset>();
         add_reference.template operator()<MaterialVariantAsset>();
         add_reference.template operator()<MeshAsset>();
+        add_reference.template operator()<TextureAsset>();
         add_reference.template operator()<ParticleEffectAsset>();
         add_reference.template operator()<TileMapAsset>();
         add_reference.template operator()<CollisionAsset>();
@@ -2860,7 +2941,8 @@ Json register_builtins(flecs::world& world, unsigned family) {
              {"optional", category != 0 || name == "forge.mesh_renderer" ||
                               name == "forge.particle_emitter" || name == "forge.sprite_renderer" ||
                               name == "forge.tile_map_renderer" || name == "forge.camera" ||
-                              name == "forge.light" || name == "forge.node_visibility" ||
+                              name == "forge.light" || name == "forge.reflection_probe" ||
+                              name == "forge.node_visibility" ||
                               name == "forge.node_selectability"}});
         std::lock_guard lock(catalog_mutex);
         auto validation = components.back();

@@ -491,7 +491,7 @@ fixture checks three scales and two extents, Undo/reset, rejection/recovery,
 Play locks and the real timestamped Problems/document owner.
 
 [The canonical Game image](../../../manual/images/ambient-occlusion.png) is the
-complete640×360 output from shared FrameRenderer and RuntimeSimulation using
+complete 640×360 output from shared FrameRenderer and RuntimeSimulation using
 Gallery105, Scene `d4b6e7a5-5c2a-4ee0-852d-cb53ffc7319a`. The blue wall, three
 amber posts and lower ledge use five explicit lit Mesh renderers with typed
 object-local base colors, a built-in white cube environment and direct light.
@@ -542,3 +542,31 @@ no hidden/off-screen geometry, probes or roughness convolution is implied.
 
 PNG SHA256, controls: `163c7c1acc859ebbf28fae5d2d44ba978ed9822faffde48239c908403ee4f16b`.
 PNG SHA256, Game: `9fd4e00824c1b5353dc3c71ffbbb0536002b0224e137ab9999c568163233697e`.
+
+## Local reflection probe controls and Gallery
+
+[The canonical controls](../../../manual/images/local-reflection-probe-controls.png)
+are the complete 760×520 output of `forge_reflection_probe_editor_tests
+<capture-directory> --capture`. They use the actual Component Inspector, Lato font,
+ImGui style and SDL software capture. Actual input checks at three scales and two
+extents cover creation, typed map assignment, scalar precision and native history.
+No controls or pixels are fabricated.
+
+[The canonical Game image](../../../manual/images/local-reflection-probes.png)
+is the complete 640×360 FrameRenderer/RuntimeSimulation readback of Gallery107,
+Scene `1f955498-5eaa-46a7-9958-9678072dc24b`. Three lit metal spheres and a metal
+floor receive two original imported warm/cool room panoramas. The maps use the
+Windows/desktop/D3D12 content target; this capture realizes their texture data on
+software Vulkan. Direct light is shared and shadow maps are disabled. Wide/tall
+on/off checks preserve current alpha and background. The tall view retains the
+authored fixed aspect and its bars. Four final readbacks match lossless PNG RGB
+bytes without cropping, annotation, compositing or retouch. The controls and
+wide/tall comparison were visually reviewed.
+
+The source branch is `forge/local-reflection-probes`, based on `b421f66`.
+These are software UI/Vulkan captures, not Windows/MSVC/cooked D3D12 execution,
+physical GPU/input/DPI or performance acceptance. Imported maps do not imply
+runtime capture/baking, diffuse irradiance volumes or per-Mesh probe masks.
+
+PNG SHA256, controls: `ebc128da3fb19dd9e3d789c25c3a2afce0347847b74242958aedb00bae832776`.
+PNG SHA256, Game: `a4c1778eb28a333456b98b7374162598f10e5da85f95212b75f068b9dc6dbb8c`.

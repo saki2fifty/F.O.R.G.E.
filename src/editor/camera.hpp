@@ -1,5 +1,6 @@
 #pragma once
 #include "navigation_region_view.hpp"
+#include "reflection_probe_view.hpp"
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -208,6 +209,12 @@ class EditorCamera {
                         bounds.second[i] = std::max(bounds.second[i], float(point[i]));
                     }
             }
+            if (const auto probe = ui::reflection_probe_view(e))
+                for (const auto& point : probe->outline)
+                    for (unsigned i = 0; i < 3; ++i) {
+                        bounds.first[i] = std::min(bounds.first[i], float(point[i]));
+                        bounds.second[i] = std::max(bounds.second[i], float(point[i]));
+                    }
             for (unsigned i = 0; i < 3; ++i) {
                 lo[i] = std::min(lo[i], bounds.first[i]);
                 hi[i] = std::max(hi[i], bounds.second[i]);
