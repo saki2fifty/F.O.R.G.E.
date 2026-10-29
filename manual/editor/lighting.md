@@ -100,13 +100,14 @@ run afterward and retain the local map where their visible-depth samples miss.
 4. Enter **Maximum distance (m)**, from **0 to 100**, and press **Enter**. Start at **25**; zero skips the effect.
 5. Set **Thickness (m)**, from **0.0001 to 1**. Start at **0.1**. Smaller values reject more depth intersections; larger values can accept unrelated nearby surfaces.
 6. Set **Strength**, from **0 to 1**, and **Maximum roughness**, from **0 to 1**. Reflections fade as surface roughness approaches the cutoff. Either value at zero skips the effect.
-7. Save the Scene. Play and exported games use these saved settings.
+7. Turn on **Roughness filtering** to soften reflected detail as the receiving Material becomes rougher. Leave it off for the original sharp source lookup. It adds texture memory and rendering work.
+8. Save the Scene. Play and exported games use these saved settings.
 
-![Screen-space reflections enabled with distance, thickness, strength and maximum roughness controls](../images/screen-space-reflections-controls.png)
+![Screen-space reflections controls with distance, thickness, strength, maximum roughness and Roughness filtering](../images/screen-space-reflections-controls.png)
 
 Use distance for ray reach, thickness for depth tolerance, and strength for the
 blend with environment reflections. **Reset screen-space reflections** disables
-the effect and restores **25 m**, **0.1 m**, **1** and **0.5** in one Undo step.
+the effect and restores **25 m**, **0.1 m**, **1**, **0.5** and **Roughness filtering** off in one Undo step.
 Authored controls are read-only during Play. Turn off **Preview light** when
 comparing authored lighting in Scene; Game uses the authored lighting directly.
 
@@ -119,11 +120,25 @@ scene uses built-in assets and needs no C++ module or additional import.
 
 Compare the reflected blocks below the original objects.
 
+Open **109-rough-reflection-filtering** for a rough metal floor below alternating
+amber and blue columns. Toggle **Roughness filtering** to compare sharp and softened
+reflected detail. Change the floor's **roughnessFactor**, keeping it below
+**Maximum roughness**, to compare different footprints. Save the Scene and select
+it as startup before exporting.
+
+![Alternating amber and blue columns reflected in a rough metal floor](../images/rough-reflection-filtering.png)
+
+Compare the column reflections in the lower part of the floor.
+
 Only current visible opaque and masked Mesh depth supplies reflected surfaces.
 A hidden or off-screen object cannot appear in the reflection. Missing samples
 retain environment reflections. Screen edges, thin geometry and depth steps can
-show gaps or abrupt changes. This single-ray effect does not blur rough reflections;
-roughness fades them instead. Base normal maps affect the ray. Separate clearcoat
+show gaps or abrupt changes. **Roughness filtering** averages visible reflected
+color over a bounded footprint; depth changes can make it use sharper detail to
+avoid mixing surfaces. Source-level and depth changes can leave visible bands.
+It still fades near **Maximum roughness**. The receiver's
+Material controls roughness; the checkbox does not change that Material. Base
+normal maps affect the ray. Separate clearcoat
 and sheen reflections, and anisotropic surfaces, keep environment lighting.
 Unlit and final-color custom Materials do not receive this effect.
 

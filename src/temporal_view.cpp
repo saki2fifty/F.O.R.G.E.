@@ -100,11 +100,10 @@ void TemporalView::prepare(const CameraView& view, bool reset, const Options& op
     const bool combined_reflections =
         options.local_reflections && options.screen_reflection_output();
     const bool occlusion_output = options.occlusion_output();
-    const auto bpp = payload_per_pixel(options);
     const auto& v = view.viewport;
     const auto maximum = presentation_.device()->GetAdapterInfo().Texture.MaxTexture2DDimension;
     if (!v.width || !v.height || v.width > maximum || v.height > maximum ||
-        std::uint64_t(v.width) * v.height > byte_limit_ / bpp ||
+        payload_bytes(v.width, v.height, options) > byte_limit_ ||
         !std::all_of(view.projection.begin(), view.projection.end(),
                      [](float x) { return std::isfinite(x); }))
         throw std::invalid_argument("Temporal view extent or projection exceeds its profile");
@@ -112,6 +111,9 @@ void TemporalView::prepare(const CameraView& view, bool reset, const Options& op
         validate_surface_projection(view.projection);
     if (begun_)
         throw std::logic_error("Temporal view has an unfinished frame");
+    const auto source_plan = options.reflection_source_output()
+                                 ? reflection_source_plan(v.width, v.height)
+                                 : ReflectionSourcePlan{};
     const bool resized =
         !color_ || color_->GetDesc().Width != v.width || color_->GetDesc().Height != v.height;
     // Stage every required texture before publishing a new mode/extent. Native
@@ -119,13 +121,14 @@ void TemporalView::prepare(const CameraView& view, bool reset, const Options& op
     RefCntAutoPtr<ITexture> color, motion, depth, blurred, frozen_motion, frozen_depth, indirect,
         occluded, material_surface, reflection_response, reflection_specular, reflected_color,
         reflected_indirect, probe_specular;
+    std::vector<ReflectionSource> reflection_sources;
     const auto create = [&](const char* name, TEXTURE_FORMAT format, BIND_FLAGS flags,
-                            RefCntAutoPtr<ITexture>& target) {
+                            RefCntAutoPtr<ITexture>& target, ReflectionSourceExtent extent = {}) {
         TextureDesc desc;
         desc.Name = name;
         desc.Type = RESOURCE_DIM_TEX_2D;
-        desc.Width = v.width;
-        desc.Height = v.height;
+        desc.Width = extent.width ? extent.width : v.width;
+        desc.Height = extent.height ? extent.height : v.height;
         desc.Format = format;
         desc.BindFlags = flags;
         presentation_.device()->CreateTexture(desc, nullptr, &target);
@@ -163,6 +166,17 @@ void TemporalView::prepare(const CameraView& view, bool reset, const Options& op
     if (combined_reflections && (resized || !probe_specular_))
         create("FORGE local reflected base specular", TEX_FORMAT_RGBA16_FLOAT,
                BIND_RENDER_TARGET | BIND_SHADER_RESOURCE, probe_specular);
+    if (source_plan.count && (resized || reflection_sources_.empty())) {
+        reflection_sources.resize(source_plan.count);
+        for (unsigned i = 0; i < source_plan.count; ++i) {
+            create("FORGE reflection source radiance and coverage", TEX_FORMAT_RGBA16_FLOAT,
+                   BIND_RENDER_TARGET | BIND_SHADER_RESOURCE, reflection_sources[i].color,
+                   source_plan.levels[i]);
+            create("FORGE reflection source depth bounds", TEX_FORMAT_RG32_FLOAT,
+                   BIND_RENDER_TARGET | BIND_SHADER_RESOURCE, reflection_sources[i].range,
+                   source_plan.levels[i]);
+        }
+    }
     if (blur && (resized || !blurred_))
         create("FORGE motion blur result", TEX_FORMAT_RGBA16_FLOAT,
                BIND_RENDER_TARGET | BIND_SHADER_RESOURCE, blurred);
@@ -194,7 +208,9 @@ void TemporalView::prepare(const CameraView& view, bool reset, const Options& op
     if (reflection_output) {
         auto* reflection = staged_reflections ? staged_reflections.get() : reflections_.get();
         if (options.screen_reflection_output())
-            reflection->prepare();
+            reflection->prepare(source_plan.count != 0);
+        if (source_plan.count)
+            reflection->prepare_sources();
         if (options.local_reflections)
             reflection->prepare_probes(combined_reflections);
     }
@@ -223,6 +239,10 @@ void TemporalView::prepare(const CameraView& view, bool reset, const Options& op
         probe_specular_ = std::move(probe_specular);
     if (!combined_reflections)
         probe_specular_.Release();
+    if (!reflection_sources.empty())
+        reflection_sources_ = std::move(reflection_sources);
+    if (!source_plan.count)
+        reflection_sources_.clear();
     if (staged_occlusion)
         occlusion_ = std::move(staged_occlusion);
     if (!motion_output)
@@ -389,6 +409,12 @@ void TemporalView::resolve(IDeviceContext* context, float stability, bool comple
             SurfaceReflections::Input screen;
             static_cast<SurfaceReflections::SurfaceInput&>(screen) = spatial;
             screen.settings = options_.screen_space_reflections;
+            std::array<SurfaceReflections::SourceLevel, reflection_source_level_limit> sources;
+            for (unsigned i = 0; i < reflection_sources_.size(); ++i)
+                sources[i] = {reflection_sources_[i].color, reflection_sources_[i].range};
+            screen.sources = {sources.data(), reflection_sources_.size()};
+            if (!screen.sources.empty())
+                reflections_->build_sources(context, spatial, screen.sources);
             auto* color = local_applied ? color_.RawPtr() : reflected_color_.RawPtr();
             auto* light = local_applied ? indirect_.RawPtr() : reflected_indirect_.RawPtr();
             reflections_->apply(context, screen, color->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET),

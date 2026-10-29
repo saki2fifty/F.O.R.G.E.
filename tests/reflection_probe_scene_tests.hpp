@@ -152,6 +152,7 @@ void scene(Render&& render, FrameRenderer& frame, FrameRenderer& ordinary,
     for (unsigned effects = 1; effects < 4; ++effects) {
         auto combined = local;
         combined.settings.screen_space_reflections.enabled = true;
+        combined.settings.screen_space_reflections.roughness_filtering = true;
         combined.settings.ambient_occlusion.enabled = effects >= 2;
         combined.settings.ambient_occlusion.normal_influence = effects >= 2 ? 1.f : 0.f;
         combined.settings.temporal_anti_aliasing.enabled = effects == 3;

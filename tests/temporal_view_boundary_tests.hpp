@@ -145,6 +145,41 @@ inline void temporal_view_boundaries(forge::DiligentPresentation& presentation,
     reflected.resolve(context, .8f);
     reflected.complete();
     check(reflected.previous_parts().empty(), "Spatial reflections retained pose history");
+    auto filtered = reflection;
+    filtered.screen_space_reflections.roughness_filtering = true;
+    // Independent odd/thin extent sums, not a constant area multiplier.
+    constexpr std::uint64_t source_bytes = (12 * 10 + 6 * 5 + 3 * 3 + 2 * 2 + 1) * 16;
+    check(TemporalView::payload_bytes(23, 19, filtered) == 23 * 19 * 60 + source_bytes &&
+              TemporalView::payload_bytes(1, 3, filtered) == 3 * 60 + 48 &&
+              TemporalView::payload_bytes(1, 1, filtered) == 60,
+          "Rough reflection payload omitted odd/thin source levels");
+    reject([&] { reflected.prepare(current, false, filtered); });
+    check(reflected.valid() && reflected.payload_bytes() == 23 * 19 * 60,
+          "Rejected source growth discarded completed point mode");
+    TemporalView rough(presentation, 23 * 19 * 60 + source_bytes);
+    for (unsigned repeat = 0; repeat < 2; ++repeat) {
+        rough.prepare(current, false, filtered);
+        check(rough.payload_bytes() == 23 * 19 * 60 + source_bytes,
+              "Filtered view payload differs from admitted source targets");
+        rough.begin(context, color, dsv);
+        rough.resolve(context, .8f);
+        rough.complete();
+    }
+    auto grown = current;
+    grown.viewport.width = 24;
+    reject([&] { rough.prepare(grown, false, filtered); });
+    check(rough.valid() && rough.payload_bytes() == 23 * 19 * 60 + source_bytes,
+          "Rejected filtered resize lost completed targets");
+    rough.prepare(current, false, reflection);
+    check(rough.payload_bytes() == 23 * 19 * 60,
+          "Disabling roughness filtering retained its source images");
+    auto tiny = current;
+    tiny.viewport = {0, 0, 1, 1};
+    rough.prepare(tiny, false, filtered);
+    check(rough.payload_bytes() == 60, "One-pixel filtered view allocated empty source levels");
+    rough.prepare(current, false, filtered);
+    check(rough.payload_bytes() == 23 * 19 * 60 + source_bytes,
+          "Filtered view failed to recover from a one-pixel resize");
     reflection.ambient_occlusion.enabled = true;
     check(TemporalView::payload_per_pixel(reflection) == 68,
           "Combined reflection/occlusion counted indirect radiance twice");
@@ -165,6 +200,7 @@ inline void temporal_view_boundaries(forge::DiligentPresentation& presentation,
     reflection.screen_space_reflections.enabled = true;
     for (unsigned zero = 0; zero < 3; ++zero) {
         auto bypass = reflection;
+        bypass.screen_space_reflections.roughness_filtering = true;
         if (zero == 0)
             bypass.screen_space_reflections.max_distance = 0;
         if (zero == 1)

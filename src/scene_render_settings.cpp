@@ -110,6 +110,11 @@ SceneRenderSettings scene_render_settings(const nlohmann::json& scene) {
                 throw std::runtime_error("Screen-space reflections enabled must be boolean");
             value.enabled = section.at("enabled").get<bool>();
         }
+        if (section.contains("roughness_filtering")) {
+            if (!section.at("roughness_filtering").is_boolean())
+                throw std::runtime_error("Reflection roughness filtering must be boolean");
+            value.roughness_filtering = section.at("roughness_filtering").get<bool>();
+        }
         const auto distance = number(section, "max_distance", value.max_distance);
         const auto thickness = number(section, "thickness", value.thickness);
         const auto strength = number(section, "strength", value.strength);

@@ -17,6 +17,12 @@ inline void scene_reflection_controls(const SceneScreenSpaceReflections& setting
     if (ImGui::Checkbox("Enable screen-space reflections", &enabled))
         commit({{"screen_space_reflections", {{"enabled", enabled}}}});
     FORGE_UI_PROBE("reflection:enabled");
+    bool filtering = settings.roughness_filtering;
+    if (ImGui::Checkbox("Roughness filtering", &filtering))
+        commit({{"screen_space_reflections", {{"roughness_filtering", filtering}}}});
+    FORGE_UI_PROBE("reflection:roughness_filtering");
+    help("Average current visible radiance over a roughness-dependent footprint. Depth bounds "
+         "limit mixing across surfaces. Adds view-owned textures and rendering work.");
     const auto field = [&](const char* label, const char* key, double value, const char* tip,
                            const char* format = "%.3f") {
         IdScope id(key);
@@ -38,19 +44,21 @@ inline void scene_reflection_controls(const SceneScreenSpaceReflections& setting
           "Surface roughness cutoff from 0 to 1. Reflections fade near this limit; zero skips the "
           "pass.");
     if (button("Reset screen-space reflections", "Disable reflections and restore 25 m, thickness "
-                                                 "0.1 m, strength 1 and maximum roughness 0.5."))
+                                                 "0.1 m, strength 1, maximum roughness 0.5 and "
+                                                 "roughness filtering off."))
         commit({{"screen_space_reflections",
                  {{"enabled", false},
                   {"max_distance", 25},
                   {"thickness", .1},
                   {"strength", 1},
-                  {"max_roughness", .5}}}});
+                  {"max_roughness", .5},
+                  {"roughness_filtering", false}}}});
     FORGE_UI_PROBE("reflection:reset");
     ImGui::TextWrapped(
         "Uses current visible Mesh depth and real base-material normals. Misses retain environment "
         "lighting. "
-        "Hidden and off-screen surfaces are unavailable. The single-ray profile fades rough "
-        "surfaces; "
+        "Hidden and off-screen surfaces are unavailable. Roughness filtering softens the visible "
+        "reflection source; reflections still fade near the roughness cutoff. "
         "independent coat/sheen lobes and anisotropic surfaces retain environment lighting. "
         "Game cameras must clear color and depth. Older surface Shaders need a recook. "
         "Scene Save and Undo include these settings.");

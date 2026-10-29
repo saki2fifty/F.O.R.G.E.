@@ -17,6 +17,7 @@ set(forge_presentation_sources
  src/motion_blur.cpp
  src/ambient_occlusion.cpp
  src/surface_reflections.cpp
+ src/surface_reflection_sources.cpp
  src/surface_reflection_probes.cpp
  src/temporal_filter.cpp
  src/temporal_view.cpp

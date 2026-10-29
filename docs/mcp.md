@@ -138,7 +138,9 @@ shader recook, camera and payload limits. This is authored Scene state, not a ne
 live-Play control.
 
 `scene.rendering.set` / `forge_scene_rendering_set` accepts
-`{"screen_space_reflections":{"enabled":true,"max_distance":25,"thickness":0.1,"strength":1,"max_roughness":0.5}}`.
+`{"screen_space_reflections":{"enabled":true,"max_distance":25,"thickness":0.1,"strength":1,"max_roughness":0.5,"roughness_filtering":true}}`.
+The optional `roughness_filtering` boolean defaults false. It uses the same Scene
+validation, partial update, history and Save operation as the other fields.
 Finite bounds are distance0–100m, thickness0.0001–1m, strength/roughness0–1,
 including when disabled. Partial patches preserve extension fields and use the
 same Scene grant, revision, replay, history and Save rules. Disabled or zero

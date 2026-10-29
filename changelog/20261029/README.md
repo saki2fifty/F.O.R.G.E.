@@ -1,5 +1,17 @@
 # 2026-10-29 — Collision profiles and Scene surface effects
 
+## Roughness-filtered current-depth reflections
+
+- Added an optional **Roughness filtering** Scene control through the shared
+  authoring, history, Save and MCP operation. It defaults off for existing scenes.
+- Added bounded visible-source radiance averaging with geometry coverage and
+  depth-range fallback. Six source scales share existing view ownership and exact
+  Game/Scene payload admission, with no new material roles or SDK interface.
+- Added finite HDR headroom handling in the opted-in path, actual production
+  reduction/tracing and real-content checks, original editable Gallery109 and
+  usage guidance with authentic captures.
+- Windows/cooked D3D12 and physical acceptance remain separate; no numbered ZIP.
+
 ## Local reflection probes
 
 - Added imported panorama/cube reflection maps in transformed box volumes with

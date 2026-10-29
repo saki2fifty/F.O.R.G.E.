@@ -235,9 +235,10 @@ AssetId inspect_occlusion(const std::filesystem::path& root) {
           "Ambient Gallery admission rewrote the saved Scene");
     return id;
 }
-AssetId inspect_reflections(const std::filesystem::path& root) {
+AssetId inspect_reflections(const std::filesystem::path& root, bool rough = false) {
     const auto catalog = AssetCatalog::open_project(root);
-    const auto id = AssetId::parse("120a1fb2-f8af-4fad-a644-eb598988ffab");
+    const auto id = AssetId::parse(rough ? "03d7f430-77ba-4c78-b75a-ff3a638ea3d9"
+                                         : "120a1fb2-f8af-4fad-a644-eb598988ffab");
     const auto source = read(root / catalog.records().at(id).source);
     EngineContext engine(WorldRole::Runtime, false);
     Scene scene(engine.world());
@@ -246,11 +247,11 @@ AssetId inspect_reflections(const std::filesystem::path& root) {
     simulation.reset_presentation();
     const auto frame = extract_render_scene(simulation.presentation(1));
     check(frame.settings.screen_space_reflections ==
-                  SceneScreenSpaceReflections{true, 25, .15f, 1, .5f} &&
+                  SceneScreenSpaceReflections{true, 25, .15f, 1, rough ? .9f : .5f, rough} &&
               frame.settings.environment.texture ==
                   engine_texture(EngineTexture::White, TextureDimension::Cube) &&
               frame.settings.environment.intensity == .18f && !frame.settings.environment.sky &&
-              !frame.settings.shadows.enabled && frame.meshes.size() == 4 &&
+              !frame.settings.shadows.enabled && frame.meshes.size() == (rough ? 13 : 4) &&
               frame.cameras.size() == 1 && frame.lights.size() == 1 && frame.diagnostics.empty(),
           "Reflection Gallery lost material geometry, lighting or saved settings");
     unsigned receivers = 0;
@@ -267,7 +268,7 @@ AssetId inspect_reflections(const std::filesystem::path& root) {
                   values.at("roughnessFactor").type == MaterialParameterType::Scalar,
               "Reflection Gallery lost typed base material parameters");
         receivers += values.at("metallicFactor").value[0] == 1 &&
-                     values.at("roughnessFactor").value[0] == .07f;
+                     values.at("roughnessFactor").value[0] == (rough ? .38f : .07f);
     }
     check(receivers == 1 && read(root / catalog.records().at(id).source) == source,
           "Reflection Gallery lost its single smooth metal receiver or rewrote Scene");
@@ -380,6 +381,7 @@ int main(int argc, char** argv) {
         const auto motion_scene = inspect_temporal(root, true);
         const auto occlusion_scene = inspect_occlusion(root);
         const auto reflection_scene = inspect_reflections(root);
+        const auto rough_scene = inspect_reflections(root, true);
         const auto probes = inspect_local_probes(root);
         stage = "mapped normal content inspection";
         const auto normals = inspect_normal_occlusion(root);
@@ -393,7 +395,8 @@ int main(int argc, char** argv) {
                                occlusion_scene,
                                reflection_scene,
                                probes.scene,
-                               normals.scene};
+                               normals.scene,
+                               rough_scene};
         {
             auto lease = std::make_shared<ProjectLease>(root);
             stage = "runtime catalog preparation";
@@ -419,7 +422,7 @@ int main(int argc, char** argv) {
             (void)record;
             actual.insert(id);
         }
-        check(actual == expected && expected.size() == 21,
+        check(actual == expected && expected.size() == 22,
               "Bloom/color/exposure/fog export changed its exact shared asset closure");
         check(!std::filesystem::exists(moved / "Assets/Exposure/Daylight.animation.json"),
               "Exposure clip source leaked into the runtime package");
@@ -445,6 +448,8 @@ int main(int argc, char** argv) {
               "Motion Gallery relocation changed identity, motion or leaked clip source");
         check(inspect_occlusion(moved) == occlusion_scene,
               "Ambient Gallery source-free relocation changed lighting or Scene identity");
+        check(inspect_reflections(moved, true) == rough_scene,
+              "Rough reflection Gallery source-free relocation changed settings or identity");
         check(inspect_reflections(moved) == reflection_scene,
               "Reflection Gallery source-free relocation changed material response or identity");
         const auto relocated_probes = inspect_local_probes(moved);
@@ -457,8 +462,8 @@ int main(int argc, char** argv) {
                   !std::filesystem::exists(moved /
                                            "Assets/OcclusionNormals/RippleWall.material.json"),
               "Normal AO Gallery relocation changed identities or leaked authoring sources");
-        std::cout
-            << "Gallery108 mapped Material/normal image and21-record source-free closure PASS\n";
+        std::cout << "Gallery109 rough reflection and Gallery108 normal image,22-record "
+                     "source-free closure PASS\n";
         std::cout << "Gallery107 two imported maps, boxes, priorities and shared source-free "
                      "closure PASS\n";
         std::cout

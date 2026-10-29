@@ -94,6 +94,7 @@ struct SceneScreenSpaceReflections {
     float thickness = .1f;
     float strength = 1;
     float max_roughness = .5f;
+    bool roughness_filtering = false;
     bool operator==(const SceneScreenSpaceReflections&) const = default;
 };
 void validate_scene_screen_space_reflections(const SceneScreenSpaceReflections&);

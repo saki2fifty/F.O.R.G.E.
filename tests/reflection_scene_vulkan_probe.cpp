@@ -13,7 +13,7 @@ using forge::test_sprite_draw::check;
 namespace {
 void exercise(forge::DiligentPresentation& presentation, IDeviceContext* context,
               const std::filesystem::path& project, const std::filesystem::path& images,
-              const forge::AssetId& id, bool probes_only, bool probe_gallery) {
+              const forge::AssetId& id, bool probes_only, bool probe_gallery, bool rough_gallery) {
     using namespace forge;
     std::filesystem::create_directories(images);
     auto host = std::make_shared<MeshResourceHost>(presentation, context, project, true);
@@ -53,6 +53,39 @@ void exercise(forge::DiligentPresentation& presentation, IDeviceContext* context
     if (probe_gallery) {
         test_reflection_probes::gallery(render, frame, ordinary, scene, images);
         return;
+    }
+    if (rough_gallery) {
+        check(scene.settings.screen_space_reflections.roughness_filtering,
+              "Rough Gallery lost its saved filtering switch");
+        auto point = scene;
+        point.settings.screen_space_reflections.roughness_filtering = false;
+        for (const auto& [width, height] : {std::pair{640u, 360u}, std::pair{360u, 640u}}) {
+            const auto filtered = render(frame, scene, width, height);
+            const auto sharp = render(ordinary, point, width, height);
+            std::size_t changed = 0;
+            for (std::size_t at = 0; at < filtered.size(); ++at) {
+                changed += filtered[at] != sharp[at];
+                check(filtered[at][3] == sharp[at][3], "Rough Gallery changed alpha");
+                if (sharp[at] == sharp.front())
+                    check(filtered[at] == sharp[at], "Rough Gallery changed clear background");
+            }
+            check(changed > 100 && render(frame, scene, width, height) == filtered,
+                  "Rough Gallery has no stable source-filtering signal");
+            for (bool enabled : {false, true}) {
+                std::ofstream file(images /
+                                       (std::string("rough-reflection-gallery-") +
+                                        (enabled ? "filtered-" : "point-") + std::to_string(width) +
+                                        "x" + std::to_string(height) + ".ppm"),
+                                   std::ios::binary);
+                file << "P6\n" << width << ' ' << height << "\n255\n";
+                for (const auto& pixel : enabled ? filtered : sharp)
+                    file.write(reinterpret_cast<const char*>(pixel.data()), 3);
+                check(bool(file.flush()), "Rough Gallery capture failed");
+            }
+            std::cout << "Rough Gallery " << width << 'x' << height << ": " << changed
+                      << " filtered pixels; static/alpha/background PASS\n"
+                      << std::flush;
+        }
     }
     auto disabled = scene;
     disabled.settings.screen_space_reflections.enabled = false;
@@ -263,7 +296,8 @@ void exercise(forge::DiligentPresentation& presentation, IDeviceContext* context
 int main(int argc, char** argv) {
     try {
         check(argc == 4 || (argc == 5 && (std::string_view(argv[4]) == "--probes" ||
-                                          std::string_view(argv[4]) == "--probe-gallery")),
+                                          std::string_view(argv[4]) == "--probe-gallery" ||
+                                          std::string_view(argv[4]) == "--rough-gallery")),
               "Expected Gallery project, capture directory, scene ID and optional probe mode");
         RefCntAutoPtr<IRenderDevice> device;
         RefCntAutoPtr<IDeviceContext> context;
@@ -274,7 +308,8 @@ int main(int argc, char** argv) {
         exercise(presentation, context, std::filesystem::absolute(argv[1]),
                  std::filesystem::absolute(argv[2]), forge::AssetId::parse(argv[3]),
                  argc == 5 && std::string_view(argv[4]) == "--probes",
-                 argc == 5 && std::string_view(argv[4]) == "--probe-gallery");
+                 argc == 5 && std::string_view(argv[4]) == "--probe-gallery",
+                 argc == 5 && std::string_view(argv[4]) == "--rough-gallery");
         return 0;
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

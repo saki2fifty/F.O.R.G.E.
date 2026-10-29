@@ -426,13 +426,18 @@ void interactions(float scale, ImVec2 display) {
     check(scene_render_settings(scene.document()).screen_space_reflections.enabled &&
               scene.undo() && scene.document() == before_reflection && scene.redo(),
           "Reflection checkbox bypassed Scene history");
+    const auto before_filtering = scene.document();
+    click("reflection:roughness_filtering");
+    check(scene_render_settings(scene.document()).screen_space_reflections.roughness_filtering &&
+              scene.undo() && scene.document() == before_filtering && scene.redo(),
+          "Roughness filtering checkbox bypassed Scene history");
     type("reflection:max_distance", "18");
     type("reflection:thickness", "0.0001");
     type("reflection:strength", "0.7");
     type("reflection:max_roughness", "0.4");
     const auto reflected = scene.document();
     check(error.empty() && scene_render_settings(reflected).screen_space_reflections ==
-                               SceneScreenSpaceReflections{true, 18, .0001f, .7f, .4f},
+                               SceneScreenSpaceReflections{true, 18, .0001f, .7f, .4f, true},
           "Typed reflection controls lost values or rounded minimum thickness");
     type("reflection:thickness", "0");
     check(!error.empty() && scene.document() == reflected,
@@ -450,7 +455,8 @@ void interactions(float scale, ImVec2 display) {
     locked = true;
     frame();
     for (const auto* key : {"reflection:enabled", "reflection:max_distance", "reflection:thickness",
-                            "reflection:strength", "reflection:max_roughness", "reflection:reset"})
+                            "reflection:strength", "reflection:max_roughness",
+                            "reflection:roughness_filtering", "reflection:reset"})
         check(!test::ui_targets.at(key).enabled, "Reflection authored control enabled during Play");
     locked = false;
     click("reflection:section");

@@ -1,6 +1,7 @@
 #pragma once
 #include "presentation_diligent.hpp"
 #include "reflection_probe_volume.hpp"
+#include "reflection_source_plan.hpp"
 #include <forge/render_view.hpp>
 #include <forge/scene_render_settings.hpp>
 #include <span>
@@ -21,8 +22,13 @@ class SurfaceReflections {
         Diligent::ITextureView* specular = nullptr;
         std::array<float, 16> projection{};
     };
+    struct SourceLevel {
+        Diligent::ITexture* color = nullptr;
+        Diligent::ITexture* range = nullptr;
+    };
     struct Input : SurfaceInput {
         SceneScreenSpaceReflections settings;
+        std::span<const SourceLevel> sources;
     };
     struct Probe {
         ReflectionProbeVolume volume;
@@ -37,7 +43,10 @@ class SurfaceReflections {
         CameraView camera;
         std::span<const Probe> probes;
     };
-    void prepare();
+    void prepare(bool filtered = false);
+    void prepare_sources();
+    void build_sources(Diligent::IDeviceContext*, const SurfaceInput&,
+                       std::span<const SourceLevel>);
     void apply(Diligent::IDeviceContext*, const Input&, Diligent::ITextureView* color_output,
                Diligent::ITextureView* indirect_output);
     void prepare_probes(bool specular_output);
@@ -48,14 +57,12 @@ class SurfaceReflections {
   private:
     DiligentPresentation& presentation_;
     const std::thread::id thread_ = std::this_thread::get_id();
-    Diligent::RefCntAutoPtr<Diligent::IPipelineState> pipeline_;
-    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> binding_;
-    Diligent::RefCntAutoPtr<Diligent::IBuffer> values_;
-    struct ProbePipeline {
+    struct PipelineState {
         Diligent::RefCntAutoPtr<Diligent::IPipelineState> pipeline;
         Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> binding;
         Diligent::RefCntAutoPtr<Diligent::IBuffer> values;
     };
-    std::array<ProbePipeline, 2> probes_;
+    std::array<PipelineState, 2> screens_, sources_, probes_;
+    void validate_sources(const SurfaceInput&, std::span<const SourceLevel>) const;
 };
 } // namespace forge

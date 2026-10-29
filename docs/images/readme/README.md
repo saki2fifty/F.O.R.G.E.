@@ -597,3 +597,34 @@ Both captures use software rendering, not physical-hardware performance,
 Windows/D3D12 execution or exported graphical-EXE acceptance. Those reviews remain
 queued separately. No temporal AO history or hidden-surface reconstruction is
 implied.
+
+## Roughness-filtered reflection Gallery
+
+[The canonical Game image](../../../manual/images/rough-reflection-filtering.png)
+is the complete640×360 FrameRenderer/RuntimeSimulation readback of Gallery109,
+Scene `03d7f430-77ba-4c78-b75a-ff3a638ea3d9`, on branch
+`forge/rough-reflection-filtering`, based on `12ab11f`. Eleven original alternating
+amber/blue columns form a contiguous source face above a metal floor with
+roughness0.38. The saved Scene enables Roughness filtering and uses existing
+built-in assets; it adds no texture or Material cook. The production operator
+builds view-owned radiance/coverage and depth-range levels after local probes.
+
+The filtered and point wide captures, filtered tall capture and current controls
+were visually reviewed. Filtering visibly softens the reflected column boundaries.
+Conservative depth fallback and level selection can leave horizontal bands; this
+is bounded screen-space source averaging, not physical reflection convolution.
+The tall view preserves the authored fixed aspect and its black bars. Lossless PNG
+conversion preserves all source PPM RGB bytes without crop, compositing, annotation
+or retouch. The existing controls PNG now includes the real Roughness filtering
+checkbox, captured by `forge_hdr_bloom_editor_tests <capture-directory> --reflection`
+using actual ImGui, Lato and SDL software rendering. Default filtering is unchecked.
+
+The `rough_reflection_export_vulkan` consumer invokes the existing exporter and
+renderer on authored and source-free relocated content. Eight wide/tall filtered,
+point and effect-on/off images must match. These are local software Vulkan/UI
+captures, not Windows/MSVC/FXC/cooked D3D12, physical GPU/input/DPI, performance or
+relocated graphical-EXE acceptance. Those reviews stay queued separately.
+
+PNG SHA256, Game: `16dd7e56b82e34044c2023428d1238eb328aaec8fd964469452e9c5021b73573`.
+
+PNG SHA256, Controls: `71966f3656fb4db8e4ad67f5cb2ab7359e0cecbbbd696f06e36329413b736f2e`.

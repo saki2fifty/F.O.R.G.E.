@@ -2,6 +2,7 @@
 #include "ambient_occlusion.hpp"
 #include "hdr_bloom_gpu_tests.hpp"
 #include "motion_blur.hpp"
+#include "surface_reflections.hpp"
 // Uses the temporal probe's independent projection oracle and readback fixture.
 namespace test_temporal_mesh_motion {
 using Points = std::array<std::array<double, 3>, 3>;
@@ -75,7 +76,7 @@ static Clips project(const Points& points, const forge::CameraView& view) {
 }
 static void exercise(forge::DiligentPresentation& presentation, IDeviceContext* context, bool morph,
                      bool skinned, bool batch, bool perspective, bool reflection = false,
-                     bool normal = false) {
+                     bool normal = false, bool rough = false) {
     using namespace forge;
     constexpr unsigned width = 192, height = 128;
     auto* device = presentation.device();
@@ -164,6 +165,23 @@ static void exercise(forge::DiligentPresentation& presentation, IDeviceContext* 
         reflection_targets[i] = texture(device, width, height, TEX_FORMAT_RGBA16_FLOAT,
                                         BIND_RENDER_TARGET | BIND_SHADER_RESOURCE);
     AmbientOcclusion occlusion(presentation);
+    SurfaceReflections reflections(presentation);
+    std::vector<std::array<RefCntAutoPtr<ITexture>, 2>> source_targets;
+    std::vector<SurfaceReflections::SourceLevel> source_views;
+    RefCntAutoPtr<ITexture> rough_indirect;
+    if (rough) {
+        const auto plan = reflection_source_plan(width, height);
+        for (unsigned i = 0; i < plan.count; ++i) {
+            source_targets.push_back(
+                {texture(device, plan.levels[i].width, plan.levels[i].height,
+                         TEX_FORMAT_RGBA16_FLOAT, BIND_RENDER_TARGET | BIND_SHADER_RESOURCE),
+                 texture(device, plan.levels[i].width, plan.levels[i].height, TEX_FORMAT_RG32_FLOAT,
+                         BIND_RENDER_TARGET | BIND_SHADER_RESOURCE)});
+            source_views.push_back({source_targets.back()[0], source_targets.back()[1]});
+        }
+        rough_indirect = texture(device, width, height, TEX_FORMAT_RGBA16_FLOAT,
+                                 BIND_RENDER_TARGET | BIND_SHADER_RESOURCE);
+    }
     auto depth = texture(device, width, height, TEX_FORMAT_D32_FLOAT,
                          BIND_DEPTH_STENCIL | BIND_SHADER_RESOURCE);
     const auto old_jitter = TemporalFilter::jitter(4, width, height);
@@ -314,6 +332,33 @@ static void exercise(forge::DiligentPresentation& presentation, IDeviceContext* 
         check(forge::test_sprite_draw::read_pixels(device, context, spatial_output->GetTexture()) ==
                   pixels,
               "Occlusion changed unlit posed/instanced Mesh pixels or alpha");
+        if (rough) {
+            SurfaceReflections::Input reflection_input;
+            reflection_input.color = color->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+            reflection_input.indirect = indirect->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+            reflection_input.depth = depth->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+            reflection_input.surface =
+                reflection_targets[0]->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+            reflection_input.response =
+                reflection_targets[1]->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+            reflection_input.specular =
+                reflection_targets[2]->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+            reflection_input.projection = view.projection;
+            reflection_input.settings = {true, 8, .1f, 1, .9f, true};
+            reflection_input.sources = source_views;
+            reflections.build_sources(context, reflection_input, source_views);
+            reflections.apply(context, reflection_input,
+                              occluded->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET),
+                              rough_indirect->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET));
+            auto* result =
+                display.resolve(context, occluded->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE), 0);
+            check(forge::test_sprite_draw::read_pixels(device, context, result->GetTexture()) ==
+                      pixels,
+                  "Rough reflections invented geometry for a posed/instanced plane");
+            const auto source = forge::test_bloom::read(device, context, source_targets[0][0]);
+            check(std::any_of(source.begin(), source.end(), [](const auto& p) { return p[3] > 0; }),
+                  "Rough source reduction lost posed/instanced current depth");
+        }
         // Consume the actual generated Mesh motion, including posed/instanced
         // producers. The independent motion oracle above validates those inputs.
         MotionBlur::Input input;
@@ -343,7 +388,7 @@ static void exercise(forge::DiligentPresentation& presentation, IDeviceContext* 
     }
     std::cout << "Shared Mesh motion: morph=" << morph << " skin=" << skinned << " batch=" << batch
               << " perspective=" << perspective << " reflection=" << reflection
-              << " normal=" << normal << " passed\n";
+              << " normal=" << normal << " rough=" << rough << " passed\n";
 }
 static void exercise_all(forge::DiligentPresentation& presentation, IDeviceContext* context) {
     for (bool perspective : {false, true}) {
@@ -355,6 +400,14 @@ static void exercise_all(forge::DiligentPresentation& presentation, IDeviceConte
             for (bool morph : {false, true})
                 exercise(presentation, context, morph, skin, false, perspective, true);
         exercise(presentation, context, false, false, true, perspective, true);
+    }
+}
+static void exercise_rough(forge::DiligentPresentation& presentation, IDeviceContext* context) {
+    for (bool perspective : {false, true}) {
+        for (bool skin : {false, true})
+            for (bool morph : {false, true})
+                exercise(presentation, context, morph, skin, false, perspective, true, false, true);
+        exercise(presentation, context, false, false, true, perspective, true, false, true);
     }
 }
 static void exercise_normals(forge::DiligentPresentation& presentation, IDeviceContext* context) {

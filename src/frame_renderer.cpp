@@ -219,7 +219,6 @@ ITextureView* FrameRenderer::render(IDeviceContext* context, const RenderScene& 
                                                  transition.motion, transition.reset_accumulation,
                                                  occlusion,         reflections,
                                                  local_reflections};
-    const auto temporal_bpp = TemporalView::payload_per_pixel(temporal_options);
     const bool focus_enabled = meshes_ && scene.settings.depth_of_field.enabled &&
                                scene.settings.depth_of_field.blur_radius != 0;
     const bool effects_enabled = temporal_enabled || focus_enabled;
@@ -345,14 +344,14 @@ ITextureView* FrameRenderer::render(IDeviceContext* context, const RenderScene& 
             }
             if (temporal_camera) {
                 try {
-                    const auto pixels = std::uint64_t(area.width) * area.height;
+                    const auto bytes =
+                        TemporalView::payload_bytes(area.width, area.height, temporal_options);
                     if (!camera.settings.clear_color || !camera.settings.clear_depth)
                         throw std::runtime_error("Camera must clear both color and depth");
-                    if (camera_index > 8 ||
-                        pixels > (temporal_budget - temporal_bytes) / temporal_bpp)
+                    if (camera_index > 8 || bytes > temporal_budget - temporal_bytes)
                         throw std::runtime_error(
                             "Views exceed the eight-camera / 512 MiB temporal texture budget");
-                    temporal_bytes += pixels * temporal_bpp;
+                    temporal_bytes += bytes;
                     auto& state = *temporal_camera;
                     const auto& old = state.unjittered;
                     const bool reset = reset_temporal ||

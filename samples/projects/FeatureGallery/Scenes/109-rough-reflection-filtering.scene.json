@@ -1,0 +1,1215 @@
+{
+  "asset_id": "03d7f430-77ba-4c78-b75a-ff3a638ea3d9",
+  "entities": [
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 1.7777777777777777,
+          "background_a": 1.0,
+          "background_b": 0.03999999910593033,
+          "background_g": 0.02500000037252903,
+          "background_r": 0.014999999664723873,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 100.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.1,
+          "order": 0,
+          "orthographic_height": 5.0,
+          "orthographic_width": 0.0,
+          "projection": 0,
+          "vertical_fov": 1.0471975511965976,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 0.9855847954750061,
+          "x": 0.16918234527111053,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 2.7,
+          "z": -6.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "91b8b394-0f60-4aa3-b433-cfdc62b3fe08",
+      "name": "Camera - roughness footprint comparison",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.light": {
+          "basis": 0,
+          "cast_shadows": false,
+          "color_b": 1.0,
+          "color_g": 1.0,
+          "color_r": 1.0,
+          "enabled": true,
+          "inner_cone": 0.0,
+          "intensity": 2.0,
+          "kind": 0,
+          "layers": 4294967295,
+          "outer_cone": 0.7853981633974483,
+          "range": 0.0,
+          "shadow_bias": 0.0010000000474974513,
+          "shadow_normal_bias": 0.019999999552965164
+        },
+        "forge.local_rotation": {
+          "w": 0.9476507306098938,
+          "x": 0.3193087875843048,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 4.0,
+          "z": -4.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "37311769-f168-49b4-ba2d-400da7677074",
+      "name": "Light - direct surface color",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 8.0,
+          "y": 0.20000000298023224,
+          "z": 9.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": -1.1,
+          "z": 2.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": false,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.7200000286102295,
+                  0.75,
+                  0.800000011920929,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "metallicFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  1.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.3799999952316284,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.75,
+          "r": 0.7200000286102295
+        }
+      },
+      "id": "da7f3f37-e26f-47d3-892c-9254096122dd",
+      "name": "Rough metal floor - toggle Roughness filtering",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.47999998927116394,
+          "y": 2.0,
+          "z": 0.5
+        },
+        "forge.local_translation": {
+          "x": -2.4,
+          "y": 0.0,
+          "z": 2.2
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": false,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.949999988079071,
+                  0.25999999046325684,
+                  0.03500000014901161,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "metallicFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  1.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.03500000014901161,
+          "g": 0.25999999046325684,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "c173baf1-6dae-42b3-b81d-1ca8dcbb0cb8",
+      "name": "Amber column 01 - reflected source",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.47999998927116394,
+          "y": 2.0,
+          "z": 0.5
+        },
+        "forge.local_translation": {
+          "x": -1.92,
+          "y": 0.0,
+          "z": 2.2
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": false,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.02500000037252903,
+                  0.3199999928474426,
+                  0.8999999761581421,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "metallicFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  1.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.8999999761581421,
+          "g": 0.3199999928474426,
+          "r": 0.02500000037252903
+        }
+      },
+      "id": "6ce97300-8ad5-4cf2-981c-af64ddbdb030",
+      "name": "Blue column 02 - reflected source",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.47999998927116394,
+          "y": 2.0,
+          "z": 0.5
+        },
+        "forge.local_translation": {
+          "x": -1.44,
+          "y": 0.0,
+          "z": 2.2
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": false,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.949999988079071,
+                  0.25999999046325684,
+                  0.03500000014901161,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "metallicFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  1.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.03500000014901161,
+          "g": 0.25999999046325684,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "cbb45f20-2de1-4abc-9239-008da2a3b180",
+      "name": "Amber column 03 - reflected source",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.47999998927116394,
+          "y": 2.0,
+          "z": 0.5
+        },
+        "forge.local_translation": {
+          "x": -0.96,
+          "y": 0.0,
+          "z": 2.2
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": false,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.02500000037252903,
+                  0.3199999928474426,
+                  0.8999999761581421,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "metallicFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  1.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.8999999761581421,
+          "g": 0.3199999928474426,
+          "r": 0.02500000037252903
+        }
+      },
+      "id": "b3ba1dce-ab25-43b1-91f7-da41fddae960",
+      "name": "Blue column 04 - reflected source",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.47999998927116394,
+          "y": 2.0,
+          "z": 0.5
+        },
+        "forge.local_translation": {
+          "x": -0.48,
+          "y": 0.0,
+          "z": 2.2
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": false,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.949999988079071,
+                  0.25999999046325684,
+                  0.03500000014901161,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "metallicFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  1.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.03500000014901161,
+          "g": 0.25999999046325684,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "ae5fa684-a46c-48a1-aa37-3750d582cb5e",
+      "name": "Amber column 05 - reflected source",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.47999998927116394,
+          "y": 2.0,
+          "z": 0.5
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 2.2
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": false,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.02500000037252903,
+                  0.3199999928474426,
+                  0.8999999761581421,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "metallicFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  1.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.8999999761581421,
+          "g": 0.3199999928474426,
+          "r": 0.02500000037252903
+        }
+      },
+      "id": "3aa58715-c252-43c7-8034-5332285d5ffa",
+      "name": "Blue column 06 - reflected source",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.47999998927116394,
+          "y": 2.0,
+          "z": 0.5
+        },
+        "forge.local_translation": {
+          "x": 0.48,
+          "y": 0.0,
+          "z": 2.2
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": false,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.949999988079071,
+                  0.25999999046325684,
+                  0.03500000014901161,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "metallicFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  1.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.03500000014901161,
+          "g": 0.25999999046325684,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "9eaaa094-304e-4cd4-9d92-305d8c033237",
+      "name": "Amber column 07 - reflected source",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.47999998927116394,
+          "y": 2.0,
+          "z": 0.5
+        },
+        "forge.local_translation": {
+          "x": 0.96,
+          "y": 0.0,
+          "z": 2.2
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": false,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.02500000037252903,
+                  0.3199999928474426,
+                  0.8999999761581421,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "metallicFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  1.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.8999999761581421,
+          "g": 0.3199999928474426,
+          "r": 0.02500000037252903
+        }
+      },
+      "id": "8fe4d30a-204d-4e47-af2c-d17b674c63d4",
+      "name": "Blue column 08 - reflected source",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.47999998927116394,
+          "y": 2.0,
+          "z": 0.5
+        },
+        "forge.local_translation": {
+          "x": 1.44,
+          "y": 0.0,
+          "z": 2.2
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": false,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.949999988079071,
+                  0.25999999046325684,
+                  0.03500000014901161,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "metallicFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  1.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.03500000014901161,
+          "g": 0.25999999046325684,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "12426901-f7e7-4b7e-802d-97dfba76a5f4",
+      "name": "Amber column 09 - reflected source",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.47999998927116394,
+          "y": 2.0,
+          "z": 0.5
+        },
+        "forge.local_translation": {
+          "x": 1.92,
+          "y": 0.0,
+          "z": 2.2
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": false,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.02500000037252903,
+                  0.3199999928474426,
+                  0.8999999761581421,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "metallicFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  1.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.8999999761581421,
+          "g": 0.3199999928474426,
+          "r": 0.02500000037252903
+        }
+      },
+      "id": "d75677a4-95d9-4334-b01a-53fbd29b22f5",
+      "name": "Blue column 10 - reflected source",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.47999998927116394,
+          "y": 2.0,
+          "z": 0.5
+        },
+        "forge.local_translation": {
+          "x": 2.4,
+          "y": 0.0,
+          "z": 2.2
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": false,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.949999988079071,
+                  0.25999999046325684,
+                  0.03500000014901161,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "metallicFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  1.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.03500000014901161,
+          "g": 0.25999999046325684,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "92a253b3-bd14-4c51-ab78-0a020733b1b9",
+      "name": "Amber column 11 - reflected source",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 8.0,
+          "y": 3.5,
+          "z": 0.20000000298023224
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.6,
+          "z": 5.7
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": false,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.18000000715255737,
+                  0.20999999344348907,
+                  0.27000001072883606,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "metallicFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.800000011920929,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.27000001072883606,
+          "g": 0.20999999344348907,
+          "r": 0.18000000715255737
+        }
+      },
+      "id": "9e3c171a-5cc0-4fa5-a6bb-d655cfd05509",
+      "name": "Back wall - rough environment fallback",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    }
+  ],
+  "rendering": {
+    "environment": {
+      "intensity": 0.18,
+      "sky": false,
+      "texture": "d4c60053-60c8-4456-8771-a7cf8182a902"
+    },
+    "screen_space_reflections": {
+      "enabled": true,
+      "max_distance": 25.0,
+      "max_roughness": 0.9,
+      "roughness_filtering": true,
+      "strength": 1.0,
+      "thickness": 0.15
+    },
+    "shadows": {
+      "enabled": false
+    },
+    "version": 1
+  },
+  "version": 3
+}

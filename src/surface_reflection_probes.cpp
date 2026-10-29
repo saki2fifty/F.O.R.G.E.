@@ -160,7 +160,7 @@ Result main(float4 position:SV_Position) {
     shader.pShaderSourceStreamFactory = &DiligentFXShaderSourceStreamFactory::GetInstance();
     shader.Source = source.c_str();
     presentation_.shader(shader, &pixel);
-    ProbePipeline candidate;
+    PipelineState candidate;
     BufferDesc buffer;
     buffer.Name = "FORGE local reflection parameters";
     buffer.Size = sizeof(float) * (header_floats + probe_floats * probe_limit);

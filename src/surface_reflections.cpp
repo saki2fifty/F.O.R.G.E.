@@ -1,14 +1,16 @@
 #include "surface_reflections.hpp"
 #include "Graphics/GraphicsTools/interface/MapHelper.hpp"
 #include "presentation_views.hpp"
+#include "reflection_source_shader.hpp"
 #include "render_projection.hpp"
 #include "surface_depth_shader.hpp"
 namespace forge {
 using namespace Diligent;
-void SurfaceReflections::prepare() {
+void SurfaceReflections::prepare(bool filtered) {
     if (thread_ != std::this_thread::get_id())
         throw std::logic_error("Screen-space reflections require their presentation thread");
-    if (pipeline_)
+    auto& mode = screens_[filtered ? 1 : 0];
+    if (mode.pipeline)
         return;
     ShaderCreateInfo shader;
     shader.SourceLanguage = SHADER_SOURCE_LANGUAGE_HLSL;
@@ -19,7 +21,9 @@ void SurfaceReflections::prepare() {
         return float4(id==2?3:-1,id==1?3:-1,0,1);})";
     RefCntAutoPtr<IShader> vertex, pixel;
     presentation_.shader(shader, &vertex);
-    const std::string source = std::string(R"(
+    const std::string source = std::string(filtered ? "#define FORGE_REFLECTION_FILTERED 1\n"
+                                                    : "#define FORGE_REFLECTION_FILTERED 0\n") +
+                               std::string(R"(
 Texture2D<float4> CurrentColor;
 Texture2D<float4> CurrentIndirect;
 Texture2D<float> CurrentDepth;
@@ -27,7 +31,8 @@ Texture2D<float4> CurrentSurface;
 Texture2D<float4> CurrentResponse;
 Texture2D<float4> CurrentSpecular;
 cbuffer ReflectionValues {float4 Extent;float4 Settings;float4 P0;float4 P1;float4 P2;float4 P3;};
-)") + std::string(surface_depth_shader) +
+)") + (filtered ? reflection_source_lookup_shader() : std::string{}) +
+                               std::string(surface_depth_shader) +
                                R"(
 bool projected(float3 pointAt,out float2 uv) {
     uv=0;float4 p=float4(pointAt,1);
@@ -79,12 +84,25 @@ Result main(float4 position:SV_Position) {
                length(uv*Extent.xy-position.xy)>=2) {
                 float3 radiance=CurrentColor.Load(int3(int2(uv*Extent.xy),0)).rgb;
                 if(!all(isfinite(radiance))||any(radiance<0))return result;
+                float coverage=1;
+#if FORGE_REFLECTION_FILTERED
+                if(!all(isfinite(result.Color.rgb))||!all(isfinite(result.Indirect.rgb))||
+                   any(result.Color.rgb<0)||any(result.Indirect.rgb<0))return result;
+                float4 filtered=sourceRadiance(uv,origin+direction*high,high,surface.a,radiance);
+                radiance=filtered.rgb;coverage=filtered.a;
+#endif
                 float border=min(min(uv.x,uv.y),min(1-uv.x,1-uv.y));
                 float rough=1-smoothstep(Settings.y*.6,Settings.y,surface.a);
                 float confidence=saturate(border*20)*rough*(1-high/Extent.z)*
-                                 saturate(1-gap/Extent.w)*Settings.x;
+                                 saturate(1-gap/Extent.w)*Settings.x*coverage;
                 if(confidence==0)return result;
                 float3 change=(radiance*response-previous)*confidence;
+#if FORGE_REFLECTION_FILTERED
+                // Preserve the same delta in both half-float outputs, including
+                // finite HDR headroom, rather than clipping them independently.
+                change=clamp(change,-min(result.Color.rgb,result.Indirect.rgb),
+                             min(65504.-result.Color.rgb,65504.-result.Indirect.rgb));
+#endif
                 result.Color.rgb=max(result.Color.rgb+change,0);
                 result.Indirect.rgb=max(result.Indirect.rgb+change,0);
                 return result;
@@ -108,17 +126,26 @@ Result main(float4 position:SV_Position) {
     presentation_.device()->CreateBuffer(desc, nullptr, &values);
     if (!values)
         throw std::runtime_error("Reflection parameter allocation failed");
-    const ShaderResourceVariableDesc inputs[]{
+    std::vector<ShaderResourceVariableDesc> inputs{
         {SHADER_TYPE_PIXEL, "CurrentColor", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_PIXEL, "CurrentIndirect", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_PIXEL, "CurrentDepth", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_PIXEL, "CurrentSurface", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_PIXEL, "CurrentResponse", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_PIXEL, "CurrentSpecular", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}};
+    std::array<std::string, reflection_source_level_limit * 2> source_names;
+    if (filtered)
+        for (unsigned i = 0; i < reflection_source_level_limit; ++i) {
+            source_names[i * 2] = reflection_source_name(i, false);
+            source_names[i * 2 + 1] = reflection_source_name(i, true);
+            for (unsigned lane = 0; lane < 2; ++lane)
+                inputs.push_back({SHADER_TYPE_PIXEL, source_names[i * 2 + lane].c_str(),
+                                  SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC});
+        }
     GraphicsPipelineStateCreateInfo info;
     info.PSODesc.Name = "FORGE current color and indirect reflections";
     info.PSODesc.ResourceLayout.DefaultVariableType = SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE;
-    info.PSODesc.ResourceLayout.Variables = inputs;
+    info.PSODesc.ResourceLayout.Variables = inputs.data();
     info.PSODesc.ResourceLayout.NumVariables = Uint32(std::size(inputs));
     auto& g = info.GraphicsPipeline;
     g.NumRenderTargets = 2;
@@ -141,9 +168,9 @@ Result main(float4 position:SV_Position) {
         if (!binding->GetVariableByName(SHADER_TYPE_PIXEL, input.Name))
             throw std::runtime_error("Reflection texture interface is incomplete");
     binding->GetVariableByName(SHADER_TYPE_PIXEL, "ReflectionValues")->Set(values);
-    pipeline_ = std::move(pipeline);
-    binding_ = std::move(binding);
-    values_ = std::move(values);
+    mode.pipeline = std::move(pipeline);
+    mode.binding = std::move(binding);
+    mode.values = std::move(values);
 }
 void SurfaceReflections::apply(IDeviceContext* context, const Input& input,
                                ITextureView* color_output, ITextureView* indirect_output) {
@@ -192,16 +219,28 @@ void SurfaceReflections::apply(IDeviceContext* context, const Input& input,
     for (auto* source : {input.surface, input.response, input.specular})
         validate_input(source, TEX_FORMAT_RGBA16_FLOAT);
     validate_surface_projection(input.projection);
-    prepare();
+    const bool filtered = input.settings.roughness_filtering &&
+                          reflection_source_plan(size.Width, size.Height).count != 0;
+    if (filtered) {
+        validate_sources(input, input.sources);
+        for (const auto& source : input.sources)
+            for (auto* texture : {source.color, source.range})
+                if (texture == color_output->GetTexture() ||
+                    texture == indirect_output->GetTexture())
+                    throw std::invalid_argument("Reflection source aliases an output");
+    }
+    prepare(filtered);
+    auto& mode = screens_[filtered ? 1 : 0];
     {
-        MapHelper<float> data(context, values_, MAP_WRITE, MAP_FLAG_DISCARD);
+        MapHelper<float> data(context, mode.values, MAP_WRITE, MAP_FLAG_DISCARD);
         data[0] = float(size.Width);
         data[1] = float(size.Height);
         data[2] = input.settings.max_distance;
         data[3] = input.settings.thickness;
         data[4] = input.settings.strength;
         data[5] = input.settings.max_roughness;
-        data[6] = data[7] = 0;
+        data[6] = filtered ? 1.f : 0.f;
+        data[7] = float(input.sources.size());
         for (unsigned i = 0; i < 16; ++i)
             data[8 + i] = input.projection[i];
     }
@@ -210,15 +249,31 @@ void SurfaceReflections::apply(IDeviceContext* context, const Input& input,
     ITextureView* inputs[]{input.color,   input.indirect, input.depth,
                            input.surface, input.response, input.specular};
     for (unsigned i = 0; i < std::size(inputs); ++i)
-        binding_->GetVariableByName(SHADER_TYPE_PIXEL, names[i])->Set(inputs[i]);
+        mode.binding->GetVariableByName(SHADER_TYPE_PIXEL, names[i])->Set(inputs[i]);
+    if (filtered)
+        for (unsigned i = 0; i < reflection_source_level_limit; ++i) {
+            const auto& level = input.sources[std::min<std::size_t>(i, input.sources.size() - 1)];
+            mode.binding
+                ->GetVariableByName(SHADER_TYPE_PIXEL, reflection_source_name(i, false).c_str())
+                ->Set(level.color->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE));
+            mode.binding
+                ->GetVariableByName(SHADER_TYPE_PIXEL, reflection_source_name(i, true).c_str())
+                ->Set(level.range->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE));
+        }
     ITextureView* outputs[]{color_output, indirect_output};
     context->SetRenderTargets(2, outputs, nullptr, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     Diligent::Viewport viewport{0, 0, float(size.Width), float(size.Height), 0, 1};
     context->SetViewports(1, &viewport, size.Width, size.Height);
-    context->SetPipelineState(pipeline_);
-    context->CommitShaderResources(binding_, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    context->SetPipelineState(mode.pipeline);
+    context->CommitShaderResources(mode.binding, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     context->Draw(DrawAttribs{3, DRAW_FLAG_VERIFY_ALL});
+    if (filtered)
+        for (unsigned i = 0; i < reflection_source_level_limit; ++i)
+            for (bool depth : {false, true})
+                mode.binding
+                    ->GetVariableByName(SHADER_TYPE_PIXEL, reflection_source_name(i, depth).c_str())
+                    ->Set(nullptr);
     for (const auto* name : names)
-        binding_->GetVariableByName(SHADER_TYPE_PIXEL, name)->Set(nullptr);
+        mode.binding->GetVariableByName(SHADER_TYPE_PIXEL, name)->Set(nullptr);
 }
 } // namespace forge

@@ -187,3 +187,20 @@ cache, queue, posed/instanced draw path, Scene/Game hosts and authoring operatio
 remain authoritative. The [AO contract](../ambient-occlusion.md) describes the
 profile and limits. This does not change the installed C SDK or imply hidden
 geometry, temporal AO history, Windows cooking or physical-hardware acceptance.
+
+## Bounded roughness-aware reflection sources — accepted extension
+
+Optional source filtering stays within the existing current-depth reflection and
+TemporalView owners. A default-off Scene boolean uses the shared partial authoring
+operation. TemporalView owns, stages, reuses and releases at most six image pairs;
+SurfaceReflections owns only reduction/lookup pipelines, bindings and constants.
+Source images contain premultiplied current HDR/geometry coverage and valid depth
+bounds. They are built after local probes and before screen-reflection replacement,
+so reflected output never feeds its own source. The existing checked Game/Scene
+payload admission counts exact ceil-sized levels within the same 512 MiB budgets.
+
+No material surface roles, artifact capabilities/bytes, logical asset IDs or
+installed SDK interfaces change. The bounded footprint approximates visible source
+averaging; it does not imply hidden geometry, new reflection lobes or full physical
+BRDF convolution. The [reflection contract](../screen-space-reflections.md) owns
+limits and stage behavior. No parallel lighting/resource/authoring manager is added.

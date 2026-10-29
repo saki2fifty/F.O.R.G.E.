@@ -1,5 +1,16 @@
 # Feature Gallery
 
+## Roughness-filtered reflections
+
+Open **Scenes/109-rough-reflection-filtering.scene.json** and press Play. Alternating
+amber and blue columns reflect in a rough metal floor. Stop, open **Tools > Scene
+lighting... → Screen-space reflections**, and toggle **Roughness filtering**.
+Compare the reflected detail, then change the floor's **roughnessFactor** below
+**Maximum roughness**. Save the Scene, select it as startup and export. The example
+uses built-in assets and requires no C++ module or additional import.
+
+## Material-normal ambient occlusion
+
 ## Material-normal ambient occlusion
 
 Open **Scenes/108-material-normal-occlusion.scene.json** and press Play. A blue wall

@@ -467,6 +467,12 @@ int main(int argc, char** argv) {
             context->WaitForIdle();
             return 0;
         }
+        if (argc == 2 && std::string_view(argv[1]) == "--rough-geometry") {
+            temporal_view_boundaries(presentation, context);
+            test_temporal_mesh_motion::exercise_rough(presentation, context);
+            context->WaitForIdle();
+            return 0;
+        }
         check(argc == 3, "Expected isolated fixture and Gallery project directories");
         forge::test_temporal_scene::exercise(presentation, context, argv[1]);
         forge::test_temporal_scene::gallery(presentation, context, argv[2],

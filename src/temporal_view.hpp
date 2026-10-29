@@ -27,6 +27,9 @@ class TemporalView {
                    value.max_roughness != 0;
         }
         bool reflection_output() const { return local_reflections || screen_reflection_output(); }
+        bool reflection_source_output() const {
+            return screen_reflection_output() && screen_space_reflections.roughness_filtering;
+        }
         bool occlusion_output() const {
             return ambient_occlusion.enabled && ambient_occlusion.radius != 0 &&
                    ambient_occlusion.strength != 0;
@@ -54,6 +57,19 @@ class TemporalView {
                (options.anti_aliasing ? 20 : 0) + (blur ? 8 : 0) +
                (blur && options.snapshot != MotionSnapshotAction::Live ? 20 : 0);
     }
+    // Source levels use ceil-sized extents; a per-pixel estimate would undercount
+    // thin and odd views. This is payload admission, not transient/driver memory.
+    static std::uint64_t payload_bytes(unsigned width, unsigned height, const Options& options) {
+        if (!width || !height)
+            throw std::invalid_argument("Temporal view extent must be nonzero");
+        const auto source_bytes =
+            options.reflection_source_output() ? reflection_source_plan(width, height).bytes : 0;
+        const auto pixels = std::uint64_t(width) * height;
+        const auto bpp = payload_per_pixel(options);
+        if (pixels > (std::numeric_limits<std::uint64_t>::max() - source_bytes) / bpp)
+            throw std::overflow_error("Temporal view payload exceeds its range");
+        return pixels * bpp + source_bytes;
+    }
     void begin(Diligent::IDeviceContext*, Diligent::ITexture* composed_color,
                Diligent::ITextureView* composed_depth);
     void resolve(Diligent::IDeviceContext*, float stability, bool complete_geometry = true,
@@ -67,7 +83,12 @@ class TemporalView {
     bool valid() const { return valid_; }
     std::uint64_t samples() const { return samples_; }
     std::uint64_t payload_bytes() const {
-        return color_ ? std::uint64_t(color_->GetDesc().Width) * color_->GetDesc().Height *
+        std::uint64_t source_bytes = 0;
+        for (const auto& source : reflection_sources_)
+            source_bytes +=
+                std::uint64_t(source.color->GetDesc().Width) * source.color->GetDesc().Height * 16;
+        return color_ ? source_bytes +
+                            std::uint64_t(color_->GetDesc().Width) * color_->GetDesc().Height *
                                 (12 + (motion_ ? 16 : 0) + (indirect_ ? 8 : 0) +
                                  (occluded_ ? 8 : 0) + (material_surface_ ? 8 : 0) +
                                  (reflection_response_ ? 32 : 0) + (probe_specular_ ? 8 : 0) +
@@ -77,7 +98,7 @@ class TemporalView {
     }
     const TemporalMeshParts& previous_parts() const { return previous_parts_; }
     TemporalMeshParts& pending_parts() { return pending_parts_; }
-    // Default AA mode: 28 input + 20 history bytes/pixel. Other modes use payload_per_pixel.
+    // Default AA mode: 28 input + 20 history bytes/pixel. Other modes use payload_bytes.
     static constexpr std::uint64_t bytes_per_pixel = 48;
     static bool discontinuous(const CameraView& previous, const CameraView& current);
 
@@ -96,6 +117,10 @@ class TemporalView {
     Diligent::RefCntAutoPtr<Diligent::ITexture> material_surface_, reflection_response_,
         reflection_specular_, reflected_color_, reflected_indirect_;
     Diligent::RefCntAutoPtr<Diligent::ITexture> probe_specular_;
+    struct ReflectionSource {
+        Diligent::RefCntAutoPtr<Diligent::ITexture> color, range;
+    };
+    std::vector<ReflectionSource> reflection_sources_;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> composite_;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> binding_;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> rectangle_;

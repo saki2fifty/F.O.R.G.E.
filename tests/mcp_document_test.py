@@ -251,10 +251,11 @@ for legacy in (False, True):
                       arguments=dict(ambient_occlusion=dict(strength=.5)))['ok']
         reflection_schema = exposure_command['input_schema']['properties']['screen_space_reflections']
         assert exposure_tool['inputSchema']['properties']['arguments']['properties']['screen_space_reflections'] == reflection_schema
-        assert set(reflection_schema['properties']) == {'enabled', 'max_distance', 'thickness', 'strength', 'max_roughness'}
+        assert set(reflection_schema['properties']) == {'enabled', 'max_distance', 'thickness', 'strength', 'max_roughness', 'roughness_filtering'}
         assert reflection_schema['properties']['thickness']['minimum'] == .0001
+        assert reflection_schema['properties']['roughness_filtering']['type'] == 'boolean'
         reflection_arguments = arguments(arguments=dict(screen_space_reflections=dict(
-            enabled=True, max_distance=20, thickness=.05, strength=.75, max_roughness=.4)))
+            enabled=True, max_distance=20, thickness=.05, strength=.75, max_roughness=.4, roughness_filtering=True)))
         before_reflection = discover()
         changed = client.tool('forge_scene_rendering_set', **reflection_arguments)
         assert changed['ok'] and changed['revision'] != before_reflection['revision'], changed
@@ -264,7 +265,9 @@ for legacy in (False, True):
         for bad in (dict(enabled=1), dict(max_distance=100.000000001),
                     dict(thickness=.000099999999), dict(thickness=1.000000001),
                     dict(strength=1.000000001), dict(max_roughness=1.000000001),
-                    dict(max_distance=-.01), dict(thickness='thin')):
+                    dict(max_distance=-.01), dict(thickness='thin'),
+                    dict(roughness_filtering=1), dict(roughness_filtering=None),
+                    dict(roughness_filtering='true')):
             before = discover()
             result = mutate('forge_scene_rendering_set', arguments=dict(screen_space_reflections=bad))
             assert not result['ok'] and discover()['revision'] == before['revision'], result
@@ -374,7 +377,7 @@ for legacy in (False, True):
         assert saved_doc['rendering']['motion_blur'] == dict(enabled=True, shutter=.5, max_pixels=24)
         assert saved_doc['rendering']['ambient_occlusion'] == dict(enabled=True, radius=1, strength=.5, bias=.02, normal_influence=.7)
         assert saved_doc['rendering']['screen_space_reflections'] == dict(
-            enabled=True, max_distance=20, thickness=.05, strength=.5, max_roughness=.4)
+            enabled=True, max_distance=20, thickness=.05, strength=.5, max_roughness=.4, roughness_filtering=True)
         assert saved_doc['entities'][0]['name'] == 'Saved agent cube'
         body = saved_doc['entities'][0]['components']['forge.physics_body_2d']
         assert body['one_way'] and abs(body['one_way_margin'] - .05) < 1e-6, body

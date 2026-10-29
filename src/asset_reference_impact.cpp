@@ -193,8 +193,9 @@ struct Inspect {
                             ? std::set<std::string>{"enabled", "focus_distance", "focus_range",
                                                     "blur_radius"}
                         : std::string_view(section) == "screen_space_reflections"
-                            ? std::set<std::string>{"enabled", "max_distance", "thickness",
-                                                    "strength", "max_roughness"}
+                            ? std::set<std::string>{"enabled",       "max_distance",
+                                                    "thickness",     "strength",
+                                                    "max_roughness", "roughness_filtering"}
                         : std::string_view(section) == "ambient_occlusion"
                             ? std::set<std::string>{"enabled", "radius", "strength", "bias",
                                                     "normal_influence"}

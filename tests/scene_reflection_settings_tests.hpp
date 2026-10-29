@@ -24,10 +24,11 @@ inline void test_scene_reflection_settings() {
                          {"max_distance", 20},
                          {"thickness", .05},
                          {"strength", .75},
-                         {"max_roughness", .4}}}});
+                         {"max_roughness", .4},
+                         {"roughness_filtering", true}}}});
     const auto enabled = scene.document();
     check(scene_render_settings(enabled).screen_space_reflections ==
-                  SceneScreenSpaceReflections{true, 20, .05f, .75f, .4f} &&
+                  SceneScreenSpaceReflections{true, 20, .05f, .75f, .4f, true} &&
               scene.undo() && scene.document() == original && scene.redo() &&
               scene.document() == enabled,
           "Reflection settings bypassed atomic Scene history");
@@ -35,7 +36,7 @@ inline void test_scene_reflection_settings() {
                       {{"screen_space_reflections", {{"strength", .5}}}});
     const auto good = scene.document();
     check(scene_render_settings(good).screen_space_reflections ==
-                  SceneScreenSpaceReflections{true, 20, .05f, .5f, .4f} &&
+                  SceneScreenSpaceReflections{true, 20, .05f, .5f, .4f, true} &&
               good["rendering"]["screen_space_reflections"]["extension"] == 7,
           "Partial reflection edit lost omitted values or opaque metadata");
     for (const auto& bad :
@@ -43,7 +44,8 @@ inline void test_scene_reflection_settings() {
           Json{{"thickness", 1.000000001}}, Json{{"thickness", .000099999999}},
           Json{{"strength", 1.000000001}}, Json{{"max_roughness", 1.000000001}},
           Json{{"max_distance", -.001}}, Json{{"strength", -1}}, Json{{"max_roughness", -.001}},
-          Json{{"thickness", "thin"}}}) {
+          Json{{"thickness", "thin"}}, Json{{"roughness_filtering", 1}},
+          Json{{"roughness_filtering", nullptr}}, Json{{"roughness_filtering", "yes"}}}) {
         const auto revision = scene.revision();
         bool rejected = false;
         try {
@@ -84,8 +86,10 @@ inline void test_scene_reflection_settings() {
         if (row.at("id") == "scene.rendering.set") {
             const auto& schema =
                 row.at("input_schema").at("properties").at("screen_space_reflections");
-            discovered = schema.at("properties").size() == 5 &&
-                         schema.at("properties").at("thickness").at("minimum") == .0001;
+            discovered =
+                schema.at("properties").size() == 6 &&
+                schema.at("properties").at("roughness_filtering").at("type") == "boolean" &&
+                schema.at("properties").at("thickness").at("minimum") == .0001;
         }
     check(discovered, "Reflection settings missing from shared automation/MCP discovery");
 }

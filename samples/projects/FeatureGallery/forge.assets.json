@@ -120,6 +120,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "03d7f430-77ba-4c78-b75a-ff3a638ea3d9",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/109-rough-reflection-filtering.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "03f314d8-69d9-4650-9683-4c9a1ae0b87d",
       "metadata": {
         "forge.import": {
