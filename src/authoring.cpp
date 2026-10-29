@@ -250,7 +250,8 @@ Json execute(detail::SceneDraft& scene, const std::string& op, const Json& a) {
             if (key == "environment" || key == "shadows" || key == "bloom" ||
                 key == "color_adjustments" || key == "auto_exposure" || key == "distance_fog" ||
                 key == "temporal_anti_aliasing" || key == "depth_of_field" ||
-                key == "motion_blur" || key == "ambient_occlusion") {
+                key == "motion_blur" || key == "ambient_occlusion" ||
+                key == "screen_space_reflections") {
                 auto& env = rendering[key];
                 if (env.is_null())
                     env = Json::object();
@@ -594,7 +595,7 @@ Json authoring_commands() {
     };
     add("scene.rendering.set", "Scene lighting and display",
         "Change scene lighting, shadows, temporal anti-aliasing, depth of field, motion blur, "
-        "ambient occlusion, "
+        "ambient occlusion, screen-space reflections, "
         "distance fog, "
         "bloom, color "
         "adjustments or "
@@ -605,6 +606,11 @@ Json authoring_commands() {
         "fields "
         "remain unchanged.",
         {{"exposure", number(-20, 20)},
+         {"screen_space_reflections", object({{"enabled", {{"type", "boolean"}}},
+                                              {"max_distance", number(0, 100)},
+                                              {"thickness", number(.0001, 1)},
+                                              {"strength", number(0, 1)},
+                                              {"max_roughness", number(0, 1)}})},
          {"ambient_occlusion", object({{"enabled", {{"type", "boolean"}}},
                                        {"radius", number(0, 10)},
                                        {"strength", number(0, 1)},

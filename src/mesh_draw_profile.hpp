@@ -12,15 +12,24 @@ enum class MeshDrawProfile {
     SpriteMipLinear,
     MeshTemporal,
     MeshIndirect,
-    MeshTemporalIndirect
+    MeshTemporalIndirect,
+    MeshReflection,
+    MeshTemporalReflection
 };
 inline bool temporal_mesh_profile(MeshDrawProfile profile) {
     return profile == MeshDrawProfile::MeshTemporal ||
-           profile == MeshDrawProfile::MeshTemporalIndirect;
+           profile == MeshDrawProfile::MeshTemporalIndirect ||
+           profile == MeshDrawProfile::MeshTemporalReflection;
 }
 inline bool indirect_mesh_profile(MeshDrawProfile profile) {
     return profile == MeshDrawProfile::MeshIndirect ||
-           profile == MeshDrawProfile::MeshTemporalIndirect;
+           profile == MeshDrawProfile::MeshTemporalIndirect ||
+           profile == MeshDrawProfile::MeshReflection ||
+           profile == MeshDrawProfile::MeshTemporalReflection;
+}
+inline bool reflection_mesh_profile(MeshDrawProfile profile) {
+    return profile == MeshDrawProfile::MeshReflection ||
+           profile == MeshDrawProfile::MeshTemporalReflection;
 }
 inline bool sprite_draw_profile(MeshDrawProfile profile) {
     return profile == MeshDrawProfile::Sprite || profile == MeshDrawProfile::SpriteMipNearest ||

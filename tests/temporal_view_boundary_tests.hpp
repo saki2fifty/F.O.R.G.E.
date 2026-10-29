@@ -96,6 +96,54 @@ inline void temporal_view_boundaries(forge::DiligentPresentation& presentation,
     occlusion.snapshot = MotionSnapshotAction::Refresh;
     check(TemporalView::payload_per_pixel(occlusion) == 92,
           "Combined capture payload omitted frozen geometry fields");
+    TemporalView::Options reflection;
+    reflection.anti_aliasing = false;
+    reflection.screen_space_reflections.enabled = true;
+    check(TemporalView::payload_per_pixel(reflection) == 60 && reflection.indirect_output() &&
+              !reflection.motion_output(),
+          "Spatial reflections omitted their material/result targets or allocated motion");
+    TemporalView reflected(presentation, 23 * 19 * 60);
+    reflected.prepare(current, false, reflection);
+    check(reflected.payload_bytes() == 23 * 19 * 60 && reflected.jitter() == std::array<float, 2>{},
+          "Reflection-only mode has incorrect targets or camera jitter");
+    reflected.begin(context, color, dsv);
+    reflected.resolve(context, .8f);
+    reflected.complete();
+    check(reflected.previous_parts().empty(), "Spatial reflections retained pose history");
+    reflection.ambient_occlusion.enabled = true;
+    check(TemporalView::payload_per_pixel(reflection) == 68,
+          "Combined reflection/occlusion counted indirect radiance twice");
+    reject([&] { reflected.prepare(current, false, reflection); });
+    check(reflected.valid() && reflected.payload_bytes() == 23 * 19 * 60,
+          "Rejected reflection growth discarded prior targets or completed state");
+    reflection.anti_aliasing = true;
+    check(TemporalView::payload_per_pixel(reflection) == 104,
+          "Reflection/AA/occlusion payload is incorrect");
+    reflection.motion_blur.enabled = true;
+    check(TemporalView::payload_per_pixel(reflection) == 112,
+          "Combined reflection/motion payload is incorrect");
+    reflection.snapshot = MotionSnapshotAction::Refresh;
+    check(TemporalView::payload_per_pixel(reflection) == 132,
+          "Reflection capture omitted frozen geometry targets");
+    reflection = {};
+    reflection.anti_aliasing = false;
+    reflection.screen_space_reflections.enabled = true;
+    for (unsigned zero = 0; zero < 3; ++zero) {
+        auto bypass = reflection;
+        if (zero == 0)
+            bypass.screen_space_reflections.max_distance = 0;
+        if (zero == 1)
+            bypass.screen_space_reflections.strength = 0;
+        if (zero == 2)
+            bypass.screen_space_reflections.max_roughness = 0;
+        reflected.prepare(current, false, bypass);
+        check(reflected.payload_bytes() == 23 * 19 * 12 && !bypass.indirect_output(),
+              "Reflection zero path retained auxiliary targets");
+    }
+    reflection.screen_space_reflections.thickness = 0;
+    reject([&] { reflected.prepare(current, false, reflection); });
+    check(reflected.payload_bytes() == 23 * 19 * 12,
+          "Rejected reflection settings changed admitted targets");
     context->SetRenderTargets(0, nullptr, nullptr, RESOURCE_STATE_TRANSITION_MODE_NONE);
     context->WaitForIdle();
     std::cout << "Temporal view target/budget/state boundaries and valid retry PASS\n";

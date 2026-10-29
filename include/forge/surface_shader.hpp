@@ -25,13 +25,14 @@ void validate_surface_material(const MaterialData&, const SurfaceShaderDefinitio
 std::string surface_shader_header(const SurfaceShaderDefinition&, bool emulated_samplers = false,
                                   bool temporal = false);
 std::string surface_shader_wrapper(std::string_view source, std::string_view function,
-                                   bool depth_only, bool indirect_output = false);
+                                   bool depth_only, bool indirect_output = false,
+                                   bool reflection_output = false);
 // Extend the engine-generated color wrapper; the authored function keeps its
 // ordinary surface input contract. The alternate header is an owned virtual file.
 std::string temporal_surface_wrapper(std::string color_wrapper);
 // The shared generated helper has an explicit indirect output parameter.
 // Built-in PBR graphs supply environment radiance; final-color functions supply zero.
-std::string indirect_surface_wrapper(std::string helper, bool temporal);
+std::string indirect_surface_wrapper(std::string helper, bool temporal, bool reflection = false);
 // Constant data is packed using copied, validated compiler reflection. Bindings
 // remain named Diligent resources; these offsets never enter authored assets.
 struct SurfaceParameterBinding {

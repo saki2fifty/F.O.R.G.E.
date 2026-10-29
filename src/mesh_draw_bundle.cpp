@@ -138,15 +138,18 @@ void MeshDrawBundle::prepare_temporal(Diligent::IDeviceContext* context, unsigne
 }
 void MeshDrawBundle::prepare_surface(Diligent::IDeviceContext* context, unsigned lod, unsigned part,
                                      bool motion, bool indirect,
-                                     std::span<const MaterialParameterOverride> parameters) {
+                                     std::span<const MaterialParameterOverride> parameters,
+                                     bool reflection) {
     if (profile_ != MeshDrawProfile::Mesh || info_.at(lod).at(part).transmission ||
         info_.at(lod).at(part).alpha == MaterialAlpha::Blend || !info_.at(lod).at(part).depth_write)
         throw std::invalid_argument("Surface effects require a depth-writing Mesh part");
-    auto& selected = surface_lods_.at(surface_index(motion, indirect)).at(lod).at(part);
+    auto& selected = surface_lods_.at(surface_index(motion, indirect, reflection)).at(lod).at(part);
     if (!selected) {
-        const auto profile = indirect ? (motion ? MeshDrawProfile::MeshTemporalIndirect
-                                                : MeshDrawProfile::MeshIndirect)
-                                      : MeshDrawProfile::MeshTemporal;
+        const auto profile = reflection ? (motion ? MeshDrawProfile::MeshTemporalReflection
+                                                  : MeshDrawProfile::MeshReflection)
+                             : indirect ? (motion ? MeshDrawProfile::MeshTemporalIndirect
+                                                  : MeshDrawProfile::MeshIndirect)
+                                        : MeshDrawProfile::MeshTemporal;
         auto candidate = prepare_draw(context, lod, part, color_, profile);
         candidate->bind_environment(environment_ ? &environment_.get() : nullptr);
         candidate->prepare_object_material_values(parameters, slot(lod, part));
@@ -237,10 +240,11 @@ void MeshDrawBundle::draw_part(Diligent::IDeviceContext* context, const AffineTr
                                std::span<const MaterialParameterOverride> parameters,
                                const SpriteDrawValues* sprite, const SceneDistanceFog* fog,
                                const GpuLease<TextureAsset>* sprite_mip,
-                               const MeshDraw::Motion* motion, bool indirect) {
-    auto& selected = motion || indirect
-                         ? surface_lods_.at(surface_index(bool(motion), indirect)).at(lod).at(part)
-                         : lods_.at(lod).at(part);
+                               const MeshDraw::Motion* motion, bool indirect, bool reflection) {
+    auto& selected =
+        motion || indirect || reflection
+            ? surface_lods_.at(surface_index(bool(motion), indirect, reflection)).at(lod).at(part)
+            : lods_.at(lod).at(part);
     if (!selected)
         throw std::runtime_error("Surface Mesh part was not prepared before drawing");
     if (sprite_draw_mip_filter(profile_)) {

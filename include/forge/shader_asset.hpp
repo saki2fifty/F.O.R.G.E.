@@ -12,17 +12,30 @@ enum class ShaderEntryRole {
     SurfaceDepth,
     SurfaceTemporalColor,
     SurfaceIndirectColor,
-    SurfaceTemporalIndirectColor
+    SurfaceTemporalIndirectColor,
+    SurfaceReflectionColor,
+    SurfaceTemporalReflectionColor
 };
 inline constexpr bool temporal_surface_role(ShaderEntryRole role) {
     return role == ShaderEntryRole::SurfaceTemporalColor ||
-           role == ShaderEntryRole::SurfaceTemporalIndirectColor;
+           role == ShaderEntryRole::SurfaceTemporalIndirectColor ||
+           role == ShaderEntryRole::SurfaceTemporalReflectionColor;
 }
 inline constexpr bool indirect_surface_role(ShaderEntryRole role) {
     return role == ShaderEntryRole::SurfaceIndirectColor ||
-           role == ShaderEntryRole::SurfaceTemporalIndirectColor;
+           role == ShaderEntryRole::SurfaceTemporalIndirectColor ||
+           role == ShaderEntryRole::SurfaceReflectionColor ||
+           role == ShaderEntryRole::SurfaceTemporalReflectionColor;
 }
-inline constexpr ShaderEntryRole surface_color_role(bool temporal, bool indirect) {
+inline constexpr bool reflection_surface_role(ShaderEntryRole role) {
+    return role == ShaderEntryRole::SurfaceReflectionColor ||
+           role == ShaderEntryRole::SurfaceTemporalReflectionColor;
+}
+inline constexpr ShaderEntryRole surface_color_role(bool temporal, bool indirect,
+                                                    bool reflection = false) {
+    if (reflection)
+        return temporal ? ShaderEntryRole::SurfaceTemporalReflectionColor
+                        : ShaderEntryRole::SurfaceReflectionColor;
     return indirect
                ? (temporal ? ShaderEntryRole::SurfaceTemporalIndirectColor
                            : ShaderEntryRole::SurfaceIndirectColor)

@@ -77,6 +77,11 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
     desc.Format = TEX_FORMAT_RGBA16_FLOAT;
     device->CreateTexture(desc, nullptr, &indirect_target);
     check(bool(indirect_target), "Surface indirect target failed");
+    std::array<RefCntAutoPtr<ITexture>, 3> reflection_targets;
+    for (auto& target : reflection_targets) {
+        device->CreateTexture(desc, nullptr, &target);
+        check(bool(target), "Surface reflection target failed");
+    }
     SurfaceShaderDefinition definition;
     definition.uv_sets = {0};
     struct Case {
@@ -92,10 +97,12 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
                     Case{"float4(asfloat(0x7fc00000),0,0,.25)", 2, 1, {1, 0, 1, 1}},
                     Case{"float4(1,0,1,1)", 2, 1, {.55f, .2f, .85f, 1}}})
         for (const bool temporal : {false, true})
-            for (const bool indirect : {false, true}) {
-                auto source = surface_shader_wrapper("function.hlsli", "Shade", false, indirect);
+            for (unsigned output = 0; output < 3; ++output) {
+                const bool indirect = output != 0, reflection = output == 2;
+                auto source =
+                    surface_shader_wrapper("function.hlsli", "Shade", false, indirect, reflection);
                 if (indirect)
-                    source = indirect_surface_wrapper(std::move(source), temporal);
+                    source = indirect_surface_wrapper(std::move(source), temporal, reflection);
                 else if (temporal)
                     source = temporal_surface_wrapper(std::move(source));
                 if (temporal) {
@@ -107,9 +114,9 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
                 insert(source, "#include \"function.hlsli\"",
                        std::string("float4 Shade(ForgeSurfaceInput input){return ") +
                            item.expression + ";}");
-                const auto pixel =
-                    compile(SHADER_TYPE_PIXEL, source,
-                            surface_shader_entry(surface_color_role(temporal, indirect)));
+                const auto pixel = compile(
+                    SHADER_TYPE_PIXEL, source,
+                    surface_shader_entry(surface_color_role(temporal, indirect, reflection)));
                 const auto fog = buffer({.1f, .4f, .7f, item.enabled, 1, 4, 0, 0});
                 const auto state = buffer({item.alpha_mode, .5f, 0, 0});
                 std::vector<float> temporal_values(13 * 4);
@@ -126,13 +133,17 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
                     SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE;
                 ci.pVS = vertex;
                 ci.pPS = pixel;
-                ci.GraphicsPipeline.NumRenderTargets =
-                    Diligent::Uint8(1 + unsigned(temporal) + unsigned(indirect));
+                ci.GraphicsPipeline.NumRenderTargets = Diligent::Uint8(
+                    1 + unsigned(temporal) + unsigned(indirect) + (reflection ? 3 : 0));
                 ci.GraphicsPipeline.RTVFormats[0] = TEX_FORMAT_RGBA8_UNORM;
                 if (temporal)
                     ci.GraphicsPipeline.RTVFormats[1] = TEX_FORMAT_RGBA32_FLOAT;
                 if (indirect)
                     ci.GraphicsPipeline.RTVFormats[temporal ? 2 : 1] = TEX_FORMAT_RGBA16_FLOAT;
+                if (reflection)
+                    for (unsigned i = 0; i < 3; ++i)
+                        ci.GraphicsPipeline.RTVFormats[2 + unsigned(temporal) + i] =
+                            TEX_FORMAT_RGBA16_FLOAT;
                 ci.GraphicsPipeline.PrimitiveTopology = PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
                 ci.GraphicsPipeline.RasterizerDesc.CullMode = CULL_MODE_NONE;
                 ci.GraphicsPipeline.DepthStencilDesc.DepthEnable = false;
@@ -158,6 +169,9 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
                     targets.push_back(motion->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET));
                 if (indirect)
                     targets.push_back(indirect_target->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET));
+                if (reflection)
+                    for (const auto& target : reflection_targets)
+                        targets.push_back(target->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET));
                 context->SetRenderTargets(Uint32(targets.size()), targets.data(), nullptr,
                                           RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
                 const float clear[4]{};
@@ -182,6 +196,15 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
                               [](const auto& p) { return p == std::array<unsigned char, 4>{}; }),
                           "Custom final-color surface reported indirect radiance");
                 }
+                if (reflection)
+                    for (const auto& target : reflection_targets) {
+                        const auto data = readback(target);
+                        check(std::all_of(data.begin(), data.end(),
+                                          [](const auto& p) {
+                                              return p == std::array<unsigned char, 4>{};
+                                          }),
+                              "Custom final-color surface fabricated reflection material data");
+                    }
                 context->FinishFrame();
                 device->ReleaseStaleResources();
                 for (const auto& value : pixels)
@@ -228,19 +251,23 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
            surface_shader_header(graph.surface));
     insert(temporal_graph, "#include \"graph.hlsli\"", graph.source);
     (void)compile(SHADER_TYPE_PIXEL, temporal_graph, "ForgeSurfaceTemporalColor");
-    for (bool temporal : {false, true}) {
-        auto source = indirect_surface_wrapper(
-            material_graph_shader_wrapper(graph.surface, "graph.hlsli", false, true), temporal);
-        if (temporal)
-            insert(source, "#include \"engine/forge.surface.temporal.hlsli\"",
-                   surface_shader_header(graph.surface, false, true));
-        insert(source, "#include \"engine/forge.surface.hlsli\"",
-               surface_shader_header(graph.surface));
-        insert(source, "#include \"graph.hlsli\"", graph.source);
-        (void)compile(SHADER_TYPE_PIXEL, source,
-                      surface_shader_entry(surface_color_role(temporal, true)));
-    }
-    std::cout << "Generated custom surface fog/alpha/diagnostic/indirect pixels and five graph "
+    for (bool temporal : {false, true})
+        for (bool reflection : {false, true}) {
+            auto source =
+                indirect_surface_wrapper(material_graph_shader_wrapper(graph.surface, "graph.hlsli",
+                                                                       false, true, reflection),
+                                         temporal, reflection);
+            if (temporal)
+                insert(source, "#include \"engine/forge.surface.temporal.hlsli\"",
+                       surface_shader_header(graph.surface, false, true));
+            insert(source, "#include \"engine/forge.surface.hlsli\"",
+                   surface_shader_header(graph.surface));
+            insert(source, "#include \"graph.hlsli\"", graph.source);
+            (void)compile(SHADER_TYPE_PIXEL, source,
+                          surface_shader_entry(surface_color_role(temporal, true, reflection)));
+        }
+    std::cout << "Generated custom surface fog/alpha/diagnostic/indirect/reflection pixels and "
+                 "seven graph "
                  "roles PASS\n";
 }
 } // namespace forge::test_fog_surface

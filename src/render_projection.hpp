@@ -21,6 +21,13 @@ inline void validate_forward_depth_projection(const std::array<float, 4>& p) {
         far_distance <= near_distance)
         throw std::invalid_argument("Forward depth projection requires positive near/far");
 }
+// Current spatial inputs use the complete camera projection, including jitter.
+inline void validate_surface_projection(const std::array<float, 16>& p) {
+    if (!std::all_of(p.begin(), p.end(), [](float x) { return std::isfinite(x); }) || p[0] == 0 ||
+        p[5] == 0 || p[1] != 0 || p[4] != 0 || p[8] != 0 || p[9] != 0 || p[12] != 0 || p[13] != 0)
+        throw std::invalid_argument("Spatial surface projection requires admitted camera axes");
+    validate_forward_depth_projection({p[10], p[11], p[14], p[15]});
+}
 // Inverse of FORGE's admitted perspective/orthographic camera projection at
 // D3D depth [0,1]. Uses the same float projection as picking and rendering.
 inline std::optional<Double3> unproject_render_point(const CameraView& view, double x, double y,

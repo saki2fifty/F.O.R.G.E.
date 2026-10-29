@@ -1,6 +1,15 @@
 #include <cmath>
 #include <forge/scene_render_settings.hpp>
 namespace forge {
+void validate_scene_screen_space_reflections(const SceneScreenSpaceReflections& value) {
+    if (!std::isfinite(value.max_distance) || value.max_distance < 0 || value.max_distance > 100 ||
+        !std::isfinite(value.thickness) || value.thickness < .0001f || value.thickness > 1 ||
+        !std::isfinite(value.strength) || value.strength < 0 || value.strength > 1 ||
+        !std::isfinite(value.max_roughness) || value.max_roughness < 0 || value.max_roughness > 1)
+        throw std::runtime_error(
+            "Screen-space reflections require distance from 0 to 100 metres, "
+            "thickness from 0.0001 to 1 metre and strength/roughness from 0 to 1");
+}
 void validate_scene_ambient_occlusion(const SceneAmbientOcclusion& value) {
     if (!std::isfinite(value.radius) || value.radius < 0 || value.radius > 10 ||
         !std::isfinite(value.strength) || value.strength < 0 || value.strength > 1 ||
@@ -88,6 +97,29 @@ SceneRenderSettings scene_render_settings(const nlohmann::json& scene) {
     if (ev < -20 || ev > 20)
         throw std::runtime_error("Game exposure must be between -20 and +20 stops");
     result.exposure = float(ev);
+    if (settings.contains("screen_space_reflections")) {
+        const auto& section = settings.at("screen_space_reflections");
+        if (!section.is_object())
+            throw std::runtime_error("Scene screen-space reflections must be an object");
+        auto& value = result.screen_space_reflections;
+        if (section.contains("enabled")) {
+            if (!section.at("enabled").is_boolean())
+                throw std::runtime_error("Screen-space reflections enabled must be boolean");
+            value.enabled = section.at("enabled").get<bool>();
+        }
+        const auto distance = number(section, "max_distance", value.max_distance);
+        const auto thickness = number(section, "thickness", value.thickness);
+        const auto strength = number(section, "strength", value.strength);
+        const auto roughness = number(section, "max_roughness", value.max_roughness);
+        if (distance < 0 || distance > 100 || thickness < .0001 || thickness > 1 || strength < 0 ||
+            strength > 1 || roughness < 0 || roughness > 1)
+            throw std::runtime_error("Screen-space reflection values are outside their ranges");
+        value.max_distance = float(distance);
+        value.thickness = float(thickness);
+        value.strength = float(strength);
+        value.max_roughness = float(roughness);
+        validate_scene_screen_space_reflections(value);
+    }
     if (settings.contains("ambient_occlusion")) {
         const auto& section = settings.at("ambient_occlusion");
         if (!section.is_object())

@@ -35,9 +35,11 @@ class MeshDrawBundle {
         return surface_prepared(lod, part, true, false);
     }
     void prepare_surface(Diligent::IDeviceContext*, unsigned lod, unsigned part, bool motion,
-                         bool indirect, std::span<const MaterialParameterOverride> = {});
-    bool surface_prepared(unsigned lod, unsigned part, bool motion, bool indirect) const {
-        return bool(surface_lods_.at(surface_index(motion, indirect)).at(lod).at(part));
+                         bool indirect, std::span<const MaterialParameterOverride> = {},
+                         bool reflection = false);
+    bool surface_prepared(unsigned lod, unsigned part, bool motion, bool indirect,
+                          bool reflection = false) const {
+        return bool(surface_lods_.at(surface_index(motion, indirect, reflection)).at(lod).at(part));
     }
     std::size_t draw_part_count() const;
     void draw_shadow(Diligent::IDeviceContext*, const AffineTransform&, const CameraView&,
@@ -56,7 +58,8 @@ class MeshDrawBundle {
                    std::span<const MaterialParameterOverride> parameters = {},
                    const SpriteDrawValues* sprite = nullptr, const SceneDistanceFog* fog = nullptr,
                    const GpuLease<TextureAsset>* sprite_mip = nullptr,
-                   const MeshDraw::Motion* motion = nullptr, bool indirect = false);
+                   const MeshDraw::Motion* motion = nullptr, bool indirect = false,
+                   bool reflection = false);
     std::string_view slot(unsigned lod, unsigned part) const {
         return prepared_.selection.bindings.at(info_.at(lod).at(part).binding).key;
     }
@@ -74,7 +77,12 @@ class MeshDrawBundle {
     std::size_t lod_count() const { return lods_.size(); }
 
   private:
-    static std::size_t surface_index(bool motion, bool indirect) {
+    static std::size_t surface_index(bool motion, bool indirect, bool reflection = false) {
+        if (reflection) {
+            if (!indirect)
+                throw std::invalid_argument("Reflection specialization requires indirect output");
+            return motion ? 4 : 3;
+        }
         if (!motion && !indirect)
             throw std::invalid_argument("Surface specialization needs motion or indirect output");
         return indirect ? (motion ? 2 : 1) : 0;
@@ -96,6 +104,6 @@ class MeshDrawBundle {
     std::vector<std::vector<PartInfo>> info_;
     std::vector<std::vector<std::unique_ptr<MeshDraw>>> lods_;
     std::vector<std::vector<std::unique_ptr<MeshDraw>>> shadow_lods_;
-    std::array<std::vector<std::vector<std::unique_ptr<MeshDraw>>>, 3> surface_lods_;
+    std::array<std::vector<std::vector<std::unique_ptr<MeshDraw>>>, 5> surface_lods_;
 };
 } // namespace forge

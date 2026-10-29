@@ -1,5 +1,20 @@
 # 2026-10-29 — Collision profiles and Scene surface effects
 
+## Screen-space reflections
+
+- Added default-off current-depth base-specular reflections using actual mapped
+  material normals, roughness, unit response and replaceable environment light.
+  Misses retain the environment; separate coat/sheen and anisotropic paths retain
+  their environment response. No hidden/off-screen or probe reflection is implied.
+- Reused mesh queue, per-view targets, camera budgets, geometry and authoring
+  owners. Updated indirect light reaches occlusion before AA, motion and focus;
+  spatial-only rendering has no jitter, motion/pose/color history or extra warmup.
+- Extended surface compiler source to capability5/seven roles, retaining readable
+  capabilities1–4 and stable logical IDs. Added actual Scene controls/API/MCP,
+  original Gallery106, authentic captures and usage guidance.
+- Local software rendering, authoring and source-free relocation are separate
+  from Windows/MSVC/FXC/cooked D3D12 and physical acceptance. No numbered ZIP.
+
 ## Ambient occlusion
 
 - Added a default-off spatial Scene effect that reduces separately resolved

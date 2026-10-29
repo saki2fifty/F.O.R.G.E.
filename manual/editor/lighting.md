@@ -1,7 +1,7 @@
 # Scene lighting
 
 Use **Tools > Scene lighting...**, or search for **Scene / Lighting** in the Command
-Palette, to change the scene's environment, shadows, ambient occlusion, motion blur, focus blur, edge smoothing,
+Palette, to change the scene's environment, shadows, screen-space reflections, ambient occlusion, motion blur, focus blur, edge smoothing,
 distance fog and display brightness. These settings
 belong to the scene: **Save** keeps them, and **Undo / Redo** reverses each committed
 change. Opening this window keeps Scene as the active editing task.
@@ -44,6 +44,53 @@ its lighting maps every frame. If a replacement cannot load, **Problems** explai
 failure and the previous usable environment remains visible. Clear the field explicitly
 to remove that previous environment.
 
+## Reflect visible surfaces
+
+1. Stop Play and open **Tools > Scene lighting...**.
+2. Give the receiving Mesh a lit Material with low **roughnessFactor**. A smooth metal surface makes the comparison clear. Keep the objects to reflect visible in the same view.
+3. Expand **Screen-space reflections** and select **Enable screen-space reflections**.
+4. Enter **Maximum distance (m)**, from **0 to 100**, and press **Enter**. Start at **25**; zero skips the effect.
+5. Set **Thickness (m)**, from **0.0001 to 1**. Start at **0.1**. Smaller values reject more depth intersections; larger values can accept unrelated nearby surfaces.
+6. Set **Strength**, from **0 to 1**, and **Maximum roughness**, from **0 to 1**. Reflections fade as surface roughness approaches the cutoff. Either value at zero skips the effect.
+7. Save the Scene. Play and exported games use these saved settings.
+
+![Screen-space reflections enabled with distance, thickness, strength and maximum roughness controls](../images/screen-space-reflections-controls.png)
+
+Use distance for ray reach, thickness for depth tolerance, and strength for the
+blend with environment reflections. **Reset screen-space reflections** disables
+the effect and restores **25 m**, **0.1 m**, **1** and **0.5** in one Undo step.
+Authored controls are read-only during Play. Turn off **Preview light** when
+comparing authored lighting in Scene; Game uses the authored lighting directly.
+
+Open **106-screen-space-reflections** in the Feature Gallery. Amber and blue
+blocks reflect in a smooth metal floor. Toggle the effect to compare their
+reflected colors; the rough back wall keeps its environment reflection. The
+scene uses built-in assets and needs no C++ module or additional import.
+
+![Amber and blue blocks reflected in a metal floor in the Game view](../images/screen-space-reflections.png)
+
+Compare the reflected blocks below the original objects.
+
+Only current visible opaque and masked Mesh depth supplies reflected surfaces.
+A hidden or off-screen object cannot appear in the reflection. Missing samples
+retain environment reflections. Screen edges, thin geometry and depth steps can
+show gaps or abrupt changes. This single-ray effect does not blur rough reflections;
+roughness fades them instead. Base normal maps affect the ray. Separate clearcoat
+and sheen reflections, and anisotropic surfaces, keep environment lighting.
+Unlit and final-color custom Materials do not receive this effect.
+
+Reflection runs before ambient occlusion, edge smoothing, motion blur and depth of
+field. Transparency, Sprites, Tile Maps, particles, sky and overlays keep their
+existing rendering. Game cameras must clear both color and depth; Materials must
+test and write depth. Reimport older surface **Shaders** and rebuild dependent
+**Materials** before using them with the effect. Unsupported shaders, depth,
+draw order or capacity keep ordinary rendering and report a warning.
+
+Up to eight Game views share a **512 MiB** surface texture estimate with ambient
+occlusion, edge smoothing and motion blur. Scene preview has its own **512 MiB**
+estimate. Native and temporary allocation overhead are additional. Reduce view
+size or disable an effect when a capacity warning persists.
+
 ## Shade nearby ambient contacts
 
 1. Stop Play and open **Tools > Scene lighting...**.
@@ -80,13 +127,14 @@ depth and geometric surface directions. Hidden or
 screen-edge geometry and normal-map detail cannot supply additional occlusion.
 Direct lighting, emission, fog color and alpha remain unchanged. Transparency,
 Sprites, Tile Maps, particles, sky and editor overlays keep their existing rendering.
-Occlusion runs before edge smoothing, motion blur and depth of field.
+Occlusion runs after enabled screen-space reflections and reduces their indirect
+light too. It runs before edge smoothing, motion blur and depth of field.
 
 Game cameras must clear both color and depth. Materials must test and write depth.
 Older custom or graph **Shader** assets need reimporting and their dependent
 **Materials** rebuilding before joining the effect. Unsupported shaders, draw order,
 depth or capacity keep ordinary rendering and report a warning. Up to eight Game
-views share a **512 MiB** surface texture estimate with edge smoothing and motion
+views share a **512 MiB** surface texture estimate with reflections, edge smoothing and motion
 blur; Scene preview has its own **512 MiB** estimate. Native and temporary allocation
 overhead are additional. Reduce view size or disable the effect if a warning persists.
 
@@ -130,7 +178,7 @@ cancelling capture discards that temporary motion field.
 Game cameras must clear both color and depth; participating Materials must test
 and write depth. Unsupported draw order, shaders or capacity keep ordinary
 rendering and report a warning. Up to eight Game views share a **512 MiB** texture
-payload estimate with ambient occlusion, edge smoothing and frozen motion; Scene preview has its own
+payload estimate with reflections, ambient occlusion, edge smoothing and frozen motion; Scene preview has its own
 **512 MiB** estimate. Native allocation and temporary retirement overhead are
 additional. Reduce view size or disable the effect if a warning persists.
 

@@ -1366,7 +1366,8 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
     if (temporal) {
         temporal->applied = temporal->successful = false;
         try {
-            if ((!temporal->motion_output && !temporal->indirect_output) || !temporal->begin ||
+            if ((temporal->reflection_output && !temporal->indirect_output) ||
+                (!temporal->motion_output && !temporal->indirect_output) || !temporal->begin ||
                 !temporal->resolve || !temporal->previous_parts || !temporal->current_parts ||
                 temporal->current.viewport.width != camera.viewport.width ||
                 temporal->current.viewport.height != camera.viewport.height)
@@ -1386,9 +1387,9 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                     if (!object.bundle->parts(object.lod)[item.key.part].depth_write)
                         throw std::runtime_error(
                             "Mesh material must test and write depth for temporal surface effects");
-                    if (!object.bundle->surface_prepared(object.lod, item.key.part,
-                                                         temporal->motion_output,
-                                                         temporal->indirect_output)) {
+                    if (!object.bundle->surface_prepared(
+                            object.lod, item.key.part, temporal->motion_output,
+                            temporal->indirect_output, temporal->reflection_output)) {
                         std::size_t count = 0;
                         for (const auto& [key, weak] : bundles_) {
                             (void)key;
@@ -1403,9 +1404,9 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                         if (count == draw_part_limit_)
                             throw DrawCapacityError("Temporal Mesh draw-part budget exceeded");
                     }
-                    object.bundle->prepare_surface(host_->context_, object.lod, item.key.part,
-                                                   temporal->motion_output,
-                                                   temporal->indirect_output, object.parameters);
+                    object.bundle->prepare_surface(
+                        host_->context_, object.lod, item.key.part, temporal->motion_output,
+                        temporal->indirect_output, object.parameters, temporal->reflection_output);
                     if (temporal->motion_output)
                         temporal->current_parts->push_back(
                             {object.mesh->entity, object.lod, item.key.part});
@@ -1568,7 +1569,8 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                 slot_parameters(object.parameters, object.bundle->slot(object.lod, item.key.part)),
                 object.sprite, &scene.settings.distance_fog, object.mip,
                 accumulated && temporal->motion_output ? &motion : nullptr,
-                accumulated && temporal->indirect_output);
+                accumulated && temporal->indirect_output,
+                accumulated && temporal->reflection_output);
             ++draw_stats_.calls;
             draw_stats_.instances += count;
             draw_stats_.batched_calls += count > 1;
@@ -1593,7 +1595,8 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                                         single.bundle->slot(single.lod, failed_item.key.part)),
                         single.sprite, &scene.settings.distance_fog, single.mip,
                         accumulated && temporal->motion_output ? &motion : nullptr,
-                        accumulated && temporal->indirect_output);
+                        accumulated && temporal->indirect_output,
+                        accumulated && temporal->reflection_output);
                     ++draw_stats_.calls;
                     ++draw_stats_.instances;
                 } catch (const std::exception& error) {

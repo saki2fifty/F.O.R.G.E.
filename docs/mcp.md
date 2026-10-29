@@ -136,6 +136,15 @@ See [ambient occlusion](ambient-occlusion.md) for indirect lighting, visible-dep
 shader recook, camera and payload limits. This is authored Scene state, not a new
 live-Play control.
 
+`scene.rendering.set` / `forge_scene_rendering_set` accepts
+`{"screen_space_reflections":{"enabled":true,"max_distance":25,"thickness":0.1,"strength":1,"max_roughness":0.5}}`.
+Finite bounds are distance0–100m, thickness0.0001–1m, strength/roughness0–1,
+including when disabled. Partial patches preserve extension fields and use the
+same Scene grant, revision, replay, history and Save rules. Disabled or zero
+distance/strength/roughness cutoff bypasses rendering. See
+[screen-space reflections](screen-space-reflections.md) for material, visible-depth,
+recook, camera and budget limits. This is authored Scene state with Play locks.
+
 ### Document tools
 
 The native owner registrations in `document_automation.hpp` supply method names,

@@ -2,6 +2,7 @@
 #include "Graphics/GraphicsTools/interface/MapHelper.hpp"
 #include "presentation_views.hpp"
 #include "render_projection.hpp"
+#include "surface_depth_shader.hpp"
 
 namespace forge {
 using namespace Diligent;
@@ -21,24 +22,13 @@ void AmbientOcclusion::prepare() {
     presentation_.shader(shader, &vertex);
     shader.Desc.Name = "FORGE bounded indirect occlusion";
     shader.Desc.ShaderType = SHADER_TYPE_PIXEL;
-    shader.Source = R"(
+    const std::string source = std::string(R"(
 Texture2D<float4> CurrentColor;
 Texture2D<float4> CurrentIndirect;
 Texture2D<float> CurrentDepth;
 cbuffer AmbientValues {float4 Extent;float4 Settings;float4 P0;float4 P1;float4 P2;float4 P3;};
-bool positionAt(int2 p,out float3 location) {
-    location=0;
-    if(any(p<0)||any(p>=int2(Extent.xy)))return false;
-    float d=CurrentDepth.Load(int3(p,0));
-    if(!(d>=0&&d<1))return false;
-    float denominator=d*P3.z-P2.z;
-    if(abs(denominator)<=1e-20)return false;
-    float z=(P2.w-d*P3.w)/denominator;
-    float w=P3.z*z+P3.w;
-    float2 ndc=(float2(p)+.5)/Extent.xy*float2(2,-2)+float2(-1,1);
-    location=float3((ndc.x*w-P0.z*z-P0.w)/P0.x,(ndc.y*w-P1.z*z-P1.w)/P1.y,z);
-    return z>0&&w>0&&all(isfinite(location));
-}
+)") + std::string(surface_depth_shader) +
+                               R"(
 bool differential(int2 p,int2 step,float3 center,out float3 delta) {
     float3 a,b;bool left=positionAt(p-step,a),right=positionAt(p+step,b);
     if(!left&&!right){delta=0;return false;}
@@ -87,6 +77,7 @@ float4 main(float4 position:SV_Position):SV_Target {
     if(amount==0)return original;
     return float4(max(original.rgb-indirect*amount,0),original.a);
 })";
+    shader.Source = source.c_str();
     presentation_.shader(shader, &pixel);
     BufferDesc desc;
     desc.Name = "FORGE ambient view parameters";
@@ -163,10 +154,7 @@ void AmbientOcclusion::apply(IDeviceContext* context, const Input& input, ITextu
             throw std::invalid_argument("Ambient input extent or output alias is invalid");
     }
     const auto& p = input.projection;
-    if (!std::all_of(p.begin(), p.end(), [](float x) { return std::isfinite(x); }) || p[0] == 0 ||
-        p[5] == 0 || p[1] != 0 || p[4] != 0 || p[8] != 0 || p[9] != 0 || p[12] != 0 || p[13] != 0)
-        throw std::invalid_argument("Ambient projection must use the admitted camera axes");
-    validate_forward_depth_projection({p[10], p[11], p[14], p[15]});
+    validate_surface_projection(p);
     prepare();
     {
         MapHelper<float> data(context, values_, MAP_WRITE, MAP_FLAG_DISCARD);

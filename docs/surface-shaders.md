@@ -142,5 +142,8 @@ and apply fog transmittance without additive fog color. Custom final-color funct
 write zero indirect contribution. The engine owns output targets and explicit
 out-parameter helpers. [Ambient occlusion](ambient-occlusion.md) consumes this
 radiance independently of the full current color. Older wrappers remain readable;
-recook Shader and dependent Materials to opt in. Current five-role cooks require a
-matching current engine. Logical asset identities remain unchanged.
+recook Shader and dependent Materials to opt in. Capability 5 adds ordinary and
+temporal [reflection outputs](screen-space-reflections.md), using the actual base
+material response; final-color custom functions supply zero receiver data. Current
+seven-role cooks require a matching engine; capabilities 1–4 remain readable.
+Logical asset identities remain unchanged.

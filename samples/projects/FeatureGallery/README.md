@@ -1,5 +1,19 @@
 # Feature Gallery
 
+## Screen-space reflections
+
+Open **Scenes/106-screen-space-reflections.scene.json** and press Play. Amber and
+blue blocks reflect in a smooth metal floor. Stop Play, open **Tools > Scene
+lighting... > Screen-space reflections** and toggle **Enable screen-space
+reflections**. Compare the floor beneath each block. **Maximum distance (m)**
+controls reach from 0 to 100; **Thickness (m)** controls depth tolerance from
+0.0001 to 1. **Strength** blends from 0 to 1 and **Maximum roughness** fades
+rough receivers from 0 to 1. Zero distance, strength or roughness cutoff skips
+the effect. Press Enter after typing. Save before exporting. No C++ module or
+additional import is required. Off-screen and hidden objects are unavailable;
+misses retain environment reflections. The rough wall stays an environment-lit
+comparison. Turn off **Preview light** for authored Scene lighting comparisons.
+
 ## Ambient occlusion
 
 Open **Scenes/105-ambient-occlusion.scene.json** and press Play. Three amber posts

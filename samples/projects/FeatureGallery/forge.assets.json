@@ -1018,6 +1018,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "120a1fb2-f8af-4fad-a644-eb598988ffab",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/106-screen-space-reflections.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "129897d6-caec-4c9e-84b2-4586b9f5afb8",
       "metadata": {
         "forge.import": {

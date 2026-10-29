@@ -164,6 +164,7 @@ ITextureView* FrameRenderer::render(IDeviceContext* context, const RenderScene& 
     validate_scene_depth_of_field(scene.settings.depth_of_field);
     validate_scene_motion_blur(scene.settings.motion_blur);
     validate_scene_ambient_occlusion(scene.settings.ambient_occlusion);
+    validate_scene_screen_space_reflections(scene.settings.screen_space_reflections);
     if (sample && (!sample->operation || !std::isfinite(sample->seconds) || sample->seconds < 0))
         throw std::invalid_argument(
             "Temporal frame sample requires an operation and finite nonnegative time");
@@ -206,11 +207,16 @@ ITextureView* FrameRenderer::render(IDeviceContext* context, const RenderScene& 
     const auto& occlusion = scene.settings.ambient_occlusion;
     const bool occlusion_enabled =
         meshes_ && occlusion.enabled && occlusion.radius != 0 && occlusion.strength != 0;
-    const bool temporal_enabled = aa_enabled || blur_enabled || occlusion_enabled;
+    const auto& reflections = scene.settings.screen_space_reflections;
+    const bool reflections_enabled = meshes_ && reflections.enabled &&
+                                     reflections.max_distance != 0 && reflections.strength != 0 &&
+                                     reflections.max_roughness != 0;
+    const bool temporal_enabled =
+        aa_enabled || blur_enabled || occlusion_enabled || reflections_enabled;
     const auto transition = temporal_sample_transition(temporal_sample_, sample_key);
-    const TemporalView::Options temporal_options{bool(aa_enabled), scene.settings.motion_blur,
+    const TemporalView::Options temporal_options{bool(aa_enabled),  scene.settings.motion_blur,
                                                  transition.motion, transition.reset_accumulation,
-                                                 occlusion};
+                                                 occlusion,         reflections};
     const auto temporal_bpp = TemporalView::payload_per_pixel(temporal_options);
     const bool focus_enabled = meshes_ && scene.settings.depth_of_field.enabled &&
                                scene.settings.depth_of_field.blur_radius != 0;
@@ -363,6 +369,7 @@ ITextureView* FrameRenderer::render(IDeviceContext* context, const RenderScene& 
                     pass.valid = state.history->valid();
                     pass.motion_output = temporal_options.motion_output();
                     pass.indirect_output = temporal_options.indirect_output();
+                    pass.reflection_output = temporal_options.reflection_output();
                     pass.previous_parts = &state.history->previous_parts();
                     pass.current_parts = &state.history->pending_parts();
                     pass.begin = [&, history = state.history.get()] {

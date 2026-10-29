@@ -16,6 +16,7 @@ set(forge_presentation_sources
  src/depth_of_field.cpp
  src/motion_blur.cpp
  src/ambient_occlusion.cpp
+ src/screen_space_reflections.cpp
  src/temporal_filter.cpp
  src/temporal_view.cpp
  src/texture_preview.cpp

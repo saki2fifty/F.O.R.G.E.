@@ -80,6 +80,7 @@ class MeshDraw {
     bool fog_supported_ = true;
     bool temporal_{};
     bool indirect_{};
+    bool reflection_{};
     bool sprite_{}, sprite_trim_allowed_{}, sprite_mips_{};
     bool lights_active_{};
     float volume_thickness_{};

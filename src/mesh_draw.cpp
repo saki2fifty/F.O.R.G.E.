@@ -120,6 +120,7 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
     : mesh_(mesh), shadow_pass_(color_format == TEX_FORMAT_UNKNOWN),
       temporal_(temporal_mesh_profile(draw_profile) && !shadow_pass_),
       indirect_(indirect_mesh_profile(draw_profile) && !shadow_pass_),
+      reflection_(reflection_mesh_profile(draw_profile) && !shadow_pass_),
       sprite_(sprite_draw_profile(draw_profile)),
       sprite_mips_(sprite_draw_mip_filter(draw_profile).has_value()) {
     require(draw_profile == MeshDrawProfile::Mesh || temporal_mesh_profile(draw_profile) ||
@@ -133,6 +134,8 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
     require(!indirect_ || (color_format == TEX_FORMAT_RGBA16_FLOAT &&
                            (!surface || surface->program.surface_wrapper_version >= 4)),
             "Indirect Mesh output requires HDR and a current surface Shader cook");
+    require(!reflection_ || !surface || surface->program.surface_wrapper_version >= 5,
+            "Rebuild this Shader and dependent Materials to use screen-space reflections");
     require(!sprite_ || !surface, "Sprite draw profile does not admit custom surfaces");
     sprite_trim_allowed_ = sprite_trim_material_compatible(source);
     device_ = presentation.device();
@@ -165,8 +168,9 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
         if (surface->program.surface->physically_based)
             program.material = material_shader(*profile, fetch.uv_sets, sampler_binding);
     } else
-        program = mesh_draw_shader(fetch, *profile, shadow_pass_, sampler_binding, nullptr, {},
-                                   sprite_, sprite_draw_mip_filter(draw_profile), indirect_);
+        program =
+            mesh_draw_shader(fetch, *profile, shadow_pass_, sampler_binding, nullptr, {}, sprite_,
+                             sprite_draw_mip_filter(draw_profile), indirect_, reflection_);
     const auto& material = program.material;
     require(!(temporal_ || indirect_) || !program.transmission,
             "Transmission draws follow temporal opaque accumulation");
@@ -194,8 +198,8 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
     RefCntAutoPtr<IShader> pixel;
     SurfaceBindingLayout surface_layout;
     if (surface) {
-        const auto role =
-            shadow_pass_ ? ShaderEntryRole::SurfaceDepth : surface_color_role(temporal_, indirect_);
+        const auto role = shadow_pass_ ? ShaderEntryRole::SurfaceDepth
+                                       : surface_color_role(temporal_, indirect_, reflection_);
         auto native = realize_renderer_shader(presentation, surface->program);
         pixel = native.stages.at(ShaderStageKey{ShaderStage::Pixel, role});
         const auto stage = std::find_if(native.data.stages.begin(), native.data.stages.end(),
@@ -355,12 +359,16 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
     ci.pVS = vertex;
     ci.pPS = pixel;
     auto& g = ci.GraphicsPipeline;
-    g.NumRenderTargets = Uint8(shadow_pass_ ? 0 : 1 + unsigned(temporal_) + unsigned(indirect_));
+    g.NumRenderTargets = Uint8(
+        shadow_pass_ ? 0 : 1 + unsigned(temporal_) + unsigned(indirect_) + (reflection_ ? 3u : 0u));
     g.RTVFormats[0] = color_format;
     if (temporal_)
         g.RTVFormats[1] = TEX_FORMAT_RGBA32_FLOAT;
     if (indirect_)
         g.RTVFormats[temporal_ ? 2 : 1] = TEX_FORMAT_RGBA16_FLOAT;
+    if (reflection_)
+        for (unsigned slot = temporal_ ? 3u : 2u; slot < g.NumRenderTargets; ++slot)
+            g.RTVFormats[slot] = TEX_FORMAT_RGBA16_FLOAT;
     g.DSVFormat = depth_format;
     g.PrimitiveTopology = mesh.topology;
     std::array<LayoutElement, temporal_instance_rows> instance_layout;

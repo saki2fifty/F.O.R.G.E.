@@ -1,5 +1,11 @@
 # Explore the Feature Gallery
 
+**106-screen-space-reflections** shows amber and blue blocks reflected in a smooth
+metal floor. In **Tools > Scene lighting... → Screen-space reflections**, toggle
+the effect and adjust distance, thickness, strength or maximum roughness. Keep
+source objects visible in the same view. Save the Scene before exporting.
+See [Scene lighting](../editor/lighting.md) for steps and limits.
+
 **105-ambient-occlusion** shows three amber posts and a lower ledge against a blue
 wall. In **Tools > Scene lighting... → Ambient occlusion**, toggle the effect and
 adjust Radius, Strength or Depth bias. The built-in environment supplies the

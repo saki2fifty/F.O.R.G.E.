@@ -16,7 +16,7 @@ the existing timestamped Problems owner when corrected.
 
 ## Lighting contract
 
-This original spatial pass reduces only the current environment contribution on
+This original spatial pass reduces the current indirect contribution on
 depth-writing opaque/masked Mesh geometry. It preserves punctual lighting, emission,
 additive fog color and alpha. It does not multiply the final HDR image by a darkening
 factor. The existing native PBR API resolves a copied lighting structure with punctual
@@ -24,6 +24,9 @@ terms removed and copied shading with emission removed. The result includes the
 native base, sheen and clearcoat layer factors; FORGE applies its existing distance
 fog transmittance before writing the separate indirect target. Unlit and custom
 final-color functions write zero indirect radiance.
+
+Enabled [screen-space reflections](screen-space-reflections.md) replace the base
+specular term and update the same indirect radiance before occlusion.
 
 The operator reconstructs positions from sampled D32 depth and the actual full
 projection, including jitter offsets. Closest-side depth differences supply geometric
@@ -52,7 +55,7 @@ parts are prepared before changing targets. Unsupported depth, shader capability
 queue order or budget leaves the complete view in ordinary rendering and emits an
 existing `render.temporal.unavailable` warning. It never reorders current layers.
 
-The order is opaque/masked Mesh → ambient occlusion → optional AA → optional motion
+The order is opaque/masked Mesh → optional reflections → ambient occlusion → optional AA → optional motion
 blur → optional depth of field → current-frame layers → bloom/display. Transparent,
 transmissive, Sprite, Tile Map, particle, sky and editor overlay paths retain their
 established current-frame rendering. Each Game camera must clear color and depth;
@@ -61,8 +64,10 @@ its own navigation camera and can retain a completed static image.
 
 At most eight Game views share the existing512MiB surface texture payload limit;
 Scene has its own512MiB limit. Spatial-only mode uses28bytes/pixel: HDR8, D32depth4,
-indirect8 and occluded HDR8. Occlusion adds16bytes/pixel to active AA/motion modes:
-AA64, motion52, AA+motion72 and frozen AA+motion capture92. Native resources,
+indirect8 and occluded HDR8. With reflections disabled, occlusion adds16bytes/pixel to active AA/motion modes:
+AA64, motion52, AA+motion72 and frozen AA+motion capture92. When reflections
+already own indirect radiance, occlusion adds only its8byte/pixel result image;
+the [reflection contract](screen-space-reflections.md) lists combined estimates. Native resources,
 retirement, staging overhead and separate depth-of-field payload are additional.
 Required extent/mode targets are staged before adopting a new mode. Bypassed
 occlusion allocates no occlusion targets or operator pipeline.
@@ -77,8 +82,9 @@ out parameters. Old1/2/3 archives remain readable with stable logical Shader and
 Material IDs. Reimport/rebuild older surface Shader assets and dependent Materials
 to opt into occlusion. Ordinary rendering remains available before recooking.
 
-Current surface cooks emit all five roles. This requires a matching current engine;
-older readers cannot load capability4. Existing recipe fingerprints include the
+Capability 4 provides these five roles. Current capability-5 surface compiler
+source adds the two [reflection roles](screen-space-reflections.md), retaining
+readable capabilities 1–4. New cooks require the matching current engine. Existing recipe fingerprints include the
 shared indirect and fog emitters. Material/Shader publication, last-good retention,
 DDC and runtime loading remain with their established owners. Cooked Windows shader
 acceptance and physical rendering remain separate from local software Vulkan proof.

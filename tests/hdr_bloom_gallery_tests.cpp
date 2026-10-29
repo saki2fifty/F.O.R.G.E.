@@ -7,6 +7,7 @@
 #include <forge/runtime.hpp>
 #include <fstream>
 #include <iostream>
+#include <map>
 #include <thread>
 using namespace forge;
 namespace {
@@ -233,6 +234,44 @@ AssetId inspect_occlusion(const std::filesystem::path& root) {
           "Ambient Gallery admission rewrote the saved Scene");
     return id;
 }
+AssetId inspect_reflections(const std::filesystem::path& root) {
+    const auto catalog = AssetCatalog::open_project(root);
+    const auto id = AssetId::parse("120a1fb2-f8af-4fad-a644-eb598988ffab");
+    const auto source = read(root / catalog.records().at(id).source);
+    EngineContext engine(WorldRole::Runtime, false);
+    Scene scene(engine.world());
+    scene.restore_snapshot(source);
+    RuntimeSimulation simulation(engine.world(), scene);
+    simulation.reset_presentation();
+    const auto frame = extract_render_scene(simulation.presentation(1));
+    check(frame.settings.screen_space_reflections ==
+                  SceneScreenSpaceReflections{true, 25, .15f, 1, .5f} &&
+              frame.settings.environment.texture ==
+                  engine_texture(EngineTexture::White, TextureDimension::Cube) &&
+              frame.settings.environment.intensity == .18f && !frame.settings.environment.sky &&
+              !frame.settings.shadows.enabled && frame.meshes.size() == 4 &&
+              frame.cameras.size() == 1 && frame.lights.size() == 1 && frame.diagnostics.empty(),
+          "Reflection Gallery lost material geometry, lighting or saved settings");
+    unsigned receivers = 0;
+    for (const auto& mesh : frame.meshes) {
+        check(!mesh.legacy_tint && mesh.renderer.material_parameters.size() == 3,
+              "Reflection Gallery lost explicit lit object material values");
+        std::map<std::string, MaterialParameter> values;
+        for (const auto& value : mesh.renderer.material_parameters) {
+            check(value.slot == "surface", "Reflection Gallery material slot changed");
+            values.emplace(value.key, value.parameter);
+        }
+        check(values.at("baseColorFactor").type == MaterialParameterType::LinearColor4 &&
+                  values.at("metallicFactor").type == MaterialParameterType::Scalar &&
+                  values.at("roughnessFactor").type == MaterialParameterType::Scalar,
+              "Reflection Gallery lost typed base material parameters");
+        receivers += values.at("metallicFactor").value[0] == 1 &&
+                     values.at("roughnessFactor").value[0] == .07f;
+    }
+    check(receivers == 1 && read(root / catalog.records().at(id).source) == source,
+          "Reflection Gallery lost its single smooth metal receiver or rewrote Scene");
+    return id;
+}
 } // namespace
 int main(int argc, char** argv) {
     try {
@@ -262,6 +301,7 @@ int main(int argc, char** argv) {
         const auto focus_scene = inspect_focus(root);
         const auto motion_scene = inspect_temporal(root, true);
         const auto occlusion_scene = inspect_occlusion(root);
+        const auto reflection_scene = inspect_reflections(root);
         const std::array roots{source.at("asset_id").get<AssetId>(),
                                AssetId::parse("7456ed81-3d3b-45a6-8c7d-6b50073ad01a"),
                                exposure_scene,
@@ -269,7 +309,8 @@ int main(int argc, char** argv) {
                                temporal_scene,
                                focus_scene,
                                motion_scene,
-                               occlusion_scene};
+                               occlusion_scene,
+                               reflection_scene};
         {
             auto lease = std::make_shared<ProjectLease>(root);
             prepare_runtime_content_catalog(*lease, roots, {});
@@ -290,7 +331,7 @@ int main(int argc, char** argv) {
             (void)record;
             actual.insert(id);
         }
-        check(actual == expected && expected.size() == 14,
+        check(actual == expected && expected.size() == 15,
               "Bloom/color/exposure/fog export changed its exact shared asset closure");
         check(!std::filesystem::exists(moved / "Assets/Exposure/Daylight.animation.json"),
               "Exposure clip source leaked into the runtime package");
@@ -315,6 +356,10 @@ int main(int argc, char** argv) {
               "Motion Gallery relocation changed identity, motion or leaked clip source");
         check(inspect_occlusion(moved) == occlusion_scene,
               "Ambient Gallery source-free relocation changed lighting or Scene identity");
+        check(inspect_reflections(moved) == reflection_scene,
+              "Reflection Gallery source-free relocation changed material response or identity");
+        std::cout
+            << "Gallery106 reflective floor and typed lit materials, source-free relocation PASS\n";
         std::cout << "Gallery105 ambient lighting and five surfaces, source-free relocation PASS\n";
         std::cout << "Gallery104 motion settings,128 inherited animated cells,128 static cells and "
                      "source-free relocation PASS\n";

@@ -1,5 +1,6 @@
 #include "temporal_view.hpp"
 #include "Graphics/GraphicsTools/interface/MapHelper.hpp"
+#include "render_projection.hpp"
 #include <algorithm>
 #include <cmath>
 
@@ -89,10 +90,13 @@ void TemporalView::invalidate() {
 void TemporalView::prepare(const CameraView& view, bool reset, const Options& options) {
     validate_scene_motion_blur(options.motion_blur);
     validate_scene_ambient_occlusion(options.ambient_occlusion);
+    validate_scene_screen_space_reflections(options.screen_space_reflections);
     const bool blur = options.motion_blur.enabled && options.motion_blur.shutter != 0 &&
                       options.motion_blur.max_pixels != 0;
     const bool freeze = blur && options.snapshot != MotionSnapshotAction::Live;
     const bool motion_output = options.motion_output(), indirect_output = options.indirect_output();
+    const bool reflection_output = options.reflection_output();
+    const bool occlusion_output = options.occlusion_output();
     const auto bpp = payload_per_pixel(options);
     const auto& v = view.viewport;
     const auto maximum = presentation_.device()->GetAdapterInfo().Texture.MaxTexture2DDimension;
@@ -101,6 +105,8 @@ void TemporalView::prepare(const CameraView& view, bool reset, const Options& op
         !std::all_of(view.projection.begin(), view.projection.end(),
                      [](float x) { return std::isfinite(x); }))
         throw std::invalid_argument("Temporal view extent or projection exceeds its profile");
+    if (indirect_output)
+        validate_surface_projection(view.projection);
     if (begun_)
         throw std::logic_error("Temporal view has an unfinished frame");
     const bool resized =
@@ -108,7 +114,8 @@ void TemporalView::prepare(const CameraView& view, bool reset, const Options& op
     // Stage every required texture before publishing a new mode/extent. Native
     // retirement and transient staging overhead are separate from payload admission.
     RefCntAutoPtr<ITexture> color, motion, depth, blurred, frozen_motion, frozen_depth, indirect,
-        occluded;
+        occluded, reflection_surface, reflection_response, reflection_specular, reflected_color,
+        reflected_indirect;
     const auto create = [&](const char* name, TEXTURE_FORMAT format, BIND_FLAGS flags,
                             RefCntAutoPtr<ITexture>& target) {
         TextureDesc desc;
@@ -131,11 +138,23 @@ void TemporalView::prepare(const CameraView& view, bool reset, const Options& op
     if (motion_output && (resized || !motion_))
         create("FORGE temporal surface motion", TEX_FORMAT_RGBA32_FLOAT,
                BIND_RENDER_TARGET | BIND_SHADER_RESOURCE, motion);
-    if (indirect_output && (resized || !indirect_)) {
+    if (indirect_output && (resized || !indirect_))
         create("FORGE current indirect radiance", TEX_FORMAT_RGBA16_FLOAT,
                BIND_RENDER_TARGET | BIND_SHADER_RESOURCE, indirect);
+    if (occlusion_output && (resized || !occluded_))
         create("FORGE occluded surface HDR", TEX_FORMAT_RGBA16_FLOAT,
                BIND_RENDER_TARGET | BIND_SHADER_RESOURCE, occluded);
+    if (reflection_output && (resized || !reflection_surface_)) {
+        create("FORGE reflection normal and roughness", TEX_FORMAT_RGBA16_FLOAT,
+               BIND_RENDER_TARGET | BIND_SHADER_RESOURCE, reflection_surface);
+        create("FORGE reflection base response", TEX_FORMAT_RGBA16_FLOAT,
+               BIND_RENDER_TARGET | BIND_SHADER_RESOURCE, reflection_response);
+        create("FORGE reflection replaceable specular", TEX_FORMAT_RGBA16_FLOAT,
+               BIND_RENDER_TARGET | BIND_SHADER_RESOURCE, reflection_specular);
+        create("FORGE reflected current HDR", TEX_FORMAT_RGBA16_FLOAT,
+               BIND_RENDER_TARGET | BIND_SHADER_RESOURCE, reflected_color);
+        create("FORGE reflected current indirect", TEX_FORMAT_RGBA16_FLOAT,
+               BIND_RENDER_TARGET | BIND_SHADER_RESOURCE, reflected_indirect);
     }
     if (blur && (resized || !blurred_))
         create("FORGE motion blur result", TEX_FORMAT_RGBA16_FLOAT,
@@ -155,9 +174,14 @@ void TemporalView::prepare(const CameraView& view, bool reset, const Options& op
         staged_blur = std::make_unique<MotionBlur>(presentation_);
         staged_blur->prepare();
     }
-    if (indirect_output && !occlusion_) {
+    if (occlusion_output && !occlusion_) {
         staged_occlusion = std::make_unique<AmbientOcclusion>(presentation_);
         staged_occlusion->prepare();
+    }
+    std::unique_ptr<ScreenSpaceReflections> staged_reflections;
+    if (reflection_output && !reflections_) {
+        staged_reflections = std::make_unique<ScreenSpaceReflections>(presentation_);
+        staged_reflections->prepare();
     }
     if (resized) {
         color_ = std::move(color);
@@ -166,18 +190,36 @@ void TemporalView::prepare(const CameraView& view, bool reset, const Options& op
     }
     if (motion)
         motion_ = std::move(motion);
-    if (indirect) {
+    if (indirect)
         indirect_ = std::move(indirect);
+    if (occluded)
         occluded_ = std::move(occluded);
+    if (reflection_surface) {
+        reflection_surface_ = std::move(reflection_surface);
+        reflection_response_ = std::move(reflection_response);
+        reflection_specular_ = std::move(reflection_specular);
+        reflected_color_ = std::move(reflected_color);
+        reflected_indirect_ = std::move(reflected_indirect);
     }
+    if (staged_reflections)
+        reflections_ = std::move(staged_reflections);
     if (staged_occlusion)
         occlusion_ = std::move(staged_occlusion);
     if (!motion_output)
         motion_.Release();
-    if (!indirect_output) {
-        occlusion_.reset();
+    if (!indirect_output)
         indirect_.Release();
+    if (!occlusion_output) {
+        occlusion_.reset();
         occluded_.Release();
+    }
+    if (!reflection_output) {
+        reflections_.reset();
+        reflection_surface_.Release();
+        reflection_response_.Release();
+        reflection_specular_.Release();
+        reflected_color_.Release();
+        reflected_indirect_.Release();
     }
     if (blurred)
         blurred_ = std::move(blurred);
@@ -203,7 +245,8 @@ void TemporalView::prepare(const CameraView& view, bool reset, const Options& op
     }
     if (options_.anti_aliasing != options.anti_aliasing ||
         options_.motion_output() != motion_output ||
-        options_.ambient_occlusion != options.ambient_occlusion)
+        options_.ambient_occlusion != options.ambient_occlusion ||
+        options_.screen_space_reflections != options.screen_space_reflections)
         reset = true;
     options_ = options;
     if (reset)
@@ -260,9 +303,10 @@ void TemporalView::begin(IDeviceContext* context, ITexture* color, ITextureView*
     context->CopyTexture(copy); // Color rectangle only; depth subrectangle copies are unnecessary.
     auto* dsv = depth_->GetDefaultView(TEXTURE_VIEW_DEPTH_STENCIL);
     const float zero[4]{};
-    ITextureView* targets[3]{color_->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET)};
+    ITextureView* targets[6]{color_->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET)};
     unsigned count = 1;
-    for (auto* auxiliary : {motion_.RawPtr(), indirect_.RawPtr()})
+    for (auto* auxiliary : {motion_.RawPtr(), indirect_.RawPtr(), reflection_surface_.RawPtr(),
+                            reflection_response_.RawPtr(), reflection_specular_.RawPtr()})
         if (auxiliary) {
             auto* target = auxiliary->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET);
             context->ClearRenderTarget(target, zero, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
@@ -290,11 +334,29 @@ void TemporalView::resolve(IDeviceContext* context, float stability, bool comple
     input.previous_jitter = previous_jitter();
     input.stability = stability;
     input.reset = !valid_ || !complete_geometry;
+    auto* indirect = indirect_ ? indirect_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE) : nullptr;
+    if (reflections_ && complete_geometry) {
+        auto timing = presentation_.gpu_scope(context, "Surface", "Screen-space reflections");
+        ScreenSpaceReflections::Input spatial;
+        spatial.color = input.color;
+        spatial.indirect = indirect;
+        spatial.depth = input.depth;
+        spatial.surface = reflection_surface_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+        spatial.response = reflection_response_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+        spatial.specular = reflection_specular_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+        spatial.projection = current_.projection;
+        spatial.settings = options_.screen_space_reflections;
+        reflections_->apply(context, spatial,
+                            reflected_color_->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET),
+                            reflected_indirect_->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET));
+        input.color = reflected_color_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+        indirect = reflected_indirect_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+    }
     if (occlusion_ && complete_geometry) {
         auto timing = presentation_.gpu_scope(context, "Surface", "Ambient occlusion");
         AmbientOcclusion::Input spatial;
         spatial.color = input.color;
-        spatial.indirect = indirect_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+        spatial.indirect = indirect;
         spatial.depth = input.depth;
         spatial.projection = current_.projection;
         spatial.settings = options_.ambient_occlusion;

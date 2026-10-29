@@ -272,7 +272,14 @@ ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsig
                                    mesh_scene_->settings.ambient_occlusion.enabled &&
                                    mesh_scene_->settings.ambient_occlusion.radius != 0 &&
                                    mesh_scene_->settings.ambient_occlusion.strength != 0;
-    const bool temporal_enabled = aa_enabled || blur_enabled || occlusion_enabled;
+    const bool reflections_enabled =
+        display_ && meshes_ && mesh_scene_ &&
+        mesh_scene_->settings.screen_space_reflections.enabled &&
+        mesh_scene_->settings.screen_space_reflections.max_distance != 0 &&
+        mesh_scene_->settings.screen_space_reflections.strength != 0 &&
+        mesh_scene_->settings.screen_space_reflections.max_roughness != 0;
+    const bool temporal_enabled =
+        aa_enabled || blur_enabled || occlusion_enabled || reflections_enabled;
     if (!frame_ || *frame_ != key)
         temporal_settle_ = aa_enabled ? 8 : blur_enabled ? 2 : 0;
     const bool temporal_warming =
@@ -488,6 +495,7 @@ ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsig
             options.anti_aliasing = aa_enabled;
             options.motion_blur = mesh_scene_->settings.motion_blur;
             options.ambient_occlusion = mesh_scene_->settings.ambient_occlusion;
+            options.screen_space_reflections = mesh_scene_->settings.screen_space_reflections;
             temporal_->prepare(view, reset, options);
             auto& pass = temporal_pass.emplace();
             pass.current = temporal_->current();
@@ -497,6 +505,7 @@ ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsig
             pass.valid = temporal_->valid();
             pass.motion_output = options.motion_output();
             pass.indirect_output = options.indirect_output();
+            pass.reflection_output = options.reflection_output();
             pass.previous_parts = &temporal_->previous_parts();
             pass.current_parts = &temporal_->pending_parts();
             pass.begin = [&] { temporal_->begin(context, color_, dsv); };

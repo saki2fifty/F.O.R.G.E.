@@ -7,6 +7,7 @@
 #include "scene_depth_of_field_tests.hpp"
 #include "scene_distance_fog_tests.hpp"
 #include "scene_motion_blur_tests.hpp"
+#include "scene_reflection_settings_tests.hpp"
 #include "scene_temporal_settings_tests.hpp"
 #include "temporal_sample_policy_tests.hpp"
 #include <forge/authoring.hpp>
@@ -142,6 +143,7 @@ int main() {
         test_scene_depth_of_field();
         test_scene_motion_blur();
         test_scene_ambient_occlusion();
+        test_scene_reflection_settings();
         test_temporal_sample_policy();
         exposure_plans();
         std::cout << "HDR bloom admission and Scene ownership PASS\n";

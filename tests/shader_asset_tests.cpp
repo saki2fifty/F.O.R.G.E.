@@ -178,7 +178,7 @@ int main() {
                         fog_surface.layout_digest() != legacy_layout,
                     "Optimized-out fog wrapper capability lost roundtrip or layout identity");
             auto future_surface = fog_surface;
-            future_surface.surface_wrapper_version = 5;
+            future_surface.surface_wrapper_version = 6;
             rejected([&] { validate_shader(future_surface); });
             auto temporal_surface = fog_surface;
             temporal_surface.surface_wrapper_version = 3;
@@ -225,6 +225,46 @@ int main() {
             for (const auto* bytes : {&encoded_surface, &encoded_fog, &encoded_temporal})
                 require(encode_shader(decode_shader(*bytes)) == *bytes,
                         "New output capability changed readable older archive bytes");
+            auto reflection_surface = indirect_surface;
+            reflection_surface.surface_wrapper_version = 5;
+            rejected([&] { validate_shader(reflection_surface); });
+            for (bool motion : {false, true}) {
+                const auto role = surface_color_role(motion, true, true);
+                auto stage = motion ? temporal_surface.stages.back() : surface_data.stages.front();
+                stage.role = role;
+                stage.entry = surface_shader_entry(role);
+                stage.bytecode = {motion ? std::byte{7} : std::byte{6}};
+                reflection_surface.stages.push_back(std::move(stage));
+                require(reflection_surface_role(role) && indirect_surface_role(role) &&
+                            temporal_surface_role(role) == motion &&
+                            shader_entry_role(shader_entry_role_name(role)) == role,
+                        "Reflection role lost its identity or shared classification");
+            }
+            const auto encoded_reflection = encode_shader(reflection_surface);
+            require(decode_shader(encoded_reflection).surface_wrapper_version == 5 &&
+                        decode_shader(encoded_reflection).stages.size() == 7 &&
+                        encode_shader(decode_shader(encoded_reflection)) == encoded_reflection &&
+                        reflection_surface.layout_digest() != indirect_surface.layout_digest(),
+                    "Reflection capability lost its archive or layout identity");
+            for (const auto* bytes :
+                 {&encoded_surface, &encoded_fog, &encoded_temporal, &encoded_indirect})
+                require(encode_shader(decode_shader(*bytes)) == *bytes,
+                        "Reflection capability changed readable older archive bytes");
+            auto bad_reflection = reflection_surface;
+            bad_reflection.surface_wrapper_version = 4;
+            rejected([&] { validate_shader(bad_reflection); });
+            bad_reflection = reflection_surface;
+            bad_reflection.stages.pop_back();
+            rejected([&] { validate_shader(bad_reflection); });
+            bad_reflection = reflection_surface;
+            bad_reflection.stages[5] = bad_reflection.stages[6];
+            rejected([&] { validate_shader(bad_reflection); });
+            bad_reflection = reflection_surface;
+            bad_reflection.stages.back().reflection["resources"] = Json::array();
+            rejected([&] { validate_shader(bad_reflection); });
+            bad_reflection = reflection_surface;
+            bad_reflection.stages[5].reflection = temporal_reflection;
+            rejected([&] { validate_shader(bad_reflection); });
             auto bad_indirect = indirect_surface;
             bad_indirect.surface_wrapper_version = 3;
             rejected([&] { validate_shader(bad_indirect); });

@@ -512,3 +512,33 @@ physical GPU, performance measurement or graphical exported-EXE acceptance.
 The bounded spatial sample pattern can be visible near contacts; no temporal
 occlusion history, material-normal reconstruction or hidden/off-screen geometry
 is implied. Full Windows/FXC/cooked D3D12 and physical acceptance remain queued.
+
+
+## Screen-space reflection controls and Gallery
+
+[The canonical controls](../../../manual/images/screen-space-reflections-controls.png)
+are the complete 900×520 output of `forge_hdr_bloom_editor_tests <capture-directory>
+--reflection`, using the production `scene_reflection_controls`, actual Lato font,
+ImGui style and SDL software renderer. Three scales and two extents exercise all
+fields, decimal minimum thickness, Undo/reset, rejection/recovery, Play locks and
+the real timestamped Problems/document owner. No controls or pixels are fabricated.
+
+[The canonical Game image](../../../manual/images/screen-space-reflections.png)
+is the complete 640×360 shared FrameRenderer/RuntimeSimulation readback of original
+Gallery106, Scene `120a1fb2-f8af-4fad-a644-eb598988ffab`. Four explicit lit Mesh
+renderers use object-local color/metal/roughness, a built-in white Cube environment
+and direct light. Amber and blue blocks reflect on a smooth metal floor; the rough
+wall retains environment reflection. Shadow maps are disabled. Wide/tall enabled
+and disabled comparisons check visible changes, exact alpha and clear background.
+The tall image retains the authored fixed camera aspect and its bars. PPM-to-PNG
+encoding preserves source dimensions and every RGB byte, without cropping,
+annotation, compositing or retouch. Both workflows were visually reviewed.
+
+Source branch `forge/screen-space-reflections` starts at `5604270`. These authentic
+software Vulkan/lvp and software UI captures do not establish full Windows Main,
+MSVC/FXC/cooked D3D12, physical GPU/input/DPI, performance or graphical EXE acceptance.
+The single-ray visible-depth profile can show gaps near thin edges and misses;
+no hidden/off-screen geometry, probes or roughness convolution is implied.
+
+PNG SHA256, controls: `163c7c1acc859ebbf28fae5d2d44ba978ed9822faffde48239c908403ee4f16b`.
+PNG SHA256, Game: `9fd4e00824c1b5353dc3c71ffbbb0536002b0224e137ab9999c568163233697e`.

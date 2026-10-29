@@ -1,9 +1,60 @@
 #pragma once
 #include "property_drawer.hpp"
+#include <algorithm>
 #include <forge/authoring.hpp>
 #include <forge/scene_render_settings.hpp>
 #include <numbers>
 namespace forge::ui {
+inline void scene_reflection_controls(const SceneScreenSpaceReflections& settings, bool locked,
+                                      const std::function<void(const Json&)>& commit) {
+    IdScope scope("screen_space_reflections");
+    const bool open = ImGui::CollapsingHeader("Screen-space reflections");
+    FORGE_UI_PROBE("reflection:section");
+    if (!open)
+        return;
+    DisabledScope disabled(locked);
+    bool enabled = settings.enabled;
+    if (ImGui::Checkbox("Enable screen-space reflections", &enabled))
+        commit({{"screen_space_reflections", {{"enabled", enabled}}}});
+    FORGE_UI_PROBE("reflection:enabled");
+    const auto field = [&](const char* label, const char* key, double value, const char* tip,
+                           const char* format = "%.3f") {
+        IdScope id(key);
+        property_label_row(label, tip);
+        if (ImGui::InputDouble("##value", &value, 0, 0, format,
+                               ImGuiInputTextFlags_EnterReturnsTrue))
+            commit({{"screen_space_reflections", {{key, value}}}});
+        FORGE_UI_PROBE(std::string("reflection:") + key);
+    };
+    field("Maximum distance (m)", "max_distance", settings.max_distance,
+          "Visible-depth ray reach from 0 to 100 metres. Zero skips reflections.");
+    field("Thickness (m)", "thickness", std::max(double(settings.thickness), .0001),
+          "Depth tolerance from 0.0001 to 1 metre. Smaller values reject more intersections.",
+          "%.4f");
+    field("Strength", "strength", settings.strength,
+          "Blend from 0 to 1 between environment and admitted visible-surface reflection. Zero "
+          "skips the pass.");
+    field("Maximum roughness", "max_roughness", settings.max_roughness,
+          "Surface roughness cutoff from 0 to 1. Reflections fade near this limit; zero skips the "
+          "pass.");
+    if (button("Reset screen-space reflections", "Disable reflections and restore 25 m, thickness "
+                                                 "0.1 m, strength 1 and maximum roughness 0.5."))
+        commit({{"screen_space_reflections",
+                 {{"enabled", false},
+                  {"max_distance", 25},
+                  {"thickness", .1},
+                  {"strength", 1},
+                  {"max_roughness", .5}}}});
+    FORGE_UI_PROBE("reflection:reset");
+    ImGui::TextWrapped(
+        "Uses current visible Mesh depth and real base-material normals. Misses retain environment "
+        "lighting. "
+        "Hidden and off-screen surfaces are unavailable. The single-ray profile fades rough "
+        "surfaces; "
+        "independent coat/sheen lobes and anisotropic surfaces retain environment lighting. "
+        "Game cameras must clear color and depth. Older surface Shaders need a recook. "
+        "Scene Save and Undo include these settings.");
+}
 inline void scene_occlusion_controls(const SceneAmbientOcclusion& settings, bool locked,
                                      const std::function<void(const Json&)>& commit) {
     IdScope scope("ambient_occlusion");
@@ -385,6 +436,7 @@ inline void scene_lighting(bool& open, Scene& scene, const AssetCatalog* catalog
                  "mapping. With automatic exposure, this adds brightness compensation. Enter "
                  "commits.");
             scene_auto_exposure_controls(settings.auto_exposure, locked, commit);
+            scene_reflection_controls(settings.screen_space_reflections, locked, commit);
             scene_occlusion_controls(settings.ambient_occlusion, locked, commit);
             scene_motion_controls(settings.motion_blur, locked, commit);
             scene_focus_controls(settings.depth_of_field, locked, commit);

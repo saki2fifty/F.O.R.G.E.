@@ -40,6 +40,7 @@ void interactions(float scale, ImVec2 display) {
     bool focus_controls = false;
     bool motion_controls = false;
     bool occlusion_controls = false;
+    bool reflection_controls = false;
     bool full_owner = false;
     std::string error;
     unsigned commits = 0;
@@ -61,7 +62,10 @@ void interactions(float scale, ImVec2 display) {
                     ++commits;
                     error.clear();
                 };
-                if (occlusion_controls)
+                if (reflection_controls)
+                    ui::scene_reflection_controls(settings.screen_space_reflections, locked,
+                                                  commit);
+                else if (occlusion_controls)
                     ui::scene_occlusion_controls(settings.ambient_occlusion, locked, commit);
                 else if (motion_controls)
                     ui::scene_motion_controls(settings.motion_blur, locked, commit);
@@ -88,7 +92,7 @@ void interactions(float scale, ImVec2 display) {
     auto click = [&](const char* key) {
         test::UiTarget box;
         bool visible = false;
-        for (unsigned attempt = 0; attempt < 20; ++attempt) {
+        for (unsigned attempt = 0; attempt < 40; ++attempt) {
             frame();
             box = test::ui_targets.at(key);
             if (box.minimum.y >= box.clip_minimum.y && box.maximum.y <= box.clip_maximum.y) {
@@ -96,7 +100,7 @@ void interactions(float scale, ImVec2 display) {
                 break;
             }
             io.AddMousePosEvent(box.clip_minimum.x + 8, box.clip_maximum.y - 8);
-            io.AddMouseWheelEvent(0, box.minimum.y < box.clip_minimum.y ? .5f : -.5f);
+            io.AddMouseWheelEvent(0, box.minimum.y < box.clip_minimum.y ? 1.f : -1.f);
             frame();
         }
         if (!visible)
@@ -407,6 +411,43 @@ void interactions(float scale, ImVec2 display) {
     locked = false;
     click("occlusion:section");
     occlusion_controls = false;
+    reflection_controls = true;
+    frame();
+    click("reflection:section");
+    const auto before_reflection = scene.document();
+    click("reflection:enabled");
+    check(scene_render_settings(scene.document()).screen_space_reflections.enabled &&
+              scene.undo() && scene.document() == before_reflection && scene.redo(),
+          "Reflection checkbox bypassed Scene history");
+    type("reflection:max_distance", "18");
+    type("reflection:thickness", "0.0001");
+    type("reflection:strength", "0.7");
+    type("reflection:max_roughness", "0.4");
+    const auto reflected = scene.document();
+    check(error.empty() && scene_render_settings(reflected).screen_space_reflections ==
+                               SceneScreenSpaceReflections{true, 18, .0001f, .7f, .4f},
+          "Typed reflection controls lost values or rounded minimum thickness");
+    type("reflection:thickness", "0");
+    check(!error.empty() && scene.document() == reflected,
+          "Invalid reflection thickness changed Scene");
+    type("reflection:thickness", "0.15");
+    check(error.empty() &&
+              scene_render_settings(scene.document()).screen_space_reflections.thickness == .15f,
+          "Reflection input did not recover after rejection");
+    const auto before_reflection_reset = scene.document();
+    click("reflection:reset");
+    check(scene_render_settings(scene.document()).screen_space_reflections ==
+                  SceneScreenSpaceReflections{} &&
+              scene.undo() && scene.document() == before_reflection_reset && scene.redo(),
+          "Reflection reset was not one reversible operation");
+    locked = true;
+    frame();
+    for (const auto* key : {"reflection:enabled", "reflection:max_distance", "reflection:thickness",
+                            "reflection:strength", "reflection:max_roughness", "reflection:reset"})
+        check(!test::ui_targets.at(key).enabled, "Reflection authored control enabled during Play");
+    locked = false;
+    click("reflection:section");
+    reflection_controls = false;
     // Exercise the real Scene lighting owner, including its Problems integration,
     // rather than inferring recovery from the callback used above.
     locked = false;
@@ -487,14 +528,28 @@ void interactions(float scale, ImVec2 display) {
               scene_render_settings(scene.document()).ambient_occlusion.strength == .8f &&
               context.task.owner == ui::DocumentTask::Scene,
           "Corrected occlusion retained its Problem or document ownership");
+    click("occlusion:section");
+    click("reflection:section");
+    context.task.focus_document("material", "Material");
+    type("reflection:max_roughness", "2");
+    check(context.problems.size() == 1 && !context.problems.items().front().occurred_at.empty(),
+          "Actual reflection rejection lacked a timestamped Problem");
+    type("reflection:max_roughness", "0.4");
+    check(context.problems.size() == 0 &&
+              scene_render_settings(scene.document()).screen_space_reflections.max_roughness ==
+                  .4f &&
+              context.task.owner == ui::DocumentTask::Scene,
+          "Corrected reflection retained its Problem or document ownership");
     test::observe_ui = false;
     ImGui::DestroyContext();
 }
 void capture(const std::filesystem::path& root, std::string_view kind = {}) {
     const bool fog = kind == "--fog", temporal = kind == "--temporal", focus = kind == "--focus",
-               motion = kind == "--motion", occlusion = kind == "--occlusion";
+               motion = kind == "--motion", occlusion = kind == "--occlusion",
+               reflection = kind == "--reflection";
     std::filesystem::create_directories(root);
-    const int capture_height = fog         ? 360
+    const int capture_height = reflection  ? 520
+                               : fog       ? 360
                                : temporal  ? 420
                                : focus     ? 440
                                : motion    ? 400
@@ -528,7 +583,8 @@ void capture(const std::filesystem::path& root, std::string_view kind = {}) {
     Scene scene(engine.world());
     authoring_command(
         scene, "scene.rendering.set",
-        occlusion  ? Json{{"ambient_occlusion", {{"enabled", true}}}}
+        reflection  ? Json{{"screen_space_reflections", {{"enabled", true}}}}
+        : occlusion ? Json{{"ambient_occlusion", {{"enabled", true}}}}
         : motion   ? Json{{"motion_blur", {{"enabled", true}, {"shutter", .5}, {"max_pixels", 32}}}}
         : focus    ? Json{{"depth_of_field",
                            {{"enabled", true},
@@ -550,7 +606,10 @@ void capture(const std::filesystem::path& root, std::string_view kind = {}) {
         const auto commit = [&](const Json& patch) {
             authoring_command(scene, "scene.rendering.set", patch);
         };
-        if (occlusion)
+        if (reflection)
+            ui::scene_reflection_controls(
+                scene_render_settings(scene.document()).screen_space_reflections, false, commit);
+        else if (occlusion)
             ui::scene_occlusion_controls(scene_render_settings(scene.document()).ambient_occlusion,
                                          false, commit);
         else if (motion)
@@ -575,12 +634,13 @@ void capture(const std::filesystem::path& root, std::string_view kind = {}) {
         ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData(), renderer.get());
         SDL_RenderPresent(renderer.get());
     }
-    check(SDL_SavePNG(surface.get(), (root / (occlusion  ? "ambient-occlusion-controls.png"
-                                              : motion   ? "motion-blur-controls.png"
-                                              : focus    ? "depth-of-field-controls.png"
-                                              : temporal ? "temporal-antialiasing-controls.png"
-                                              : fog      ? "distance-fog-controls.png"
-                                                         : "automatic-exposure.png"))
+    check(SDL_SavePNG(surface.get(), (root / (reflection  ? "screen-space-reflections-controls.png"
+                                              : occlusion ? "ambient-occlusion-controls.png"
+                                              : motion    ? "motion-blur-controls.png"
+                                              : focus     ? "depth-of-field-controls.png"
+                                              : temporal  ? "temporal-antialiasing-controls.png"
+                                              : fog       ? "distance-fog-controls.png"
+                                                          : "automatic-exposure.png"))
                                          .string()
                                          .c_str()),
           SDL_GetError());
@@ -592,7 +652,8 @@ int main(int argc, char** argv) {
             (argc == 3 &&
              (std::string_view(argv[2]) == "--fog" || std::string_view(argv[2]) == "--temporal" ||
               std::string_view(argv[2]) == "--focus" || std::string_view(argv[2]) == "--motion" ||
-              std::string_view(argv[2]) == "--occlusion"))) {
+              std::string_view(argv[2]) == "--occlusion" ||
+              std::string_view(argv[2]) == "--reflection"))) {
             capture(std::filesystem::absolute(argv[1]),
                     argc == 3 ? std::string_view(argv[2]) : std::string_view{});
             return 0;

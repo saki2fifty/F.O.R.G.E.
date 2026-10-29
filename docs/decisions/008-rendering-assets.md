@@ -133,3 +133,30 @@ attachment and operator run before accumulation/motion/focus and current layers,
 without a second lighting manager, pose database or clock. The first occlusion
 profile may reconstruct geometric normals from current depth; this does not imply
 material-normal or hidden-surface reconstruction support.
+
+## Base screen-space reflection outputs — accepted extension
+
+The next bounded reflection profile reuses the surface, part, queue and view owners
+above. It replaces only the base SpecularIBL contribution, retaining broad indirect
+multiple-scattering energy and independent clearcoat/sheen lobes. Native public
+lighting APIs resolve the isolated old contribution and unit-radiance response;
+FORGE does not copy the BRDF. The response is independent of environment intensity.
+Actual shaded normals and roughness belong to the same current material evaluation.
+An unproved or unsupported material response retains its environment contribution.
+
+Capability5 appends ordinary and temporal reflection roles while retaining all
+five capability4 roles and readable1–4 artifacts. Reflection roles carry color,
+optional motion, total indirect, view-space shaded normal/roughness, base response
+and replaceable base environment specular: five or six MRTs. They require the
+matching current cook/reader through existing publication and last-good owners,
+with unchanged logical IDs. Artifact role count can expand to eight; ordinary
+non-surface stage admission remains six. Actual role/buffer/MRT tests govern
+admission; reflection metadata does not invent output semantics.
+
+The existing view supplies bounded staged inputs/results. An original current-depth
+trace updates both full color and total indirect before ambient occlusion, followed
+by the existing optional AA/motion/focus and current-frame layers. Misses preserve
+environment lighting. No new lighting, pose, view, clock or agent-authoring manager
+is introduced. The [reflection contract](../screen-space-reflections.md) defines the implemented
+bounded profile. Local renderer/authoring evidence is separate from queued
+Windows cooking, full-editor and physical acceptance.

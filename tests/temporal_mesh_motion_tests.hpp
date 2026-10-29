@@ -1,5 +1,6 @@
 #pragma once
 #include "ambient_occlusion.hpp"
+#include "hdr_bloom_gpu_tests.hpp"
 #include "motion_blur.hpp"
 // Uses the temporal probe's independent projection oracle and readback fixture.
 namespace test_temporal_mesh_motion {
@@ -73,7 +74,7 @@ static Clips project(const Points& points, const forge::CameraView& view) {
     return result;
 }
 static void exercise(forge::DiligentPresentation& presentation, IDeviceContext* context, bool morph,
-                     bool skinned, bool batch, bool perspective) {
+                     bool skinned, bool batch, bool perspective, bool reflection = false) {
     using namespace forge;
     constexpr unsigned width = 192, height = 128;
     auto* device = presentation.device();
@@ -111,18 +112,27 @@ static void exercise(forge::DiligentPresentation& presentation, IDeviceContext* 
     }
     const auto gpu = upload_mesh(device, mesh);
     auto material =
-        asset_detail::engine_material_resource(engine_material(EngineMaterial::LegacyBlockout))
+        asset_detail::engine_material_resource(
+            engine_material(reflection ? EngineMaterial::Default : EngineMaterial::LegacyBlockout))
             .values;
     material.double_sided = true;
+    if (reflection) {
+        material.alpha = MaterialAlpha::Mask;
+        material.parameters["roughnessFactor"] = {MaterialParameterType::Scalar, {.1f}};
+        material.parameters["emissiveFactor"] = {MaterialParameterType::LinearColor3,
+                                                 {.8f, .6f, .4f}};
+    }
     const auto fetch =
         mesh_vertex_fetch(gpu.lods[0].parts[0], prepare_pbr_material(material), true, true);
     const auto program = mesh_draw_shader(fetch, prepare_pbr_material(material), false,
                                           emulated_resource_arrays(device->GetDeviceInfo())
                                               ? MaterialSamplerBinding::NamedElements
-                                              : MaterialSamplerBinding::Array);
+                                              : MaterialSamplerBinding::Array,
+                                          nullptr, {}, false, {}, true, reflection);
     const auto shader_root = std::filesystem::current_path() / "temporal-filter-shaders";
     std::filesystem::create_directories(shader_root);
-    const auto prefix = std::to_string(morph) + "-" + std::to_string(skinned);
+    const auto prefix = std::to_string(morph) + "-" + std::to_string(skinned) +
+                        (reflection ? "-reflection" : "-indirect");
     for (const auto& [stage, source] :
          {std::pair{"vertex", program.vertex}, std::pair{"pixel", program.pixel},
           std::pair{"geometry", program.geometry}}) {
@@ -133,7 +143,8 @@ static void exercise(forge::DiligentPresentation& presentation, IDeviceContext* 
     MeshDraw draw(presentation, context, gpu.lods[0].parts[0], material, {},
                   TEX_FORMAT_RGBA16_FLOAT, TEX_FORMAT_D32_FLOAT, true, SHADER_COMPILER_DEFAULT,
                   SHADER_OPTIMIZATION_LEVEL_DEFAULT, nullptr,
-                  MeshDrawProfile::MeshTemporalIndirect);
+                  reflection ? MeshDrawProfile::MeshTemporalReflection
+                             : MeshDrawProfile::MeshTemporalIndirect);
     check(draw.supports_instances() == (!morph && !skinned),
           "Temporal draw changed the static/deformed instancing policy");
     auto color = texture(device, width, height, TEX_FORMAT_RGBA16_FLOAT,
@@ -144,6 +155,11 @@ static void exercise(forge::DiligentPresentation& presentation, IDeviceContext* 
                             BIND_RENDER_TARGET | BIND_SHADER_RESOURCE);
     auto occluded = texture(device, width, height, TEX_FORMAT_RGBA16_FLOAT,
                             BIND_RENDER_TARGET | BIND_SHADER_RESOURCE);
+    std::array<RefCntAutoPtr<ITexture>, 3> reflection_targets;
+    if (reflection)
+        for (auto& target : reflection_targets)
+            target = texture(device, width, height, TEX_FORMAT_RGBA16_FLOAT,
+                             BIND_RENDER_TARGET | BIND_SHADER_RESOURCE);
     AmbientOcclusion occlusion(presentation);
     auto depth = texture(device, width, height, TEX_FORMAT_D32_FLOAT,
                          BIND_DEPTH_STENCIL | BIND_SHADER_RESOURCE);
@@ -195,17 +211,21 @@ static void exercise(forge::DiligentPresentation& presentation, IDeviceContext* 
     for (unsigned frame = 0; frame < 2; ++frame) {
         presentation.begin_frame();
         auto* dsv = depth->GetDefaultView(TEXTURE_VIEW_DEPTH_STENCIL);
-        std::array<ITextureView*, 3> targets{
+        std::vector<ITextureView*> targets{
             color->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET),
             motion_target->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET),
             indirect->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET)};
-        context->SetRenderTargets(3, targets.data(), dsv,
+        if (reflection)
+            for (const auto& target : reflection_targets)
+                targets.push_back(target->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET));
+        context->SetRenderTargets(Uint32(targets.size()), targets.data(), dsv,
                                   RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         const float dark[]{.02f, .02f, .02f, 1}, empty[]{0, 0, 1, 0};
         context->ClearRenderTarget(targets[0], dark, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         context->ClearRenderTarget(targets[1], empty, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         const float zero[4]{};
-        context->ClearRenderTarget(targets[2], zero, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        for (std::size_t i = 2; i < targets.size(); ++i)
+            context->ClearRenderTarget(targets[i], zero, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         context->ClearDepthStencil(dsv, CLEAR_DEPTH_FLAG, 1, 0,
                                    RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         Viewport viewport{0, 0, float(width), float(height), 0, 1};
@@ -242,6 +262,18 @@ static void exercise(forge::DiligentPresentation& presentation, IDeviceContext* 
         const auto point = check_motion_at(device, context, motion_target, width, height,
                                            frame ? current_clip : old_clip, old_clip,
                                            frame ? jitter : old_jitter, old_jitter, frame != 0);
+        if (reflection) {
+            const auto at = point[1] * width + point[0];
+            const auto normals = forge::test_bloom::read(device, context, reflection_targets[0]);
+            const auto response = forge::test_bloom::read(device, context, reflection_targets[1]);
+            const auto specular = forge::test_bloom::read(device, context, reflection_targets[2]);
+            const auto& n = normals[at];
+            check(std::abs(std::hypot(n[0], n[1], n[2]) - 1) < .002 && std::abs(n[3] - .1f) < .001,
+                  "Posed/instanced reflection material lost its current normal or roughness");
+            check(response[at][0] + response[at][1] + response[at][2] > .00001 &&
+                      specular[at][0] == 0 && specular[at][1] == 0 && specular[at][2] == 0,
+                  "Posed/instanced reflection material fabricated an environment or lost response");
+        }
         std::optional<std::array<unsigned, 2>> added;
         if (batch && frame) {
             const auto clip = project(points(0, added_world, nullptr), current_view);
@@ -297,7 +329,7 @@ static void exercise(forge::DiligentPresentation& presentation, IDeviceContext* 
         device->ReleaseStaleResources();
     }
     std::cout << "Shared Mesh motion: morph=" << morph << " skin=" << skinned << " batch=" << batch
-              << " perspective=" << perspective << " passed\n";
+              << " perspective=" << perspective << " reflection=" << reflection << " passed\n";
 }
 static void exercise_all(forge::DiligentPresentation& presentation, IDeviceContext* context) {
     for (bool perspective : {false, true}) {
@@ -305,6 +337,10 @@ static void exercise_all(forge::DiligentPresentation& presentation, IDeviceConte
             for (bool morph : {false, true})
                 exercise(presentation, context, morph, skin, false, perspective);
         exercise(presentation, context, false, false, true, perspective);
+        for (bool skin : {false, true})
+            for (bool morph : {false, true})
+                exercise(presentation, context, morph, skin, false, perspective, true);
+        exercise(presentation, context, false, false, true, perspective, true);
     }
 }
 } // namespace test_temporal_mesh_motion

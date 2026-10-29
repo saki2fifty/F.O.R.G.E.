@@ -87,6 +87,15 @@ struct SceneAmbientOcclusion {
     bool operator==(const SceneAmbientOcclusion&) const = default;
 };
 void validate_scene_ambient_occlusion(const SceneAmbientOcclusion&);
+struct SceneScreenSpaceReflections {
+    bool enabled = false;
+    float max_distance = 25;
+    float thickness = .1f;
+    float strength = 1;
+    float max_roughness = .5f;
+    bool operator==(const SceneScreenSpaceReflections&) const = default;
+};
+void validate_scene_screen_space_reflections(const SceneScreenSpaceReflections&);
 struct SceneRenderSettings {
     SceneEnvironment environment;
     SceneShadows shadows;
@@ -99,6 +108,7 @@ struct SceneRenderSettings {
     SceneDepthOfField depth_of_field;
     SceneMotionBlur motion_blur;
     SceneAmbientOcclusion ambient_occlusion;
+    SceneScreenSpaceReflections screen_space_reflections;
     bool operator==(const SceneRenderSettings&) const = default;
 };
 SceneRenderSettings scene_render_settings(const nlohmann::json& scene);
