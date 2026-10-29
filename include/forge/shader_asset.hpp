@@ -6,9 +6,10 @@ namespace forge {
 // Stages admitted by the initial D3D12 / FXC shader-model5.1 compiler profile.
 // Admission is not a claim that every renderer pass uses each stage.
 enum class ShaderStage { Vertex, Pixel, Compute, Geometry, Hull, Domain };
-enum class ShaderEntryRole { Program, SurfaceColor, SurfaceDepth };
+enum class ShaderEntryRole { Program, SurfaceColor, SurfaceDepth, SurfaceTemporalColor };
 const char* shader_entry_role_name(ShaderEntryRole);
 ShaderEntryRole shader_entry_role(std::string_view);
+const char* surface_shader_entry(ShaderEntryRole);
 struct ShaderStageKey {
     ShaderStage stage;
     ShaderEntryRole role;
@@ -64,7 +65,8 @@ struct ShaderData {
     std::vector<ShaderStageData> stages;
     std::optional<SurfaceShaderDefinition> surface;
     // Engine-generated wrapper contract, independent of optimized resources.
-    // 1 is the legacy wrapper; 2 adds Scene distance fog. Not authored HLSL intent.
+    // 1 is legacy; 2 adds fog; 3 adds a separate color/motion entry.
+    // This is engine wrapper capability, not authored HLSL intent.
     unsigned surface_wrapper_version = 1;
     std::string layout_digest() const;
     std::size_t resident_bytes() const;

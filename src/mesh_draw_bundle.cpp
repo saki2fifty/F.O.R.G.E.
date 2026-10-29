@@ -1,5 +1,6 @@
 #include "mesh_draw_bundle.hpp"
 #include "sprite_draw_selection.hpp"
+#include <algorithm>
 #include <forge/engine_assets.hpp>
 namespace forge {
 MeshDrawBundle::MeshDrawBundle(DiligentPresentation& presentation,
@@ -10,7 +11,7 @@ MeshDrawBundle::MeshDrawBundle(DiligentPresentation& presentation,
                                Diligent::TEXTURE_FORMAT depth, bool skinned,
                                std::shared_ptr<const MeshPoseGeometry> geometry,
                                MeshDrawProfile profile)
-    : prepared_(prepared),
+    : presentation_(presentation), color_(color), depth_(depth), prepared_(prepared),
       geometry_(geometry ? std::move(geometry)
                          : std::make_shared<const MeshPoseGeometry>(
                                prepare_mesh_pose_geometry(prepared.mesh->mesh))),
@@ -51,8 +52,6 @@ MeshDrawBundle::MeshDrawBundle(DiligentPresentation& presentation,
         for (const auto& [key, texture] : prepared.textures)
             textures_.emplace(key, textures.acquire(texture));
     unresolved_ = prepared.selection.unresolved;
-    MaterialData default_material;
-    default_material.model = "forge.gltf.metallic-roughness.v1";
     std::map<std::uint32_t, std::size_t> bindings;
     for (std::size_t i = 0; i < prepared.selection.bindings.size(); ++i)
         bindings.emplace(prepared.selection.bindings[i].physical_slot, i);
@@ -63,45 +62,85 @@ MeshDrawBundle::MeshDrawBundle(DiligentPresentation& presentation,
             throw std::runtime_error("Material selection part count differs from mesh");
         auto& output = lods_.emplace_back();
         auto& shadows = shadow_lods_.emplace_back();
+        temporal_lods_.emplace_back(lod.parts.size());
         auto& info = info_.emplace_back();
         for (std::size_t p = 0; p < lod.parts.size(); ++p) {
             const auto& part = lod.parts[p];
             const AssetRef<MaterialAsset> material_ref{prepared.material_asset(selected[p].id)};
-            const MaterialData* values = &default_material;
-            const MaterialShaderSnapshot* surface = nullptr;
-            MeshDraw::Textures native_textures;
-            if (material_ref.id) {
-                const auto& material = prepared.materials.at(material_ref.id).get();
-                values = &material.values;
-                surface = material.surface ? &*material.surface : nullptr;
-                for (const auto& [role, ref] : material.textures) {
-                    if (sprite_draw_mip_filter(profile))
-                        continue;
-                    const auto semantic = values->textures.at(role).semantic;
-                    native_textures[role] =
-                        textures_.at(prepared.texture_asset({ref.id, semantic}))
-                            .get()
-                            ->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
-                }
-            }
-            const auto prepare = [&](Diligent::TEXTURE_FORMAT target) {
-                return std::make_unique<MeshDraw>(
-                    presentation, context, part, *values, native_textures, target, depth, skinned,
-                    Diligent::SHADER_COMPILER_DEFAULT, Diligent::SHADER_OPTIMIZATION_LEVEL_DEFAULT,
-                    surface, profile);
-            };
-            output.push_back(prepare(color));
+            const auto* values =
+                material_ref.id ? &prepared.materials.at(material_ref.id)->values : nullptr;
+            const auto* surface = material_ref.id && prepared.materials.at(material_ref.id)->surface
+                                      ? &*prepared.materials.at(material_ref.id)->surface
+                                      : nullptr;
+            MaterialData default_material;
+            default_material.model = "forge.gltf.metallic-roughness.v1";
+            if (!values)
+                values = &default_material;
+            output.push_back(prepare_draw(context, unsigned(l), unsigned(p), color, profile));
             // Blended surfaces do not have a single opaque shadow depth. Masked
             // surfaces evaluate the same base alpha and cutoff as their color pass.
             const bool transmits = !surface && material_transmits(prepare_pbr_material(*values));
             shadows.push_back(sprite_draw_profile(profile) ||
                                       values->alpha == MaterialAlpha::Blend || transmits
                                   ? nullptr
-                                  : prepare(Diligent::TEX_FORMAT_UNKNOWN));
+                                  : prepare_draw(context, unsigned(l), unsigned(p),
+                                                 Diligent::TEX_FORMAT_UNKNOWN, profile));
             info.push_back({values->alpha, material_ref.id, part.bounds, transmits,
                             bindings.at(part.material_slot)});
         }
     }
+}
+std::unique_ptr<MeshDraw> MeshDrawBundle::prepare_draw(Diligent::IDeviceContext* context,
+                                                       unsigned lod, unsigned part,
+                                                       Diligent::TEXTURE_FORMAT target,
+                                                       MeshDrawProfile profile) {
+    MaterialData defaults;
+    defaults.model = "forge.gltf.metallic-roughness.v1";
+    const auto& selected = prepared_.selection.parts.at(lod).at(part);
+    const auto id = prepared_.material_asset(selected.id);
+    const auto* values = &defaults;
+    const MaterialShaderSnapshot* surface = nullptr;
+    MeshDraw::Textures native_textures;
+    if (id) {
+        const auto& material = prepared_.materials.at(id).get();
+        values = &material.values;
+        surface = material.surface ? &*material.surface : nullptr;
+        if (!sprite_draw_mip_filter(profile))
+            for (const auto& [role, ref] : material.textures) {
+                const auto semantic = values->textures.at(role).semantic;
+                native_textures[role] =
+                    textures_.at(prepared_.texture_asset({ref.id, semantic}))
+                        .get()
+                        ->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
+            }
+    }
+    return std::make_unique<MeshDraw>(
+        presentation_, context, mesh_.get().lods.at(lod).parts.at(part), *values, native_textures,
+        target, depth_, skinned_, Diligent::SHADER_COMPILER_DEFAULT,
+        Diligent::SHADER_OPTIMIZATION_LEVEL_DEFAULT, surface, profile);
+}
+std::size_t MeshDrawBundle::draw_part_count() const {
+    std::size_t count = 0;
+    for (const auto& lod : lods_)
+        count += lod.size();
+    for (const auto& lod : temporal_lods_)
+        count += std::count_if(lod.begin(), lod.end(), [](const auto& part) { return bool(part); });
+    return count;
+}
+void MeshDrawBundle::prepare_temporal(Diligent::IDeviceContext* context, unsigned lod,
+                                      unsigned part,
+                                      std::span<const MaterialParameterOverride> parameters) {
+    if (profile_ != MeshDrawProfile::Mesh || info_.at(lod).at(part).transmission ||
+        info_.at(lod).at(part).alpha == MaterialAlpha::Blend)
+        throw std::invalid_argument("Temporal accumulation requires a depth-writing Mesh part");
+    auto& selected = temporal_lods_.at(lod).at(part);
+    if (!selected) {
+        auto candidate = prepare_draw(context, lod, part, color_, MeshDrawProfile::MeshTemporal);
+        candidate->bind_environment(environment_ ? &environment_.get() : nullptr);
+        candidate->prepare_object_material_values(parameters, slot(lod, part));
+        selected = std::move(candidate);
+    } else
+        selected->prepare_object_material_values(parameters, slot(lod, part));
 }
 void MeshDrawBundle::prepare_material_parameters(
     std::span<const MaterialParameterOverride> parameters) {
@@ -112,6 +151,8 @@ void MeshDrawBundle::prepare_material_parameters(
             lods_[lod][part]->prepare_object_material_values(parameters, slot(lod, part));
             if (auto& shadow = shadow_lods_[lod][part])
                 shadow->prepare_object_material_values(parameters, slot(lod, part));
+            if (auto& temporal = temporal_lods_[lod][part])
+                temporal->prepare_object_material_values(parameters, slot(lod, part));
         }
 }
 void MeshDrawBundle::draw_shadow(Diligent::IDeviceContext* context, const AffineTransform& world,
@@ -142,12 +183,20 @@ void MeshDrawBundle::environment(const EnvironmentLease& lease) {
     for (auto& lod : lods_)
         for (auto& part : lod)
             part->bind_environment(maps);
+    for (auto& lod : temporal_lods_)
+        for (auto& part : lod)
+            if (part)
+                part->bind_environment(maps);
     environment_ = lease;
 }
 void MeshDrawBundle::shadows(const ShadowLighting* lighting) {
     for (auto& lod : lods_)
         for (auto& part : lod)
             part->bind_shadows(lighting);
+    for (auto& lod : temporal_lods_)
+        for (auto& part : lod)
+            if (part)
+                part->bind_shadows(lighting);
 }
 void MeshDrawBundle::transmission(const TransmissionLighting* lighting) {
     for (auto& lod : lods_)
@@ -172,8 +221,11 @@ void MeshDrawBundle::draw_part(Diligent::IDeviceContext* context, const AffineTr
                                std::span<const MeshDraw::Instance> instances,
                                std::span<const MaterialParameterOverride> parameters,
                                const SpriteDrawValues* sprite, const SceneDistanceFog* fog,
-                               const GpuLease<TextureAsset>* sprite_mip) {
-    auto& selected = lods_.at(lod).at(part);
+                               const GpuLease<TextureAsset>* sprite_mip,
+                               const MeshDraw::Motion* motion) {
+    auto& selected = motion ? temporal_lods_.at(lod).at(part) : lods_.at(lod).at(part);
+    if (!selected)
+        throw std::runtime_error("Temporal Mesh part was not prepared before drawing");
     if (sprite_draw_mip_filter(profile_)) {
         if (!sprite_mip || !*sprite_mip)
             throw std::runtime_error("Sprite mip draw has no admitted filtered frame");
@@ -193,6 +245,6 @@ void MeshDrawBundle::draw_part(Diligent::IDeviceContext* context, const AffineTr
     selected->draw(context, pose ? pose->world : world, camera, lights, environment, legacy_tint,
                    shadows, shadow_slots, transmission,
                    pose ? std::span<const float>(pose->morph_weights) : std::span<const float>{},
-                   skin, instances, parameters, slot(lod, part), sprite, fog);
+                   skin, instances, parameters, slot(lod, part), sprite, fog, motion);
 }
 } // namespace forge

@@ -1,4 +1,6 @@
-# 2026-10-29 — Per-tile collision profiles
+# 2026-10-29 — Collision profiles and temporal anti-aliasing
+
+## Per-tile collision profiles
 
 Tile Set definitions support Full cell, None and convex polygons with 3–8
 normalized XY vertices. Full cells retain merged rectangles; None tiles remain
@@ -23,3 +25,26 @@ modules with the matching SDK. Native C ABI table signatures and asset IDs are
 unchanged. Local validation remains separate from Windows/full editor/MSVC,
 physical GPU and graphical exported-game acceptance. No numbered delivery is
 issued by this change.
+
+## Temporal anti-aliasing
+
+Scene lighting includes default-off temporal anti-aliasing with adjustable
+stability, shared by Scene and Game views. Opaque and masked Mesh geometry supplies
+previous object, camera, morph and skin positions. Per-camera depth rejection,
+bounded histories and camera-cut resets preserve the existing render owners.
+Current-frame layers keep their authored order; unsupported combinations use
+ordinary rendering with a warning. New custom-surface cooks include a temporal
+entry; existing surface capabilities remain readable.
+
+The same Scene setting is available through automation and MCP with existing
+validation, revisions and Undo. Explicit image captures wait for eight completed
+samples and reset history between timeline samples. Gallery102 and the manual
+demonstrate the controls and original animated thin geometry.
+
+Local rendering, authoring and packaging checks pass. Three instrumented GPU
+consumers finish their functional checks but report an unsuppressed 184-byte
+shutdown allocation independently reproduced without FORGE linked; see
+[dependency diagnostics](../../docs/dependency-known-issues.md#native-software-vulkan-shutdown-allocation-report).
+Windows/Main/MSVC, FXC cooked surfaces, physical GPU and graphical exported-game
+acceptance remain pending. No dependency upgrade, sanitizer suppression or
+numbered delivery is included.

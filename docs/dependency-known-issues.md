@@ -246,3 +246,29 @@ admitted. Future Vorbis integration requires deliberate exact-source compatibili
 work and fresh malformed-input proof; isolated-worker cleanup does not establish a
 correct native decoder. Operational binaries, original fixtures, exact source/
 compiler/options, corpus and reproducer remain outside the product repository.
+
+## Native software Vulkan shutdown allocation report
+
+Observed2026-10-29 with selected DiligentCore
+`744f079f61cdbda15d371383682418fc927e4a61`, the existing Vulkan/DXC configuration
+and the Linux software Vulkan ICD. Unsuppressed LeakSanitizer reports184bytes in
+five allocations after drawing: two direct16-byte allocations, two indirect56-byte
+allocations and one indirect40-byte allocation. The allocation callers are in
+unknown/unloaded native modules; the exact library/source cause is unresolved.
+
+An independently authored raw device/shader/triangle-draw baseline reproduces the
+same sizes, allocation kinds, caller page offsets and relative caller offsets.
+Its link removes every FORGE library, and its symbol table contains no FORGE
+symbols. The same binary's device-only path exits cleanly. Three instrumented
+FORGE GPU consumers finish their functional assertions and then report that same
+shutdown signature. This attributes the reproduced signature to the selected
+native stack; it does not prove that all possible FORGE lifetimes are leak-free
+or identify a narrower vendor module.
+
+The GPU leak-check exits remain failures. No leak check is disabled, no allocation
+is suppressed, and no dependency pin, driver option or native patch is changed.
+Selected Scene/UI/codec consumers pass unsuppressed checks independently. Normal
+software Vulkan pixel tests and Windows/physical acceptance remain distinct from
+this open diagnostic. Reassess the raw baseline and affected consumers when the
+native stack or environment changes; a matching baseline is not permission to
+ignore a new or different report.

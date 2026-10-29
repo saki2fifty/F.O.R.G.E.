@@ -1,5 +1,27 @@
 # README screenshots
 
+## Temporal anti-aliasing controls
+
+[Controls](../../../manual/images/temporal-antialiasing-controls.png) is the complete
+900×420 actual Scene lighting control render captured on2026-10-29 from
+unassigned development based on422e0b99. Reproduce it with
+`forge_hdr_bloom_editor_tests <scratch> --temporal`. It calls the production
+Scene controls and Scene authoring owner with pinned ImGui, SDL software rendering
+and Lato. Input tests at100/150/200 percent in two window sizes cover enabled,
+stability, range rejection/recovery, reset, Undo and authored Play locks. The PNG
+is copied unchanged, without painted controls, retouching or cropping. Its SHA256
+is `e6d236f479abc5f3317d8196a692ef277b2cd564963698b4d8051d042f3ea01e`. This capture demonstrates controls, not full Windows editor or physical
+GPU acceptance; software Vulkan rendering evidence is recorded separately.
+
+[Game image](../../../manual/images/temporal-antialiasing.png) is the complete
+640×360 Gallery102 rendering from the actual shared Game renderer and Runtime
+animation owner. The original test target is `forge_temporal_filter_vulkan_probe`;
+its Gallery fixture also renders360×640 and a second animated pose. The capture
+uses corrected dynamic history bindings and the final corrected native test source. It uses the
+selected software Vulkan/DXC stack. The PPM-to-PNG conversion preserves all RGB
+bytes; the canonical PNG SHA256 is `2ba29f20b6b920dfab9b73624ae7939ff15345117c198a9b1f601388bf5124b9`. This is rendered Game evidence,
+not a physical GPU, full Windows desktop or graphical exported-EXE acceptance.
+
 ## Component animation fields
 
 [Timeline controls](../../../manual/images/animation-component-fields.png) is the

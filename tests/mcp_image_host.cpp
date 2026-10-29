@@ -9,9 +9,15 @@ namespace forge::test {
 // Test-only detached pixel delivery, replacing only the absent GPU readback.
 // File/preview jobs, frame scheduling, receipts and MCP all use the real owner.
 struct ViewImageTaskAccess {
-    static void deliver_test_pixels(ui::ViewImageTask& owner, std::string& message) {
+    static void deliver_test_pixels(ui::ViewImageTask& owner, std::string& message, double cursor) {
         if (!owner.pending_ || owner.copied_ || owner.job_.valid())
             return;
+        if (owner.frames_) {
+            const auto sample = owner.temporal_sample();
+            if (!sample || !sample->operation || sample->seconds != cursor)
+                throw std::runtime_error(
+                    "Capture temporal key differs from the borrowed source sample");
+        }
         DiligentPresentation::DisplayPixels pixels;
         const auto extent = owner.sequence_extent();
         pixels.width = extent ? extent->width : 4;
@@ -109,7 +115,8 @@ int main(int argc, char** argv) {
             files.changed = false;
             images.poll_files(message);
             if (!forge::test::marker_present(root / "hold_pixels"))
-                forge::test::ViewImageTaskAccess::deliver_test_pixels(images, message);
+                forge::test::ViewImageTaskAccess::deliver_test_pixels(images, message,
+                                                                      frames.cursor);
             workspace.pump(files.document, "");
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }

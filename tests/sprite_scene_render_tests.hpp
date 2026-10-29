@@ -537,6 +537,15 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
               game_image[32 * 64 + 32][0] > 100 && game_image[32 * 64 + 32][2] > 100,
           "Shared Game extraction/HDR/display consumer did not render the Sprite");
     save(game_image, "game-sprite.ppm");
+    // Sprite layers remain unjittered after the new view-local opaque resolve.
+    document["rendering"] = {{"version", 1u},
+                             {"temporal_anti_aliasing", {{"enabled", true}, {"stability", .85}}}};
+    for (unsigned sample = 0; sample < 8; ++sample)
+        check(game_pixels() == game_image,
+              "Temporal accumulation changed the current-frame Sprite layer");
+    document.erase("rendering");
+    check(game_pixels() == game_image, "Disabling temporal rendering changed Sprite composition");
+
     document["entities"][0]["components"]["forge.sprite_renderer"]["tint_r"] = 0;
     document["entities"][0]["components"]["forge.sprite_renderer"]["tint_b"] = 0;
     const auto game_black = game_pixels();

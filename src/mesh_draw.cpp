@@ -6,6 +6,7 @@
 #include "render_backend.hpp"
 #include "shader_runtime_backend.hpp"
 #include "sprite_material_profile.hpp"
+#include "temporal_motion_shader.hpp"
 #include "texture_gpu.hpp"
 #include <algorithm>
 #include <bit>
@@ -43,16 +44,91 @@ RefCntAutoPtr<IBuffer> buffer(IRenderDevice* device, const char* name, Uint64 by
 using Row = std::array<float, 4>;
 constexpr unsigned mesh_instance_rows = 7, sprite_instance_rows = 10;
 
+std::array<Row, 769> prepare_skin_values(const SkinPose* skin, std::size_t joint_count,
+                                         const CameraView& view, float thickness) {
+    require(skin && skin->palette.size() == joint_count && joint_count <= 256,
+            "skin draw requires the complete admitted palette");
+    double largest = 0;
+    for (const auto& matrix : skin->palette)
+        for (unsigned r = 0; r < 3; ++r)
+            for (unsigned c = 0; c < 4; ++c) {
+                require(std::isfinite(matrix.m[4 * r + c]), "nonfinite skin matrix");
+                if (c < 3)
+                    largest = std::max(largest, std::abs(matrix.m[4 * r + c]));
+            }
+    std::array<Row, 769> values{};
+    values[0] = {gpu(largest), view.orientation_reversed ? 1.f : 0.f, 0, 0};
+    require(largest == 0 || values[0][0] != 0, "skin linear scale underflows the GPU profile");
+    std::array<double, 3> extents{};
+    for (unsigned c = 0; c < 3; ++c) {
+        require(std::isfinite(skin->source_bounds.minimum[c]) &&
+                    std::isfinite(skin->source_bounds.maximum[c]) &&
+                    skin->source_bounds.minimum[c] <= skin->source_bounds.maximum[c],
+                "skin draw has invalid morphed source bounds");
+        extents[c] = std::max(std::abs(double(skin->source_bounds.minimum[c])),
+                              std::abs(double(skin->source_bounds.maximum[c])));
+    }
+    for (std::size_t i = 0; i < skin->palette.size(); ++i) {
+        const auto& matrix = skin->palette[i];
+        double norm = 0;
+        for (unsigned r = 0; r < 3; ++r) {
+            double products = 0;
+            auto& row = values[1 + 3 * i + r];
+            for (unsigned c = 0; c < 3; ++c) {
+                const double scaled = largest > 0 ? matrix.m[4 * r + c] / largest : 0;
+                row[c] = gpu(scaled);
+                products += std::abs(scaled) * extents[c];
+                norm = std::hypot(norm, matrix.m[4 * r + c]);
+            }
+            row[3] = gpu(matrix.m[4 * r + 3] - view.position[r]);
+            // Bound intermediate dot products as well as the final position,
+            // including float accumulation slack. Reject derived GPU overflow
+            // without changing authored transforms or the previously bound pose.
+            const double limit = std::numeric_limits<float>::max() /
+                                 (1 + 64 * double(std::numeric_limits<float>::epsilon()));
+            require(products <= limit && products * largest + std::abs(double(row[3])) <= limit,
+                    "skinned positions exceed the finite GPU profile");
+        }
+        require(double(thickness) * norm <= std::numeric_limits<float>::max(),
+                "skinned volume thickness exceeds the finite GPU profile");
+    }
+    return values;
+}
+
+void upload_morph_weights(IDeviceContext* context, IBuffer* buffer,
+                          std::span<const float> morph_weights, std::size_t target_count) {
+    require(morph_weights.size() == target_count &&
+                std::all_of(morph_weights.begin(), morph_weights.end(),
+                            [](float value) { return std::isfinite(value); }),
+            "morph weights must be finite and match every target");
+    MapHelper<Row> data(context, buffer, MAP_WRITE, MAP_FLAG_DISCARD);
+    require(static_cast<Row*>(data) != nullptr, "morph upload allocation failed");
+    std::fill_n(static_cast<Row*>(data), (morph_weights.size() + 3) / 4, Row{});
+    for (std::size_t i = 0; i < morph_weights.size(); ++i)
+        data[i / 4][i % 4] = morph_weights[i];
+}
+
 } // namespace
+unsigned MeshDraw::instance_rows() const {
+    return temporal_ ? temporal_instance_rows : sprite_ ? sprite_instance_rows : mesh_instance_rows;
+}
 MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
                    const GpuMeshPart& mesh, const MaterialData& source, const Textures& textures,
                    TEXTURE_FORMAT color_format, TEXTURE_FORMAT depth_format, bool enable_skin,
                    SHADER_COMPILER compiler, SHADER_OPTIMIZATION_LEVEL optimization,
                    const MaterialShaderSnapshot* surface, MeshDrawProfile draw_profile)
     : mesh_(mesh), shadow_pass_(color_format == TEX_FORMAT_UNKNOWN),
+      temporal_(draw_profile == MeshDrawProfile::MeshTemporal && !shadow_pass_),
       sprite_(sprite_draw_profile(draw_profile)),
       sprite_mips_(sprite_draw_mip_filter(draw_profile).has_value()) {
-    require(draw_profile == MeshDrawProfile::Mesh || sprite_, "unknown draw profile");
+    require(draw_profile == MeshDrawProfile::Mesh ||
+                draw_profile == MeshDrawProfile::MeshTemporal || sprite_,
+            "unknown draw profile");
+    require(!temporal_ ||
+                (source.depth_test && source.depth_write && source.alpha != MaterialAlpha::Blend),
+            "Temporal Mesh color requires depth-writing opaque or masked surfaces");
+    require(!temporal_ || !surface || surface->program.surface_wrapper_version >= 3,
+            "Rebuild this Shader to use temporal anti-aliasing");
     require(!sprite_ || !surface, "Sprite draw profile does not admit custom surfaces");
     sprite_trim_allowed_ = sprite_trim_material_compatible(source);
     device_ = presentation.device();
@@ -69,9 +145,9 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
         }
     } else
         profile = prepare_pbr_material(source);
-    const auto fetch = surface
-                           ? mesh_vertex_fetch(mesh, surface->program.surface->uv_sets, enable_skin)
-                           : mesh_vertex_fetch(mesh, *profile, enable_skin);
+    const auto fetch =
+        surface ? mesh_vertex_fetch(mesh, surface->program.surface->uv_sets, enable_skin, temporal_)
+                : mesh_vertex_fetch(mesh, *profile, enable_skin, temporal_);
 
     const auto sampler_binding = emulated_resource_arrays(presentation.device()->GetDeviceInfo())
                                      ? MaterialSamplerBinding::NamedElements
@@ -88,6 +164,8 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
         program = mesh_draw_shader(fetch, *profile, shadow_pass_, sampler_binding, nullptr, {},
                                    sprite_, sprite_draw_mip_filter(draw_profile));
     const auto& material = program.material;
+    require(!temporal_ || !program.transmission,
+            "Transmission draws follow temporal opaque accumulation");
     auto compile = [&](SHADER_TYPE stage, const std::string& code) {
         ShaderCreateInfo ci;
         ci.Desc.Name = "FORGE prepared mesh draw";
@@ -112,8 +190,9 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
     RefCntAutoPtr<IShader> pixel;
     SurfaceBindingLayout surface_layout;
     if (surface) {
-        const auto role =
-            shadow_pass_ ? ShaderEntryRole::SurfaceDepth : ShaderEntryRole::SurfaceColor;
+        const auto role = shadow_pass_ ? ShaderEntryRole::SurfaceDepth
+                          : temporal_  ? ShaderEntryRole::SurfaceTemporalColor
+                                       : ShaderEntryRole::SurfaceColor;
         auto native = realize_renderer_shader(presentation, surface->program);
         pixel = native.stages.at(ShaderStageKey{ShaderStage::Pixel, role});
         const auto stage = std::find_if(native.data.stages.begin(), native.data.stages.end(),
@@ -146,6 +225,13 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
     }
     if (fetch.skin)
         skin_ = buffer(device, "FORGE copied camera-relative skin", 769 * sizeof(Row));
+    if (temporal_) {
+        temporal_object_ =
+            buffer(device, "FORGE previous object and view", temporal_object_rows * sizeof(Row));
+        if (fetch.skin)
+            previous_skin_ =
+                buffer(device, "FORGE previous camera-relative skin", 769 * sizeof(Row));
+    }
     RefCntAutoPtr<IBuffer> morph_offsets;
     if (fetch.morph_count) {
         require(mesh.morph_defaults.size() == fetch.morph_count,
@@ -155,12 +241,14 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
                    fetch.morph_offsets.size() * sizeof(Row), fetch.morph_offsets.data());
         morph_weights_ = buffer(device, "FORGE copied morph weights",
                                 ((fetch.morph_count + 3) / 4) * sizeof(Row));
+        if (temporal_)
+            previous_morph_weights_ = buffer(device, "FORGE previous morph weights",
+                                             ((fetch.morph_count + 3) / 4) * sizeof(Row));
     }
     if (program.instanced) {
         BufferDesc desc;
         desc.Name = "FORGE static instance transforms";
-        desc.Size =
-            instance_limit * (sprite_ ? sprite_instance_rows : mesh_instance_rows) * sizeof(Row);
+        desc.Size = instance_limit * instance_rows() * sizeof(Row);
         desc.BindFlags = BIND_VERTEX_BUFFER;
         // A full Tile Map uses many Sprite batches in one frame. Streaming
         // those bytes through DISCARD would retain one allocation per batch
@@ -264,13 +352,15 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
     ci.pVS = vertex;
     ci.pPS = pixel;
     auto& g = ci.GraphicsPipeline;
-    g.NumRenderTargets = shadow_pass_ ? 0 : 1;
+    g.NumRenderTargets = shadow_pass_ ? 0 : temporal_ ? 2 : 1;
     g.RTVFormats[0] = color_format;
+    if (temporal_)
+        g.RTVFormats[1] = TEX_FORMAT_RGBA32_FLOAT;
     g.DSVFormat = depth_format;
     g.PrimitiveTopology = mesh.topology;
-    std::array<LayoutElement, sprite_instance_rows> instance_layout;
+    std::array<LayoutElement, temporal_instance_rows> instance_layout;
     if (program.instanced) {
-        const unsigned rows = sprite_ ? sprite_instance_rows : mesh_instance_rows;
+        const unsigned rows = instance_rows();
         for (unsigned i = 0; i < rows; ++i)
             instance_layout[i] =
                 LayoutElement{i, 0, 4, VT_FLOAT32, False, INPUT_ELEMENT_FREQUENCY_PER_INSTANCE};
@@ -314,6 +404,14 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
                  mesh.morphs->GetDefaultView(BUFFER_VIEW_SHADER_RESOURCE));
             bind(SHADER_TYPE_VERTEX, "ForgeMorphOffsets", morph_offsets);
             bind(SHADER_TYPE_VERTEX, "ForgeMorphWeights", morph_weights_);
+            if (temporal_)
+                bind(SHADER_TYPE_VERTEX, "ForgePreviousMorphWeights", previous_morph_weights_);
+        }
+        if (temporal_) {
+            bind(SHADER_TYPE_VERTEX, "ForgeTemporalObject", temporal_object_);
+            bind(SHADER_TYPE_PIXEL, "ForgeTemporalObject", temporal_object_);
+            if (previous_skin_)
+                bind(SHADER_TYPE_VERTEX, "ForgePreviousSkin", previous_skin_);
         }
         bind(SHADER_TYPE_PIXEL, "ForgeObject", object_, false);
         if (!shadow_pass_ &&
@@ -526,7 +624,7 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
                     const SkinPose* skin, std::span<const Instance> instances,
                     std::span<const MaterialParameterOverride> object_parameters,
                     std::string_view material_slot, const SpriteDrawValues* sprite,
-                    const SceneDistanceFog* fog) {
+                    const SceneDistanceFog* fog, const Motion* motion) {
     if (fog)
         validate_scene_distance_fog(*fog);
     require(shadow_pass_ || !fog || !fog->enabled || fog_supported_,
@@ -540,6 +638,50 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
                 "instance batch leader differs from draw transform");
     require(context && lights.size() <= mesh_draw_light_limit,
             "invalid context or light list exceeds draw profile");
+    require(temporal_ == bool(motion), "Mesh motion input differs from its prepared draw profile");
+    require(!motion || !motion->valid || motion->previous_view,
+            "Valid Mesh motion requires its completed-frame camera");
+    const auto& previous_view = motion && motion->valid ? *motion->previous_view : view;
+    const bool previous_valid = motion && motion->valid && motion->previous_world;
+    if (previous_valid) {
+        require(bool(skin_) == bool(motion->previous_skin),
+                "Previous Mesh motion has a different skin profile");
+        require(bool(morph_weights_) || motion->previous_morph_weights.empty(),
+                "Previous morph values were supplied without targets");
+    }
+    std::array<Row, temporal_object_rows> temporal{};
+    if (temporal_) {
+        require(view.viewport.width && view.viewport.height,
+                "Mesh motion requires a nonempty current viewport");
+        const auto previous_world = skin_            ? AffineTransform{}
+                                    : previous_valid ? *motion->previous_world
+                                                     : world;
+        const auto& origin = previous_valid ? previous_view.position : view.position;
+        for (unsigned r = 0; r < 3; ++r) {
+            for (unsigned c = 0; c < 3; ++c)
+                temporal[r][c] = gpu(previous_world.m[r * 4 + c]);
+            temporal[r][3] = gpu(previous_world.m[r * 4 + 3] - origin[r]);
+            temporal[3][r] = gpu(previous_view.right[r]);
+            temporal[4][r] = gpu(previous_view.up[r]);
+            temporal[5][r] = gpu(previous_view.forward[r]);
+        }
+        for (unsigned r = 0; r < 4; ++r)
+            for (unsigned c = 0; c < 4; ++c) {
+                const float value = previous_view.projection[r * 4 + c];
+                require(std::isfinite(value), "Nonfinite previous Mesh projection");
+                temporal[6 + r][c] = value;
+            }
+        for (unsigned axis = 0; axis < 2; ++axis) {
+            require(std::isfinite(motion->jitter[axis]) &&
+                        std::isfinite(motion->previous_jitter[axis]),
+                    "Nonfinite Mesh projection jitter");
+            temporal[10][axis] = motion->jitter[axis];
+            temporal[10][axis + 2] = motion->previous_jitter[axis];
+        }
+        temporal[11][0] = motion->valid && (instances_ || previous_valid) ? 1.f : 0.f;
+        temporal[12] = {float(view.viewport.x), float(view.viewport.y), float(view.viewport.width),
+                        float(view.viewport.height)};
+    }
     require(shadow_slots.empty() || shadow_slots.size() == lights.size(),
             "shadow selections differ from the selected light list");
     require(sprite_ || !sprite, "Sprite values require the Sprite draw profile");
@@ -565,68 +707,29 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
     if (morph_weights_) {
         if (morph_weights.empty())
             morph_weights = mesh_.morph_defaults;
-        require(morph_weights.size() == mesh_.morph_targets.size() &&
-                    std::all_of(morph_weights.begin(), morph_weights.end(),
-                                [](float value) { return std::isfinite(value); }),
-                "morph weights must be finite and match every target");
-        MapHelper<Row> data(context, morph_weights_, MAP_WRITE, MAP_FLAG_DISCARD);
-        require(static_cast<Row*>(data) != nullptr, "morph upload allocation failed");
-        std::fill_n(static_cast<Row*>(data), (morph_weights.size() + 3) / 4, Row{});
-        for (std::size_t i = 0; i < morph_weights.size(); ++i)
-            data[i / 4][i % 4] = morph_weights[i];
+        upload_morph_weights(context, morph_weights_, morph_weights, mesh_.morph_targets.size());
+        if (previous_morph_weights_)
+            upload_morph_weights(context, previous_morph_weights_,
+                                 previous_valid ? motion->previous_morph_weights : morph_weights,
+                                 mesh_.morph_targets.size());
     } else {
         require(morph_weights.empty(), "morph weights supplied to a mesh without targets");
     }
     if (skin_) {
-        require(skin && skin->palette.size() == mesh_.joint_palette.size(),
-                "skin draw requires the complete admitted palette");
-        double largest = 0;
-        for (const auto& matrix : skin->palette)
-            for (unsigned r = 0; r < 3; ++r)
-                for (unsigned c = 0; c < 4; ++c) {
-                    require(std::isfinite(matrix.m[4 * r + c]), "nonfinite skin matrix");
-                    if (c < 3)
-                        largest = std::max(largest, std::abs(matrix.m[4 * r + c]));
-                }
-        std::array<Row, 769> values{};
-        values[0] = {gpu(largest), view.orientation_reversed ? 1.f : 0.f, 0, 0};
-        require(largest == 0 || values[0][0] != 0, "skin linear scale underflows the GPU profile");
-        std::array<double, 3> extents{};
-        for (unsigned c = 0; c < 3; ++c) {
-            require(std::isfinite(skin->source_bounds.minimum[c]) &&
-                        std::isfinite(skin->source_bounds.maximum[c]) &&
-                        skin->source_bounds.minimum[c] <= skin->source_bounds.maximum[c],
-                    "skin draw has invalid morphed source bounds");
-            extents[c] = std::max(std::abs(double(skin->source_bounds.minimum[c])),
-                                  std::abs(double(skin->source_bounds.maximum[c])));
-        }
-        for (std::size_t i = 0; i < skin->palette.size(); ++i) {
-            const auto& matrix = skin->palette[i];
-            double norm = 0;
-            for (unsigned r = 0; r < 3; ++r) {
-                double products = 0;
-                auto& row = values[1 + 3 * i + r];
-                for (unsigned c = 0; c < 3; ++c) {
-                    const double scaled = largest > 0 ? matrix.m[4 * r + c] / largest : 0;
-                    row[c] = gpu(scaled);
-                    products += std::abs(scaled) * extents[c];
-                    norm = std::hypot(norm, matrix.m[4 * r + c]);
-                }
-                row[3] = gpu(matrix.m[4 * r + 3] - view.position[r]);
-                // Bound intermediate dot products as well as the final position,
-                // including float accumulation slack. Reject derived GPU overflow
-                // without changing authored transforms or the previously bound pose.
-                const double limit = std::numeric_limits<float>::max() /
-                                     (1 + 64 * double(std::numeric_limits<float>::epsilon()));
-                require(products <= limit && products * largest + std::abs(double(row[3])) <= limit,
-                        "skinned positions exceed the finite GPU profile");
-            }
-            require(double(volume_thickness_) * norm <= std::numeric_limits<float>::max(),
-                    "skinned volume thickness exceeds the finite GPU profile");
-        }
+        const auto values =
+            prepare_skin_values(skin, mesh_.joint_palette.size(), view, volume_thickness_);
         MapHelper<Row> mapped(context, skin_, MAP_WRITE, MAP_FLAG_DISCARD);
         require(static_cast<Row*>(mapped) != nullptr, "skin upload allocation failed");
         std::copy(values.begin(), values.end(), static_cast<Row*>(mapped));
+        if (previous_skin_) {
+            const auto previous =
+                previous_valid ? prepare_skin_values(motion->previous_skin,
+                                                     mesh_.joint_palette.size(), previous_view, 0)
+                               : values;
+            MapHelper<Row> old(context, previous_skin_, MAP_WRITE, MAP_FLAG_DISCARD);
+            require(static_cast<Row*>(old) != nullptr, "previous skin upload allocation failed");
+            std::copy(previous.begin(), previous.end(), static_cast<Row*>(old));
+        }
     } else
         require(!skin, "skin pose supplied to an unskinned mesh");
     if (fog_) {
@@ -708,6 +811,11 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
         require(static_cast<Row*>(values) != nullptr, "object upload allocation failed");
         std::copy(object.begin(), object.end(), static_cast<Row*>(values));
     }
+    if (temporal_) {
+        MapHelper<Row> values(context, temporal_object_, MAP_WRITE, MAP_FLAG_DISCARD);
+        require(static_cast<Row*>(values) != nullptr, "Mesh motion upload allocation failed");
+        std::copy(temporal.begin(), temporal.end(), static_cast<Row*>(values));
+    }
     if (lights_active_) {
         MapHelper<Row> values(context, lights_, MAP_WRITE, MAP_FLAG_DISCARD);
         require(static_cast<Row*>(values) != nullptr, "light upload allocation failed");
@@ -775,13 +883,14 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
     }
     if (instances_) {
         // Prepare the complete bounded batch before publishing any mapped bytes.
-        std::array<std::array<Row, sprite_instance_rows>, instance_limit> copied{};
-        const unsigned rows = sprite_ ? sprite_instance_rows : mesh_instance_rows;
+        std::array<Row, temporal_instance_rows * instance_limit> copied{};
+        const unsigned rows = instance_rows();
         const Instance single{world, legacy_tint ? std::optional(*legacy_tint) : std::nullopt,
-                              sprite};
+                              sprite, motion ? motion->previous_world : nullptr};
         const auto selected = instances.empty() ? std::span(&single, 1) : instances;
         for (std::size_t i = 0; i < selected.size(); ++i) {
             const auto& item = selected[i];
+            auto* output = copied.data() + i * rows;
             require(transform_parity(item.world) == transform_parity(world),
                     "instance batch mixes raster winding policies");
             double maximum = 0;
@@ -791,12 +900,11 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
                         maximum = std::max(maximum, std::abs(item.world.m[4 * r + c]));
             for (unsigned r = 0; r < 3; ++r) {
                 for (unsigned c = 0; c < 3; ++c) {
-                    copied[i][r][c] = gpu(item.world.m[4 * r + c]);
+                    output[r][c] = gpu(item.world.m[4 * r + c]);
                     if (!sprite_)
-                        copied[i][3 + r][c] =
-                            maximum > 0 ? gpu(item.world.m[4 * r + c] / maximum) : 0;
+                        output[3 + r][c] = maximum > 0 ? gpu(item.world.m[4 * r + c] / maximum) : 0;
                 }
-                copied[i][r][3] = gpu(item.world.m[4 * r + 3] - view.position[r]);
+                output[r][3] = gpu(item.world.m[4 * r + 3] - view.position[r]);
             }
             if (sprite_) {
                 const auto& values = *item.sprite;
@@ -805,31 +913,40 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
                 // row retains margins for all image modes.
                 for (unsigned axis = 0; axis < 2; ++axis) {
                     const auto& mapping = values.image.axes[axis];
-                    copied[i][3 + axis] = {gpu(mapping.source_low), gpu(mapping.source_high),
-                                           gpu(mapping.target_low), gpu(mapping.target_high)};
+                    output[3 + axis] = {gpu(mapping.source_low), gpu(mapping.source_high),
+                                        gpu(mapping.target_low), gpu(mapping.target_high)};
                 }
-                copied[i][5] = {float(values.image.mode), gpu(values.image.axes[0].repeat),
-                                gpu(values.image.axes[1].repeat), values.transpose_uv ? 1.f : 0.f};
+                output[5] = {float(values.image.mode), gpu(values.image.axes[0].repeat),
+                             gpu(values.image.axes[1].repeat), values.transpose_uv ? 1.f : 0.f};
                 if (values.image.mode == 0)
                     for (unsigned lane = 0; lane < 4; ++lane)
-                        copied[i][3][lane] = gpu(values.quad_crop[lane]);
-                copied[i][6] = values.color;
+                        output[3][lane] = gpu(values.quad_crop[lane]);
+                output[6] = values.color;
                 for (unsigned axis = 0; axis < 2; ++axis) {
-                    copied[i][7][axis] = gpu(values.region.origin[axis]);
-                    copied[i][7][axis + 2] = gpu(values.region.scale[axis]);
-                    copied[i][8][axis] = gpu(values.region.sample_minimum[axis]);
-                    copied[i][8][axis + 2] = gpu(values.region.sample_maximum[axis]);
+                    output[7][axis] = gpu(values.region.origin[axis]);
+                    output[7][axis + 2] = gpu(values.region.scale[axis]);
+                    output[8][axis] = gpu(values.region.sample_minimum[axis]);
+                    output[8][axis + 2] = gpu(values.region.sample_maximum[axis]);
                 }
                 for (unsigned lane = 0; lane < 4; ++lane)
-                    copied[i][9][lane] = gpu(values.quad_crop[lane]);
+                    output[9][lane] = gpu(values.quad_crop[lane]);
             } else if (item.legacy_tint) {
                 for (unsigned c = 0; c < 3; ++c) {
                     const auto value = (*item.legacy_tint)[c];
                     require(std::isfinite(value) && value >= 0 && value <= 1,
                             "invalid instance blockout color");
-                    copied[i][6][c] = value;
+                    output[6][c] = value;
                 }
-                copied[i][6][3] = 1;
+                output[6][3] = 1;
+            }
+            if (temporal_ && motion->valid && item.previous_world) {
+                for (unsigned r = 0; r < 3; ++r) {
+                    for (unsigned c = 0; c < 3; ++c)
+                        output[7 + r][c] = gpu(item.previous_world->m[4 * r + c]);
+                    output[7 + r][3] =
+                        gpu(item.previous_world->m[4 * r + 3] - previous_view.position[r]);
+                }
+                output[10][0] = 1;
             }
         }
         if (sprite_) {
@@ -839,7 +956,7 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
             MapHelper<Row> mapped(context, instances_, MAP_WRITE, MAP_FLAG_DISCARD);
             require(static_cast<Row*>(mapped) != nullptr, "instance upload allocation failed");
             for (std::size_t i = 0; i < selected.size(); ++i)
-                std::copy_n(copied[i].begin(), rows, static_cast<Row*>(mapped) + i * rows);
+                std::copy_n(copied.data() + i * rows, rows, static_cast<Row*>(mapped) + i * rows);
         }
         IBuffer* vertices[]{instances_};
         const Uint64 offset = 0;

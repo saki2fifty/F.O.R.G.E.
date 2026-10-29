@@ -3846,6 +3846,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "4df8a08b-a5e1-407b-8321-5f80efa720e2",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/102-temporal-antialiasing.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "4e61559a-9b35-4a46-bad1-8227c30ffe90",
       "metadata": {},
       "schema_version": 3,

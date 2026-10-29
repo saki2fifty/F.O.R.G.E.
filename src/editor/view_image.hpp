@@ -2,6 +2,7 @@
 #include "../asset_bytes.hpp"
 #include "../asset_storage.hpp"
 #include "../presentation_diligent.hpp"
+#include "../temporal_frame_sample.hpp"
 #include "../view_image.hpp"
 #include "editor_state.hpp"
 #include "file_dialog.hpp"
@@ -63,6 +64,21 @@ class ViewImageTask {
     enum class View { Scene, Game };
     bool busy() const { return dialog_.busy() || pending_ || copied_ || job_.valid() || frames_; }
     bool sequence_active() const { return bool(frames_); }
+    std::optional<TemporalFrameSample> temporal_sample() const {
+        if (!frames_ || operation_.empty() || frames_->finishing || frames_->cancelled ||
+            !frames_->error.empty() || !frames_->token ||
+            !frames_->timeline->frame_export_current(frames_->token))
+            return {};
+        try {
+            frames_->plan.validate(frames_->source.duration);
+            if (frames_->completed >= unsigned(frames_->plan.frame_count))
+                return {};
+            return TemporalFrameSample{AssetId::parse(operation_),
+                                       frames_->plan.sample(frames_->completed)};
+        } catch (const std::exception&) {
+            return {}; // The existing frame dialog owns invalid draft diagnostics.
+        }
+    }
     std::optional<SequenceFrameExtent> sequence_extent() const {
         if (!frames_ || frames_->finishing || frames_->cancelled || !frames_->error.empty() ||
             !frames_->token || !frames_->timeline->frame_export_current(frames_->token))

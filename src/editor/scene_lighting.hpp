@@ -4,6 +4,36 @@
 #include <forge/scene_render_settings.hpp>
 #include <numbers>
 namespace forge::ui {
+inline void scene_temporal_controls(const SceneTemporalAntiAliasing& settings, bool locked,
+                                    const std::function<void(const Json&)>& commit) {
+    IdScope scope("temporal_anti_aliasing");
+    const bool open = ImGui::CollapsingHeader("Temporal anti-aliasing");
+    FORGE_UI_PROBE("temporal:section");
+    if (!open)
+        return;
+    DisabledScope disabled(locked);
+    bool enabled = settings.enabled;
+    if (ImGui::Checkbox("Enable temporal anti-aliasing", &enabled))
+        commit({{"temporal_anti_aliasing", {{"enabled", enabled}}}});
+    FORGE_UI_PROBE("temporal:enabled");
+    float stability = settings.stability;
+    property_label_row("History stability",
+                       "History weight from 0 to 0.95. Enter commits one Undo step.");
+    if (ImGui::InputFloat("##stability", &stability, 0, 0, "%.3f",
+                          ImGuiInputTextFlags_EnterReturnsTrue))
+        commit({{"temporal_anti_aliasing", {{"stability", stability}}}});
+    FORGE_UI_PROBE("temporal:stability");
+    help("Higher stability smooths changing edges over more frames. Motion and depth reject "
+         "unrelated history; a camera cut or resize starts a fresh image.");
+    if (button("Reset temporal anti-aliasing", "Disable accumulation and restore stability 0.8."))
+        commit({{"temporal_anti_aliasing", {{"enabled", false}, {"stability", .8}}}});
+    FORGE_UI_PROBE("temporal:reset");
+    ImGui::TextWrapped(
+        "Accumulates opaque and masked Mesh geometry, including morphs and skinning. "
+        "Game cameras must clear both color and depth. Transparency, particles, "
+        "Sprites, Tile Maps, sky and overlays remain current-frame layers. "
+        "Custom surface Shaders need a current cook. Scene Save and Undo include these settings.");
+}
 inline void scene_distance_fog_controls(const SceneDistanceFog& settings, bool locked,
                                         const std::function<void(const Json&)>& commit) {
     IdScope scope("distance_fog");
@@ -240,6 +270,7 @@ inline void scene_lighting(bool& open, Scene& scene, const AssetCatalog* catalog
                  "mapping. With automatic exposure, this adds brightness compensation. Enter "
                  "commits.");
             scene_auto_exposure_controls(settings.auto_exposure, locked, commit);
+            scene_temporal_controls(settings.temporal_anti_aliasing, locked, commit);
             scene_distance_fog_controls(settings.distance_fog, locked, commit);
             scene_bloom_controls(settings.bloom, locked, commit);
             scene_color_controls(settings.color_adjustments, locked, commit);

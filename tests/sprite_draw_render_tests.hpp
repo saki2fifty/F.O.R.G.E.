@@ -17,6 +17,35 @@ inline void check(bool value, const char* why) {
     if (!value)
         throw std::runtime_error(why);
 }
+inline std::array<float, 4> read_float4_pixel(Diligent::IRenderDevice* device,
+                                              Diligent::IDeviceContext* context,
+                                              Diligent::ITexture* texture, unsigned x, unsigned y) {
+    using namespace Diligent;
+    auto desc = texture->GetDesc();
+    check(desc.Format == TEX_FORMAT_RGBA32_FLOAT && x < desc.Width && y < desc.Height,
+          "Float readback requires an in-range RGBA32_FLOAT pixel");
+    desc.Name = "FORGE test-only float pixel readback";
+    desc.BindFlags = BIND_NONE;
+    desc.Usage = USAGE_STAGING;
+    desc.CPUAccessFlags = CPU_ACCESS_READ;
+    RefCntAutoPtr<ITexture> staging;
+    device->CreateTexture(desc, nullptr, &staging);
+    check(bool(staging), "Float staging allocation failed");
+    context->SetRenderTargets(0, nullptr, nullptr, RESOURCE_STATE_TRANSITION_MODE_NONE);
+    context->CopyTexture({texture, RESOURCE_STATE_TRANSITION_MODE_TRANSITION, staging,
+                          RESOURCE_STATE_TRANSITION_MODE_TRANSITION});
+    context->WaitForIdle();
+    MappedTextureSubresource mapped;
+    context->MapTextureSubresource(staging, 0, 0, MAP_READ, MAP_FLAG_DO_NOT_WAIT, nullptr, mapped);
+    check(mapped.pData != nullptr, "Float readback mapping failed");
+    std::array<float, 4> result;
+    std::memcpy(result.data(),
+                static_cast<const std::byte*>(mapped.pData) + y * mapped.Stride +
+                    x * sizeof(result),
+                sizeof(result));
+    context->UnmapTextureSubresource(staging, 0, 0);
+    return result;
+}
 inline Pixels read_pixels(Diligent::IRenderDevice* device, Diligent::IDeviceContext* context,
                           Diligent::ITexture* texture) {
     using namespace Diligent;

@@ -3,38 +3,31 @@
 [Distance fog](distance-fog.md) is a geometry-surface operation before blending
 and HDR composition. It adds no depth/motion history or post-processing targets.
 
-## Original spatial bloom checkpoint — 2026-10-13
+## FORGE passes and upstream integration
 
-FORGE supplies its own bounded [spatial HDR bloom](hdr-bloom.md) in the Scene/Game
-renderer, using color only with explicit view isolation and resource limits. It
-does not integrate or copy the upstream effect. The temporal-input audit below
-still governs DiligentFX effects and future history; motion/depth history, temporal
-AA, SSAO and reflections remain separate work. Windows acceptance is separate from
-local Vulkan pixel checks.
+FORGE supplies independently authored [spatial HDR bloom](hdr-bloom.md),
+[automatic exposure](scene-auto-exposure.md) and
+[temporal anti-aliasing](temporal-antialiasing.md) through the existing rendering
+owners. Bloom uses color only. Automatic exposure meters composed Game HDR into
+a scalar gain history. Temporal anti-aliasing supplies real per-view motion,
+previous depth/camera data and previous posed Mesh geometry for its supported
+opaque/masked profile. These are separate passes with their documented admission,
+reset and budget rules. They do not expose the upstream effects as working toggles.
 
-[Automatic exposure](scene-auto-exposure.md) independently meters composed Game
-HDR color into a scalar GPU gain history through the existing frame/display owner.
-It needs compute support and explicit unscaled time/reset rules, but no motion,
-depth or upstream PostFXContext. This does not satisfy the temporal inputs below
-or expose the pinned upstream effects as working features.
-
-Verified2026-09-22 against pinned DiligentFX
-`aaa41d47a101d0bf1d12267c4a85b2d9b38cd1da`. This is an integration audit,
-not a claim that every linked upstream effect is available in FORGE.
-
-FORGE currently composes HDR color and depth, then uses its display resolve for
-exposure, tone mapping and display encoding. A composed frame can contain multiple
-camera rectangles. It does not currently supply motion vectors, previous-frame
-depth/camera history or normal/material render targets. Shared code uses Diligent
-resource and pipeline interfaces; these missing inputs are renderer work rather
-than a reason for D3D12-specific interfaces.
+The exact-source audit below was verified on2026-09-22 against pinned DiligentFX
+`aaa41d47a101d0bf1d12267c4a85b2d9b38cd1da`. It describes the upstream integration
+boundary, not the availability of FORGE's original passes. FORGE's derived temporal
+inputs remain with its own per-view frame/mesh owners; they are not currently
+published through upstream PostFXContext. Normal/material render targets and the
+additional inputs required by the deferred effects remain separate work. Windows
+acceptance is distinct from local software Vulkan pixel checks.
 
 ## Exact-source findings
 
 | Pinned utility | Required inputs / behavior | Phase7 disposition |
 | --- | --- | --- |
 | Bloom | Color input, plus a ready PostFXContext; a pending context returns the placeholder copy | Deferred with the temporal post-effect foundation; not exposed as a working toggle |
-| TemporalAntiAliasing | Color, jittered projection, accumulation history, context motion/depth/camera data | Deferred until motion/history ownership and reset rules exist |
+| TemporalAntiAliasing | Color, jittered projection, accumulation history, context motion/depth/camera data | Upstream module not enabled; FORGE supplies its own bounded temporal profile |
 | ScreenSpaceAmbientOcclusion | Depth, normal buffer and temporal context | Deferred until the required render targets/history exist |
 | ScreenSpaceReflection | Color, depth, normals, material buffer, motion vectors and temporal context | Deferred until the required render targets/history exist |
 | DepthOfField | Color/depth and temporal context | Deferred with camera-history and depth preparation |
@@ -47,9 +40,9 @@ and runs reprojection. Calling only `PrepareResources` does not make Bloom ready
 Supplying fabricated motion/history merely to enable Bloom would conceal missing
 contracts. Patching upstream or duplicating its implementation is not selected.
 
-These effects are deliberately deferred under Phase7's optional advanced
-post-processing clause. No Diligent upgrade is needed or proposed. Revisit them
-with a coherent per-view temporal pipeline: previous posed geometry and camera
+These upstream effects remain deferred under the optional advanced
+post-processing integration boundary. No Diligent upgrade is needed or proposed. Revisit their exact inputs and lifecycle before extending the current per-view
+temporal profile: previous posed geometry and camera
 matrices, motion/depth conventions, camera-cut/resize/reload/history invalidation,
 multiple-camera composition, format/capability admission and budget/retirement.
 That work must cover moving, skinned and morphing content, not only a static

@@ -157,6 +157,25 @@ for legacy in (False, True):
             assert not result['ok'] and discover()['revision'] == before['revision'], result
         assert mutate('forge_scene_rendering_set',
                       arguments=dict(distance_fog=dict(end=60)))['ok']
+        temporal_schema = exposure_command['input_schema']['properties']['temporal_anti_aliasing']
+        assert exposure_tool['inputSchema']['properties']['arguments']['properties']['temporal_anti_aliasing'] == temporal_schema
+        assert set(temporal_schema['properties']) == {'enabled', 'stability'}
+        assert temporal_schema['properties']['stability']['maximum'] == .95
+        temporal_arguments = arguments(arguments=dict(temporal_anti_aliasing=dict(
+            enabled=True, stability=.85)))
+        before_temporal = discover()
+        changed = client.tool('forge_scene_rendering_set', **temporal_arguments)
+        assert changed['ok'] and changed['revision'] != before_temporal['revision'], changed
+        assert client.tool('forge_scene_rendering_set', **temporal_arguments) == changed
+        assert mutate('forge_history_undo')['result']['changed']
+        assert mutate('forge_history_redo')['result']['changed']
+        for bad in (dict(enabled=1), dict(stability=-.01), dict(stability=.951),
+                    dict(stability='high')):
+            before = discover()
+            result = mutate('forge_scene_rendering_set', arguments=dict(temporal_anti_aliasing=bad))
+            assert not result['ok'] and discover()['revision'] == before['revision'], result
+        assert mutate('forge_scene_rendering_set',
+                      arguments=dict(temporal_anti_aliasing=dict(stability=.9)))['ok']
         # Existing project writer ownership remains exclusive across processes.
         lease = subprocess.run([sys.argv[1].replace('forge_tools', 'forge_live_tests'),
                                 '--lease', str(project)], input='', capture_output=True,
@@ -230,6 +249,7 @@ for legacy in (False, True):
             high_percentile=.9, target_gray=.2, speed_up=3, speed_down=4)
         assert saved_doc['rendering']['distance_fog'] == dict(
             enabled=True, color=[.1, .2, 2], start=5, end=60)
+        assert saved_doc['rendering']['temporal_anti_aliasing'] == dict(enabled=True, stability=.9)
         assert saved_doc['entities'][0]['name'] == 'Saved agent cube'
         body = saved_doc['entities'][0]['components']['forge.physics_body_2d']
         assert body['one_way'] and abs(body['one_way_margin'] - .05) < 1e-6, body

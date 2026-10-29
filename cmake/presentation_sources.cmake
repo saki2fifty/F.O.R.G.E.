@@ -13,6 +13,8 @@ set(forge_presentation_sources
  src/display_resolve.cpp
  src/auto_exposure.cpp
  src/hdr_bloom.cpp
+ src/temporal_filter.cpp
+ src/temporal_view.cpp
  src/texture_preview.cpp
  src/texture_gpu.cpp
  src/mesh_gpu.cpp

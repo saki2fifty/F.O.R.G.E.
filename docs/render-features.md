@@ -1,8 +1,9 @@
 # Rendering feature matrix
 
 The implementation below uses the shared Diligent renderer for Scene and authored
-Game cameras. Windows/D3D12 WARP renderer fixtures pass; the final combined package
-is verified separately. Test names identify concrete executable coverage.
+Game cameras. Existing Windows/D3D12 WARP foundation fixtures and newer local
+software Vulkan/UI/MCP checks have distinct coverage, identified below. The final
+combined package and physical hardware are verified separately. Test names identify concrete executable coverage.
 [Backend capabilities](render-backends.md) distinguish D3D12/WARP acceptance from
 Vulkan compile/device probes and unexecuted Metal/WebGPU mappings.
 
@@ -23,6 +24,7 @@ Vulkan compile/device probes and unexecuted Metal/WebGPU mappings.
 | Shadows | Directional cascades, spot maps and six point faces; mask-aware depth, caster/receiver/layer policy,3x3 PCF, cascade blend/fade | Native `shadow_view_tests.hpp`, `shadow_render_tests.hpp`; profile caps8 shadow lights and256MiB D32 payload, independently of device limits |
 | Environment/sky/IBL | Selected HDR/cube data, cached native prefiltering/BRDF LUT, sky and material illumination; scene-owned intensity/rotation | Resource/environment tests; native sky/IBL fixtures; no authored weather or atmospheric simulation |
 | Sprite/Tile frame mip filtering | Default-off Nearest/Linear level selection, isolated logical canvases, complete asynchronous replacement and shared texture residency | Numeric software Vulkan minification, trim/turn/fill/flip comparisons, Tile definition replacement, controls/MCP/installed SDK and source-free Gallery99. Windows/full editor/physical acceptance pending. [Contract](sprites.md#independent-frame-mip-filtering) |
+| Temporal anti-aliasing | Default-off per-view opaque/masked Mesh accumulation with real camera/object/morph/skin/instance motion, previous depth, bounded history and explicit capture sample resets | `temporal_filter_vulkan`, generated surface/graph checks in `sprite_vulkan`, Scene settings/UI/MCP and source-free Gallery102. Windows FXC/cooked-surface/full editor/physical GPU acceptance queued. [Contract](temporal-antialiasing.md) |
 | Distance fog | Optional radial linear-HDR geometry fading through Scene settings, alpha/mask and existing Mesh/Sprite/graph/custom surface wrappers | Numeric software Vulkan surface pixels, controls/MCP/history and source-free Gallery98; sky/background separate, no volumetrics/weather. [Contract](distance-fog.md) |
 | HDR and tone mapping | RGBA16F lighting, manual compensation and optional composed Game automatic exposure, native PBR Neutral tone map, one sRGB encoding into SDR display | Native `display_resolve_tests.hpp`, `frame_renderer_tests.hpp`, `auto_exposure_vulkan_probe.cpp`; bounded sampled histogram/adaptation, separate Scene View manual exposure; no HDR-monitor output |
 | Scene color adjustments | Optional linear HDR filter, mapped-linear saturation/contrast in the existing display pass; Scene Save/Undo/Play/export | Normal/sanitizer controls and software Vulkan numeric/Game/split-view/source-free checks; new D3D12 and physical acceptance pending. [Contract](scene-color-adjustments.md) |
@@ -42,11 +44,12 @@ change authored transform semantics. Static batching excludes morphing, skinning
 blended and transmissive color draws; shadow casters submit separately. Conventional
 transparent part sorting cannot resolve all intersecting surfaces or cyclic overlaps.
 
-The current forward pipeline has no motion-vector/previous-depth history.
+The forward pipeline supplies real view-local motion and previous depth for the
+original [temporal anti-aliasing profile](temporal-antialiasing.md).
 Original [spatial HDR bloom](hdr-bloom.md) uses a bounded color-only pass in Scene/Game.
-Upstream Bloom and temporal TAA/SSAO/SSR/DoF remain explicitly dispositioned in the
-[exact-pin post-processing audit](rendering-postprocessing.md), rather than exposed
-as controls that cannot work. Material/shader graph editing, path tracing, Gaussian
+Upstream Bloom/TAA/SSAO/SSR/DoF integration remains explicitly dispositioned in the
+[exact-pin post-processing audit](rendering-postprocessing.md); FORGE's original
+passes do not imply that those upstream modules are enabled. Material/shader graph editing, path tracing, Gaussian
 splatting, terrain and VFX authoring are separate domains, not implied by this table.
 
 The [rendering contract](rendering-foundation.md), [cameras/lights](cameras-lights.md),

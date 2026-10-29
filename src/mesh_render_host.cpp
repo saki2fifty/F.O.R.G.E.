@@ -77,7 +77,7 @@ std::optional<RenderBounds> MeshSceneRenderer::bounds() const {
     for (const auto& [id, entry] : entries_) {
         if (!entry.ready || id.second == DrawScope::TileMap)
             continue;
-        const auto box = mesh_instance_bounds(entry.pose, {0, 0, 0});
+        const auto box = mesh_instance_bounds(*entry.pose, {0, 0, 0});
         if (!result)
             result = box;
         else
@@ -125,7 +125,7 @@ std::optional<RenderBounds> MeshSceneRenderer::bounds(const RenderScene& scene,
         const auto found = entries_.find({mesh.entity, scope(mesh)});
         if (found == entries_.end() || !found->second.ready)
             return {};
-        const auto box = mesh_instance_bounds(found->second.pose, origin);
+        const auto box = mesh_instance_bounds(*found->second.pose, origin);
         if (!result)
             result = box;
         else
@@ -140,7 +140,7 @@ std::optional<RenderBounds> MeshSceneRenderer::bounds(const RenderScene& scene,
         const auto found = entries_.find({sprite.entity, DrawScope::Sprite});
         if (found == entries_.end() || !found->second.ready)
             return {};
-        const auto box = mesh_instance_bounds(found->second.pose, origin);
+        const auto box = mesh_instance_bounds(*found->second.pose, origin);
         if (!result)
             result = box;
         else
@@ -217,7 +217,7 @@ MeshSceneRenderer::pick_depth(const RenderScene& scene, const CameraView& camera
             return;
         const auto& entry = found->second;
         const auto order = entry.sprite && entry.sprite->ready ? entry.sprite->admitted.order : 0;
-        const auto bounds = mesh_instance_bounds(entry.pose, camera.position);
+        const auto bounds = mesh_instance_bounds(*entry.pose, camera.position);
         if (!bounds_visible(bounds, camera))
             return;
         // Conservative screen rectangle; crossing a clip plane disables this
@@ -245,8 +245,8 @@ MeshSceneRenderer::pick_depth(const RenderScene& scene, const CameraView& camera
         const auto lod = select_mesh_lod(data, bounds_screen_coverage(bounds, camera));
         const auto& parts = data.lods.at(lod).parts;
         for (unsigned p = 0; p < parts.size(); ++p)
-            if (const auto depth = pick_mesh_part(parts[p], entry.pose.lods.at(lod).at(p),
-                                                  entry.pose, camera, x, y, budget, radius))
+            if (const auto depth = pick_mesh_part(parts[p], entry.pose->lods.at(lod).at(p),
+                                                  *entry.pose, camera, x, y, budget, radius))
                 if (*depth < nearest ||
                     (*depth == nearest && (order > selected_order ||
                                            (order == selected_order && mesh.entity < selected)))) {
@@ -475,9 +475,30 @@ MeshSceneRenderer::MeshSceneRenderer(std::shared_ptr<MeshResourceHost> host,
     shadows_ = std::make_unique<ShadowRenderer>(host_->presentation_);
     transmission_ = std::make_unique<TransmissionBackground>(host_->presentation_);
 }
+std::shared_ptr<const MeshInstancePose>
+MeshSceneRenderer::Entry::stage_pose(MeshInstancePose value) const {
+    if (pose && *pose == value)
+        return pose;
+    if (previous_pose && *previous_pose == value)
+        return previous_pose;
+    return std::make_shared<const MeshInstancePose>(std::move(value));
+}
+void MeshSceneRenderer::commit_temporal_frame(bool enabled) {
+    host_->check_thread();
+    for (auto& [owner, entry] : entries_) {
+        if (enabled && owner.second == DrawScope::Mesh && entry.ready) {
+            entry.previous_mesh = entry.ready->mesh_identity();
+            entry.previous_pose = entry.pose;
+        } else {
+            entry.previous_pose.reset();
+            entry.previous_mesh.reset();
+        }
+    }
+}
 std::uint64_t MeshSceneRenderer::Entry::pose_bytes() const {
-    // The inline empty pose already belongs to the entry, not an allocation.
-    std::uint64_t bytes = ready ? mesh_pose_bytes(pose) : 0;
+    std::uint64_t bytes = pose ? mesh_pose_bytes(*pose) : 0;
+    if (previous_pose && previous_pose != pose)
+        bytes += mesh_pose_bytes(*previous_pose);
     if (ready)
         bytes += mesh_pose_bytes(ready->geometry());
     if (candidate_geometry && (!ready || candidate_geometry != ready->geometry_owner()))
@@ -561,8 +582,7 @@ MeshSceneRenderer::prepare_bundle(const asset_detail::PreparedModelDraw& prepare
     for (const auto& [old_key, weak] : bundles_) {
         (void)old_key;
         if (auto live = weak.lock())
-            for (const auto& lod : live->prepared().mesh->mesh.lods)
-                admit(lod.parts.size());
+            admit(live->draw_part_count());
     }
     auto next = std::make_shared<MeshDrawBundle>(
         host_->presentation_, host_->context_, prepared, host_->gpu_meshes_, host_->gpu_textures_,
@@ -769,11 +789,12 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
                     for (const auto& lod : candidate->mesh->mesh.lods)
                         thresholds.push_back(lod.screen_coverage);
                     native->environment(environment_ready_);
+                    auto selected_pose = entry.stage_pose(std::move(pose));
                     entry.ready = std::move(native);
                     entry.parameters = std::move(parameters);
                     entry.parameter_error.clear();
                     entry.resource_current = true;
-                    entry.pose = std::move(pose);
+                    entry.pose = std::move(selected_pose);
                     if (sprite_values) {
                         entry.sprite->admitted = entry.sprite->requested;
                         entry.sprite->draw = *sprite_values;
@@ -831,7 +852,7 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
                     entry.ready->prepared(), entry.requested_parameters);
                 admit_parameters(entry.requested_parameters, parameters);
                 std::optional<SpriteDrawValues> sprite_values;
-                std::optional<MeshInstancePose> sprite_pose;
+                std::shared_ptr<const MeshInstancePose> sprite_pose;
                 std::shared_ptr<SpriteMipBank> sprite_mips;
                 auto native = entry.ready;
                 if (input.sprite) {
@@ -855,10 +876,10 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
                                                 entry.ready->geometry_owner(), profile);
                     auto draw_mesh = mesh;
                     draw_mesh.world = sprite_world_transform(entry.sprite->requested, mesh.world);
-                    if (draw_mesh.world != entry.pose.world || !entry.pose_error.empty()) {
-                        sprite_pose = prepare_mesh_instance_pose(entry.ready->prepared().mesh.get(),
-                                                                 entry.ready->geometry(), draw_mesh,
-                                                                 model_index, available());
+                    if (draw_mesh.world != entry.pose->world || !entry.pose_error.empty()) {
+                        sprite_pose = entry.stage_pose(prepare_mesh_instance_pose(
+                            entry.ready->prepared().mesh.get(), entry.ready->geometry(), draw_mesh,
+                            model_index, available()));
                         if (sprite_pose->skinned)
                             throw std::runtime_error(
                                 "Sprite pose must remain static Quad geometry");
@@ -870,13 +891,13 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
                 entry.ready = std::move(native);
                 if (sprite_values) {
                     changed |= entry.sprite->admitted != entry.sprite->requested ||
-                               (sprite_pose && entry.pose != *sprite_pose);
+                               (sprite_pose && entry.pose != sprite_pose);
                     entry.sprite->admitted = entry.sprite->requested;
                     entry.sprite->draw = *sprite_values;
                     entry.sprite->ready = true;
                     entry.sprite->mips = std::move(sprite_mips);
                     if (sprite_pose)
-                        entry.pose = std::move(*sprite_pose);
+                        entry.pose = std::move(sprite_pose);
                     entry.pose_error.clear();
                     adopted = true;
                 }
@@ -898,17 +919,17 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
                 // Sprite always uses the admitted immutable, unskinned Quad. Its
                 // pose can change only with this matrix; ordinary model binding
                 // and morph/skin validation continue on every update below.
-                if (!input.sprite || draw_mesh.world != entry.pose.world ||
+                if (!input.sprite || draw_mesh.world != entry.pose->world ||
                     !entry.pose_error.empty()) {
-                    auto pose = prepare_mesh_instance_pose(entry.ready->prepared().mesh.get(),
-                                                           entry.ready->geometry(), draw_mesh,
-                                                           model_index, available());
-                    if (pose.skinned != entry.ready->skinned()) {
-                        if (entry.failed_skin_mode == pose.skinned)
+                    auto pose = entry.stage_pose(prepare_mesh_instance_pose(
+                        entry.ready->prepared().mesh.get(), entry.ready->geometry(), draw_mesh,
+                        model_index, available()));
+                    if (pose->skinned != entry.ready->skinned()) {
+                        if (entry.failed_skin_mode == pose->skinned)
                             throw std::runtime_error(entry.pose_error);
-                        entry.failed_skin_mode = pose.skinned;
+                        entry.failed_skin_mode = pose->skinned;
                         auto native = prepare_bundle(
-                            entry.ready->prepared(), pose.skinned, entry.ready->geometry_owner(),
+                            entry.ready->prepared(), pose->skinned, entry.ready->geometry_owner(),
                             input.sprite ? entry.ready->profile() : MeshDrawProfile::Mesh);
                         native->prepare_material_parameters(entry.parameters);
                         entry.ready = std::move(native);
@@ -1043,11 +1064,12 @@ bool MeshSceneRenderer::pending() const {
 }
 void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                              std::uint32_t layers, Diligent::ITexture* color,
-                             Diligent::ITextureView* depth) {
+                             Diligent::ITextureView* depth, TemporalPass* temporal) {
     host_->check_thread();
     if (scene.scene != scene_)
         throw std::runtime_error("Mesh draw scene differs from prepared scene");
     validate_scene_distance_fog(scene.settings.distance_fog);
+    const auto diagnostics_before = diagnostics_.size(), omitted_before = omitted_;
     struct Object {
         const RenderMesh* mesh;
         MeshDrawBundle* bundle;
@@ -1060,6 +1082,7 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
         DrawScope scope = DrawScope::Mesh;
         const AffineTransform* world = nullptr;
         const GpuLease<TextureAsset>* mip = nullptr;
+        const MeshInstancePose* previous_pose = nullptr;
     };
     struct Item {
         RenderSortKey key;
@@ -1076,7 +1099,7 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
         if (found == entries_.end() || !found->second.ready)
             return;
         auto& entry = found->second;
-        const auto& pose = instance_pose ? *instance_pose : entry.pose;
+        const auto& pose = instance_pose ? *instance_pose : *entry.pose;
         const auto queue_start = queue.size();
         try {
             const auto bounds = mesh_instance_bounds(pose, camera.position);
@@ -1090,6 +1113,10 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
             Object object{&mesh, entry.ready.get(), &pose, entry.parameters, lod, {}, {}};
             object.world = &pose.world;
             object.scope = draw_scope;
+            if (draw_scope == DrawScope::Mesh && entry.previous_pose && entry.previous_mesh &&
+                *entry.previous_mesh == entry.ready->mesh_identity() &&
+                entry.previous_pose->skinned == pose.skinned)
+                object.previous_pose = entry.previous_pose.get();
             if (draw_scope == DrawScope::Sprite) {
                 if (!entry.sprite || !entry.sprite->ready)
                     throw std::runtime_error("Sprite has no complete admitted draw values");
@@ -1281,6 +1308,106 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
         }
     std::sort(queue.begin(), queue.end(),
               [](const auto& a, const auto& b) { return render_key_less(a.key, b.key); });
+    const auto temporal_item = [&](const Item& item) {
+        return objects[item.object].scope == DrawScope::Mesh && !item.transmission &&
+               item.key.alpha != MaterialAlpha::Blend;
+    };
+    if (temporal) {
+        temporal->applied = temporal->successful = false;
+        try {
+            if (!temporal->begin || !temporal->resolve || !temporal->previous_parts ||
+                !temporal->current_parts ||
+                temporal->current.viewport.width != camera.viewport.width ||
+                temporal->current.viewport.height != camera.viewport.height)
+                throw std::invalid_argument(
+                    "Temporal view routing is incomplete or has wrong extent");
+            bool current_layer_seen = false;
+            for (const auto& item : queue) {
+                if (temporal_item(item) && current_layer_seen)
+                    throw std::runtime_error("Opaque layers precede later Mesh draws; the view "
+                                             "keeps ordinary draw ordering");
+                current_layer_seen |= !temporal_item(item);
+            }
+            const auto visible_parts =
+                std::size_t(std::count_if(queue.begin(), queue.end(), temporal_item));
+            if (visible_parts > temporal_mesh_part_limit)
+                throw std::runtime_error(
+                    "Temporal view exceeds the 65536 visible Mesh-part profile");
+            temporal->current_parts->clear();
+            temporal->current_parts->reserve(visible_parts);
+            for (const auto& item : queue)
+                if (temporal_item(item)) {
+                    const auto& object = objects[item.object];
+                    if (!object.bundle->temporal_prepared(object.lod, item.key.part)) {
+                        std::size_t count = 0;
+                        for (const auto& [key, weak] : bundles_) {
+                            (void)key;
+                            if (auto bundle = weak.lock()) {
+                                const auto parts = bundle->draw_part_count();
+                                if (parts > draw_part_limit_ - count)
+                                    throw DrawCapacityError(
+                                        "Temporal Mesh draw-part budget exceeded");
+                                count += parts;
+                            }
+                        }
+                        if (count == draw_part_limit_)
+                            throw DrawCapacityError("Temporal Mesh draw-part budget exceeded");
+                    }
+                    object.bundle->prepare_temporal(host_->context_, object.lod, item.key.part,
+                                                    object.parameters);
+                    temporal->current_parts->push_back(
+                        {object.mesh->entity, object.lod, item.key.part});
+                }
+            std::sort(temporal->current_parts->begin(), temporal->current_parts->end());
+        } catch (const std::exception& error) {
+            Diagnostic value{Severity::Warning,
+                             "render.temporal.unavailable",
+                             std::string("Temporal anti-aliasing unavailable: ") + error.what(),
+                             {}};
+            value.context.asset = scene_;
+            value.context.source = "presentation";
+            if (diagnostics_.size() < 256)
+                diagnostics_.push_back(std::move(value));
+            else
+                ++omitted_;
+            temporal = nullptr; // Entire view retains ordinary unjittered rendering.
+        }
+    }
+    if (temporal) {
+        temporal->begin();
+        temporal->applied = true;
+    }
+    bool temporal_resolved = !temporal;
+    const auto resolve_temporal = [&] {
+        if (!temporal_resolved) {
+            temporal->successful =
+                diagnostics_.size() == diagnostics_before && omitted_ == omitted_before;
+            temporal->resolve(temporal->successful);
+            temporal_resolved = true;
+        }
+    };
+    const auto has_previous_part = [&](const Object& object, unsigned part) {
+        return object.previous_pose && temporal &&
+               std::binary_search(temporal->previous_parts->begin(),
+                                  temporal->previous_parts->end(),
+                                  TemporalMeshPart{object.mesh->entity, object.lod, part});
+    };
+    const auto motion_for = [&](const Object& object, unsigned part) {
+        MeshDraw::Motion motion;
+        if (temporal) {
+            motion.previous_view = &temporal->previous;
+            motion.jitter = temporal->jitter;
+            motion.previous_jitter = temporal->previous_jitter;
+            motion.valid = temporal->valid;
+            if (has_previous_part(object, part)) {
+                motion.previous_world = &object.previous_pose->world;
+                motion.previous_morph_weights = object.previous_pose->morph_weights;
+                const auto& pose = object.previous_pose->lods.at(object.lod).at(part);
+                motion.previous_skin = pose.skin ? &*pose.skin : nullptr;
+            }
+        }
+        return motion;
+    };
     EnvironmentLighting lighting;
     if (environment_ready_)
         lighting = {&environment_ready_.get(), scene.settings.environment.intensity,
@@ -1304,6 +1431,10 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
     draw_stats_ = {};
     for (std::size_t cursor = 0; cursor < queue.size();) {
         const auto& item = queue[cursor++];
+        const bool accumulated = temporal && temporal_item(item);
+        if (!accumulated)
+            resolve_temporal();
+        const auto& draw_view = accumulated ? temporal->current : camera;
         if (needs_background && !captured && item.key.alpha == MaterialAlpha::Blend) {
             captured = true;
             try {
@@ -1329,14 +1460,17 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
         try {
             std::array<MeshDraw::Instance, MeshDraw::instance_limit> batch;
             std::size_t count = 1;
-            batch[0] = {*object.world, object.mesh->legacy_tint, object.sprite};
+            batch[0] = {*object.world, object.mesh->legacy_tint, object.sprite,
+                        has_previous_part(object, item.key.part) ? &object.previous_pose->world
+                                                                 : nullptr};
             const bool eligible = (item.key.alpha != MaterialAlpha::Blend || object.sprite) &&
                                   !item.transmission &&
                                   object.bundle->supports_instances(object.lod, item.key.part);
             while (eligible && cursor < queue.size() && count < batch.size()) {
                 const auto& next_item = queue[cursor];
                 const auto& next = objects[next_item.object];
-                if (next.bundle != object.bundle || next.lod != object.lod ||
+                if ((temporal && temporal_item(next_item)) != accumulated ||
+                    next.bundle != object.bundle || next.lod != object.lod ||
                     bool(next.mip) != bool(object.mip) ||
                     (object.mip && next.mip->source() != object.mip->source()) ||
                     next_item.key.part != item.key.part ||
@@ -1350,11 +1484,15 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                         slot_parameters(next.parameters,
                                         next.bundle->slot(next.lod, next_item.key.part))))
                     break;
-                batch[count++] = {*next.world, next.mesh->legacy_tint, next.sprite};
+                batch[count++] = {*next.world, next.mesh->legacy_tint, next.sprite,
+                                  has_previous_part(next, next_item.key.part)
+                                      ? &next.previous_pose->world
+                                      : nullptr};
                 ++cursor;
             }
+            const auto motion = motion_for(object, item.key.part);
             object.bundle->draw_part(
-                host_->context_, *object.world, camera, object.lights, object.lod, item.key.part,
+                host_->context_, *object.world, draw_view, object.lights, object.lod, item.key.part,
                 environment_ready_ ? &lighting : nullptr,
                 object.mesh->legacy_tint ? &*object.mesh->legacy_tint : nullptr,
                 &shadows_->lighting(), object.shadow_slots,
@@ -1362,7 +1500,8 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                 count > 1 ? std::span<const MeshDraw::Instance>(batch.data(), count)
                           : std::span<const MeshDraw::Instance>{},
                 slot_parameters(object.parameters, object.bundle->slot(object.lod, item.key.part)),
-                object.sprite, &scene.settings.distance_fog, object.mip);
+                object.sprite, &scene.settings.distance_fog, object.mip,
+                accumulated ? &motion : nullptr);
             ++draw_stats_.calls;
             draw_stats_.instances += count;
             draw_stats_.batched_calls += count > 1;
@@ -1377,14 +1516,16 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                 const auto& failed_item = queue[i];
                 const auto& single = objects[failed_item.object];
                 try {
+                    const auto motion = motion_for(single, failed_item.key.part);
                     single.bundle->draw_part(
-                        host_->context_, *single.world, camera, single.lights, single.lod,
+                        host_->context_, *single.world, draw_view, single.lights, single.lod,
                         failed_item.key.part, environment_ready_ ? &lighting : nullptr,
                         single.mesh->legacy_tint ? &*single.mesh->legacy_tint : nullptr,
                         &shadows_->lighting(), single.shadow_slots, nullptr, single.pose, {},
                         slot_parameters(single.parameters,
                                         single.bundle->slot(single.lod, failed_item.key.part)),
-                        single.sprite, &scene.settings.distance_fog, single.mip);
+                        single.sprite, &scene.settings.distance_fog, single.mip,
+                        accumulated ? &motion : nullptr);
                     ++draw_stats_.calls;
                     ++draw_stats_.instances;
                 } catch (const std::exception& error) {
@@ -1393,6 +1534,10 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
             }
         }
     }
+    resolve_temporal();
+    if (temporal)
+        temporal->successful &=
+            diagnostics_.size() == diagnostics_before && omitted_ == omitted_before;
 }
 void MeshSceneRenderer::shadows(const RenderScene& scene, const CameraView& camera,
                                 std::uint32_t layers) {
@@ -1415,9 +1560,9 @@ void MeshSceneRenderer::shadows(const RenderScene& scene, const CameraView& came
         if (found == entries_.end() || !found->second.ready)
             continue;
         try {
-            auto world_bounds = mesh_instance_bounds(found->second.pose, camera.position);
-            casters.push_back(
-                {&mesh, found->second.ready.get(), &found->second.pose, found->second.parameters});
+            auto world_bounds = mesh_instance_bounds(*found->second.pose, camera.position);
+            casters.push_back({&mesh, found->second.ready.get(), found->second.pose.get(),
+                               found->second.parameters});
             bounds.push_back({world_bounds, mesh.renderer.layers});
         } catch (const std::exception& error) {
             report(mesh.entity, error.what());

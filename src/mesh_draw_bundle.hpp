@@ -26,6 +26,14 @@ class MeshDrawBundle {
     void shadows(const ShadowLighting*);
     void transmission(const TransmissionLighting*);
     void prepare_material_parameters(std::span<const MaterialParameterOverride>);
+    // Specialize the same admitted part before a temporal view changes targets.
+    // Failure leaves the ordinary color and shadow draws available.
+    void prepare_temporal(Diligent::IDeviceContext*, unsigned lod, unsigned part,
+                          std::span<const MaterialParameterOverride> = {});
+    bool temporal_prepared(unsigned lod, unsigned part) const {
+        return bool(temporal_lods_.at(lod).at(part));
+    }
+    std::size_t draw_part_count() const;
     void draw_shadow(Diligent::IDeviceContext*, const AffineTransform&, const CameraView&,
                      unsigned lod = 0, const MeshInstancePose* pose = nullptr,
                      std::span<const MaterialParameterOverride> parameters = {});
@@ -41,7 +49,8 @@ class MeshDrawBundle {
                    std::span<const MeshDraw::Instance> instances = {},
                    std::span<const MaterialParameterOverride> parameters = {},
                    const SpriteDrawValues* sprite = nullptr, const SceneDistanceFog* fog = nullptr,
-                   const GpuLease<TextureAsset>* sprite_mip = nullptr);
+                   const GpuLease<TextureAsset>* sprite_mip = nullptr,
+                   const MeshDraw::Motion* motion = nullptr);
     std::string_view slot(unsigned lod, unsigned part) const {
         return prepared_.selection.bindings.at(info_.at(lod).at(part).binding).key;
     }
@@ -59,6 +68,10 @@ class MeshDrawBundle {
     std::size_t lod_count() const { return lods_.size(); }
 
   private:
+    std::unique_ptr<MeshDraw> prepare_draw(Diligent::IDeviceContext*, unsigned lod, unsigned part,
+                                           Diligent::TEXTURE_FORMAT, MeshDrawProfile);
+    DiligentPresentation& presentation_;
+    Diligent::TEXTURE_FORMAT color_, depth_;
     // CPU revision leases survive every derived pose and native binding.
     asset_detail::PreparedModelDraw prepared_;
     std::shared_ptr<const MeshPoseGeometry> geometry_;
@@ -72,5 +85,6 @@ class MeshDrawBundle {
     std::vector<std::vector<PartInfo>> info_;
     std::vector<std::vector<std::unique_ptr<MeshDraw>>> lods_;
     std::vector<std::vector<std::unique_ptr<MeshDraw>>> shadow_lods_;
+    std::vector<std::vector<std::unique_ptr<MeshDraw>>> temporal_lods_;
 };
 } // namespace forge

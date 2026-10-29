@@ -1,7 +1,7 @@
 # Scene lighting
 
 Use **Tools > Scene lighting...**, or search for **Scene / Lighting** in the Command
-Palette, to change the scene's environment, shadows, distance fog and display brightness. These settings
+Palette, to change the scene's environment, shadows, edge smoothing, distance fog and display brightness. These settings
 belong to the scene: **Save** keeps them, and **Undo / Redo** reverses each committed
 change. Opening this window keeps Scene as the active editing task.
 
@@ -42,6 +42,53 @@ Changes to intensity and rotation reuse the prepared environment; they do not re
 its lighting maps every frame. If a replacement cannot load, **Problems** explains the
 failure and the previous usable environment remains visible. Clear the field explicitly
 to remove that previous environment.
+
+## Smooth moving edges
+
+1. Stop Play and open **Tools > Scene lighting...**.
+2. Expand **Temporal anti-aliasing** and select **Enable temporal anti-aliasing**.
+3. Start with **History stability** at **0.8**. Press **Enter** to commit a typed value.
+4. Save the scene. Scene preview, Play and exported games use these saved settings.
+
+Temporal anti-aliasing combines several rendered frames to reduce flickering along
+geometry edges. Higher stability retains more of the previous image; lower values
+respond faster. The allowed range is **0–0.95**. Zero keeps the current jittered
+image without blending older color. Uncheck Enable to return to ordinary rendering.
+**Reset temporal anti-aliasing** disables it and restores stability **0.8** in one
+Undo step. Authored controls are read-only during Play.
+
+![Scene lighting showing temporal anti-aliasing enabled and history stability 0.800](../images/temporal-antialiasing-controls.png)
+
+Use History stability to balance edge smoothing and responsiveness.
+
+Open **102-temporal-antialiasing** in the Feature Gallery. Press Play to watch the
+pink foreground bar move across thin cyan and amber edges. Compare enabled and
+disabled views, and adjust stability after stopping Play. This scene uses an
+existing animation clip and requires no C++ module.
+
+![Moving pink foreground bar against thin cyan and amber diagonal Mesh edges](../images/temporal-antialiasing.png)
+
+Compare edge stability while the foreground bar reveals different parts of the background.
+
+Opaque and masked Mesh geometry participates, including moving objects, morph
+shapes and skinned characters. Transparent surfaces, particles, Sprites, Tile Maps,
+sky, editor guides and the game HUD keep their current-frame rendering. Each Game
+camera must have both **Clear color** and **Clear depth** enabled. A camera that
+loads an earlier view uses ordinary rendering and reports a warning in Problems.
+An opaque Sprite, Tile Map or particle ordered before a later Mesh draw also uses
+ordinary rendering for that view, preserving its existing depth and draw order.
+
+A camera cut, changed lens, resize, resource replacement or new explicit sequence
+sample starts a fresh image. Scene preview settles over eight frames, then reuses
+its image until something changes. Sequence frame capture waits for its sample to
+settle; opening or exporting a scene does not save this temporary image history.
+
+This option uses extra GPU memory and draw work. Game supports up to eight
+accumulated camera views within a shared 512 MiB texture-payload budget; Scene
+preview has its own 512 MiB budget. Device limits and allocation overhead also
+apply. An unsupported or oversized view uses ordinary rendering with a warning.
+If Problems requests a current surface Shader, reimport that Shader and rebuild
+its dependent Materials before comparing the result or exporting.
 
 ## Add distance fog
 

@@ -23,6 +23,15 @@ class MeshDraw {
         AffineTransform world;
         std::optional<std::array<float, 3>> legacy_tint;
         const SpriteDrawValues* sprite = nullptr; // Borrowed only until draw returns.
+        const AffineTransform* previous_world = nullptr;
+    };
+    struct Motion {
+        const CameraView* previous_view = nullptr;
+        const AffineTransform* previous_world = nullptr;
+        std::span<const float> previous_morph_weights;
+        const SkinPose* previous_skin = nullptr;
+        std::array<float, 2> jitter{}, previous_jitter{};
+        bool valid = false;
     };
     bool supports_instances() const { return bool(instances_); }
     using Textures = std::map<std::string, Diligent::RefCntAutoPtr<Diligent::ITextureView>>;
@@ -51,9 +60,10 @@ class MeshDraw {
               std::span<const Instance> instances = {},
               std::span<const MaterialParameterOverride> object_parameters = {},
               std::string_view material_slot = {}, const SpriteDrawValues* sprite = nullptr,
-              const SceneDistanceFog* fog = nullptr);
+              const SceneDistanceFog* fog = nullptr, const Motion* motion = nullptr);
 
   private:
+    unsigned instance_rows() const;
     const MaterialParameterUniform* material_parameter_binding(std::string_view) const;
     void object_material_values(Diligent::IDeviceContext*,
                                 std::span<const MaterialParameterOverride>, std::string_view slot);
@@ -68,10 +78,13 @@ class MeshDraw {
     Diligent::RefCntAutoPtr<Diligent::ITextureView> black_background_;
     bool shadow_pass_{};
     bool fog_supported_ = true;
+    bool temporal_{};
     bool sprite_{}, sprite_trim_allowed_{}, sprite_mips_{};
     bool lights_active_{};
     float volume_thickness_{};
     Diligent::RefCntAutoPtr<Diligent::IBuffer> morph_weights_, skin_, instances_;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> temporal_object_, previous_morph_weights_,
+        previous_skin_;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> material_immutable_, material_dynamic_;
     std::vector<std::byte> material_defaults_;
     std::vector<MaterialParameterUniform> material_parameters_;

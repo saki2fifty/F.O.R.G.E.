@@ -213,9 +213,9 @@ void composed_frames(forge::DiligentPresentation& presentation, IDeviceContext* 
     camera.camera.background_r = camera.camera.background_g = camera.camera.background_b = .02f;
     scene.cameras = {camera};
     const auto render = [&](FrameRenderer& frame, const RenderScene& source, double seconds,
-                            unsigned width = 64) {
+                            unsigned width = 64, const TemporalFrameSample* sample = nullptr) {
         presentation.begin_frame();
-        auto* output = frame.game(context, source, width, 32, seconds);
+        auto* output = frame.game(context, source, width, 32, seconds, sample);
         presentation.end_frame(context);
         auto pixels = readback(presentation.device(), context, output);
         context->FinishFrame();
@@ -295,6 +295,22 @@ void composed_frames(forge::DiligentPresentation& presentation, IDeviceContext* 
             prior.resources(nullptr);
         require(render(prior, next, 10.1, width) == render(fresh, next, 10.1, width),
                 "Target/camera/viewport/projection/resources retained unrelated exposure history");
+    }
+    {
+        FrameRenderer capture(presentation), fresh(presentation);
+        auto frozen = single;
+        TemporalFrameSample sample{AssetId::generate(), .25};
+        const auto first = render(capture, frozen, 1, 64, &sample);
+        require(render(capture, frozen, 90, 64, &sample) == first,
+                "Frozen sequence exposure depended on elapsed wall time");
+        sample.seconds = .5;
+        frozen.cameras[0].camera.background_r = frozen.cameras[0].camera.background_g =
+            frozen.cameras[0].camera.background_b = .02f;
+        const auto next = render(capture, frozen, 91, 64, &sample);
+        require(next == render(fresh, frozen, 500, 64, &sample),
+                "New sequence sample retained earlier automatic exposure");
+        require(render(capture, frozen, 1000, 64, &sample) == next,
+                "Sequence sample warmup changed its immediate exposure reference");
     }
     // Manual EV compensation and grading follow metering, and cannot feed it.
     scene.settings.exposure = .75f;

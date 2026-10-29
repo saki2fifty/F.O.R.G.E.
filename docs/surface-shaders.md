@@ -98,11 +98,23 @@ successful linear HDR surface color before blending. Mask discard, alpha and
 nonfinite diagnostic returns retain their existing semantics; depth wrappers do
 not fog. Project function signatures and material ownership remain unchanged.
 
-Cooked Shader metadata `surface_wrapper_version:2` records this contract independently
+Cooked Shader metadata `surface_wrapper_version:2` or later records this contract independently
 of optimized reflected bindings. The implicit legacy version 1 keeps its existing
 layout/bytes and works with fog disabled. Reimport the Shader and rebuild dependent
 Materials to use fog; embedded last-good programs remain the Material's authority.
 Only supported wrapper versions are admitted. New cooks need a matching engine.
+
+## Temporal color wrapper
+
+Capability 3 adds the [temporal color role](temporal-antialiasing.md) alongside
+ordinary color and depth. The engine-owned virtual interface supplies previous
+clip position with the same complete varying layout as the Mesh producer. Its
+strict reflected 208-byte motion buffer and recipe inputs stay with the existing
+Shader/Material owners. Old capabilities 1/2 keep ordinary rendering; reimport the
+Shader and rebuild dependent Materials to enable temporal rendering. An
+incompatible temporal view falls back before target switching with a warning.
+Generated-source Vulkan color/motion/alpha/diagnostic pixels and graph compilation
+are distinct from the queued Windows FXC worker/cooked D3D12 execution.
 
 ## Evidence
 

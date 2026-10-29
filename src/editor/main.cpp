@@ -6192,10 +6192,14 @@ int main(int argc, char** argv) {
                                                            : forge::RenderScene{};
                         if (game_view)
                             play.bind_tile_maps(copied_game_scene);
+                        const auto temporal_sample =
+                            sequence_camera_preview ? view_image.temporal_sample()
+                                                    : std::optional<forge::TemporalFrameSample>{};
                         auto* texture =
                             game_view
                                 ? game_viewport->game(context, std::move(copied_game_scene),
-                                                      render_width, render_height, ImGui::GetTime())
+                                                      render_width, render_height, ImGui::GetTime(),
+                                                      temporal_sample ? &*temporal_sample : nullptr)
                                 : viewport.render(context, rendered, render_width, render_height,
                                                   view_camera, view_cache.generation(),
                                                   performance.continuous,
@@ -6224,6 +6228,7 @@ int main(int argc, char** argv) {
                                 presentation, context, texture, message,
                                 !game_view ||
                                     (sequence_camera_preview && !game_viewport->pending() &&
+                                     game_viewport->temporal_ready() &&
                                      std::none_of(game_viewport->diagnostics().begin(),
                                                   game_viewport->diagnostics().end(),
                                                   [](const auto& d) {

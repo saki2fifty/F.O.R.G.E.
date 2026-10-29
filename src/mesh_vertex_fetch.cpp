@@ -56,6 +56,9 @@ void append_morph_fetch(MeshVertexFetch& result, const GpuMeshPart& mesh,
                             "else delta=asfloat(g_ForgeMorphDeltas.Load4(at));}\n"
                             "return delta;}\n";
         result.source = prefix + result.source;
+        if (result.temporal)
+            result.source = "cbuffer ForgePreviousMorphWeights {float4 g_PreviousMorphWeights[" +
+                            std::to_string((result.morph_count + 3) / 4) + "];};\n" + result.source;
         result.source += "[loop]for(uint t=0;t<" + std::to_string(result.morph_count) +
                          ";t++) {float w=g_MorphWeights[t/4][t%4];if(w!=0) {\n"
                          "v.Position+=ForgeMorphDelta(t,0,id).xyz*w;\n";
@@ -73,7 +76,7 @@ void append_morph_fetch(MeshVertexFetch& result, const GpuMeshPart& mesh,
 }
 } // namespace
 MeshVertexFetch mesh_vertex_fetch(const GpuMeshPart& mesh, std::span<const unsigned> uv_sets,
-                                  bool enable_skin) {
+                                  bool enable_skin, bool temporal) {
     using namespace Diligent;
     require(mesh.vertices && mesh.vertex_count && mesh.stride && mesh.stride % 4 == 0,
             "missing or invalid vertex buffer");
@@ -83,6 +86,7 @@ MeshVertexFetch mesh_vertex_fetch(const GpuMeshPart& mesh, std::span<const unsig
                 desc.Size <= std::numeric_limits<std::uint32_t>::max(),
             "raw vertex buffer range is unavailable");
     MeshVertexFetch result;
+    result.temporal = temporal;
     result.triangles = mesh.topology == PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
     require(uv_sets.size() <= 32 &&
                 std::set<unsigned>(uv_sets.begin(), uv_sets.end()).size() == uv_sets.size(),
@@ -115,6 +119,14 @@ MeshVertexFetch mesh_vertex_fetch(const GpuMeshPart& mesh, std::span<const unsig
             expression = "asfloat(" + expression + ")";
         if (semantic == "COLOR_0" && count == 3)
             expression = "float4(" + expression + ",1)";
+        if (semantic == "POSITION" && temporal) {
+            const auto at = result.source.find("struct ForgeMeshVertex");
+            require(at != std::string::npos, "base position helper lost its declaration scope");
+            result.source.insert(at, "float3 ForgeLoadBasePosition(uint id) {uint address=id*" +
+                                         std::to_string(mesh.stride) + "u;return " + expression +
+                                         ";}\n");
+            expression = "ForgeLoadBasePosition(id)";
+        }
         result.source += "v." + destination + " = " + expression + ";\n";
         return true;
     };
@@ -139,10 +151,19 @@ MeshVertexFetch mesh_vertex_fetch(const GpuMeshPart& mesh, std::span<const unsig
         append_morph_fetch(result, mesh, delta.Size);
     }
     result.source += "return v; }\n";
+    if (temporal) {
+        result.source += "float3 ForgeLoadPreviousPosition(uint id) {"
+                         "float3 position=ForgeLoadBasePosition(id);\n";
+        if (result.morph_count)
+            result.source += "[loop]for(uint t=0;t<" + std::to_string(result.morph_count) +
+                             ";t++){float weight=g_PreviousMorphWeights[t/4][t%4];"
+                             "if(weight!=0)position+=ForgeMorphDelta(t,0,id).xyz*weight;}\n";
+        result.source += "return position;}\n";
+    }
     return result;
 }
 MeshVertexFetch mesh_vertex_fetch(const GpuMeshPart& mesh, const PbrMaterialProfile& material,
-                                  bool enable_skin) {
+                                  bool enable_skin, bool temporal) {
     std::set<unsigned> sets;
     for (const auto& [name, texture] : material.values.textures) {
         (void)name;
@@ -150,6 +171,6 @@ MeshVertexFetch mesh_vertex_fetch(const GpuMeshPart& mesh, const PbrMaterialProf
     }
     require(sets.size() <= 19, "built-in UV role count exceeds the material profile");
     const std::vector<unsigned> ordered(sets.begin(), sets.end());
-    return mesh_vertex_fetch(mesh, ordered, enable_skin);
+    return mesh_vertex_fetch(mesh, ordered, enable_skin, temporal);
 }
 } // namespace forge

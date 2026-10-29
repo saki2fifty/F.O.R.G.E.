@@ -1,5 +1,16 @@
 # Feature Gallery
 
+## Temporal anti-aliasing
+
+Open **Scenes/102-temporal-antialiasing.scene.json** and press Play. The pink
+foreground bar moves and rotates across thin cyan and amber diagonal edges.
+Stop Play, open **Tools > Scene lighting... > Temporal anti-aliasing**, and compare
+enabled/disabled views or change **History stability** (0–0.95). Save the Scene
+before export. The original scene reuses the existing platform animation clip;
+no C++ module is required. Opaque and masked Mesh geometry accumulates; transparent,
+particle, Sprite/Tile and overlay layers retain their current-frame rendering.
+Both camera clears must be enabled for this profile.
+
 ## Tile collision profiles
 
 Open **Scenes/101-tile-collision-profiles.scene.json** and press Play. Circles

@@ -3,6 +3,8 @@
 #include "environment_sky.hpp"
 #include "hdr_bloom.hpp"
 #include "mesh_render_host.hpp"
+#include "temporal_frame_sample.hpp"
+#include "temporal_view.hpp"
 #include <optional>
 namespace forge {
 // Shared visual frame composition. No ImGui, editor camera, ECS ownership or
@@ -12,13 +14,17 @@ class FrameRenderer {
     explicit FrameRenderer(DiligentPresentation&, std::string profile_view = "Game");
     void resources(std::shared_ptr<MeshResourceHost>);
     Diligent::ITextureView* game(Diligent::IDeviceContext*, const nlohmann::json&, unsigned width,
-                                 unsigned height, double presentation_seconds = 0);
+                                 unsigned height, double presentation_seconds = 0,
+                                 const TemporalFrameSample* sample = nullptr);
     Diligent::ITextureView* game(Diligent::IDeviceContext*, RenderScene, unsigned width,
-                                 unsigned height, double presentation_seconds = 0);
+                                 unsigned height, double presentation_seconds = 0,
+                                 const TemporalFrameSample* sample = nullptr);
     Diligent::ITextureView* render(Diligent::IDeviceContext*, const RenderScene&,
                                    std::span<const PreparedCamera>, unsigned width, unsigned height,
                                    float exposure, const SceneAutoExposure* automatic = nullptr,
-                                   double presentation_seconds = 0);
+                                   double presentation_seconds = 0,
+                                   const TemporalFrameSample* sample = nullptr);
+    bool temporal_ready() const;
     bool pending() const { return meshes_ && meshes_->pending(); }
     const std::vector<Diagnostic>& diagnostics() const { return diagnostics_; }
     std::size_t omitted_diagnostics() const { return omitted_; }
@@ -64,5 +70,20 @@ class FrameRenderer {
     std::array<unsigned, 2> exposure_extent_{};
     std::optional<double> exposure_time_;
     bool exposure_was_pending_ = false;
+    struct TemporalCamera {
+        EntityId entity;
+        CameraView unjittered;
+        std::uint32_t layers = 0;
+        std::unique_ptr<TemporalView> history;
+        bool applied = false;
+    };
+    std::vector<TemporalCamera> temporal_cameras_;
+    AssetId temporal_scene_;
+    SceneRenderSettings temporal_settings_;
+    std::optional<double> temporal_time_;
+    std::uint64_t temporal_epoch_ = 0;
+    std::array<unsigned, 2> temporal_extent_{};
+    bool temporal_was_pending_ = false;
+    std::optional<TemporalFrameSample> temporal_sample_;
 };
 } // namespace forge

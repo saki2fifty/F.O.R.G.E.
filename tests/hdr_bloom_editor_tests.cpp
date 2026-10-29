@@ -15,6 +15,7 @@ void interactions(float scale, ImVec2 display) {
     auto extended = scene.document();
     extended["rendering"] = {{"version", 1u}, {"bloom", {{"extension", "retain"}}}};
     extended["rendering"]["auto_exposure"] = {{"extension", "retain"}};
+    extended["rendering"]["temporal_anti_aliasing"] = {{"extension", "retain"}};
     scene.reset(extended);
     const auto original = scene.document();
     ImGui::CreateContext();
@@ -34,6 +35,7 @@ void interactions(float scale, ImVec2 display) {
     bool color_controls = false;
     bool automatic_controls = false;
     bool fog_controls = false;
+    bool temporal_controls = false;
     bool full_owner = false;
     std::string error;
     unsigned commits = 0;
@@ -55,7 +57,9 @@ void interactions(float scale, ImVec2 display) {
                     ++commits;
                     error.clear();
                 };
-                if (fog_controls)
+                if (temporal_controls)
+                    ui::scene_temporal_controls(settings.temporal_anti_aliasing, locked, commit);
+                else if (fog_controls)
                     ui::scene_distance_fog_controls(settings.distance_fog, locked, commit);
                 else if (automatic_controls)
                     ui::scene_auto_exposure_controls(settings.auto_exposure, locked, commit);
@@ -260,6 +264,40 @@ void interactions(float scale, ImVec2 display) {
     locked = false;
     click("fog:section");
     fog_controls = false;
+    temporal_controls = true;
+    frame();
+    click("temporal:section");
+    const auto before_temporal = scene.document();
+    click("temporal:enabled");
+    check(scene_render_settings(scene.document()).temporal_anti_aliasing.enabled && scene.undo() &&
+              scene.document() == before_temporal && scene.redo(),
+          "Temporal checkbox bypassed Scene history");
+    type("temporal:stability", "0.9");
+    const auto stable = scene.document();
+    check(error.empty() &&
+              scene_render_settings(stable).temporal_anti_aliasing ==
+                  SceneTemporalAntiAliasing{true, .9f} &&
+              stable["rendering"]["temporal_anti_aliasing"]["extension"] == "retain",
+          "Temporal controls lost stability or opaque extensions");
+    type("temporal:stability", "1");
+    check(!error.empty() && scene.document() == stable, "Invalid temporal input changed Scene");
+    type("temporal:stability", "0.7");
+    check(error.empty() &&
+              scene_render_settings(scene.document()).temporal_anti_aliasing.stability == .7f,
+          "Temporal control failed to recover after rejected input");
+    const auto before_temporal_reset = scene.document();
+    click("temporal:reset");
+    check(scene_render_settings(scene.document()).temporal_anti_aliasing ==
+                  SceneTemporalAntiAliasing{} &&
+              scene.undo() && scene.document() == before_temporal_reset && scene.redo(),
+          "Temporal reset was not one reversible operation");
+    locked = true;
+    frame();
+    for (const auto* key : {"temporal:enabled", "temporal:stability", "temporal:reset"})
+        check(!test::ui_targets.at(key).enabled, "Temporal authored control enabled during Play");
+    locked = false;
+    click("temporal:section");
+    temporal_controls = false;
     // Exercise the real Scene lighting owner, including its Problems integration,
     // rather than inferring recovery from the callback used above.
     locked = false;
@@ -296,12 +334,24 @@ void interactions(float scale, ImVec2 display) {
               scene_render_settings(scene.document()).distance_fog.end == 80 &&
               context.task.owner == ui::DocumentTask::Scene,
           "Corrected fog retained a Problem or changed document ownership");
+    click("fog:section");
+    click("temporal:section");
+    context.task.focus_document("material", "Material");
+    type("temporal:stability", "1");
+    check(context.problems.size() == 1 && !context.problems.items().front().occurred_at.empty(),
+          "Actual temporal rejection lacked a timestamped Problem");
+    type("temporal:stability", "0.8");
+    check(context.problems.size() == 0 &&
+              scene_render_settings(scene.document()).temporal_anti_aliasing.stability == .8f &&
+              context.task.owner == ui::DocumentTask::Scene,
+          "Corrected temporal input retained its Problem or changed document ownership");
     test::observe_ui = false;
     ImGui::DestroyContext();
 }
-void capture(const std::filesystem::path& root, bool fog = false) {
+void capture(const std::filesystem::path& root, std::string_view kind = {}) {
+    const bool fog = kind == "--fog", temporal = kind == "--temporal";
     std::filesystem::create_directories(root);
-    const int capture_height = fog ? 360 : 900;
+    const int capture_height = fog ? 360 : temporal ? 420 : 900;
     const std::unique_ptr<SDL_Surface, decltype(&SDL_DestroySurface)> surface(
         SDL_CreateSurface(900, capture_height, SDL_PIXELFORMAT_RGBA32), SDL_DestroySurface);
     check(bool(surface), SDL_GetError());
@@ -330,9 +380,10 @@ void capture(const std::filesystem::path& root, bool fog = false) {
     Scene scene(engine.world());
     authoring_command(
         scene, "scene.rendering.set",
-        fog ? Json{{"distance_fog",
-                    {{"enabled", true}, {"color", {.25, .35, .5}}, {"start", 12}, {"end", 34}}}}
-            : Json{{"auto_exposure", {{"enabled", true}}}});
+        temporal ? Json{{"temporal_anti_aliasing", {{"enabled", true}, {"stability", .8}}}}
+        : fog ? Json{{"distance_fog",
+                      {{"enabled", true}, {"color", {.25, .35, .5}}, {"start", 12}, {"end", 34}}}}
+              : Json{{"auto_exposure", {{"enabled", true}}}});
     for (unsigned frame = 0; frame < 3; ++frame) {
         ImGui_ImplSDLRenderer3_NewFrame();
         ImGui::NewFrame();
@@ -344,7 +395,10 @@ void capture(const std::filesystem::path& root, bool fog = false) {
         const auto commit = [&](const Json& patch) {
             authoring_command(scene, "scene.rendering.set", patch);
         };
-        if (fog)
+        if (temporal)
+            ui::scene_temporal_controls(
+                scene_render_settings(scene.document()).temporal_anti_aliasing, false, commit);
+        else if (fog)
             ui::scene_distance_fog_controls(scene_render_settings(scene.document()).distance_fog,
                                             false, commit);
         else
@@ -357,17 +411,20 @@ void capture(const std::filesystem::path& root, bool fog = false) {
         ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData(), renderer.get());
         SDL_RenderPresent(renderer.get());
     }
-    check(SDL_SavePNG(surface.get(),
-                      (root / (fog ? "distance-fog-controls.png" : "automatic-exposure.png"))
-                          .string()
-                          .c_str()),
+    check(SDL_SavePNG(surface.get(), (root / (temporal ? "temporal-antialiasing-controls.png"
+                                              : fog    ? "distance-fog-controls.png"
+                                                       : "automatic-exposure.png"))
+                                         .string()
+                                         .c_str()),
           SDL_GetError());
 }
 } // namespace
 int main(int argc, char** argv) {
     try {
-        if (argc == 2 || (argc == 3 && std::string_view(argv[2]) == "--fog")) {
-            capture(std::filesystem::absolute(argv[1]), argc == 3);
+        if (argc == 2 || (argc == 3 && (std::string_view(argv[2]) == "--fog" ||
+                                        std::string_view(argv[2]) == "--temporal"))) {
+            capture(std::filesystem::absolute(argv[1]),
+                    argc == 3 ? std::string_view(argv[2]) : std::string_view{});
             return 0;
         }
         check(argc == 1, "Expected optional native lighting capture directory");

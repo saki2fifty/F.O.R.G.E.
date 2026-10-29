@@ -262,10 +262,32 @@ ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsig
     const auto key = viewport_frame_key(generation, width, height, camera, grid);
     // Static blockout preview only. Play renders continuously; future time-dependent
     // materials/effects must also opt out of retained EDIT frames.
-    if (!live && frame_ && *frame_ == key) {
+    const bool temporal_enabled =
+        display_ && meshes_ && mesh_scene_ && mesh_scene_->settings.temporal_anti_aliasing.enabled;
+    if (!frame_ || *frame_ != key)
+        temporal_settle_ = 8;
+    const bool temporal_warming =
+        temporal_enabled && temporal_ && temporal_->valid() && temporal_settle_ != 0;
+    if (!live && !temporal_warming && frame_ && *frame_ == key) {
         ++retained;
         return display_ ? display_->output() : color_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
     }
+    bool temporal_applied = false;
+    bool temporal_complete = false;
+    // Invalidate both derived owners on any failed render. No partial frame
+    // may become the next frame's previous geometry/camera.
+    struct TemporalGuard {
+        Viewport& owner;
+        bool& complete;
+        ~TemporalGuard() {
+            if (!complete) {
+                if (owner.temporal_)
+                    owner.temporal_->invalidate();
+                if (owner.meshes_)
+                    owner.meshes_->commit_temporal_frame(false);
+            }
+        }
+    } guard{*this, temporal_complete};
     if (!color_ || color_->GetDesc().Width != width || color_->GetDesc().Height != height) {
         RefCntAutoPtr<ITexture> color, depth;
         TextureDesc t;
@@ -423,8 +445,37 @@ ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsig
         Diligent::Viewport area{0.f, 0.f, float(width), float(height), 0.f, 1.f};
         context->SetViewports(1, &area, width, height);
         sky_.draw(context, view, mesh_scene_->settings.environment);
-        meshes_->draw(*mesh_scene_, view, UINT32_MAX, color_,
-                      depth_->GetDefaultView(TEXTURE_VIEW_DEPTH_STENCIL));
+        std::optional<MeshSceneRenderer::TemporalPass> temporal_pass;
+        if (temporal_enabled) {
+            const bool reset =
+                !temporal_camera_ || TemporalView::discontinuous(*temporal_camera_, view) ||
+                temporal_scene_ != mesh_scene_->scene || temporal_settings_ != lighting.settings ||
+                temporal_preview_lighting_ != preview_lighting_ ||
+                temporal_epoch_ != meshes_->resource_epoch() || temporal_pending_ ||
+                meshes_->pending() || (!live && temporal_generation_ != generation);
+            if (!temporal_)
+                temporal_ = std::make_unique<TemporalView>(presentation_, 512ull * 1024 * 1024);
+            temporal_->prepare(view, reset);
+            auto& pass = temporal_pass.emplace();
+            pass.current = temporal_->current();
+            pass.previous = temporal_->previous();
+            pass.jitter = temporal_->jitter();
+            pass.previous_jitter = temporal_->previous_jitter();
+            pass.valid = temporal_->valid();
+            pass.previous_parts = &temporal_->previous_parts();
+            pass.current_parts = &temporal_->pending_parts();
+            pass.begin = [&] { temporal_->begin(context, color_, dsv); };
+            pass.resolve = [&](bool complete) {
+                temporal_->resolve(context, mesh_scene_->settings.temporal_anti_aliasing.stability,
+                                   complete);
+            };
+        } else {
+            temporal_.reset();
+            temporal_camera_.reset();
+        }
+        meshes_->draw(*mesh_scene_, view, UINT32_MAX, color_, dsv,
+                      temporal_pass ? &*temporal_pass : nullptr);
+        temporal_applied = temporal_pass && temporal_pass->applied && temporal_pass->successful;
     }
     if (display_) {
         if (mesh_scene_) {
@@ -456,6 +507,22 @@ ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsig
         draw.Flags = DRAW_FLAG_VERIFY_ALL;
         context->Draw(draw);
     }
+    if (temporal_applied) {
+        temporal_->complete();
+        temporal_camera_ = scene_camera(camera, width, height);
+        temporal_settings_ = mesh_scene_->settings;
+        temporal_scene_ = mesh_scene_->scene;
+        temporal_epoch_ = meshes_->resource_epoch();
+        temporal_pending_ = meshes_->pending();
+        temporal_generation_ = generation;
+        temporal_preview_lighting_ = preview_lighting_;
+        if (temporal_settle_)
+            --temporal_settle_;
+    } else if (temporal_)
+        temporal_->invalidate();
+    if (meshes_)
+        meshes_->commit_temporal_frame(temporal_applied);
+    temporal_complete = true;
     ++redraws;
     frame_ = key;
     return display_ ? display_->output() : color_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);

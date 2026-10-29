@@ -100,6 +100,17 @@ history. Save through the existing document owner to retain settings for export.
 Read-only grants do not expose this mutation. These are authored Game settings,
 not a new live-Play control. See [automatic exposure](scene-auto-exposure.md).
 
+`scene.rendering.set` / `forge_scene_rendering_set` accepts
+`{"temporal_anti_aliasing":{"enabled":true,"stability":0.85}}`.
+The optional nested fields share Scene permissions, expected revision, replay,
+Undo/Redo and document saving with the human Scene lighting controls. Stability
+is finite 0–0.95; invalid candidates leave values and revision unchanged. Read-only
+connections do not advertise the mutation. Export retains the authored settings,
+not transient history. See [temporal anti-aliasing](temporal-antialiasing.md) for
+geometry, camera-clear, resource and validation limits. Explicit sequence captures
+reuse the capture owner's operation/sample identity and wait for temporal warmup;
+no agent-specific rendering or clock is introduced.
+
 `scene.rendering.set` / `forge_scene_rendering_set` also accepts
 `{"distance_fog":{"enabled":true,"color":[0.25,0.35,0.5],"start":12,"end":34}}`.
 Color is linear HDR RGB; start/end are ordered radial world metres. The same

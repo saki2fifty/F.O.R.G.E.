@@ -134,6 +134,37 @@ AssetId inspect_exposure(const std::filesystem::path& root) {
           "Gallery96 admission changed authored rendering settings");
     return found->first;
 }
+AssetId inspect_temporal(const std::filesystem::path& root) {
+    const auto catalog = AssetCatalog::open_project(root);
+    const auto id = AssetId::parse("4df8a08b-a5e1-407b-8321-5f80efa720e2");
+    const auto source = read(root / catalog.records().at(id).source);
+    EngineContext engine(WorldRole::Runtime, false, {animation_module(root)});
+    Scene scene(engine.world());
+    scene.restore_snapshot(source);
+    const auto animation = animation_runtime(engine.world());
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(15);
+    while (!animation->prepare_initial_pose()) {
+        check(std::chrono::steady_clock::now() < deadline, "Temporal Gallery clip timed out");
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    RuntimeSimulation simulation(engine.world(), scene);
+    simulation.reset_presentation();
+    const auto first = extract_render_scene(simulation.presentation(1));
+    for (unsigned i = 0; i < 90; ++i)
+        simulation.tick(1.f / 60);
+    const auto second = extract_render_scene(simulation.presentation(1));
+    check(first.settings.temporal_anti_aliasing == SceneTemporalAntiAliasing{true, .85f} &&
+              first.meshes.size() == 22 && first.cameras.size() == 1 && first.lights.size() == 1 &&
+              first.diagnostics.empty() && second.diagnostics.empty(),
+          "Temporal Gallery lost settings or shared geometry admission");
+    bool moved = false;
+    for (const auto& a : first.meshes)
+        for (const auto& b : second.meshes)
+            moved |= a.entity == b.entity && a.world != b.world;
+    check(moved && read(root / catalog.records().at(id).source) == source,
+          "Temporal Gallery did not animate independently of its saved Scene");
+    return id;
+}
 } // namespace
 int main(int argc, char** argv) {
     try {
@@ -159,9 +190,10 @@ int main(int argc, char** argv) {
         inspect_color(root);
         const auto exposure_scene = inspect_exposure(root);
         const auto fog_scene = inspect_distance_fog(root);
+        const auto temporal_scene = inspect_temporal(root);
         const std::array roots{source.at("asset_id").get<AssetId>(),
                                AssetId::parse("7456ed81-3d3b-45a6-8c7d-6b50073ad01a"),
-                               exposure_scene, fog_scene};
+                               exposure_scene, fog_scene, temporal_scene};
         {
             auto lease = std::make_shared<ProjectLease>(root);
             prepare_runtime_content_catalog(*lease, roots, {});
@@ -175,12 +207,13 @@ int main(int argc, char** argv) {
         expected.insert(materials.begin(), materials.end());
         expected.insert(AssetId::parse("4ab91f02-df69-47c5-a626-3b6c7504e954"));
         expected.insert(AssetId::parse("68d22705-0b64-4773-9661-8c28465e0d98"));
+        expected.insert(AssetId::parse("399c3c5e-f4e9-4ccb-94b3-bc0e518c1ece"));
         std::set<AssetId> actual;
         for (const auto& [id, record] : shipped.records()) {
             (void)record;
             actual.insert(id);
         }
-        check(actual == expected && expected.size() == 8,
+        check(actual == expected && expected.size() == 10,
               "Bloom/color/exposure/fog export changed its exact shared asset closure");
         check(!std::filesystem::exists(moved / "Assets/Exposure/Daylight.animation.json"),
               "Exposure clip source leaked into the runtime package");
@@ -195,6 +228,11 @@ int main(int argc, char** argv) {
               "Gallery96 relocation changed its stable Scene identity");
         check(inspect_distance_fog(moved) == fog_scene,
               "Gallery98 relocation changed fog settings or stable Scene identity");
+        check(inspect_temporal(moved) == temporal_scene &&
+                  !std::filesystem::exists(moved / "Assets/Platform.animation.json"),
+              "Temporal Gallery relocation changed identity or leaked its animation source");
+        std::cout
+            << "Gallery102 temporal settings, animated geometry and source-free relocation PASS\n";
         std::cout << "Gallery98 distance fog settings and source-free relocation PASS\n";
         std::cout
             << "Gallery48 runtime/cooked material/scene and relocated source-free export PASS\n";

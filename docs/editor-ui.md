@@ -183,8 +183,12 @@ and playing flags. Source/Scene/project/catalog changes or close/reopen invalida
 it; restoration only applies to the same surviving owner. Capture adds no Scene
 history entry or source/catalog write. Three consecutive ready Game renders are
 required for each held sample; resource errors or a missing camera prevent admission.
-The current renderer has no temporal accumulation to reset. A pending frame has a
-60-second resource-readiness deadline. Changing current-view render dimensions,
+With [temporal anti-aliasing](temporal-antialiasing.md), each explicit operation/
+sample-time key resets its view history and waits for eight completed accumulation
+frames before counting the three ready renders. Frozen sample warmup is independent
+of wall-clock/GPU/IO delay; automatic exposure starts immediately from that sample.
+Leaving capture resets derived history without changing the restored Timeline
+cursor. A pending frame has a 60-second resource-readiness deadline. Changing current-view render dimensions,
 losing Game, or receiving a target that does not match the requested fixed size
 cancels or fails explicitly rather than mixing output sizes.
 

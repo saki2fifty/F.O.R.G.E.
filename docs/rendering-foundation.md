@@ -58,6 +58,12 @@ Do not label an untested conversion as supported.
 
 ## Cameras, lighting and effects
 
+The optional [temporal anti-aliasing profile](temporal-antialiasing.md) accumulates
+opaque/masked Mesh geometry with actual object, skin/morph and camera motion. Its
+per-view history remains derived presentation data; culling, picking, shadows and
+other layers retain their existing owners. See that contract for clear semantics,
+reset rules and resource bounds.
+
 Native reflected Camera and Light components and their validated CPU adapters are
 implemented during Phase7. See[cameras and lights](cameras-lights.md) for projection,
 units, imported basis, numerical admission and history ownership. Game composition

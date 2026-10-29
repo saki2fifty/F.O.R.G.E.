@@ -22,9 +22,13 @@ MaterialLayout surface_material_layout(const SurfaceShaderDefinition&);
 void validate_surface_material(const MaterialData&, const SurfaceShaderDefinition&);
 // Generated engine source, captured with the same immutable worker request as
 // the authored function. The backend selects native/emulated bounded arrays.
-std::string surface_shader_header(const SurfaceShaderDefinition&, bool emulated_samplers = false);
+std::string surface_shader_header(const SurfaceShaderDefinition&, bool emulated_samplers = false,
+                                  bool temporal = false);
 std::string surface_shader_wrapper(std::string_view source, std::string_view function,
                                    bool depth_only);
+// Extend the engine-generated color wrapper; the authored function keeps its
+// ordinary surface input contract. The alternate header is an owned virtual file.
+std::string temporal_surface_wrapper(std::string color_wrapper);
 // Constant data is packed using copied, validated compiler reflection. Bindings
 // remain named Diligent resources; these offsets never enter authored assets.
 struct SurfaceParameterBinding {

@@ -1,6 +1,7 @@
 #include "mesh_draw_shader.hpp"
 #include "distance_fog_shader.hpp"
 #include "sprite_material_profile.hpp"
+#include "temporal_motion_shader.hpp"
 #include <algorithm>
 #include <limits>
 #include <stdexcept>
@@ -26,7 +27,8 @@ MeshGeometryShader mesh_geometry_shader(const MeshVertexFetch& fetch, bool allow
                                         bool sprite_profile) {
     const bool instanced = allow_instances && !fetch.skin && !fetch.morph_count;
     if (sprite_profile)
-        require(instanced && fetch.triangles && fetch.uv_sets == std::vector<unsigned>{0},
+        require(!fetch.temporal && instanced && fetch.triangles &&
+                    fetch.uv_sets == std::vector<unsigned>{0},
                 "Sprite geometry requires a static triangle mesh with UV0");
     const auto uv_count = std::max<std::size_t>(1, fetch.uv_sets.size());
     const std::string skin = fetch.skin ? R"(
@@ -52,14 +54,25 @@ cbuffer ForgeSkin {float4 g_SkinInfo;float4 g_SkinRows[768];};
     if (fetch.skin)
         varyings += "float3 Source:TEXCOORD" + std::to_string(4 + uv_count) +
                     ";float3 SkinRows[3]:TEXCOORD" + std::to_string(5 + uv_count) + ";";
+    if (fetch.temporal)
+        varyings += "float4 PreviousClip:TEXCOORD" + std::to_string(8 + uv_count) + ";";
     varyings += "};\n";
     std::string vs = std::string("#include \"ForgeSurface.fxh\"\n") + object_source + skin +
                      fetch.source + varyings;
+    if (fetch.temporal) {
+        vs += temporal_motion_uniform;
+        if (fetch.skin)
+            vs += "cbuffer ForgePreviousSkin {float4 g_PreviousSkinInfo;"
+                  "float4 g_PreviousSkinRows[768];};\n";
+    }
     if (instanced) {
         vs += "struct ForgeInstance {float4 R0:ATTRIB0;float4 R1:ATTRIB1;float4 R2:ATTRIB2;"
               "float4 B0:ATTRIB3;float4 B1:ATTRIB4;float4 B2:ATTRIB5;float4 Tint:ATTRIB6;";
         if (sprite_profile)
             vs += "float4 Atlas:ATTRIB7;float4 AtlasClamp:ATTRIB8;float4 Crop:ATTRIB9;";
+        if (fetch.temporal)
+            vs += "float4 PreviousR0:ATTRIB7;float4 PreviousR1:ATTRIB8;"
+                  "float4 PreviousR2:ATTRIB9;float4 PreviousInfo:ATTRIB10;";
         vs += "};\n";
     }
     vs += std::string("ForgeVarying main(uint id:SV_VertexID") +
@@ -89,6 +102,30 @@ cbuffer ForgeSkin {float4 g_SkinInfo;float4 g_SkinRows[768];};
         vs += "o.World=ForgePoint(v.Position);basis=float3x3(g_Object[3].xyz,g_Object[4].xyz,g_"
               "Object[5].xyz);\n";
     vs += "o.Position=ForgeProject(o.World);o.Color=v.Color;\n";
+    if (fetch.temporal) {
+        vs += "o.PreviousClip=0;if(g_TemporalObject[11].x!=0";
+        if (instanced)
+            vs += "&&instance.PreviousInfo.x!=0";
+        vs += "){float3 previous=ForgeLoadPreviousPosition(id);\n";
+        if (fetch.skin)
+            vs += R"hlsl(
+float4 previousRows[3];
+[unroll]for(uint r=0;r<3;r++)
+    previousRows[r]=weights.x*g_PreviousSkinRows[3*v.Joints.x+r]+
+                    weights.y*g_PreviousSkinRows[3*v.Joints.y+r]+
+                    weights.z*g_PreviousSkinRows[3*v.Joints.z+r]+
+                    weights.w*g_PreviousSkinRows[3*v.Joints.w+r];
+previous=mul(float3x3(previousRows[0].xyz,previousRows[1].xyz,previousRows[2].xyz),previous)*
+         g_PreviousSkinInfo.x+float3(previousRows[0].w,previousRows[1].w,previousRows[2].w);
+)hlsl";
+        else if (instanced)
+            vs += "float4 p=float4(previous,1);previous=float3(dot(instance.PreviousR0,p),"
+                  "dot(instance.PreviousR1,p),dot(instance.PreviousR2,p));\n";
+        else
+            vs += "float4 p=float4(previous,1);previous=float3(dot(g_TemporalObject[0],p),"
+                  "dot(g_TemporalObject[1],p),dot(g_TemporalObject[2],p));\n";
+        vs += "o.PreviousClip=ForgePreviousProject(previous);}\n";
+    }
     if (!sprite_profile) {
         vs += instanced ? "o.LegacyTint=instance.Tint;\n" : "o.LegacyTint=g_Object[14];\n";
         vs += R"(
@@ -586,6 +623,22 @@ float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
 })";
     }
 
+    if (fetch.temporal) {
+        require(!shadow_pass && !sprite_profile, "Temporal color requires the Mesh color pass");
+        const std::string entry =
+            "float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {";
+        const auto at = ps.find(entry);
+        require(at != std::string::npos, "Temporal Mesh color lost its shared entry");
+        ps.replace(at, entry.size(), "float4 ForgeTemporalColor(ForgeVarying input,bool front) {");
+        ps += std::string(temporal_motion_uniform) + temporal_motion_pixel + R"hlsl(
+ForgeTemporalTargets main(ForgeVarying input,bool front:SV_IsFrontFace) {
+    ForgeTemporalTargets result;
+    result.Color=ForgeTemporalColor(input,front);
+    result.Motion=ForgeTemporalMotion(input.PreviousClip,input.Position);
+    return result;
+}
+)hlsl";
+    }
     return {vs, ps, material, sheen, transmission, geometry, instanced};
 }
 std::string material_graph_shader_wrapper(const SurfaceShaderDefinition& definition,

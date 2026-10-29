@@ -57,6 +57,13 @@ struct SceneDistanceFog {
     bool operator==(const SceneDistanceFog&) const = default;
 };
 void validate_scene_distance_fog(const SceneDistanceFog&);
+// History weight for depth-writing Mesh geometry. Other layers remain current-frame draws.
+struct SceneTemporalAntiAliasing {
+    bool enabled = false;
+    float stability = .8f;
+    bool operator==(const SceneTemporalAntiAliasing&) const = default;
+};
+void validate_scene_temporal_anti_aliasing(const SceneTemporalAntiAliasing&);
 struct SceneRenderSettings {
     SceneEnvironment environment;
     SceneShadows shadows;
@@ -65,6 +72,7 @@ struct SceneRenderSettings {
     SceneColorAdjustments color_adjustments;
     SceneAutoExposure auto_exposure;
     SceneDistanceFog distance_fog;
+    SceneTemporalAntiAliasing temporal_anti_aliasing;
     bool operator==(const SceneRenderSettings&) const = default;
 };
 SceneRenderSettings scene_render_settings(const nlohmann::json& scene);

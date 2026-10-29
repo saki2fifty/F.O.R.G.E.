@@ -235,11 +235,17 @@ compile_diligent_shader(Diligent::IRenderDevice* device, const ShaderProgramSour
                                           diligent_shader_compiler_debug());
     const auto defines = select_shader_permutation(program, permutation);
     auto compiled_sources = sources;
-    if (program.surface)
+    if (program.surface) {
         require(compiled_sources
                     .emplace("engine/forge.surface.hlsli", surface_shader_header(*program.surface))
                     .second,
                 "Shader source attempts to replace the generated surface interface");
+        require(compiled_sources
+                    .emplace("engine/forge.surface.temporal.hlsli",
+                             surface_shader_header(*program.surface, false, true))
+                    .second,
+                "Shader source attempts to replace the generated temporal surface interface");
+    }
     validate_shader_sources(compiled_sources);
     std::vector<MemoryShaderSourceFileInfo> files;
     for (const auto& [name, source] : compiled_sources)
@@ -265,11 +271,13 @@ compile_diligent_shader(Diligent::IRenderDevice* device, const ShaderProgramSour
     result.data.row_major = program.row_major;
     result.data.compiler_debug = diligent_shader_compiler_debug();
     result.data.surface = program.surface;
-    result.data.surface_wrapper_version = program.surface ? 2 : 1;
+    result.data.surface_wrapper_version = program.surface ? 3 : 1;
     for (const auto& entry : program.stages) {
-        const std::vector roles = program.surface ? std::vector{ShaderEntryRole::SurfaceColor,
-                                                                ShaderEntryRole::SurfaceDepth}
-                                                  : std::vector{ShaderEntryRole::Program};
+        const std::vector roles =
+            program.surface
+                ? std::vector{ShaderEntryRole::SurfaceColor, ShaderEntryRole::SurfaceDepth,
+                              ShaderEntryRole::SurfaceTemporalColor}
+                : std::vector{ShaderEntryRole::Program};
         for (const auto role : roles) {
             device_profile(device, entry.stage);
             ShaderCreateInfo ci;
@@ -284,10 +292,11 @@ compile_diligent_shader(Diligent::IRenderDevice* device, const ShaderProgramSour
                                                               role == ShaderEntryRole::SurfaceDepth)
                               : surface_shader_wrapper(entry.source, entry.entry,
                                                        role == ShaderEntryRole::SurfaceDepth);
+                if (role == ShaderEntryRole::SurfaceTemporalColor)
+                    wrapper = temporal_surface_wrapper(std::move(wrapper));
                 ci.FilePath = nullptr;
                 ci.Source = wrapper.c_str();
-                ci.EntryPoint = role == ShaderEntryRole::SurfaceColor ? "ForgeSurfaceColor"
-                                                                      : "ForgeSurfaceDepth";
+                ci.EntryPoint = surface_shader_entry(role);
             }
             ci.SourceLanguage = SHADER_SOURCE_LANGUAGE_HLSL;
             ci.ShaderCompiler = SHADER_COMPILER_FXC;

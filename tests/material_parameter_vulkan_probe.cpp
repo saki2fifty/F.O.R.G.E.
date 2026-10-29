@@ -15,6 +15,7 @@
 #include <forge/scene.hpp>
 #include <fstream>
 #include <iostream>
+#include <limits>
 using namespace forge;
 using namespace Diligent;
 namespace {
@@ -486,6 +487,25 @@ void execute(const std::filesystem::path& root, const std::filesystem::path& gal
               renderer.bundle_count() == 1 && renderer.draw_stats().calls == 3 &&
               renderer.draw_stats().batched_calls == 1 && renderer.draw_stats().instances == 4,
           "Object values did not isolate native pixels or preserve equal/default batches");
+    const auto pose_bytes = renderer.pose_payload_bytes();
+    renderer.commit_temporal_frame(true);
+    check(renderer.pose_payload_bytes() == pose_bytes,
+          "Unchanged temporal poses duplicated the retained payload");
+    const auto old_world = scene.meshes[0].world;
+    scene.meshes[0].world.m[3] += .35;
+    const auto moved = draw();
+    check(moved != distinct && renderer.pose_payload_bytes() > pose_bytes,
+          "Moved pose did not retain its completed-frame predecessor");
+    const auto retained_pose_bytes = renderer.pose_payload_bytes();
+    scene.meshes[0].world.m[3] = std::numeric_limits<double>::infinity();
+    check(draw(true) == moved && renderer.pose_payload_bytes() == retained_pose_bytes,
+          "Rejected pose damaged the admitted draw or its completed-frame snapshot");
+    scene.meshes[0].world = old_world;
+    check(draw() == distinct && renderer.pose_payload_bytes() == pose_bytes,
+          "Returning to a retained pose failed to reuse its immutable values");
+    renderer.commit_temporal_frame(false);
+    check(renderer.pose_payload_bytes() == pose_bytes,
+          "Disabled temporal capture retained a second pose payload");
     image(root / "distinct.ppm", distinct);
     for (auto& mesh : scene.meshes)
         mesh.renderer.material_parameters = {red};

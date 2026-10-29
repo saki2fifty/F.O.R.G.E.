@@ -42,10 +42,11 @@ are unchanged. No new
 render target, depth sampling, texture allocation, CPU readback or submission wait
 is introduced. These bytes are buffer payload, not a physical VRAM bound.
 
-Shader recipe provenance includes the shared helper. Current cooked surfaces carry
-`surface_wrapper_version:2` in the existing Shader envelope and layout identity.
+Shader recipe provenance includes the shared helper. Fog-capable cooked surfaces carry
+`surface_wrapper_version:2` or later in the existing Shader envelope and layout identity.
 Version 1 is implicit for older artifacts; its layout digest and serialized bytes
-remain unchanged. The engine admits only versions 1 and 2. This is engine-owned cook
+remain unchanged. The engine admits versions 1, 2 and 3; version 3 adds the
+[temporal color role](temporal-antialiasing.md) without changing the ordinary fog behavior. This is engine-owned cook
 metadata, not a project HLSL declaration or a second capability database. It is
 necessary because optimization can legitimately remove a current wrapper's fog
 binding, especially for a constant diagnostic return. Optimized-out resources do

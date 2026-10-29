@@ -4,6 +4,7 @@
 #include "render_bounds.hpp"
 #include "shadow_renderer.hpp"
 #include "sprite_frame_mips.hpp"
+#include "temporal_geometry.hpp"
 #include "tile_asset_resources.hpp"
 #include "tile_draw_values.hpp"
 #include <forge/render_scene.hpp>
@@ -85,9 +86,25 @@ class MeshSceneRenderer {
                                std::size_t draw_part_limit = 4096,
                                std::uint64_t material_budget = 16 * 1024 * 1024);
     bool update(const RenderScene&);
+    // Capture the last completed rendered frame, after all its camera views.
+    // Authored updates may occur between frames; they must not advance history.
+    void commit_temporal_frame(bool enabled);
+    // Borrowed view-local pass routing. The queue, culling, sorting, batching and
+    // resources remain owned here; only eligible Mesh parts use the jittered view.
+    struct TemporalPass {
+        CameraView current, previous;
+        std::array<float, 2> jitter{}, previous_jitter{};
+        bool valid = false, applied = false, successful = false;
+        const TemporalMeshParts* previous_parts = nullptr;
+        TemporalMeshParts* current_parts = nullptr;
+        std::function<void()> begin;
+        std::function<void(bool complete_geometry)> resolve;
+    };
     void shadows(const RenderScene&, const CameraView&, std::uint32_t layers);
     void draw(const RenderScene&, const CameraView&, std::uint32_t layers,
-              Diligent::ITexture* color = nullptr, Diligent::ITextureView* depth = nullptr);
+              Diligent::ITexture* color = nullptr, Diligent::ITextureView* depth = nullptr,
+              TemporalPass* temporal = nullptr);
+    std::uint64_t resource_epoch() const { return host_->epoch_; }
     const std::vector<Diagnostic>& diagnostics() const { return diagnostics_; }
     std::size_t omitted_diagnostics() const { return omitted_; }
     // Asynchronous resource work only. A loaded candidate rejected by pose or
@@ -152,7 +169,9 @@ class MeshSceneRenderer {
         std::unique_ptr<SpriteValues> sprite;
         std::unique_ptr<asset_detail::ModelDrawCandidate> candidate;
         std::shared_ptr<MeshDrawBundle> ready;
-        MeshInstancePose pose;
+        std::shared_ptr<const MeshInstancePose> pose, previous_pose;
+        std::optional<ResourceIdentity> previous_mesh;
+        std::shared_ptr<const MeshInstancePose> stage_pose(MeshInstancePose) const;
         std::shared_ptr<const MeshPoseGeometry> candidate_geometry;
         std::vector<float> thresholds;
         std::vector<MaterialParameterOverride> requested_parameters, parameters;

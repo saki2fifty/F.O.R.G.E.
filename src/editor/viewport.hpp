@@ -9,6 +9,7 @@
 #include "mesh_render_host.hpp"
 #include "presentation_diligent.hpp"
 #include "scene_cache.hpp"
+#include "temporal_view.hpp"
 #include <forge/primitive_catalog.hpp>
 #include <forge/scene.hpp>
 namespace forge {
@@ -34,6 +35,8 @@ class Viewport {
             host ? std::make_unique<MeshSceneRenderer>(std::move(host), color_format_) : nullptr;
         mesh_scene_.reset();
         frame_.reset();
+        temporal_.reset();
+        temporal_camera_.reset();
     }
     const MeshSceneRenderer* meshes() const { return meshes_.get(); }
     const RenderScene* render_scene() const { return mesh_scene_ ? &*mesh_scene_ : nullptr; }
@@ -57,6 +60,13 @@ class Viewport {
     std::optional<RenderScene> mesh_scene_;
     std::uint64_t mesh_generation_ = 0;
     std::optional<ViewportFrameKey> frame_;
+    std::unique_ptr<TemporalView> temporal_;
+    std::optional<CameraView> temporal_camera_;
+    SceneRenderSettings temporal_settings_;
+    AssetId temporal_scene_;
+    std::uint64_t temporal_epoch_ = 0, temporal_generation_ = 0;
+    bool temporal_pending_ = false, temporal_preview_lighting_ = false;
+    unsigned temporal_settle_ = 0;
     Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device_;
     Diligent::RefCntAutoPtr<Diligent::ITexture> color_, depth_;
     std::array<Diligent::RefCntAutoPtr<Diligent::IPipelineState>, 3> pipelines_;

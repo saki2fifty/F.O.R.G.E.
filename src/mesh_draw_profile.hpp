@@ -5,7 +5,7 @@
 #include <stdexcept>
 namespace forge {
 // Transient pipeline specialization, never a durable asset/component identity.
-enum class MeshDrawProfile { Mesh, Sprite, SpriteMipNearest, SpriteMipLinear };
+enum class MeshDrawProfile { Mesh, Sprite, SpriteMipNearest, SpriteMipLinear, MeshTemporal };
 inline bool sprite_draw_profile(MeshDrawProfile profile) {
     return profile == MeshDrawProfile::Sprite || profile == MeshDrawProfile::SpriteMipNearest ||
            profile == MeshDrawProfile::SpriteMipLinear;

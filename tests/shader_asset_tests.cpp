@@ -178,8 +178,50 @@ int main() {
                         fog_surface.layout_digest() != legacy_layout,
                     "Optimized-out fog wrapper capability lost roundtrip or layout identity");
             auto future_surface = fog_surface;
-            future_surface.surface_wrapper_version = 3;
+            future_surface.surface_wrapper_version = 4;
             rejected([&] { validate_shader(future_surface); });
+            auto temporal_surface = fog_surface;
+            temporal_surface.surface_wrapper_version = 3;
+            rejected([&] { validate_shader(temporal_surface); });
+            auto temporal_reflection = reflection(ShaderStage::Pixel);
+            auto& object = temporal_reflection["resources"][0];
+            object["name"] = "ForgeTemporalObject";
+            object["size"] = 208;
+            object["variables"][0]["name"] = "g_TemporalObject";
+            object["variables"][0]["array_size"] = 13;
+            temporal_surface.stages.push_back(
+                {ShaderStage::Pixel,
+                 surface_shader_entry(ShaderEntryRole::SurfaceTemporalColor),
+                 {std::byte{3}},
+                 temporal_reflection,
+                 ShaderEntryRole::SurfaceTemporalColor});
+            const auto encoded_temporal = encode_shader(temporal_surface);
+            require(decode_shader(encoded_temporal).surface_wrapper_version == 3 &&
+                        encode_shader(decode_shader(encoded_temporal)) == encoded_temporal &&
+                        temporal_surface.layout_digest() != fog_surface.layout_digest() &&
+                        shader_entry_role("surface_temporal_color") ==
+                            ShaderEntryRole::SurfaceTemporalColor,
+                    "Temporal wrapper roles lost their capability or layout/codec identity");
+            auto bad_temporal = temporal_surface;
+            bad_temporal.stages.back().reflection["resources"] = Json::array();
+            rejected([&] { validate_shader(bad_temporal); });
+            bad_temporal = temporal_surface;
+            bad_temporal.stages.back().reflection["resources"][0]["size"] = 192;
+            rejected([&] { validate_shader(bad_temporal); });
+            bad_temporal = temporal_surface;
+            bad_temporal.stages.back().reflection["resources"][0]["variables"][0]["array_size"] =
+                12;
+            rejected([&] { validate_shader(bad_temporal); });
+            bad_temporal = temporal_surface;
+            bad_temporal.stages.back().entry = "ForgeSurfaceColor";
+            rejected([&] { validate_shader(bad_temporal); });
+            bad_temporal = temporal_surface;
+            bad_temporal.surface_wrapper_version = 2;
+            rejected([&] { validate_shader(bad_temporal); });
+            bad_temporal = temporal_surface;
+            bad_temporal.stages.front().reflection = temporal_reflection;
+            rejected([&] { validate_shader(bad_temporal); });
+            rejected([&] { surface_shader_entry(ShaderEntryRole::Program); });
             future_surface = fog_surface;
             future_surface.surface.reset();
             rejected([&] { validate_shader(future_surface); });

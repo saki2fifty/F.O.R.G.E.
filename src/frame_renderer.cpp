@@ -68,6 +68,9 @@ void FrameRenderer::resources(std::shared_ptr<MeshResourceHost> host) {
     if (thread_ != std::this_thread::get_id())
         throw std::runtime_error("Frame resources changed off presentation thread");
     sky_.select({});
+    temporal_cameras_.clear();
+    temporal_time_.reset();
+    temporal_sample_.reset();
     meshes_ = host ? std::make_unique<MeshSceneRenderer>(std::move(host), TEX_FORMAT_RGBA16_FLOAT)
                    : nullptr;
     exposure_time_.reset();
@@ -122,14 +125,16 @@ void FrameRenderer::report(const Diagnostic& value) {
         ++omitted_;
 }
 ITextureView* FrameRenderer::game(IDeviceContext* context, const nlohmann::json& source,
-                                  unsigned width, unsigned height, double seconds) {
-    return game(context, extract_render_scene(source), width, height, seconds);
+                                  unsigned width, unsigned height, double seconds,
+                                  const TemporalFrameSample* sample) {
+    return game(context, extract_render_scene(source), width, height, seconds, sample);
 }
 ITextureView* FrameRenderer::game(IDeviceContext* context, RenderScene scene, unsigned width,
-                                  unsigned height, double seconds) {
+                                  unsigned height, double seconds,
+                                  const TemporalFrameSample* sample) {
     const auto cameras = prepare_game_cameras(scene, width, height);
     auto* result = render(context, scene, cameras.cameras, width, height, scene.settings.exposure,
-                          &scene.settings.auto_exposure, seconds);
+                          &scene.settings.auto_exposure, seconds, sample);
     for (const auto& error : cameras.diagnostics)
         report(error);
     omitted_ += cameras.omitted_diagnostics;
@@ -139,15 +144,22 @@ ITextureView* FrameRenderer::game(IDeviceContext* context, RenderScene scene, un
 ITextureView* FrameRenderer::render(IDeviceContext* context, const RenderScene& scene,
                                     std::span<const PreparedCamera> cameras, unsigned width,
                                     unsigned height, float exposure,
-                                    const SceneAutoExposure* automatic, double seconds) {
+                                    const SceneAutoExposure* automatic, double seconds,
+                                    const TemporalFrameSample* sample) {
     if (thread_ != std::this_thread::get_id() || !context)
         throw std::runtime_error("Frame rendering requires its presentation thread and context");
     validate_scene_distance_fog(scene.settings.distance_fog);
+    validate_scene_temporal_anti_aliasing(scene.settings.temporal_anti_aliasing);
+    if (sample && (!sample->operation || !std::isfinite(sample->seconds) || sample->seconds < 0))
+        throw std::invalid_argument(
+            "Temporal frame sample requires an operation and finite nonnegative time");
+    const auto sample_key = sample ? std::optional<TemporalFrameSample>(*sample) : std::nullopt;
     if (automatic)
         validate_scene_auto_exposure(*automatic);
     const bool adaptive = automatic && automatic->enabled;
-    const auto exposure_timing =
-        adaptive ? auto_exposure_timing(exposure_time_, seconds) : AutoExposureTiming{};
+    const auto exposure_timing = !adaptive ? AutoExposureTiming{}
+                                 : sample  ? AutoExposureTiming{0, temporal_sample_ != sample_key}
+                                           : auto_exposure_timing(exposure_time_, seconds);
     if (adaptive)
         exposure_views_.reserve(
             cameras.size()); // Stage allocation before rendering/history adoption.
@@ -164,7 +176,7 @@ ITextureView* FrameRenderer::render(IDeviceContext* context, const RenderScene& 
     bool reset_exposure = exposure_timing.reset || exposure_scene_ != scene.scene ||
                           exposure_extent_ != std::array<unsigned, 2>{width, height} ||
                           exposure_views_.size() != cameras.size() || pending_resources ||
-                          exposure_was_pending_;
+                          exposure_was_pending_ || temporal_sample_ != sample_key;
     if (adaptive && !reset_exposure)
         for (std::size_t i = 0; i < cameras.size(); ++i)
             if (exposure_views_[i] != ExposureView{cameras[i].entity, cameras[i].view.viewport,
@@ -172,6 +184,51 @@ ITextureView* FrameRenderer::render(IDeviceContext* context, const RenderScene& 
                 reset_exposure = true;
                 break;
             }
+    const auto temporal_settings = scene.settings.temporal_anti_aliasing;
+    const bool temporal_enabled = temporal_settings.enabled && meshes_;
+    const auto epoch = meshes_ ? meshes_->resource_epoch() : 0;
+    constexpr std::uint64_t temporal_budget = 512ull * 1024 * 1024;
+    bool reset_temporal =
+        temporal_scene_ != scene.scene || temporal_epoch_ != epoch ||
+        temporal_extent_ != std::array<unsigned, 2>{width, height} ||
+        temporal_settings_ != scene.settings || pending_resources || temporal_was_pending_ ||
+        temporal_sample_ != sample_key ||
+        (!sample && (!temporal_time_ || !std::isfinite(seconds) || seconds < *temporal_time_ ||
+                     seconds - *temporal_time_ > .5));
+    bool same_cameras = temporal_cameras_.size() == cameras.size();
+    if (same_cameras)
+        for (std::size_t i = 0; i < cameras.size(); ++i)
+            same_cameras &= temporal_cameras_[i].entity == cameras[i].entity;
+    if (!temporal_enabled || !same_cameras) {
+        temporal_cameras_.clear();
+        if (temporal_enabled) {
+            temporal_cameras_.reserve(cameras.size());
+            for (const auto& camera : cameras)
+                temporal_cameras_.push_back(
+                    {camera.entity, camera.view, camera.settings.layers, {}, false});
+        }
+        reset_temporal = true;
+    }
+    // A frame failure never publishes partial view or geometry history.
+    bool frame_completed = false;
+    struct TemporalGuard {
+        FrameRenderer& owner;
+        bool& completed;
+        ~TemporalGuard() {
+            if (completed)
+                return;
+            for (auto& camera : owner.temporal_cameras_)
+                if (camera.history)
+                    camera.history->invalidate();
+            if (owner.meshes_)
+                owner.meshes_->commit_temporal_frame(false);
+            owner.temporal_time_.reset();
+            owner.temporal_sample_.reset();
+            owner.exposure_time_.reset();
+        }
+    } temporal_guard{*this, frame_completed};
+    std::uint64_t temporal_bytes = 0;
+    std::size_t camera_index = 0;
     auto* rtv = color_->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET);
     auto* dsv = depth_->GetDefaultView(TEXTURE_VIEW_DEPTH_STENCIL);
     {
@@ -183,6 +240,11 @@ ITextureView* FrameRenderer::render(IDeviceContext* context, const RenderScene& 
                                    RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     }
     for (const auto& camera : cameras) {
+        TemporalCamera* temporal_camera =
+            temporal_enabled ? &temporal_cameras_[camera_index] : nullptr;
+        ++camera_index;
+        if (temporal_camera)
+            temporal_camera->applied = false;
         const auto& area = camera.view.viewport;
         if (!area.width || !area.height || area.x >= width || area.y >= height ||
             area.width > width - area.x || area.height > height - area.y)
@@ -205,8 +267,67 @@ ITextureView* FrameRenderer::render(IDeviceContext* context, const RenderScene& 
             clear_camera(context, camera.settings);
             if (camera.settings.clear_color)
                 sky_.draw(context, camera.view, scene.settings.environment);
+            std::optional<MeshSceneRenderer::TemporalPass> temporal_pass;
+            if (temporal_camera) {
+                try {
+                    const auto pixels = std::uint64_t(area.width) * area.height;
+                    if (!camera.settings.clear_color || !camera.settings.clear_depth)
+                        throw std::runtime_error("Camera must clear both color and depth");
+                    if (camera_index > 8 ||
+                        pixels > (temporal_budget - temporal_bytes) / TemporalView::bytes_per_pixel)
+                        throw std::runtime_error(
+                            "Views exceed the eight-camera / 512 MiB temporal texture budget");
+                    temporal_bytes += pixels * TemporalView::bytes_per_pixel;
+                    auto& state = *temporal_camera;
+                    const auto& old = state.unjittered;
+                    const bool reset = reset_temporal ||
+                                       TemporalView::discontinuous(old, camera.view) ||
+                                       state.layers != camera.settings.layers;
+                    if (!state.history)
+                        state.history = std::make_unique<TemporalView>(
+                            presentation_, pixels * TemporalView::bytes_per_pixel);
+                    // A resized view needs a new budget-sized owner, before rendering.
+                    if (old.viewport.width != area.width || old.viewport.height != area.height)
+                        state.history = std::make_unique<TemporalView>(
+                            presentation_, pixels * TemporalView::bytes_per_pixel);
+                    state.history->prepare(camera.view, reset);
+                    auto& pass = temporal_pass.emplace();
+                    pass.current = state.history->current();
+                    pass.previous = state.history->previous();
+                    pass.jitter = state.history->jitter();
+                    pass.previous_jitter = state.history->previous_jitter();
+                    pass.valid = state.history->valid();
+                    pass.previous_parts = &state.history->previous_parts();
+                    pass.current_parts = &state.history->pending_parts();
+                    pass.begin = [&, history = state.history.get()] {
+                        history->begin(context, color_, dsv);
+                    };
+                    pass.resolve = [&, history = state.history.get()](bool complete) {
+                        history->resolve(context, temporal_settings.stability, complete);
+                    };
+                } catch (const std::exception& error) {
+                    temporal_camera->history.reset();
+                    Diagnostic value{Severity::Warning,
+                                     "render.temporal.unavailable",
+                                     std::string("Temporal anti-aliasing unavailable: ") +
+                                         error.what(),
+                                     {}};
+                    value.context.entity = camera.entity;
+                    value.context.asset = scene.scene;
+                    value.context.source = "presentation";
+                    report(value);
+                    temporal_pass.reset();
+                }
+            }
             if (meshes_)
-                meshes_->draw(scene, camera.view, camera.settings.layers, color_, dsv);
+                meshes_->draw(scene, camera.view, camera.settings.layers, color_, dsv,
+                              temporal_pass ? &*temporal_pass : nullptr);
+            if (temporal_camera) {
+                temporal_camera->applied =
+                    temporal_pass && temporal_pass->applied && temporal_pass->successful;
+                if (!temporal_camera->applied && temporal_camera->history)
+                    temporal_camera->history->invalidate();
+            }
         }
         {
             auto timing = presentation_.gpu_scope(context, profile_view_.c_str(), "Bloom",
@@ -254,7 +375,33 @@ ITextureView* FrameRenderer::render(IDeviceContext* context, const RenderScene& 
         exposure_views_.clear();
         exposure_was_pending_ = false;
     }
+    bool any_temporal = false;
+    for (std::size_t i = 0; i < temporal_cameras_.size(); ++i) {
+        auto& camera = temporal_cameras_[i];
+        if (camera.applied) {
+            camera.history->complete();
+            any_temporal = true;
+        }
+        camera.unjittered = cameras[i].view;
+        camera.layers = cameras[i].settings.layers;
+    }
+    if (meshes_)
+        meshes_->commit_temporal_frame(any_temporal);
+    temporal_scene_ = scene.scene;
+    temporal_settings_ = scene.settings;
+    temporal_epoch_ = epoch;
+    temporal_extent_ = {width, height};
+    temporal_was_pending_ = pending_resources;
+    temporal_time_ =
+        std::isfinite(seconds) && seconds >= 0 ? std::optional<double>(seconds) : std::nullopt;
+    temporal_sample_ = sample_key;
+    frame_completed = true;
     return result;
+}
+bool FrameRenderer::temporal_ready() const {
+    return std::all_of(temporal_cameras_.begin(), temporal_cameras_.end(), [](const auto& camera) {
+        return !camera.applied || (camera.history && camera.history->samples() >= 8);
+    });
 }
 ITextureView* FrameRenderer::depth() const {
     return depth_ ? depth_->GetDefaultView(TEXTURE_VIEW_DEPTH_STENCIL) : nullptr;

@@ -93,3 +93,15 @@ preserves prior layout/bytes; current version 2 participates in the existing lay
 Reimport/rebuild uses existing asset IDs, dependency publication and embedded
 last-good Material snapshots. There is no separate renderer capability registry,
 new authored HLSL interface, entity identity or material ownership system.
+
+
+Temporal anti-aliasing extends this same wrapper capability to version 3. New
+surface cooks provide ordinary color, depth and temporal color roles with strict
+role/buffer validation; implicit1 and explicit2 retain their ordinary read behavior.
+An engine-owned virtual temporal interface and shared Mesh motion implementation
+preserve existing Shader assets, recipe provenance, Material snapshots, publication
+and resource ownership. Changing per-frame GPU texture inputs uses Diligent dynamic
+bindings through the same presentation owner, without a parallel resource database.
+The [temporal contract](../temporal-antialiasing.md) governs profile admission,
+view/reset history and validation limits. This extends the accepted asset boundary;
+it does not replace it or change the installed C SDK interface.

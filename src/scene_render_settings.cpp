@@ -1,6 +1,10 @@
 #include <cmath>
 #include <forge/scene_render_settings.hpp>
 namespace forge {
+void validate_scene_temporal_anti_aliasing(const SceneTemporalAntiAliasing& value) {
+    if (!std::isfinite(value.stability) || value.stability < 0 || value.stability > .95f)
+        throw std::runtime_error("Temporal anti-aliasing stability must be finite from 0 to 0.95");
+}
 void validate_scene_distance_fog(const SceneDistanceFog& value) {
     for (const auto channel : value.color)
         if (!std::isfinite(channel) || channel < 0 || channel > 65504)
@@ -63,6 +67,22 @@ SceneRenderSettings scene_render_settings(const nlohmann::json& scene) {
     if (ev < -20 || ev > 20)
         throw std::runtime_error("Game exposure must be between -20 and +20 stops");
     result.exposure = float(ev);
+    if (settings.contains("temporal_anti_aliasing")) {
+        const auto& temporal = settings.at("temporal_anti_aliasing");
+        if (!temporal.is_object())
+            throw std::runtime_error("Scene temporal anti-aliasing must be an object");
+        auto& value = result.temporal_anti_aliasing;
+        if (temporal.contains("enabled")) {
+            if (!temporal.at("enabled").is_boolean())
+                throw std::runtime_error("Temporal anti-aliasing enabled must be boolean");
+            value.enabled = temporal.at("enabled").get<bool>();
+        }
+        const auto stability = number(temporal, "stability", value.stability);
+        if (stability < 0 || stability > .95)
+            throw std::runtime_error("Temporal anti-aliasing stability must be from 0 to 0.95");
+        value.stability = float(stability);
+        validate_scene_temporal_anti_aliasing(value);
+    }
     if (settings.contains("distance_fog")) {
         const auto& fog = settings.at("distance_fog");
         if (!fog.is_object())

@@ -14,5 +14,6 @@ struct MeshVertexFetch {
     // Packed byte offset / scalar width for POSITION, NORMAL, TANGENT, COLOR_0
     // and selected UV channels, four slots per row. UINT32_MAX is absent.
     std::vector<std::array<std::uint32_t, 4>> morph_offsets;
+    bool temporal = false;
 };
 } // namespace forge

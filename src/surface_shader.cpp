@@ -1,5 +1,6 @@
 #include "distance_fog_shader.hpp"
 #include "material_shader.hpp"
+#include "temporal_motion_shader.hpp"
 #include <algorithm>
 #include <cmath>
 #include <cstring>
@@ -159,16 +160,18 @@ void validate_surface_material(const MaterialData& material, const SurfaceShader
         uv_intent(t, d);
     }
 }
-std::string surface_shader_header(const SurfaceShaderDefinition& d, bool emulated) {
+std::string surface_shader_header(const SurfaceShaderDefinition& d, bool emulated, bool temporal) {
     validate_surface_definition(d);
     const auto uv_count = std::max<std::size_t>(1, d.uv_sets.size());
     std::string s = "#ifndef FORGE_SURFACE_INTERFACE_V1\n#define FORGE_SURFACE_INTERFACE_V1\n"
                     "struct ForgeSurfaceInput {float4 Position:SV_Position;float3 World:TEXCOORD0;"
                     "float3 Normal:TEXCOORD1;float3 Tangent:TEXCOORD2;float3 Bitangent:TEXCOORD3;"
                     "float4 Color:COLOR0;nointerpolation float4 LegacyTint:COLOR1;float2 UV[" +
-                    std::to_string(uv_count) +
-                    "]:TEXCOORD4;bool FrontFace:SV_IsFrontFace;};\n"
-                    "cbuffer ForgeSurfaceState {float4 g_ForgeSurfaceState;};\n";
+                    std::to_string(uv_count) + "]:TEXCOORD4;";
+    if (temporal)
+        s += "float4 PreviousClip:TEXCOORD" + std::to_string(8 + uv_count) + ";";
+    s += "bool FrontFace:SV_IsFrontFace;};\n"
+         "cbuffer ForgeSurfaceState {float4 g_ForgeSurfaceState;};\n";
     if (!d.parameters.empty()) {
         s += "cbuffer ForgeSurfaceMaterial {\n";
         for (const auto& [name, p] : d.parameters)
@@ -243,6 +246,21 @@ std::string surface_shader_wrapper(std::string_view source, std::string_view fun
              "return valid?ForgeApplyDistanceFog(value,input.World):value;\n";
     return s + "}\n";
 }
+std::string temporal_surface_wrapper(std::string color) {
+    const std::string entry = "float4 ForgeSurfaceColor(ForgeSurfaceInput input):SV_Target0 {";
+    const auto at = color.find(entry);
+    require(at != std::string::npos, "Temporal surface wrapper lost its engine color entry");
+    color.replace(at, entry.size(), "float4 ForgeTemporalSurfaceColor(ForgeSurfaceInput input) {");
+    return "#include \"engine/forge.surface.temporal.hlsli\"\n" + color + temporal_motion_uniform +
+           temporal_motion_pixel + R"hlsl(
+ForgeTemporalTargets ForgeSurfaceTemporalColor(ForgeSurfaceInput input) {
+    ForgeTemporalTargets result;
+    result.Color=ForgeTemporalSurfaceColor(input);
+    result.Motion=ForgeTemporalMotion(input.PreviousClip,input.Position);
+    return result;
+}
+)hlsl";
+}
 SurfaceBindingLayout surface_binding_layout(const SurfaceShaderDefinition& d,
                                             const Json& reflection) {
     validate_surface_definition(d);
@@ -256,7 +274,21 @@ SurfaceBindingLayout surface_binding_layout(const SurfaceShaderDefinition& d,
         require(names.insert(name).second && count(resource.at("array_size"), 64) > 0,
                 "Duplicate/invalid surface resource");
         const auto kind = resource.at("kind").get<std::string>();
-        if (name == "ForgeDistanceFog") {
+        if (name == "ForgeTemporalObject") {
+            require(kind == "constant_buffer" && resource.at("array_size") == 1 &&
+                        resource.at("size") == temporal_object_rows * 16,
+                    "Temporal object buffer differs from the engine declaration");
+            const auto& fields = resource.at("variables");
+            require(fields.is_array() && fields.size() == 1,
+                    "Temporal object buffer has incompatible fields");
+            const auto& field = fields[0];
+            require(field.at("name") == "g_TemporalObject" && field.at("offset") == 0 &&
+                        field.at("basic") == "float" && field.at("class") == "vector" &&
+                        field.at("rows") == 1 && field.at("columns") == 4 &&
+                        field.at("array_size") == temporal_object_rows &&
+                        field.at("members").empty(),
+                    "Temporal object fields differ from the engine declaration");
+        } else if (name == "ForgeDistanceFog") {
             require(kind == "constant_buffer" && resource.at("array_size") == 1 &&
                         resource.at("size") == 32,
                     "Distance fog buffer differs from the engine declaration");

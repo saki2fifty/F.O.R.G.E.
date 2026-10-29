@@ -116,7 +116,7 @@ void MeshSceneRenderer::update_particle_instances(const RenderScene& scene) {
             validate_particle_mesh_profile(prepared.mesh.get());
             const auto part = entry->second.ready->parts(0).front();
             require(part.alpha != MaterialAlpha::Blend && !part.transmission &&
-                        !entry->second.pose.skinned &&
+                        !entry->second.pose->skinned &&
                         entry->second.ready->supports_instances(0, 0),
                     "CPU mesh particles require opaque/masked static instancing; "
                     "Blend/transmission is unsupported");
@@ -131,7 +131,7 @@ void MeshSceneRenderer::update_particle_instances(const RenderScene& scene) {
                 continue;
             auto draw = proxy(emitter, data, prepared.mesh.get());
             std::uint64_t each = sizeof(decltype(particle_instances_)::value_type) +
-                                 mesh_pose_bytes(entry->second.pose);
+                                 mesh_pose_bytes(*entry->second.pose);
             each += draw.renderer.materials.capacity() * sizeof(MaterialSlotOverride);
             for (const auto& slot : draw.renderer.materials)
                 each += slot.slot.capacity();
@@ -144,7 +144,7 @@ void MeshSceneRenderer::update_particle_instances(const RenderScene& scene) {
                     "Particle instance CPU payload exceeds the 8 MiB frame budget");
             bytes += values.size() * each;
             for (const auto& instance : values) {
-                auto pose = entry->second.pose;
+                auto pose = *entry->second.pose;
                 pose.world = instance.world;
                 draw.world = instance.world;
                 draw.legacy_tint = instance.color;
