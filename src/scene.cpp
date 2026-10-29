@@ -783,8 +783,9 @@ Json Scene::tune_runtime_property(const std::string& entity_id, const std::strin
         throw std::runtime_error("Live property target is missing or a prefab source");
     const bool sprite = RuntimePropertyTune::sprite_type(type_key),
                material = RuntimePropertyTune::material_type(type_key),
-               probe = RuntimePropertyTune::probe_type(type_key);
-    if (sprite || material || probe) {
+               probe = RuntimePropertyTune::probe_type(type_key),
+               light = RuntimePropertyTune::light_type(type_key);
+    if (sprite || material || probe || light) {
         if (sprite &&
             (!RuntimePropertyTune::sprite_property(property_key) || !target.has<SpriteRenderer>()))
             throw std::runtime_error("Only existing sprite appearance values can be tuned live");
@@ -794,6 +795,9 @@ Json Scene::tune_runtime_property(const std::string& entity_id, const std::strin
         if (probe &&
             (!RuntimePropertyTune::probe_property(property_key) || !target.has<ReflectionProbe>()))
             throw std::runtime_error("Only existing reflection probe controls can be tuned live");
+        if (light && (!RuntimePropertyTune::light_property(property_key) || !target.has<Light>()))
+            throw std::runtime_error(
+                "Only existing light shadow source dimensions can be tuned live: " + property_key);
         for (const auto& codec : detail::builtins()) {
             if (type_key != codec.name)
                 continue;

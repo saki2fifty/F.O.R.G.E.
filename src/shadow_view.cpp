@@ -154,7 +154,10 @@ std::vector<ShadowView> directional_shadow_views(Diligent::ShadowMapManager& man
         center_y = snap(1, unsnapped[cascade][1], texel_y);
     };
     ShadowMapAttribs attributes{};
-    attributes.iFixedFilterSize = 3;
+    attributes.iFixedFilterSize =
+        light.shadow_angular_radius > 0
+            ? int(2 * std::max(1u, shadow_filter_radius(settings.resolution)) + 1)
+            : 3;
     // The native callback receives an already rounded relative center. Rounding
     // it again in absolute space can jump a texel early. Obtain the native fit
     // without snapping first, then apply one absolute-space rounding operation.

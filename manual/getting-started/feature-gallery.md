@@ -1,5 +1,12 @@
 # Explore the Feature Gallery
 
+**111-contact-hardening-shadows** compares resting and raised boxes on a lit floor.
+Select **Soft sun - change Shadow Angular Radius** and compare **Shadow Angular
+Radius (rad)** at **0.08** and **0**. A larger source softens separated shadows;
+a contact shadow stays sharper. Point and Spot lights use **Shadow Source Radius
+(m)**. Save and select this Scene as startup before export. See
+[Scene lighting](../editor/lighting.md) for steps, Play tuning and limits.
+
 **110-reflection-map-capture** supplies a saved HDR map and two metal spheres.
 Select its captured reflection volume to create a new map through Inspector,
 review/import it, save and export. The **Capture reflection maps** section below explains its layer masks and steps.

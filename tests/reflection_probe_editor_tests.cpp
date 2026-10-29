@@ -93,7 +93,7 @@ void exercise(const std::filesystem::path& root, float scale, ImVec2 display) {
         frame();
     };
     const auto type = [&](const std::string& field, const char* text) {
-        click(field.starts_with("asset-search:")
+        click(field.starts_with("asset-search:") || field.starts_with("component-field:")
                   ? field
                   : "component-field:forge.reflection_probe:" + field);
         io.AddKeyEvent(ImGuiMod_Ctrl, true);
@@ -168,12 +168,47 @@ void exercise(const std::filesystem::path& root, float scale, ImVec2 display) {
     Scene reopened(engine.world());
     reopened.load(project.project() / "probe.scene.json");
     check(reopened.document() == saved, "Probe Inspector values did not save and reopen");
+    click("probe-test:entity-menu");
+    click("category:Rendering");
+    click("action:Create / Light");
+    check(scene.entity(selected).has<Light>(), "Light creation menu lost its component");
+    const auto before_sources = scene.document();
+    type("component-field:forge.light:shadow_source_radius", "0.25");
+    type("component-field:forge.light:shadow_angular_radius", "0.01");
+    check(scene.entity(selected).get<Light>().shadow_source_radius == .25f &&
+              scene.entity(selected).get<Light>().shadow_angular_radius == .01f,
+          "Light Inspector did not edit both shadow source dimensions");
+    const auto sources = scene.document();
+    check(scene.undo() && scene.undo() && scene.document() == before_sources && scene.redo() &&
+              scene.redo() && scene.document() == sources,
+          "Light source Inspector fields bypassed ordinary history");
+    type("component-field:forge.light:shadow_source_radius", "-1");
+    check(scene.document() == sources, "Invalid source radius changed the Scene");
+    type("component-field:forge.light:shadow_source_radius", "0.25");
+    scene.save(project.project() / "light.scene.json");
+    reopened.load(project.project() / "light.scene.json");
+    check(reopened.document() == sources, "Light source Inspector values did not save/reopen");
+    Json light_components;
+    for (const auto& row : sources.at("entities"))
+        if (row.at("id") == selected)
+            light_components = row.at("components");
+    for (const auto& type : schema.at("components")) {
+        if (type.at("id") != "forge.light")
+            continue;
+        check(ComponentInspector::runtime_type_available(type, light_components),
+              "Light source controls missing from Live gameplay");
+        for (const auto& field : type.at("fields"))
+            check(ComponentInspector::runtime_field_available("forge.light", field,
+                                                              light_components) ==
+                      RuntimePropertyTune::light_property(field.at("id").get<std::string>()),
+                  "Live Light controls differ from shared tuning admission");
+    }
     test::observe_ui = false;
     ImGui::DestroyContext();
 }
-void capture(const std::filesystem::path& root) {
+void capture(const std::filesystem::path& root, bool light = false) {
     std::filesystem::create_directories(root / "project");
-    test::ImGuiSoftwareCapture capture(760, 520);
+    test::ImGuiSoftwareCapture capture(light ? 1080 : 760, light ? 900 : 520);
     ui::style(1);
     ui::EditorUiContext context;
     ui::ContextScope scope(context);
@@ -183,33 +218,44 @@ void capture(const std::filesystem::path& root) {
     project.open_project(root / "project", true);
     const std::string id =
         authoring_command(scene, "entity.create",
-                          {{"recipe", "render.reflection_probe"}, {"name", "Room reflections"}})
+                          {{"recipe", light ? "render.light" : "render.reflection_probe"},
+                           {"name", light ? "Soft directional light" : "Room reflections"}})
             .at("selected");
-    authoring_command(scene, "property.set",
-                      {{"entity", id},
-                       {"component", "forge.reflection_probe"},
-                       {"field", "texture"},
-                       {"value", engine_texture(EngineTexture::White, TextureDimension::Cube).id}});
+    if (light) {
+        authoring_command(scene, "property.set_many",
+                          {{"entity", id},
+                           {"component", "forge.light"},
+                           {"values", {{"cast_shadows", true}, {"shadow_angular_radius", .01}}}});
+    } else
+        authoring_command(
+            scene, "property.set",
+            {{"entity", id},
+             {"component", "forge.reflection_probe"},
+             {"field", "texture"},
+             {"value", engine_texture(EngineTexture::White, TextureDimension::Cube).id}});
     ComponentInspector inspector;
-    inspector.fixture_focus_component = "forge.reflection_probe";
+    inspector.fixture_focus_component = light ? "forge.light" : "forge.reflection_probe";
     for (unsigned frame = 0; frame < 3; ++frame) {
         capture.new_frame();
         ImGui::SetNextWindowPos({10, 10});
-        ImGui::SetNextWindowSize({740, 500});
+        ImGui::SetNextWindowSize(light ? ImVec2{1060, 880} : ImVec2{740, 500});
         ImGui::Begin("Inspector", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
         inspector.draw(scene, project, id);
         ImGui::End();
         capture.render();
     }
-    capture.save(root / "local-reflection-probe-controls.png");
+    capture.save(
+        root / (light ? "soft-shadow-light-controls.png" : "local-reflection-probe-controls.png"));
 }
 } // namespace
 int main(int argc, char** argv) {
     try {
-        check(argc == 2 || (argc == 3 && std::string_view(argv[2]) == "--capture"),
+        check(argc == 2 || (argc == 3 && (std::string_view(argv[2]) == "--capture" ||
+                                          std::string_view(argv[2]) == "--capture-light")),
               "Expected probe UI scratch root or --capture");
         if (argc == 3)
-            capture(std::filesystem::absolute(argv[1]));
+            capture(std::filesystem::absolute(argv[1]),
+                    std::string_view(argv[2]) == "--capture-light");
         else
             for (const auto scale : {1.f, 1.5f, 2.f})
                 for (const auto size : {ImVec2{1200, 1000}, ImVec2{960, 640}})

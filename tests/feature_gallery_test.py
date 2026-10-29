@@ -117,6 +117,19 @@ assert struct.unpack_from('<IIIII', dds, 128) == (10, 3, 4, 1, 3)
 assert capture_map['metadata']['forge.import']['platform'] == 'windows'
 assert capture_map['metadata']['forge.import']['backend'] == 'd3d12'
 
+# Contact-hardening is authored on one ordinary Light; the four PBR meshes
+# receive real shadow depth rather than the legacy unlit blockout profile.
+soft_source = 'Scenes/111-contact-hardening-shadows.scene.json'
+soft_scene = json.loads((project_root / soft_source).read_text(encoding='utf-8'))
+assert soft_scene['asset_id'] == by_source[soft_source]['id']
+soft_lights = [row['components']['forge.light'] for row in soft_scene['entities']
+               if 'forge.light' in row['components'] and row['components']['forge.light']['enabled']]
+assert len(soft_lights) == 1 and soft_lights[0]['cast_shadows']
+assert soft_lights[0]['kind'] == 0 and math.isclose(soft_lights[0]['shadow_angular_radius'], 0.08, abs_tol=1e-7)
+assert soft_lights[0]['shadow_source_radius'] == 0
+assert sum('forge.mesh_renderer' in row['components'] for row in soft_scene['entities']) == 4
+assert soft_scene['rendering']['shadows']['max_lights'] == 1
+
 scenes = sorted((project_root / 'Scenes').glob('*.scene.json'))
 assert {'71-world-sprites.scene.json', '72-sprite-frame-animation.scene.json',
         '73-sprite-image-fill.scene.json', '74-tile-maps.scene.json',
@@ -189,6 +202,7 @@ assert {'01-transforms.scene.json', '02-lighting.scene.json',
         '108-material-normal-occlusion.scene.json',
         '109-rough-reflection-filtering.scene.json',
         '110-reflection-map-capture.scene.json',
+        '111-contact-hardening-shadows.scene.json',
         '70-sequence-audio-cues.scene.json',
         '11-animation-markers.scene.json', '12-inset-panels.scene.json',
         '13-transform-curves.scene.json', '14-uv-islands.scene.json', '15-brush-symmetry.scene.json', '16-authored-triangulation.scene.json', '17-mesh-shading.scene.json', '18-animation-key-batches.scene.json', '19-mesh-facing.scene.json', '20-physics-joints.scene.json', '21-point-fixed-joints.scene.json', '22-continuous-collision.scene.json', '23-body-motion-tuning.scene.json', '24-slider-joints.scene.json', '25-velocity-motors.scene.json', '26-position-drives.scene.json', '27-connected-collisions.scene.json', '28-swing-twist-joints.scene.json', '29-distance-springs.scene.json', '30-animation-exits.scene.json', '31-audio-falloff.scene.json', '32-directional-audio.scene.json', '33-audio-mixer.scene.json', '34-audio-import-processing.scene.json', '35-moving-audio.scene.json', '36-animation-root-motion.scene.json', '37-animation-subtree-blending.scene.json'} <= {p.name for p in scenes}
@@ -269,6 +283,10 @@ try:
         # admitted typed values explicitly expose their documented defaults.
         expected = json.loads(json.dumps(source))
         for row in expected['entities']:
+            light = row['components'].get('forge.light')
+            if light is not None:
+                light.setdefault('shadow_source_radius', 0.)
+                light.setdefault('shadow_angular_radius', 0.)
             renderer = row['components'].get('forge.mesh_renderer')
             if renderer is not None:
                 renderer.setdefault('material_parameters', [])

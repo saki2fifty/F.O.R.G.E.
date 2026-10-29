@@ -1,5 +1,6 @@
 #include "shadow_renderer.hpp"
 #include <cmath>
+#include <numbers>
 namespace forge {
 namespace {
 static_assert(shadow_light_limit == 8 && shadow_cascade_limit == 8 &&
@@ -32,6 +33,25 @@ void pack(ShadowLighting& output, unsigned slot, const CameraView& main_camera,
                 rows[i * 4 + r][c] = gpu(value);
             }
         rows[32 + i] = {gpu(views[i].begin), gpu(views[i].end), 0, 0};
+        if (light.kind == 0) {
+            // Orthographic depth is affine; only the depth difference matters,
+            // including cascades whose light-view near depth is negative.
+            const auto scale =
+                std::tan(double(light.shadow_angular_radius)) * .5 / camera.projection[10];
+            rows[32 + i][2] = gpu(scale * std::abs(camera.projection[0]));
+            rows[32 + i][3] = gpu(scale * std::abs(camera.projection[5]));
+        } else {
+            rows[32 + i][2] = camera.projection[10];
+            rows[32 + i][3] = camera.projection[11];
+        }
+    }
+    if (light.kind != 0) {
+        // Point uses six ranges, spot one. Their eighth range is not selected;
+        // reuse its spare components without changing the private packet size.
+        rows[39][2] = gpu(double(light.shadow_source_radius) * .5 *
+                          std::abs(views.front().camera.projection[0]));
+        rows[39][3] = gpu(double(light.shadow_source_radius) * .5 *
+                          std::abs(views.front().camera.projection[5]));
     }
     rows[40] = {float(views.size()), light.shadow_bias, light.shadow_normal_bias,
                 float(light.kind)};
@@ -71,7 +91,11 @@ void ShadowRenderer::render(Diligent::IDeviceContext* context, const RenderScene
                 !std::isfinite(settings.distance) || settings.distance <= 0)
                 throw std::runtime_error("Invalid copied shadow settings");
             if (light.kind > 2 || !std::isfinite(light.shadow_bias) || light.shadow_bias < 0 ||
-                !std::isfinite(light.shadow_normal_bias) || light.shadow_normal_bias < 0)
+                !std::isfinite(light.shadow_normal_bias) || light.shadow_normal_bias < 0 ||
+                !std::isfinite(light.shadow_source_radius) || light.shadow_source_radius < 0 ||
+                light.shadow_source_radius > 10000 || !std::isfinite(light.shadow_angular_radius) ||
+                light.shadow_angular_radius < 0 ||
+                light.shadow_angular_radius > float(std::numbers::pi / 4))
                 throw std::runtime_error("Invalid copied shadow light values");
             if (slot >= settings.max_lights)
                 throw std::runtime_error("Shadow light count exceeds the selected camera profile");

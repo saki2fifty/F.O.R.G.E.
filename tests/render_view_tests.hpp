@@ -150,6 +150,29 @@ inline void test_render_views() {
     validate_light(l);
     rejects([&] { light_view(l, {}); });
 
+    l = Light{};
+    l.shadow_source_radius = .25f;
+    l.shadow_angular_radius = .01f;
+    pose.scale = {2, 3, 4};
+    const auto extended = light_view(l, affine_transform(pose));
+    require(extended.shadow_source_radius == .25f && extended.shadow_angular_radius == .01f,
+            "Light scale changed shadow source dimensions");
+    for (float invalid : {-1.f, 10001.f, std::numeric_limits<float>::quiet_NaN(),
+                          std::numeric_limits<float>::infinity()}) {
+        auto bad = l;
+        bad.shadow_source_radius = invalid;
+        rejects([&] { validate_light(bad); });
+    }
+    for (float invalid : {-1.f, 1.f, std::numeric_limits<float>::quiet_NaN(),
+                          std::numeric_limits<float>::infinity()}) {
+        auto bad = l;
+        bad.shadow_angular_radius = invalid;
+        rejects([&] { validate_light(bad); });
+    }
+    l.shadow_source_radius = 10000;
+    l.shadow_angular_radius = float(std::numbers::pi / 4);
+    validate_light(l);
+
     EngineContext engine;
     Scene scene(engine.world());
     const auto schema = scene.schema();
@@ -183,6 +206,40 @@ inline void test_render_views() {
     require(scene.document() == doc && scene.entity(id).get<Camera>().near_plane == .05 &&
                 scene.entity(id).get<Light>().intensity == 1,
             "Typed camera/light roundtrip changed values/unknowns");
+    require(lamp.at("shadow_source_radius") == 0 && lamp.at("shadow_angular_radius") == 0,
+            "Existing light defaults unexpectedly enable soft shadows");
+    auto legacy = doc;
+    legacy["entities"][0]["components"]["forge.light"].erase("shadow_source_radius");
+    legacy["entities"][0]["components"]["forge.light"].erase("shadow_angular_radius");
+    scene.reset(legacy);
+    require(scene.entity(id).get<Light>().shadow_source_radius == 0 &&
+                scene.entity(id).get<Light>().shadow_angular_radius == 0,
+            "Existing light documents did not retain fixed shadow filtering");
+    scene.reset(doc);
+    const auto edit_revision = scene.revision();
+    apply_authoring(scene,
+                    Json::array({{{"operation", "property.set"},
+                                  {"arguments",
+                                   {{"entity", id},
+                                    {"component", "forge.light"},
+                                    {"field", "shadow_source_radius"},
+                                    {"value", .25}}}},
+                                 {{"operation", "property.set"},
+                                  {"arguments",
+                                   {{"entity", id},
+                                    {"component", "forge.light"},
+                                    {"field", "shadow_angular_radius"},
+                                    {"value", .01}}}}}),
+                    edit_revision);
+    require(scene.entity(id).get<Light>().shadow_source_radius == .25f &&
+                scene.entity(id).get<Light>().shadow_angular_radius == .01f,
+            "Shared property operations did not update shadow source dimensions");
+    scene.undo();
+    require(scene.document() == doc, "Soft shadow Undo changed unrelated light data");
+    scene.redo();
+    require(scene.entity(id).get<Light>().shadow_source_radius == .25f,
+            "Soft shadow Redo did not restore source dimensions");
+    scene.reset(doc);
     auto revised = scene.entity(id).get<Camera>();
     revised.order = -2;
     scene.entity(id).set<Camera>(revised);

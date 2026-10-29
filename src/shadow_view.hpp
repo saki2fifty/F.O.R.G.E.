@@ -1,8 +1,13 @@
 #pragma once
 #include "Components/interface/ShadowMapManager.hpp"
 #include "render_bounds.hpp"
+#include <algorithm>
 #include <forge/scene_render_settings.hpp>
 namespace forge {
+// Keep room for fitting/snapping even at small authored map resolutions.
+inline constexpr unsigned shadow_filter_radius(unsigned resolution) {
+    return std::min(32u, resolution > 3 ? (resolution - 3) / 4 : 0);
+}
 struct ShadowView {
     CameraView camera;
     double begin = 0, end = 0; // Main-camera depth for directional cascade selection.

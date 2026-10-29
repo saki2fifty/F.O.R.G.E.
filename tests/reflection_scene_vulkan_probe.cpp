@@ -2,6 +2,7 @@
 #include "editor/viewport.hpp"
 #include "frame_renderer.hpp"
 #include "reflection_probe_scene_tests.hpp"
+#include "soft_shadow_scene_tests.hpp"
 #include "sprite_draw_render_tests.hpp"
 #include <forge/authoring.hpp>
 #include <forge/game_content.hpp>
@@ -13,7 +14,8 @@ using forge::test_sprite_draw::check;
 namespace {
 void exercise(forge::DiligentPresentation& presentation, IDeviceContext* context,
               const std::filesystem::path& project, const std::filesystem::path& images,
-              const forge::AssetId& id, bool probes_only, bool probe_gallery, bool rough_gallery) {
+              const forge::AssetId& id, bool probes_only, bool probe_gallery, bool rough_gallery,
+              bool soft_gallery = false) {
     using namespace forge;
     std::filesystem::create_directories(images);
     auto host = std::make_shared<MeshResourceHost>(presentation, context, project, true);
@@ -50,6 +52,10 @@ void exercise(forge::DiligentPresentation& presentation, IDeviceContext* context
             throw std::runtime_error("Reflection scene: " + owner.diagnostics().front().text);
         return pixels;
     };
+    if (soft_gallery) {
+        test_soft_shadows::gallery(render, frame, ordinary, scene, images);
+        return;
+    }
     if (probe_gallery) {
         test_reflection_probes::gallery(render, frame, ordinary, scene, images);
         return;
@@ -295,9 +301,12 @@ void exercise(forge::DiligentPresentation& presentation, IDeviceContext* context
 } // namespace
 int main(int argc, char** argv) {
     try {
-        check(argc == 4 || (argc == 5 && (std::string_view(argv[4]) == "--probes" ||
-                                          std::string_view(argv[4]) == "--probe-gallery" ||
-                                          std::string_view(argv[4]) == "--rough-gallery")),
+        check(argc == 4 ||
+                  (argc == 5 && (std::string_view(argv[4]) == "--probes" ||
+                                 std::string_view(argv[4]) == "--probe-gallery" ||
+                                 std::string_view(argv[4]) == "--rough-gallery" ||
+                                 std::string_view(argv[4]) == "--soft-shadow-gallery" ||
+                                 std::string_view(argv[4]) == "--prepare-soft-shadow-gallery")),
               "Expected Gallery project, capture directory, scene ID and optional probe mode");
         RefCntAutoPtr<IRenderDevice> device;
         RefCntAutoPtr<IDeviceContext> context;
@@ -305,11 +314,49 @@ int main(int argc, char** argv) {
         GetEngineFactoryVk()->CreateDeviceAndContextsVk(info, &device, &context);
         check(device && context, "Reflection Scene Vulkan device unavailable");
         forge::DiligentPresentation presentation(device);
+        if (argc == 5 && std::string_view(argv[4]) == "--prepare-soft-shadow-gallery") {
+            using namespace forge;
+            const auto prepared = test_soft_shadows::prepare(std::filesystem::absolute(argv[1]),
+                                                             std::filesystem::absolute(argv[2]));
+            const auto images = prepared.scratch / "Images";
+            exercise(presentation, context, prepared.root, images, prepared.scene, false, false,
+                     false, true);
+            const std::array roots{prepared.scene};
+            const auto package = prepared.scratch / "Export";
+            (void)package_runtime_content(prepared.root, package, roots, {"windows", "d3d12"});
+            const auto moved = prepared.scratch / "Relocated";
+            std::filesystem::rename(package, moved);
+            const auto runtime_images = prepared.scratch / "RelocatedImages";
+            exercise(presentation, context, moved, runtime_images, prepared.scene, false, false,
+                     false, true);
+            unsigned exact = 0;
+            for (const auto& entry : std::filesystem::directory_iterator(images)) {
+                const auto before = asset_storage::read(entry.path(), 4 * 1024 * 1024);
+                const auto after =
+                    asset_storage::read(runtime_images / entry.path().filename(), 4 * 1024 * 1024);
+                check(before && after && *before == *after,
+                      "Source-free soft shadow Game pixels changed after relocation");
+                ++exact;
+            }
+            check(exact == 4, "Soft shadow relocation did not prove all four rendered images");
+            const Json receipt{{"project", path_text(prepared.root)},
+                               {"scene", prepared.scene},
+                               {"unchanged_records", prepared.prior_records},
+                               {"added_records", 1},
+                               {"exact_relocated_images", exact},
+                               {"execution", "software Vulkan; no Windows/D3D12 acceptance"}};
+            const auto output = prepared.scratch / "gallery-preparation.json";
+            asset_storage::replace(output, receipt.dump(2));
+            std::cout << "Soft shadow Gallery preparation: " << path_text(output)
+                      << "; source-free relocated wide/tall soft/fixed images exact PASS\n";
+            return 0;
+        }
         exercise(presentation, context, std::filesystem::absolute(argv[1]),
                  std::filesystem::absolute(argv[2]), forge::AssetId::parse(argv[3]),
                  argc == 5 && std::string_view(argv[4]) == "--probes",
                  argc == 5 && std::string_view(argv[4]) == "--probe-gallery",
-                 argc == 5 && std::string_view(argv[4]) == "--rough-gallery");
+                 argc == 5 && std::string_view(argv[4]) == "--rough-gallery",
+                 argc == 5 && std::string_view(argv[4]) == "--soft-shadow-gallery");
         return 0;
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

@@ -154,9 +154,13 @@ int main(int argc, char** argv) {
             scene.restore_snapshot(
                 load_game_scene(argv[2], {authored.at("asset_id").get<AssetId>()}));
             auto expected = authored;
-            // Old authored bytes remain untouched; typed admission exposes this additive default.
+            // Old authored bytes remain untouched; typed admission exposes additive defaults.
             for (auto& row : expected.at("entities")) {
                 auto& components = row.at("components");
+                if (auto light = components.find("forge.light"); light != components.end())
+                    for (const auto* field : {"shadow_source_radius", "shadow_angular_radius"})
+                        if (!light->contains(field))
+                            (*light)[field] = 0.;
                 if (auto renderer = components.find("forge.mesh_renderer");
                     renderer != components.end() && !renderer->contains("material_parameters"))
                     (*renderer)["material_parameters"] = Json::array();

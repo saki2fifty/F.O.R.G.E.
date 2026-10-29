@@ -934,6 +934,24 @@ Packing is one-shot and does not automatically repack changed sources. Optional
 Sprite/Tile Map mip filtering prepares independent frame chains in the renderer;
 the generated source PNG remains an ordinary base image.
 
+## Light source size and live shadow tuning
+
+Recipe `render.light` and component `forge.light` expose `shadow_source_radius`
+(world metres,0–10000) and `shadow_angular_radius` (directional half-angle radians,
+0–float(pi/4)). Both default to zero. Discover actual schema fields and units for
+the connection; use `forge_property_set_many` to set `cast_shadows:true` and the
+appropriate source dimension in one ordinary Scene edit. Point/Spot use radius;
+Directional uses angular radius. These affect shadow filtering only.
+
+Revision, replay, history, save and project permissions use the existing property
+operations. Invalid types/ranges leave the Scene and revision unchanged. Existing
+Light documents without these fields retain zero defaults. During Play, only these
+two Light properties are accepted by `play.tune` / `forge_play_tune`; other Light
+fields remain Edit-only. Use the current Play generation and poll the tune
+acknowledgement before assuming application. Runtime tuning does not edit authored
+values. Stop and use the tuning review to keep selected values deliberately.
+Gallery111 and the Scene lighting manual describe the visual workflow and limits.
+
 ## Local reflection probes
 
 Discovery includes recipe `render.reflection_probe` and optional component

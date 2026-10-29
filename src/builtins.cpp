@@ -758,7 +758,9 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<bool>("cast_shadows")
             .template member<float>("shadow_bias")
             .template member<float>("shadow_normal_bias")
-            .template member<std::uint32_t>("layers");
+            .template member<std::uint32_t>("layers")
+            .template member<float>("shadow_source_radius")
+            .template member<float>("shadow_angular_radius");
         for (const auto& [field, offset] :
              {std::pair{"enabled", offsetof(Light, enabled)},
               std::pair{"kind", offsetof(Light, kind)}, std::pair{"basis", offsetof(Light, basis)},
@@ -772,6 +774,8 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
               std::pair{"cast_shadows", offsetof(Light, cast_shadows)},
               std::pair{"shadow_bias", offsetof(Light, shadow_bias)},
               std::pair{"shadow_normal_bias", offsetof(Light, shadow_normal_bias)},
+              std::pair{"shadow_source_radius", offsetof(Light, shadow_source_radius)},
+              std::pair{"shadow_angular_radius", offsetof(Light, shadow_angular_radius)},
               std::pair{"layers", offsetof(Light, layers)}}) {
             const auto* member = ecs_struct_get_member(w.c_ptr(), c.id(), field);
             if (!member || std::size_t(member->offset) != offset)
@@ -1719,6 +1723,14 @@ Json registration_options(const Builtin& type, const std::string& field) {
             {"shadow_bias", "Nonnegative shadow depth bias in normalized depth units"},
             {"shadow_normal_bias",
              "Nonnegative normal offset in world meters for shadow evaluation"},
+            {"shadow_source_radius",
+             "Point/spot shadow source radius in metres, independent of "
+             "node scale. Positive values enable bounded contact-hardening "
+             "soft shadows; zero retains fixed PCF. Illumination stays punctual"},
+            {"shadow_angular_radius",
+             "Directional shadow source angular radius in radians. "
+             "Positive values enable bounded contact-hardening soft shadows; "
+             "zero retains fixed PCF. Point and spot lights use source radius"},
             {"layers", "Affected render layer bit mask"}};
         value["description"] = help.at(field);
         if (field.starts_with("color_")) {
@@ -1730,7 +1742,14 @@ Json registration_options(const Builtin& type, const std::string& field) {
             value["maximum"] = std::numbers::pi / 2;
             value["unit"] = "radians";
         }
-        if (field == "range" || field == "shadow_normal_bias")
+        if (field == "shadow_source_radius" || field == "shadow_angular_radius") {
+            value["minimum"] = 0;
+            value["maximum"] =
+                field == "shadow_source_radius" ? 10000 : double(float(std::numbers::pi / 4));
+        }
+        if (field == "shadow_angular_radius")
+            value["unit"] = "radians";
+        if (field == "range" || field == "shadow_normal_bias" || field == "shadow_source_radius")
             value["unit"] = "meters";
     }
     if (name == "forge.asset_collider" && field == "asset") {
@@ -3048,6 +3067,10 @@ Json admitted_builtin_source(const Builtin& type, const Json& source) {
                 current[field] = type.defaults.at(field);
     if (std::string_view(type.name) == "forge.tile_map_renderer" && !current.contains("mip_filter"))
         current["mip_filter"] = type.defaults.at("mip_filter");
+    if (std::string_view(type.name) == "forge.light")
+        for (const auto* field : {"shadow_source_radius", "shadow_angular_radius"})
+            if (!current.contains(field))
+                current[field] = type.defaults.at(field);
     if (std::string_view(type.name) == "forge.transform_animator")
         for (const auto* field : {"sequence", "sequence_start_seconds"})
             if (!current.contains(field))

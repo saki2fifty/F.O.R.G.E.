@@ -60,6 +60,22 @@ and box projection. The new installed header changes the exact fingerprint;
 rebuild existing modules with the matching SDK rather than editing their declared
 fingerprint. The renderer resolves maps through its ordinary resource owner.
 
+## Soft-shadow source dimensions
+
+Include `forge/render_components.hpp` and use `forge::Light::shadow_source_radius`
+for Point/Spot source radius in world metres, or `shadow_angular_radius` for the
+Directional source half-angle in radians. Both default to zero; use finite values
+in 0–10000 metres and 0–approximately0.785398 radians respectively. Scale does not
+multiply either source dimension. Direct illumination remains punctual. Enable
+`cast_shadows` and use a lit receiving mesh to see the effect.
+
+Build target `soft_shadow_gameplay` in the installed sample. Its three fixed ticks
+cycle Directional, Point and Spot kinds while updating both dimensions on entities
+that have `project.shadow_control` and `forge.light`. This is a small field-access
+example, not a complete visual game. Rebuild project modules with the SDK matching
+the runtime: these appended installed Light fields change the exact fingerprint.
+Never repair a mismatch by editing the fingerprint declaration.
+
 ## Small combined example
 
 `combined.cpp` registers an ordinary Flecs State component and a fixed-phase/tag system. The system reads a mapped ActionId, updates that component, queries physics/navigation when present, polls an allowed UI action, and publishes a copied UI value. It records diagnostics and CPU timing through the host. Scene entities still own authored state; the UI is a copy, not another authority. The example's State is transient and deliberately has no invented save/recovery serializer.

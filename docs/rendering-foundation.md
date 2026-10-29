@@ -676,6 +676,51 @@ all three light kinds, alpha rejection, mirrored casters, large origins, oversiz
 allocation rejection and camera fitting. These Windows fixtures pass.
 
 
+### Contact-hardening source dimensions
+
+`Light::shadow_source_radius` is a world-space punctual-source radius in metres
+(0–10000); `shadow_angular_radius` is a directional half-angle in radians
+(0–float(pi/4)). Both default to zero. These fields are appended after `layers`:
+existing member offsets stay fixed, but the installed header changes the exact SDK
+fingerprint and matching C++ modules must be rebuilt. No C ABI table is changed.
+Old Light documents admit missing dimensions through the existing built-in value
+normalizer. Unknown fields, identities and document ownership remain unchanged.
+
+Zero size retains the pinned native 3x3 PCF path. Positive size uses FORGE-owned
+blocker search and variable-radius comparison filtering on the same D32 arrays.
+The deterministic 32-point disk includes a center tap; at most 32 raw depth loads
+and 32 bilinear comparisons run per selected slice. The radius is capped at 32 texels
+and at floor((resolution-3)/4) on smaller maps. Unresolved source/penumbra footprints
+use fixed PCF. This bounds work and storage; it does not promise physical GPU speed
+or exact continuous visibility for arbitrary thin geometry.
+
+The existing 42-row receiver packet stores source/projection coefficients in unused
+`Range.zw` components. Directional coefficients derive from the actual fitted
+orthographic projection. Punctual depths reconstruct axial distance from their
+actual a+b/z projection; point taps remap to adjacent faces and compare radial
+blocker distances. The geometric receiver plane adjusts comparisons at actual
+texel centers and conservative bilinear footprints. This uses neither screen
+history/derivatives nor mapped normals. Positive directional sources pad the
+existing native cascade fit through its public filter-width input; default fits
+retain their prior 3x3 width. Camera-relative math, normal/depth biases, resource
+budgets, masks, alpha and cast/receive ownership remain in the existing paths.
+Direct emission remains punctual; this is not an area-light BRDF implementation.
+
+The ordinary reflected component schema, Scene/property validation, history,
+Inspector and discovered MCP authoring expose both fields. Only these two Light
+fields are admitted for live tuning through RuntimePropertyTune and the existing
+Play host; runtime acknowledgements, generation checks and authored isolation
+remain required. The installed `soft_shadow_gameplay` sample demonstrates matching
+C++ field access. Gallery 111 is an ordinary editable Scene using built-in lit PBR
+meshes; its saved Light data travels through the normal runtime content closure.
+
+Software-Vulkan regressions compare actual D32 filtering to independent continuous
+half-plane references, test empty/full/thin blockers, preserve exact zero/tiny PCF,
+exercise actual point-map face boundaries and sloped receivers, and render the
+Gallery through the shared FrameRenderer. Four wide/tall soft/fixed images match
+exactly after source-free package relocation. This is local functional evidence;
+new Windows/D3D12, full editor and physical GPU acceptance remain pending.
+
 ### Transmission background and optical transport
 
 The shared mesh queue draws opaque/masked surfaces and the camera background first,

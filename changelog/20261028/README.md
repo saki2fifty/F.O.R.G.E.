@@ -1,5 +1,21 @@
 # 2026-10-28 — Animation, rendering and Scene controls
 
+## Contact-hardening soft shadows
+
+Light adds default-zero directional angular radius and punctual source radius.
+The shared shadow owner applies bounded blocker search and variable-radius
+filtering without a new map registry. Point taps cross cube faces; geometric
+receiver-plane comparisons reduce sloped self-shadowing. Zero size retains the
+existing fixed PCF path. Scene validation/history, Inspector, live source-size
+tuning, MCP and installed C++ access share their existing owners. Appended installed
+Light fields change the exact SDK fingerprint; rebuild matching modules.
+
+Gallery111 demonstrates contact and raised shadows using ordinary lit PBR meshes.
+The manual includes authentic Inspector and software-Vulkan Game captures. Local
+analytic, renderer, authoring, MCP and relocated SDK checks are distinct from
+pending Windows/full editor and physical GPU acceptance. No numbered package or
+remote delivery accompanies this local batch.
+
 ## Animated runtime UI
 
 Gallery100 adds an editable HUD with native RCSS width/opacity/transform keyframes

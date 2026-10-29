@@ -680,3 +680,19 @@ window, physical GPU/input or graphical exported-EXE acceptance.
 
 Canonical PNG SHA256: `751d0630bf31b8d1a597fc57cc572ee379194f2df50df09ff0c98ac6bbacaa1d`.
 Scene identity: `177b3d5b-f5a7-41df-a1f8-f36ab10ac6e0`; map identity: `cb50dced-5d4b-4e7f-9d06-f13fa65ea8fc`.
+
+## Contact-hardening shadows
+
+`manual/images/soft-shadow-light-controls.png` is the production ComponentInspector
+rendered by `forge_reflection_probe_editor_tests --capture-light`,1080×900, SDL
+software/dummy. `manual/images/contact-hardening-shadows.png` is the actual shared
+FrameRenderer output for Gallery111 at640×360, software Vulkan/lavapipe; lossless
+PPM-to-PNG conversion preserves every RGB byte. Capture inputs are the local
+contact-hardening-shadow batch based onab801e63; the batch commit contains the
+Scene, shaders and fixtures. Original captures and receipts remain in local
+AgentFiles/build/phase190-contact-hardening-shadows, including
+light-controls/soft-shadow-light-controls.png and
+gallery-native/1bfdbec6-6000-4ed0-aa86-85930cc09351/RelocatedImages. The controls
+capture shows the actual Light labels and the Game capture shows the authored
+soft-shadow comparison. Neither is a full Windows editor or physical GPU capture;
+no controls/pixels were retouched.

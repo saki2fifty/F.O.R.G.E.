@@ -16,6 +16,7 @@
 #include "ui_test_renderer.hpp"
 #include <chrono>
 #include <iostream>
+#include <memory>
 #include <thread>
 
 // Native owners with the existing recording RmlUi renderer; no GPU is simulated.
@@ -72,7 +73,8 @@ int main(int argc, char** argv) {
         std::vector<std::string> recent;
         forge::EditorFiles files(scene, nullptr, recent);
         files.start(root / "Game");
-        ImGui::CreateContext();
+        const std::unique_ptr<ImGuiContext, decltype(&ImGui::DestroyContext)> imgui(
+            ImGui::CreateContext(), ImGui::DestroyContext);
         ImGui::GetIO().IniFilename = nullptr;
         forge::ContentImports imports;
         auto asset_worker = runtime.parent_path() / "forge_asset_build";
@@ -209,7 +211,8 @@ int main(int argc, char** argv) {
         std::string message;
         const auto begin = std::chrono::steady_clock::now();
         const auto end = begin + std::chrono::seconds(240);
-        while (workspace.active() && std::chrono::steady_clock::now() < end) {
+        while (workspace.active() && std::chrono::steady_clock::now() < end &&
+               !forge::test::marker_present(root / "stop")) {
             files.changed = false;
             content.poll(files);
             if (!content.refreshing())

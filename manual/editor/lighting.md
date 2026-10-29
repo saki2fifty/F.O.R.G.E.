@@ -554,6 +554,47 @@ Legacy blockout shading remains unlit and does not receive PBR light/shadow term
 although its derived mesh can cast. Use a PBR material for a lit receiver.
 
 
+### Soften shadows with a light source size
+
+Contact hardening makes a shadow sharp near the casting object and softer farther
+away. Use a lit PBR receiver and an enabled shadow-casting Light. The Scene and
+Mesh Renderer shadow switches described above must also be enabled.
+
+1. Stop Play and select the light in Hierarchy.
+2. For a Directional light, set **Shadow Angular Radius (rad)** in its **Light** component. This is the source's apparent half-angle, from **0** to approximately **0.785398** radians. Start with **0.01**.
+3. For a Point or Spot light, set **Shadow Source Radius (m)** instead. This is a world-space radius from **0** to **10000** metres. Start with **0.1**. Entity scale does not multiply it.
+4. Press **Enter** after typing. Move a casting box farther above a lit floor to compare the widening shadow edge. **0** retains the ordinary fixed filter. Each committed edit supports Undo and Redo.
+5. Save the Scene. Play and exported games use these saved Light values; no extra baked asset is needed.
+
+![Light Inspector showing source radius in metres and angular radius in radians](../images/soft-shadow-light-controls.png)
+
+Only the source-size field for the selected light kind affects softness. Both fields
+remain stored when you change Kind. Intensity, range, attenuation and illumination
+retain their usual meaning: source size changes shadows, not area-light emission.
+
+Open **111-contact-hardening-shadows** in the Feature Gallery for resting and raised
+boxes. Select **Soft sun - change Shadow Angular Radius** and compare **0.08** with
+**0**. Larger separation produces a wider soft edge.
+
+![Three boxes at different heights casting progressively softer shadows on a lit floor](../images/contact-hardening-shadows.png)
+
+The resting box has the closest contact; the two raised boxes show increasing
+separation. Turn off **Preview light** when comparing authored Scene lighting.
+
+During Play, edit the two source-size fields under Inspector's **Live gameplay**.
+They change the running world without changing the authored Scene. Stopping Play
+restores authored values unless you keep the selected fields through the tuning
+review. Other Light fields are edited while stopped. See [Play mode](play-mode.md).
+
+Soft shadows use a bounded approximation from the existing shadow maps. The filter
+radius is limited to **32 map texels**, or less on small maps; very large sources
+can reach this limit rather than grow wider. Faint sampling patterns, missed thin
+casters and reduced detail at low resolutions are possible. Raise Map resolution
+or reduce source size when needed. Cascades, distance fades, layer masks, cast and
+receive flags, alpha-mask behavior and the existing resource limits still apply.
+Bias may need adjustment for the map resolution and surface slope. Source size
+does not create transparent colored shadows or traced area-light illumination.
+
 ## Current integration limits
 
 PBR materials receive scene lighting on both imported and built-in meshes. Legacy

@@ -16,6 +16,7 @@ SCOPE_TRACE_ONLY = sys.argv[7:] == ['--scope-trace-only']
 MAP_PROFILE_ONLY = sys.argv[7:] == ['--map-profile-only']
 SPRITE_FRAMES_ONLY = sys.argv[7:] == ['--sprite-frames-only']
 PROBES_ONLY = sys.argv[7:] == ['--reflection-probes-only']
+SOFT_SHADOWS_ONLY = sys.argv[7:] == ['--soft-shadows-only']
 TIME_ONLY = sys.argv[7:] == ['--time-only']
 PROFILE_ONLY = sys.argv[7:] == ['--profile-only']
 GESTURES_ONLY = sys.argv[7:] == ['--gestures-only']
@@ -43,7 +44,7 @@ def editor(mode='full'):
             assert line, process.stderr.read()
             yield root, json.loads(line)
         finally:
-            finish_host(process)
+            finish_host(process, root)
 
 
 def until(fn, predicate, timeout=30):
@@ -539,6 +540,49 @@ for legacy in (False, True):
             assert read('forge_scene_read') == authored
             continue
 
+        if SOFT_SHADOWS_ONLY:
+            assert 'Light shadow source' in advertised['forge_play_tune']['description']
+            actor = ok('forge_entity_create', arguments=dict(recipe='render.light',
+                        name='MCP soft-shadow controls'))['results'][0]['selected']
+            ok('forge_property_set', arguments=dict(entity=actor, component='forge.light',
+                                                   field='cast_shadows', value=True))
+            ok('forge_document_save')
+            authored = read('forge_scene_read')
+            ok('forge_play_start')
+            until(lambda: read('forge_play_status'), lambda row: row['ready'] and row['control_ready'])
+            control('forge_play_pause')
+            paused = until(lambda: read('forge_play_status'), lambda row: row['paused'] and row['control_ready'])
+            def runtime_light():
+                snapshot = read('forge_play_snapshot')
+                return next(row['components']['forge.light'] for row in snapshot['entities']
+                            if row['id'] == actor)
+            for field, value in [('shadow_source_radius', .25), ('shadow_angular_radius', .125)]:
+                control('forge_play_tune', entity=actor, component='forge.light', property=field, value=value)
+                ack = until(lambda: read('forge_play_status'), lambda row:
+                            not row['tune_pending'] and row['tune_ack'] is not None)
+                assert 'error' not in ack['tune_ack'] and runtime_light()[field] == value, ack
+                assert ack['timing']['tick'] == paused['timing']['tick']
+            tuned = runtime_light()
+            for field, value in [('shadow_source_radius', -1), ('shadow_source_radius', 10001),
+                                 ('shadow_angular_radius', 1), ('shadow_angular_radius', True)]:
+                control('forge_play_tune', entity=actor, component='forge.light', property=field, value=value)
+                ack = until(lambda: read('forge_play_status'), lambda row:
+                            not row['tune_pending'] and row['tune_ack'] is not None)
+                assert 'error' in ack['tune_ack'] and runtime_light() == tuned, ack
+                assert ack['timing']['tick'] == paused['timing']['tick']
+            state = until(lambda: read('forge_play_status'), lambda row: row['control_ready'])
+            failed(mutate('forge_play_tune', launch=state['launch'], session=state['session'],
+                          generation=state['generation'], entity=actor, component='forge.light',
+                          property='cast_shadows', value=False), 'play_busy')
+            wrong = {key: paused[key] for key in ('launch', 'session', 'generation')}
+            wrong['generation'] += 1
+            failed(mutate('forge_play_tune', **wrong, entity=actor, component='forge.light',
+                          property='shadow_source_radius', value=1), 'stale_play')
+            control('forge_play_stop')
+            assert read('forge_scene_read') == authored
+            print(('legacy' if legacy else 'current') + ': Light source controls, validation, scope, '
+                  'paused clock and authored isolation passed')
+            continue
         if PROBES_ONLY:
             assert 'Reflection Probe' in advertised['forge_play_tune']['description']
             actor = ok('forge_entity_create', arguments=dict(recipe='render.reflection_probe',
@@ -1072,6 +1116,7 @@ for legacy in (False, True):
 
 with gzip.open(sys.argv[6], 'wt', encoding='utf-8') as output:
     json.dump(CAPTURE, output, separators=(',', ':'))
-print('Both MCP protocols: animated UI source/reload, current Play guards and execution grant verified; Windows execution pending' if UI_ANIMATION_ONLY else
+print('Both MCP protocols: current Light source live tuning, validation, scope, paused clock and authored isolation verified' if SOFT_SHADOWS_ONLY else
+      'Both MCP protocols: animated UI source/reload, current Play guards and execution grant verified; Windows execution pending' if UI_ANIMATION_ONLY else
       'Both MCP protocols: navigation ownership, XY authoring and live controls verified; no export or Windows execution' if NAVIGATION_ONLY else
       'Both MCP protocols and independent runtime/output grants verified; no graphical Windows execution claimed')

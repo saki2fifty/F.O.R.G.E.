@@ -80,6 +80,11 @@ void validate_light(const Light& l) {
     require(finite(l.shadow_bias) && l.shadow_bias >= 0 && finite(l.shadow_normal_bias) &&
                 l.shadow_normal_bias >= 0,
             "Shadow biases must be nonnegative and finite");
+    require(finite(l.shadow_source_radius) && l.shadow_source_radius >= 0 &&
+                l.shadow_source_radius <= 10000 && finite(l.shadow_angular_radius) &&
+                l.shadow_angular_radius >= 0 &&
+                l.shadow_angular_radius <= float(std::numbers::pi / 4),
+            "Shadow source radius must be 0–10000 metres and angular radius 0–pi/4 radians");
 }
 CameraView camera_view(const Camera& c, const AffineTransform& a, std::uint32_t width,
                        std::uint32_t height) {
@@ -185,6 +190,8 @@ LightView light_view(const Light& l, const AffineTransform& a) {
     result.cast_shadows = l.cast_shadows;
     result.shadow_bias = l.shadow_bias;
     result.shadow_normal_bias = l.shadow_normal_bias;
+    result.shadow_source_radius = l.shadow_source_radius;
+    result.shadow_angular_radius = l.shadow_angular_radius;
     return result;
 }
 } // namespace forge

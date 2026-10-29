@@ -139,6 +139,7 @@ class ComponentInspector {
                RuntimePropertyTune::navigation_type(key) ||
                RuntimePropertyTune::particle_type(key) || RuntimePropertyTune::material_type(key) ||
                RuntimePropertyTune::sprite_type(key) || RuntimePropertyTune::probe_type(key) ||
+               RuntimePropertyTune::light_type(key) ||
                (type.value("custom", false) && type.contains("admission") &&
                 components.at(key).value("$forge", Json()) == type.at("admission"));
     }
@@ -154,7 +155,9 @@ class ComponentInspector {
                 RuntimePropertyTune::material_property(name)) &&
                (!RuntimePropertyTune::sprite_type(key) ||
                 RuntimePropertyTune::sprite_property(name)) &&
-               (!RuntimePropertyTune::probe_type(key) || RuntimePropertyTune::probe_property(name));
+               (!RuntimePropertyTune::probe_type(key) ||
+                RuntimePropertyTune::probe_property(name)) &&
+               (!RuntimePropertyTune::light_type(key) || RuntimePropertyTune::light_property(name));
     }
     static bool has_runtime_fields(const Json& effective, const Json& schema,
                                    const std::string& selected) {

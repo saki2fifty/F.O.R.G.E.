@@ -133,6 +133,9 @@ struct Light {
     bool cast_shadows = false;
     float shadow_bias = .001f, shadow_normal_bias = .02f;
     std::uint32_t layers = UINT32_MAX;
+    // Zero retains fixed PCF. Source size affects shadows, not punctual emission.
+    float shadow_source_radius = 0;  // Point/spot, world metres; unaffected by node scale.
+    float shadow_angular_radius = 0; // Directional, radians.
     bool operator==(const Light&) const = default;
 };
 } // namespace forge

@@ -29,6 +29,7 @@ struct LightView {
     std::uint32_t kind{}, layers{};
     bool cast_shadows{};
     float shadow_bias{}, shadow_normal_bias{};
+    float shadow_source_radius{}, shadow_angular_radius{};
 };
 LightView light_view(const Light&, const AffineTransform&);
 } // namespace forge

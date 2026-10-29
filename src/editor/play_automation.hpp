@@ -372,6 +372,7 @@ struct PlayAutomation {
             "play.tune",
             "Queue one reflected runtime property through the actual live-tuning "
             "owner, including Reflection Probe scalar controls (map assignment is Edit-only), "
+            "Light shadow source radius/angular radius (other Light fields remain Edit-only), "
             "Sprite appearance/ordered frame regions and Navigation Agent "
             "flags, speed, stopping distance and destination "
             "coordinates (not its NavMesh asset). Poll play.status.tune_ack for runtime "

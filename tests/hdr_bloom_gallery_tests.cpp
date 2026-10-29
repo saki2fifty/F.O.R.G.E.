@@ -19,6 +19,15 @@ void check(bool value, const char* why) {
 Json read(const std::filesystem::path& path) {
     Json result;
     std::ifstream(path) >> result;
+    // Independent additive-schema oracle. Existing files are never rewritten.
+    if (result.contains("entities"))
+        for (auto& row : result.at("entities")) {
+            auto& components = row.at("components");
+            if (auto light = components.find("forge.light"); light != components.end())
+                for (const auto* field : {"shadow_source_radius", "shadow_angular_radius"})
+                    if (!light->contains(field))
+                        (*light)[field] = 0.;
+        }
     return result;
 }
 void inspect(const std::filesystem::path& root, const Json& source,
@@ -396,7 +405,8 @@ int main(int argc, char** argv) {
                                reflection_scene,
                                probes.scene,
                                normals.scene,
-                               rough_scene};
+                               rough_scene,
+                               AssetId::parse("103bd727-b9c9-443d-90e1-5743c2094730")};
         {
             auto lease = std::make_shared<ProjectLease>(root);
             stage = "runtime catalog preparation";
@@ -422,7 +432,7 @@ int main(int argc, char** argv) {
             (void)record;
             actual.insert(id);
         }
-        check(actual == expected && expected.size() == 22,
+        check(actual == expected && expected.size() == 23,
               "Bloom/color/exposure/fog export changed its exact shared asset closure");
         check(!std::filesystem::exists(moved / "Assets/Exposure/Daylight.animation.json"),
               "Exposure clip source leaked into the runtime package");
@@ -462,7 +472,7 @@ int main(int argc, char** argv) {
                   !std::filesystem::exists(moved /
                                            "Assets/OcclusionNormals/RippleWall.material.json"),
               "Normal AO Gallery relocation changed identities or leaked authoring sources");
-        std::cout << "Gallery109 rough reflection and Gallery108 normal image,22-record "
+        std::cout << "Gallery111 soft shadows, Gallery109 rough reflection and Gallery108 normal image,23-record "
                      "source-free closure PASS\n";
         std::cout << "Gallery107 two imported maps, boxes, priorities and shared source-free "
                      "closure PASS\n";

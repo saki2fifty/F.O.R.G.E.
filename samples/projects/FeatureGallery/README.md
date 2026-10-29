@@ -1,5 +1,21 @@
 # Feature Gallery
 
+## Contact-hardening shadows
+
+Open **Scenes/111-contact-hardening-shadows.scene.json** and press Play. Three boxes
+sit at different heights above a lit floor. The shadow edge grows softer as the
+box moves away from the floor. Stop and select **Soft sun - change Shadow Angular
+Radius**. Compare **Shadow Angular Radius (rad)** at **0.08** and **0**, pressing
+Enter after editing. Zero uses the ordinary fixed shadow filter. Turn off
+**Preview light** when comparing the authored Scene view.
+
+For a Point or Spot light, use **Shadow Source Radius (m)** instead. These settings
+change shadow softness; they do not change direct illumination into an area light.
+Both source-size fields can be tried under **Live gameplay** while playing. Stop
+restores authored values unless you keep the selected tuning through the review.
+Save, choose this Scene as startup and export. The example needs no C++ module or
+new import. See the Scene lighting manual chapter for limits and bias controls.
+
 ## Capture reflection maps
 
 Open **Scenes/110-reflection-map-capture.scene.json** and press Play. Two smooth

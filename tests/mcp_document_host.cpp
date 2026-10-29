@@ -29,7 +29,8 @@ int main(int argc, char** argv) {
         workspace.start(scene, files, mode != "read", mode == "files");
         std::cout << workspace.connection().connection().dump() << std::endl;
         const auto end = std::chrono::steady_clock::now() + std::chrono::seconds(90);
-        while (workspace.active() && std::chrono::steady_clock::now() < end) {
+        while (workspace.active() && std::chrono::steady_clock::now() < end &&
+               !forge::test::marker_present(root / "stop")) {
             if (forge::test::consume_marker(root / "autosave"))
                 files.document.autosave();
             if (forge::test::consume_marker(root / "ui_new"))

@@ -977,6 +977,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "103bd727-b9c9-443d-90e1-5743c2094730",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/111-contact-hardening-shadows.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "10be3be6-1de7-4465-8a50-733bf046bd4c",
       "metadata": {
         "forge.import": {
