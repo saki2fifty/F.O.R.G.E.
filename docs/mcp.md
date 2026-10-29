@@ -944,6 +944,34 @@ as the Inspector. Texture is an imported color/HDR cube or panorama; dimensions,
 finite ranges and signed 32-bit priority validate through the native component.
 Invalid candidates leave the revision unchanged. Live Play tuning admits its nine
 scalar controls through `play.tune` / `forge_play_tune`; texture assignment remains Edit-only.
-Use discovered tools/fields for the current connection and permissions. There is
-no agent-specific probe renderer or automatic map-capture tool. See
-[local reflection probes](local-reflection-probes.md) for rendering limits.
+Use discovered tools/fields for the current connection and permissions.
+
+`capture.reflection.start` / `forge_capture_reflection_start` requires the project
+asset grant and Edit mode, with the ordinary target/expected revision/sequence
+routing. Required fields are `probe` and `destination` (a NEW folder below Assets
+with an existing parent). Optional fields are `size` (16–1024, default256),
+`near_plane` (positive, default0.1), `far_plane` (greater than near, default100),
+`layers` (uint32, default all bits) and `assign` (default true). No external output
+folder is needed. This uses the same image-task owner as PNG/sequence capture and
+cannot overlap those operations.
+
+Poll `forge_capture_status`; its `reflection` value reports phase, face count,
+original revision/generation, destination, cancellation and the eventual Texture
+`asset`. When `import_batch` appears, use `forge_asset_import_review`, then
+`forge_asset_import_commit` with that exact `batch` and `review` and `import:true`.
+No files/identities publish during rendering/review. Copy/import and Scene
+assignment have distinct outcomes. If the original Scene/document revision is
+still current and `assign` is true, publication assigns the map and resets its yaw
+to zero in one Scene Undo step. Otherwise the published map remains unassigned.
+Save after assignment. Read per-file import diagnostics and close the settled
+batch through `forge_asset_import_close`.
+
+`forge_capture_cancel` requires this task's exact operation UUID and the grant for
+its workflow: project assets for reflection maps, output access for PNG/sequence
+images. One grant cannot cancel the other workflow. It drains
+accepted GPU/encoding/import work and prevents automatic assignment; already
+copied sources/published assets remain. Asset import cancel/close tools keep their
+existing batch guards. Cancellation/review controls can service their pending
+owner; a new capture still requires normal admission. Runtime recapture and
+in-place map replacement are not available. See
+[local reflection probes](local-reflection-probes.md) for capture/rendering limits.

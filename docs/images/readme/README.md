@@ -628,3 +628,55 @@ relocated graphical-EXE acceptance. Those reviews stay queued separately.
 PNG SHA256, Game: `16dd7e56b82e34044c2023428d1238eb328aaec8fd964469452e9c5021b73573`.
 
 PNG SHA256, Controls: `71966f3656fb4db8e4ad67f5cb2ab7359e0cecbbbd696f06e36329413b736f2e`.
+
+## Reflection capture controls and import review
+
+The complete1080×900 [capture settings](../../../manual/images/reflection-capture-settings.png)
+and [generated source review](../../../manual/images/reflection-capture-review.png)
+come from `forge_reflection_capture_editor_tests <asset-worker> <scratch>` on
+2026-10-29, local development based on9667417. Actual production Inspector,
+ViewImageTask, ReflectionCaptureTask and SourceImport controls are rendered by
+the pinned ImGui/SDL software backend with Lato. Pointer input opens settings,
+starts capture and reaches the real generated-source review. The test exercises
+actual encoding, source copying, worker publication, Scene history and save at
+100/150/200 percent; only its native pixel-delivery boundary is recorded.
+The separate native capture/workflow checks exercise real software-Vulkan HDR
+rendering and source-free relocation. These PNGs demonstrate controls, not a
+full Windows desktop, physical display/input or graphical exported-EXE acceptance.
+No controls were painted, retouched, cropped or rearranged after capture.
+
+- `reflection-capture-settings.png` SHA256: `7bcdbc13450f2bdfef7cfc9bec8615cc40a68f9d848b42b4dd79f690414ce0f5`.
+- `reflection-capture-review.png` SHA256: `c32c1bd0c4ccef13383f1295d6b0a1d775e9e2e42bd162763e4aa11ceed2f56b`.
+
+Capture input source hashes (the normal UI gate passed before this documentation):
+
+- `tests/reflection_capture_editor_tests.cpp`: `3e7cfee72efc1742da102c94dce59032105d98abb29e2d0dd126af1537d7ec97`.
+- `src/editor/component_inspector.hpp`: `43929ee879cba949de73bab6035993a2f251b55e7ead45990074cb382a5e1fdc`.
+- `src/editor/reflection_capture_task.hpp`: `ed407190a39c6c4b63692d3b5429470297ffcdc2d35ee1db211104765e31a8e3`.
+- `src/editor/view_image.hpp`: `c460cd7333b5bdf0b8cdd94bcafb3e9158122b826047c8b23976137be32dd13c`.
+
+## Captured reflection-map Gallery
+
+[Game image](../../../manual/images/reflection-map-capture.png) is the complete
+640×360 Game rendering of Gallery110, captured locally on2026-10-29 from development
+based on9667417. `forge_reflection_capture_workflow_vulkan_probe`'s
+`--prepare-gallery` fixture duplicates the FORGE-owned Scene through SceneDocument,
+creates the authored receivers/source panels, and uses the production image-task
+native driver and source import worker to capture/import a128square six-face HDR
+map. Capture mask1 includes room geometry and emissive panels; Game mask2 hides the
+panels and displays the metal spheres. No other engine source or artwork is used.
+The original306catalogrecords remain exact; only one Scene and one Texture are
+added. This preparation input is the Gallery before110was added; the completed
+sample's persistent identities are retained in the repository.
+
+The actual shared Game renderer produces both on/off640×360 and360×640 images,
+with35940and11158changedpixels respectively. A source-free export relocates and
+reproduces all four images exactly. The source sky check retains0.18HDR radiance
+with its display sky hidden. The source-shadow check changes22928HDRpixels. The
+PPM-to-PNG conversion preserves every RGB byte and the complete dimensions;
+no controls, objects or pixels are retouched. This demonstrates software Vulkan
+rendering, authoring and packaging, not Windows/D3D12 execution, a full editor
+window, physical GPU/input or graphical exported-EXE acceptance.
+
+Canonical PNG SHA256: `751d0630bf31b8d1a597fc57cc572ee379194f2df50df09ff0c98ac6bbacaa1d`.
+Scene identity: `177b3d5b-f5a7-41df-a1f8-f36ab10ac6e0`; map identity: `cb50dced-5d4b-4e7f-9d06-f13fa65ea8fc`.

@@ -1,0 +1,41 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [],
+    "importer": "forge.texture.container",
+    "importer_revision": "3472ac757b25f84ed4a029768f946a1eec390714f990921983eb5c8746a974d5",
+    "key_version": 1,
+    "output_format": "forge.texture-bundle",
+    "output_version": 1,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {
+      "additional_usages": [],
+      "anisotropy": 1,
+      "filter": "linear",
+      "semantic": "auto",
+      "wrap": "repeat"
+    },
+    "settings_version": 1,
+    "source": "69de4f2a598abc9835661289d1c77fd9275c718118cb913c1f0e76cb1b31d626",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.texture.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "cb50dced-5d4b-4e7f-9d06-f13fa65ea8fc",
+    "source": "Assets/ReflectionCapture/Reflection.dds",
+    "source_digest": "69de4f2a598abc9835661289d1c77fd9275c718118cb913c1f0e76cb1b31d626",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.texture.container",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

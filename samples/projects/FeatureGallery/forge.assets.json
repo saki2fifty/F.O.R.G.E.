@@ -1334,6 +1334,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "177b3d5b-f5a7-41df-a1f8-f36ab10ac6e0",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/110-reflection-map-capture.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "17bd4b4e-10db-4553-84ae-4ae961952c45",
       "metadata": {
         "forge.import": {
@@ -9288,6 +9298,35 @@
         "removed": false
       },
       "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "cb50dced-5d4b-4e7f-9d06-f13fa65ea8fc",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "6f514f49969062c5fbd511325494f3b15cef2bc05a0db9b3483da02b8d83ef60",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.texture.container",
+          "importer_revision": "3472ac757b25f84ed4a029768f946a1eec390714f990921983eb5c8746a974d5",
+          "key": "d064094978b31f3a51127cdf96ac3e733c0ac8fcaa6d2a6dbc28da851b72b6e6",
+          "output_format": "forge.texture-bundle",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "e44166dc15f54200eae999c36ff743aaf1c51edd8936ad108a076579f38fd9c2",
+          "settings_version": 1,
+          "sidecar_digest": "ef4ba739ae577aa4af38b0392314d9e02ad4e0500dbc5363cdbd0d592edb3a15",
+          "source_digest": "69de4f2a598abc9835661289d1c77fd9275c718118cb913c1f0e76cb1b31d626",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/ReflectionCapture/Reflection.dds",
+      "source_dependencies": [],
+      "type": "texture"
     },
     {
       "dependencies": [],

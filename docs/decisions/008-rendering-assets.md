@@ -204,3 +204,20 @@ installed SDK interfaces change. The bounded footprint approximates visible sour
 averaging; it does not imply hidden geometry, new reflection lobes or full physical
 BRDF convolution. The [reflection contract](../screen-space-reflections.md) owns
 limits and stage behavior. No parallel lighting/resource/authoring manager is added.
+
+## Editor-authored reflection snapshots — accepted extension
+
+Explicit reflection-map capture remains an operation of ViewImageTask. Its scoped
+native job borrows the existing MeshResourceHost, FrameRenderer and single
+presentation readback/fence owner. A detached authored snapshot supplies six
+world-aligned linear-HDR faces; it introduces no world, image manager, asset
+registry or clock. It excludes recursive reflection and display/history effects.
+
+The original restricted DDS source encoder is a pure forge_texture operation.
+SourceImport/SourceCopy retain review, raw-byte/catalog guards, NEW-folder copying
+and ordinary texture-worker publication. A new map receives its identity from that
+publisher. Scene map/yaw assignment uses the existing atomic command/history owner
+at the original project/document/Scene/revision; stale results remain unassigned.
+UI, automation and MCP share this workflow and its grants. This does not authorize
+an overwrite writer, runtime recapture or automatic stable-ID rebaking. See the
+[probe contract](../local-reflection-probes.md#editor-authored-map-snapshots).

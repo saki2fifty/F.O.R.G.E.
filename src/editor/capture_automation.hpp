@@ -3,6 +3,7 @@
 #include "automation_permissions.hpp"
 #include "automation_schema.hpp"
 #include "files.hpp"
+#include "reflection_capture_request.hpp"
 #include "view_image.hpp"
 namespace forge {
 struct CaptureAutomationProviders {
@@ -10,6 +11,7 @@ struct CaptureAutomationProviders {
     std::function<void(const std::string&)> open_sequence;
     std::function<ui::SequenceFrameSource&()> sequence;
     std::function<std::string(bool)> unavailable;
+    std::function<void(const std::string&, const ui::ReflectionCaptureRequest&)> reflection;
 };
 struct CaptureAutomation {
     static Json state(ui::ViewImageTask& owner, EditorFiles& files) {
@@ -28,6 +30,10 @@ struct CaptureAutomation {
             {"view", owner.view_ == ui::ViewImageTask::View::Scene ? "scene" : "game"}};
         if (owner.scene_)
             value["scene"] = owner.scene_;
+        if (owner.work_) {
+            value["view"] = "reflection";
+            value["reflection"] = owner.work_->state();
+        }
         if (!owner.completed_image_.empty())
             value["file"] = path_utf8(owner.completed_image_);
         const auto* frames =
@@ -88,23 +94,88 @@ struct CaptureAutomation {
                                                     std::string& message,
                                                     const ui::AutomationPermissions& permissions) {
         std::vector<LiveAuthoringMethod> result;
-        result.push_back(
-            automation_method("capture.status",
-                              "Read the actual view-image task and "
-                              "its PNG/sequence progress. Rendering and IO remain asynchronous and "
-                              "owned by the editor.",
-                              "capture.read", automation_object(), false,
-                              [&owner, &files](const Json&) { return state(owner, files); }));
-        result.push_back(automation_method("capture.sequence.read",
-                                           "Read the existing Timeline "
-                                           "sequence export source, cursor generation, duration "
-                                           "and readiness. No rendering starts.",
-                                           "capture.read", automation_object(), false,
-                                           [&scene, &files, providers](const Json&) {
-                                               files.document.check_ownership();
-                                               return sequence_state(providers, scene, files);
-                                           }));
-        if (!permissions.export_game || permissions.export_root.empty())
+        result.push_back(automation_method(
+            "capture.status",
+            "Read the actual view-image task and "
+            "its PNG/sequence/reflection progress. Rendering and IO remain asynchronous and "
+            "owned by the editor.",
+            "capture.read", automation_object(), false,
+            [&owner, &files](const Json&) { return state(owner, files); }));
+        if (providers.sequence)
+            result.push_back(
+                automation_method("capture.sequence.read",
+                                  "Read the existing Timeline "
+                                  "sequence export source, cursor generation, duration "
+                                  "and readiness. No rendering starts.",
+                                  "capture.read", automation_object(), false,
+                                  [&scene, &files, providers](const Json&) {
+                                      files.document.check_ownership();
+                                      return sequence_state(providers, scene, files);
+                                  }));
+        if (permissions.assets && providers.reflection)
+            result.push_back(automation_method(
+                "capture.reflection.start",
+                "Capture a new linear HDR cube at an authored Reflection Probe. Edit-only; "
+                "16–1024 pixels per face. The destination is a NEW folder below Assets with an "
+                "existing parent. Rendering creates no requested source folder or published "
+                "assets. Poll capture.status for "
+                "the import_batch, then use asset.import.review/commit/cancel/close. Successful "
+                "import assigns the new map and resets map yaw to zero in one Scene Undo step "
+                "only if the original Scene/document revision remains current; otherwise the "
+                "map remains available for explicit assignment. Save the Scene afterward. "
+                "No runtime recapture, recursive reflections or display effects.",
+                "asset.write",
+                automation_object({{"probe", automation_uuid()},
+                                   {"destination", automation_text(2047, 1)},
+                                   {"size", automation_integer(16, 1024)},
+                                   {"near_plane", {{"type", "number"}, {"exclusiveMinimum", 0}}},
+                                   {"far_plane", {{"type", "number"}, {"exclusiveMinimum", 0}}},
+                                   {"layers", automation_integer(0, UINT32_MAX)},
+                                   {"assign", {{"type", "boolean"}}}},
+                                  {"probe", "destination"}),
+                true, [&owner, &files, providers](const Json& request) {
+                    ready(files, providers, true);
+                    if (owner.busy())
+                        throw AuthoringError("capture_busy", "Wait for the active image task");
+                    ui::ReflectionCaptureRequest settings;
+                    settings.destination =
+                        automation_relative_path(request.at("destination").get<std::string>());
+                    settings.settings.size = request.value("size", 256u);
+                    settings.settings.near_plane = request.value("near_plane", .1);
+                    settings.settings.far_plane = request.value("far_plane", 100.);
+                    settings.settings.layers = request.value("layers", UINT32_MAX);
+                    settings.assign = request.value("assign", true);
+                    validate_reflection_capture_settings(settings.settings);
+                    providers.reflection(request.at("probe").get<std::string>(), settings);
+                    return state(owner, files);
+                }));
+        const bool output_access = permissions.export_game && !permissions.export_root.empty();
+        if (permissions.assets || output_access)
+            result.push_back(automation_method(
+                "capture.cancel",
+                "Cancel this exact pending image, sequence or reflection task. Accepted work "
+                "retires through its owner. Completed files/assets remain; reflection cancellation "
+                "prevents automatic map assignment.",
+                "capture.write",
+                automation_object({{"operation", automation_uuid()}}, {"operation"}), true,
+                [&owner, &files, &message, asset_write = permissions.assets,
+                 output_write = output_access](const Json& request) {
+                    files.document.check_ownership();
+                    if (owner.project_ != files.document.project() ||
+                        request.at("operation") != owner.operation_ || !owner.busy())
+                        throw AuthoringError("wrong_job",
+                                             "Choose the current project's exact image task");
+                    if (owner.work_ ? !asset_write : !output_write)
+                        throw AuthoringError(
+                            "capability_denied",
+                            "This capture needs its project-asset or output grant");
+                    if (!owner.cancel(message))
+                        throw AuthoringError("already_committing",
+                                             "Wait for the committing readback/file task");
+                    return state(owner, files);
+                },
+                true));
+        if (!output_access)
             return result;
         const auto root = std::filesystem::canonical(permissions.export_root);
         result.push_back(automation_method(
@@ -217,25 +288,6 @@ struct CaptureAutomation {
                 (void)output.relative(path);
                 if (!owner.begin_preview(request.at("artifact_operation"), frame, message))
                     throw AuthoringError("capture_busy", "Wait for the active image task");
-                return state(owner, files);
-            },
-            true));
-        result.push_back(automation_method(
-            "capture.cancel",
-            "Cancel this exact pending image or "
-            "sequence task. A single GPU readback/file write already committing must finish; "
-            "sequence cancellation preserves completed frames and restores its preview cursor.",
-            "capture.write", automation_object({{"operation", automation_uuid()}}, {"operation"}),
-            true,
-            [&owner, &files, &message](const Json& request) {
-                files.document.check_ownership();
-                if (owner.project_ != files.document.project() ||
-                    request.at("operation") != owner.operation_ || !owner.busy())
-                    throw AuthoringError("wrong_job",
-                                         "Choose the current project's exact image task");
-                if (!owner.cancel(message))
-                    throw AuthoringError("already_committing",
-                                         "Wait for the committing readback/file task");
                 return state(owner, files);
             },
             true));

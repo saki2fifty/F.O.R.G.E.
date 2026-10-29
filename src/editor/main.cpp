@@ -85,6 +85,7 @@
 #include "project_settings.hpp"
 #include "project_source_automation.hpp"
 #include "published_tile_map.hpp"
+#include "reflection_capture_host.hpp"
 #include "resource_inspector.hpp"
 #include "runtime_dependencies.hpp"
 #include "runtime_tuning_review.hpp"
@@ -1359,6 +1360,38 @@ int main(int argc, char** argv) {
         content.rescan_sources = [&] { content_imports.rescan(); };
         source_import.routes = content_imports.routes;
         source_import.published = content_imports.published;
+        const auto reflection_unavailable = [&]() -> std::string {
+            return play.active() || files.busy() || files.changed || game_export.busy() ||
+                           sdk_build->busy() || content_files.busy() ||
+                           runtime_dependencies.busy() || cache_tools.busy() || modal.active() ||
+                           blockout.active() || scene_tools.active() ||
+                           documents.source_drafts_dirty() || !mesh_resources
+                       ? "Stop Play and settle project operations/source drafts before reflection "
+                         "capture"
+                       : "";
+        };
+        const auto start_reflection = [&](const std::string& entity,
+                                          const forge::ui::ReflectionCaptureRequest& settings,
+                                          bool configure) {
+            if (view_image.busy() || source_import.busy())
+                throw forge::AuthoringError("capture_busy", "Finish the active image/import task");
+            auto work = std::make_unique<forge::ui::ReflectionCaptureTask>(
+                scene, files.document, source_import, entity, settings,
+                [&](forge::RenderScene snapshot, const forge::ReflectionCaptureSettings& options,
+                    forge::EntityId probe) -> std::unique_ptr<forge::ui::ReflectionCaptureDriver> {
+                    return std::make_unique<forge::ui::ReflectionCaptureHost>(
+                        presentation, mesh_resources, std::move(snapshot), options, probe);
+                },
+                [&] { return mesh_resources ? mesh_resources->catalog() : nullptr; },
+                reflection_unavailable, configure);
+            work->reveal(configure);
+            if (!view_image.begin_work(std::move(work), files.document.project(), scene.asset_id(),
+                                       message))
+                throw forge::AuthoringError("capture_busy", "Finish the active image task");
+        };
+        component_inspector.capture_reflection = [&](const std::string& entity) {
+            perform([&] { start_reflection(entity, {}, true); });
+        };
         content.import_files = [&] { source_import.picker(files.document, window.get()); };
         content.pack_sprite_atlas = [&] {
             try {
@@ -2353,6 +2386,10 @@ int main(int argc, char** argv) {
             methods.insert(methods.end(), std::make_move_iterator(exports.begin()),
                            std::make_move_iterator(exports.end()));
             forge::CaptureAutomationProviders capturing;
+            capturing.reflection = [&](const std::string& entity,
+                                       const forge::ui::ReflectionCaptureRequest& settings) {
+                start_reflection(entity, settings, false);
+            };
             capturing.show = [&](forge::ui::ViewImageTask::View view) {
                 if (view == forge::ui::ViewImageTask::View::Scene) {
                     workspace.scene = true;

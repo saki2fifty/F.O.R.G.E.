@@ -137,6 +137,28 @@ int main() {
               "Generated binary source did not use its immutable reviewed snapshot");
         check(!std::filesystem::exists(project / "forge.assets.json"),
               "Generated copy allocated a logical identity before import");
+        auto shared_input = std::make_shared<const std::vector<std::byte>>(generated_bytes);
+        const auto shared = prepare_shared_generated_source_copy(project, "Assets/SharedGenerated",
+                                                                 "Reflection.dds", shared_input);
+        check(shared.files.size() == 1 && shared.files[0].generated == shared_input,
+              "Shared generated source copied or lost its owned payload");
+        shared_input.reset();
+        commit_source_copy(lease, shared);
+        check(bytes(project / "Assets/SharedGenerated/Reflection.dds") ==
+                  std::string(reinterpret_cast<const char*>(generated_bytes.data()),
+                              generated_bytes.size()),
+              "Shared source lost bytes after its producer released ownership");
+        rejects([&] {
+            prepare_shared_generated_source_copy(project, "Assets/NullGenerated", "Reflection.dds",
+                                                 nullptr);
+        });
+        auto mutable_shared = std::make_shared<std::vector<std::byte>>(generated_bytes);
+        const auto altered = prepare_shared_generated_source_copy(
+            project, "Assets/ChangedSharedGenerated", "Reflection.dds", mutable_shared);
+        (*mutable_shared)[0] = std::byte(99);
+        rejects([&] { commit_source_copy(lease, altered); });
+        check(!std::filesystem::exists(project / altered.destination),
+              "Changed shared bytes bypassed the reviewed digest");
         rejects([&] {
             prepare_generated_source_copy(project, "Assets/BadGenerated", "../Atlas.png",
                                           generated_bytes);
@@ -155,6 +177,24 @@ int main() {
         check(!std::filesystem::exists(project / ambiguous.destination),
               "Ambiguous generated/external source was published");
         const auto index = project / "forge.assets.json";
+        const auto absent_digest = asset_detail::content_digest(std::span<const std::byte>{});
+        auto absent = prepare_generated_source_copy(
+            project, "Assets/InitiallyEmpty", "Reflection.dds", generated_bytes, absent_digest);
+        commit_source_copy(lease, absent);
+        check(!std::filesystem::exists(index) &&
+                  std::filesystem::exists(project / absent.destination / "Reflection.dds"),
+              "An absent catalog guard required a pre-existing asset index");
+        auto appeared = prepare_generated_source_copy(
+            project, "Assets/AppearedCatalog", "Reflection.dds", generated_bytes, absent_digest);
+        atomic_write(index, "");
+        rejects([&] { commit_source_copy(lease, appeared); });
+        check(!std::filesystem::exists(project / appeared.destination),
+              "An empty file appearing at the catalog path bypassed the absent-index guard");
+        std::filesystem::remove(index);
+        change_catalog = index;
+        rejects([&] { commit_source_copy(lease, appeared); });
+        check(!std::filesystem::exists(project / appeared.destination),
+              "A catalog appearing during copy bypassed the absent-index guard");
         const std::string original_index = R"({"assets":[],"version":2})";
         atomic_write(index, original_index);
         const auto revision =

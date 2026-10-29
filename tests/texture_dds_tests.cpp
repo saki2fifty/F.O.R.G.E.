@@ -1,3 +1,4 @@
+#include "reflection_capture_source_tests.hpp"
 #include "texture_import.hpp"
 #include <dxgiformat.h>
 #include <iostream>
@@ -75,6 +76,7 @@ std::vector<std::byte> legacy(std::vector<std::byte> bytes, unsigned code) {
 } // namespace
 int main() {
     try {
+        test_reflection_capture_source::run();
         for (auto dimension :
              {TextureDimension::D2, TextureDimension::D2Array, TextureDimension::Cube,
               TextureDimension::CubeArray, TextureDimension::D3}) {

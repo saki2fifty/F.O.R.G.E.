@@ -12,6 +12,9 @@ namespace forge {
 // authoring service; both editor views and a future standalone host can call it.
 class FrameRenderer {
   public:
+    // LinearHdr skips display exposure/tone mapping/grading. Scene effects are
+    // still explicit in the supplied settings; the caller chooses that profile.
+    enum class Output { Display, LinearHdr };
     explicit FrameRenderer(DiligentPresentation&, std::string profile_view = "Game");
     void resources(std::shared_ptr<MeshResourceHost>);
     // Presentation discontinuity reported by the existing preview/seek owner.
@@ -26,7 +29,8 @@ class FrameRenderer {
                                    std::span<const PreparedCamera>, unsigned width, unsigned height,
                                    float exposure, const SceneAutoExposure* automatic = nullptr,
                                    double presentation_seconds = 0,
-                                   const TemporalFrameSample* sample = nullptr);
+                                   const TemporalFrameSample* sample = nullptr,
+                                   Output output = Output::Display);
     bool temporal_ready() const;
     bool pending() const { return meshes_ && meshes_->pending(); }
     const std::vector<Diagnostic>& diagnostics() const { return diagnostics_; }
@@ -35,7 +39,7 @@ class FrameRenderer {
     // Snapshot used by the last game() call, shared with optional debug overlays.
     const RenderScene* game_scene() const { return game_scene_ ? &*game_scene_ : nullptr; }
     Diligent::ITextureView* depth() const;
-    Diligent::ITextureView* output() const { return display_.output(); }
+    Diligent::ITextureView* output() const { return output_; }
     std::optional<Double3> pick_point(const RenderScene&, const CameraView&, double x,
                                       double y) const;
     std::uint64_t frames = 0;
@@ -47,6 +51,7 @@ class FrameRenderer {
     void targets(unsigned width, unsigned height);
     void clear_camera(Diligent::IDeviceContext*, const Camera&);
     void report(const Diagnostic&);
+    Diligent::RefCntAutoPtr<Diligent::ITextureView> output_;
     const std::thread::id thread_ = std::this_thread::get_id();
     DiligentPresentation& presentation_;
     const std::string profile_view_;

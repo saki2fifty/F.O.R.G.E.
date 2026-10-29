@@ -46,9 +46,10 @@ to remove that previous environment.
 
 ## Add reflections for a room or region
 
-A **Reflection Probe** supplies an imported reflection map inside a box. Use one
+A **Reflection Probe** supplies a saved reflection map inside a box. Use one
 for a room whose walls should appear in nearby smooth surfaces even when those
-walls are outside the camera view. It does not photograph or bake your Scene.
+walls are outside the camera view. Import a map, or capture a snapshot of your
+Scene using the steps below.
 
 1. Import a cubemap or complete equirectangular panorama with **Color** or **HDR color** usage. See [Textures](textures.md).
 2. Choose **Entity > Create > Rendering > Reflection Probe** and select the new entity.
@@ -88,9 +89,58 @@ and volumes that cannot be represented for a camera are skipped with a diagnosti
 The same depth-writing Mesh, camera-clear, shader, draw-order and view-budget limits
 as screen-space reflections apply. Transparent objects, Sprites, Tile Maps,
 particles and overlays keep their existing path. Anisotropic surfaces retain the
-Scene environment. This feature does not capture maps, generate diffuse light or
-assign different probe masks to individual Meshes. Screen-space reflections can
+Scene environment. Probes do not generate diffuse light or assign different
+probe masks to individual Meshes. Screen-space reflections can
 run afterward and retain the local map where their visible-depth samples miss.
+
+## Capture a reflection map from your Scene
+
+1. Stop Play and save or discard open source drafts. Create or select a **Reflection Probe** and move it to the capture position. An unassigned **Reflection map** is fine. You do not need a Camera to capture a map; Play and exported games still need an enabled game Camera.
+2. In its Inspector, click **Capture reflection map…**.
+3. Choose **Face size (pixels)** from **16** to **1024**; the default is **256**. This is the square size of each of six cube faces. Set a positive **Near plane (m)** and a larger **Far plane (m)**. Geometry outside this range is clipped. **Layers** selects the capture camera's bit mask: **1** selects the first bit, **2** the next, and **3** both. The default **4294967295** includes all bits.
+4. Enter a **New folder** below **Assets**, such as `Assets/ReflectionMap`. Its parent must exist and the new folder must not exist. Leave **Assign to this probe after import** enabled to request automatic assignment.
+5. Click **Capture map**. FORGE captures the six faces and encodes the HDR map in the background. **Cancel capture** retires the pending capture without replacing your current map.
+6. In **Import generated source**, review the destination and `Reflection.dds`. Keep **Import with defaults after copying** enabled and click **Copy sources**. Wait for the import result, then close the dialog.
+7. A successful import assigns the new map if the original Scene and revision are still current. Assignment also resets **Map rotation** to **0°**, so the world-aligned capture matches your Scene. These two changes are one Scene Undo step. **Save** the Scene, then test in Play or export it as your Startup Scene.
+
+![Capture reflection map dialog with face size, clipping planes, layers, destination and assignment controls](../images/reflection-capture-settings.png)
+
+Choose the probe position and a new source folder before capturing.
+
+![Generated reflection DDS source review with Import with defaults after copying and Copy sources](../images/reflection-capture-review.png)
+
+Review and import the generated source to make its Texture asset available.
+
+If the Scene changes while import is pending, the new map stays available in
+Content and FORGE leaves your existing assignment alone. Assign it explicitly
+using **Reflection map**. Turning off automatic assignment has the same result.
+Scene Undo changes the reference; it does not delete source files or published
+assets. Cancelling an import preserves any source copy or publication already
+completed. If you turn off **Import with defaults after copying**, only the source
+is copied; import it through Content before assigning it.
+
+Open **110-reflection-map-capture** in the Feature Gallery for a supplied captured
+map and two metal spheres. The example uses **Layers = 1** while capturing and
+**Layers = 2** on the game Camera. The colored source panels remain in the map
+while the Camera keeps them out of its direct view; the spheres use **Layers = 2** and
+are excluded from that capture mask.
+
+![Two smooth metal spheres reflecting amber and blue sources from a saved HDR map](../images/reflection-map-capture.png)
+
+Toggle the captured reflection volume's **Enabled** control to compare the saved map.
+
+A capture is a static authored snapshot. It uses source lighting, shadows, fog and
+the source environment, including that environment when its display sky is hidden.
+It excludes recursive local/screen-space reflections, ambient occlusion, temporal
+smoothing, motion/focus blur, bloom and display exposure/tone mapping/color grading.
+It stores linear HDR values. It does not update when objects, lights or the probe
+move. Capture a new map into a new folder after changing the Scene. Runtime
+recapture and overwriting an existing map are unavailable.
+
+For an empty or unexpected map, check the probe position, near/far planes, layer
+mask and authored lighting. Keep the probe outside solid surfaces. Check
+**Problems** and the import result for resource, range or publication errors;
+a failed capture/import preserves the previous assignment.
 
 ## Reflect visible surfaces
 

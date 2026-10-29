@@ -23,9 +23,16 @@ def write_capture(path):
         output.write('\n')
 
 
-def finish_host(process):
+def finish_host(process, graceful_root=None):
     """Retain native owner failures without printing its private stdout handoff."""
     exited = process.poll()
+    if exited is None and graceful_root is not None:
+        (Path(graceful_root) / 'stop').touch()
+        try:
+            process.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            pass  # Existing failure cleanup below still retains stderr.
+        exited = process.poll()
     if sys.exc_info()[0] is not None:
         print('Native MCP owner before cleanup:', 'running' if exited is None else exited,
               file=sys.stderr)
@@ -36,6 +43,8 @@ def finish_host(process):
         print('Native MCP owner exited with code', exited, file=sys.stderr)
     if errors:
         print('Native MCP owner stderr:\n' + errors, file=sys.stderr)
+    if graceful_root is not None:
+        assert exited == 0, ('Native MCP owner did not exit cleanly', exited, errors)
 
 
 @contextmanager

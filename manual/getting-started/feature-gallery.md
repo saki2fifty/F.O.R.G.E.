@@ -1,5 +1,9 @@
 # Explore the Feature Gallery
 
+**110-reflection-map-capture** supplies a saved HDR map and two metal spheres.
+Select its captured reflection volume to create a new map through Inspector,
+review/import it, save and export. The **Capture reflection maps** section below explains its layer masks and steps.
+
 **109-rough-reflection-filtering** shows alternating amber and blue columns over
 a rough metal floor. Press Play to inspect the saved result. Stop, open **Tools >
 Scene lighting... → Screen-space reflections**, and toggle **Roughness filtering**.
@@ -91,6 +95,28 @@ with another startup scene to export a different demonstration.
 
 The gallery contains ordinary saved project content. Most scenes need no C++ compiler; optional C++ examples require the matching development tools to build. The included [reference game](../reference-game.md)
 remains a separate combined gameplay example.
+
+## Capture reflection maps
+
+Open **Scenes/110-reflection-map-capture.scene.json** and press Play. Two smooth
+metal spheres and a floor use the supplied captured HDR map. Amber and blue
+capture sources use **Layers = 1**; the game Camera uses **Layers = 2** to keep those
+panels out of its direct view. The spheres use **Layers = 2**, so capture with **Layers = 1**
+excludes the spheres themselves. The shared room geometry uses **Layers = 3**, combining both bits.
+
+Stop Play, select **Captured reflection volume - create a new snapshot** and click
+**Capture reflection map…**. Set **Face size (pixels)** to **128**, **Layers** to **1** and choose a new folder
+below **Assets**. Click **Capture map**, then keep **Import with defaults after
+copying** enabled and click **Copy sources** in the generated-source review. Wait
+for publication, close the dialog and save the Scene. Each capture creates a new
+map; changing a source panel does not update an old map automatically. Compare
+**Enabled** on the probe, or change a panel and capture again to see the difference.
+Box projection starts off for this directional-map comparison.
+
+Set this Scene as Startup Scene and export after saving. The captured Texture
+travels with the game; the editable DDS source is not required at runtime. No C++
+module is required. See [Capture a reflection map](../editor/lighting.md)
+for clipping, layer masks, cancellation and assignment rules.
 
 ## Top-down 2D navigation
 

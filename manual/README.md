@@ -39,7 +39,7 @@ content may differ; use **Window** to open a panel mentioned in a guide.
 - [Materials](editor/materials.md)
 - [Material Graph](editor/material-graphs.md)
 - [Shader import](editor/shaders.md)
-- [Scene lighting, local reflection probes, roughness-filtered screen-space reflections, ambient occlusion with material normals, motion blur, depth of field, edge smoothing, distance fog, exposure and color](editor/lighting.md)
+- [Scene lighting, reflection-map capture, local reflection probes, roughness-filtered screen-space reflections, ambient occlusion with material normals, motion blur, depth of field, edge smoothing, distance fog, exposure and color](editor/lighting.md)
 - [Mesh particle effects](editor/particles.md)
 
 ## 2D scenes

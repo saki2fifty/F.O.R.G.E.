@@ -156,9 +156,11 @@ ITextureView* FrameRenderer::render(IDeviceContext* context, const RenderScene& 
                                     std::span<const PreparedCamera> cameras, unsigned width,
                                     unsigned height, float exposure,
                                     const SceneAutoExposure* automatic, double seconds,
-                                    const TemporalFrameSample* sample) {
+                                    const TemporalFrameSample* sample, Output output) {
     if (thread_ != std::this_thread::get_id() || !context)
         throw std::runtime_error("Frame rendering requires its presentation thread and context");
+    if (output != Output::Display && output != Output::LinearHdr)
+        throw std::invalid_argument("Unknown frame output profile");
     validate_scene_distance_fog(scene.settings.distance_fog);
     validate_scene_temporal_anti_aliasing(scene.settings.temporal_anti_aliasing);
     validate_scene_depth_of_field(scene.settings.depth_of_field);
@@ -171,7 +173,7 @@ ITextureView* FrameRenderer::render(IDeviceContext* context, const RenderScene& 
     const auto sample_key = sample ? std::optional<TemporalFrameSample>(*sample) : std::nullopt;
     if (automatic)
         validate_scene_auto_exposure(*automatic);
-    const bool adaptive = automatic && automatic->enabled;
+    const bool adaptive = output == Output::Display && automatic && automatic->enabled;
     const auto exposure_timing = !adaptive ? AutoExposureTiming{}
                                  : sample  ? AutoExposureTiming{0, temporal_sample_ != sample_key}
                                            : auto_exposure_timing(exposure_time_, seconds);
@@ -435,11 +437,13 @@ ITextureView* FrameRenderer::render(IDeviceContext* context, const RenderScene& 
         }
     }
     ++frames;
-    auto timing = presentation_.gpu_scope(context, profile_view_.c_str(), "Display resolve");
-    auto* result = display_.resolve(context, color_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE),
-                                    exposure, scene.settings.color_adjustments,
-                                    automatic ? *automatic : SceneAutoExposure{},
-                                    exposure_timing.delta, reset_exposure);
+    auto* result = color_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+    if (output == Output::Display) {
+        auto timing = presentation_.gpu_scope(context, profile_view_.c_str(), "Display resolve");
+        result = display_.resolve(context, result, exposure, scene.settings.color_adjustments,
+                                  automatic ? *automatic : SceneAutoExposure{},
+                                  exposure_timing.delta, reset_exposure);
+    }
     if (adaptive) {
         exposure_views_.resize(cameras.size());
         for (std::size_t i = 0; i < cameras.size(); ++i)
@@ -475,6 +479,7 @@ ITextureView* FrameRenderer::render(IDeviceContext* context, const RenderScene& 
         std::isfinite(seconds) && seconds >= 0 ? std::optional<double>(seconds) : std::nullopt;
     temporal_sample_ = sample_key;
     frame_completed = true;
+    output_ = result;
     return result;
 }
 bool FrameRenderer::temporal_ready() const {

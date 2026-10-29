@@ -6,6 +6,7 @@
 namespace forge::ui {
 struct ReflectionProbeView {
     ReflectionProbe probe;
+    Double3 center{};
     std::array<Double3, 8> outline;
     std::optional<std::array<Double3, 8>> fade_outline;
 };
@@ -21,6 +22,7 @@ inline std::optional<ReflectionProbeView> reflection_probe_view(const Json& row)
     AffineTransform world;
     world.m = row.at("world_affine").get<std::array<double, 12>>();
     const auto volume = reflection_probe_volume(result.probe, world);
+    result.center = volume.center;
     const std::array extents{result.probe.half_extent_x, result.probe.half_extent_y,
                              result.probe.half_extent_z};
     const auto corners = [&](double inset) {

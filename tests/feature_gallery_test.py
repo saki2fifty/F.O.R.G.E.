@@ -4,6 +4,7 @@ import math
 import re
 from pathlib import Path
 import subprocess
+import struct
 import sys
 import uuid
 
@@ -83,6 +84,39 @@ for source, cooked in (('Assets/Shape.mesh.json', 'mesh.bin'),
     assert json.loads((project_root / source).read_text(encoding="utf-8"))['asset_id'] == asset['id']
     assert (project_root / '.forge/cache/derived' /
             asset['metadata']['forge.import']['key'] / cooked).is_file()
+# The saved capture is an ordinary, stable Texture/Scene fixture. Its direct
+# camera masks keep the emissive source panels out of the game while the supplied
+# cube records them; the sphere receivers are excluded from capture mask1.
+capture_source = 'Scenes/110-reflection-map-capture.scene.json'
+capture_scene = json.loads((project_root / capture_source).read_text(encoding='utf-8'))
+assert capture_scene['asset_id'] == by_source[capture_source]['id']
+capture_rows = capture_scene['entities']
+probes = [row['components']['forge.reflection_probe'] for row in capture_rows
+          if 'forge.reflection_probe' in row['components']]
+assert len(probes) == 1 and probes[0]['enabled'] and not probes[0]['box_projection']
+assert probes[0]['rotation_degrees'] == 0
+capture_map = by_source['Assets/ReflectionCapture/Reflection.dds']
+assert capture_map['id'] == probes[0]['texture'] and capture_map['type'] == 'texture'
+assert not capture_scene['rendering']['screen_space_reflections']['enabled']
+assert not capture_scene['rendering']['environment']['sky']
+cameras = [row['components']['forge.camera'] for row in capture_rows
+           if 'forge.camera' in row['components']]
+meshes = [row for row in capture_rows if 'forge.mesh_renderer' in row['components']]
+assert len(cameras) == 1 and cameras[0]['layers'] == 2 and len(meshes) == 17
+spheres = [row for row in meshes if 'captured-map sphere' in row['name']]
+panels = [row for row in meshes if 'capture source' in row['name']]
+assert len(spheres) == len(panels) == 2
+assert all(row['components']['forge.mesh_renderer']['layers'] == 2 for row in spheres)
+assert all(row['components']['forge.mesh_renderer']['layers'] == 1 for row in panels)
+assert all(row['components']['forge.mesh_renderer']['layers'] == 3
+           for row in meshes if row not in spheres + panels)
+dds = (project_root / capture_map['source']).read_bytes()
+assert dds[:4] == b'DDS ' and len(dds) == 148 + 6 * 128 * 128 * 8
+assert struct.unpack_from('<II', dds, 12) == (128, 128)
+assert struct.unpack_from('<IIIII', dds, 128) == (10, 3, 4, 1, 3)
+assert capture_map['metadata']['forge.import']['platform'] == 'windows'
+assert capture_map['metadata']['forge.import']['backend'] == 'd3d12'
+
 scenes = sorted((project_root / 'Scenes').glob('*.scene.json'))
 assert {'71-world-sprites.scene.json', '72-sprite-frame-animation.scene.json',
         '73-sprite-image-fill.scene.json', '74-tile-maps.scene.json',
@@ -154,6 +188,7 @@ assert {'01-transforms.scene.json', '02-lighting.scene.json',
         '107-local-reflection-probes.scene.json',
         '108-material-normal-occlusion.scene.json',
         '109-rough-reflection-filtering.scene.json',
+        '110-reflection-map-capture.scene.json',
         '70-sequence-audio-cues.scene.json',
         '11-animation-markers.scene.json', '12-inset-panels.scene.json',
         '13-transform-curves.scene.json', '14-uv-islands.scene.json', '15-brush-symmetry.scene.json', '16-authored-triangulation.scene.json', '17-mesh-shading.scene.json', '18-animation-key-batches.scene.json', '19-mesh-facing.scene.json', '20-physics-joints.scene.json', '21-point-fixed-joints.scene.json', '22-continuous-collision.scene.json', '23-body-motion-tuning.scene.json', '24-slider-joints.scene.json', '25-velocity-motors.scene.json', '26-position-drives.scene.json', '27-connected-collisions.scene.json', '28-swing-twist-joints.scene.json', '29-distance-springs.scene.json', '30-animation-exits.scene.json', '31-audio-falloff.scene.json', '32-directional-audio.scene.json', '33-audio-mixer.scene.json', '34-audio-import-processing.scene.json', '35-moving-audio.scene.json', '36-animation-root-motion.scene.json', '37-animation-subtree-blending.scene.json'} <= {p.name for p in scenes}

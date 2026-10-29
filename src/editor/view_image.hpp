@@ -10,11 +10,13 @@
 #include "sequence_frame_plan.hpp"
 #include "sequence_frame_source.hpp"
 #include "ui_probe.hpp"
+#include "view_image_work.hpp"
 #include <algorithm>
 #include <chrono>
 #include <cstring>
 #include <forge/build.hpp>
 #include <future>
+#include <memory>
 #include <optional>
 #include <utility>
 namespace forge {
@@ -62,7 +64,28 @@ class ViewImageTask {
 
   public:
     enum class View { Scene, Game };
-    bool busy() const { return dialog_.busy() || pending_ || copied_ || job_.valid() || frames_; }
+    bool busy() const {
+        return dialog_.busy() || pending_ || copied_ || job_.valid() || frames_ ||
+               (work_ && work_->busy());
+    }
+    bool reflection_active() const { return work_ && work_->busy(); }
+    void poll_work(Diligent::IDeviceContext* context, std::string& message) {
+        if (work_ && work_->busy()) {
+            work_->poll(context);
+            work_status(message);
+        }
+    }
+    bool begin_work(std::unique_ptr<ViewImageWork> work, const std::filesystem::path& project,
+                    AssetId scene, std::string& message) {
+        if (busy() || !work || !work->busy())
+            return false;
+        start_operation();
+        project_ = project;
+        scene_ = scene;
+        work_ = std::move(work);
+        work_status(message);
+        return true;
+    }
     bool sequence_active() const { return bool(frames_); }
     std::optional<TemporalFrameSample> temporal_sample() const {
         if (!frames_ || operation_.empty() || frames_->finishing || frames_->cancelled ||
@@ -237,6 +260,11 @@ class ViewImageTask {
         return true;
     }
     bool cancel(std::string& message) {
+        if (work_ && work_->busy()) {
+            const bool accepted = work_->cancel();
+            work_status(message);
+            return accepted;
+        }
         if (frames_) {
             cancel_sequence(message);
             return true;
@@ -354,6 +382,7 @@ class ViewImageTask {
     void poll(DiligentPresentation& presentation, Diligent::IDeviceContext* context,
               const std::filesystem::path& project, AssetId scene, std::string& message) {
         try {
+            poll_work(context, message);
             if (frames_ && !frames_->finishing) {
                 if (project != project_ || scene != scene_ ||
                     (frames_->token && !frames_->timeline->frame_export_current(frames_->token)))
@@ -484,6 +513,10 @@ class ViewImageTask {
         }
     }
     void draw(std::string& message) {
+        if (work_) {
+            work_->draw();
+            work_status(message);
+        }
         // Let the existing Game focus route activate its tab before opening a modal.
         if (frames_ && frame_popup_ && ImGui::GetFrameCount() > frames_->open_after)
             ImGui::OpenPopup("Export sequence frames");
@@ -686,6 +719,7 @@ class ViewImageTask {
     }
 
   private:
+    std::unique_ptr<ViewImageWork> work_;
     std::optional<FrameBatch> frames_;
     FileWork file_work_ = FileWork::Image;
     bool frame_popup_ = false;
@@ -702,6 +736,7 @@ class ViewImageTask {
     std::optional<ViewImagePreview> preview_;
     bool preview_requested_ = false;
     void start_operation(bool keep_artifact = false) {
+        work_.reset();
         operation_ = AssetId::generate().str();
         preview_.reset();
         preview_file_.clear();
@@ -846,6 +881,13 @@ class ViewImageTask {
         status_ = message = std::move(text);
         if (editor_context)
             editor_context->record_status("Image export", status_);
+    }
+    void work_status(std::string& message) {
+        const auto value = work_->state();
+        error_ = value.value("error", std::string{});
+        const auto text = value.at("status").get<std::string>();
+        if (text != status_)
+            publish_status(text, message);
     }
     void fail(const std::string& text, std::string& message) {
         error_ = text;

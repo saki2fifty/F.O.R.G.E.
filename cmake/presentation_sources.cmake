@@ -7,6 +7,7 @@ set(forge_presentation_sources
  src/environment_gpu.cpp
  src/environment_sky.cpp
  src/frame_renderer.cpp
+ src/reflection_capture.cpp
  src/shadow_view.cpp
  src/shadow_renderer.cpp
  src/transmission_background.cpp

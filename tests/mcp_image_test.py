@@ -26,7 +26,7 @@ def editor(mode='output'):
             assert line,process.stderr.read()
             yield root,json.loads(line)
         finally:
-            finish_host(process)
+            finish_host(process, root)
 
 
 def until(fn,predicate,timeout=15):

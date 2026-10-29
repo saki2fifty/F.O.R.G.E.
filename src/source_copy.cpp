@@ -51,28 +51,36 @@ std::filesystem::path destination(const ProjectPaths& paths, const std::filesyst
     return path;
 }
 } // namespace
+std::filesystem::path validate_source_copy_destination(const std::filesystem::path& project,
+                                                       const std::filesystem::path& folder) {
+    return destination(ProjectPaths(project), folder);
+}
 SourceCopyPlan prepare_generated_source_copy(const std::filesystem::path& project,
                                              const std::filesystem::path& new_folder,
                                              const std::filesystem::path& name,
                                              std::vector<std::byte> bytes,
                                              std::string catalog_digest, std::stop_token stop) {
+    return prepare_shared_generated_source_copy(
+        project, new_folder, name, std::make_shared<const std::vector<std::byte>>(std::move(bytes)),
+        std::move(catalog_digest), stop);
+}
+SourceCopyPlan prepare_shared_generated_source_copy(
+    const std::filesystem::path& project, const std::filesystem::path& new_folder,
+    const std::filesystem::path& name, std::shared_ptr<const std::vector<std::byte>> bytes,
+    std::string catalog_digest, std::stop_token stop) {
     cancel(stop);
     const ProjectPaths paths(project);
     (void)destination(paths, new_folder);
     require(!name.empty() && name == name.filename(), "Generated source needs a plain filename");
     raw_path(name);
-    require(!bytes.empty() && bytes.size() <= file_limit,
+    require(bytes && !bytes->empty() && bytes->size() <= file_limit,
             "Generated source must contain at most512MiB of raw bytes");
     require(catalog_digest.empty() || catalog_digest.size() == 64,
             "Generated source input catalog revision is invalid");
-    SourceCopyPlan result{paths.root(), new_folder, {}, {name}, bytes.size()};
+    SourceCopyPlan result{paths.root(), new_folder, {}, {name}, bytes->size()};
     result.catalog_digest = std::move(catalog_digest);
-    const auto digest = asset_detail::content_digest(bytes);
-    result.files.push_back({{},
-                            name,
-                            digest,
-                            bytes.size(),
-                            std::make_shared<const std::vector<std::byte>>(std::move(bytes))});
+    const auto digest = asset_detail::content_digest(*bytes);
+    result.files.push_back({{}, name, digest, bytes->size(), std::move(bytes)});
     return result;
 }
 SourceCopyPlan prepare_source_copy(const std::filesystem::path& project,
@@ -133,8 +141,11 @@ void commit_source_copy(const ProjectLease& lease, const SourceCopyPlan& plan,
         if (!plan.catalog_digest.empty()) {
             const auto index = AssetCatalog::project_index(paths.root());
             asset_storage::ordinary(index);
-            const auto bytes = asset_detail::read_bytes(index, max_asset_index_bytes);
-            require(asset_detail::content_digest(bytes) == plan.catalog_digest,
+            const auto bytes = asset_storage::read(index, max_asset_index_bytes);
+            require(!bytes || !bytes->empty(), "Generated source input catalog is empty");
+            const auto text = bytes ? std::string_view(*bytes) : std::string_view{};
+            require(asset_detail::content_digest(std::as_bytes(std::span(text))) ==
+                        plan.catalog_digest,
                     "Generated source inputs changed; prepare the review again");
         }
     };

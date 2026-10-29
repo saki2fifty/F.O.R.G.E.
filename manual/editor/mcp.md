@@ -148,6 +148,21 @@ use their existing reviewed draft and catalog Save. Flecs Script tools evaluate
 the existing isolated diagnostic data/world preview; they do not replace C++
 gameplay or write the authored Scene. Failed previews keep the last good result.
 
+## Capture reflection maps
+
+With project asset authoring access, the agent can capture an authored Reflection
+Probe through `forge_capture_reflection_start`. It chooses a new folder below
+**Assets**, polls `forge_capture_status`, then reviews and commits the returned
+import batch through the existing asset import tools. This project source workflow
+does not need an external output-folder grant.
+
+The capture has the same controls and limits as [Capture a reflection map](lighting.md).
+Automatic map assignment requires the original Scene revision and uses one Scene
+Undo step, including resetting map rotation to zero. A changed Scene leaves the
+new map available for explicit assignment. Save after assignment. Cancellation
+keeps completed copies/publications. Runtime recapture and in-place rebaking are
+unavailable.
+
 ## View images, export and test
 
 Choose an existing output folder before enabling the connection. The agent can

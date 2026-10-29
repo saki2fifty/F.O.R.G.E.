@@ -77,6 +77,19 @@ class SourceImport {
         destination_ = path_utf8(destination);
         prepare();
     }
+    void generated_source(SceneDocument& project, std::filesystem::path name,
+                          std::vector<std::byte> bytes, Json description,
+                          std::string catalog_digest, const std::filesystem::path& destination,
+                          bool reveal = true) {
+        if (bytes.empty())
+            throw std::invalid_argument("Generated source has no bytes");
+        auto retained = std::make_shared<const std::vector<std::byte>>(std::move(bytes));
+        begin(project, reveal);
+        generated_ = Generated{std::move(name), std::move(retained), std::move(description),
+                               std::move(catalog_digest)};
+        destination_ = path_utf8(destination);
+        prepare();
+    }
     void atlas(SceneDocument& project, std::vector<AssetId> textures, bool reveal = true) {
         if (textures.empty() || textures.size() > sprite_frame_region_limit)
             throw std::invalid_argument("Select between 1 and 512 published image textures.");
@@ -127,9 +140,11 @@ class SourceImport {
             state_ == State::Importing)
             throw std::runtime_error("Cancel and wait for source work before closing.");
         open_ = false;
+        if (generated_)
+            generated_->bytes.reset(); // Retain the modal's identity and lightweight description.
         if (prepared_)
             for (auto& file : prepared_->plan.files)
-                file.generated.reset(); // Keep the lightweight review/results, release PNG bytes.
+                file.generated.reset(); // Keep lightweight review/results, release source bytes.
     }
     void picker(SceneDocument& project, SDL_Window* window) {
         if (open_) {
@@ -159,6 +174,7 @@ class SourceImport {
         project_ = project.project();
         selected_.clear();
         atlas_.reset();
+        generated_.reset();
         profiles_ = routes ? routes() : std::vector<AssetReimportRoute>{};
         // Authored asset documents own persistent identities and dependency
         // graphs. Their document/file workflows, not raw source copying, own duplication.
@@ -324,7 +340,7 @@ class SourceImport {
         }
     }
     void prepare() {
-        if (state_ != State::Choose || (!atlas_ && selected_.empty()))
+        if (state_ != State::Choose || (!atlas_ && !generated_ && selected_.empty()))
             return;
         copied_ = cancelled_ = false;
         stop_ = std::stop_source{};
@@ -332,9 +348,17 @@ class SourceImport {
         prepare_ = std::async(std::launch::async, [project = project_,
                                                    folder = std::filesystem::u8path(destination_),
                                                    paths = selected_, profiles = profiles_,
-                                                   atlas = atlas_, worker = atlas_worker, stop] {
+                                                   atlas = atlas_, generated = generated_,
+                                                   worker = atlas_worker, stop] {
             Prepared result;
-            if (atlas) {
+            if (generated) {
+                result.route_indices.push_back(
+                    match_source(profiles, generated->name, *generated->bytes));
+                result.description = generated->description;
+                result.plan = prepare_shared_generated_source_copy(project, folder, generated->name,
+                                                                   generated->bytes,
+                                                                   generated->catalog_digest, stop);
+            } else if (atlas) {
                 if (std::filesystem::u8path(atlas->filename).extension() != ".png")
                     throw std::invalid_argument("Atlas source name must end in .png");
                 auto generated = asset_detail::prepare_sprite_atlas_source(
@@ -388,7 +412,9 @@ class SourceImport {
             state_ = State::Review;
     }
     void draw(bool locked) {
-        const auto* title = atlas_ ? "Pack sprite atlas" : "Import source files";
+        const auto* title = atlas_       ? "Pack sprite atlas"
+                            : generated_ ? "Import generated source"
+                                         : "Import source files";
         if (popup_) {
             ImGui::OpenPopup(title);
             popup_ = false;
@@ -408,7 +434,12 @@ class SourceImport {
             return;
         ImGui::BeginChild("Import review", {0, std::max(80.f, ImGui::GetContentRegionAvail().y -
                                                                   45.f * ui::interface_scale)});
-        if (atlas_)
+        if (generated_)
+            ImGui::TextWrapped(
+                "Create the generated source in a new project folder, then import it. "
+                "Existing files are never overwritten. Scene Undo does not undo source "
+                "creation or asset publication.");
+        else if (atlas_)
             ImGui::TextWrapped(
                 "Pack published sRGB color images into a new PNG source. Frames keep "
                 "the input order. Originals remain independent assets; this is a "
@@ -418,7 +449,7 @@ class SourceImport {
                 "Copy selected raw sources into a new project folder, then import each "
                 "asset. Existing files are never overwritten. Scene Undo does not undo "
                 "source copying or asset publication.");
-        if (!atlas_)
+        if (!atlas_ && !generated_)
             ui::help(
                 "glTF buffers/images beneath the selected source's folder are included. Sidecars "
                 "and existing scene/prefab/material identities are not copied. Each selected "
@@ -446,7 +477,9 @@ class SourceImport {
                     "images only. Trimming keeps a transparent filter ring and the original "
                     "canvas. Transformed frames require Simple Sprites; actual trimming also "
                     "requires Blend with depth writes off. Packed atlas mips are not generated.");
-            } else
+            } else if (generated_)
+                ImGui::TextWrapped("Source: %s", path_text(generated_->name).c_str());
+            else
                 ui::help(
                     "Each input is placed in Source-1, Source-2 and so on within this new folder.");
             for (std::size_t i = 0; i < selected_.size(); ++i) {
@@ -457,7 +490,7 @@ class SourceImport {
                     break;
                 }
             }
-            ImGui::BeginDisabled(locked || (!atlas_ && selected_.empty()));
+            ImGui::BeginDisabled(locked || (!atlas_ && !generated_ && selected_.empty()));
             if (ui::button("Prepare import", "Read bounded sources, resolve dependencies and "
                                              "prepare a review without copying or importing.")) {
                 try {
@@ -571,6 +604,13 @@ class SourceImport {
         std::string filename = "atlas.png";
     };
     std::optional<Atlas> atlas_;
+    struct Generated {
+        std::filesystem::path name;
+        std::shared_ptr<const std::vector<std::byte>> bytes;
+        Json description;
+        std::string catalog_digest;
+    };
+    std::optional<Generated> generated_;
     static std::size_t match_source(const std::vector<AssetReimportRoute>& profiles,
                                     const std::filesystem::path& path,
                                     std::span<const std::byte> bytes) {

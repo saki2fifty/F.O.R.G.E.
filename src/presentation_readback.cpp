@@ -7,6 +7,13 @@
 namespace forge {
 using namespace Diligent;
 void DiligentPresentation::readback(IDeviceContext* context, ITextureView* view) {
+    readback(context, view, TEX_FORMAT_RGBA8_UNORM);
+}
+void DiligentPresentation::readback_hdr(IDeviceContext* context, ITextureView* view) {
+    readback(context, view, TEX_FORMAT_RGBA16_FLOAT);
+}
+void DiligentPresentation::readback(IDeviceContext* context, ITextureView* view,
+                                    TEXTURE_FORMAT format) {
     if (thread_ != std::this_thread::get_id() || !context || context->GetDesc().IsDeferred || !view)
         throw std::runtime_error("View image capture requires the presentation context");
     if (readback_pending())
@@ -16,13 +23,18 @@ void DiligentPresentation::readback(IDeviceContext* context, ITextureView* view)
     auto* source = view->GetTexture();
     const auto& input = source->GetDesc();
     const auto& subresource = view->GetDesc();
+    const unsigned bytes_per_pixel = format == TEX_FORMAT_RGBA16_FLOAT ? 8 : 4;
     if (input.Type != RESOURCE_DIM_TEX_2D || input.SampleCount != 1 || input.MipLevels != 1 ||
-        input.ArraySize != 1 || input.Format != TEX_FORMAT_RGBA8_UNORM || !input.Width ||
-        !input.Height || input.Width > FORGE_VIEW_IMAGE_MAX_EXTENT ||
-        input.Height > FORGE_VIEW_IMAGE_MAX_EXTENT || subresource.MostDetailedMip != 0 ||
-        subresource.FirstArraySlice != 0 || subresource.NumMipLevels != 1 ||
-        subresource.NumArraySlices != 1)
-        throw std::runtime_error("View image capture requires a complete RGBA8 display target");
+        input.ArraySize != 1 || input.Format != format || !input.Width || !input.Height ||
+        input.Width > FORGE_VIEW_IMAGE_MAX_EXTENT || input.Height > FORGE_VIEW_IMAGE_MAX_EXTENT ||
+        std::uint64_t(input.Width) * input.Height >
+            FORGE_VIEW_IMAGE_PIXEL_LIMIT / bytes_per_pixel ||
+        subresource.MostDetailedMip != 0 || subresource.FirstArraySlice != 0 ||
+        subresource.NumMipLevels != 1 || subresource.NumArraySlices != 1)
+        throw std::runtime_error(
+            format == TEX_FORMAT_RGBA16_FLOAT
+                ? "HDR readback requires a complete bounded RGBA16F target"
+                : "View image capture requires a complete RGBA8 display target");
     auto desc = input;
     desc.Name = "FORGE view image readback";
     desc.Usage = USAGE_STAGING;
@@ -57,12 +69,25 @@ void DiligentPresentation::cancel_readback() {
 }
 std::optional<DiligentPresentation::DisplayPixels>
 DiligentPresentation::take_readback(IDeviceContext* context) {
+    return take_readback(context, TEX_FORMAT_RGBA8_UNORM);
+}
+std::optional<DiligentPresentation::HdrPixels>
+DiligentPresentation::take_hdr_readback(IDeviceContext* context) {
+    auto pixels = take_readback(context, TEX_FORMAT_RGBA16_FLOAT);
+    if (!pixels)
+        return {};
+    return HdrPixels{pixels->width, pixels->height, std::move(pixels->rgba)};
+}
+std::optional<DiligentPresentation::DisplayPixels>
+DiligentPresentation::take_readback(IDeviceContext* context, TEXTURE_FORMAT format) {
     if (thread_ != std::this_thread::get_id())
         throw std::runtime_error("View image readback requires the presentation thread");
     if (!readback_pending())
         return {};
     if (!context || context != readback_context_)
         throw std::runtime_error("View image readback context changed");
+    if (readback_staging_->GetDesc().Format != format)
+        throw std::runtime_error("Readback format differs from the pending capture");
     if (frame_fence_->GetCompletedValue() < readback_frame_)
         return {};
     if (readback_discard_) {
@@ -70,16 +95,17 @@ DiligentPresentation::take_readback(IDeviceContext* context) {
         return {};
     }
     const auto& desc = readback_staging_->GetDesc();
+    const unsigned bytes_per_pixel = format == TEX_FORMAT_RGBA16_FLOAT ? 8 : 4;
     DisplayPixels result{desc.Width, desc.Height, {}};
     try {
         // Allocate before mapping so allocation failure cannot leave the resource mapped.
-        result.rgba.resize(std::size_t(desc.Width) * desc.Height * 4);
+        result.rgba.resize(std::size_t(desc.Width) * desc.Height * bytes_per_pixel);
         MappedTextureSubresource mapped;
         context->MapTextureSubresource(readback_staging_, 0, 0, MAP_READ, MAP_FLAG_DO_NOT_WAIT,
                                        nullptr, mapped);
         if (!mapped.pData)
             throw std::runtime_error("View image staging map failed");
-        const auto row = std::size_t(desc.Width) * 4;
+        const auto row = std::size_t(desc.Width) * bytes_per_pixel;
         const bool valid =
             mapped.Stride >= row &&
             mapped.Stride <= std::numeric_limits<std::size_t>::max() / std::max(1u, desc.Height);

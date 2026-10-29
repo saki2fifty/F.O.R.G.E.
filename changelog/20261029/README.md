@@ -1,5 +1,22 @@
 # 2026-10-29 — Collision profiles and Scene surface effects
 
+## Editor reflection-map capture
+
+- Added **Capture reflection map…** to authored Reflection Probes, including probes
+  without an existing map. Six bounded linear-HDR faces use the current rendering,
+  resource and fenced image-readback owners.
+- Added background DDS source encoding through the established generated-source
+  review/import/publication workflow. Each snapshot uses a new source folder and
+  Texture identity; existing files and assignments remain safe on failure.
+- Added scoped automatic map assignment and yaw reset as one Scene Undo step.
+  Changed Scene revisions leave the published map available for explicit assignment.
+- Added matching automation/MCP discovery, permissions, status, cancellation and
+  normal asset-import controls, with usage guides and authentic control captures.
+- Added editable Gallery110 with an original native-captured HDR source, metal
+  receivers and layer-masked capture sources; source-free relocated images match.
+- Runtime recapture and in-place rebaking remain unavailable. Windows/full editor,
+  cooked D3D12 execution and physical acceptance remain separate; no numbered ZIP.
+
 ## Roughness-filtered current-depth reflections
 
 - Added an optional **Roughness filtering** Scene control through the shared

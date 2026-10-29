@@ -85,10 +85,11 @@ int main(int argc, char** argv) {
         std::vector<std::string> recent;
         forge::EditorFiles files(scene, nullptr, recent);
         files.start(root / "Game");
-        ImGui::CreateContext();
+        const std::unique_ptr<ImGuiContext, decltype(&ImGui::DestroyContext)> context(
+            ImGui::CreateContext(), ImGui::DestroyContext);
         ImGui::GetIO().IniFilename = nullptr;
-        forge::ui::ViewImageTask images;
         RecordingFrames frames(scene, files.document.project());
+        forge::ui::ViewImageTask images;
         std::string message;
         forge::CaptureAutomationProviders providers;
         providers.show = [](auto) {};
@@ -111,7 +112,8 @@ int main(int argc, char** argv) {
         workspace.start(scene, files, output, output, permissions);
         std::cout << workspace.connection().connection().dump() << std::endl;
         const auto end = std::chrono::steady_clock::now() + std::chrono::seconds(120);
-        while (workspace.active() && std::chrono::steady_clock::now() < end) {
+        while (workspace.active() && std::chrono::steady_clock::now() < end &&
+               !forge::test::marker_present(root / "stop")) {
             files.changed = false;
             images.poll_files(message);
             if (!forge::test::marker_present(root / "hold_pixels"))

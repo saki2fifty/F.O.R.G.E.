@@ -125,6 +125,7 @@ class ComponentInspector {
     std::function<std::optional<Json>(const ui::SpriteFrameContext&)> atlas_frames;
     std::function<bool(const Json& components, Json& layer)> tile_map_layer;
     std::function<void(const std::string&)> open_cpp_definition;
+    std::function<void(const std::string&)> capture_reflection;
     std::function<void(const std::string& entity, const std::string& component)> edit_scene_target;
     std::function<bool(const std::string& entity, const std::string& component)>
         scene_target_available;
@@ -465,6 +466,13 @@ class ComponentInspector {
             ImGui::TextDisabled(
                 "%s", prefab ? (whole || partial ? "Overrides present" : "Inherited from prefab")
                              : "Owned component");
+            if (key == "forge.reflection_probe" && capture_reflection) {
+                if (ui::button("Capture reflection map…",
+                               "Capture a new HDR cube at this probe, then review its import. "
+                               "The existing map remains until the new one is published."))
+                    capture_reflection(entity);
+                FORGE_UI_PROBE("reflection-capture:open");
+            }
             ui::help("Ownership and explicit intent determine overrides, including values equal to "
                      "the prefab source.");
             if (AnimationPlaybackAccess::rig_type(key) && edit_scene_target) {

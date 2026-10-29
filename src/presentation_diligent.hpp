@@ -56,11 +56,20 @@ class DiligentPresentation {
         unsigned width{}, height{};
         std::vector<std::uint8_t> rgba;
     };
+    struct HdrPixels {
+        unsigned width{}, height{};
+        // Four raw half-float channels, eight bytes per pixel; no conversion.
+        std::vector<std::uint8_t> rgba;
+    };
     // One bounded capture, completed by the existing end_frame fence/host submission.
     // No device wait or submission is performed by either method.
     void readback(Diligent::IDeviceContext*, Diligent::ITextureView*);
+    // Shares the same single ticket/fence with display capture. Raw half-float
+    // pixels are returned without exposure, conversion or alpha reinterpretation.
+    void readback_hdr(Diligent::IDeviceContext*, Diligent::ITextureView*);
     bool readback_pending() const { return bool(readback_staging_); }
     std::optional<DisplayPixels> take_readback(Diligent::IDeviceContext*);
+    std::optional<HdrPixels> take_hdr_readback(Diligent::IDeviceContext*);
     void cancel_readback(); // Retain native resources until the queued copy completes.
 
   private:
@@ -95,5 +104,7 @@ class DiligentPresentation {
     std::uint64_t readback_frame_{};
     bool readback_discard_ = false;
     void clear_readback();
+    void readback(Diligent::IDeviceContext*, Diligent::ITextureView*, Diligent::TEXTURE_FORMAT);
+    std::optional<DisplayPixels> take_readback(Diligent::IDeviceContext*, Diligent::TEXTURE_FORMAT);
 };
 } // namespace forge

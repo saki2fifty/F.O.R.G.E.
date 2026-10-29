@@ -1,4 +1,5 @@
 #include "editor/source_import.hpp"
+#include "reflection_capture_source.hpp"
 #include "texture_authoring.hpp"
 #include <backends/imgui_impl_sdlrenderer3.h>
 #include <filesystem>
@@ -76,7 +77,11 @@ void exercise(const std::filesystem::path& worker, const std::filesystem::path& 
     test::observe_ui = true;
     SourceImport source;
     source.atlas_worker = worker;
-    source.routes = [route] { return std::vector{route}; };
+    source.routes = [route] {
+        auto container = route;
+        container.importer = "forge.texture.container";
+        return std::vector{route, container};
+    };
     ContentImports imports;
     imports.routes = source.routes;
     std::string message;
@@ -185,6 +190,56 @@ void exercise(const std::filesystem::path& worker, const std::filesystem::path& 
           "Cancelled preparation copied a source");
     source.automation_close(source.operation().at("batch"));
     check(scene.document() == authored, "Cancelled atlas changed the Scene");
+    // Generated HDR capture bytes use the same review/copy/import owner as the
+    // atlas. They allocate no identity until the existing import is committed.
+    TextureData cube;
+    cube.width = cube.height = 2;
+    cube.dimension = TextureDimension::Cube;
+    cube.format = TextureFormat::RGBA16Float;
+    cube.semantic = TextureSemantic::HdrColor;
+    cube.alpha = TextureAlpha::Opaque;
+    cube.subresources.resize(6, std::vector<std::byte>(32));
+    for (auto& face : cube.subresources)
+        for (std::size_t at = 0; at < face.size(); at += 2) {
+            const unsigned bits = at % 8 == 6 ? 0x3c00 : 0x4000;
+            face[at] = std::byte(bits & 255);
+            face[at + 1] = std::byte(bits >> 8);
+        }
+    const auto before_generated = AssetCatalog::open_project(root);
+    std::ifstream index(root / "forge.assets.json", std::ios::binary);
+    const std::string catalog_bytes{std::istreambuf_iterator<char>(index), {}};
+    const auto catalog_digest =
+        asset_detail::content_digest(std::as_bytes(std::span(catalog_bytes)));
+    source.generated_source(project, "Reflection.dds", encode_reflection_capture_source(cube),
+                            {{"kind", "reflection_map_capture"}, {"size", 2}}, catalog_digest,
+                            "Assets/GeneratedReflection", false);
+    wait([&] { return source.review_ready(); });
+    const auto generated_review = source.operation();
+    check(generated_review.at("generated").at("kind") == "reflection_map_capture" &&
+              AssetCatalog::open_project(root).records().size() ==
+                  before_generated.records().size() &&
+              !std::filesystem::exists(root / "Assets/GeneratedReflection"),
+          "Generated reflection review changed files or asset identities");
+    source.automation_commit(generated_review.at("batch"), generated_review.at("review"), true);
+    wait([&] { return source.finished(); });
+    const auto generated_result = source.operation();
+    check(source.published_count() == 1 && scene.document() == authored,
+          "Generated reflection failed normal import or changed the Scene");
+    const auto generated_id =
+        AssetId::parse(generated_result.at("results")[0].at("asset").get<std::string>());
+    const auto after_generated = AssetCatalog::open_project(root);
+    check(after_generated.records().at(generated_id).source ==
+                  "Assets/GeneratedReflection/Reflection.dds" &&
+              after_generated.records().size() == before_generated.records().size() + 1,
+          "Generated reflection did not use one ordinary Texture asset identity");
+    const auto old_records = before_generated.document().at("assets");
+    const auto new_records = after_generated.document().at("assets");
+    for (const auto& record : old_records)
+        check(std::find(new_records.begin(), new_records.end(), record) != new_records.end(),
+              "Generated reflection changed a prior asset record");
+    source.automation_close(generated_result.at("batch"));
+    frame();
+    check(!source.busy(), "Generated source close retained the import lock");
     test::observe_ui = false;
 }
 } // namespace
