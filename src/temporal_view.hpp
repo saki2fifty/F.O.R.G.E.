@@ -1,4 +1,5 @@
 #pragma once
+#include "ambient_occlusion.hpp"
 #include "motion_blur.hpp"
 #include "temporal_filter.hpp"
 #include "temporal_geometry.hpp"
@@ -16,13 +17,23 @@ class TemporalView {
         SceneMotionBlur motion_blur;
         MotionSnapshotAction snapshot = MotionSnapshotAction::Live;
         bool reset_accumulation = false;
+        SceneAmbientOcclusion ambient_occlusion;
+        bool motion_output() const {
+            return anti_aliasing ||
+                   (motion_blur.enabled && motion_blur.shutter != 0 && motion_blur.max_pixels != 0);
+        }
+        bool indirect_output() const {
+            return ambient_occlusion.enabled && ambient_occlusion.radius != 0 &&
+                   ambient_occlusion.strength != 0;
+        }
     };
     void prepare(const CameraView& view, bool reset) { prepare(view, reset, Options{}); }
     void prepare(const CameraView&, bool reset, const Options&);
     static std::uint64_t payload_per_pixel(const Options& options) {
         const bool blur = options.motion_blur.enabled && options.motion_blur.shutter != 0 &&
                           options.motion_blur.max_pixels != 0;
-        return 28 + (options.anti_aliasing ? 20 : 0) + (blur ? 8 : 0) +
+        return 12 + (options.motion_output() ? 16 : 0) + (options.indirect_output() ? 16 : 0) +
+               (options.anti_aliasing ? 20 : 0) + (blur ? 8 : 0) +
                (blur && options.snapshot != MotionSnapshotAction::Live ? 20 : 0);
     }
     void begin(Diligent::IDeviceContext*, Diligent::ITexture* composed_color,
@@ -38,7 +49,8 @@ class TemporalView {
     std::uint64_t samples() const { return samples_; }
     std::uint64_t payload_bytes() const {
         return color_ ? std::uint64_t(color_->GetDesc().Width) * color_->GetDesc().Height *
-                                (28 + (blurred_ ? 8 : 0) + (frozen_motion_ ? 20 : 0)) +
+                                (12 + (motion_ ? 16 : 0) + (indirect_ ? 16 : 0) +
+                                 (blurred_ ? 8 : 0) + (frozen_motion_ ? 20 : 0)) +
                             (filter_ ? filter_->history_bytes() : 0)
                       : 0;
     }
@@ -53,11 +65,12 @@ class TemporalView {
     const std::uint64_t byte_limit_;
     std::unique_ptr<TemporalFilter> filter_;
     std::unique_ptr<MotionBlur> blur_;
+    std::unique_ptr<AmbientOcclusion> occlusion_;
     Options options_;
     Diligent::RefCntAutoPtr<Diligent::ITexture> blurred_, frozen_motion_, frozen_depth_;
     std::array<float, 2> frozen_jitter_{};
     bool frozen_valid_ = false;
-    Diligent::RefCntAutoPtr<Diligent::ITexture> color_, motion_, depth_;
+    Diligent::RefCntAutoPtr<Diligent::ITexture> color_, motion_, depth_, indirect_, occluded_;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> composite_;
     Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> binding_;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> rectangle_;

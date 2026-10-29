@@ -216,6 +216,25 @@ for legacy in (False, True):
             assert not result['ok'] and discover()['revision'] == before['revision'], result
         assert mutate('forge_scene_rendering_set',
                       arguments=dict(motion_blur=dict(shutter=.5)))['ok']
+        ambient_schema = exposure_command['input_schema']['properties']['ambient_occlusion']
+        assert exposure_tool['inputSchema']['properties']['arguments']['properties']['ambient_occlusion'] == ambient_schema
+        assert set(ambient_schema['properties']) == {'enabled', 'radius', 'strength', 'bias'}
+        assert ambient_schema['properties']['radius']['maximum'] == 10
+        ambient_arguments = arguments(arguments=dict(ambient_occlusion=dict(
+            enabled=True, radius=1, strength=.75, bias=.02)))
+        before_ambient = discover()
+        changed = client.tool('forge_scene_rendering_set', **ambient_arguments)
+        assert changed['ok'] and changed['revision'] != before_ambient['revision'], changed
+        assert client.tool('forge_scene_rendering_set', **ambient_arguments) == changed
+        assert mutate('forge_history_undo')['result']['changed']
+        assert mutate('forge_history_redo')['result']['changed']
+        for bad in (dict(enabled=1), dict(radius=10.000000001), dict(strength=1.000000001),
+                    dict(bias=1.000000001), dict(radius=-.01), dict(bias=-1), dict(radius='near')):
+            before = discover()
+            result = mutate('forge_scene_rendering_set', arguments=dict(ambient_occlusion=bad))
+            assert not result['ok'] and discover()['revision'] == before['revision'], result
+        assert mutate('forge_scene_rendering_set',
+                      arguments=dict(ambient_occlusion=dict(strength=.5)))['ok']
         # Existing project writer ownership remains exclusive across processes.
         lease = subprocess.run([sys.argv[1].replace('forge_tools', 'forge_live_tests'),
                                 '--lease', str(project)], input='', capture_output=True,
@@ -293,6 +312,7 @@ for legacy in (False, True):
         assert saved_doc['rendering']['depth_of_field'] == dict(
             enabled=True, focus_distance=10, focus_range=4, blur_radius=6)
         assert saved_doc['rendering']['motion_blur'] == dict(enabled=True, shutter=.5, max_pixels=24)
+        assert saved_doc['rendering']['ambient_occlusion'] == dict(enabled=True, radius=1, strength=.5, bias=.02)
         assert saved_doc['entities'][0]['name'] == 'Saved agent cube'
         body = saved_doc['entities'][0]['components']['forge.physics_body_2d']
         assert body['one_way'] and abs(body['one_way_margin'] - .05) < 1e-6, body

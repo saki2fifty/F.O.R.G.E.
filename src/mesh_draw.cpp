@@ -118,17 +118,21 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
                    SHADER_COMPILER compiler, SHADER_OPTIMIZATION_LEVEL optimization,
                    const MaterialShaderSnapshot* surface, MeshDrawProfile draw_profile)
     : mesh_(mesh), shadow_pass_(color_format == TEX_FORMAT_UNKNOWN),
-      temporal_(draw_profile == MeshDrawProfile::MeshTemporal && !shadow_pass_),
+      temporal_(temporal_mesh_profile(draw_profile) && !shadow_pass_),
+      indirect_(indirect_mesh_profile(draw_profile) && !shadow_pass_),
       sprite_(sprite_draw_profile(draw_profile)),
       sprite_mips_(sprite_draw_mip_filter(draw_profile).has_value()) {
-    require(draw_profile == MeshDrawProfile::Mesh ||
-                draw_profile == MeshDrawProfile::MeshTemporal || sprite_,
+    require(draw_profile == MeshDrawProfile::Mesh || temporal_mesh_profile(draw_profile) ||
+                indirect_mesh_profile(draw_profile) || sprite_,
             "unknown draw profile");
-    require(!temporal_ ||
+    require(!(temporal_ || indirect_) ||
                 (source.depth_test && source.depth_write && source.alpha != MaterialAlpha::Blend),
-            "Temporal Mesh color requires depth-writing opaque or masked surfaces");
+            "Surface effects require depth-writing opaque or masked Mesh");
     require(!temporal_ || !surface || surface->program.surface_wrapper_version >= 3,
-            "Rebuild this Shader to use temporal anti-aliasing");
+            "Rebuild this Shader to use temporal surface effects");
+    require(!indirect_ || (color_format == TEX_FORMAT_RGBA16_FLOAT &&
+                           (!surface || surface->program.surface_wrapper_version >= 4)),
+            "Indirect Mesh output requires HDR and a current surface Shader cook");
     require(!sprite_ || !surface, "Sprite draw profile does not admit custom surfaces");
     sprite_trim_allowed_ = sprite_trim_material_compatible(source);
     device_ = presentation.device();
@@ -162,9 +166,9 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
             program.material = material_shader(*profile, fetch.uv_sets, sampler_binding);
     } else
         program = mesh_draw_shader(fetch, *profile, shadow_pass_, sampler_binding, nullptr, {},
-                                   sprite_, sprite_draw_mip_filter(draw_profile));
+                                   sprite_, sprite_draw_mip_filter(draw_profile), indirect_);
     const auto& material = program.material;
-    require(!temporal_ || !program.transmission,
+    require(!(temporal_ || indirect_) || !program.transmission,
             "Transmission draws follow temporal opaque accumulation");
     auto compile = [&](SHADER_TYPE stage, const std::string& code) {
         ShaderCreateInfo ci;
@@ -190,9 +194,8 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
     RefCntAutoPtr<IShader> pixel;
     SurfaceBindingLayout surface_layout;
     if (surface) {
-        const auto role = shadow_pass_ ? ShaderEntryRole::SurfaceDepth
-                          : temporal_  ? ShaderEntryRole::SurfaceTemporalColor
-                                       : ShaderEntryRole::SurfaceColor;
+        const auto role =
+            shadow_pass_ ? ShaderEntryRole::SurfaceDepth : surface_color_role(temporal_, indirect_);
         auto native = realize_renderer_shader(presentation, surface->program);
         pixel = native.stages.at(ShaderStageKey{ShaderStage::Pixel, role});
         const auto stage = std::find_if(native.data.stages.begin(), native.data.stages.end(),
@@ -352,10 +355,12 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
     ci.pVS = vertex;
     ci.pPS = pixel;
     auto& g = ci.GraphicsPipeline;
-    g.NumRenderTargets = shadow_pass_ ? 0 : temporal_ ? 2 : 1;
+    g.NumRenderTargets = Uint8(shadow_pass_ ? 0 : 1 + unsigned(temporal_) + unsigned(indirect_));
     g.RTVFormats[0] = color_format;
     if (temporal_)
         g.RTVFormats[1] = TEX_FORMAT_RGBA32_FLOAT;
+    if (indirect_)
+        g.RTVFormats[temporal_ ? 2 : 1] = TEX_FORMAT_RGBA16_FLOAT;
     g.DSVFormat = depth_format;
     g.PrimitiveTopology = mesh.topology;
     std::array<LayoutElement, temporal_instance_rows> instance_layout;

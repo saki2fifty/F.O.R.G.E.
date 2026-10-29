@@ -88,9 +88,11 @@ void TemporalView::invalidate() {
 }
 void TemporalView::prepare(const CameraView& view, bool reset, const Options& options) {
     validate_scene_motion_blur(options.motion_blur);
+    validate_scene_ambient_occlusion(options.ambient_occlusion);
     const bool blur = options.motion_blur.enabled && options.motion_blur.shutter != 0 &&
                       options.motion_blur.max_pixels != 0;
     const bool freeze = blur && options.snapshot != MotionSnapshotAction::Live;
+    const bool motion_output = options.motion_output(), indirect_output = options.indirect_output();
     const auto bpp = payload_per_pixel(options);
     const auto& v = view.viewport;
     const auto maximum = presentation_.device()->GetAdapterInfo().Texture.MaxTexture2DDimension;
@@ -105,7 +107,8 @@ void TemporalView::prepare(const CameraView& view, bool reset, const Options& op
         !color_ || color_->GetDesc().Width != v.width || color_->GetDesc().Height != v.height;
     // Stage every required texture before publishing a new mode/extent. Native
     // retirement and transient staging overhead are separate from payload admission.
-    RefCntAutoPtr<ITexture> color, motion, depth, blurred, frozen_motion, frozen_depth;
+    RefCntAutoPtr<ITexture> color, motion, depth, blurred, frozen_motion, frozen_depth, indirect,
+        occluded;
     const auto create = [&](const char* name, TEXTURE_FORMAT format, BIND_FLAGS flags,
                             RefCntAutoPtr<ITexture>& target) {
         TextureDesc desc;
@@ -122,10 +125,17 @@ void TemporalView::prepare(const CameraView& view, bool reset, const Options& op
     if (resized) {
         create("FORGE temporal view HDR", TEX_FORMAT_RGBA16_FLOAT,
                BIND_RENDER_TARGET | BIND_SHADER_RESOURCE, color);
-        create("FORGE temporal surface motion", TEX_FORMAT_RGBA32_FLOAT,
-               BIND_RENDER_TARGET | BIND_SHADER_RESOURCE, motion);
         create("FORGE temporal current depth", TEX_FORMAT_D32_FLOAT,
                BIND_DEPTH_STENCIL | BIND_SHADER_RESOURCE, depth);
+    }
+    if (motion_output && (resized || !motion_))
+        create("FORGE temporal surface motion", TEX_FORMAT_RGBA32_FLOAT,
+               BIND_RENDER_TARGET | BIND_SHADER_RESOURCE, motion);
+    if (indirect_output && (resized || !indirect_)) {
+        create("FORGE current indirect radiance", TEX_FORMAT_RGBA16_FLOAT,
+               BIND_RENDER_TARGET | BIND_SHADER_RESOURCE, indirect);
+        create("FORGE occluded surface HDR", TEX_FORMAT_RGBA16_FLOAT,
+               BIND_RENDER_TARGET | BIND_SHADER_RESOURCE, occluded);
     }
     if (blur && (resized || !blurred_))
         create("FORGE motion blur result", TEX_FORMAT_RGBA16_FLOAT,
@@ -138,17 +148,36 @@ void TemporalView::prepare(const CameraView& view, bool reset, const Options& op
     }
     std::unique_ptr<TemporalFilter> staged_filter;
     std::unique_ptr<MotionBlur> staged_blur;
+    std::unique_ptr<AmbientOcclusion> staged_occlusion;
     if (options.anti_aliasing && !filter_)
         staged_filter = std::make_unique<TemporalFilter>(presentation_, byte_limit_);
     if (blur && !blur_) {
         staged_blur = std::make_unique<MotionBlur>(presentation_);
         staged_blur->prepare();
     }
+    if (indirect_output && !occlusion_) {
+        staged_occlusion = std::make_unique<AmbientOcclusion>(presentation_);
+        staged_occlusion->prepare();
+    }
     if (resized) {
         color_ = std::move(color);
-        motion_ = std::move(motion);
         depth_ = std::move(depth);
         reset = true;
+    }
+    if (motion)
+        motion_ = std::move(motion);
+    if (indirect) {
+        indirect_ = std::move(indirect);
+        occluded_ = std::move(occluded);
+    }
+    if (staged_occlusion)
+        occlusion_ = std::move(staged_occlusion);
+    if (!motion_output)
+        motion_.Release();
+    if (!indirect_output) {
+        occlusion_.reset();
+        indirect_.Release();
+        occluded_.Release();
     }
     if (blurred)
         blurred_ = std::move(blurred);
@@ -172,7 +201,9 @@ void TemporalView::prepare(const CameraView& view, bool reset, const Options& op
         frozen_depth_.Release();
         frozen_valid_ = false;
     }
-    if (options_.anti_aliasing != options.anti_aliasing)
+    if (options_.anti_aliasing != options.anti_aliasing ||
+        options_.motion_output() != motion_output ||
+        options_.ambient_occlusion != options.ambient_occlusion)
         reset = true;
     options_ = options;
     if (reset)
@@ -228,13 +259,18 @@ void TemporalView::begin(IDeviceContext* context, ITexture* color, ITextureView*
     copy.pSrcBox = &box;
     context->CopyTexture(copy); // Color rectangle only; depth subrectangle copies are unnecessary.
     auto* dsv = depth_->GetDefaultView(TEXTURE_VIEW_DEPTH_STENCIL);
-    auto* motion = motion_->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET);
     const float zero[4]{};
-    context->ClearRenderTarget(motion, zero, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    ITextureView* targets[3]{color_->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET)};
+    unsigned count = 1;
+    for (auto* auxiliary : {motion_.RawPtr(), indirect_.RawPtr()})
+        if (auxiliary) {
+            auto* target = auxiliary->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET);
+            context->ClearRenderTarget(target, zero, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+            targets[count++] = target;
+        }
     context->ClearDepthStencil(dsv, CLEAR_DEPTH_FLAG, 1, 0,
                                RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    ITextureView* targets[]{color_->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET), motion};
-    context->SetRenderTargets(2, targets, dsv, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    context->SetRenderTargets(count, targets, dsv, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     Diligent::Viewport viewport{0, 0, float(area_.width), float(area_.height), 0, 1};
     context->SetViewports(1, &viewport, area_.width, area_.height);
     begun_ = true;
@@ -246,7 +282,7 @@ void TemporalView::resolve(IDeviceContext* context, float stability, bool comple
     const auto& projection = previous().projection;
     TemporalFilter::Input input;
     input.color = color_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
-    input.motion = motion_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+    input.motion = motion_ ? motion_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE) : nullptr;
     input.depth = depth_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
     input.previous_depth_projection = {projection[10], projection[11], projection[14],
                                        projection[15]};
@@ -254,6 +290,17 @@ void TemporalView::resolve(IDeviceContext* context, float stability, bool comple
     input.previous_jitter = previous_jitter();
     input.stability = stability;
     input.reset = !valid_ || !complete_geometry;
+    if (occlusion_ && complete_geometry) {
+        auto timing = presentation_.gpu_scope(context, "Surface", "Ambient occlusion");
+        AmbientOcclusion::Input spatial;
+        spatial.color = input.color;
+        spatial.indirect = indirect_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+        spatial.depth = input.depth;
+        spatial.projection = current_.projection;
+        spatial.settings = options_.ambient_occlusion;
+        occlusion_->apply(context, spatial, occluded_->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET));
+        input.color = occluded_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+    }
     auto* result = filter_ ? filter_->resolve(context, input) : input.color;
     if (blur_ && complete_geometry) {
         MotionBlur::Input motion_input;

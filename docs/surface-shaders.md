@@ -132,3 +132,15 @@ is introduced. See the [dependency policy](dependency-policy.md).
 ## Phase10 graph extension
 
 [Material graphs](material-graphs.md) add Shader source version3 and surface metadata version2 with shared metallic/roughness PBR and binding labels. Existing final-color custom surfaces, Material sparse overrides and publication/history owners remain supported. Graph source and generated HLSL cannot both be authored authorities.
+
+## Indirect lighting outputs
+
+Wrapper capability4 adds ordinary and temporal indirect-output color roles to the
+existing color/depth/temporal entries. PBR graph surfaces resolve their environment
+contribution through the shared PBR API, excluding punctual lighting and emission,
+and apply fog transmittance without additive fog color. Custom final-color functions
+write zero indirect contribution. The engine owns output targets and explicit
+out-parameter helpers. [Ambient occlusion](ambient-occlusion.md) consumes this
+radiance independently of the full current color. Older wrappers remain readable;
+recook Shader and dependent Materials to opt in. Current five-role cooks require a
+matching current engine. Logical asset identities remain unchanged.

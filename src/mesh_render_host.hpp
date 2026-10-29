@@ -95,6 +95,7 @@ class MeshSceneRenderer {
         CameraView current, previous;
         std::array<float, 2> jitter{}, previous_jitter{};
         bool valid = false, applied = false, successful = false;
+        bool motion_output = true, indirect_output = false;
         const TemporalMeshParts* previous_parts = nullptr;
         TemporalMeshParts* current_parts = nullptr;
         std::function<void()> begin;

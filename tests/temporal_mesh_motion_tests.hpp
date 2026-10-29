@@ -1,4 +1,5 @@
 #pragma once
+#include "ambient_occlusion.hpp"
 #include "motion_blur.hpp"
 // Uses the temporal probe's independent projection oracle and readback fixture.
 namespace test_temporal_mesh_motion {
@@ -131,13 +132,19 @@ static void exercise(forge::DiligentPresentation& presentation, IDeviceContext* 
     }
     MeshDraw draw(presentation, context, gpu.lods[0].parts[0], material, {},
                   TEX_FORMAT_RGBA16_FLOAT, TEX_FORMAT_D32_FLOAT, true, SHADER_COMPILER_DEFAULT,
-                  SHADER_OPTIMIZATION_LEVEL_DEFAULT, nullptr, MeshDrawProfile::MeshTemporal);
+                  SHADER_OPTIMIZATION_LEVEL_DEFAULT, nullptr,
+                  MeshDrawProfile::MeshTemporalIndirect);
     check(draw.supports_instances() == (!morph && !skinned),
           "Temporal draw changed the static/deformed instancing policy");
     auto color = texture(device, width, height, TEX_FORMAT_RGBA16_FLOAT,
                          BIND_RENDER_TARGET | BIND_SHADER_RESOURCE);
     auto motion_target = texture(device, width, height, TEX_FORMAT_RGBA32_FLOAT,
                                  BIND_RENDER_TARGET | BIND_SHADER_RESOURCE);
+    auto indirect = texture(device, width, height, TEX_FORMAT_RGBA16_FLOAT,
+                            BIND_RENDER_TARGET | BIND_SHADER_RESOURCE);
+    auto occluded = texture(device, width, height, TEX_FORMAT_RGBA16_FLOAT,
+                            BIND_RENDER_TARGET | BIND_SHADER_RESOURCE);
+    AmbientOcclusion occlusion(presentation);
     auto depth = texture(device, width, height, TEX_FORMAT_D32_FLOAT,
                          BIND_DEPTH_STENCIL | BIND_SHADER_RESOURCE);
     const auto old_jitter = TemporalFilter::jitter(4, width, height);
@@ -188,14 +195,17 @@ static void exercise(forge::DiligentPresentation& presentation, IDeviceContext* 
     for (unsigned frame = 0; frame < 2; ++frame) {
         presentation.begin_frame();
         auto* dsv = depth->GetDefaultView(TEXTURE_VIEW_DEPTH_STENCIL);
-        std::array<ITextureView*, 2> targets{
+        std::array<ITextureView*, 3> targets{
             color->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET),
-            motion_target->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET)};
-        context->SetRenderTargets(2, targets.data(), dsv,
+            motion_target->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET),
+            indirect->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET)};
+        context->SetRenderTargets(3, targets.data(), dsv,
                                   RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         const float dark[]{.02f, .02f, .02f, 1}, empty[]{0, 0, 1, 0};
         context->ClearRenderTarget(targets[0], dark, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         context->ClearRenderTarget(targets[1], empty, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        const float zero[4]{};
+        context->ClearRenderTarget(targets[2], zero, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         context->ClearDepthStencil(dsv, CLEAR_DEPTH_FLAG, 1, 0,
                                    RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         Viewport viewport{0, 0, float(width), float(height), 0, 1};
@@ -247,6 +257,18 @@ static void exercise(forge::DiligentPresentation& presentation, IDeviceContext* 
         if (added)
             check(pixels[(*added)[1] * width + (*added)[0]][0] > 100,
                   "New batch member was omitted instead of marking motion invalid");
+        AmbientOcclusion::Input spatial;
+        spatial.color = color->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+        spatial.indirect = indirect->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+        spatial.depth = depth->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+        spatial.projection = view.projection;
+        spatial.settings.enabled = true;
+        occlusion.apply(context, spatial, occluded->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET));
+        auto* spatial_output =
+            display.resolve(context, occluded->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE), 0);
+        check(forge::test_sprite_draw::read_pixels(device, context, spatial_output->GetTexture()) ==
+                  pixels,
+              "Occlusion changed unlit posed/instanced Mesh pixels or alpha");
         // Consume the actual generated Mesh motion, including posed/instanced
         // producers. The independent motion oracle above validates those inputs.
         MotionBlur::Input input;

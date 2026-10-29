@@ -2,7 +2,7 @@
 set(_forge_material_recipe_inputs "${CMAKE_CXX_COMPILER_ID};${CMAKE_CXX_COMPILER_VERSION};${FORGE_ENABLE_SANITIZERS};${CMAKE_SYSTEM_NAME}")
 foreach(source
  include/forge/material_asset.hpp include/forge/material_source.hpp
- include/forge/surface_shader.hpp include/forge/shader_asset.hpp src/surface_shader.cpp src/temporal_motion_shader.hpp src/shader_asset.cpp
+ include/forge/surface_shader.hpp include/forge/shader_asset.hpp src/surface_shader.cpp src/temporal_motion_shader.hpp src/indirect_lighting_shader.hpp src/distance_fog_shader.hpp src/shader_asset.cpp
  src/material_asset.cpp src/material_source.cpp src/pbr_material.cpp src/pbr_material.hpp
  src/material_authoring.cpp src/material_selection.cpp src/material_selection.hpp
  src/model_render_resource.cpp src/model_selection.cpp src/texture_resource.cpp

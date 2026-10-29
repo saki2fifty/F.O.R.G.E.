@@ -79,6 +79,14 @@ struct SceneMotionBlur {
     bool operator==(const SceneMotionBlur&) const = default;
 };
 void validate_scene_motion_blur(const SceneMotionBlur&);
+struct SceneAmbientOcclusion {
+    bool enabled = false;
+    float radius = .5f;
+    float strength = 1;
+    float bias = .01f;
+    bool operator==(const SceneAmbientOcclusion&) const = default;
+};
+void validate_scene_ambient_occlusion(const SceneAmbientOcclusion&);
 struct SceneRenderSettings {
     SceneEnvironment environment;
     SceneShadows shadows;
@@ -90,6 +98,7 @@ struct SceneRenderSettings {
     SceneTemporalAntiAliasing temporal_anti_aliasing;
     SceneDepthOfField depth_of_field;
     SceneMotionBlur motion_blur;
+    SceneAmbientOcclusion ambient_occlusion;
     bool operator==(const SceneRenderSettings&) const = default;
 };
 SceneRenderSettings scene_render_settings(const nlohmann::json& scene);

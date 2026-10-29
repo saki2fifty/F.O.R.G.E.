@@ -178,7 +178,7 @@ int main() {
                         fog_surface.layout_digest() != legacy_layout,
                     "Optimized-out fog wrapper capability lost roundtrip or layout identity");
             auto future_surface = fog_surface;
-            future_surface.surface_wrapper_version = 4;
+            future_surface.surface_wrapper_version = 5;
             rejected([&] { validate_shader(future_surface); });
             auto temporal_surface = fog_surface;
             temporal_surface.surface_wrapper_version = 3;
@@ -202,6 +202,44 @@ int main() {
                         shader_entry_role("surface_temporal_color") ==
                             ShaderEntryRole::SurfaceTemporalColor,
                     "Temporal wrapper roles lost their capability or layout/codec identity");
+            auto indirect_surface = temporal_surface;
+            indirect_surface.surface_wrapper_version = 4;
+            rejected([&] { validate_shader(indirect_surface); });
+            for (bool motion : {false, true}) {
+                auto role = surface_color_role(motion, true);
+                auto stage = motion ? temporal_surface.stages.back() : surface_data.stages.front();
+                stage.role = role;
+                stage.entry = surface_shader_entry(role);
+                stage.bytecode = {motion ? std::byte{5} : std::byte{4}};
+                indirect_surface.stages.push_back(std::move(stage));
+                require(temporal_surface_role(role) == motion && indirect_surface_role(role) &&
+                            shader_entry_role(shader_entry_role_name(role)) == role,
+                        "Indirect surface role lost its shared identity/classification");
+            }
+            const auto encoded_indirect = encode_shader(indirect_surface);
+            require(decode_shader(encoded_indirect).surface_wrapper_version == 4 &&
+                        decode_shader(encoded_indirect).stages.size() == 5 &&
+                        encode_shader(decode_shader(encoded_indirect)) == encoded_indirect &&
+                        indirect_surface.layout_digest() != temporal_surface.layout_digest(),
+                    "Indirect output capability lost its codec/layout identity");
+            for (const auto* bytes : {&encoded_surface, &encoded_fog, &encoded_temporal})
+                require(encode_shader(decode_shader(*bytes)) == *bytes,
+                        "New output capability changed readable older archive bytes");
+            auto bad_indirect = indirect_surface;
+            bad_indirect.surface_wrapper_version = 3;
+            rejected([&] { validate_shader(bad_indirect); });
+            bad_indirect = indirect_surface;
+            bad_indirect.stages.pop_back();
+            rejected([&] { validate_shader(bad_indirect); });
+            bad_indirect = indirect_surface;
+            bad_indirect.stages[3] = bad_indirect.stages[4];
+            rejected([&] { validate_shader(bad_indirect); });
+            bad_indirect = indirect_surface;
+            bad_indirect.stages.back().reflection["resources"] = Json::array();
+            rejected([&] { validate_shader(bad_indirect); });
+            bad_indirect = indirect_surface;
+            bad_indirect.stages[3].reflection = temporal_reflection;
+            rejected([&] { validate_shader(bad_indirect); });
             auto bad_temporal = temporal_surface;
             bad_temporal.stages.back().reflection["resources"] = Json::array();
             rejected([&] { validate_shader(bad_temporal); });

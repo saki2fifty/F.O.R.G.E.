@@ -1,6 +1,13 @@
 #include <cmath>
 #include <forge/scene_render_settings.hpp>
 namespace forge {
+void validate_scene_ambient_occlusion(const SceneAmbientOcclusion& value) {
+    if (!std::isfinite(value.radius) || value.radius < 0 || value.radius > 10 ||
+        !std::isfinite(value.strength) || value.strength < 0 || value.strength > 1 ||
+        !std::isfinite(value.bias) || value.bias < 0 || value.bias > 1)
+        throw std::runtime_error("Ambient occlusion requires radius from 0 to 10 metres, "
+                                 "strength from 0 to 1 and depth bias from 0 to 1 metre");
+}
 void validate_scene_motion_blur(const SceneMotionBlur& value) {
     if (!std::isfinite(value.shutter) || value.shutter < 0 || value.shutter > 1 ||
         !std::isfinite(value.max_pixels) || value.max_pixels < 0 || value.max_pixels > 32)
@@ -81,6 +88,27 @@ SceneRenderSettings scene_render_settings(const nlohmann::json& scene) {
     if (ev < -20 || ev > 20)
         throw std::runtime_error("Game exposure must be between -20 and +20 stops");
     result.exposure = float(ev);
+    if (settings.contains("ambient_occlusion")) {
+        const auto& section = settings.at("ambient_occlusion");
+        if (!section.is_object())
+            throw std::runtime_error("Scene ambient occlusion must be an object");
+        auto& value = result.ambient_occlusion;
+        if (section.contains("enabled")) {
+            if (!section.at("enabled").is_boolean())
+                throw std::runtime_error("Ambient occlusion enabled must be boolean");
+            value.enabled = section.at("enabled").get<bool>();
+        }
+        const auto radius = number(section, "radius", value.radius);
+        const auto strength = number(section, "strength", value.strength);
+        const auto bias = number(section, "bias", value.bias);
+        if (radius < 0 || radius > 10 || strength < 0 || strength > 1 || bias < 0 || bias > 1)
+            throw std::runtime_error(
+                "Ambient occlusion radius, strength or bias is outside its range");
+        value.radius = float(radius);
+        value.strength = float(strength);
+        value.bias = float(bias);
+        validate_scene_ambient_occlusion(value);
+    }
     if (settings.contains("motion_blur")) {
         const auto& section = settings.at("motion_blur");
         if (!section.is_object())

@@ -1,5 +1,6 @@
 #include "mesh_draw_shader.hpp"
 #include "distance_fog_shader.hpp"
+#include "indirect_lighting_shader.hpp"
 #include "sprite_material_profile.hpp"
 #include "temporal_motion_shader.hpp"
 #include <algorithm>
@@ -188,8 +189,11 @@ void main(triangle ForgeVarying input[3],inout TriangleStream<ForgeVarying> outp
 MeshDrawShader mesh_draw_shader(const MeshVertexFetch& fetch, const PbrMaterialProfile& profile,
                                 bool shadow_pass, MaterialSamplerBinding sampler_binding,
                                 const SurfaceShaderDefinition* graph, std::string_view graph_source,
-                                bool sprite_profile, std::optional<TextureFilter> sprite_mips) {
+                                bool sprite_profile, std::optional<TextureFilter> sprite_mips,
+                                bool indirect_output) {
     const auto& source = profile.values;
+    require(!indirect_output || (!shadow_pass && !sprite_profile),
+            "Indirect outputs require the Mesh color pass");
     if (sprite_profile) {
         require(!shadow_pass && !graph && profile.workflow == PbrWorkflow::Unlit,
                 "Sprite draw profile requires a built-in unlit color material");
@@ -307,6 +311,8 @@ float ForgeSpriteSlice(float u,float4 axis) {
 }
 )";
     ps += distance_fog_shader;
+    if (indirect_output && profile.workflow != PbrWorkflow::Unlit)
+        ps += indirect_lighting_shader;
     ps += R"(
 float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
     float3 dpdx=ddx(input.World),dpdy=ddy(input.World);
@@ -623,7 +629,33 @@ float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
 })";
     }
 
-    if (fetch.temporal) {
+    if (indirect_output) {
+        const std::string entry =
+            "float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {";
+        const auto at = ps.find(entry);
+        require(at != std::string::npos, "Indirect Mesh color lost its shared entry");
+        ps.replace(at, entry.size(),
+                   "float4 ForgeIndirectColor(ForgeVarying input,bool front,out float3 indirect) "
+                   "{indirect=0;");
+        if (profile.workflow != PbrWorkflow::Unlit) {
+            const std::string resolved = "float3 color=ResolveLighting(s,lighting);";
+            const auto light_at = ps.find(resolved);
+            require(light_at != std::string::npos,
+                    "Indirect Mesh color lost native lighting resolution");
+            ps.insert(light_at + resolved.size(), "\nindirect=ForgeIndirectRadiance(s,lighting)*"
+                                                  "ForgeDistanceFogTransmittance(input.World);\n");
+        }
+        if (fetch.temporal)
+            ps += std::string(temporal_motion_uniform) + temporal_motion_pixel;
+        ps += indirect_target_shader(fetch.temporal);
+        ps += "ForgeIndirectTargets main(ForgeVarying input,bool front:SV_IsFrontFace) {\n"
+              "ForgeIndirectTargets result;float3 indirect;\n"
+              "result.Color=ForgeIndirectColor(input,front,indirect);\n"
+              "result.Indirect=float4(indirect,0);\n";
+        if (fetch.temporal)
+            ps += "result.Motion=ForgeTemporalMotion(input.PreviousClip,input.Position);\n";
+        ps += "return result;}\n";
+    } else if (fetch.temporal) {
         require(!shadow_pass && !sprite_profile, "Temporal color requires the Mesh color pass");
         const std::string entry =
             "float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {";
@@ -642,7 +674,8 @@ ForgeTemporalTargets main(ForgeVarying input,bool front:SV_IsFrontFace) {
     return {vs, ps, material, sheen, transmission, geometry, instanced};
 }
 std::string material_graph_shader_wrapper(const SurfaceShaderDefinition& definition,
-                                          std::string_view source, bool depth_only) {
+                                          std::string_view source, bool depth_only,
+                                          bool indirect_output) {
     MaterialData values;
     values.model = "forge.gltf.metallic-roughness.v1";
     const auto profile = prepare_pbr_material(values);
@@ -650,8 +683,21 @@ std::string material_graph_shader_wrapper(const SurfaceShaderDefinition& definit
     fetch.uv_sets = definition.uv_sets;
     fetch.normal = fetch.tangent = true;
     auto generated = mesh_draw_shader(fetch, profile, depth_only, MaterialSamplerBinding::Array,
-                                      &definition, source);
-    if (!depth_only) {
+                                      &definition, source, false, {}, indirect_output);
+    require(!depth_only || !indirect_output, "Depth graph does not emit indirect color");
+    if (indirect_output) {
+        const std::string old =
+            "float4 ForgeIndirectColor(ForgeVarying input,bool front,out float3 indirect) {";
+        const auto at = generated.pixel.find(old);
+        require(at != std::string::npos, "Graph wrapper lost shared indirect entry");
+        generated.pixel.replace(at, old.size(),
+                                "float4 ForgeSurfaceIndirectLighting(ForgeSurfaceInput input,out "
+                                "float3 indirect) {bool front=input.FrontFace;");
+        const auto targets = generated.pixel.find("struct ForgeIndirectTargets {");
+        require(targets != std::string::npos,
+                "Graph wrapper lost Mesh indirect target declaration");
+        generated.pixel.resize(targets); // The shared surface wrapper supplies its own entry/MRTs.
+    } else if (!depth_only) {
         const std::string old =
             "float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {";
         const auto at = generated.pixel.find(old);

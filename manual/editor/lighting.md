@@ -1,7 +1,7 @@
 # Scene lighting
 
 Use **Tools > Scene lighting...**, or search for **Scene / Lighting** in the Command
-Palette, to change the scene's environment, shadows, motion blur, focus blur, edge smoothing,
+Palette, to change the scene's environment, shadows, ambient occlusion, motion blur, focus blur, edge smoothing,
 distance fog and display brightness. These settings
 belong to the scene: **Save** keeps them, and **Undo / Redo** reverses each committed
 change. Opening this window keeps Scene as the active editing task.
@@ -44,6 +44,52 @@ its lighting maps every frame. If a replacement cannot load, **Problems** explai
 failure and the previous usable environment remains visible. Clear the field explicitly
 to remove that previous environment.
 
+## Shade nearby ambient contacts
+
+1. Stop Play and open **Tools > Scene lighting...**.
+2. Assign an **Environment map** and give it a nonzero **Intensity**. The effect reduces environment lighting; it does not darken direct lights or emission.
+3. Expand **Ambient occlusion** and select **Enable ambient occlusion**.
+4. Enter **Radius (m)**, from **0 to 10**, and press **Enter**. Nearby visible geometry within this distance can reduce ambient light. Start at **0.5**.
+5. Set **Strength**, from **0 to 1**. Zero strength or radius skips the effect.
+6. Adjust **Depth bias (m)**, from **0 to 1**, if a flat surface appears to shade itself. Start at **0.01**; increasing bias ignores smaller depth differences.
+7. Save the Scene. Play and exported games use the saved settings.
+
+![Ambient occlusion enabled with radius, strength and depth bias controls](../images/ambient-occlusion-controls.png)
+
+Use Radius for the reach of nearby contacts and Strength for their ambient-light reduction.
+An unlit Material has no environment lighting to occlude. Assign a lit Material in
+the Mesh Renderer when you need this effect.
+
+**Reset ambient occlusion** disables the effect and restores radius **0.5 m**,
+strength **1** and bias **0.01 m** in one Undo step. Authored controls are read-only
+during Play. Turn off **Preview light** when comparing authored Scene lighting;
+Game uses the authored environment and lights.
+
+Open **105-ambient-occlusion** in the Feature Gallery. Three amber posts stand in
+front of a blue wall. Toggle the effect to compare the ambient shading near their
+visible depth junctions. Shadows are disabled so direct-light shadow maps do not
+supply this shading. The scene uses built-in meshes and an environment; no C++
+module or additional import is required.
+
+![Amber posts with ambient contact shading against a blue wall](../images/ambient-occlusion.png)
+
+Compare enabled and disabled views near the posts and lower ledge.
+
+A fine spatial sample pattern can be visible near contacts. The effect uses visible
+depth and geometric surface directions. Hidden or
+screen-edge geometry and normal-map detail cannot supply additional occlusion.
+Direct lighting, emission, fog color and alpha remain unchanged. Transparency,
+Sprites, Tile Maps, particles, sky and editor overlays keep their existing rendering.
+Occlusion runs before edge smoothing, motion blur and depth of field.
+
+Game cameras must clear both color and depth. Materials must test and write depth.
+Older custom or graph **Shader** assets need reimporting and their dependent
+**Materials** rebuilding before joining the effect. Unsupported shaders, draw order,
+depth or capacity keep ordinary rendering and report a warning. Up to eight Game
+views share a **512 MiB** surface texture estimate with edge smoothing and motion
+blur; Scene preview has its own **512 MiB** estimate. Native and temporary allocation
+overhead are additional. Reduce view size or disable the effect if a warning persists.
+
 ## Blur moving geometry
 
 1. Stop Play and open **Tools > Scene lighting...**.
@@ -84,7 +130,7 @@ cancelling capture discards that temporary motion field.
 Game cameras must clear both color and depth; participating Materials must test
 and write depth. Unsupported draw order, shaders or capacity keep ordinary
 rendering and report a warning. Up to eight Game views share a **512 MiB** texture
-payload estimate with edge smoothing and frozen motion; Scene preview has its own
+payload estimate with ambient occlusion, edge smoothing and frozen motion; Scene preview has its own
 **512 MiB** estimate. Native allocation and temporary retirement overhead are
 additional. Reduce view size or disable the effect if a warning persists.
 

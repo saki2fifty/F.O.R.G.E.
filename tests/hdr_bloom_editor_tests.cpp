@@ -39,6 +39,7 @@ void interactions(float scale, ImVec2 display) {
     bool temporal_controls = false;
     bool focus_controls = false;
     bool motion_controls = false;
+    bool occlusion_controls = false;
     bool full_owner = false;
     std::string error;
     unsigned commits = 0;
@@ -60,7 +61,9 @@ void interactions(float scale, ImVec2 display) {
                     ++commits;
                     error.clear();
                 };
-                if (motion_controls)
+                if (occlusion_controls)
+                    ui::scene_occlusion_controls(settings.ambient_occlusion, locked, commit);
+                else if (motion_controls)
                     ui::scene_motion_controls(settings.motion_blur, locked, commit);
                 else if (focus_controls)
                     ui::scene_focus_controls(settings.depth_of_field, locked, commit);
@@ -371,6 +374,39 @@ void interactions(float scale, ImVec2 display) {
     locked = false;
     click("motion:section");
     motion_controls = false;
+    occlusion_controls = true;
+    frame();
+    click("occlusion:section");
+    const auto before_occlusion = scene.document();
+    click("occlusion:enabled");
+    check(scene_render_settings(scene.document()).ambient_occlusion.enabled && scene.undo() &&
+              scene.document() == before_occlusion && scene.redo(),
+          "Occlusion checkbox bypassed Scene history");
+    type("occlusion:radius", "0.75");
+    type("occlusion:strength", "0.6");
+    type("occlusion:bias", "0.02");
+    const auto occluded = scene.document();
+    check(error.empty() && scene_render_settings(occluded).ambient_occlusion ==
+                               SceneAmbientOcclusion{true, .75f, .6f, .02f},
+          "Typed occlusion controls lost values");
+    type("occlusion:radius", "11");
+    check(!error.empty() && scene.document() == occluded, "Invalid occlusion radius changed Scene");
+    type("occlusion:radius", "0.5");
+    check(error.empty() && scene_render_settings(scene.document()).ambient_occlusion.radius == .5f,
+          "Occlusion input did not recover after rejection");
+    const auto before_occlusion_reset = scene.document();
+    click("occlusion:reset");
+    check(scene_render_settings(scene.document()).ambient_occlusion == SceneAmbientOcclusion{} &&
+              scene.undo() && scene.document() == before_occlusion_reset && scene.redo(),
+          "Occlusion reset was not one reversible operation");
+    locked = true;
+    frame();
+    for (const auto* key : {"occlusion:enabled", "occlusion:radius", "occlusion:strength",
+                            "occlusion:bias", "occlusion:reset"})
+        check(!test::ui_targets.at(key).enabled, "Occlusion authored control enabled during Play");
+    locked = false;
+    click("occlusion:section");
+    occlusion_controls = false;
     // Exercise the real Scene lighting owner, including its Problems integration,
     // rather than inferring recovery from the callback used above.
     locked = false;
@@ -440,14 +476,30 @@ void interactions(float scale, ImVec2 display) {
               scene_render_settings(scene.document()).motion_blur.max_pixels == 16 &&
               context.task.owner == ui::DocumentTask::Scene,
           "Corrected motion retained its Problem or document ownership");
+    click("motion:section");
+    click("occlusion:section");
+    context.task.focus_document("material", "Material");
+    type("occlusion:strength", "2");
+    check(context.problems.size() == 1 && !context.problems.items().front().occurred_at.empty(),
+          "Actual occlusion rejection lacked a timestamped Problem");
+    type("occlusion:strength", "0.8");
+    check(context.problems.size() == 0 &&
+              scene_render_settings(scene.document()).ambient_occlusion.strength == .8f &&
+              context.task.owner == ui::DocumentTask::Scene,
+          "Corrected occlusion retained its Problem or document ownership");
     test::observe_ui = false;
     ImGui::DestroyContext();
 }
 void capture(const std::filesystem::path& root, std::string_view kind = {}) {
     const bool fog = kind == "--fog", temporal = kind == "--temporal", focus = kind == "--focus",
-               motion = kind == "--motion";
+               motion = kind == "--motion", occlusion = kind == "--occlusion";
     std::filesystem::create_directories(root);
-    const int capture_height = fog ? 360 : temporal ? 420 : focus ? 440 : motion ? 400 : 900;
+    const int capture_height = fog         ? 360
+                               : temporal  ? 420
+                               : focus     ? 440
+                               : motion    ? 400
+                               : occlusion ? 460
+                                           : 900;
     const std::unique_ptr<SDL_Surface, decltype(&SDL_DestroySurface)> surface(
         SDL_CreateSurface(900, capture_height, SDL_PIXELFORMAT_RGBA32), SDL_DestroySurface);
     check(bool(surface), SDL_GetError());
@@ -476,7 +528,8 @@ void capture(const std::filesystem::path& root, std::string_view kind = {}) {
     Scene scene(engine.world());
     authoring_command(
         scene, "scene.rendering.set",
-        motion     ? Json{{"motion_blur", {{"enabled", true}, {"shutter", .5}, {"max_pixels", 32}}}}
+        occlusion  ? Json{{"ambient_occlusion", {{"enabled", true}}}}
+        : motion   ? Json{{"motion_blur", {{"enabled", true}, {"shutter", .5}, {"max_pixels", 32}}}}
         : focus    ? Json{{"depth_of_field",
                            {{"enabled", true},
                             {"focus_distance", 10},
@@ -497,7 +550,10 @@ void capture(const std::filesystem::path& root, std::string_view kind = {}) {
         const auto commit = [&](const Json& patch) {
             authoring_command(scene, "scene.rendering.set", patch);
         };
-        if (motion)
+        if (occlusion)
+            ui::scene_occlusion_controls(scene_render_settings(scene.document()).ambient_occlusion,
+                                         false, commit);
+        else if (motion)
             ui::scene_motion_controls(scene_render_settings(scene.document()).motion_blur, false,
                                       commit);
         else if (focus)
@@ -519,7 +575,8 @@ void capture(const std::filesystem::path& root, std::string_view kind = {}) {
         ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData(), renderer.get());
         SDL_RenderPresent(renderer.get());
     }
-    check(SDL_SavePNG(surface.get(), (root / (motion     ? "motion-blur-controls.png"
+    check(SDL_SavePNG(surface.get(), (root / (occlusion  ? "ambient-occlusion-controls.png"
+                                              : motion   ? "motion-blur-controls.png"
                                               : focus    ? "depth-of-field-controls.png"
                                               : temporal ? "temporal-antialiasing-controls.png"
                                               : fog      ? "distance-fog-controls.png"
@@ -534,7 +591,8 @@ int main(int argc, char** argv) {
         if (argc == 2 ||
             (argc == 3 &&
              (std::string_view(argv[2]) == "--fog" || std::string_view(argv[2]) == "--temporal" ||
-              std::string_view(argv[2]) == "--focus" || std::string_view(argv[2]) == "--motion"))) {
+              std::string_view(argv[2]) == "--focus" || std::string_view(argv[2]) == "--motion" ||
+              std::string_view(argv[2]) == "--occlusion"))) {
             capture(std::filesystem::absolute(argv[1]),
                     argc == 3 ? std::string_view(argv[2]) : std::string_view{});
             return 0;

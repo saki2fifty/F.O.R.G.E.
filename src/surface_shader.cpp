@@ -1,4 +1,5 @@
 #include "distance_fog_shader.hpp"
+#include "indirect_lighting_shader.hpp"
 #include "material_shader.hpp"
 #include "temporal_motion_shader.hpp"
 #include <algorithm>
@@ -225,7 +226,9 @@ std::string surface_shader_header(const SurfaceShaderDefinition& d, bool emulate
     s += "#endif\n";
     return s;
 }
-std::string surface_shader_wrapper(std::string_view source, std::string_view function, bool depth) {
+std::string surface_shader_wrapper(std::string_view source, std::string_view function, bool depth,
+                                   bool indirect_output) {
+    require(!depth || !indirect_output, "Depth surface does not emit indirect color");
     identifier(function);
     require(!source.empty() && source.size() <= 1024 &&
                 source.find_first_of("\"\r\n\\") == source.npos,
@@ -234,8 +237,10 @@ std::string surface_shader_wrapper(std::string_view source, std::string_view fun
         require(c >= 32 && c != 127, "Control character in surface function source path");
     std::string s =
         "#include \"engine/forge.surface.hlsli\"\n#include \"" + std::string(source) + "\"\n";
-    s += depth ? "void ForgeSurfaceDepth(ForgeSurfaceInput input) {\n"
-               : "float4 ForgeSurfaceColor(ForgeSurfaceInput input):SV_Target0 {\n";
+    s += depth             ? "void ForgeSurfaceDepth(ForgeSurfaceInput input) {\n"
+         : indirect_output ? "float4 ForgeSurfaceIndirectLighting(ForgeSurfaceInput input,out "
+                             "float3 indirect) {indirect=0;\n"
+                           : "float4 ForgeSurfaceColor(ForgeSurfaceInput input):SV_Target0 {\n";
     s += "float4 value=" + std::string(function) +
          "(input);\n"
          "bool valid=all(isfinite(value));\n"
@@ -260,6 +265,28 @@ ForgeTemporalTargets ForgeSurfaceTemporalColor(ForgeSurfaceInput input) {
     return result;
 }
 )hlsl";
+}
+std::string indirect_surface_wrapper(std::string helper, bool temporal) {
+    require(
+        helper.find(
+            "float4 ForgeSurfaceIndirectLighting(ForgeSurfaceInput input,out float3 indirect)") !=
+            std::string::npos,
+        "Indirect surface wrapper lost its generated output helper");
+    std::string result;
+    if (temporal)
+        result = "#include \"engine/forge.surface.temporal.hlsli\"\n";
+    result += helper;
+    if (temporal)
+        result += std::string(temporal_motion_uniform) + temporal_motion_pixel;
+    result += indirect_target_shader(temporal);
+    result += std::string("ForgeIndirectTargets ") +
+              (temporal ? "ForgeSurfaceTemporalIndirectColor" : "ForgeSurfaceIndirectColor") +
+              "(ForgeSurfaceInput input) {\nForgeIndirectTargets result;float3 indirect;\n"
+              "result.Color=ForgeSurfaceIndirectLighting(input,indirect);\n"
+              "result.Indirect=float4(indirect,0);\n";
+    if (temporal)
+        result += "result.Motion=ForgeTemporalMotion(input.PreviousClip,input.Position);\n";
+    return result + "return result;}\n";
 }
 SurfaceBindingLayout surface_binding_layout(const SurfaceShaderDefinition& d,
                                             const Json& reflection) {

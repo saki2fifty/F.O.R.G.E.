@@ -62,7 +62,8 @@ MeshDrawBundle::MeshDrawBundle(DiligentPresentation& presentation,
             throw std::runtime_error("Material selection part count differs from mesh");
         auto& output = lods_.emplace_back();
         auto& shadows = shadow_lods_.emplace_back();
-        temporal_lods_.emplace_back(lod.parts.size());
+        for (auto& variants : surface_lods_)
+            variants.emplace_back(lod.parts.size());
         auto& info = info_.emplace_back();
         for (std::size_t p = 0; p < lod.parts.size(); ++p) {
             const auto& part = lod.parts[p];
@@ -124,19 +125,29 @@ std::size_t MeshDrawBundle::draw_part_count() const {
     std::size_t count = 0;
     for (const auto& lod : lods_)
         count += lod.size();
-    for (const auto& lod : temporal_lods_)
-        count += std::count_if(lod.begin(), lod.end(), [](const auto& part) { return bool(part); });
+    for (const auto& variants : surface_lods_)
+        for (const auto& lod : variants)
+            count +=
+                std::count_if(lod.begin(), lod.end(), [](const auto& part) { return bool(part); });
     return count;
 }
 void MeshDrawBundle::prepare_temporal(Diligent::IDeviceContext* context, unsigned lod,
                                       unsigned part,
                                       std::span<const MaterialParameterOverride> parameters) {
+    prepare_surface(context, lod, part, true, false, parameters);
+}
+void MeshDrawBundle::prepare_surface(Diligent::IDeviceContext* context, unsigned lod, unsigned part,
+                                     bool motion, bool indirect,
+                                     std::span<const MaterialParameterOverride> parameters) {
     if (profile_ != MeshDrawProfile::Mesh || info_.at(lod).at(part).transmission ||
-        info_.at(lod).at(part).alpha == MaterialAlpha::Blend)
-        throw std::invalid_argument("Temporal accumulation requires a depth-writing Mesh part");
-    auto& selected = temporal_lods_.at(lod).at(part);
+        info_.at(lod).at(part).alpha == MaterialAlpha::Blend || !info_.at(lod).at(part).depth_write)
+        throw std::invalid_argument("Surface effects require a depth-writing Mesh part");
+    auto& selected = surface_lods_.at(surface_index(motion, indirect)).at(lod).at(part);
     if (!selected) {
-        auto candidate = prepare_draw(context, lod, part, color_, MeshDrawProfile::MeshTemporal);
+        const auto profile = indirect ? (motion ? MeshDrawProfile::MeshTemporalIndirect
+                                                : MeshDrawProfile::MeshIndirect)
+                                      : MeshDrawProfile::MeshTemporal;
+        auto candidate = prepare_draw(context, lod, part, color_, profile);
         candidate->bind_environment(environment_ ? &environment_.get() : nullptr);
         candidate->prepare_object_material_values(parameters, slot(lod, part));
         selected = std::move(candidate);
@@ -152,8 +163,9 @@ void MeshDrawBundle::prepare_material_parameters(
             lods_[lod][part]->prepare_object_material_values(parameters, slot(lod, part));
             if (auto& shadow = shadow_lods_[lod][part])
                 shadow->prepare_object_material_values(parameters, slot(lod, part));
-            if (auto& temporal = temporal_lods_[lod][part])
-                temporal->prepare_object_material_values(parameters, slot(lod, part));
+            for (auto& variants : surface_lods_)
+                if (auto& surface = variants[lod][part])
+                    surface->prepare_object_material_values(parameters, slot(lod, part));
         }
 }
 void MeshDrawBundle::draw_shadow(Diligent::IDeviceContext* context, const AffineTransform& world,
@@ -184,20 +196,22 @@ void MeshDrawBundle::environment(const EnvironmentLease& lease) {
     for (auto& lod : lods_)
         for (auto& part : lod)
             part->bind_environment(maps);
-    for (auto& lod : temporal_lods_)
-        for (auto& part : lod)
-            if (part)
-                part->bind_environment(maps);
+    for (auto& variants : surface_lods_)
+        for (auto& lod : variants)
+            for (auto& part : lod)
+                if (part)
+                    part->bind_environment(maps);
     environment_ = lease;
 }
 void MeshDrawBundle::shadows(const ShadowLighting* lighting) {
     for (auto& lod : lods_)
         for (auto& part : lod)
             part->bind_shadows(lighting);
-    for (auto& lod : temporal_lods_)
-        for (auto& part : lod)
-            if (part)
-                part->bind_shadows(lighting);
+    for (auto& variants : surface_lods_)
+        for (auto& lod : variants)
+            for (auto& part : lod)
+                if (part)
+                    part->bind_shadows(lighting);
 }
 void MeshDrawBundle::transmission(const TransmissionLighting* lighting) {
     for (auto& lod : lods_)
@@ -223,10 +237,12 @@ void MeshDrawBundle::draw_part(Diligent::IDeviceContext* context, const AffineTr
                                std::span<const MaterialParameterOverride> parameters,
                                const SpriteDrawValues* sprite, const SceneDistanceFog* fog,
                                const GpuLease<TextureAsset>* sprite_mip,
-                               const MeshDraw::Motion* motion) {
-    auto& selected = motion ? temporal_lods_.at(lod).at(part) : lods_.at(lod).at(part);
+                               const MeshDraw::Motion* motion, bool indirect) {
+    auto& selected = motion || indirect
+                         ? surface_lods_.at(surface_index(bool(motion), indirect)).at(lod).at(part)
+                         : lods_.at(lod).at(part);
     if (!selected)
-        throw std::runtime_error("Temporal Mesh part was not prepared before drawing");
+        throw std::runtime_error("Surface Mesh part was not prepared before drawing");
     if (sprite_draw_mip_filter(profile_)) {
         if (!sprite_mip || !*sprite_mip)
             throw std::runtime_error("Sprite mip draw has no admitted filtered frame");

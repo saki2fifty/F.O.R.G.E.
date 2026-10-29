@@ -4,6 +4,46 @@
 #include <forge/scene_render_settings.hpp>
 #include <numbers>
 namespace forge::ui {
+inline void scene_occlusion_controls(const SceneAmbientOcclusion& settings, bool locked,
+                                     const std::function<void(const Json&)>& commit) {
+    IdScope scope("ambient_occlusion");
+    const bool open = ImGui::CollapsingHeader("Ambient occlusion");
+    FORGE_UI_PROBE("occlusion:section");
+    if (!open)
+        return;
+    DisabledScope disabled(locked);
+    bool enabled = settings.enabled;
+    if (ImGui::Checkbox("Enable ambient occlusion", &enabled))
+        commit({{"ambient_occlusion", {{"enabled", enabled}}}});
+    FORGE_UI_PROBE("occlusion:enabled");
+    const auto field = [&](const char* label, const char* key, float value, const char* tip) {
+        IdScope id(key);
+        property_label_row(label, tip);
+        if (ImGui::InputFloat("##value", &value, 0, 0, "%.3f",
+                              ImGuiInputTextFlags_EnterReturnsTrue))
+            commit({{"ambient_occlusion", {{key, value}}}});
+        FORGE_UI_PROBE(std::string("occlusion:") + key);
+    };
+    field("Radius (m)", "radius", settings.radius,
+          "Nearby visible surfaces within 0 to 10 metres may occlude ambient lighting. Zero skips "
+          "the pass.");
+    field("Strength", "strength", settings.strength,
+          "Ambient-light reduction from 0 to 1. Zero skips the pass.");
+    field("Depth bias (m)", "bias", settings.bias,
+          "Depth tolerance from 0 to 1 metre. Increase to reduce self-occlusion.");
+    if (button("Reset ambient occlusion",
+               "Disable occlusion and restore 0.5 m radius, strength 1 and 0.01 m bias."))
+        commit({{"ambient_occlusion",
+                 {{"enabled", false}, {"radius", .5}, {"strength", 1}, {"bias", .01}}}});
+    FORGE_UI_PROBE("occlusion:reset");
+    ImGui::TextWrapped(
+        "Reduces environment lighting near visible opaque and masked Mesh surfaces. "
+        "Direct light, emission and fog color remain unchanged. Uses visible depth and geometric "
+        "normals; hidden or off-screen surfaces and normal maps do not supply occlusion. "
+        "Runs before temporal anti-aliasing, motion blur and depth of field. "
+        "Game cameras must clear color and depth. Older surface Shader assets need a recook. "
+        "Scene Save and Undo include these settings.");
+}
 inline void scene_motion_controls(const SceneMotionBlur& settings, bool locked,
                                   const std::function<void(const Json&)>& commit) {
     IdScope scope("motion_blur");
@@ -345,6 +385,7 @@ inline void scene_lighting(bool& open, Scene& scene, const AssetCatalog* catalog
                  "mapping. With automatic exposure, this adds brightness compensation. Enter "
                  "commits.");
             scene_auto_exposure_controls(settings.auto_exposure, locked, commit);
+            scene_occlusion_controls(settings.ambient_occlusion, locked, commit);
             scene_motion_controls(settings.motion_blur, locked, commit);
             scene_focus_controls(settings.depth_of_field, locked, commit);
             scene_temporal_controls(settings.temporal_anti_aliasing, locked, commit);

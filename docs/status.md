@@ -5,6 +5,15 @@ The accepted local Windows package is **261024-000213**, source
 in the [README](../README.md#current-implementation). No new numbered Windows
 package accompanies the local source changes described here.
 
+Local Scene surface effects include [temporal anti-aliasing](temporal-antialiasing.md),
+[motion blur](motion-blur.md), [depth of field](depth-of-field.md) and
+[ambient occlusion](ambient-occlusion.md), with shared Scene/Game owners, controls,
+authoring/MCP and editable Gallery102–105. Capability4 surface cooks retain readable
+older1/2/3 artifacts; recook older surfaces to opt into indirect output. These local
+changes require current Windows/full editor/FXC/cooked-runtime and physical acceptance;
+they are absent from the accepted Build213 ZIP. Native shutdown LSan remains open
+under the [recorded diagnostic](dependency-known-issues.md#native-software-vulkan-shutdown-allocation-report).
+
 Local source adds default-off independent Sprite/Tile frame mip filtering and
 Gallery99. Core/Inspector/MCP, matching installed C++ SDK, software Vulkan,
 source-free content and exact relocated Game images are validated locally.

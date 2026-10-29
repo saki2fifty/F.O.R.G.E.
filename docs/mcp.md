@@ -127,6 +127,15 @@ Scene grant, revision, replay, history and save rules apply. Read-only clients d
 not receive the mutation. See [distance fog](distance-fog.md) for limits and legacy
 surface cook requirements; these are authored settings, not live Play controls.
 
+`scene.rendering.set` / `forge_scene_rendering_set` accepts
+`{"ambient_occlusion":{"enabled":true,"radius":0.5,"strength":1,"bias":0.01}}`.
+Radius0–10m, strength0–1 and bias0–1m are finite, including when disabled. Partial
+patches use the existing Scene permission, expected revision, replay, atomic
+Undo/Redo and Save behavior. Disabled/zero radius/zero strength skip rendering.
+See [ambient occlusion](ambient-occlusion.md) for indirect lighting, visible-depth,
+shader recook, camera and payload limits. This is authored Scene state, not a new
+live-Play control.
+
 ### Document tools
 
 The native owner registrations in `document_automation.hpp` supply method names,

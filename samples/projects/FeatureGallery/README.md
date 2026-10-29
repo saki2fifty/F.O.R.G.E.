@@ -1,5 +1,17 @@
 # Feature Gallery
 
+## Ambient occlusion
+
+Open **Scenes/105-ambient-occlusion.scene.json** and press Play. Three amber posts
+and a lower ledge sit in front of a blue wall, lit by a built-in environment and a
+direct light. Stop Play, open **Tools > Scene lighting... > Ambient occlusion** and
+toggle **Enable ambient occlusion**. Compare shading around the visible depth
+junctions. Try **Radius (m)** from 0 to 10 and **Strength** from 0 to 1; zero skips
+the effect. **Depth bias (m)** from 0 to 1 limits self-occlusion. Press Enter after
+typing a value. Shadows are disabled to isolate ambient contacts. Save before
+exporting. No C++ module or additional imported asset is required. Hidden and
+off-screen surfaces and normal-map detail do not supply screen-space occlusion.
+
 ## Motion blur
 
 Open **Scenes/104-motion-blur.scene.json** and press Play. A checker panel moves

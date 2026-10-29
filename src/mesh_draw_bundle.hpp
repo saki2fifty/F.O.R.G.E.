@@ -32,7 +32,12 @@ class MeshDrawBundle {
     void prepare_temporal(Diligent::IDeviceContext*, unsigned lod, unsigned part,
                           std::span<const MaterialParameterOverride> = {});
     bool temporal_prepared(unsigned lod, unsigned part) const {
-        return bool(temporal_lods_.at(lod).at(part));
+        return surface_prepared(lod, part, true, false);
+    }
+    void prepare_surface(Diligent::IDeviceContext*, unsigned lod, unsigned part, bool motion,
+                         bool indirect, std::span<const MaterialParameterOverride> = {});
+    bool surface_prepared(unsigned lod, unsigned part, bool motion, bool indirect) const {
+        return bool(surface_lods_.at(surface_index(motion, indirect)).at(lod).at(part));
     }
     std::size_t draw_part_count() const;
     void draw_shadow(Diligent::IDeviceContext*, const AffineTransform&, const CameraView&,
@@ -51,7 +56,7 @@ class MeshDrawBundle {
                    std::span<const MaterialParameterOverride> parameters = {},
                    const SpriteDrawValues* sprite = nullptr, const SceneDistanceFog* fog = nullptr,
                    const GpuLease<TextureAsset>* sprite_mip = nullptr,
-                   const MeshDraw::Motion* motion = nullptr);
+                   const MeshDraw::Motion* motion = nullptr, bool indirect = false);
     std::string_view slot(unsigned lod, unsigned part) const {
         return prepared_.selection.bindings.at(info_.at(lod).at(part).binding).key;
     }
@@ -69,6 +74,11 @@ class MeshDrawBundle {
     std::size_t lod_count() const { return lods_.size(); }
 
   private:
+    static std::size_t surface_index(bool motion, bool indirect) {
+        if (!motion && !indirect)
+            throw std::invalid_argument("Surface specialization needs motion or indirect output");
+        return indirect ? (motion ? 2 : 1) : 0;
+    }
     std::unique_ptr<MeshDraw> prepare_draw(Diligent::IDeviceContext*, unsigned lod, unsigned part,
                                            Diligent::TEXTURE_FORMAT, MeshDrawProfile);
     DiligentPresentation& presentation_;
@@ -86,6 +96,6 @@ class MeshDrawBundle {
     std::vector<std::vector<PartInfo>> info_;
     std::vector<std::vector<std::unique_ptr<MeshDraw>>> lods_;
     std::vector<std::vector<std::unique_ptr<MeshDraw>>> shadow_lods_;
-    std::vector<std::vector<std::unique_ptr<MeshDraw>>> temporal_lods_;
+    std::array<std::vector<std::vector<std::unique_ptr<MeshDraw>>>, 3> surface_lods_;
 };
 } // namespace forge

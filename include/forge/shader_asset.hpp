@@ -6,7 +6,28 @@ namespace forge {
 // Stages admitted by the initial D3D12 / FXC shader-model5.1 compiler profile.
 // Admission is not a claim that every renderer pass uses each stage.
 enum class ShaderStage { Vertex, Pixel, Compute, Geometry, Hull, Domain };
-enum class ShaderEntryRole { Program, SurfaceColor, SurfaceDepth, SurfaceTemporalColor };
+enum class ShaderEntryRole {
+    Program,
+    SurfaceColor,
+    SurfaceDepth,
+    SurfaceTemporalColor,
+    SurfaceIndirectColor,
+    SurfaceTemporalIndirectColor
+};
+inline constexpr bool temporal_surface_role(ShaderEntryRole role) {
+    return role == ShaderEntryRole::SurfaceTemporalColor ||
+           role == ShaderEntryRole::SurfaceTemporalIndirectColor;
+}
+inline constexpr bool indirect_surface_role(ShaderEntryRole role) {
+    return role == ShaderEntryRole::SurfaceIndirectColor ||
+           role == ShaderEntryRole::SurfaceTemporalIndirectColor;
+}
+inline constexpr ShaderEntryRole surface_color_role(bool temporal, bool indirect) {
+    return indirect
+               ? (temporal ? ShaderEntryRole::SurfaceTemporalIndirectColor
+                           : ShaderEntryRole::SurfaceIndirectColor)
+               : (temporal ? ShaderEntryRole::SurfaceTemporalColor : ShaderEntryRole::SurfaceColor);
+}
 const char* shader_entry_role_name(ShaderEntryRole);
 ShaderEntryRole shader_entry_role(std::string_view);
 const char* surface_shader_entry(ShaderEntryRole);

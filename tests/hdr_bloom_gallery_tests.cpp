@@ -1,6 +1,7 @@
 #include "model_render_resource.hpp"
 #include "runtime_package.hpp"
 #include <forge/animation.hpp>
+#include <forge/engine_assets.hpp>
 #include <forge/material_source.hpp>
 #include <forge/render_scene.hpp>
 #include <forge/runtime.hpp>
@@ -197,6 +198,41 @@ AssetId inspect_focus(const std::filesystem::path& root) {
           "Focus Gallery admission rewrote its saved Scene");
     return id;
 }
+AssetId inspect_occlusion(const std::filesystem::path& root) {
+    const auto catalog = AssetCatalog::open_project(root);
+    const auto id = AssetId::parse("d4b6e7a5-5c2a-4ee0-852d-cb53ffc7319a");
+    const auto source = read(root / catalog.records().at(id).source);
+    EngineContext engine(WorldRole::Runtime, false);
+    Scene scene(engine.world());
+    scene.restore_snapshot(source);
+    RuntimeSimulation simulation(engine.world(), scene);
+    simulation.reset_presentation();
+    const auto frame = extract_render_scene(simulation.presentation(1));
+    check(frame.settings.ambient_occlusion == SceneAmbientOcclusion{true, 1.1f, 1, .01f} &&
+              frame.settings.environment.texture ==
+                  engine_texture(EngineTexture::White, TextureDimension::Cube) &&
+              frame.settings.environment.intensity == .7f && !frame.settings.shadows.enabled &&
+              frame.meshes.size() == 5 && frame.cameras.size() == 1 && frame.lights.size() == 1 &&
+              frame.diagnostics.empty(),
+          "Ambient Gallery lost its lighting, five Mesh surfaces or rendering values");
+    std::set<std::array<float, 4>> colors;
+    for (const auto& mesh : frame.meshes) {
+        check(!mesh.legacy_tint && mesh.renderer.material_parameters.size() == 1,
+              "Ambient Gallery used unlit blockout appearance instead of lit object values");
+        const auto& value = mesh.renderer.material_parameters.front();
+        check(value.slot == "surface" && value.key == "baseColorFactor" &&
+                  value.parameter.type == MaterialParameterType::LinearColor4,
+              "Ambient Gallery lost a typed lit surface color");
+        colors.insert(value.parameter.value);
+    }
+    check(colors == std::set<std::array<float, 4>>{{.48f, .65f, .78f, 1},
+                                                   {.9f, .45f, .12f, 1},
+                                                   {.25f, .36f, .48f, 1}},
+          "Ambient Gallery object colors differ from its saved comparison");
+    check(read(root / catalog.records().at(id).source) == source,
+          "Ambient Gallery admission rewrote the saved Scene");
+    return id;
+}
 } // namespace
 int main(int argc, char** argv) {
     try {
@@ -225,13 +261,15 @@ int main(int argc, char** argv) {
         const auto temporal_scene = inspect_temporal(root);
         const auto focus_scene = inspect_focus(root);
         const auto motion_scene = inspect_temporal(root, true);
+        const auto occlusion_scene = inspect_occlusion(root);
         const std::array roots{source.at("asset_id").get<AssetId>(),
                                AssetId::parse("7456ed81-3d3b-45a6-8c7d-6b50073ad01a"),
                                exposure_scene,
                                fog_scene,
                                temporal_scene,
                                focus_scene,
-                               motion_scene};
+                               motion_scene,
+                               occlusion_scene};
         {
             auto lease = std::make_shared<ProjectLease>(root);
             prepare_runtime_content_catalog(*lease, roots, {});
@@ -252,7 +290,7 @@ int main(int argc, char** argv) {
             (void)record;
             actual.insert(id);
         }
-        check(actual == expected && expected.size() == 13,
+        check(actual == expected && expected.size() == 14,
               "Bloom/color/exposure/fog export changed its exact shared asset closure");
         check(!std::filesystem::exists(moved / "Assets/Exposure/Daylight.animation.json"),
               "Exposure clip source leaked into the runtime package");
@@ -275,6 +313,9 @@ int main(int argc, char** argv) {
         check(inspect_temporal(moved, true) == motion_scene &&
                   !std::filesystem::exists(moved / "Assets/Physics2D/Platform.animation.json"),
               "Motion Gallery relocation changed identity, motion or leaked clip source");
+        check(inspect_occlusion(moved) == occlusion_scene,
+              "Ambient Gallery source-free relocation changed lighting or Scene identity");
+        std::cout << "Gallery105 ambient lighting and five surfaces, source-free relocation PASS\n";
         std::cout << "Gallery104 motion settings,128 inherited animated cells,128 static cells and "
                      "source-free relocation PASS\n";
         std::cout

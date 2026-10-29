@@ -25,7 +25,8 @@ MeshDrawShader mesh_draw_shader(const MeshVertexFetch&, const PbrMaterialProfile
                                 MaterialSamplerBinding = MaterialSamplerBinding::Array,
                                 const SurfaceShaderDefinition* graph = nullptr,
                                 std::string_view graph_source = {}, bool sprite_profile = false,
-                                std::optional<TextureFilter> sprite_mips = {});
+                                std::optional<TextureFilter> sprite_mips = {},
+                                bool indirect_output = false);
 std::string material_graph_shader_wrapper(const SurfaceShaderDefinition&, std::string_view source,
-                                          bool depth_only);
+                                          bool depth_only, bool indirect_output = false);
 } // namespace forge

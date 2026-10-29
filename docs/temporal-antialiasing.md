@@ -95,7 +95,8 @@ for eight completed frames before the existing readback/file owner proceeds.
 History is never serialized into Scene, capture receipts or runtime packages.
 
 AA-only input targets use 28 texel bytes/pixel; accumulation uses 20, for 48 total.
-Optional motion blur adds its documented output/capture payload. Game
+Optional motion blur adds its documented output/capture payload; active
+[ambient occlusion](ambient-occlusion.md) adds16bytes/pixel. Game
 admits at most eight accumulated cameras within a shared 512 MiB texture-payload
 estimate. Scene View has a separate 512 MiB estimate. Native allocation, driver,
 pipeline and retired-resource overhead are additional; this is not a physical
@@ -104,8 +105,9 @@ formats/extents are checked, and derived targets retire through existing owners.
 
 ## Custom surfaces and validation scope
 
-New surface cooks declare wrapper capability 3 and contain ordinary color, depth
-and temporal color roles. Old capabilities 1/2 remain readable. The temporal entry
+Wrapper capability3 introduced ordinary color, depth and temporal color roles.
+Current capability4 cooks retain these roles and add the [indirect-output roles](ambient-occlusion.md).
+Old capabilities1/2/3 remain readable. The temporal entry
 uses a second owned virtual interface header and the same authored HLSL function
 or graph, mask discard, diagnostic and fog behavior. Its strict 208-byte private
 object/motion buffer and fixed previous-clip semantic are reflected and validated.

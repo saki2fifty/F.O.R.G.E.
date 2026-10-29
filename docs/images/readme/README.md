@@ -479,3 +479,36 @@ camera aspect. Lossless PPM-to-PNG encoding preserves every RGB byte and dimensi
 no crop or retouch. These software Vulkan/lavapipe renders are distinct from
 Windows/full editor, physical GPU/input and graphical exported-game acceptance.
 PNG SHA256: `9b3804cb3ed5c0252c42233a05b13647c72eb76ffa0d96e9adf1fa5d7630c014`.
+
+## Ambient occlusion controls and Gallery
+
+[The canonical controls](../../../manual/images/ambient-occlusion-controls.png)
+show the actual `scene_occlusion_controls` widgets rendered by the rebuilt
+`forge_hdr_bloom_editor_tests <capture-directory> --occlusion` fixture. The complete
+900×460 SDL software-rendered window uses the actual font/style and defaults;
+controls, labels and pixels are not fabricated or retouched. The interaction
+fixture checks three scales and two extents, Undo/reset, rejection/recovery,
+Play locks and the real timestamped Problems/document owner.
+
+[The canonical Game image](../../../manual/images/ambient-occlusion.png) is the
+complete640×360 output from shared FrameRenderer and RuntimeSimulation using
+Gallery105, Scene `d4b6e7a5-5c2a-4ee0-852d-cb53ffc7319a`. The blue wall, three
+amber posts and lower ledge use five explicit lit Mesh renderers with typed
+object-local base colors, a built-in white cube environment and direct light.
+Shadow maps are disabled. The Scene and all entity identities remain unchanged
+when correcting the fixture from implicit unlit blockout to explicit lit surfaces.
+The runtime-content test verifies those values after source-free relocation.
+
+Source branch `forge/screen-space-occlusion` starts at `5e10997`. The native
+`ambient_occlusion_vulkan` fixture writes wide640×360 and tall360×640 enabled/
+disabled RGB images and checks visible contact changes with exact current alpha
+and clear background. PNG conversion preserves every source RGB pixel without
+crop, annotation, compositing or retouch. The full wide image is the single manual
+asset; unchanged controls and captures remain attributable to their owner tests.
+
+Capture uses software Vulkan through the explicit lvp ICD and SDL software UI.
+This is authentic implementation/fixture evidence, not a Windows editor desktop,
+physical GPU, performance measurement or graphical exported-EXE acceptance.
+The bounded spatial sample pattern can be visible near contacts; no temporal
+occlusion history, material-normal reconstruction or hidden/off-screen geometry
+is implied. Full Windows/FXC/cooked D3D12 and physical acceptance remain queued.

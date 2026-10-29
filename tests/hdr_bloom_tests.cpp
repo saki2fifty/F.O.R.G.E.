@@ -1,6 +1,7 @@
 #include "asset_reference_impact.hpp"
 #include "auto_exposure_plan.hpp"
 #include "hdr_bloom_plan.hpp"
+#include "scene_ambient_occlusion_tests.hpp"
 #include "scene_auto_exposure_tests.hpp"
 #include "scene_color_tests.hpp"
 #include "scene_depth_of_field_tests.hpp"
@@ -140,6 +141,7 @@ int main() {
         test_scene_temporal_settings();
         test_scene_depth_of_field();
         test_scene_motion_blur();
+        test_scene_ambient_occlusion();
         test_temporal_sample_policy();
         exposure_plans();
         std::cout << "HDR bloom admission and Scene ownership PASS\n";

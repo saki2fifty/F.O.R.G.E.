@@ -1,4 +1,18 @@
-# 2026-10-29 — Collision profiles, temporal anti-aliasing and depth of field
+# 2026-10-29 — Collision profiles and Scene surface effects
+
+## Ambient occlusion
+
+- Added a default-off spatial Scene effect that reduces separately resolved
+  environment radiance near visible Mesh depth contacts, preserving punctual
+  lighting, emission, additive fog color, alpha and current-frame layers.
+- Reused existing view, posed geometry, draw variants, queue, shader/material and
+  authoring owners. Spatial-only operation skips motion, pose retention, jitter
+  and accumulation. Combined views preserve AA, motion blur, focus and capture.
+- Added capability4 surface cooks with five roles; older1/2/3 archives remain
+  readable with stable asset IDs. Older surfaces need recooking to participate.
+- Added Scene Lighting controls, shared API/MCP fields, editable Gallery105 and
+  task-focused manual guidance. Local validation remains separate from queued
+  Windows/FXC/cooked D3D12 and physical acceptance. No numbered ZIP is issued.
 
 ## Surface motion blur
 

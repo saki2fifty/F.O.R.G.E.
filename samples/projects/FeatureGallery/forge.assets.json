@@ -9281,6 +9281,16 @@
       "type": "mesh"
     },
     {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "d4b6e7a5-5c2a-4ee0-852d-cb53ffc7319a",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/105-ambient-occlusion.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
       "dependencies": [
         "f86cd4cb-fa9a-4c90-8d8e-32551094b664"
       ],

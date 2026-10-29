@@ -89,14 +89,14 @@ Scene distance fog uses the existing generated Shader wrapper and Mesh draw owne
 The Shader artifact records `surface_wrapper_version:2` separately from reflection:
 a compiler can remove an unused fog binding from a current diagnostic-only function.
 Binding presence therefore cannot identify wrapper capability. Implicit legacy 1
-preserves prior layout/bytes; current version 2 participates in the existing layout digest.
+preserves prior layout/bytes; explicit version 2 participates in the existing layout digest.
 Reimport/rebuild uses existing asset IDs, dependency publication and embedded
 last-good Material snapshots. There is no separate renderer capability registry,
 new authored HLSL interface, entity identity or material ownership system.
 
 
-Temporal anti-aliasing extends this same wrapper capability to version 3. New
-surface cooks provide ordinary color, depth and temporal color roles with strict
+Temporal anti-aliasing extended this same wrapper capability to version 3.
+Capability3 provides ordinary color, depth and temporal color roles with strict
 role/buffer validation; implicit1 and explicit2 retain their ordinary read behavior.
 An engine-owned virtual temporal interface and shared Mesh motion implementation
 preserve existing Shader assets, recipe provenance, Material snapshots, publication
@@ -105,3 +105,31 @@ bindings through the same presentation owner, without a parallel resource databa
 The [temporal contract](../temporal-antialiasing.md) governs profile admission,
 view/reset history and validation limits. This extends the accepted asset boundary;
 it does not replace it or change the installed C SDK interface.
+
+## Indirect-light outputs — accepted extension
+
+Ambient occlusion uses the existing generated surface/draw/view owners to
+produce current indirect radiance separately from current full HDR. It must not
+darken punctual light, emission, fog color or current-frame layers. This extension governs renderer, authoring and validation together; Windows
+cooking, full editor and physical acceptance remain separate from local software
+rendering and authoring evidence.
+
+Wrapper capability 4 extends the existing three roles with
+`surface_indirect_color` (color/indirect targets) and
+`surface_temporal_indirect_color` (color/motion/indirect targets). The generated
+function uses an explicit indirect output parameter. Existing capability 1/2/3
+artifacts retain their readable roles, bytes and ordinary behavior. Participating
+older surfaces require a new cook through the existing Shader/Material publication
+and last-good owners, with the same logical asset IDs; an unsupported view retains
+ordinary draw order with a diagnostic. No parallel capability registry or authored
+HLSL input interface is introduced.
+
+The existing pinned lighting API resolves the final environment contribution from
+copied lighting state with punctual terms zeroed and copied shading state with
+emission zeroed. The existing fog owner supplies transmittance for that contribution.
+FORGE adds the generated data routing and spatial operator independently; native
+lighting remains attributed to its selected dependency. A bounded view-owned
+attachment and operator run before accumulation/motion/focus and current layers,
+without a second lighting manager, pose database or clock. The first occlusion
+profile may reconstruct geometric normals from current depth; this does not imply
+material-normal or hidden-surface reconstruction support.

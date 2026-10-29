@@ -1,5 +1,10 @@
 # Explore the Feature Gallery
 
+**105-ambient-occlusion** shows three amber posts and a lower ledge against a blue
+wall. In **Tools > Scene lighting... → Ambient occlusion**, toggle the effect and
+adjust Radius, Strength or Depth bias. The built-in environment supplies the
+ambient lighting; direct lighting remains unchanged. Save before exporting.
+
 **104-motion-blur** compares a moving checker panel with a stationary panel behind
 it. Press Play, then stop to adjust **Tools > Scene lighting... → Motion blur**.
 Select its sequence controller to inspect or capture the motion in Timeline.

@@ -268,9 +268,13 @@ ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsig
                               mesh_scene_->settings.motion_blur.enabled &&
                               mesh_scene_->settings.motion_blur.shutter != 0 &&
                               mesh_scene_->settings.motion_blur.max_pixels != 0;
-    const bool temporal_enabled = aa_enabled || blur_enabled;
+    const bool occlusion_enabled = display_ && meshes_ && mesh_scene_ &&
+                                   mesh_scene_->settings.ambient_occlusion.enabled &&
+                                   mesh_scene_->settings.ambient_occlusion.radius != 0 &&
+                                   mesh_scene_->settings.ambient_occlusion.strength != 0;
+    const bool temporal_enabled = aa_enabled || blur_enabled || occlusion_enabled;
     if (!frame_ || *frame_ != key)
-        temporal_settle_ = aa_enabled ? 8 : 2;
+        temporal_settle_ = aa_enabled ? 8 : blur_enabled ? 2 : 0;
     const bool temporal_warming =
         temporal_enabled && temporal_ && temporal_->valid() && temporal_settle_ != 0;
     if (!live && !temporal_warming && frame_ && *frame_ == key) {
@@ -480,13 +484,19 @@ ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsig
                 meshes_->pending() || (!live && temporal_generation_ != generation);
             if (!temporal_)
                 temporal_ = std::make_unique<TemporalView>(presentation_, 512ull * 1024 * 1024);
-            temporal_->prepare(view, reset, {bool(aa_enabled), mesh_scene_->settings.motion_blur});
+            TemporalView::Options options;
+            options.anti_aliasing = aa_enabled;
+            options.motion_blur = mesh_scene_->settings.motion_blur;
+            options.ambient_occlusion = mesh_scene_->settings.ambient_occlusion;
+            temporal_->prepare(view, reset, options);
             auto& pass = temporal_pass.emplace();
             pass.current = temporal_->current();
             pass.previous = temporal_->previous();
             pass.jitter = temporal_->jitter();
             pass.previous_jitter = temporal_->previous_jitter();
             pass.valid = temporal_->valid();
+            pass.motion_output = options.motion_output();
+            pass.indirect_output = options.indirect_output();
             pass.previous_parts = &temporal_->previous_parts();
             pass.current_parts = &temporal_->pending_parts();
             pass.begin = [&] { temporal_->begin(context, color_, dsv); };
@@ -549,7 +559,7 @@ ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsig
     } else if (temporal_)
         temporal_->invalidate();
     if (meshes_)
-        meshes_->commit_temporal_frame(temporal_applied);
+        meshes_->commit_temporal_frame(temporal_applied && (aa_enabled || blur_enabled));
     temporal_complete = true;
     ++redraws;
     frame_ = key;

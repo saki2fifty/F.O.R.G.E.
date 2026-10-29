@@ -271,12 +271,14 @@ compile_diligent_shader(Diligent::IRenderDevice* device, const ShaderProgramSour
     result.data.row_major = program.row_major;
     result.data.compiler_debug = diligent_shader_compiler_debug();
     result.data.surface = program.surface;
-    result.data.surface_wrapper_version = program.surface ? 3 : 1;
+    result.data.surface_wrapper_version = program.surface ? 4 : 1;
     for (const auto& entry : program.stages) {
         const std::vector roles =
             program.surface
                 ? std::vector{ShaderEntryRole::SurfaceColor, ShaderEntryRole::SurfaceDepth,
-                              ShaderEntryRole::SurfaceTemporalColor}
+                              ShaderEntryRole::SurfaceTemporalColor,
+                              ShaderEntryRole::SurfaceIndirectColor,
+                              ShaderEntryRole::SurfaceTemporalIndirectColor}
                 : std::vector{ShaderEntryRole::Program};
         for (const auto role : roles) {
             device_profile(device, entry.stage);
@@ -287,12 +289,18 @@ compile_diligent_shader(Diligent::IRenderDevice* device, const ShaderProgramSour
             ci.EntryPoint = entry.entry.c_str();
             std::string wrapper;
             if (role != ShaderEntryRole::Program) {
-                wrapper = program.surface->physically_based
-                              ? material_graph_shader_wrapper(*program.surface, entry.source,
-                                                              role == ShaderEntryRole::SurfaceDepth)
-                              : surface_shader_wrapper(entry.source, entry.entry,
-                                                       role == ShaderEntryRole::SurfaceDepth);
-                if (role == ShaderEntryRole::SurfaceTemporalColor)
+                const bool indirect = indirect_surface_role(role);
+                wrapper =
+                    program.surface->physically_based
+                        ? material_graph_shader_wrapper(*program.surface, entry.source,
+                                                        role == ShaderEntryRole::SurfaceDepth,
+                                                        indirect)
+                        : surface_shader_wrapper(entry.source, entry.entry,
+                                                 role == ShaderEntryRole::SurfaceDepth, indirect);
+                if (indirect)
+                    wrapper =
+                        indirect_surface_wrapper(std::move(wrapper), temporal_surface_role(role));
+                else if (temporal_surface_role(role))
                     wrapper = temporal_surface_wrapper(std::move(wrapper));
                 ci.FilePath = nullptr;
                 ci.Source = wrapper.c_str();

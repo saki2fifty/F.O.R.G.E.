@@ -74,6 +74,28 @@ inline void temporal_view_boundaries(forge::DiligentPresentation& presentation,
     reject([&] { blur_only.prepare(current, false); });
     check(blur_only.valid() && blur_only.payload_bytes() == 23 * 19 * 36,
           "Rejected AA growth lost the completed blur-only mode");
+    TemporalView::Options occlusion;
+    occlusion.anti_aliasing = false;
+    occlusion.ambient_occlusion.enabled = true;
+    check(TemporalView::payload_per_pixel(occlusion) == 28 && !occlusion.motion_output(),
+          "Spatial-only occlusion allocated a motion field");
+    TemporalView spatial(presentation, 23 * 19 * 28);
+    spatial.prepare(current, false, occlusion);
+    check(spatial.jitter() == std::array<float, 2>{} && spatial.payload_bytes() == 23 * 19 * 28,
+          "Spatial-only occlusion allocated temporal history or jitter");
+    spatial.begin(context, color, dsv);
+    spatial.resolve(context, .8f);
+    spatial.complete();
+    reject([&] { spatial.prepare(current, false); });
+    check(spatial.valid() && spatial.payload_bytes() == 23 * 19 * 28,
+          "Rejected spatial-to-AA growth discarded the completed view");
+    occlusion.anti_aliasing = true;
+    occlusion.motion_blur.enabled = true;
+    check(TemporalView::payload_per_pixel(occlusion) == 72,
+          "Combined surface payload omitted indirect radiance or spatial output");
+    occlusion.snapshot = MotionSnapshotAction::Refresh;
+    check(TemporalView::payload_per_pixel(occlusion) == 92,
+          "Combined capture payload omitted frozen geometry fields");
     context->SetRenderTargets(0, nullptr, nullptr, RESOURCE_STATE_TRANSITION_MODE_NONE);
     context->WaitForIdle();
     std::cout << "Temporal view target/budget/state boundaries and valid retry PASS\n";

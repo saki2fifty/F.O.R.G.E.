@@ -1,5 +1,6 @@
 #include "motion_blur.hpp"
 #include "Graphics/GraphicsTools/interface/MapHelper.hpp"
+#include "presentation_views.hpp"
 #include "render_projection.hpp"
 
 namespace forge {
@@ -132,23 +133,9 @@ void MotionBlur::apply(IDeviceContext* context, const Input& input, ITextureView
     validate_scene_motion_blur(input.settings);
     if (thread_ != std::this_thread::get_id() || !context || !input.color || !output)
         throw std::invalid_argument("Motion blur requires its thread, context, color and output");
-    const auto complete = [](ITextureView* view, TEXTURE_FORMAT format, TEXTURE_VIEW_TYPE type) {
-        if (!view)
-            return false;
-        const auto& texture = view->GetTexture()->GetDesc();
-        const auto& v = view->GetDesc();
-        const auto binding =
-            type == TEXTURE_VIEW_SHADER_RESOURCE ? BIND_SHADER_RESOURCE : BIND_RENDER_TARGET;
-        return texture.Type == RESOURCE_DIM_TEX_2D && texture.ArraySize == 1 &&
-               texture.SampleCount == 1 && texture.MipLevels == 1 && texture.Format == format &&
-               (texture.BindFlags & binding) != 0 && v.ViewType == type &&
-               v.TextureDim == RESOURCE_DIM_TEX_2D && v.MostDetailedMip == 0 &&
-               (type != TEXTURE_VIEW_SHADER_RESOURCE || v.NumMipLevels == 1) &&
-               v.FirstArraySlice == 0 && v.NumArraySlices == 1 &&
-               v.Format == (format == TEX_FORMAT_D32_FLOAT ? TEX_FORMAT_R32_FLOAT : format);
-    };
-    if (!complete(input.color, TEX_FORMAT_RGBA16_FLOAT, TEXTURE_VIEW_SHADER_RESOURCE) ||
-        !complete(output, TEX_FORMAT_RGBA16_FLOAT, TEXTURE_VIEW_RENDER_TARGET))
+    if (!complete_surface_view(input.color, TEX_FORMAT_RGBA16_FLOAT,
+                               TEXTURE_VIEW_SHADER_RESOURCE) ||
+        !complete_surface_view(output, TEX_FORMAT_RGBA16_FLOAT, TEXTURE_VIEW_RENDER_TARGET))
         throw std::invalid_argument(
             "Motion blur color/output require complete single-sample HDR2D views");
     const auto& color = input.color->GetTexture()->GetDesc();
@@ -163,9 +150,10 @@ void MotionBlur::apply(IDeviceContext* context, const Input& input, ITextureView
         return;
     }
     auto* motion_depth = input.motion_depth ? input.motion_depth : input.depth;
-    if (!complete(input.motion, TEX_FORMAT_RGBA32_FLOAT, TEXTURE_VIEW_SHADER_RESOURCE) ||
-        !complete(input.depth, TEX_FORMAT_D32_FLOAT, TEXTURE_VIEW_SHADER_RESOURCE) ||
-        !complete(motion_depth, TEX_FORMAT_D32_FLOAT, TEXTURE_VIEW_SHADER_RESOURCE))
+    if (!complete_surface_view(input.motion, TEX_FORMAT_RGBA32_FLOAT,
+                               TEXTURE_VIEW_SHADER_RESOURCE) ||
+        !complete_surface_view(input.depth, TEX_FORMAT_D32_FLOAT, TEXTURE_VIEW_SHADER_RESOURCE) ||
+        !complete_surface_view(motion_depth, TEX_FORMAT_D32_FLOAT, TEXTURE_VIEW_SHADER_RESOURCE))
         throw std::invalid_argument("Motion blur requires complete typed motion and depth views");
     for (auto* view : {input.motion, input.depth, motion_depth}) {
         const auto& d = view->GetTexture()->GetDesc();
