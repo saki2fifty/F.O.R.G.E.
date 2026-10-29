@@ -94,6 +94,11 @@ bool valid_workflow_arguments(const Json& value, const Json& schema) {
         (type == "number" && !value.is_number()) ||
         (type == "integer" && !value.is_number_integer()) || (type == "null" && !value.is_null()))
         return false;
+    if (schema.contains("oneOf") &&
+        std::count_if(
+            schema.at("oneOf").begin(), schema.at("oneOf").end(),
+            [&](const Json& choice) { return valid_workflow_arguments(value, choice); }) != 1)
+        return false;
     if (schema.contains("const") && value != schema.at("const"))
         return false;
     if (schema.contains("enum") && std::find(schema.at("enum").begin(), schema.at("enum").end(),

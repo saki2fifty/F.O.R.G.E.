@@ -19,24 +19,30 @@ template <class F> void rejects(F action) {
     }
     throw std::runtime_error("Malformed tile presentation was accepted");
 }
-inline TileSetData definitions(AssetId id) {
-    const Json root{{"asset_id", id},
-                    {"images",
-                     {{{"id", 1},
-                       {"name", "Original"},
-                       {"material", AssetId::generate()},
-                       {"grid",
-                        {{"columns", 2},
-                         {"rows", 1},
-                         {"margin_x", 0},
-                         {"margin_y", 0},
-                         {"spacing_x", 0},
-                         {"spacing_y", 0}}}}}},
-                    {"tiles",
-                     {{{"id", 9}, {"name", "Paint"}, {"image", 1}, {"frame", 0}},
-                      {{"id", wide}, {"name", "Wide key"}, {"image", 1}, {"frame", 1}}}}};
+inline TileSetData definitions(AssetId id, bool collision_profiles = false) {
+    Json root{{"asset_id", id},
+              {"images",
+               {{{"id", 1},
+                 {"name", "Original"},
+                 {"material", AssetId::generate()},
+                 {"grid",
+                  {{"columns", 2},
+                   {"rows", 1},
+                   {"margin_x", 0},
+                   {"margin_y", 0},
+                   {"spacing_x", 0},
+                   {"spacing_y", 0}}}}}},
+              {"tiles",
+               {{{"id", 9}, {"name", "Paint"}, {"image", 1}, {"frame", 0}},
+                {{"id", wide}, {"name", "Wide key"}, {"image", 1}, {"frame", 1}}}}};
+    if (collision_profiles) {
+        root["tiles"][0]["collision"] = {{"kind", "convex"},
+                                         {"points", {{0., 0.}, {1., 0.}, {1., 1.}}}};
+        root["tiles"][1]["collision"] = {{"kind", "none"}};
+    }
     return decode_cooked_tile_set(asset_detail::encode_envelope(root, {}, tile_set_cooked_magic,
-                                                                tile_set_cooked_metadata_limit),
+                                                                tile_set_cooked_metadata_limit,
+                                                                collision_profiles ? 2 : 1),
                                   id);
 }
 inline TileMapData profile(AssetId id, AssetId set, unsigned count, unsigned occupied,

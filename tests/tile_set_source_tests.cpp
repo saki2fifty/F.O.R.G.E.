@@ -112,7 +112,7 @@ void bad_values() {
         reject([&] { source.validate(); });
         reject([&] { (void)roundtrip(source); });
     };
-    test([](auto& j) { j["version"] = 2; });
+    test([](auto& j) { j["version"] = 3; });
     test([](auto& j) { j["version"] = 1.; });
     test([](auto& j) { j["format"] = "other"; });
     test([](auto& j) { j["asset_id"] = nullptr; });
@@ -191,6 +191,87 @@ void document(const std::filesystem::path& root) {
     require(reopened.source().asset() == id && reopened.source().document == doc->source().document,
             "Tile Set Save/reopen changed identity, values or opaque fields");
 }
+void collision_values(const std::filesystem::path& root) {
+    const Json triangle{{"kind", "convex"}, {"points", {{0., 0.}, {1., 0.}, {1., 1.}}}};
+    const auto baseline = example();
+    auto source = baseline;
+    source.set_collision(2, triangle);
+    const auto values = roundtrip(source).values();
+    require(source.document.at("version") == 2 && values.next_id == baseline.values().next_id &&
+                values.tiles[0].collision.kind == TileCollisionKind::Convex &&
+                values.tiles[0].collision.points ==
+                    std::vector<std::array<double, 2>>{{0, 0}, {1, 0}, {1, 1}} &&
+                values.tiles[1].collision.kind == TileCollisionKind::FullCell &&
+                source.document.at("opaque/~root") == baseline.document.at("opaque/~root") &&
+                source.document.at("tiles")[0].at("unknown_tile") ==
+                    baseline.document.at("tiles")[0].at("unknown_tile"),
+            "Tile collision promotion changed identity or opaque siblings");
+    source.document["tiles"][0]["collision"]["opaque"] = {"keep", UINT64_MAX};
+    source.set_collision(2, {{"kind", "none"}});
+    require(source.values().tiles[0].collision.kind == TileCollisionKind::None &&
+                source.document["tiles"][0]["collision"]["opaque"] == Json({"keep", UINT64_MAX}) &&
+                !source.document["tiles"][0]["collision"].contains("points"),
+            "Collision kind edit lost opaque data or retained unused points");
+    auto legacy = baseline;
+    legacy.document["tiles"][1]["collision"] = {{"legacy", "opaque"}};
+    const auto before = legacy.document;
+    require(roundtrip(legacy).document == before &&
+                legacy.values().tiles[1].collision.kind == TileCollisionKind::FullCell,
+            "Legacy collision extension acquired new physical semantics");
+    reject([&] { legacy.set_collision(2, triangle); });
+    require(legacy.document == before, "Failed collision promotion modified source");
+    for (const auto& points : std::vector<Json>{{{0., 0.}, {1., 0.}},
+                                                {{0., 0.}, {1., 1.}, {0., 1.}, {1., 0.}},
+                                                {{0., 0.}, {1., 0.}, {.5, .3}, {1., 1.}, {0., 1.}},
+                                                {{0., 0.}, {0., 1.}, {1., 0.}},
+                                                {{0., 0.}, {.5, 0.}, {1., 0.}, {1., 1.}, {0., 1.}},
+                                                {{0., 0.}, {1., 0.}, {1., 0.}, {1., 1.}},
+                                                {{0., 0.}, {1.1, 0.}, {1., 1.}},
+                                                {{0., 0.}, {1., -0.1}, {1., 1.}},
+                                                {{0., 0.}, {true, 0.}, {1., 1.}},
+                                                {{0., 0.}, {nullptr, 0.}, {1., 1.}},
+                                                {{0., 0.}, {1.}, {1., 1.}}}) {
+        auto candidate = baseline;
+        reject([&] { candidate.set_collision(2, {{"kind", "convex"}, {"points", points}}); });
+        require(candidate.document == baseline.document, "Invalid contour modified source");
+    }
+    for (const auto& profile :
+         std::vector<Json>{{{"kind", "unknown"}},
+                           {{"kind", "none"}, {"points", Json::array()}},
+                           {{"kind", "full_cell"}, {"points", triangle.at("points")}},
+                           {{"kind", "convex"}, {"points", "bad"}}}) {
+        auto candidate = baseline;
+        reject([&] { candidate.set_collision(2, profile); });
+        require(candidate.document == baseline.document, "Invalid profile modified source");
+    }
+    source.set_collision(
+        2, {{"kind", "convex"},
+            {"points",
+             {{0., .2}, {.2, 0.}, {.8, 0.}, {1., .2}, {1., .8}, {.8, 1.}, {.2, 1.}, {0., .8}}}});
+    require(source.values().tiles[0].collision.points.size() == 8,
+            "Eight-vertex collision rejected");
+    auto lease = std::make_shared<ProjectLease>(root);
+    auto doc = TileSetDocument::create(lease, "Collision.tileset.json");
+    doc->edit(doc->revision(), "Original values", [&](auto& j) {
+        j = baseline.document;
+        j["asset_id"] = doc->source().asset();
+    });
+    const auto original = doc->source().document;
+    doc->edit(doc->revision(), "Tile collision", [&](auto& j) {
+        auto next = TileSetSource{j};
+        next.set_collision(2, triangle);
+        j = std::move(next.document);
+    });
+    const auto promoted = doc->source().document;
+    doc->undo();
+    require(doc->source().document == original, "Collision Undo changed original source");
+    doc->redo();
+    require(doc->source().document == promoted, "Collision Redo changed promoted source");
+    reject([&] { doc->edit(doc->revision(), "Downgrade", [](auto& j) { j["version"] = 1; }); });
+    doc->save();
+    TileSetDocument reopened(lease, "Collision.tileset.json");
+    require(reopened.source().document == promoted, "Saved collision profile changed");
+}
 } // namespace
 int main(int argc, char** argv) {
     try {
@@ -200,6 +281,7 @@ int main(int argc, char** argv) {
         const auto root = std::filesystem::path(argv[1]) / AssetId::generate().str();
         std::filesystem::create_directories(root);
         document(root);
+        collision_values(root);
         std::filesystem::remove_all(root);
         std::cout << "Internal Tile Set source values, limits, identity/history and opaque "
                      "preservation passed\n";

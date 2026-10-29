@@ -1,5 +1,6 @@
 #include "Graphics/GraphicsEngineVulkan/interface/EngineFactoryVk.h"
 #include "asset_bytes.hpp"
+#include "editor/published_tile_map.hpp"
 #include "mesh_render_host.hpp"
 #include "runtime_tile_map.hpp"
 #include "sprite_draw_render_tests.hpp"
@@ -145,8 +146,28 @@ int main(int argc, char** argv) {
                   renderer->pick(scene, view, 16, 16) == actor.entity,
               "Ordinary Tile Map/Set loading or inspection/selection failed");
         expect({255, 0, 255, 255});
-        set->edit(set->revision(), "Rename stable tile",
-                  [](auto& doc) { doc["tiles"][0]["name"] = "Renamed Ink"; });
+        ui::PublishedTileMapInspection inspection;
+        const auto inspect = [&] {
+            auto value = inspection.select(host, actor.renderer.map);
+            const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(15);
+            while (!value.current) {
+                check(std::chrono::steady_clock::now() < deadline,
+                      "Published editor Map/Set view did not become ready: " + value.status);
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                value = inspection.select(host, actor.renderer.map);
+            }
+            return value;
+        };
+        const auto old_view = inspect();
+        check(old_view.cells && old_view.definitions &&
+                  old_view.cells->tile_set() == old_view.definitions->asset() &&
+                  old_view.definitions->tile(2).collision.kind == TileCollisionKind::FullCell,
+              "Published editor view did not retain its matching legacy definition snapshot");
+        set->edit_source(set->revision(), "Rename and define convex tile", [](auto& source) {
+            source.document["tiles"][0]["name"] = "Renamed Ink";
+            source.set_collision(2,
+                                 {{"kind", "convex"}, {"points", {{0., 0.}, {1., 0.}, {1., 1.}}}});
+        });
         set->save();
         publish(set, false);
         catalog();
@@ -154,10 +175,20 @@ int main(int argc, char** argv) {
         check(!renderer->diagnostics().empty() && !renderer->pending(),
               "Stale Map dependency was silently adopted or reported as loading");
         expect({255, 0, 255, 255});
+        const auto stale_view = inspection.select(host, actor.renderer.map);
+        check(!stale_view.current && stale_view.cells == old_view.cells &&
+                  stale_view.definitions == old_view.definitions && !stale_view.status.empty(),
+              "Editor paired stale Map cells with a newer collision definition revision");
         publish(map, true);
         catalog();
         settle();
         check(renderer->diagnostics().empty(), "Tile asset load could not recover after recook");
+        const auto new_view = inspect();
+        check(new_view.revision != old_view.revision &&
+                  new_view.cells->tile_set() == new_view.definitions->asset() &&
+                  new_view.definitions->tile(2).collision.kind == TileCollisionKind::Convex &&
+                  old_view.definitions->tile(2).collision.kind == TileCollisionKind::FullCell,
+              "Editor collision definitions did not advance as one immutable published pair");
         expect({255, 0, 255, 255});
         // Unsaved editor data is accepted only by an explicitly isolated host.
         const auto definitions = std::make_shared<const TileSetData>(

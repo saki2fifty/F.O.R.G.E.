@@ -5,7 +5,7 @@ store layered grid cells without an entity per cell. FORGE provides central
 source-document tools, native rendering and grid selection, independent runtime
 instances, copied C++ cell queries/queued edits and both Editor Play hosts.
 Original editable Gallery74 demonstrates two layers and mirrored instances.
-[2D physics](physics-2d.md) integrates painted rectangular collision, Kinematic
+[2D physics](physics-2d.md) integrates painted full-cell/convex collision, Kinematic
 Map movement and Static/Kinematic sensor regions through the same Map instances.
 Gallery81/82 demonstrate movement and triggers; Gallery86 adds Static nonsensor
 one-way rectangles through PhysicsBody2D.one_way. Dynamic and moving one-way Maps remain
@@ -181,9 +181,21 @@ and retains its other fields. Erase removes that cell. A plain empty chunk is
 pruned after its last occupied cell is erased; an empty chunk with unknown metadata
 is retained. Invalid candidates leave the adopted value unchanged.
 
+### Copied definition profiles
+
+The existing Play projection header now writes `definitions_version:2` and
+normalized collision fields on every copied definition. Its decoder retains the
+legacy two-field header with version1 definition rows. Both forms use the same
+typed cooked-data admission; unsupported versions, malformed profiles and unknown
+fields reject before an acknowledged frame can publish. Known-revision reuse
+compares normalized decoded values, including collision profiles. Cell pages,
+transfer tokens, scope/revision/acknowledgement and existing retained-byte/header
+budgets keep their current owners; no separate collision transfer exists. Large
+legal source combinations are not guaranteed to fit every transport budget.
+
 ## Internal Tile Set profile
 
-The private JSON discriminator is `forge.tile-set`, version 1, with a UUID
+The private JSON discriminator is `forge.tile-set`, version 1 or 2, with a UUID
 `asset_id`, monotonic uint64 `next_id`, `images` and `tiles` arrays. Zero is reserved
 in the shared image/tile local-key space. Every entry key is unique and below
 `next_id`; names are display values. Edits cannot reuse retired keys, move the
@@ -196,6 +208,18 @@ An image entry has `id`, `name`, a non-null ordinary Material asset reference an
 definition has `id`, `name`, `image` and an integer `frame`. It must reference an
 existing image and a frame within that grid. Grid math reuses `sprite_grid_region`;
 sheet frames start at the image's top left and proceed across each row.
+
+Source2 adds optional per-definition `collision`: `{"kind":"full_cell"}` (the
+omitted default), `{"kind":"none"}`, or `{"kind":"convex","points":[[x,y],...]}`.
+A convex contour has3..8 finite0..1 unit-cell XY/up vertices in strictly
+counterclockwise order. Every other vertex must lie strictly left of each directed
+edge; duplicate, collinear, concave, clockwise and self-intersecting input rejects.
+Source1 collision fields remain opaque and cook as full-cell. Explicit profile
+editing promotes to2 only when no prior row contains an opaque collision field;
+an ordinary full-document edit has the same guard and cannot downgrade2 to1.
+Undo/Redo restore source versions through existing history. Known profile changes
+preserve unknown collision siblings. Unused `points` reject on FullCell/None.
+IDs, allocator history and unrelated extensions remain owned by the document.
 
 Admission limits are 16 images, 4096 tile definitions, 2MiB source bytes,
 100000 JSON events and depth 16. Names contain 1–128 UTF-8 bytes without ASCII
@@ -211,11 +235,15 @@ unknown fields and its allocation high-water mark. Cooking sorts image/tile rows
 by numeric key and omits unknown fields and allocator metadata. Reordering source
 rows or advancing the allocator alone does not change cooked runtime bytes.
 
-The cooked envelope uses eight-byte magic `FTILESET`, version 1, at most 2MiB of
+The cooked envelope uses eight-byte magic `FTILESET`, version 2 (with version1 reads retained), at most 2MiB of
 metadata and no binary payload. Root fields are exactly `asset_id`, `images` and
 `tiles`; their known row/grid fields match the source value profile. Extra cooked
 fields reject. The decoder checks the expected root UUID and the same combined
-image/tile key space, frame references and limits as source admission.
+image/tile key space, frame references and limits as source admission. Cooked2
+normalizes the known collision profile on every definition; cooked1 supplies
+FullCell. The declared selected output version must match the actual envelope.
+Tile Set recipe2 publishes cooked2; Tile Map recipe/output remain1. Catalog source
+schema1/2 is separate from publication metadata API1.
 
 `TileSetData` retains shared immutable typed rows sorted for local-key lookup.
 Copies share that storage. Material dependency enumeration deduplicates Material
@@ -225,7 +253,8 @@ its typed Material reference without linking map/set source, cooker or document
 code. This checks values and linking, not image publication or GPU readiness.
 
 The 16-image/4096-definition fixture, with maximum-length tile names, cooks to
-706285 bytes. Its retained allocation estimate is 759440 bytes in Linux GCC12;
+841453 bytes with normalized full-cell collision profiles. Its retained allocation
+estimate is 890512 bytes in Linux GCC12;
 this is not a process RSS or cross-platform allocator guarantee. Publication
 separately admits the Material profile and actual selected image extent.
 

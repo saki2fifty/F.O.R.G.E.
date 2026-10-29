@@ -1,5 +1,18 @@
 # Feature Gallery
 
+## Tile collision profiles
+
+Open **Scenes/101-tile-collision-profiles.scene.json** and press Play. Circles
+roll on amber triangular ramps, including horizontally mirrored tiles. The box
+falls through pink decoration onto the cyan full-cell floor. No C++ module is
+needed. Stop before editing **Assets/Tiles/CollisionProfiles.tileset.json**:
+select a tile, choose Full cell/None/Convex polygon in Inspector and Apply its
+complete collision profile. Save/publish the Set and Map, then Play or export.
+Select the Map actor and enable Selected collision to inspect its published
+shapes. Convex polygons have3..8 counterclockwise unit-cell XY/up points. Custom
+polygons do not support one-way collision. The image silhouettes are original
+deterministic RGBA geometry created for FORGE.
+
 ## Animated game UI
 
 Open **Scenes/100-ui-animation.scene.json** and press Play. The blue bar changes

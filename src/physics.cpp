@@ -464,11 +464,13 @@ LocalTransform physics_debug_pose(const Json& components, const AffineTransform&
 }
 PhysicsDebugGeometry prepare_physics_debug(const Json& components, LocalScale scale,
                                            PhysicsDebugCollision collision, bool crouched,
-                                           std::size_t limit, const TileMapData* tile_map) {
+                                           std::size_t limit, const TileMapData* tile_map,
+                                           const TileSetData* definitions) {
     if (!limit || limit > 65536)
         throw std::runtime_error("Physics preview triangle budget must be1..65536");
     if (physics_debug_uses_planar(components))
-        return physics_detail::prepare_debug_2d(components, scale, limit, tile_map, crouched);
+        return physics_detail::prepare_debug_2d(components, scale, limit, tile_map, crouched,
+                                                definitions);
     const auto registration_lease = physics_detail::registration();
     auto decoded = [&]<class T>(const char* key) -> T {
         const auto& value = components.at(key);
@@ -1635,7 +1637,8 @@ void PhysicsRuntime::validate_transform_candidate(
                                      "use a Kinematic body or a separate visual child");
     }
 }
-void PhysicsRuntime::validate_tile_map_candidate(EntityRef target, const TileMapData& cells,
+void PhysicsRuntime::validate_tile_map_candidate(EntityRef target,
+                                                 const detail::RuntimeTileMapSnapshot& snapshot,
                                                  bool edit) {
     auto& s = *impl_;
     s.check();
@@ -1647,7 +1650,7 @@ void PhysicsRuntime::validate_tile_map_candidate(EntityRef target, const TileMap
         !entity.get<PhysicsBody2D>().enabled)
         return;
     const auto nodes = s.context.transform_nodes();
-    const physics_detail::TileMap2DOverride candidate{resolved.entity, &cells};
+    const physics_detail::TileMap2DOverride candidate{resolved.entity, &snapshot};
     const auto planar = physics_detail::desired_bodies_2d(s.context, s.config, nodes,
                                                           s.native_2d.get(), &candidate, !edit);
     physics_detail::validate_shape_capacity_2d(planar);
@@ -2740,7 +2743,7 @@ Json PhysicsRuntime::checkpoint() const {
         mapping.push_back({{"entity", b.ref},
                            {"body", b.id.GetIndexAndSequenceNumber()},
                            {"configuration", b.config.json()}});
-    Json out = {{"version", 9},
+    Json out = {{"version", 10},
                 {"build", build_id},
                 {"source", source_commit},
                 {"runtime", FORGE_NATIVE_SDK_FINGERPRINT},
@@ -2820,7 +2823,7 @@ void PhysicsRuntime::restore(const Json& payload) {
     auto checked = payload;
     auto checksum = checked.at("integrity").get<std::string>();
     checked.erase("integrity");
-    if (digest(checked.dump()) != checksum || checked.at("version") != 9 ||
+    if (digest(checked.dump()) != checksum || checked.at("version") != 10 ||
         checked.at("build") != build_id || checked.at("source") != source_commit ||
         checked.at("runtime") != FORGE_NATIVE_SDK_FINGERPRINT ||
         checked.at("jolt") != "e77f175595e64cb44218cc9d9d56fc365ad0e36a-double-sse2-rtti" ||
@@ -3098,12 +3101,13 @@ EngineModule physics_module(PhysicsConfig config, std::filesystem::path root) {
         c.state = service;
         c.services.publish_physics(service);
         detail::set_tile_map_physics_admission(
-            *c.owner, [owner = std::weak_ptr<PhysicsRuntime>(service)](
-                          EntityRef target, const TileMapData& cells, bool edit) {
+            *c.owner,
+            [owner = std::weak_ptr<PhysicsRuntime>(service)](
+                EntityRef target, const detail::RuntimeTileMapSnapshot& snapshot, bool edit) {
                 const auto physics = owner.lock();
                 if (!physics)
                     throw std::runtime_error("Tile Map physics admission owner has stopped");
-                physics->validate_tile_map_candidate(target, cells, edit);
+                physics->validate_tile_map_candidate(target, snapshot, edit);
             });
     };
     module.stop = [](ModuleContext& c) {

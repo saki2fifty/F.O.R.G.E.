@@ -1,5 +1,7 @@
 #include "cooked_envelope.hpp"
+#include "tile_draw_values.hpp"
 #include "tile_map_collision.hpp"
+#include "tile_set_cook.hpp"
 #include <bit>
 #include <iostream>
 #include <random>
@@ -21,7 +23,7 @@ template <class F> void reject(F&& action) {
     }
     throw std::runtime_error("Invalid Tile Map collision candidate was accepted");
 }
-TileMapData map_value(const Cells& cells) {
+TileMapData map_value(const Cells& cells, AssetId definitions = {}) {
     const auto asset = AssetId::generate();
     std::vector<std::byte> payload;
     std::size_t total = 0;
@@ -44,7 +46,7 @@ TileMapData map_value(const Cells& cells) {
     }
     const nlohmann::json metadata{
         {"asset_id", asset},
-        {"tile_set", AssetId::generate()},
+        {"tile_set", definitions ? definitions : AssetId::generate()},
         {"cell_size", {.25, 2.}},
         {"chunk_count", cells.size()},
         {"cell_count", total},
@@ -174,11 +176,88 @@ void random_and_capacity() {
     require(excessive.occupied() == 4097,
             "Rejected excessive rectangle projection changed admitted cells");
 }
+void definition_shapes() {
+    auto source = TileSetSource::create(AssetId::generate());
+    source.document["next_id"] = 5;
+    source.document["images"].push_back({{"id", 1},
+                                         {"name", "Collision image"},
+                                         {"material", AssetId::generate()},
+                                         {"grid",
+                                          {{"columns", 1},
+                                           {"rows", 1},
+                                           {"margin_x", 0},
+                                           {"margin_y", 0},
+                                           {"spacing_x", 0},
+                                           {"spacing_y", 0}}}});
+    for (std::uint64_t id = 2; id <= 4; ++id)
+        source.document["tiles"].push_back(
+            {{"id", id}, {"name", "Tile"}, {"image", 1}, {"frame", 0}});
+    source.set_collision(3, {{"kind", "none"}});
+    source.set_collision(4, {{"kind", "convex"}, {"points", {{0., 0.}, {1., 0.}, {.75, 1.}}}});
+    const auto definitions = decode_cooked_tile_set(cook_tile_set(source), source.asset());
+    for (std::uint32_t flags = 0; flags <= 7; ++flags) {
+        const Cells cells{
+            {{selected_layer, {0, 0}}, {{0, {2, 0}}, {1, {3, 0}}, {2, {2, 7}}, {3, {4, flags}}}}};
+        const auto map = map_value(cells, source.asset());
+        const auto geometry = tile_map_collision_geometry(map, definitions, selected_layer, 3);
+        require(geometry == tile_map_collision_geometry(map, definitions, selected_layer),
+                "Tile definition geometry is not deterministic");
+        const std::vector<TileMapCollisionRectangle> boxes{{{0, 0}, 1, 1}, {{2, 0}, 1, 1}};
+        require(geometry.rectangles == boxes && geometry.polygons.size() == 1 &&
+                    geometry.polygons[0].origin == TileCellAddress{3, 0} &&
+                    geometry.polygons[0].count == 3,
+                "No-collision/custom definitions did not split full-cell runs");
+        const auto draw = tile_draw_values(definitions, 4, flags, 16, 16);
+        for (std::size_t i = 0; i < 3; ++i) {
+            const auto& point = geometry.polygons[0].points[i];
+            std::array<double, 2> uv{point[0], 1 - point[1]};
+            if (draw.sprite.transpose_uv)
+                std::swap(uv[0], uv[1]);
+            for (unsigned axis = 0; axis < 2; ++axis)
+                uv[axis] =
+                    draw.sprite.region.origin[axis] + uv[axis] * draw.sprite.region.scale[axis];
+            const auto& original = definitions.tile(4).collision.points[i];
+            require(std::abs(uv[0] - original[0]) < 1e-12 &&
+                        std::abs(uv[1] - (1 - original[1])) < 1e-12,
+                    "Collision transform differs from the actual Sprite atlas/transpose mapping");
+        }
+        reject([&] { (void)tile_map_collision_geometry(map, definitions, selected_layer, 2); });
+    }
+    source.document["version"] = 1; // All collision fields are opaque in this legacy source.
+    const auto legacy = decode_cooked_tile_set(cook_tile_set(source), source.asset());
+    const Cells cells{{{selected_layer, {-1, 0}}, {{0, {2, 0}}, {1, {3, 4}}, {2, {4, 7}}}}};
+    const auto map = map_value(cells, source.asset());
+    const auto geometry = tile_map_collision_geometry(map, legacy, selected_layer);
+    require(geometry.polygons.empty() &&
+                geometry.rectangles == tile_map_collision_rectangles(map, selected_layer),
+            "Legacy full-cell collision projection changed");
+    reject(
+        [&] { (void)tile_map_collision_geometry(map_value(cells), definitions, selected_layer); });
+    Cells invalid{{{selected_layer, {0, 0}}, {{0, {99, 0}}}}};
+    reject([&] {
+        (void)tile_map_collision_geometry(map_value(invalid, source.asset()), legacy,
+                                          selected_layer);
+    });
+    Cells maximum;
+    for (std::int32_t chunk = 0; chunk < 4; ++chunk)
+        for (std::uint32_t slot = 0; slot < tile_chunk_side * tile_chunk_side; ++slot)
+            maximum[{selected_layer, {chunk, 0}}][slot] = {4, slot % 8};
+    require(
+        tile_map_collision_geometry(map_value(maximum, source.asset()), definitions, selected_layer)
+                .polygons.size() == 4096,
+        "Maximum custom collision shape count rejected");
+    maximum[{selected_layer, {4, 0}}][0] = {4, 0};
+    reject([&] {
+        (void)tile_map_collision_geometry(map_value(maximum, source.asset()), definitions,
+                                          selected_layer);
+    });
+}
 } // namespace
 int main() {
     try {
         simple_and_edges();
         random_and_capacity();
+        definition_shapes();
         std::cout << "Tile Map collision rectangle coverage/bounds/capacity PASS\n";
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

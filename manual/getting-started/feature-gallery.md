@@ -1,5 +1,12 @@
 # Explore the Feature Gallery
 
+**101-tile-collision-profiles** shows a cyan full-cell floor, mirrored amber
+convex ramps and pink decoration with no collision. Press Play: circles roll on
+the ramps and the box falls through the decoration to the floor. Stop, open
+**Assets/Tiles/CollisionProfiles.tileset.json** and select **Convex ramp** to
+edit its collision in Inspector. Save/publish the Set and Map before Play or export.
+See [Tile collision profiles](../editor/tile-maps.md).
+
 **100-ui-animation** shows width/opacity keyframes, a translating marker,
 hover transitions and a pause-state color transition. Press Play, capture gameplay
 input and Pause: UI motion continues while the tick counter holds. Edit

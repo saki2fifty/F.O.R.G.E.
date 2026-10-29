@@ -11,6 +11,7 @@ import wave
 from mcp_test_client import CAPTURE, Client, failed, write_capture, finish_host
 
 TOOLS, HOST, WORKER = map(str, map(Path, sys.argv[1:4]))
+COLLISION_ONLY = "--tile-collision-only" in sys.argv[5:]
 
 
 @contextmanager
@@ -28,13 +29,18 @@ def editor(mode='edit'):
 
 
 for legacy in (False, True):
+    with editor('read') as (root, process, config), Client(config, legacy) as client:
+        names = {tool['name'] for tool in client.request('tools/list')['result']['tools']}
+        assert 'forge_asset_document_types' in names
+        assert not any('forge_asset_document_' + name in names for name in ('create', 'patch', 'save', 'paint', 'close', 'tile_collision'))
+
     with editor() as (root, process, config), Client(config, legacy) as client:
         declared_tools = client.request('tools/list')['result']['tools']
         tool_names = {tool['name'] for tool in declared_tools}
         patch_description = next(tool['description'] for tool in declared_tools
                                  if tool['name'] == 'forge_asset_document_patch')
         assert all(word in patch_description for word in ('Source7', 'int64', 'uint64', 'Source8', 'member_path', 'Source9', 'element_path'))
-        assert {'forge_asset_document_create', 'forge_asset_settings_publish', 'forge_prefab_apply_commit'} <= tool_names
+        assert {'forge_asset_document_create', 'forge_asset_settings_publish', 'forge_prefab_apply_commit', 'forge_asset_document_tile_collision'} <= tool_names
         def discovery():
             result = client.tool('forge_discover')
             assert result['ok'], result
@@ -70,6 +76,8 @@ for legacy in (False, True):
         assert read('forge_asset_graph_node', schema='constant')['outputs']
         # A Tile Set source can be authored before its dependent Tile Map.
         kinds.sort(key=lambda item: item['editor'] == 'tile_map')
+        if COLLISION_ONLY:
+            kinds = [kind for kind in kinds if kind['editor'] in ('tile_set', 'tile_map')]
         set_id = None
         for kind in kinds:
             owner = kind['editor']
@@ -110,6 +118,50 @@ for legacy in (False, True):
             assert not invalid['ok'], invalid
             assert content(owner) == snapshot and status(owner)['revision'] == current['revision']
             failed(edit('forge_asset_document_close', owner), 'unsaved_document')
+            if owner == 'tile_set':
+                original = content(owner)
+                tile = 2**64 - 2
+                rows = [dict(op='replace', path='/next_id', value=2**64 - 1),
+                        dict(op='add', path='/images/-', value=dict(id=1, name='Image',
+                             material='00000000-0000-4000-8000-000000000021',
+                             grid=dict(columns=1, rows=1, margin_x=0, margin_y=0, spacing_x=0, spacing_y=0))),
+                        dict(op='add', path='/tiles/-', value=dict(id=tile, name='Ramp', image=1, frame=0))]
+                assert edit('forge_asset_document_patch', owner, patch=rows)['ok']
+                seeded = content(owner)
+                collision = dict(kind='convex', points=[[0, 0], [1, 0], [1, 1]])
+                old = status(owner)
+                result = edit('forge_asset_document_tile_collision', owner, tile=tile, collision=collision)
+                assert result['ok'], result
+                promoted = content(owner)
+                assert promoted['version'] == 2 and promoted['tiles'][0]['collision'] == collision
+                failed(mutate('forge_asset_document_tile_collision', editor=owner,
+                              document_session=old['session'], document_revision=old['revision'],
+                              tile=tile, collision=dict(kind='none')), 'stale_document')
+                for bad in (dict(kind='convex', points=[[0, 0], [0, 1], [1, 0]]),
+                            dict(kind='convex', points=[[0, 0], [1, 1], [0, 1], [1, 0]]),
+                            dict(kind='convex', points=[[0, 0], [2, 0], [0, 1]]),
+                            dict(kind='none', points=[[0, 0], [1, 0], [0, 1]]),
+                            dict(kind='convex'), dict(kind='circle')):
+                    assert not edit('forge_asset_document_tile_collision', owner, tile=tile, collision=bad)['ok']
+                    assert content(owner) == promoted
+                assert not edit('forge_asset_document_tile_collision', owner, tile=tile-1, collision=collision)['ok']
+                assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == seeded
+                assert edit('forge_asset_document_redo', owner)['ok'] and content(owner) == promoted
+                assert edit('forge_asset_document_tile_collision', owner, tile=tile, collision=dict(kind='none'))['ok']
+                assert content(owner)['tiles'][0]['collision'] == dict(kind='none')
+                assert edit('forge_asset_document_undo', owner)['ok']
+                assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == seeded
+                assert edit('forge_asset_document_patch', owner,
+                            patch=[dict(op='add', path='/tiles/0/collision', value=dict(legacy=True))])['ok']
+                legacy_source = content(owner)
+                assert not edit('forge_asset_document_tile_collision', owner, tile=tile, collision=collision)['ok']
+                assert content(owner) == legacy_source
+                assert edit('forge_asset_document_undo', owner)['ok']
+                assert edit('forge_asset_document_undo', owner)['ok']
+                restored = content(owner)
+                # Allocator high-water persists through Undo; no retired IDs are reused.
+                original['next_id'] = restored['next_id']
+                assert restored == original
             if owner == 'animation_timeline':
                 # Syntax/source ownership here; native target admission is covered by
                 # animation_component with the actual reflected C++ component.
@@ -225,6 +277,7 @@ for legacy in (False, True):
                 assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == nested
                 assert edit('forge_asset_document_redo', owner)['ok'] and content(owner) == collections
             if owner == 'tile_map':
+                failed(edit('forge_asset_document_tile_collision', owner, tile=1, collision=dict(kind='none')), 'invalid_arguments')
                 cells = [dict(layer=1, x=-33, y=64, tile=7, flags=0), dict(layer=1, x=0, y=0, tile=0)]
                 assert edit('forge_asset_document_paint', owner, cells=cells)['ok']
                 query = [dict(layer=1, x=-33, y=64), dict(layer=1, x=0, y=0)]
@@ -289,6 +342,9 @@ for legacy in (False, True):
                 assert edit('forge_asset_document_undo', owner)['ok']
                 assert not status(owner)['dirty']  # Same saved-state semantics as interactive editing.
             assert edit('forge_asset_document_close', owner, discard=True)['ok']
+
+        if COLLISION_ONLY:
+            continue
 
         # Typed importer settings use the shared draft, schema and native worker.
         with wave.open(str(root / 'Game/Assets/Settings.wav'), 'wb') as wav:
@@ -383,10 +439,6 @@ for legacy in (False, True):
         assert not mutate('forge_document_new')['ok']  # Source owner blocks destructive switching.
         assert edit('forge_asset_document_close', 'material', discard=True)['ok']
 
-    with editor('read') as (root, process, config), Client(config, legacy) as client:
-        names = {tool['name'] for tool in client.request('tools/list')['result']['tools']}
-        assert 'forge_asset_document_types' in names
-        assert not any('forge_asset_document_' + name in names for name in ('create', 'patch', 'save', 'paint', 'close'))
 
 write_capture(sys.argv[4])
 print('MCP shared source editors, history, validation and publication passed')

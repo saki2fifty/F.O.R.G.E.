@@ -138,6 +138,7 @@ class PhysicsOverlay {
             const bool crouched = character && character->value("crouched", false);
             ResourceLease<CollisionAsset> collision;
             std::shared_ptr<const TileMapData> tile_map;
+            std::shared_ptr<const TileSetData> tile_definitions;
             std::string revision;
             const bool show_tile_map = show_planar && !show_character_2d &&
                                        components.contains("forge.tile_map_collider_2d");
@@ -147,6 +148,7 @@ class PhysicsOverlay {
                     throw std::runtime_error("Assign a published Tile Map to preview collision.");
                 const auto view = read_tile_map({reference.get<AssetId>()});
                 tile_map = view.cells;
+                tile_definitions = view.definitions;
                 revision = view.revision;
                 stale = !view.current;
                 if (stale)
@@ -208,11 +210,11 @@ class PhysicsOverlay {
                 work_ = attempt_ = key_;
                 work_entity_ = entity_;
                 work_project_ = project_;
-                job_ = std::async(std::launch::async,
-                                  [components, scale = pose.scale, snapshot, crouched, tile_map] {
-                                      return prepare_physics_debug(components, scale, snapshot,
-                                                                   crouched, 8192, tile_map.get());
-                                  });
+                job_ = std::async(std::launch::async, [components, scale = pose.scale, snapshot,
+                                                       crouched, tile_map, tile_definitions] {
+                    return prepare_physics_debug(components, scale, snapshot, crouched, 8192,
+                                                 tile_map.get(), tile_definitions.get());
+                });
             }
             if (good_ != key_) {
                 stale = true;

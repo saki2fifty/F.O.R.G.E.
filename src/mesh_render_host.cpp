@@ -449,6 +449,16 @@ ResourceLease<TileMapAsset> MeshResourceHost::tile_map_values(const ResourceTick
     check_thread();
     return tile_maps_.acquire(ticket);
 }
+ResourceTicket MeshResourceHost::request_tile_set_values(AssetRef<TileSetAsset> asset) {
+    check_thread();
+    if (!catalog_)
+        throw std::runtime_error("Tile Set inspection requires a project catalog");
+    return request_tile_set(tile_sets_, project_, catalog_, asset);
+}
+ResourceLease<TileSetAsset> MeshResourceHost::tile_set_values(const ResourceTicket& ticket) {
+    check_thread();
+    return tile_sets_.acquire(ticket);
+}
 void MeshResourceHost::submit() {
     check_thread();
     environments_.submit();

@@ -21,9 +21,15 @@ class TileSetEditor {
     bool close_cancelled = false;
     bool is_open() const { return document_ || open_error_; }
     bool pending() const { return job_ != 0; }
-    bool dirty() const { return document_ && (document_->dirty() || needs_publish_ || pending()); }
-    bool can_undo() const { return document_ && !pending() && document_->can_undo(); }
-    bool can_redo() const { return document_ && !pending() && document_->can_redo(); }
+    bool dirty() const {
+        return document_ && (document_->dirty() || needs_publish_ || pending() || collision_dirty_);
+    }
+    bool can_undo() const {
+        return document_ && !pending() && !collision_dirty_ && document_->can_undo();
+    }
+    bool can_redo() const {
+        return document_ && !pending() && !collision_dirty_ && document_->can_redo();
+    }
     const TileSetDocument* document() const { return document_.get(); }
     const std::string& diagnostic() const { return error_; }
     std::shared_ptr<const AssetCatalog> take_catalog() { return std::exchange(published_, {}); }
@@ -159,7 +165,19 @@ class TileSetEditor {
                 redo();
             FORGE_UI_PROBE("tile_set:redo");
             ImGui::EndDisabled();
+            if (collision_dirty_) {
+                ImGui::TextWrapped(
+                    "Unapplied collision edits: review them in Inspector before continuing.");
+                if (ui::button("Review collision edits",
+                               "Select the tile whose collision profile is being edited.")) {
+                    selected_tile_ = collision_tile_;
+                    select("tile", collision_tile_);
+                }
+                FORGE_UI_PROBE("tile_set:collision_review");
+            }
+            ImGui::BeginDisabled(collision_dirty_);
             draw_lists();
+            ImGui::EndDisabled();
             ImGui::EndDisabled();
             ui::help("Select an image or tile to edit it in Inspector. Use an unlit Material with "
                      "one color image. Grid margins and spacing are pixels.");
@@ -228,6 +246,9 @@ class TileSetEditor {
     std::optional<std::filesystem::path> next_source_;
     bool needs_publish_ = false, save_ = false, close_ = false, open_error_ = false;
     Json new_material_ = nullptr;
+    TileCollisionProfile collision_draft_;
+    std::uint64_t collision_tile_ = 0, collision_revision_ = 0;
+    bool collision_dirty_ = false;
     char path_[256] = "Assets/NewTiles.tileset.json";
     std::string error_;
     void changed() {
@@ -235,6 +256,8 @@ class TileSetEditor {
         values_.reset();
         values_revision_ = 0;
         error_.clear();
+        collision_revision_ = 0;
+        collision_dirty_ = false;
     }
     std::shared_ptr<const TileSetValues> values() {
         if (!values_ || values_revision_ != document_->revision()) {
@@ -262,7 +285,8 @@ class TileSetEditor {
         values_.reset();
         values_revision_ = selected_image_ = selected_tile_ = 0;
         job_ = 0;
-        needs_publish_ = save_ = close_ = open_error_ = false;
+        needs_publish_ = save_ = close_ = open_error_ = collision_dirty_ = false;
+        collision_tile_ = collision_revision_ = 0;
     }
     void load(SceneDocument& project, const std::filesystem::path& path) {
         auto document = std::make_unique<TileSetDocument>(project.writer_guard(), path);
@@ -424,6 +448,7 @@ class TileSetEditor {
         FORGE_UI_PROBE("tile_set:remove_image");
     }
     void tile_fields(const TileSetDefinition& tile, const TileSetValues& source_values) {
+        ImGui::BeginDisabled(collision_dirty_);
         ImGui::SeparatorText("Tile definition");
         name_field("tiles", tile.id, tile.name);
         const auto image = std::find_if(source_values.images.begin(), source_values.images.end(),
@@ -446,6 +471,9 @@ class TileSetEditor {
             mutate("Change tile frame",
                    [&](auto& source) { row(source, "tiles", tile.id)["frame"] = frame; });
         FORGE_UI_PROBE("tile_set:frame");
+        ImGui::EndDisabled();
+        collision_fields(tile);
+        ImGui::BeginDisabled(collision_dirty_);
         if (ui::button("Remove tile", "Remove this definition. Existing map cells keep the "
                                       "unresolved key until replaced or erased."))
             mutate("Remove Tile Set tile", [&](auto& source) {
@@ -453,9 +481,136 @@ class TileSetEditor {
                               [&](const auto& value) { return value.at("id") == tile.id; });
             });
         FORGE_UI_PROBE("tile_set:remove_tile");
+        ImGui::EndDisabled();
+    }
+    void collision_fields(const TileSetDefinition& tile) {
+        if (collision_tile_ != tile.id || collision_revision_ != document_->revision()) {
+            collision_draft_ = tile.collision;
+            collision_tile_ = tile.id;
+            collision_revision_ = document_->revision();
+            collision_dirty_ = false;
+        }
+        ImGui::SeparatorText("Tile collision");
+        const char* labels[]{"Full cell", "None", "Convex polygon"};
+        if (ImGui::BeginCombo("Shape", labels[unsigned(collision_draft_.kind)])) {
+            for (unsigned i = 0; i < 3; ++i) {
+                if (ImGui::Selectable(labels[i], unsigned(collision_draft_.kind) == i)) {
+                    collision_draft_.kind = TileCollisionKind(i);
+                    if (i == 2 && collision_draft_.points.empty())
+                        collision_draft_.points = {{0, 0}, {1, 0}, {1, 1}};
+                    collision_dirty_ = true;
+                }
+                FORGE_UI_PROBE("tile_set:collision_kind:" + std::to_string(i));
+            }
+            ImGui::EndCombo();
+        }
+        FORGE_UI_PROBE("tile_set:collision_kind");
+        if (collision_draft_.kind == TileCollisionKind::Convex) {
+            ImGui::TextWrapped("Local XY: X right, Y up, from 0 to 1. Enter 3 to 8 points "
+                               "counterclockwise. Press Enter to finish each coordinate edit.");
+            const float side =
+                std::min(160.f * ui::interface_scale, ImGui::GetContentRegionAvail().x);
+            const auto origin = ImGui::GetCursorScreenPos();
+            auto* draw = ImGui::GetWindowDrawList();
+            const auto point = [&](const std::array<double, 2>& p) {
+                return ImVec2{origin.x + float(p[0]) * side, origin.y + (1 - float(p[1])) * side};
+            };
+            draw->AddRect(origin, {origin.x + side, origin.y + side}, IM_COL32(100, 110, 120, 255));
+            for (std::size_t i = 0; i < collision_draft_.points.size(); ++i) {
+                const auto valid = [](const auto& p) {
+                    return std::all_of(p.begin(), p.end(), [](double v) {
+                        return std::isfinite(v) && v >= 0 && v <= 1;
+                    });
+                };
+                if (!valid(collision_draft_.points[i]) ||
+                    !valid(collision_draft_.points[(i + 1) % collision_draft_.points.size()]))
+                    continue;
+                const auto a = point(collision_draft_.points[i]);
+                const auto b =
+                    point(collision_draft_.points[(i + 1) % collision_draft_.points.size()]);
+                draw->AddLine(a, b, IM_COL32(90, 210, 245, 255), 2);
+                draw->AddCircleFilled(a, 3, IM_COL32(245, 210, 90, 255));
+                draw->AddText({a.x + 4, a.y + 3}, IM_COL32_WHITE, std::to_string(i + 1).c_str());
+            }
+            ImGui::Dummy({side, side + 16 * ui::interface_scale});
+            if (ImGui::BeginTable("Collision points", 3, ImGuiTableFlags_SizingStretchProp)) {
+                ImGui::TableSetupColumn("Point", ImGuiTableColumnFlags_WidthFixed,
+                                        40 * ui::interface_scale);
+                ImGui::TableSetupColumn("X");
+                ImGui::TableSetupColumn("Y");
+                ImGui::TableHeadersRow();
+                for (std::size_t i = 0; i < collision_draft_.points.size(); ++i) {
+                    ImGui::PushID(int(i));
+                    ImGui::TableNextRow();
+                    ImGui::TableNextColumn();
+                    ImGui::Text("%u", unsigned(i + 1));
+                    for (unsigned axis = 0; axis < 2; ++axis) {
+                        ImGui::TableNextColumn();
+                        ImGui::SetNextItemWidth(-1);
+                        auto value = collision_draft_.points[i][axis];
+                        if (ImGui::InputDouble(axis ? "##Y" : "##X", &value, 0, 0, "%.4f",
+                                               ImGuiInputTextFlags_EnterReturnsTrue)) {
+                            collision_draft_.points[i][axis] = value;
+                            collision_dirty_ = true;
+                        }
+                        FORGE_UI_PROBE("tile_set:collision_point:" + std::to_string(i) +
+                                       (axis ? ":y" : ":x"));
+                    }
+                    ImGui::PopID();
+                }
+                ImGui::EndTable();
+            }
+            ImGui::BeginDisabled(collision_draft_.points.size() >= tile_collision_vertex_limit);
+            if (ui::button("Add point", "Append a point on the closing edge, then move it off that "
+                                        "edge before Apply.")) {
+                const auto a = collision_draft_.points.back(), b = collision_draft_.points.front();
+                collision_draft_.points.push_back({(a[0] + b[0]) / 2, (a[1] + b[1]) / 2});
+                collision_dirty_ = true;
+            }
+            FORGE_UI_PROBE("tile_set:collision_add");
+            ImGui::EndDisabled();
+            ImGui::BeginDisabled(collision_draft_.points.size() <= 3);
+            if (ui::button("Remove last point",
+                           "Remove the last vertex from the unapplied polygon.")) {
+                collision_draft_.points.pop_back();
+                collision_dirty_ = true;
+            }
+            FORGE_UI_PROBE("tile_set:collision_remove");
+            ImGui::EndDisabled();
+        }
+        ImGui::BeginDisabled(!collision_dirty_);
+        if (ui::button("Apply collision",
+                       "Validate and apply the complete profile in one Undo step.")) {
+            auto profile = collision_draft_;
+            if (profile.kind != TileCollisionKind::Convex)
+                profile.points.clear();
+            mutate("Change tile collision", [&](auto& source) {
+                TileSetSource candidate{source};
+                candidate.set_collision(tile.id, tile_detail::tile_collision_json(profile));
+                source = std::move(candidate.document);
+            });
+        }
+        FORGE_UI_PROBE("tile_set:collision_apply");
+        if (ui::button("Discard collision edits", "Keep the applied source profile.")) {
+            collision_draft_ = tile.collision;
+            collision_dirty_ = false;
+            error_.clear();
+        }
+        FORGE_UI_PROBE("tile_set:collision_discard");
+        ImGui::EndDisabled();
+        if (collision_dirty_)
+            ImGui::TextWrapped("Unapplied collision edits: Apply or Discard before Save, Undo or "
+                               "selecting another tile.");
+        ui::help(
+            "Collision is used by Tile Map Collider 2D on the selected layer. Full cell merges "
+            "with neighboring full cells; None is decorative. Cell flips transform polygons. "
+            "Custom polygons support Static/Kinematic bodies and sensors, without one-way "
+            "collision.");
     }
     void publish() {
         try {
+            if (collision_dirty_)
+                throw std::runtime_error("Apply or discard collision edits before Save / Publish.");
             document_->save();
             job_ = service_->submit(
                 service_->prepare(document_->locator(), {}, document_->source().asset()),

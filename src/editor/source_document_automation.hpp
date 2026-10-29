@@ -1,5 +1,6 @@
 #pragma once
 #include "../tile_map_source.hpp"
+#include "../tile_set_source.hpp"
 #include "automation_permissions.hpp"
 #include "automation_schema.hpp"
 #include "document.hpp"
@@ -12,6 +13,8 @@ namespace forge {
 struct AssetDocumentAutomation {
     template <class Editor> static bool transient(const Editor& editor) {
         bool active = false;
+        if constexpr (requires { editor.collision_dirty_; })
+            active = active || editor.collision_dirty_;
         if constexpr (requires { editor.canvas.draft_dirty(); })
             active = active || editor.canvas.draft_dirty();
         if constexpr (requires { editor.graph_.draft_dirty(); })
@@ -245,6 +248,22 @@ struct AssetDocumentAutomation {
                                     });
                     if (doc.revision() != previous)
                         changed(editor);
+                } else if (action == "tile_collision") {
+                    if constexpr (std::is_same_v<Source, TileSetSource>) {
+                        const auto previous = doc.revision();
+                        doc.edit_source(previous, "Change tile collision", [&](Source& source) {
+                            source.set_collision(request.at("tile").get<std::uint64_t>(),
+                                                 request.at("collision"));
+                            if (!doc.retains_history(source))
+                                throw AuthoringError(
+                                    "history_limit",
+                                    "Split this source edit to retain Undo and Redo");
+                        });
+                        if (doc.revision() != previous)
+                            changed(editor);
+                    } else
+                        throw AuthoringError("wrong_document_type",
+                                             "Collision profiles require a Tile Set");
                 } else if (action == "paint") {
                     if constexpr (!tiles)
                         throw AuthoringError("wrong_document_type",

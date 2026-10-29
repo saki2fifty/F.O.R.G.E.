@@ -32,9 +32,11 @@ class MeshResourceHost {
     void pump();
     void submit();
     MeshResourceInspection inspect() const;
-    // Read-only editor consumers share the host's existing published Map pool.
+    // Read-only editor consumers share the host's existing published Map/Set pools.
     ResourceTicket request_tile_map_values(AssetRef<TileMapAsset>);
     ResourceLease<TileMapAsset> tile_map_values(const ResourceTicket&);
+    ResourceTicket request_tile_set_values(AssetRef<TileSetAsset>);
+    ResourceLease<TileSetAsset> tile_set_values(const ResourceTicket&);
 
   private:
     friend class MeshSceneRenderer;

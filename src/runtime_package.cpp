@@ -91,7 +91,9 @@ std::string revision(const AssetRecord& record) {
         require(valid_content_digest(key), "Invalid navigation artifact revision");
         return key;
     }
-    require(record.schema_version == 1 && record.metadata.contains("forge.import"),
+    require((record.schema_version == 1 ||
+             (record.type == TileSetAsset::type && record.schema_version == 2)) &&
+                record.metadata.contains("forge.import"),
             "Asset " + record.id.str() + " (" + record.type +
                 ") has no supported cooked selection; import it before packaging");
     const auto& imported = record.metadata.at("forge.import");
@@ -450,11 +452,12 @@ void validate_selections(const std::filesystem::path& root, const AssetCatalog& 
             (void)load_model_selection(root, catalog, id, stop);
         else if (record.type == MaterialAsset::type) {
             const auto material = load_material_selection(root, catalog, {id}, stop);
-            require(material.data.textures.size() ==
-                        std::count_if(
-                            record.dependency_edges.begin(), record.dependency_edges.end(),
-                            [](const auto& edge) { return !is_declared_runtime_dependency(edge); }),
-                    "Material runtime dependency count differs from cooked bindings");
+            require(
+                material.data.textures.size() ==
+                    std::size_t(std::count_if(
+                        record.dependency_edges.begin(), record.dependency_edges.end(),
+                        [](const auto& edge) { return !is_declared_runtime_dependency(edge); })),
+                "Material runtime dependency count differs from cooked bindings");
             for (const auto& [role, ref] : material.data.textures)
                 require(std::any_of(record.dependency_edges.begin(), record.dependency_edges.end(),
                                     [&](const auto& edge) {

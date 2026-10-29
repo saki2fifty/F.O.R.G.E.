@@ -51,7 +51,7 @@ void drain(TileMapPlaySource& source, TileMapPlayReceiver& receiver) {
 int main() {
     try {
         const auto id = AssetId::generate(), set = AssetId::generate(), scene = AssetId::generate();
-        const auto defs = definitions(set);
+        const auto defs = definitions(set, true);
         const auto original = profile(id, set, 7, 4);
         TileMapPlayView view;
         view.entity = EntityId::generate();
@@ -78,6 +78,9 @@ int main() {
         check(frame.cells && !frame.pending && frame.revision == 0,
               "Acknowledged value was not bound");
         equal(*frame.cells, original);
+        check(frame.definitions && frame.definitions->tile(9).collision == defs.tile(9).collision &&
+                  frame.definitions->tile(wide).collision.kind == TileCollisionKind::None,
+              "Play receiver dropped a convex or no-collision definition");
         const auto retained = frame.cells;
         check(!receiver.pending() && !receiver.next_request(),
               "Unchanged runtime values retransmitted cells");

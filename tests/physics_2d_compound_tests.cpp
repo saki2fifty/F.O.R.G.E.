@@ -1,3 +1,4 @@
+#include "builtins.hpp"
 #include "physics_2d.hpp"
 #include "physics_2d_mover_motion_tests.hpp"
 #include "physics_2d_mover_native_tests.hpp"
@@ -8,8 +9,12 @@
 #include "physics_2d_stance_tests.hpp"
 #include "physics_2d_step_tests.hpp"
 #include "physics_2d_surface_response_tests.hpp"
+#include "physics_debug.hpp"
+#include "tile_map_cook.hpp"
+#include "tile_set_cook.hpp"
 #include <cmath>
 #include <iostream>
+#include <tuple>
 
 using namespace forge;
 using namespace forge::physics_detail;
@@ -75,6 +80,247 @@ struct Fixture {
         }
     }
 };
+void tile_polygon_projection_and_recovery() {
+    auto source = TileSetSource::create(AssetId::generate());
+    source.document["next_id"] = 4;
+    source.document["images"].push_back({{"id", 1},
+                                         {"name", "Image"},
+                                         {"material", AssetId::generate()},
+                                         {"grid",
+                                          {{"columns", 1},
+                                           {"rows", 1},
+                                           {"margin_x", 0},
+                                           {"margin_y", 0},
+                                           {"spacing_x", 0},
+                                           {"spacing_y", 0}}}});
+    for (std::uint64_t id : {2, 3})
+        source.document["tiles"].push_back(
+            {{"id", id}, {"name", "Tile"}, {"image", 1}, {"frame", 0}});
+    source.set_collision(2, {{"kind", "convex"}, {"points", {{0., 0.}, {1., 0.}, {0., 1.}}}});
+    source.set_collision(3, {{"kind", "none"}});
+    const auto definitions = decode_cooked_tile_set(cook_tile_set(source), source.asset());
+    for (unsigned flags = 0; flags < 8; ++flags)
+        for (float x_sign : {-1.f, 1.f})
+            for (float y_sign : {-1.f, 1.f})
+                for (double angle : {0., .35, 1.5707963267948966}) {
+                    auto value = TileMapValue::create(AssetId::generate(), source.asset());
+                    auto metadata = value.metadata();
+                    metadata["cell_size"] = {4., 1.};
+                    value = value.with_metadata(std::move(metadata));
+                    const std::array<TileMapCellEdit, 2> edits{
+                        {{1, {0, -1}, {2, flags}}, {1, {1, -1}, {3, 0}}}};
+                    value = value.paint(edits);
+                    const auto map = decode_cooked_tile_map(cook_tile_map(value), value.asset());
+                    const LocalScale scale{x_sign * 2, y_sign, 1};
+                    PhysicsBody2D map_body;
+                    map_body.motion = flags % 2;
+                    const auto config =
+                        tile_map_configuration_2d(map_body, map, 1, scale, &definitions);
+                    check(config.parts->empty() && config.polygons &&
+                              config.polygons->size() == 1 && config.polygons->at(0).count == 3,
+                          "Tile polygons/None did not reach compound configuration");
+                    Fixture test(1, 1000);
+                    test.desired.at(1).config = config;
+                    test.desired.at(1).pose.rotation = {0, 0, float(std::sin(angle / 2)),
+                                                        float(std::cos(angle / 2))};
+                    test.desired.at(2).ref.entity = EntityId::generate();
+                    test.desired.at(2).pose.translation.y += 100;
+                    test.advance();
+                    check(test.native.shape_size() == 2,
+                          "Tile polygon allocated a per-cell body or kept None");
+                    const auto& polygon = config.polygons->at(0);
+                    double cx = 0, cy = 0;
+                    for (unsigned i = 0; i < polygon.count; ++i) {
+                        cx += polygon.points[i][0] / 3.;
+                        cy += polygon.points[i][1] / 3.;
+                    }
+                    const double x = 1000 + std::cos(angle) * cx - std::sin(angle) * cy;
+                    const double y = 1000 + std::sin(angle) * cx + std::cos(angle) * cy;
+                    PhysicsOverlap2D overlap;
+                    overlap.origin = {x, y};
+                    overlap.dimensions = {.01, 0};
+                    check(test.native.overlap(overlap, {}) ==
+                              std::vector<EntityRef>{test.desired.at(1).ref},
+                          "Signed/rotated/flipped polygon lost native geometry or canonical query "
+                          "binding");
+                    const auto hit = test.native.raycast({x, y + 10}, {0, -20}, {});
+                    check(hit && hit->entity == test.desired.at(1).ref,
+                          "Ray missed signed/rotated Tile Set polygon");
+                    TileMapRenderer renderer;
+                    renderer.map = {map.asset()};
+                    Json components{
+                        {"forge.physics_body_2d", Json::object()},
+                        {"forge.tile_map_renderer", detail::encode_builtin_value(renderer)},
+                        {"forge.tile_map_collider_2d", {{"layer", 1}}}};
+                    const auto guide = prepare_physics_debug(components, scale, {}, false, 8192,
+                                                             &map, &definitions);
+                    check(guide.lines.size() == 3 && !guide.truncated,
+                          "Shared Tile Set outline used full-cell rectangles");
+                    const auto limited =
+                        prepare_physics_debug(components, scale, {}, false, 2, &map, &definitions);
+                    check(limited.lines.size() == 2 && limited.truncated,
+                          "Polygon outline ignored its line cap");
+                    auto one_way = PhysicsBody2D{};
+                    one_way.one_way = true;
+                    reject(
+                        [&] { tile_map_configuration_2d(one_way, map, 1, scale, &definitions); });
+                    const auto image = test.native.checkpoint(test.desired, 2 * 1024 * 1024);
+                    Native2D restored(test.config);
+                    Desired2D remapped{{101, test.desired.at(1)}, {202, test.desired.at(2)}};
+                    restored.restore(image.metadata, image.bytes, remapped, test.tick);
+                    check(restored.shape_size() == 2 &&
+                              restored.state(202, remapped.at(202).ref) ==
+                                  test.native.state(2, test.desired.at(2).ref),
+                          "Fresh-world Tile Set polygon recovery lost native geometry/state");
+                }
+    {
+        source.set_collision(2, {{"kind", "convex"},
+                                 {"points",
+                                  {{0., .25},
+                                   {.25, 0.},
+                                   {.75, 0.},
+                                   {1., .25},
+                                   {1., .75},
+                                   {.75, 1.},
+                                   {.25, 1.},
+                                   {0., .75}}}});
+        const auto octagon = decode_cooked_tile_set(cook_tile_set(source), source.asset());
+        auto value = TileMapValue::create(AssetId::generate(), source.asset());
+        const std::array<TileMapCellEdit, 1> edits{{{1, {0, 0}, {2, 7}}}};
+        value = value.paint(edits);
+        const auto map = decode_cooked_tile_map(cook_tile_map(value), value.asset());
+        Fixture test(1);
+        test.desired.at(1).config = tile_map_configuration_2d({}, map, 1, {-2, -1, 0}, &octagon);
+        test.advance();
+        check(test.desired.at(1).config.polygons->at(0).count == 8 && test.native.shape_size() == 2,
+              "Maximum tile contour lost vertices during native admission");
+        const auto image = test.native.checkpoint(test.desired, 2 * 1024 * 1024);
+        Native2D copy(test.config);
+        copy.restore(image.metadata, image.bytes, test.desired, test.tick);
+        check(copy.state(1, test.desired.at(1).ref) == test.native.state(1, test.desired.at(1).ref),
+              "Maximum tile contour failed complete geometry recovery");
+        auto mismatch = test.desired;
+        auto changed =
+            std::make_shared<std::vector<PolygonPart2D>>(*mismatch.at(1).config.polygons);
+        changed->at(0).points[0][0] -= .01f;
+        mismatch.at(1).config.polygons = changed;
+        auto metadata = image.metadata;
+        for (auto& row : metadata["mapping"])
+            if (row.at("entity").get<EntityRef>() == test.desired.at(1).ref)
+                row["configuration"] = mismatch.at(1).config.json();
+        Native2D rejected(test.config);
+        reject([&] { rejected.restore(metadata, image.bytes, mismatch, test.tick); });
+        check(!rejected.realized() && rejected.size() == 0,
+              "Mismatched eight-vertex recovery published a native candidate");
+    }
+    for (bool sensor : {false, true}) {
+        Fixture test(1);
+        auto polygons = std::make_shared<std::vector<PolygonPart2D>>();
+        polygons->push_back({{{{-2, -1}, {4, -1}, {4, 0}}}, 3});
+        auto& config = test.desired.at(1).config;
+        config.parts.reset();
+        config.polygons = polygons;
+        config.body.sensor = sensor;
+        config.body.motion = sensor ? 1 : 0;
+        test.desired.at(2).config.body.gravity_factor = 1;
+        test.synchronize();
+        const auto epoch = test.native.state(1, test.desired.at(1).ref)->epoch;
+        config.polygons = std::make_shared<const std::vector<PolygonPart2D>>(*polygons);
+        test.synchronize();
+        check(test.native.state(1, test.desired.at(1).ref)->epoch == epoch,
+              "Copied equal polygons rebuilt an unchanged native body");
+        bool began = false;
+        for (unsigned i = 0; i < 65; ++i) {
+            test.advance();
+            for (std::size_t e = 0; e < test.native.event_count(); ++e) {
+                const auto event = test.native.event(e);
+                began |= event && event->begin && event->sensor == sensor;
+            }
+        }
+        check(began, "Custom polygon did not produce its physical contact/sensor observation");
+        const auto image = test.native.checkpoint(test.desired, 2 * 1024 * 1024);
+        Native2D restored(test.config);
+        auto remapped = test.desired;
+        restored.restore(image.metadata, image.bytes, remapped, test.tick);
+        for (unsigned i = 0; i < 60; ++i) {
+            test.advance();
+            restored.validate(remapped);
+            restored.expire_events();
+            std::vector<std::uint64_t> discontinuities;
+            restored.synchronize(remapped, remapped, 1.f / 60, {}, discontinuities);
+            restored.finish_targets(1.f / 60);
+            restored.step(1.f / 60, test.tick);
+            const auto poses = restored.adopted_poses();
+            restored.adopt_events(test.tick);
+            for (const auto& [id, pose] : poses)
+                remapped.at(id).pose = pose;
+            restored.accept_poses(poses);
+            check(restored.state(2, remapped.at(2).ref) ==
+                      test.native.state(2, test.desired.at(2).ref),
+                  "Polygon contacts diverged after fresh native recovery");
+        }
+        auto invalid = test.desired;
+        auto bad = std::make_shared<std::vector<PolygonPart2D>>(*config.polygons);
+        bad->at(0).points[1] = bad->at(0).points[0];
+        invalid.at(1).config.polygons = bad;
+        reject([&] { test.native.validate(invalid); });
+        test.advance();
+        check(test.native.state(1, test.desired.at(1).ref)->epoch == epoch,
+              "Rejected polygon candidate changed the active collider");
+    }
+}
+void tile_polygon_controller() {
+    forge::test::MoverNativeFixture test;
+    Body2DConfiguration floor;
+    floor.shape = 3;
+    floor.polygons = std::make_shared<const std::vector<PolygonPart2D>>(
+        std::vector<PolygonPart2D>{{{{{-5, -1}, {5, -1}, {5, 1}}}, 3}});
+    const auto support = test.add(floor, 0, 0);
+    const auto actor = test.actor(0, 1.5, .7f);
+    const auto id = test.id(actor);
+    test.synchronize();
+    test.native.move_mover(id, actor, {0, -3});
+    for (unsigned step = 0; step < 60; ++step)
+        test.advance();
+    const auto state = test.native.mover_state(id, actor);
+    check(state && state->support && state->support->entity == support &&
+              state->support->walkable &&
+              std::abs(state->support->normal[1] - 1 / std::sqrt(1.04)) < 1e-5,
+          "Character support did not use the custom polygon slope");
+    std::size_t work = 0;
+    check(!test.native.place_mover(id, actor, {0, -.5}, true, work),
+          "Checked character placement accepted polygon containment");
+    test.native.move_mover(id, actor, {2, -3});
+    const auto image = test.image();
+    Native2D recovered(test.config);
+    auto remapped = test.desired;
+    recovered.restore(image.metadata, image.bytes, remapped, test.tick);
+    for (unsigned step = 0; step < 30; ++step) {
+        test.advance();
+        recovered.validate(remapped);
+        recovered.expire_events();
+        std::vector<std::uint64_t> discontinuities;
+        recovered.synchronize(remapped, remapped, 1.f / 60, {}, discontinuities);
+        recovered.finish_targets(1.f / 60);
+        recovered.step(1.f / 60, test.tick);
+        const auto poses = recovered.adopted_poses();
+        recovered.adopt_events(test.tick);
+        for (const auto& [entity, pose] : poses)
+            remapped.at(entity).pose = pose;
+        recovered.accept_poses(poses);
+        const auto original = test.native.mover_state(id, actor),
+                   copy = recovered.mover_state(id, actor);
+        const auto values = [](const MoverState2D& state) {
+            return std::tie(state.position, state.intent, state.velocity, state.epoch,
+                            state.support, state.placement_blocked, state.crouched,
+                            state.shape_change_blocked);
+        };
+        check(original && copy && values(*original) == values(*copy),
+              "Character polygon support diverged after fresh native recovery");
+    }
+    check(test.native.mover_state(id, actor)->position[0] > .25,
+          "Character did not climb the admitted convex ramp");
+}
 void geometry_queries_and_recovery(double offset) {
     Fixture test(65, offset);
     check(test.native.size() == 2 && test.native.shape_size() == 66,
@@ -366,6 +612,10 @@ void connected_collision_and_recovery() {
 } // namespace
 int main() {
     try {
+        tile_polygon_projection_and_recovery();
+        tile_polygon_controller();
+        std::cout
+            << "Tile polygon projection/native queries/contacts/sensors/fresh recovery PASS\n";
         forge::test::test_mover_geometry();
         forge::test::test_mover_directions();
         forge::test::test_mover_encroachment();

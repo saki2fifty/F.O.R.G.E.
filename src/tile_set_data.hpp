@@ -22,7 +22,8 @@ class TileSetData {
   private:
     AssetId asset_;
     std::shared_ptr<const TileSetRows> rows_;
-    friend TileSetData decode_cooked_tile_set(std::span<const std::byte>, AssetId);
+    friend TileSetData decode_cooked_tile_set(std::span<const std::byte>, AssetId, std::uint32_t);
 };
-TileSetData decode_cooked_tile_set(std::span<const std::byte>, AssetId expected);
+TileSetData decode_cooked_tile_set(std::span<const std::byte>, AssetId expected,
+                                   std::uint32_t expected_version = 0);
 } // namespace forge

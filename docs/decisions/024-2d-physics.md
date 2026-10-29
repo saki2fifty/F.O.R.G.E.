@@ -315,3 +315,52 @@ stay shared. No new solver, cross-step cache, queue or pose authority. Configura
 and matching SDK fingerprint extend; private9/outer2 and authored identity/formats
 remain unchanged. This extends the earlier no-stairs profile deliberately; detailed
 limits and completion evidence belong in the2D integration contract.
+
+## Per-tile convex collision profiles
+
+Extend the existing Tile Set definition with a default full-cell profile, explicit
+no-collision profile or one strictly convex contour of three through eight
+counterclockwise vertices in unit-cell XY/up coordinates. Source admission rejects
+nonfinite, out-of-range, repeated, collinear, concave and self-intersecting contours;
+a native convex hull must not silently repair authored ordering. Existing full
+cells retain merged rectangles. Custom contours use the inverse of the renderer's
+cell flip/transpose mapping before cell size and signed physical scale. Validate
+the resulting float contour again and construct it through the selected public
+native hull/polygon APIs. No native implementation changes are required.
+
+The current RuntimeTileMapSnapshot already retains matching Map and definition
+values/leases. Pass that same candidate through existing physics admission and
+retain the same immutable snapshot as geometry provenance. Existing compound body
+records own both merged boxes and convex pieces, sharing the total4096 shape
+budget, filters, epochs, queries, events and checked candidate publication. No
+per-cell entity, durable shape identity, parallel collision database or second
+physics/resource owner is introduced. None definitions omit their shapes; an
+all-None layer has no native body. Dynamic Maps, concave decomposition and custom
+polygon one-way response remain outside this profile. Static/Kinematic ordinary
+polygons and sensors use existing policies; full-cell Static one-way roofs remain.
+
+Tile Set source2 and cooked2 are backward-readable additions. Source1 opaque
+collision fields cannot gain physical meaning through implicit promotion: explicit
+promotion rejects existing reserved-field collisions across all rows. Ordinary
+edits cannot downgrade; Undo/Redo retain exact source restoration and allocator
+high-water. Cooked1 stays full-cell; new cooks publish2 through recipe2. Source
+schema version and publication metadata API1 remain distinct. No asset, tile,
+Map, layer or entity identities change. Existing ownership selects and verifies
+actual cooked output versions and dependency revisions.
+
+The editor copies the matching immutable pair from the render host's existing
+published Map/Set pools, and uses the same checked physical conversion for worker
+outlines. Keep the last usable pair together when preparation fails. Native
+fresh-candidate recovery checks the complete polygon geometry multiset through
+public getters before rebinding existing body epochs. Advance the private physics
+block9 to10 for the extended configuration/geometry contract. Outer Play2 remains;
+older private checkpoints reject under existing exact-build/configuration guards.
+This is a private recovery boundary, not a durable authored-source migration or
+C callback-table change. Completion and acceptance evidence remain in the affected
+technical contracts and validation records.
+
+Copied Play definitions carry their explicit nested cooked-profile version2 and
+collision values through the existing projection/receiver. Legacy definition
+headers remain readable; known-revision reuse compares normalized admitted data.
+The existing scope, frozen-transfer, acknowledgement and byte budgets remain
+authoritative. This does not introduce a second asset/physics channel.

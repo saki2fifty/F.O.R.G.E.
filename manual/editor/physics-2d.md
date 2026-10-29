@@ -30,7 +30,7 @@ choose **+ Add Component → Physics Body 2D**, then add one of:
 - **Box Collider 2D**: full width and height, centered on the entity.
 - **Circle Collider 2D**: radius, centered on the entity.
 - **Capsule Collider 2D**: radius and straight segment height along local Y. Total height includes both rounded ends.
-- **Tile Map Collider 2D**: rectangular collision from one published Tile Map layer, on a Static or Kinematic body; Sensor makes a trigger.
+- **Tile Map Collider 2D**: full-cell or convex tile collision from one published Tile Map layer, on a Static or Kinematic body; Sensor makes a trigger.
 
 Set **Spatial binding** to **World** before choosing Dynamic. Static bodies
 stay in place; Kinematic bodies follow supported authored/animated targets;
@@ -136,11 +136,13 @@ Inspector. Use this collider instead of a Box, Circle or Capsule Collider 2D.
 Publish the Map before Play or export. **Selected collision** outlines the
 published layer; unsaved painting is not yet the active collision.
 
-Each occupied cell contributes its rectangle, including transparent image pixels.
-Choose Kinematic for a moving Map or enable Sensor for trigger regions. See
-[Tile Maps](tile-maps.md) for the moving-course and trigger examples. Dynamic
-Maps and per-tile slopes are unavailable. Static nonsensor Maps can use
-**One-way collision**, as described in [Tile Maps](tile-maps.md).
+Choose **Full cell**, **None** or **Convex polygon** for each tile in the Tile Set
+Inspector. Full cells include transparent image pixels; None is decorative and
+convex polygons can form slopes. Apply and publish the Set, then republish the Map.
+Choose Kinematic for a moving Map or enable Sensor for triggers. Dynamic Maps are
+unavailable. Static nonsensor Maps using full cells can use **One-way collision**;
+custom polygons cannot. See [Tile Maps](tile-maps.md)
+for profile controls, limits, moving courses and trigger examples.
 
 ## Character movement
 

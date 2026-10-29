@@ -139,7 +139,8 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                        {"document_session", automation_integer(1)},
                        {"document_revision", automation_integer(1)}};
     const Json required = {"editor", "document_session", "document_revision"};
-    for (const auto* action : {"patch", "paint", "undo", "redo", "save", "close"}) {
+    for (const auto* action :
+         {"patch", "paint", "tile_collision", "undo", "redo", "save", "close"}) {
         auto properties = fields;
         auto needed = required;
         if (std::string_view(action) == "patch") {
@@ -152,6 +153,20 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
             properties["cells"] = automation_array(write_cell, 4096, 1);
             properties["label"] = automation_text(256, 1);
             needed.push_back("cells");
+        } else if (std::string_view(action) == "tile_collision") {
+            const Json coordinate{{"type", "number"}, {"minimum", 0}, {"maximum", 1}};
+            const auto pair = automation_array(coordinate, 2, 2);
+            const auto simple = automation_object(
+                {{"kind", {{"type", "string"}, {"enum", {"full_cell", "none"}}}}}, {"kind"});
+            const auto convex = automation_object(
+                {{"kind", {{"const", "convex"}}},
+                 {"points", automation_array(pair, tile_collision_vertex_limit, 3)}},
+                {"kind", "points"});
+            properties["tile"] = automation_integer(1, UINT64_MAX);
+            properties["editor"] = {{"type", "string"}, {"const", "tile_set"}};
+            properties["collision"] = {{"oneOf", {simple, convex}}};
+            needed.push_back("tile");
+            needed.push_back("collision");
         } else if (std::string_view(action) == "close")
             properties["discard"] = {{"type", "boolean"}};
         methods.push_back(automation_method(
@@ -162,6 +177,13 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                 "and paint edits cells. Save checks the disk baseline then admits ordinary "
                 "publication; poll status for completion. Close requires discard for "
                 "unsaved/unpublished drafts." +
+                (std::string_view(action) == "tile_collision"
+                     ? " Tile Sets only: apply full_cell, none or a strictly convex 3..8 point "
+                       "counterclockwise contour in unit-cell XY/up coordinates. Explicitly "
+                       "promotes Source1 to Source2; existing legacy collision extensions block "
+                       "promotion. Custom polygons follow cell flips and support Static/Kinematic "
+                       "bodies/sensors, without one-way collision."
+                     : "") +
                 (std::string_view(action) == "patch"
                      ? " Timeline source6 supports editable scalar C++ component fields with "
                        "component/field keys and matching inspected admission stamps; each key "

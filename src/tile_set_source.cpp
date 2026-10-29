@@ -20,13 +20,14 @@ std::uint64_t natural(const Json& value, std::uint64_t maximum = UINT64_MAX, boo
 }
 TileSetValues decode(const Json& root) {
     require(root.is_object() && root.at("format") == "forge.tile-set" &&
-                natural(root.at("version")) == 1,
+                (natural(root.at("version")) == 1 || natural(root.at("version")) == 2),
             "Unsupported Tile Set source format/version");
     TileSetValues result;
     result.asset = root.at("asset_id").get<AssetId>();
     require(bool(result.asset), "Tile Set requires an asset identity");
     result.next_id = natural(root.at("next_id"), UINT64_MAX, true);
-    auto rows = tile_detail::decode_tile_set_rows(root.at("images"), root.at("tiles"));
+    auto rows = tile_detail::decode_tile_set_rows(root.at("images"), root.at("tiles"),
+                                                  root.at("version") >= 2);
     for (const auto& image : rows.images)
         require(image.id < result.next_id, "Tile Set image ID is unallocated");
     for (const auto& tile : rows.tiles)
@@ -62,6 +63,33 @@ void TileSetSource::validate() const {
     validate_structure(document);
 }
 TileSetValues TileSetSource::values() const { return decode(document); }
+void TileSetSource::validate_upgrade(const TileSetSource& next) const {
+    require(next.document.at("version") >= document.at("version"),
+            "Tile Set source format cannot downgrade during an edit");
+    if (document.at("version") == 1 && next.document.at("version") >= 2)
+        for (const auto& row : document.at("tiles"))
+            require(
+                !row.contains("collision"),
+                "Legacy collision extension conflicts with Tile Set version2; source unchanged");
+}
+void TileSetSource::set_collision(std::uint64_t tile, const Json& value) {
+    validate();
+    auto candidate = *this;
+    candidate.document["version"] = 2;
+    validate_upgrade(candidate);
+    auto& rows = candidate.document.at("tiles");
+    const auto at = std::find_if(rows.begin(), rows.end(),
+                                 [&](const auto& row) { return row.at("id") == tile; });
+    require(at != rows.end(), "Tile collision definition is unavailable");
+    require(value.is_object() && value.contains("kind"), "Tile collision requires a kind");
+    auto merged = at->value("collision", Json::object());
+    merged.erase("kind");
+    merged.erase("points");
+    merged.update(value);
+    (*at)["collision"] = std::move(merged);
+    candidate.validate();
+    document.swap(candidate.document);
+}
 std::vector<AssetRef<MaterialAsset>> TileSetSource::materials() const {
     std::set<AssetRef<MaterialAsset>> unique;
     for (const auto& image : values().images)

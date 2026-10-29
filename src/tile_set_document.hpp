@@ -12,6 +12,7 @@ struct TileSetDocumentTraits {
     static constexpr auto asset_type = TileSetAsset::type;
     static Source create(AssetId id) { return Source::create(id); }
     static void validate_edit(const Source& before, const Source& after) {
+        before.validate_upgrade(after);
         const auto previous = before.values(), next = after.values();
         if (next.next_id < previous.next_id)
             throw std::runtime_error("Tile Set ID sequence cannot move backwards");

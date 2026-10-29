@@ -382,3 +382,31 @@ The source frame is ui-animation-800-late.ppm at presentation time0.75s. Lossles
 PNG encoding preserves all RGB pixels and dimensions. Wide/portrait early/late
 captures and pixel-readback checks are recorded in local validation; only one
 canonical image is published. PNG SHA256: `37ff672c13d5ae76fbdea5f6ccf4cba0492db2ed6277e68adecfff9a4796836f`.
+
+## Tile collision Inspector
+
+[The canonical Tile Set image](../../../manual/images/tile-collision-profile.png)
+is the complete unretouched760x1000 PNG produced by
+`forge_tile_set_editor_tests <capture-directory> --capture`, using
+`tests/tile_set_editor_tests.cpp`, the actual TileSetEditor/Inspector,
+`ImGuiSoftwareCapture`, pinned ImGui/SDL and the ordinary Lato font. The staged
+Source2 fixture contains a named convex ramp with three unit-cell XY/up points.
+Source branch forge/tile-collision-shapes is based on76c589c. Independent input
+fixtures cover Apply/Discard, invalid contours and Undo/Redo at three scales and
+two layouts. This Linux software-rendered Inspector capture does not establish
+full Windows editor, physical GPU or OS-input acceptance. No controls or pixels
+were retouched. PNG SHA256: `20f28ca05402bad13ae62da6ed2819a63b98de483f0938a9a8888c83e67e0c0d`.
+
+[The canonical collision course image](../../../manual/images/tile-collision-gallery.png)
+is the1280x720 starting frame from `tile_gallery_vulkan`,
+`tests/tile_gallery_render_tests.hpp`, Gallery101 and the actual FrameRenderer.
+Software Vulkan/lavapipe renders the admitted published Sprite/Tile resources at
+their saved starting poses. Separate CPU owner tests run the physical course and
+cold recovery; this frame itself does not show a performed physics walkthrough.
+Both640x360 and1280x720 readbacks check amber ramp interiors, their transparent
+halves against the rendered clear background (one UNORM8 step tolerance), the
+cyan floor, complete cell count, camera and runtime Map selection. Lossless PNG
+conversion preserves every RGB pixel from `gallery101-1280.ppm`; no crop or
+retouch was applied. This is not Windows/full editor/physical GPU/graphical EXE
+acceptance. PNG SHA256:
+`e7d04c02b55101ac78cc97a4810d3cd927c2c1d4b3dc189b6aea39306995d9ce`.

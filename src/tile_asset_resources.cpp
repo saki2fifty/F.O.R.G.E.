@@ -11,10 +11,16 @@ using Json = nlohmann::json;
 struct Contract {
     const char *type, *importer, *format, *metadata, *file;
     std::size_t file_limit;
+    std::uint32_t maximum_version = 1;
 };
 Contract set_contract() {
-    return {TileSetAsset::type, tile_set_importer_id,   tile_set_cooked_format,
-            "forge.tile_set",   tile_set_artifact_file, tile_set_cooked_metadata_limit + 24};
+    return {TileSetAsset::type,
+            tile_set_importer_id,
+            tile_set_cooked_format,
+            "forge.tile_set",
+            tile_set_artifact_file,
+            tile_set_cooked_metadata_limit + 24,
+            2};
 }
 Contract map_contract() {
     return {TileMapAsset::type,
@@ -38,7 +44,8 @@ const Json& selection(const AssetRecord& record, const Contract& contract) {
                 valid_content_digest(selected.at("importer_revision").get<std::string>()) &&
                 selected.at("output_format") == contract.format &&
                 selected.at("output_version").is_number_integer() &&
-                selected.at("output_version") == 1 &&
+                selected.at("output_version") >= 1 &&
+                selected.at("output_version") <= contract.maximum_version &&
                 (generation.is_number_unsigned() ||
                  (generation.is_number_integer() && generation.get<std::int64_t>() > 0)) &&
                 generation.get<std::uint64_t>() != 0 &&
@@ -150,7 +157,9 @@ ResourceTicket request(ResourcePool<Tag>& pool, const std::filesystem::path& pro
 } // namespace
 TileSetData admit_tile_set_artifact(const CachedArtifact& artifact, const AssetRecord& record) {
     const auto& selected = file(artifact, record, set_contract());
-    auto data = decode_cooked_tile_set(selected.bytes, record.id);
+    auto data = decode_cooked_tile_set(
+        selected.bytes, record.id,
+        record.metadata.at("forge.import").at("output_version").get<std::uint32_t>());
     ExpectedEdges expected;
     for (const auto& material : data.materials())
         expected.emplace("tile_set.material." + material.id.str(),

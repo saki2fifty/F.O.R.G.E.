@@ -171,7 +171,7 @@ void adopt(WorldContext& context, Instance& state, bool reset, EntityRef target)
     candidate->definitions = definitions;
     candidate->definition_values = definitions.get();
     if (const auto& admission = queue(context).physics_admission)
-        admission(target, candidate->cells, reset);
+        admission(target, *candidate, reset);
     candidate->generation = generation(queue(context));
     state.snapshot = std::move(candidate);
     state.current = true;
@@ -433,7 +433,7 @@ void publish_runtime_tile_edits(WorldContext& context) {
                 candidate->cells =
                     snapshot->cells.with_cells(command.writes, snapshot->definitions.get());
                 if (const auto& admission = values.physics_admission)
-                    admission(command.target, candidate->cells, true);
+                    admission(command.target, *candidate, true);
                 ++candidate->revision;
                 candidate->edited = true;
                 state->snapshot = std::move(candidate);

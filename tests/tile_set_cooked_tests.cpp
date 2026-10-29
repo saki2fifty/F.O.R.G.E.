@@ -93,12 +93,12 @@ void malformed() {
     const auto source = example();
     const auto bytes = cook_tile_set(source);
     const auto envelope = asset_detail::decode_envelope(bytes, tile_set_cooked_magic,
-                                                        tile_set_cooked_metadata_limit, 0);
+                                                        tile_set_cooked_metadata_limit, 0, 2);
     const auto bad = [&](const auto& mutate) {
         auto metadata = envelope.metadata;
         mutate(metadata);
-        const auto candidate = asset_detail::encode_envelope(metadata, {}, tile_set_cooked_magic,
-                                                             tile_set_cooked_metadata_limit);
+        const auto candidate = asset_detail::encode_envelope(
+            metadata, {}, tile_set_cooked_magic, tile_set_cooked_metadata_limit, envelope.version);
         reject([&] { (void)decode_cooked_tile_set(candidate, source.asset()); });
     };
     reject([&] { (void)decode_cooked_tile_set(bytes, {}); });
@@ -120,6 +120,49 @@ void malformed() {
     bad([](auto& m) { m["tiles"][0]["frame"] = 2.; });
     bad([](auto& m) { m["tiles"][0]["image"] = 123; });
     bad([](auto& m) { m["tiles"][0]["opaque"] = true; });
+    bad([](auto& m) { m["tiles"][0]["collision"]["opaque"] = true; });
+    bad([](auto& m) {
+        m["tiles"][0]["collision"] = {{"kind", "convex"},
+                                      {"points", {{0, 0}, {1, 1}, {0, 1}, {1, 0}}}};
+    });
+    reject([&] { (void)decode_cooked_tile_set(bytes, source.asset(), 1); });
+}
+void collision_profiles() {
+    auto source = example();
+    source.set_collision(7, {{"kind", "convex"}, {"points", {{0., 0.}, {1., 0.}, {1., 1.}}}});
+    source.set_collision(9, {{"kind", "none"}, {"source_only", "COLLISION_EXTENSION"}});
+    const auto bytes = cook_tile_set(source);
+    const auto data = decode_cooked_tile_set(bytes, source.asset(), 2);
+    require(data.tile(7).collision.kind == TileCollisionKind::Convex &&
+                data.tile(7).collision.points ==
+                    std::vector<std::array<double, 2>>{{0, 0}, {1, 0}, {1, 1}} &&
+                data.tile(9).collision.kind == TileCollisionKind::None,
+            "Cooked collision profile differs from source values");
+    const std::string text(reinterpret_cast<const char*>(bytes.data()), bytes.size());
+    require(text.find("COLLISION_EXTENSION") == std::string::npos,
+            "Cook retained collision authoring extension");
+    const auto copy = data;
+    require(copy.tile(7).collision.points.data() == data.tile(7).collision.points.data(),
+            "Immutable collision copy duplicated geometry");
+    const auto ordinary = example();
+    auto root = asset_detail::decode_envelope(cook_tile_set(ordinary), tile_set_cooked_magic,
+                                              tile_set_cooked_metadata_limit, 0, 2)
+                    .metadata;
+    for (auto& row : root["tiles"])
+        row.erase("collision");
+    const auto legacy = asset_detail::encode_envelope(root, {}, tile_set_cooked_magic,
+                                                      tile_set_cooked_metadata_limit, 1);
+    const auto old = decode_cooked_tile_set(legacy, ordinary.asset(), 1);
+    require(old.tile(7).collision.kind == TileCollisionKind::FullCell &&
+                old.tile(7).collision.points.empty(),
+            "Legacy cooked collision default changed");
+    reject([&] { (void)decode_cooked_tile_set(legacy, ordinary.asset(), 2); });
+    auto opaque = ordinary;
+    opaque.document["tiles"][0]["collision"] = {{"kind", "none"}};
+    require(
+        decode_cooked_tile_set(cook_tile_set(opaque), opaque.asset(), 2).tile(9).collision.kind ==
+            TileCollisionKind::FullCell,
+        "Legacy opaque source collision acquired physical meaning when cooking");
 }
 void maximum() {
     auto source = TileSetSource::create(AssetId::generate());
@@ -148,6 +191,7 @@ int main() {
     try {
         values();
         malformed();
+        collision_profiles();
         maximum();
         std::cout << "Internal cooked Tile Set values, shared source admission and local-key "
                      "lookup passed\n";

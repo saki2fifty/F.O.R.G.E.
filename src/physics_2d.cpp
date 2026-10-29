@@ -142,9 +142,46 @@ b2Polygon compound_box(const BoxPart2D& value) {
                            {value.center[0], value.center[1]}, {1, 0});
 }
 std::size_t shape_count(const Body2DConfiguration& config) {
-    return config.shape == 3 ? (config.parts ? config.parts->size() : 0) : 1;
+    return config.shape == 3 ? (config.parts ? config.parts->size() : 0) +
+                                   (config.polygons ? config.polygons->size() : 0)
+                             : 1;
 }
-void validate_one_way(const PhysicsBody2D& body, unsigned shape) {
+b2Polygon compound_polygon(const PolygonPart2D& value) {
+    static_assert(tile_collision_vertex_limit == B2_MAX_POLYGON_VERTICES);
+    if (value.count < 3 || value.count > tile_collision_vertex_limit)
+        throw std::runtime_error("2D compound polygon requires3..8 vertices");
+    std::array<b2Vec2, tile_collision_vertex_limit> points{};
+    std::array<float, 2> low{10000, 10000}, high{-10000, -10000};
+    for (std::uint32_t i = 0; i < value.count; ++i) {
+        for (unsigned axis = 0; axis < 2; ++axis) {
+            const auto scalar = value.points[i][axis];
+            if (!std::isfinite(scalar) || std::abs(scalar) > 10000)
+                throw std::runtime_error("2D compound polygon exceeds supported local extent");
+            low[axis] = std::min(low[axis], scalar);
+            high[axis] = std::max(high[axis], scalar);
+        }
+        points[i] = {value.points[i][0], value.points[i][1]};
+    }
+    for (unsigned axis = 0; axis < 2; ++axis)
+        (void)dimension(double(high[axis]) - low[axis], .01f, 1000);
+    if (!tile_detail::tile_collision_winding<float>(std::span(value.points).first(value.count)))
+        throw std::runtime_error("2D compound polygon contour is not strictly convex");
+    const auto hull = b2ComputeHull(points.data(), int(value.count));
+    if (hull.count != int(value.count) || !b2ValidateHull(&hull))
+        throw std::runtime_error("2D compound polygon degenerates at its physical scale");
+    return b2MakePolygon(&hull, 0);
+}
+b2Polygon compound_part(const Body2DConfiguration& config, std::size_t index) {
+    const auto boxes = config.parts ? config.parts->size() : 0;
+    if (index < boxes)
+        return compound_box(config.parts->at(index));
+    if (!config.polygons)
+        throw std::runtime_error("2D compound polygon part is unavailable");
+    return compound_polygon(config.polygons->at(index - boxes));
+}
+void validate_one_way(const PhysicsBody2D& body, unsigned shape, bool custom_polygons = false) {
+    if (body.one_way && custom_polygons)
+        throw std::runtime_error("Custom tile polygons do not support one-way collision");
     if (!std::isfinite(body.one_way_margin) || body.one_way_margin < 0 || body.one_way_margin > 1)
         throw std::runtime_error("2D one-way margin must be finite metres in [0,1]");
     if (body.enabled && body.one_way &&
@@ -158,7 +195,7 @@ void validate_tile_map_body(const PhysicsBody2D& body) {
         throw std::runtime_error("Tile Map collision requires Static or Kinematic motion");
 }
 void validate_geometry(const Body2DConfiguration& config) {
-    validate_one_way(config.body, config.shape);
+    validate_one_way(config.body, config.shape, config.polygons && !config.polygons->empty());
     if (config.mover_profile) {
         const auto& profile = *config.mover_profile;
         const auto floor = profile.minimum_floor_y;
@@ -182,22 +219,22 @@ void validate_geometry(const Body2DConfiguration& config) {
             throw std::runtime_error("2D mover total height exceeds1000m");
     }
     if (config.shape != 3) {
-        if (config.parts)
+        if (config.parts || config.polygons)
             throw std::runtime_error("Inline 2D collider has compound geometry");
         (void)geometry(config);
         return;
     }
     validate_tile_map_body(config.body);
-    if (config.dimensions != std::array<float, 2>{} || !config.parts || config.parts->empty() ||
-        config.parts->size() > shape_limit)
-        throw std::runtime_error("2D compound boxes require bounded nonempty geometry");
-    for (const auto& part : *config.parts)
-        (void)compound_box(part);
+    if (config.dimensions != std::array<float, 2>{} || !shape_count(config) ||
+        shape_count(config) > shape_limit)
+        throw std::runtime_error("2D compound collider requires bounded nonempty geometry");
+    for (std::size_t i = 0; i < shape_count(config); ++i)
+        (void)compound_part(config, i);
 }
 b2ShapeProxy configured_proxy(const Body2DConfiguration& config, std::size_t part = 0) {
     if (config.shape == 3) {
-        const auto box = compound_box(config.parts->at(part));
-        return b2MakeProxy(box.vertices, box.count, box.radius);
+        const auto polygon = compound_part(config, part);
+        return b2MakeProxy(polygon.vertices, polygon.count, polygon.radius);
     }
     const auto shape = geometry(config);
     if (config.shape == 0)
@@ -401,13 +438,18 @@ PhysicsOverlap2D controller_shape_2d(const Body2DConfiguration& config, Double2 
     return shape;
 }
 Body2DConfiguration tile_map_configuration_2d(PhysicsBody2D body, const TileMapData& cells,
-                                              std::uint64_t layer, LocalScale scale) {
+                                              std::uint64_t layer, LocalScale scale,
+                                              const TileSetData* definitions) {
     validate_tile_map_body(body);
     if (!std::isfinite(scale.x) || !std::isfinite(scale.y) || !std::isfinite(scale.z))
         throw std::runtime_error("2D collider scale must be finite");
     if (scale.x == 0 || scale.y == 0)
         throw std::runtime_error("Tile Map collision requires nonzero XY scale");
-    const auto rectangles = tile_map_collision_rectangles(cells, layer);
+    const auto geometry =
+        definitions ? tile_map_collision_geometry(cells, *definitions, layer)
+                    : TileMapCollisionGeometry{tile_map_collision_rectangles(cells, layer), {}};
+    validate_one_way(body, 3, !geometry.polygons.empty());
+    const auto& rectangles = geometry.rectangles;
     const auto size = cells.cell_size();
     std::vector<BoxPart2D> values;
     values.reserve(rectangles.size());
@@ -432,6 +474,27 @@ Body2DConfiguration tile_map_configuration_2d(PhysicsBody2D body, const TileMapD
     auto parts = std::make_shared<const std::vector<BoxPart2D>>(std::move(values));
     Body2DConfiguration config{body, 3};
     config.parts = std::move(parts);
+    if (!geometry.polygons.empty()) {
+        std::vector<PolygonPart2D> polygons;
+        polygons.reserve(geometry.polygons.size());
+        for (const auto& cell : geometry.polygons) {
+            PolygonPart2D polygon;
+            polygon.count = std::uint32_t(cell.count);
+            for (std::size_t i = 0; i < cell.count; ++i)
+                for (unsigned axis = 0; axis < 2; ++axis) {
+                    const double origin = axis == 0 ? cell.origin.x : cell.origin.y;
+                    const double point = (origin + cell.points[i][axis]) * size[axis] *
+                                         (axis == 0 ? scale.x : scale.y);
+                    if (!std::isfinite(point) || std::abs(point) > 10000)
+                        throw std::runtime_error(
+                            "Tile polygon exceeds supported scaled local extent");
+                    polygon.points[i][axis] = float(point);
+                }
+            (void)compound_polygon(polygon);
+            polygons.push_back(polygon);
+        }
+        config.polygons = std::make_shared<const std::vector<PolygonPart2D>>(std::move(polygons));
+    }
     return config;
 }
 LocalTransform debug_pose_2d(const AffineTransform& world) {
@@ -459,7 +522,8 @@ LocalTransform controller_debug_pose_2d(const AffineTransform& affine, const Loc
     return pose;
 }
 PhysicsDebugGeometry prepare_debug_2d(const Json& components, LocalScale scale, std::size_t limit,
-                                      const TileMapData* tile_map, bool crouched) {
+                                      const TileMapData* tile_map, bool crouched,
+                                      const TileSetData* definitions) {
     if (!limit || limit > 65536)
         throw std::runtime_error("2D preview line budget must be1..65536");
     const auto decoded = [&]<class T>(const char* key) -> T {
@@ -493,11 +557,15 @@ PhysicsDebugGeometry prepare_debug_2d(const Json& components, LocalScale scale, 
             decoded.template operator()<TileMapRenderer>("forge.tile_map_renderer");
         if (!tile_map || tile_map->asset() != renderer.map.id)
             throw std::runtime_error("Published Tile Map is not prepared for collision preview");
-        const auto config = tile_map_configuration_2d(body, *tile_map, collider.layer, scale);
+        const auto config =
+            tile_map_configuration_2d(body, *tile_map, collider.layer, scale, definitions);
         PhysicsDebugGeometry result;
-        result.truncated = config.parts->size() > limit / (body.one_way ? 7 : 4);
-        for (const auto& part : *config.parts) {
-            const auto polygon = compound_box(part);
+        std::size_t lines = body.one_way ? 3 * config.parts->size() : 0;
+        for (std::size_t part = 0; part < shape_count(config); ++part)
+            lines += std::size_t(compound_part(config, part).count);
+        result.truncated = lines > limit;
+        for (std::size_t part = 0; part < shape_count(config); ++part) {
+            const auto polygon = compound_part(config, part);
             for (int i = 0; i < polygon.count; ++i) {
                 if (result.lines.size() == limit)
                     return result;
@@ -506,9 +574,9 @@ PhysicsDebugGeometry prepare_debug_2d(const Json& components, LocalScale scale, 
             }
             if (body.one_way) {
                 const float sign = std::signbit(scale.y) ? -1.f : 1.f;
-                one_way_arrow(result, part.center[0],
-                              part.center[1] + sign * .5f * part.dimensions[1], part.dimensions[0],
-                              sign, limit);
+                const auto& box = config.parts->at(part);
+                one_way_arrow(result, box.center[0], box.center[1] + sign * .5f * box.dimensions[1],
+                              box.dimensions[0], sign, limit);
             }
         }
         return result;
@@ -660,7 +728,8 @@ Desired2D desired_bodies_2d(WorldContext& context, const PhysicsConfig& settings
                 throw std::runtime_error("Tile Map Collider 2D requires a Tile Map Renderer");
             const bool overridden = candidate && candidate->entity == id;
             std::shared_ptr<const detail::RuntimeTileMapSnapshot> snapshot;
-            const TileMapData* cells = overridden ? candidate->cells : nullptr;
+            const detail::RuntimeTileMapSnapshot* selected =
+                overridden ? candidate->snapshot : nullptr;
             if (!overridden) {
                 const auto status = detail::inspect_runtime_tile_map(context, *ref);
                 if (!status.ready || status.adopted != entity.get<TileMapRenderer>().map.id) {
@@ -671,25 +740,26 @@ Desired2D desired_bodies_2d(WorldContext& context, const PhysicsConfig& settings
                         "to be ready before simulation");
                 }
                 snapshot = detail::runtime_tile_map_snapshot(context, *ref);
-                cells = &snapshot->cells;
+                selected = snapshot.get();
             }
-            if (!cells || cells->asset() != entity.get<TileMapRenderer>().map.id)
+            if (!selected || selected->cells.asset() != entity.get<TileMapRenderer>().map.id)
                 throw std::runtime_error("Tile Map collision candidate has a different Map root");
             const auto* old = previous ? previous->admitted(id) : nullptr;
-            std::shared_ptr<const std::vector<BoxPart2D>> parts;
+            Body2DConfiguration config{body, 3};
             if (!overridden && old && old->ref == *ref && old->tile_snapshot == snapshot &&
                 old->tile_layer == collider.layer && old->pose.scale.x == pose.scale.x &&
-                old->pose.scale.y == pose.scale.y && old->config.shape == 3)
-                parts = old->config.parts;
-            else {
-                parts = tile_map_configuration_2d(body, *cells, collider.layer, pose.scale).parts;
+                old->pose.scale.y == pose.scale.y && old->config.shape == 3) {
+                config.parts = old->config.parts;
+                config.polygons = old->config.polygons;
+            } else {
+                config = tile_map_configuration_2d(body, selected->cells, collider.layer,
+                                                   pose.scale, &selected->definition_values);
             }
+            validate_one_way(body, 3, config.polygons && !config.polygons->empty());
             // An empty layer has no collision or native handle. Refilling it
             // creates a new realization epoch; no hidden placeholder shape exists.
-            if (!parts || parts->empty())
+            if (!shape_count(config))
                 continue;
-            Body2DConfiguration config{body, 3};
-            config.parts = std::move(parts);
             result.emplace(id,
                            Body2DDesired{*ref, std::move(config), pose, snapshot, collider.layer});
             continue;
@@ -1825,7 +1895,7 @@ struct Native2D::Impl {
         for (std::size_t index = 0; index < shape_count(config); ++index) {
             b2ShapeId native{};
             if (config.shape == 3) {
-                const auto box = compound_box(config.parts->at(index));
+                const auto box = compound_part(config, index);
                 native = b2CreatePolygonShape(id, &shape_definition, &box);
             } else if (config.shape == 0)
                 native = b2CreatePolygonShape(id, &shape_definition, &shape.box);
@@ -1864,9 +1934,18 @@ Json Body2DConfiguration::json() const {
     if (shape == 3) {
         validate_geometry(*this);
         result["parts"] = Json::array();
-        for (const auto& part : *parts)
-            result["parts"].push_back(
-                {part.center[0], part.center[1], part.dimensions[0], part.dimensions[1]});
+        if (parts)
+            for (const auto& part : *parts)
+                result["parts"].push_back(
+                    {part.center[0], part.center[1], part.dimensions[0], part.dimensions[1]});
+        result["polygons"] = Json::array();
+        if (polygons)
+            for (const auto& polygon : *polygons) {
+                Json points = Json::array();
+                for (std::uint32_t i = 0; i < polygon.count; ++i)
+                    points.push_back(polygon.points[i]);
+                result["polygons"].push_back(std::move(points));
+            }
     }
     return result;
 }
@@ -1889,11 +1968,12 @@ bool recovery_pose_matches(const Json& input, const LocalTransform& pose) {
            equivalent(LocalScale{s[0], s[1], s[2]}, pose.scale);
 }
 bool same_vector(b2Vec2 a, b2Vec2 b) { return a.x == b.x && a.y == b.y; }
-std::array<float, 20> polygon_key(const b2Polygon& value) {
-    if (value.count != 4)
-        throw std::runtime_error("2D compound recovery contains a nonbox polygon");
-    std::array<float, 20> key{float(value.count), value.radius, value.centroid.x, value.centroid.y};
-    for (unsigned i = 0; i < 4; ++i) {
+using PolygonKey = std::array<float, 4 + 4 * tile_collision_vertex_limit>;
+PolygonKey polygon_key(const b2Polygon& value) {
+    if (value.count < 3 || value.count > int(tile_collision_vertex_limit))
+        throw std::runtime_error("2D compound recovery contains an unsupported polygon");
+    PolygonKey key{float(value.count), value.radius, value.centroid.x, value.centroid.y};
+    for (unsigned i = 0; i < unsigned(value.count); ++i) {
         key[4 + 4 * i] = value.vertices[i].x;
         key[5 + 4 * i] = value.vertices[i].y;
         key[6 + 4 * i] = value.normals[i].x;
@@ -1943,14 +2023,14 @@ Json recovery_native_state(b2BodyId id, std::span<const b2ShapeId> shapes,
     const auto expected = config.shape == 3 ? Geometry{} : geometry(config);
     bool matches = false;
     if (config.shape == 3) {
-        std::vector<std::array<float, 20>> actual_parts, expected_parts;
+        std::vector<PolygonKey> actual_parts, expected_parts;
         for (const auto shape : shapes) {
             if (b2Shape_GetType(shape) != b2_polygonShape)
                 throw std::runtime_error("2D compound recovery contains a nonpolygon shape");
             actual_parts.push_back(polygon_key(b2Shape_GetPolygon(shape)));
         }
-        for (const auto& part : *config.parts)
-            expected_parts.push_back(polygon_key(compound_box(part)));
+        for (std::size_t i = 0; i < shape_count(config); ++i)
+            expected_parts.push_back(polygon_key(compound_part(config, i)));
         // Shapes have no authored identities. Compare the complete geometry
         // multiset; native enumeration order need not equal construction order.
         std::sort(actual_parts.begin(), actual_parts.end());

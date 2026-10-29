@@ -25,7 +25,7 @@ inline void test_moving_trigger_tile_maps(const std::filesystem::path& root,
             std::this_thread::sleep_for(1ms);
         }
     };
-    for (const auto [motion, sensor, one_way, sign] :
+    for (const auto& [motion, sensor, one_way, sign] :
          {std::tuple{0u, false, false, 1.f}, std::tuple{0u, true, false, 1.f},
           std::tuple{1u, false, false, 1.f}, std::tuple{1u, true, false, 1.f},
           std::tuple{0u, false, true, 1.f}, std::tuple{0u, false, true, -1.f}}) {

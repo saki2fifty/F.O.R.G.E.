@@ -15,6 +15,9 @@ int main(int argc, char** argv) {
             return forge::test_sprite_draw::read_pixels(device, context, image);
         };
         forge::test_tile_gallery_render::exercise(presentation, context, read, argv[1], argv[2]);
+        forge::test_tile_gallery_render::exercise(
+            presentation, context, read, argv[1],
+            std::filesystem::path(argv[2]) / "collision-profiles", true);
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';
         return 1;

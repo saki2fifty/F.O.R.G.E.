@@ -19,6 +19,17 @@ use the same map. Their camera is included; these unlit images need no light.
 Map source editing is disabled during Play. Stop before changing the authored
 cells. Scene changes and map-source changes have their own document Undo histories.
 
+### Collision-profile course
+
+Open **Scenes/101-tile-collision-profiles.scene.json**. The cyan full-cell floor,
+amber convex ramps and pink no-collision decoration use one Tile Set and Map.
+Press Play: circles roll down the original and mirrored ramps; the box falls
+through the pink decoration onto the floor. Stop before editing their profiles.
+
+![Collision-profile course with mirrored triangular ramps, a full-cell floor and decorative marker](../images/tile-collision-gallery.png)
+
+The course at its saved starting positions.
+
 ## Make a map
 
 Create a Sprite image material from an imported image. Use Content's **Create /
@@ -60,13 +71,36 @@ For your own Map actor:
 
 1. Add **Physics Body 2D**. Choose **Motion** as Static or Kinematic. Leave **Sensor** off for solid collision.
 2. Add **Tile Map Collider 2D**. Choose its **Collision layer** by name.
-3. Put decoration in a different layer. Every occupied cell contributes a rectangle; hiding the layer or renderer does not remove collision.
+3. Choose each tile's collision profile in the Tile Set Inspector, or put decoration in a different layer. Hiding a layer or renderer does not remove collision.
 4. Turn on the Scene collision outline to inspect the selected published layer. Save the Scene, then test with ordinary Dynamic2D bodies.
 
-Maps use rectangular painted cells with Static or Kinematic bodies. Dynamic
-Maps and per-tile slopes are unavailable. Static nonsensor Maps can use the
-one-way option below. An empty selected layer has no native shape. Excessively large or complex collision reports a problem and
+Maps use full cells or convex polygons with Static or Kinematic bodies. Dynamic
+Maps are unavailable. Static nonsensor Maps using full cells can use the
+one-way option below. An empty or all-None selected layer has no native shape. Excessively large or complex collision reports a problem and
 keeps the previous working runtime cells and collision.
+
+## Choose collision for a tile
+
+![Tile Set Inspector with a numbered convex ramp and editable unit-cell coordinates](../images/tile-collision-profile.png)
+
+The diagram shows the applied ramp in local XY coordinates.
+
+1. Open the `.tileset.json` in Content, then select a tile definition.
+2. In Inspector, find **Tile collision**. Set **Shape** to **Full cell**, **None** or **Convex polygon**. Full cells merge with neighboring full cells; None makes the tile decorative.
+3. For a polygon, enter 3–8 points in the X/Y table. Coordinates run from 0 to 1 across the cell, with X right and Y up. List points counterclockwise; press Enter after editing a coordinate.
+4. **Add point** appends a point on the closing edge. Move it off that edge before applying. **Remove last point** removes the final vertex. The diagram numbers the current draft points.
+5. Choose **Apply collision** to validate the complete profile in one Undo step. Invalid or nonconvex shapes leave the applied source unchanged. **Discard collision edits** returns to the applied profile. Apply or discard before Save, Undo or selecting another tile.
+6. Choose **Save / Publish** for the Tile Set, then save and publish each Map that uses it. Return to Scene and enable **Selected collision** on its Map actor to inspect the published shapes. Save the Scene and Play.
+
+Cell flips and transpose also transform custom polygons. Polygons can provide
+ordinary solid or sensor collision; custom polygons cannot use **One-way
+collision**. Use separate Map actors/layers when a scene needs both types.
+Automatic concave decomposition is unavailable. A very small polygon can fail
+physical-scale validation even when its normalized coordinates are valid.
+
+Older sources may contain unrelated extension data named `collision`. A profile
+edit reports a conflict rather than reinterpreting that data. Resolve the named
+extension in the source before applying a collision profile.
 
 ## Make painted platforms one-way
 

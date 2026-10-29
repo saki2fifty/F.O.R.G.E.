@@ -2471,6 +2471,58 @@
       "type": "scene"
     },
     {
+      "dependencies": [
+        "310028ab-26c1-4045-a7f2-5631bb09c0e7"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "build",
+          "revision": "dcdb8ea478a8cb5d31376e4983c318d6be7ca915662832f387712ab552de6f41",
+          "role": "tile_set.material.310028ab-26c1-4045-a7f2-5631bb09c0e7",
+          "target": "310028ab-26c1-4045-a7f2-5631bb09c0e7",
+          "type": "material"
+        },
+        {
+          "kind": "runtime",
+          "revision": "dcdb8ea478a8cb5d31376e4983c318d6be7ca915662832f387712ab552de6f41",
+          "role": "tile_set.material.310028ab-26c1-4045-a7f2-5631bb09c0e7",
+          "target": "310028ab-26c1-4045-a7f2-5631bb09c0e7",
+          "type": "material"
+        }
+      ],
+      "id": "2b3e4578-e010-4503-96c6-7915d8523224",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "4e22f597a5696e97ce5f67f1203806c1aef8b08e59ef99766a6ecbbbef7ecc3c",
+          "backend": "d3d12",
+          "dependency_digest": "b9c09e2a7baf370f6f319ee598067d05e0c94a058f6d4fa5e157aaedcae383d3",
+          "generation": 2,
+          "importer": "forge.tileset",
+          "importer_revision": "84c47aae8b225ff75b062b6d54f59d8d0fe3fe941bb648afc49fc6157405a869",
+          "key": "caead606c336d1790752b40077f4e026e8d455ff3bddcbc96133ae1c97a3bbac",
+          "output_format": "forge.tile-set-cooked",
+          "output_version": 2,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "cf3d16f47bfdd52ee4daaa633c77758d10cca53d9cfc48629c6eb400b207b584",
+          "source_digest": "adabffd820b1616db850541bc3d1de29909889223c55055df4fc634d8298c833",
+          "version": 1
+        },
+        "forge.tile_set": {
+          "bytes": 579,
+          "file": "tileset.bin",
+          "sha256": "05ae279e38f1bff39df2889305ff46c9ed7a96ea864b933502c9bf3d3a074f4d",
+          "version": 1
+        }
+      },
+      "schema_version": 2,
+      "source": "Assets/Tiles/CollisionProfiles.tileset.json",
+      "source_dependencies": [],
+      "type": "tile_set"
+    },
+    {
       "dependencies": [],
       "dependency_edges": [],
       "id": "2c614cb7-d5d8-41f4-9e52-82e0a8a8b37b",
@@ -2585,6 +2637,52 @@
       "source": "Assets/Particles/SharedJet.particles.json",
       "source_dependencies": [],
       "type": "particle_effect"
+    },
+    {
+      "dependencies": [
+        "956ed8f0-f6c1-44c6-87c3-2197e817093f"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "dc0f38a4d2eea729a3d2d83607651905ce452b9ee82104869c742afebccb3597",
+          "role": "material.texture:baseColorTexture",
+          "target": "956ed8f0-f6c1-44c6-87c3-2197e817093f",
+          "type": "texture"
+        }
+      ],
+      "id": "310028ab-26c1-4045-a7f2-5631bb09c0e7",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "eac803ae4576c340d98c6906c9445eef0d8d942cbe1620ebf243905bc0583cab",
+          "backend": "d3d12",
+          "dependency_digest": "fe431e609c5329fc7e812817121ffe48126691e4c362ffd8a4f97dd145708405",
+          "generation": 2,
+          "importer": "forge.material.builtin",
+          "importer_revision": "80e89e211ee9abfca7c7ba2d0dadfbccbde82e579030a973c33f911001ad57dd",
+          "key": "dcdb8ea478a8cb5d31376e4983c318d6be7ca915662832f387712ab552de6f41",
+          "output_format": "forge.material-bundle",
+          "output_version": 2,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "79e38e8d7945c892ffa7a59bb9847ae0c3f8a9374d23242c66fee781d84dfa77",
+          "source_digest": "0a4d29bac7760bce5f7b883d177fb2711b23eb7799c932b72d7cecf3f2337c23",
+          "version": 1
+        },
+        "forge.material": {
+          "shader": null,
+          "textures": {
+            "baseColorTexture": "956ed8f0-f6c1-44c6-87c3-2197e817093f"
+          },
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Tiles/CollisionProfiles.material.json",
+      "source_dependencies": [],
+      "type": "material"
     },
     {
       "dependencies": [
@@ -6832,6 +6930,58 @@
       "type": "material"
     },
     {
+      "dependencies": [
+        "2b3e4578-e010-4503-96c6-7915d8523224"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "build",
+          "revision": "caead606c336d1790752b40077f4e026e8d455ff3bddcbc96133ae1c97a3bbac",
+          "role": "tile_map.tile_set",
+          "target": "2b3e4578-e010-4503-96c6-7915d8523224",
+          "type": "tile_set"
+        },
+        {
+          "kind": "runtime",
+          "revision": "caead606c336d1790752b40077f4e026e8d455ff3bddcbc96133ae1c97a3bbac",
+          "role": "tile_map.tile_set",
+          "target": "2b3e4578-e010-4503-96c6-7915d8523224",
+          "type": "tile_set"
+        }
+      ],
+      "id": "89ae9531-7579-47b4-aac9-1090716a2f66",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "b80d617e36d1b1d243f7031e81caca3183e12975b846d478916e82c519a414fd",
+          "backend": "d3d12",
+          "dependency_digest": "91406b9375659f9088f03318dfdc723816990ccf86f96bcc53ca5a3c258c130c",
+          "generation": 2,
+          "importer": "forge.tilemap",
+          "importer_revision": "7d38463bc81a04dc4813edba9a8743b33e244a863b3d4bba43fb6207f340c88d",
+          "key": "7802428742c79b98985b974b425b9ed8d96931d6df2b5bba6344b6770e239437",
+          "output_format": "forge.tile-map-cooked",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "944e19f89dec0b5eb3b8d70c59a6d31484cd5fae0ce4d1e9306a6ed34d2e25f4",
+          "source_digest": "4a4396499375b25813ba95d007523cc9b93e2f05f35d4fa957ade8cc1402fc85",
+          "version": 1
+        },
+        "forge.tile_map": {
+          "bytes": 689,
+          "file": "tilemap.bin",
+          "sha256": "a44129e0cf8ac3fde2dce4855abd0395dceca5f3e33beae64471f157e3ad8114",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Tiles/CollisionProfiles.tilemap.json",
+      "source_dependencies": [],
+      "type": "tile_map"
+    },
+    {
       "dependencies": [],
       "dependency_edges": [],
       "id": "8bf8bbf3-6c13-42c4-b376-48ddc8eccbed",
@@ -7055,6 +7205,35 @@
         "removed": false
       },
       "type": "animation_clip"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "956ed8f0-f6c1-44c6-87c3-2197e817093f",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "1bd6230e90757ac90dde253314206d28a1f8291fc2ffda04b75ba679074b5444",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 2,
+          "importer": "forge.texture.image",
+          "importer_revision": "a72711a84ab8aba2fcd68c6e2ac7fa005f4b3e86dcae32d1b171e06b00773837",
+          "key": "dc0f38a4d2eea729a3d2d83607651905ce452b9ee82104869c742afebccb3597",
+          "output_format": "forge.texture-bundle",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "6e500d6e7e08e5b11f498e154d26275d6288d83ed4b295b9c56c95d747c76521",
+          "settings_version": 1,
+          "sidecar_digest": "898039ea87640d613a0c0d3cfc907d00bb0ec096f73e44f945a8c4582c43e916",
+          "source_digest": "48713964f47b6862cdc14753f794ca314127e37a538de92b8a9a4bf4cf9af174",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Tiles/CollisionProfiles.png",
+      "source_dependencies": [],
+      "type": "texture"
     },
     {
       "dependencies": [],
@@ -9540,6 +9719,16 @@
         }
       ],
       "type": "ui_document"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "de78e5a9-3100-4fb8-aa47-bd7b8896631a",
+      "metadata": {},
+      "schema_version": 5,
+      "source": "Scenes/101-tile-collision-profiles.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
     },
     {
       "dependencies": [],

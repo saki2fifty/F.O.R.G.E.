@@ -1,5 +1,6 @@
 #include "tile_set_data.hpp"
 #include "cooked_envelope.hpp"
+#include <cmath>
 #include <map>
 #include <set>
 
@@ -31,8 +32,45 @@ template <class Row> const Row& find(const std::vector<Row>& rows, std::uint64_t
     require(found != rows.end() && found->id == key, "Tile Set local key was not found");
     return *found;
 }
+TileCollisionProfile collision(const Json& value) {
+    require(value.is_object(), "Tile collision must be an object");
+    const auto& kind = value.at("kind");
+    TileCollisionProfile result;
+    if (kind == "full_cell" || kind == "none") {
+        require(!value.contains("points"), "Only convex tile collision accepts points");
+        result.kind = kind == "none" ? TileCollisionKind::None : TileCollisionKind::FullCell;
+        return result;
+    }
+    require(kind == "convex", "Unknown tile collision kind");
+    result.kind = TileCollisionKind::Convex;
+    const auto& points = value.at("points");
+    require(points.is_array() && points.size() >= 3 && points.size() <= tile_collision_vertex_limit,
+            "Convex tile collision requires3..8 points");
+    for (const auto& row : points) {
+        require(row.is_array() && row.size() == 2, "Tile collision point requires XY");
+        std::array<double, 2> point;
+        for (unsigned axis = 0; axis < 2; ++axis) {
+            require(row[axis].is_number(), "Tile collision coordinates must be numbers");
+            point[axis] = row[axis].get<double>();
+            require(std::isfinite(point[axis]) && point[axis] >= 0 && point[axis] <= 1,
+                    "Tile collision coordinates must be finite in0..1");
+        }
+        result.points.push_back(point);
+    }
+    require(tile_detail::tile_collision_winding<double>(result.points) == 1,
+            "Tile collision points must form a strict counterclockwise convex contour");
+    return result;
+}
 } // namespace
-TileSetRows tile_detail::decode_tile_set_rows(const Json& images, const Json& tiles) {
+Json tile_detail::tile_collision_json(const TileCollisionProfile& value) {
+    if (value.kind == TileCollisionKind::Convex)
+        return {{"kind", "convex"}, {"points", value.points}};
+    require(value.kind == TileCollisionKind::FullCell || value.kind == TileCollisionKind::None,
+            "Unknown typed tile collision kind");
+    return {{"kind", value.kind == TileCollisionKind::None ? "none" : "full_cell"}};
+}
+TileSetRows tile_detail::decode_tile_set_rows(const Json& images, const Json& tiles,
+                                              bool collision_profiles) {
     require(images.is_array() && images.size() <= tile_set_image_limit && tiles.is_array() &&
                 tiles.size() <= tile_set_definition_limit,
             "Tile Set exceeds image/definition limits");
@@ -71,23 +109,36 @@ TileSetRows tile_detail::decode_tile_set_rows(const Json& images, const Json& ti
         require(image != frames.end(), "Tile Set definition refers to a missing image");
         tile.frame = std::uint32_t(natural(row.at("frame"), UINT32_MAX));
         require(tile.frame < image->second, "Tile Set definition frame is outside its grid");
+        if (collision_profiles && row.contains("collision"))
+            tile.collision = collision(row.at("collision"));
         result.tiles.push_back(std::move(tile));
     }
     return result;
 }
-TileSetData decode_cooked_tile_set(std::span<const std::byte> bytes, AssetId expected) {
+TileSetData decode_cooked_tile_set(std::span<const std::byte> bytes, AssetId expected,
+                                   std::uint32_t expected_version) {
     const auto envelope = asset_detail::decode_envelope(bytes, tile_set_cooked_magic,
-                                                        tile_set_cooked_metadata_limit, 0);
+                                                        tile_set_cooked_metadata_limit, 0, 2);
     const auto& root = envelope.metadata;
+    require(!expected_version || envelope.version == expected_version,
+            "Cooked Tile Set version differs from its selected artifact");
     require(root.is_object() && root.size() == 3 && bool(expected) &&
                 root.at("asset_id").get<AssetId>() == expected,
             "Cooked Tile Set identity/metadata mismatch");
-    auto rows = tile_detail::decode_tile_set_rows(root.at("images"), root.at("tiles"));
+    auto rows = tile_detail::decode_tile_set_rows(root.at("images"), root.at("tiles"),
+                                                  envelope.version >= 2);
     for (const auto& row : root.at("images"))
         require(row.size() == 4 && row.at("grid").size() == 6,
                 "Cooked Tile Set image contains unsupported fields");
-    for (const auto& row : root.at("tiles"))
-        require(row.size() == 4, "Cooked Tile Set definition contains unsupported fields");
+    for (const auto& row : root.at("tiles")) {
+        require(row.size() == (envelope.version >= 2 ? 5u : 4u),
+                "Cooked Tile Set definition contains unsupported fields");
+        if (envelope.version >= 2) {
+            const auto& profile = row.at("collision");
+            require(profile.size() == (profile.at("kind") == "convex" ? 2u : 1u),
+                    "Cooked tile collision contains unsupported fields");
+        }
+    }
     const auto by_id = [](const auto& a, const auto& b) { return a.id < b.id; };
     std::sort(rows.images.begin(), rows.images.end(), by_id);
     std::sort(rows.tiles.begin(), rows.tiles.end(), by_id);
@@ -127,7 +178,8 @@ std::size_t TileSetData::resident_bytes() const {
     for (const auto& image : rows_->images)
         bytes += image.name.capacity() + 1;
     for (const auto& tile : rows_->tiles)
-        bytes += tile.name.capacity() + 1;
+        bytes += tile.name.capacity() + 1 +
+                 tile.collision.points.capacity() * sizeof(std::array<double, 2>);
     return bytes;
 }
 } // namespace forge

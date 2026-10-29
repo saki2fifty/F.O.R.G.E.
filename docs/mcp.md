@@ -226,6 +226,21 @@ editor reloads. Read `status` again before editing; requests carrying the previo
 session fail with `wrong_document`. Dirty drafts are retained and block automatic
 replacement through the same registered owner used by the interactive editor.
 
+`forge_asset_document_tile_collision` edits one Tile Set definition through the
+same source owner. Supply `editor:"tile_set"`, exact session/revision, the full
+uint64 local `tile` key and `collision`. Profiles are `{"kind":"full_cell"}`,
+`{"kind":"none"}`, or `{"kind":"convex","points":[[0,0],[1,0],[1,1]]}`.
+Convex points require3..8 strictly counterclockwise unit-cell XY/up coordinates.
+The published schema validates the exclusive profile alternatives; native source
+validation rejects bad ordering/degeneracy and guards legacy reserved fields.
+Explicit profile editing promotes Source1 to2 when safe. It does not remint keys,
+write Scene values or publish automatically. Undo/Redo and Save use the ordinary
+asset-document methods. After publishing a Set, republish its dependent Maps
+against that selected revision. Collision uses existing Static/Kinematic bodies,
+sensors, cell flags and shape budgets; custom one-way polygons are unsupported.
+Interactive unapplied collision drafts participate in the existing document-busy
+guard. Read-only connections advertise no collision mutation binding.
+
 Timeline component fields use the same `forge_asset_document_patch`, validation,
 Undo/Redo and publication tools. Read the current inspected custom component
 admission with `forge_code_schemas`. Use its `reference_schema.components` fields

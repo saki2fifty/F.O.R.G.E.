@@ -68,19 +68,29 @@ Json set_metadata(const TileSetData& set) {
                                    {"spacing_y", grid.spacing_y}}}});
     }
     for (const auto& tile : set.tiles())
-        out["tiles"].push_back(
-            {{"id", tile.id}, {"name", tile.name}, {"image", tile.image}, {"frame", tile.frame}});
+        out["tiles"].push_back({{"id", tile.id},
+                                {"name", tile.name},
+                                {"image", tile.image},
+                                {"frame", tile.frame},
+                                {"collision", tile_detail::tile_collision_json(tile.collision)}});
     return out;
 }
 } // namespace
 Json tile_map_projection_header(const TileMapData& map, const TileSetData& definitions) {
     require(map.tile_set() == definitions.asset(),
             "Tile presentation definitions have a different root");
-    return {{"map", map_metadata(map)}, {"definitions", set_metadata(definitions)}};
+    return {{"map", map_metadata(map)},
+            {"definitions", set_metadata(definitions)},
+            {"definitions_version", 2}};
 }
 TileMapProjectionHeader decode_tile_map_projection_header(const Json& header, AssetId map,
                                                           AssetId definitions) {
-    require(header.is_object() && header.size() == 2, "Invalid Tile presentation header");
+    require(header.is_object() &&
+                header.size() == (header.contains("definitions_version") ? 3u : 2u),
+            "Invalid Tile presentation header");
+    const auto version =
+        header.contains("definitions_version") ? natural(header.at("definitions_version"), 2) : 1;
+    require(version >= 1, "Unsupported Tile presentation definition version");
     auto metadata = header.at("map");
     TileMapProjectionHeader result;
     result.expected_cells = natural(metadata.at("cell_count"), tile_map_cell_limit);
@@ -96,8 +106,8 @@ TileMapProjectionHeader decode_tile_map_projection_header(const Json& header, As
                                map);
     result.definitions = decode_cooked_tile_set(
         asset_detail::encode_envelope(header.at("definitions"), {}, tile_set_cooked_magic,
-                                      tile_set_cooked_metadata_limit),
-        definitions);
+                                      tile_set_cooked_metadata_limit, std::uint32_t(version)),
+        definitions, std::uint32_t(version));
     require(result.empty.tile_set() == result.definitions.asset(),
             "Tile presentation header roots disagree");
     return result;

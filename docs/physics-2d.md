@@ -109,13 +109,15 @@ must finish before a new layer choice is offered.
 
 This profile requires a Static or Kinematic PhysicsBody2D. Sensor may be enabled
 for a trigger layer. The Map collider is mutually exclusive with inline colliders.
-Every occupied selected-layer cell contributes a solid or sensor rectangle;
-renderer visibility, layer visibility and image orientation flags do not change
-collision. Decorative cells belong in another layer. Empty valid layers have no
+Tile Set definitions supply full-cell, None or convex collision profiles. Full-cell
+regions merge into solid/sensor rectangles; None contributes no shape. Convex
+contours follow the renderer's cell flips/transpose. Renderer/layer visibility does
+not disable collision. Decorative cells can use None or another layer. Empty or
+all-None valid layers have no
 native body or placeholder shape; refilling creates a new private realization epoch.
 An enabled joint cannot retain an endpoint whose last solid cells are removed.
 
-One pure projection merges identical horizontal occupied runs through consecutive
+One pure projection merges identical horizontal full-cell runs through consecutive
 rows within each32×32 chunk. It produces nonoverlapping boxes, with no per-cell
 entities, identities, second Map database or native world. This is not a globally
 minimal rectangle cover or a promise of seamless character movement across joins.
@@ -129,11 +131,19 @@ full size = (w * cx * abs(sx), h * cy * abs(sy))
 
 The same checked conversion builds native shapes and copied Scene outlines.
 Each full dimension must be0.01..1000metres; each local box corner remains within
-±10000metres. The existing planar ancestry/pose admission applies, including signed
+±10000metres. For custom polygons, first invert the existing Sprite region
+flip/transpose mapping in unit-cell XY/up coordinates, then convert each point:
+`((cell.x + point.x) * cx * sx, (cell.y + point.y) * cy * sy)`. Polygon AABB
+dimensions share0.01..1000m bounds and every float vertex remains within±10000m.
+Validate strict convex ordering after float conversion, accept either winding
+after signed scale, then require the public native hull to retain every vertex.
+Near-degenerate geometry can reject at its physical scale even when source-valid. The existing planar ancestry/pose admission applies, including signed
 and flat-depth transforms. Scene outlines show published geometry and explicitly
 exclude runtime cell edits. Geometry preparation runs on immutable copied input.
 
-The existing runtime Map owner retains cells and publishes fixed edits. Its one
+The candidate retains its matching immutable Tile Set definition snapshot; native
+geometry and copied editor outlines use that same checked conversion. Failed
+replacement retains the previous pair together. The existing runtime Map owner retains cells and publishes fixed edits. Its one
 private admission callback delegates to the existing PhysicsRuntime before adopting
 candidate cells. Unsupported extent, aggregate native capacity or connected-empty
 geometry rejects the complete request. An incompatible source revision retains
@@ -141,10 +151,11 @@ the instance's last admitted cells and collision with a diagnostic. Independent
 instances of one asset remain independent. Unchanged snapshots/layer/physical scale
 reuse immutable geometry inside the existing native-body record.
 
-There are at most4096 total native2D shapes across Map rectangles and inline bodies,
+There are at most4096 total native2D shapes across Map rectangles, convex pieces and inline bodies,
 within existing body, joint, pair and event limits. Empty Map actors do not consume
-native body/shape slots. This profile excludes Dynamic Maps, slopes, per-tile
-polygons and Kinematic/sensor one-way Map collision. A Map is not itself a character controller or
+native body/shape slots. This profile excludes Dynamic Maps, automatic concave decomposition and custom
+polygon or Kinematic/sensor one-way Map collision. Convex slopes use ordinary
+contact, query and controller response within the existing controller limits. A Map is not itself a character controller or
 a navigation mesh.
 
 ### Moving Maps and triggers
@@ -648,7 +659,7 @@ scene sources. Export startup selection remains ordinary Project Settings.
 0(off), and accepts0..1 world metres without presentation scaling. Typed reflection
 supplies **Step Height**, units, range, Inspector/MCP validation, history and Save.
 No new command, copied state, source format/identity or private codec is required.
-The existing exact configuration guard includes the field; private9/outer2 remain.
+The existing exact configuration guard includes the field; private10/outer2 apply.
 The public header changes the SDK fingerprint; rebuild matching modules.
 
 After ordinary checked locomotion substantially clips horizontal intent (remaining
@@ -712,8 +723,8 @@ standing is a valid result.
 Movement, support, one-way proxies, queries and detached admission use effective
 stance. Configuration replacement preserves crouch while checking new geometry.
 Recovery guards authored standing configuration, then validates checkpointed effective
-clearance and native shape before binding callbacks. Private physics checkpoint9
-retains stance/blocked flags and pending kind2 requests; checkpoint8 rejects.
+clearance and native shape before binding callbacks. Private physics checkpoint10
+retains stance/blocked flags and pending kind2 requests; older private checkpoints reject.
 Outer2 and authored Scene/Prefab identity/formats are unchanged. Arbitrary C++ state
 is not recovered.
 
@@ -811,7 +822,7 @@ across ticks and copies all8160 End/Begin observations when1020 visitors are
 replaced. A separate16384 zero-dt retirement check rejects further replacement
 before native writes, then permits it after adoption releases that window.
 
-Private checkpoint9 preserves native 2D bytes, admitted configuration, private epochs,
+Private checkpoint10 preserves native 2D bytes, admitted configuration, private epochs,
 next epoch and queued domain-tagged commands inside the existing owner. Recorded
 one-way side-start samples stay in the same body records and are validated on
 fresh recovery before callback rebinding. The private outer version remains2.

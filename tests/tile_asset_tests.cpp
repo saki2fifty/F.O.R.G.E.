@@ -7,6 +7,7 @@
 #include "material_authoring.hpp"
 #include "material_selection.hpp"
 #include "physics_tile_map_tests.hpp"
+#include "physics_tile_polygon_tests.hpp"
 #include "runtime_package.hpp"
 #include "runtime_tile_map.hpp"
 #include "tile_asset_authoring.hpp"
@@ -748,6 +749,66 @@ void file_workflows(const std::filesystem::path& root, std::shared_ptr<ProjectLe
     require(large_impact.references.size() == 4 && large_impact.uninspected.size() >= 2,
             "Large map references or opaque payloads escaped file-operation review");
 }
+void collision_profile_publication(const std::filesystem::path& root,
+                                   const std::filesystem::path& worker) {
+    std::filesystem::create_directories(root / "Assets");
+    auto lease = std::make_shared<ProjectLease>(root);
+    const auto image_material = material(root, lease);
+    auto source = TileSetSource::create(AssetId::generate());
+    source.document["next_id"] = 4;
+    source.document["images"].push_back({{"id", 1},
+                                         {"name", "Profile image"},
+                                         {"material", image_material},
+                                         {"grid",
+                                          {{"columns", 1},
+                                           {"rows", 1},
+                                           {"margin_x", 0},
+                                           {"margin_y", 0},
+                                           {"spacing_x", 0},
+                                           {"spacing_y", 0}}}});
+    source.document["tiles"] =
+        Json::array({{{"id", 2}, {"name", "Ramp"}, {"image", 1}, {"frame", 0}},
+                     {{"id", 3}, {"name", "Decoration"}, {"image", 1}, {"frame", 0}}});
+    source.set_collision(2, {{"kind", "convex"}, {"points", {{0., 0.}, {1., 0.}, {1., 1.}}}});
+    source.set_collision(3, {{"kind", "none"}});
+    atomic_write(root / "Assets/Profiles.tileset.json", source.document.dump(2));
+    AssetImportService service(lease, tile_asset_import_registry(worker), {"linux", "none", "cpu"});
+    const auto result = publish(service, "Assets/Profiles.tileset.json", source.asset(), false);
+    require(result.published, "Collision profile publication failed: " + result.diagnostic);
+    const auto catalog = std::make_shared<const AssetCatalog>(AssetCatalog::open_project(root));
+    const auto& record = catalog->records().at(source.asset());
+    require(record.schema_version == 2 &&
+                record.metadata.at("forge.import").at("output_version") == 2,
+            "Collision publication source/cook versions differ");
+    require(catalog->resolve(source.asset(), TileSetAsset::type).state == AssetState::Available,
+            "Catalog did not admit the supported Tile Set source schema2");
+    auto invalid_catalog = *catalog;
+    auto future = record;
+    future.schema_version = 3;
+    invalid_catalog.replace(future);
+    require(invalid_catalog.resolve(source.asset(), TileSetAsset::type).state ==
+                AssetState::Incompatible,
+            "Catalog admitted an unsupported Tile Set source schema");
+    auto unrelated = catalog->records().at(image_material);
+    unrelated.schema_version = 2;
+    invalid_catalog.replace(std::move(unrelated));
+    require(invalid_catalog.resolve(image_material, MaterialAsset::type).state ==
+                AssetState::Incompatible,
+            "Tile Set schema extension admitted another asset type's unsupported schema");
+    const auto data = load_set(root, catalog, source.asset());
+    require(data.tile(2).collision.kind == TileCollisionKind::Convex &&
+                data.tile(2).collision.points.size() == 3 &&
+                data.tile(3).collision.kind == TileCollisionKind::None,
+            "Published collision resource values differ");
+    DerivedDataCache cache(root);
+    auto artifact = cache.load_selected(
+        record.metadata.at("forge.import").at("key").get<std::string>(), [](const auto&) {});
+    auto mismatch = record;
+    mismatch.metadata["forge.import"]["output_version"] = 1;
+    artifact.manifest["inputs"]["output_version"] = 1;
+    reject([&] { (void)admit_tile_set_artifact(artifact, mismatch); });
+    test_tile_polygon_runtime(root, lease, worker, source.asset());
+}
 void workflow(const std::filesystem::path& root, const std::filesystem::path& worker,
               const std::filesystem::path& sdk_library) {
     std::filesystem::create_directories(root / "Assets");
@@ -964,6 +1025,8 @@ int main(int argc, char** argv) {
         require(argc == 3 || argc == 4,
                 "Expected native import worker, scratch root, optional matching module");
         const auto root = std::filesystem::absolute(argv[2]) / AssetId::generate().str();
+        collision_profile_publication(root / "collision profiles",
+                                      std::filesystem::absolute(argv[1]));
         workflow(root / "project with spaces", std::filesystem::absolute(argv[1]),
                  argc == 4 ? std::filesystem::absolute(argv[3]) : std::filesystem::path{});
         std::filesystem::remove_all(root);

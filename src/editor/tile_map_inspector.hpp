@@ -9,6 +9,7 @@ struct PublishedTileMapView {
     std::shared_ptr<const TileMapData> cells;
     std::string revision, status;
     bool current = false;
+    std::shared_ptr<const TileSetData> definitions{};
 };
 using PublishedTileMapReader = std::function<PublishedTileMapView(AssetRef<TileMapAsset>)>;
 inline bool tile_map_layer_field(const PublishedTileMapReader& read, const Json& components,
@@ -63,9 +64,9 @@ inline bool tile_map_layer_field(const PublishedTileMapReader& read, const Json&
                           : view.status.empty() ? "Preparing published Map layers..."
                                                 : view.status;
         ImGui::TextWrapped("%s", note.c_str());
-        help("Occupied cells in this layer make solid or sensor rectangles, according to Physics "
+        help("Tiles in this layer use their Tile Set collision profiles, according to Physics "
              "Body 2D. Use Static or Kinematic Motion; Sensor makes a trigger. Hidden layers can "
-             "provide collision; decorative layers and image flips do not change it.");
+             "provide collision; cell flips also transform custom collision polygons.");
         return changed;
     } catch (const std::exception& error) {
         field_error(error.what());

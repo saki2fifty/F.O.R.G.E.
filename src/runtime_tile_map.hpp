@@ -50,7 +50,8 @@ bool release_runtime_tile_edit(WorldContext&, const std::string& module, std::ui
 void publish_runtime_tile_edits(WorldContext&);
 // One validator supplied by the existing PhysicsRuntime owner. It checks detached
 // values before source adoption or fixed edit publication; it never publishes cells.
-using TileMapPhysicsAdmission = std::function<void(EntityRef, const TileMapData&, bool edit)>;
+using TileMapPhysicsAdmission =
+    std::function<void(EntityRef, const RuntimeTileMapSnapshot&, bool edit)>;
 void set_tile_map_physics_admission(WorldContext&, TileMapPhysicsAdmission);
 // Private same-build recovery, not authored source or a gameplay SDK token API.
 // A null capture means a binding or pending edit is not at a checkpoint boundary.

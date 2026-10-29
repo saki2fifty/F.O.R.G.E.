@@ -1,5 +1,6 @@
 #include "asset_bytes.hpp"
 #include "editor/tile_set_editor.hpp"
+#include "imgui_software_capture.hpp"
 #include <imgui_internal.h>
 #include <iostream>
 
@@ -149,6 +150,44 @@ void exercise(const std::filesystem::path& scratch, float scale, bool compact) {
     number("tile_set:frame", "3");
     check(editor.document()->source().values().tiles.back().frame == 3,
           "Tile Inspector frame did not apply");
+    const auto before_collision = editor.document()->source().document;
+    const auto collision_revision = editor.document()->revision();
+    click("tile_set:collision_kind");
+    click("tile_set:collision_kind:2");
+    check(editor.document()->revision() == collision_revision && !editor.can_undo(),
+          "Unapplied polygon changed source or allowed history traversal");
+    frame();
+    check(!test::ui_targets.at("tile_set:frame").enabled,
+          "Unapplied polygon could be discarded by an unrelated tile field edit");
+    context.selection.clear();
+    frame();
+    click("tile_set:collision_review");
+    check(context.selection.member() == "tile/4",
+          "Collision draft could not be reopened after another selection");
+    click("tile_set:collision_add");
+    click("tile_set:collision_apply");
+    check(editor.document()->revision() == collision_revision && !editor.diagnostic().empty(),
+          "Collinear draft polygon entered source/history");
+    number("tile_set:collision_point:3:x", "0");
+    number("tile_set:collision_point:3:y", "1");
+    click("tile_set:collision_apply");
+    check(editor.document()->source().document.at("version") == 2 &&
+              editor.document()->source().values().tiles.back().collision.points.size() == 4 &&
+              editor.can_undo(),
+          "Polygon Inspector coordinates/apply did not promote and retain history");
+    click("tile_set:undo");
+    check(editor.document()->source().document == before_collision,
+          "Polygon Undo did not restore the complete legacy source");
+    click("tile_set:redo");
+    check(editor.document()->source().values().tiles.back().collision.points.size() == 4,
+          "Polygon Redo lost authored vertices");
+    click("tile_set:collision_kind");
+    click("tile_set:collision_kind:1");
+    click("tile_set:collision_discard");
+    check(editor.document()->source().values().tiles.back().collision.kind ==
+              TileCollisionKind::Convex,
+          "Discard changed the applied collision profile");
+    click("tile_set:undo");
     click("tile_set:remove_tile");
     check(editor.document()->source().values().tiles.size() == 2, "Remove tile did not apply");
     frame(); // Inspector reconciles the source changed by the preceding frame's button.
@@ -203,9 +242,58 @@ void exercise(const std::filesystem::path& scratch, float scale, bool compact) {
     test::observe_ui = false;
     ImGui::DestroyContext();
 }
+void capture_collision(const std::filesystem::path& root) {
+    std::filesystem::create_directories(root / "project");
+    test::ImGuiSoftwareCapture capture(760, 1000);
+    ui::style(1);
+    ui::EditorUiContext context;
+    ui::ContextScope scope(context);
+    EngineContext engine;
+    Scene scene(engine.world());
+    SceneDocument project(scene);
+    project.open_project(root / "project", true);
+    auto document =
+        TileSetDocument::create(project.writer_guard(), "Assets/Collision.tileset.json");
+    document->edit_source(document->revision(), "Capture convex tile", [](auto& source) {
+        source.document["next_id"] = 3;
+        source.document["images"] = {{{"id", 1},
+                                      {"name", "Tile image"},
+                                      {"material", AssetId::generate()},
+                                      {"grid",
+                                       {{"columns", 1},
+                                        {"rows", 1},
+                                        {"margin_x", 0},
+                                        {"margin_y", 0},
+                                        {"spacing_x", 0},
+                                        {"spacing_y", 0}}}}};
+        source.document["tiles"] = {
+            {{"id", 2}, {"name", "Convex ramp"}, {"image", 1}, {"frame", 0}}};
+        source.set_collision(2, {{"kind", "convex"}, {"points", {{0., 0.}, {1., 0.}, {1., 1.}}}});
+    });
+    document->save();
+    document.reset();
+    TileSetEditor editor("unused-capture-worker");
+    editor.open(project, "Assets/Collision.tileset.json");
+    check(editor.document(), "Collision capture source did not open");
+    for (unsigned frame = 0; frame < 3; ++frame) {
+        capture.new_frame();
+        ImGui::SetNextWindowPos({10, 10});
+        ImGui::SetNextWindowSize({740, 980});
+        ImGui::Begin("Inspector", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+        editor.inspect("tile/2", false);
+        ImGui::End();
+        capture.render();
+    }
+    check(editor.diagnostic().empty(), "Collision capture has source diagnostics");
+    capture.save(root / "tile-collision-profile.png");
+}
 } // namespace
 int main(int argc, char** argv) {
     try {
+        if (argc == 3 && std::string_view(argv[2]) == "--capture") {
+            capture_collision(std::filesystem::absolute(argv[1]));
+            return 0;
+        }
         check(argc == 2, "Expected scratch directory");
         for (float scale : {1.f, 1.5f, 2.f})
             for (bool compact : {false, true})

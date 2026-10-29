@@ -13,6 +13,29 @@ int main() {
         check(header.expected_cells == 262144 && header.expected_chunks == 1024 &&
                   !header.empty.occupied(),
               "Header inlined cells or lost maximum profile counts");
+        const auto shaped = definitions(set, true);
+        const auto shaped_header = tile_map_projection_header(maximum, shaped);
+        check(shaped_header.at("definitions_version") == 2,
+              "Copied definitions did not declare their profile");
+        const auto copied_shapes = decode_tile_map_projection_header(shaped_header, id, set);
+        check(copied_shapes.definitions.tile(9).collision == shaped.tile(9).collision &&
+                  copied_shapes.definitions.tile(wide).collision.kind == TileCollisionKind::None,
+              "Copied Tile Set lost collision profiles");
+        auto legacy_header = tile_map_projection_header(maximum, defs);
+        legacy_header.erase("definitions_version");
+        for (auto& tile : legacy_header["definitions"]["tiles"])
+            tile.erase("collision");
+        const auto legacy = decode_tile_map_projection_header(legacy_header, id, set);
+        check(legacy.definitions.tile(9).collision.kind == TileCollisionKind::FullCell,
+              "Legacy copied Tile Set did not retain full-cell behavior");
+        for (const Json& version : {Json(0), Json(3), Json(2.0)}) {
+            auto invalid = shaped_header;
+            invalid["definitions_version"] = version;
+            rejects([&] { decode_tile_map_projection_header(invalid, id, set); });
+        }
+        auto invalid = shaped_header;
+        invalid["definitions"]["tiles"][0]["collision"]["points"] = {{0., 0.}, {0., 1.}, {1., 0.}};
+        rejects([&] { decode_tile_map_projection_header(invalid, id, set); });
         const auto keys = tile_map_projection_changes(maximum);
         auto copied = header.empty;
         for (std::size_t at = 0; at < keys.size(); at += tile_projection_page_chunks) {

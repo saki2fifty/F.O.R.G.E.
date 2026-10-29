@@ -182,7 +182,7 @@ std::optional<Json> TileMapPlayReceiver::next_request() {
         const auto frame = frames_.find(at->first);
         if (wanted.ready &&
             (frame == frames_.end() || frame->second.revision != wanted.value.revision)) {
-            Flight flight{Operation::Begin, wanted};
+            Flight flight{Operation::Begin, wanted, {}};
             if (frame != frames_.end())
                 flight.base = frame->second;
             request["command"] = "tile_map_begin";
@@ -357,7 +357,8 @@ bool TileMapPlayReceiver::receive(const Json& payload) {
                         known.set_revision == transfer.value.set_revision) {
                         require(tile_map_projection_header(header.empty, *known.definitions)
                                         .at("definitions") ==
-                                    payload.at("header").at("definitions"),
+                                    tile_map_projection_header(header.empty, header.definitions)
+                                        .at("definitions"),
                                 "Tile Play reused Set revision has different definitions");
                         transfer.value.definitions = known.definitions;
                         break;

@@ -6,6 +6,7 @@
 #include <string_view>
 namespace forge {
 class TileMapData;
+class TileSetData;
 // Owner-thread extraction pins only immutable native shape data for a worker.
 // ResourceLease itself remains confined to its resource owner's thread.
 struct PhysicsDebugCollision {
@@ -32,5 +33,6 @@ LocalTransform physics_debug_pose(const nlohmann::json& components, const Affine
 PhysicsDebugGeometry prepare_physics_debug(const nlohmann::json& components, LocalScale,
                                            PhysicsDebugCollision collision = {},
                                            bool crouched = false, std::size_t triangle_limit = 8192,
-                                           const TileMapData* tile_map = nullptr);
+                                           const TileMapData* tile_map = nullptr,
+                                           const TileSetData* definitions = nullptr);
 } // namespace forge

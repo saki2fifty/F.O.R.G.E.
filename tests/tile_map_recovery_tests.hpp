@@ -76,7 +76,7 @@ inline void test_tile_map_recovery(const std::filesystem::path& root, const forg
     bad = saved;
     bad["entries"].erase(1);
     reject(bad);
-    for (const Json invalid : {Json(0), Json(1.5), Json(true), saved.at("next_generation")}) {
+    for (const Json& invalid : {Json(0), Json(1.5), Json(true), saved.at("next_generation")}) {
         bad = saved;
         bad["entries"][0]["generation"] = invalid;
         reject(bad);

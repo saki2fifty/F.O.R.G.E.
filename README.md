@@ -105,6 +105,12 @@ Dynamic shapes land on the green tiles; the blue arrows remain decorative.
 Select **Collision layer** in the Inspector and see its collision boxes in Scene.
 Gallery81 adds an animated Kinematic painted course;82 uses painted sensor regions
 above a solid receiver. See the [Tile Maps guide](manual/editor/tile-maps.md).
+Gallery101 adds per-tile **Full cell**, **None** and **Convex polygon** profiles,
+with mirrored ramps and decorative tiles. Edit normalized vertices in the Tile Set
+Inspector, publish the Set and Map, then test Static or Kinematic collision.
+Custom profiles admit 3–8 convex vertices; concave shapes and custom one-way
+polygons are outside this profile. This extension is local development source;
+Windows and physical GPU verification remain pending.
 This actual Windows D3D12 WARP Game capture demonstrates the original static course:
 
 [![Four colored shapes resting on painted green platforms while blue arrows remain decorative](manual/images/painted-collision-game.png)](manual/images/painted-collision-game.png)

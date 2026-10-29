@@ -1,6 +1,7 @@
 #pragma once
 #include "physics_2d_joint.hpp"
 #include "physics_command.hpp"
+#include "tile_set_values.hpp"
 #include <forge/character_components.hpp>
 #include <forge/physics_components.hpp>
 #include <forge/world.hpp>
@@ -12,6 +13,7 @@
 namespace forge {
 struct PhysicsDebugGeometry;
 class TileMapData;
+class TileSetData;
 } // namespace forge
 namespace forge::detail {
 struct RuntimeTileMapSnapshot;
@@ -20,6 +22,11 @@ namespace forge::physics_detail {
 struct BoxPart2D {
     std::array<float, 2> center{}, dimensions{}; // Scaled body-local metres; full dimensions.
     bool operator==(const BoxPart2D&) const = default;
+};
+struct PolygonPart2D {
+    std::array<std::array<float, 2>, tile_collision_vertex_limit> points{};
+    std::uint32_t count = 0;
+    bool operator==(const PolygonPart2D&) const = default;
 };
 struct MoverProfile2D {
     float minimum_floor_y = -1, floor_probe = .1f;
@@ -31,16 +38,19 @@ struct MoverProfile2D {
 };
 struct Body2DConfiguration {
     PhysicsBody2D body;
-    unsigned shape = 0;                // Box, circle, capsule, compound boxes.
+    unsigned shape = 0;                // Box, circle, capsule, compound convex parts.
     std::array<float, 2> dimensions{}; // Effective world geometry, metres.
     std::shared_ptr<const std::vector<BoxPart2D>> parts{};
     // Derived controller role, not an authored PhysicsBody2D. The capsule's
     // native/local origin is at its feet; -1 selects floating move/slide.
     std::optional<MoverProfile2D> mover_profile{};
+    std::shared_ptr<const std::vector<PolygonPart2D>> polygons{};
     bool operator==(const Body2DConfiguration& other) const {
         return body == other.body && shape == other.shape && dimensions == other.dimensions &&
                mover_profile == other.mover_profile &&
-               (parts == other.parts || (parts && other.parts && *parts == *other.parts));
+               (parts == other.parts || (parts && other.parts && *parts == *other.parts)) &&
+               (polygons == other.polygons ||
+                (polygons && other.polygons && *polygons == *other.polygons));
     }
     Json json() const;
 };
@@ -61,9 +71,11 @@ Body2DConfiguration controller_configuration_2d(const CharacterController2D&, Lo
 // Checked feet-to-centered-capsule projection shared by admission and controls.
 PhysicsOverlap2D controller_shape_2d(const Body2DConfiguration&, Double2 feet);
 Body2DConfiguration tile_map_configuration_2d(PhysicsBody2D, const TileMapData&,
-                                              std::uint64_t layer, LocalScale);
+                                              std::uint64_t layer, LocalScale,
+                                              const TileSetData* definitions = nullptr);
 PhysicsDebugGeometry prepare_debug_2d(const Json&, LocalScale, std::size_t line_limit,
-                                      const TileMapData* = nullptr, bool crouched = false);
+                                      const TileMapData* = nullptr, bool crouched = false,
+                                      const TileSetData* = nullptr);
 LocalTransform debug_pose_2d(const AffineTransform&);
 LocalTransform controller_debug_pose_2d(const AffineTransform&, const LocalTransform& hint);
 struct Native2DImage {
@@ -94,7 +106,7 @@ struct MoverState2D {
 class Native2D;
 struct TileMap2DOverride {
     std::uint64_t entity = 0;
-    const TileMapData* cells = nullptr;
+    const detail::RuntimeTileMapSnapshot* snapshot = nullptr;
 };
 Desired2D desired_bodies_2d(WorldContext&, const PhysicsConfig&,
                             const std::map<std::uint64_t, TransformNode>&,

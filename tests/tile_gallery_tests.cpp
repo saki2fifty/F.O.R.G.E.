@@ -2,6 +2,7 @@
 #include "asset_bytes.hpp"
 #include "physics_moving_tile_gallery_tests.hpp"
 #include "physics_tile_gallery_tests.hpp"
+#include "physics_tile_polygon_gallery_tests.hpp"
 #include "runtime_package.hpp"
 #include "runtime_tile_map.hpp"
 #include "tile_map_document.hpp"
@@ -97,6 +98,11 @@ int main(int argc, char** argv) {
         const auto moving_scene = find(catalog, "Scenes/81-moving-tile-maps.scene.json");
         const auto trigger_scene = find(catalog, "Scenes/82-tile-map-triggers.scene.json");
         const auto one_way_scene = find(catalog, "Scenes/86-one-way-tile-maps.scene.json");
+        const auto polygon_scene = find(catalog, "Scenes/101-tile-collision-profiles.scene.json");
+        const auto polygon_map = find(catalog, "Assets/Tiles/CollisionProfiles.tilemap.json");
+        const auto polygon_set = find(catalog, "Assets/Tiles/CollisionProfiles.tileset.json");
+        const std::array polygon_roots{polygon_scene};
+        const auto polygon_package = scratch / "polygon cooked content";
         const std::array profile_roots{moving_scene, trigger_scene, one_way_scene};
         const auto profile_package = scratch / "moving trigger cooked content";
         const auto definitions = TileSetSource::parse(asset_detail::read_bytes(
@@ -148,6 +154,14 @@ int main(int argc, char** argv) {
         test_moving_trigger_gallery(root, moving_scene, true);
         test_moving_trigger_gallery(root, trigger_scene, false);
         test_painted_collision_gallery(root, one_way_scene, painted_map, true);
+        {
+            auto lease = std::make_shared<ProjectLease>(root);
+            WorldContext author;
+            Scene schema(author);
+            prepare_runtime_content_catalog(*lease, polygon_roots, {}, schema.schema());
+            package_runtime_content(root, polygon_package, polygon_roots, {"windows", "d3d12"});
+        }
+        test_tile_polygon_gallery(root, polygon_scene, polygon_map);
         const auto package = scratch / "cooked tile content";
         package_runtime_content(root, package, roots, {"windows", "d3d12"});
         std::filesystem::remove_all(root);
@@ -184,6 +198,15 @@ int main(int argc, char** argv) {
         test_moving_trigger_gallery(profile_moved, moving_scene, true);
         test_moving_trigger_gallery(profile_moved, trigger_scene, false);
         test_painted_collision_gallery(profile_moved, one_way_scene, painted_map, true);
+        const auto polygon_moved = scratch / "relocated source-free polygon content";
+        std::filesystem::rename(polygon_package, polygon_moved);
+        const auto polygon_catalog = open_runtime_content(polygon_moved, {"windows", "d3d12"});
+        check(polygon_catalog.records().size() == 8 &&
+                  polygon_catalog.records().contains(polygon_scene) &&
+                  polygon_catalog.records().contains(polygon_map) &&
+                  polygon_catalog.records().contains(polygon_set),
+              "Polygon export lost its exact selected dependency closure");
+        test_tile_polygon_gallery(polygon_moved, polygon_scene, polygon_map);
         std::filesystem::remove_all(scratch);
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

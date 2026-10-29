@@ -1557,9 +1557,9 @@ Json registration_options(const Builtin& type, const std::string& field) {
     if (name == "forge.tile_map_collider_2d" && field == "layer") {
         value["display_name"] = "Collision layer";
         value["description"] =
-            "Occupied cells make solid or sensor rectangles, according to Physics Body 2D. "
-            "Decorative layers and image flips do not change collision. "
-            "Zero is unassigned.";
+            "Tiles use their Tile Set full-cell, None or convex collision profiles. "
+            "Cell flips transform custom polygons; hiding a layer does not remove collision. "
+            "Use Static or Kinematic Physics Body 2D. Zero is unassigned.";
     }
     if (name == "forge.mesh_renderer" && field == "material_variant") {
         value["description"] =
@@ -2050,10 +2050,11 @@ Json registration_options(const Builtin& type, const std::string& field) {
                 "continuous collision remains enabled. Inactive choices are preserved.";
         if (field == "one_way") {
             value["display_name"] = "One-way collision";
-            value["description"] = "Static nonsensor Box or Tile Map Collider 2D: land on each "
-                                   "rectangle's transformed "
-                                   "local +Y face and pass from the opposite side. Geometric "
-                                   "queries see whole shapes.";
+            value["description"] =
+                "Static nonsensor Box or Tile Map Collider 2D: land on each "
+                "rectangle's transformed "
+                "local +Y face and pass from the opposite side. Geometric "
+                "queries see whole shapes. Custom tile polygons are unsupported.";
         }
         if (field == "one_way_margin") {
             value["display_name"] = "One-way margin";

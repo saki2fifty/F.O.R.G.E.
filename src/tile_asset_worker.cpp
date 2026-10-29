@@ -51,7 +51,7 @@ std::vector<ArtifactFile> execute_tile_recipe(const ImportProcessRequest& reques
         require(authored.asset() == expected, "Tile Set worker source identity mismatch");
         require(!stop.stop_requested(), "Tile Set cook cancelled");
         auto cooked = cook_tile_set(authored);
-        (void)decode_cooked_tile_set(cooked, expected);
+        (void)decode_cooked_tile_set(cooked, expected, 2);
         require(!stop.stop_requested(), "Tile Set cook cancelled before publication");
         return {{tile_set_artifact_file, std::move(cooked)}};
     }
