@@ -11,8 +11,6 @@ uses built-in assets and requires no C++ module or additional import.
 
 ## Material-normal ambient occlusion
 
-## Material-normal ambient occlusion
-
 Open **Scenes/108-material-normal-occlusion.scene.json** and press Play. A blue wall
 uses the supplied original **Assets/OcclusionNormals/RippleNormals.png** through
 **RippleWall.material.json**. Stop Play and open **Tools > Scene lighting... >

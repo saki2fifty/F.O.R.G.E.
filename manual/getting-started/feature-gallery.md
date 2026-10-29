@@ -1,9 +1,8 @@
 # Explore the Feature Gallery
 
-**109-rough-reflection-filtering** shows alternating colored columns over a rough
-metal floor. Press Play to inspect the saved result. Alternating
-amber and blue columns reflect in a rough metal floor. Stop, open **Tools > Scene
-lighting... → Screen-space reflections**, and toggle **Roughness filtering**.
+**109-rough-reflection-filtering** shows alternating amber and blue columns over
+a rough metal floor. Press Play to inspect the saved result. Stop, open **Tools >
+Scene lighting... → Screen-space reflections**, and toggle **Roughness filtering**.
 Compare the reflected detail, then change the floor's **roughnessFactor** below
 **Maximum roughness**. Save the Scene, select it as startup and export. The example
 uses built-in assets and requires no C++ module or additional import.
