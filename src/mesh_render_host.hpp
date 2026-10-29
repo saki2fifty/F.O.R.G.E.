@@ -101,6 +101,7 @@ class MeshSceneRenderer {
         TemporalMeshParts* current_parts = nullptr;
         std::function<void()> begin;
         std::function<void(bool complete_geometry)> resolve;
+        bool normal_only_output = false;
     };
     // Optional view-local spatial work after the eligible Mesh prefix. This
     // renderer still owns admission, queue order and restoring camera targets.

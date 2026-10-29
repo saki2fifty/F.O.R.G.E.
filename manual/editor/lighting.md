@@ -147,16 +147,17 @@ size or disable an effect when a capacity warning persists.
 4. Enter **Radius (m)**, from **0 to 10**, and press **Enter**. Nearby visible geometry within this distance can reduce ambient light. Start at **0.5**.
 5. Set **Strength**, from **0 to 1**. Zero strength or radius skips the effect.
 6. Adjust **Depth bias (m)**, from **0 to 1**, if a flat surface appears to shade itself. Start at **0.01**; increasing bias ignores smaller depth differences.
-7. Save the Scene. Play and exported games use the saved settings.
+7. Optionally set **Normal influence**, from **0 to 1**, and press **Enter**. Zero uses geometric directions from depth. Higher values blend toward the base Material normal, including a normal map. Start at zero and compare the contacts.
+8. Save the Scene. Play and exported games use the saved settings.
 
-![Ambient occlusion enabled with radius, strength and depth bias controls](../images/ambient-occlusion-controls.png)
+![Ambient occlusion enabled with radius, strength, depth bias and Normal influence controls](../images/ambient-occlusion-controls.png)
 
 Use Radius for the reach of nearby contacts and Strength for their ambient-light reduction.
 An unlit Material has no environment lighting to occlude. Assign a lit Material in
 the Mesh Renderer when you need this effect.
 
 **Reset ambient occlusion** disables the effect and restores radius **0.5 m**,
-strength **1** and bias **0.01 m** in one Undo step. Authored controls are read-only
+strength **1**, bias **0.01 m** and Normal influence **0** in one Undo step. Authored controls are read-only
 during Play. Turn off **Preview light** when comparing authored Scene lighting;
 Game uses the authored environment and lights.
 
@@ -170,17 +171,32 @@ module or additional import is required.
 
 Compare enabled and disabled views near the posts and lower ledge.
 
+Open **108-material-normal-occlusion** to compare a rippled normal-mapped wall.
+In **Ambient occlusion**, change **Normal influence** between **0** and **1**.
+The imported normal texture changes shading directions while the five Meshes and
+their depth stay the same. Save the Scene before exporting; the cooked Material
+and normal texture travel with it.
+
+![Normal-mapped blue wall with amber posts in the material-normal ambient occlusion gallery](../images/ambient-occlusion-material-normals.png)
+
+Compare Normal influence near the posts; the rippled lighting elsewhere is supplied
+by the normal map itself.
+
 A fine spatial sample pattern can be visible near contacts. The effect uses visible
-depth and geometric surface directions. Hidden or
-screen-edge geometry and normal-map detail cannot supply additional occlusion.
+depth and geometric directions, optionally refined by base Material normals.
+Normal maps do not add geometry or hidden surfaces. Invalid, absent or backward
+normal data uses geometric directions. Separate clearcoat/sheen normals are not
+additional AO inputs. Hidden or screen-edge geometry cannot supply occlusion.
 Direct lighting, emission, fog color and alpha remain unchanged. Transparency,
 Sprites, Tile Maps, particles, sky and editor overlays keep their existing rendering.
 Occlusion runs after enabled screen-space reflections and reduces their indirect
 light too. It runs before edge smoothing, motion blur and depth of field.
 
 Game cameras must clear both color and depth. Materials must test and write depth.
-Older custom or graph **Shader** assets need reimporting and their dependent
-**Materials** rebuilding before joining the effect. Unsupported shaders, draw order,
+Older custom or graph **Shader** assets may need reimporting and their dependent
+**Materials** rebuilding for their selected output profile. Normal influence needs
+the new normal outputs when reflections are disabled; enabled reflections share
+their existing normal image. Built-in Materials need no import. Unsupported shaders, draw order,
 depth or capacity keep ordinary rendering and report a warning. Up to eight Game
 views share a **512 MiB** surface texture estimate with reflections, edge smoothing and motion
 blur; Scene preview has its own **512 MiB** estimate. Native and temporary allocation

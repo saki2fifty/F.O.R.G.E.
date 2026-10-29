@@ -65,7 +65,8 @@ same frame invalidation API; it does not sample poses itself.
 With ambient occlusion disabled, texture payloads per pixel are: 28 for HDR/motion/depth inputs, plus 20
 for AA history, 8 for blur output, and 20 for a frozen motion/depth pair. Thus blur
 alone costs 36, combined AA/blur 56 and combined frozen AA/blur 76 bytes per pixel.
-Active [ambient occlusion](ambient-occlusion.md) adds16bytes/pixel and runs before
+Active [ambient occlusion](ambient-occlusion.md) adds16bytes/pixel; material-normal
+refinement adds another8bytes/pixel only without reflections. Occlusion runs before
 AA and motion blur through this same view. Up to eight Game views share a 512 MiB current payload estimate; Scene has its own
 512 MiB estimate. Extent/mode growth stages required textures before adoption;
 disabled modes release unused derived targets. Native allocation, retired/staged

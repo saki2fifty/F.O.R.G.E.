@@ -14,18 +14,25 @@ enum class MeshDrawProfile {
     MeshIndirect,
     MeshTemporalIndirect,
     MeshReflection,
-    MeshTemporalReflection
+    MeshTemporalReflection,
+    MeshNormal,
+    MeshTemporalNormal
 };
 inline bool temporal_mesh_profile(MeshDrawProfile profile) {
     return profile == MeshDrawProfile::MeshTemporal ||
            profile == MeshDrawProfile::MeshTemporalIndirect ||
-           profile == MeshDrawProfile::MeshTemporalReflection;
+           profile == MeshDrawProfile::MeshTemporalReflection ||
+           profile == MeshDrawProfile::MeshTemporalNormal;
 }
 inline bool indirect_mesh_profile(MeshDrawProfile profile) {
     return profile == MeshDrawProfile::MeshIndirect ||
            profile == MeshDrawProfile::MeshTemporalIndirect ||
            profile == MeshDrawProfile::MeshReflection ||
-           profile == MeshDrawProfile::MeshTemporalReflection;
+           profile == MeshDrawProfile::MeshTemporalReflection ||
+           profile == MeshDrawProfile::MeshNormal || profile == MeshDrawProfile::MeshTemporalNormal;
+}
+inline bool normal_mesh_profile(MeshDrawProfile profile) {
+    return profile == MeshDrawProfile::MeshNormal || profile == MeshDrawProfile::MeshTemporalNormal;
 }
 inline bool reflection_mesh_profile(MeshDrawProfile profile) {
     return profile == MeshDrawProfile::MeshReflection ||

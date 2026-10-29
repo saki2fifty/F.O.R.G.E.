@@ -227,9 +227,12 @@ std::string surface_shader_header(const SurfaceShaderDefinition& d, bool emulate
     return s;
 }
 std::string surface_shader_wrapper(std::string_view source, std::string_view function, bool depth,
-                                   bool indirect_output, bool reflection_output) {
+                                   bool indirect_output, bool reflection_output,
+                                   bool normal_output) {
     require(!depth || !indirect_output, "Depth surface does not emit indirect color");
     require(!reflection_output || indirect_output, "Reflection surface requires indirect output");
+    require(!normal_output || (indirect_output && !reflection_output),
+            "Normal-only surface requires indirect output without reflection outputs");
     identifier(function);
     require(!source.empty() && source.size() <= 1024 &&
                 source.find_first_of("\"\r\n\\") == source.npos,
@@ -238,9 +241,11 @@ std::string surface_shader_wrapper(std::string_view source, std::string_view fun
         require(c >= 32 && c != 127, "Control character in surface function source path");
     std::string s =
         "#include \"engine/forge.surface.hlsli\"\n#include \"" + std::string(source) + "\"\n";
-    if (reflection_output)
+    if (reflection_output || normal_output)
         s += reflection_surface_data;
-    const std::string extra = reflection_output ? ",out ForgeReflectionSurfaceData reflection" : "";
+    const std::string extra = reflection_output ? ",out ForgeReflectionSurfaceData reflection"
+                              : normal_output   ? ",out float4 forgeNormalSurface"
+                                                : "";
     s += depth             ? "void ForgeSurfaceDepth(ForgeSurfaceInput input) {\n"
          : indirect_output ? "float4 ForgeSurfaceIndirectLighting(ForgeSurfaceInput input,out "
                              "float3 indirect" +
@@ -248,6 +253,8 @@ std::string surface_shader_wrapper(std::string_view source, std::string_view fun
                            : "float4 ForgeSurfaceColor(ForgeSurfaceInput input):SV_Target0 {\n";
     if (reflection_output)
         s += "reflection=(ForgeReflectionSurfaceData)0;\n";
+    else if (normal_output)
+        s += "forgeNormalSurface=0;\n";
     s += "float4 value=" + std::string(function) +
          "(input);\n"
          "bool valid=all(isfinite(value));\n"
@@ -273,8 +280,12 @@ ForgeTemporalTargets ForgeSurfaceTemporalColor(ForgeSurfaceInput input) {
 }
 )hlsl";
 }
-std::string indirect_surface_wrapper(std::string helper, bool temporal, bool reflection) {
-    const std::string extra = reflection ? ",out ForgeReflectionSurfaceData reflection" : "";
+std::string indirect_surface_wrapper(std::string helper, bool temporal, bool reflection,
+                                     bool normal) {
+    require(!normal || !reflection, "Normal-only wrapper does not add reflection outputs");
+    const std::string extra = reflection ? ",out ForgeReflectionSurfaceData reflection"
+                              : normal   ? ",out float4 forgeNormalSurface"
+                                         : "";
     require(helper.find(
                 "float4 ForgeSurfaceIndirectLighting(ForgeSurfaceInput input,out float3 indirect" +
                 extra + ")") != std::string::npos,
@@ -285,21 +296,29 @@ std::string indirect_surface_wrapper(std::string helper, bool temporal, bool ref
     result += helper;
     if (temporal)
         result += std::string(temporal_motion_uniform) + temporal_motion_pixel;
-    result += indirect_target_shader(temporal, reflection);
+    result += indirect_target_shader(temporal, reflection, normal);
     result +=
         std::string("ForgeIndirectTargets ") +
         (reflection
              ? (temporal ? "ForgeSurfaceTemporalReflectionColor" : "ForgeSurfaceReflectionColor")
+         : normal
+             ? (temporal ? "ForgeSurfaceTemporalNormalColor" : "ForgeSurfaceNormalColor")
              : (temporal ? "ForgeSurfaceTemporalIndirectColor" : "ForgeSurfaceIndirectColor")) +
         "(ForgeSurfaceInput input) {\nForgeIndirectTargets result;float3 indirect;\n" +
-        (reflection ? "ForgeReflectionSurfaceData reflection;\n" : "") +
+        (reflection ? "ForgeReflectionSurfaceData reflection;\n"
+         : normal   ? "float4 forgeNormalSurface;\n"
+                    : "") +
         "result.Color=ForgeSurfaceIndirectLighting(input,indirect" +
-        (reflection ? ",reflection" : "") +
+        (reflection ? ",reflection"
+         : normal   ? ",forgeNormalSurface"
+                    : "") +
         ");\n"
         "result.Indirect=float4(indirect,0);\n";
     if (reflection)
         result += "result.Surface=reflection.Surface;result.Response=float4(reflection.Response,0);"
                   "result.Specular=float4(reflection.Specular,0);\n";
+    if (normal)
+        result += "result.Surface=forgeNormalSurface;\n";
     if (temporal)
         result += "result.Motion=ForgeTemporalMotion(input.PreviousClip,input.Position);\n";
     return result + "return result;}\n";

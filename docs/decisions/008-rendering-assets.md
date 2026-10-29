@@ -160,3 +160,30 @@ environment lighting. No new lighting, pose, view, clock or agent-authoring mana
 is introduced. The [reflection contract](../screen-space-reflections.md) defines the implemented
 bounded profile. Local renderer/authoring evidence is separate from queued
 Windows cooking, full-editor and physical acceptance.
+
+
+## Material-normal occlusion outputs — accepted extension
+
+Optional material-normal refinement extends the existing spatial AO owner. Its
+Scene setting defaults to zero, preserving geometric AO for existing content.
+Mapped base normals come from the current material evaluation in view space;
+invalid or backward normals use geometry, and geometric-hemisphere rejection
+remains active to prevent flat-plane self-occlusion. No normal-map resampling or
+second lighting implementation is introduced in the AO pass.
+
+Capability6 deliberately appends `surface_normal_color` and
+`surface_temporal_normal_color` to the seven capability5 roles. The artifacts now
+admit nine Pixel entries; the ordinary non-surface stage limit remains six.
+Minimal three/four MRTs carry HDR, optional motion, total indirect and shaded
+normal/roughness. Old1–5 role IDs, layouts, archive reads and bytes are retained.
+Older selected surface cooks need a normal-role recook only when opting into the
+new normal-only profile; existing reflection roles already provide that image.
+Logical asset IDs and publication/last-good ownership remain unchanged.
+
+The existing TemporalView shares its normal image between reflections and AO.
+AO-only refinement adds8bytes/pixel within the same staged payload limit; enabled
+reflections need no second normal image. The existing per-part specialization
+cache, queue, posed/instanced draw path, Scene/Game hosts and authoring operation
+remain authoritative. The [AO contract](../ambient-occlusion.md) describes the
+profile and limits. This does not change the installed C SDK or imply hidden
+geometry, temporal AO history, Windows cooking or physical-hardware acceptance.

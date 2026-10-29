@@ -3,6 +3,7 @@
 #include "ambient_occlusion.hpp"
 #include "ambient_occlusion_boundary_tests.hpp"
 #include "ambient_occlusion_gallery_tests.hpp"
+#include "ambient_occlusion_normal_tests.hpp"
 #include "ambient_occlusion_scene_tests.hpp"
 #include "hdr_bloom_gpu_tests.hpp"
 #include "indirect_mesh_output_tests.hpp"
@@ -106,7 +107,7 @@ void exercise(forge::DiligentPresentation& presentation, IDeviceContext* context
     auto* device = presentation.device();
     Producer producer(presentation);
     forge::AmbientOcclusion effect(presentation);
-    unsigned cases = 0;
+    unsigned cases = 0, normal_cases = 0;
     for (unsigned projection : {0u, 1u, 2u})
         for (unsigned size : {0u, 1u})
             for (bool jitter : {false, true}) {
@@ -209,9 +210,17 @@ void exercise(forge::DiligentPresentation& presentation, IDeviceContext* context
                     check(rejected, "Ambient operator admitted an in-place feedback loop");
                     context->FinishFrame();
                     device->ReleaseStaleResources();
+                    if (scenario == 0 || scenario == 2 || scenario == 6)
+                        normal_cases += forge::test_occlusion::normal_inputs(
+                            presentation, context, effect, input,
+                            output->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET), original, actual,
+                            scenario == 6);
                     ++cases;
                 }
             }
+    std::cout << normal_cases
+              << " material-normal AO frames PASS: geometric/default/invalid, "
+                 "flat/direct/alpha bounds, hemisphere direction and typed admission\n";
     std::cout << cases
               << " independent ambient plane/step frames PASS: geometry, direct/emissive floor, "
                  "sky/alpha, strength, jitter, perspective/orthographic/infinite and zero paths\n";
@@ -225,6 +234,11 @@ int main(int argc, char** argv) {
         GetEngineFactoryVk()->CreateDeviceAndContextsVk(info, &device, &context);
         check(device && context, "Ambient probe Vulkan device unavailable");
         forge::DiligentPresentation presentation(device);
+        if (argc == 4 && std::string_view(argv[3]) == "--normal-gallery") {
+            forge::test_occlusion_scene::gallery(presentation, context, argv[2], argv[1], true);
+            context->WaitForIdle();
+            return 0;
+        }
         forge::test_occlusion::boundaries(presentation, context);
         exercise(presentation, context);
         forge::test_indirect_mesh::exercise(presentation, context);

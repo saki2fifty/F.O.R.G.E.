@@ -485,7 +485,8 @@ PNG SHA256: `9b3804cb3ed5c0252c42233a05b13647c72eb76ffa0d96e9adf1fa5d7630c014`.
 [The canonical controls](../../../manual/images/ambient-occlusion-controls.png)
 show the actual `scene_occlusion_controls` widgets rendered by the rebuilt
 `forge_hdr_bloom_editor_tests <capture-directory> --occlusion` fixture. The complete
-900×460 SDL software-rendered window uses the actual font/style and defaults;
+900×460 SDL software-rendered window uses the actual font/style, with the optional
+Normal influence authored to0.7;
 controls, labels and pixels are not fabricated or retouched. The interaction
 fixture checks three scales and two extents, Undo/reset, rejection/recovery,
 Play locks and the real timestamped Problems/document owner.
@@ -510,8 +511,10 @@ Capture uses software Vulkan through the explicit lvp ICD and SDL software UI.
 This is authentic implementation/fixture evidence, not a Windows editor desktop,
 physical GPU, performance measurement or graphical exported-EXE acceptance.
 The bounded spatial sample pattern can be visible near contacts; no temporal
-occlusion history, material-normal reconstruction or hidden/off-screen geometry
-is implied. Full Windows/FXC/cooked D3D12 and physical acceptance remain queued.
+occlusion history or hidden/off-screen geometry is implied. The updated controls
+capture comes from branch `forge/normal-aware-occlusion`, based on `26053ad`;
+the older Gallery105 image remains a geometric-mode example. Material-normal
+refinement changes directions only, not geometry. Full Windows/FXC/cooked D3D12 and physical acceptance remain queued.
 
 
 ## Screen-space reflection controls and Gallery
@@ -570,3 +573,27 @@ runtime capture/baking, diffuse irradiance volumes or per-Mesh probe masks.
 
 PNG SHA256, controls: `ebc128da3fb19dd9e3d789c25c3a2afce0347847b74242958aedb00bae832776`.
 PNG SHA256, Game: `a4c1778eb28a333456b98b7374162598f10e5da85f95212b75f068b9dc6dbb8c`.
+
+
+## Material-normal ambient occlusion Gallery
+
+[The canonical mapped Gallery image](../../../manual/images/ambient-occlusion-material-normals.png)
+is the complete640×360 FrameRenderer Game output from Gallery108, Scene
+`277f080c-b97b-4202-bd31-5cded7e4dd18`, on branch
+`forge/normal-aware-occlusion` based on `26053ad`. The test uses the original
+procedural RippleNormals PNG, its real imported Windows/desktop/D3D12 texture and
+built-in Material cooks, five existing Mesh geometries and saved Normal influence1.
+The `normal_occlusion_export_vulkan` fixture invokes the real content exporter and
+shared runtime renderer. Its four wide/tall normal/geometric RGB readbacks match
+exactly after source-free relocation. Editable normal PNG and Material JSON are
+absent from that package; selected cooked content supplies runtime resources.
+
+PNG conversion preserves the complete source PPM RGB bytes, without crop,
+compositing, annotation or retouch. Wide normal/geometric and tall normal images
+were visually reviewed. The spatial pattern near contacts is visible and remains
+a documented limit. The current controls capture shows the actual Normal
+influence widget at0.7. The existing geometric Gallery105 PNG remains unchanged.
+Both captures use software rendering, not physical-hardware performance,
+Windows/D3D12 execution or exported graphical-EXE acceptance. Those reviews remain
+queued separately. No temporal AO history or hidden-surface reconstruction is
+implied.

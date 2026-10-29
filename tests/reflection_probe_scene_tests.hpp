@@ -153,6 +153,7 @@ void scene(Render&& render, FrameRenderer& frame, FrameRenderer& ordinary,
         auto combined = local;
         combined.settings.screen_space_reflections.enabled = true;
         combined.settings.ambient_occlusion.enabled = effects >= 2;
+        combined.settings.ambient_occlusion.normal_influence = effects >= 2 ? 1.f : 0.f;
         combined.settings.temporal_anti_aliasing.enabled = effects == 3;
         combined.settings.motion_blur.enabled = effects == 3;
         combined.settings.depth_of_field.enabled = effects == 3;

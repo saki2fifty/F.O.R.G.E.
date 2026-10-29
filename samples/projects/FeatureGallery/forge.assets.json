@@ -2168,6 +2168,16 @@
       "type": "scene"
     },
     {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "277f080c-b97b-4202-bd31-5cded7e4dd18",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/108-material-normal-occlusion.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
       "dependencies": [
         "8bf8bbf3-6c13-42c4-b376-48ddc8eccbed"
       ],
@@ -3591,6 +3601,35 @@
       "source": "Scenes/68-sequence-camera-shots.scene.json",
       "source_dependencies": [],
       "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "45cb1cd6-c3ae-4f51-a7ff-314eea5cc26f",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "49fa87bc218c1b589d13909fcea8dc619782d69d00c0f1d77aa4b2e55b578309",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 2,
+          "importer": "forge.texture.image",
+          "importer_revision": "a72711a84ab8aba2fcd68c6e2ac7fa005f4b3e86dcae32d1b171e06b00773837",
+          "key": "59dbe64fa9a6b822976d7dca6821bb260fae1f79cdbdc3335e94816e0de01ee3",
+          "output_format": "forge.texture-bundle",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "43c4e6ed9793a996eb66c3745717cb5dbc19e0c0e017b468458d3d16cd2a0627",
+          "settings_version": 1,
+          "sidecar_digest": "32c7f044fbf83849476b89e76b115590814ed73ce370a66dbb7fed7989fdd042",
+          "source_digest": "a044bcdd5766e0cc3be0356651c91c4724f839398dfdc8e68d8a585a57a390ba",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/OcclusionNormals/RippleNormals.png",
+      "source_dependencies": [],
+      "type": "texture"
     },
     {
       "dependencies": [],
@@ -6482,6 +6521,52 @@
       "source": "Scenes/46-model-refinement.scene.json",
       "source_dependencies": [],
       "type": "scene"
+    },
+    {
+      "dependencies": [
+        "45cb1cd6-c3ae-4f51-a7ff-314eea5cc26f"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "59dbe64fa9a6b822976d7dca6821bb260fae1f79cdbdc3335e94816e0de01ee3",
+          "role": "material.texture:normalTexture",
+          "target": "45cb1cd6-c3ae-4f51-a7ff-314eea5cc26f",
+          "type": "texture"
+        }
+      ],
+      "id": "7ed3592a-fab7-41d2-a5c4-c4c7c5eda387",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "7adef78253ff8bf04a057ddfee61f68c49ebb05d1dfd1a3d63f34e36192cdfd2",
+          "backend": "d3d12",
+          "dependency_digest": "cfce83eb7d4ac2d074855cb532ae22255a75b93d11305a8e6a996588ad8cdaf8",
+          "generation": 1,
+          "importer": "forge.material.builtin",
+          "importer_revision": "ffd66114ccabcfab54be08222f2df63ebc50cb701d41efceaaac2a623fc6d090",
+          "key": "3a74ace63c49d4ccde0539c5b0b49439edb5d69f007b312beffac461908e2114",
+          "output_format": "forge.material-bundle",
+          "output_version": 2,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "644d64f53a6263b39c2411b40ef01f95f3a901b74093483ea6b43d71a17e7ea8",
+          "source_digest": "db08a790e47c83997fe9337094400be9504e8561a22a67bb57cbdf401321fc88",
+          "version": 1
+        },
+        "forge.material": {
+          "shader": null,
+          "textures": {
+            "normalTexture": "45cb1cd6-c3ae-4f51-a7ff-314eea5cc26f"
+          },
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/OcclusionNormals/RippleWall.material.json",
+      "source_dependencies": [],
+      "type": "material"
     },
     {
       "dependencies": [],

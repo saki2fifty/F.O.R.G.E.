@@ -96,11 +96,13 @@ inline void exercise(DiligentPresentation& presentation, Diligent::IDeviceContex
                         textures["normalTexture"] =
                             normal->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
                     }
-                    std::array<std::unique_ptr<MeshDraw>, 3> draws;
-                    for (unsigned mode = 0; mode < 3; ++mode) {
+                    std::array<std::unique_ptr<MeshDraw>, 5> draws;
+                    for (unsigned mode = 0; mode < 5; ++mode) {
                         const auto profile = mode == 0   ? MeshDrawProfile::MeshIndirect
                                              : mode == 1 ? MeshDrawProfile::MeshReflection
-                                                         : MeshDrawProfile::MeshTemporalReflection;
+                                             : mode == 2 ? MeshDrawProfile::MeshTemporalReflection
+                                             : mode == 3 ? MeshDrawProfile::MeshNormal
+                                                         : MeshDrawProfile::MeshTemporalNormal;
                         draws[mode] = std::make_unique<MeshDraw>(
                             presentation, context, mesh.lods[0].parts[0], material, textures,
                             TEX_FORMAT_RGBA16_FLOAT, TEX_FORMAT_D32_FLOAT, true,
@@ -116,17 +118,18 @@ inline void exercise(DiligentPresentation& presentation, Diligent::IDeviceContex
                                 current_view.up = {-1, 0, 0};
                             }
                             std::array<std::vector<test_bloom::Pixel>, 5> baseline;
-                            for (unsigned mode = 0; mode < 3; ++mode) {
+                            std::vector<test_bloom::Pixel> reference_surface;
+                            for (unsigned mode = 0; mode < 5; ++mode) {
                                 presentation.begin_frame();
                                 std::vector<ITextureView*> views{
                                     targets[0]->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET)};
-                                if (mode == 2)
+                                if (mode == 2 || mode == 4)
                                     views.push_back(
                                         motion->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET));
                                 views.push_back(
                                     targets[1]->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET));
                                 if (mode)
-                                    for (unsigned i = 2; i < 5; ++i)
+                                    for (unsigned i = 2; i < (mode >= 3 ? 3u : 5u); ++i)
                                         views.push_back(
                                             targets[i]->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET));
                                 const float zero[4]{};
@@ -149,14 +152,17 @@ inline void exercise(DiligentPresentation& presentation, Diligent::IDeviceContex
                                 completed.previous_view = &current_view;
                                 completed.previous_world = &world;
                                 completed.valid = true;
-                                draws[mode]->draw(
-                                    context, world, current_view, lights, &environment, nullptr,
-                                    nullptr, {}, nullptr, {}, nullptr, {}, {}, {}, nullptr,
-                                    mist ? &fog : nullptr, mode == 2 ? &completed : nullptr);
+                                draws[mode]->draw(context, world, current_view, lights,
+                                                  &environment, nullptr, nullptr, {}, nullptr, {},
+                                                  nullptr, {}, {}, {}, nullptr,
+                                                  mist ? &fog : nullptr,
+                                                  (mode == 2 || mode == 4) ? &completed : nullptr);
                                 presentation.end_frame(context);
                                 std::array<std::vector<test_bloom::Pixel>, 5> data;
-                                for (unsigned i = 0; i < (mode ? 5u : 2u); ++i)
+                                for (unsigned i = 0; i < (mode >= 3 ? 3u : mode ? 5u : 2u); ++i)
                                     data[i] = test_bloom::read(device, context, targets[i]);
+                                if (mode == 1)
+                                    reference_surface = data[2];
                                 if (mode == 0)
                                     baseline = data;
                                 else
@@ -170,7 +176,7 @@ inline void exercise(DiligentPresentation& presentation, Diligent::IDeviceContex
                                                                    baseline[1][at][c]) < .003f,
                                                       "Reflection MRTs changed full color or total "
                                                       "indirect light");
-                                                if (c < 3) {
+                                                if (c < 3 && mode < 3) {
                                                     const double expected =
                                                         data[3][at][c] * radiance[c] * intensity;
                                                     check(std::abs(data[4][at][c] - expected) <
@@ -182,12 +188,11 @@ inline void exercise(DiligentPresentation& presentation, Diligent::IDeviceContex
                                                           "indirect");
                                                 }
                                             }
-                                            if (layers == 3) {
-                                                for (unsigned target = 2; target < 5; ++target)
+                                            if (layers == 3 && mode < 3) {
+                                                for (unsigned target = 3; target < 5; ++target)
                                                     check(data[target][at] == test_bloom::Pixel{},
                                                           "Anisotropic reflection receiver failed "
                                                           "environment fallback");
-                                                continue;
                                             }
                                             const auto& n = data[2][at];
                                             check(std::abs(std::hypot(n[0], n[1], n[2]) - 1) <
@@ -202,14 +207,21 @@ inline void exercise(DiligentPresentation& presentation, Diligent::IDeviceContex
                                             const std::array<double, 3> expected_normal =
                                                 intensity == 0 ? std::array<double, 3>{0, -nx, nz}
                                                                : std::array<double, 3>{nx, 0, nz};
+                                            for (unsigned c = 0; c < 4; ++c)
+                                                check(std::abs(n[c] - reference_surface[at][c]) <
+                                                          .0015,
+                                                      "Normal-only and reflection material packets "
+                                                      "differ");
                                             for (unsigned c = 0; c < 3; ++c)
                                                 check(std::abs(n[c] - expected_normal[c]) < .003,
                                                       "Reflection normal lost tangent mapping or "
                                                       "world-to-view axes");
-                                            check(data[3][at][0] + data[3][at][1] + data[3][at][2] >
-                                                      .00001,
-                                                  "Reflection response depends on nonzero "
-                                                  "environment intensity");
+                                            if (mode < 3 && layers != 3)
+                                                check(data[3][at][0] + data[3][at][1] +
+                                                              data[3][at][2] >
+                                                          .00001,
+                                                      "Reflection response depends on nonzero "
+                                                      "environment intensity");
                                         }
                                 context->FinishFrame();
                                 device->ReleaseStaleResources();
@@ -218,9 +230,10 @@ inline void exercise(DiligentPresentation& presentation, Diligent::IDeviceContex
                         }
                 }
     context->WaitForIdle();
-    std::cout << cases
-              << " actual reflection Mesh material cases PASS: MRT5/6, mapped normals, roughness, "
-                 "layers, anisotropic fallback, response, environment0/1, fog and ordinary "
-                 "color/indirect preservation\n";
+    std::cout
+        << cases
+        << " actual reflection Mesh material cases PASS: MRT3/4/5/6, mapped normals, roughness, "
+           "layers, anisotropic fallback, response, environment0/1, fog and ordinary "
+           "color/indirect preservation\n";
 }
 } // namespace forge::test_reflection_material

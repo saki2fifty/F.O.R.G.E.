@@ -271,7 +271,7 @@ compile_diligent_shader(Diligent::IRenderDevice* device, const ShaderProgramSour
     result.data.row_major = program.row_major;
     result.data.compiler_debug = diligent_shader_compiler_debug();
     result.data.surface = program.surface;
-    result.data.surface_wrapper_version = program.surface ? 5 : 1;
+    result.data.surface_wrapper_version = program.surface ? 6 : 1;
     for (const auto& entry : program.stages) {
         const std::vector roles = program.surface
                                       ? std::vector{ShaderEntryRole::SurfaceColor,
@@ -280,7 +280,9 @@ compile_diligent_shader(Diligent::IRenderDevice* device, const ShaderProgramSour
                                                     ShaderEntryRole::SurfaceIndirectColor,
                                                     ShaderEntryRole::SurfaceTemporalIndirectColor,
                                                     ShaderEntryRole::SurfaceReflectionColor,
-                                                    ShaderEntryRole::SurfaceTemporalReflectionColor}
+                                                    ShaderEntryRole::SurfaceTemporalReflectionColor,
+                                                    ShaderEntryRole::SurfaceNormalColor,
+                                                    ShaderEntryRole::SurfaceTemporalNormalColor}
                                       : std::vector{ShaderEntryRole::Program};
         for (const auto role : roles) {
             device_profile(device, entry.stage);
@@ -293,16 +295,19 @@ compile_diligent_shader(Diligent::IRenderDevice* device, const ShaderProgramSour
             if (role != ShaderEntryRole::Program) {
                 const bool indirect = indirect_surface_role(role);
                 const bool reflection_output = reflection_surface_role(role);
-                wrapper = program.surface->physically_based
-                              ? material_graph_shader_wrapper(*program.surface, entry.source,
-                                                              role == ShaderEntryRole::SurfaceDepth,
-                                                              indirect, reflection_output)
-                              : surface_shader_wrapper(entry.source, entry.entry,
-                                                       role == ShaderEntryRole::SurfaceDepth,
-                                                       indirect, reflection_output);
+                const bool normal_output = normal_surface_role(role);
+                wrapper =
+                    program.surface->physically_based
+                        ? material_graph_shader_wrapper(*program.surface, entry.source,
+                                                        role == ShaderEntryRole::SurfaceDepth,
+                                                        indirect, reflection_output, normal_output)
+                        : surface_shader_wrapper(entry.source, entry.entry,
+                                                 role == ShaderEntryRole::SurfaceDepth, indirect,
+                                                 reflection_output, normal_output);
                 if (indirect)
-                    wrapper = indirect_surface_wrapper(
-                        std::move(wrapper), temporal_surface_role(role), reflection_output);
+                    wrapper =
+                        indirect_surface_wrapper(std::move(wrapper), temporal_surface_role(role),
+                                                 reflection_output, normal_output);
                 else if (temporal_surface_role(role))
                     wrapper = temporal_surface_wrapper(std::move(wrapper));
                 ci.FilePath = nullptr;

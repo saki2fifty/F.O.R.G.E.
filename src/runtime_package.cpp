@@ -382,6 +382,9 @@ void validate_object_material_values(const std::filesystem::path& root,
 void validate_selections(const std::filesystem::path& root, const AssetCatalog& catalog,
                          std::stop_token stop) {
     package_detail::validate_raw_selections(root, catalog);
+    // Root texture bundles were fully admitted above, including every semantic
+    // variant and its bytes/hash/provenance. A color-only render request here
+    // would incorrectly reject valid normal/data-only bundles.
     const auto selected_catalog = std::make_shared<const AssetCatalog>(catalog);
     ResourcePool<MeshAsset> value_meshes;
     ResourcePool<MaterialAsset> value_materials;
@@ -473,11 +476,6 @@ void validate_selections(const std::filesystem::path& root, const AssetCatalog& 
             require(pool.wait(ticket, std::chrono::seconds(30)) && bool(pool.acquire(ticket)),
                     "Editable Mesh package native admission failed: " +
                         ticket.inspect().diagnostic);
-        } else if (record.type == TextureAsset::type) {
-            ResourcePool<TextureAsset> pool;
-            const auto ticket =
-                request_texture(pool, root, std::make_shared<const AssetCatalog>(catalog), {id});
-            require(pool.wait(ticket, std::chrono::seconds(30)), ticket.inspect().diagnostic);
         } else if (record.type == ShaderAsset::type) {
             ResourcePool<ShaderAsset> pool;
             const auto ticket = request_shader(pool, root, catalog, {id});

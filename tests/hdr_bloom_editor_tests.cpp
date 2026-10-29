@@ -389,10 +389,17 @@ void interactions(float scale, ImVec2 display) {
     type("occlusion:radius", "0.75");
     type("occlusion:strength", "0.6");
     type("occlusion:bias", "0.02");
+    type("occlusion:normal_influence", "0.7");
     const auto occluded = scene.document();
     check(error.empty() && scene_render_settings(occluded).ambient_occlusion ==
-                               SceneAmbientOcclusion{true, .75f, .6f, .02f},
+                               SceneAmbientOcclusion{true, .75f, .6f, .02f, .7f},
           "Typed occlusion controls lost values");
+    type("occlusion:normal_influence", "1.1");
+    check(!error.empty() && scene.document() == occluded,
+          "Out-of-range normal influence changed the Scene");
+    type("occlusion:normal_influence", "0.7");
+    check(error.empty() && scene.document() == occluded,
+          "Normal influence did not recover without changing authored values");
     type("occlusion:radius", "11");
     check(!error.empty() && scene.document() == occluded, "Invalid occlusion radius changed Scene");
     type("occlusion:radius", "0.5");
@@ -406,7 +413,7 @@ void interactions(float scale, ImVec2 display) {
     locked = true;
     frame();
     for (const auto* key : {"occlusion:enabled", "occlusion:radius", "occlusion:strength",
-                            "occlusion:bias", "occlusion:reset"})
+                            "occlusion:bias", "occlusion:normal_influence", "occlusion:reset"})
         check(!test::ui_targets.at(key).enabled, "Occlusion authored control enabled during Play");
     locked = false;
     click("occlusion:section");
@@ -584,7 +591,7 @@ void capture(const std::filesystem::path& root, std::string_view kind = {}) {
     authoring_command(
         scene, "scene.rendering.set",
         reflection  ? Json{{"screen_space_reflections", {{"enabled", true}}}}
-        : occlusion ? Json{{"ambient_occlusion", {{"enabled", true}}}}
+        : occlusion ? Json{{"ambient_occlusion", {{"enabled", true}, {"normal_influence", .7}}}}
         : motion   ? Json{{"motion_blur", {{"enabled", true}, {"shutter", .5}, {"max_pixels", 32}}}}
         : focus    ? Json{{"depth_of_field",
                            {{"enabled", true},

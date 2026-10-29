@@ -308,8 +308,50 @@ ProbeGallery inspect_local_probes(const std::filesystem::path& root) {
     std::sort(result.maps.begin(), result.maps.end());
     return result;
 }
+struct NormalGallery {
+    AssetId scene, material, texture;
+    auto operator<=>(const NormalGallery&) const = default;
+};
+NormalGallery inspect_normal_occlusion(const std::filesystem::path& root) {
+    const auto catalog = std::make_shared<const AssetCatalog>(AssetCatalog::open_project(root));
+    NormalGallery result{AssetId::parse("277f080c-b97b-4202-bd31-5cded7e4dd18"),
+                         AssetId::parse("7ed3592a-fab7-41d2-a5c4-c4c7c5eda387"),
+                         AssetId::parse("45cb1cd6-c3ae-4f51-a7ff-314eea5cc26f")};
+    const auto source = read(root / catalog->records().at(result.scene).source);
+    EngineContext engine(WorldRole::Runtime, false);
+    Scene scene(engine.world());
+    scene.restore_snapshot(source);
+    RuntimeSimulation simulation(engine.world(), scene);
+    simulation.reset_presentation();
+    const auto frame = extract_render_scene(simulation.presentation(1));
+    check(frame.settings.ambient_occlusion == SceneAmbientOcclusion{true, 1.1f, 1, .01f, 1} &&
+              frame.cameras.size() == 1 && frame.meshes.size() == 5 && frame.lights.size() == 1 &&
+              frame.diagnostics.empty(),
+          "Normal AO Gallery lost settings or geometry");
+    unsigned mapped = 0;
+    for (const auto& mesh : frame.meshes)
+        for (const auto& slot : mesh.renderer.materials)
+            mapped += slot.material.id == result.material;
+    check(mapped == 1 && catalog->records().at(result.material).type == MaterialAsset::type &&
+              catalog->records().at(result.texture).type == TextureAsset::type,
+          "Normal AO Gallery lost its single typed mapped receiver");
+    ResourcePool<MaterialAsset> pool;
+    const auto ticket =
+        asset_detail::request_model_pbr_material(pool, root, catalog, {result.material});
+    check(pool.wait(ticket, std::chrono::seconds(5)) && bool(pool.acquire(ticket)),
+          "Normal AO Gallery cooked material admission failed");
+    const auto material = pool.acquire(ticket);
+    const auto& texture = material->textures.at("normalTexture");
+    check(texture.id == result.texture &&
+              material->values.textures.at("normalTexture").semantic == TextureSemantic::Normal &&
+              material->values.textures.at("normalTexture").scale == std::array<float, 2>{8, 4} &&
+              scene.document() == source,
+          "Normal AO Gallery changed mapped material values or authored Scene");
+    return result;
+}
 } // namespace
 int main(int argc, char** argv) {
+    const char* stage = "copy and initial content inspection";
     try {
         check(argc == 3, "Need Feature Gallery and scratch root");
         const auto root = std::filesystem::absolute(argv[2]) / AssetId::generate().str();
@@ -339,6 +381,8 @@ int main(int argc, char** argv) {
         const auto occlusion_scene = inspect_occlusion(root);
         const auto reflection_scene = inspect_reflections(root);
         const auto probes = inspect_local_probes(root);
+        stage = "mapped normal content inspection";
+        const auto normals = inspect_normal_occlusion(root);
         const std::array roots{source.at("asset_id").get<AssetId>(),
                                AssetId::parse("7456ed81-3d3b-45a6-8c7d-6b50073ad01a"),
                                exposure_scene,
@@ -348,12 +392,15 @@ int main(int argc, char** argv) {
                                motion_scene,
                                occlusion_scene,
                                reflection_scene,
-                               probes.scene};
+                               probes.scene,
+                               normals.scene};
         {
             auto lease = std::make_shared<ProjectLease>(root);
+            stage = "runtime catalog preparation";
             prepare_runtime_content_catalog(*lease, roots, {});
         }
         const auto package = root.parent_path() / (root.filename().string() + "-export");
+        stage = "runtime content packaging";
         (void)package_runtime_content(root, package, roots, {"windows", "d3d12"});
         const auto moved = std::filesystem::path(package.string() + "-relocated");
         std::filesystem::rename(package, moved);
@@ -361,6 +408,8 @@ int main(int argc, char** argv) {
         std::set<AssetId> expected(roots.begin(), roots.end());
         expected.insert(materials.begin(), materials.end());
         expected.insert(probes.maps.begin(), probes.maps.end());
+        expected.insert(normals.material);
+        expected.insert(normals.texture);
         expected.insert(AssetId::parse("4ab91f02-df69-47c5-a626-3b6c7504e954"));
         expected.insert(AssetId::parse("68d22705-0b64-4773-9661-8c28465e0d98"));
         expected.insert(AssetId::parse("399c3c5e-f4e9-4ccb-94b3-bc0e518c1ece"));
@@ -370,13 +419,14 @@ int main(int argc, char** argv) {
             (void)record;
             actual.insert(id);
         }
-        check(actual == expected && expected.size() == 18,
+        check(actual == expected && expected.size() == 21,
               "Bloom/color/exposure/fog export changed its exact shared asset closure");
         check(!std::filesystem::exists(moved / "Assets/Exposure/Daylight.animation.json"),
               "Exposure clip source leaked into the runtime package");
         for (const auto path : paths)
             check(!std::filesystem::exists(moved / path),
                   "Bloom material source leaked into export");
+        stage = "source-free content inspection";
         const auto exported_source = read(moved / shipped.records().at(roots[0]).source);
         std::filesystem::rename(root, std::filesystem::path(root.string() + "-source-offline"));
         inspect(moved, exported_source, materials);
@@ -402,7 +452,14 @@ int main(int argc, char** argv) {
                   !std::filesystem::exists(moved / "Assets/ReflectionProbes/WarmRoom.png") &&
                   !std::filesystem::exists(moved / "Assets/ReflectionProbes/CoolRoom.png"),
               "Local probe relocation changed map identity or copied editable image sources");
-        std::cout << "Gallery107 two imported maps, boxes, priorities and18-record source-free "
+        check(inspect_normal_occlusion(moved) == normals &&
+                  !std::filesystem::exists(moved / "Assets/OcclusionNormals/RippleNormals.png") &&
+                  !std::filesystem::exists(moved /
+                                           "Assets/OcclusionNormals/RippleWall.material.json"),
+              "Normal AO Gallery relocation changed identities or leaked authoring sources");
+        std::cout
+            << "Gallery108 mapped Material/normal image and21-record source-free closure PASS\n";
+        std::cout << "Gallery107 two imported maps, boxes, priorities and shared source-free "
                      "closure PASS\n";
         std::cout
             << "Gallery106 reflective floor and typed lit materials, source-free relocation PASS\n";
@@ -420,7 +477,7 @@ int main(int argc, char** argv) {
                   << moved.string() << '\n';
         return 0;
     } catch (const std::exception& error) {
-        std::cerr << error.what() << '\n';
+        std::cerr << "Gallery " << stage << ": " << error.what() << '\n';
         return 1;
     }
 }

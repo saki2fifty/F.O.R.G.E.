@@ -178,7 +178,7 @@ int main() {
                         fog_surface.layout_digest() != legacy_layout,
                     "Optimized-out fog wrapper capability lost roundtrip or layout identity");
             auto future_surface = fog_surface;
-            future_surface.surface_wrapper_version = 6;
+            future_surface.surface_wrapper_version = 7;
             rejected([&] { validate_shader(future_surface); });
             auto temporal_surface = fog_surface;
             temporal_surface.surface_wrapper_version = 3;
@@ -250,6 +250,44 @@ int main() {
                  {&encoded_surface, &encoded_fog, &encoded_temporal, &encoded_indirect})
                 require(encode_shader(decode_shader(*bytes)) == *bytes,
                         "Reflection capability changed readable older archive bytes");
+            auto normal_surface = reflection_surface;
+            normal_surface.surface_wrapper_version = 6;
+            rejected([&] { validate_shader(normal_surface); });
+            for (bool motion : {false, true}) {
+                const auto role = surface_color_role(motion, true, false, true);
+                auto stage = motion ? temporal_surface.stages.back() : surface_data.stages.front();
+                stage.role = role;
+                stage.entry = surface_shader_entry(role);
+                stage.bytecode = {motion ? std::byte{9} : std::byte{8}};
+                normal_surface.stages.push_back(std::move(stage));
+                require(normal_surface_role(role) && indirect_surface_role(role) &&
+                            !reflection_surface_role(role) &&
+                            temporal_surface_role(role) == motion &&
+                            shader_entry_role(shader_entry_role_name(role)) == role,
+                        "Normal-only role lost its identity or shared classification");
+            }
+            const auto encoded_normal = encode_shader(normal_surface);
+            require(decode_shader(encoded_normal).surface_wrapper_version == 6 &&
+                        decode_shader(encoded_normal).stages.size() == 9 &&
+                        encode_shader(decode_shader(encoded_normal)) == encoded_normal &&
+                        normal_surface.layout_digest() != reflection_surface.layout_digest(),
+                    "Normal-only surface capability lost its archive or layout identity");
+            for (const auto* bytes : {&encoded_surface, &encoded_fog, &encoded_temporal,
+                                      &encoded_indirect, &encoded_reflection})
+                require(encode_shader(decode_shader(*bytes)) == *bytes,
+                        "Normal capability changed readable older archive bytes");
+            auto bad_normal = normal_surface;
+            bad_normal.surface_wrapper_version = 5;
+            rejected([&] { validate_shader(bad_normal); });
+            bad_normal = normal_surface;
+            bad_normal.stages.pop_back();
+            rejected([&] { validate_shader(bad_normal); });
+            bad_normal = normal_surface;
+            bad_normal.stages[7] = bad_normal.stages[8];
+            rejected([&] { validate_shader(bad_normal); });
+            bad_normal = normal_surface;
+            bad_normal.stages.back().reflection["resources"] = Json::array();
+            rejected([&] { validate_shader(bad_normal); });
             auto bad_reflection = reflection_surface;
             bad_reflection.surface_wrapper_version = 4;
             rejected([&] { validate_shader(bad_reflection); });

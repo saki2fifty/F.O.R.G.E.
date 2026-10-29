@@ -84,6 +84,7 @@ struct SceneAmbientOcclusion {
     float radius = .5f;
     float strength = 1;
     float bias = .01f;
+    float normal_influence = 0;
     bool operator==(const SceneAmbientOcclusion&) const = default;
 };
 void validate_scene_ambient_occlusion(const SceneAmbientOcclusion&);

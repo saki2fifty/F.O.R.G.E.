@@ -31,6 +31,11 @@ class TemporalView {
             return ambient_occlusion.enabled && ambient_occlusion.radius != 0 &&
                    ambient_occlusion.strength != 0;
         }
+        bool surface_output() const {
+            return reflection_output() ||
+                   (occlusion_output() && ambient_occlusion.normal_influence != 0);
+        }
+        bool normal_only_output() const { return surface_output() && !reflection_output(); }
         bool motion_output() const {
             return anti_aliasing ||
                    (motion_blur.enabled && motion_blur.shutter != 0 && motion_blur.max_pixels != 0);
@@ -43,7 +48,8 @@ class TemporalView {
         const bool blur = options.motion_blur.enabled && options.motion_blur.shutter != 0 &&
                           options.motion_blur.max_pixels != 0;
         return 12 + (options.motion_output() ? 16 : 0) + (options.indirect_output() ? 8 : 0) +
-               (options.occlusion_output() ? 8 : 0) + (options.reflection_output() ? 40 : 0) +
+               (options.occlusion_output() ? 8 : 0) + (options.surface_output() ? 8 : 0) +
+               (options.reflection_output() ? 32 : 0) +
                (options.local_reflections && options.screen_reflection_output() ? 8 : 0) +
                (options.anti_aliasing ? 20 : 0) + (blur ? 8 : 0) +
                (blur && options.snapshot != MotionSnapshotAction::Live ? 20 : 0);
@@ -61,13 +67,13 @@ class TemporalView {
     bool valid() const { return valid_; }
     std::uint64_t samples() const { return samples_; }
     std::uint64_t payload_bytes() const {
-        return color_
-                   ? std::uint64_t(color_->GetDesc().Width) * color_->GetDesc().Height *
-                             (12 + (motion_ ? 16 : 0) + (indirect_ ? 8 : 0) + (occluded_ ? 8 : 0) +
-                              (reflection_surface_ ? 40 : 0) + (probe_specular_ ? 8 : 0) +
-                              (blurred_ ? 8 : 0) + (frozen_motion_ ? 20 : 0)) +
-                         (filter_ ? filter_->history_bytes() : 0)
-                   : 0;
+        return color_ ? std::uint64_t(color_->GetDesc().Width) * color_->GetDesc().Height *
+                                (12 + (motion_ ? 16 : 0) + (indirect_ ? 8 : 0) +
+                                 (occluded_ ? 8 : 0) + (material_surface_ ? 8 : 0) +
+                                 (reflection_response_ ? 32 : 0) + (probe_specular_ ? 8 : 0) +
+                                 (blurred_ ? 8 : 0) + (frozen_motion_ ? 20 : 0)) +
+                            (filter_ ? filter_->history_bytes() : 0)
+                      : 0;
     }
     const TemporalMeshParts& previous_parts() const { return previous_parts_; }
     TemporalMeshParts& pending_parts() { return pending_parts_; }
@@ -87,7 +93,7 @@ class TemporalView {
     std::array<float, 2> frozen_jitter_{};
     bool frozen_valid_ = false;
     Diligent::RefCntAutoPtr<Diligent::ITexture> color_, motion_, depth_, indirect_, occluded_;
-    Diligent::RefCntAutoPtr<Diligent::ITexture> reflection_surface_, reflection_response_,
+    Diligent::RefCntAutoPtr<Diligent::ITexture> material_surface_, reflection_response_,
         reflection_specular_, reflected_color_, reflected_indirect_;
     Diligent::RefCntAutoPtr<Diligent::ITexture> probe_specular_;
     Diligent::RefCntAutoPtr<Diligent::IPipelineState> composite_;

@@ -16,15 +16,19 @@ class AmbientOcclusion {
         Diligent::ITextureView* depth = nullptr;
         std::array<float, 16> projection{};
         SceneAmbientOcclusion settings;
+        Diligent::ITextureView* surface = nullptr;
     };
-    void prepare();
+    void prepare(bool material_normals = false);
     void apply(Diligent::IDeviceContext*, const Input&, Diligent::ITextureView* output);
 
   private:
     DiligentPresentation& presentation_;
     const std::thread::id thread_ = std::this_thread::get_id();
-    Diligent::RefCntAutoPtr<Diligent::IPipelineState> pipeline_;
-    Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> binding_;
-    Diligent::RefCntAutoPtr<Diligent::IBuffer> values_;
+    struct Mode {
+        Diligent::RefCntAutoPtr<Diligent::IPipelineState> pipeline;
+        Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding> binding;
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> values;
+    };
+    Mode modes_[2];
 };
 } // namespace forge

@@ -82,15 +82,22 @@ inline void scene_occlusion_controls(const SceneAmbientOcclusion& settings, bool
           "Ambient-light reduction from 0 to 1. Zero skips the pass.");
     field("Depth bias (m)", "bias", settings.bias,
           "Depth tolerance from 0 to 1 metre. Increase to reduce self-occlusion.");
-    if (button("Reset ambient occlusion",
-               "Disable occlusion and restore 0.5 m radius, strength 1 and 0.01 m bias."))
+    field("Normal influence", "normal_influence", settings.normal_influence,
+          "Blend material shading normals into the sampling direction, from 0 to 1. Zero keeps "
+          "depth-derived normals. Normal maps add shading detail without changing geometry.");
+    if (button("Reset ambient occlusion", "Disable occlusion and restore 0.5 m radius, strength 1, "
+                                          "0.01 m bias and normal influence 0."))
         commit({{"ambient_occlusion",
-                 {{"enabled", false}, {"radius", .5}, {"strength", 1}, {"bias", .01}}}});
+                 {{"enabled", false},
+                  {"radius", .5},
+                  {"strength", 1},
+                  {"bias", .01},
+                  {"normal_influence", 0}}}});
     FORGE_UI_PROBE("occlusion:reset");
     ImGui::TextWrapped(
         "Reduces environment lighting near visible opaque and masked Mesh surfaces. "
-        "Direct light, emission and fog color remain unchanged. Uses visible depth and geometric "
-        "normals; hidden or off-screen surfaces and normal maps do not supply occlusion. "
+        "Direct light, emission and fog color remain unchanged. Normal influence can refine "
+        "depth-based sampling with material normals; it does not add geometry or hidden surfaces. "
         "Runs before temporal anti-aliasing, motion blur and depth of field. "
         "Game cameras must clear color and depth. Older surface Shader assets need a recook. "
         "Scene Save and Undo include these settings.");

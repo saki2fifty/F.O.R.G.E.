@@ -36,9 +36,10 @@ void text(const std::filesystem::path& path, std::string_view bytes) {
 }
 AssetRecord publish(const std::filesystem::path& project, AssetId id, const char* type,
                     const char* importer, const char* format, std::vector<ArtifactFile> files,
-                    const DerivedDataCache::Validator& validate) {
+                    const DerivedDataCache::Validator& validate,
+                    std::string source_digest = std::string(64, 'a')) {
     AssetBuildInput input;
-    input.source_digest = std::string(64, 'a');
+    input.source_digest = std::move(source_digest);
     input.importer = importer;
     input.importer_revision = std::string(64, 'b');
     input.output_format = format;
@@ -46,7 +47,7 @@ AssetRecord publish(const std::filesystem::path& project, AssetId id, const char
     input.backend = "none";
     input.profile = "cpu";
     const auto artifact = DerivedDataCache(project).publish(input, std::move(files), validate);
-    AssetRecord record{id, type, std::string(type) + ".authoring", 1, {}};
+    AssetRecord record{id, type, std::string(type) + "-" + id.str() + ".authoring", 1, {}};
     record.metadata = {{"private.authoring-notes", std::string(16000, 'x')},
                        {"forge.import",
                         {{"version", 1},
@@ -101,6 +102,32 @@ int main(int argc, char** argv) {
              {index.variants.front().file, texture_bytes}},
             [](const auto& a) { (void)validate_texture_bundle(a.files); });
         catalog.add(texture_record);
+        std::vector<AssetId> semantic_roots;
+        for (const auto semantic :
+             {TextureSemantic::Normal, TextureSemantic::Data, TextureSemantic::HdrColor}) {
+            auto value = texture;
+            value.semantic = semantic;
+            value.format = TextureFormat::RGBA8;
+            if (semantic == TextureSemantic::HdrColor) {
+                value.format = TextureFormat::RGBA32Float;
+                const std::array<float, 4> pixel{1, .5f, .25f, 1};
+                const auto raw = std::as_bytes(std::span(pixel));
+                value.subresources = {std::vector<std::byte>(raw.begin(), raw.end())};
+            }
+            const auto bytes = encode_texture(value);
+            TextureBundleIndex bundle;
+            bundle.primary = semantic;
+            bundle.variants = {
+                {semantic, texture_variant_file(semantic), content_digest(bytes), bytes.size()}};
+            const auto id = AssetId::generate();
+            semantic_roots.push_back(id);
+            catalog.add(publish(
+                project, id, TextureAsset::type, "forge.texture.image", "forge.texture-bundle",
+                {{"texture.json", encode_texture_bundle_index(bundle)},
+                 {bundle.variants.front().file, bytes}},
+                [](const auto& a) { (void)validate_texture_bundle(a.files); },
+                content_digest(bytes)));
+        }
         auto material = engine_material_resource(engine_material());
         material.values.textures["baseColorTexture"] = {TextureSemantic::Color};
         material.textures["baseColorTexture"] = {texture_id};
@@ -123,6 +150,25 @@ int main(int argc, char** argv) {
             read_bytes(AssetCatalog::project_index(project), max_asset_index_bytes);
         const std::array roots{material_id, audio_id, engine_primitive(0).id};
         const RuntimePackageTarget target{"linux", "none"};
+        const auto semantics_package = scratch / "semantic textures";
+        (void)package_runtime_content(project, semantics_package, semantic_roots, target);
+        const auto semantic_catalog = open_runtime_content(semantics_package, target);
+        check(semantic_catalog.records().size() == semantic_roots.size(),
+              "Normal/data/HDR texture package changed its exact root closure");
+        unsigned semantic_index = 0;
+        for (const auto semantic :
+             {TextureSemantic::Normal, TextureSemantic::Data, TextureSemantic::HdrColor}) {
+            const auto value = load_texture_selection(semantics_package, semantic_catalog,
+                                                      {semantic_roots[semantic_index++]}, semantic);
+            check(value.value->semantic == semantic &&
+                      (semantic == TextureSemantic::HdrColor ||
+                       value.value->subresources == texture.subresources),
+                  "Relocated explicit texture semantic or pixels changed");
+        }
+        rejects([&] {
+            (void)load_texture_selection(semantics_package, semantic_catalog,
+                                         {semantic_roots.front()});
+        }); // Implicit color selection must never reinterpret a normal-only asset.
         const auto first = scratch / "content one";
         const auto manifest = package_runtime_content(project, first, roots, target);
         const auto second = scratch / "content two";

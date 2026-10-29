@@ -89,6 +89,28 @@ inline void temporal_view_boundaries(forge::DiligentPresentation& presentation,
     reject([&] { spatial.prepare(current, false); });
     check(spatial.valid() && spatial.payload_bytes() == 23 * 19 * 28,
           "Rejected spatial-to-AA growth discarded the completed view");
+    auto detailed = occlusion;
+    detailed.ambient_occlusion.normal_influence = 1;
+    check(TemporalView::payload_per_pixel(detailed) == 36 && detailed.normal_only_output() &&
+              detailed.surface_output() && !detailed.reflection_output() &&
+              !detailed.motion_output(),
+          "Normal-only occlusion allocated reflection response, motion or result images");
+    TemporalView normals(presentation, 23 * 19 * 36);
+    normals.prepare(current, false, detailed);
+    check(normals.payload_bytes() == 23 * 19 * 36 && normals.jitter() == std::array<float, 2>{},
+          "Normal-only occlusion payload differs from the admitted normal image");
+    normals.begin(context, color, dsv);
+    normals.resolve(context, .8f);
+    normals.complete();
+    reject([&] { normals.prepare(current, false); });
+    check(normals.valid() && normals.payload_bytes() == 23 * 19 * 36,
+          "Rejected normal-to-AA growth discarded a completed view");
+    normals.prepare(current, false, occlusion);
+    check(normals.payload_bytes() == 23 * 19 * 28,
+          "Disabling normal detail retained its derived normal image");
+    normals.begin(context, color, dsv);
+    normals.resolve(context, .8f);
+    normals.complete();
     occlusion.anti_aliasing = true;
     occlusion.motion_blur.enabled = true;
     check(TemporalView::payload_per_pixel(occlusion) == 72,
@@ -103,6 +125,12 @@ inline void temporal_view_boundaries(forge::DiligentPresentation& presentation,
               !reflection.motion_output(),
           "Spatial reflections omitted their material/result targets or allocated motion");
     TemporalView reflected(presentation, 23 * 19 * 60);
+    auto shared_normal = reflection;
+    shared_normal.ambient_occlusion.enabled = true;
+    shared_normal.ambient_occlusion.normal_influence = 1;
+    check(TemporalView::payload_per_pixel(shared_normal) == 68 && shared_normal.surface_output() &&
+              !shared_normal.normal_only_output(),
+          "Detailed occlusion duplicated the reflection material normal image");
     auto probes = reflection;
     probes.local_reflections = true;
     check(TemporalView::payload_per_pixel(probes) == 68,

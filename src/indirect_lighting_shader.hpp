@@ -22,6 +22,12 @@ float3 ForgeIndirectRadiance(SurfaceShadingInfo shading,SurfaceLightingInfo ligh
 inline constexpr std::string_view reflection_surface_data = R"(
 #ifndef FORGE_REFLECTION_SURFACE_DATA
 #define FORGE_REFLECTION_SURFACE_DATA
+float4 ForgeMaterialSurface(float3 viewNormal,float roughness) {
+    float magnitude=length(viewNormal);
+    if(!all(isfinite(viewNormal))||!isfinite(magnitude)||magnitude<=1e-8||
+       !isfinite(roughness)||roughness<0||roughness>1)return 0;
+    return float4(normalize(viewNormal),roughness);
+}
 struct ForgeReflectionSurfaceData {
     float4 Surface;
     float3 Response;
@@ -33,10 +39,10 @@ inline constexpr std::string_view base_reflection_shader = R"(
 ForgeReflectionSurfaceData ForgeBaseReflection(SurfaceShadingInfo shading,
     SurfaceLightingInfo lighting,float3 viewNormal,float fogTransmittance) {
     ForgeReflectionSurfaceData result=(ForgeReflectionSurfaceData)0;
+    result.Surface=ForgeMaterialSurface(viewNormal,shading.BaseLayer.Srf.PerceptualRoughness);
 #if ENABLE_ANISOTROPY
     if(shading.Anisotropy.Strength!=0)return result;
 #endif
-    result.Surface=float4(normalize(viewNormal),shading.BaseLayer.Srf.PerceptualRoughness);
     SurfaceLightingInfo base=GetDefaultSurfaceLightingInfo();
     base.Base.SpecularIBL=lighting.Base.SpecularIBL;
     result.Specular=ForgeIndirectRadiance(shading,base)*fogTransmittance;
@@ -52,15 +58,19 @@ ForgeReflectionSurfaceData ForgeBaseReflection(SurfaceShadingInfo shading,
 }
 )";
 // Built-in and cooked surface entries share the exact optional MRT order.
-inline std::string indirect_target_shader(bool temporal, bool reflection = false) {
+inline std::string indirect_target_shader(bool temporal, bool reflection = false,
+                                          bool normal = false) {
     std::string result = "struct ForgeIndirectTargets {float4 Color:SV_Target0;\n";
     if (temporal)
         result += "float4 Motion:SV_Target1;float4 Indirect:SV_Target2;\n";
     else
         result += "float4 Indirect:SV_Target1;\n";
-    if (reflection) {
+    if (reflection || normal) {
         const unsigned first = temporal ? 3 : 2;
         result += "float4 Surface:SV_Target" + std::to_string(first) + ";\n";
+    }
+    if (reflection) {
+        const unsigned first = temporal ? 3 : 2;
         result += "float4 Response:SV_Target" + std::to_string(first + 1) + ";\n";
         result += "float4 Specular:SV_Target" + std::to_string(first + 2) + ";\n";
     }

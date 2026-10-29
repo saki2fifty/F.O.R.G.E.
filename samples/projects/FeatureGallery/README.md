@@ -1,5 +1,16 @@
 # Feature Gallery
 
+## Material-normal ambient occlusion
+
+Open **Scenes/108-material-normal-occlusion.scene.json** and press Play. A blue wall
+uses the supplied original **Assets/OcclusionNormals/RippleNormals.png** through
+**RippleWall.material.json**. Stop Play and open **Tools > Scene lighting... >
+Ambient occlusion**. Compare **Normal influence** at **0** and **1**, pressing
+Enter after editing. The normal map changes surface directions without changing
+Mesh geometry or depth. Radius, Strength and Depth bias retain their usual roles.
+Save the Scene before export; cooked normal texture and Material variants travel
+with the game. No C++ module is required. Hidden surfaces are not reconstructed.
+
 ## Local reflection probes
 
 Open **Scenes/107-local-reflection-probes.scene.json** and press Play. Warm and
@@ -38,7 +49,8 @@ junctions. Try **Radius (m)** from 0 to 10 and **Strength** from 0 to 1; zero sk
 the effect. **Depth bias (m)** from 0 to 1 limits self-occlusion. Press Enter after
 typing a value. Shadows are disabled to isolate ambient contacts. Save before
 exporting. No C++ module or additional imported asset is required. Hidden and
-off-screen surfaces and normal-map detail do not supply screen-space occlusion.
+off-screen surfaces do not supply screen-space occlusion. Normal influence can
+refine directions with a base normal map; Gallery108 supplies a mapped example.
 
 ## Motion blur
 

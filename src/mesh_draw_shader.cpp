@@ -190,7 +190,7 @@ MeshDrawShader mesh_draw_shader(const MeshVertexFetch& fetch, const PbrMaterialP
                                 bool shadow_pass, MaterialSamplerBinding sampler_binding,
                                 const SurfaceShaderDefinition* graph, std::string_view graph_source,
                                 bool sprite_profile, std::optional<TextureFilter> sprite_mips,
-                                bool indirect_output, bool reflection_output) {
+                                bool indirect_output, bool reflection_output, bool normal_output) {
     const auto& source = profile.values;
     require(!indirect_output || (!shadow_pass && !sprite_profile),
             "Indirect outputs require the Mesh color pass");
@@ -202,6 +202,8 @@ MeshDrawShader mesh_draw_shader(const MeshVertexFetch& fetch, const PbrMaterialP
     const bool transmission = !shadow_pass && material_transmits(profile);
     require(!reflection_output || (indirect_output && !transmission),
             "Reflection outputs require indirect non-transmissive Mesh color");
+    require(!normal_output || (indirect_output && !reflection_output && !transmission),
+            "Normal-only outputs require non-transmissive indirect Mesh color");
     const bool instanced = !fetch.skin && !fetch.morph_count && !transmission;
     if (transmission) {
         const double ior = source.parameters.at("ior").value[0];
@@ -313,7 +315,7 @@ float ForgeSpriteSlice(float u,float4 axis) {
 }
 )";
     ps += distance_fog_shader;
-    if (reflection_output)
+    if (reflection_output || normal_output)
         ps += reflection_surface_data;
     if (indirect_output && profile.workflow != PbrWorkflow::Unlit) {
         ps += indirect_lighting_shader;
@@ -647,9 +649,13 @@ float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
             at, entry.size(),
             std::string(
                 "float4 ForgeIndirectColor(ForgeVarying input,bool front,out float3 indirect") +
-                (reflection_output ? ",out ForgeReflectionSurfaceData reflection" : "") +
+                (reflection_output ? ",out ForgeReflectionSurfaceData reflection"
+                 : normal_output   ? ",out float4 forgeNormalSurface"
+                                   : "") +
                 ") {indirect=0;" +
-                (reflection_output ? "reflection=(ForgeReflectionSurfaceData)0;" : ""));
+                (reflection_output ? "reflection=(ForgeReflectionSurfaceData)0;"
+                 : normal_output   ? "forgeNormalSurface=0;"
+                                   : ""));
         if (profile.workflow != PbrWorkflow::Unlit) {
             const std::string resolved = "float3 color=ResolveLighting(s,lighting);";
             const auto light_at = ps.find(resolved);
@@ -663,22 +669,34 @@ float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
                            "dot(g_Object[7].xyz,s.BaseLayer.Normal),"
                            "dot(g_Object[8].xyz,s.BaseLayer.Normal)),"
                            "ForgeDistanceFogTransmittance(input.World));\n";
+            if (normal_output)
+                outputs += "forgeNormalSurface=ForgeMaterialSurface(float3("
+                           "dot(g_Object[6].xyz,s.BaseLayer.Normal),"
+                           "dot(g_Object[7].xyz,s.BaseLayer.Normal),"
+                           "dot(g_Object[8].xyz,s.BaseLayer.Normal)),"
+                           "s.BaseLayer.Srf.PerceptualRoughness);\n";
             ps.insert(light_at + resolved.size(), outputs);
         }
         if (fetch.temporal)
             ps += std::string(temporal_motion_uniform) + temporal_motion_pixel;
-        ps += indirect_target_shader(fetch.temporal, reflection_output);
+        ps += indirect_target_shader(fetch.temporal, reflection_output, normal_output);
         ps += "ForgeIndirectTargets main(ForgeVarying input,bool front:SV_IsFrontFace) {\n"
               "ForgeIndirectTargets result;float3 indirect;\n";
         if (reflection_output)
             ps += "ForgeReflectionSurfaceData reflection;\n";
+        else if (normal_output)
+            ps += "float4 forgeNormalSurface;\n";
         ps += std::string("result.Color=ForgeIndirectColor(input,front,indirect") +
-              (reflection_output ? ",reflection" : "") +
+              (reflection_output ? ",reflection"
+               : normal_output   ? ",forgeNormalSurface"
+                                 : "") +
               ");\n"
               "result.Indirect=float4(indirect,0);\n";
         if (reflection_output)
             ps += "result.Surface=reflection.Surface;result.Response=float4(reflection.Response,0);"
                   "result.Specular=float4(reflection.Specular,0);\n";
+        if (normal_output)
+            ps += "result.Surface=forgeNormalSurface;\n";
         if (fetch.temporal)
             ps += "result.Motion=ForgeTemporalMotion(input.PreviousClip,input.Position);\n";
         ps += "return result;}\n";
@@ -702,7 +720,8 @@ ForgeTemporalTargets main(ForgeVarying input,bool front:SV_IsFrontFace) {
 }
 std::string material_graph_shader_wrapper(const SurfaceShaderDefinition& definition,
                                           std::string_view source, bool depth_only,
-                                          bool indirect_output, bool reflection_output) {
+                                          bool indirect_output, bool reflection_output,
+                                          bool normal_output) {
     MaterialData values;
     values.model = "forge.gltf.metallic-roughness.v1";
     const auto profile = prepare_pbr_material(values);
@@ -711,11 +730,12 @@ std::string material_graph_shader_wrapper(const SurfaceShaderDefinition& definit
     fetch.normal = fetch.tangent = true;
     auto generated =
         mesh_draw_shader(fetch, profile, depth_only, MaterialSamplerBinding::Array, &definition,
-                         source, false, {}, indirect_output, reflection_output);
+                         source, false, {}, indirect_output, reflection_output, normal_output);
     require(!depth_only || !indirect_output, "Depth graph does not emit indirect color");
     if (indirect_output) {
-        const std::string extra =
-            reflection_output ? ",out ForgeReflectionSurfaceData reflection" : "";
+        const std::string extra = reflection_output ? ",out ForgeReflectionSurfaceData reflection"
+                                  : normal_output   ? ",out float4 forgeNormalSurface"
+                                                    : "";
         const std::string old =
             "float4 ForgeIndirectColor(ForgeVarying input,bool front,out float3 indirect" + extra +
             ") {";

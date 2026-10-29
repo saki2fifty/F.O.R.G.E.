@@ -1,5 +1,11 @@
 # Explore the Feature Gallery
 
+**108-material-normal-occlusion** supplies a normal-mapped blue wall and amber
+posts. In **Tools > Scene lighting... → Ambient occlusion**, compare **Normal
+influence** at **0** and **1**. The surface directions change; geometry and depth
+remain the same. Save before exporting; the supplied cooked Material and original
+normal texture are included. See [Scene lighting](../editor/lighting.md).
+
 **107-local-reflection-probes** supplies warm and cool imported reflection maps
 inside two overlapping boxes. Select either probe to adjust **Reflection map**,
 half extents, **Edge fade**, **Priority**, **Map rotation** or **Box projection**.

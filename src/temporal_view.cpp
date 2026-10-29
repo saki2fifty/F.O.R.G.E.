@@ -96,6 +96,7 @@ void TemporalView::prepare(const CameraView& view, bool reset, const Options& op
     const bool freeze = blur && options.snapshot != MotionSnapshotAction::Live;
     const bool motion_output = options.motion_output(), indirect_output = options.indirect_output();
     const bool reflection_output = options.reflection_output();
+    const bool surface_output = options.surface_output();
     const bool combined_reflections =
         options.local_reflections && options.screen_reflection_output();
     const bool occlusion_output = options.occlusion_output();
@@ -116,7 +117,7 @@ void TemporalView::prepare(const CameraView& view, bool reset, const Options& op
     // Stage every required texture before publishing a new mode/extent. Native
     // retirement and transient staging overhead are separate from payload admission.
     RefCntAutoPtr<ITexture> color, motion, depth, blurred, frozen_motion, frozen_depth, indirect,
-        occluded, reflection_surface, reflection_response, reflection_specular, reflected_color,
+        occluded, material_surface, reflection_response, reflection_specular, reflected_color,
         reflected_indirect, probe_specular;
     const auto create = [&](const char* name, TEXTURE_FORMAT format, BIND_FLAGS flags,
                             RefCntAutoPtr<ITexture>& target) {
@@ -146,9 +147,10 @@ void TemporalView::prepare(const CameraView& view, bool reset, const Options& op
     if (occlusion_output && (resized || !occluded_))
         create("FORGE occluded surface HDR", TEX_FORMAT_RGBA16_FLOAT,
                BIND_RENDER_TARGET | BIND_SHADER_RESOURCE, occluded);
-    if (reflection_output && (resized || !reflection_surface_)) {
-        create("FORGE reflection normal and roughness", TEX_FORMAT_RGBA16_FLOAT,
-               BIND_RENDER_TARGET | BIND_SHADER_RESOURCE, reflection_surface);
+    if (surface_output && (resized || !material_surface_))
+        create("FORGE material normal and roughness", TEX_FORMAT_RGBA16_FLOAT,
+               BIND_RENDER_TARGET | BIND_SHADER_RESOURCE, material_surface);
+    if (reflection_output && (resized || !reflection_response_)) {
         create("FORGE reflection base response", TEX_FORMAT_RGBA16_FLOAT,
                BIND_RENDER_TARGET | BIND_SHADER_RESOURCE, reflection_response);
         create("FORGE reflection replaceable specular", TEX_FORMAT_RGBA16_FLOAT,
@@ -179,9 +181,11 @@ void TemporalView::prepare(const CameraView& view, bool reset, const Options& op
         staged_blur = std::make_unique<MotionBlur>(presentation_);
         staged_blur->prepare();
     }
-    if (occlusion_output && !occlusion_) {
+    if (occlusion_output && !occlusion_)
         staged_occlusion = std::make_unique<AmbientOcclusion>(presentation_);
-        staged_occlusion->prepare();
+    if (occlusion_output) {
+        auto* occlusion = staged_occlusion ? staged_occlusion.get() : occlusion_.get();
+        occlusion->prepare(options.ambient_occlusion.normal_influence != 0);
     }
     std::unique_ptr<SurfaceReflections> staged_reflections;
     if (reflection_output && !reflections_) {
@@ -205,8 +209,9 @@ void TemporalView::prepare(const CameraView& view, bool reset, const Options& op
         indirect_ = std::move(indirect);
     if (occluded)
         occluded_ = std::move(occluded);
-    if (reflection_surface) {
-        reflection_surface_ = std::move(reflection_surface);
+    if (material_surface)
+        material_surface_ = std::move(material_surface);
+    if (reflection_response) {
         reflection_response_ = std::move(reflection_response);
         reflection_specular_ = std::move(reflection_specular);
         reflected_color_ = std::move(reflected_color);
@@ -228,9 +233,10 @@ void TemporalView::prepare(const CameraView& view, bool reset, const Options& op
         occlusion_.reset();
         occluded_.Release();
     }
+    if (!surface_output)
+        material_surface_.Release();
     if (!reflection_output) {
         reflections_.reset();
-        reflection_surface_.Release();
         reflection_response_.Release();
         reflection_specular_.Release();
         reflected_color_.Release();
@@ -321,7 +327,7 @@ void TemporalView::begin(IDeviceContext* context, ITexture* color, ITextureView*
     const float zero[4]{};
     ITextureView* targets[6]{color_->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET)};
     unsigned count = 1;
-    for (auto* auxiliary : {motion_.RawPtr(), indirect_.RawPtr(), reflection_surface_.RawPtr(),
+    for (auto* auxiliary : {motion_.RawPtr(), indirect_.RawPtr(), material_surface_.RawPtr(),
                             reflection_response_.RawPtr(), reflection_specular_.RawPtr()})
         if (auxiliary) {
             auto* target = auxiliary->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET);
@@ -357,7 +363,7 @@ void TemporalView::resolve(IDeviceContext* context, float stability, bool comple
         spatial.color = input.color;
         spatial.indirect = indirect;
         spatial.depth = input.depth;
-        spatial.surface = reflection_surface_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+        spatial.surface = material_surface_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
         spatial.response = reflection_response_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
         spatial.specular = reflection_specular_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
         spatial.projection = current_.projection;
@@ -401,6 +407,9 @@ void TemporalView::resolve(IDeviceContext* context, float stability, bool comple
         spatial.depth = input.depth;
         spatial.projection = current_.projection;
         spatial.settings = options_.ambient_occlusion;
+        spatial.surface = material_surface_
+                              ? material_surface_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE)
+                              : nullptr;
         occlusion_->apply(context, spatial, occluded_->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET));
         input.color = occluded_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
     }

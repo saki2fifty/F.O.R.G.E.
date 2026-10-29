@@ -128,8 +128,9 @@ not receive the mutation. See [distance fog](distance-fog.md) for limits and leg
 surface cook requirements; these are authored settings, not live Play controls.
 
 `scene.rendering.set` / `forge_scene_rendering_set` accepts
-`{"ambient_occlusion":{"enabled":true,"radius":0.5,"strength":1,"bias":0.01}}`.
-Radius0–10m, strength0–1 and bias0–1m are finite, including when disabled. Partial
+`{"ambient_occlusion":{"enabled":true,"radius":0.5,"strength":1,"bias":0.01,"normal_influence":0.7}}`.
+Radius0–10m, strength0–1, bias0–1m and normal influence0–1 are finite, including
+when disabled. Normal influence defaults to0. Partial
 patches use the existing Scene permission, expected revision, replay, atomic
 Undo/Redo and Save behavior. Disabled/zero radius/zero strength skip rendering.
 See [ambient occlusion](ambient-occlusion.md) for indirect lighting, visible-depth,

@@ -372,6 +372,7 @@ ITextureView* FrameRenderer::render(IDeviceContext* context, const RenderScene& 
                     pass.motion_output = temporal_options.motion_output();
                     pass.indirect_output = temporal_options.indirect_output();
                     pass.reflection_output = temporal_options.reflection_output();
+                    pass.normal_only_output = temporal_options.normal_only_output();
                     pass.previous_parts = &state.history->previous_parts();
                     pass.current_parts = &state.history->pending_parts();
                     pass.begin = [&, history = state.history.get()] {

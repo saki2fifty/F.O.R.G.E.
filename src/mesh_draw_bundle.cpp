@@ -139,17 +139,20 @@ void MeshDrawBundle::prepare_temporal(Diligent::IDeviceContext* context, unsigne
 void MeshDrawBundle::prepare_surface(Diligent::IDeviceContext* context, unsigned lod, unsigned part,
                                      bool motion, bool indirect,
                                      std::span<const MaterialParameterOverride> parameters,
-                                     bool reflection) {
+                                     bool reflection, bool normal) {
     if (profile_ != MeshDrawProfile::Mesh || info_.at(lod).at(part).transmission ||
         info_.at(lod).at(part).alpha == MaterialAlpha::Blend || !info_.at(lod).at(part).depth_write)
         throw std::invalid_argument("Surface effects require a depth-writing Mesh part");
-    auto& selected = surface_lods_.at(surface_index(motion, indirect, reflection)).at(lod).at(part);
+    auto& selected =
+        surface_lods_.at(surface_index(motion, indirect, reflection, normal)).at(lod).at(part);
     if (!selected) {
-        const auto profile = reflection ? (motion ? MeshDrawProfile::MeshTemporalReflection
-                                                  : MeshDrawProfile::MeshReflection)
-                             : indirect ? (motion ? MeshDrawProfile::MeshTemporalIndirect
-                                                  : MeshDrawProfile::MeshIndirect)
-                                        : MeshDrawProfile::MeshTemporal;
+        const auto profile =
+            reflection ? (motion ? MeshDrawProfile::MeshTemporalReflection
+                                 : MeshDrawProfile::MeshReflection)
+            : normal ? (motion ? MeshDrawProfile::MeshTemporalNormal : MeshDrawProfile::MeshNormal)
+            : indirect
+                ? (motion ? MeshDrawProfile::MeshTemporalIndirect : MeshDrawProfile::MeshIndirect)
+                : MeshDrawProfile::MeshTemporal;
         auto candidate = prepare_draw(context, lod, part, color_, profile);
         candidate->bind_environment(environment_ ? &environment_.get() : nullptr);
         candidate->prepare_object_material_values(parameters, slot(lod, part));
@@ -229,21 +232,21 @@ void MeshDrawBundle::draw(Diligent::IDeviceContext* context, const AffineTransfo
     for (unsigned part = 0; part < lods_[lod].size(); ++part)
         draw_part(context, world, camera, lights, lod, part, environment);
 }
-void MeshDrawBundle::draw_part(Diligent::IDeviceContext* context, const AffineTransform& world,
-                               const CameraView& camera, std::span<const LightView> lights,
-                               unsigned lod, unsigned part, const EnvironmentLighting* environment,
-                               const std::array<float, 3>* legacy_tint,
-                               const ShadowLighting* shadows, std::span<const int> shadow_slots,
-                               const TransmissionLighting* transmission,
-                               const MeshInstancePose* pose,
-                               std::span<const MeshDraw::Instance> instances,
-                               std::span<const MaterialParameterOverride> parameters,
-                               const SpriteDrawValues* sprite, const SceneDistanceFog* fog,
-                               const GpuLease<TextureAsset>* sprite_mip,
-                               const MeshDraw::Motion* motion, bool indirect, bool reflection) {
+void MeshDrawBundle::draw_part(
+    Diligent::IDeviceContext* context, const AffineTransform& world, const CameraView& camera,
+    std::span<const LightView> lights, unsigned lod, unsigned part,
+    const EnvironmentLighting* environment, const std::array<float, 3>* legacy_tint,
+    const ShadowLighting* shadows, std::span<const int> shadow_slots,
+    const TransmissionLighting* transmission, const MeshInstancePose* pose,
+    std::span<const MeshDraw::Instance> instances,
+    std::span<const MaterialParameterOverride> parameters, const SpriteDrawValues* sprite,
+    const SceneDistanceFog* fog, const GpuLease<TextureAsset>* sprite_mip,
+    const MeshDraw::Motion* motion, bool indirect, bool reflection, bool normal) {
     auto& selected =
-        motion || indirect || reflection
-            ? surface_lods_.at(surface_index(bool(motion), indirect, reflection)).at(lod).at(part)
+        motion || indirect || reflection || normal
+            ? surface_lods_.at(surface_index(bool(motion), indirect, reflection, normal))
+                  .at(lod)
+                  .at(part)
             : lods_.at(lod).at(part);
     if (!selected)
         throw std::runtime_error("Surface Mesh part was not prepared before drawing");

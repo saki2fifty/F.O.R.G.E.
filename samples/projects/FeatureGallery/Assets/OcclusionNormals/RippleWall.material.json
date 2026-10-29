@@ -1,0 +1,74 @@
+{
+  "asset_id": "7ed3592a-fab7-41d2-a5c4-c4c7c5eda387",
+  "kind": "forge.material",
+  "overrides": {
+    "parameters": {
+      "baseColorFactor": {
+        "type": 5,
+        "value": [
+          0.48,
+          0.65,
+          0.78,
+          1
+        ]
+      },
+      "metallicFactor": {
+        "type": 0,
+        "value": [
+          0
+        ]
+      },
+      "normalScale": {
+        "type": 0,
+        "value": [
+          1
+        ]
+      },
+      "roughnessFactor": {
+        "type": 0,
+        "value": [
+          0.75
+        ]
+      }
+    },
+    "textures": {
+      "normalTexture": {
+        "asset": "45cb1cd6-c3ae-4f51-a7ff-314eea5cc26f",
+        "slot": {
+          "dimension": 0,
+          "offset": [
+            0,
+            0
+          ],
+          "rotation": 0,
+          "sampler": {
+            "anisotropy": 1,
+            "border": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "compare": 0,
+            "lod_bias": 0,
+            "mag": 1,
+            "max_lod": 1000,
+            "min": 1,
+            "min_lod": 0,
+            "mip": 1,
+            "u": 0,
+            "v": 0,
+            "w": 0
+          },
+          "scale": [
+            8,
+            4
+          ],
+          "semantic": 2,
+          "uv_set": 0
+        }
+      }
+    }
+  },
+  "version": 1
+}

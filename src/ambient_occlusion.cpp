@@ -6,10 +6,11 @@
 
 namespace forge {
 using namespace Diligent;
-void AmbientOcclusion::prepare() {
+void AmbientOcclusion::prepare(bool material_normals) {
     if (thread_ != std::this_thread::get_id())
         throw std::logic_error("Ambient occlusion requires its presentation thread");
-    if (pipeline_)
+    auto& mode = modes_[material_normals ? 1 : 0];
+    if (mode.pipeline)
         return;
     ShaderCreateInfo shader;
     shader.SourceLanguage = SHADER_SOURCE_LANGUAGE_HLSL;
@@ -22,13 +23,19 @@ void AmbientOcclusion::prepare() {
     presentation_.shader(shader, &vertex);
     shader.Desc.Name = "FORGE bounded indirect occlusion";
     shader.Desc.ShaderType = SHADER_TYPE_PIXEL;
-    const std::string source = std::string(R"(
+    const std::string source =
+        std::string(material_normals ? "#define FORGE_MATERIAL_NORMALS 1\n"
+                                     : "#define FORGE_MATERIAL_NORMALS 0\n") +
+        std::string(R"(
 Texture2D<float4> CurrentColor;
 Texture2D<float4> CurrentIndirect;
 Texture2D<float> CurrentDepth;
+#if FORGE_MATERIAL_NORMALS
+Texture2D<float4> CurrentSurface;
+#endif
 cbuffer AmbientValues {float4 Extent;float4 Settings;float4 P0;float4 P1;float4 P2;float4 P3;};
 )") + std::string(surface_depth_shader) +
-                               R"(
+        R"(
 bool differential(int2 p,int2 step,float3 center,out float3 delta) {
     float3 a,b;bool left=positionAt(p-step,a),right=positionAt(p+step,b);
     if(!left&&!right){delta=0;return false;}
@@ -49,6 +56,21 @@ float4 main(float4 position:SV_Position):SV_Target {
     n/=magnitude;
     float3 towardEye=P3.z==0?float3(0,0,-1):-center;
     if(dot(n,towardEye)<0)n=-n;
+#if FORGE_MATERIAL_NORMALS
+    float3 geometricNormal=n;
+    if(Settings.y>0) {
+        float3 mapped=CurrentSurface.Load(int3(p,0)).xyz;
+        float mappedLength=length(mapped);
+        if(all(isfinite(mapped))&&isfinite(mappedLength)&&mappedLength>1e-8) {
+            mapped/=mappedLength;
+            if(dot(mapped,geometricNormal)>1e-4) {
+                float3 mixed=lerp(n,mapped,Settings.y);
+                float mixedLength=length(mixed);
+                if(isfinite(mixedLength)&&mixedLength>1e-8)n=mixed/mixedLength;
+            }
+        }
+    }
+#endif
     float3 tangent=normalize(cross(n,abs(n.z)<.9?float3(0,0,1):float3(0,1,0)));
     float3 bitangent=cross(n,tangent);
     float occluded=0;
@@ -69,6 +91,10 @@ float4 main(float4 position:SV_Position):SV_Target {
         if(!positionAt(int2(uv*Extent.xy),surface)||surface.z>=samplePoint.z-Settings.x)continue;
         float3 offset=surface-center;float distance=length(offset);
         if(!isfinite(distance)||distance<=1e-8||distance>=Extent.z||dot(offset,n)<=Settings.x)continue;
+#if FORGE_MATERIAL_NORMALS
+        // A shading normal must not make the underlying flat geometry occlude itself.
+        if(dot(offset,geometricNormal)<=Settings.x)continue;
+#endif
         occluded+=saturate(dot(n,offset)/distance)*(1-distance/Extent.z);
     }
     // Uniform hemisphere quadrature of cosine-weighted occlusion. The surface
@@ -95,9 +121,11 @@ float4 main(float4 position:SV_Position):SV_Target {
     const ShaderResourceVariableDesc inputs[]{
         {SHADER_TYPE_PIXEL, "CurrentColor", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
         {SHADER_TYPE_PIXEL, "CurrentIndirect", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
-        {SHADER_TYPE_PIXEL, "CurrentDepth", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}};
+        {SHADER_TYPE_PIXEL, "CurrentDepth", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+        {SHADER_TYPE_PIXEL, "CurrentSurface", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}};
     info.PSODesc.ResourceLayout.Variables = inputs;
-    info.PSODesc.ResourceLayout.NumVariables = Uint32(std::size(inputs));
+    const unsigned resource_count = material_normals ? 4 : 3;
+    info.PSODesc.ResourceLayout.NumVariables = resource_count;
     auto& g = info.GraphicsPipeline;
     g.NumRenderTargets = 1;
     g.RTVFormats[0] = TEX_FORMAT_RGBA16_FLOAT;
@@ -115,13 +143,13 @@ float4 main(float4 position:SV_Position):SV_Target {
     pipeline->CreateShaderResourceBinding(&binding, true);
     if (!binding || !binding->GetVariableByName(SHADER_TYPE_PIXEL, "AmbientValues"))
         throw std::runtime_error("Ambient shader interface is incomplete");
-    for (const auto& input : inputs)
-        if (!binding->GetVariableByName(SHADER_TYPE_PIXEL, input.Name))
+    for (unsigned i = 0; i < resource_count; ++i)
+        if (!binding->GetVariableByName(SHADER_TYPE_PIXEL, inputs[i].Name))
             throw std::runtime_error("Ambient texture interface is incomplete");
     binding->GetVariableByName(SHADER_TYPE_PIXEL, "AmbientValues")->Set(values);
-    pipeline_ = std::move(pipeline);
-    binding_ = std::move(binding);
-    values_ = std::move(values);
+    mode.pipeline = std::move(pipeline);
+    mode.binding = std::move(binding);
+    mode.values = std::move(values);
 }
 void AmbientOcclusion::apply(IDeviceContext* context, const Input& input, ITextureView* output) {
     validate_scene_ambient_occlusion(input.settings);
@@ -153,31 +181,44 @@ void AmbientOcclusion::apply(IDeviceContext* context, const Input& input, ITextu
             view->GetTexture() == output->GetTexture())
             throw std::invalid_argument("Ambient input extent or output alias is invalid");
     }
+    const bool material_normals = input.settings.normal_influence != 0;
+    if (material_normals && (!complete_surface_view(input.surface, TEX_FORMAT_RGBA16_FLOAT,
+                                                    TEXTURE_VIEW_SHADER_RESOURCE) ||
+                             input.surface->GetTexture() == input.color->GetTexture() ||
+                             input.surface->GetTexture() == input.indirect->GetTexture() ||
+                             input.surface->GetTexture() == output->GetTexture() ||
+                             input.surface->GetTexture()->GetDesc().Width != size.Width ||
+                             input.surface->GetTexture()->GetDesc().Height != size.Height))
+        throw std::invalid_argument(
+            "Material normal occlusion requires a distinct complete current normal surface");
     const auto& p = input.projection;
     validate_surface_projection(p);
-    prepare();
+    prepare(material_normals);
+    auto& mode = modes_[material_normals ? 1 : 0];
     {
-        MapHelper<float> data(context, values_, MAP_WRITE, MAP_FLAG_DISCARD);
+        MapHelper<float> data(context, mode.values, MAP_WRITE, MAP_FLAG_DISCARD);
         data[0] = float(size.Width);
         data[1] = float(size.Height);
         data[2] = input.settings.radius;
         data[3] = input.settings.strength;
         data[4] = input.settings.bias;
-        data[5] = data[6] = data[7] = 0;
+        data[5] = input.settings.normal_influence;
+        data[6] = data[7] = 0;
         for (unsigned i = 0; i < 16; ++i)
             data[8 + i] = p[i];
     }
-    const char* names[]{"CurrentColor", "CurrentIndirect", "CurrentDepth"};
-    ITextureView* views[]{input.color, input.indirect, input.depth};
-    for (unsigned i = 0; i < 3; ++i)
-        binding_->GetVariableByName(SHADER_TYPE_PIXEL, names[i])->Set(views[i]);
+    const char* names[]{"CurrentColor", "CurrentIndirect", "CurrentDepth", "CurrentSurface"};
+    ITextureView* views[]{input.color, input.indirect, input.depth, input.surface};
+    const unsigned resource_count = material_normals ? 4 : 3;
+    for (unsigned i = 0; i < resource_count; ++i)
+        mode.binding->GetVariableByName(SHADER_TYPE_PIXEL, names[i])->Set(views[i]);
     context->SetRenderTargets(1, &output, nullptr, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     Diligent::Viewport viewport{0, 0, float(size.Width), float(size.Height), 0, 1};
     context->SetViewports(1, &viewport, size.Width, size.Height);
-    context->SetPipelineState(pipeline_);
-    context->CommitShaderResources(binding_, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    context->SetPipelineState(mode.pipeline);
+    context->CommitShaderResources(mode.binding, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     context->Draw(DrawAttribs{3, DRAW_FLAG_VERIFY_ALL});
-    for (const auto* name : names)
-        binding_->GetVariableByName(SHADER_TYPE_PIXEL, name)->Set(nullptr);
+    for (unsigned i = 0; i < resource_count; ++i)
+        mode.binding->GetVariableByName(SHADER_TYPE_PIXEL, names[i])->Set(nullptr);
 }
 } // namespace forge

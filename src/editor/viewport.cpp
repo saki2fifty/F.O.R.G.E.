@@ -508,6 +508,7 @@ ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsig
             pass.motion_output = options.motion_output();
             pass.indirect_output = options.indirect_output();
             pass.reflection_output = options.reflection_output();
+            pass.normal_only_output = options.normal_only_output();
             pass.previous_parts = &temporal_->previous_parts();
             pass.current_parts = &temporal_->pending_parts();
             pass.begin = [&] { temporal_->begin(context, color_, dsv); };

@@ -196,7 +196,8 @@ struct Inspect {
                             ? std::set<std::string>{"enabled", "max_distance", "thickness",
                                                     "strength", "max_roughness"}
                         : std::string_view(section) == "ambient_occlusion"
-                            ? std::set<std::string>{"enabled", "radius", "strength", "bias"}
+                            ? std::set<std::string>{"enabled", "radius", "strength", "bias",
+                                                    "normal_influence"}
                         : std::string_view(section) == "motion_blur"
                             ? std::set<std::string>{"enabled", "shutter", "max_pixels"}
                         : std::string_view(section) == "auto_exposure"

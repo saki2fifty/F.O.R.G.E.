@@ -13,7 +13,7 @@ a scalar gain history. Temporal anti-aliasing supplies real per-view motion,
 previous depth/camera data and previous posed Mesh geometry for its supported
 opaque/masked profile. These are separate passes with their documented admission,
 reset and budget rules. Spatial ambient occlusion uses current depth and separately resolved environment radiance,
-without a normal/material buffer or temporal occlusion history. Spatial depth of field uses each view's current HDR/depth
+with optional current material-normal refinement and no temporal occlusion history. Spatial depth of field uses each view's current HDR/depth
 without adding temporal history. Reflections consume real current material normal,
 roughness, unit response and replaceable base specular, updating HDR and indirect
 before occlusion. They do not expose the upstream effects as working toggles.
@@ -33,7 +33,7 @@ acceptance is distinct from local software Vulkan pixel checks.
 | --- | --- | --- |
 | Bloom | Color input, plus a ready PostFXContext; a pending context returns the placeholder copy | Deferred with the temporal post-effect foundation; not exposed as a working toggle |
 | TemporalAntiAliasing | Color, jittered projection, accumulation history, context motion/depth/camera data | Upstream module not enabled; FORGE supplies its own bounded temporal profile |
-| ScreenSpaceAmbientOcclusion | Depth, normal buffer and temporal context | Upstream module not enabled; FORGE supplies its own bounded geometric-depth spatial profile |
+| ScreenSpaceAmbientOcclusion | Depth, normal buffer and temporal context | Upstream module not enabled; FORGE supplies its own bounded current-depth spatial profile with optional material-normal refinement |
 | ScreenSpaceReflection | Color, depth, normals, material buffer, motion vectors and temporal context | Upstream module not enabled; FORGE supplies its own bounded current-depth base-specular profile |
 | DepthOfField | Color/depth and temporal context | Upstream module not enabled; FORGE supplies its own bounded spatial focus profile |
 

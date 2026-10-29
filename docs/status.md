@@ -5,6 +5,15 @@ The accepted local Windows package is **261024-000213**, source
 in the [README](../README.md#current-implementation). No new numbered Windows
 package accompanies the local source changes described here.
 
+Local source also provides optional material-normal refinement for ambient
+occlusion: default-zero Normal influence, shared shaded-normal output, minimal
+ordinary/temporal surface roles, editor controls, the existing authoring/MCP
+operation and editable Gallery108. Current capability6 surface cooks add two roles
+while retaining readable1–5 archives and stable asset identities. Geometric AO
+remains unchanged by default. See the [AO contract](ambient-occlusion.md) for scope
+and payload costs; Windows/full-editor/FXC/cooked D3D12 and physical acceptance
+remain queued. No new Windows package is implied.
+
 Local Scene surface effects include [temporal anti-aliasing](temporal-antialiasing.md),
 [motion blur](motion-blur.md), [depth of field](depth-of-field.md) and
 [ambient occlusion](ambient-occlusion.md), with shared Scene/Game owners, controls,

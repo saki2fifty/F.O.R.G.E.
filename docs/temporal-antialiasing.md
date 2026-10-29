@@ -96,7 +96,9 @@ History is never serialized into Scene, capture receipts or runtime packages.
 
 AA-only input targets use 28 texel bytes/pixel; accumulation uses 20, for 48 total.
 Optional motion blur adds its documented output/capture payload; active
-[ambient occlusion](ambient-occlusion.md) adds16bytes/pixel. Game
+[ambient occlusion](ambient-occlusion.md) adds16bytes/pixel. Active material-normal
+refinement adds a further8bytes/pixel when reflections do not already own the
+shared normal image. Game
 admits at most eight accumulated cameras within a shared 512 MiB texture-payload
 estimate. Scene View has a separate 512 MiB estimate. Native allocation, driver,
 pipeline and retired-resource overhead are additional; this is not a physical

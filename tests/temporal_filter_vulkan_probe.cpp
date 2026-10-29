@@ -462,6 +462,11 @@ int main(int argc, char** argv) {
         GetEngineFactoryVk()->CreateDeviceAndContextsVk(info, &device, &context);
         check(device && context, "Vulkan device unavailable");
         forge::DiligentPresentation presentation(device);
+        if (argc == 2 && std::string_view(argv[1]) == "--normal-geometry") {
+            test_temporal_mesh_motion::exercise_normals(presentation, context);
+            context->WaitForIdle();
+            return 0;
+        }
         check(argc == 3, "Expected isolated fixture and Gallery project directories");
         forge::test_temporal_scene::exercise(presentation, context, argv[1]);
         forge::test_temporal_scene::gallery(presentation, context, argv[2],

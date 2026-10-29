@@ -1,0 +1,43 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [
+      {
+        "kind": "runtime",
+        "revision": "59dbe64fa9a6b822976d7dca6821bb260fae1f79cdbdc3335e94816e0de01ee3",
+        "role": "material.texture:normalTexture",
+        "target": "45cb1cd6-c3ae-4f51-a7ff-314eea5cc26f",
+        "type": "texture"
+      }
+    ],
+    "importer": "forge.material.builtin",
+    "importer_revision": "ffd66114ccabcfab54be08222f2df63ebc50cb701d41efceaaac2a623fc6d090",
+    "key_version": 1,
+    "output_format": "forge.material-bundle",
+    "output_version": 2,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {},
+    "settings_version": 1,
+    "source": "db08a790e47c83997fe9337094400be9504e8561a22a67bb57cbdf401321fc88",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.material.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "7ed3592a-fab7-41d2-a5c4-c4c7c5eda387",
+    "source": "Assets/OcclusionNormals/RippleWall.material.json",
+    "source_digest": "db08a790e47c83997fe9337094400be9504e8561a22a67bb57cbdf401321fc88",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.material.builtin",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

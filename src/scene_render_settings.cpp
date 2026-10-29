@@ -13,9 +13,12 @@ void validate_scene_screen_space_reflections(const SceneScreenSpaceReflections& 
 void validate_scene_ambient_occlusion(const SceneAmbientOcclusion& value) {
     if (!std::isfinite(value.radius) || value.radius < 0 || value.radius > 10 ||
         !std::isfinite(value.strength) || value.strength < 0 || value.strength > 1 ||
-        !std::isfinite(value.bias) || value.bias < 0 || value.bias > 1)
-        throw std::runtime_error("Ambient occlusion requires radius from 0 to 10 metres, "
-                                 "strength from 0 to 1 and depth bias from 0 to 1 metre");
+        !std::isfinite(value.bias) || value.bias < 0 || value.bias > 1 ||
+        !std::isfinite(value.normal_influence) || value.normal_influence < 0 ||
+        value.normal_influence > 1)
+        throw std::runtime_error(
+            "Ambient occlusion requires radius from 0 to 10 metres, "
+            "strength/normal influence from 0 to 1 and depth bias from 0 to 1 metre");
 }
 void validate_scene_motion_blur(const SceneMotionBlur& value) {
     if (!std::isfinite(value.shutter) || value.shutter < 0 || value.shutter > 1 ||
@@ -133,12 +136,15 @@ SceneRenderSettings scene_render_settings(const nlohmann::json& scene) {
         const auto radius = number(section, "radius", value.radius);
         const auto strength = number(section, "strength", value.strength);
         const auto bias = number(section, "bias", value.bias);
-        if (radius < 0 || radius > 10 || strength < 0 || strength > 1 || bias < 0 || bias > 1)
-            throw std::runtime_error(
-                "Ambient occlusion radius, strength or bias is outside its range");
+        const auto normal = number(section, "normal_influence", value.normal_influence);
+        if (radius < 0 || radius > 10 || strength < 0 || strength > 1 || bias < 0 || bias > 1 ||
+            normal < 0 || normal > 1)
+            throw std::runtime_error("Ambient occlusion radius, strength, bias or normal influence "
+                                     "is outside its range");
         value.radius = float(radius);
         value.strength = float(strength);
         value.bias = float(bias);
+        value.normal_influence = float(normal);
         validate_scene_ambient_occlusion(value);
     }
     if (settings.contains("motion_blur")) {

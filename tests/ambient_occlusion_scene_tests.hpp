@@ -77,8 +77,19 @@ inline void exercise(DiligentPresentation& presentation, Diligent::IDeviceContex
     }
     check(changes > 100, "Actual Game ambient occlusion has no depth-step signal");
     check(render(frame, scene) == occluded, "Spatial-only ambient Game changed a static image");
+    auto detailed = scene;
+    detailed.settings.ambient_occlusion.normal_influence = 1;
+    const auto normal_occluded = render(frame, detailed);
+    std::size_t normal_changes = 0;
+    for (std::size_t pixel = 0; pixel < baseline.size(); ++pixel) {
+        normal_changes += normal_occluded[pixel] != baseline[pixel];
+        check(normal_occluded[pixel][3] == baseline[pixel][3],
+              "Normal-only Game data changed current alpha");
+    }
+    check(normal_changes > 100 && render(frame, detailed) == normal_occluded,
+          "Normal-only actual Game has no stable occlusion signal");
     for (unsigned zero = 0; zero < 3; ++zero) {
-        auto skipped = scene;
+        auto skipped = detailed;
         if (zero == 0)
             skipped.settings.ambient_occlusion.enabled = false;
         if (zero == 1)
@@ -87,13 +98,13 @@ inline void exercise(DiligentPresentation& presentation, Diligent::IDeviceContex
             skipped.settings.ambient_occlusion.strength = 0;
         check(render(frame, skipped) == baseline, "Ambient zero path changed ordinary Game pixels");
     }
-    auto direct = scene;
+    auto direct = detailed;
     direct.settings.environment.intensity = 0;
     auto direct_sharp = direct;
     direct_sharp.settings.ambient_occlusion.enabled = false;
     check(render(frame, direct) == render(reference, direct_sharp),
           "Ambient Game darkened direct lighting without an environment contribution");
-    auto load = scene;
+    auto load = detailed;
     load.cameras[0].camera.clear_depth = false;
     const auto fallback = render(frame, load, 194, 129, true);
     check(std::any_of(frame.diagnostics().begin(), frame.diagnostics().end(),
@@ -105,7 +116,7 @@ inline void exercise(DiligentPresentation& presentation, Diligent::IDeviceContex
     load.settings.ambient_occlusion.enabled = false;
     check(fallback == render(reference, load),
           "Ambient rejected camera changed ordinary rendering");
-    auto split = scene;
+    auto split = detailed;
     split.cameras[0].camera.viewport_width = .5;
     auto second = split.cameras[0];
     second.entity = EntityId::generate();
@@ -125,7 +136,7 @@ inline void exercise(DiligentPresentation& presentation, Diligent::IDeviceContex
             check(joined[y * 194 + 97 + x] == b[y * 97 + x],
                   "Ambient right camera crossed its rectangle");
         }
-    auto combined = scene;
+    auto combined = detailed;
     combined.settings.temporal_anti_aliasing = {true, .8f};
     combined.settings.motion_blur = {true, .5f, 16};
     combined.settings.depth_of_field = {true, 4, 1, 4};
@@ -139,7 +150,7 @@ inline void exercise(DiligentPresentation& presentation, Diligent::IDeviceContex
     authoring_command(
         authored, "scene.rendering.set",
         {{"environment", {{"texture", scene.settings.environment.texture.id}, {"sky", false}}},
-         {"ambient_occlusion", {{"enabled", true}}}});
+         {"ambient_occlusion", {{"enabled", true}, {"normal_influence", .7}}}});
     const auto document = authored.preview_document(authored.document());
     Viewport preview(presentation, true);
     preview.resources(host);

@@ -59,7 +59,8 @@ Do not label an untested conversion as supported.
 ## Cameras, lighting and effects
 
 The optional [ambient-occlusion pass](ambient-occlusion.md) uses current depth and
-separate indirect radiance through the same per-view owner. It reduces environment
+separate indirect radiance, optionally refined with current mapped base normals,
+through the same per-view owner. It reduces environment
 lighting before AA/motion/focus and preserves punctual lighting, emission and fog
 color. Spatial-only operation has no motion texture, temporal history or jitter.
 

@@ -27,15 +27,26 @@ inline void test_scene_ambient_occlusion() {
               scene.document() == enabled,
           "Ambient occlusion bypassed atomic Scene history");
     authoring_command(scene, "scene.rendering.set", {{"ambient_occlusion", {{"strength", .5}}}});
+    const auto geometric = scene.document();
+    check(scene_render_settings(geometric).ambient_occlusion.normal_influence == 0,
+          "Legacy geometric occlusion gained material normal influence");
+    authoring_command(scene, "scene.rendering.set",
+                      {{"ambient_occlusion", {{"normal_influence", .8}}}});
+    check(scene_render_settings(scene.document()).ambient_occlusion.normal_influence == .8f &&
+              scene.undo() && scene.document() == geometric && scene.redo(),
+          "Normal influence bypassed partial Scene history");
     const auto good = scene.document();
     check(scene_render_settings(good).ambient_occlusion ==
-                  SceneAmbientOcclusion{true, 2, .5f, .02f} &&
+                  SceneAmbientOcclusion{true, 2, .5f, .02f, .8f} &&
               good["rendering"]["ambient_occlusion"]["extension"] == 7,
           "Partial ambient edit lost omitted values or opaque metadata");
     for (const auto& bad :
          {Json(1), Json(nullptr), Json{{"enabled", 1}}, Json{{"radius", 10.000000001}},
           Json{{"strength", 1.000000001}}, Json{{"bias", 1.000000001}}, Json{{"radius", -.001}},
-          Json{{"strength", -1}}, Json{{"bias", -.001}}, Json{{"radius", "near"}}}) {
+          Json{{"strength", -1}}, Json{{"bias", -.001}}, Json{{"radius", "near"}},
+          Json{{"normal_influence", 1.0000000001}}, Json{{"normal_influence", -.000000001}},
+          Json{{"normal_influence", true}}, Json{{"normal_influence", nullptr}},
+          Json{{"normal_influence", "material"}}}) {
         const auto revision = scene.revision();
         bool rejected = false;
         try {
@@ -47,7 +58,7 @@ inline void test_scene_ambient_occlusion() {
               "Rejected ambient values mutated Scene values or revision");
     }
     for (auto member : {&SceneAmbientOcclusion::radius, &SceneAmbientOcclusion::strength,
-                        &SceneAmbientOcclusion::bias})
+                        &SceneAmbientOcclusion::bias, &SceneAmbientOcclusion::normal_influence})
         for (float bad : {std::numeric_limits<float>::infinity(),
                           std::numeric_limits<float>::quiet_NaN(), -1.f}) {
             SceneAmbientOcclusion value;
@@ -73,6 +84,11 @@ inline void test_scene_ambient_occlusion() {
     bool discovered = false;
     for (const auto& row : authoring_commands())
         if (row.at("id") == "scene.rendering.set")
-            discovered = row.at("input_schema").at("properties").contains("ambient_occlusion");
+            discovered = row.at("input_schema")
+                             .at("properties")
+                             .at("ambient_occlusion")
+                             .at("properties")
+                             .at("normal_influence") ==
+                         Json{{"type", "number"}, {"minimum", 0}, {"maximum", 1}};
     check(discovered, "Ambient values missing from shared automation/MCP discovery");
 }

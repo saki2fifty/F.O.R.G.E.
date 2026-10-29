@@ -80,7 +80,8 @@ Capability 5 appends `surface_reflection_color` and
 `surface_temporal_reflection_color` to the five capability-4 roles. Their MRT order
 is color, optional RGBA32F motion, indirect, normal/roughness, response and old
 base specular. Other attachments use RGBA16F. Current surface compiler source
-emits seven roles. Readers retain capabilities 1–4 and their original bytes;
+emits nine roles at capability6, including the two minimal normal-only AO roles.
+Readers retain capabilities1–5 and their original bytes;
 logical Shader/Material IDs and existing immutable publication/DDC/last-good
 ownership remain unchanged. Reimport Shader and rebuild dependent Materials to
 participate with older cooks. Ordinary source-program stage admission remains six;
