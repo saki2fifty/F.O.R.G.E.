@@ -85,7 +85,7 @@ Readers retain capabilities1–5 and their original bytes;
 logical Shader/Material IDs and existing immutable publication/DDC/last-good
 ownership remain unchanged. Reimport Shader and rebuild dependent Materials to
 participate with older cooks. Ordinary source-program stage admission remains six;
-surface artifacts admit up to eight entries.
+surface artifacts admit up to nine entries.
 
 Local software Vulkan checks cover analytic geometry, mapped/rotated normals,
 material/layer/fog response, actual posed and instanced MRT producers, Game/Scene,

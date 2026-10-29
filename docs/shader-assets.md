@@ -4,11 +4,12 @@ The shader subsystem provides source/permutation admission, supervised native
 compilation, immutable cooked values, copied reflection, shared cache/publication,
 Content import controls and compatibility-checked material reload. The explicit
 [material surface interface](surface-shaders.md) retains engine-owned geometry,
-color/depth pixel roles and immutable Material snapshots. Capability 5 surface
-compiler source provides seven roles: color/depth/temporal, two
-[indirect-output roles](ambient-occlusion.md) and two
-[reflection-output roles](screen-space-reflections.md). Capabilities 1–4 remain
-readable; recook older surfaces to opt into the newer outputs. These Windows cooks
+color/depth pixel roles and immutable Material snapshots. Capability6 surface
+compiler source provides nine roles: color/depth/temporal, two
+[indirect-output roles](ambient-occlusion.md), two
+[reflection-output roles](screen-space-reflections.md) and two minimal material-normal
+AO roles. Capabilities1–5 remain readable with their original bytes; recook older
+surfaces to opt into the newer outputs. These Windows cooks
 require current Windows worker and cooked-runtime acceptance; previous worker/WARP
 evidence covers earlier capabilities. Final combined package validation remains a release gate.
 See the [shader manual](../manual/editor/shaders.md) for the end-user workflow.
