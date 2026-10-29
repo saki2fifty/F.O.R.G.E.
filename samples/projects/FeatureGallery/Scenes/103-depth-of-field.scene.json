@@ -1,0 +1,6452 @@
+{
+  "asset_id": "4af485f2-660b-45e6-a9d5-a33a80ba8983",
+  "entities": [
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 1.7777777777777777,
+          "background_a": 1.0,
+          "background_b": 0.03999999910593033,
+          "background_g": 0.02500000037252903,
+          "background_r": 0.014999999664723873,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 100.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.1,
+          "order": 0,
+          "orthographic_height": 6.75,
+          "orthographic_width": 0.0,
+          "projection": 1,
+          "vertical_fov": 1.0471975511965976,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": -4.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "bda3e7fa-577f-408e-bb3b-f1b72acd0e77",
+      "name": "Camera - focus panels at 3.95 / 9.95 / 15.95 m",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.light": {
+          "basis": 0,
+          "cast_shadows": false,
+          "color_b": 1.0,
+          "color_g": 1.0,
+          "color_r": 1.0,
+          "enabled": true,
+          "inner_cone": 0.0,
+          "intensity": 3.0,
+          "kind": 0,
+          "layers": 4294967295,
+          "outer_cone": 0.7853981633974483,
+          "range": 0.0,
+          "shadow_bias": 0.0010000000474974513,
+          "shadow_normal_bias": 0.019999999552965164
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": -4.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "8ccea656-dd82-4f76-9f82-b31133604629",
+      "name": "Light - focus panels",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -5.0,
+          "y": 1.4000000000000001,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "b408c7c6-9d8e-435e-a6d0-848c22f47f62",
+      "name": "Near cell 1,1",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -4.6,
+          "y": 1.4000000000000001,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "2ac11dfb-55f3-4895-84e0-6a384b9ff2a7",
+      "name": "Near cell 2,1",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -4.2,
+          "y": 1.4000000000000001,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "38e5357c-371a-4003-8bc3-66a3518311cf",
+      "name": "Near cell 3,1",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -3.8000000000000003,
+          "y": 1.4000000000000001,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "74577454-f8d6-4db4-9625-f13e9624d028",
+      "name": "Near cell 4,1",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -3.4,
+          "y": 1.4000000000000001,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "2e185748-f8f8-42eb-bf46-246f82e2185e",
+      "name": "Near cell 5,1",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -3.0,
+          "y": 1.4000000000000001,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "32bccb6d-3f31-4448-8165-ac491b21f770",
+      "name": "Near cell 6,1",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -2.6,
+          "y": 1.4000000000000001,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "3b0d3c94-72c5-45c9-9d14-9e492c43db56",
+      "name": "Near cell 7,1",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -2.2,
+          "y": 1.4000000000000001,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "8c61f490-b488-4aa1-9a07-6755486a972d",
+      "name": "Near cell 8,1",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -5.0,
+          "y": 1.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "e2e760a8-8a48-42fc-9c79-0e970eb0f236",
+      "name": "Near cell 1,2",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -4.6,
+          "y": 1.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "0f515721-a117-43e7-8b6e-9f15036b4ca4",
+      "name": "Near cell 2,2",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -4.2,
+          "y": 1.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "b2a02106-f14f-4c42-a516-4c3795c50add",
+      "name": "Near cell 3,2",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -3.8000000000000003,
+          "y": 1.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "4987a119-d3fd-491d-b6df-adc3ece17e6a",
+      "name": "Near cell 4,2",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -3.4,
+          "y": 1.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "a75ca3e9-dfa0-4010-9ce6-19f1ba3c9a14",
+      "name": "Near cell 5,2",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -3.0,
+          "y": 1.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "75b2ecd6-eb0a-45d4-b910-0edc9988affa",
+      "name": "Near cell 6,2",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -2.6,
+          "y": 1.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "473b04bf-d04d-4720-916e-27dfda1ebbec",
+      "name": "Near cell 7,2",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -2.2,
+          "y": 1.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "5233e1fd-ac90-4da7-ae1a-e3b192349075",
+      "name": "Near cell 8,2",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -5.0,
+          "y": 0.6000000000000001,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "9dc17b34-5d3c-4133-818a-4218ebb5e8e7",
+      "name": "Near cell 1,3",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -4.6,
+          "y": 0.6000000000000001,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "565bbc70-7a6d-4072-ae33-5a845e05d047",
+      "name": "Near cell 2,3",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -4.2,
+          "y": 0.6000000000000001,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "3773669b-8364-4017-8112-53bfc8b65aec",
+      "name": "Near cell 3,3",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -3.8000000000000003,
+          "y": 0.6000000000000001,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "7904502d-7663-4bd0-aba8-709064b47e39",
+      "name": "Near cell 4,3",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -3.4,
+          "y": 0.6000000000000001,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "a21d6152-a19f-428b-83ca-06581af97117",
+      "name": "Near cell 5,3",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -3.0,
+          "y": 0.6000000000000001,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "f204e694-a00e-4d35-a989-7970fd2a9cd7",
+      "name": "Near cell 6,3",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -2.6,
+          "y": 0.6000000000000001,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "cc58763f-0cff-4310-b6db-30bba27886e1",
+      "name": "Near cell 7,3",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -2.2,
+          "y": 0.6000000000000001,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "3c95aadb-5c36-479c-91fd-f1500ed361f5",
+      "name": "Near cell 8,3",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -5.0,
+          "y": 0.2,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "1c591c15-57cb-471e-ada6-2c26380aee69",
+      "name": "Near cell 1,4",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -4.6,
+          "y": 0.2,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "aede1553-9545-4aff-b31c-4104f2d2e4b9",
+      "name": "Near cell 2,4",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -4.2,
+          "y": 0.2,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "c6dce9b1-bce2-445f-b104-b92016f4d0be",
+      "name": "Near cell 3,4",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -3.8000000000000003,
+          "y": 0.2,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "4ad3032b-ebfe-42cf-80c5-9ef42a131035",
+      "name": "Near cell 4,4",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -3.4,
+          "y": 0.2,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "6846368b-e434-4eb1-8d6d-3f79327b939d",
+      "name": "Near cell 5,4",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -3.0,
+          "y": 0.2,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "282f758d-dda1-46bc-8c09-b1c4a938a811",
+      "name": "Near cell 6,4",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -2.6,
+          "y": 0.2,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "c06fb829-433c-4ef3-a09f-f5cb046d8d3a",
+      "name": "Near cell 7,4",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -2.2,
+          "y": 0.2,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "24e52416-f0c9-4aa2-aa3a-55658afc9ee8",
+      "name": "Near cell 8,4",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -5.0,
+          "y": -0.2,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "d432fc98-8fd4-4c26-9a9f-4842c80c56ec",
+      "name": "Near cell 1,5",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -4.6,
+          "y": -0.2,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "52d2a6a8-1754-42b6-a9ee-4641a7959379",
+      "name": "Near cell 2,5",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -4.2,
+          "y": -0.2,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "bee2b568-903a-411a-b9b0-0c94576b0216",
+      "name": "Near cell 3,5",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -3.8000000000000003,
+          "y": -0.2,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "2aa9bded-b0a8-4d91-b604-b1c9472369f7",
+      "name": "Near cell 4,5",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -3.4,
+          "y": -0.2,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "b9ad0d3e-6c2c-4fcb-8bbe-02b8678e996e",
+      "name": "Near cell 5,5",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -3.0,
+          "y": -0.2,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "91f0c1b5-ee53-4817-90a1-06a9f39819c0",
+      "name": "Near cell 6,5",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -2.6,
+          "y": -0.2,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "6dd5e720-2ccd-49d0-84e8-9f2aaec7859d",
+      "name": "Near cell 7,5",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -2.2,
+          "y": -0.2,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "9ac28bf2-deb8-4d87-96f1-c5e1406fc807",
+      "name": "Near cell 8,5",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -5.0,
+          "y": -0.6000000000000001,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "656c3626-c2c5-4371-a57e-77cc501d8c85",
+      "name": "Near cell 1,6",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -4.6,
+          "y": -0.6000000000000001,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "d8373567-b9b6-4ee7-bb88-d1a4f5f37101",
+      "name": "Near cell 2,6",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -4.2,
+          "y": -0.6000000000000001,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "4982afe7-2dd0-4666-bb78-a328fdb25149",
+      "name": "Near cell 3,6",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -3.8000000000000003,
+          "y": -0.6000000000000001,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "9357fc09-8ce9-451c-831b-06b4e687a244",
+      "name": "Near cell 4,6",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -3.4,
+          "y": -0.6000000000000001,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "20b0b309-a14e-4ec3-a151-5c0fad8dab2d",
+      "name": "Near cell 5,6",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -3.0,
+          "y": -0.6000000000000001,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "07b2737b-50f1-42f7-b3c9-bdec71b5720e",
+      "name": "Near cell 6,6",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -2.6,
+          "y": -0.6000000000000001,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "d64b799c-a15e-47a9-83b1-9542e5f1a4dc",
+      "name": "Near cell 7,6",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -2.2,
+          "y": -0.6000000000000001,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "2b0f3d30-a20d-49e7-bd80-05bb2160e280",
+      "name": "Near cell 8,6",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -5.0,
+          "y": -1.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "d8dfb1e4-fcc2-4da0-aa36-e21909e1427d",
+      "name": "Near cell 1,7",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -4.6,
+          "y": -1.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "f1bebec3-8589-4931-99d1-45f5d21b36c4",
+      "name": "Near cell 2,7",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -4.2,
+          "y": -1.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "52d29e74-a7be-4b17-ae7c-79891676e9c7",
+      "name": "Near cell 3,7",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -3.8000000000000003,
+          "y": -1.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "9e858845-7603-41b1-875c-e1577512cbcc",
+      "name": "Near cell 4,7",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -3.4,
+          "y": -1.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "4507c612-d836-403d-9dab-e4598eec35b2",
+      "name": "Near cell 5,7",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -3.0,
+          "y": -1.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "aceb862e-2917-4d9e-9c3d-027c852198ba",
+      "name": "Near cell 6,7",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -2.6,
+          "y": -1.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "ada63e37-c6d5-4b92-a5de-7998d87a20d8",
+      "name": "Near cell 7,7",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -2.2,
+          "y": -1.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "66577ed1-78d3-43bf-b5b2-861921ec95e0",
+      "name": "Near cell 8,7",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -5.0,
+          "y": -1.4000000000000001,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "b1ed6c48-ad07-4cf3-b1f8-cdc5d458bbe1",
+      "name": "Near cell 1,8",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -4.6,
+          "y": -1.4000000000000001,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "6e223506-d76a-473d-bbf2-98a6e76af8a8",
+      "name": "Near cell 2,8",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -4.2,
+          "y": -1.4000000000000001,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "076f3c8d-48c0-4458-b322-45376f3d583d",
+      "name": "Near cell 3,8",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -3.8000000000000003,
+          "y": -1.4000000000000001,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "4bb7d5f1-13b7-4c29-a890-a6f817ec90ae",
+      "name": "Near cell 4,8",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -3.4,
+          "y": -1.4000000000000001,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "80a89b0d-67bc-46bb-8720-00f6d35a3a74",
+      "name": "Near cell 5,8",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -3.0,
+          "y": -1.4000000000000001,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "75496165-f089-4b26-9929-130d180f3f6a",
+      "name": "Near cell 6,8",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -2.6,
+          "y": -1.4000000000000001,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "a0244db8-823a-44f6-b146-e24630c7b30b",
+      "name": "Near cell 7,8",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -2.2,
+          "y": -1.4000000000000001,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "cc36ca7b-8604-4966-b8ac-4e1bba7b85e6",
+      "name": "Near cell 8,8",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -1.4000000000000001,
+          "y": 1.4000000000000001,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "2716b2ab-6db6-4201-a6b7-18d5f9833193",
+      "name": "Focus cell 1,1",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -1.0,
+          "y": 1.4000000000000001,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "b697ba03-e479-4527-9537-c585322598cb",
+      "name": "Focus cell 2,1",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -0.6000000000000001,
+          "y": 1.4000000000000001,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "b5862151-b6d9-43a4-affe-0818603a4564",
+      "name": "Focus cell 3,1",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -0.2,
+          "y": 1.4000000000000001,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "de849e55-fc30-4ed6-b680-662dab1514c3",
+      "name": "Focus cell 4,1",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 0.2,
+          "y": 1.4000000000000001,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "7cf95c56-e169-44ed-8a99-df55527caa64",
+      "name": "Focus cell 5,1",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 0.6000000000000001,
+          "y": 1.4000000000000001,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "b047f261-534d-42ee-b0e3-d6007a111f2b",
+      "name": "Focus cell 6,1",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 1.0,
+          "y": 1.4000000000000001,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "9a7e3d3e-d519-4105-9885-580b8f19bdfa",
+      "name": "Focus cell 7,1",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 1.4000000000000001,
+          "y": 1.4000000000000001,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "199e5751-cdd5-4f34-9e25-f215ed681007",
+      "name": "Focus cell 8,1",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -1.4000000000000001,
+          "y": 1.0,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "b07c5904-5315-4434-bd29-8712a0553e7f",
+      "name": "Focus cell 1,2",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -1.0,
+          "y": 1.0,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "7d9d3720-3e91-43c7-a745-b7cc4e6f6033",
+      "name": "Focus cell 2,2",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -0.6000000000000001,
+          "y": 1.0,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "e1dbaed4-696c-404d-ab37-e4e916b352f2",
+      "name": "Focus cell 3,2",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -0.2,
+          "y": 1.0,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "47f44442-f6ec-4efd-a446-bb0eedc7e0be",
+      "name": "Focus cell 4,2",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 0.2,
+          "y": 1.0,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "479a6a4f-a039-4823-8f4e-e49f374854ac",
+      "name": "Focus cell 5,2",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 0.6000000000000001,
+          "y": 1.0,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "e92c05e3-6c36-4450-aef4-0f3ce8e12fb5",
+      "name": "Focus cell 6,2",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "baa7ab07-9721-4d92-b1e1-d8f7a75295b8",
+      "name": "Focus cell 7,2",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 1.4000000000000001,
+          "y": 1.0,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "19b8d941-07aa-4d71-8ec0-43019a4a6e33",
+      "name": "Focus cell 8,2",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -1.4000000000000001,
+          "y": 0.6000000000000001,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "0bdc928f-cd89-48d4-9d3f-734edbfe3381",
+      "name": "Focus cell 1,3",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -1.0,
+          "y": 0.6000000000000001,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "2ba5376a-90f5-4c96-9784-84eb83dbc2a9",
+      "name": "Focus cell 2,3",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -0.6000000000000001,
+          "y": 0.6000000000000001,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "136235ac-c849-4385-a5de-d9af4bd07040",
+      "name": "Focus cell 3,3",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -0.2,
+          "y": 0.6000000000000001,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "7b1b8cf2-4d7e-4dc4-8acf-50ee3dd02cb2",
+      "name": "Focus cell 4,3",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 0.2,
+          "y": 0.6000000000000001,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "c0222289-3ab9-437e-90af-6bd1cf67a0ae",
+      "name": "Focus cell 5,3",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 0.6000000000000001,
+          "y": 0.6000000000000001,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "99182cae-3b8b-4f49-95c9-a0302a2504b7",
+      "name": "Focus cell 6,3",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 1.0,
+          "y": 0.6000000000000001,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "7b6f36b0-d632-46f9-841c-7392f768a737",
+      "name": "Focus cell 7,3",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 1.4000000000000001,
+          "y": 0.6000000000000001,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "ea56e9ed-b991-434a-86ab-227309f01825",
+      "name": "Focus cell 8,3",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -1.4000000000000001,
+          "y": 0.2,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "6347325b-a978-4192-b711-0a077e881338",
+      "name": "Focus cell 1,4",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -1.0,
+          "y": 0.2,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "03732ee9-51fa-4b3a-9d9e-9a56a26bd730",
+      "name": "Focus cell 2,4",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -0.6000000000000001,
+          "y": 0.2,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "cba029e7-d8b1-4313-9ee3-970ee59ce25e",
+      "name": "Focus cell 3,4",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -0.2,
+          "y": 0.2,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "a7bd07e8-7bf2-42a7-91bc-ff1a0670354c",
+      "name": "Focus cell 4,4",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 0.2,
+          "y": 0.2,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "b26d2792-c914-4d10-8f85-5ce16218d439",
+      "name": "Focus cell 5,4",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 0.6000000000000001,
+          "y": 0.2,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "240f7ded-6d11-42bf-9dca-ba0febd90077",
+      "name": "Focus cell 6,4",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 1.0,
+          "y": 0.2,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "d3bbe6c7-1751-41f6-a7d7-a8ad52e7be90",
+      "name": "Focus cell 7,4",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 1.4000000000000001,
+          "y": 0.2,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "1df4ba2a-a26c-472f-b005-951816f46c37",
+      "name": "Focus cell 8,4",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -1.4000000000000001,
+          "y": -0.2,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "0d362abd-60f6-4dee-ad5e-7b830815a836",
+      "name": "Focus cell 1,5",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -1.0,
+          "y": -0.2,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "3a13c68a-3901-4b77-87df-7d5444860486",
+      "name": "Focus cell 2,5",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -0.6000000000000001,
+          "y": -0.2,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "5ac5706a-991d-47bf-8ab9-7ae8e8b44c05",
+      "name": "Focus cell 3,5",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -0.2,
+          "y": -0.2,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "5a79bb05-ef8c-4b8d-aa96-09c8ead8840b",
+      "name": "Focus cell 4,5",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 0.2,
+          "y": -0.2,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "dd1481ea-8bf9-4a6a-b031-a608b74a7720",
+      "name": "Focus cell 5,5",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 0.6000000000000001,
+          "y": -0.2,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "8af60219-08e4-4ac5-9ee2-64f91109a501",
+      "name": "Focus cell 6,5",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 1.0,
+          "y": -0.2,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "23a32f39-df27-4d84-bb3e-2d27b77db992",
+      "name": "Focus cell 7,5",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 1.4000000000000001,
+          "y": -0.2,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "c4ad42e0-73bd-40b6-ad56-018dab721035",
+      "name": "Focus cell 8,5",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -1.4000000000000001,
+          "y": -0.6000000000000001,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "b9f749d3-49e8-40d8-b20b-8577e9b8da4b",
+      "name": "Focus cell 1,6",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -1.0,
+          "y": -0.6000000000000001,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "d5044fa0-4f64-4ed3-ae66-351134281c72",
+      "name": "Focus cell 2,6",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -0.6000000000000001,
+          "y": -0.6000000000000001,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "3225a940-b474-4c20-9203-a86e4095ca43",
+      "name": "Focus cell 3,6",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -0.2,
+          "y": -0.6000000000000001,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "1c5fe947-2291-45f8-8e24-0849f942d916",
+      "name": "Focus cell 4,6",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 0.2,
+          "y": -0.6000000000000001,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "e6b6a64e-1f07-4034-a3fe-2586ca08a583",
+      "name": "Focus cell 5,6",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 0.6000000000000001,
+          "y": -0.6000000000000001,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "e3bd00b5-d458-43f2-a7db-3e7e40c2c947",
+      "name": "Focus cell 6,6",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 1.0,
+          "y": -0.6000000000000001,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "ab2b849a-8971-4b00-b0cd-73540cbf94dd",
+      "name": "Focus cell 7,6",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 1.4000000000000001,
+          "y": -0.6000000000000001,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "4f7fab0e-3e0a-4290-903d-5cb9a968ad23",
+      "name": "Focus cell 8,6",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -1.4000000000000001,
+          "y": -1.0,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "afdbabb1-022d-45d7-889d-9344c1e745e2",
+      "name": "Focus cell 1,7",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -1.0,
+          "y": -1.0,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "fc1fa780-f341-4cb1-8a48-cb51bee59dab",
+      "name": "Focus cell 2,7",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -0.6000000000000001,
+          "y": -1.0,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "5bebd294-d426-4336-bd33-c6a52ee05f65",
+      "name": "Focus cell 3,7",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -0.2,
+          "y": -1.0,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "06befefb-456d-45a0-a42b-bde90144629f",
+      "name": "Focus cell 4,7",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 0.2,
+          "y": -1.0,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "d874684e-6eb4-4f51-b4fd-8bb1ad78c469",
+      "name": "Focus cell 5,7",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 0.6000000000000001,
+          "y": -1.0,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "fe10ff46-76a7-4df3-a92e-2f3dc2b6dc51",
+      "name": "Focus cell 6,7",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 1.0,
+          "y": -1.0,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "9ca33340-2098-426c-a9b7-2047a7b0483e",
+      "name": "Focus cell 7,7",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 1.4000000000000001,
+          "y": -1.0,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "043e6028-829a-4c5c-82a8-6d2c90f69a7f",
+      "name": "Focus cell 8,7",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -1.4000000000000001,
+          "y": -1.4000000000000001,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "d63add49-cc65-4113-b861-adf673c54bf9",
+      "name": "Focus cell 1,8",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -1.0,
+          "y": -1.4000000000000001,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "959fe019-4cc0-44d5-ad27-88ca4eaebbd3",
+      "name": "Focus cell 2,8",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -0.6000000000000001,
+          "y": -1.4000000000000001,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "5ea887ae-5291-452a-998e-61b0471f0cf3",
+      "name": "Focus cell 3,8",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -0.2,
+          "y": -1.4000000000000001,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "2bac2d22-1bdf-4bc2-aa8f-28007c6341d7",
+      "name": "Focus cell 4,8",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 0.2,
+          "y": -1.4000000000000001,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "06b95548-5631-427f-8c35-45f142438c7a",
+      "name": "Focus cell 5,8",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 0.6000000000000001,
+          "y": -1.4000000000000001,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "abc015bc-29f5-4276-a539-62b946abc243",
+      "name": "Focus cell 6,8",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 1.0,
+          "y": -1.4000000000000001,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "b6dc56a5-eacd-4dee-b9d7-d7e0bbace7fd",
+      "name": "Focus cell 7,8",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 1.4000000000000001,
+          "y": -1.4000000000000001,
+          "z": 6.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "05525bab-38c0-4d0d-9d7a-c9aa71b50af3",
+      "name": "Focus cell 8,8",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 2.2,
+          "y": 1.4000000000000001,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "f68e038a-3379-4478-a41f-ee545e8e341e",
+      "name": "Far cell 1,1",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 2.6,
+          "y": 1.4000000000000001,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "41548f66-84e9-453a-9b09-863c515fb1ea",
+      "name": "Far cell 2,1",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 3.0,
+          "y": 1.4000000000000001,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "b8e7f2c9-f04d-460e-becd-e27a9d2bd403",
+      "name": "Far cell 3,1",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 3.4,
+          "y": 1.4000000000000001,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "08ba38c6-d875-44aa-985e-3aa719026877",
+      "name": "Far cell 4,1",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 3.8000000000000003,
+          "y": 1.4000000000000001,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "f8e66fb6-3f5e-4264-bfba-1dff2a2b3709",
+      "name": "Far cell 5,1",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 4.2,
+          "y": 1.4000000000000001,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "18fbd584-7295-4593-9f65-e508dc4e3d1f",
+      "name": "Far cell 6,1",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 4.6,
+          "y": 1.4000000000000001,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "78ddb5b0-ecfe-4637-b5ec-4ce8b3ce97e5",
+      "name": "Far cell 7,1",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 5.0,
+          "y": 1.4000000000000001,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "279ce636-18a9-4a48-906b-88c448a8282b",
+      "name": "Far cell 8,1",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 2.2,
+          "y": 1.0,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "431f06e9-ce4c-4ef5-9b2b-a2652b56757b",
+      "name": "Far cell 1,2",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 2.6,
+          "y": 1.0,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "1b512d4e-6c6c-453f-ab4e-e2c4fe80f3dd",
+      "name": "Far cell 2,2",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 3.0,
+          "y": 1.0,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "e760b03d-4444-47cf-a63e-17c307a77410",
+      "name": "Far cell 3,2",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 3.4,
+          "y": 1.0,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "e2ba64bb-adff-492f-baae-ed11fb77ad06",
+      "name": "Far cell 4,2",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 3.8000000000000003,
+          "y": 1.0,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "5945ef1f-379e-4472-bc87-f0e6a3261491",
+      "name": "Far cell 5,2",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 4.2,
+          "y": 1.0,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "2dd0c0a3-71ad-4460-b721-009d9555f24d",
+      "name": "Far cell 6,2",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 4.6,
+          "y": 1.0,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "944cd4a7-02f7-42bd-8b62-53a0e2de0785",
+      "name": "Far cell 7,2",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 5.0,
+          "y": 1.0,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "44a7d363-5d9a-4c78-aa91-810bd0bacd1b",
+      "name": "Far cell 8,2",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 2.2,
+          "y": 0.6000000000000001,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "4faec694-cdd4-498a-965c-c9a85d1703c3",
+      "name": "Far cell 1,3",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 2.6,
+          "y": 0.6000000000000001,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "aa8542e4-14c1-4184-a59d-db41797a7ee2",
+      "name": "Far cell 2,3",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 3.0,
+          "y": 0.6000000000000001,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "45b5bc87-c9d3-4cd3-abbd-638b544e2e8a",
+      "name": "Far cell 3,3",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 3.4,
+          "y": 0.6000000000000001,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "b2dd8906-e8bd-4f0d-8528-3eee5602174d",
+      "name": "Far cell 4,3",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 3.8000000000000003,
+          "y": 0.6000000000000001,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "6b80514b-e5b8-4a98-9a5b-b7258c882e3c",
+      "name": "Far cell 5,3",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 4.2,
+          "y": 0.6000000000000001,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "f2be37c5-395f-498d-af87-81bf0af80d23",
+      "name": "Far cell 6,3",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 4.6,
+          "y": 0.6000000000000001,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "153d26f4-def9-4b7f-b413-153919d12d26",
+      "name": "Far cell 7,3",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 5.0,
+          "y": 0.6000000000000001,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "9601928b-2b6d-4056-b75b-3237c2799690",
+      "name": "Far cell 8,3",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 2.2,
+          "y": 0.2,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "37b8400c-a625-4103-bb9c-946850829e0d",
+      "name": "Far cell 1,4",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 2.6,
+          "y": 0.2,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "a55521e6-be53-4e95-830d-48d3af3ca965",
+      "name": "Far cell 2,4",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 3.0,
+          "y": 0.2,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "f03907fc-0599-43cd-b6c7-2e9a61ec6338",
+      "name": "Far cell 3,4",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 3.4,
+          "y": 0.2,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "a5c05963-005d-46e8-9876-2b5efa9982b1",
+      "name": "Far cell 4,4",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 3.8000000000000003,
+          "y": 0.2,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "251e9b87-cc9b-4ced-8ad8-846733aaeaef",
+      "name": "Far cell 5,4",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 4.2,
+          "y": 0.2,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "31bd8153-59ff-45b7-a706-18495b904d28",
+      "name": "Far cell 6,4",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 4.6,
+          "y": 0.2,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "6d95d673-81a8-400d-9913-18d331c8f837",
+      "name": "Far cell 7,4",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 5.0,
+          "y": 0.2,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "bfe1549d-cf79-4534-822f-90dd1e79158e",
+      "name": "Far cell 8,4",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 2.2,
+          "y": -0.2,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "1f1bfde8-b39f-4779-ac1a-bf3410257dd2",
+      "name": "Far cell 1,5",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 2.6,
+          "y": -0.2,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "137ad435-c25d-4e04-b146-8dd5713204e5",
+      "name": "Far cell 2,5",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 3.0,
+          "y": -0.2,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "7c5050d1-425a-45b3-80fe-d19c38732ae0",
+      "name": "Far cell 3,5",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 3.4,
+          "y": -0.2,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "b65bbe73-ac8f-454a-b6ca-c3185ec50149",
+      "name": "Far cell 4,5",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 3.8000000000000003,
+          "y": -0.2,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "9c740f13-9561-4ed2-b5fc-daf935264ba2",
+      "name": "Far cell 5,5",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 4.2,
+          "y": -0.2,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "6ad3cd58-32eb-4db9-ab8a-4dc1bdfb89c4",
+      "name": "Far cell 6,5",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 4.6,
+          "y": -0.2,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "965b275d-7825-4a8a-86f0-cba8d94f2e23",
+      "name": "Far cell 7,5",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 5.0,
+          "y": -0.2,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "b874f72f-a600-4c76-8302-79ca535f4784",
+      "name": "Far cell 8,5",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 2.2,
+          "y": -0.6000000000000001,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "e454e775-fc99-4bdb-9d56-95811df15509",
+      "name": "Far cell 1,6",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 2.6,
+          "y": -0.6000000000000001,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "c124bacc-8f14-4472-b72a-2cd73718401c",
+      "name": "Far cell 2,6",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 3.0,
+          "y": -0.6000000000000001,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "b4e04f91-7134-45de-b4b8-00d357c2b676",
+      "name": "Far cell 3,6",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 3.4,
+          "y": -0.6000000000000001,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "4694f6d7-34ee-4df9-8647-2318386c5a14",
+      "name": "Far cell 4,6",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 3.8000000000000003,
+          "y": -0.6000000000000001,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "6e90d67c-dfd3-4ba1-97e2-db9cae4c3852",
+      "name": "Far cell 5,6",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 4.2,
+          "y": -0.6000000000000001,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "98e59ecb-b69e-4455-ab14-b85bc2d3d093",
+      "name": "Far cell 6,6",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 4.6,
+          "y": -0.6000000000000001,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "54a80c16-b997-4cf1-981a-2008b26e06cc",
+      "name": "Far cell 7,6",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 5.0,
+          "y": -0.6000000000000001,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "276fe75b-60c5-4491-aac8-51296e5cba52",
+      "name": "Far cell 8,6",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 2.2,
+          "y": -1.0,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "2a5ca7d9-4601-46e6-887a-c256f46dfc69",
+      "name": "Far cell 1,7",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 2.6,
+          "y": -1.0,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "34fb467c-8bdf-45f1-bc3f-a30084832283",
+      "name": "Far cell 2,7",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 3.0,
+          "y": -1.0,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "0c25adc4-1ad3-431a-98ad-3feb8020afe1",
+      "name": "Far cell 3,7",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 3.4,
+          "y": -1.0,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "aa996b5f-0882-4309-9b25-801e6404e1a9",
+      "name": "Far cell 4,7",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 3.8000000000000003,
+          "y": -1.0,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "fd7d08fe-7c0e-42f6-ad44-a0f1df52c979",
+      "name": "Far cell 5,7",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 4.2,
+          "y": -1.0,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "63d3ff58-ad3b-4f67-a0e8-a6ec7a366d79",
+      "name": "Far cell 6,7",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 4.6,
+          "y": -1.0,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "722d544a-6044-4ff0-895f-e57409ce980a",
+      "name": "Far cell 7,7",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 5.0,
+          "y": -1.0,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "367c0d0d-915e-479c-ba88-d2ee8f79ef3a",
+      "name": "Far cell 8,7",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 2.2,
+          "y": -1.4000000000000001,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "4b223167-fb23-4141-a8db-ff1d64709b30",
+      "name": "Far cell 1,8",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 2.6,
+          "y": -1.4000000000000001,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "2b97b186-8bb3-40bc-8d15-219d02ef15e7",
+      "name": "Far cell 2,8",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 3.0,
+          "y": -1.4000000000000001,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "33b01d6c-da7e-4ab1-a2d9-5a34704b778d",
+      "name": "Far cell 3,8",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 3.4,
+          "y": -1.4000000000000001,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "0a27cf19-756c-476e-98f4-37c61bfb1680",
+      "name": "Far cell 4,8",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 3.8000000000000003,
+          "y": -1.4000000000000001,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "5b7b5fe9-746c-41aa-8a82-ada645191ff0",
+      "name": "Far cell 5,8",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 4.2,
+          "y": -1.4000000000000001,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "d06082f3-c82e-43ae-a985-6ec146877154",
+      "name": "Far cell 6,8",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 4.6,
+          "y": -1.4000000000000001,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.09000000357627869,
+          "g": 0.5,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "87059f33-9141-4c89-b334-82f3666f2402",
+      "name": "Far cell 7,8",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.4000000059604645,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 5.0,
+          "y": -1.4000000000000001,
+          "z": 12.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.800000011920929,
+          "g": 0.3499999940395355,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "6616698e-e510-46ed-a79a-3f92ccce297d",
+      "name": "Far cell 8,8",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    }
+  ],
+  "rendering": {
+    "depth_of_field": {
+      "blur_radius": 10,
+      "enabled": true,
+      "focus_distance": 9.95,
+      "focus_range": 2
+    },
+    "shadows": {
+      "enabled": false
+    },
+    "version": 1
+  },
+  "version": 3
+}

@@ -100,10 +100,16 @@ class MeshSceneRenderer {
         std::function<void()> begin;
         std::function<void(bool complete_geometry)> resolve;
     };
+    // Optional view-local spatial work after the eligible Mesh prefix. This
+    // renderer still owns admission, queue order and restoring camera targets.
+    struct PostMeshPass {
+        std::function<void()> prepare, resolve;
+        bool applied = false;
+    };
     void shadows(const RenderScene&, const CameraView&, std::uint32_t layers);
     void draw(const RenderScene&, const CameraView&, std::uint32_t layers,
               Diligent::ITexture* color = nullptr, Diligent::ITextureView* depth = nullptr,
-              TemporalPass* temporal = nullptr);
+              TemporalPass* temporal = nullptr, PostMeshPass* post_mesh = nullptr);
     std::uint64_t resource_epoch() const { return host_->epoch_; }
     const std::vector<Diagnostic>& diagnostics() const { return diagnostics_; }
     std::size_t omitted_diagnostics() const { return omitted_; }

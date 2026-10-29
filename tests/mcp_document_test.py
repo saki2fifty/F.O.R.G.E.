@@ -176,6 +176,26 @@ for legacy in (False, True):
             assert not result['ok'] and discover()['revision'] == before['revision'], result
         assert mutate('forge_scene_rendering_set',
                       arguments=dict(temporal_anti_aliasing=dict(stability=.9)))['ok']
+        focus_schema = exposure_command['input_schema']['properties']['depth_of_field']
+        assert exposure_tool['inputSchema']['properties']['arguments']['properties']['depth_of_field'] == focus_schema
+        assert set(focus_schema['properties']) == {'enabled', 'focus_distance', 'focus_range', 'blur_radius'}
+        assert focus_schema['properties']['focus_distance']['minimum'] == .001
+        assert focus_schema['properties']['blur_radius']['maximum'] == 12
+        focus_arguments = arguments(arguments=dict(depth_of_field=dict(
+            enabled=True, focus_distance=10, focus_range=5, blur_radius=6)))
+        before_focus = discover()
+        changed = client.tool('forge_scene_rendering_set', **focus_arguments)
+        assert changed['ok'] and changed['revision'] != before_focus['revision'], changed
+        assert client.tool('forge_scene_rendering_set', **focus_arguments) == changed
+        assert mutate('forge_history_undo')['result']['changed']
+        assert mutate('forge_history_redo')['result']['changed']
+        for bad in (dict(enabled=1), dict(focus_distance=0), dict(focus_range=-1),
+                    dict(blur_radius=12.00000001), dict(focus_distance='near')):
+            before = discover()
+            result = mutate('forge_scene_rendering_set', arguments=dict(depth_of_field=bad))
+            assert not result['ok'] and discover()['revision'] == before['revision'], result
+        assert mutate('forge_scene_rendering_set',
+                      arguments=dict(depth_of_field=dict(focus_range=4)))['ok']
         # Existing project writer ownership remains exclusive across processes.
         lease = subprocess.run([sys.argv[1].replace('forge_tools', 'forge_live_tests'),
                                 '--lease', str(project)], input='', capture_output=True,
@@ -250,6 +270,8 @@ for legacy in (False, True):
         assert saved_doc['rendering']['distance_fog'] == dict(
             enabled=True, color=[.1, .2, 2], start=5, end=60)
         assert saved_doc['rendering']['temporal_anti_aliasing'] == dict(enabled=True, stability=.9)
+        assert saved_doc['rendering']['depth_of_field'] == dict(
+            enabled=True, focus_distance=10, focus_range=4, blur_radius=6)
         assert saved_doc['entities'][0]['name'] == 'Saved agent cube'
         body = saved_doc['entities'][0]['components']['forge.physics_body_2d']
         assert body['one_way'] and abs(body['one_way_margin'] - .05) < 1e-6, body

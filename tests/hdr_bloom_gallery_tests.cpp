@@ -165,6 +165,34 @@ AssetId inspect_temporal(const std::filesystem::path& root) {
           "Temporal Gallery did not animate independently of its saved Scene");
     return id;
 }
+AssetId inspect_focus(const std::filesystem::path& root) {
+    const auto catalog = AssetCatalog::open_project(root);
+    const auto id = AssetId::parse("4af485f2-660b-45e6-a9d5-a33a80ba8983");
+    const auto source = read(root / catalog.records().at(id).source);
+    EngineContext engine(WorldRole::Runtime, false);
+    Scene scene(engine.world());
+    scene.restore_snapshot(source);
+    RuntimeSimulation simulation(engine.world(), scene);
+    simulation.reset_presentation();
+    const auto frame = extract_render_scene(simulation.presentation(1));
+    std::map<double, unsigned> planes;
+    for (const auto& mesh : frame.meshes)
+        ++planes[mesh.world.m[11]];
+    check(frame.settings.depth_of_field == SceneDepthOfField{true, 9.95f, 2, 10},
+          "Focus Gallery settings differ from saved focus values");
+    check(frame.meshes.size() == 192,
+          ("Focus Gallery Mesh count: " + std::to_string(frame.meshes.size())).c_str());
+    check(frame.cameras.size() == 1 && frame.lights.size() == 1 &&
+              frame.cameras[0].camera.projection == 1,
+          "Focus Gallery lost its orthographic camera or light");
+    check(planes == std::map<double, unsigned>{{0, 64}, {6, 64}, {12, 64}},
+          ("Focus Gallery depth planes differ: " + Json(planes).dump()).c_str());
+    if (!frame.diagnostics.empty())
+        throw std::runtime_error("Focus Gallery: " + frame.diagnostics.front().text);
+    check(read(root / catalog.records().at(id).source) == source,
+          "Focus Gallery admission rewrote its saved Scene");
+    return id;
+}
 } // namespace
 int main(int argc, char** argv) {
     try {
@@ -191,9 +219,13 @@ int main(int argc, char** argv) {
         const auto exposure_scene = inspect_exposure(root);
         const auto fog_scene = inspect_distance_fog(root);
         const auto temporal_scene = inspect_temporal(root);
+        const auto focus_scene = inspect_focus(root);
         const std::array roots{source.at("asset_id").get<AssetId>(),
                                AssetId::parse("7456ed81-3d3b-45a6-8c7d-6b50073ad01a"),
-                               exposure_scene, fog_scene, temporal_scene};
+                               exposure_scene,
+                               fog_scene,
+                               temporal_scene,
+                               focus_scene};
         {
             auto lease = std::make_shared<ProjectLease>(root);
             prepare_runtime_content_catalog(*lease, roots, {});
@@ -213,7 +245,7 @@ int main(int argc, char** argv) {
             (void)record;
             actual.insert(id);
         }
-        check(actual == expected && expected.size() == 10,
+        check(actual == expected && expected.size() == 11,
               "Bloom/color/exposure/fog export changed its exact shared asset closure");
         check(!std::filesystem::exists(moved / "Assets/Exposure/Daylight.animation.json"),
               "Exposure clip source leaked into the runtime package");
@@ -231,6 +263,10 @@ int main(int argc, char** argv) {
         check(inspect_temporal(moved) == temporal_scene &&
                   !std::filesystem::exists(moved / "Assets/Platform.animation.json"),
               "Temporal Gallery relocation changed identity or leaked its animation source");
+        check(inspect_focus(moved) == focus_scene,
+              "Focus Gallery relocation changed its Scene identity or depth planes");
+        std::cout
+            << "Gallery103 focus settings, three depth planes and source-free relocation PASS\n";
         std::cout
             << "Gallery102 temporal settings, animated geometry and source-free relocation PASS\n";
         std::cout << "Gallery98 distance fog settings and source-free relocation PASS\n";

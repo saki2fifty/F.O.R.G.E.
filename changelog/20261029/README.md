@@ -1,4 +1,4 @@
-# 2026-10-29 — Collision profiles and temporal anti-aliasing
+# 2026-10-29 — Collision profiles, temporal anti-aliasing and depth of field
 
 ## Per-tile collision profiles
 
@@ -48,3 +48,21 @@ shutdown allocation independently reproduced without FORGE linked; see
 Windows/Main/MSVC, FXC cooked surfaces, physical GPU and graphical exported-game
 acceptance remain pending. No dependency upgrade, sanitizer suppression or
 numbered delivery is included.
+
+## Depth of field
+
+Scene lighting includes default-off focus distance, falloff and maximum blur
+controls, with Scene history, saving and the same automation/MCP operation.
+The original spatial pass uses current HDR/depth independently for each camera,
+preserves alpha and depth silhouettes, and runs after temporal Mesh resolve and
+before current-frame layers and bloom. Unsupported depth, ordering, camera clears
+or capacity retains ordinary rendering with a warning. Resized scratch owners
+stage through preparation; inactive views release unused pairs.
+
+Gallery103 contains original checker panels at near, focus and far depths. Actual
+software Vulkan pixel references and Scene/Game views cover projection, camera
+rectangles, disabled/zero paths, layer fallback, temporal capture readiness and
+retained Scene picking. Source-free relocation and authentic controls/Game captures
+are documented separately from Windows/full editor and physical GPU acceptance.
+The native shutdown allocation report remains open and unsuppressed. No dependency
+upgrade, installed SDK boundary change or numbered delivery is included.

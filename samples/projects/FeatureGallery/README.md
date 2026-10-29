@@ -1,5 +1,18 @@
 # Feature Gallery
 
+## Depth of field
+
+Open **Scenes/103-depth-of-field.scene.json** and press Play. The three original
+checker panels sit at different distances: the middle panel is in focus, while
+the near and far panels soften. Stop Play, then open **Tools > Scene lighting... >
+Depth of field**. Change **Focus distance (m)** to 3.95, 9.95 or 15.95 and press
+Enter to select the near, middle or far plane. **Focus falloff (m)** controls how
+quickly blur increases; **Maximum blur (px)** caps its radius from 0 to 12.
+Disable the effect or set its radius to zero to compare sharp views. Save the
+Scene before exporting. No C++ module or additional imported asset is required.
+Depth edges keep their silhouette; background and current-frame layers remain
+sharp in this bounded spatial profile.
+
 ## Temporal anti-aliasing
 
 Open **Scenes/102-temporal-antialiasing.scene.json** and press Play. The pink

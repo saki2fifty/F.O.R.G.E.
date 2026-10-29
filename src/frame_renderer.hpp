@@ -1,4 +1,5 @@
 #pragma once
+#include "depth_of_field.hpp"
 #include "display_resolve.hpp"
 #include "environment_sky.hpp"
 #include "hdr_bloom.hpp"
@@ -70,14 +71,15 @@ class FrameRenderer {
     std::array<unsigned, 2> exposure_extent_{};
     std::optional<double> exposure_time_;
     bool exposure_was_pending_ = false;
-    struct TemporalCamera {
+    struct CameraEffects {
         EntityId entity;
         CameraView unjittered;
         std::uint32_t layers = 0;
         std::unique_ptr<TemporalView> history;
+        std::unique_ptr<DepthOfField> focus;
         bool applied = false;
     };
-    std::vector<TemporalCamera> temporal_cameras_;
+    std::vector<CameraEffects> camera_effects_;
     AssetId temporal_scene_;
     SceneRenderSettings temporal_settings_;
     std::optional<double> temporal_time_;

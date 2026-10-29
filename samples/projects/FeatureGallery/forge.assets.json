@@ -3772,6 +3772,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "4af485f2-660b-45e6-a9d5-a33a80ba8983",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/103-depth-of-field.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "4c86d5b0-76eb-4d07-a5ab-8d1aee961d3d",
       "metadata": {
         "forge.import": {

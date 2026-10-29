@@ -3,6 +3,7 @@
 #include "hdr_bloom_plan.hpp"
 #include "scene_auto_exposure_tests.hpp"
 #include "scene_color_tests.hpp"
+#include "scene_depth_of_field_tests.hpp"
 #include "scene_distance_fog_tests.hpp"
 #include "scene_temporal_settings_tests.hpp"
 #include <forge/authoring.hpp>
@@ -135,6 +136,7 @@ int main() {
         test_scene_auto_exposure_settings();
         test_scene_distance_fog_settings();
         test_scene_temporal_settings();
+        test_scene_depth_of_field();
         exposure_plans();
         std::cout << "HDR bloom admission and Scene ownership PASS\n";
         return 0;

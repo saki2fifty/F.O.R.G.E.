@@ -300,7 +300,9 @@ ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsig
         device_->CreateTexture(t, nullptr, &color);
         t.Name = "FORGE scene depth";
         t.Format = TEX_FORMAT_D32_FLOAT;
-        t.BindFlags = BIND_DEPTH_STENCIL;
+        t.BindFlags =
+            BIND_DEPTH_STENCIL | (device_->GetTextureFormatInfoExt(TEX_FORMAT_D32_FLOAT).BindFlags &
+                                  BIND_SHADER_RESOURCE);
         device_->CreateTexture(t, nullptr, &depth);
         if (!color || !depth)
             throw std::runtime_error("Viewport allocation failed");
@@ -446,6 +448,24 @@ ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsig
         context->SetViewports(1, &area, width, height);
         sky_.draw(context, view, mesh_scene_->settings.environment);
         std::optional<MeshSceneRenderer::TemporalPass> temporal_pass;
+        std::optional<MeshSceneRenderer::PostMeshPass> focus_pass;
+        if (display_ && mesh_scene_->settings.depth_of_field.enabled &&
+            mesh_scene_->settings.depth_of_field.blur_radius != 0) {
+            auto& pass = focus_pass.emplace();
+            pass.prepare = [&] {
+                if (!focus_)
+                    focus_ = std::make_unique<DepthOfField>(presentation_);
+                focus_->prepare(color_, depth_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE), view,
+                                mesh_scene_->settings.depth_of_field);
+            };
+            pass.resolve = [&] {
+                auto timing = presentation_.gpu_scope(context, "Scene", "Depth of field");
+                focus_->apply(context, color_, depth_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE),
+                              view, mesh_scene_->settings.depth_of_field);
+            };
+        } else {
+            focus_.reset();
+        }
         if (temporal_enabled) {
             const bool reset =
                 !temporal_camera_ || TemporalView::discontinuous(*temporal_camera_, view) ||
@@ -474,7 +494,10 @@ ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsig
             temporal_camera_.reset();
         }
         meshes_->draw(*mesh_scene_, view, UINT32_MAX, color_, dsv,
-                      temporal_pass ? &*temporal_pass : nullptr);
+                      temporal_pass ? &*temporal_pass : nullptr,
+                      focus_pass ? &*focus_pass : nullptr);
+        if (focus_pass && !focus_pass->applied)
+            focus_.reset();
         temporal_applied = temporal_pass && temporal_pass->applied && temporal_pass->successful;
     }
     if (display_) {

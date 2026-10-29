@@ -1064,7 +1064,8 @@ bool MeshSceneRenderer::pending() const {
 }
 void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                              std::uint32_t layers, Diligent::ITexture* color,
-                             Diligent::ITextureView* depth, TemporalPass* temporal) {
+                             Diligent::ITextureView* depth, TemporalPass* temporal,
+                             PostMeshPass* post_mesh) {
     host_->check_thread();
     if (scene.scene != scene_)
         throw std::runtime_error("Mesh draw scene differs from prepared scene");
@@ -1312,6 +1313,56 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
         return objects[item.object].scope == DrawScope::Mesh && !item.transmission &&
                item.key.alpha != MaterialAlpha::Blend;
     };
+    const bool geometry_ready =
+        diagnostics_.size() == diagnostics_before && omitted_ == omitted_before;
+    if (temporal)
+        temporal->applied = temporal->successful = false;
+    const auto unavailable = [&](const char* category, const char* label, const std::string& why) {
+        Diagnostic value{
+            Severity::Warning, category, std::string(label) + " unavailable: " + why, {}};
+        value.context.asset = scene_;
+        value.context.source = "presentation";
+        if (diagnostics_.size() < 256)
+            diagnostics_.push_back(std::move(value));
+        else
+            ++omitted_;
+    };
+    if (post_mesh)
+        post_mesh->applied = false;
+    if (temporal || post_mesh) {
+        bool current_layer_seen = false, ordered = true;
+        for (const auto& item : queue) {
+            ordered &= !(temporal_item(item) && current_layer_seen);
+            current_layer_seen |= !temporal_item(item);
+        }
+        if (!ordered) {
+            const char* why =
+                "Opaque layers precede later Mesh draws; the view keeps ordinary draw ordering";
+            if (temporal)
+                unavailable("render.temporal.unavailable", "Temporal anti-aliasing", why);
+            if (post_mesh)
+                unavailable("render.focus.unavailable", "Depth of field", why);
+            temporal = nullptr;
+            post_mesh = nullptr;
+        }
+    }
+    if (post_mesh) {
+        try {
+            if (!color || !depth || !post_mesh->prepare || !post_mesh->resolve)
+                throw std::invalid_argument("Post-Mesh view routing is incomplete");
+            for (const auto& item : queue)
+                if (temporal_item(item) &&
+                    !objects[item.object]
+                         .bundle->parts(objects[item.object].lod)[item.key.part]
+                         .depth_write)
+                    throw std::runtime_error(
+                        "Mesh material must test and write depth for focus filtering");
+            post_mesh->prepare();
+        } catch (const std::exception& error) {
+            unavailable("render.focus.unavailable", "Depth of field", error.what());
+            post_mesh = nullptr;
+        }
+    }
     if (temporal) {
         temporal->applied = temporal->successful = false;
         try {
@@ -1321,13 +1372,6 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                 temporal->current.viewport.height != camera.viewport.height)
                 throw std::invalid_argument(
                     "Temporal view routing is incomplete or has wrong extent");
-            bool current_layer_seen = false;
-            for (const auto& item : queue) {
-                if (temporal_item(item) && current_layer_seen)
-                    throw std::runtime_error("Opaque layers precede later Mesh draws; the view "
-                                             "keeps ordinary draw ordering");
-                current_layer_seen |= !temporal_item(item);
-            }
             const auto visible_parts =
                 std::size_t(std::count_if(queue.begin(), queue.end(), temporal_item));
             if (visible_parts > temporal_mesh_part_limit)
@@ -1360,30 +1404,44 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                 }
             std::sort(temporal->current_parts->begin(), temporal->current_parts->end());
         } catch (const std::exception& error) {
-            Diagnostic value{Severity::Warning,
-                             "render.temporal.unavailable",
-                             std::string("Temporal anti-aliasing unavailable: ") + error.what(),
-                             {}};
-            value.context.asset = scene_;
-            value.context.source = "presentation";
-            if (diagnostics_.size() < 256)
-                diagnostics_.push_back(std::move(value));
-            else
-                ++omitted_;
+            unavailable("render.temporal.unavailable", "Temporal anti-aliasing", error.what());
             temporal = nullptr; // Entire view retains ordinary unjittered rendering.
         }
     }
+    const auto draw_diagnostics_start = diagnostics_.size(), draw_omitted_start = omitted_;
     if (temporal) {
         temporal->begin();
         temporal->applied = true;
     }
     bool temporal_resolved = !temporal;
+    bool post_resolved = !post_mesh;
     const auto resolve_temporal = [&] {
         if (!temporal_resolved) {
-            temporal->successful =
-                diagnostics_.size() == diagnostics_before && omitted_ == omitted_before;
+            temporal->successful = geometry_ready &&
+                                   diagnostics_.size() == draw_diagnostics_start &&
+                                   omitted_ == draw_omitted_start;
             temporal->resolve(temporal->successful);
             temporal_resolved = true;
+        }
+        if (!post_resolved) {
+            try {
+                if (geometry_ready && diagnostics_.size() == draw_diagnostics_start &&
+                    omitted_ == draw_omitted_start) {
+                    post_mesh->resolve();
+                    post_mesh->applied = true;
+                }
+            } catch (const std::exception& error) {
+                unavailable("render.focus.unavailable", "Depth of field", error.what());
+            }
+            post_resolved = true;
+            auto* target = color->GetDefaultView(Diligent::TEXTURE_VIEW_RENDER_TARGET);
+            host_->context_->SetRenderTargets(1, &target, depth,
+                                              Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+            const auto& area = camera.viewport;
+            const auto& desc = color->GetDesc();
+            Diligent::Viewport viewport{
+                float(area.x), float(area.y), float(area.width), float(area.height), 0, 1};
+            host_->context_->SetViewports(1, &viewport, desc.Width, desc.Height);
         }
     };
     const auto has_previous_part = [&](const Object& object, unsigned part) {
@@ -1432,7 +1490,7 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
     for (std::size_t cursor = 0; cursor < queue.size();) {
         const auto& item = queue[cursor++];
         const bool accumulated = temporal && temporal_item(item);
-        if (!accumulated)
+        if (!temporal_item(item))
             resolve_temporal();
         const auto& draw_view = accumulated ? temporal->current : camera;
         if (needs_background && !captured && item.key.alpha == MaterialAlpha::Blend) {
@@ -1469,7 +1527,7 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
             while (eligible && cursor < queue.size() && count < batch.size()) {
                 const auto& next_item = queue[cursor];
                 const auto& next = objects[next_item.object];
-                if ((temporal && temporal_item(next_item)) != accumulated ||
+                if (((temporal || post_mesh) && temporal_item(next_item) != temporal_item(item)) ||
                     next.bundle != object.bundle || next.lod != object.lod ||
                     bool(next.mip) != bool(object.mip) ||
                     (object.mip && next.mip->source() != object.mip->source()) ||
@@ -1536,8 +1594,8 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
     }
     resolve_temporal();
     if (temporal)
-        temporal->successful &=
-            diagnostics_.size() == diagnostics_before && omitted_ == omitted_before;
+        temporal->successful &= geometry_ready && diagnostics_.size() == draw_diagnostics_start &&
+                                omitted_ == draw_omitted_start;
 }
 void MeshSceneRenderer::shadows(const RenderScene& scene, const CameraView& camera,
                                 std::uint32_t layers) {

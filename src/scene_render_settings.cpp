@@ -1,6 +1,14 @@
 #include <cmath>
 #include <forge/scene_render_settings.hpp>
 namespace forge {
+void validate_scene_depth_of_field(const SceneDepthOfField& value) {
+    if (!std::isfinite(value.focus_distance) || value.focus_distance < .001f ||
+        value.focus_distance > 1000000 || !std::isfinite(value.focus_range) ||
+        value.focus_range < .001f || value.focus_range > 1000000 ||
+        !std::isfinite(value.blur_radius) || value.blur_radius < 0 || value.blur_radius > 12)
+        throw std::runtime_error("Depth of field requires focus distance/range from 0.001 to "
+                                 "1000000 metres and blur radius from 0 to 12 pixels");
+}
 void validate_scene_temporal_anti_aliasing(const SceneTemporalAntiAliasing& value) {
     if (!std::isfinite(value.stability) || value.stability < 0 || value.stability > .95f)
         throw std::runtime_error("Temporal anti-aliasing stability must be finite from 0 to 0.95");
@@ -67,6 +75,28 @@ SceneRenderSettings scene_render_settings(const nlohmann::json& scene) {
     if (ev < -20 || ev > 20)
         throw std::runtime_error("Game exposure must be between -20 and +20 stops");
     result.exposure = float(ev);
+    if (settings.contains("depth_of_field")) {
+        const auto& section = settings.at("depth_of_field");
+        if (!section.is_object())
+            throw std::runtime_error("Scene depth of field must be an object");
+        auto& value = result.depth_of_field;
+        if (section.contains("enabled")) {
+            if (!section.at("enabled").is_boolean())
+                throw std::runtime_error("Depth of field enabled must be boolean");
+            value.enabled = section.at("enabled").get<bool>();
+        }
+        const auto read_value = [&](const char* key, float initial, double low, double high) {
+            const auto result = number(section, key, initial);
+            if (result < low || result > high)
+                throw std::runtime_error(std::string("Depth of field ") + key +
+                                         " is outside its supported range");
+            return float(result);
+        };
+        value.focus_distance = read_value("focus_distance", value.focus_distance, .001, 1000000);
+        value.focus_range = read_value("focus_range", value.focus_range, .001, 1000000);
+        value.blur_radius = read_value("blur_radius", value.blur_radius, 0, 12);
+        validate_scene_depth_of_field(value);
+    }
     if (settings.contains("temporal_anti_aliasing")) {
         const auto& temporal = settings.at("temporal_anti_aliasing");
         if (!temporal.is_object())

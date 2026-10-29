@@ -4,6 +4,47 @@
 #include <forge/scene_render_settings.hpp>
 #include <numbers>
 namespace forge::ui {
+inline void scene_focus_controls(const SceneDepthOfField& settings, bool locked,
+                                 const std::function<void(const Json&)>& commit) {
+    IdScope scope("depth_of_field");
+    const bool open = ImGui::CollapsingHeader("Depth of field");
+    FORGE_UI_PROBE("focus:section");
+    if (!open)
+        return;
+    DisabledScope disabled(locked);
+    bool enabled = settings.enabled;
+    if (ImGui::Checkbox("Enable depth of field", &enabled))
+        commit({{"depth_of_field", {{"enabled", enabled}}}});
+    FORGE_UI_PROBE("focus:enabled");
+    const auto field = [&](const char* label, const char* key, float value, const char* tip) {
+        IdScope id(key);
+        property_label_row(label, tip);
+        if (ImGui::InputFloat("##value", &value, 0, 0, "%.3f",
+                              ImGuiInputTextFlags_EnterReturnsTrue))
+            commit({{"depth_of_field", {{key, value}}}});
+        FORGE_UI_PROBE(std::string("focus:") + key);
+    };
+    field("Focus distance (m)", "focus_distance", settings.focus_distance,
+          "Positive distance along each camera's view, from 0.001 to 1000000 metres.");
+    field("Focus falloff (m)", "focus_range", settings.focus_range,
+          "Distance from the focus plane that reaches maximum blur; 0.001 to 1000000 metres.");
+    field("Maximum blur (px)", "blur_radius", settings.blur_radius,
+          "Radius from 0 to 12 output pixels. Zero skips the pass. Enter commits one Undo step.");
+    if (button("Reset depth of field",
+               "Disable focus blur and restore 10 m, 5 m falloff and 8 px."))
+        commit({{"depth_of_field",
+                 {{"enabled", false},
+                  {"focus_distance", 10},
+                  {"focus_range", 5},
+                  {"blur_radius", 8}}}});
+    FORGE_UI_PROBE("focus:reset");
+    ImGui::TextWrapped(
+        "Focus settings belong to the Scene and apply separately to each view. "
+        "Opaque and masked Mesh geometry blurs before current-frame layers and bloom. "
+        "Background, transparency, Sprites, Tile Maps, particles and editor overlays stay sharp. "
+        "Depth edges retain their silhouette; this spatial profile does not spread foreground "
+        "blur across a different surface. Scene Save and Undo include these settings.");
+}
 inline void scene_temporal_controls(const SceneTemporalAntiAliasing& settings, bool locked,
                                     const std::function<void(const Json&)>& commit) {
     IdScope scope("temporal_anti_aliasing");
@@ -270,6 +311,7 @@ inline void scene_lighting(bool& open, Scene& scene, const AssetCatalog* catalog
                  "mapping. With automatic exposure, this adds brightness compensation. Enter "
                  "commits.");
             scene_auto_exposure_controls(settings.auto_exposure, locked, commit);
+            scene_focus_controls(settings.depth_of_field, locked, commit);
             scene_temporal_controls(settings.temporal_anti_aliasing, locked, commit);
             scene_distance_fog_controls(settings.distance_fog, locked, commit);
             scene_bloom_controls(settings.bloom, locked, commit);

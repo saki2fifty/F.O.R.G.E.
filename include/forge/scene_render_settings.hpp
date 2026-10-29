@@ -64,6 +64,14 @@ struct SceneTemporalAntiAliasing {
     bool operator==(const SceneTemporalAntiAliasing&) const = default;
 };
 void validate_scene_temporal_anti_aliasing(const SceneTemporalAntiAliasing&);
+struct SceneDepthOfField {
+    bool enabled = false;
+    float focus_distance = 10;
+    float focus_range = 5;
+    float blur_radius = 8;
+    bool operator==(const SceneDepthOfField&) const = default;
+};
+void validate_scene_depth_of_field(const SceneDepthOfField&);
 struct SceneRenderSettings {
     SceneEnvironment environment;
     SceneShadows shadows;
@@ -73,6 +81,7 @@ struct SceneRenderSettings {
     SceneAutoExposure auto_exposure;
     SceneDistanceFog distance_fog;
     SceneTemporalAntiAliasing temporal_anti_aliasing;
+    SceneDepthOfField depth_of_field;
     bool operator==(const SceneRenderSettings&) const = default;
 };
 SceneRenderSettings scene_render_settings(const nlohmann::json& scene);

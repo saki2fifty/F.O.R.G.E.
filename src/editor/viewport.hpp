@@ -3,6 +3,7 @@
 #include "Graphics/GraphicsEngine/interface/DeviceContext.h"
 #include "Graphics/GraphicsEngine/interface/PipelineState.h"
 #include "Graphics/GraphicsEngine/interface/RenderDevice.h"
+#include "depth_of_field.hpp"
 #include "display_resolve.hpp"
 #include "environment_sky.hpp"
 #include "hdr_bloom.hpp"
@@ -36,6 +37,7 @@ class Viewport {
         mesh_scene_.reset();
         frame_.reset();
         temporal_.reset();
+        focus_.reset();
         temporal_camera_.reset();
     }
     const MeshSceneRenderer* meshes() const { return meshes_.get(); }
@@ -61,6 +63,7 @@ class Viewport {
     std::uint64_t mesh_generation_ = 0;
     std::optional<ViewportFrameKey> frame_;
     std::unique_ptr<TemporalView> temporal_;
+    std::unique_ptr<DepthOfField> focus_;
     std::optional<CameraView> temporal_camera_;
     SceneRenderSettings temporal_settings_;
     AssetId temporal_scene_;

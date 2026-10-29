@@ -432,3 +432,27 @@ conversion preserves every RGB pixel from `gallery101-1280.ppm`; no crop or
 retouch was applied. This is not Windows/full editor/physical GPU/graphical EXE
 acceptance. PNG SHA256:
 `e7d04c02b55101ac78cc97a4810d3cd927c2c1d4b3dc189b6aea39306995d9ce`.
+
+## Depth of field controls
+
+[The canonical focus controls](../../../manual/images/depth-of-field-controls.png)
+are the complete unretouched900x440 PNG from
+`forge_hdr_bloom_editor_tests <capture-directory> --focus`, using the production
+`scene_focus_controls` widget, pinned ImGui/SDL software renderer and the ordinary
+Lato font. Source branch forge/depth-of-field starts from9b38df2. The Scene owns
+the displayed enabled10m/5m/8px settings. Actual input tests exercise all fields,
+reset/Undo, rejection/recovery and authored locks at three scales/two sizes.
+This is an authentic widget capture, not full Windows/Main, physical GPU or
+OS-input acceptance; no controls or pixels were retouched. PNG SHA256:
+`fe7f3bd35aa57c353947d50a0fcc83a74c8105ee228daf4c356a2125b500ec1c`.
+
+[The canonical focus Gallery image](../../../manual/images/depth-of-field.png)
+is the complete640x360 RGB readback from `depth_of_field_vulkan`,
+`tests/depth_of_field_scene_tests.hpp`, RuntimeSimulation and the actual shared
+FrameRenderer. Original Gallery103 has192 colored cells at three depths. Wide
+and tall captures compare enabled/disabled views, preserve alpha and verify that
+the middle focus plane remains exact while outer planes change. Lossless PPM to
+PNG conversion preserves all RGB bytes; no crop/retouch. Software Vulkan/lavapipe
+source evidence does not establish full Windows editor, physical GPU or graphical
+exported-game acceptance. PNG SHA256:
+`75c2d61a8b749c0bb8001f221205929714571cb54b07e00caf914c01096ac0bb`.

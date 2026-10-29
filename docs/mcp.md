@@ -102,6 +102,7 @@ not a new live-Play control. See [automatic exposure](scene-auto-exposure.md).
 
 `scene.rendering.set` / `forge_scene_rendering_set` accepts
 `{"temporal_anti_aliasing":{"enabled":true,"stability":0.85}}`.
+
 The optional nested fields share Scene permissions, expected revision, replay,
 Undo/Redo and document saving with the human Scene lighting controls. Stability
 is finite 0–0.95; invalid candidates leave values and revision unchanged. Read-only
@@ -111,6 +112,14 @@ geometry, camera-clear, resource and validation limits. Explicit sequence captur
 reuse the capture owner's operation/sample identity and wait for temporal warmup;
 no agent-specific rendering or clock is introduced.
 
+The same tool accepts `{"depth_of_field":{"enabled":true,"focus_distance":10,
+"focus_range":5,"blur_radius":8}}`. Distance and range are finite 0.001–1000000
+metres; radius is finite 0–12 pixels. Nested patches retain omitted and opaque
+extension fields. Scene edit permission, revision checks, replay, Undo/Redo and
+Save use the same authoring owner as the controls. These are scene-wide settings
+applied independently to each view; they add no capture clock or temporal delay.
+See [depth of field](depth-of-field.md) for depth-writing Mesh eligibility,
+queue-preserving fallback and resource limits.
 `scene.rendering.set` / `forge_scene_rendering_set` also accepts
 `{"distance_fog":{"enabled":true,"color":[0.25,0.35,0.5],"start":12,"end":34}}`.
 Color is linear HDR RGB; start/end are ordered radial world metres. The same

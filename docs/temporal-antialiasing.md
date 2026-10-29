@@ -120,7 +120,7 @@ not establish hardware performance. Gallery 102 exercises original thin geometry
 and a shared existing animated foreground object.
 The selected software Vulkan stack has an
 [open shutdown allocation report](dependency-known-issues.md#native-software-vulkan-shutdown-allocation-report).
-Three instrumented GPU consumers complete functional checks, then unsuppressed
+Instrumented GPU consumers complete functional checks, then unsuppressed
 LeakSanitizer fails with the same 184-byte signature independently reproduced by
 a raw native draw without FORGE linked. Their leak checks are not reported as
 passes. Selected Scene/UI/codec consumers pass independently; no dependency patch,

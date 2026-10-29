@@ -16,6 +16,7 @@ void interactions(float scale, ImVec2 display) {
     extended["rendering"] = {{"version", 1u}, {"bloom", {{"extension", "retain"}}}};
     extended["rendering"]["auto_exposure"] = {{"extension", "retain"}};
     extended["rendering"]["temporal_anti_aliasing"] = {{"extension", "retain"}};
+    extended["rendering"]["depth_of_field"] = {{"extension", "retain"}};
     scene.reset(extended);
     const auto original = scene.document();
     ImGui::CreateContext();
@@ -36,6 +37,7 @@ void interactions(float scale, ImVec2 display) {
     bool automatic_controls = false;
     bool fog_controls = false;
     bool temporal_controls = false;
+    bool focus_controls = false;
     bool full_owner = false;
     std::string error;
     unsigned commits = 0;
@@ -57,7 +59,9 @@ void interactions(float scale, ImVec2 display) {
                     ++commits;
                     error.clear();
                 };
-                if (temporal_controls)
+                if (focus_controls)
+                    ui::scene_focus_controls(settings.depth_of_field, locked, commit);
+                else if (temporal_controls)
                     ui::scene_temporal_controls(settings.temporal_anti_aliasing, locked, commit);
                 else if (fog_controls)
                     ui::scene_distance_fog_controls(settings.distance_fog, locked, commit);
@@ -298,6 +302,40 @@ void interactions(float scale, ImVec2 display) {
     locked = false;
     click("temporal:section");
     temporal_controls = false;
+    focus_controls = true;
+    frame();
+    click("focus:section");
+    const auto before_focus = scene.document();
+    click("focus:enabled");
+    check(scene_render_settings(scene.document()).depth_of_field.enabled && scene.undo() &&
+              scene.document() == before_focus && scene.redo(),
+          "Focus checkbox bypassed Scene history");
+    type("focus:focus_distance", "14");
+    type("focus:focus_range", "3");
+    type("focus:blur_radius", "6");
+    const auto focused = scene.document();
+    check(error.empty() &&
+              scene_render_settings(focused).depth_of_field == SceneDepthOfField{true, 14, 3, 6} &&
+              focused["rendering"]["depth_of_field"]["extension"] == "retain",
+          "Typed focus controls lost values or extensions");
+    type("focus:focus_range", "0");
+    check(!error.empty() && scene.document() == focused, "Invalid focus range changed Scene");
+    type("focus:focus_range", "4");
+    check(error.empty() && scene_render_settings(scene.document()).depth_of_field.focus_range == 4,
+          "Focus input did not recover after rejection");
+    const auto before_focus_reset = scene.document();
+    click("focus:reset");
+    check(scene_render_settings(scene.document()).depth_of_field == SceneDepthOfField{} &&
+              scene.undo() && scene.document() == before_focus_reset && scene.redo(),
+          "Focus reset did not use atomic Scene history");
+    locked = true;
+    frame();
+    for (const auto* key : {"focus:enabled", "focus:focus_distance", "focus:focus_range",
+                            "focus:blur_radius", "focus:reset"})
+        check(!test::ui_targets.at(key).enabled, "Focus authored controls enabled during Play");
+    locked = false;
+    click("focus:section");
+    focus_controls = false;
     // Exercise the real Scene lighting owner, including its Problems integration,
     // rather than inferring recovery from the callback used above.
     locked = false;
@@ -345,13 +383,24 @@ void interactions(float scale, ImVec2 display) {
               scene_render_settings(scene.document()).temporal_anti_aliasing.stability == .8f &&
               context.task.owner == ui::DocumentTask::Scene,
           "Corrected temporal input retained its Problem or changed document ownership");
+    click("temporal:section");
+    click("focus:section");
+    context.task.focus_document("material", "Material");
+    type("focus:blur_radius", "13");
+    check(context.problems.size() == 1 && !context.problems.items().front().occurred_at.empty(),
+          "Actual focus rejection lacked a timestamped Problem");
+    type("focus:blur_radius", "8");
+    check(context.problems.size() == 0 &&
+              scene_render_settings(scene.document()).depth_of_field.blur_radius == 8 &&
+              context.task.owner == ui::DocumentTask::Scene,
+          "Corrected focus input retained its Problem or document ownership");
     test::observe_ui = false;
     ImGui::DestroyContext();
 }
 void capture(const std::filesystem::path& root, std::string_view kind = {}) {
-    const bool fog = kind == "--fog", temporal = kind == "--temporal";
+    const bool fog = kind == "--fog", temporal = kind == "--temporal", focus = kind == "--focus";
     std::filesystem::create_directories(root);
-    const int capture_height = fog ? 360 : temporal ? 420 : 900;
+    const int capture_height = fog ? 360 : temporal ? 420 : focus ? 440 : 900;
     const std::unique_ptr<SDL_Surface, decltype(&SDL_DestroySurface)> surface(
         SDL_CreateSurface(900, capture_height, SDL_PIXELFORMAT_RGBA32), SDL_DestroySurface);
     check(bool(surface), SDL_GetError());
@@ -380,7 +429,12 @@ void capture(const std::filesystem::path& root, std::string_view kind = {}) {
     Scene scene(engine.world());
     authoring_command(
         scene, "scene.rendering.set",
-        temporal ? Json{{"temporal_anti_aliasing", {{"enabled", true}, {"stability", .8}}}}
+        focus      ? Json{{"depth_of_field",
+                           {{"enabled", true},
+                            {"focus_distance", 10},
+                            {"focus_range", 5},
+                            {"blur_radius", 8}}}}
+        : temporal ? Json{{"temporal_anti_aliasing", {{"enabled", true}, {"stability", .8}}}}
         : fog ? Json{{"distance_fog",
                       {{"enabled", true}, {"color", {.25, .35, .5}}, {"start", 12}, {"end", 34}}}}
               : Json{{"auto_exposure", {{"enabled", true}}}});
@@ -395,7 +449,10 @@ void capture(const std::filesystem::path& root, std::string_view kind = {}) {
         const auto commit = [&](const Json& patch) {
             authoring_command(scene, "scene.rendering.set", patch);
         };
-        if (temporal)
+        if (focus)
+            ui::scene_focus_controls(scene_render_settings(scene.document()).depth_of_field, false,
+                                     commit);
+        else if (temporal)
             ui::scene_temporal_controls(
                 scene_render_settings(scene.document()).temporal_anti_aliasing, false, commit);
         else if (fog)
@@ -411,9 +468,10 @@ void capture(const std::filesystem::path& root, std::string_view kind = {}) {
         ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData(), renderer.get());
         SDL_RenderPresent(renderer.get());
     }
-    check(SDL_SavePNG(surface.get(), (root / (temporal ? "temporal-antialiasing-controls.png"
-                                              : fog    ? "distance-fog-controls.png"
-                                                       : "automatic-exposure.png"))
+    check(SDL_SavePNG(surface.get(), (root / (focus      ? "depth-of-field-controls.png"
+                                              : temporal ? "temporal-antialiasing-controls.png"
+                                              : fog      ? "distance-fog-controls.png"
+                                                         : "automatic-exposure.png"))
                                          .string()
                                          .c_str()),
           SDL_GetError());
@@ -422,7 +480,8 @@ void capture(const std::filesystem::path& root, std::string_view kind = {}) {
 int main(int argc, char** argv) {
     try {
         if (argc == 2 || (argc == 3 && (std::string_view(argv[2]) == "--fog" ||
-                                        std::string_view(argv[2]) == "--temporal"))) {
+                                        std::string_view(argv[2]) == "--temporal" ||
+                                        std::string_view(argv[2]) == "--focus"))) {
             capture(std::filesystem::absolute(argv[1]),
                     argc == 3 ? std::string_view(argv[2]) : std::string_view{});
             return 0;

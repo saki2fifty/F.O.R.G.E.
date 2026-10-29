@@ -86,7 +86,8 @@ MeshDrawBundle::MeshDrawBundle(DiligentPresentation& presentation,
                                   : prepare_draw(context, unsigned(l), unsigned(p),
                                                  Diligent::TEX_FORMAT_UNKNOWN, profile));
             info.push_back({values->alpha, material_ref.id, part.bounds, transmits,
-                            bindings.at(part.material_slot)});
+                            bindings.at(part.material_slot),
+                            values->depth_test && values->depth_write});
         }
     }
 }

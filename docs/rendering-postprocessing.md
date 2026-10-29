@@ -6,13 +6,14 @@ and HDR composition. It adds no depth/motion history or post-processing targets.
 ## FORGE passes and upstream integration
 
 FORGE supplies independently authored [spatial HDR bloom](hdr-bloom.md),
-[automatic exposure](scene-auto-exposure.md) and
+[automatic exposure](scene-auto-exposure.md), [spatial depth of field](depth-of-field.md) and
 [temporal anti-aliasing](temporal-antialiasing.md) through the existing rendering
 owners. Bloom uses color only. Automatic exposure meters composed Game HDR into
 a scalar gain history. Temporal anti-aliasing supplies real per-view motion,
 previous depth/camera data and previous posed Mesh geometry for its supported
 opaque/masked profile. These are separate passes with their documented admission,
-reset and budget rules. They do not expose the upstream effects as working toggles.
+reset and budget rules. Spatial depth of field uses each view's current HDR/depth
+without adding temporal history. They do not expose the upstream effects as working toggles.
 
 The exact-source audit below was verified on2026-09-22 against pinned DiligentFX
 `aaa41d47a101d0bf1d12267c4a85b2d9b38cd1da`. It describes the upstream integration
@@ -30,7 +31,7 @@ acceptance is distinct from local software Vulkan pixel checks.
 | TemporalAntiAliasing | Color, jittered projection, accumulation history, context motion/depth/camera data | Upstream module not enabled; FORGE supplies its own bounded temporal profile |
 | ScreenSpaceAmbientOcclusion | Depth, normal buffer and temporal context | Deferred until the required render targets/history exist |
 | ScreenSpaceReflection | Color, depth, normals, material buffer, motion vectors and temporal context | Deferred until the required render targets/history exist |
-| DepthOfField | Color/depth and temporal context | Deferred with camera-history and depth preparation |
+| DepthOfField | Color/depth and temporal context | Upstream module not enabled; FORGE supplies its own bounded spatial focus profile |
 
 Bloom's public arguments alone look compatible with the current color target.
 Its actual `Execute` method also requires `PostFXContext::IsPSOsReady()`.

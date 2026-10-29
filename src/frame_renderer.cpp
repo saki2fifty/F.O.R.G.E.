@@ -68,7 +68,7 @@ void FrameRenderer::resources(std::shared_ptr<MeshResourceHost> host) {
     if (thread_ != std::this_thread::get_id())
         throw std::runtime_error("Frame resources changed off presentation thread");
     sky_.select({});
-    temporal_cameras_.clear();
+    camera_effects_.clear();
     temporal_time_.reset();
     temporal_sample_.reset();
     meshes_ = host ? std::make_unique<MeshSceneRenderer>(std::move(host), TEX_FORMAT_RGBA16_FLOAT)
@@ -94,7 +94,10 @@ void FrameRenderer::targets(unsigned width, unsigned height) {
     presentation_.device()->CreateTexture(desc, nullptr, &color);
     desc.Name = "FORGE composed frame depth";
     desc.Format = TEX_FORMAT_D32_FLOAT;
-    desc.BindFlags = BIND_DEPTH_STENCIL;
+    desc.BindFlags =
+        BIND_DEPTH_STENCIL |
+        (presentation_.device()->GetTextureFormatInfoExt(TEX_FORMAT_D32_FLOAT).BindFlags &
+         BIND_SHADER_RESOURCE);
     presentation_.device()->CreateTexture(desc, nullptr, &depth);
     if (!color || !depth)
         throw std::runtime_error("Frame allocation failed; previous targets retained");
@@ -150,6 +153,7 @@ ITextureView* FrameRenderer::render(IDeviceContext* context, const RenderScene& 
         throw std::runtime_error("Frame rendering requires its presentation thread and context");
     validate_scene_distance_fog(scene.settings.distance_fog);
     validate_scene_temporal_anti_aliasing(scene.settings.temporal_anti_aliasing);
+    validate_scene_depth_of_field(scene.settings.depth_of_field);
     if (sample && (!sample->operation || !std::isfinite(sample->seconds) || sample->seconds < 0))
         throw std::invalid_argument(
             "Temporal frame sample requires an operation and finite nonnegative time");
@@ -186,6 +190,9 @@ ITextureView* FrameRenderer::render(IDeviceContext* context, const RenderScene& 
             }
     const auto temporal_settings = scene.settings.temporal_anti_aliasing;
     const bool temporal_enabled = temporal_settings.enabled && meshes_;
+    const bool focus_enabled = meshes_ && scene.settings.depth_of_field.enabled &&
+                               scene.settings.depth_of_field.blur_radius != 0;
+    const bool effects_enabled = temporal_enabled || focus_enabled;
     const auto epoch = meshes_ ? meshes_->resource_epoch() : 0;
     constexpr std::uint64_t temporal_budget = 512ull * 1024 * 1024;
     bool reset_temporal =
@@ -195,17 +202,17 @@ ITextureView* FrameRenderer::render(IDeviceContext* context, const RenderScene& 
         temporal_sample_ != sample_key ||
         (!sample && (!temporal_time_ || !std::isfinite(seconds) || seconds < *temporal_time_ ||
                      seconds - *temporal_time_ > .5));
-    bool same_cameras = temporal_cameras_.size() == cameras.size();
+    bool same_cameras = camera_effects_.size() == cameras.size();
     if (same_cameras)
         for (std::size_t i = 0; i < cameras.size(); ++i)
-            same_cameras &= temporal_cameras_[i].entity == cameras[i].entity;
-    if (!temporal_enabled || !same_cameras) {
-        temporal_cameras_.clear();
-        if (temporal_enabled) {
-            temporal_cameras_.reserve(cameras.size());
+            same_cameras &= camera_effects_[i].entity == cameras[i].entity;
+    if (!effects_enabled || !same_cameras) {
+        camera_effects_.clear();
+        if (effects_enabled) {
+            camera_effects_.reserve(cameras.size());
             for (const auto& camera : cameras)
-                temporal_cameras_.push_back(
-                    {camera.entity, camera.view, camera.settings.layers, {}, false});
+                camera_effects_.push_back(
+                    {camera.entity, camera.view, camera.settings.layers, {}, {}, false});
         }
         reset_temporal = true;
     }
@@ -217,7 +224,7 @@ ITextureView* FrameRenderer::render(IDeviceContext* context, const RenderScene& 
         ~TemporalGuard() {
             if (completed)
                 return;
-            for (auto& camera : owner.temporal_cameras_)
+            for (auto& camera : owner.camera_effects_)
                 if (camera.history)
                     camera.history->invalidate();
             if (owner.meshes_)
@@ -228,6 +235,7 @@ ITextureView* FrameRenderer::render(IDeviceContext* context, const RenderScene& 
         }
     } temporal_guard{*this, frame_completed};
     std::uint64_t temporal_bytes = 0;
+    std::uint64_t focus_bytes = 0;
     std::size_t camera_index = 0;
     auto* rtv = color_->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET);
     auto* dsv = depth_->GetDefaultView(TEXTURE_VIEW_DEPTH_STENCIL);
@@ -240,11 +248,16 @@ ITextureView* FrameRenderer::render(IDeviceContext* context, const RenderScene& 
                                    RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     }
     for (const auto& camera : cameras) {
-        TemporalCamera* temporal_camera =
-            temporal_enabled ? &temporal_cameras_[camera_index] : nullptr;
+        CameraEffects* effects = effects_enabled ? &camera_effects_[camera_index] : nullptr;
+        CameraEffects* temporal_camera = temporal_enabled ? effects : nullptr;
         ++camera_index;
-        if (temporal_camera)
-            temporal_camera->applied = false;
+        if (effects) {
+            effects->applied = false;
+            if (!temporal_enabled)
+                effects->history.reset();
+            if (!focus_enabled)
+                effects->focus.reset();
+        }
         const auto& area = camera.view.viewport;
         if (!area.width || !area.height || area.x >= width || area.y >= height ||
             area.width > width - area.x || area.height > height - area.y)
@@ -268,6 +281,38 @@ ITextureView* FrameRenderer::render(IDeviceContext* context, const RenderScene& 
             if (camera.settings.clear_color)
                 sky_.draw(context, camera.view, scene.settings.environment);
             std::optional<MeshSceneRenderer::TemporalPass> temporal_pass;
+            std::optional<MeshSceneRenderer::PostMeshPass> focus_pass;
+            if (focus_enabled) {
+                auto& pass = focus_pass.emplace();
+                pass.prepare = [&] {
+                    const auto pixels = std::uint64_t(area.width) * area.height;
+                    if (!camera.settings.clear_color || !camera.settings.clear_depth)
+                        throw std::runtime_error("Camera must clear both color and depth");
+                    if (camera_index > 8 ||
+                        pixels > (depth_of_field_payload_limit - focus_bytes) / 16)
+                        throw std::runtime_error(
+                            "Views exceed the eight-camera / 128 MiB focus texture budget");
+                    focus_bytes += pixels * 16;
+                    std::unique_ptr<DepthOfField> staged;
+                    auto* focus = effects->focus.get();
+                    if (!focus || effects->unjittered.viewport.width != area.width ||
+                        effects->unjittered.viewport.height != area.height) {
+                        staged = std::make_unique<DepthOfField>(presentation_, pixels * 16);
+                        focus = staged.get();
+                    }
+                    focus->prepare(color_, depth_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE),
+                                   camera.view, scene.settings.depth_of_field);
+                    if (staged)
+                        effects->focus = std::move(staged);
+                };
+                pass.resolve = [&] {
+                    auto timing =
+                        presentation_.gpu_scope(context, profile_view_.c_str(), "Depth of field");
+                    effects->focus->apply(context, color_,
+                                          depth_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE),
+                                          camera.view, scene.settings.depth_of_field);
+                };
+            }
             if (temporal_camera) {
                 try {
                     const auto pixels = std::uint64_t(area.width) * area.height;
@@ -321,7 +366,10 @@ ITextureView* FrameRenderer::render(IDeviceContext* context, const RenderScene& 
             }
             if (meshes_)
                 meshes_->draw(scene, camera.view, camera.settings.layers, color_, dsv,
-                              temporal_pass ? &*temporal_pass : nullptr);
+                              temporal_pass ? &*temporal_pass : nullptr,
+                              focus_pass ? &*focus_pass : nullptr);
+            if (focus_pass && !focus_pass->applied)
+                effects->focus.reset();
             if (temporal_camera) {
                 temporal_camera->applied =
                     temporal_pass && temporal_pass->applied && temporal_pass->successful;
@@ -376,8 +424,8 @@ ITextureView* FrameRenderer::render(IDeviceContext* context, const RenderScene& 
         exposure_was_pending_ = false;
     }
     bool any_temporal = false;
-    for (std::size_t i = 0; i < temporal_cameras_.size(); ++i) {
-        auto& camera = temporal_cameras_[i];
+    for (std::size_t i = 0; i < camera_effects_.size(); ++i) {
+        auto& camera = camera_effects_[i];
         if (camera.applied) {
             camera.history->complete();
             any_temporal = true;
@@ -399,7 +447,7 @@ ITextureView* FrameRenderer::render(IDeviceContext* context, const RenderScene& 
     return result;
 }
 bool FrameRenderer::temporal_ready() const {
-    return std::all_of(temporal_cameras_.begin(), temporal_cameras_.end(), [](const auto& camera) {
+    return std::all_of(camera_effects_.begin(), camera_effects_.end(), [](const auto& camera) {
         return !camera.applied || (camera.history && camera.history->samples() >= 8);
     });
 }

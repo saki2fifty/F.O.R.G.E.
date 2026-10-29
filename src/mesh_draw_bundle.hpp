@@ -15,6 +15,7 @@ class MeshDrawBundle {
         MeshBounds bounds;
         bool transmission{};
         std::size_t binding{};
+        bool depth_write = true;
     };
     MeshDrawBundle(DiligentPresentation&, Diligent::IDeviceContext*,
                    const asset_detail::PreparedModelDraw&, GpuResidency<MeshAsset>&,

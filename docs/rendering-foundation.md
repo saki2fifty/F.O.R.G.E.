@@ -58,6 +58,13 @@ Do not label an untested conversion as supported.
 
 ## Cameras, lighting and effects
 
+The optional [spatial depth-of-field pass](depth-of-field.md) uses current HDR and
+sampled depth per view. It follows temporal Mesh resolve, preserves the existing
+queue and runs before current-frame layers and bloom. Existing frame/Scene depth
+targets expose sampling when their format supports it; unsupported views retain
+ordinary rendering with a warning. Its scratch and settings remain with current
+presentation and Scene owners.
+
 The optional [temporal anti-aliasing profile](temporal-antialiasing.md) accumulates
 opaque/masked Mesh geometry with actual object, skin/morph and camera motion. Its
 per-view history remains derived presentation data; culling, picking, shadows and

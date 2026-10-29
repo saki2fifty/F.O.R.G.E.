@@ -1,7 +1,8 @@
 # Scene lighting
 
 Use **Tools > Scene lighting...**, or search for **Scene / Lighting** in the Command
-Palette, to change the scene's environment, shadows, edge smoothing, distance fog and display brightness. These settings
+Palette, to change the scene's environment, shadows, focus blur, edge smoothing,
+distance fog and display brightness. These settings
 belong to the scene: **Save** keeps them, and **Undo / Redo** reverses each committed
 change. Opening this window keeps Scene as the active editing task.
 
@@ -42,6 +43,47 @@ Changes to intensity and rotation reuse the prepared environment; they do not re
 its lighting maps every frame. If a replacement cannot load, **Problems** explains the
 failure and the previous usable environment remains visible. Clear the field explicitly
 to remove that previous environment.
+
+## Focus near and distant surfaces
+
+1. Stop Play and open **Tools > Scene lighting...**.
+2. Expand **Depth of field** and select **Enable depth of field**.
+3. Enter **Focus distance (m)** and press **Enter**. This is the distance along the camera's view direction to the sharp plane, from 0.001 to 1,000,000 metres.
+4. Set **Focus falloff (m)**, also 0.001 to 1,000,000 metres. Surfaces this far from the focus plane reach the maximum blur; nearer surfaces blur less.
+5. Set **Maximum blur (px)** from 0 to 12 output pixels. Zero skips the effect.
+6. Save the Scene. Play and exported games use the saved focus settings.
+
+![Depth of field enabled with focus distance, falloff and maximum blur controls](../images/depth-of-field-controls.png)
+
+The Scene preview uses its navigation camera. Game uses each authored camera.
+The same saved settings apply independently to those views. Moving or turning a
+camera changes which surfaces fall on its focus plane. **Reset depth of field**
+disables the effect and restores a distance of 10 m, falloff of 5 m and radius
+of 8 px in one Undo step. Authored controls are locked during Play.
+
+Open **103-depth-of-field** in the Feature Gallery. The middle checker panel is
+sharp at **9.95 m**. Try **3.95 m** for the near panel or **15.95 m** for the far
+panel, pressing Enter after each change. Disable the effect to compare all three
+panels. No C++ module is needed.
+
+![Three checker panels with a sharp middle focus plane and softened near and far planes](../images/depth-of-field.png)
+
+The middle panel stays sharp while the two outer panels soften at their saved
+near and far distances.
+
+This spatial profile blurs depth-writing opaque and masked Mesh surfaces before
+current-frame layers and bloom. Background, transparency, Sprites, Tile Maps,
+particles and editor overlays stay sharp. Depth edges keep their silhouette;
+foreground blur does not spread across a different surface. This is a bounded
+focus filter rather than a physical lens simulation.
+
+Game cameras must clear both color and depth. Materials must test and write depth.
+If an earlier current-frame layer interrupts the supported Mesh draw order, the
+view keeps ordinary rendering and reports a warning. Unavailable sampled depth
+or GPU capacity also keeps ordinary rendering. Reduce the view size or disable
+the effect if its warning persists. Up to eight Game views share a 128 MiB scratch
+texture estimate; Scene preview has its own 128 MiB estimate. Temporary and native
+allocation overhead are additional.
 
 ## Smooth moving edges
 

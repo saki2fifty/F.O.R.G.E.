@@ -259,7 +259,7 @@ unknown/unloaded native modules; the exact library/source cause is unresolved.
 An independently authored raw device/shader/triangle-draw baseline reproduces the
 same sizes, allocation kinds, caller page offsets and relative caller offsets.
 Its link removes every FORGE library, and its symbol table contains no FORGE
-symbols. The same binary's device-only path exits cleanly. Three instrumented
+symbols. The same binary's device-only path exits cleanly. Instrumented
 FORGE GPU consumers finish their functional assertions and then report that same
 shutdown signature. This attributes the reproduced signature to the selected
 native stack; it does not prove that all possible FORGE lifetimes are leak-free
