@@ -178,6 +178,12 @@ RenderScene extract_render_scene(const Json& source) {
             if (l.enabled && state.valid && state.visible)
                 result.lights.push_back({id, light_view(l, world_transform(row))});
         });
+        admit("forge.decal", "render.decal.invalid", [&] {
+            const auto value = component<DecalProjector>(values, "forge.decal");
+            if (value.enabled && value.material.id && value.opacity != 0 && state.valid &&
+                state.visible)
+                result.decals.push_back({id, decal_view(value, world_transform(row))});
+        });
         admit("forge.reflection_probe", "render.probe.invalid", [&] {
             const auto probe = component<ReflectionProbe>(values, "forge.reflection_probe");
             if (probe.enabled && probe.texture.id && probe.intensity != 0 && state.valid &&

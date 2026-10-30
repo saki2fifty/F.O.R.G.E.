@@ -1,4 +1,5 @@
 #pragma once
+#include "decal_guide.hpp"
 #include "light_emitter_view.hpp"
 #include "navigation_region_view.hpp"
 #include "reflection_probe_view.hpp"
@@ -211,6 +212,13 @@ class EditorCamera {
                         bounds.second[i] = std::max(bounds.second[i], float(point[i]));
                     }
             }
+            const auto decal = ui::decal_guide(e);
+            if (decal)
+                for (const auto& point : decal->outline)
+                    for (unsigned i = 0; i < 3; ++i) {
+                        bounds.first[i] = std::min(bounds.first[i], float(point[i]));
+                        bounds.second[i] = std::max(bounds.second[i], float(point[i]));
+                    }
             const auto probe = ui::reflection_probe_view(e);
             if (probe)
                 for (const auto& point : probe->outline)
@@ -220,7 +228,7 @@ class EditorCamera {
                     }
             if (const auto emitter = ui::light_emitter_bounds(e))
                 for (unsigned i = 0; i < 3; ++i) {
-                    if (primitive_kind(e) == no_primitive && !region && !probe) {
+                    if (primitive_kind(e) == no_primitive && !region && !probe && !decal) {
                         bounds.first[i] = float(emitter->first[i]);
                         bounds.second[i] = float(emitter->second[i]);
                     } else {

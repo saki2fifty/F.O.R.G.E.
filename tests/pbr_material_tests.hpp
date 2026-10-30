@@ -1,4 +1,5 @@
 #pragma once
+#include "decal_material.hpp"
 #include "material_shader.hpp"
 #include "pbr_material.hpp"
 #include <cmath>
@@ -155,4 +156,54 @@ inline void test_pbr_material_profile() {
     unlit.parameters.clear();
     unlit.textures["normalTexture"].semantic = TextureSemantic::Normal;
     rejects([&] { prepare_pbr_material(unlit); });
+    MaterialData paint;
+    paint.model = "forge.gltf.metallic-roughness.v1";
+    paint.parameters["baseColorFactor"] = {Type::LinearColor4, {.25f, .5f, .75f, .5f}};
+    paint.alpha = MaterialAlpha::Mask;
+    paint.alpha_cutoff = .7f;
+    auto& color_slot = paint.textures["baseColorTexture"];
+    color_slot.semantic = TextureSemantic::Color;
+    color_slot.uv_set = 3;
+    color_slot.offset = {.25f, .5f};
+    color_slot.scale = {2, 3};
+    color_slot.rotation = .3f;
+    color_slot.sampler.u = TextureWrap::MirroredRepeat;
+    paint.textures["normalTexture"].semantic = TextureSemantic::Normal;
+    const AssetRef<TextureAsset> color_ref{AssetId::generate()}, normal_ref{AssetId::generate()};
+    const MaterialTextureBindings paint_bindings{{"baseColorTexture", color_ref},
+                                                 {"normalTexture", normal_ref}};
+    const auto original_paint = paint;
+    const auto projected = prepare_decal_material(paint, paint_bindings);
+    check(projected.color == std::array<float, 4>{.25f, .5f, .75f, .5f} &&
+              projected.alpha == MaterialAlpha::Mask && projected.cutoff == .7f &&
+              projected.texture == color_ref && projected.slot == color_slot &&
+              paint == original_paint,
+          "Projected color changed its source Material or lost immutable color/alpha/UV/sampler "
+          "data");
+    check(std::abs(projected.uv[0][0] - 2 * std::cos(.3f)) < 1e-6f &&
+              std::abs(projected.uv[0][1] + 3 * std::sin(.3f)) < 1e-6f &&
+              projected.uv[0][2] == .25f && projected.uv[1][2] == .5f,
+          "Projected material UV transform differs from rotation*scale plus offset");
+    auto missing_color = paint_bindings;
+    missing_color.erase("baseColorTexture");
+    rejects([&] { (void)prepare_decal_material(paint, missing_color); });
+    auto noncolor = paint;
+    noncolor.textures["baseColorTexture"].semantic = TextureSemantic::Normal;
+    rejects([&] { (void)prepare_decal_material(noncolor, paint_bindings); });
+    MaterialData constant;
+    constant.model = "forge.gltf.unlit.v1";
+    const auto solid = prepare_decal_material(constant, {});
+    check(!solid.texture.id && solid.color == std::array<float, 4>{1, 1, 1, 1} &&
+              solid.uv == std::array<std::array<float, 4>, 2>{{{1, 0, 0, 0}, {0, 1, 0, 0}}},
+          "Untextured projected color lost its canonical defaults");
+    auto gloss = paint;
+    gloss.model = "forge.gltf.specular-glossiness.v1";
+    gloss.textures.erase("baseColorTexture");
+    gloss.textures["diffuseTexture"] = color_slot;
+    const auto projected_gloss = prepare_decal_material(
+        gloss, {{"diffuseTexture", color_ref}, {"normalTexture", normal_ref}});
+    check(projected_gloss.texture == color_ref && projected_gloss.color == projected.color,
+          "Specular/glossiness projected color lost the shared diffuse role");
+    constant.model = "project.custom";
+    rejects([&] { (void)prepare_decal_material(constant, {}); });
 }

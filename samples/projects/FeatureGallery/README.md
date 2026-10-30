@@ -1,5 +1,25 @@
 # Feature Gallery
 
+## Projected material color
+
+Open **Scenes/113-projected-color-decals.scene.json** and press Play. A shared
+badge material paints the two lit cubes. The left projector mirrors local X;
+the right uses a green tint. Their layer masks select separate receivers. Floor
+projectors show translucent color, box clipping and priority overlap.
+
+Select a projector and edit **Width**, **Height**, **Projection depth**, tint or
+**Opacity** in Inspector's **Decal** section. The box follows node scale and its
+arrow points along local +Z into the receiver. Higher **Priority** paints last.
+Live gameplay exposes scalar appearance and volume controls; Color Material is
+assigned in Edit mode. Stop, review any values you want to keep and save. Choose
+this Scene as startup before export. It needs no C++ module or additional import.
+
+There are eight active projectors per scene and a material-dependent per-part
+sampler limit. Problems explains omitted projections; ordinary materials remain
+available. Physical Mesh surfaces receive color. Source normal/roughness and
+custom Surface Shader color sources are outside this profile. See the manual's
+**Project color onto a Mesh** guide for placement, saving and limits.
+
 ## Rectangular and spherical lights
 
 Open **Scenes/112-area-lights.scene.json** and press Play. A warm Rectangle lights

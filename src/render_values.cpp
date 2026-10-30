@@ -4,6 +4,40 @@
 #include <forge/render_view.hpp>
 #include <stdexcept>
 namespace forge::detail {
+Json render_value(const DecalProjector& value) {
+    return {{"material", value.material.id ? Json(value.material.id) : Json()},
+            {"enabled", value.enabled},
+            {"width", value.width},
+            {"height", value.height},
+            {"depth", value.depth},
+            {"tint_r", value.tint_r},
+            {"tint_g", value.tint_g},
+            {"tint_b", value.tint_b},
+            {"opacity", value.opacity},
+            {"angle_fade_start", value.angle_fade_start},
+            {"angle_fade_end", value.angle_fade_end},
+            {"layers", value.layers},
+            {"priority", value.priority}};
+}
+DecalProjector decal_value(const Json& source) {
+    DecalProjector value;
+    value.material = {source.at("material").is_null() ? AssetId{}
+                                                      : source.at("material").get<AssetId>()};
+    value.enabled = source.at("enabled").get<bool>();
+    value.width = source.at("width").get<float>();
+    value.height = source.at("height").get<float>();
+    value.depth = source.at("depth").get<float>();
+    value.tint_r = source.at("tint_r").get<float>();
+    value.tint_g = source.at("tint_g").get<float>();
+    value.tint_b = source.at("tint_b").get<float>();
+    value.opacity = source.at("opacity").get<float>();
+    value.angle_fade_start = source.at("angle_fade_start").get<float>();
+    value.angle_fade_end = source.at("angle_fade_end").get<float>();
+    value.layers = source.at("layers").get<std::uint32_t>();
+    value.priority = source.at("priority").get<std::int32_t>();
+    validate_decal(value);
+    return value;
+}
 void validate_reflection_probe(const ReflectionProbe& value) {
     const auto extent = [](double x) { return std::isfinite(x) && x >= .0001 && x <= 1000000; };
     if (!std::isfinite(value.intensity) || value.intensity < 0 || value.intensity > 1000000 ||

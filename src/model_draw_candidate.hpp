@@ -4,14 +4,6 @@
 #include <tuple>
 namespace forge::asset_detail {
 using DrawTextureKey = std::pair<AssetId, TextureSemantic>;
-// Immutable unsaved material values in an isolated preview host. A revision lease
-// uses the same resource pool machinery; this is never a catalog publication.
-struct MaterialPreviewSelection {
-    AssetRef<MaterialAsset> asset;
-    std::string revision;
-    std::uint64_t generation{};
-    MaterialResourceData data;
-};
 // Immutable Mesh draft admitted only by an isolated source-preview host.
 struct MeshPreviewSelection {
     AssetRef<MeshAsset> asset;

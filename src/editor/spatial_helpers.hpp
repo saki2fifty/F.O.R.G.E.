@@ -1,6 +1,7 @@
 #pragma once
 #include "../builtins.hpp"
 #include "authoring.hpp"
+#include "decal_guide.hpp"
 #include "light_emitter_view.hpp"
 #include "navigation_region_view.hpp"
 #include "reflection_probe_view.hpp"
@@ -17,6 +18,7 @@ struct SpatialMarker {
     std::string entity, name, note;
     Double3 position{};
     bool camera = false, audio = false, navigation = false, obstacle = false, probe = false;
+    bool decal = false;
     bool enabled = true, selectable = true;
     float offset = 0;
     std::vector<std::pair<Double3, Double3>> lines;
@@ -37,13 +39,15 @@ inline std::vector<SpatialMarker> spatial_markers(const Json& source, unsigned w
     const auto policies = extract_node_policies(source);
     for (const auto& row : source.at("entities")) {
         const auto& c = row.at("components");
-        for (unsigned kind = 0; kind < 5; ++kind) {
+        for (unsigned kind = 0; kind < 6; ++kind) {
             const bool is_camera = kind == 0, is_audio = kind == 2, is_region = kind == 3;
             const bool is_probe = kind == 4;
+            const bool is_decal = kind == 5;
             const auto component = is_camera   ? "forge.camera"
                                    : is_audio  ? "forge.audio_source"
                                    : is_region ? "forge.navigation_region_2d"
                                    : is_probe  ? "forge.reflection_probe"
+                                   : is_decal  ? "forge.decal"
                                                : "forge.light";
             if (!c.contains(component) || row.value("prefab", false) ||
                 !row.value("spatial_resolved", false))
@@ -58,6 +62,7 @@ inline std::vector<SpatialMarker> spatial_markers(const Json& source, unsigned w
             marker.audio = is_audio;
             marker.navigation = is_region;
             marker.probe = is_probe;
+            marker.decal = is_decal;
             if (is_audio && (c.contains("forge.camera") || c.contains("forge.light")))
                 marker.offset = 1.4f;
             if (!is_audio && c.contains("forge.camera") && c.contains("forge.light"))
@@ -81,7 +86,27 @@ inline std::vector<SpatialMarker> spatial_markers(const Json& source, unsigned w
                         previous = next;
                     }
                 };
-                if (is_probe) {
+                if (is_decal) {
+                    const auto guide = decal_guide(row);
+                    if (!guide)
+                        continue;
+                    const auto& settings = guide->projector.values;
+                    marker.enabled =
+                        settings.enabled && settings.material.id && settings.opacity != 0;
+                    for (unsigned index = 0; index < 8; ++index)
+                        for (unsigned axis = 0; axis < 3; ++axis)
+                            if ((index & (1u << axis)) == 0)
+                                line(guide->outline[index], guide->outline[index | (1u << axis)]);
+                    const auto tip = world.point({0, 0, settings.depth * .5});
+                    line(marker.position, tip);
+                    for (double sign : {-1., 1.})
+                        line(tip,
+                             world.point({sign * settings.width * .1, 0, settings.depth * .35}));
+                    marker.note = settings.material.id
+                                      ? "Color projection | +Z travel | Priority " +
+                                            std::to_string(settings.priority)
+                                      : "Assign Color Material in Inspector; arrow shows +Z travel";
+                } else if (is_probe) {
                     const auto probe = reflection_probe_view(row);
                     if (!probe)
                         continue;
@@ -295,14 +320,15 @@ inline std::vector<SpatialMarker> spatial_markers(const Json& source, unsigned w
                 marker.lines.clear();
                 marker.note = std::string("Invalid spatial helper: ") + error.what();
             }
-            marker.note = std::string(is_probe    ? "Reflection Probe | "
+            marker.note = std::string(is_decal    ? "Decal Projector | "
+                                      : is_probe  ? "Reflection Probe | "
                                       : is_region ? "Navigation Region 2D | "
                                       : is_camera ? "Camera | "
                                       : is_audio  ? "Sound | "
                                                   : "Light | ") +
                           marker.note;
             if (!marker.enabled)
-                marker.note += is_probe ? " | Inactive" : " | Disabled";
+                marker.note += is_probe || is_decal ? " | Inactive" : " | Disabled";
             if (!marker.selectable)
                 marker.note += " | Selection locked";
             result.push_back(std::move(marker));
@@ -403,6 +429,7 @@ class SpatialHelpers {
                                : marker.camera   ? IM_COL32(124, 195, 238, 240)
                                : marker.audio    ? IM_COL32(123, 226, 199, 240)
                                : marker.probe    ? IM_COL32(183, 163, 246, 240)
+                               : marker.decal    ? IM_COL32(240, 155, 204, 240)
                                                  : IM_COL32(241, 220, 139, 240);
             if (active)
                 for (const auto& [a, b] : marker.lines)
@@ -426,6 +453,11 @@ class SpatialHelpers {
                               color, 1.5f * interface_scale);
                 draw->AddLine(at(.55f, -.35f), at(.7f, 0), color, 1.5f * interface_scale);
                 draw->AddLine(at(.7f, 0), at(.55f, .35f), color, 1.5f * interface_scale);
+            } else if (marker.decal) {
+                draw->AddRect(at(-.65f, -.55f), at(.65f, .2f), color, 0, 0, 1.5f * interface_scale);
+                draw->AddLine(at(0, -.15f), at(0, .7f), color, 1.5f * interface_scale);
+                draw->AddLine(at(0, .7f), at(-.25f, .4f), color, 1.5f * interface_scale);
+                draw->AddLine(at(0, .7f), at(.25f, .4f), color, 1.5f * interface_scale);
             } else if (marker.probe) {
                 draw->AddQuad(at(0, -.65f), at(.6f, -.3f), at(0, .05f), at(-.6f, -.3f), color,
                               1.5f * interface_scale);

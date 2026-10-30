@@ -29,6 +29,8 @@ template <class T> Json encode(const T& p) {
         return render_value(p);
     else if constexpr (std::is_same_v<T, Light>)
         return render_value(p);
+    else if constexpr (std::is_same_v<T, DecalProjector>)
+        return render_value(p);
     else if constexpr (std::is_same_v<T, ReflectionProbe>)
         return render_value(p);
     else if constexpr (std::is_same_v<T, SpriteRenderer>)
@@ -284,6 +286,8 @@ template <class T> Value decode(const Json& p) {
         return camera_value(p);
     else if constexpr (std::is_same_v<T, Light>)
         return light_value(p);
+    else if constexpr (std::is_same_v<T, DecalProjector>)
+        return decal_value(p);
     else if constexpr (std::is_same_v<T, ReflectionProbe>)
         return reflection_probe_value(p);
     else if constexpr (std::is_same_v<T, ModelSource>) {
@@ -715,6 +719,39 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             const auto* member = ecs_struct_get_member(w.c_ptr(), c.id(), field);
             if (!member || std::size_t(member->offset) != offset)
                 throw std::runtime_error("Camera native Meta disagrees with typed layout");
+        }
+    } else if constexpr (std::is_same_v<T, DecalProjector>) {
+        register_asset_ref<MaterialAsset>(w, "forge.material_ref");
+        c.template member<AssetRef<MaterialAsset>>("material")
+            .template member<bool>("enabled")
+            .template member<float>("width")
+            .template member<float>("height")
+            .template member<float>("depth")
+            .template member<float>("tint_r")
+            .template member<float>("tint_g")
+            .template member<float>("tint_b")
+            .template member<float>("opacity")
+            .template member<float>("angle_fade_start")
+            .template member<float>("angle_fade_end")
+            .template member<std::uint32_t>("layers")
+            .template member<std::int32_t>("priority");
+        for (const auto& [field, offset] :
+             {std::pair{"material", offsetof(DecalProjector, material)},
+              std::pair{"enabled", offsetof(DecalProjector, enabled)},
+              std::pair{"width", offsetof(DecalProjector, width)},
+              std::pair{"height", offsetof(DecalProjector, height)},
+              std::pair{"depth", offsetof(DecalProjector, depth)},
+              std::pair{"tint_r", offsetof(DecalProjector, tint_r)},
+              std::pair{"tint_g", offsetof(DecalProjector, tint_g)},
+              std::pair{"tint_b", offsetof(DecalProjector, tint_b)},
+              std::pair{"opacity", offsetof(DecalProjector, opacity)},
+              std::pair{"angle_fade_start", offsetof(DecalProjector, angle_fade_start)},
+              std::pair{"angle_fade_end", offsetof(DecalProjector, angle_fade_end)},
+              std::pair{"layers", offsetof(DecalProjector, layers)},
+              std::pair{"priority", offsetof(DecalProjector, priority)}}) {
+            const auto* member = ecs_struct_get_member(w.c_ptr(), c.id(), field);
+            if (!member || std::size_t(member->offset) != offset)
+                throw std::runtime_error("Decal native Meta disagrees with typed layout");
         }
     } else if constexpr (std::is_same_v<T, ReflectionProbe>) {
         register_asset_ref<TextureAsset>(w, "forge.texture_ref");
@@ -1591,9 +1628,12 @@ const std::array<Builtin, builtin_count>& builtins() {
         descriptor<ReflectionProbe>(
             "forge.reflection_probe",
             "Local reflection map with box influence, edge fade and box projection", "unitless", {},
-            {}, [](flecs::world& w) {
-                return register_type<ReflectionProbe>(w, "forge.reflection_probe");
-            })};
+            {},
+            [](flecs::world&
+                   w) { return register_type<ReflectionProbe>(w, "forge.reflection_probe"); }),
+        descriptor<DecalProjector>(
+            "forge.decal", "Projected material color inside a transformed box", "unitless", {}, {},
+            [](flecs::world& w) { return register_type<DecalProjector>(w, "forge.decal"); })};
     return types;
 }
 Json registration_options(const Builtin& type, const std::string& field) {
@@ -1616,6 +1656,52 @@ Json registration_options(const Builtin& type, const std::string& field) {
             "material slot overrides take precedence. Missing or foreign variants retain the "
             "previous usable draw and report an error.";
         value["nullable"] = true;
+    }
+    if (name == "forge.decal") {
+        static const std::map<std::string, const char*> labels = {
+            {"material", "Color Material"},
+            {"enabled", "Enabled"},
+            {"width", "Width"},
+            {"height", "Height"},
+            {"depth", "Projection depth"},
+            {"tint_r", "Tint R"},
+            {"tint_g", "Tint G"},
+            {"tint_b", "Tint B"},
+            {"opacity", "Opacity"},
+            {"angle_fade_start", "Fade start angle"},
+            {"angle_fade_end", "Fade end angle"},
+            {"layers", "Layers"},
+            {"priority", "Priority"}};
+        value["display_name"] = labels.at(field);
+        if (field == "material") {
+            value["nullable"] = true;
+            value["description"] =
+                "Ordinary PBR/unlit base-color Material. None disables projection. "
+                "Projected color keeps the receiver's lighting and surface properties.";
+        } else if (field == "width" || field == "height" || field == "depth") {
+            value["unit"] = "meters";
+            value["minimum"] = decal_min_dimension;
+            value["maximum"] = decal_max_dimension;
+            value["description"] =
+                "Full local box dimension before node scale; projects along local +Z.";
+        } else if (field.starts_with("tint_") || field == "opacity") {
+            value["minimum"] = 0;
+            value["maximum"] = 1;
+            value["description"] =
+                "Instance color multiplier or projection opacity from zero to one.";
+        } else if (field.starts_with("angle_fade_")) {
+            value["unit"] = "radians";
+            value["minimum"] = 0;
+            value["maximum"] = decal_max_angle;
+            value["description"] = "Angle between the receiving surface normal and the incoming "
+                                   "projection direction; start must be less than end.";
+        } else if (field == "priority") {
+            value["minimum"] = INT32_MIN;
+            value["maximum"] = INT32_MAX;
+            value["description"] =
+                "Higher priority paints later; equal priorities use stable entity IDs.";
+        } else if (field == "layers")
+            value["description"] = "Only intersecting receiver mesh layers accept projected color.";
     }
     if (name == "forge.reflection_probe") {
         static const std::map<std::string, const char*> labels = {
@@ -2979,7 +3065,7 @@ Json register_builtins(flecs::world& world, unsigned family) {
                               name == "forge.particle_emitter" || name == "forge.sprite_renderer" ||
                               name == "forge.tile_map_renderer" || name == "forge.camera" ||
                               name == "forge.light" || name == "forge.reflection_probe" ||
-                              name == "forge.node_visibility" ||
+                              name == "forge.decal" || name == "forge.node_visibility" ||
                               name == "forge.node_selectability"}});
         std::lock_guard lock(catalog_mutex);
         auto validation = components.back();

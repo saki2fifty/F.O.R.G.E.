@@ -1,5 +1,6 @@
 #pragma once
 #include <array>
+#include <forge/decal.hpp>
 #include <forge/render_components.hpp>
 #include <forge/transform.hpp>
 namespace forge {
@@ -7,6 +8,7 @@ namespace forge {
 // producers must pass the same check again at extraction before GPU conversion.
 void validate_camera(const Camera&);
 void validate_light(const Light&);
+void validate_decal(const DecalProjector&);
 struct PixelViewport {
     std::uint32_t x{}, y{}, width{}, height{};
     bool operator==(const PixelViewport&) const = default;
@@ -34,4 +36,16 @@ struct LightView {
     Double3 right{}, up{}; // Rectangle plane; cross(right, up) opposes emission.
 };
 LightView light_view(const Light&, const AffineTransform&);
+// Derived normalized projector coordinates: centered box[-.5,.5], +Z travel.
+// World/inverse data is transient; the component owns only local dimensions.
+struct DecalView {
+    DecalProjector values;
+    AffineTransform world, projector_from_world;
+    Double3 forward;
+    float cosine_fade_start{}, cosine_fade_end{};
+};
+DecalView decal_view(const DecalProjector&, const AffineTransform&);
+// Camera-relative rows for GPU projection. Reject unrepresentable values per view
+// without narrowing the native transform or preventing other geometry from drawing.
+std::array<std::array<float, 4>, 3> decal_gpu_transform(const DecalView&, Double3 origin);
 } // namespace forge

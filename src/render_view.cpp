@@ -24,13 +24,13 @@ Double3 unit(Double3 v) {
 }
 float gpu(double v) {
     require(finite(v) && std::abs(v) <= std::numeric_limits<float>::max(),
-            "Camera/light value exceeds finite GPU float representation");
+            "Render view value exceeds finite GPU float representation");
     const auto out = static_cast<float>(v);
     // The selected FXC5.1 profile flushes float32 subnormals during shader math.
     // In particular a tiny positive range must not turn into "unbounded", or a
     // perspective near coefficient into zero. This is not a LocalScale limit.
     require(v == 0 || std::abs(out) >= std::numeric_limits<float>::min(),
-            "Camera/light value underflows GPU arithmetic representation");
+            "Render view value underflows GPU arithmetic representation");
     return out;
 }
 void validate_affine(const AffineTransform& a) {
@@ -88,6 +88,50 @@ void validate_light(const Light& l) {
     for (float size : {l.emitter_radius, l.emitter_width, l.emitter_height})
         require(finite(size) && size >= .001f && size <= 10000,
                 "Light emitter dimensions must be 0.001–10000 metres");
+}
+void validate_decal(const DecalProjector& value) {
+    for (float size : {value.width, value.height, value.depth})
+        require(finite(size) && size >= decal_min_dimension && size <= decal_max_dimension,
+                "Decal dimensions must be finite 0.001–10000 local metres");
+    for (float channel : {value.tint_r, value.tint_g, value.tint_b, value.opacity})
+        require(finite(channel) && channel >= 0 && channel <= 1,
+                "Decal tint and opacity must be finite from zero to one");
+    require(finite(value.angle_fade_start) && finite(value.angle_fade_end) &&
+                value.angle_fade_start >= 0 && value.angle_fade_start < value.angle_fade_end &&
+                value.angle_fade_end <= decal_max_angle,
+            "Decal fade angles require 0 <= start < end <= pi/2 radians");
+}
+DecalView decal_view(const DecalProjector& value, const AffineTransform& world) {
+    validate_decal(value);
+    validate_affine(world);
+    DecalView result;
+    result.values = value;
+    result.world = world;
+    result.projector_from_world = inverse(world);
+    const std::array sizes{value.width, value.height, value.depth};
+    for (unsigned axis = 0; axis < 3; ++axis)
+        for (unsigned column = 0; column < 4; ++column)
+            result.projector_from_world.m[axis * 4 + column] /= sizes[axis];
+    validate_affine(result.projector_from_world);
+    result.forward = unit(world.vector({0, 0, 1}));
+    result.cosine_fade_start = gpu(std::max(0., std::cos(double(value.angle_fade_start))));
+    result.cosine_fade_end = gpu(std::max(0., std::cos(double(value.angle_fade_end))));
+    require(result.cosine_fade_start > result.cosine_fade_end,
+            "Decal fade angles are indistinguishable at GPU float precision");
+    return result;
+}
+std::array<std::array<float, 4>, 3> decal_gpu_transform(const DecalView& value, Double3 origin) {
+    std::array<std::array<float, 4>, 3> result;
+    const auto& inverse = value.projector_from_world.m;
+    for (unsigned r = 0; r < 3; ++r) {
+        double translation = inverse[4 * r + 3];
+        for (unsigned c = 0; c < 3; ++c) {
+            result[r][c] = gpu(inverse[4 * r + c]);
+            translation += inverse[4 * r + c] * origin[c];
+        }
+        result[r][3] = gpu(translation);
+    }
+    return result;
 }
 CameraView camera_view(const Camera& c, const AffineTransform& a, std::uint32_t width,
                        std::uint32_t height) {

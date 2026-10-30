@@ -213,6 +213,8 @@ class MeshSceneRenderer {
     bool resolve_environment(EnvironmentSelection&, AssetRef<TextureAsset>);
     bool update_environment(const RenderScene&);
     bool update_reflection_probes(const RenderScene&);
+    bool update_decals(const RenderScene&);
+    void clear_decal_bindings();
     void report(Diagnostic);
     void report(EntityId, const std::string&, DrawScope = DrawScope::Mesh);
     std::shared_ptr<MeshResourceHost> host_;
@@ -232,6 +234,23 @@ class MeshSceneRenderer {
     };
     std::map<EntityId, ProbeEntry> probe_entries_;
     std::vector<SurfaceReflections::Probe> reflection_probes_;
+    struct DecalResources {
+        ResourceLease<MaterialAsset> material;
+        DecalMaterial values;
+        ResourceLease<TextureAsset> texture;
+        GpuLease<TextureAsset> gpu;
+        Diligent::RefCntAutoPtr<Diligent::ISampler> sampler;
+    };
+    struct DecalEntry {
+        DecalView projector;
+        AssetRef<MaterialAsset> requested;
+        std::uint64_t epoch = UINT64_MAX;
+        std::optional<ResourceTicket> material_ticket, texture_ticket;
+        std::optional<DecalResources> candidate, ready;
+        std::string error;
+    };
+    std::map<EntityId, DecalEntry> decal_entries_;
+    std::vector<EntityId> decal_order_;
     struct DrawOwner {
         EntityId first;
         DrawScope second;

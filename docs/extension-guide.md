@@ -60,6 +60,30 @@ and box projection. The new installed header changes the exact fingerprint;
 rebuild existing modules with the matching SDK rather than editing their declared
 fingerprint. The renderer resolves maps through its ordinary resource owner.
 
+## Projected color values
+
+Include `forge/decal.hpp` and use `forge::DecalProjector` on an entity with a
+resolved node transform.
+Its typed `AssetRef<MaterialAsset>` selects the color source; resources remain
+owned by the renderer. Width, height and depth are full local metres before node
+scale, in0.001–10000. The centered volume projects along local+Z. Tint and opacity
+are finite0–1. Fade angles are radians with0≤start<end≤π/2 and must remain
+distinguishable at GPU precision. Layers are a bit mask and priority is int32.
+Higher priorities paint later, with stable EntityId ties.
+
+Build the installed sample target `decal_gameplay`. Add its
+`project.decal_control` component and `forge.decal` to an entity, assign a saved
+ordinary PBR/unlit Material and use a physical receiving Mesh. The example keeps
+the Material reference while tuning all twelve scalar fields over three fixed
+ticks. It demonstrates public data access, not a complete visual game.
+
+The matching installed header list includes this value-only type. Rebuild modules
+with the SDK matching the runtime; retain the generated exact fingerprint. The C
+ABI table is unchanged. Invalid projection values are diagnosed before rendering.
+The bounded profile admits eight active projectors per visual scene and0–8 per
+physical Mesh shader according to sampler budget. Custom Surface Shader sources,
+unlit receivers and projected normal/roughness are outside this color profile.
+
 ## Soft-shadow source dimensions
 
 Include `forge/render_components.hpp` and use `forge::Light::shadow_source_radius`

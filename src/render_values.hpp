@@ -1,4 +1,5 @@
 #pragma once
+#include <forge/decal.hpp>
 #include <forge/reflection_probe.hpp>
 #include <forge/render_components.hpp>
 #include <nlohmann/json.hpp>
@@ -6,6 +7,8 @@ namespace forge::detail {
 using Json = nlohmann::json;
 Json render_value(const Camera&);
 Json render_value(const Light&);
+Json render_value(const DecalProjector&);
+DecalProjector decal_value(const Json&);
 Json render_value(const ReflectionProbe&);
 Json render_value(const ParticleEmitter&);
 Json render_value(const SpriteRenderer&);

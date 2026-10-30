@@ -1,4 +1,5 @@
 #pragma once
+#include "decal_material.hpp"
 #include "environment_gpu.hpp"
 #include "material_shader.hpp"
 #include "mesh_draw_profile.hpp"
@@ -34,6 +35,15 @@ class MeshDraw {
         bool valid = false;
     };
     bool supports_instances() const { return bool(instances_); }
+    struct Decal {
+        const DecalView* projection{};
+        const DecalMaterial* material{};
+        Diligent::ITextureView* texture{};
+        Diligent::ISampler* sampler{};
+    };
+    unsigned decal_capacity() const { return decal_capacity_; }
+    // Drop every winding SRB reference before a scene releases old GPU leases.
+    void clear_decals(Diligent::IDeviceContext*);
     using Textures = std::map<std::string, Diligent::RefCntAutoPtr<Diligent::ITextureView>>;
     MeshDraw(DiligentPresentation&, Diligent::IDeviceContext*, const GpuMeshPart&,
              const MaterialData&, const Textures&, Diligent::TEXTURE_FORMAT color_format,
@@ -60,7 +70,8 @@ class MeshDraw {
               std::span<const Instance> instances = {},
               std::span<const MaterialParameterOverride> object_parameters = {},
               std::string_view material_slot = {}, const SpriteDrawValues* sprite = nullptr,
-              const SceneDistanceFog* fog = nullptr, const Motion* motion = nullptr);
+              const SceneDistanceFog* fog = nullptr, const Motion* motion = nullptr,
+              std::span<const Decal> decals = {});
 
   private:
     unsigned instance_rows() const;
@@ -76,6 +87,11 @@ class MeshDraw {
     Diligent::RefCntAutoPtr<Diligent::ITextureView> empty_shadow_;
     Diligent::RefCntAutoPtr<Diligent::ITextureView> black_environment_;
     Diligent::RefCntAutoPtr<Diligent::ITextureView> black_background_;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> decals_;
+    Diligent::RefCntAutoPtr<Diligent::ITextureView> white_decal_;
+    Diligent::RefCntAutoPtr<Diligent::ISampler> default_decal_sampler_;
+    unsigned decal_capacity_{};
+    bool decals_active_{};
     bool shadow_pass_{};
     bool fog_supported_ = true;
     bool temporal_{};

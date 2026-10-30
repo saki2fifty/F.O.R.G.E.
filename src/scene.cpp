@@ -784,8 +784,9 @@ Json Scene::tune_runtime_property(const std::string& entity_id, const std::strin
     const bool sprite = RuntimePropertyTune::sprite_type(type_key),
                material = RuntimePropertyTune::material_type(type_key),
                probe = RuntimePropertyTune::probe_type(type_key),
+               decal = RuntimePropertyTune::decal_type(type_key),
                light = RuntimePropertyTune::light_type(type_key);
-    if (sprite || material || probe || light) {
+    if (sprite || material || probe || light || decal) {
         if (sprite &&
             (!RuntimePropertyTune::sprite_property(property_key) || !target.has<SpriteRenderer>()))
             throw std::runtime_error("Only existing sprite appearance values can be tuned live");
@@ -795,6 +796,10 @@ Json Scene::tune_runtime_property(const std::string& entity_id, const std::strin
         if (probe &&
             (!RuntimePropertyTune::probe_property(property_key) || !target.has<ReflectionProbe>()))
             throw std::runtime_error("Only existing reflection probe controls can be tuned live");
+        if (decal &&
+            (!RuntimePropertyTune::decal_property(property_key) || !target.has<DecalProjector>()))
+            throw std::runtime_error(
+                "Only existing decal appearance and volume controls can be tuned live");
         if (light && (!RuntimePropertyTune::light_property(property_key) || !target.has<Light>()))
             throw std::runtime_error(
                 "Only existing light shadow and emitter dimensions can be tuned live: " +

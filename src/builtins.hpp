@@ -3,6 +3,7 @@
 #include <forge/animation_components.hpp>
 #include <forge/audio_components.hpp>
 #include <forge/character_components.hpp>
+#include <forge/decal.hpp>
 #include <forge/navigation_components.hpp>
 #include <forge/physics_components.hpp>
 #include <forge/reflection_probe.hpp>
@@ -12,7 +13,7 @@
 #include <optional>
 #include <variant>
 namespace forge::detail {
-inline constexpr std::size_t builtin_count = 44;
+inline constexpr std::size_t builtin_count = 45;
 using Value =
     std::variant<LocalTranslation, LocalRotation, LocalScale, Tint, Primitive, PhysicsBody,
                  PhysicsJoint, BoxCollider, SphereCollider, CapsuleCollider, CylinderCollider,
@@ -22,7 +23,7 @@ using Value =
                  NavigationAvoidance, UiDocument, MeshRenderer, ModelSource, Camera, Light,
                  NodeVisibility, NodeSelectability, ParticleEmitter, AudioCue, SpriteRenderer,
                  TileMapRenderer, PhysicsBody2D, BoxCollider2D, CircleCollider2D, CapsuleCollider2D,
-                 PhysicsJoint2D, TileMapCollider2D, ReflectionProbe>;
+                 PhysicsJoint2D, TileMapCollider2D, ReflectionProbe, DecalProjector>;
 struct Builtin {
     const char* name;
     const char* description;

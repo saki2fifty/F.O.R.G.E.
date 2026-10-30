@@ -1,5 +1,11 @@
 # Explore the Feature Gallery
 
+**113-projected-color-decals** paints a shared badge image onto two lit cubes and
+overlapping color onto a floor. Select a **Decal Projector**, then adjust its box,
+tint, opacity, layers or priority in Inspector. The left badge mirrors local X.
+Save and choose this Scene as startup before export. See
+[Project color onto a Mesh](../editor/decals.md) for placement and current limits.
+
 **112-area-lights** compares a warm rectangular emitter with a cool spherical
 emitter on two metal spheres and a rough receiver. Press Play, then select either
 light and adjust **Emitter Width (m)** / **Emitter Height (m)** or **Emitter Radius

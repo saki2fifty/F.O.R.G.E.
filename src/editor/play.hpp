@@ -221,6 +221,8 @@ class PlaySession {
                RuntimePropertyTune::sprite_property(property)) &&
              !(RuntimePropertyTune::probe_type(type) &&
                RuntimePropertyTune::probe_property(property)) &&
+             !(RuntimePropertyTune::decal_type(type) &&
+               RuntimePropertyTune::decal_property(property)) &&
              !(RuntimePropertyTune::light_type(type) &&
                RuntimePropertyTune::light_property(property)) &&
              !(RuntimePropertyTune::particle_type(type) &&

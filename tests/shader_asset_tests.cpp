@@ -179,7 +179,7 @@ int main() {
                         fog_surface.layout_digest() != legacy_layout,
                     "Optimized-out fog wrapper capability lost roundtrip or layout identity");
             auto future_surface = fog_surface;
-            future_surface.surface_wrapper_version = 8;
+            future_surface.surface_wrapper_version = 9;
             rejected([&] { validate_shader(future_surface); });
             auto temporal_surface = fog_surface;
             temporal_surface.surface_wrapper_version = 3;
@@ -327,8 +327,17 @@ int main() {
                         encode_shader(decode_shader(encoded_area)) == encoded_area &&
                         area_surface.layout_digest() != normal_surface.layout_digest(),
                     "Area capability lost its archive or layout identity");
-            for (const auto* bytes : {&encoded_surface, &encoded_fog, &encoded_temporal,
-                                      &encoded_indirect, &encoded_reflection, &encoded_normal})
+            auto decal_surface = area_surface;
+            decal_surface.surface_wrapper_version = 8;
+            const auto encoded_decal = encode_shader(decal_surface);
+            require(decode_shader(encoded_decal).surface_wrapper_version == 8 &&
+                        encode_shader(decode_shader(encoded_decal)) == encoded_decal &&
+                        decode_shader(encoded_decal).stages.size() == 17 &&
+                        decal_surface.layout_digest() != area_surface.layout_digest(),
+                    "Projected color capability changed stage roles or lost archive identity");
+            for (const auto* bytes :
+                 {&encoded_surface, &encoded_fog, &encoded_temporal, &encoded_indirect,
+                  &encoded_reflection, &encoded_normal, &encoded_area})
                 require(encode_shader(decode_shader(*bytes)) == *bytes,
                         "Area capability changed readable older archive bytes");
             auto bad_area = area_surface;

@@ -164,25 +164,9 @@ void ModelDrawCandidate::advance(std::uint64_t epoch, ResourcePool<MeshAsset>& m
             for (const auto id : required) {
                 const AssetRef<MaterialAsset> material{id};
                 try {
-                    if (preview_ && material == preview_->asset)
-                        materials_.emplace(
-                            material.id,
-                            materials.request(
-                                preview_->asset, preview_->revision, preview_->generation,
-                                [selected = preview_](std::stop_token stop) {
-                                    if (stop.stop_requested())
-                                        throw std::runtime_error("Material preview cancelled");
-                                    auto data =
-                                        std::make_unique<MaterialResourceData>(selected->data);
-                                    const auto bytes = data->resident_bytes();
-                                    return ResourceCandidate<MaterialAsset>{std::move(data),
-                                                                            {bytes}};
-                                },
-                                {}, 0, "builtin:material-preview-v1"));
-                    else
-                        materials_.emplace(
-                            material.id,
-                            request_model_pbr_material(materials, project_, catalog_, material));
+                    materials_.emplace(material.id,
+                                       request_model_pbr_material(materials, project_, catalog_,
+                                                                  material, preview_));
                 } catch (const std::exception& e) {
                     fallback_material(id, e.what(), materials);
                 }

@@ -140,7 +140,7 @@ class ComponentInspector {
                RuntimePropertyTune::navigation_type(key) ||
                RuntimePropertyTune::particle_type(key) || RuntimePropertyTune::material_type(key) ||
                RuntimePropertyTune::sprite_type(key) || RuntimePropertyTune::probe_type(key) ||
-               RuntimePropertyTune::light_type(key) ||
+               RuntimePropertyTune::decal_type(key) || RuntimePropertyTune::light_type(key) ||
                (type.value("custom", false) && type.contains("admission") &&
                 components.at(key).value("$forge", Json()) == type.at("admission"));
     }
@@ -171,6 +171,8 @@ class ComponentInspector {
                 RuntimePropertyTune::sprite_property(name)) &&
                (!RuntimePropertyTune::probe_type(key) ||
                 RuntimePropertyTune::probe_property(name)) &&
+               (!RuntimePropertyTune::decal_type(key) ||
+                RuntimePropertyTune::decal_property(name)) &&
                (!RuntimePropertyTune::light_type(key) ||
                 (RuntimePropertyTune::light_property(name) &&
                  light_field_visible(name, components.at(key))));
@@ -530,6 +532,11 @@ class ComponentInspector {
                     ui::help("Area lights illuminate surfaces from their emitter shape. "
                              "Area-light shadows are unavailable.");
             }
+            if (RuntimePropertyTune::decal_type(key))
+                ui::help("Assign a built-in PBR or unlit Color Material. The +Z arrow projects its "
+                         "color inside the box onto physical Mesh surfaces. Width, height and "
+                         "depth follow node scale. Higher priority paints last. Normal and "
+                         "roughness projection are unavailable.");
             std::string_view group;
             for (const auto& field : *fields) {
                 const std::string name = field.at("id");

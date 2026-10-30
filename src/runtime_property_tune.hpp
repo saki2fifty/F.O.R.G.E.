@@ -25,6 +25,13 @@ struct RuntimePropertyTune {
     static bool particle_type(std::string_view type) { return type == "forge.particle_emitter"; }
     static bool material_type(std::string_view type) { return type == "forge.mesh_renderer"; }
     static bool probe_type(std::string_view type) { return type == "forge.reflection_probe"; }
+    static bool decal_type(std::string_view type) { return type == "forge.decal"; }
+    static bool decal_property(std::string_view property) {
+        return property == "enabled" || property == "width" || property == "height" ||
+               property == "depth" || property == "tint_r" || property == "tint_g" ||
+               property == "tint_b" || property == "opacity" || property == "angle_fade_start" ||
+               property == "angle_fade_end" || property == "layers" || property == "priority";
+    }
     static bool light_type(std::string_view type) { return type == "forge.light"; }
     static bool light_property(std::string_view property) {
         return property == "shadow_source_radius" || property == "shadow_angular_radius" ||

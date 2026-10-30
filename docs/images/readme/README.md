@@ -1,5 +1,34 @@
 # README screenshots
 
+## Projected material color
+
+[Decal controls](../../../manual/images/decal-projector-controls.png) is the complete
+1080×720 production ComponentInspector capture from
+`forge_reflection_probe_editor_tests <scratch> --capture-decal`, using pinned
+ImGui/SDL software rendering and the dummy video driver. The same fixture checks
+actual creation, Material picking, numeric/toggle input, invalid-value rejection,
+Undo/Redo, live-field availability, guides/framing and save/reopen at100/150/200
+percent in two window sizes. The canonical PNG is copied unchanged; SHA256 is
+`1cde307ac204017afc57075529d192b98762674f5d803438323c490a6ceb71ca`.
+
+[Gallery image](../../../manual/images/decal-gallery.png) is the complete640×360
+FrameRenderer display output for Gallery113,
+Scene `0aa828ed-f49d-4b9a-9367-ab1b9b251e92`. It shows mirrored/tinted badge
+projections and overlapping floor paint. The source is
+`forge_decal_gallery_tests`, software Vulkan/lavapipe and the pinned native shader
+stack. Lossless PPM-to-PNG conversion preserves every RGB byte; SHA256 is
+`cdf4f28fcbdcdc2830a77e7fde272d6dbe9ef7f2833fbc03aa6ae9b213acc78c`.
+Each projector has a separately checked visible effect. Four authored/relocated
+readback pairs match after the source project is unavailable.
+
+Inputs are local unassigned decal work based on1749efc; the associated source
+commit contains the fixture and renderer inputs. Private evidence resides in
+AgentFiles/build/phase192-authored-decals, with the gallery capture under
+decal-gallery/856e6da8-517f-4fe7-b4e2-582fefc157e6 in the native cache. The
+captures contain no fabricated, repainted or retouched controls. They demonstrate
+actual software controls/rendering, not a full Windows desktop, physical GPU/input,
+FXC/D3D12 or graphical exported-EXE acceptance.
+
 ## Temporal anti-aliasing controls
 
 [Controls](../../../manual/images/temporal-antialiasing-controls.png) is the complete

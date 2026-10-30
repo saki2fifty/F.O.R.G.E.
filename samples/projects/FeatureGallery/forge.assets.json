@@ -538,6 +538,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "0aa828ed-f49d-4b9a-9367-ab1b9b251e92",
+      "metadata": {},
+      "schema_version": 5,
+      "source": "Scenes/113-projected-color-decals.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "0b147dd2-5141-4999-ae7c-09e1c21c039a",
       "metadata": {
         "forge.import": {

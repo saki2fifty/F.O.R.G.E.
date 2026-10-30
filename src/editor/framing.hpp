@@ -1,5 +1,6 @@
 #pragma once
 #include "../render_bounds.hpp"
+#include "decal_guide.hpp"
 #include "navigation_region_view.hpp"
 #include "reflection_probe_view.hpp"
 #include <algorithm>
@@ -63,6 +64,12 @@ inline RenderBounds include_selected_helper_positions(const Json& source,
                 }
             continue;
         }
+        if (const auto decal = ui::decal_guide(row))
+            for (const auto& point : decal->outline)
+                for (unsigned axis = 0; axis < 3; ++axis) {
+                    bounds.minimum[axis] = std::min(bounds.minimum[axis], point[axis]);
+                    bounds.maximum[axis] = std::max(bounds.maximum[axis], point[axis]);
+                }
         if (const auto probe = ui::reflection_probe_view(row))
             for (const auto& point : probe->outline)
                 for (unsigned axis = 0; axis < 3; ++axis) {

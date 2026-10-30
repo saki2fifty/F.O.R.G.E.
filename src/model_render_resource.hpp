@@ -4,6 +4,14 @@
 #include <forge/mesh_resource.hpp>
 #include <forge/texture_resource.hpp>
 namespace forge::asset_detail {
+// Immutable unsaved values in an isolated preview host. Mesh and projected-color
+// consumers request the same pool revision; this is never a catalog publication.
+struct MaterialPreviewSelection {
+    AssetRef<MaterialAsset> asset;
+    std::string revision;
+    std::uint64_t generation{};
+    MaterialResourceData data;
+};
 // Prepared from one fully admitted immutable family, with no source parser or
 // graphics device. Physical material ordinals never escape as persistent keys.
 MeshResourceData model_mesh_resource(const ModelSelection&, AssetRef<MeshAsset>, MeshLimits = {});
@@ -42,5 +50,6 @@ namespace forge::asset_detail {
 ResourceTicket request_model_pbr_material(ResourcePool<MaterialAsset>&,
                                           std::filesystem::path project,
                                           std::shared_ptr<const AssetCatalog>,
-                                          AssetRef<MaterialAsset>);
+                                          AssetRef<MaterialAsset>,
+                                          std::shared_ptr<const MaterialPreviewSelection> = {});
 } // namespace forge::asset_detail

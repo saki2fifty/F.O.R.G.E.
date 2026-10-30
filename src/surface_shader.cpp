@@ -1,3 +1,4 @@
+#include "decal_shader.hpp"
 #include "distance_fog_shader.hpp"
 #include "indirect_lighting_shader.hpp"
 #include "material_shader.hpp"
@@ -324,12 +325,15 @@ std::string indirect_surface_wrapper(std::string helper, bool temporal, bool ref
     return result + "return result;}\n";
 }
 SurfaceBindingLayout surface_binding_layout(const SurfaceShaderDefinition& d,
-                                            const Json& reflection, bool area_lights) {
+                                            const Json& reflection, bool area_lights,
+                                            bool projected_decals) {
     validate_surface_definition(d);
     require(reflection.at("stage") == "pixel" && reflection.at("resources").is_array() &&
                 reflection.at("resources").size() <= 256,
             "Invalid reflected surface stage");
     SurfaceBindingLayout result;
+    const auto decal_capacity =
+        projected_decals ? decal_shader_capacity(d.textures.size(), d.physically_based) : 0;
     std::set<std::string> names;
     for (const auto& resource : reflection.at("resources")) {
         const auto name = resource.at("name").get<std::string>();
@@ -366,6 +370,31 @@ SurfaceBindingLayout surface_binding_layout(const SurfaceShaderDefinition& d,
                             field.at("members").empty(),
                         "Distance fog field differs from the engine declaration");
             }
+        } else if (name == "ForgeDecals") {
+            require(decal_capacity && kind == "constant_buffer" && resource.at("array_size") == 1 &&
+                        resource.at("size") == decal_shader_rows(decal_capacity) * 16,
+                    "Decal buffer differs from the receiver profile");
+            const auto& fields = resource.at("variables");
+            require(fields.is_array() && fields.size() == 1,
+                    "Decal buffer has incompatible fields");
+            const auto& field = fields[0];
+            require(field.at("name") == "g_ForgeDecals" && field.at("offset") == 0 &&
+                        field.at("basic") == "float" && field.at("class") == "vector" &&
+                        field.at("rows") == 1 && field.at("columns") == 4 &&
+                        field.at("array_size") == decal_shader_rows(decal_capacity) &&
+                        field.at("members").empty(),
+                    "Decal fields differ from the receiver profile");
+        } else if (name == "g_ForgeDecalSamplers") {
+            require(decal_capacity && kind == "sampler" &&
+                        resource.at("array_size") == decal_capacity,
+                    "Decal sampler count differs from the receiver profile");
+        } else if (name.starts_with("g_ForgeDecalColor")) {
+            bool declared = false;
+            for (unsigned i = 0; i < decal_capacity; ++i)
+                declared = declared || name == "g_ForgeDecalColor" + std::to_string(i);
+            require(declared && kind == "texture_srv" && resource.at("array_size") == 1 &&
+                        resource.at("dimension") == "texture2d",
+                    "Decal texture differs from the receiver profile");
         } else if (name == "g_SurfaceSamplers") {
             require(kind == "sampler", "Surface sampler has wrong reflected type");
             result.sampler_count = count(resource.at("array_size"), unsigned(d.textures.size()));
@@ -493,13 +522,12 @@ std::vector<std::array<float, 4>> surface_uv_rows(const MaterialData& m,
     for (const auto& [name, declared] : d.textures) {
         (void)declared;
         const auto& slot = m.textures.at(name);
-        const auto c = std::cos(double(slot.rotation)), s = std::sin(double(slot.rotation));
-        const float uv = planar(slot.dimension)
-                             ? float(std::find(d.uv_sets.begin(), d.uv_sets.end(), slot.uv_set) -
-                                     d.uv_sets.begin())
-                             : 0;
-        rows.push_back({float(c * slot.scale[0]), float(-s * slot.scale[1]), slot.offset[0], uv});
-        rows.push_back({float(s * slot.scale[0]), float(c * slot.scale[1]), slot.offset[1], 0});
+        auto transform = material_texture_transform_rows(slot);
+        transform[0][3] = planar(slot.dimension)
+                              ? float(std::find(d.uv_sets.begin(), d.uv_sets.end(), slot.uv_set) -
+                                      d.uv_sets.begin())
+                              : 0;
+        rows.insert(rows.end(), transform.begin(), transform.end());
     }
     return rows;
 }

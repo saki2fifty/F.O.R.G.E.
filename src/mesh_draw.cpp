@@ -1,6 +1,7 @@
 #include "mesh_draw.hpp"
 #include "Graphics/GraphicsTools/interface/MapHelper.hpp"
 #include "Utilities/interface/DiligentFXShaderSourceStreamFactory.hpp"
+#include "decal_shader.hpp"
 #include "material_parameter_values.hpp"
 #include "mesh_draw_shader.hpp"
 #include "render_backend.hpp"
@@ -176,10 +177,15 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
         program.instanced = generated.instanced;
         if (surface->program.surface->physically_based)
             program.material = material_shader(*profile, fetch.uv_sets, sampler_binding);
+        if (!shadow_pass_ && surface->program.surface_wrapper_version >= 8)
+            program.decal_capacity =
+                decal_shader_capacity(surface->program.surface->textures.size(),
+                                      surface->program.surface->physically_based);
     } else
         program = mesh_draw_shader(fetch, *profile, shadow_pass_, sampler_binding, nullptr, {},
                                    sprite_, sprite_draw_mip_filter(draw_profile), indirect_,
-                                   reflection_, normal_, area_lights_);
+                                   reflection_, normal_, area_lights_, true);
+    decal_capacity_ = program.decal_capacity;
     const auto& material = program.material;
     require(!(temporal_ || indirect_) || !program.transmission,
             "Transmission draws follow temporal opaque accumulation");
@@ -215,13 +221,24 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
         const auto stage = std::find_if(native.data.stages.begin(), native.data.stages.end(),
                                         [role](const auto& entry) { return entry.role == role; });
         require(stage != native.data.stages.end(), "custom surface entry role is missing");
-        surface_layout = surface_binding_layout(*surface->program.surface, stage->reflection,
-                                                area_surface_role(role));
+        surface_layout = surface_binding_layout(
+            *surface->program.surface, stage->reflection, area_surface_role(role),
+            surface->program.surface_wrapper_version >= 8 && !shadow_pass_);
         fog_supported_ = surface->program.surface_wrapper_version >= 2;
     } else
         pixel = compile(SHADER_TYPE_PIXEL, program.pixel);
     const bool lit = !shadow_pass_ && (surface ? surface->program.surface->physically_based
                                                : profile->workflow != PbrWorkflow::Unlit);
+    if (decal_capacity_) {
+        decals_ = buffer(device, "FORGE projected color",
+                         decal_shader_rows(decal_capacity_) * sizeof(Row));
+        white_decal_ = presentation.pbr(context).GetWhiteTexSRV();
+        default_decal_sampler_ = upload_sampler(device, SamplerState{});
+        require(white_decal_ && default_decal_sampler_, "Decal fallback resources unavailable");
+        MapHelper<Row> values(context, decals_, MAP_WRITE, MAP_FLAG_DISCARD);
+        require(static_cast<Row*>(values) != nullptr, "Decal initialization allocation failed");
+        std::fill_n(static_cast<Row*>(values), decal_shader_rows(decal_capacity_), Row{});
+    }
     RefCntAutoPtr<ITextureView> ggx;
     if (lit) {
         ggx = presentation.pbr(context).GetPreintegratedGGX_SRV();
@@ -364,6 +381,16 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
             resource_variables.push_back(
                 {SHADER_TYPE_PIXEL, "g_ForgeTransmission", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC});
     }
+    std::array<std::string, decal_draw_limit> decal_names;
+    if (decal_capacity_) {
+        resource_variables.push_back(
+            {SHADER_TYPE_PIXEL, "g_ForgeDecalSamplers", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC});
+        for (unsigned i = 0; i < decal_capacity_; ++i) {
+            decal_names[i] = "g_ForgeDecalColor" + std::to_string(i);
+            resource_variables.push_back(
+                {SHADER_TYPE_PIXEL, decal_names[i].c_str(), SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC});
+        }
+    }
     ci.PSODesc.ResourceLayout.Variables = resource_variables.data();
     ci.PSODesc.ResourceLayout.NumVariables = Uint32(resource_variables.size());
 
@@ -442,6 +469,20 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
                 bind(SHADER_TYPE_VERTEX, "ForgePreviousSkin", previous_skin_);
         }
         bind(SHADER_TYPE_PIXEL, "ForgeObject", object_, false);
+        if (decal_capacity_) {
+            bind(SHADER_TYPE_PIXEL, "ForgeDecals", decals_);
+            std::array<IDeviceObject*, decal_draw_limit> defaults;
+            defaults.fill(default_decal_sampler_);
+            auto* variable =
+                bindings_[parity]->GetVariableByName(SHADER_TYPE_PIXEL, "g_ForgeDecalSamplers");
+            require(variable, "Decal sampler declaration is missing");
+            ShaderResourceDesc reflected;
+            variable->GetResourceDesc(reflected);
+            require(reflected.ArraySize == decal_capacity_, "Decal sampler profile mismatch");
+            variable->SetArray(defaults.data(), 0, decal_capacity_);
+            for (unsigned i = 0; i < decal_capacity_; ++i)
+                bind(SHADER_TYPE_PIXEL, decal_names[i].c_str(), white_decal_);
+        }
         if (!shadow_pass_ &&
             bindings_[parity]->GetVariableByName(SHADER_TYPE_PIXEL, "ForgeDistanceFog")) {
             if (!fog_)
@@ -644,6 +685,25 @@ void MeshDraw::object_material_values(IDeviceContext* context,
                     variable->Set(active ? material_dynamic_ : material_immutable_);
     material_dynamic_bound_ = active;
 }
+void MeshDraw::clear_decals(IDeviceContext* context) {
+    if (!decals_active_)
+        return;
+    MapHelper<Row> values(context, decals_, MAP_WRITE, MAP_FLAG_DISCARD);
+    require(static_cast<Row*>(values) != nullptr, "Decal reset allocation failed");
+    std::fill_n(static_cast<Row*>(values), decal_shader_rows(decal_capacity_), Row{});
+    std::array<IDeviceObject*, decal_draw_limit> samplers;
+    samplers.fill(default_decal_sampler_);
+    for (const auto& binding : bindings_) {
+        for (unsigned i = 0; i < decal_capacity_; ++i)
+            binding
+                ->GetVariableByName(SHADER_TYPE_PIXEL,
+                                    ("g_ForgeDecalColor" + std::to_string(i)).c_str())
+                ->Set(white_decal_);
+        binding->GetVariableByName(SHADER_TYPE_PIXEL, "g_ForgeDecalSamplers")
+            ->SetArray(samplers.data(), 0, decal_capacity_);
+    }
+    decals_active_ = false;
+}
 void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world,
                     const CameraView& view, std::span<const LightView> lights,
                     const EnvironmentLighting* environment, const std::array<float, 3>* legacy_tint,
@@ -652,7 +712,47 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
                     const SkinPose* skin, std::span<const Instance> instances,
                     std::span<const MaterialParameterOverride> object_parameters,
                     std::string_view material_slot, const SpriteDrawValues* sprite,
-                    const SceneDistanceFog* fog, const Motion* motion) {
+                    const SceneDistanceFog* fog, const Motion* motion,
+                    std::span<const Decal> decals) {
+    require(decals.size() <= decal_capacity_, "Projected color exceeds this receiver's sampler "
+                                              "capacity; ordinary rendering remains available");
+    std::optional<std::array<Row, decal_shader_rows(decal_draw_limit)>> decal_values;
+    std::array<IDeviceObject*, decal_draw_limit> decal_textures, decal_samplers;
+    if (!decals.empty()) {
+        decal_values.emplace();
+        decal_textures.fill(white_decal_);
+        decal_samplers.fill(default_decal_sampler_);
+        (*decal_values)[0][0] = float(decals.size());
+        for (unsigned i = 0; i < decals.size(); ++i) {
+            const auto& selected = decals[i];
+            require(selected.projection && selected.material, "Incomplete projected color values");
+            const auto& projection = *selected.projection;
+            const auto& material = *selected.material;
+            const auto transform = decal_gpu_transform(projection, view.position);
+            const unsigned at = 1 + 8 * i;
+            for (unsigned r = 0; r < 3; ++r) {
+                (*decal_values)[at + r] = transform[r];
+                (*decal_values)[at + 4][r] = gpu(projection.forward[r]);
+            }
+            const auto& value = projection.values;
+            (*decal_values)[at + 3] = {gpu(double(material.color[0]) * value.tint_r),
+                                       gpu(double(material.color[1]) * value.tint_g),
+                                       gpu(double(material.color[2]) * value.tint_b),
+                                       value.opacity};
+            (*decal_values)[at + 4][3] = projection.cosine_fade_end;
+            (*decal_values)[at + 5] = {projection.cosine_fade_start, material.color[3],
+                                       float(material.alpha), material.cutoff};
+            (*decal_values)[at + 6] = material.uv[0];
+            (*decal_values)[at + 7] = material.uv[1];
+            (*decal_values)[at + 6][3] = material.texture.id ? 1.f : 0.f;
+            if (material.texture.id) {
+                require(selected.texture && selected.sampler,
+                        "Incomplete decal color texture selection");
+                decal_textures[i] = selected.texture;
+                decal_samplers[i] = selected.sampler;
+            }
+        }
+    }
     if (fog)
         validate_scene_distance_fog(*fog);
     require(shadow_pass_ || !fog || !fog->enabled || fog_supported_,
@@ -882,6 +982,26 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
         parity == TransformParity::Singular
             ? 2
             : unsigned((parity == TransformParity::Negative) != view.orientation_reversed);
+    if (decals.empty())
+        clear_decals(context);
+    else {
+        MapHelper<Row> values(context, decals_, MAP_WRITE, MAP_FLAG_DISCARD);
+        require(static_cast<Row*>(values) != nullptr, "Decal upload allocation failed");
+        std::copy_n(decal_values->data(), decal_shader_rows(decal_capacity_),
+                    static_cast<Row*>(values));
+        // Each winding SRB retains native references. Update every SRB before
+        // dropping an old selection, including winding modes absent this frame.
+        for (const auto& binding : bindings_) {
+            for (unsigned i = 0; i < decal_capacity_; ++i)
+                binding
+                    ->GetVariableByName(SHADER_TYPE_PIXEL,
+                                        ("g_ForgeDecalColor" + std::to_string(i)).c_str())
+                    ->Set(decal_textures[i]);
+            binding->GetVariableByName(SHADER_TYPE_PIXEL, "g_ForgeDecalSamplers")
+                ->SetArray(decal_samplers.data(), 0, decal_capacity_);
+        }
+        decals_active_ = !decals.empty();
+    }
     if (environment_) {
         Row params{0, 0, 1, 0};
         ITextureView *diffuse = black_environment_, *specular = black_environment_,

@@ -3,6 +3,12 @@
 #include <cmath>
 #include <stdexcept>
 namespace forge {
+std::array<std::array<float, 4>, 2>
+material_texture_transform_rows(const MaterialTextureSlot& slot) {
+    const auto c = std::cos(double(slot.rotation)), s = std::sin(double(slot.rotation));
+    return {{{float(c * slot.scale[0]), float(-s * slot.scale[1]), slot.offset[0], 0},
+             {float(s * slot.scale[0]), float(c * slot.scale[1]), slot.offset[1], 0}}};
+}
 std::vector<MaterialParameterUniform> material_parameter_uniforms(const MaterialData& values) {
     std::vector<MaterialParameterUniform> result;
     result.reserve(values.parameters.size());
@@ -70,11 +76,8 @@ MaterialShader material_shader(const PbrMaterialProfile& material,
         result.textures.push_back({role, texture, uv_slot, sampler_slot, slot});
         declarations += "Texture2D<float4> " + texture + ";\n";
         const auto offset = result.uniforms.size();
-        const auto c = std::cos(double(slot.rotation)), s = std::sin(double(slot.rotation));
-        result.uniforms.push_back(
-            {float(c * slot.scale[0]), float(-s * slot.scale[1]), slot.offset[0], 0});
-        result.uniforms.push_back(
-            {float(s * slot.scale[0]), float(c * slot.scale[1]), slot.offset[1], 0});
+        const auto transform = material_texture_transform_rows(slot);
+        result.uniforms.insert(result.uniforms.end(), transform.begin(), transform.end());
         // KHR_texture_transform uses offset + rotation * scale * UV; source UV
         // orientation is unchanged. Hardware sRGB views own color conversion.
         const auto sampling = sprite_profile && !frame_mips

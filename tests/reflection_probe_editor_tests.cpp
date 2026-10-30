@@ -257,16 +257,85 @@ void exercise(const std::filesystem::path& root, float scale, ImVec2 display) {
     scene.save(project.project() / "area-light.scene.json");
     reopened.load(project.project() / "area-light.scene.json");
     check(reopened.document() == scene.document(), "Area Inspector did not save and reopen");
+    const auto before_decal = scene.document();
+    click("probe-test:entity-menu");
+    click("category:Rendering");
+    click("action:Create / Decal Projector");
+    check(scene.entity(selected).has<DecalProjector>() &&
+              !scene.entity(selected).has<MeshRenderer>(),
+          "Decal creation menu did not use the shared component recipe");
+    const auto created_decal = scene.document();
+    check(scene.undo() && scene.document() == before_decal && scene.redo() &&
+              scene.document() == created_decal,
+          "Decal creation was not one atomic history step");
+    click("asset-picker:material:##Color Material");
+    type("asset-search:material:##Color Material", "Default surface");
+    click("picker-option:" + engine_material().id.str());
+    check(scene.entity(selected).get<DecalProjector>().material == engine_material(),
+          "Decal Color Material picker bypassed typed asset ownership");
+    for (const auto& [field, value] : {std::pair{"width", "2"},
+                                       {"height", "3"},
+                                       {"depth", "4"},
+                                       {"opacity", "0.25"},
+                                       {"angle_fade_start", "0.5"},
+                                       {"angle_fade_end", "1"},
+                                       {"priority", "-7"}})
+        type(std::string("component-field:forge.decal:") + field, value);
+    const auto decal_values = scene.entity(selected).get<DecalProjector>();
+    check(decal_values.width == 2 && decal_values.height == 3 && decal_values.depth == 4 &&
+              decal_values.opacity == .25f && decal_values.angle_fade_start == .5f &&
+              decal_values.angle_fade_end == 1 && decal_values.priority == -7,
+          "Decal Inspector lost typed scalar or cross-field values");
+    const auto valid_decal = scene.document();
+    const auto valid_decal_revision = scene.revision();
+    type("component-field:forge.decal:width", "0");
+    check(scene.document() == valid_decal && scene.revision() == valid_decal_revision,
+          "Invalid decal dimension changed authored data or revision");
+    type("component-field:forge.decal:width", "2");
+    type("component-field:forge.decal:angle_fade_end", "0.25");
+    check(scene.document() == valid_decal && scene.revision() == valid_decal_revision,
+          "Invalid fade interval bypassed shared native admission");
+    type("component-field:forge.decal:angle_fade_end", "1");
+    click("component-field:forge.decal:enabled");
+    check(!scene.entity(selected).get<DecalProjector>().enabled && scene.undo() &&
+              scene.document() == valid_decal,
+          "Decal toggle lost native Undo history");
+    Json decal_components;
+    const auto decal_document = scene.document();
+    for (const auto& row : decal_document.at("entities"))
+        if (row.at("id") == selected)
+            decal_components = row.at("components");
+    for (const auto& type : schema.at("components"))
+        if (type.at("id") == "forge.decal") {
+            check(ComponentInspector::runtime_type_available(type, decal_components),
+                  "Live gameplay Inspector omitted the native Decal type");
+            for (const auto& field : type.at("fields"))
+                check(ComponentInspector::runtime_field_available(
+                          "forge.decal", field, decal_components) == (field.at("id") != "material"),
+                      "Decal Live Inspector differs from shared runtime admission");
+        }
+    const auto decal_markers = ui::spatial_markers(scene.effective_document(), 800, 600, 10);
+    const auto marker =
+        std::find_if(decal_markers.begin(), decal_markers.end(),
+                     [&](const auto& value) { return value.entity == selected && value.decal; });
+    check(marker != decal_markers.end() && marker->enabled && marker->lines.size() == 15 &&
+              camera.frame(scene.effective_document(), selected, 1.5f) && camera.distance > 3,
+          "Decal Inspector values did not reach volume/arrow guides and framing");
+    scene.save(project.project() / "decal.scene.json");
+    reopened.load(project.project() / "decal.scene.json");
+    check(reopened.document() == scene.document(), "Decal Inspector values failed save/reopen");
     test::observe_ui = false;
     ImGui::DestroyContext();
 }
 void capture(const std::filesystem::path& root, bool light = false,
-             LightKind light_kind = LightKind::Directional) {
+             LightKind light_kind = LightKind::Directional, bool decal = false) {
     std::filesystem::create_directories(root / "project");
     test::ImGuiSoftwareCapture capture(
-        light ? 1080 : 760,
-        light ? (light_kind == LightKind::Rectangle || light_kind == LightKind::Sphere ? 560 : 900)
-              : 520);
+        light || decal ? 1080 : 760,
+        decal ? 720
+        : light
+            ? (light_kind == LightKind::Rectangle || light_kind == LightKind::Sphere ? 560 : 900)
+            : 520);
     ui::style(1);
     ui::EditorUiContext context;
     ui::ContextScope scope(context);
@@ -276,13 +345,30 @@ void capture(const std::filesystem::path& root, bool light = false,
     project.open_project(root / "project", true);
     const std::string id =
         authoring_command(scene, "entity.create",
-                          {{"recipe", light ? "render.light" : "render.reflection_probe"},
-                           {"name", !light                               ? "Room reflections"
+                          {{"recipe", decal   ? "render.decal"
+                                      : light ? "render.light"
+                                              : "render.reflection_probe"},
+                           {"name", decal                                ? "Wall color projector"
+                                    : !light                             ? "Room reflections"
                                     : light_kind == LightKind::Rectangle ? "Rectangular area light"
                                     : light_kind == LightKind::Sphere ? "Spherical area light"
                                                                       : "Soft directional light"}})
             .at("selected");
-    if (light) {
+    if (decal) {
+        authoring_command(scene, "property.set_many",
+                          {{"entity", id},
+                           {"component", "forge.decal"},
+                           {"values",
+                            {{"material", engine_material().id},
+                             {"width", 2},
+                             {"height", 3},
+                             {"depth", 1.5},
+                             {"tint_r", .3},
+                             {"tint_g", .8},
+                             {"tint_b", 1},
+                             {"opacity", .75},
+                             {"priority", 2}}}});
+    } else if (light) {
         authoring_command(
             scene, "property.set_many",
             {{"entity", id},
@@ -303,17 +389,22 @@ void capture(const std::filesystem::path& root, bool light = false,
              {"field", "texture"},
              {"value", engine_texture(EngineTexture::White, TextureDimension::Cube).id}});
     ComponentInspector inspector;
-    inspector.fixture_focus_component = light ? "forge.light" : "forge.reflection_probe";
+    inspector.fixture_focus_component = decal   ? "forge.decal"
+                                        : light ? "forge.light"
+                                                : "forge.reflection_probe";
     for (unsigned frame = 0; frame < 3; ++frame) {
         capture.new_frame();
         ImGui::SetNextWindowPos({10, 10});
-        ImGui::SetNextWindowSize(light ? ImVec2{1060, 880} : ImVec2{740, 500});
+        ImGui::SetNextWindowSize(decal   ? ImVec2{1060, 700}
+                                 : light ? ImVec2{1060, 880}
+                                         : ImVec2{740, 500});
         ImGui::Begin("Inspector", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
         inspector.draw(scene, project, id);
         ImGui::End();
         capture.render();
     }
-    capture.save(root / (!light ? "local-reflection-probe-controls.png"
+    capture.save(root / (decal    ? "decal-projector-controls.png"
+                         : !light ? "local-reflection-probe-controls.png"
                          : light_kind == LightKind::Rectangle ? "rectangle-area-light-controls.png"
                          : light_kind == LightKind::Sphere    ? "sphere-area-light-controls.png"
                                                               : "soft-shadow-light-controls.png"));
@@ -324,13 +415,15 @@ int main(int argc, char** argv) {
         check(argc == 2 || (argc == 3 && (std::string_view(argv[2]) == "--capture" ||
                                           std::string_view(argv[2]) == "--capture-light" ||
                                           std::string_view(argv[2]) == "--capture-rectangle" ||
+                                          std::string_view(argv[2]) == "--capture-decal" ||
                                           std::string_view(argv[2]) == "--capture-sphere")),
               "Expected probe UI scratch root or --capture");
         if (argc == 3)
             capture(std::filesystem::absolute(argv[1]), std::string_view(argv[2]) != "--capture",
                     std::string_view(argv[2]) == "--capture-rectangle" ? LightKind::Rectangle
                     : std::string_view(argv[2]) == "--capture-sphere"  ? LightKind::Sphere
-                                                                       : LightKind::Directional);
+                                                                       : LightKind::Directional,
+                    std::string_view(argv[2]) == "--capture-decal");
         else
             for (const auto scale : {1.f, 1.5f, 2.f})
                 for (const auto size : {ImVec2{1200, 1000}, ImVec2{960, 640}})

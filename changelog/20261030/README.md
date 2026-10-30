@@ -1,5 +1,29 @@
 # 2026-10-30
 
+## Projected material color
+
+Decal Projector adds bounded color projection through ordinary native components,
+transforms and Material/Texture resources. Projected RGB enters physical Mesh
+shading before lighting while receiver alpha, geometry and other surface values
+retain their owners. Eight active projectors per scene and material-dependent
+per-part sampler limits produce explicit capacity diagnostics. Priority/EntityId
+ordering is deterministic; failed resource replacement keeps the last admitted
+material. Custom color sources, unlit receivers and projected normal/roughness are
+outside this profile.
+
+Shared creation, Inspector/picking, box/arrow guides, framing, history/Save, live
+controls, automation/MCP and installed C++ SDK data use the established APIs.
+Shader wrapper8 retains17 output roles and readable versions1–7. Existing full
+materials get no extra sampler requirements. The installed `decal_gameplay`
+sample and matching public header cover typed instance values.
+
+Gallery113 adds one Scene, retaining310 prior catalog records and project settings.
+Its existing badge Material/Texture close through ordinary source-free export;
+four relocated display readback pairs match. The manual adds the placement/tuning/
+export guide and authentic Inspector/Game images. Local CPU/UI/MCP/installed-SDK
+and software-Vulkan checks cover the supported paths. Windows/FXC, physical GPU,
+full desktop and graphical exported-game acceptance remain pending.
+
 ## Rectangular and spherical direct lights
 
 Light adds Rectangle and Sphere kinds with full width/height or radius in world

@@ -330,7 +330,22 @@ ResourceTicket request_model_mesh(ResourcePool<MeshAsset>& pool, std::filesystem
 ResourceTicket request_model_pbr_material(ResourcePool<MaterialAsset>& pool,
                                           std::filesystem::path project,
                                           std::shared_ptr<const AssetCatalog> catalog,
-                                          AssetRef<MaterialAsset> material) {
+                                          AssetRef<MaterialAsset> material,
+                                          std::shared_ptr<const MaterialPreviewSelection> preview) {
+    if (preview && material == preview->asset) {
+        require(preview->asset.id && preview->generation && valid_content_digest(preview->revision),
+                "Invalid material preview selection");
+        validate_render_material(preview->data);
+        return pool.request(
+            preview->asset, preview->revision, preview->generation,
+            [selected = preview](std::stop_token stop) {
+                require(!stop.stop_requested(), "Material preview cancelled");
+                auto data = std::make_unique<MaterialResourceData>(selected->data);
+                const auto bytes = data->resident_bytes();
+                return ResourceCandidate<MaterialAsset>{std::move(data), {bytes}};
+            },
+            {}, 0, "builtin:material-preview-v1");
+    }
     if (engine_asset(material.id))
         return request_engine_material(pool, material);
     require(bool(catalog), "Model PBR material requires a selected catalog");

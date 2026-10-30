@@ -1,5 +1,6 @@
 #include "asset_bytes.hpp"
 #include "cooked_envelope.hpp"
+#include "decal_shader_tests.hpp"
 #include "material_graph_tests.hpp"
 #include "material_source_tests.hpp"
 #include "pbr_material_tests.hpp"
@@ -69,6 +70,7 @@ int main(int argc, char** argv) {
         require(argc == 2, "Need material scratch directory");
         forge::graph_tests::run();
         test_pbr_material_profile();
+        test_decal_shader_profile();
         test_material_source();
         check_surface_shader();
         const auto m = material();

@@ -26,6 +26,10 @@ class MeshDrawBundle {
     void environment(const EnvironmentLease&);
     void shadows(const ShadowLighting*);
     void transmission(const TransmissionLighting*);
+    void clear_decals(Diligent::IDeviceContext*);
+    unsigned decal_capacity(unsigned lod, unsigned part) const {
+        return lods_.at(lod).at(part)->decal_capacity();
+    }
     void prepare_material_parameters(std::span<const MaterialParameterOverride>);
     // Specialize the same admitted part before a temporal view changes targets.
     // Failure leaves the ordinary color and shadow draws available.
@@ -66,7 +70,8 @@ class MeshDrawBundle {
                    const SpriteDrawValues* sprite = nullptr, const SceneDistanceFog* fog = nullptr,
                    const GpuLease<TextureAsset>* sprite_mip = nullptr,
                    const MeshDraw::Motion* motion = nullptr, bool indirect = false,
-                   bool reflection = false, bool normal = false);
+                   bool reflection = false, bool normal = false,
+                   std::span<const MeshDraw::Decal> decals = {});
     std::string_view slot(unsigned lod, unsigned part) const {
         return prepared_.selection.bindings.at(info_.at(lod).at(part).binding).key;
     }

@@ -16,6 +16,7 @@ SCOPE_TRACE_ONLY = sys.argv[7:] == ['--scope-trace-only']
 MAP_PROFILE_ONLY = sys.argv[7:] == ['--map-profile-only']
 SPRITE_FRAMES_ONLY = sys.argv[7:] == ['--sprite-frames-only']
 PROBES_ONLY = sys.argv[7:] == ['--reflection-probes-only']
+DECALS_ONLY = sys.argv[7:] == ['--decals-only']
 SOFT_SHADOWS_ONLY = sys.argv[7:] == ['--soft-shadows-only']
 TIME_ONLY = sys.argv[7:] == ['--time-only']
 PROFILE_ONLY = sys.argv[7:] == ['--profile-only']
@@ -588,6 +589,49 @@ for legacy in (False, True):
             print(('legacy' if legacy else 'current') + ': Light source controls, validation, scope, '
                   'paused clock and authored isolation passed')
             continue
+        if DECALS_ONLY:
+            assert 'Decal Projector' in advertised['forge_play_tune']['description']
+            actor = ok('forge_entity_create', arguments=dict(recipe='render.decal',
+                       name='Live projected paint'))['results'][0]['selected']
+            ok('forge_property_set', arguments=dict(entity=actor, component='forge.decal',
+                field='material', value='9d087798-a173-48e0-938d-7607eed42f91'))
+            ok('forge_document_save')
+            authored = read('forge_scene_read')
+            ok('forge_play_start')
+            until(lambda: read('forge_play_status'), lambda row: row['ready'] and row['control_ready'])
+            control('forge_play_pause')
+            paused = until(lambda: read('forge_play_status'), lambda row: row['paused'] and row['control_ready'])
+            def runtime_decal():
+                snapshot = read('forge_play_snapshot')
+                return next(row['components']['forge.decal'] for row in snapshot['entities'] if row['id'] == actor)
+            for field, value in [('enabled', False), ('width', 2.), ('height', 3.), ('depth', 4.),
+                                 ('tint_r', .25), ('tint_g', .5), ('tint_b', .75), ('opacity', .25),
+                                 ('angle_fade_start', .5), ('angle_fade_end', 1.), ('layers', 3),
+                                 ('priority', -2147483648)]:
+                control('forge_play_tune', entity=actor, component='forge.decal', property=field, value=value)
+                ack = until(lambda: read('forge_play_status'), lambda row: not row['tune_pending'] and row['tune_ack'] is not None)
+                assert 'error' not in ack['tune_ack'] and runtime_decal()[field] == value, ack
+                assert ack['timing']['tick'] == paused['timing']['tick']
+            tuned = runtime_decal()
+            for field, value in [('width', 0), ('opacity', 1.01), ('enabled', 1),
+                                 ('priority', 2147483648), ('angle_fade_end', .4)]:
+                control('forge_play_tune', entity=actor, component='forge.decal', property=field, value=value)
+                ack = until(lambda: read('forge_play_status'), lambda row: not row['tune_pending'] and row['tune_ack'] is not None)
+                assert 'error' in ack['tune_ack'] and runtime_decal() == tuned, ack
+                assert ack['timing']['tick'] == paused['timing']['tick']
+            state = until(lambda: read('forge_play_status'), lambda row: row['control_ready'])
+            failed(mutate('forge_play_tune', launch=state['launch'], session=state['session'],
+                          generation=state['generation'], entity=actor, component='forge.decal',
+                          property='material', value=None), 'play_busy')
+            wrong = {key: paused[key] for key in ('launch', 'session', 'generation')}
+            wrong['generation'] += 1
+            failed(mutate('forge_play_tune', **wrong, entity=actor, component='forge.decal',
+                          property='opacity', value=1), 'stale_play')
+            control('forge_play_stop')
+            assert read('forge_scene_read') == authored
+            print(('legacy' if legacy else 'current') + ': decal creation/Save, twelve live controls, '
+                  'validation, scope, paused clock and authored isolation passed')
+            continue
         if PROBES_ONLY:
             assert 'Reflection Probe' in advertised['forge_play_tune']['description']
             actor = ok('forge_entity_create', arguments=dict(recipe='render.reflection_probe',
@@ -1121,7 +1165,8 @@ for legacy in (False, True):
 
 with gzip.open(sys.argv[6], 'wt', encoding='utf-8') as output:
     json.dump(CAPTURE, output, separators=(',', ':'))
-print('Both MCP protocols: current Light source live tuning, validation, scope, paused clock and authored isolation verified' if SOFT_SHADOWS_ONLY else
+print('Both MCP protocols: Decal Projector live tuning, validation, scope, paused clock and authored isolation verified' if DECALS_ONLY else
+      'Both MCP protocols: current Light source live tuning, validation, scope, paused clock and authored isolation verified' if SOFT_SHADOWS_ONLY else
       'Both MCP protocols: animated UI source/reload, current Play guards and execution grant verified; Windows execution pending' if UI_ANIMATION_ONLY else
       'Both MCP protocols: navigation ownership, XY authoring and live controls verified; no export or Windows execution' if NAVIGATION_ONLY else
       'Both MCP protocols and independent runtime/output grants verified; no graphical Windows execution claimed')

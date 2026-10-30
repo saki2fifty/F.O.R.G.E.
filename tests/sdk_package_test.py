@@ -14,6 +14,7 @@ def validate_guides(stage):
                 assert resolved.is_relative_to(stage/'sdk') and resolved.is_file(), f'Broken installed guide link: {target}'
 
 focused_targets = {
+    '--decals-only': 'decal_gameplay',
     '--soft-shadows-only': 'soft_shadow_gameplay',
     '--reflection-probes-only': 'reflection_probe_gameplay',
     '--component-animation-only': 'component_animation_gameplay',
@@ -61,6 +62,13 @@ if len(sys.argv) == 5 and sys.argv[4] in focused_targets:
                             str(Path(__file__).resolve().parents[1]/'samples/projects/FeatureGallery')],
                            env=env, cwd=moved, check=True, timeout=90)
             print('Installed public controller-motion example and relocated runtime passed')
+            sys.exit(0)
+        if sys.argv[4] == '--decals-only':
+            assert (moved/'sdk/include/forge/decal.hpp').is_file()
+            subprocess.run([sys.executable, str(Path(__file__).with_name('decal_process_test.py')),
+                            str(moved/'bin'/('forge_runtime'+exe)), str(module), str(base/'decal-runtime')],
+                           env=env, cwd=moved, check=True, timeout=90)
+            print('Installed public decal header, relocated SDK, both hosts and recovery passed')
             sys.exit(0)
         if sys.argv[4] == '--soft-shadows-only':
             subprocess.run([sys.executable, str(Path(__file__).with_name('soft_shadow_process_test.py')),

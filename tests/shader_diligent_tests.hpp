@@ -111,16 +111,21 @@ float4 fixture_color(){return float4(0,.25,1,1);}
             device, surface, {{"engine/forge.graph.hlsl", graph.source}}, {});
         const auto realized =
             realize_diligent_shader(device, decode_shader(encode_shader(compiled.data)));
-        check(realized.stages.size() == 2, "Graph lost shared color/depth programs");
+        check(realized.stages.size() == 17 && realized.data.surface_wrapper_version == 8,
+              "Graph lost shared surface output profiles");
         for (const auto& stage : compiled.data.stages)
-            (void)surface_binding_layout(graph.surface, stage.reflection);
+            (void)surface_binding_layout(graph.surface, stage.reflection,
+                                         area_surface_role(stage.role),
+                                         stage.role != ShaderEntryRole::SurfaceDepth);
         const auto rich = compile_material_graph(graph_tests::all_node_graph());
         auto rich_source = surface;
         rich_source.surface = rich.surface;
         const auto rich_compiled = compile_diligent_shader(
             device, rich_source, {{"engine/forge.graph.hlsl", rich.source}}, {});
         for (const auto& stage : rich_compiled.data.stages)
-            (void)surface_binding_layout(rich.surface, stage.reflection);
+            (void)surface_binding_layout(rich.surface, stage.reflection,
+                                         area_surface_role(stage.role),
+                                         stage.role != ShaderEntryRole::SurfaceDepth);
         (void)realize_diligent_shader(device, decode_shader(encode_shader(rich_compiled.data)));
         auto relabeled = graph.surface;
         relabeled.labels.begin()->second = "Another label";
@@ -143,8 +148,8 @@ float4 fixture_color(){return float4(0,.25,1,1);}
         const auto native_surface = compile_diligent_shader(device, surface, body, {});
         auto realized =
             realize_diligent_shader(device, decode_shader(encode_shader(native_surface.data)));
-        check(native_surface.data.surface_wrapper_version == 6 &&
-                  realized.data.surface_wrapper_version == 6 && realized.stages.size() == 9 &&
+        check(native_surface.data.surface_wrapper_version == 8 &&
+                  realized.data.surface_wrapper_version == 8 && realized.stages.size() == 17 &&
                   realized.stages.contains({ShaderStage::Pixel, ShaderEntryRole::SurfaceColor}) &&
                   realized.stages.contains({ShaderStage::Pixel, ShaderEntryRole::SurfaceDepth}) &&
                   realized.stages.contains(
@@ -159,7 +164,9 @@ float4 fixture_color(){return float4(0,.25,1,1);}
                       {ShaderStage::Pixel, ShaderEntryRole::SurfaceTemporalReflectionColor}),
               "Cooked surface lost color/depth programs");
         for (const auto& stage : native_surface.data.stages) {
-            const auto binding = surface_binding_layout(*surface.surface, stage.reflection);
+            const auto binding = surface_binding_layout(
+                *surface.surface, stage.reflection, area_surface_role(stage.role),
+                stage.role != ShaderEntryRole::SurfaceDepth);
             const auto& resources = stage.reflection.at("resources");
             const auto fog =
                 std::find_if(resources.begin(), resources.end(), [](const auto& resource) {

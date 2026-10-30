@@ -27,6 +27,7 @@ endif()
 list(APPEND forge_fx_shaders "${PROJECT_SOURCE_DIR}/resources/shaders/ForgeSurface.fxh"
  "${PROJECT_SOURCE_DIR}/resources/shaders/ForgeLighting.fxh"
  "${PROJECT_SOURCE_DIR}/resources/shaders/ForgeAreaLights.fxh"
+ "${PROJECT_SOURCE_DIR}/resources/shaders/ForgeDecals.fxh"
  "${PROJECT_SOURCE_DIR}/resources/shaders/ForgeShadows.fxh"
  "${PROJECT_SOURCE_DIR}/resources/shaders/ForgeTransmission.fxh")
 set(forge_fx_generated "${CMAKE_CURRENT_BINARY_DIR}/forge-pbr-shaders")

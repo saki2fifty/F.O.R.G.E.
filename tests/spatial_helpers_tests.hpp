@@ -183,6 +183,39 @@ inline void test_spatial_helpers() {
     helpers.visible = false;
     require(helpers.pick(view, {800, 600}, {(*p)[0], (*p)[1]}).empty(),
             "Hidden helpers remained pickable");
+    const auto decal_id = authoring_command(scene, "entity.create", {{"recipe", "render.decal"}})
+                              .at("selected")
+                              .get<std::string>();
+    authoring_command(scene, "property.set_many",
+                      {{"entity", decal_id},
+                       {"component", "forge.decal"},
+                       {"values", {{"width", 2}, {"height", 4}, {"depth", 6}}}});
+    authoring_command(scene, "transform.local",
+                      {{"entity", decal_id},
+                       {"translation", {{"x", 2}, {"y", 3}, {"z", 4}}},
+                       {"rotation", {{"x", 0}, {"y", 0}, {"z", 0}, {"w", 1}}},
+                       {"scale", {{"x", -2}, {"y", 3}, {"z", 4}}}});
+    const auto decal_authored = scene.document();
+    const auto decal_markers = ui::spatial_markers(scene.effective_document(), 800, 600, 10);
+    const auto guide =
+        std::find_if(decal_markers.begin(), decal_markers.end(),
+                     [&](const auto& marker) { return marker.entity == decal_id && marker.decal; });
+    require(guide != decal_markers.end() && !guide->enabled && guide->lines.size() == 15 &&
+                guide->note.find("Color Material") != std::string::npos,
+            "Unassigned decal lost its inactive box/arrow or material guidance");
+    Double3 minimum = guide->position, maximum = minimum;
+    for (const auto& [a, b] : guide->lines)
+        for (const auto& point : {a, b})
+            for (unsigned axis = 0; axis < 3; ++axis) {
+                minimum[axis] = std::min(minimum[axis], point[axis]);
+                maximum[axis] = std::max(maximum[axis], point[axis]);
+            }
+    require(minimum == Double3{0, -3, -8} && maximum == Double3{4, 9, 16},
+            "Decal guide ignores dimensions, node scale, reflection or centered depth");
+    EditorCamera decal_camera;
+    require(decal_camera.frame(scene.effective_document(), decal_id, 1.5f) &&
+                decal_camera.distance > 20 && scene.document() == decal_authored,
+            "Decal selection framing omitted its volume or changed authored values");
 }
 inline void test_asset_action_routes() {
     using namespace forge;

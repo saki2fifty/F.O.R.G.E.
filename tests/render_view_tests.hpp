@@ -1,6 +1,7 @@
 #pragma once
 #include <cmath>
 #include <forge/authoring.hpp>
+#include <forge/engine_assets.hpp>
 #include <forge/prefab_authoring.hpp>
 #include <forge/render_view.hpp>
 #include <limits>
@@ -363,4 +364,179 @@ inline void test_render_views() {
         [&] { scene.publish_prefab_sources({{prefab.asset(), updated}}, [&] { wrote = true; }); });
     require(!wrote && scene.document() == good,
             "Invalid light source candidate changed prefab/scene");
+    // Optional projected-color data uses the ordinary schema/property/history owner.
+    DecalProjector projector;
+    validate_decal(projector);
+    for (const auto field :
+         {&DecalProjector::width, &DecalProjector::height, &DecalProjector::depth})
+        for (float bad : {0.f, -1.f, .0001f, 10001.f, std::numeric_limits<float>::infinity(),
+                          std::numeric_limits<float>::quiet_NaN()}) {
+            auto invalid = projector;
+            invalid.*field = bad;
+            rejects([&] { validate_decal(invalid); });
+        }
+    for (const auto field : {&DecalProjector::tint_r, &DecalProjector::tint_g,
+                             &DecalProjector::tint_b, &DecalProjector::opacity}) {
+        auto invalid = projector;
+        invalid.*field = 1.1f;
+        rejects([&] { validate_decal(invalid); });
+    }
+    auto invalid_projector = projector;
+    invalid_projector.angle_fade_end = invalid_projector.angle_fade_start;
+    rejects([&] { validate_decal(invalid_projector); });
+    invalid_projector.angle_fade_end = decal_max_angle + .1f;
+    rejects([&] { validate_decal(invalid_projector); });
+    invalid_projector.angle_fade_start = 0;
+    invalid_projector.angle_fade_end = 1e-8f;
+    validate_decal(invalid_projector);
+    rejects([&] { (void)decal_view(invalid_projector, {}); });
+    projector.width = 2;
+    projector.height = 4;
+    projector.depth = 6;
+    LocalTransform projector_pose;
+    projector_pose.translation = {3, -2, 9};
+    projector_pose.rotation = rotation_from_euler({20, 30, 60});
+    projector_pose.scale = {-2, 3, 4};
+    auto projector_world = affine_transform(projector_pose);
+    projector_world.m[1] += .2;
+    const auto projected = decal_view(projector, projector_world);
+    const auto normalized_point =
+        projected.projector_from_world.point(projector_world.point({.5, -1, 1.5}));
+    for (unsigned axis = 0; axis < 3; ++axis)
+        require(std::abs(normalized_point[axis] - (axis == 1 ? -.25 : .25)) < 1e-12,
+                "Decal normalized projection lost scale/reflection/shear or local dimensions");
+    const Double3 projector_origin{100, -200, 300};
+    const auto gpu_projector = decal_gpu_transform(projected, projector_origin);
+    const auto projector_point = projector_world.point({.5, -1, 1.5});
+    for (unsigned row = 0; row < 3; ++row) {
+        double coordinate = gpu_projector[row][3];
+        for (unsigned column = 0; column < 3; ++column)
+            coordinate +=
+                gpu_projector[row][column] * (projector_point[column] - projector_origin[column]);
+        require(std::abs(coordinate - normalized_point[row]) < 1e-5,
+                "Camera-relative GPU decal transform lost reflected/sheared coordinates");
+    }
+    AffineTransform tiny_projector;
+    tiny_projector.m[0] = tiny_projector.m[5] = tiny_projector.m[10] = 5e-39;
+    tiny_projector.m[11] = 3;
+    const auto tiny_projection = decal_view(DecalProjector{}, tiny_projector);
+    rejects([&] { (void)decal_gpu_transform(tiny_projection, {}); });
+    const auto relative_tiny = decal_gpu_transform(tiny_projection, {0, 0, 3});
+    require(relative_tiny[2][3] == 0 && relative_tiny[2][2] > 1e38f,
+            "Decal GPU admission rejected a representable camera-relative translation");
+    tiny_projector.m[0] = tiny_projector.m[5] = tiny_projector.m[10] = 1e-100;
+    const auto unrepresentable_projection = decal_view(DecalProjector{}, tiny_projector);
+    rejects([&] { (void)decal_gpu_transform(unrepresentable_projection, {0, 0, 3}); });
+    auto collapsed_projector = projector_world;
+    for (unsigned row = 0; row < 3; ++row)
+        collapsed_projector.m[row * 4] = 0;
+    rejects([&] { (void)decal_view(projector, collapsed_projector); });
+    bool decal_metadata = false, material_reference = false, decal_dimensions = false,
+         decal_angles = false;
+    for (const auto& component : schema.at("components"))
+        if (component.at("id") == "forge.decal") {
+            decal_metadata =
+                component.at("optional").get<bool>() && component.at("category") == "Rendering";
+            for (const auto& field : component.at("fields")) {
+                if (field.at("id") == "material")
+                    material_reference = field.at("type") == "asset_ref" &&
+                                         field.at("asset_type") == MaterialAsset::type &&
+                                         field.at("default").is_null();
+                if (field.at("id") == "width")
+                    decal_dimensions = field.at("unit") == "m" &&
+                                       field.at("minimum").get<double>() > 0 &&
+                                       field.at("maximum") == 10000;
+                if (field.at("id") == "angle_fade_end")
+                    decal_angles = field.at("unit") == "rad";
+            }
+        }
+    require(decal_metadata && material_reference && decal_dimensions && decal_angles,
+            "Decal schema lost optionality, asset ownership, dimensions or native units");
+    scene.reset(doc);
+    authoring_command(scene, "transform.local",
+                      {{"entity", id},
+                       {"translation", {{"x", 0}, {"y", 0}, {"z", 0}}},
+                       {"rotation", {{"x", 0}, {"y", 0}, {"z", 0}, {"w", 1}}},
+                       {"scale", {{"x", 1}, {"y", 1}, {"z", 1}}}});
+    authoring_command(scene, "component.add", {{"entity", id}, {"component", "forge.decal"}});
+    require(scene.entity(id).has<DecalProjector>() &&
+                extract_render_scene(scene.effective_document()).decals.empty(),
+            "Empty decal assignment unexpectedly published a render source");
+    const auto decal_defaults = scene.document();
+    authoring_command(scene, "property.set_many",
+                      {{"entity", id},
+                       {"component", "forge.decal"},
+                       {"values",
+                        {{"material", engine_material().id},
+                         {"width", 2},
+                         {"height", 4},
+                         {"depth", 6},
+                         {"opacity", .25},
+                         {"priority", 3},
+                         {"angle_fade_start", .5},
+                         {"angle_fade_end", 1.}}}});
+    const auto decal_state = scene.document();
+    const auto decal_revision = scene.revision();
+    auto admitted_decals = extract_render_scene(scene.effective_document());
+    require(admitted_decals.decals.size() == 1 &&
+                admitted_decals.decals.front().projector.values.material == engine_material() &&
+                admitted_decals.decals.front().projector.values.width == 2 &&
+                admitted_decals.decals.front().projector.values.priority == 3 &&
+                scene.document() == decal_state,
+            "Decal extraction lost typed values or changed authored data");
+    rejects([&] {
+        authoring_command(scene, "property.set",
+                          {{"entity", id},
+                           {"component", "forge.decal"},
+                           {"field", "angle_fade_end"},
+                           {"value", .1}});
+    });
+    require(scene.document() == decal_state && scene.revision() == decal_revision,
+            "Invalid decal angle consumed history/revision or changed values");
+    scene.undo();
+    require(scene.document() == decal_defaults, "Decal Undo changed unrelated components");
+    scene.redo();
+    require(scene.document() == decal_state, "Decal Redo lost values");
+    auto extended_decal = decal_state;
+    extended_decal["entities"][0]["components"]["forge.decal"]["extension"] = {{"retain", 17}};
+    scene.reset(extended_decal);
+    authoring_command(
+        scene, "property.set",
+        {{"entity", id}, {"component", "forge.decal"}, {"field", "opacity"}, {"value", 0.}});
+    require(extract_render_scene(scene.effective_document()).decals.empty() &&
+                scene.document()["entities"][0]["components"]["forge.decal"]["extension"] ==
+                    Json{{"retain", 17}},
+            "Zero decal did not bypass extraction or lost opaque fields");
+    EngineContext runtime_engine(WorldRole::Runtime);
+    Scene runtime(runtime_engine.world());
+    runtime.restore_snapshot(decal_state);
+    const auto untuned_revision = runtime.revision();
+    const auto authored_revision = scene.revision();
+    const auto authored_values = scene.document();
+    require(runtime.tune_runtime_property(id, "forge.decal", "width", 3.) == 3. &&
+                runtime.entity(id).get<DecalProjector>().width == 3 &&
+                runtime.revision() > untuned_revision && !runtime.undo() &&
+                scene.revision() == authored_revision && scene.document() == authored_values &&
+                scene.entity(id).get<DecalProjector>().width == 2,
+            "Live decal tuning changed source/history or failed shared typed validation");
+    const auto live_values = runtime.document();
+    const auto runtime_revision = runtime.revision();
+    rejects([&] { runtime.tune_runtime_property(id, "forge.decal", "angle_fade_end", .1); });
+    rejects([&] {
+        runtime.tune_runtime_property(id, "forge.decal", "material", engine_material().id);
+    });
+    require(runtime.document() == live_values && runtime.revision() == runtime_revision,
+            "Rejected live decal tuning changed runtime values or revision");
+    EngineContext recipe_engine;
+    Scene recipes(recipe_engine.world());
+    const auto created = authoring_command(recipes, "entity.create", {{"recipe", "render.decal"}});
+    const auto created_id = created.at("selected").get<std::string>();
+    require(recipes.entity(created_id).has<DecalProjector>() &&
+                recipes.entity(created_id).has<LocalTranslation>(),
+            "Shared decal creation recipe omitted its component or transform");
+    recipes.undo();
+    require(!recipes.entity(created_id), "Shared decal recipe did not Undo atomically");
+    recipes.redo();
+    require(recipes.entity(created_id).has<DecalProjector>(),
+            "Decal recipe Redo lost its component");
 }

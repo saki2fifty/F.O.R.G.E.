@@ -30,6 +30,10 @@ struct RenderLight {
     EntityId entity;
     LightView light;
 };
+struct RenderDecal {
+    EntityId entity;
+    DecalView projector;
+};
 struct RenderReflectionProbe {
     EntityId entity;
     ReflectionProbe probe;
@@ -99,6 +103,7 @@ struct RenderScene {
     std::vector<RenderSprite> sprites;
     std::vector<RenderTileMap> tile_maps;
     std::vector<RenderReflectionProbe> reflection_probes;
+    std::vector<RenderDecal> decals;
 };
 // Malformed envelope/identity rejects the whole snapshot. Invalid per-component
 // producer values are diagnosed and omitted without touching authored state.

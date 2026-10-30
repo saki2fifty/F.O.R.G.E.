@@ -82,6 +82,13 @@ for legacy in (False, True):
         assert 'render.reflection_probe' in create_command['input_schema']['properties']['recipe']['enum']
         create_tool = next(tool for tool in catalog if tool['name'] == 'forge_entity_create')
         assert 'render.reflection_probe' in create_tool['inputSchema']['properties']['arguments']['properties']['recipe']['enum']
+        assert 'render.decal' in create_command['input_schema']['properties']['recipe']['enum']
+        assert 'render.decal' in create_tool['inputSchema']['properties']['arguments']['properties']['recipe']['enum']
+        decal_schema = next(c for c in state['result']['schema']['components'] if c['id'] == 'forge.decal')
+        decal_fields = {field['id']: field for field in decal_schema['fields']}
+        assert decal_schema['optional'] and len(decal_fields) == 13
+        assert decal_fields['material']['asset_type'] == 'material'
+        assert abs(decal_fields['width']['minimum'] - .001) < 1e-9 and decal_fields['width']['maximum'] == 10000
         body_schema = next(c for c in state['result']['schema']['components']
                            if c['id'] == 'forge.physics_body_2d')
         fields = {f['id']: f for f in body_schema['fields']}
@@ -336,6 +343,23 @@ for legacy in (False, True):
             assert not invalid['ok'] and discover()['revision'] == before_invalid['revision'], invalid
         assert mutate('forge_history_undo')['result']['changed']
         assert mutate('forge_history_redo')['result']['changed']
+        created_decal = mutate('forge_entity_create', arguments=dict(recipe='render.decal', name='Wall paint'))
+        assert created_decal['ok'], created_decal
+        decal = created_decal['result']['results'][0]['selected']
+        decal_values = dict(material='9d087798-a173-48e0-938d-7607eed42f91', width=2., height=3.,
+                            depth=4., opacity=.25, priority=-7, angle_fade_start=.5, angle_fade_end=1.)
+        request = arguments(arguments=dict(entity=decal, component='forge.decal', values=decal_values))
+        changed_decal = client.tool('forge_property_set_many', **request)
+        assert changed_decal['ok'], changed_decal
+        assert client.tool('forge_property_set_many', **request)['result'] == changed_decal['result']
+        for field, value in [('width', 0), ('height', True), ('opacity', 1.01),
+                             ('priority', 2147483648), ('angle_fade_end', .4)]:
+            before_decal = discover()
+            invalid = mutate('forge_property_set', arguments=dict(entity=decal,
+                component='forge.decal', field=field, value=value))
+            assert not invalid['ok'] and discover()['revision'] == before_decal['revision'], invalid
+        assert mutate('forge_history_undo')['result']['changed']
+        assert mutate('forge_history_redo')['result']['changed']
         created_probe = mutate('forge_entity_create', arguments=dict(
             recipe='render.reflection_probe', name='Room reflections'))
         assert created_probe['ok'], created_probe
@@ -362,6 +386,10 @@ for legacy in (False, True):
         saved_path = project / 'Scenes/main.scene.json'
         saved_bytes = saved_path.read_bytes()
         saved_doc = json.loads(saved_bytes)
+        saved_decal = next(entity for entity in saved_doc['entities'] if entity['id'] == decal)
+        assert saved_decal['name'] == 'Wall paint'
+        for field, value in decal_values.items():
+            assert saved_decal['components']['forge.decal'][field] == value
         saved_probe = next(entity for entity in saved_doc['entities'] if entity['id'] == probe)
         assert saved_probe['name'] == 'Room reflections'
         for field, value in probe_values.items():

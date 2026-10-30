@@ -22,6 +22,9 @@ struct MaterialParameterUniform {
     MaterialParameterType type;
     unsigned offset, width; // Bytes, then float lanes.
 };
+// Affine UV rows for an admitted MaterialTextureSlot; fourth lanes are reserved
+// for each consumer's UV index or flags. Sampling/resource ownership is unchanged.
+std::array<std::array<float, 4>, 2> material_texture_transform_rows(const MaterialTextureSlot&);
 // One shared packing authority for built-in shader emission and object values.
 // Input is the admitted canonical PBR value set, including model defaults.
 std::vector<MaterialParameterUniform> material_parameter_uniforms(const MaterialData&);

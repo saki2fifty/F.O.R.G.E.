@@ -240,6 +240,16 @@ void MeshDrawBundle::transmission(const TransmissionLighting* lighting) {
                 if (part)
                     part->bind_transmission(lighting);
 }
+void MeshDrawBundle::clear_decals(Diligent::IDeviceContext* context) {
+    for (auto& lod : lods_)
+        for (auto& part : lod)
+            part->clear_decals(context);
+    for (auto& variants : surface_lods_)
+        for (auto& lod : variants)
+            for (auto& part : lod)
+                if (part)
+                    part->clear_decals(context);
+}
 void MeshDrawBundle::draw(Diligent::IDeviceContext* context, const AffineTransform& world,
                           const CameraView& camera, std::span<const LightView> lights,
                           const EnvironmentLighting* environment, unsigned lod) {
@@ -248,16 +258,19 @@ void MeshDrawBundle::draw(Diligent::IDeviceContext* context, const AffineTransfo
     for (unsigned part = 0; part < lods_[lod].size(); ++part)
         draw_part(context, world, camera, lights, lod, part, environment);
 }
-void MeshDrawBundle::draw_part(
-    Diligent::IDeviceContext* context, const AffineTransform& world, const CameraView& camera,
-    std::span<const LightView> lights, unsigned lod, unsigned part,
-    const EnvironmentLighting* environment, const std::array<float, 3>* legacy_tint,
-    const ShadowLighting* shadows, std::span<const int> shadow_slots,
-    const TransmissionLighting* transmission, const MeshInstancePose* pose,
-    std::span<const MeshDraw::Instance> instances,
-    std::span<const MaterialParameterOverride> parameters, const SpriteDrawValues* sprite,
-    const SceneDistanceFog* fog, const GpuLease<TextureAsset>* sprite_mip,
-    const MeshDraw::Motion* motion, bool indirect, bool reflection, bool normal) {
+void MeshDrawBundle::draw_part(Diligent::IDeviceContext* context, const AffineTransform& world,
+                               const CameraView& camera, std::span<const LightView> lights,
+                               unsigned lod, unsigned part, const EnvironmentLighting* environment,
+                               const std::array<float, 3>* legacy_tint,
+                               const ShadowLighting* shadows, std::span<const int> shadow_slots,
+                               const TransmissionLighting* transmission,
+                               const MeshInstancePose* pose,
+                               std::span<const MeshDraw::Instance> instances,
+                               std::span<const MaterialParameterOverride> parameters,
+                               const SpriteDrawValues* sprite, const SceneDistanceFog* fog,
+                               const GpuLease<TextureAsset>* sprite_mip,
+                               const MeshDraw::Motion* motion, bool indirect, bool reflection,
+                               bool normal, std::span<const MeshDraw::Decal> decals) {
     const bool area_lights = std::any_of(lights.begin(), lights.end(), [](const auto& light) {
         return light.kind >= unsigned(LightKind::Rectangle);
     });
@@ -292,6 +305,6 @@ void MeshDrawBundle::draw_part(
     selected->draw(context, pose ? pose->world : world, camera, lights, environment, legacy_tint,
                    shadows, shadow_slots, transmission,
                    pose ? std::span<const float>(pose->morph_weights) : std::span<const float>{},
-                   skin, instances, parameters, slot(lod, part), sprite, fog, motion);
+                   skin, instances, parameters, slot(lod, part), sprite, fog, motion, decals);
 }
 } // namespace forge

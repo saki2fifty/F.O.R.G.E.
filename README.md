@@ -47,6 +47,17 @@ Real Windows editor captures using small validation scenes. Click an image to op
 
 [Capture sources](docs/images/readme/README.md) · [Implementation and delivery status](docs/status.md)
 
+## Projected material color
+
+[Decal Projectors](manual/editor/decals.md) paint material color onto lit Mesh
+surfaces with editable boxes, opacity, angular fade, layers and stable priority.
+Gallery113 supplies mirrored and tinted badge images and overlapping floor paint.
+
+[![Two lit cubes with badge projections and a floor with blue paint and an overlapping badge](manual/images/decal-gallery.png)](manual/editor/decals.md)
+
+Shared Game renderer capture on software Vulkan. The guide explains source materials,
+live Inspector controls, saving/export and the bounded color profile.
+
 ## Tile Maps
 
 [Tile Set and Tile Map tools](manual/editor/tile-maps.md) provide palette selection,
@@ -151,7 +162,7 @@ Advanced authoring systems and a broad public plugin SDK remain planned. See [im
 
 ## Explore features
 
-The [Feature Gallery](manual/getting-started/feature-gallery.md) is an editable sample project with focused scenes for transforms, lighting, physics, cameras, animation and world sprites. Open a scene in the editor, change its authored components, then select it as the startup scene and export a standalone game. The [reference game](manual/reference-game.md) remains the combined gameplay example.
+The [Feature Gallery](manual/getting-started/feature-gallery.md) is an editable sample project with focused scenes for transforms, lighting, projected material color, physics, cameras, animation and world sprites. Open a scene in the editor, change its authored components, then select it as the startup scene and export a standalone game. The [reference game](manual/reference-game.md) remains the combined gameplay example.
 
 ## Build and test
 Requires Git, CMake 3.30+, Ninja, Python 3.10+, and a C++20-capable toolchain. Windows requires an MSVC developer shell and Windows SDK.

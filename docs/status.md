@@ -5,6 +5,17 @@ The accepted local Windows package is **261024-000213**, source
 in the [README](../README.md#current-implementation). No new numbered Windows
 package accompanies the local source changes described here.
 
+Local source adds projected material color: an authored Decal Projector, volume
+guides, Inspector/live controls, shared automation/MCP/SDK access and Gallery113.
+Physical Mesh receivers use source color, alpha, UVs and sampler intent before
+lighting. The profile admits eight active projectors per scene; individual Mesh
+parts can have fewer slots depending on material sampler use. Shader wrapper8
+retains the seventeen existing output roles and readable1–7 archives. Older
+physical graph receivers need a current cook. See the
+[projection contract](rendering-foundation.md#projected-material-color) and
+[manual](../manual/editor/decals.md). Windows/full-editor/MSVC/FXC/cooked D3D12
+and physical GPU acceptance remain queued.
+
 Local source includes Rectangle/Sphere direct lights: world-space emitter sizes,
 shape guides, Inspector/live tuning, shared authoring/MCP/SDK ownership and editable
 Gallery112. Area shadows remain unsupported. Current capability7 surfaces add
