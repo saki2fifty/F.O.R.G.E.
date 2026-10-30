@@ -49,11 +49,11 @@ Real Windows editor captures using small validation scenes. Click an image to op
 
 ## Projected material color
 
-[Decal Projectors](manual/editor/decals.md) paint material color onto lit Mesh
+[Decal Projectors](manual/editor/decals.md) project color, normal detail and roughness onto lit Mesh
 surfaces with editable boxes, opacity, angular fade, layers and stable priority.
-Gallery113 supplies mirrored and tinted badge images and overlapping floor paint.
+Gallery115 compares normal-only, roughness-only and combined projections; Gallery113 supplies mirrored/tinted badges and overlapping floor paint.
 
-[![Two lit cubes with badge projections and a floor with blue paint and an overlapping badge](manual/images/decal-gallery.png)](manual/editor/decals.md)
+[![Normal detail on the left cube, a roughness patch on the right and both channels on the floor](manual/images/decal-surface-gallery.png)](manual/editor/decals.md)
 
 Shared Game renderer capture on software Vulkan. The guide explains source materials,
 live Inspector controls, saving/export and the bounded color profile.

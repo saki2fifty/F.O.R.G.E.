@@ -1003,7 +1003,9 @@ bool MeshSceneRenderer::pending() const {
                     [](const auto& row) { return row.second.environment.candidate.has_value(); });
     const bool decals =
         std::any_of(decal_entries_.begin(), decal_entries_.end(), [](const auto& row) {
-            return row.second.material_ticket || row.second.texture_ticket;
+            return row.second.material_ticket ||
+                   std::any_of(row.second.texture_tickets.begin(), row.second.texture_tickets.end(),
+                               [](const auto& ticket) { return ticket.has_value(); });
         });
     return particles || tiles || probes || decals || environment_.candidate.has_value() ||
            std::any_of(entries_.begin(), entries_.end(), [](const auto& pair) {
@@ -1534,36 +1536,40 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
     if (!needs_background)
         transmission_->clear();
     draw_stats_ = {};
-    const auto projected_color = [&](const Object& object, unsigned part) {
+    const auto projected_surface = [&](const Object& object, unsigned part) {
         std::vector<MeshDraw::Decal> result;
-        const auto capacity = object.bundle->decal_capacity(object.lod, part);
-        if (object.decals.size() > capacity) {
+        result.reserve(object.decals.size());
+        for (const auto& id : object.decals) {
+            const auto& entry = decal_entries_.at(id);
+            const auto& resources = *entry.ready;
+            (void)resources.material.get();
+            MeshDraw::Decal selected{&entry.projector, &resources.values};
+            selected.channels = resources.channels;
+            for (unsigned c = 0; c < decal_channel_count; ++c) {
+                const auto& texture = resources.textures[c];
+                selected.textures[c] = {texture.gpu ? texture.gpu.get()->GetDefaultView(
+                                                          Diligent::TEXTURE_VIEW_SHADER_RESOURCE)
+                                                    : nullptr,
+                                        texture.sampler};
+            }
+            result.push_back(selected);
+        }
+        if (!object.bundle->accepts_decals(object.lod, part, result)) {
             Diagnostic value{
                 Severity::Warning,
                 "render.decal.capacity",
-                "Mesh part has " + std::to_string(capacity) + " projected color slots for " +
-                    std::to_string(object.decals.size()) +
-                    " overlapping projectors; ordinary material retained. Reduce overlapping "
-                    "projectors or receiver samplers. Old physical Surface Shaders require "
-                    "rebuilding.",
+                "Mesh part cannot admit the complete projected channel set within its " +
+                    std::to_string(object.bundle->decal_capacity(object.lod, part)) +
+                    " projector/map slots; ordinary material retained. Reduce overlapping "
+                    "projectors or unique maps/samplers. Normal and roughness projection "
+                    "require a current receiver Surface Shader cook.",
                 {}};
             value.context.asset = scene.scene;
             value.context.entity = object.mesh->entity;
             value.context.property = "forge.decal";
             value.context.source = "presentation";
             report(std::move(value));
-            return result;
-        }
-        result.reserve(object.decals.size());
-        for (const auto& id : object.decals) {
-            const auto& entry = decal_entries_.at(id);
-            const auto& resources = *entry.ready;
-            (void)resources.material.get();
-            auto* texture =
-                resources.gpu
-                    ? resources.gpu.get()->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE)
-                    : nullptr;
-            result.push_back({&entry.projector, &resources.values, texture, resources.sampler});
+            result.clear();
         }
         return result;
     };
@@ -1634,7 +1640,7 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                 ++cursor;
             }
             const auto motion = motion_for(object, item.key.part);
-            const auto decals = projected_color(object, item.key.part);
+            const auto decals = projected_surface(object, item.key.part);
             object.bundle->draw_part(
                 host_->context_, *object.world, draw_view, object.lights, object.lod, item.key.part,
                 environment_.ready ? &lighting : nullptr,
@@ -1665,7 +1671,7 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                 const auto& single = objects[failed_item.object];
                 try {
                     const auto motion = motion_for(single, failed_item.key.part);
-                    const auto decals = projected_color(single, failed_item.key.part);
+                    const auto decals = projected_surface(single, failed_item.key.part);
                     single.bundle->draw_part(
                         host_->context_, *single.world, draw_view, single.lights, single.lod,
                         failed_item.key.part, environment_.ready ? &lighting : nullptr,

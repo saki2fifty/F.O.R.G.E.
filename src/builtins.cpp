@@ -734,7 +734,10 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<float>("angle_fade_start")
             .template member<float>("angle_fade_end")
             .template member<std::uint32_t>("layers")
-            .template member<std::int32_t>("priority");
+            .template member<std::int32_t>("priority")
+            .template member<float>("color_influence")
+            .template member<float>("normal_influence")
+            .template member<float>("roughness_influence");
         for (const auto& [field, offset] :
              {std::pair{"material", offsetof(DecalProjector, material)},
               std::pair{"enabled", offsetof(DecalProjector, enabled)},
@@ -748,7 +751,10 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
               std::pair{"angle_fade_start", offsetof(DecalProjector, angle_fade_start)},
               std::pair{"angle_fade_end", offsetof(DecalProjector, angle_fade_end)},
               std::pair{"layers", offsetof(DecalProjector, layers)},
-              std::pair{"priority", offsetof(DecalProjector, priority)}}) {
+              std::pair{"priority", offsetof(DecalProjector, priority)},
+              std::pair{"color_influence", offsetof(DecalProjector, color_influence)},
+              std::pair{"normal_influence", offsetof(DecalProjector, normal_influence)},
+              std::pair{"roughness_influence", offsetof(DecalProjector, roughness_influence)}}) {
             const auto* member = ecs_struct_get_member(w.c_ptr(), c.id(), field);
             if (!member || std::size_t(member->offset) != offset)
                 throw std::runtime_error("Decal native Meta disagrees with typed layout");
@@ -1632,8 +1638,8 @@ const std::array<Builtin, builtin_count>& builtins() {
             [](flecs::world&
                    w) { return register_type<ReflectionProbe>(w, "forge.reflection_probe"); }),
         descriptor<DecalProjector>(
-            "forge.decal", "Projected material color inside a transformed box", "unitless", {}, {},
-            [](flecs::world& w) { return register_type<DecalProjector>(w, "forge.decal"); })};
+            "forge.decal", "Projected material channels inside a transformed box", "unitless", {},
+            {}, [](flecs::world& w) { return register_type<DecalProjector>(w, "forge.decal"); })};
     return types;
 }
 Json registration_options(const Builtin& type, const std::string& field) {
@@ -1659,7 +1665,7 @@ Json registration_options(const Builtin& type, const std::string& field) {
     }
     if (name == "forge.decal") {
         static const std::map<std::string, const char*> labels = {
-            {"material", "Color Material"},
+            {"material", "Source Material"},
             {"enabled", "Enabled"},
             {"width", "Width"},
             {"height", "Height"},
@@ -1671,13 +1677,17 @@ Json registration_options(const Builtin& type, const std::string& field) {
             {"angle_fade_start", "Fade start angle"},
             {"angle_fade_end", "Fade end angle"},
             {"layers", "Layers"},
-            {"priority", "Priority"}};
+            {"priority", "Priority"},
+            {"color_influence", "Color influence"},
+            {"normal_influence", "Normal influence"},
+            {"roughness_influence", "Roughness influence"}};
         value["display_name"] = labels.at(field);
         if (field == "material") {
             value["nullable"] = true;
             value["description"] =
-                "Ordinary PBR/unlit base-color Material. None disables projection. "
-                "Projected color keeps the receiver's lighting and surface properties.";
+                "Ordinary PBR/unlit source Material. None disables projection. "
+                "Selected channels affect the receiving base surface; its optics and "
+                "independent clearcoat remain authored by the receiver.";
         } else if (field == "width" || field == "height" || field == "depth") {
             value["unit"] = "meters";
             value["minimum"] = decal_min_dimension;
@@ -1689,6 +1699,12 @@ Json registration_options(const Builtin& type, const std::string& field) {
             value["maximum"] = 1;
             value["description"] =
                 "Instance color multiplier or projection opacity from zero to one.";
+        } else if (field.ends_with("_influence")) {
+            value["minimum"] = 0;
+            value["maximum"] = 1;
+            value["description"] =
+                "Base-surface channel strength multiplied by projection coverage. "
+                "Zero preserves the receiver. Normal and roughness need a current receiver Shader.";
         } else if (field.starts_with("angle_fade_")) {
             value["unit"] = "radians";
             value["minimum"] = 0;
@@ -1701,7 +1717,8 @@ Json registration_options(const Builtin& type, const std::string& field) {
             value["description"] =
                 "Higher priority paints later; equal priorities use stable entity IDs.";
         } else if (field == "layers")
-            value["description"] = "Only intersecting receiver mesh layers accept projected color.";
+            value["description"] =
+                "Only intersecting receiver mesh layers accept projected material channels.";
     }
     if (name == "forge.reflection_probe") {
         static const std::map<std::string, const char*> labels = {
@@ -3174,6 +3191,10 @@ Json admitted_builtin_source(const Builtin& type, const Json& source) {
     if (std::string_view(type.name) == "forge.light")
         for (const auto* field : {"shadow_source_radius", "shadow_angular_radius", "emitter_radius",
                                   "emitter_width", "emitter_height"})
+            if (!current.contains(field))
+                current[field] = type.defaults.at(field);
+    if (std::string_view(type.name) == "forge.decal")
+        for (const auto* field : {"color_influence", "normal_influence", "roughness_influence"})
             if (!current.contains(field))
                 current[field] = type.defaults.at(field);
     if (std::string_view(type.name) == "forge.transform_animator")

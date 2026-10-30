@@ -268,23 +268,28 @@ void exercise(const std::filesystem::path& root, float scale, ImVec2 display) {
     check(scene.undo() && scene.document() == before_decal && scene.redo() &&
               scene.document() == created_decal,
           "Decal creation was not one atomic history step");
-    click("asset-picker:material:##Color Material");
-    type("asset-search:material:##Color Material", "Default surface");
+    click("asset-picker:material:##Source Material");
+    type("asset-search:material:##Source Material", "Default surface");
     click("picker-option:" + engine_material().id.str());
     check(scene.entity(selected).get<DecalProjector>().material == engine_material(),
-          "Decal Color Material picker bypassed typed asset ownership");
+          "Decal Source Material picker bypassed typed asset ownership");
     for (const auto& [field, value] : {std::pair{"width", "2"},
                                        {"height", "3"},
                                        {"depth", "4"},
                                        {"opacity", "0.25"},
                                        {"angle_fade_start", "0.5"},
                                        {"angle_fade_end", "1"},
-                                       {"priority", "-7"}})
+                                       {"priority", "-7"},
+                                       {"color_influence", "0.25"},
+                                       {"normal_influence", "0.5"},
+                                       {"roughness_influence", "0.75"}})
         type(std::string("component-field:forge.decal:") + field, value);
     const auto decal_values = scene.entity(selected).get<DecalProjector>();
     check(decal_values.width == 2 && decal_values.height == 3 && decal_values.depth == 4 &&
               decal_values.opacity == .25f && decal_values.angle_fade_start == .5f &&
-              decal_values.angle_fade_end == 1 && decal_values.priority == -7,
+              decal_values.angle_fade_end == 1 && decal_values.priority == -7 &&
+              decal_values.color_influence == .25f && decal_values.normal_influence == .5f &&
+              decal_values.roughness_influence == .75f,
           "Decal Inspector lost typed scalar or cross-field values");
     const auto valid_decal = scene.document();
     const auto valid_decal_revision = scene.revision();
@@ -296,6 +301,10 @@ void exercise(const std::filesystem::path& root, float scale, ImVec2 display) {
     check(scene.document() == valid_decal && scene.revision() == valid_decal_revision,
           "Invalid fade interval bypassed shared native admission");
     type("component-field:forge.decal:angle_fade_end", "1");
+    type("component-field:forge.decal:normal_influence", "1.01");
+    check(scene.document() == valid_decal && scene.revision() == valid_decal_revision,
+          "Invalid decal influence changed authored data or history");
+    type("component-field:forge.decal:normal_influence", "0.5");
     click("component-field:forge.decal:enabled");
     check(!scene.entity(selected).get<DecalProjector>().enabled && scene.undo() &&
               scene.document() == valid_decal,
@@ -332,7 +341,7 @@ void capture(const std::filesystem::path& root, bool light = false,
     std::filesystem::create_directories(root / "project");
     test::ImGuiSoftwareCapture capture(
         light || decal ? 1080 : 760,
-        decal ? 720
+        decal ? 900
         : light
             ? (light_kind == LightKind::Rectangle || light_kind == LightKind::Sphere ? 560 : 900)
             : 520);
@@ -348,7 +357,7 @@ void capture(const std::filesystem::path& root, bool light = false,
                           {{"recipe", decal   ? "render.decal"
                                       : light ? "render.light"
                                               : "render.reflection_probe"},
-                           {"name", decal                                ? "Wall color projector"
+                           {"name", decal                                ? "Wall material projector"
                                     : !light                             ? "Room reflections"
                                     : light_kind == LightKind::Rectangle ? "Rectangular area light"
                                     : light_kind == LightKind::Sphere ? "Spherical area light"
@@ -367,6 +376,9 @@ void capture(const std::filesystem::path& root, bool light = false,
                              {"tint_g", .8},
                              {"tint_b", 1},
                              {"opacity", .75},
+                             {"color_influence", .8},
+                             {"normal_influence", .65},
+                             {"roughness_influence", .6},
                              {"priority", 2}}}});
     } else if (light) {
         authoring_command(
@@ -395,7 +407,7 @@ void capture(const std::filesystem::path& root, bool light = false,
     for (unsigned frame = 0; frame < 3; ++frame) {
         capture.new_frame();
         ImGui::SetNextWindowPos({10, 10});
-        ImGui::SetNextWindowSize(decal   ? ImVec2{1060, 700}
+        ImGui::SetNextWindowSize(decal   ? ImVec2{1060, 880}
                                  : light ? ImVec2{1060, 880}
                                          : ImVec2{740, 500});
         ImGui::Begin("Inspector", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);

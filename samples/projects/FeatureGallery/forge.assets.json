@@ -3130,6 +3130,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "374c17f6-609a-40ad-8095-f746d16aeea8",
+      "metadata": {},
+      "schema_version": 5,
+      "source": "Scenes/115-projected-surface-channels.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "38a4d328-ee99-4b5e-88b0-907902377829",
       "metadata": {},
       "schema_version": 3,

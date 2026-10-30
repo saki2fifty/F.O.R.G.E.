@@ -533,10 +533,13 @@ class ComponentInspector {
                              "Area-light shadows are unavailable.");
             }
             if (RuntimePropertyTune::decal_type(key))
-                ui::help("Assign a built-in PBR or unlit Color Material. The +Z arrow projects its "
-                         "color inside the box onto physical Mesh surfaces. Width, height and "
-                         "depth follow node scale. Higher priority paints last. Normal and "
-                         "roughness projection are unavailable.");
+                ui::help(
+                    "Assign a built-in PBR or unlit Source Material. The +Z arrow projects "
+                    "inside the box onto physical Mesh surfaces. Color, normal and roughness "
+                    "influences select the base-surface channels; zero preserves that channel. "
+                    "Normal maps use the source normal scale. Width, height and depth follow "
+                    "node scale. Higher priority applies last. Receiver clearcoat and optics "
+                    "remain independent. Normal and roughness need a current receiver Shader.");
             std::string_view group;
             for (const auto& field : *fields) {
                 const std::string name = field.at("id");

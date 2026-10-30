@@ -1,15 +1,29 @@
 # README screenshots
 
-## Projected material color
+## Projected material channels
 
 [Decal controls](../../../manual/images/decal-projector-controls.png) is the complete
-1080×720 production ComponentInspector capture from
+1080×900 production ComponentInspector capture from
 `forge_reflection_probe_editor_tests <scratch> --capture-decal`, using pinned
 ImGui/SDL software rendering and the dummy video driver. The same fixture checks
 actual creation, Material picking, numeric/toggle input, invalid-value rejection,
 Undo/Redo, live-field availability, guides/framing and save/reopen at100/150/200
 percent in two window sizes. The canonical PNG is copied unchanged; SHA256 is
-`1cde307ac204017afc57075529d192b98762674f5d803438323c490a6ceb71ca`.
+`a285ff3a8a75f9944d8eb98780278e3f4a101fe7c8bc4003998029a326ecc912`.
+
+[Surface-channel Gallery](../../../manual/images/decal-surface-gallery.png) is the
+complete640×360 FrameRenderer display capture for Gallery115,
+Scene `374c17f6-609a-40ad-8095-f746d16aeea8`. The left projector affects normals,
+the right roughness, and the floor both, with color influence0. It comes from
+`forge_decal_gallery_tests --surface-channels` on software Vulkan/lavapipe. Its
+four authored/source-free relocated displays match exactly; every projector has
+a separately measured visible effect. Lossless PPM-to-PNG conversion preserves
+all RGB bytes; SHA256 is
+`13f41a29e8104baa910d50251d989c20c40aa747e58add8603aac17b6c7d46f1`.
+The current controls and Gallery115 capture receipts are in the local
+`AgentFiles/build/phase194-projector-surface-channels` evidence directory, based
+on7cc06f0 plus the current projected-channel batch. They are authentic production
+controls/rendering, not Windows/full-editor/physical GPU acceptance.
 
 [Gallery image](../../../manual/images/decal-gallery.png) is the complete640×360
 FrameRenderer display output for Gallery113,
@@ -21,8 +35,8 @@ stack. Lossless PPM-to-PNG conversion preserves every RGB byte; SHA256 is
 Each projector has a separately checked visible effect. Four authored/relocated
 readback pairs match after the source project is unavailable.
 
-Inputs are local unassigned decal work based on1749efc; the associated source
-commit contains the fixture and renderer inputs. Private evidence resides in
+The unchanged Gallery113 image uses local decal work based on1749efc; its source
+commit contains the corresponding fixture and renderer inputs. Its private evidence resides in
 AgentFiles/build/phase192-authored-decals, with the gallery capture under
 decal-gallery/856e6da8-517f-4fe7-b4e2-582fefc157e6 in the native cache. The
 captures contain no fabricated, repainted or retouched controls. They demonstrate

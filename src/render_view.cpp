@@ -96,6 +96,10 @@ void validate_decal(const DecalProjector& value) {
     for (float channel : {value.tint_r, value.tint_g, value.tint_b, value.opacity})
         require(finite(channel) && channel >= 0 && channel <= 1,
                 "Decal tint and opacity must be finite from zero to one");
+    for (float influence :
+         {value.color_influence, value.normal_influence, value.roughness_influence})
+        require(finite(influence) && influence >= 0 && influence <= 1,
+                "Decal channel influences must be finite from zero to one");
     require(finite(value.angle_fade_start) && finite(value.angle_fade_end) &&
                 value.angle_fade_start >= 0 && value.angle_fade_start < value.angle_fade_end &&
                 value.angle_fade_end <= decal_max_angle,

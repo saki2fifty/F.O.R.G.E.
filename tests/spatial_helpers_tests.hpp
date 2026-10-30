@@ -201,7 +201,7 @@ inline void test_spatial_helpers() {
         std::find_if(decal_markers.begin(), decal_markers.end(),
                      [&](const auto& marker) { return marker.entity == decal_id && marker.decal; });
     require(guide != decal_markers.end() && !guide->enabled && guide->lines.size() == 15 &&
-                guide->note.find("Color Material") != std::string::npos,
+                guide->note.find("Source Material") != std::string::npos,
             "Unassigned decal lost its inactive box/arrow or material guidance");
     Double3 minimum = guide->position, maximum = minimum;
     for (const auto& [a, b] : guide->lines)

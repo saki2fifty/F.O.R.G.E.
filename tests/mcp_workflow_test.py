@@ -607,14 +607,16 @@ for legacy in (False, True):
             for field, value in [('enabled', False), ('width', 2.), ('height', 3.), ('depth', 4.),
                                  ('tint_r', .25), ('tint_g', .5), ('tint_b', .75), ('opacity', .25),
                                  ('angle_fade_start', .5), ('angle_fade_end', 1.), ('layers', 3),
-                                 ('priority', -2147483648)]:
+                                 ('priority', -2147483648), ('color_influence', .25),
+                                 ('normal_influence', .5), ('roughness_influence', .75)]:
                 control('forge_play_tune', entity=actor, component='forge.decal', property=field, value=value)
                 ack = until(lambda: read('forge_play_status'), lambda row: not row['tune_pending'] and row['tune_ack'] is not None)
                 assert 'error' not in ack['tune_ack'] and runtime_decal()[field] == value, ack
                 assert ack['timing']['tick'] == paused['timing']['tick']
             tuned = runtime_decal()
             for field, value in [('width', 0), ('opacity', 1.01), ('enabled', 1),
-                                 ('priority', 2147483648), ('angle_fade_end', .4)]:
+                                 ('priority', 2147483648), ('angle_fade_end', .4), ('color_influence', -.01),
+                                 ('normal_influence', 1.01), ('roughness_influence', True)]:
                 control('forge_play_tune', entity=actor, component='forge.decal', property=field, value=value)
                 ack = until(lambda: read('forge_play_status'), lambda row: not row['tune_pending'] and row['tune_ack'] is not None)
                 assert 'error' in ack['tune_ack'] and runtime_decal() == tuned, ack
@@ -629,7 +631,7 @@ for legacy in (False, True):
                           property='opacity', value=1), 'stale_play')
             control('forge_play_stop')
             assert read('forge_scene_read') == authored
-            print(('legacy' if legacy else 'current') + ': decal creation/Save, twelve live controls, '
+            print(('legacy' if legacy else 'current') + ': decal creation/Save, fifteen live controls, '
                   'validation, scope, paused clock and authored isolation passed')
             continue
         if PROBES_ONLY:

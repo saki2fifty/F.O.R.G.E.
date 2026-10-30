@@ -6,6 +6,8 @@
 #include "mesh_draw_shader.hpp"
 #include "mesh_vertex_fetch.hpp"
 #include "render_backend.hpp"
+#include "texture_gpu.hpp"
+#include "weighted_transparency_shader.hpp"
 #include <algorithm>
 #include <chrono>
 #include <forge/engine_assets.hpp>
@@ -24,7 +26,7 @@ void equal_pixels(const Pixels& actual, const Pixels& expected, const char* why)
             check(std::isfinite(actual[i][c]) && std::abs(actual[i][c] - expected[i][c]) <= 2e-5f,
                   why);
 }
-void execute(const std::filesystem::path& root, bool scene_only) {
+void execute(const std::filesystem::path& root, bool scene_only, bool channels_only) {
     RefCntAutoPtr<IRenderDevice> device;
     RefCntAutoPtr<IDeviceContext> context;
     EngineVkCreateInfo create;
@@ -61,9 +63,10 @@ void execute(const std::filesystem::path& root, bool scene_only) {
                                               {.2f, .4f, .6f, 1}};
     receiver.parameters["metallicFactor"] = {MaterialParameterType::Scalar, {0}};
     receiver.parameters["roughnessFactor"] = {MaterialParameterType::Scalar, {.7f}};
-    auto prepare = [&](const MaterialData& material) {
+    auto prepare = [&](const MaterialData& material,
+                       const MeshDraw::Textures& textures = MeshDraw::Textures{}) {
         return std::make_unique<MeshDraw>(presentation, context, gpu_mesh.lods[0].parts[0],
-                                          material, MeshDraw::Textures{}, TEX_FORMAT_RGBA32_FLOAT,
+                                          material, textures, TEX_FORMAT_RGBA32_FLOAT,
                                           TEX_FORMAT_D32_FLOAT);
     };
     auto draw = prepare(receiver);
@@ -82,6 +85,12 @@ void execute(const std::filesystem::path& root, bool scene_only) {
     check(color && depth, "Decal receiver targets unavailable");
     auto* rtv = color->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET);
     auto* dsv = depth->GetDefaultView(TEXTURE_VIEW_DEPTH_STENCIL);
+    RefCntAutoPtr<ITexture> weights;
+    target.Format = TEX_FORMAT_RG32_FLOAT;
+    target.BindFlags = BIND_RENDER_TARGET;
+    device->CreateTexture(target, nullptr, &weights);
+    check(bool(weights), "Projected weighted target unavailable");
+    auto* weights_rtv = weights->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET);
     AffineTransform camera_world, world;
     camera_world.m[3] = world.m[3] = std::ldexp(1., 40);
     camera_world.m[7] = world.m[7] = -std::ldexp(1., 40);
@@ -94,10 +103,15 @@ void execute(const std::filesystem::path& root, bool scene_only) {
     light.intensity = 1;
     auto illumination = light_view(light, {});
     auto render = [&](MeshDraw& prepared, std::span<const MeshDraw::Decal> decals = {},
-                      const TransmissionLighting* background = nullptr) {
-        context->SetRenderTargets(1, &rtv, dsv, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+                      const TransmissionLighting* background = nullptr, bool weighted = false) {
+        ITextureView* targets[]{rtv, weights_rtv};
+        context->SetRenderTargets(weighted ? 2 : 1, targets, dsv,
+                                  RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         const float clear[]{0, 0, 0, 0};
         context->ClearRenderTarget(rtv, clear, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        if (weighted)
+            context->ClearRenderTarget(weights_rtv, clear,
+                                       RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         context->ClearDepthStencil(dsv, CLEAR_DEPTH_FLAG, 1, 0,
                                    RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         const Viewport viewport{0, 0, 32, 32, 0, 1};
@@ -200,6 +214,171 @@ void execute(const std::filesystem::path& root, bool scene_only) {
                          render(*expected, {}, &background),
                          "Projected color differs from the same transmissive material albedo");
         }
+        {
+            // Compare projected channels to the existing ordinary material owner,
+            // not to a second rendering implementation of the projection equation.
+            auto projection = decal_view(projector, world);
+            projection.values.color_influence = 0;
+            projection.values.normal_influence = 1;
+            projection.values.roughness_influence = 1;
+            auto source = receiver;
+            source.parameters["roughnessFactor"].value[0] = .5f;
+            source.parameters["normalScale"] = {MaterialParameterType::Scalar, {.75f}};
+            MaterialTextureSlot normal_slot, rough_slot;
+            normal_slot.semantic = TextureSemantic::Normal;
+            rough_slot.semantic = TextureSemantic::Data;
+            source.textures = {{"normalTexture", normal_slot},
+                               {"metallicRoughnessTexture", rough_slot}};
+            MaterialTextureBindings bindings{{"normalTexture", {AssetId::generate()}},
+                                             {"metallicRoughnessTexture", {AssetId::generate()}}};
+            auto channels = prepare_decal_material(source, bindings);
+            const auto normal_map = test_bloom::texture(device, 1, 1, {{.75f, .625f, .875f, 1}});
+            const auto flat_map = test_bloom::texture(device, 1, 1, {{.5f, .5f, 1, 1}});
+            const auto rough_map = test_bloom::texture(device, 1, 1, {{.1f, .25f, .8f, .5f}});
+            auto sampler = upload_sampler(device, SamplerState{});
+            MeshDraw::Decal selected{&projection, &channels};
+            selected.textures[decal_normal_channel] = {
+                normal_map->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE), sampler};
+            selected.textures[decal_roughness_channel] = {
+                rough_map->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE), sampler};
+            const auto selected_span = std::span(&selected, 1);
+            auto expected_values = receiver;
+            expected_values.parameters["roughnessFactor"].value[0] = .125f;
+            expected_values.parameters["normalScale"] = source.parameters.at("normalScale");
+            expected_values.textures["normalTexture"] = normal_slot;
+            MeshDraw::Textures normal_views;
+            normal_views["normalTexture"] = selected.textures[decal_normal_channel].view;
+            auto expected = prepare(expected_values, normal_views);
+            const auto full = render(*draw, selected_span);
+            equal_pixels(full, render(*expected),
+                         "Projected normal/roughness differs from ordinary MR material shading");
+            for (bool area : {false, true}) {
+                auto blend = receiver, expected_blend = expected_values;
+                for (auto* values : {&blend, &expected_blend}) {
+                    values->alpha = MaterialAlpha::Blend;
+                    values->depth_write = false;
+                    values->parameters["baseColorFactor"].value[3] = .4f;
+                }
+                MeshDraw actual(presentation, context, gpu_mesh.lods[0].parts[0], blend, {},
+                                TEX_FORMAT_RGBA32_FLOAT, TEX_FORMAT_D32_FLOAT, true,
+                                SHADER_COMPILER_DEFAULT, SHADER_OPTIMIZATION_LEVEL_DEFAULT, nullptr,
+                                MeshDrawProfile::MeshWeighted, area);
+                MeshDraw wanted(presentation, context, gpu_mesh.lods[0].parts[0], expected_blend,
+                                normal_views, TEX_FORMAT_RGBA32_FLOAT, TEX_FORMAT_D32_FLOAT, true,
+                                SHADER_COMPILER_DEFAULT, SHADER_OPTIMIZATION_LEVEL_DEFAULT, nullptr,
+                                MeshDrawProfile::MeshWeighted, area);
+                equal_pixels(render(actual, selected_span, nullptr, true),
+                             render(wanted, {}, nullptr, true),
+                             "Projected normal/roughness bypassed the weighted lighting helper");
+            }
+            check(full[16 * 32 + 16] != baseline[16 * 32 + 16],
+                  "Surface channel oracle is insensitive to normal/roughness");
+            projection.values.roughness_influence = 0;
+            for (unsigned axis = 0; axis < 2; ++axis) {
+                auto& uv = channels.textures[decal_normal_channel].uv;
+                uv[axis][axis] = -1;
+                const auto mirrored_map = test_bloom::texture(
+                    device, 1, 1, {{axis == 0 ? .25f : .75f, axis == 1 ? .375f : .625f, .875f, 1}});
+                auto mirrored_values = expected_values;
+                mirrored_values.parameters["roughnessFactor"] =
+                    receiver.parameters.at("roughnessFactor");
+                MeshDraw::Textures mirrored_views;
+                mirrored_views["normalTexture"] =
+                    mirrored_map->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+                auto mirrored = prepare(mirrored_values, mirrored_views);
+                equal_pixels(render(*draw, selected_span), render(*mirrored),
+                             "Projected normal lost signed UV orientation");
+                uv[axis][axis] = 1;
+            }
+            auto sloped_values = expected_values;
+            sloped_values.parameters["roughnessFactor"] = receiver.parameters.at("roughnessFactor");
+            auto sloped = prepare(sloped_values, normal_views);
+            selected.textures[decal_normal_channel].view =
+                flat_map->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+            equal_pixels(render(*sloped, selected_span), render(*sloped),
+                         "Flat projection flattened the receiver's existing mapped normal");
+            selected.textures[decal_normal_channel].view = normal_views.at("normalTexture");
+            const auto normal_uv = channels.textures[decal_normal_channel].uv;
+            channels.textures[decal_normal_channel].uv = {};
+            equal_pixels(render(*draw, selected_span), baseline,
+                         "Degenerate projected UV gradients changed the receiver normal");
+            channels.textures[decal_normal_channel].uv = normal_uv;
+            projection.values.normal_influence = projection.values.roughness_influence = 0;
+            equal_pixels(render(*draw, selected_span), baseline,
+                         "Zero channel influence changed the ordinary receiver");
+            projection.values.normal_influence = 1;
+            selected.textures[decal_normal_channel].view =
+                flat_map->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+            equal_pixels(render(*draw, selected_span), baseline,
+                         "Flat projected normal changed the receiver normal");
+            selected.textures[decal_normal_channel].view = normal_views.at("normalTexture");
+            channels.normal_scale = 0;
+            equal_pixels(render(*draw, selected_span), baseline,
+                         "Zero projected normal scale changed the receiver normal");
+            channels.normal_scale = .75f;
+            selected.channels = 1u << decal_color_channel;
+            equal_pixels(render(*draw, selected_span), baseline,
+                         "Unadmitted channel leaked into the last-good selection");
+            selected.channels = decal_all_channels;
+            projection.values.opacity = 0;
+            equal_pixels(render(*draw, selected_span), baseline,
+                         "Zero coverage changed projected surface channels");
+            projection.values.opacity = 1;
+            projection.values.normal_influence = 0;
+            projection.values.roughness_influence = .5f;
+            expected_values = receiver;
+            expected_values.parameters["roughnessFactor"].value[0] = (.7f + .125f) / 2;
+            expected = prepare(expected_values);
+            equal_pixels(render(*draw, selected_span), render(*expected),
+                         "Partial projected roughness bypassed the native perceptual input");
+            // SG source alpha stores glossiness; its inverse becomes roughness.
+            channels.roughness_component = 3;
+            channels.roughness_scale = -.5f;
+            channels.roughness_bias = 1;
+            projection.values.roughness_influence = 1;
+            expected_values.parameters["roughnessFactor"].value[0] = .75f;
+            expected = prepare(expected_values);
+            equal_pixels(render(*draw, selected_span), render(*expected),
+                         "Projected SG glossiness was not converted to roughness");
+            auto sg = receiver;
+            sg.model = "forge.gltf.specular-glossiness.v1";
+            sg.parameters.clear();
+            sg.parameters["baseColorFactor"] = receiver.parameters.at("baseColorFactor");
+            sg.parameters["glossinessFactor"] = {MaterialParameterType::Scalar, {.3f}};
+            auto sg_draw = prepare(sg);
+            sg.parameters["glossinessFactor"].value[0] = .25f;
+            auto sg_expected = prepare(sg);
+            equal_pixels(render(*sg_draw, selected_span), render(*sg_expected),
+                         "Projected roughness did not reach the SG receiver BRDF");
+            projection.values.normal_influence = projection.values.roughness_influence = 0;
+            sg.parameters["glossinessFactor"].value[0] = .1f;
+            auto sg_unchanged = prepare(sg);
+            equal_pixels(render(*sg_unchanged, selected_span), render(*sg_unchanged),
+                         "Zero channel influence changed the SG receiver");
+            projection.values.roughness_influence = 1;
+            std::array<MeshDraw::Decal, 8> repeated;
+            repeated.fill(selected);
+            check(draw->accepts_decals(repeated),
+                  "Shared channel maps reduced the eight-projector capacity");
+            std::array<DecalMaterial, 8> distinct;
+            for (unsigned i = 0; i < repeated.size(); ++i) {
+                distinct[i] = channels;
+                distinct[i].textures[decal_roughness_channel].slot.sampler.lod_bias = float(i);
+                repeated[i].material = &distinct[i];
+            }
+            check(draw->accepts_decals(repeated), "Eight distinct map/sampler slots were rejected");
+            projection.values.normal_influence = 1;
+            check(!draw->accepts_decals(repeated),
+                  "Nine unique channel slots silently truncated their complete set");
+            equal_pixels(render(*draw), baseline,
+                         "Channel admission checks changed retained ordinary bindings");
+            std::cout << "Projected normal/roughness native MR/SG/defaults/coverage/last-good "
+                         "mask/shared slots passed\n";
+        }
+        if (channels_only) {
+            context->WaitForIdle();
+            return;
+        }
         for (const auto kind : {LightKind::Rectangle, LightKind::Sphere}) {
             Light emitter;
             emitter.kind = unsigned(kind);
@@ -297,7 +476,7 @@ void execute(const std::filesystem::path& root, bool scene_only) {
             }
         const auto graph = compile_material_graph(create_material_graph());
         for (unsigned value = unsigned(ShaderEntryRole::SurfaceColor);
-             value <= unsigned(ShaderEntryRole::SurfaceAreaTemporalNormalColor); ++value) {
+             value <= unsigned(ShaderEntryRole::SurfaceAreaWeightedColor); ++value) {
             const auto role = ShaderEntryRole(value);
             const bool temporal = temporal_surface_role(role),
                        indirect = indirect_surface_role(role),
@@ -307,7 +486,9 @@ void execute(const std::filesystem::path& root, bool scene_only) {
             auto source =
                 material_graph_shader_wrapper(graph.surface, "graph.hlsli", depth_only, indirect,
                                               reflection, normal, area_surface_role(role), true);
-            if (indirect)
+            if (weighted_surface_role(role))
+                source = weighted_color_wrapper(std::move(source), true);
+            else if (indirect)
                 source = indirect_surface_wrapper(std::move(source), temporal, reflection, normal);
             else if (temporal)
                 source = temporal_surface_wrapper(std::move(source));
@@ -337,7 +518,7 @@ void execute(const std::filesystem::path& root, bool scene_only) {
         }
         std::cout
             << "Projected albedo matches all eight Mesh outputs with/without area layout; all "
-               "seventeen physical graph sources compile\n";
+               "nineteen physical graph sources compile\n";
         const std::pair<const char*, TextureSemantic> roles[]{
             {"baseColorTexture", TextureSemantic::Color},
             {"metallicRoughnessTexture", TextureSemantic::Data},
@@ -392,7 +573,7 @@ void execute(const std::filesystem::path& root, bool scene_only) {
                 }
                 if (std::string_view(resource.Name) == "ForgeDecals") {
                     const auto* buffer = pixel->GetConstantBufferDesc(i);
-                    check(buffer && buffer->Size == (1 + expected_capacity * 8) * 16,
+                    check(buffer && buffer->Size == (1 + expected_capacity * 13) * 16,
                           "Actual combined shader changed the projector packet layout");
                     projected_buffer = true;
                 }
@@ -489,6 +670,83 @@ void execute(const std::filesystem::path& root, bool scene_only) {
     scene.decals = {{decal_id, decal_view(projector, scene_projection)}};
     equal_pixels(scene_render(), painted_scene,
                  "Re-adding a scene decal failed resource admission");
+    {
+        // An isolated preview host intentionally admits one unsaved Material.
+        // Keep receivers on built-in assets while previewing the projector source.
+        const std::vector<MaterialParameterOverride> receiver_parameters{
+            {"surface", "baseColorFactor", receiver.parameters.at("baseColorFactor")},
+            {"surface", "metallicFactor", receiver.parameters.at("metallicFactor")},
+            {"surface", "roughnessFactor", receiver.parameters.at("roughnessFactor")}};
+        for (auto& mesh : scene.meshes) {
+            mesh.renderer.materials = {{"surface", engine_material()}};
+            mesh.renderer.material_parameters = receiver_parameters;
+        }
+        MaterialResourceData source;
+        source.values.model = receiver.model;
+        source.values.parameters["roughnessFactor"] = {MaterialParameterType::Scalar, {.25f}};
+        source.values.parameters["normalScale"] = {MaterialParameterType::Scalar, {0}};
+        MaterialTextureSlot normal, rough;
+        normal.semantic = TextureSemantic::Normal;
+        rough.semantic = TextureSemantic::Data;
+        source.values.textures = {{"normalTexture", normal}, {"metallicRoughnessTexture", rough}};
+        source.textures = {
+            {"normalTexture", engine_texture(EngineTexture::FlatNormal, TextureDimension::D2)},
+            {"metallicRoughnessTexture",
+             engine_texture(EngineTexture::White, TextureDimension::D2)}};
+        const AssetRef<MaterialAsset> source_id{AssetId::generate()};
+        host->preview_material(source_id, source);
+        auto projected = projector;
+        projected.material = source_id;
+        projected.normal_influence = projected.roughness_influence = 1;
+        scene.decals = {{decal_id, decal_view(projected, scene_projection)}};
+        const auto channel_frame = scene_render();
+        scene.decals.clear();
+        scene.meshes[0].renderer.material_parameters = {
+            {"surface",
+             "baseColorFactor",
+             {MaterialParameterType::LinearColor4, {.8f, .1f, .2f, 1}}},
+            {"surface", "roughnessFactor", {MaterialParameterType::Scalar, {.25f}}},
+            {"surface", "metallicFactor", {MaterialParameterType::Scalar, {0}}}};
+        equal_pixels(channel_frame, scene_render(),
+                     "Scene normal/data channel resources differ from ordinary material intent");
+        scene.meshes[0].renderer.material_parameters = receiver_parameters;
+        projected.color_influence = projected.normal_influence = projected.roughness_influence = 0;
+        scene.decals = {{decal_id, decal_view(projected, scene_projection)}};
+        equal_pixels(scene_render(), ordinary_scene,
+                     "Scene zero-influence channels retained a previous GPU selection");
+        const AssetRef<MaterialAsset> broken_id{AssetId::generate()};
+        source.textures["normalTexture"] = {AssetId::generate()};
+        host->preview_material(broken_id, source);
+        projected.material = broken_id;
+        projected.color_influence = projected.roughness_influence = 1;
+        scene.decals = {{decal_id, decal_view(projected, scene_projection)}};
+        equal_pixels(scene_render(), channel_frame,
+                     "Disabled normal channel requested its unavailable texture");
+        scene.decals[0].projector.values.normal_influence = 1;
+        equal_pixels(scene_render(true), channel_frame,
+                     "Failed channel addition replaced the complete last-good set");
+        check(std::any_of(frame.diagnostics().begin(), frame.diagnostics().end(),
+                          [](const auto& d) { return d.category == "render.decal.resource"; }),
+              "Failed normal channel has no contextual resource diagnostic");
+        source.textures["normalTexture"] =
+            engine_texture(EngineTexture::FlatNormal, TextureDimension::D2);
+        host->preview_material(broken_id, source);
+        equal_pixels(scene_render(), channel_frame,
+                     "Repaired channel resource failed complete candidate recovery");
+        scene.decals[0].projector.values.roughness_influence = 0;
+        equal_pixels(scene_render(), painted_scene,
+                     "Disabling a projected channel retained its prior effect");
+        scene.decals.clear();
+        equal_pixels(scene_render(), ordinary_scene,
+                     "Removing multichannel projection retained old bindings");
+        for (auto& mesh : scene.meshes) {
+            mesh.renderer.materials = {{"surface", receiver_id}};
+            mesh.renderer.material_parameters.clear();
+        }
+        host->preview_material(receiver_id, {receiver, {}, {}});
+        std::cout << "Scene projected normal/data semantics, disabled dependencies, complete "
+                     "last-good mask and repair passed\n";
+    }
     auto green = projector;
     green.tint_r = .1f;
     green.tint_g = .8f;
@@ -575,9 +833,11 @@ void execute(const std::filesystem::path& root, bool scene_only) {
 } // namespace
 int main(int argc, char** argv) {
     try {
-        check(argc == 2 || (argc == 3 && std::string_view(argv[2]) == "--scene-only"),
-              "Need decal scene scratch directory and optional --scene-only");
-        execute(argv[1], argc == 3);
+        check(argc == 2 || (argc == 3 && (std::string_view(argv[2]) == "--scene-only" ||
+                                          std::string_view(argv[2]) == "--channels-only")),
+              "Need decal scratch directory and optional --scene-only / --channels-only");
+        execute(argv[1], argc == 3 && std::string_view(argv[2]) == "--scene-only",
+                argc == 3 && std::string_view(argv[2]) == "--channels-only");
         return 0;
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

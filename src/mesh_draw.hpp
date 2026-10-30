@@ -36,12 +36,17 @@ class MeshDraw {
     };
     bool supports_instances() const { return bool(instances_); }
     struct Decal {
+        struct Texture {
+            Diligent::ITextureView* view{};
+            Diligent::ISampler* sampler{};
+        };
         const DecalView* projection{};
         const DecalMaterial* material{};
-        Diligent::ITextureView* texture{};
-        Diligent::ISampler* sampler{};
+        std::array<Texture, decal_channel_count> textures{};
+        unsigned channels = decal_all_channels;
     };
     unsigned decal_capacity() const { return decal_capacity_; }
+    bool accepts_decals(std::span<const Decal>) const;
     // Drop every winding SRB reference before a scene releases old GPU leases.
     void clear_decals(Diligent::IDeviceContext*);
     using Textures = std::map<std::string, Diligent::RefCntAutoPtr<Diligent::ITextureView>>;
@@ -91,7 +96,12 @@ class MeshDraw {
     Diligent::RefCntAutoPtr<Diligent::ITextureView> white_decal_;
     Diligent::RefCntAutoPtr<Diligent::ISampler> default_decal_sampler_;
     unsigned decal_capacity_{};
-    bool decals_active_{};
+    bool decals_active_{}, decal_surface_channels_{};
+    struct DecalBindings {
+        std::array<Diligent::IDeviceObject*, 8> textures{}, samplers{};
+        std::array<std::array<float, decal_channel_count>, 8> slots{};
+    };
+    std::optional<DecalBindings> decal_bindings(std::span<const Decal>) const;
     bool shadow_pass_{};
     bool fog_supported_ = true;
     bool temporal_{};

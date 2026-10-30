@@ -772,75 +772,73 @@ references rather than ideal BRDF equations. These software results do not estab
 Windows/FXC execution, physical GPU quality or performance. The editable Gallery
 and relocated runtime package use the same owners; acceptance is recorded separately.
 
-### Projected material color
+### Projected material channels
 
-`forge.decal` is an optional native `DecalProjector`, with a nullable typed Material
+`forge.decal` is an optional native `DecalProjector`: nullable typed Material
 reference, enabled flag, full local width/height/depth, RGB tint, opacity, angular
-fade interval, receiver layers and signed priority. Dimensions are finite
-0.001–10000 local metres before node scale; the centered box spans[-0.5,0.5] in
-derived normalized coordinates and projects along local+Z. Existing transform
-validation/inversion owns reflection, shear, singularity and conditioning rules.
-`DecalView` is extracted transient data, not another transform or identity owner.
+fade interval, receiver layers, signed priority and three channel influences.
+Dimensions are finite0.001–10000 local metres before node scale; the centered box
+spans[-0.5,0.5] in derived normalized coordinates and projects along local+Z.
+Existing transform validation/inversion owns reflection, shear, singularity and
+conditioning. `DecalView` is transient extraction, not a transform/identity owner.
 
-Material preparation reuses the ordinary built-in PBR/unlit value and dependency
-owners. Only base/diffuse color, color texture, UV transform, alpha behavior and
-native sampler intent enter the paint packet. Custom Surface Shader sources are
-rejected. Opaque ignores source alpha; Mask skips paint below cutoff without
-discarding receiver geometry; Blend combines source alpha, projector opacity and
-angular fade. RGB composition occurs after receiver alpha admission and geometric
-normal preparation, before native BRDF construction. Receiver alpha, normal maps,
-optics, geometry, depth and shadow casting remain with the receiving material.
+Color/normal/roughness influences are finite[0,1], default1/0/0. Older source values
+normalize to these defaults through ordinary builtin admission without changing
+identities. Material preparation reuses built-in PBR/unlit value/dependency owners.
+It extracts base/diffuse color, alpha, source normal scale and perceptual roughness,
+with independent channel UV/sampler intent. MR uses roughnessFactor times the
+metallic/roughness map's green channel; SG uses1 minus glossinessFactor times the
+specular/glossiness map's alpha. Custom Surface Shader sources are rejected.
 
-The initial profile admits8 enabled, assigned, nonzero-opacity projectors per
-visual scene. Physical Mesh receivers reserve2 engine samplers and derive slots
-as min(8,max(0,16-2-materialSamplerCount)). Built-in materials count their existing
-deduplicated sampler states. Physical graphs conservatively count texture
-declarations because each can carry independent material sampler intent. A full
-old material gets0 new slots and retains its existing resource requirements.
-Scene or per-part overflow produces explicit diagnostics and ordinary rendering,
-never a silently truncated paint set. Sprites, Tile Maps and unlit Mesh receivers
-have no projection profile. This is a bounded color implementation; projected
-normal/roughness, clustered transport and light textures are outside it.
+Opaque ignores source alpha; Mask skips projection below cutoff without discarding
+receiver geometry; Blend combines source alpha, opacity and angular fade. These
+supply common coverage, multiplied by each channel's influence. Projection runs
+after receiver alpha and mapped-normal/roughness preparation, before native BRDF
+construction. The normal frame derives from projected UV derivatives and the current
+base normal; flat maps preserve that normal, mirrored/sheared UVs preserve their
+orientation, and degenerate frames retain the base normal. Normal scale is signed.
+Iridescence and reflection/AO outputs consume the resulting base surface. Receiver
+alpha, metallic/specular values, clearcoat normal/roughness, optics, geometry,
+depth and shadow casting remain independent.
 
-MeshSceneRenderer retains complete selections through the existing Material and
-Texture pools, immutable preview selection and GPU residency. Failed replacement
-keeps the last admitted material. All live winding/LOD/surface SRBs are cleared
-before releasing replaced decal GPU leases. Bounds and shared Camera/Mesh/decal
-layers filter candidates. Priority is ascending with stable EntityId ties.
-Different projector selections split existing instance batches. No decal asset
-database, texture manager or alternate authoring implementation is introduced.
+The bounded profile admits8 enabled, assigned, nonzero-opacity projectors per
+visual scene. Physical Mesh receivers reserve2 engine samplers and derive capacity
+min(8,max(0,16-2-materialSamplerCount)). Built-ins count deduplicated sampler states;
+physical graphs conservatively count texture declarations. Full old materials
+retain their existing requirements and get0 projection bindings. Projectors and
+all channels share exactly that many map/sampler slots; equal native view plus
+sampler intent shares a slot regardless of UV transforms. Old color-only selections
+still fit. Scene/part/projected-map overflow reports explicit diagnostics and
+keeps ordinary rendering, never a silently truncated set. Sprites, Tile Maps and
+unlit Mesh receivers have no projection profile. Clustered transport and light
+textures remain unsupported.
 
-The camera-relative packet uses one control float4 and eight float4 rows per
-available slot: normalized inverse rows, color/opacity, travel direction/fade,
-source alpha mode/cutoff and UV rows. The maximum buffer is1040 bytes. Native
-double transforms remain unchanged. The shared camera-relative conversion checks
-GPU representation before selecting projectors for a view. An unrepresentable
-projector produces a contextual `render.decal.view` warning and is omitted;
-ordinary receiving geometry remains visible. Admission uses the current origin,
-so a large absolute inverse translation can still work near the Camera.
-Native color views and SampleGrad retain texture color space, wrapping and filtering.
-Unused descriptors are populated with device-owned stock white/default samplers.
-The zero-projector path retains ordinary shading; removing a prior selection
-resets all winding bindings. Shader wrapper8 keeps the existing17 output roles;
-versions1–7 remain readable. Physical graph projection requires a current cook,
-while old graph materials keep their ordinary rendering with a capacity warning.
+MeshSceneRenderer retains complete selections through existing Material/Texture
+pools, immutable previews and GPU residency. Color dependency admission is retained;
+normal/data GPU maps are requested only while their respective influence is nonzero.
+A derived admitted-channel mask prevents pending/failed additions from using missing
+resources. Failed replacements keep the last complete admitted material/channel set.
+All winding/LOD/surface SRBs clear before releasing replaced GPU leases. Bounds and
+shared Camera/Mesh/decal layers filter candidates; ascending priority and stable
+EntityId ties set order. Different selections split existing instance batches.
 
-Shared recipe `render.decal`, native Meta, Scene/history/Save, Inspector, guides,
-framing, twelve live scalar controls, automation/MCP and installed SDK data use
-the same owners. Material assignment is Edit-only. The installed `decal_gameplay`
-example exercises typed fixed writes and matching-fingerprint process recovery.
-Gallery113 reuses an existing image material and exports exactly its Scene,
-Material and Texture through the ordinary dependency closure.
+Capability10 retains19 shader output roles and uses one control float4 plus13rows
+per projector (1680bytes maximum). Maps use1-based indices with0 for no map.
+Capability8/9 receivers retain their8row packet, original map names and1040byte
+maximum; color influence folds into their opacity. Nonzero admitted normal/roughness
+requires a current receiver cook, otherwise the complete set is rejected with a
+contextual capacity/profile warning. Versions1–9 remain readable with unchanged
+bytes. Camera-relative conversion checks representability before view admission;
+unrepresentable projectors are omitted with `render.decal.view` while geometry stays
+visible. Unused maps bind stock white/default samplers; immutable empty buffers and
+dynamic SRB switching preserve zero-projector behavior across frames.
 
-Focused software-Vulkan reflection checks measure actual sampler totals16 for
-6+8,7+7,13+1 and14+0 material/projector profiles, including the two engine samplers.
-An existing17-sampler material retains19 total bindings with0 added projector
-slots. This preserves its prior requirements rather than claiming Tier1 support
-for that old profile. Native PBR checks cover pre-lighting color, large origin,
-alpha/opacity, angular/box clipping, lighting response, layers, instance selection,
-last-good recovery and stable overlap order. Relocated source-free Gallery output
-matches four wide/tall/full/tiny display readbacks. These are local software
-results, not Windows/FXC, physical GPU performance or full desktop acceptance.
+Shared `render.decal`, native Meta, Scene/history/Save, Inspector/guides/framing,
+fifteen live scalar controls, automation/MCP and installed SDK use the same owners.
+Material assignment remains Edit-only. The matching SDK fingerprint must be used;
+rebuild existing modules rather than changing their declared identity manually.
+The installed `decal_gameplay` sample exercises typed writes and process recovery.
+Gallery113 retains its original color examples. See the [projector manual](../manual/editor/decals.md).
 
 ### Transmission background and optical transport
 

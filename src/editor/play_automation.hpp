@@ -372,7 +372,8 @@ struct PlayAutomation {
             "play.tune",
             "Queue one reflected runtime property through the actual live-tuning "
             "owner, including Reflection Probe scalar controls (map assignment is Edit-only), "
-            "Decal Projector appearance, volume, angle fade, layers and priority (Color Material "
+            "Decal Projector appearance, volume, angle fade, layers, priority and "
+            "color/normal/roughness influences (Source Material "
             "assignment is Edit-only), "
             "Light shadow source radius/angular radius and emitter radius/full width/full height "
             "(other Light fields remain Edit-only), "

@@ -27,14 +27,14 @@ void save(const std::filesystem::path& path, const Pixels& pixels, unsigned widt
 std::vector<Pixels> render(DiligentPresentation& presentation, IDeviceContext* context,
                            const std::filesystem::path& root, const AssetCatalog& catalog,
                            AssetId scene_id, const std::filesystem::path& captures,
-                           bool check_projection) {
+                           bool check_projection, bool surface_channels) {
     auto host = std::make_shared<MeshResourceHost>(presentation, context, root);
     host->catalog(std::make_shared<const AssetCatalog>(catalog));
     EngineContext engine(WorldRole::Runtime, false);
     Scene runtime(engine.world());
     runtime.restore_snapshot(read(root / catalog.records().at(scene_id).source));
     auto scene = extract_render_scene(runtime.effective_document());
-    check(scene.decals.size() == 4 && scene.diagnostics.empty(),
+    check(scene.decals.size() == (surface_channels ? 3 : 4) && scene.diagnostics.empty(),
           "Saved decal scene failed native extraction");
     FrameRenderer frame(presentation);
     frame.resources(host);
@@ -102,9 +102,17 @@ std::vector<Pixels> render(DiligentPresentation& presentation, IDeviceContext* c
 } // namespace
 int main(int argc, char** argv) {
     try {
-        check(argc == 3 || (argc == 4 && std::string_view(argv[3]) == "--prepare-only"),
-              "Need Gallery, scratch root and optional --prepare-only");
-        const auto prepared = test_decal_scene::prepare(argv[1], argv[2]);
+        check(argc >= 3 && argc <= 5,
+              "Need Gallery, scratch root and optional --prepare-only / --surface-channels");
+        bool prepare_only = false, surface_channels = false;
+        for (int i = 3; i < argc; ++i) {
+            const std::string_view option(argv[i]);
+            check(option == "--prepare-only" || option == "--surface-channels",
+                  "Unknown Gallery option");
+            prepare_only = prepare_only || option == "--prepare-only";
+            surface_channels = surface_channels || option == "--surface-channels";
+        }
+        const auto prepared = test_decal_scene::prepare(argv[1], argv[2], surface_channels);
         const auto catalog = AssetCatalog::open_project(prepared.root);
         std::cout << Json{{"project", prepared.root.string()},
                           {"scene", prepared.scene},
@@ -112,7 +120,7 @@ int main(int argc, char** argv) {
                           {"created", prepared.created}}
                          .dump()
                   << '\n';
-        if (argc == 4)
+        if (prepare_only)
             return 0;
         RefCntAutoPtr<IRenderDevice> device;
         RefCntAutoPtr<IDeviceContext> context;
@@ -122,16 +130,19 @@ int main(int argc, char** argv) {
         check(device && context, "Decal Gallery native device unavailable");
         DiligentPresentation presentation(device);
         const auto authored = render(presentation, context, prepared.root, catalog, prepared.scene,
-                                     prepared.scratch / "authored", true);
+                                     prepared.scratch / "authored", true, surface_channels);
         const std::array roots{prepared.scene};
         const auto package = prepared.scratch / "Export";
         (void)package_runtime_content(prepared.root, package, roots, {"windows", "d3d12"});
         const auto relocated = prepared.scratch / "Relocated";
         std::filesystem::rename(package, relocated);
         const auto shipped = open_runtime_content(relocated, {"windows", "d3d12"});
-        std::set<AssetId> expected{prepared.scene,
-                                   AssetId::parse("7949266a-8b55-4b6e-beb6-37526ca79446"),
-                                   AssetId::parse("0c07b499-c865-4e5b-838d-8021bb7a99d3")};
+        std::set<AssetId> expected{
+            prepared.scene,
+            AssetId::parse(surface_channels ? "7ed3592a-fab7-41d2-a5c4-c4c7c5eda387"
+                                            : "7949266a-8b55-4b6e-beb6-37526ca79446"),
+            AssetId::parse(surface_channels ? "45cb1cd6-c3ae-4f51-a7ff-314eea5cc26f"
+                                            : "0c07b499-c865-4e5b-838d-8021bb7a99d3")};
         std::set<AssetId> actual;
         for (const auto& [id, record] : shipped.records()) {
             (void)record;
@@ -143,7 +154,7 @@ int main(int argc, char** argv) {
               "Material source leaked into the runtime package");
         std::filesystem::rename(prepared.root, prepared.scratch / "Source-offline");
         const auto exported = render(presentation, context, relocated, shipped, prepared.scene,
-                                     prepared.scratch / "relocated", false);
+                                     prepared.scratch / "relocated", false, surface_channels);
         check(authored == exported, "Source-free relocated decal images changed");
         std::ofstream receipt(prepared.scratch / "receipt.json");
         receipt << Json{{"scene", prepared.scene},
@@ -155,8 +166,9 @@ int main(int argc, char** argv) {
                        .dump(2)
                 << '\n';
         check(bool(receipt), "Decal Gallery receipt write failed");
-        std::cout << "Editable Gallery113, typed Material/Texture closure, source-free relocation "
-                     "and four exact display readbacks passed\n";
+        std::cout
+            << "Editable projector Gallery, typed Material/Texture closure, source-free relocation "
+               "and four exact display readbacks passed\n";
         return 0;
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

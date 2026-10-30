@@ -1,5 +1,15 @@
 # Feature Gallery
 
+## Projected normal and roughness
+
+Open **Scenes/115-projected-surface-channels.scene.json** and press Play. The left
+cube receives normal detail, the right receives a roughness patch and the floor
+combines both. The rear block is an unchanged comparison. Select a projector and
+change **Normal influence** or **Roughness influence** between 0 and 1. **Color
+influence** is 0, preserving the receiver's color. All three reuse the existing
+ripple material and normal texture. Save and choose this Scene as startup before
+export; no new import or C++ module is required.
+
 ## Weighted transparency
 
 Open **Scenes/114-weighted-transparency.scene.json**. Three intersecting panels
@@ -20,15 +30,15 @@ projectors show translucent color, box clipping and priority overlap.
 Select a projector and edit **Width**, **Height**, **Projection depth**, tint or
 **Opacity** in Inspector's **Decal** section. The box follows node scale and its
 arrow points along local +Z into the receiver. Higher **Priority** paints last.
-Live gameplay exposes scalar appearance and volume controls; Color Material is
+Live gameplay exposes scalar appearance, volume and channel influences; Source Material is
 assigned in Edit mode. Stop, review any values you want to keep and save. Choose
 this Scene as startup before export. It needs no C++ module or additional import.
 
 There are eight active projectors per scene and a material-dependent per-part
 sampler limit. Problems explains omitted projections; ordinary materials remain
-available. Physical Mesh surfaces receive color. Source normal/roughness and
-custom Surface Shader color sources are outside this profile. See the manual's
-**Project color onto a Mesh** guide for placement, saving and limits.
+available. Physical Mesh surfaces receive the selected color, normal and roughness
+channels. Custom Surface Shader sources are unsupported. See the manual's
+**Project material channels onto a Mesh** guide for placement, saving and limits.
 
 ## Rectangular and spherical lights
 

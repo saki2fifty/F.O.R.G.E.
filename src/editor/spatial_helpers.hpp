@@ -102,10 +102,11 @@ inline std::vector<SpatialMarker> spatial_markers(const Json& source, unsigned w
                     for (double sign : {-1., 1.})
                         line(tip,
                              world.point({sign * settings.width * .1, 0, settings.depth * .35}));
-                    marker.note = settings.material.id
-                                      ? "Color projection | +Z travel | Priority " +
-                                            std::to_string(settings.priority)
-                                      : "Assign Color Material in Inspector; arrow shows +Z travel";
+                    marker.note =
+                        settings.material.id
+                            ? "Material projection | +Z travel | Priority " +
+                                  std::to_string(settings.priority)
+                            : "Assign Source Material in Inspector; arrow shows +Z travel";
                 } else if (is_probe) {
                     const auto probe = reflection_probe_view(row);
                     if (!probe)

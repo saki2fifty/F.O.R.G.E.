@@ -30,6 +30,10 @@ class MeshDrawBundle {
     unsigned decal_capacity(unsigned lod, unsigned part) const {
         return lods_.at(lod).at(part)->decal_capacity();
     }
+    bool accepts_decals(unsigned lod, unsigned part,
+                        std::span<const MeshDraw::Decal> decals) const {
+        return lods_.at(lod).at(part)->accepts_decals(decals);
+    }
     void prepare_material_parameters(std::span<const MaterialParameterOverride>);
     // Specialize the same admitted part before a temporal view changes targets.
     // Failure leaves the ordinary color and shadow draws available.

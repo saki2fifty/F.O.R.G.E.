@@ -195,6 +195,7 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
                                    sprite_, sprite_draw_mip_filter(draw_profile), indirect_,
                                    reflection_, normal_, area_lights_, true);
     decal_capacity_ = program.decal_capacity;
+    decal_surface_channels_ = !surface || surface->program.surface_wrapper_version >= 10;
     require(!weighted_ || !program.transmission,
             "Weighted transparency cannot replace sorted transmission transport");
     if (weighted_ && !surface)
@@ -236,23 +237,26 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
         require(stage != native.data.stages.end(), "custom surface entry role is missing");
         surface_layout = surface_binding_layout(
             *surface->program.surface, stage->reflection, area_surface_role(role),
-            surface->program.surface_wrapper_version >= 8 && !shadow_pass_);
+            surface->program.surface_wrapper_version >= 8 && !shadow_pass_,
+            decal_surface_channels_);
         fog_supported_ = surface->program.surface_wrapper_version >= 2;
     } else
         pixel = compile(SHADER_TYPE_PIXEL, program.pixel);
     const bool lit = !shadow_pass_ && (surface ? surface->program.surface->physically_based
                                                : profile->workflow != PbrWorkflow::Unlit);
     if (decal_capacity_) {
-        decals_ = buffer(device, "FORGE projected color",
-                         decal_shader_rows(decal_capacity_) * sizeof(Row));
+        decals_ = buffer(device, "FORGE projected surface",
+                         decal_shader_rows(decal_capacity_, decal_surface_channels_) * sizeof(Row));
         white_decal_ = presentation.pbr(context).GetWhiteTexSRV();
         default_decal_sampler_ = upload_sampler(device, SamplerState{});
         require(white_decal_ && default_decal_sampler_, "Decal fallback resources unavailable");
         // Empty receiver state survives frames without a dynamic upload. DISCARD
         // allocations are frame-local and must never serve as retained defaults.
-        const std::array<Row, decal_shader_rows(decal_draw_limit)> empty{};
-        empty_decals_ = buffer(device, "FORGE empty projected color",
-                               decal_shader_rows(decal_capacity_) * sizeof(Row), empty.data());
+        const std::array<Row, decal_shader_rows(decal_draw_limit, true)> empty{};
+        empty_decals_ =
+            buffer(device, "FORGE empty projected surface",
+                   decal_shader_rows(decal_capacity_, decal_surface_channels_) * sizeof(Row),
+                   empty.data());
     }
     RefCntAutoPtr<ITextureView> ggx;
     if (lit) {
@@ -403,7 +407,7 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
         resource_variables.push_back(
             {SHADER_TYPE_PIXEL, "g_ForgeDecalSamplers", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC});
         for (unsigned i = 0; i < decal_capacity_; ++i) {
-            decal_names[i] = "g_ForgeDecalColor" + std::to_string(i);
+            decal_names[i] = decal_shader_map_name(i, decal_surface_channels_);
             resource_variables.push_back(
                 {SHADER_TYPE_PIXEL, decal_names[i].c_str(), SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC});
         }
@@ -715,12 +719,66 @@ void MeshDraw::clear_decals(IDeviceContext*) {
         for (unsigned i = 0; i < decal_capacity_; ++i)
             binding
                 ->GetVariableByName(SHADER_TYPE_PIXEL,
-                                    ("g_ForgeDecalColor" + std::to_string(i)).c_str())
+                                    (decal_shader_map_name(i, decal_surface_channels_)).c_str())
                 ->Set(white_decal_);
         binding->GetVariableByName(SHADER_TYPE_PIXEL, "g_ForgeDecalSamplers")
             ->SetArray(samplers.data(), 0, decal_capacity_);
     }
     decals_active_ = false;
+}
+std::optional<MeshDraw::DecalBindings>
+MeshDraw::decal_bindings(std::span<const Decal> decals) const {
+    if (decals.size() > decal_capacity_)
+        return {};
+    DecalBindings result;
+    result.textures.fill(white_decal_);
+    result.samplers.fill(default_decal_sampler_);
+    std::array<const SamplerState*, decal_draw_limit> intents{};
+    unsigned used = 0;
+    for (unsigned i = 0; i < decals.size(); ++i) {
+        const auto& selected = decals[i];
+        if (!selected.projection || !selected.material)
+            return {};
+        const auto& value = selected.projection->values;
+        const bool normal =
+            value.normal_influence > 0 && (selected.channels & (1u << decal_normal_channel));
+        const bool rough =
+            value.roughness_influence > 0 && (selected.channels & (1u << decal_roughness_channel));
+        if (!decal_surface_channels_ && (normal || rough))
+            return {};
+        for (unsigned c = 0; c < decal_channel_count; ++c) {
+            if ((c == decal_normal_channel && !normal) ||
+                (c == decal_roughness_channel && !rough) ||
+                !selected.material->textures[c].asset.id)
+                continue;
+            const auto& texture = selected.textures[c];
+            if (!texture.view || !texture.sampler)
+                return {};
+            if (!decal_surface_channels_) {
+                result.textures[i] = texture.view;
+                result.samplers[i] = texture.sampler;
+                result.slots[i][c] = 1;
+                continue;
+            }
+            const auto& intent = selected.material->textures[c].slot.sampler;
+            unsigned slot = 0;
+            while (slot < used &&
+                   (result.textures[slot] != texture.view || *intents[slot] != intent))
+                ++slot;
+            if (slot == used) {
+                if (used == decal_capacity_)
+                    return {};
+                result.textures[used] = texture.view;
+                result.samplers[used] = texture.sampler;
+                intents[used++] = &intent;
+            }
+            result.slots[i][c] = float(slot + 1);
+        }
+    }
+    return result;
+}
+bool MeshDraw::accepts_decals(std::span<const Decal> decals) const {
+    return decal_bindings(decals).has_value();
 }
 void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world,
                     const CameraView& view, std::span<const LightView> lights,
@@ -732,22 +790,19 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
                     std::string_view material_slot, const SpriteDrawValues* sprite,
                     const SceneDistanceFog* fog, const Motion* motion,
                     std::span<const Decal> decals) {
-    require(decals.size() <= decal_capacity_, "Projected color exceeds this receiver's sampler "
-                                              "capacity; ordinary rendering remains available");
-    std::optional<std::array<Row, decal_shader_rows(decal_draw_limit)>> decal_values;
-    std::array<IDeviceObject*, decal_draw_limit> decal_textures, decal_samplers;
+    const auto bindings = decal_bindings(decals);
+    require(bindings.has_value(), "Projected channels exceed this receiver's map/profile capacity; "
+                                  "ordinary rendering remains available");
+    std::optional<std::array<Row, decal_shader_rows(decal_draw_limit, true)>> decal_values;
     if (!decals.empty()) {
         decal_values.emplace();
-        decal_textures.fill(white_decal_);
-        decal_samplers.fill(default_decal_sampler_);
         (*decal_values)[0][0] = float(decals.size());
         for (unsigned i = 0; i < decals.size(); ++i) {
             const auto& selected = decals[i];
-            require(selected.projection && selected.material, "Incomplete projected color values");
             const auto& projection = *selected.projection;
             const auto& material = *selected.material;
             const auto transform = decal_gpu_transform(projection, view.position);
-            const unsigned at = 1 + 8 * i;
+            const unsigned at = 1 + (decal_surface_channels_ ? 13 : 8) * i;
             for (unsigned r = 0; r < 3; ++r) {
                 (*decal_values)[at + r] = transform[r];
                 (*decal_values)[at + 4][r] = gpu(projection.forward[r]);
@@ -756,18 +811,30 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
             (*decal_values)[at + 3] = {gpu(double(material.color[0]) * value.tint_r),
                                        gpu(double(material.color[1]) * value.tint_g),
                                        gpu(double(material.color[2]) * value.tint_b),
-                                       value.opacity};
+                                       value.opacity *
+                                           (decal_surface_channels_ ? 1 : value.color_influence)};
             (*decal_values)[at + 4][3] = projection.cosine_fade_end;
             (*decal_values)[at + 5] = {projection.cosine_fade_start, material.color[3],
                                        float(material.alpha), material.cutoff};
-            (*decal_values)[at + 6] = material.uv[0];
-            (*decal_values)[at + 7] = material.uv[1];
-            (*decal_values)[at + 6][3] = material.texture.id ? 1.f : 0.f;
-            if (material.texture.id) {
-                require(selected.texture && selected.sampler,
-                        "Incomplete decal color texture selection");
-                decal_textures[i] = selected.texture;
-                decal_samplers[i] = selected.sampler;
+            (*decal_values)[at + 6] = material.textures[decal_color_channel].uv[0];
+            (*decal_values)[at + 7] = material.textures[decal_color_channel].uv[1];
+            (*decal_values)[at + 6][3] = bindings->slots[i][decal_color_channel];
+            if (decal_surface_channels_) {
+                (*decal_values)[at + 7][3] = bindings->slots[i][decal_normal_channel];
+                (*decal_values)[at + 8] = {
+                    value.color_influence,
+                    selected.channels & (1u << decal_normal_channel) ? value.normal_influence : 0.f,
+                    selected.channels & (1u << decal_roughness_channel) ? value.roughness_influence
+                                                                        : 0.f,
+                    material.normal_scale};
+                (*decal_values)[at + 9] = material.textures[decal_normal_channel].uv[0];
+                (*decal_values)[at + 9][3] = bindings->slots[i][decal_roughness_channel];
+                (*decal_values)[at + 10] = material.textures[decal_normal_channel].uv[1];
+                (*decal_values)[at + 10][3] = float(material.roughness_component);
+                (*decal_values)[at + 11] = material.textures[decal_roughness_channel].uv[0];
+                (*decal_values)[at + 11][3] = material.roughness_scale;
+                (*decal_values)[at + 12] = material.textures[decal_roughness_channel].uv[1];
+                (*decal_values)[at + 12][3] = material.roughness_bias;
             }
         }
     }
@@ -1005,7 +1072,8 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
     else {
         MapHelper<Row> values(context, decals_, MAP_WRITE, MAP_FLAG_DISCARD);
         require(static_cast<Row*>(values) != nullptr, "Decal upload allocation failed");
-        std::copy_n(decal_values->data(), decal_shader_rows(decal_capacity_),
+        std::copy_n(decal_values->data(),
+                    decal_shader_rows(decal_capacity_, decal_surface_channels_),
                     static_cast<Row*>(values));
         // Each winding SRB retains native references. Update every SRB before
         // dropping an old selection, including winding modes absent this frame.
@@ -1014,10 +1082,10 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
             for (unsigned i = 0; i < decal_capacity_; ++i)
                 binding
                     ->GetVariableByName(SHADER_TYPE_PIXEL,
-                                        ("g_ForgeDecalColor" + std::to_string(i)).c_str())
-                    ->Set(decal_textures[i]);
+                                        (decal_shader_map_name(i, decal_surface_channels_)).c_str())
+                    ->Set(bindings->textures[i]);
             binding->GetVariableByName(SHADER_TYPE_PIXEL, "g_ForgeDecalSamplers")
-                ->SetArray(decal_samplers.data(), 0, decal_capacity_);
+                ->SetArray(bindings->samplers.data(), 0, decal_capacity_);
         }
         decals_active_ = !decals.empty();
     }

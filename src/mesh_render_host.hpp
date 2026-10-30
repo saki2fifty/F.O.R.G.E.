@@ -237,17 +237,23 @@ class MeshSceneRenderer {
     std::map<EntityId, ProbeEntry> probe_entries_;
     std::vector<SurfaceReflections::Probe> reflection_probes_;
     struct DecalResources {
+        struct Texture {
+            ResourceLease<TextureAsset> source;
+            GpuLease<TextureAsset> gpu;
+            Diligent::RefCntAutoPtr<Diligent::ISampler> sampler;
+        };
         ResourceLease<MaterialAsset> material;
         DecalMaterial values;
-        ResourceLease<TextureAsset> texture;
-        GpuLease<TextureAsset> gpu;
-        Diligent::RefCntAutoPtr<Diligent::ISampler> sampler;
+        std::array<Texture, decal_channel_count> textures;
+        unsigned channels = 0;
     };
     struct DecalEntry {
         DecalView projector;
         AssetRef<MaterialAsset> requested;
         std::uint64_t epoch = UINT64_MAX;
-        std::optional<ResourceTicket> material_ticket, texture_ticket;
+        unsigned channels = 0;
+        std::optional<ResourceTicket> material_ticket;
+        std::array<std::optional<ResourceTicket>, decal_channel_count> texture_tickets;
         std::optional<DecalResources> candidate, ready;
         std::string error;
     };

@@ -326,7 +326,8 @@ std::string indirect_surface_wrapper(std::string helper, bool temporal, bool ref
 }
 SurfaceBindingLayout surface_binding_layout(const SurfaceShaderDefinition& d,
                                             const Json& reflection, bool area_lights,
-                                            bool projected_decals) {
+                                            bool projected_decals,
+                                            bool projected_surface_channels) {
     validate_surface_definition(d);
     require(reflection.at("stage") == "pixel" && reflection.at("resources").is_array() &&
                 reflection.at("resources").size() <= 256,
@@ -372,7 +373,8 @@ SurfaceBindingLayout surface_binding_layout(const SurfaceShaderDefinition& d,
             }
         } else if (name == "ForgeDecals") {
             require(decal_capacity && kind == "constant_buffer" && resource.at("array_size") == 1 &&
-                        resource.at("size") == decal_shader_rows(decal_capacity) * 16,
+                        resource.at("size") ==
+                            decal_shader_rows(decal_capacity, projected_surface_channels) * 16,
                     "Decal buffer differs from the receiver profile");
             const auto& fields = resource.at("variables");
             require(fields.is_array() && fields.size() == 1,
@@ -381,17 +383,19 @@ SurfaceBindingLayout surface_binding_layout(const SurfaceShaderDefinition& d,
             require(field.at("name") == "g_ForgeDecals" && field.at("offset") == 0 &&
                         field.at("basic") == "float" && field.at("class") == "vector" &&
                         field.at("rows") == 1 && field.at("columns") == 4 &&
-                        field.at("array_size") == decal_shader_rows(decal_capacity) &&
+                        field.at("array_size") ==
+                            decal_shader_rows(decal_capacity, projected_surface_channels) &&
                         field.at("members").empty(),
                     "Decal fields differ from the receiver profile");
         } else if (name == "g_ForgeDecalSamplers") {
             require(decal_capacity && kind == "sampler" &&
                         resource.at("array_size") == decal_capacity,
                     "Decal sampler count differs from the receiver profile");
-        } else if (name.starts_with("g_ForgeDecalColor")) {
+        } else if (name.starts_with(projected_surface_channels ? "g_ForgeDecalMap"
+                                                               : "g_ForgeDecalColor")) {
             bool declared = false;
             for (unsigned i = 0; i < decal_capacity; ++i)
-                declared = declared || name == "g_ForgeDecalColor" + std::to_string(i);
+                declared = declared || name == decal_shader_map_name(i, projected_surface_channels);
             require(declared && kind == "texture_srv" && resource.at("array_size") == 1 &&
                         resource.at("dimension") == "texture2d",
                     "Decal texture differs from the receiver profile");

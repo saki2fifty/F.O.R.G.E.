@@ -457,7 +457,7 @@ void validate_shader_reflection(const Json& reflection) {
     require(reflection.dump().size() <= metadata_limit, "Shader reflection exceeds metadata limit");
 }
 void validate_shader(const ShaderData& data) {
-    require(data.surface_wrapper_version >= 1 && data.surface_wrapper_version <= 9 &&
+    require(data.surface_wrapper_version >= 1 && data.surface_wrapper_version <= 10 &&
                 (data.surface || data.surface_wrapper_version == 1),
             "Unsupported Shader surface wrapper version");
     require(valid_content_digest(data.build_key) && valid_content_digest(data.compiler_digest),
@@ -490,7 +490,8 @@ void validate_shader(const ShaderData& data) {
                     "Material surface wrapper entry differs from its role");
             (void)surface_binding_layout(
                 *data.surface, stage.reflection, area_surface_role(stage.role),
-                data.surface_wrapper_version >= 8 && stage.role != ShaderEntryRole::SurfaceDepth);
+                data.surface_wrapper_version >= 8 && stage.role != ShaderEntryRole::SurfaceDepth,
+                data.surface_wrapper_version >= 10);
             const bool motion = temporal_surface_role(stage.role);
             require(!motion || data.surface_wrapper_version >= 3,
                     "Temporal color entry requires its declared wrapper capability");
@@ -585,7 +586,7 @@ ShaderData decode_shader(std::span<const std::byte> bytes) {
     data.row_major = m.at("row_major");
     data.compiler_debug = m.at("compiler_debug");
     if (m.contains("surface_wrapper_version"))
-        data.surface_wrapper_version = count(m.at("surface_wrapper_version"), 9);
+        data.surface_wrapper_version = count(m.at("surface_wrapper_version"), 10);
     require((envelope.version == 2) == m.contains("surface"),
             "Shader feature/envelope version mismatch");
     if (m.contains("surface"))

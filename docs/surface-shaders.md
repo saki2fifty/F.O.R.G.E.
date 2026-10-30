@@ -164,3 +164,19 @@ bound to19 roles. The generated wrapper reuses the ordinary material color helpe
 after lighting/fog and emits two additive targets. Authored surface interfaces and
 logical asset IDs remain unchanged. Versions1–8 retain ordinary read/draw behavior;
 older cooks require Shader and dependent Material rebuilds for weighted output.
+
+
+## Projected base-surface channels
+
+Capability10 retains the19 existing output roles and extends the bounded physical
+receiver packet to projected color, normal and perceptual roughness. Projection
+runs after receiver normal/roughness preparation and before the native BRDF,
+iridescence and reflection/AO output construction. Clearcoat remains independent.
+
+The projector and map counts share the existing0–8 receiver capacity. Maps deduplicate
+by native view and sampler intent; channel UV transforms remain separate. Overflow
+rejects the complete projected selection and keeps ordinary rendering. The private
+buffer uses one control row plus13float4 rows/projector (1680bytes at8slots).
+Old capability8/9 programs keep their8row/color bindings; normal/roughness require
+recooking Shader and dependent Materials. Versions1–9 remain readable, and logical
+asset IDs, authored function interfaces and geometry ownership are unchanged.

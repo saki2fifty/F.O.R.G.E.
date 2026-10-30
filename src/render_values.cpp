@@ -17,7 +17,10 @@ Json render_value(const DecalProjector& value) {
             {"angle_fade_start", value.angle_fade_start},
             {"angle_fade_end", value.angle_fade_end},
             {"layers", value.layers},
-            {"priority", value.priority}};
+            {"priority", value.priority},
+            {"color_influence", value.color_influence},
+            {"normal_influence", value.normal_influence},
+            {"roughness_influence", value.roughness_influence}};
 }
 DecalProjector decal_value(const Json& source) {
     DecalProjector value;
@@ -35,6 +38,9 @@ DecalProjector decal_value(const Json& source) {
     value.angle_fade_end = source.at("angle_fade_end").get<float>();
     value.layers = source.at("layers").get<std::uint32_t>();
     value.priority = source.at("priority").get<std::int32_t>();
+    value.color_influence = source.value("color_influence", 1.f);
+    value.normal_influence = source.value("normal_influence", 0.f);
+    value.roughness_influence = source.value("roughness_influence", 0.f);
     validate_decal(value);
     return value;
 }

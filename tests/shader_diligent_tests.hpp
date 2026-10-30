@@ -111,12 +111,12 @@ float4 fixture_color(){return float4(0,.25,1,1);}
             device, surface, {{"engine/forge.graph.hlsl", graph.source}}, {});
         const auto realized =
             realize_diligent_shader(device, decode_shader(encode_shader(compiled.data)));
-        check(realized.stages.size() == 19 && realized.data.surface_wrapper_version == 9,
+        check(realized.stages.size() == 19 && realized.data.surface_wrapper_version == 10,
               "Graph lost shared surface output profiles");
         for (const auto& stage : compiled.data.stages)
             (void)surface_binding_layout(graph.surface, stage.reflection,
                                          area_surface_role(stage.role),
-                                         stage.role != ShaderEntryRole::SurfaceDepth);
+                                         stage.role != ShaderEntryRole::SurfaceDepth, true);
         const auto rich = compile_material_graph(graph_tests::all_node_graph());
         auto rich_source = surface;
         rich_source.surface = rich.surface;
@@ -125,7 +125,7 @@ float4 fixture_color(){return float4(0,.25,1,1);}
         for (const auto& stage : rich_compiled.data.stages)
             (void)surface_binding_layout(rich.surface, stage.reflection,
                                          area_surface_role(stage.role),
-                                         stage.role != ShaderEntryRole::SurfaceDepth);
+                                         stage.role != ShaderEntryRole::SurfaceDepth, true);
         (void)realize_diligent_shader(device, decode_shader(encode_shader(rich_compiled.data)));
         auto relabeled = graph.surface;
         relabeled.labels.begin()->second = "Another label";
@@ -148,8 +148,8 @@ float4 fixture_color(){return float4(0,.25,1,1);}
         const auto native_surface = compile_diligent_shader(device, surface, body, {});
         auto realized =
             realize_diligent_shader(device, decode_shader(encode_shader(native_surface.data)));
-        check(native_surface.data.surface_wrapper_version == 9 &&
-                  realized.data.surface_wrapper_version == 9 && realized.stages.size() == 19 &&
+        check(native_surface.data.surface_wrapper_version == 10 &&
+                  realized.data.surface_wrapper_version == 10 && realized.stages.size() == 19 &&
                   realized.stages.contains(
                       {ShaderStage::Pixel, ShaderEntryRole::SurfaceWeightedColor}) &&
                   realized.stages.contains(
@@ -170,7 +170,7 @@ float4 fixture_color(){return float4(0,.25,1,1);}
         for (const auto& stage : native_surface.data.stages) {
             const auto binding = surface_binding_layout(
                 *surface.surface, stage.reflection, area_surface_role(stage.role),
-                stage.role != ShaderEntryRole::SurfaceDepth);
+                stage.role != ShaderEntryRole::SurfaceDepth, true);
             const auto& resources = stage.reflection.at("resources");
             const auto fog =
                 std::find_if(resources.begin(), resources.end(), [](const auto& resource) {

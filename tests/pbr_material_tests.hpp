@@ -174,15 +174,21 @@ inline void test_pbr_material_profile() {
                                                  {"normalTexture", normal_ref}};
     const auto original_paint = paint;
     const auto projected = prepare_decal_material(paint, paint_bindings);
+    check(projected.textures[decal_normal_channel].asset == normal_ref &&
+              projected.normal_scale == 1 && projected.roughness_scale == 1 &&
+              projected.roughness_bias == 0 && projected.roughness_component == 1,
+          "Projected physical channels lost their source roles or canonical values");
     check(projected.color == std::array<float, 4>{.25f, .5f, .75f, .5f} &&
               projected.alpha == MaterialAlpha::Mask && projected.cutoff == .7f &&
-              projected.texture == color_ref && projected.slot == color_slot &&
-              paint == original_paint,
+              projected.textures[decal_color_channel].asset == color_ref &&
+              projected.textures[decal_color_channel].slot == color_slot && paint == original_paint,
           "Projected color changed its source Material or lost immutable color/alpha/UV/sampler "
           "data");
-    check(std::abs(projected.uv[0][0] - 2 * std::cos(.3f)) < 1e-6f &&
-              std::abs(projected.uv[0][1] + 3 * std::sin(.3f)) < 1e-6f &&
-              projected.uv[0][2] == .25f && projected.uv[1][2] == .5f,
+    check(std::abs(projected.textures[decal_color_channel].uv[0][0] - 2 * std::cos(.3f)) < 1e-6f &&
+              std::abs(projected.textures[decal_color_channel].uv[0][1] + 3 * std::sin(.3f)) <
+                  1e-6f &&
+              projected.textures[decal_color_channel].uv[0][2] == .25f &&
+              projected.textures[decal_color_channel].uv[1][2] == .5f,
           "Projected material UV transform differs from rotation*scale plus offset");
     auto missing_color = paint_bindings;
     missing_color.erase("baseColorTexture");
@@ -193,8 +199,10 @@ inline void test_pbr_material_profile() {
     MaterialData constant;
     constant.model = "forge.gltf.unlit.v1";
     const auto solid = prepare_decal_material(constant, {});
-    check(!solid.texture.id && solid.color == std::array<float, 4>{1, 1, 1, 1} &&
-              solid.uv == std::array<std::array<float, 4>, 2>{{{1, 0, 0, 0}, {0, 1, 0, 0}}},
+    check(!solid.textures[decal_color_channel].asset.id &&
+              solid.color == std::array<float, 4>{1, 1, 1, 1} &&
+              solid.textures[decal_color_channel].uv ==
+                  std::array<std::array<float, 4>, 2>{{{1, 0, 0, 0}, {0, 1, 0, 0}}},
           "Untextured projected color lost its canonical defaults");
     auto gloss = paint;
     gloss.model = "forge.gltf.specular-glossiness.v1";
@@ -202,7 +210,11 @@ inline void test_pbr_material_profile() {
     gloss.textures["diffuseTexture"] = color_slot;
     const auto projected_gloss = prepare_decal_material(
         gloss, {{"diffuseTexture", color_ref}, {"normalTexture", normal_ref}});
-    check(projected_gloss.texture == color_ref && projected_gloss.color == projected.color,
+    check(projected_gloss.roughness_scale == -1 && projected_gloss.roughness_bias == 1 &&
+              projected_gloss.roughness_component == 3,
+          "Projected glossiness did not retain the native perceptual-roughness conversion");
+    check(projected_gloss.textures[decal_color_channel].asset == color_ref &&
+              projected_gloss.color == projected.color,
           "Specular/glossiness projected color lost the shared diffuse role");
     constant.model = "project.custom";
     rejects([&] { (void)prepare_decal_material(constant, {}); });

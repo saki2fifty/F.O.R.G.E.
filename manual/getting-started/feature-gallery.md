@@ -1,5 +1,12 @@
 # Explore the Feature Gallery
 
+**115-projected-surface-channels** compares normal-only, roughness-only and combined
+material projections. Select a projector and change **Normal influence** or
+**Roughness influence** in Inspector. Color influence is 0; the receiver's color
+stays unchanged. The scene reuses a ripple normal map and needs no new import or
+C++ module. Save and choose it as startup before export. See
+[Project material channels onto a Mesh](../editor/decals.md).
+
 **114-weighted-transparency** blends three intersecting colored image panels above
 an opaque floor. In Edit, open **Tools > Scene lighting... > Transparency** and
 toggle **Weighted transparency** to compare the intersections. The panels share one
@@ -10,7 +17,7 @@ as startup before export. See [Blend overlapping transparent Meshes](../editor/t
 overlapping color onto a floor. Select a **Decal Projector**, then adjust its box,
 tint, opacity, layers or priority in Inspector. The left badge mirrors local X.
 Save and choose this Scene as startup before export. See
-[Project color onto a Mesh](../editor/decals.md) for placement and current limits.
+[Project material channels onto a Mesh](../editor/decals.md) for placement and current limits.
 
 **112-area-lights** compares a warm rectangular emitter with a cool spherical
 emitter on two metal spheres and a rough receiver. Press Play, then select either

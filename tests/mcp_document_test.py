@@ -86,7 +86,10 @@ for legacy in (False, True):
         assert 'render.decal' in create_tool['inputSchema']['properties']['arguments']['properties']['recipe']['enum']
         decal_schema = next(c for c in state['result']['schema']['components'] if c['id'] == 'forge.decal')
         decal_fields = {field['id']: field for field in decal_schema['fields']}
-        assert decal_schema['optional'] and len(decal_fields) == 13
+        assert decal_schema['optional'] and len(decal_fields) == 16
+        for field, default in [('color_influence', 1), ('normal_influence', 0), ('roughness_influence', 0)]:
+            assert decal_fields[field]['minimum'] == 0 and decal_fields[field]['maximum'] == 1
+            assert decal_fields[field]['default'] == default
         assert decal_fields['material']['asset_type'] == 'material'
         assert abs(decal_fields['width']['minimum'] - .001) < 1e-9 and decal_fields['width']['maximum'] == 10000
         body_schema = next(c for c in state['result']['schema']['components']
@@ -364,13 +367,15 @@ for legacy in (False, True):
         assert created_decal['ok'], created_decal
         decal = created_decal['result']['results'][0]['selected']
         decal_values = dict(material='9d087798-a173-48e0-938d-7607eed42f91', width=2., height=3.,
-                            depth=4., opacity=.25, priority=-7, angle_fade_start=.5, angle_fade_end=1.)
+                            depth=4., opacity=.25, priority=-7, angle_fade_start=.5, angle_fade_end=1.,
+                            color_influence=.25, normal_influence=.5, roughness_influence=.75)
         request = arguments(arguments=dict(entity=decal, component='forge.decal', values=decal_values))
         changed_decal = client.tool('forge_property_set_many', **request)
         assert changed_decal['ok'], changed_decal
         assert client.tool('forge_property_set_many', **request)['result'] == changed_decal['result']
         for field, value in [('width', 0), ('height', True), ('opacity', 1.01),
-                             ('priority', 2147483648), ('angle_fade_end', .4)]:
+                             ('priority', 2147483648), ('angle_fade_end', .4), ('color_influence', -.01),
+                             ('normal_influence', 1.01), ('roughness_influence', True)]:
             before_decal = discover()
             invalid = mutate('forge_property_set', arguments=dict(entity=decal,
                 component='forge.decal', field=field, value=value))

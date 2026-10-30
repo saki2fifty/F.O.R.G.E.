@@ -469,9 +469,12 @@ float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
     if(!any(n!=0)||!any(s.View!=0))return float4(1,0,1,1);
 )";
         ps += "float3 geometric=n;\n";
-        if (decal_capacity)
-            ps += "if(!ForgeApplyProjectedColor(input.World,geometric*face,dpdx,dpdy,base.rgb))"
-                  "return float4(1,0,1,1);\n";
+        const auto project_surface = [&] {
+            if (decal_capacity)
+                ps += "if(!ForgeApplyProjectedSurface(input.World,geometric*face,dpdx,dpdy,"
+                      "base.rgb,n,rough))return float4(1,0,1,1);\n";
+            ps += "s.BaseLayer.Normal=n;s.BaseLayer.NdotV=saturate(dot(n,s.View));\n";
+        };
         auto mapped_normal = [&](const char* role, const char* scale, const char* destination) {
             if (!profile.values.textures.contains(role))
                 return;
@@ -486,7 +489,7 @@ float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
         if (graph)
             ps += "if(any(graph.Normal!=0))n=ForgeUnit(graph.Normal);\n";
         mapped_normal("normalTexture", "normalScale", "n");
-        ps += "n*=face;s.BaseLayer.Normal=n;s.BaseLayer.NdotV=saturate(dot(n,s.View));\n";
+        ps += "n*=face;\n";
         if (profile.workflow == PbrWorkflow::MetallicRoughness) {
             if (sheen) {
                 ps += "s.Sheen.Color=ForgeParameter_sheenColorFactor();"
@@ -505,6 +508,7 @@ float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
             sample("specularColorTexture", "specular*=sample_specularColorTexture.rgb");
             if (graph)
                 ps += "rough=saturate(graph.Roughness);metal=saturate(graph.Metallic);\n";
+            project_surface();
             ps +=
                 "s.BaseLayer.Metallic=metal;\n"
                 // Native five-argument MR fixes dielectric F0 at .04. Adapt its
@@ -535,6 +539,9 @@ float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
                   "physical=float4(ForgeParameter_specularFactor(),ForgeParameter_glossinessFactor("
                   "));\n";
             sample("specularGlossinessTexture", "physical*=sample_specularGlossinessTexture");
+            ps += "float rough=1-physical.a,originalRoughness=rough;\n";
+            project_surface();
+            ps += "if(rough!=originalRoughness)physical.a=1-rough;\n";
             ps += "s.BaseLayer.Srf=GetSurfaceReflectance(PBR_WORKFLOW_SPECULAR_GLOSSINESS,base,"
                   "physical,s.BaseLayer.Metallic);\n";
         }

@@ -25,7 +25,7 @@ int32_t FORGE_SDK_CALL schema(const ForgeSdkWorldV1* host, char* error, uint32_t
 int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char* error, uint32_t capacity) {
     try {
         flecs::world world(host->world);
-        world.system<DecalControl, forge::DecalProjector>("project.TuneProjectedColor")
+        world.system<DecalControl, forge::DecalProjector>("project.TuneProjectedSurface")
             .kind(host->fixed_phase)
             .each([](DecalControl& control, forge::DecalProjector& decal) {
                 if (++control.ticks > 3)
@@ -43,6 +43,9 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char* error, uint32_t 
                 decal.angle_fade_end = 1.25f;
                 decal.layers = 1u << control.ticks;
                 decal.priority = -std::int32_t(control.ticks);
+                decal.color_influence = 1 - .25f * control.ticks;
+                decal.normal_influence = .25f * control.ticks;
+                decal.roughness_influence = .125f * control.ticks;
             })
             .add(host->fixed_tag);
         return 1;

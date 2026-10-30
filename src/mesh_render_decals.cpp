@@ -46,8 +46,8 @@ bool MeshSceneRenderer::update_decals(const RenderScene& scene) {
             decal_entries_.clear();
         }
         decal_order_.clear();
-        diagnostic({}, duplicate ? "Duplicate decal entities; color projection omitted."
-                                 : "Scene exceeds the 8 active color projector limit; ordinary "
+        diagnostic({}, duplicate ? "Duplicate decal entities; projection omitted."
+                                 : "Scene exceeds the 8 active projector limit; ordinary "
                                    "materials retained. Disable or remove projectors.");
         return changed;
     }
@@ -62,12 +62,19 @@ bool MeshSceneRenderer::update_decals(const RenderScene& scene) {
         changed = changed || entry.projector.values != decal->projector.values ||
                   entry.projector.world != decal->projector.world;
         entry.projector = decal->projector;
-        if (entry.requested != entry.projector.values.material || entry.epoch != host_->epoch_) {
+        const unsigned channels =
+            (1u << decal_color_channel) |
+            (entry.projector.values.normal_influence > 0 ? 1u << decal_normal_channel : 0u) |
+            (entry.projector.values.roughness_influence > 0 ? 1u << decal_roughness_channel : 0u);
+        if (entry.requested != entry.projector.values.material || entry.epoch != host_->epoch_ ||
+            entry.channels != channels) {
             changed = true;
             entry.requested = entry.projector.values.material;
             entry.epoch = host_->epoch_;
+            entry.channels = channels;
             entry.material_ticket.reset();
-            entry.texture_ticket.reset();
+            for (auto& ticket : entry.texture_tickets)
+                ticket.reset();
             entry.candidate.reset();
             entry.error.clear();
             try {
@@ -78,9 +85,11 @@ bool MeshSceneRenderer::update_decals(const RenderScene& scene) {
                 entry.error = error.what();
             }
         }
-        // A candidate is published only after its selected color texture and
-        // sampler are complete. Failure retains the last admitted material.
+        // Publish only a complete set of required channel resources. Pending or failed
+        // additions keep the admitted channel mask and last usable material.
         try {
+            constexpr std::array semantics{TextureSemantic::Color, TextureSemantic::Normal,
+                                           TextureSemantic::Data};
             const auto ready = [](const ResourceTicket& ticket) {
                 const auto info = ticket.inspect();
                 if (info.state == ResourceState::Ready)
@@ -96,30 +105,38 @@ bool MeshSceneRenderer::update_decals(const RenderScene& scene) {
                     throw std::runtime_error("Decal material became stale before adoption");
                 if (material->surface)
                     throw std::runtime_error(
-                        "Color projectors require a built-in PBR or unlit "
+                        "Projectors require a built-in PBR or unlit "
                         "Material; custom Surface Shader sources are unsupported");
                 DecalResources candidate;
                 candidate.values = prepare_decal_material(material->values, material->textures);
                 candidate.material = std::move(material);
-                if (candidate.values.texture.id)
-                    entry.texture_ticket = asset_detail::request_texture(
-                        host_->textures_, host_->project_, host_->catalog_,
-                        candidate.values.texture, TextureSemantic::Color);
+                candidate.channels = channels;
+                for (unsigned c = 0; c < decal_channel_count; ++c)
+                    if ((channels & (1u << c)) && candidate.values.textures[c].asset.id)
+                        entry.texture_tickets[c] = asset_detail::request_texture(
+                            host_->textures_, host_->project_, host_->catalog_,
+                            candidate.values.textures[c].asset, semantics[c]);
                 entry.candidate = std::move(candidate);
                 entry.material_ticket.reset();
             }
-            if (entry.texture_ticket && ready(*entry.texture_ticket)) {
-                auto texture = host_->textures_.acquire(*entry.texture_ticket);
-                if (!texture || texture->dimension != TextureDimension::D2 ||
-                    texture->semantic != TextureSemantic::Color)
-                    throw std::runtime_error("Decal color requires a current 2D color texture");
-                entry.candidate->gpu = host_->gpu_textures_.acquire(texture);
-                entry.candidate->texture = std::move(texture);
-                entry.candidate->sampler = upload_sampler(host_->presentation_.device(),
-                                                          entry.candidate->values.slot.sampler);
-                entry.texture_ticket.reset();
-            }
-            if (entry.candidate && !entry.texture_ticket) {
+            for (unsigned c = 0; c < decal_channel_count; ++c)
+                if (entry.texture_tickets[c] && ready(*entry.texture_tickets[c])) {
+                    auto texture = host_->textures_.acquire(*entry.texture_tickets[c]);
+                    if (!texture || texture->dimension != TextureDimension::D2 ||
+                        texture->semantic != semantics[c])
+                        throw std::runtime_error("Decal channel requires a current 2D texture with "
+                                                 "its matching semantic");
+                    auto& selected = entry.candidate->textures[c];
+                    selected.gpu = host_->gpu_textures_.acquire(texture);
+                    selected.source = std::move(texture);
+                    selected.sampler =
+                        upload_sampler(host_->presentation_.device(),
+                                       entry.candidate->values.textures[c].slot.sampler);
+                    entry.texture_tickets[c].reset();
+                }
+            if (entry.candidate &&
+                std::none_of(entry.texture_tickets.begin(), entry.texture_tickets.end(),
+                             [](const auto& ticket) { return ticket.has_value(); })) {
                 before_release();
                 entry.ready = std::move(entry.candidate);
                 entry.candidate.reset();
@@ -127,7 +144,8 @@ bool MeshSceneRenderer::update_decals(const RenderScene& scene) {
             }
         } catch (const std::exception& error) {
             entry.material_ticket.reset();
-            entry.texture_ticket.reset();
+            for (auto& ticket : entry.texture_tickets)
+                ticket.reset();
             entry.candidate.reset();
             entry.error = error.what();
         }

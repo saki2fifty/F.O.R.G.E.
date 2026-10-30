@@ -367,6 +367,17 @@ inline void test_render_views() {
     // Optional projected-color data uses the ordinary schema/property/history owner.
     DecalProjector projector;
     validate_decal(projector);
+    require(projector.color_influence == 1 && projector.normal_influence == 0 &&
+                projector.roughness_influence == 0,
+            "Default projector channels changed existing color intent");
+    for (const auto field : {&DecalProjector::color_influence, &DecalProjector::normal_influence,
+                             &DecalProjector::roughness_influence})
+        for (float bad : {-.1f, 1.1f, std::numeric_limits<float>::infinity(),
+                          std::numeric_limits<float>::quiet_NaN()}) {
+            auto invalid = projector;
+            invalid.*field = bad;
+            rejects([&] { validate_decal(invalid); });
+        }
     for (const auto field :
          {&DecalProjector::width, &DecalProjector::height, &DecalProjector::depth})
         for (float bad : {0.f, -1.f, .0001f, 10001.f, std::numeric_limits<float>::infinity(),
@@ -463,6 +474,17 @@ inline void test_render_views() {
                 extract_render_scene(scene.effective_document()).decals.empty(),
             "Empty decal assignment unexpectedly published a render source");
     const auto decal_defaults = scene.document();
+    auto legacy_decal = decal_defaults;
+    auto& legacy_values = legacy_decal["entities"][0]["components"]["forge.decal"];
+    for (const auto* field : {"color_influence", "normal_influence", "roughness_influence"})
+        legacy_values.erase(field);
+    EngineContext legacy_engine;
+    Scene legacy_scene(legacy_engine.world());
+    legacy_scene.restore_snapshot(legacy_decal);
+    const auto& legacy_value = legacy_scene.entity(id).get<DecalProjector>();
+    require(legacy_scene.document() == decal_defaults && legacy_value.color_influence == 1 &&
+                legacy_value.normal_influence == 0 && legacy_value.roughness_influence == 0,
+            "Older projector did not normalize to equivalent default channel behavior");
     authoring_command(scene, "property.set_many",
                       {{"entity", id},
                        {"component", "forge.decal"},
@@ -472,6 +494,9 @@ inline void test_render_views() {
                          {"height", 4},
                          {"depth", 6},
                          {"opacity", .25},
+                         {"color_influence", .6},
+                         {"normal_influence", .7},
+                         {"roughness_influence", .8},
                          {"priority", 3},
                          {"angle_fade_start", .5},
                          {"angle_fade_end", 1.}}}});
@@ -513,7 +538,9 @@ inline void test_render_views() {
     const auto untuned_revision = runtime.revision();
     const auto authored_revision = scene.revision();
     const auto authored_values = scene.document();
-    require(runtime.tune_runtime_property(id, "forge.decal", "width", 3.) == 3. &&
+    require(runtime.tune_runtime_property(id, "forge.decal", "normal_influence", .5) == .5 &&
+                runtime.entity(id).get<DecalProjector>().normal_influence == .5f &&
+                runtime.tune_runtime_property(id, "forge.decal", "width", 3.) == 3. &&
                 runtime.entity(id).get<DecalProjector>().width == 3 &&
                 runtime.revision() > untuned_revision && !runtime.undo() &&
                 scene.revision() == authored_revision && scene.document() == authored_values &&
@@ -522,6 +549,7 @@ inline void test_render_views() {
     const auto live_values = runtime.document();
     const auto runtime_revision = runtime.revision();
     rejects([&] { runtime.tune_runtime_property(id, "forge.decal", "angle_fade_end", .1); });
+    rejects([&] { runtime.tune_runtime_property(id, "forge.decal", "roughness_influence", 1.1); });
     rejects([&] {
         runtime.tune_runtime_property(id, "forge.decal", "material", engine_material().id);
     });

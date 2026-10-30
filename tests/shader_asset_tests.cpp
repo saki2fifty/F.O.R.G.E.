@@ -179,7 +179,7 @@ int main() {
                         fog_surface.layout_digest() != legacy_layout,
                     "Optimized-out fog wrapper capability lost roundtrip or layout identity");
             auto future_surface = fog_surface;
-            future_surface.surface_wrapper_version = 10;
+            future_surface.surface_wrapper_version = 11;
             rejected([&] { validate_shader(future_surface); });
             auto temporal_surface = fog_surface;
             temporal_surface.surface_wrapper_version = 3;
@@ -350,6 +350,14 @@ int main() {
                         encode_shader(decode_shader(encoded_weighted)) == encoded_weighted &&
                         weighted_surface.layout_digest() != decal_surface.layout_digest(),
                     "Weighted capability lost output roles, archive bytes or layout identity");
+            auto projected_channels = weighted_surface;
+            projected_channels.surface_wrapper_version = 10;
+            const auto encoded_channels = encode_shader(projected_channels);
+            require(decode_shader(encoded_channels).surface_wrapper_version == 10 &&
+                        decode_shader(encoded_channels).stages.size() == 19 &&
+                        encode_shader(decode_shader(encoded_channels)) == encoded_channels &&
+                        projected_channels.layout_digest() != weighted_surface.layout_digest(),
+                    "Projected channel capability lost its archive or layout identity");
             auto invalid_weighted = weighted_surface;
             invalid_weighted.surface_wrapper_version = 8;
             rejected([&] { validate_shader(invalid_weighted); });

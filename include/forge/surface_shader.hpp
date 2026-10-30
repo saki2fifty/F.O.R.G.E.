@@ -48,8 +48,8 @@ struct SurfaceBindingLayout {
 };
 SurfaceBindingLayout surface_binding_layout(const SurfaceShaderDefinition&,
                                             const nlohmann::json& reflection,
-                                            bool area_lights = false,
-                                            bool projected_decals = false);
+                                            bool area_lights = false, bool projected_decals = false,
+                                            bool projected_surface_channels = false);
 std::vector<std::byte> surface_parameter_bytes(const MaterialData&, const SurfaceBindingLayout&);
 std::vector<std::array<float, 4>> surface_uv_rows(const MaterialData&,
                                                   const SurfaceShaderDefinition&);

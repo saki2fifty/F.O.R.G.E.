@@ -17,14 +17,15 @@ exact known unsuppressed184-byte shutdown allocation condition. Windows/full
 editor/MSVC/FXC/cooked D3D12/physical acceptance remain queued.
 See the [contract](weighted-transparency.md) and [guide](../manual/editor/transparency.md).
 
-Local source adds projected material color: an authored Decal Projector, volume
+Local source adds projected material channels: an authored Decal Projector, volume
 guides, Inspector/live controls, shared automation/MCP/SDK access and Gallery113.
-Physical Mesh receivers use source color, alpha, UVs and sampler intent before
-lighting. The profile admits eight active projectors per scene; individual Mesh
-parts can have fewer slots depending on material sampler use. Shader wrapper8
-retains the seventeen existing output roles and readable1–7 archives. Older
+Physical Mesh receivers use source color, normal maps, perceptual roughness, alpha,
+per-channel UVs and sampler intent before lighting. Gallery115 compares individual
+and combined surface channels. The profile admits eight active projectors per scene; individual Mesh
+parts can have fewer slots depending on material sampler use. Shader wrapper10 retains19 output roles and readable1–9 archives with legacy
+color-packet upload. Older
 physical graph receivers need a current cook. See the
-[projection contract](rendering-foundation.md#projected-material-color) and
+[projection contract](rendering-foundation.md#projected-material-channels) and
 [manual](../manual/editor/decals.md). Windows/full-editor/MSVC/FXC/cooked D3D12
 and physical GPU acceptance remain queued.
 

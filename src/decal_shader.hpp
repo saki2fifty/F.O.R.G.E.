@@ -1,6 +1,7 @@
 #pragma once
 #include <algorithm>
 #include <cstddef>
+#include <string>
 namespace forge {
 inline constexpr unsigned decal_draw_limit = 8;
 // The portable receiver profile reserves the existing lighting and comparison
@@ -13,5 +14,11 @@ inline unsigned decal_shader_capacity(std::size_t material_samplers, bool lit) {
                                                                       material_samplers))
                : 0;
 }
-inline constexpr unsigned decal_shader_rows(unsigned capacity) { return 1 + 8 * capacity; }
+inline constexpr unsigned decal_shader_rows(unsigned capacity, bool surface_channels = false) {
+    return 1 + (surface_channels ? 13 : 8) * capacity;
+}
+inline std::string decal_shader_map_name(unsigned index, bool surface_channels) {
+    return std::string(surface_channels ? "g_ForgeDecalMap" : "g_ForgeDecalColor") +
+           std::to_string(index);
+}
 } // namespace forge

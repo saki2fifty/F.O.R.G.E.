@@ -40,7 +40,7 @@ inline void test_decal_shader_profile() {
         mesh_draw_shader(fetch, profile, false, MaterialSamplerBinding::Array, nullptr, {}, false,
                          {}, false, false, false, false, true);
     const auto normal_at = projected.pixel.find("float3 geometric=n;");
-    const auto projection_at = projected.pixel.find("ForgeApplyProjectedColor(input.World,");
+    const auto projection_at = projected.pixel.find("ForgeApplyProjectedSurface(input.World,");
     const auto brdf_at = projected.pixel.find("GetSurfaceReflectanceMR(base.rgb");
     check(!old.decal_capacity && old.pixel.find("ForgeDecals.fxh") == std::string::npos &&
               projected.decal_capacity == 8 &&
@@ -105,6 +105,13 @@ inline void test_decal_shader_profile() {
     reject([&] { surface_binding_layout(graph, bad, false, true); });
     bad["resources"][2]["name"] = "g_ForgeDecalColor07";
     reject([&] { surface_binding_layout(graph, bad, false, true); });
+    auto channels = reflection;
+    channels["resources"][0]["size"] = 105 * 16;
+    channels["resources"][0]["variables"][0]["array_size"] = 105;
+    channels["resources"][2]["name"] = "g_ForgeDecalMap7";
+    (void)surface_binding_layout(graph, channels, false, true, true);
+    reject([&] { surface_binding_layout(graph, channels, false, true); });
+    reject([&] { surface_binding_layout(graph, reflection, false, true, true); });
     graph.physically_based = false;
     reject([&] { surface_binding_layout(graph, reflection, false, true); });
 }
