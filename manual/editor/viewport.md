@@ -195,7 +195,11 @@ Disabled Camera/Light components retain a muted icon so you can find and re-enab
 
 Selecting a camera shows its view volume. Perspective rays follow field of view;
 orthographic edges stay parallel. Imported cameras keep their own view direction.
-Selecting a light shows its direction, point range, or spot inner/outer cone.
+Selecting a light shows its direction, point range, spot inner/outer cone,
+Rectangle outline and emitting direction, or Sphere radius rings. Rectangle guides
+follow the light's rotation, including roll. Area emitter dimensions are world
+metres and ignore entity scale. **F** frames the emitter outline when the selected
+light has no mesh; a co-located mesh remains part of the framing bounds.
 The guide uses the current effective transform, including parenting and prefab values.
 
 Open **View** to toggle **Camera / light helpers**, change **Helper size**, or set

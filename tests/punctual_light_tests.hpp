@@ -1,15 +1,17 @@
 #pragma once
 #include "Utilities/interface/DiligentFXShaderSourceStreamFactory.hpp"
-// Requires the native presentation test helpers from the same WARP fixture.
+// Uses the caller's native presentation and require helper. The ordinary
+// Windows fixture keeps FXC; portable native probes select their backend policy.
 void check_punctual_lights(forge::DiligentPresentation& presentation,
-                           Diligent::IDeviceContext* context) {
+                           Diligent::IDeviceContext* context,
+                           Diligent::SHADER_COMPILER compiler = Diligent::SHADER_COMPILER_FXC) {
     using namespace Diligent;
     ShaderCreateInfo shader;
     shader.Desc.Name = "FORGE native punctual adapter proof";
     shader.Desc.ShaderType = SHADER_TYPE_COMPUTE;
     shader.SourceLanguage = SHADER_SOURCE_LANGUAGE_HLSL;
-    shader.ShaderCompiler = SHADER_COMPILER_FXC;
-    shader.HLSLVersion = {5, 1};
+    shader.ShaderCompiler = compiler;
+    shader.HLSLVersion = compiler == SHADER_COMPILER_FXC ? ShaderVersion{5, 1} : ShaderVersion{};
     shader.EntryPoint = "main";
     shader.pShaderSourceStreamFactory = &DiligentFXShaderSourceStreamFactory::GetInstance();
     shader.Source = R"(

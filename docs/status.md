@@ -5,10 +5,19 @@ The accepted local Windows package is **261024-000213**, source
 in the [README](../README.md#current-implementation). No new numbered Windows
 package accompanies the local source changes described here.
 
+Local source includes Rectangle/Sphere direct lights: world-space emitter sizes,
+shape guides, Inspector/live tuning, shared authoring/MCP/SDK ownership and editable
+Gallery112. Area shadows remain unsupported. Current capability7 surfaces add
+eight area-light color roles while retaining readable1–6 archives. Built-in PBR
+materials use the new variants directly; older custom physically based surfaces
+need a rebuild. See [cameras and lights](cameras-lights.md) and the
+[rendering contract](rendering-foundation.md#rectangular-and-spherical-direct-illumination).
+Windows/full-editor/FXC/cooked D3D12 and physical GPU acceptance remain queued.
+
 Local source also provides optional material-normal refinement for ambient
 occlusion: default-zero Normal influence, shared shaded-normal output, minimal
 ordinary/temporal surface roles, editor controls, the existing authoring/MCP
-operation and editable Gallery108. Current capability6 surface cooks add two roles
+operation and editable Gallery108. Capability6 surface cooks add two roles
 while retaining readable1–5 archives and stable asset identities. Geometric AO
 remains unchanged by default. See the [AO contract](ambient-occlusion.md) for scope
 and payload costs; Windows/full-editor/FXC/cooked D3D12 and physical acceptance

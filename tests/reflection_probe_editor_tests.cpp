@@ -200,15 +200,73 @@ void exercise(const std::filesystem::path& root, float scale, ImVec2 display) {
         for (const auto& field : type.at("fields"))
             check(ComponentInspector::runtime_field_available("forge.light", field,
                                                               light_components) ==
-                      RuntimePropertyTune::light_property(field.at("id").get<std::string>()),
-                  "Live Light controls differ from shared tuning admission");
+                      (field.at("id") == "shadow_source_radius" ||
+                       field.at("id") == "shadow_angular_radius"),
+                  "Punctual Live controls exposed inactive area dimensions");
     }
+    click("component-field:forge.light:cast_shadows");
+    click("component-field:forge.light:kind");
+    click("property:choice:kind:3");
+    check(scene.entity(selected).get<Light>().kind == unsigned(LightKind::Rectangle),
+          "Light kind picker did not select rectangular emission");
+    frame();
+    check(scene.entity(selected).get<Light>().cast_shadows &&
+              test::ui_targets.contains("component-field:forge.light:cast_shadows"),
+          "Carried shadow request cannot be cleared after selecting area emission");
+    click("component-field:forge.light:cast_shadows");
+    frame();
+    check(!test::ui_targets.contains("component-field:forge.light:emitter_radius") &&
+              !test::ui_targets.contains("component-field:forge.light:shadow_source_radius"),
+          "Rectangle Inspector exposed inactive shape controls");
+    const auto before_rectangle = scene.document();
+    type("component-field:forge.light:emitter_width", "2");
+    type("component-field:forge.light:emitter_height", "0.5");
+    check(scene.entity(selected).get<Light>().emitter_width == 2 &&
+              scene.entity(selected).get<Light>().emitter_height == .5f,
+          "Rectangle Inspector dimensions did not reach native Light values");
+    const auto rectangle = scene.document();
+    check(scene.undo() && scene.undo() && scene.document() == before_rectangle && scene.redo() &&
+              scene.redo() && scene.document() == rectangle,
+          "Area Inspector dimensions bypassed ordinary history");
+    type("component-field:forge.light:emitter_width", "0");
+    check(scene.document() == rectangle, "Invalid emitter dimension changed authored state");
+    type("component-field:forge.light:emitter_width", "2");
+    click("component-field:forge.light:kind");
+    click("property:choice:kind:4");
+    type("component-field:forge.light:emitter_radius", "0.75");
+    check(scene.entity(selected).get<Light>().emitter_radius == .75f &&
+              scene.entity(selected).get<Light>().kind == unsigned(LightKind::Sphere),
+          "Sphere picker and Inspector radius did not reach native Light values");
+    frame();
+    check(!test::ui_targets.contains("component-field:forge.light:emitter_width") &&
+              !test::ui_targets.contains("component-field:forge.light:basis"),
+          "Sphere Inspector exposed inactive orientation or rectangular dimensions");
+    for (unsigned kind : {3u, 4u}) {
+        light_components["forge.light"]["kind"] = kind;
+        for (const auto& type : schema.at("components"))
+            if (type.at("id") == "forge.light")
+                for (const auto& field : type.at("fields")) {
+                    const bool expected = kind == 3 ? field.at("id") == "emitter_width" ||
+                                                          field.at("id") == "emitter_height"
+                                                    : field.at("id") == "emitter_radius";
+                    check(ComponentInspector::runtime_field_available("forge.light", field,
+                                                                      light_components) == expected,
+                          "Area Live Inspector exposed the wrong shape's fields");
+                }
+    }
+    scene.save(project.project() / "area-light.scene.json");
+    reopened.load(project.project() / "area-light.scene.json");
+    check(reopened.document() == scene.document(), "Area Inspector did not save and reopen");
     test::observe_ui = false;
     ImGui::DestroyContext();
 }
-void capture(const std::filesystem::path& root, bool light = false) {
+void capture(const std::filesystem::path& root, bool light = false,
+             LightKind light_kind = LightKind::Directional) {
     std::filesystem::create_directories(root / "project");
-    test::ImGuiSoftwareCapture capture(light ? 1080 : 760, light ? 900 : 520);
+    test::ImGuiSoftwareCapture capture(
+        light ? 1080 : 760,
+        light ? (light_kind == LightKind::Rectangle || light_kind == LightKind::Sphere ? 560 : 900)
+              : 520);
     ui::style(1);
     ui::EditorUiContext context;
     ui::ContextScope scope(context);
@@ -219,13 +277,24 @@ void capture(const std::filesystem::path& root, bool light = false) {
     const std::string id =
         authoring_command(scene, "entity.create",
                           {{"recipe", light ? "render.light" : "render.reflection_probe"},
-                           {"name", light ? "Soft directional light" : "Room reflections"}})
+                           {"name", !light                               ? "Room reflections"
+                                    : light_kind == LightKind::Rectangle ? "Rectangular area light"
+                                    : light_kind == LightKind::Sphere ? "Spherical area light"
+                                                                      : "Soft directional light"}})
             .at("selected");
     if (light) {
-        authoring_command(scene, "property.set_many",
-                          {{"entity", id},
-                           {"component", "forge.light"},
-                           {"values", {{"cast_shadows", true}, {"shadow_angular_radius", .01}}}});
+        authoring_command(
+            scene, "property.set_many",
+            {{"entity", id},
+             {"component", "forge.light"},
+             {"values", light_kind == LightKind::Directional
+                            ? Json{{"cast_shadows", true}, {"shadow_angular_radius", .01}}
+                            : Json{{"kind", unsigned(light_kind)},
+                                   {"intensity", 8},
+                                   {"range", 8},
+                                   {"emitter_radius", .75},
+                                   {"emitter_width", 2},
+                                   {"emitter_height", .5}}}});
     } else
         authoring_command(
             scene, "property.set",
@@ -244,18 +313,24 @@ void capture(const std::filesystem::path& root, bool light = false) {
         ImGui::End();
         capture.render();
     }
-    capture.save(
-        root / (light ? "soft-shadow-light-controls.png" : "local-reflection-probe-controls.png"));
+    capture.save(root / (!light ? "local-reflection-probe-controls.png"
+                         : light_kind == LightKind::Rectangle ? "rectangle-area-light-controls.png"
+                         : light_kind == LightKind::Sphere    ? "sphere-area-light-controls.png"
+                                                              : "soft-shadow-light-controls.png"));
 }
 } // namespace
 int main(int argc, char** argv) {
     try {
         check(argc == 2 || (argc == 3 && (std::string_view(argv[2]) == "--capture" ||
-                                          std::string_view(argv[2]) == "--capture-light")),
+                                          std::string_view(argv[2]) == "--capture-light" ||
+                                          std::string_view(argv[2]) == "--capture-rectangle" ||
+                                          std::string_view(argv[2]) == "--capture-sphere")),
               "Expected probe UI scratch root or --capture");
         if (argc == 3)
-            capture(std::filesystem::absolute(argv[1]),
-                    std::string_view(argv[2]) == "--capture-light");
+            capture(std::filesystem::absolute(argv[1]), std::string_view(argv[2]) != "--capture",
+                    std::string_view(argv[2]) == "--capture-rectangle" ? LightKind::Rectangle
+                    : std::string_view(argv[2]) == "--capture-sphere"  ? LightKind::Sphere
+                                                                       : LightKind::Directional);
         else
             for (const auto scale : {1.f, 1.5f, 2.f})
                 for (const auto size : {ImVec2{1200, 1000}, ImVec2{960, 640}})

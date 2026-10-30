@@ -144,11 +144,14 @@ out-parameter helpers. [Ambient occlusion](ambient-occlusion.md) consumes this
 radiance independently of the full current color. Older wrappers remain readable;
 recook Shader and dependent Materials to opt in. Capability 5 adds ordinary and
 temporal [reflection outputs](screen-space-reflections.md), using the actual base
-material response; final-color custom functions supply zero receiver data. Current
-capability6 cooks append `surface_normal_color` and
+material response; final-color custom functions supply zero receiver data. Capability6 cooks append `surface_normal_color` and
 `surface_temporal_normal_color` for optional [material-normal AO](ambient-occlusion.md).
 Their three/four MRTs contain color, optional motion, total indirect and shaded
 normal/roughness, without unused reflection response/specular targets. PBR graph
 normal production shares the existing material evaluation; final-color functions
-write zero normals. Nine-role cooks require a matching engine; capabilities1–5
+write zero normals. Capability7 appends eight area-light color roles, bringing the bound to17 entries;
+the existing depth role is shared. Physically based graphs use the area lighting
+adapter and7168-byte Light buffer in those variants; ordinary roles retain4096
+bytes. Unlit/final-color custom surfaces keep ordinary behavior. Rebuild Shader
+and dependent Materials to receive Rectangle/Sphere lighting. Capabilities1–6
 remain readable with unchanged bytes. Logical asset identities remain unchanged.

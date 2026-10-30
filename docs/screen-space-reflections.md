@@ -120,13 +120,13 @@ introduced.
 Capability 5 appends `surface_reflection_color` and
 `surface_temporal_reflection_color` to the five capability-4 roles. Their MRT order
 is color, optional RGBA32F motion, indirect, normal/roughness, response and old
-base specular. Other attachments use RGBA16F. Current surface compiler source
-emits nine roles at capability6, including the two minimal normal-only AO roles.
-Readers retain capabilities1–5 and their original bytes;
+base specular. Other attachments use RGBA16F. Capability6 emits nine roles, including the two minimal normal-only AO roles.
+Current capability7 appends eight area-light color counterparts and shares depth.
+Readers retain capabilities1–6 and their original bytes;
 logical Shader/Material IDs and existing immutable publication/DDC/last-good
 ownership remain unchanged. Reimport Shader and rebuild dependent Materials to
 participate with older cooks. Ordinary source-program stage admission remains six;
-surface artifacts admit up to nine entries.
+surface artifacts admit up to17 entries.
 
 Local software Vulkan checks cover analytic geometry, mapped/rotated normals,
 material/layer/fog response, actual posed and instanced MRT producers, Game/Scene,

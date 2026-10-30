@@ -158,9 +158,14 @@ int main(int argc, char** argv) {
             for (auto& row : expected.at("entities")) {
                 auto& components = row.at("components");
                 if (auto light = components.find("forge.light"); light != components.end())
-                    for (const auto* field : {"shadow_source_radius", "shadow_angular_radius"})
+                    for (const auto& [field, value] : std::array<std::pair<const char*, double>, 5>{
+                             {{"shadow_source_radius", 0.},
+                              {"shadow_angular_radius", 0.},
+                              {"emitter_radius", .5},
+                              {"emitter_width", 1.},
+                              {"emitter_height", 1.}}})
                         if (!light->contains(field))
-                            (*light)[field] = 0.;
+                            (*light)[field] = value;
                 if (auto renderer = components.find("forge.mesh_renderer");
                     renderer != components.end() && !renderer->contains("material_parameters"))
                     (*renderer)["material_parameters"] = Json::array();

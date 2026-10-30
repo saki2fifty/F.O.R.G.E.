@@ -1,4 +1,5 @@
 #pragma once
+#include "light_emitter_view.hpp"
 #include "navigation_region_view.hpp"
 #include "reflection_probe_view.hpp"
 #include <algorithm>
@@ -198,7 +199,8 @@ class EditorCamera {
                 !e.at("components").contains("forge.position"))
                 continue;
             auto bounds = object_bounds(e);
-            if (const auto region = navigation_region_view(e)) {
+            const auto region = navigation_region_view(e);
+            if (region) {
                 if (primitive_kind(e) == no_primitive) {
                     for (unsigned i = 0; i < 3; ++i)
                         bounds.first[i] = bounds.second[i] = float(region->quad[0][i]);
@@ -209,12 +211,23 @@ class EditorCamera {
                         bounds.second[i] = std::max(bounds.second[i], float(point[i]));
                     }
             }
-            if (const auto probe = ui::reflection_probe_view(e))
+            const auto probe = ui::reflection_probe_view(e);
+            if (probe)
                 for (const auto& point : probe->outline)
                     for (unsigned i = 0; i < 3; ++i) {
                         bounds.first[i] = std::min(bounds.first[i], float(point[i]));
                         bounds.second[i] = std::max(bounds.second[i], float(point[i]));
                     }
+            if (const auto emitter = ui::light_emitter_bounds(e))
+                for (unsigned i = 0; i < 3; ++i) {
+                    if (primitive_kind(e) == no_primitive && !region && !probe) {
+                        bounds.first[i] = float(emitter->first[i]);
+                        bounds.second[i] = float(emitter->second[i]);
+                    } else {
+                        bounds.first[i] = std::min(bounds.first[i], float(emitter->first[i]));
+                        bounds.second[i] = std::max(bounds.second[i], float(emitter->second[i]));
+                    }
+                }
             for (unsigned i = 0; i < 3; ++i) {
                 lo[i] = std::min(lo[i], bounds.first[i]);
                 hi[i] = std::max(hi[i], bounds.second[i]);

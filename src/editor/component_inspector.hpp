@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <cmath>
 #include <forge/authoring.hpp>
+#include <forge/render_components.hpp>
 #include <set>
 namespace forge {
 class ComponentInspector {
@@ -143,6 +144,19 @@ class ComponentInspector {
                (type.value("custom", false) && type.contains("admission") &&
                 components.at(key).value("$forge", Json()) == type.at("admission"));
     }
+    static bool light_field_visible(std::string_view field, const Json& value) {
+        const auto kind = LightKind(value.value("kind", 0u));
+        if (field == "emitter_radius")
+            return kind == LightKind::Sphere;
+        if (field == "emitter_width" || field == "emitter_height")
+            return kind == LightKind::Rectangle;
+        const bool area = kind == LightKind::Rectangle || kind == LightKind::Sphere;
+        if (area && field == "cast_shadows")
+            return value.value("cast_shadows", false);
+        if (area && (field.starts_with("shadow_") || field.ends_with("_cone")))
+            return false;
+        return field != "basis" || kind != LightKind::Sphere;
+    }
     static bool runtime_field_available(const std::string& key, const Json& field,
                                         const Json& components) {
         const auto name = field.at("id").get<std::string>();
@@ -157,7 +171,9 @@ class ComponentInspector {
                 RuntimePropertyTune::sprite_property(name)) &&
                (!RuntimePropertyTune::probe_type(key) ||
                 RuntimePropertyTune::probe_property(name)) &&
-               (!RuntimePropertyTune::light_type(key) || RuntimePropertyTune::light_property(name));
+               (!RuntimePropertyTune::light_type(key) ||
+                (RuntimePropertyTune::light_property(name) &&
+                 light_field_visible(name, components.at(key))));
     }
     static bool has_runtime_fields(const Json& effective, const Json& schema,
                                    const std::string& selected) {
@@ -508,9 +524,18 @@ class ComponentInspector {
                          "material, select its image and save it. Assign that material here. "
                          "Frames are whole cells counted from zero across each row.");
             }
+            if (RuntimePropertyTune::light_type(key)) {
+                const auto kind = LightKind(values.at(key).at("kind").get<unsigned>());
+                if (kind == LightKind::Rectangle || kind == LightKind::Sphere)
+                    ui::help("Area lights illuminate surfaces from their emitter shape. "
+                             "Area-light shadows are unavailable.");
+            }
             std::string_view group;
             for (const auto& field : *fields) {
                 const std::string name = field.at("id");
+                if (RuntimePropertyTune::light_type(key) &&
+                    !light_field_visible(name, values.at(key)))
+                    continue;
                 if (key == "forge.physics_joint_2d") {
                     const auto kind = values.at(key).at("kind").get<unsigned>();
                     if (((name == "distance" || name.starts_with("spring_")) && kind != 0) ||

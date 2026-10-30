@@ -190,8 +190,11 @@ MeshDrawShader mesh_draw_shader(const MeshVertexFetch& fetch, const PbrMaterialP
                                 bool shadow_pass, MaterialSamplerBinding sampler_binding,
                                 const SurfaceShaderDefinition* graph, std::string_view graph_source,
                                 bool sprite_profile, std::optional<TextureFilter> sprite_mips,
-                                bool indirect_output, bool reflection_output, bool normal_output) {
+                                bool indirect_output, bool reflection_output, bool normal_output,
+                                bool area_lights) {
     const auto& source = profile.values;
+    require(!area_lights || (!shadow_pass && !sprite_profile),
+            "Area lighting requires the Mesh color pass");
     require(!indirect_output || (!shadow_pass && !sprite_profile),
             "Indirect outputs require the Mesh color pass");
     if (sprite_profile) {
@@ -288,6 +291,8 @@ MeshDrawShader mesh_draw_shader(const MeshVertexFetch& fetch, const PbrMaterialP
     ps += std::string("#define ENABLE_ANISOTROPY ") + (anisotropy ? "1\n" : "0\n");
     ps += std::string("#define ENABLE_TRANSMISSION ") + (transmission ? "1\n" : "0\n");
     ps += "#include \"ForgeSurface.fxh\"\n#include \"ForgeLighting.fxh\"\n";
+    if (area_lights && profile.workflow != PbrWorkflow::Unlit)
+        ps += "#include \"ForgeAreaLights.fxh\"\n";
     if (profile.workflow == PbrWorkflow::MetallicRoughness)
         ps += "#include \"Iridescence.fxh\"\n";
     ps += object_source + skin + varyings + material.source;
@@ -304,7 +309,10 @@ MeshDrawShader mesh_draw_shader(const MeshVertexFetch& fetch, const PbrMaterialP
     if (transmission)
         ps += "#include \"ForgeTransmission.fxh\"\n";
     ps += "cbuffer ForgeLights {PBRLightAttribs g_Lights[" + std::to_string(mesh_draw_light_limit) +
-          "];};\n";
+          "];";
+    if (area_lights)
+        ps += "float4 g_AreaShapes[" + std::to_string(mesh_draw_light_limit * 3) + "];";
+    ps += "};\n";
     if (sprite_profile)
         ps += R"(
 float ForgeSpriteSlice(float u,float4 axis) {
@@ -566,6 +574,19 @@ float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
     SurfaceLightingInfo lighting=GetDefaultSurfaceLightingInfo();
     [loop]for(uint i=0;i<(uint)g_Object[13].x;i++) {
         PBRLightAttribs light=g_Lights[i];
+)";
+        if (area_lights)
+            ps += R"(
+        if(light.Type>3) {
+            valid=ForgeApplyAreaLight(s,light,g_AreaShapes[i*3].xyz,
+                                     g_AreaShapes[i*3+1].xyz,g_AreaShapes[i*3+2].xyz,
+#if ENABLE_SHEEN
+                                     g_ForgeSheen,g_ForgeLightSampler,
+#endif
+                                     lighting)&&valid;
+        } else {
+)";
+        ps += R"(
         float visibility=ForgeShadowVisibility(light.ShadowMapIndex,input.World,
                                                geometric*face,dot(g_Object[8].xyz,input.World));
         light.IntensityR*=visibility;light.IntensityG*=visibility;light.IntensityB*=visibility;
@@ -574,6 +595,10 @@ float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
         g_ForgeSheen,g_ForgeLightSampler,
 #endif
         lighting)&&valid;
+)";
+        if (area_lights)
+            ps += "}\n";
+        ps += R"(
     }
     if(g_Environment.x>0) {
         ApplyIBL(s,g_Environment.y,g_Environment.zw,
@@ -721,16 +746,16 @@ ForgeTemporalTargets main(ForgeVarying input,bool front:SV_IsFrontFace) {
 std::string material_graph_shader_wrapper(const SurfaceShaderDefinition& definition,
                                           std::string_view source, bool depth_only,
                                           bool indirect_output, bool reflection_output,
-                                          bool normal_output) {
+                                          bool normal_output, bool area_lights) {
     MaterialData values;
     values.model = "forge.gltf.metallic-roughness.v1";
     const auto profile = prepare_pbr_material(values);
     MeshVertexFetch fetch;
     fetch.uv_sets = definition.uv_sets;
     fetch.normal = fetch.tangent = true;
-    auto generated =
-        mesh_draw_shader(fetch, profile, depth_only, MaterialSamplerBinding::Array, &definition,
-                         source, false, {}, indirect_output, reflection_output, normal_output);
+    auto generated = mesh_draw_shader(fetch, profile, depth_only, MaterialSamplerBinding::Array,
+                                      &definition, source, false, {}, indirect_output,
+                                      reflection_output, normal_output, area_lights);
     require(!depth_only || !indirect_output, "Depth graph does not emit indirect color");
     if (indirect_output) {
         const std::string extra = reflection_output ? ",out ForgeReflectionSurfaceData reflection"

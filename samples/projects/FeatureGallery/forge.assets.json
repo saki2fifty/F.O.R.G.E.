@@ -1458,6 +1458,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "19f69809-0eea-4a0b-a360-dd4b7c90f2be",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/112-area-lights.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "1aee7207-cde4-48bc-9c23-cd5a32eac241",
       "metadata": {
         "forge.import": {

@@ -760,7 +760,10 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<float>("shadow_normal_bias")
             .template member<std::uint32_t>("layers")
             .template member<float>("shadow_source_radius")
-            .template member<float>("shadow_angular_radius");
+            .template member<float>("shadow_angular_radius")
+            .template member<float>("emitter_radius")
+            .template member<float>("emitter_width")
+            .template member<float>("emitter_height");
         for (const auto& [field, offset] :
              {std::pair{"enabled", offsetof(Light, enabled)},
               std::pair{"kind", offsetof(Light, kind)}, std::pair{"basis", offsetof(Light, basis)},
@@ -776,6 +779,9 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
               std::pair{"shadow_normal_bias", offsetof(Light, shadow_normal_bias)},
               std::pair{"shadow_source_radius", offsetof(Light, shadow_source_radius)},
               std::pair{"shadow_angular_radius", offsetof(Light, shadow_angular_radius)},
+              std::pair{"emitter_radius", offsetof(Light, emitter_radius)},
+              std::pair{"emitter_width", offsetof(Light, emitter_width)},
+              std::pair{"emitter_height", offsetof(Light, emitter_height)},
               std::pair{"layers", offsetof(Light, layers)}}) {
             const auto* member = ecs_struct_get_member(w.c_ptr(), c.id(), field);
             if (!member || std::size_t(member->offset) != offset)
@@ -1706,15 +1712,16 @@ Json registration_options(const Builtin& type, const std::string& field) {
     if (name == "forge.light") {
         static const std::map<std::string, const char*> help = {
             {"enabled", "Include this light in rendering"},
-            {"kind", "Directional, point or spot light"},
-            {"basis", "FORGE directional/spot forward is +Z; imported glTF forward is -Z"},
+            {"kind", "Directional, point, spot, rectangular area or spherical area light"},
+            {"basis", "Directional, spot and rectangle emission is +Z in FORGE or -Z for glTF"},
             {"color_r", "Linear light red multiplier from zero to one"},
             {"color_g", "Linear light green multiplier from zero to one"},
             {"color_b", "Linear light blue multiplier from zero to one"},
-            {"intensity", "Nonnegative lux for directional lights or candela for point/spot "
-                          "lights; unaffected by node scale"},
-            {"range",
-             "Point/spot distance cutoff in meters; zero is unbounded, independent of node scale"},
+            {"intensity", "Nonnegative lux for directional or candela for point/spot. Area "
+                          "lights retain distant sphere or rectangle normal-axis candela; "
+                          "independent of node scale"},
+            {"range", "Positional light center-distance cutoff in meters; zero is unbounded, "
+                      "independent of node scale"},
             {"inner_cone",
              "Spot half angle in radians where attenuation starts; less than outer angle"},
             {"outer_cone", "Spot half angle in radians where illumination ends; at most pi/2"},
@@ -1731,6 +1738,12 @@ Json registration_options(const Builtin& type, const std::string& field) {
              "Directional shadow source angular radius in radians. "
              "Positive values enable bounded contact-hardening soft shadows; "
              "zero retains fixed PCF. Point and spot lights use source radius"},
+            {"emitter_radius", "Spherical emitter radius in world meters; independent of node "
+                               "scale. Receivers on or inside the sphere receive no illumination"},
+            {"emitter_width", "Rectangular emitter full width in world meters; independent of "
+                              "node scale. Emits from its forward side only"},
+            {"emitter_height", "Rectangular emitter full height in world meters; independent of "
+                               "node scale. Rotation controls its plane and roll"},
             {"layers", "Affected render layer bit mask"}};
         value["description"] = help.at(field);
         if (field.starts_with("color_")) {
@@ -1749,6 +1762,11 @@ Json registration_options(const Builtin& type, const std::string& field) {
         }
         if (field == "shadow_angular_radius")
             value["unit"] = "radians";
+        if (field.starts_with("emitter_")) {
+            value["minimum"] = double(.001f);
+            value["maximum"] = 10000;
+            value["unit"] = "meters";
+        }
         if (field == "range" || field == "shadow_normal_bias" || field == "shadow_source_radius")
             value["unit"] = "meters";
     }
@@ -2721,7 +2739,7 @@ ecs_entity_t builtin_enum(flecs::world& world, const std::string& component,
         names = {"Disabled", "Nearest", "Linear"};
     } else if (component == "forge.light" && field == "kind") {
         type = "forge.LightKind";
-        names = {"Directional", "Point", "Spot"};
+        names = {"Directional", "Point", "Spot", "Rectangle", "Sphere"};
     } else if (component == "forge.audio_source" && field == "attenuation") {
         type = "forge.AudioAttenuation";
         names = {"Inverse", "Linear", "Exponential"};
@@ -3068,7 +3086,8 @@ Json admitted_builtin_source(const Builtin& type, const Json& source) {
     if (std::string_view(type.name) == "forge.tile_map_renderer" && !current.contains("mip_filter"))
         current["mip_filter"] = type.defaults.at("mip_filter");
     if (std::string_view(type.name) == "forge.light")
-        for (const auto* field : {"shadow_source_radius", "shadow_angular_radius"})
+        for (const auto* field : {"shadow_source_radius", "shadow_angular_radius", "emitter_radius",
+                                  "emitter_width", "emitter_height"})
             if (!current.contains(field))
                 current[field] = type.defaults.at(field);
     if (std::string_view(type.name) == "forge.transform_animator")

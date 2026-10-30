@@ -36,11 +36,17 @@ class MeshDrawBundle {
     }
     void prepare_surface(Diligent::IDeviceContext*, unsigned lod, unsigned part, bool motion,
                          bool indirect, std::span<const MaterialParameterOverride> = {},
-                         bool reflection = false, bool normal = false);
+                         bool reflection = false, bool normal = false, bool area_lights = false);
     bool surface_prepared(unsigned lod, unsigned part, bool motion, bool indirect,
-                          bool reflection = false, bool normal = false) const {
-        return bool(
-            surface_lods_.at(surface_index(motion, indirect, reflection, normal)).at(lod).at(part));
+                          bool reflection = false, bool normal = false,
+                          bool area_lights = false) const {
+        const auto& variants =
+            surface_lods_.at(surface_index(motion, indirect, reflection, normal, area_lights));
+        if (variants.empty()) {
+            (void)info_.at(lod).at(part);
+            return false;
+        }
+        return bool(variants.at(lod).at(part));
     }
     std::size_t draw_part_count() const;
     void draw_shadow(Diligent::IDeviceContext*, const AffineTransform&, const CameraView&,
@@ -79,24 +85,28 @@ class MeshDrawBundle {
 
   private:
     static std::size_t surface_index(bool motion, bool indirect, bool reflection = false,
-                                     bool normal = false) {
+                                     bool normal = false, bool area_lights = false) {
         if (normal) {
             if (!indirect || reflection)
                 throw std::invalid_argument("Normal-only specialization requires indirect output "
                                             "without reflection outputs");
-            return motion ? 6 : 5;
+            return (motion ? 6 : 5) + (area_lights ? 8 : 0);
         }
         if (reflection) {
             if (!indirect)
                 throw std::invalid_argument("Reflection specialization requires indirect output");
-            return motion ? 4 : 3;
+            return (motion ? 4 : 3) + (area_lights ? 8 : 0);
         }
-        if (!motion && !indirect)
+        if (!motion && !indirect) {
+            if (area_lights)
+                return 7;
             throw std::invalid_argument("Surface specialization needs motion or indirect output");
-        return indirect ? (motion ? 2 : 1) : 0;
+        }
+        return (indirect ? (motion ? 2 : 1) : 0) + (area_lights ? 8 : 0);
     }
     std::unique_ptr<MeshDraw> prepare_draw(Diligent::IDeviceContext*, unsigned lod, unsigned part,
-                                           Diligent::TEXTURE_FORMAT, MeshDrawProfile);
+                                           Diligent::TEXTURE_FORMAT, MeshDrawProfile,
+                                           bool area_lights = false);
     DiligentPresentation& presentation_;
     Diligent::TEXTURE_FORMAT color_, depth_;
     // CPU revision leases survive every derived pose and native binding.
@@ -112,6 +122,8 @@ class MeshDrawBundle {
     std::vector<std::vector<PartInfo>> info_;
     std::vector<std::vector<std::unique_ptr<MeshDraw>>> lods_;
     std::vector<std::vector<std::unique_ptr<MeshDraw>>> shadow_lods_;
-    std::array<std::vector<std::vector<std::unique_ptr<MeshDraw>>>, 7> surface_lods_;
+    // Existing seven MRT variants, ordinary area color, then seven area MRT
+    // variants. Area layouts and native resources allocate on first use only.
+    std::array<std::vector<std::vector<std::unique_ptr<MeshDraw>>>, 15> surface_lods_;
 };
 } // namespace forge

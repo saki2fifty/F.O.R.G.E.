@@ -66,7 +66,7 @@ void validate_camera(const Camera& c) {
                 "Camera background must contain linear channels from zero to one");
 }
 void validate_light(const Light& l) {
-    require(l.kind <= std::uint32_t(LightKind::Spot) &&
+    require(l.kind <= std::uint32_t(LightKind::Sphere) &&
                 l.basis <= std::uint32_t(ViewBasis::GltfNegativeZ),
             "Unknown light kind/basis");
     for (auto channel : {l.color_r, l.color_g, l.color_b})
@@ -85,6 +85,9 @@ void validate_light(const Light& l) {
                 l.shadow_angular_radius >= 0 &&
                 l.shadow_angular_radius <= float(std::numbers::pi / 4),
             "Shadow source radius must be 0–10000 metres and angular radius 0–pi/4 radians");
+    for (float size : {l.emitter_radius, l.emitter_width, l.emitter_height})
+        require(finite(size) && size >= .001f && size <= 10000,
+                "Light emitter dimensions must be 0.001–10000 metres");
 }
 CameraView camera_view(const Camera& c, const AffineTransform& a, std::uint32_t width,
                        std::uint32_t height) {
@@ -174,9 +177,17 @@ LightView light_view(const Light& l, const AffineTransform& a) {
     validate_affine(a);
     LightView result{};
     result.position = a.point({0, 0, 0});
-    if (l.kind != std::uint32_t(LightKind::Point))
+    if (l.kind != std::uint32_t(LightKind::Point) && l.kind != std::uint32_t(LightKind::Sphere))
         result.direction =
             unit(a.vector({0, 0, l.basis == std::uint32_t(ViewBasis::GltfNegativeZ) ? -1. : 1.}));
+    if (l.kind == std::uint32_t(LightKind::Rectangle)) {
+        const Double3 back{-result.direction[0], -result.direction[1], -result.direction[2]};
+        const auto up = cross(back, unit(a.vector({1, 0, 0})));
+        require(std::hypot(up[0], up[1], up[2]) > 1e-12,
+                "Rectangle light needs independent world right and forward axes");
+        result.up = unit(up);
+        result.right = unit(cross(result.up, back));
+    }
     result.color = {l.color_r, l.color_g, l.color_b};
     result.intensity = gpu(l.intensity);
     result.range = gpu(l.range);
@@ -192,6 +203,9 @@ LightView light_view(const Light& l, const AffineTransform& a) {
     result.shadow_normal_bias = l.shadow_normal_bias;
     result.shadow_source_radius = l.shadow_source_radius;
     result.shadow_angular_radius = l.shadow_angular_radius;
+    result.emitter_radius = l.emitter_radius;
+    result.emitter_width = l.emitter_width;
+    result.emitter_height = l.emitter_height;
     return result;
 }
 } // namespace forge

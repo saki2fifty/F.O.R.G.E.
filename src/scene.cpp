@@ -797,7 +797,8 @@ Json Scene::tune_runtime_property(const std::string& entity_id, const std::strin
             throw std::runtime_error("Only existing reflection probe controls can be tuned live");
         if (light && (!RuntimePropertyTune::light_property(property_key) || !target.has<Light>()))
             throw std::runtime_error(
-                "Only existing light shadow source dimensions can be tuned live: " + property_key);
+                "Only existing light shadow and emitter dimensions can be tuned live: " +
+                property_key);
         for (const auto& codec : detail::builtins()) {
             if (type_key != codec.name)
                 continue;

@@ -1,5 +1,7 @@
 # Changelog
 
+- [2026-10-30](20261030/README.md) — Rectangular/spherical direct lights, shared Inspector/live/MCP/SDK controls and editable Gallery112. Local source; Windows verification and delivery pending.
+
 - [2026-10-29](20261029/README.md) — Per-tile collision profiles and Scene surface effects: temporal anti-aliasing, motion blur, depth of field and ambient occlusion; shared controls/MCP and editable Galleries101–105. Local source; Windows verification and delivery pending.
 
 - [2026-10-28](20261028/README.md) — Reviewed Sprite atlas PNG generation, shared native/MCP import workflow, frame pasting and Gallery94. Local source; Windows verification and delivery pending.

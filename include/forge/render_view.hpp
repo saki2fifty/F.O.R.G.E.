@@ -30,6 +30,8 @@ struct LightView {
     bool cast_shadows{};
     float shadow_bias{}, shadow_normal_bias{};
     float shadow_source_radius{}, shadow_angular_radius{};
+    float emitter_radius{}, emitter_width{}, emitter_height{};
+    Double3 right{}, up{}; // Rectangle plane; cross(right, up) opposes emission.
 };
 LightView light_view(const Light&, const AffineTransform&);
 } // namespace forge

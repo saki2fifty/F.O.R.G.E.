@@ -271,19 +271,27 @@ compile_diligent_shader(Diligent::IRenderDevice* device, const ShaderProgramSour
     result.data.row_major = program.row_major;
     result.data.compiler_debug = diligent_shader_compiler_debug();
     result.data.surface = program.surface;
-    result.data.surface_wrapper_version = program.surface ? 6 : 1;
+    result.data.surface_wrapper_version = program.surface ? 7 : 1;
     for (const auto& entry : program.stages) {
-        const std::vector roles = program.surface
-                                      ? std::vector{ShaderEntryRole::SurfaceColor,
-                                                    ShaderEntryRole::SurfaceDepth,
-                                                    ShaderEntryRole::SurfaceTemporalColor,
-                                                    ShaderEntryRole::SurfaceIndirectColor,
-                                                    ShaderEntryRole::SurfaceTemporalIndirectColor,
-                                                    ShaderEntryRole::SurfaceReflectionColor,
-                                                    ShaderEntryRole::SurfaceTemporalReflectionColor,
-                                                    ShaderEntryRole::SurfaceNormalColor,
-                                                    ShaderEntryRole::SurfaceTemporalNormalColor}
-                                      : std::vector{ShaderEntryRole::Program};
+        const std::vector roles =
+            program.surface ? std::vector{ShaderEntryRole::SurfaceColor,
+                                          ShaderEntryRole::SurfaceDepth,
+                                          ShaderEntryRole::SurfaceTemporalColor,
+                                          ShaderEntryRole::SurfaceIndirectColor,
+                                          ShaderEntryRole::SurfaceTemporalIndirectColor,
+                                          ShaderEntryRole::SurfaceReflectionColor,
+                                          ShaderEntryRole::SurfaceTemporalReflectionColor,
+                                          ShaderEntryRole::SurfaceNormalColor,
+                                          ShaderEntryRole::SurfaceTemporalNormalColor,
+                                          ShaderEntryRole::SurfaceAreaColor,
+                                          ShaderEntryRole::SurfaceAreaTemporalColor,
+                                          ShaderEntryRole::SurfaceAreaIndirectColor,
+                                          ShaderEntryRole::SurfaceAreaTemporalIndirectColor,
+                                          ShaderEntryRole::SurfaceAreaReflectionColor,
+                                          ShaderEntryRole::SurfaceAreaTemporalReflectionColor,
+                                          ShaderEntryRole::SurfaceAreaNormalColor,
+                                          ShaderEntryRole::SurfaceAreaTemporalNormalColor}
+                            : std::vector{ShaderEntryRole::Program};
         for (const auto role : roles) {
             device_profile(device, entry.stage);
             ShaderCreateInfo ci;
@@ -298,9 +306,9 @@ compile_diligent_shader(Diligent::IRenderDevice* device, const ShaderProgramSour
                 const bool normal_output = normal_surface_role(role);
                 wrapper =
                     program.surface->physically_based
-                        ? material_graph_shader_wrapper(*program.surface, entry.source,
-                                                        role == ShaderEntryRole::SurfaceDepth,
-                                                        indirect, reflection_output, normal_output)
+                        ? material_graph_shader_wrapper(
+                              *program.surface, entry.source, role == ShaderEntryRole::SurfaceDepth,
+                              indirect, reflection_output, normal_output, area_surface_role(role))
                         : surface_shader_wrapper(entry.source, entry.entry,
                                                  role == ShaderEntryRole::SurfaceDepth, indirect,
                                                  reflection_output, normal_output);
@@ -310,6 +318,12 @@ compile_diligent_shader(Diligent::IRenderDevice* device, const ShaderProgramSour
                                                  reflection_output, normal_output);
                 else if (temporal_surface_role(role))
                     wrapper = temporal_surface_wrapper(std::move(wrapper));
+                if (area_surface_role(role)) {
+                    const std::string original = surface_shader_entry(ordinary_surface_role(role));
+                    const auto at = wrapper.find(original + "(");
+                    require(at != std::string::npos, "Area wrapper lost its engine color entry");
+                    wrapper.replace(at, original.size(), surface_shader_entry(role));
+                }
                 ci.FilePath = nullptr;
                 ci.Source = wrapper.c_str();
                 ci.EntryPoint = surface_shader_entry(role);

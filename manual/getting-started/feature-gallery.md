@@ -1,5 +1,13 @@
 # Explore the Feature Gallery
 
+**112-area-lights** compares a warm rectangular emitter with a cool spherical
+emitter on two metal spheres and a rough receiver. Press Play, then select either
+light and adjust **Emitter Width (m)** / **Emitter Height (m)** or **Emitter Radius
+(m)** under **Live gameplay**. Stop, keep the values you want and save. Rotation
+aims the rectangle and turns its highlight; entity scale does not resize either
+emitter. Area shadows are unavailable. Choose this Scene as startup before export.
+See [Scene lighting](../editor/lighting.md) for controls and limits.
+
 **111-contact-hardening-shadows** compares resting and raised boxes on a lit floor.
 Select **Soft sun - change Shadow Angular Radius** and compare **Shadow Angular
 Radius (rad)** at **0.08** and **0**. A larger source softens separated shadows;

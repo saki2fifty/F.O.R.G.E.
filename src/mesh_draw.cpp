@@ -116,13 +116,14 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
                    const GpuMeshPart& mesh, const MaterialData& source, const Textures& textures,
                    TEXTURE_FORMAT color_format, TEXTURE_FORMAT depth_format, bool enable_skin,
                    SHADER_COMPILER compiler, SHADER_OPTIMIZATION_LEVEL optimization,
-                   const MaterialShaderSnapshot* surface, MeshDrawProfile draw_profile)
+                   const MaterialShaderSnapshot* surface, MeshDrawProfile draw_profile,
+                   bool area_lights)
     : mesh_(mesh), shadow_pass_(color_format == TEX_FORMAT_UNKNOWN),
       temporal_(temporal_mesh_profile(draw_profile) && !shadow_pass_),
       indirect_(indirect_mesh_profile(draw_profile) && !shadow_pass_),
       reflection_(reflection_mesh_profile(draw_profile) && !shadow_pass_),
       normal_(normal_mesh_profile(draw_profile) && !shadow_pass_),
-      sprite_(sprite_draw_profile(draw_profile)),
+      area_lights_(area_lights && !shadow_pass_), sprite_(sprite_draw_profile(draw_profile)),
       sprite_mips_(sprite_draw_mip_filter(draw_profile).has_value()) {
     require(draw_profile == MeshDrawProfile::Mesh || temporal_mesh_profile(draw_profile) ||
                 indirect_mesh_profile(draw_profile) || sprite_,
@@ -140,6 +141,7 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
     require(!normal_ || !surface || surface->program.surface_wrapper_version >= 6,
             "Rebuild this Shader and dependent Materials to use material-normal occlusion");
     require(!sprite_ || !surface, "Sprite draw profile does not admit custom surfaces");
+    require(!area_lights_ || !sprite_, "Area lighting requires a Mesh draw");
     sprite_trim_allowed_ = sprite_trim_material_compatible(source);
     device_ = presentation.device();
     material_surface_ = surface != nullptr;
@@ -155,6 +157,10 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
         }
     } else
         profile = prepare_pbr_material(source);
+    area_lights_ = area_lights_ && (surface ? surface->program.surface->physically_based
+                                            : profile->workflow != PbrWorkflow::Unlit);
+    require(!area_lights_ || !surface || surface->program.surface_wrapper_version >= 7,
+            "Rebuild this Shader and dependent Materials to use area lighting");
     const auto fetch =
         surface ? mesh_vertex_fetch(mesh, surface->program.surface->uv_sets, enable_skin, temporal_)
                 : mesh_vertex_fetch(mesh, *profile, enable_skin, temporal_);
@@ -171,9 +177,9 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
         if (surface->program.surface->physically_based)
             program.material = material_shader(*profile, fetch.uv_sets, sampler_binding);
     } else
-        program =
-            mesh_draw_shader(fetch, *profile, shadow_pass_, sampler_binding, nullptr, {}, sprite_,
-                             sprite_draw_mip_filter(draw_profile), indirect_, reflection_, normal_);
+        program = mesh_draw_shader(fetch, *profile, shadow_pass_, sampler_binding, nullptr, {},
+                                   sprite_, sprite_draw_mip_filter(draw_profile), indirect_,
+                                   reflection_, normal_, area_lights_);
     const auto& material = program.material;
     require(!(temporal_ || indirect_) || !program.transmission,
             "Transmission draws follow temporal opaque accumulation");
@@ -201,15 +207,16 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
     RefCntAutoPtr<IShader> pixel;
     SurfaceBindingLayout surface_layout;
     if (surface) {
-        const auto role = shadow_pass_
-                              ? ShaderEntryRole::SurfaceDepth
-                              : surface_color_role(temporal_, indirect_, reflection_, normal_);
+        const auto role = shadow_pass_ ? ShaderEntryRole::SurfaceDepth
+                                       : surface_color_role(temporal_, indirect_, reflection_,
+                                                            normal_, area_lights_);
         auto native = realize_renderer_shader(presentation, surface->program);
         pixel = native.stages.at(ShaderStageKey{ShaderStage::Pixel, role});
         const auto stage = std::find_if(native.data.stages.begin(), native.data.stages.end(),
                                         [role](const auto& entry) { return entry.role == role; });
         require(stage != native.data.stages.end(), "custom surface entry role is missing");
-        surface_layout = surface_binding_layout(*surface->program.surface, stage->reflection);
+        surface_layout = surface_binding_layout(*surface->program.surface, stage->reflection,
+                                                area_surface_role(role));
         fog_supported_ = surface->program.surface_wrapper_version >= 2;
     } else
         pixel = compile(SHADER_TYPE_PIXEL, program.pixel);
@@ -272,7 +279,8 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
         require(bool(instances_), "instance buffer allocation failed");
     }
     object_ = buffer(device, "FORGE camera-relative object", 15 * sizeof(Row));
-    lights_ = buffer(device, "FORGE punctual light list", mesh_draw_light_limit * 4 * sizeof(Row));
+    lights_ = buffer(device, "FORGE light list",
+                     mesh_draw_light_limit * (area_lights_ ? 7 : 4) * sizeof(Row));
     RefCntAutoPtr<IBuffer> values, surface_state, surface_uv, graph_pbr_values;
     if (surface) {
         const auto bytes = surface_parameter_bytes(source, surface_layout);
@@ -804,10 +812,16 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
     object[13][2] = view.projection[14] == 0 ? 1.f : 0.f;
     object[13][3] = transform_parity(world) == TransformParity::Singular ? 1.f : 0.f;
     std::array<Row, mesh_draw_light_limit * 4> packed{};
+    std::optional<std::array<Row, mesh_draw_light_limit * 3>> area_values;
+    if (area_lights_)
+        area_values.emplace();
     for (std::size_t i = 0; i < lights.size(); ++i) {
         const auto& light = lights[i];
         auto* rows = packed.data() + i * 4;
-        require(light.kind <= 2, "unknown punctual light kind");
+        require(light.kind <= unsigned(LightKind::Sphere), "unknown light kind");
+        const bool emitter = light.kind >= unsigned(LightKind::Rectangle);
+        require(!emitter || area_lights_ || !lights_active_,
+                "Area lights require an area-specialized Mesh draw");
         rows[0][0] = std::bit_cast<float>(light.kind + 1);
         for (unsigned c = 0; c < 3; ++c) {
             rows[0][c + 1] = gpu(light.position[c] - view.position[c]);
@@ -816,6 +830,7 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
         }
         const int slot = shadows && !shadow_slots.empty() ? shadow_slots[i] : -1;
         require(slot >= -1 && slot < int(shadow_light_limit), "shadow light index out of range");
+        require(!emitter || slot == -1, "Area lights do not support shadow maps");
         rows[1][3] = std::bit_cast<float>(std::int32_t(slot));
         const double range = light.range;
         rows[2][3] = gpu(range * range * range * range);
@@ -824,6 +839,24 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
         if (light.kind == std::uint32_t(LightKind::Spot)) {
             rows[3][0] = gpu(1. / (double(light.cosine_inner) - light.cosine_outer));
             rows[3][1] = gpu(-double(light.cosine_outer) * rows[3][0]);
+        }
+        if (emitter && area_values) {
+            const auto size = [](float value) {
+                require(std::isfinite(value) && value >= .001f && value <= 10000,
+                        "Area emitter dimensions must be 0.001–10000 metres");
+                return value;
+            };
+            auto* shape = area_values->data() + i * 3;
+            if (light.kind == unsigned(LightKind::Sphere))
+                shape[0][0] = size(light.emitter_radius);
+            else {
+                shape[0][1] = size(light.emitter_width);
+                shape[0][2] = size(light.emitter_height);
+                for (unsigned c = 0; c < 3; ++c) {
+                    shape[1][c] = gpu(light.right[c]);
+                    shape[2][c] = gpu(light.up[c]);
+                }
+            }
         }
     }
     {
@@ -840,6 +873,9 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
         MapHelper<Row> values(context, lights_, MAP_WRITE, MAP_FLAG_DISCARD);
         require(static_cast<Row*>(values) != nullptr, "light upload allocation failed");
         std::copy(packed.begin(), packed.end(), static_cast<Row*>(values));
+        if (area_values)
+            std::copy(area_values->begin(), area_values->end(),
+                      static_cast<Row*>(values) + mesh_draw_light_limit * 4);
     }
     const auto parity = skin_ ? TransformParity::Positive : transform_parity(world);
     const unsigned index =

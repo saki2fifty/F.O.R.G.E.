@@ -1,4 +1,4 @@
-# Authored cameras and punctual lights
+# Authored cameras and lights
 
 Native reflected Camera/Light components feed editor creation recipes, the
 Inspector and shared Scene/Game rendering, including admitted light/shadow budgets.
@@ -76,10 +76,35 @@ This admission is separate from authored double-value validity.
 
 Shadow request, nonnegative depth bias, world-space normal bias and affected layers
 are authored intent. Actual shadow types, quality and budget are renderer profile
-capabilities. Point shadows and area lights are not advertised by these components.
+capabilities. The current shared shadow owner supports Directional, Point and Spot
+maps; Rectangle and Sphere requests produce an explicit unsupported diagnostic.
 A single intensity field has type-dependent units; its help states lux/candela rather
 than attaching an incorrect fixed native unit to both light kinds. Angle/distance
 fields use native Flecs Units where applicable.
+
+## Area emitters
+
+`LightKind` retains Directional0/Point1/Spot2 and appends Rectangle3/Sphere4.
+`emitter_radius`, `emitter_width` and `emitter_height` append to the installed Light
+layout. Defaults are0.5/1/1; all three values validate as finite0.001–10000 metres.
+Older documents acquire these defaults without rewriting their source files.
+Rectangle width/height are full dimensions. Intensity is distant normal-axis
+candela for Rectangle and distant omnidirectional candela for Sphere. Range uses
+the emitter center; node scale never multiplies emitter size or intensity.
+
+Rectangle extraction uses the existing forward basis and world X axis to form an
+orthonormal frame, retaining roll and removing scale/shear. A collapsed forward
+or unusable in-plane axis diagnoses an unavailable Rectangle. Sphere needs only
+its finite position and stays valid on a collapsed visual node. Rectangle emits
+from one face; Sphere is opaque and does not illuminate receivers on/inside it.
+The renderer contract describes the bounded original integration and limits.
+There is no glTF area-light import extension in this implementation.
+
+All authoring paths reuse Meta, Scene property validation, history and persistence.
+The three emitter dimensions join the two punctual shadow-source dimensions in
+live tuning; all other Light properties remain Edit-only. Matching C++ modules
+must rebuild against the new installed SDK fingerprint. No C ABI function table
+or separate light registry is introduced.
 
 ## Admission and history
 
@@ -129,7 +154,9 @@ Camera frusta use the same `camera_view` projection/basis/viewport calculation a
 the renderer, including orthographic, fixed aspect and imported negative-Z cameras.
 Infinite or display-capped guides have open ends and a visible distance explanation.
 Point-light guides show range; spot guides use radial range and inner/outer half
-angles. Unlimited/capped light guides say so. Directional arrows show light travel.
+angles. Rectangle guides show the oriented emitting face and travel arrow; Sphere
+guides show three radius rings. Shape guides and framing share the same extraction
+and world dimensions. Unlimited/capped light guides say so. Directional arrows show light travel.
 
 The Scene-only Preview light option replaces lights for that draw and restores the
 retained extraction afterward. It affects neither authored components nor Game

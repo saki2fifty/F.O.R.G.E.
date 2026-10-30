@@ -24,9 +24,14 @@ Json read(const std::filesystem::path& path) {
         for (auto& row : result.at("entities")) {
             auto& components = row.at("components");
             if (auto light = components.find("forge.light"); light != components.end())
-                for (const auto* field : {"shadow_source_radius", "shadow_angular_radius"})
+                for (const auto& [field, value] :
+                     std::array<std::pair<const char*, double>, 5>{{{"shadow_source_radius", 0.},
+                                                                    {"shadow_angular_radius", 0.},
+                                                                    {"emitter_radius", .5},
+                                                                    {"emitter_width", 1.},
+                                                                    {"emitter_height", 1.}}})
                     if (!light->contains(field))
-                        (*light)[field] = 0.;
+                        (*light)[field] = value;
         }
     return result;
 }
@@ -318,6 +323,44 @@ ProbeGallery inspect_local_probes(const std::filesystem::path& root) {
     std::sort(result.maps.begin(), result.maps.end());
     return result;
 }
+AssetId inspect_area_lights(const std::filesystem::path& root) {
+    const auto catalog = AssetCatalog::open_project(root);
+    const auto id = AssetId::parse("19f69809-0eea-4a0b-a360-dd4b7c90f2be");
+    const auto source = read(root / catalog.records().at(id).source);
+    check(catalog.records().at(id).type == SceneAsset::type,
+          "Area Gallery lost its Scene asset identity");
+    EngineContext engine(WorldRole::Runtime, false);
+    Scene authored(engine.world());
+    // Runtime packages use remapped Scene paths, so resolve their ordinary catalog.
+    authored.restore_snapshot(source);
+    RuntimeSimulation simulation(engine.world(), authored);
+    simulation.reset_presentation();
+    const auto frame = extract_render_scene(simulation.presentation(1));
+    check(frame.cameras.size() == 1 && frame.meshes.size() == 4 && frame.lights.size() == 2 &&
+              frame.diagnostics.empty(),
+          "Area Gallery lost its four receivers/two emitters/Camera");
+    unsigned rectangles = 0, spheres = 0;
+    for (const auto& light : frame.lights) {
+        check(!light.light.cast_shadows && light.light.range == 12 && light.light.intensity == 50,
+              "Area Gallery changed source energy, range or unsupported shadow intent");
+        if (light.light.kind == unsigned(LightKind::Rectangle)) {
+            ++rectangles;
+            check(light.light.layers == 1 && std::abs(light.light.emitter_width - 2.4f) < 1e-6f &&
+                      std::abs(light.light.emitter_height - .55f) < 1e-6f,
+                  "Area Gallery lost full Rectangle dimensions or isolation mask");
+        } else if (light.light.kind == unsigned(LightKind::Sphere)) {
+            ++spheres;
+            check(light.light.layers == 2 && std::abs(light.light.emitter_radius - .8f) < 1e-6f,
+                  "Area Gallery lost Sphere radius or isolation mask");
+        }
+    }
+    check(rectangles == 1 && spheres == 1 && authored.document() == source,
+          "Area Gallery extraction changed authored data or source kinds");
+    for (const auto& mesh : frame.meshes)
+        check(mesh.renderer.material_parameters.size() == 3,
+              "Area Gallery lost ordinary PBR numeric overrides");
+    return id;
+}
 struct NormalGallery {
     AssetId scene, material, texture;
     auto operator<=>(const NormalGallery&) const = default;
@@ -394,6 +437,7 @@ int main(int argc, char** argv) {
         const auto probes = inspect_local_probes(root);
         stage = "mapped normal content inspection";
         const auto normals = inspect_normal_occlusion(root);
+        const auto area_scene = inspect_area_lights(root);
         const std::array roots{source.at("asset_id").get<AssetId>(),
                                AssetId::parse("7456ed81-3d3b-45a6-8c7d-6b50073ad01a"),
                                exposure_scene,
@@ -406,7 +450,8 @@ int main(int argc, char** argv) {
                                probes.scene,
                                normals.scene,
                                rough_scene,
-                               AssetId::parse("103bd727-b9c9-443d-90e1-5743c2094730")};
+                               AssetId::parse("103bd727-b9c9-443d-90e1-5743c2094730"),
+                               area_scene};
         {
             auto lease = std::make_shared<ProjectLease>(root);
             stage = "runtime catalog preparation";
@@ -432,7 +477,7 @@ int main(int argc, char** argv) {
             (void)record;
             actual.insert(id);
         }
-        check(actual == expected && expected.size() == 23,
+        check(actual == expected && expected.size() == 24,
               "Bloom/color/exposure/fog export changed its exact shared asset closure");
         check(!std::filesystem::exists(moved / "Assets/Exposure/Daylight.animation.json"),
               "Exposure clip source leaked into the runtime package");
@@ -472,7 +517,11 @@ int main(int argc, char** argv) {
                   !std::filesystem::exists(moved /
                                            "Assets/OcclusionNormals/RippleWall.material.json"),
               "Normal AO Gallery relocation changed identities or leaked authoring sources");
-        std::cout << "Gallery111 soft shadows, Gallery109 rough reflection and Gallery108 normal image,23-record "
+        check(inspect_area_lights(moved) == area_scene,
+              "Area Gallery source-free relocation changed Scene identity or fields");
+        std::cout << "Gallery112 area lights, Gallery111 soft shadows, Gallery109 rough reflection "
+                     "and Gallery108 normal "
+                     "image,24-record "
                      "source-free closure PASS\n";
         std::cout << "Gallery107 two imported maps, boxes, priorities and shared source-free "
                      "closure PASS\n";

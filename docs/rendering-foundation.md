@@ -88,7 +88,7 @@ units, imported basis, numerical admission and history ownership. Game compositi
 uses authored cameras, as detailed below. Scene's editor navigation camera remains
 personal transient state.
 
-Directional, point and spot lights provide authored intent. Environment/sky is an
+Directional, Point, Spot, Rectangle and Sphere lights provide authored intent. Environment/sky is an
 asset plus scene-level settings; skybox and image-based lighting remain renderer
 resources. Shadow formats, passes and budgets belong to renderer profiles. The CPU
 components alone do not establish rendered shadows or lighting capability.
@@ -704,11 +704,12 @@ history/derivatives nor mapped normals. Positive directional sources pad the
 existing native cascade fit through its public filter-width input; default fits
 retain their prior 3x3 width. Camera-relative math, normal/depth biases, resource
 budgets, masks, alpha and cast/receive ownership remain in the existing paths.
-Direct emission remains punctual; this is not an area-light BRDF implementation.
+For these two shadow-source fields, direct emission remains punctual. Rectangle
+and Sphere emission use their separate Kind and emitter dimensions described below.
 
 The ordinary reflected component schema, Scene/property validation, history,
-Inspector and discovered MCP authoring expose both fields. Only these two Light
-fields are admitted for live tuning through RuntimePropertyTune and the existing
+Inspector and discovered MCP authoring expose both fields. These two fields and
+three area-emitter dimensions are admitted for live tuning through RuntimePropertyTune and the existing
 Play host; runtime acknowledgements, generation checks and authored isolation
 remain required. The installed `soft_shadow_gameplay` sample demonstrates matching
 C++ field access. Gallery 111 is an ordinary editable Scene using built-in lit PBR
@@ -720,6 +721,54 @@ exercise actual point-map face boundaries and sloped receivers, and render the
 Gallery through the shared FrameRenderer. Four wide/tall soft/fixed images match
 exactly after source-free package relocation. This is local functional evidence;
 new Windows/D3D12, full editor and physical GPU acceptance remain pending.
+
+### Rectangular and spherical direct illumination
+
+The shared Mesh render host selects Rectangle/Sphere through the existing Light
+layer mask and resource owner. An orthogonal area flag prepares lazy variants in
+MeshDrawBundle: seven prior ordinary profiles, one ordinary area-color profile and
+seven area MRT profiles. Ordinary area color retains Blend/transmission support;
+MRT keeps its existing depth-write restrictions. Unlit surfaces retain ordinary
+roles. Mesh particles reuse the same queue. Sprite/Tile paths remain unlit.
+
+The native four-row Light prefix is unchanged. Area variants append three private
+rows per Light for radius/full width/full height, right and up. The Light buffer is
+7168 bytes for area variants and4096 for ordinary variants. The existing bounded
+light selection and part-budget owner apply. There is no parallel pipeline cache.
+
+`ForgeAreaLights.fxh` is independently authored integration over the pinned native
+public point-light BRDF interface. It does not copy a native or other project's
+BRDF implementation. A bounded mixture uses32 emitter,8 cosine and16 visible-GGX
+samples, plus16 coat samples when coat is active. Two native evaluations form a
+diffuse control variate; an optional native center-distance evaluation supplies
+range attenuation. Native material/lobe evaluation and ResolveLighting stay owned
+by the pinned dependency. Both punctual and area paths share FORGE's existing
+finite accumulation policy through one extracted helper.
+
+The geometric density and beam intensity normalize by projected emitter area and
+virtual distance squared, chosen as max(center distance squared, projected area).
+Small sphere caps use eight positive gnomonic quadrature nodes for clipped Lambert
+illumination; larger caps use an angle integral. Small rectangles use normalized
+source-plane clipping with positive triangle quadrature. This avoids cancellation
+at distant and horizon-facing emitters. Rectangle emission is one-sided and keeps
+roll; Sphere receivers on/inside the opaque emitter get zero. Range uses center
+distance. The emitter has no automatically visible Game mesh.
+
+Area shadow visibility is unsupported: requesting Cast shadows is diagnosed by the
+existing shadow owner. Punctual soft-shadow source controls do not affect emission.
+Custom physically based surfaces need wrapper capability7 and a rebuilt shader.
+Old custom/unlit surfaces keep their admitted ordinary roles where applicable.
+
+Focused software-Vulkan checks cover44 independent diffuse cases (worst absolute
+error times distance squared9.30e-7),27 shared-renderer frames, all eight area
+surface-output profiles, Blend/transmission, instanced Mesh particles, zero recovery, mixed kinds, layers,
+size, roll and emitting side. Separate native integration measurements establish
+an observed selected-case envelope, not a universal error guarantee:2.72% worst
+relative in108 moderate base cases and2.13% in198 full-layer/sharp/range/scale cases,
+with0.40% reference convergence. Very sharp native NDF clamps require native
+references rather than ideal BRDF equations. These software results do not establish
+Windows/FXC execution, physical GPU quality or performance. The editable Gallery
+and relocated runtime package use the same owners; acceptance is recorded separately.
 
 ### Transmission background and optical transport
 

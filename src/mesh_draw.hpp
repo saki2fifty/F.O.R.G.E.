@@ -42,7 +42,7 @@ class MeshDraw {
              Diligent::SHADER_OPTIMIZATION_LEVEL optimization =
                  Diligent::SHADER_OPTIMIZATION_LEVEL_DEFAULT,
              const MaterialShaderSnapshot* surface = nullptr,
-             MeshDrawProfile = MeshDrawProfile::Mesh);
+             MeshDrawProfile = MeshDrawProfile::Mesh, bool area_lights = false);
     void bind_environment(const GpuEnvironment*);
     void bind_shadows(const ShadowLighting*);
     void bind_transmission(const TransmissionLighting*);
@@ -82,6 +82,7 @@ class MeshDraw {
     bool indirect_{};
     bool reflection_{};
     bool normal_{};
+    bool area_lights_{};
     bool sprite_{}, sprite_trim_allowed_{}, sprite_mips_{};
     bool lights_active_{};
     float volume_thickness_{};

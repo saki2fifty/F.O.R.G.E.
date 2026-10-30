@@ -1025,6 +1025,7 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
         const AffineTransform* world = nullptr;
         const GpuLease<TextureAsset>* mip = nullptr;
         const MeshInstancePose* previous_pose = nullptr;
+        bool area_lights = false;
     };
     struct Item {
         RenderSortKey key;
@@ -1033,6 +1034,20 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
     };
     std::vector<Object> objects;
     std::vector<Item> queue;
+    const auto require_specialization_capacity = [&] {
+        std::size_t count = 0;
+        for (const auto& [key, weak] : bundles_) {
+            (void)key;
+            if (auto bundle = weak.lock()) {
+                const auto parts = bundle->draw_part_count();
+                if (parts > draw_part_limit_ - count)
+                    throw DrawCapacityError("Mesh specialization draw-part budget exceeded");
+                count += parts;
+            }
+        }
+        if (count == draw_part_limit_)
+            throw DrawCapacityError("Mesh specialization draw-part budget exceeded");
+    };
     auto append = [&](const RenderMesh& mesh, DrawScope draw_scope,
                       const MeshInstancePose* instance_pose = nullptr) {
         if (!mesh.renderer.visible || !(mesh.renderer.layers & layers))
@@ -1075,6 +1090,8 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                         throw std::runtime_error(
                             "Visible light list exceeds the current draw profile");
                     object.lights.push_back(light.light);
+                    object.area_lights =
+                        object.area_lights || light.light.kind >= unsigned(LightKind::Rectangle);
                     object.shadow_slots.push_back(
                         mesh.renderer.receive_shadows ? shadows_->selection(light.entity) : -1);
                 }
@@ -1084,6 +1101,12 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                 const auto part_bounds = mesh_part_bounds(pose, lod, i, camera.position);
                 if (!bounds_visible(part_bounds, camera))
                     continue;
+                if (object.area_lights) {
+                    if (!entry.ready->surface_prepared(lod, i, false, false, false, false, true))
+                        require_specialization_capacity();
+                    entry.ready->prepare_surface(host_->context_, lod, i, false, false,
+                                                 object.parameters, false, false, true);
+                }
                 RenderSortKey key{part.transmission ? MaterialAlpha::Blend : part.alpha,
                                   pose.skinned ? TransformParity::Positive
                                                : transform_parity(pose.world),
@@ -1333,25 +1356,12 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                     if (!object.bundle->surface_prepared(
                             object.lod, item.key.part, temporal->motion_output,
                             temporal->indirect_output, temporal->reflection_output,
-                            temporal->normal_only_output)) {
-                        std::size_t count = 0;
-                        for (const auto& [key, weak] : bundles_) {
-                            (void)key;
-                            if (auto bundle = weak.lock()) {
-                                const auto parts = bundle->draw_part_count();
-                                if (parts > draw_part_limit_ - count)
-                                    throw DrawCapacityError(
-                                        "Temporal Mesh draw-part budget exceeded");
-                                count += parts;
-                            }
-                        }
-                        if (count == draw_part_limit_)
-                            throw DrawCapacityError("Temporal Mesh draw-part budget exceeded");
-                    }
+                            temporal->normal_only_output, object.area_lights))
+                        require_specialization_capacity();
                     object.bundle->prepare_surface(
                         host_->context_, object.lod, item.key.part, temporal->motion_output,
                         temporal->indirect_output, object.parameters, temporal->reflection_output,
-                        temporal->normal_only_output);
+                        temporal->normal_only_output, object.area_lights);
                     if (temporal->motion_output)
                         temporal->current_parts->push_back(
                             {object.mesh->entity, object.lod, item.key.part});

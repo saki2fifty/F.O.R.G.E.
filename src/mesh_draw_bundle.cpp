@@ -62,8 +62,8 @@ MeshDrawBundle::MeshDrawBundle(DiligentPresentation& presentation,
             throw std::runtime_error("Material selection part count differs from mesh");
         auto& output = lods_.emplace_back();
         auto& shadows = shadow_lods_.emplace_back();
-        for (auto& variants : surface_lods_)
-            variants.emplace_back(lod.parts.size());
+        for (unsigned variant = 0; variant < 7; ++variant)
+            surface_lods_[variant].emplace_back(lod.parts.size());
         auto& info = info_.emplace_back();
         for (std::size_t p = 0; p < lod.parts.size(); ++p) {
             const auto& part = lod.parts[p];
@@ -95,7 +95,7 @@ MeshDrawBundle::MeshDrawBundle(DiligentPresentation& presentation,
 std::unique_ptr<MeshDraw> MeshDrawBundle::prepare_draw(Diligent::IDeviceContext* context,
                                                        unsigned lod, unsigned part,
                                                        Diligent::TEXTURE_FORMAT target,
-                                                       MeshDrawProfile profile) {
+                                                       MeshDrawProfile profile, bool area_lights) {
     MaterialData defaults;
     defaults.model = "forge.gltf.metallic-roughness.v1";
     const auto& selected = prepared_.selection.parts.at(lod).at(part);
@@ -119,7 +119,7 @@ std::unique_ptr<MeshDraw> MeshDrawBundle::prepare_draw(Diligent::IDeviceContext*
     return std::make_unique<MeshDraw>(
         presentation_, context, mesh_.get().lods.at(lod).parts.at(part), *values, native_textures,
         target, depth_, skinned_, Diligent::SHADER_COMPILER_DEFAULT,
-        Diligent::SHADER_OPTIMIZATION_LEVEL_DEFAULT, surface, profile);
+        Diligent::SHADER_OPTIMIZATION_LEVEL_DEFAULT, surface, profile, area_lights);
 }
 std::size_t MeshDrawBundle::draw_part_count() const {
     std::size_t count = 0;
@@ -139,12 +139,21 @@ void MeshDrawBundle::prepare_temporal(Diligent::IDeviceContext* context, unsigne
 void MeshDrawBundle::prepare_surface(Diligent::IDeviceContext* context, unsigned lod, unsigned part,
                                      bool motion, bool indirect,
                                      std::span<const MaterialParameterOverride> parameters,
-                                     bool reflection, bool normal) {
-    if (profile_ != MeshDrawProfile::Mesh || info_.at(lod).at(part).transmission ||
-        info_.at(lod).at(part).alpha == MaterialAlpha::Blend || !info_.at(lod).at(part).depth_write)
+                                     bool reflection, bool normal, bool area_lights) {
+    const auto& info = info_.at(lod).at(part);
+    if (profile_ != MeshDrawProfile::Mesh ||
+        ((motion || indirect) &&
+         (info.transmission || info.alpha == MaterialAlpha::Blend || !info.depth_write)))
         throw std::invalid_argument("Surface effects require a depth-writing Mesh part");
-    auto& selected =
-        surface_lods_.at(surface_index(motion, indirect, reflection, normal)).at(lod).at(part);
+    auto& variants =
+        surface_lods_.at(surface_index(motion, indirect, reflection, normal, area_lights));
+    if (variants.empty()) {
+        std::vector<std::vector<std::unique_ptr<MeshDraw>>> layout;
+        for (const auto& parts : info_)
+            layout.emplace_back(parts.size());
+        variants = std::move(layout);
+    }
+    auto& selected = variants.at(lod).at(part);
     if (!selected) {
         const auto profile =
             reflection ? (motion ? MeshDrawProfile::MeshTemporalReflection
@@ -152,8 +161,9 @@ void MeshDrawBundle::prepare_surface(Diligent::IDeviceContext* context, unsigned
             : normal ? (motion ? MeshDrawProfile::MeshTemporalNormal : MeshDrawProfile::MeshNormal)
             : indirect
                 ? (motion ? MeshDrawProfile::MeshTemporalIndirect : MeshDrawProfile::MeshIndirect)
-                : MeshDrawProfile::MeshTemporal;
-        auto candidate = prepare_draw(context, lod, part, color_, profile);
+            : motion ? MeshDrawProfile::MeshTemporal
+                     : MeshDrawProfile::Mesh;
+        auto candidate = prepare_draw(context, lod, part, color_, profile, area_lights);
         candidate->bind_environment(environment_ ? &environment_.get() : nullptr);
         candidate->prepare_object_material_values(parameters, slot(lod, part));
         selected = std::move(candidate);
@@ -170,8 +180,9 @@ void MeshDrawBundle::prepare_material_parameters(
             if (auto& shadow = shadow_lods_[lod][part])
                 shadow->prepare_object_material_values(parameters, slot(lod, part));
             for (auto& variants : surface_lods_)
-                if (auto& surface = variants[lod][part])
-                    surface->prepare_object_material_values(parameters, slot(lod, part));
+                if (!variants.empty())
+                    if (auto& surface = variants[lod][part])
+                        surface->prepare_object_material_values(parameters, slot(lod, part));
         }
 }
 void MeshDrawBundle::draw_shadow(Diligent::IDeviceContext* context, const AffineTransform& world,
@@ -223,6 +234,11 @@ void MeshDrawBundle::transmission(const TransmissionLighting* lighting) {
     for (auto& lod : lods_)
         for (auto& part : lod)
             part->bind_transmission(lighting);
+    for (auto& variants : surface_lods_)
+        for (auto& lod : variants)
+            for (auto& part : lod)
+                if (part)
+                    part->bind_transmission(lighting);
 }
 void MeshDrawBundle::draw(Diligent::IDeviceContext* context, const AffineTransform& world,
                           const CameraView& camera, std::span<const LightView> lights,
@@ -242,9 +258,16 @@ void MeshDrawBundle::draw_part(
     std::span<const MaterialParameterOverride> parameters, const SpriteDrawValues* sprite,
     const SceneDistanceFog* fog, const GpuLease<TextureAsset>* sprite_mip,
     const MeshDraw::Motion* motion, bool indirect, bool reflection, bool normal) {
+    const bool area_lights = std::any_of(lights.begin(), lights.end(), [](const auto& light) {
+        return light.kind >= unsigned(LightKind::Rectangle);
+    });
+    if ((motion || indirect || reflection || normal || area_lights) &&
+        !surface_prepared(lod, part, bool(motion), indirect, reflection, normal, area_lights))
+        throw std::runtime_error("Surface Mesh part was not prepared before drawing");
     auto& selected =
-        motion || indirect || reflection || normal
-            ? surface_lods_.at(surface_index(bool(motion), indirect, reflection, normal))
+        motion || indirect || reflection || normal || area_lights
+            ? surface_lods_
+                  .at(surface_index(bool(motion), indirect, reflection, normal, area_lights))
                   .at(lod)
                   .at(part)
             : lods_.at(lod).at(part);

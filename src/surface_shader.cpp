@@ -324,7 +324,7 @@ std::string indirect_surface_wrapper(std::string helper, bool temporal, bool ref
     return result + "return result;}\n";
 }
 SurfaceBindingLayout surface_binding_layout(const SurfaceShaderDefinition& d,
-                                            const Json& reflection) {
+                                            const Json& reflection, bool area_lights) {
     validate_surface_definition(d);
     require(reflection.at("stage") == "pixel" && reflection.at("resources").is_array() &&
                 reflection.at("resources").size() <= 256,
@@ -434,7 +434,7 @@ SurfaceBindingLayout surface_binding_layout(const SurfaceShaderDefinition& d,
                 if (name == "ForgeObject")
                     bytes = 15 * 16;
                 else if (name == "ForgeLights")
-                    bytes = 64 * 4 * 16;
+                    bytes = 64 * (area_lights ? 7 : 4) * 16;
                 else if (name == "ForgeEnvironment")
                     bytes = 16;
                 else if (name == "ForgeShadows")

@@ -173,6 +173,39 @@ inline void test_render_views() {
     l.shadow_angular_radius = float(std::numbers::pi / 4);
     validate_light(l);
 
+    static_assert(unsigned(LightKind::Directional) == 0 && unsigned(LightKind::Point) == 1 &&
+                  unsigned(LightKind::Spot) == 2 && unsigned(LightKind::Rectangle) == 3 &&
+                  unsigned(LightKind::Sphere) == 4);
+    l = Light{};
+    l.kind = unsigned(LightKind::Rectangle);
+    l.emitter_width = 2;
+    l.emitter_height = 3;
+    pose = LocalTransform{};
+    pose.rotation = rotation_from_euler({0, 0, 90});
+    pose.scale = {2, 0, 4};
+    const auto rectangle = light_view(l, affine_transform(pose));
+    close(rectangle.right[0], 0);
+    close(rectangle.right[1], 1);
+    close(rectangle.up[0], 1);
+    close(rectangle.direction[2], 1);
+    require(rectangle.emitter_width == 2 && rectangle.emitter_height == 3,
+            "Rectangle size changed with node scale");
+    pose.scale = {0, 0, 4};
+    rejects([&] { light_view(l, affine_transform(pose)); });
+    l.kind = unsigned(LightKind::Sphere);
+    l.emitter_radius = 2;
+    pose.scale = {0, 0, 0};
+    require(light_view(l, affine_transform(pose)).emitter_radius == 2,
+            "Spherical emitter incorrectly requires a node orientation");
+    for (float invalid : {0.f, -1.f, .0001f, 10001.f, std::numeric_limits<float>::quiet_NaN(),
+                          std::numeric_limits<float>::infinity()}) {
+        for (auto field : {&Light::emitter_radius, &Light::emitter_width, &Light::emitter_height}) {
+            auto bad = l;
+            bad.*field = invalid;
+            rejects([&] { validate_light(bad); });
+        }
+    }
+
     EngineContext engine;
     Scene scene(engine.world());
     const auto schema = scene.schema();
@@ -211,10 +244,16 @@ inline void test_render_views() {
     auto legacy = doc;
     legacy["entities"][0]["components"]["forge.light"].erase("shadow_source_radius");
     legacy["entities"][0]["components"]["forge.light"].erase("shadow_angular_radius");
+    for (const auto* field : {"emitter_radius", "emitter_width", "emitter_height"})
+        legacy["entities"][0]["components"]["forge.light"].erase(field);
     scene.reset(legacy);
     require(scene.entity(id).get<Light>().shadow_source_radius == 0 &&
                 scene.entity(id).get<Light>().shadow_angular_radius == 0,
             "Existing light documents did not retain fixed shadow filtering");
+    require(scene.entity(id).get<Light>().emitter_radius == .5f &&
+                scene.entity(id).get<Light>().emitter_width == 1 &&
+                scene.entity(id).get<Light>().emitter_height == 1,
+            "Existing lights lost area dimension defaults");
     scene.reset(doc);
     const auto edit_revision = scene.revision();
     apply_authoring(scene,
@@ -239,6 +278,28 @@ inline void test_render_views() {
     scene.redo();
     require(scene.entity(id).get<Light>().shadow_source_radius == .25f,
             "Soft shadow Redo did not restore source dimensions");
+    scene.reset(doc);
+    apply_authoring(
+        scene,
+        Json::array(
+            {{{"operation", "property.set"},
+              {"arguments",
+               {{"entity", id}, {"component", "forge.light"}, {"field", "kind"}, {"value", 3}}}},
+             {{"operation", "property.set"},
+              {"arguments",
+               {{"entity", id},
+                {"component", "forge.light"},
+                {"field", "emitter_width"},
+                {"value", 2}}}}}),
+        scene.revision());
+    require(scene.entity(id).get<Light>().kind == unsigned(LightKind::Rectangle) &&
+                scene.entity(id).get<Light>().emitter_width == 2,
+            "Area light authoring did not use the shared property owner");
+    scene.undo();
+    require(scene.document() == doc, "Area light Undo changed unrelated authored data");
+    scene.redo();
+    require(scene.entity(id).get<Light>().emitter_width == 2,
+            "Area light Redo lost source dimensions");
     scene.reset(doc);
     auto revised = scene.entity(id).get<Camera>();
     revised.order = -2;

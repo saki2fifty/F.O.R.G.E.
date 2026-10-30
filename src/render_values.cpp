@@ -299,6 +299,9 @@ Json render_value(const Light& p) {
             {"shadow_normal_bias", p.shadow_normal_bias},
             {"shadow_source_radius", p.shadow_source_radius},
             {"shadow_angular_radius", p.shadow_angular_radius},
+            {"emitter_radius", p.emitter_radius},
+            {"emitter_width", p.emitter_width},
+            {"emitter_height", p.emitter_height},
             {"layers", p.layers}};
 }
 Camera camera_value(const Json& p) {
@@ -347,6 +350,9 @@ Light light_value(const Json& p) {
     value.shadow_normal_bias = p.at("shadow_normal_bias").get<float>();
     value.shadow_source_radius = p.value("shadow_source_radius", 0.f);
     value.shadow_angular_radius = p.value("shadow_angular_radius", 0.f);
+    value.emitter_radius = p.value("emitter_radius", .5f);
+    value.emitter_width = p.value("emitter_width", 1.f);
+    value.emitter_height = p.value("emitter_height", 1.f);
     value.layers = p.at("layers").get<std::uint32_t>();
     validate_light(value);
     return value;

@@ -69,12 +69,29 @@ in 0–10000 metres and 0–approximately0.785398 radians respectively. Scale do
 multiply either source dimension. Direct illumination remains punctual. Enable
 `cast_shadows` and use a lit receiving mesh to see the effect.
 
-Build target `soft_shadow_gameplay` in the installed sample. Its three fixed ticks
-cycle Directional, Point and Spot kinds while updating both dimensions on entities
+Build target `soft_shadow_gameplay` in the installed sample. Its five fixed ticks
+cycle Directional, Point, Spot, Rectangle and Sphere while updating shadow-source
+and emitter dimensions on entities
 that have `project.shadow_control` and `forge.light`. This is a small field-access
 example, not a complete visual game. Rebuild project modules with the SDK matching
 the runtime: these appended installed Light fields change the exact fingerprint.
 Never repair a mismatch by editing the fingerprint declaration.
+
+## Area emitter dimensions
+
+Use `LightKind::Rectangle` / `LightKind::Sphere` in `Light::kind`. Set full
+`emitter_width` and `emitter_height` for Rectangle or `emitter_radius` for Sphere;
+all are finite0.001–10000 world metres, independent of node scale. Defaults are
+1/1/0.5. Aim Rectangle with its basis/rotation; Sphere needs no orientation.
+Intensity is distant normal-axis candela for Rectangle and distant omnidirectional
+candela for Sphere. Range uses center distance. Rectangle emits from one side;
+Sphere is opaque and does not illuminate receivers on/inside it. Area shadows are
+unsupported; the installed example clears `cast_shadows` for the two area kinds.
+
+These appended C++ Light members require matching SDK/runtime fingerprints and a
+module rebuild. The C ABI table is unchanged. The installed sample exercises all
+five kinds and dimension fields through ordinary and SDK Play hosts, recovery and
+live validation. It is a field-access example, not a complete visual game.
 
 ## Small combined example
 

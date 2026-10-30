@@ -16,15 +16,51 @@ enum class ShaderEntryRole {
     SurfaceReflectionColor,
     SurfaceTemporalReflectionColor,
     SurfaceNormalColor,
-    SurfaceTemporalNormalColor
+    SurfaceTemporalNormalColor,
+    SurfaceAreaColor,
+    SurfaceAreaTemporalColor,
+    SurfaceAreaIndirectColor,
+    SurfaceAreaTemporalIndirectColor,
+    SurfaceAreaReflectionColor,
+    SurfaceAreaTemporalReflectionColor,
+    SurfaceAreaNormalColor,
+    SurfaceAreaTemporalNormalColor
 };
+inline constexpr bool area_surface_role(ShaderEntryRole role) {
+    return role >= ShaderEntryRole::SurfaceAreaColor &&
+           role <= ShaderEntryRole::SurfaceAreaTemporalNormalColor;
+}
+inline constexpr ShaderEntryRole ordinary_surface_role(ShaderEntryRole role) {
+    switch (role) {
+    case ShaderEntryRole::SurfaceAreaColor:
+        return ShaderEntryRole::SurfaceColor;
+    case ShaderEntryRole::SurfaceAreaTemporalColor:
+        return ShaderEntryRole::SurfaceTemporalColor;
+    case ShaderEntryRole::SurfaceAreaIndirectColor:
+        return ShaderEntryRole::SurfaceIndirectColor;
+    case ShaderEntryRole::SurfaceAreaTemporalIndirectColor:
+        return ShaderEntryRole::SurfaceTemporalIndirectColor;
+    case ShaderEntryRole::SurfaceAreaReflectionColor:
+        return ShaderEntryRole::SurfaceReflectionColor;
+    case ShaderEntryRole::SurfaceAreaTemporalReflectionColor:
+        return ShaderEntryRole::SurfaceTemporalReflectionColor;
+    case ShaderEntryRole::SurfaceAreaNormalColor:
+        return ShaderEntryRole::SurfaceNormalColor;
+    case ShaderEntryRole::SurfaceAreaTemporalNormalColor:
+        return ShaderEntryRole::SurfaceTemporalNormalColor;
+    default:
+        return role;
+    }
+}
 inline constexpr bool temporal_surface_role(ShaderEntryRole role) {
+    role = ordinary_surface_role(role);
     return role == ShaderEntryRole::SurfaceTemporalColor ||
            role == ShaderEntryRole::SurfaceTemporalIndirectColor ||
            role == ShaderEntryRole::SurfaceTemporalReflectionColor ||
            role == ShaderEntryRole::SurfaceTemporalNormalColor;
 }
 inline constexpr bool indirect_surface_role(ShaderEntryRole role) {
+    role = ordinary_surface_role(role);
     return role == ShaderEntryRole::SurfaceIndirectColor ||
            role == ShaderEntryRole::SurfaceTemporalIndirectColor ||
            role == ShaderEntryRole::SurfaceReflectionColor ||
@@ -33,15 +69,30 @@ inline constexpr bool indirect_surface_role(ShaderEntryRole role) {
            role == ShaderEntryRole::SurfaceTemporalNormalColor;
 }
 inline constexpr bool normal_surface_role(ShaderEntryRole role) {
+    role = ordinary_surface_role(role);
     return role == ShaderEntryRole::SurfaceNormalColor ||
            role == ShaderEntryRole::SurfaceTemporalNormalColor;
 }
 inline constexpr bool reflection_surface_role(ShaderEntryRole role) {
+    role = ordinary_surface_role(role);
     return role == ShaderEntryRole::SurfaceReflectionColor ||
            role == ShaderEntryRole::SurfaceTemporalReflectionColor;
 }
 inline constexpr ShaderEntryRole surface_color_role(bool temporal, bool indirect,
-                                                    bool reflection = false, bool normal = false) {
+                                                    bool reflection = false, bool normal = false,
+                                                    bool area = false) {
+    if (area) {
+        if (reflection)
+            return temporal ? ShaderEntryRole::SurfaceAreaTemporalReflectionColor
+                            : ShaderEntryRole::SurfaceAreaReflectionColor;
+        if (normal)
+            return temporal ? ShaderEntryRole::SurfaceAreaTemporalNormalColor
+                            : ShaderEntryRole::SurfaceAreaNormalColor;
+        return indirect ? (temporal ? ShaderEntryRole::SurfaceAreaTemporalIndirectColor
+                                    : ShaderEntryRole::SurfaceAreaIndirectColor)
+                        : (temporal ? ShaderEntryRole::SurfaceAreaTemporalColor
+                                    : ShaderEntryRole::SurfaceAreaColor);
+    }
     if (reflection)
         return temporal ? ShaderEntryRole::SurfaceTemporalReflectionColor
                         : ShaderEntryRole::SurfaceReflectionColor;

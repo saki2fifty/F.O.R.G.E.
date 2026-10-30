@@ -1,6 +1,7 @@
 #pragma once
 #include "../builtins.hpp"
 #include "authoring.hpp"
+#include "light_emitter_view.hpp"
 #include "navigation_region_view.hpp"
 #include "reflection_probe_view.hpp"
 #include "spatial_component_value.hpp"
@@ -222,9 +223,39 @@ inline std::vector<SpatialMarker> spatial_markers(const Json& source, unsigned w
                                       ? "Directional light; arrow shows travel direction"
                                   : limited ? "Range: " + helper_number(settings.range) + " m"
                                             : "Unlimited range";
-                    if (kind != LightKind::Directional && (!limited || settings.range > extent))
+                    if ((kind == LightKind::Point || kind == LightKind::Spot) &&
+                        (!limited || settings.range > extent))
                         marker.note += "; guide capped at " + helper_number(extent) + " m";
-                    if (kind == LightKind::Point) {
+                    if (kind == LightKind::Sphere) {
+                        const double r = std::min(double(settings.emitter_radius), extent);
+                        ring(light.position, {1, 0, 0}, {0, 1, 0}, r);
+                        ring(light.position, {1, 0, 0}, {0, 0, 1}, r);
+                        ring(light.position, {0, 1, 0}, {0, 0, 1}, r);
+                        marker.note = "Sphere emitter: radius " +
+                                      helper_number(settings.emitter_radius) + " m; " + marker.note;
+                        if (r < settings.emitter_radius)
+                            marker.note += "; emitter guide capped";
+                    } else if (kind == LightKind::Rectangle) {
+                        const double half_width = settings.emitter_width * .5,
+                                     half_height = settings.emitter_height * .5,
+                                     scale =
+                                         std::min(1., extent / std::max(half_width, half_height));
+                        const auto corners = rectangle_emitter_outline(light, scale);
+                        for (unsigned edge = 0; edge < 4; ++edge)
+                            line(corners[edge], corners[(edge + 1) % 4]);
+                        const auto tip =
+                            helper_add(light.position, light.direction, std::min(2., extent));
+                        line(light.position, tip);
+                        for (double sign : {-1., 1.})
+                            line(tip, helper_add(helper_add(tip, light.direction, -.3), light.right,
+                                                 sign * .2));
+                        marker.note =
+                            "Rectangle emitter: " + helper_number(settings.emitter_width) + " x " +
+                            helper_number(settings.emitter_height) +
+                            " m; arrow shows emitting side; " + marker.note;
+                        if (scale < 1)
+                            marker.note += "; emitter guide capped";
+                    } else if (kind == LightKind::Point) {
                         ring(light.position, {1, 0, 0}, {0, 1, 0}, radius);
                         ring(light.position, {1, 0, 0}, {0, 0, 1}, radius);
                         ring(light.position, {0, 1, 0}, {0, 0, 1}, radius);

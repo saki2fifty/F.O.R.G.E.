@@ -696,3 +696,25 @@ gallery-native/1bfdbec6-6000-4ed0-aa86-85930cc09351/RelocatedImages. The control
 capture shows the actual Light labels and the Game capture shows the authored
 soft-shadow comparison. Neither is a full Windows editor or physical GPU capture;
 no controls/pixels were retouched.
+
+## Rectangular and spherical direct lights
+
+`manual/images/rectangle-area-light-controls.png` and
+`manual/images/sphere-area-light-controls.png` show the production
+ComponentInspector through `forge_reflection_probe_editor_tests --capture-rectangle`
+and `--capture-sphere`,1080×560, SDL software/dummy. The smaller capture window
+contains the actual shape-specific controls; no controls or pixels were retouched.
+
+`manual/images/area-light-gallery.png` is the shared FrameRenderer Game output for
+Scene112 (`19f69809-0eea-4a0b-a360-dd4b7c90f2be`),640×360, software Vulkan/lavapipe.
+Lossless PPM-to-PNG conversion preserves every RGB byte and the full dimensions.
+The rectangular highlight on the left and spherical highlight on the right come
+from the authored emitters. The sources themselves have no visible mesh.
+
+Capture inputs are the local area-light batch based on2d06b35; its commit contains
+the Scene, shader and fixture inputs. Local AgentFiles/build/phase191-area-light-integration
+retains the two Inspector captures, gallery-native/05d0c264-c4a2-48ec-b298-83230a542e7b
+preparation receipt and four exact authored/relocated wide/tall readback pairs.
+These images demonstrate actual controls and software rendering, not a full
+Windows desktop editor, D3D12/FXC, physical GPU/input or exported graphical EXE
+acceptance. Physical performance is not inferred from software timings.

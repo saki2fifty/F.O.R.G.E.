@@ -1,5 +1,21 @@
 # Feature Gallery
 
+## Rectangular and spherical lights
+
+Open **Scenes/112-area-lights.scene.json** and press Play. A warm Rectangle lights
+the left metal sphere, and a cool Sphere lights the right one. Both illuminate the
+floor and rough receiver. Select **Rectangle - change Emitter Width and Height**
+or **Sphere - change Emitter Radius** and try its size controls under **Live
+gameplay**. Stop, keep selected tuning through the review and save. You can also
+edit the authored controls while stopped. Turn off **Preview light** in Scene.
+
+Rectangle width/height and Sphere radius are world metres, independent of entity
+scale. Rotate the rectangle to aim its front face or turn its highlight. The
+spherical source is opaque; receivers inside it receive no light. These lights do
+not cast shadows. Choose this Scene as startup and export after saving. The
+example uses built-in PBR assets and needs no C++ module or additional import.
+See the Scene lighting manual chapter for intensity, layers and current limits.
+
 ## Contact-hardening shadows
 
 Open **Scenes/111-contact-hardening-shadows.scene.json** and press Play. Three boxes

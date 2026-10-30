@@ -542,10 +542,11 @@ for legacy in (False, True):
 
         if SOFT_SHADOWS_ONLY:
             assert 'Light shadow source' in advertised['forge_play_tune']['description']
+            assert 'emitter radius/full width/full height' in advertised['forge_play_tune']['description']
             actor = ok('forge_entity_create', arguments=dict(recipe='render.light',
                         name='MCP soft-shadow controls'))['results'][0]['selected']
-            ok('forge_property_set', arguments=dict(entity=actor, component='forge.light',
-                                                   field='cast_shadows', value=True))
+            ok('forge_property_set_many', arguments=dict(entity=actor, component='forge.light',
+                                                        values=dict(kind=3, cast_shadows=False)))
             ok('forge_document_save')
             authored = read('forge_scene_read')
             ok('forge_play_start')
@@ -556,7 +557,9 @@ for legacy in (False, True):
                 snapshot = read('forge_play_snapshot')
                 return next(row['components']['forge.light'] for row in snapshot['entities']
                             if row['id'] == actor)
-            for field, value in [('shadow_source_radius', .25), ('shadow_angular_radius', .125)]:
+            for field, value in [('shadow_source_radius', .25), ('shadow_angular_radius', .125),
+                                 ('emitter_radius', .75), ('emitter_width', 2),
+                                 ('emitter_height', .5)]:
                 control('forge_play_tune', entity=actor, component='forge.light', property=field, value=value)
                 ack = until(lambda: read('forge_play_status'), lambda row:
                             not row['tune_pending'] and row['tune_ack'] is not None)
@@ -564,7 +567,9 @@ for legacy in (False, True):
                 assert ack['timing']['tick'] == paused['timing']['tick']
             tuned = runtime_light()
             for field, value in [('shadow_source_radius', -1), ('shadow_source_radius', 10001),
-                                 ('shadow_angular_radius', 1), ('shadow_angular_radius', True)]:
+                                 ('shadow_angular_radius', 1), ('shadow_angular_radius', True),
+                                 ('emitter_radius', 0), ('emitter_radius', True),
+                                 ('emitter_width', .0001), ('emitter_height', 10001)]:
                 control('forge_play_tune', entity=actor, component='forge.light', property=field, value=value)
                 ack = until(lambda: read('forge_play_status'), lambda row:
                             not row['tune_pending'] and row['tune_ack'] is not None)

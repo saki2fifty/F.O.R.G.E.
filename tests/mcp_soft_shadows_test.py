@@ -53,6 +53,12 @@ for legacy in (False, True):
         assert radius['minimum'] == angle['minimum'] == 0
         assert radius['maximum'] == 10000 and .785398 < angle['maximum'] < .785399
         assert radius['unit'] == 'm' and angle['unit'] == 'rad'
+        assert [choice['label'] for choice in fields['kind']['choices']] == [
+            'Directional', 'Point', 'Spot', 'Rectangle', 'Sphere']
+        for field, default in [('emitter_radius', .5), ('emitter_width', 1), ('emitter_height', 1)]:
+            assert fields[field]['default'] == default and fields[field]['unit'] == 'm'
+            assert .00099 < fields[field]['minimum'] < .00101
+            assert fields[field]['maximum'] == 10000
         light = ok('forge_entity_create', arguments=dict(recipe='render.light'))['results'][0]['selected']
         before = read()
         request = args(arguments=dict(entity=light, component='forge.light', values=dict(
@@ -87,10 +93,36 @@ for legacy in (False, True):
         ok('forge_document_open', path='Scenes/main.scene.json', discard=True)
         assert read() == authored
         assert config['token'] not in json.dumps(authored)
+        for kind in (3, 4):
+            previous = read()
+            values = dict(kind=kind, cast_shadows=False, emitter_radius=.75,
+                          emitter_width=2, emitter_height=.5)
+            request = args(arguments=dict(entity=light, component='forge.light', values=values))
+            result = client.tool('forge_property_set_many', **request)
+            assert result['ok'] and client.tool('forge_property_set_many', **request) == result
+            area = read()
+            value = next(e for e in area['entities'] if e['id'] == light)['components']['forge.light']
+            assert all(value[key] == expected for key, expected in values.items())
+            for field, bad in [('emitter_radius', 0), ('emitter_radius', True),
+                               ('emitter_width', .0001), ('emitter_height', 10001),
+                               ('emitter_height', None), ('emitter_width', '1'), ('kind', 5)]:
+                revision = discover()['revision']
+                rejected = client.tool('forge_property_set', **args(arguments=dict(
+                    entity=light, component='forge.light', field=field, value=bad)))
+                assert not rejected['ok'] and discover()['revision'] == revision, rejected
+                assert read() == area
+            ok('forge_history_undo')
+            assert read() == previous
+            ok('forge_history_redo')
+            assert read() == area
+            ok('forge_document_save')
+            assert json.loads(disk.read_text()) == area
+            ok('forge_document_open', path='Scenes/main.scene.json', discard=True)
+            assert read() == area
     with editor('read') as (root, config), Client(config, legacy) as client:
         advertised = {tool['name'] for tool in client.request('tools/list')['result']['tools']}
         assert 'forge_property_set' not in advertised and 'forge_property_set_many' not in advertised
         assert 'forge_scene_read' in advertised
 
 write_capture(sys.argv[3])
-print('Soft-shadow Light schema/units/defaults, revisions/replay, validation, history/save/reopen and grants PASS in both protocols')
+print('Light kinds, shadow/emitter schema/units/defaults, revisions/replay, validation, history/save/reopen and grants PASS in both protocols')

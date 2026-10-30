@@ -121,14 +121,16 @@ struct Camera {
     float background_r = .02f, background_g = .025f, background_b = .03f, background_a = 1;
     bool operator==(const Camera&) const = default;
 };
-enum class LightKind : std::uint32_t { Directional, Point, Spot };
+enum class LightKind : std::uint32_t { Directional, Point, Spot, Rectangle, Sphere };
 struct Light {
     bool enabled = true;
     std::uint32_t kind = std::uint32_t(LightKind::Directional);
     std::uint32_t basis = std::uint32_t(ViewBasis::ForgePositiveZ);
     float color_r = 1, color_g = 1, color_b = 1;
-    double intensity = 1; // Lux for directional, candela for point/spot.
-    double range = 0;     // Zero is unbounded; never multiplied by node scale.
+    // Lux for directional, candela for point/spot. Area lights retain distant
+    // candela on the sphere's every axis or the rectangle's emitting normal.
+    double intensity = 1;
+    double range = 0; // Zero is unbounded; never multiplied by node scale.
     double inner_cone = 0, outer_cone = .7853981633974483; // Radians, half angles.
     bool cast_shadows = false;
     float shadow_bias = .001f, shadow_normal_bias = .02f;
@@ -136,6 +138,9 @@ struct Light {
     // Zero retains fixed PCF. Source size affects shadows, not punctual emission.
     float shadow_source_radius = 0;  // Point/spot, world metres; unaffected by node scale.
     float shadow_angular_radius = 0; // Directional, radians.
+    // World metres, independent of node scale. Rectangle emits along its basis
+    // forward axis; Sphere emits outward and does not require an orientation.
+    float emitter_radius = .5f, emitter_width = 1, emitter_height = 1;
     bool operator==(const Light&) const = default;
 };
 } // namespace forge

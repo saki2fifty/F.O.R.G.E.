@@ -934,7 +934,7 @@ Packing is one-shot and does not automatically repack changed sources. Optional
 Sprite/Tile Map mip filtering prepares independent frame chains in the renderer;
 the generated source PNG remains an ordinary base image.
 
-## Light source size and live shadow tuning
+## Light emission and live size tuning
 
 Recipe `render.light` and component `forge.light` expose `shadow_source_radius`
 (world metres,0–10000) and `shadow_angular_radius` (directional half-angle radians,
@@ -946,11 +946,31 @@ Directional uses angular radius. These affect shadow filtering only.
 Revision, replay, history, save and project permissions use the existing property
 operations. Invalid types/ranges leave the Scene and revision unchanged. Existing
 Light documents without these fields retain zero defaults. During Play, only these
-two Light properties are accepted by `play.tune` / `forge_play_tune`; other Light
+two shadow-source properties and the three emitter dimensions below are accepted
+by `play.tune` / `forge_play_tune`; other Light
 fields remain Edit-only. Use the current Play generation and poll the tune
 acknowledgement before assuming application. Runtime tuning does not edit authored
 values. Stop and use the tuning review to keep selected values deliberately.
 Gallery111 and the Scene lighting manual describe the visual workflow and limits.
+
+### Rectangle and Sphere emitters
+
+The same recipe and discovered Kind enum append Rectangle3/Sphere4 without changing
+Directional0/Point1/Spot2. Set `kind` and the appropriate dimensions with
+`forge_property_set_many`: Rectangle uses `emitter_width`/`emitter_height` (full
+world metres), Sphere uses `emitter_radius`. Defaults are1/1/0.5; each dimension
+accepts finite0.001–10000. Scale does not resize the emitter. Existing old-document
+defaulting, revisions, replay, grants, validation, Undo/Redo and save rules apply.
+These are native Light properties, not a separate agent implementation.
+
+The three dimensions are also allowed in `forge_play_tune`, with the current Play
+generation and execution grant. Invalid types/ranges leave runtime values and the
+simulation clock unchanged. Source Scene values remain unchanged until selected
+Stop-time tuning is kept. Kind, color, intensity, range and layers are Edit-only.
+Use `basis` and entity rotation to aim/roll Rectangle; Sphere ignores orientation.
+Intensity is distant candela (Rectangle's front normal, Sphere's any direction),
+and range uses center distance. Area shadows are unavailable. Gallery112 and the
+Scene lighting manual cover visible shape behavior and receiver prerequisites.
 
 ## Local reflection probes
 

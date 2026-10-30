@@ -14,6 +14,49 @@ Turn off **Preview light** on the Scene toolbar when adjusting authored lighting
 Game always uses authored lighting. Camera/light icons and selection guides are
 explained in [Viewport](viewport.md).
 
+## Add a rectangular or spherical light
+
+1. Use **Entity > Create > Rendering > Light** and select the new light.
+2. In Inspector, choose **Rectangle** or **Sphere** in **Kind**.
+3. Set **Intensity**, the color and **Range**. Zero range is unbounded. Keep a nonzero intensity and use a PBR material on the receiving object.
+4. For Rectangle, set **Emitter Width (m)** and **Emitter Height (m)**. Rotate the entity to aim its emitting face; its direction guide points toward the receivers. Rolling the entity turns the rectangular highlight. **Basis** selects the local forward direction. For Sphere, set **Emitter Radius (m)**; rotation has no effect.
+5. Turn off **Preview light** to inspect authored lighting in Scene, or press Play with an enabled Camera to see it in Game. Save the Scene before export.
+
+![Rectangle light with its width and height controls](../images/rectangle-area-light-controls.png)
+
+Rectangle lights emit from one side. Width and height are the full dimensions in
+world metres. A Sphere is an opaque spherical emitter; a receiver on or inside it
+gets no illumination from that source. All three size controls accept **0.001** to
+**10000** metres. Entity scale does not multiply these dimensions. The Scene guides
+show the emitting shape; they do not create a visible mesh in Game. Add a separate
+mesh if the lamp itself must be visible.
+
+![Sphere light with its radius control](../images/sphere-area-light-controls.png)
+
+Larger emitters spread highlights over a reflective surface. **Intensity** uses
+candela measured far from the source: along the front normal for Rectangle, and
+in any direction for Sphere. **Range** uses distance to the emitter's center.
+**Layers** controls which mesh layers receive its illumination.
+
+While playing, the selected light's shape controls are adjustable under **Live
+gameplay**. These changes affect only the running game. Stop and use the tuning
+review to keep selected values, then save; stopping without keeping them restores
+the authored values. Kind, color, intensity, range and layers are edited in Edit.
+
+Open **112-area-lights** in the [Feature Gallery](../getting-started/feature-gallery.md)
+to compare a warm rectangular source with a cool spherical source on metal spheres.
+
+![Gallery Game view lit by a warm rectangle and a cool sphere](../images/area-light-gallery.png)
+
+Area lights currently illuminate lit Mesh surfaces, including Mesh particles.
+They do not cast shadows. If a light carried **Cast shadows** from another Kind,
+uncheck it to remove the unsupported request. **Shadow Source Radius** and
+**Shadow Angular Radius** belong to Point/Spot and Directional shadow filtering;
+they do not control area-light emission. A custom physically based Surface Shader
+must be rebuilt with the current shader compiler to supply the area-light variants.
+Built-in PBR materials work without an additional shader import. Unlit surfaces do
+not receive light.
+
 ## Add an environment
 
 1. Import a color image or cubemap using [Textures](textures.md). Use **HDR color** for a high-dynamic-range environment. A flat image should be an equirectangular panorama rather than an ordinary photograph.

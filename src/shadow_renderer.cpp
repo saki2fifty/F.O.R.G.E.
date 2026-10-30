@@ -86,6 +86,9 @@ void ShadowRenderer::render(Diligent::IDeviceContext* context, const RenderScene
         if (!light.cast_shadows || !(light.layers & layers))
             continue;
         try {
+            if (light.kind == unsigned(LightKind::Rectangle) ||
+                light.kind == unsigned(LightKind::Sphere))
+                throw std::runtime_error("Area lights do not support shadow visibility");
             if (settings.max_lights < 1 || settings.max_lights > shadow_light_limit ||
                 settings.cascades < 1 || settings.cascades > shadow_cascade_limit ||
                 !std::isfinite(settings.distance) || settings.distance <= 0)

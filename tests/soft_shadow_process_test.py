@@ -49,9 +49,12 @@ def verify(state, tick):
     components = values(state)
     assert components['project.shadow_control']['ticks'] == tick
     light = components['forge.light']
-    assert light['kind'] == (tick-1) % 3 and light['cast_shadows']
+    assert light['kind'] == (tick-1) % 5 and light['cast_shadows'] == (tick <= 3)
     assert light['shadow_source_radius'] == .125*tick
     assert abs(light['shadow_angular_radius']-.01*tick) < 1e-8
+    assert light['emitter_radius'] == .25*tick
+    assert light['emitter_width'] == .5*tick
+    assert light['emitter_height'] == .75*tick
     assert light['intensity'] == 1 and light['range'] == 0
     assert light['extension'] == dict(retain=17)
 
@@ -59,11 +62,11 @@ def live(client, state):
     generation = state['world_generation'] if 'world_generation' in state else state['activation']['generation']
     target = dict(generation=generation, scene_asset=state['effective_scene']['asset_id'],
                   entity=actor, type='forge.light')
-    for name, value in [('shadow_source_radius', 1.25), ('shadow_angular_radius', .125)]:
+    for name, value in [('shadow_source_radius', 1.25), ('shadow_angular_radius', .125), ('emitter_radius', 2), ('emitter_width', 3), ('emitter_height', 4)]:
         updated = client.request('property_tune', **target, property=name, value=value)
         assert updated['ok'] and updated['property_tune']['value'] == value, updated
     before = client.request('snapshot')
-    for name, value in [('shadow_source_radius', -1), ('shadow_source_radius', 10001), ('shadow_angular_radius', 1), ('shadow_angular_radius', '0.1'), ('cast_shadows', False)]:
+    for name, value in [('shadow_source_radius', -1), ('shadow_source_radius', 10001), ('shadow_angular_radius', 1), ('shadow_angular_radius', '0.1'), ('cast_shadows', False), ('emitter_radius', 0), ('emitter_width', 10001), ('emitter_height', '1')]:
         try:
             client.request('property_tune', **target, property=name, value=value)
         except RuntimeError as error:
@@ -102,7 +105,7 @@ try:
                               recovery_session=checkpoint['session'], recovery_tick=checkpoint['tick'])
     assert replay['ok'] and values(replay) == values(one), replay
     for client in (first, restored):
-        for tick in (2, 3):
+        for tick in (2, 3, 4, 5):
             verify(client.request('step'), tick)
         live(client, client.request('snapshot'))
 finally:

@@ -2,6 +2,9 @@
 #include "asset_actions.hpp"
 #include "command_workspace.hpp"
 #include "spatial_helpers.hpp"
+#include <algorithm>
+#include <cmath>
+#include <numbers>
 inline void test_spatial_helpers() {
     using namespace forge;
     EngineContext engine;
@@ -49,6 +52,68 @@ inline void test_spatial_helpers() {
         }
     }
     require(scene.document() == before, "Scene helper generation mutated authored state");
+    auto area = before;
+    for (auto& row : area["entities"])
+        if (row.at("id") == light) {
+            row["components"]["forge.light"]["kind"] = 4;
+            row["components"]["forge.light"]["emitter_radius"] = 2;
+            row["components"]["forge.local_scale"] = {{"x", 0}, {"y", 0}, {"z", 0}};
+        }
+    scene.reset(area);
+    const auto spheres = ui::spatial_markers(scene.effective_document(), 800, 600, 10);
+    const auto sphere = std::find_if(spheres.begin(), spheres.end(),
+                                     [&](const auto& m) { return m.entity == light; });
+    require(sphere != spheres.end() && sphere->lines.size() == 144 &&
+                sphere->note.find("Sphere emitter") != std::string::npos,
+            "Spherical source guide requires an orientation or lost its radius rings");
+    for (const auto& edge : sphere->lines)
+        for (const auto& point : {edge.first, edge.second})
+            require(
+                std::abs(std::hypot(point[0] - sphere->position[0], point[1] - sphere->position[1],
+                                    point[2] - sphere->position[2]) -
+                         2) < 1e-6,
+                "Spherical source guide changed with node scale");
+    EditorCamera area_camera;
+    require(area_camera.frame(scene.effective_document(), light, 1.5f) && area_camera.distance > 4,
+            "Scene framing ignored spherical emitter size");
+    for (auto& row : area["entities"])
+        if (row.at("id") == light) {
+            auto& values = row["components"];
+            values["forge.light"]["kind"] = 3;
+            values["forge.light"]["emitter_width"] = 4;
+            values["forge.light"]["emitter_height"] = 2;
+            values["forge.local_scale"] = {{"x", 2}, {"y", 3}, {"z", 4}};
+            values["forge.local_rotation"] = {
+                {"x", 0}, {"y", 0}, {"z", std::sqrt(.5)}, {"w", std::sqrt(.5)}};
+        }
+    scene.reset(area);
+    const auto rectangles = ui::spatial_markers(scene.effective_document(), 800, 600, 10);
+    const auto rectangle = std::find_if(rectangles.begin(), rectangles.end(),
+                                        [&](const auto& m) { return m.entity == light; });
+    require(rectangle != rectangles.end() && rectangle->lines.size() == 7,
+            "Rectangle source guide lost its plane or emitting-side arrow");
+    Double3 low = rectangle->position, high = low;
+    for (unsigned edge = 0; edge < 4; ++edge)
+        for (const auto& point : {rectangle->lines[edge].first, rectangle->lines[edge].second})
+            for (unsigned axis = 0; axis < 3; ++axis) {
+                low[axis] = std::min(low[axis], point[axis]);
+                high[axis] = std::max(high[axis], point[axis]);
+            }
+    require(std::abs(high[0] - low[0] - 2) < 1e-5 && std::abs(high[1] - low[1] - 4) < 1e-5 &&
+                high[2] == low[2],
+            "Rectangle guide lost roll or multiplied size by node scale");
+    const auto unchanged = scene.document();
+    require(area_camera.frame(scene.effective_document(), light, 1.5f) &&
+                area_camera.distance > 4 && scene.document() == unchanged,
+            "Area framing lost source bounds or changed authored state");
+    const float frame_distance = area_camera.distance;
+    for (auto& row : area["entities"])
+        if (row.at("id") == light)
+            row["components"]["forge.local_scale"] = {{"x", 200}, {"y", 300}, {"z", 400}};
+    scene.reset(area);
+    require(area_camera.frame(scene.effective_document(), light, 1.5f) &&
+                std::abs(area_camera.distance - frame_distance) < 1e-5,
+            "Area selection framing incorrectly multiplied emitter size by node scale");
     for (auto& row : doc["entities"])
         if (row.at("id") == camera) {
             row["components"]["forge.camera"]["enabled"] = false;

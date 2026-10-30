@@ -29,13 +29,16 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char* error, uint32_t 
             .kind(host->fixed_phase)
             .each([](ShadowControl& control, forge::Light& light) {
                 ++control.ticks;
-                if (control.ticks > 3)
+                if (control.ticks > 5)
                     return;
-                // Exercise all three light kinds; direct illumination stays punctual.
-                light.cast_shadows = true;
-                light.kind = (control.ticks - 1) % 3;
+                // Exercise the installed Light layout across all five source kinds.
+                light.cast_shadows = control.ticks <= 3;
+                light.kind = (control.ticks - 1) % 5;
                 light.shadow_source_radius = .125f * control.ticks;
                 light.shadow_angular_radius = .01f * control.ticks;
+                light.emitter_radius = .25f * control.ticks;
+                light.emitter_width = .5f * control.ticks;
+                light.emitter_height = .75f * control.ticks;
             })
             .add(host->fixed_tag);
         return 1;

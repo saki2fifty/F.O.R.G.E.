@@ -71,6 +71,9 @@ inline std::vector<Pixel> read(Diligent::IRenderDevice* device, Diligent::IDevic
                                Diligent::ITexture* source) {
     using namespace Diligent;
     auto desc = source->GetDesc();
+    const bool float32 = desc.Format == TEX_FORMAT_RGBA32_FLOAT;
+    check(float32 || desc.Format == TEX_FORMAT_RGBA16_FLOAT,
+          "HDR numeric readback requires RGBA16F or RGBA32F");
     desc.Name = "FORGE bloom numeric readback";
     desc.Usage = USAGE_STAGING;
     desc.BindFlags = BIND_NONE;
@@ -91,9 +94,14 @@ inline std::vector<Pixel> read(Diligent::IRenderDevice* device, Diligent::IDevic
         const auto* row = static_cast<const std::byte*>(mapped.pData) + y * mapped.Stride;
         for (unsigned x = 0; x < desc.Width; ++x)
             for (unsigned c = 0; c < 4; ++c) {
-                std::uint16_t raw;
-                std::memcpy(&raw, row + (x * 4 + c) * 2, 2);
-                pixels[y * desc.Width + x][c] = value(raw);
+                if (float32) {
+                    std::memcpy(&pixels[y * desc.Width + x][c], row + (x * 4 + c) * sizeof(float),
+                                sizeof(float));
+                } else {
+                    std::uint16_t raw;
+                    std::memcpy(&raw, row + (x * 4 + c) * 2, 2);
+                    pixels[y * desc.Width + x][c] = value(raw);
+                }
             }
     }
     context->UnmapTextureSubresource(staging, 0, 0);

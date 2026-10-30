@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <forge/shader_asset.hpp>
 #include <iostream>
 using namespace forge;
@@ -178,7 +179,7 @@ int main() {
                         fog_surface.layout_digest() != legacy_layout,
                     "Optimized-out fog wrapper capability lost roundtrip or layout identity");
             auto future_surface = fog_surface;
-            future_surface.surface_wrapper_version = 7;
+            future_surface.surface_wrapper_version = 8;
             rejected([&] { validate_shader(future_surface); });
             auto temporal_surface = fog_surface;
             temporal_surface.surface_wrapper_version = 3;
@@ -276,6 +277,83 @@ int main() {
                                       &encoded_indirect, &encoded_reflection})
                 require(encode_shader(decode_shader(*bytes)) == *bytes,
                         "Normal capability changed readable older archive bytes");
+            struct AreaRole {
+                ShaderEntryRole ordinary;
+                const char* name;
+                const char* entry;
+            };
+            const AreaRole area_roles[]{
+                {ShaderEntryRole::SurfaceColor, "surface_area_color", "ForgeSurfaceAreaColor"},
+                {ShaderEntryRole::SurfaceTemporalColor, "surface_area_temporal_color",
+                 "ForgeSurfaceAreaTemporalColor"},
+                {ShaderEntryRole::SurfaceIndirectColor, "surface_area_indirect_color",
+                 "ForgeSurfaceAreaIndirectColor"},
+                {ShaderEntryRole::SurfaceTemporalIndirectColor,
+                 "surface_area_temporal_indirect_color", "ForgeSurfaceAreaTemporalIndirectColor"},
+                {ShaderEntryRole::SurfaceReflectionColor, "surface_area_reflection_color",
+                 "ForgeSurfaceAreaReflectionColor"},
+                {ShaderEntryRole::SurfaceTemporalReflectionColor,
+                 "surface_area_temporal_reflection_color",
+                 "ForgeSurfaceAreaTemporalReflectionColor"},
+                {ShaderEntryRole::SurfaceNormalColor, "surface_area_normal_color",
+                 "ForgeSurfaceAreaNormalColor"},
+                {ShaderEntryRole::SurfaceTemporalNormalColor, "surface_area_temporal_normal_color",
+                 "ForgeSurfaceAreaTemporalNormalColor"}};
+            auto area_surface = normal_surface;
+            area_surface.surface_wrapper_version = 7;
+            for (const auto& row : area_roles) {
+                const auto role = shader_entry_role(row.name);
+                require(area_surface_role(role) && ordinary_surface_role(role) == row.ordinary &&
+                            std::string_view(shader_entry_role_name(role)) == row.name &&
+                            std::string_view(surface_shader_entry(role)) == row.entry &&
+                            surface_color_role(temporal_surface_role(row.ordinary),
+                                               indirect_surface_role(row.ordinary),
+                                               reflection_surface_role(row.ordinary),
+                                               normal_surface_role(row.ordinary), true) == role,
+                        "Area role changed its durable name, entry or output profile");
+                const auto source =
+                    std::find_if(normal_surface.stages.begin(), normal_surface.stages.end(),
+                                 [&](const auto& stage) { return stage.role == row.ordinary; });
+                require(source != normal_surface.stages.end(),
+                        "Area role has no ordinary counterpart");
+                auto stage = *source;
+                stage.role = role;
+                stage.entry = row.entry;
+                area_surface.stages.push_back(std::move(stage));
+            }
+            const auto encoded_area = encode_shader(area_surface);
+            require(decode_shader(encoded_area).surface_wrapper_version == 7 &&
+                        decode_shader(encoded_area).stages.size() == 17 &&
+                        encode_shader(decode_shader(encoded_area)) == encoded_area &&
+                        area_surface.layout_digest() != normal_surface.layout_digest(),
+                    "Area capability lost its archive or layout identity");
+            for (const auto* bytes : {&encoded_surface, &encoded_fog, &encoded_temporal,
+                                      &encoded_indirect, &encoded_reflection, &encoded_normal})
+                require(encode_shader(decode_shader(*bytes)) == *bytes,
+                        "Area capability changed readable older archive bytes");
+            auto bad_area = area_surface;
+            bad_area.stages.pop_back();
+            rejected([&] { validate_shader(bad_area); });
+            bad_area = normal_surface;
+            bad_area.stages[0] = area_surface.stages[9];
+            rejected([&] { validate_shader(bad_area); });
+            auto pbr = def;
+            pbr.physically_based = true;
+            auto light_layout = reflection(ShaderStage::Pixel);
+            light_layout["resources"][0]["name"] = "ForgeLights";
+            light_layout["resources"][0]["size"] = 7168;
+            validate_shader_reflection(light_layout);
+            (void)surface_binding_layout(pbr, light_layout, true);
+            rejected([&] { surface_binding_layout(pbr, light_layout, false); });
+            auto area_pbr = area_surface;
+            area_pbr.surface = pbr;
+            area_pbr.stages[9].reflection = light_layout;
+            validate_shader(area_pbr);
+            light_layout["resources"][0]["size"] = 4096;
+            (void)surface_binding_layout(pbr, light_layout, false);
+            rejected([&] { surface_binding_layout(pbr, light_layout, true); });
+            area_pbr.stages[9].reflection = light_layout;
+            rejected([&] { validate_shader(area_pbr); });
             auto bad_normal = normal_surface;
             bad_normal.surface_wrapper_version = 5;
             rejected([&] { validate_shader(bad_normal); });

@@ -130,6 +130,21 @@ assert soft_lights[0]['shadow_source_radius'] == 0
 assert sum('forge.mesh_renderer' in row['components'] for row in soft_scene['entities']) == 4
 assert soft_scene['rendering']['shadows']['max_lights'] == 1
 
+# Area emission is stored on the existing Light component, with no extra assets.
+area_source = 'Scenes/112-area-lights.scene.json'
+area_scene = json.loads((project_root / area_source).read_text(encoding='utf-8'))
+assert area_scene['asset_id'] == by_source[area_source]['id']
+area_lights = [row['components']['forge.light'] for row in area_scene['entities']
+               if 'forge.light' in row['components'] and row['components']['forge.light']['enabled']]
+assert {light['kind'] for light in area_lights} == {3, 4} and len(area_lights) == 2
+assert all(not light['cast_shadows'] for light in area_lights)
+rectangle, = [light for light in area_lights if light['kind'] == 3]
+sphere, = [light for light in area_lights if light['kind'] == 4]
+assert math.isclose(rectangle['emitter_width'], 2.4, abs_tol=1e-6)
+assert math.isclose(rectangle['emitter_height'], .55, abs_tol=1e-6)
+assert math.isclose(sphere['emitter_radius'], .8, abs_tol=1e-6)
+assert sum('forge.mesh_renderer' in row['components'] for row in area_scene['entities']) == 4
+
 scenes = sorted((project_root / 'Scenes').glob('*.scene.json'))
 assert {'71-world-sprites.scene.json', '72-sprite-frame-animation.scene.json',
         '73-sprite-image-fill.scene.json', '74-tile-maps.scene.json',
@@ -203,6 +218,7 @@ assert {'01-transforms.scene.json', '02-lighting.scene.json',
         '109-rough-reflection-filtering.scene.json',
         '110-reflection-map-capture.scene.json',
         '111-contact-hardening-shadows.scene.json',
+        '112-area-lights.scene.json',
         '70-sequence-audio-cues.scene.json',
         '11-animation-markers.scene.json', '12-inset-panels.scene.json',
         '13-transform-curves.scene.json', '14-uv-islands.scene.json', '15-brush-symmetry.scene.json', '16-authored-triangulation.scene.json', '17-mesh-shading.scene.json', '18-animation-key-batches.scene.json', '19-mesh-facing.scene.json', '20-physics-joints.scene.json', '21-point-fixed-joints.scene.json', '22-continuous-collision.scene.json', '23-body-motion-tuning.scene.json', '24-slider-joints.scene.json', '25-velocity-motors.scene.json', '26-position-drives.scene.json', '27-connected-collisions.scene.json', '28-swing-twist-joints.scene.json', '29-distance-springs.scene.json', '30-animation-exits.scene.json', '31-audio-falloff.scene.json', '32-directional-audio.scene.json', '33-audio-mixer.scene.json', '34-audio-import-processing.scene.json', '35-moving-audio.scene.json', '36-animation-root-motion.scene.json', '37-animation-subtree-blending.scene.json'} <= {p.name for p in scenes}
@@ -287,6 +303,9 @@ try:
             if light is not None:
                 light.setdefault('shadow_source_radius', 0.)
                 light.setdefault('shadow_angular_radius', 0.)
+                light.setdefault('emitter_radius', .5)
+                light.setdefault('emitter_width', 1.)
+                light.setdefault('emitter_height', 1.)
             renderer = row['components'].get('forge.mesh_renderer')
             if renderer is not None:
                 renderer.setdefault('material_parameters', [])
