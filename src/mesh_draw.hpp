@@ -87,7 +87,7 @@ class MeshDraw {
     Diligent::RefCntAutoPtr<Diligent::ITextureView> empty_shadow_;
     Diligent::RefCntAutoPtr<Diligent::ITextureView> black_environment_;
     Diligent::RefCntAutoPtr<Diligent::ITextureView> black_background_;
-    Diligent::RefCntAutoPtr<Diligent::IBuffer> decals_;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> decals_, empty_decals_;
     Diligent::RefCntAutoPtr<Diligent::ITextureView> white_decal_;
     Diligent::RefCntAutoPtr<Diligent::ISampler> default_decal_sampler_;
     unsigned decal_capacity_{};
@@ -98,6 +98,7 @@ class MeshDraw {
     bool indirect_{};
     bool reflection_{};
     bool normal_{};
+    bool weighted_{};
     bool area_lights_{};
     bool sprite_{}, sprite_trim_allowed_{}, sprite_mips_{};
     bool lights_active_{};

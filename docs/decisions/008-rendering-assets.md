@@ -221,3 +221,19 @@ at the original project/document/Scene/revision; stale results remain unassigned
 UI, automation and MCP share this workflow and its grants. This does not authorize
 an overwrite writer, runtime recapture or automatic stable-ID rebaking. See the
 [probe contract](../local-reflection-probes.md#editor-authored-map-snapshots).
+
+## Weighted transparency — accepted extension
+
+An optional Scene boolean selects bounded weighted Mesh color accumulation through
+MeshSceneRenderer's existing queue and MeshDrawBundle specializations. The same
+per-part materials, parameter values, geometry, leases and shared depth remain
+responsible for authored intent. One derived attachment/resolve owner introduces
+no asset identity, material database, fragment list or parallel render queue.
+Whole-view preflight retains sorted transport when any visible layer is incompatible.
+
+Capability9 appends ordinary and area-lit weighted color roles (19 total), preserving
+readable1–8 archives and their bytes. Current Shader/Material publication and recook
+rules apply; authored surface interfaces and installed C SDK ABI do not change.
+The opt-in boolean uses existing strict Scene/history/Save/automation/MCP ownership.
+See [weighted transparency](../weighted-transparency.md) for the numerical profile,
+stage order, budgets, fallback and validation boundaries.

@@ -747,3 +747,25 @@ preparation receipt and four exact authored/relocated wide/tall readback pairs.
 These images demonstrate actual controls and software rendering, not a full
 Windows desktop editor, D3D12/FXC, physical GPU/input or exported graphical EXE
 acceptance. Physical performance is not inferred from software timings.
+
+## Weighted Mesh transparency
+
+`manual/images/weighted-transparency-controls.png` is900×240: the production
+Scene lighting Transparency helper rendered by `forge_hdr_bloom_editor_tests
+<capture-directory> --weighted`, actual ImGui/Lato controls with SDL software/dummy.
+The fixture isolates this section; it is not a full desktop editor capture.
+
+`manual/images/weighted-transparency-gallery.png` is640×360 from the shared
+FrameRenderer Game output for Scene114 (`46a2f490-bb77-4a85-92aa-e8d7055fa921`),
+software Vulkan/lavapipe with independent blending disabled. Lossless PPM-to-PNG
+conversion retains every RGB byte and full dimensions. No controls or pixels were
+retouched. Both images were visually reviewed for labels/content and clipping.
+
+Capture inputs are the local weighted-transparency batch based on5074320; its
+commit contains the Scene, shaders and fixtures. Local evidence in
+AgentFiles/build/phase193-weighted-transparency retains capture-ui-run.log,
+gallery-candidate.json, gallery-promotion.json, captures/ and the native regression
+logs. The Gallery candidate's four authored/relocated display pairs match exactly
+with sources removed. These captures do not establish Windows/MSVC/FXC/cooked D3D12,
+physical GPU/input/DPI, full editor or exported graphical EXE acceptance. Software
+timings are not physical performance evidence.

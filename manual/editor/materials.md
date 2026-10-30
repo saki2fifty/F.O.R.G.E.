@@ -102,6 +102,7 @@ preview therefore does not mean the current draft is valid or published.
 linear RGBA/RGB values. **Unlit** removes lighting response. **Surface state**
 controls alpha behavior, alpha cutoff, two-sided rendering and depth testing/writes.
 Use **Mask** for cutout surfaces and **Blend** for transparency.
+For overlapping transparent Meshes, see [Weighted transparency](transparency.md).
 
 Expand a role under **Texture slots** and choose a Texture asset, or drag a compatible
 asset from Content onto its picker. The texture needs the matching imported usage:

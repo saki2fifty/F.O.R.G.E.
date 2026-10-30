@@ -8,6 +8,7 @@
 #include "temporal_geometry.hpp"
 #include "tile_asset_resources.hpp"
 #include "tile_draw_values.hpp"
+#include "weighted_transparency.hpp"
 #include <forge/render_scene.hpp>
 namespace forge {
 struct MeshResourceInspection {
@@ -220,6 +221,7 @@ class MeshSceneRenderer {
     std::shared_ptr<MeshResourceHost> host_;
     std::unique_ptr<ShadowRenderer> shadows_;
     std::unique_ptr<TransmissionBackground> transmission_;
+    std::unique_ptr<WeightedTransparency> weighted_;
     Diligent::TEXTURE_FORMAT color_;
     const std::uint64_t pose_budget_;
     const std::size_t draw_part_limit_;

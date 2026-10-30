@@ -3694,6 +3694,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "46a2f490-bb77-4a85-92aa-e8d7055fa921",
+      "metadata": {},
+      "schema_version": 5,
+      "source": "Scenes/114-weighted-transparency.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "4708ebf5-cb8f-44d1-8bed-e3d89737c1cf",
       "metadata": {
         "forge.import": {

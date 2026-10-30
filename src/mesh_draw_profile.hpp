@@ -16,7 +16,8 @@ enum class MeshDrawProfile {
     MeshReflection,
     MeshTemporalReflection,
     MeshNormal,
-    MeshTemporalNormal
+    MeshTemporalNormal,
+    MeshWeighted
 };
 inline bool temporal_mesh_profile(MeshDrawProfile profile) {
     return profile == MeshDrawProfile::MeshTemporal ||

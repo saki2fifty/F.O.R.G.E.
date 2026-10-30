@@ -37,6 +37,7 @@ content may differ; use **Window** to open a panel mentioned in a guide.
 - [Shape terrain with height layers](editor/terrain.md)
 - [Importing textures](editor/textures.md)
 - [Materials](editor/materials.md)
+- [Blend overlapping transparent Meshes](editor/transparency.md)
 - [Project material color onto a Mesh](editor/decals.md)
 - [Material Graph](editor/material-graphs.md)
 - [Shader import](editor/shaders.md)

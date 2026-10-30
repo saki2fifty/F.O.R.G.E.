@@ -7,6 +7,11 @@ equal-to-default intent remains authored. Unknown row/nested fields survive nati
 reordering by that composite key. Prefab inheritance and whole/property overrides
 use the existing owners. See [object material values](material-assets.md).
 
+The optional strict boolean `rendering.weighted_transparency` defaults to false.
+It selects the [weighted Mesh blending profile](weighted-transparency.md) without
+changing Scene document versions. Save/history retain authored intent and unrelated
+rendering extensions; invalid scalar types reject before mutation.
+
 ```json
 {
   "version": 3,

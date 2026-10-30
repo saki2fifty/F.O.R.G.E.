@@ -16,7 +16,7 @@ Vulkan compile/device probes and unexecuted Metal/WebGPU mappings.
 | PBR | Pinned Diligent metallic-roughness and archived specular-glossiness BRDF paths, semantic textures and normal/tangent handling | Material/glTF surface tests; native mesh/material fixtures |
 | Unlit | Material factors, vertex color and color texture without light dependence; engine error surface uses this path | Material tests; native `mesh_draw_tests.hpp`, `frame_renderer_tests.hpp` |
 | Alpha mask | Shared alpha/cutoff in color and shadow depth paths | Native `shadow_render_tests.hpp` and mesh material fixtures |
-| Alpha blend | Straight-alpha composition, depth testing, disabled imported BLEND depth writes and back-to-front part ordering | CPU queue tests; native mesh/transparency fixtures; no order-independent transparency |
+| Alpha blend | Default straight-alpha composition and back-to-front part ordering; opt-in bounded weighted Mesh blend with depth testing and whole-view sorted fallback | Shared Mesh/software-Vulkan fragment oracles, boundary cases and source-free Gallery114; approximate color transport. [Contract](weighted-transparency.md) |
 | Advanced material layers | Clearcoat, sheen, anisotropy, iridescence, IOR/specular, emissive strength, transmission, volume and dispersion use their declared factors/textures | `gltf_surfaces`, material tests; native layered material/optics fixtures |
 | Transmission/volume | Copied opaque HDR background plus environment fallback, thickness/attenuation and chromatic dispersion | Native `transmission_background_tests.hpp`, `transmission_render_tests.hpp`; entry and exit-interface absorption, mirrored parity and total internal reflection readbacks. Screen-space approximation does not solve arbitrary layered/nested-volume refraction |
 | Custom material surface Shader | Engine geometry with declared color/depth pixel roles, reflected parameter packing and named Diligent bindings | Shader/material pipeline; native `surface_mesh_draw_tests.hpp`; current custom cook adapter D3D12 only |
@@ -50,6 +50,8 @@ records unsupported targets. Shared code does not bypass that check or silently
 change authored transform semantics. Static batching excludes morphing, skinning,
 blended and transmissive color draws; shadow casters submit separately. Conventional
 transparent part sorting cannot resolve all intersecting surfaces or cyclic overlaps.
+Weighted Mesh blending provides an optional approximation; it does not add exact
+layered physical transport or refractive ordering.
 
 The forward pipeline supplies real view-local motion and previous depth for the
 original [temporal anti-aliasing profile](temporal-antialiasing.md) and

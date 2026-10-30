@@ -6,7 +6,8 @@ foreach(source
  include/forge/surface_shader.hpp src/surface_shader.cpp src/distance_fog_shader.hpp src/temporal_motion_shader.hpp src/indirect_lighting_shader.hpp src/material_asset.cpp
  src/material_shader.hpp src/material_shader.cpp src/sprite_material_profile.hpp
  include/forge/material_graph.hpp src/material_graph.cpp src/material_graph_functions.cpp src/mesh_shader_input.hpp src/mesh_draw_shader.hpp src/mesh_draw_shader.cpp
- resources/shaders/ForgeSurface.fxh resources/shaders/ForgeLighting.fxh resources/shaders/ForgeAreaLights.fxh resources/shaders/ForgeDecals.fxh resources/shaders/ForgeShadows.fxh
+ resources/shaders/ForgeSurface.fxh resources/shaders/ForgeLighting.fxh resources/shaders/ForgeAreaLights.fxh resources/shaders/ForgeDecals.fxh resources/shaders/ForgeTransparency.fxh resources/shaders/ForgeShadows.fxh
+ src/weighted_transparency_shader.hpp
  cmake/patches/diligentfx-aaa41d47-shader-warnings.json cmake/patches/diligentfx-aaa41d47-shader-warnings.patch
  src/shader_importer.cpp src/shader_diligent.hpp src/shader_diligent.cpp src/shader_worker_main.cpp
  src/import_process.hpp src/import_process.cpp src/asset_worker.hpp src/worker_stage_lease.hpp src/worker_stage_lease.cpp src/asset_worker.cpp

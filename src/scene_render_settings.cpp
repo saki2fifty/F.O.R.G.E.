@@ -87,6 +87,11 @@ SceneRenderSettings scene_render_settings(const nlohmann::json& scene) {
     if (!settings.is_object() || !settings.at("version").is_number_unsigned() ||
         settings.at("version") != 1)
         throw std::runtime_error("Unsupported scene rendering settings version");
+    if (settings.contains("weighted_transparency")) {
+        if (!settings.at("weighted_transparency").is_boolean())
+            throw std::runtime_error("Weighted transparency must be boolean");
+        result.weighted_transparency = settings.at("weighted_transparency").get<bool>();
+    }
     auto number = [](const auto& object, const char* key, double fallback) {
         if (!object.contains(key))
             return fallback;

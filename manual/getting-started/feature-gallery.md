@@ -1,5 +1,11 @@
 # Explore the Feature Gallery
 
+**114-weighted-transparency** blends three intersecting colored image panels above
+an opaque floor. In Edit, open **Tools > Scene lighting... > Transparency** and
+toggle **Weighted transparency** to compare the intersections. The panels share one
+Material and Texture with separate object color values. Save and choose this Scene
+as startup before export. See [Blend overlapping transparent Meshes](../editor/transparency.md).
+
 **113-projected-color-decals** paints a shared badge image onto two lit cubes and
 overlapping color onto a floor. Select a **Decal Projector**, then adjust its box,
 tint, opacity, layers or priority in Inspector. The left badge mirrors local X.

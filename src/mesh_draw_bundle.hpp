@@ -40,12 +40,13 @@ class MeshDrawBundle {
     }
     void prepare_surface(Diligent::IDeviceContext*, unsigned lod, unsigned part, bool motion,
                          bool indirect, std::span<const MaterialParameterOverride> = {},
-                         bool reflection = false, bool normal = false, bool area_lights = false);
+                         bool reflection = false, bool normal = false, bool area_lights = false,
+                         bool weighted = false);
     bool surface_prepared(unsigned lod, unsigned part, bool motion, bool indirect,
-                          bool reflection = false, bool normal = false,
-                          bool area_lights = false) const {
-        const auto& variants =
-            surface_lods_.at(surface_index(motion, indirect, reflection, normal, area_lights));
+                          bool reflection = false, bool normal = false, bool area_lights = false,
+                          bool weighted = false) const {
+        const auto& variants = surface_lods_.at(
+            surface_index(motion, indirect, reflection, normal, area_lights, weighted));
         if (variants.empty()) {
             (void)info_.at(lod).at(part);
             return false;
@@ -71,7 +72,7 @@ class MeshDrawBundle {
                    const GpuLease<TextureAsset>* sprite_mip = nullptr,
                    const MeshDraw::Motion* motion = nullptr, bool indirect = false,
                    bool reflection = false, bool normal = false,
-                   std::span<const MeshDraw::Decal> decals = {});
+                   std::span<const MeshDraw::Decal> decals = {}, bool weighted = false);
     std::string_view slot(unsigned lod, unsigned part) const {
         return prepared_.selection.bindings.at(info_.at(lod).at(part).binding).key;
     }
@@ -90,7 +91,13 @@ class MeshDrawBundle {
 
   private:
     static std::size_t surface_index(bool motion, bool indirect, bool reflection = false,
-                                     bool normal = false, bool area_lights = false) {
+                                     bool normal = false, bool area_lights = false,
+                                     bool weighted = false) {
+        if (weighted) {
+            if (motion || indirect || reflection || normal)
+                throw std::invalid_argument("Weighted transparency cannot use opaque MRT effects");
+            return area_lights ? 16 : 15;
+        }
         if (normal) {
             if (!indirect || reflection)
                 throw std::invalid_argument("Normal-only specialization requires indirect output "
@@ -128,7 +135,7 @@ class MeshDrawBundle {
     std::vector<std::vector<std::unique_ptr<MeshDraw>>> lods_;
     std::vector<std::vector<std::unique_ptr<MeshDraw>>> shadow_lods_;
     // Existing seven MRT variants, ordinary area color, then seven area MRT
-    // variants. Area layouts and native resources allocate on first use only.
-    std::array<std::vector<std::vector<std::unique_ptr<MeshDraw>>>, 15> surface_lods_;
+    // variants, then two weighted variants. Native resources allocate on first use.
+    std::array<std::vector<std::vector<std::unique_ptr<MeshDraw>>>, 17> surface_lods_;
 };
 } // namespace forge

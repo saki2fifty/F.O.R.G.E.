@@ -444,7 +444,9 @@ or native entity allocation order is not the draw order. Per-part culling follow
 coarse mesh culling and the selected LOD. Imported glTF BLEND disables depth writes,
 retains depth testing and uses straight-alpha composition. Conventional part-level
 sorting cannot correctly resolve every intersecting transparent surface or cyclic
-overlap; order-independent transparency is not implemented.
+overlap. Scenes can opt into [weighted Mesh transparency](weighted-transparency.md),
+an approximate order-independent color blend. Incompatible views retain sorted
+drawing; transmission transport remains sorted.
 
 Editor Scene and current Game preview color targets are linear RGBA16F with D32
 depth. The reusable `DisplayResolve` calls the pinned Diligent `ToneMapping.fxh`

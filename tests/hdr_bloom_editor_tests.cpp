@@ -41,6 +41,7 @@ void interactions(float scale, ImVec2 display) {
     bool motion_controls = false;
     bool occlusion_controls = false;
     bool reflection_controls = false;
+    bool transparency_controls = false;
     bool full_owner = false;
     std::string error;
     unsigned commits = 0;
@@ -62,7 +63,9 @@ void interactions(float scale, ImVec2 display) {
                     ++commits;
                     error.clear();
                 };
-                if (reflection_controls)
+                if (transparency_controls)
+                    ui::scene_transparency_controls(settings.weighted_transparency, locked, commit);
+                else if (reflection_controls)
                     ui::scene_reflection_controls(settings.screen_space_reflections, locked,
                                                   commit);
                 else if (occlusion_controls)
@@ -461,6 +464,26 @@ void interactions(float scale, ImVec2 display) {
     locked = false;
     click("reflection:section");
     reflection_controls = false;
+    transparency_controls = true;
+    frame();
+    click("transparency:section");
+    const auto before_transparency = scene.document();
+    click("transparency:weighted");
+    const auto weighted = scene.document();
+    check(scene_render_settings(weighted).weighted_transparency && scene.undo() &&
+              scene.document() == before_transparency && scene.redo() &&
+              scene.document() == weighted,
+          "Transparency control bypassed source/history");
+    locked = true;
+    frame();
+    check(!test::ui_targets.at("transparency:weighted").enabled,
+          "Authored transparency control enabled during Play");
+    locked = false;
+    click("transparency:weighted");
+    check(!scene_render_settings(scene.document()).weighted_transparency,
+          "Transparency control did not restore sorted alpha");
+    click("transparency:section");
+    transparency_controls = false;
     // Exercise the real Scene lighting owner, including its Problems integration,
     // rather than inferring recovery from the callback used above.
     locked = false;
@@ -559,15 +582,16 @@ void interactions(float scale, ImVec2 display) {
 void capture(const std::filesystem::path& root, std::string_view kind = {}) {
     const bool fog = kind == "--fog", temporal = kind == "--temporal", focus = kind == "--focus",
                motion = kind == "--motion", occlusion = kind == "--occlusion",
-               reflection = kind == "--reflection";
+               reflection = kind == "--reflection", weighted = kind == "--weighted";
     std::filesystem::create_directories(root);
-    const int capture_height = reflection  ? 520
-                               : fog       ? 360
-                               : temporal  ? 420
-                               : focus     ? 440
-                               : motion    ? 400
-                               : occlusion ? 460
-                                           : 900;
+    const int capture_height = weighted     ? 240
+                               : reflection ? 520
+                               : fog        ? 360
+                               : temporal   ? 420
+                               : focus      ? 440
+                               : motion     ? 400
+                               : occlusion  ? 460
+                                            : 900;
     const std::unique_ptr<SDL_Surface, decltype(&SDL_DestroySurface)> surface(
         SDL_CreateSurface(900, capture_height, SDL_PIXELFORMAT_RGBA32), SDL_DestroySurface);
     check(bool(surface), SDL_GetError());
@@ -596,8 +620,9 @@ void capture(const std::filesystem::path& root, std::string_view kind = {}) {
     Scene scene(engine.world());
     authoring_command(
         scene, "scene.rendering.set",
-        reflection  ? Json{{"screen_space_reflections", {{"enabled", true}}}}
-        : occlusion ? Json{{"ambient_occlusion", {{"enabled", true}, {"normal_influence", .7}}}}
+        weighted     ? Json{{"weighted_transparency", true}}
+        : reflection ? Json{{"screen_space_reflections", {{"enabled", true}}}}
+        : occlusion  ? Json{{"ambient_occlusion", {{"enabled", true}, {"normal_influence", .7}}}}
         : motion   ? Json{{"motion_blur", {{"enabled", true}, {"shutter", .5}, {"max_pixels", 32}}}}
         : focus    ? Json{{"depth_of_field",
                            {{"enabled", true},
@@ -619,7 +644,10 @@ void capture(const std::filesystem::path& root, std::string_view kind = {}) {
         const auto commit = [&](const Json& patch) {
             authoring_command(scene, "scene.rendering.set", patch);
         };
-        if (reflection)
+        if (weighted)
+            ui::scene_transparency_controls(
+                scene_render_settings(scene.document()).weighted_transparency, false, commit);
+        else if (reflection)
             ui::scene_reflection_controls(
                 scene_render_settings(scene.document()).screen_space_reflections, false, commit);
         else if (occlusion)
@@ -647,13 +675,14 @@ void capture(const std::filesystem::path& root, std::string_view kind = {}) {
         ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData(), renderer.get());
         SDL_RenderPresent(renderer.get());
     }
-    check(SDL_SavePNG(surface.get(), (root / (reflection  ? "screen-space-reflections-controls.png"
-                                              : occlusion ? "ambient-occlusion-controls.png"
-                                              : motion    ? "motion-blur-controls.png"
-                                              : focus     ? "depth-of-field-controls.png"
-                                              : temporal  ? "temporal-antialiasing-controls.png"
-                                              : fog       ? "distance-fog-controls.png"
-                                                          : "automatic-exposure.png"))
+    check(SDL_SavePNG(surface.get(), (root / (weighted     ? "weighted-transparency-controls.png"
+                                              : reflection ? "screen-space-reflections-controls.png"
+                                              : occlusion  ? "ambient-occlusion-controls.png"
+                                              : motion     ? "motion-blur-controls.png"
+                                              : focus      ? "depth-of-field-controls.png"
+                                              : temporal   ? "temporal-antialiasing-controls.png"
+                                              : fog        ? "distance-fog-controls.png"
+                                                           : "automatic-exposure.png"))
                                          .string()
                                          .c_str()),
           SDL_GetError());
@@ -666,7 +695,8 @@ int main(int argc, char** argv) {
              (std::string_view(argv[2]) == "--fog" || std::string_view(argv[2]) == "--temporal" ||
               std::string_view(argv[2]) == "--focus" || std::string_view(argv[2]) == "--motion" ||
               std::string_view(argv[2]) == "--occlusion" ||
-              std::string_view(argv[2]) == "--reflection"))) {
+              std::string_view(argv[2]) == "--reflection" ||
+              std::string_view(argv[2]) == "--weighted"))) {
             capture(std::filesystem::absolute(argv[1]),
                     argc == 3 ? std::string_view(argv[2]) : std::string_view{});
             return 0;

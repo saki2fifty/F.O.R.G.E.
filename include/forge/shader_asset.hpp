@@ -24,14 +24,23 @@ enum class ShaderEntryRole {
     SurfaceAreaReflectionColor,
     SurfaceAreaTemporalReflectionColor,
     SurfaceAreaNormalColor,
-    SurfaceAreaTemporalNormalColor
+    SurfaceAreaTemporalNormalColor,
+    SurfaceWeightedColor,
+    SurfaceAreaWeightedColor
 };
+inline constexpr bool weighted_surface_role(ShaderEntryRole role) {
+    return role == ShaderEntryRole::SurfaceWeightedColor ||
+           role == ShaderEntryRole::SurfaceAreaWeightedColor;
+}
 inline constexpr bool area_surface_role(ShaderEntryRole role) {
-    return role >= ShaderEntryRole::SurfaceAreaColor &&
-           role <= ShaderEntryRole::SurfaceAreaTemporalNormalColor;
+    return (role >= ShaderEntryRole::SurfaceAreaColor &&
+            role <= ShaderEntryRole::SurfaceAreaTemporalNormalColor) ||
+           role == ShaderEntryRole::SurfaceAreaWeightedColor;
 }
 inline constexpr ShaderEntryRole ordinary_surface_role(ShaderEntryRole role) {
     switch (role) {
+    case ShaderEntryRole::SurfaceAreaWeightedColor:
+        return ShaderEntryRole::SurfaceWeightedColor;
     case ShaderEntryRole::SurfaceAreaColor:
         return ShaderEntryRole::SurfaceColor;
     case ShaderEntryRole::SurfaceAreaTemporalColor:
@@ -80,7 +89,10 @@ inline constexpr bool reflection_surface_role(ShaderEntryRole role) {
 }
 inline constexpr ShaderEntryRole surface_color_role(bool temporal, bool indirect,
                                                     bool reflection = false, bool normal = false,
-                                                    bool area = false) {
+                                                    bool area = false, bool weighted = false) {
+    if (weighted)
+        return area ? ShaderEntryRole::SurfaceAreaWeightedColor
+                    : ShaderEntryRole::SurfaceWeightedColor;
     if (area) {
         if (reflection)
             return temporal ? ShaderEntryRole::SurfaceAreaTemporalReflectionColor

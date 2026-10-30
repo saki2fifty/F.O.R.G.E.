@@ -1,5 +1,15 @@
 # Feature Gallery
 
+## Weighted transparency
+
+Open **Scenes/114-weighted-transparency.scene.json**. Three intersecting panels
+reuse the badge image with separate object color and alpha values. The floor is
+opaque. In Edit, open **Tools > Scene lighting...**, expand **Transparency** and
+toggle **Weighted transparency** to compare the intersections. Move or rotate a
+panel, then save. Choose this Scene as startup before export. This approximate
+blend needs no C++ module or additional import. Views containing transmission,
+2D layers or incompatible transparent surfaces retain ordinary sorted drawing.
+
 ## Projected material color
 
 Open **Scenes/113-projected-color-decals.scene.json** and press Play. A shared

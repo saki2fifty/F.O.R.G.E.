@@ -10,6 +10,7 @@
 #include "scene_motion_blur_tests.hpp"
 #include "scene_reflection_settings_tests.hpp"
 #include "scene_temporal_settings_tests.hpp"
+#include "scene_weighted_transparency_tests.hpp"
 #include "temporal_sample_policy_tests.hpp"
 #include <forge/authoring.hpp>
 #include <forge/scene_render_settings.hpp>
@@ -143,6 +144,7 @@ int main() {
         test_scene_temporal_settings();
         test_scene_depth_of_field();
         test_scene_motion_blur();
+        test_scene_weighted_transparency();
         test_scene_ambient_occlusion();
         test_scene_reflection_settings();
         test_reflection_source_plan();

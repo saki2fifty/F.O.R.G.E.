@@ -9,7 +9,7 @@ namespace {
 using Json = nlohmann::json;
 constexpr std::size_t source_file_limit = 2 * 1024 * 1024, source_limit = 16 * 1024 * 1024;
 constexpr std::size_t bytecode_limit = 16 * 1024 * 1024, metadata_limit = 2 * 1024 * 1024;
-constexpr std::size_t surface_stage_limit = 17;
+constexpr std::size_t surface_stage_limit = 19;
 constexpr std::array<std::byte, 8> magic{std::byte{'F'}, std::byte{'R'}, std::byte{'G'},
                                          std::byte{'S'}, std::byte{'H'}, std::byte{'D'},
                                          std::byte{0},   std::byte{0}};
@@ -151,21 +151,34 @@ const char* shader_entry_role_name(ShaderEntryRole role) {
         return "surface_area_normal_color";
     case ShaderEntryRole::SurfaceAreaTemporalNormalColor:
         return "surface_area_temporal_normal_color";
+    case ShaderEntryRole::SurfaceWeightedColor:
+        return "surface_weighted_color";
+    case ShaderEntryRole::SurfaceAreaWeightedColor:
+        return "surface_area_weighted_color";
     }
     throw std::runtime_error("Unsupported shader entry role");
 }
 ShaderEntryRole shader_entry_role(std::string_view name) {
-    for (auto role :
-         {ShaderEntryRole::Program, ShaderEntryRole::SurfaceColor, ShaderEntryRole::SurfaceDepth,
-          ShaderEntryRole::SurfaceTemporalColor, ShaderEntryRole::SurfaceIndirectColor,
-          ShaderEntryRole::SurfaceTemporalIndirectColor, ShaderEntryRole::SurfaceReflectionColor,
-          ShaderEntryRole::SurfaceTemporalReflectionColor, ShaderEntryRole::SurfaceNormalColor,
-          ShaderEntryRole::SurfaceTemporalNormalColor, ShaderEntryRole::SurfaceAreaColor,
-          ShaderEntryRole::SurfaceAreaTemporalColor, ShaderEntryRole::SurfaceAreaIndirectColor,
-          ShaderEntryRole::SurfaceAreaTemporalIndirectColor,
-          ShaderEntryRole::SurfaceAreaReflectionColor,
-          ShaderEntryRole::SurfaceAreaTemporalReflectionColor,
-          ShaderEntryRole::SurfaceAreaNormalColor, ShaderEntryRole::SurfaceAreaTemporalNormalColor})
+    for (auto role : {ShaderEntryRole::Program,
+                      ShaderEntryRole::SurfaceColor,
+                      ShaderEntryRole::SurfaceDepth,
+                      ShaderEntryRole::SurfaceTemporalColor,
+                      ShaderEntryRole::SurfaceIndirectColor,
+                      ShaderEntryRole::SurfaceTemporalIndirectColor,
+                      ShaderEntryRole::SurfaceReflectionColor,
+                      ShaderEntryRole::SurfaceTemporalReflectionColor,
+                      ShaderEntryRole::SurfaceNormalColor,
+                      ShaderEntryRole::SurfaceTemporalNormalColor,
+                      ShaderEntryRole::SurfaceAreaColor,
+                      ShaderEntryRole::SurfaceAreaTemporalColor,
+                      ShaderEntryRole::SurfaceAreaIndirectColor,
+                      ShaderEntryRole::SurfaceAreaTemporalIndirectColor,
+                      ShaderEntryRole::SurfaceAreaReflectionColor,
+                      ShaderEntryRole::SurfaceAreaTemporalReflectionColor,
+                      ShaderEntryRole::SurfaceAreaNormalColor,
+                      ShaderEntryRole::SurfaceAreaTemporalNormalColor,
+                      ShaderEntryRole::SurfaceWeightedColor,
+                      ShaderEntryRole::SurfaceAreaWeightedColor})
         if (name == shader_entry_role_name(role))
             return role;
     throw std::runtime_error("Unsupported shader entry role");
@@ -206,6 +219,10 @@ const char* surface_shader_entry(ShaderEntryRole role) {
         return "ForgeSurfaceAreaNormalColor";
     case ShaderEntryRole::SurfaceAreaTemporalNormalColor:
         return "ForgeSurfaceAreaTemporalNormalColor";
+    case ShaderEntryRole::SurfaceWeightedColor:
+        return "ForgeSurfaceWeightedColor";
+    case ShaderEntryRole::SurfaceAreaWeightedColor:
+        return "ForgeSurfaceAreaWeightedColor";
     default:
         throw std::runtime_error("Shader role has no engine surface entry");
     }
@@ -440,7 +457,7 @@ void validate_shader_reflection(const Json& reflection) {
     require(reflection.dump().size() <= metadata_limit, "Shader reflection exceeds metadata limit");
 }
 void validate_shader(const ShaderData& data) {
-    require(data.surface_wrapper_version >= 1 && data.surface_wrapper_version <= 8 &&
+    require(data.surface_wrapper_version >= 1 && data.surface_wrapper_version <= 9 &&
                 (data.surface || data.surface_wrapper_version == 1),
             "Unsupported Shader surface wrapper version");
     require(valid_content_digest(data.build_key) && valid_content_digest(data.compiler_digest),
@@ -451,7 +468,8 @@ void validate_shader(const ShaderData& data) {
     std::set<ShaderEntryRole> roles;
     if (data.surface) {
         validate_surface_definition(*data.surface);
-        require(data.stages.size() == (data.surface_wrapper_version >= 7   ? surface_stage_limit
+        require(data.stages.size() == (data.surface_wrapper_version >= 9   ? surface_stage_limit
+                                       : data.surface_wrapper_version >= 7 ? 17u
                                        : data.surface_wrapper_version >= 6 ? 9u
                                        : data.surface_wrapper_version >= 5 ? 7u
                                        : data.surface_wrapper_version >= 4 ? 5u
@@ -484,6 +502,8 @@ void validate_shader(const ShaderData& data) {
                     "Normal color entry requires its declared wrapper capability");
             require(!area_surface_role(stage.role) || data.surface_wrapper_version >= 7,
                     "Area color entry requires its declared wrapper capability");
+            require(!weighted_surface_role(stage.role) || data.surface_wrapper_version >= 9,
+                    "Weighted color entry requires its declared wrapper capability");
             const auto& resources = stage.reflection.at("resources");
             require(motion == std::any_of(resources.begin(), resources.end(),
                                           [](const auto& row) {
@@ -565,7 +585,7 @@ ShaderData decode_shader(std::span<const std::byte> bytes) {
     data.row_major = m.at("row_major");
     data.compiler_debug = m.at("compiler_debug");
     if (m.contains("surface_wrapper_version"))
-        data.surface_wrapper_version = count(m.at("surface_wrapper_version"), 8);
+        data.surface_wrapper_version = count(m.at("surface_wrapper_version"), 9);
     require((envelope.version == 2) == m.contains("surface"),
             "Shader feature/envelope version mismatch");
     if (m.contains("surface"))

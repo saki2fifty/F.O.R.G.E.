@@ -111,6 +111,8 @@ struct SceneRenderSettings {
     SceneMotionBlur motion_blur;
     SceneAmbientOcclusion ambient_occlusion;
     SceneScreenSpaceReflections screen_space_reflections;
+    // Optional approximate order-independent alpha composition for eligible Mesh views.
+    bool weighted_transparency = false;
     bool operator==(const SceneRenderSettings&) const = default;
 };
 SceneRenderSettings scene_render_settings(const nlohmann::json& scene);

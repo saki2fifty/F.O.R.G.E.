@@ -5,6 +5,23 @@
 #include <forge/scene_render_settings.hpp>
 #include <numbers>
 namespace forge::ui {
+inline void scene_transparency_controls(bool enabled, bool locked,
+                                        const std::function<void(const Json&)>& commit) {
+    IdScope scope("weighted_transparency");
+    const bool open = ImGui::CollapsingHeader("Transparency");
+    FORGE_UI_PROBE("transparency:section");
+    if (!open)
+        return;
+    DisabledScope disabled(locked);
+    if (ImGui::Checkbox("Weighted transparency", &enabled))
+        commit({{"weighted_transparency", enabled}});
+    FORGE_UI_PROBE("transparency:weighted");
+    ImGui::TextWrapped(
+        "Approximate order-independent blending for transparent Mesh surfaces. "
+        "Materials must test depth without writing it. Views containing transmission "
+        "or 2D layers retain sorted alpha. Older surface Shaders need rebuilding. "
+        "Scene Save and Undo include this setting.");
+}
 inline void scene_reflection_controls(const SceneScreenSpaceReflections& settings, bool locked,
                                       const std::function<void(const Json&)>& commit) {
     IdScope scope("screen_space_reflections");
@@ -452,6 +469,7 @@ inline void scene_lighting(bool& open, Scene& scene, const AssetCatalog* catalog
                  "commits.");
             scene_auto_exposure_controls(settings.auto_exposure, locked, commit);
             scene_reflection_controls(settings.screen_space_reflections, locked, commit);
+            scene_transparency_controls(settings.weighted_transparency, locked, commit);
             scene_occlusion_controls(settings.ambient_occlusion, locked, commit);
             scene_motion_controls(settings.motion_blur, locked, commit);
             scene_focus_controls(settings.depth_of_field, locked, commit);

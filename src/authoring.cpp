@@ -595,7 +595,7 @@ Json authoring_commands() {
     };
     add("scene.rendering.set", "Scene lighting and display",
         "Change scene lighting, shadows, temporal anti-aliasing, depth of field, motion blur, "
-        "ambient occlusion, screen-space reflections, "
+        "ambient occlusion, screen-space reflections, weighted transparency, "
         "distance fog, "
         "bloom, color "
         "adjustments or "
@@ -606,6 +606,7 @@ Json authoring_commands() {
         "fields "
         "remain unchanged.",
         {{"exposure", number(-20, 20)},
+         {"weighted_transparency", {{"type", "boolean"}}},
          {"screen_space_reflections", object({{"enabled", {{"type", "boolean"}}},
                                               {"max_distance", number(0, 100)},
                                               {"thickness", number(.0001, 1)},

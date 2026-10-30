@@ -1,5 +1,23 @@
 # 2026-10-30
 
+## Weighted Mesh transparency
+
+An opt-in Scene setting blends eligible transparent Mesh surfaces through the
+existing queue, material and shared depth owners. Bounded additive radiance/optical
+targets resolve into HDR; incompatible views retain ordinary sorted drawing,
+including transmission transport. This is approximate color blending, with no
+per-pixel fragment list or exact layered/refraction claim. Wrapper9 adds two
+weighted color roles (19 total), preserving1–8 readers and logical IDs.
+
+Scene history/Save, actual lighting controls and automation/MCP discovery use the
+same strict boolean. Gallery114 adds one Scene while preserving311 prior records
+and project settings; its shared badge Material/Texture export source-free. The
+manual adds the task guide and authentic controls/Game images. Shared empty decal
+defaults now use immutable storage, with explicit dynamic binding for drawn values,
+so frame-local uploads cannot become retained empty state. Native projection and
+weighted/Gallery regression checks pass. Windows/full editor/FXC/cooked D3D12 and
+physical acceptance remain pending.
+
 ## Projected material color
 
 Decal Projector adds bounded color projection through ordinary native components,

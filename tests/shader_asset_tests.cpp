@@ -179,7 +179,7 @@ int main() {
                         fog_surface.layout_digest() != legacy_layout,
                     "Optimized-out fog wrapper capability lost roundtrip or layout identity");
             auto future_surface = fog_surface;
-            future_surface.surface_wrapper_version = 9;
+            future_surface.surface_wrapper_version = 10;
             rejected([&] { validate_shader(future_surface); });
             auto temporal_surface = fog_surface;
             temporal_surface.surface_wrapper_version = 3;
@@ -335,9 +335,27 @@ int main() {
                         decode_shader(encoded_decal).stages.size() == 17 &&
                         decal_surface.layout_digest() != area_surface.layout_digest(),
                     "Projected color capability changed stage roles or lost archive identity");
+            auto weighted_surface = decal_surface;
+            weighted_surface.surface_wrapper_version = 9;
+            for (const auto role : {ShaderEntryRole::SurfaceWeightedColor,
+                                    ShaderEntryRole::SurfaceAreaWeightedColor}) {
+                auto stage = decal_surface.stages.front();
+                stage.role = role;
+                stage.entry = surface_shader_entry(role);
+                weighted_surface.stages.push_back(std::move(stage));
+            }
+            const auto encoded_weighted = encode_shader(weighted_surface);
+            require(decode_shader(encoded_weighted).surface_wrapper_version == 9 &&
+                        decode_shader(encoded_weighted).stages.size() == 19 &&
+                        encode_shader(decode_shader(encoded_weighted)) == encoded_weighted &&
+                        weighted_surface.layout_digest() != decal_surface.layout_digest(),
+                    "Weighted capability lost output roles, archive bytes or layout identity");
+            auto invalid_weighted = weighted_surface;
+            invalid_weighted.surface_wrapper_version = 8;
+            rejected([&] { validate_shader(invalid_weighted); });
             for (const auto* bytes :
                  {&encoded_surface, &encoded_fog, &encoded_temporal, &encoded_indirect,
-                  &encoded_reflection, &encoded_normal, &encoded_area})
+                  &encoded_reflection, &encoded_normal, &encoded_area, &encoded_decal})
                 require(encode_shader(decode_shader(*bytes)) == *bytes,
                         "Area capability changed readable older archive bytes");
             auto bad_area = area_surface;

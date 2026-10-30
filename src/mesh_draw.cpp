@@ -9,6 +9,7 @@
 #include "sprite_material_profile.hpp"
 #include "temporal_motion_shader.hpp"
 #include "texture_gpu.hpp"
+#include "weighted_transparency_shader.hpp"
 #include <algorithm>
 #include <bit>
 #include <cmath>
@@ -124,11 +125,19 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
       indirect_(indirect_mesh_profile(draw_profile) && !shadow_pass_),
       reflection_(reflection_mesh_profile(draw_profile) && !shadow_pass_),
       normal_(normal_mesh_profile(draw_profile) && !shadow_pass_),
+      weighted_(draw_profile == MeshDrawProfile::MeshWeighted && !shadow_pass_),
       area_lights_(area_lights && !shadow_pass_), sprite_(sprite_draw_profile(draw_profile)),
       sprite_mips_(sprite_draw_mip_filter(draw_profile).has_value()) {
     require(draw_profile == MeshDrawProfile::Mesh || temporal_mesh_profile(draw_profile) ||
-                indirect_mesh_profile(draw_profile) || sprite_,
+                indirect_mesh_profile(draw_profile) ||
+                draw_profile == MeshDrawProfile::MeshWeighted || sprite_,
             "unknown draw profile");
+    require(!weighted_ ||
+                (source.alpha == MaterialAlpha::Blend && source.depth_test && !source.depth_write &&
+                 color_format == TEX_FORMAT_RGBA32_FLOAT && depth_format == TEX_FORMAT_D32_FLOAT),
+            "Weighted transparency requires a depth-tested Blend Mesh without depth writes");
+    require(!weighted_ || !surface || surface->program.surface_wrapper_version >= 9,
+            "Rebuild this Shader and dependent Materials to use weighted transparency");
     require(!(temporal_ || indirect_) ||
                 (source.depth_test && source.depth_write && source.alpha != MaterialAlpha::Blend),
             "Surface effects require depth-writing opaque or masked Mesh");
@@ -186,6 +195,10 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
                                    sprite_, sprite_draw_mip_filter(draw_profile), indirect_,
                                    reflection_, normal_, area_lights_, true);
     decal_capacity_ = program.decal_capacity;
+    require(!weighted_ || !program.transmission,
+            "Weighted transparency cannot replace sorted transmission transport");
+    if (weighted_ && !surface)
+        program.pixel = weighted_color_wrapper(std::move(program.pixel), false);
     const auto& material = program.material;
     require(!(temporal_ || indirect_) || !program.transmission,
             "Transmission draws follow temporal opaque accumulation");
@@ -215,7 +228,7 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
     if (surface) {
         const auto role = shadow_pass_ ? ShaderEntryRole::SurfaceDepth
                                        : surface_color_role(temporal_, indirect_, reflection_,
-                                                            normal_, area_lights_);
+                                                            normal_, area_lights_, weighted_);
         auto native = realize_renderer_shader(presentation, surface->program);
         pixel = native.stages.at(ShaderStageKey{ShaderStage::Pixel, role});
         const auto stage = std::find_if(native.data.stages.begin(), native.data.stages.end(),
@@ -235,9 +248,11 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
         white_decal_ = presentation.pbr(context).GetWhiteTexSRV();
         default_decal_sampler_ = upload_sampler(device, SamplerState{});
         require(white_decal_ && default_decal_sampler_, "Decal fallback resources unavailable");
-        MapHelper<Row> values(context, decals_, MAP_WRITE, MAP_FLAG_DISCARD);
-        require(static_cast<Row*>(values) != nullptr, "Decal initialization allocation failed");
-        std::fill_n(static_cast<Row*>(values), decal_shader_rows(decal_capacity_), Row{});
+        // Empty receiver state survives frames without a dynamic upload. DISCARD
+        // allocations are frame-local and must never serve as retained defaults.
+        const std::array<Row, decal_shader_rows(decal_draw_limit)> empty{};
+        empty_decals_ = buffer(device, "FORGE empty projected color",
+                               decal_shader_rows(decal_capacity_) * sizeof(Row), empty.data());
     }
     RefCntAutoPtr<ITextureView> ggx;
     if (lit) {
@@ -384,6 +399,8 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
     std::array<std::string, decal_draw_limit> decal_names;
     if (decal_capacity_) {
         resource_variables.push_back(
+            {SHADER_TYPE_PIXEL, "ForgeDecals", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC});
+        resource_variables.push_back(
             {SHADER_TYPE_PIXEL, "g_ForgeDecalSamplers", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC});
         for (unsigned i = 0; i < decal_capacity_; ++i) {
             decal_names[i] = "g_ForgeDecalColor" + std::to_string(i);
@@ -399,11 +416,14 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
     ci.pPS = pixel;
     auto& g = ci.GraphicsPipeline;
     g.NumRenderTargets = Uint8(shadow_pass_ ? 0
+                               : weighted_  ? 2
                                             : 1 + unsigned(temporal_) + unsigned(indirect_) +
                                                   (reflection_ ? 3u
                                                    : normal_   ? 1u
                                                                : 0u));
     g.RTVFormats[0] = color_format;
+    if (weighted_)
+        g.RTVFormats[1] = TEX_FORMAT_RG32_FLOAT;
     if (temporal_)
         g.RTVFormats[1] = TEX_FORMAT_RGBA32_FLOAT;
     if (indirect_)
@@ -427,10 +447,10 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
     if (!shadow_pass_ && source.alpha == MaterialAlpha::Blend) {
         auto& b = g.BlendDesc.RenderTargets[0];
         b.BlendEnable = true;
-        b.SrcBlend = BLEND_FACTOR_SRC_ALPHA;
-        b.DestBlend = BLEND_FACTOR_INV_SRC_ALPHA;
+        b.SrcBlend = weighted_ ? BLEND_FACTOR_ONE : BLEND_FACTOR_SRC_ALPHA;
+        b.DestBlend = weighted_ ? BLEND_FACTOR_ONE : BLEND_FACTOR_INV_SRC_ALPHA;
         b.SrcBlendAlpha = BLEND_FACTOR_ONE;
-        b.DestBlendAlpha = BLEND_FACTOR_INV_SRC_ALPHA;
+        b.DestBlendAlpha = weighted_ ? BLEND_FACTOR_ONE : BLEND_FACTOR_INV_SRC_ALPHA;
     }
     for (unsigned parity = 0; parity < 3; ++parity) {
         g.RasterizerDesc.CullMode = source.double_sided || parity == 2 || volume_thickness_ > 0
@@ -470,7 +490,7 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
         }
         bind(SHADER_TYPE_PIXEL, "ForgeObject", object_, false);
         if (decal_capacity_) {
-            bind(SHADER_TYPE_PIXEL, "ForgeDecals", decals_);
+            bind(SHADER_TYPE_PIXEL, "ForgeDecals", empty_decals_);
             std::array<IDeviceObject*, decal_draw_limit> defaults;
             defaults.fill(default_decal_sampler_);
             auto* variable =
@@ -685,15 +705,13 @@ void MeshDraw::object_material_values(IDeviceContext* context,
                     variable->Set(active ? material_dynamic_ : material_immutable_);
     material_dynamic_bound_ = active;
 }
-void MeshDraw::clear_decals(IDeviceContext* context) {
+void MeshDraw::clear_decals(IDeviceContext*) {
     if (!decals_active_)
         return;
-    MapHelper<Row> values(context, decals_, MAP_WRITE, MAP_FLAG_DISCARD);
-    require(static_cast<Row*>(values) != nullptr, "Decal reset allocation failed");
-    std::fill_n(static_cast<Row*>(values), decal_shader_rows(decal_capacity_), Row{});
     std::array<IDeviceObject*, decal_draw_limit> samplers;
     samplers.fill(default_decal_sampler_);
     for (const auto& binding : bindings_) {
+        binding->GetVariableByName(SHADER_TYPE_PIXEL, "ForgeDecals")->Set(empty_decals_);
         for (unsigned i = 0; i < decal_capacity_; ++i)
             binding
                 ->GetVariableByName(SHADER_TYPE_PIXEL,
@@ -992,6 +1010,7 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
         // Each winding SRB retains native references. Update every SRB before
         // dropping an old selection, including winding modes absent this frame.
         for (const auto& binding : bindings_) {
+            binding->GetVariableByName(SHADER_TYPE_PIXEL, "ForgeDecals")->Set(decals_);
             for (unsigned i = 0; i < decal_capacity_; ++i)
                 binding
                     ->GetVariableByName(SHADER_TYPE_PIXEL,

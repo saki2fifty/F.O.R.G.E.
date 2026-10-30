@@ -155,3 +155,12 @@ adapter and7168-byte Light buffer in those variants; ordinary roles retain4096
 bytes. Unlit/final-color custom surfaces keep ordinary behavior. Rebuild Shader
 and dependent Materials to receive Rectangle/Sphere lighting. Capabilities1–6
 remain readable with unchanged bytes. Logical asset identities remain unchanged.
+
+## Weighted color wrapper
+
+Capability9 adds `surface_weighted_color` and `surface_area_weighted_color` for
+opt-in [weighted Mesh transparency](weighted-transparency.md), bringing the archive
+bound to19 roles. The generated wrapper reuses the ordinary material color helper
+after lighting/fog and emits two additive targets. Authored surface interfaces and
+logical asset IDs remain unchanged. Versions1–8 retain ordinary read/draw behavior;
+older cooks require Shader and dependent Material rebuilds for weighted output.

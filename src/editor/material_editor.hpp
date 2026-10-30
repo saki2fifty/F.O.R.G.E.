@@ -584,8 +584,9 @@ inline void MaterialEditor::fields() {
     int alpha = overrides.value("alpha", unsigned(values.alpha));
     if (ImGui::Combo("Alpha", &alpha, "Opaque\0Mask\0Blend\0"))
         mutate("Change alpha mode", [&](auto& j) { j["overrides"]["alpha"] = alpha; });
-    ui::help("Opaque writes a solid surface. Mask discards below cutoff. Blend uses sorted "
-             "transparent drawing.");
+    ui::help("Opaque writes a solid surface. Mask discards below cutoff. Blend uses transparent "
+             "drawing, sorted by default. Scene lighting can enable weighted blending for "
+             "compatible Mesh surfaces.");
     revert("alpha");
     if (alpha == int(MaterialAlpha::Mask)) {
         float cutoff = overrides.value("alpha_cutoff", values.alpha_cutoff);

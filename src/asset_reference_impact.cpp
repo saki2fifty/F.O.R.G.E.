@@ -168,7 +168,7 @@ struct Inspect {
                         key != "auto_exposure" && key != "distance_fog" &&
                         key != "temporal_anti_aliasing" && key != "depth_of_field" &&
                         key != "motion_blur" && key != "ambient_occlusion" &&
-                        key != "screen_space_reflections")
+                        key != "screen_space_reflections" && key != "weighted_transparency")
                         unknown("rendering." + key);
                 }
                 for (const auto* section :

@@ -3,6 +3,7 @@
 #include "Utilities/interface/DiligentFXShaderSourceStreamFactory.hpp"
 #include "auto_exposure.hpp"
 #include "display_source.hpp"
+#include "fullscreen_triangle_shader.hpp"
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -20,10 +21,7 @@ Pipeline display_pipeline(DiligentPresentation& presentation, bool automatic) {
     shader.pShaderSourceStreamFactory = &DiligentFXShaderSourceStreamFactory::GetInstance();
     shader.Desc.Name = "FORGE display fullscreen triangle";
     shader.Desc.ShaderType = SHADER_TYPE_VERTEX;
-    shader.Source = R"(
-float4 main(uint id:SV_VertexID):SV_Position {
-    return float4(id==2?3:-1,id==1?3:-1,0,1);
-})";
+    shader.Source = fullscreen_triangle_vertex;
     RefCntAutoPtr<IShader> vertex, pixel;
     presentation.shader(shader, &vertex);
     shader.Desc.Name = automatic ? "FORGE automatic PBR Neutral display resolve"

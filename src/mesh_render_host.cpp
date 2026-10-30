@@ -474,6 +474,7 @@ MeshSceneRenderer::MeshSceneRenderer(std::shared_ptr<MeshResourceHost> host,
         throw std::runtime_error("Mesh scene requires a presentation resource host");
     shadows_ = std::make_unique<ShadowRenderer>(host_->presentation_);
     transmission_ = std::make_unique<TransmissionBackground>(host_->presentation_);
+    weighted_ = std::make_unique<WeightedTransparency>(host_->presentation_);
 }
 std::shared_ptr<const MeshInstancePose>
 MeshSceneRenderer::Entry::stage_pose(MeshInstancePose value) const {
@@ -611,6 +612,7 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
         bundles_.clear();
         decal_entries_.clear();
         decal_order_.clear();
+        weighted_->clear();
         environment_ = {};
         probe_entries_.clear();
         reflection_probes_.clear();
@@ -1324,11 +1326,13 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
         diagnostics_.size() == diagnostics_before && omitted_ == omitted_before;
     if (temporal)
         temporal->applied = temporal->successful = false;
-    const auto unavailable = [&](const char* category, const char* label, const std::string& why) {
+    const auto unavailable = [&](const char* category, const char* label, const std::string& why,
+                                 const char* property = "") {
         Diagnostic value{
             Severity::Warning, category, std::string(label) + " unavailable: " + why, {}};
         value.context.asset = scene_;
         value.context.source = "presentation";
+        value.context.property = property;
         if (diagnostics_.size() < 256)
             diagnostics_.push_back(std::move(value));
         else
@@ -1415,6 +1419,42 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
             temporal = nullptr; // Entire view retains ordinary unjittered rendering.
         }
     }
+    bool weighted = scene.settings.weighted_transparency &&
+                    std::any_of(queue.begin(), queue.end(), [](const auto& item) {
+                        return item.key.alpha == MaterialAlpha::Blend;
+                    });
+    if (weighted) {
+        try {
+            // Admit the complete view before any accumulation target is bound.
+            // Incompatible layers retain the existing sorted transport together.
+            for (const auto& item : queue) {
+                const auto& object = objects[item.object];
+                if (object.scope == DrawScope::Sprite || object.scope == DrawScope::TileMap)
+                    throw std::runtime_error("visible 2D layers require sorted alpha");
+                if (item.transmission)
+                    throw std::runtime_error("transmission requires sorted background transport");
+                if (item.key.alpha != MaterialAlpha::Blend)
+                    continue;
+                if (object.scope != DrawScope::Mesh || item.key.order != 0)
+                    throw std::runtime_error("this transparent layer requires sorted alpha");
+                if (!object.bundle->surface_prepared(object.lod, item.key.part, false, false, false,
+                                                     false, object.area_lights, true))
+                    require_specialization_capacity();
+                object.bundle->prepare_surface(host_->context_, object.lod, item.key.part, false,
+                                               false, object.parameters, false, false,
+                                               object.area_lights, true);
+            }
+            weighted_->prepare(color, depth, camera.viewport);
+        } catch (const std::exception& error) {
+            unavailable("render.transparency.unavailable", "Weighted transparency",
+                        std::string(error.what()) + "; sorted alpha retained",
+                        "rendering.weighted_transparency");
+            weighted = false;
+        }
+    } else {
+        weighted_->clear();
+    }
+    bool weighted_started = false;
     const auto draw_diagnostics_start = diagnostics_.size(), draw_omitted_start = omitted_;
     if (temporal) {
         temporal->begin();
@@ -1533,6 +1573,10 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
         if (!temporal_item(item))
             resolve_temporal();
         const auto& draw_view = accumulated ? temporal->current : camera;
+        if (weighted && !weighted_started && item.key.alpha == MaterialAlpha::Blend) {
+            weighted_->begin(host_->context_, depth);
+            weighted_started = true;
+        }
         if (needs_background && !captured && item.key.alpha == MaterialAlpha::Blend) {
             captured = true;
             try {
@@ -1604,7 +1648,8 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                 accumulated && temporal->motion_output ? &motion : nullptr,
                 accumulated && temporal->indirect_output,
                 accumulated && temporal->reflection_output,
-                accumulated && temporal->normal_only_output, decals);
+                accumulated && temporal->normal_only_output, decals,
+                weighted && item.key.alpha == MaterialAlpha::Blend);
             ++draw_stats_.calls;
             draw_stats_.instances += count;
             draw_stats_.batched_calls += count > 1;
@@ -1632,7 +1677,8 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                         accumulated && temporal->motion_output ? &motion : nullptr,
                         accumulated && temporal->indirect_output,
                         accumulated && temporal->reflection_output,
-                        accumulated && temporal->normal_only_output, decals);
+                        accumulated && temporal->normal_only_output, decals,
+                        weighted && failed_item.key.alpha == MaterialAlpha::Blend);
                     ++draw_stats_.calls;
                     ++draw_stats_.instances;
                 } catch (const std::exception& error) {
@@ -1642,6 +1688,14 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
         }
     }
     resolve_temporal();
+    if (weighted_started) {
+        try {
+            weighted_->composite(host_->context_, color, depth);
+        } catch (const std::exception& error) {
+            unavailable("render.transparency.resolve", "Weighted transparency", error.what(),
+                        "rendering.weighted_transparency");
+        }
+    }
     if (temporal)
         temporal->successful &= geometry_ready && diagnostics_.size() == draw_diagnostics_start &&
                                 omitted_ == draw_omitted_start;

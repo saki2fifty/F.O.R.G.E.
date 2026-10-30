@@ -1,9 +1,7 @@
 #pragma once
+#include "fullscreen_triangle_shader.hpp"
 namespace forge::bloom_shader {
-inline constexpr const char* vertex = R"(
-float4 main(uint id:SV_VertexID):SV_Position {
-    return float4(id==2?3:-1,id==1?3:-1,0,1);
-})";
+inline constexpr auto vertex = fullscreen_triangle_vertex;
 inline constexpr const char* common = R"(
 Texture2D<float4> g_Source;
 cbuffer ForgeBloom {float4 g_Settings; float4 g_Rect; float4 g_SourceSize;};

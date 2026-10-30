@@ -131,6 +131,23 @@ for legacy in (False, True):
         exposure_schema = exposure_command['input_schema']['properties']['auto_exposure']
         exposure_tool = next(item for item in catalog
                              if item['name'] == 'forge_scene_rendering_set')
+        weighted_schema = exposure_command['input_schema']['properties']['weighted_transparency']
+        assert weighted_schema == {'type': 'boolean'}
+        assert exposure_tool['inputSchema']['properties']['arguments']['properties']['weighted_transparency'] == weighted_schema
+        weighted_arguments = arguments(arguments=dict(weighted_transparency=True))
+        weighted = client.tool('forge_scene_rendering_set', **weighted_arguments)
+        assert weighted['ok'] and client.tool('forge_scene_rendering_set', **weighted_arguments) == weighted
+        assert mutate('forge_history_undo')['result']['changed']
+        assert mutate('forge_history_redo')['result']['changed']
+        for bad in (0, None, 'weighted', {}):
+            before = discover()
+            result = mutate('forge_scene_rendering_set', arguments=dict(weighted_transparency=bad))
+            assert not result['ok'] and discover()['revision'] == before['revision'], result
+        before = discover()
+        result = mutate('forge_scene_rendering_set', arguments=dict(weighted_transparency=False, exposure=21))
+        assert not result['ok'] and discover()['revision'] == before['revision'], result
+        assert mutate('forge_document_save')['ok']
+        assert json.loads((project / 'Scenes/main.scene.json').read_text(encoding='utf-8'))['rendering']['weighted_transparency'] is True
         assert exposure_tool['inputSchema']['properties']['arguments']['properties']['auto_exposure'] == exposure_schema
         assert set(exposure_schema['properties']) == {
             'enabled', 'min_ev', 'max_ev', 'low_percentile', 'high_percentile',

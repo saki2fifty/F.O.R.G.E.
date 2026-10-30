@@ -5,6 +5,18 @@ The accepted local Windows package is **261024-000213**, source
 in the [README](../README.md#current-implementation). No new numbered Windows
 package accompanies the local source changes described here.
 
+Local source adds opt-in weighted Mesh transparency through the existing Scene,
+material and draw owners. Wrapper9 adds ordinary/area weighted color roles (19
+total), retaining readable1–8 artifacts and unchanged authored surface interfaces.
+Whole-view admission keeps incompatible layers and transmission on sorted transport.
+Gallery114 reuses the badge Material/Texture and exports through normal content
+ownership. The manual includes authentic controls and Game captures. Local focused
+authoring/UI/MCP and software-Vulkan checks pass. Five selected CPU/UI/MCP
+sanitizer consumers exit cleanly; three native functional consumers reproduce the
+exact known unsuppressed184-byte shutdown allocation condition. Windows/full
+editor/MSVC/FXC/cooked D3D12/physical acceptance remain queued.
+See the [contract](weighted-transparency.md) and [guide](../manual/editor/transparency.md).
+
 Local source adds projected material color: an authored Decal Projector, volume
 guides, Inspector/live controls, shared automation/MCP/SDK access and Gallery113.
 Physical Mesh receivers use source color, alpha, UVs and sampler intent before

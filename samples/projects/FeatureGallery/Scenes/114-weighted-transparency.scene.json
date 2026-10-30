@@ -1,0 +1,491 @@
+{
+  "asset_id": "46a2f490-bb77-4a85-92aa-e8d7055fa921",
+  "entities": [
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 12.0,
+          "y": 0.30000001192092896,
+          "z": 8.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": -0.2,
+          "z": 1.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": false,
+          "enabled": true,
+          "layers": 3,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.18000000715255737,
+                  0.20000000298023224,
+                  0.23999999463558197,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "metallicFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.6000000238418579,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.36000001430511475,
+          "g": 0.3100000023841858,
+          "r": 0.2800000011920929
+        }
+      },
+      "id": "899f0ad9-3810-4122-b07d-df2759864084",
+      "name": "Floor - overlapping projected color",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 0.0,
+          "background_a": 1.0,
+          "background_b": 0.029999999329447746,
+          "background_g": 0.02500000037252903,
+          "background_r": 0.019999999552965164,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 100.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 10.0,
+          "orthographic_width": 0.0,
+          "projection": 0,
+          "vertical_fov": 0.7853981633974483,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 0.9914448857307434,
+          "x": 0.13052618503570557,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 3.0,
+          "z": -8.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "68d33281-1532-4f43-a050-e6bc7e2434c4",
+      "name": "Gallery camera - projected color",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.light": {
+          "basis": 0,
+          "cast_shadows": false,
+          "color_b": 1.0,
+          "color_g": 1.0,
+          "color_r": 1.0,
+          "emitter_height": 1.0,
+          "emitter_radius": 0.5,
+          "emitter_width": 1.0,
+          "enabled": true,
+          "inner_cone": 0.0,
+          "intensity": 2.0,
+          "kind": 0,
+          "layers": 3,
+          "outer_cone": 0.7853981633974483,
+          "range": 0.0,
+          "shadow_angular_radius": 0.07999999821186066,
+          "shadow_bias": 0.0010000000474974513,
+          "shadow_normal_bias": 0.019999999552965164,
+          "shadow_source_radius": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 0.9311100244522095,
+          "x": 0.2935778796672821,
+          "y": -0.2064221352338791,
+          "z": 0.06508464366197586
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 4.0,
+          "z": -3.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "d30746ee-5d9c-4c89-ae2b-15795084f2da",
+      "name": "Directional light - projected albedo",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.8870108127593994,
+          "x": 0.0,
+          "y": -0.4617486000061035,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 4.0,
+          "y": 3.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -1.25,
+          "y": 1.5,
+          "z": 0.5
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": false,
+          "enabled": true,
+          "layers": 3,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.949999988079071,
+                  0.25,
+                  0.20000000298023224,
+                  0.6499999761581421
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "05420c39-1aa8-46ae-b73e-f61680bea5db",
+          "receive_shadows": true,
+          "visible": true
+        },
+        "forge.primitive": {
+          "kind": 8
+        },
+        "forge.tint": {
+          "b": 0.20000000298023224,
+          "g": 0.25,
+          "r": 0.800000011920929
+        }
+      },
+      "id": "5fff3c19-d32b-4d82-9a2a-77d561978927",
+      "name": "Red intersecting panel",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 4.0,
+          "y": 3.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 1.5,
+          "z": 0.5
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": false,
+          "enabled": true,
+          "layers": 3,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.20000000298023224,
+                  0.8999999761581421,
+                  0.30000001192092896,
+                  0.6499999761581421
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "05420c39-1aa8-46ae-b73e-f61680bea5db",
+          "receive_shadows": true,
+          "visible": true
+        },
+        "forge.primitive": {
+          "kind": 8
+        },
+        "forge.tint": {
+          "b": 0.6200000047683716,
+          "g": 0.6200000047683716,
+          "r": 0.6200000047683716
+        }
+      },
+      "id": "64dfd76d-42f0-4f19-ab69-3d3af1e52dbb",
+      "name": "Green intersecting panel",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.8870108127593994,
+          "x": 0.0,
+          "y": 0.4617486000061035,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 4.0,
+          "y": 3.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 1.25,
+          "y": 1.5,
+          "z": 0.5
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": false,
+          "enabled": true,
+          "layers": 3,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.20000000298023224,
+                  0.4000000059604645,
+                  1.0,
+                  0.6499999761581421
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "05420c39-1aa8-46ae-b73e-f61680bea5db",
+          "receive_shadows": true,
+          "visible": true
+        },
+        "forge.primitive": {
+          "kind": 8
+        },
+        "forge.tint": {
+          "b": 0.8199999928474426,
+          "g": 0.4000000059604645,
+          "r": 0.20000000298023224
+        }
+      },
+      "id": "4287fc3c-c508-4656-acb4-31fe6698e91e",
+      "name": "Blue intersecting panel",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.light": {
+          "basis": 0,
+          "cast_shadows": false,
+          "color_b": 1.0,
+          "color_g": 1.0,
+          "color_r": 1.0,
+          "emitter_height": 0.550000011920929,
+          "emitter_radius": 0.800000011920929,
+          "emitter_width": 2.4000000953674316,
+          "enabled": true,
+          "inner_cone": 0.0,
+          "intensity": 8.0,
+          "kind": 1,
+          "layers": 3,
+          "outer_cone": 0.7853981633974483,
+          "range": 0.0,
+          "shadow_angular_radius": 0.0,
+          "shadow_bias": 0.0010000000474974513,
+          "shadow_normal_bias": 0.019999999552965164,
+          "shadow_source_radius": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 0.9311100244522095,
+          "x": 0.2935778796672821,
+          "y": -0.2064221352338791,
+          "z": 0.06508464366197586
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 4.0,
+          "z": -3.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "f05f286f-75b5-4691-bb01-6b51a8700d7b",
+      "name": "Point fill",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.light": {
+          "basis": 0,
+          "cast_shadows": false,
+          "color_b": 1.0,
+          "color_g": 1.0,
+          "color_r": 1.0,
+          "emitter_height": 0.550000011920929,
+          "emitter_radius": 0.800000011920929,
+          "emitter_width": 2.4000000953674316,
+          "enabled": false,
+          "inner_cone": 0.0,
+          "intensity": 8.0,
+          "kind": 1,
+          "layers": 3,
+          "outer_cone": 0.7853981633974483,
+          "range": 0.0,
+          "shadow_angular_radius": 0.0,
+          "shadow_bias": 0.0010000000474974513,
+          "shadow_normal_bias": 0.019999999552965164,
+          "shadow_source_radius": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 0.9311100244522095,
+          "x": 0.2935778796672821,
+          "y": -0.2064221352338791,
+          "z": 0.06508464366197586
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 4.0,
+          "z": -3.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "54c06f7e-beb6-41fb-82ce-1cf61f285241",
+      "name": "Optional second fill - disabled",
+      "spatial": {
+        "mode": "world"
+      }
+    }
+  ],
+  "rendering": {
+    "shadows": {
+      "cascades": 3,
+      "distance": 40,
+      "enabled": false,
+      "max_lights": 1,
+      "resolution": 1024
+    },
+    "version": 1,
+    "weighted_transparency": true
+  },
+  "version": 5
+}

@@ -111,7 +111,7 @@ float4 fixture_color(){return float4(0,.25,1,1);}
             device, surface, {{"engine/forge.graph.hlsl", graph.source}}, {});
         const auto realized =
             realize_diligent_shader(device, decode_shader(encode_shader(compiled.data)));
-        check(realized.stages.size() == 17 && realized.data.surface_wrapper_version == 8,
+        check(realized.stages.size() == 19 && realized.data.surface_wrapper_version == 9,
               "Graph lost shared surface output profiles");
         for (const auto& stage : compiled.data.stages)
             (void)surface_binding_layout(graph.surface, stage.reflection,
@@ -148,8 +148,12 @@ float4 fixture_color(){return float4(0,.25,1,1);}
         const auto native_surface = compile_diligent_shader(device, surface, body, {});
         auto realized =
             realize_diligent_shader(device, decode_shader(encode_shader(native_surface.data)));
-        check(native_surface.data.surface_wrapper_version == 8 &&
-                  realized.data.surface_wrapper_version == 8 && realized.stages.size() == 17 &&
+        check(native_surface.data.surface_wrapper_version == 9 &&
+                  realized.data.surface_wrapper_version == 9 && realized.stages.size() == 19 &&
+                  realized.stages.contains(
+                      {ShaderStage::Pixel, ShaderEntryRole::SurfaceWeightedColor}) &&
+                  realized.stages.contains(
+                      {ShaderStage::Pixel, ShaderEntryRole::SurfaceAreaWeightedColor}) &&
                   realized.stages.contains({ShaderStage::Pixel, ShaderEntryRole::SurfaceColor}) &&
                   realized.stages.contains({ShaderStage::Pixel, ShaderEntryRole::SurfaceDepth}) &&
                   realized.stages.contains(
