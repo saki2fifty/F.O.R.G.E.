@@ -1,5 +1,19 @@
 # Feature Gallery
 
+## Dynamic Tile Map bodies
+
+Open **Scenes/124-dynamic-tile-map-bodies.scene.json** and press Play. Three
+two-cell Maps fall onto the amber receiver. The density-mass and mirrored 12 kg
+instances tumble; the rotation-locked instance keeps its orientation. Every Map
+is one body containing a ring, its island and separate bars.
+
+Stop and select a Map to change **Physics Body 2D → Density**, **Mass**, **Sensor**
+or **Lock rotation**. Keep **Spatial binding → World**, **Motion → Dynamic** and
+**One-way collision** off. The instances share
+**Assets/Tiles/DynamicTiles.tilemap.json** and the existing contour Tile Set.
+Save the Scene and choose it as startup before export. See
+[Tile Maps](../../../manual/editor/tile-maps.md) for controls and runtime cell edits.
+
 ## Tile collision contours
 
 Open **Scenes/123-tile-collision-contours.scene.json** and press Play. Amber lands
@@ -50,8 +64,8 @@ points with Y up. Apply collision, then Save / Publish the Set and
 **Assets/Tiles/ConcaveTiles.tilemap.json**. Enable Selected collision on the course
 to inspect the published pieces. Save and choose this Scene as startup before
 export. No Project Code module is required. Polygon (decomposed) uses one outline;
-choose Contours / holes for voids or separate solid regions. Dynamic Maps and
-custom-polygon one-way response are unavailable.
+choose Contours / holes for voids or separate solid regions. Custom-polygon
+one-way response is unavailable.
 
 ## Moving one-way platforms
 

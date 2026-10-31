@@ -223,16 +223,18 @@ All mutations retain the complete scene target, observed revision and sequence.
 Job identity is local to its owner; never apply an old batch/job ID to new work.
 Place a published Tile Map with `forge_asset_place`, add `forge.physics_body_2d`
 and `forge.tile_map_collider_2d`, then set the collider's exact layer key. The
-existing `forge_property_set_many` operation authors `motion` (0 Static or1
-Kinematic for Maps) and `sensor` together, with normal revision guards and one
+existing `forge_property_set_many` operation authors `motion` (0 Static,1
+Kinematic or2 Dynamic) and `sensor` together, with normal revision guards and one
 Undo/Redo step. Sensor applies to the selected layer's rectangles. Save before
 Play/export. Static or Kinematic nonsensor Boxes and full-cell Maps can set the
 existing `one_way`/`one_way_margin` fields through the same property operations.
 Kinematic targets or Transform Animator clips can move them. The existing
 Character Controller 2D `platform_carry` property enables walkable support transport.
-Sensor, Dynamic and custom-polygon one-way collision and Dynamic Maps remain
-outside the runtime profile;
-the general body schema still supports Dynamic for ordinary inline bodies.
+Sensor, Dynamic and custom-polygon one-way collision remain outside the runtime
+profile. Dynamic Map bodies require `forge_transform_binding` with
+`spatial:{mode:"world"}` before Play. Existing body density, mass, lock and gravity
+properties apply to the complete compound. No separate agent-only body operation
+is needed.
 
 Queue admission is not completion. Inspect the returned owner progress/result;
 failed candidates retain last-good content. Import and source-file commits are
@@ -297,7 +299,7 @@ block6 promotion. Earlier source versions keep those fields opaque;
 an already promoted source never downgrades through ordinary edits. It does not remint keys,
 write Scene values or publish automatically. Undo/Redo and Save use the ordinary
 asset-document methods. After publishing a Set, republish its dependent Maps
-against that selected revision. Collision uses existing Static/Kinematic bodies,
+against that selected revision. Collision uses existing Static/Kinematic/Dynamic bodies,
 sensors, cell flags and shape budgets; custom one-way polygons are unsupported.
 Interactive unapplied collision drafts participate in the existing document-busy
 guard. Read-only connections advertise no collision mutation binding.

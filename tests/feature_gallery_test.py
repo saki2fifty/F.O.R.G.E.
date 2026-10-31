@@ -33,6 +33,7 @@ for source, cooked in (('Assets/Shape.mesh.json', 'mesh.bin'),
                        ('Assets/Tiles/ContourTiles.material.json', 'material.values'),
                        ('Assets/Tiles/ContourTiles.tileset.json', 'tileset.bin'),
                        ('Assets/Tiles/ContourTiles.tilemap.json', 'tilemap.bin'),
+                       ('Assets/Tiles/DynamicTiles.tilemap.json', 'tilemap.bin'),
                        ('Assets/Tiles/ArrowCourse.tilemap.json', 'tilemap.bin'),
                        ('Assets/Tiles/PaintedPlatforms.tilemap.json', 'tilemap.bin'),
                        ('Assets/Sprites/Badge.material.json', 'material.values'),
@@ -217,6 +218,18 @@ assert len(ring['collision']['contours'][0]['holes']) == 1
 assert not ring['collision']['contours'][1]['holes']
 assert all(not row['holes'] for row in bars['collision']['contours'])
 assert 'collision' not in floor
+dynamic_scene = json.loads((project_root / 'Scenes/124-dynamic-tile-map-bodies.scene.json').read_text())
+dynamic_maps = [row for row in dynamic_scene['entities']
+                if 'forge.tile_map_collider_2d' in row['components']]
+assert len(dynamic_maps) == 3
+assert all(row['spatial']['mode'] == 'world' and
+           row['components']['forge.physics_body_2d']['motion'] == 2 and
+           not row['components']['forge.physics_body_2d']['one_way'] and
+           row['components']['forge.tile_map_renderer']['map'] ==
+               by_source['Assets/Tiles/DynamicTiles.tilemap.json']['id'] for row in dynamic_maps)
+assert sum(row['components']['forge.physics_body_2d']['lock_rotation'] for row in dynamic_maps) == 1
+assert sorted(row['components']['forge.physics_body_2d']['mass'] for row in dynamic_maps) == [0, 0, 12]
+assert sum(row['components']['forge.local_scale']['x'] < 0 for row in dynamic_maps) == 1
 panel_scene = json.loads((project_root / 'Scenes/73-sprite-image-fill.scene.json').read_text(encoding='utf-8'))
 panels = [row['components']['forge.sprite_renderer'] for row in panel_scene['entities']
           if 'forge.sprite_renderer' in row['components']]

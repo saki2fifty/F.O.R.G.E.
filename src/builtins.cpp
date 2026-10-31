@@ -1638,8 +1638,8 @@ const std::array<Builtin, builtin_count>& builtins() {
                    w) { return register_type<CapsuleCollider2D>(w, "forge.capsule_collider_2d"); }),
         descriptor<TileMapCollider2D>(
             "forge.tile_map_collider_2d",
-            "Occupied cells in one Tile Map layer; requires a Static "
-            "or Kinematic Physics Body 2D; Sensor makes a trigger",
+            "Occupied cells in one Tile Map layer; requires a Physics Body 2D; "
+            "Dynamic requires World space; Sensor makes a trigger",
             "unitless", {}, {},
             [](flecs::world&
                    w) { return register_type<TileMapCollider2D>(w, "forge.tile_map_collider_2d"); }),
@@ -1664,9 +1664,10 @@ Json registration_options(const Builtin& type, const std::string& field) {
     if (name == "forge.tile_map_collider_2d" && field == "layer") {
         value["display_name"] = "Collision layer";
         value["description"] =
-            "Tiles use their Tile Set full-cell, None or convex collision profiles. "
+            "Tiles use their Tile Set full-cell, None or polygon collision profiles. "
             "Cell flips transform custom polygons; hiding a layer does not remove collision. "
-            "Use Static or Kinematic Physics Body 2D. Zero is unassigned.";
+            "Use Static, Kinematic or Dynamic Physics Body 2D; Dynamic requires World space. "
+            "Zero is unassigned.";
     }
     if (name == "forge.mesh_renderer" && field == "material_variant") {
         value["description"] =

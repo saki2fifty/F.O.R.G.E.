@@ -106,7 +106,7 @@ void tile_contours_projection_and_recovery() {
     for (unsigned flags = 0; flags < 8; ++flags)
         for (float xs : {-1.f, 1.f})
             for (float ys : {-1.f, 1.f})
-                for (unsigned motion : {0u, 1u})
+                for (unsigned motion : {0u, 1u, 2u})
                     for (bool sensor : {false, true}) {
                         auto value = TileMapValue::create(AssetId::generate(), source.asset());
                         auto metadata = value.metadata();
@@ -119,6 +119,8 @@ void tile_contours_projection_and_recovery() {
                         PhysicsBody2D body;
                         body.motion = motion;
                         body.sensor = sensor;
+                        if (motion == 2)
+                            body.gravity_factor = 0;
                         const LocalScale scale{xs, ys, 1};
                         const auto config =
                             tile_map_configuration_2d(body, map, 1, scale, &definitions);
@@ -144,6 +146,20 @@ void tile_contours_projection_and_recovery() {
                                 100 + std::cos(angle) * x - std::sin(angle) * y,
                                 100 + std::sin(angle) * x + std::cos(angle) * y};
                         };
+                        if (motion == 2) {
+                            const auto state = test.native.state(1, test.desired.at(1).ref);
+                            const auto center = position({.5, .5});
+                            // Independent concentric-square area and centroid moments:
+                            // outer4m square minus2.4m hole plus.8m island.
+                            const double inertia =
+                                (std::pow(4., 4) - std::pow(2.4, 4) + std::pow(.8, 4)) / 6;
+                            check(state && std::abs(state->mass - 10.88) < 1e-4 &&
+                                      std::abs(state->rotational_inertia - inertia) < 1e-4 &&
+                                      std::hypot(state->centre_of_mass[0] - center[0],
+                                                 state->centre_of_mass[1] - center[1]) < 1e-5,
+                                  "Dynamic contour mass/center/inertia filled a hole or lost its "
+                                  "island");
+                        }
                         const auto verify = [&](Native2D& native) {
                             for (const auto& [p, solid] :
                                  std::array{std::pair{std::array{.1, .1}, true},
@@ -189,8 +205,251 @@ void tile_contours_projection_and_recovery() {
                                   test.native.state(2, test.desired.at(2).ref),
                               "Contour recovery changed unrelated native body state");
                     }
-    std::cout << "128 contour native signed/oriented solid/sensor/motion/query/debug/remapped "
+    std::cout << "192 contour native signed/oriented solid/sensor/motion/query/debug/remapped "
                  "recovery cases PASS\n";
+}
+void dynamic_tile_map_mass_and_replacement() {
+    auto value = TileMapValue::create(AssetId::generate(), AssetId::generate());
+    auto metadata = value.metadata();
+    metadata["cell_size"] = {1, 1};
+    value = value.with_metadata(metadata);
+    const std::array<TileMapCellEdit, 2> cells{{{1, {-3, 0}, {1, 0}}, {1, {3, 0}, {1, 0}}}};
+    value = value.paint(cells);
+    const auto map = decode_cooked_tile_map(cook_tile_map(value), value.asset());
+    PhysicsBody2D unrepresentable;
+    unrepresentable.motion = 2;
+    unrepresentable.mass = 16 * std::numeric_limits<float>::denorm_min();
+    reject([&] { (void)tile_map_configuration_2d(unrepresentable, map, 1, {1, 1, 1}); });
+    for (float requested : {0.f, 10.f})
+        for (bool locked : {false, true}) {
+            PhysicsBody2D body;
+            body.motion = 2;
+            body.mass = requested;
+            body.gravity_factor = 0;
+            body.lock_rotation = locked;
+            body.allow_sleeping = false;
+            const double expected_mass = requested ? requested : 2;
+            // Two unit squares centered(-2.5,.5)/(3.5,.5): C=(.5,.5).
+            const double expected_inertia = (1. / 3 + 18) * expected_mass / 2;
+            Fixture test(1);
+            test.desired.at(1).config = tile_map_configuration_2d(body, map, 1, {1, 1, 1});
+            test.desired.at(2).ref.entity = EntityId::generate();
+            test.desired.at(2).pose.translation = {1000, 1000, 7};
+            test.desired.at(2).config.body.gravity_factor = 0;
+            test.synchronize();
+            const auto ref = test.desired.at(1).ref;
+            const auto first = test.native.state(1, ref);
+            check(first && test.native.size() == 2 && test.native.shape_size() == 3,
+                  "Dynamic Map did not use one existing compound body");
+            std::vector<std::uint64_t> discontinuities;
+            BodyCommand impulse{ref, {}, {}, BodyCommandKind::Impulse};
+            impulse.planar = true;
+            impulse.value = {expected_mass, 0, 0};
+            test.native.apply(1, impulse, discontinuities);
+            BodyCommand angular{ref, {}, {}, BodyCommandKind::AngularImpulse};
+            angular.planar = true;
+            angular.value = {0, 0, expected_inertia};
+            test.native.apply(1, angular, discontinuities);
+            const auto state = test.native.state(1, ref);
+            const double spin = locked ? 0 : 1;
+            check(state && std::abs(state->linear_velocity[0] - 1) < 1e-5 &&
+                      std::abs(state->linear_velocity[1]) < 1e-5 &&
+                      std::abs(state->angular_velocity - spin) < 1e-5,
+                  "Compound area mass, override, centroid inertia or rotation lock differs");
+            const auto velocity = test.native.point_velocity(1, ref, {0, 0});
+            check(velocity && std::abs((*velocity)[0] - (1 + .5 * spin)) < 1e-5 &&
+                      std::abs((*velocity)[1] + .5 * spin) < 1e-5,
+                  "Dynamic Map point velocity ignored its physical center of mass");
+            test.advance(10);
+            const auto moving = test.native.state(1, ref);
+            const double angle = moving->angle;
+            const double time = test.tick * double(1.f / 60);
+            check(std::abs(moving->position[0] -
+                           (.5 + time - .5 * (std::cos(angle) - std::sin(angle)))) < 1e-4 &&
+                      std::abs(moving->position[1] -
+                               (.5 - .5 * (std::sin(angle) + std::cos(angle)))) < 1e-4,
+                  "Dynamic Map origin did not orbit its translating center of mass");
+            const TileMapCellEdit extra{1, {9, 0}, {1, 0}};
+            const auto changed = value.paint(std::span(&extra, 1));
+            const auto changed_map =
+                decode_cooked_tile_map(cook_tile_map(changed), changed.asset());
+            test.desired.at(1).config = tile_map_configuration_2d(body, changed_map, 1, {1, 1, 1});
+            test.synchronize();
+            const auto replaced = test.native.state(1, ref);
+            check(replaced && replaced->epoch != moving->epoch &&
+                      std::hypot(replaced->position[0] - moving->position[0],
+                                 replaced->position[1] - moving->position[1]) < 1e-5 &&
+                      std::abs(replaced->angle - moving->angle) < 1e-5 &&
+                      replaced->linear_velocity == moving->linear_velocity &&
+                      replaced->angular_velocity == moving->angular_velocity,
+                  "Dynamic Map replacement lost existing pose/COM velocity/angular policy");
+            test.advance(); // Finish the existing retirement/event adoption boundary.
+            const auto image = test.native.checkpoint(test.desired, 2 * 1024 * 1024);
+            Native2D restored(test.config);
+            Desired2D remapped{{101, test.desired.at(1)}, {202, test.desired.at(2)}};
+            restored.restore(image.metadata, image.bytes, remapped, test.tick);
+            for (unsigned tick = 0; tick < 30; ++tick) {
+                test.advance();
+                restored.validate(remapped, 1.f / 60);
+                restored.expire_events();
+                restored.synchronize(remapped, remapped, 1.f / 60, {}, discontinuities);
+                restored.finish_targets(1.f / 60);
+                restored.step(1.f / 60, test.tick);
+                const auto poses = restored.adopted_poses();
+                restored.adopt_events(test.tick);
+                for (const auto& [id, pose] : poses)
+                    remapped.at(id).pose = pose;
+                restored.accept_poses(poses);
+                check(restored.state(101, ref) == test.native.state(1, ref),
+                      "Fresh Dynamic Map compound recovery continuation diverged");
+            }
+            auto one_way = body;
+            one_way.one_way = true;
+            reject([&] { (void)tile_map_configuration_2d(one_way, map, 1, {1, 1, 1}); });
+        }
+    std::cout << "Dynamic Map area/override/centroid/point velocity/orbit/replacement/remapped "
+                 "recovery and one-way rejection PASS\n";
+}
+void dynamic_compound_hinge() {
+    Fixture test(1);
+    auto& map = test.desired.at(1);
+    map.config.body.motion = 2;
+    map.config.body.mass = 12;
+    map.config.body.gravity_factor = 0;
+    map.config.body.allow_sleeping = false;
+    map.config.parts = std::make_shared<const std::vector<BoxPart2D>>(
+        std::initializer_list<BoxPart2D>{{{-2.5f, .5f}, {1, 1}}, {{3.5f, .5f}, {1, 1}}});
+    auto& anchor = test.desired.at(2);
+    anchor.config.body.motion = 0;
+    anchor.pose.translation = {0, 4, 7};
+    PhysicsJoint2D hinge;
+    hinge.kind = 1;
+    hinge.limits_enabled = false;
+    hinge.collide_connected = false;
+    hinge.body_a = map.ref;
+    hinge.body_b = anchor.ref;
+    hinge.anchor_b_y = -4;
+    test.joints.emplace(
+        3, Joint2DDesired{{map.ref.scene, EntityId::generate()}, hinge, 1, 2, {0, 0}, {0, -4}});
+    test.advance();
+    std::vector<std::uint64_t> discontinuities;
+    BodyCommand impulse{map.ref, {}, {}, BodyCommandKind::AngularImpulse};
+    impulse.planar = true;
+    impulse.value = {0, 0, 110};
+    test.native.apply(1, impulse, discontinuities);
+    test.advance(100);
+    const auto state = test.native.state(1, map.ref);
+    const auto velocity = test.native.point_velocity(1, map.ref, {0, 0});
+    check(state && state->mass == 12 && std::abs(state->angle) > .1 &&
+              std::hypot(state->position[0], state->position[1]) < .02 && velocity &&
+              std::hypot((*velocity)[0], (*velocity)[1]) < .02,
+          "Dynamic compound hinge did not constrain its origin independently of offset COM");
+    const auto image = test.native.checkpoint(test.desired, 2 * 1024 * 1024, test.joints);
+    Native2D restored(test.config);
+    restored.restore(image.metadata, image.bytes, test.desired, test.tick, test.joints);
+    check(restored.joint_size() == 1 && restored.state(1, map.ref) == state,
+          "Dynamic compound hinge recovery lost mass, offset center or joint binding");
+    std::cout << "Dynamic compound offset-center hinge/impulse/fresh joint recovery PASS\n";
+}
+void dynamic_compound_translation_locks() {
+    for (unsigned axes : {1u, 2u, 3u})
+        for (bool sensor : {false, true}) {
+            Fixture test(1);
+            auto& map = test.desired.at(1);
+            map.config.body.motion = 2;
+            map.config.body.mass = 12;
+            map.config.body.gravity_factor = 0;
+            map.config.body.allow_sleeping = false;
+            map.config.body.lock_x = axes & 1;
+            map.config.body.lock_y = axes & 2;
+            map.config.body.sensor = sensor;
+            map.config.parts = std::make_shared<const std::vector<BoxPart2D>>(
+                std::initializer_list<BoxPart2D>{{{-2.5f, .5f}, {1, 1}}, {{3.5f, .5f}, {1, 1}}});
+            test.desired.at(2).ref.entity = EntityId::generate();
+            test.desired.at(2).pose.translation = {1000, 1000, 7};
+            test.synchronize();
+            std::vector<std::uint64_t> discontinuities;
+            BodyCommand linear{map.ref, {}, {}, BodyCommandKind::Impulse};
+            linear.planar = true;
+            linear.value = {12, 12, 0};
+            test.native.apply(1, linear, discontinuities);
+            BodyCommand angular{map.ref, {}, {}, BodyCommandKind::AngularImpulse};
+            angular.planar = true;
+            angular.value = {0, 0, 110};
+            test.native.apply(1, angular, discontinuities);
+            test.advance(60);
+            const auto state = test.native.state(1, map.ref);
+            const double time = 60 * double(1.f / 60);
+            const double vx = axes & 1 ? 0 : 1, vy = axes & 2 ? 0 : 1;
+            check(state && std::abs(state->linear_velocity[0] - vx) < 1e-5 &&
+                      std::abs(state->linear_velocity[1] - vy) < 1e-5 &&
+                      std::abs(state->centre_of_mass[0] - (.5 + vx * time)) < 1e-5 &&
+                      std::abs(state->centre_of_mass[1] - (.5 + vy * time)) < 1e-5 &&
+                      std::abs(state->angle - time) < 1e-5 &&
+                      std::abs(state->position[0] -
+                               (state->centre_of_mass[0] -
+                                .5 * (std::cos(state->angle) - std::sin(state->angle)))) < 1e-5 &&
+                      std::abs(state->position[1] -
+                               (state->centre_of_mass[1] -
+                                .5 * (std::sin(state->angle) + std::cos(state->angle)))) < 1e-5,
+                  "Dynamic compound translation locks did not constrain COM independently of "
+                  "origin rotation");
+        }
+    std::cout
+        << "Six Dynamic solid/sensor world-axis COM locks and offset-origin rotation cases PASS\n";
+}
+void dynamic_compound_sensor_events() {
+    Fixture test(2);
+    auto& map = test.desired.at(1);
+    map.config.body.motion = 2;
+    map.config.body.gravity_factor = 0;
+    map.config.body.sensor = true;
+    map.config.body.allow_sleeping = false;
+    auto& visitor = test.desired.at(2);
+    visitor.config.body.motion = 0;
+    visitor.pose.translation = {.5, -.5, 7};
+    test.advance();
+    const auto map_epoch = test.native.state(1, map.ref)->epoch;
+    const auto visitor_epoch = test.native.state(2, visitor.ref)->epoch;
+    const auto event = [&](bool begin) {
+        bool found = false;
+        for (std::size_t i = 0; i < test.native.event_count(); ++i) {
+            const auto value = *test.native.event(i);
+            if (!value.sensor || value.begin != begin)
+                continue;
+            const bool direct = value.first == map.ref && value.second == visitor.ref;
+            const bool reverse = value.first == visitor.ref && value.second == map.ref;
+            if (!direct && !reverse)
+                continue;
+            // Availability flags are added by PhysicsRuntime's public read, not
+            // this subordinate native event. Check native epoch ownership here.
+            check(value.first_epoch == (direct ? map_epoch : visitor_epoch) &&
+                      value.second_epoch == (direct ? visitor_epoch : map_epoch) &&
+                      test.native.current(1, map.ref, map_epoch) &&
+                      test.native.current(2, visitor.ref, visitor_epoch),
+                  "Dynamic Map sensor event lost canonical identity/current epochs");
+            found = true;
+        }
+        return found;
+    };
+    check(event(true) && test.native.state(1, map.ref)->position == Double2{} &&
+              test.native.state(2, visitor.ref)->position == Double2{.5, -.5},
+          "Dynamic compound sensor lost Begin or responded as a solid");
+    std::vector<std::uint64_t> discontinuities;
+    BodyCommand impulse{map.ref, {}, {}, BodyCommandKind::Impulse};
+    impulse.planar = true;
+    impulse.value = {8, 0, 0}; // Two unit cells, mass2; impulse gives4m/s.
+    test.native.apply(1, impulse, discontinuities);
+    bool ended = false;
+    for (unsigned i = 0; i < 60; ++i) {
+        test.advance();
+        ended |= event(false);
+    }
+    check(ended && std::abs(test.native.state(1, map.ref)->position[0] - 4) < 1e-4 &&
+              test.native.state(1, map.ref)->epoch == map_epoch &&
+              test.native.state(2, visitor.ref)->position == Double2{.5, -.5},
+          "Moving Dynamic compound sensor lost End, impulse motion or no-response policy");
+    std::cout << "Dynamic compound sensor Begin/End/current epochs and no solid response PASS\n";
 }
 void tile_polygon_projection_and_recovery() {
     auto source = TileSetSource::create(AssetId::generate());
@@ -552,7 +811,7 @@ void capacity_and_invalid_geometry() {
         bad.at(1).config.parts = std::make_shared<const std::vector<BoxPart2D>>(1, invalid);
         reject([&] { test.native.validate(bad); });
     }
-    for (unsigned motion : {0u, 1u})
+    for (unsigned motion : {0u, 1u, 2u})
         for (bool sensor : {false, true}) {
             bad = test.desired;
             bad.at(1).config.body.motion = motion;
@@ -560,7 +819,7 @@ void capacity_and_invalid_geometry() {
             test.native.validate(bad); // Detached validation never changes the live realization.
         }
     bad = test.desired;
-    bad.at(1).config.body.motion = 2;
+    bad.at(1).config.body.motion = 3;
     reject([&] { test.native.validate(bad); });
     bad = test.desired;
     bad.at(1).config.body.one_way = true;
@@ -578,6 +837,18 @@ void capacity_and_invalid_geometry() {
     test.advance();
     check(test.native.state(1, test.desired.at(1).ref)->epoch == before->epoch,
           "Rejected compound candidates prevented valid unchanged continuation");
+    Fixture maximum(4095);
+    maximum.desired.at(1).config.body.motion = 2;
+    maximum.desired.at(1).config.body.gravity_factor = 0;
+    maximum.advance();
+    const auto maximum_image = maximum.native.checkpoint(maximum.desired, 2 * 1024 * 1024);
+    const auto maximum_state = maximum.native.state(1, maximum.desired.at(1).ref);
+    Native2D recovered(maximum.config);
+    recovered.restore(maximum_image.metadata, maximum_image.bytes, maximum.desired, maximum.tick);
+    check(maximum.native.shape_size() == 4096 && maximum_state && maximum_state->mass == 4095 &&
+              recovered.shape_size() == 4096 &&
+              recovered.state(1, maximum.desired.at(1).ref) == maximum_state,
+          "Maximum Dynamic compound lost mass, shape capacity or bounded fresh recovery");
 }
 void compound_trigger_budgets() {
     const auto prepare = [](Fixture& test, unsigned count, bool moving, bool visitor_sensor) {
@@ -725,6 +996,10 @@ void connected_collision_and_recovery() {
 int main() {
     try {
         tile_contours_projection_and_recovery();
+        dynamic_tile_map_mass_and_replacement();
+        dynamic_compound_hinge();
+        dynamic_compound_translation_locks();
+        dynamic_compound_sensor_events();
         tile_polygon_projection_and_recovery();
         tile_polygon_controller();
         std::cout

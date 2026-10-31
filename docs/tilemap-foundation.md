@@ -6,7 +6,11 @@ source-document tools, native rendering and grid selection, independent runtime
 instances, copied C++ cell queries/queued edits and both Editor Play hosts.
 Original editable Gallery74 demonstrates two layers and mirrored instances.
 [2D physics](physics-2d.md) integrates painted full-cell/polygon collision, Kinematic
-Map movement and Static/Kinematic sensor regions through the same Map instances.
+Map movement and Static/Kinematic/Dynamic sensor regions through the same Map instances.
+World-bound Dynamic Maps use one compound body with area-density mass, a physical
+weighted center, ordinary body commands and checked cell/source replacement.
+Gallery124 demonstrates independent falling/tumbling, mirrored and rotation-locked
+instances. The same geometry and native body owners serve Play and export.
 Gallery81/82 demonstrate movement and triggers; Gallery86 demonstrates Static
 nonsensor one-way rectangles through PhysicsBody2D.one_way. Kinematic nonsensor
 Maps can use the same policy with fixed target commands or transform animation.

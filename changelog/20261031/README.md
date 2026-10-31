@@ -1,5 +1,26 @@
 # 2026-10-31
 
+## Dynamic Tile Map bodies
+
+World-bound Dynamic Physics Body 2D now admits a complete Tile Map collision layer
+as one compound body, including reflected polygons, holes, islands and sensors.
+Area-density mass uses a weighted physical center and combined centroid inertia;
+positive mass overrides scale inertia proportionally. Existing impulses, torques,
+velocity, locks and recovery use the same physics owner. Dynamic one-way response
+remains unsupported.
+
+Checked cell/source replacement retains the body-origin pose and center-of-mass
+and angular velocities. Invalid candidates retain last-good geometry; edited
+instances keep their adopted source until explicit Reset. Empty geometry retires
+the body and refill starts with zero velocity. Source IDs, formats, public C table
+and checkpoint layout remain unchanged.
+
+Gallery124 compares independently falling/tumbling, mirrored 12 kg and
+rotation-locked instances, with ordinary source-free export. Inspector/discovery,
+existing automation/MCP operations, C++ consumers and the manual cover the
+workflow. The manual and README reuse an authentic native Game capture.
+Windows and physical desktop/GPU acceptance remain pending.
+
 ## Tile neighbor rules
 
 Tile definitions can select existing local definitions with up to 64 ordered

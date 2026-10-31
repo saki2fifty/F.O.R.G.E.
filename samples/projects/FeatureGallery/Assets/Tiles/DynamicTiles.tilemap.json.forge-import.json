@@ -1,0 +1,50 @@
+{
+  "build_inputs": {
+    "backend": "none",
+    "dependencies": [
+      {
+        "kind": "build",
+        "revision": "79508fb8909636330fb804ab0cdb9077fb11ac8c25ce21611ef4e44461c10ed0",
+        "role": "tile_map.tile_set",
+        "target": "cd8aad7c-0d7b-4092-a533-6d46fcf0bfd6",
+        "type": "tile_set"
+      },
+      {
+        "kind": "runtime",
+        "revision": "79508fb8909636330fb804ab0cdb9077fb11ac8c25ce21611ef4e44461c10ed0",
+        "role": "tile_map.tile_set",
+        "target": "cd8aad7c-0d7b-4092-a533-6d46fcf0bfd6",
+        "type": "tile_set"
+      }
+    ],
+    "importer": "forge.tilemap",
+    "importer_revision": "319fd524fa824ec5b253a32fef09f1e028709b7a11df0e70487636736a4c0c0b",
+    "key_version": 1,
+    "output_format": "forge.tile-map-cooked",
+    "output_version": 1,
+    "platform": "linux",
+    "profile": "cpu",
+    "settings": {},
+    "settings_version": 1,
+    "source": "71de86ae2d88031cac7a6433eb70834268b1fc964b15e1e2ae5801d8d8ed4102",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.tile-map.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "3082f770-c485-4db8-b4a4-40c9023de2d4",
+    "source": "Assets/Tiles/DynamicTiles.tilemap.json",
+    "source_digest": "71de86ae2d88031cac7a6433eb70834268b1fc964b15e1e2ae5801d8d8ed4102",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.tilemap",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

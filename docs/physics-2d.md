@@ -107,9 +107,10 @@ editor show published layer names, including hidden layers, and preserve missing
 keys. Duplicate names never substitute a row index for the key. Source publication
 must finish before a new layer choice is offered.
 
-This profile requires a Static or Kinematic PhysicsBody2D. Sensor may be enabled
+This profile supports Static, Kinematic or World-bound Dynamic PhysicsBody2D. Sensor may be enabled
 for a trigger layer. The Map collider is mutually exclusive with inline colliders.
-Tile Set definitions supply full-cell, None, convex or decomposed polygon collision profiles. Full-cell
+Tile Set definitions supply full-cell, None, convex, decomposed polygon or bounded
+multiple-contour profiles with holes. Full-cell
 regions merge into solid/sensor rectangles; None contributes no shape. Simple concave contours decompose into deterministic
 triangles, retaining empty notches. Custom contours follow the renderer's cell flips/transpose. Renderer/layer visibility does
 not disable collision. Decorative cells can use None or another layer. Empty or
@@ -153,10 +154,39 @@ reuse immutable geometry inside the existing native-body record.
 
 There are at most4096 total native2D shapes across Map rectangles, convex pieces and inline bodies,
 within existing body, joint, pair and event limits. Empty Map actors do not consume
-native body/shape slots. This profile excludes Dynamic Maps, holes/multiple contours and custom
-polygon or sensor one-way Map collision. Polygon slopes and decomposed contours use ordinary
+native body/shape slots. Source6 supports1..4 filled contours with0..4 holes each
+and3..8 counterclockwise points per loop through the same checked convex pieces.
+One-way Map collision excludes Dynamic bodies, custom polygons and sensors.
+Polygon slopes and decomposed contours use ordinary
 contact, query and controller response within the existing controller limits. A Map is not itself a character controller or
 a navigation mesh.
+
+### Dynamic Maps
+
+Dynamic Maps use one native body for the complete selected layer, including holes
+and disconnected solid regions. Set Spatial binding to World. XY translation and
+rotation belong to simulation; Z and signed presentation scale retain the usual
+2D rules. Existing force, impulse, torque, velocity, placement, filtering, sensor,
+sleep and lock controls apply to the compound body.
+
+Mass0 uses the sum of the projected pieces' areas times Density. A positive mass
+override scales the aggregate inertia proportionally. The physical center is the
+area-weighted center of all pieces and can differ from the Map origin. Native
+linear velocity is measured at that center; point velocity includes rotation
+around it. Linear X/Y locks constrain center-of-mass translation; rotation can
+still move an offset body origin. Geometry is not recentered. Unrepresentable native mass/inverse values
+reject before Map adoption or native writes.
+
+An admitted cell or source-geometry replacement retains the existing body-origin
+pose, center-of-mass velocity, angular velocity and sleep state for the same
+canonical body and motion. A mass change therefore does not conserve momentum.
+Removing all collision retires the body; refilling starts with zero velocity at
+the retained Scene transform. Reset adopts current source cells with a new Map
+generation. Fresh recovery validates mass and center before publication.
+
+Gallery124 uses three independent instances of one two-cell Map with a ring,
+island and separated bars. Density mass, a 12 kg override, reflection and a rotation
+lock share the existing body/Map owners and ordinary source-free export.
 
 ### Moving Maps and triggers
 

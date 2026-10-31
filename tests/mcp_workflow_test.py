@@ -857,7 +857,38 @@ for legacy in (False, True):
                 control('forge_play_stop')
                 assert read('forge_scene_read') == one_way
                 previous = one_way
-            print(('legacy' if legacy else 'current') + ': native Map placement, Kinematic/sensor and Static/Kinematic one-way, history/revision, Save and Play passed')
+            before_binding = read('forge_scene_read')
+            ok('forge_transform_binding', arguments=dict(entity=actor, spatial=dict(mode='world')))
+            world_bound = read('forge_scene_read')
+            assert ok('forge_history_undo')['changed'] and read('forge_scene_read') == before_binding
+            assert ok('forge_history_redo')['changed'] and read('forge_scene_read') == world_bound
+            previous = world_bound
+            for sensor in (False, True):
+                ok('forge_property_set_many', arguments=dict(entity=actor, component='forge.physics_body_2d',
+                    values=dict(motion=2, sensor=sensor, one_way=False, density=2.5, mass=12)))
+                dynamic = read('forge_scene_read')
+                assert ok('forge_history_undo')['changed'] and read('forge_scene_read') == previous
+                assert ok('forge_history_redo')['changed'] and read('forge_scene_read') == dynamic
+                invalid = mutate('forge_property_set_many', arguments=dict(entity=actor,
+                    component='forge.physics_body_2d', values=dict(mass=-1, sensor=not sensor)))
+                assert not invalid['ok'] and read('forge_scene_read') == dynamic, invalid
+                ok('forge_document_save')
+                ok('forge_play_start')
+                until(lambda: read('forge_play_status'), lambda row: row['ready'] and row['control_ready'])
+                control('forge_play_pause')
+                paused = until(lambda: read('forge_play_status'), lambda row: row['paused'] and row['control_ready'])
+                before = next(e for e in read('forge_play_snapshot')['entities'] if e['id'] == actor)
+                control('forge_play_step')
+                until(lambda: read('forge_play_status'), lambda row: row['timing']['tick'] == paused['timing']['tick'] + 1 and row['control_ready'])
+                running = next(e for e in read('forge_play_snapshot')['entities'] if e['id'] == actor)
+                fields = running['components']['forge.physics_body_2d']
+                assert fields['motion'] == 2 and fields['sensor'] == sensor and fields['mass'] == 12
+                assert running['components']['forge.local_translation']['y'] < before['components']['forge.local_translation']['y']
+                assert running['components']['forge.local_translation']['z'] == 7
+                control('forge_play_stop')
+                assert read('forge_scene_read') == dynamic
+                previous = dynamic
+            print(('legacy' if legacy else 'current') + ': native Map placement, Kinematic/sensor, one-way and World-bound Dynamic solid/sensor, history/revision, Save and Play passed')
             continue
         overlay_source = read('forge_scene_read')
         overlay_settings = (root/'Game/forge.project.json').read_bytes()

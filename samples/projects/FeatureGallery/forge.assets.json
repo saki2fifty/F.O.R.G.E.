@@ -2837,6 +2837,58 @@
     },
     {
       "dependencies": [
+        "cd8aad7c-0d7b-4092-a533-6d46fcf0bfd6"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "build",
+          "revision": "79508fb8909636330fb804ab0cdb9077fb11ac8c25ce21611ef4e44461c10ed0",
+          "role": "tile_map.tile_set",
+          "target": "cd8aad7c-0d7b-4092-a533-6d46fcf0bfd6",
+          "type": "tile_set"
+        },
+        {
+          "kind": "runtime",
+          "revision": "79508fb8909636330fb804ab0cdb9077fb11ac8c25ce21611ef4e44461c10ed0",
+          "role": "tile_map.tile_set",
+          "target": "cd8aad7c-0d7b-4092-a533-6d46fcf0bfd6",
+          "type": "tile_set"
+        }
+      ],
+      "id": "3082f770-c485-4db8-b4a4-40c9023de2d4",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "ca44f4815ef079ddb20d418314641fcce2f6ebb804008b52fd1bbb7eff50a132",
+          "backend": "none",
+          "dependency_digest": "3b5081cb864ebad632278082332e01f3f2b68aaf77954d7f125a8d6e2c6eaf48",
+          "generation": 1,
+          "importer": "forge.tilemap",
+          "importer_revision": "319fd524fa824ec5b253a32fef09f1e028709b7a11df0e70487636736a4c0c0b",
+          "key": "5f93d97486848f356c00cf29abef6bb83300ff3c8b96926a728561564d6c204a",
+          "output_format": "forge.tile-map-cooked",
+          "output_version": 1,
+          "platform": "linux",
+          "profile": "cpu",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "8c282489c8b711ac55a8130a7b27c3fcde3fb4626864ad82b3d345405019be59",
+          "source_digest": "71de86ae2d88031cac7a6433eb70834268b1fc964b15e1e2ae5801d8d8ed4102",
+          "version": 1
+        },
+        "forge.tile_map": {
+          "bytes": 299,
+          "file": "tilemap.bin",
+          "sha256": "0c1b7870342796fc6a317a93b18c921e9b0c9740095a957860ea888acf726124",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Tiles/DynamicTiles.tilemap.json",
+      "source_dependencies": [],
+      "type": "tile_map"
+    },
+    {
+      "dependencies": [
         "39bab1fe-073f-4b6f-abd2-6ee2fc780696",
         "80c55df2-1abb-42b0-9591-502e783cdc97"
       ],
@@ -9633,6 +9685,16 @@
         "removed": false
       },
       "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "c1559f95-5d8d-49ee-9e7f-9616021c8c80",
+      "metadata": {},
+      "schema_version": 5,
+      "source": "Scenes/124-dynamic-tile-map-bodies.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
     },
     {
       "dependencies": [],

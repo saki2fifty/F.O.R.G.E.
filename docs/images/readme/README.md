@@ -1,5 +1,25 @@
 # README screenshots
 
+## Dynamic Tile Map bodies
+
+[Dynamic Map Game](../../../manual/images/dynamic-tile-map-gallery.png) is the
+unretouched 640×360 FrameRenderer Game after 30 fixed ticks at 60 Hz in Scene
+`c1559f95-5d8d-49ee-9e7f-9616021c8c80`. It shows three independently falling
+compound Maps, including reflected and rotation-locked instances. The
+`dynamic_tile_gallery_vulkan` test checks moving ring/island/void/oriented-bar
+pixel witnesses and four exact authored/source-free relocated display pairs.
+Original output: `c1559f95-5d8d-49ee-9e7f-9616021c8c80-images/authored/30-640.ppm`.
+PNG conversion preserves its RGB pixels. SHA256:
+`c24875d394196eb6a02a4dcd5956337599307cb91adf0d9b19e6cb3e44914847`.
+
+Capture source is local development based on fd73682 with Dynamic Map work and
+an unassigned build identity. Exact executable/input provenance is recorded in
+`AgentFiles/build/phase203-dynamic-tile-map-bodies/captures.json` and the final
+validation ledger. The graphics SDK remains
+`e70620514062bb53671217da074ce9208c575362b5cd8a06663872598b85ef72`.
+The Game image uses Linux software Vulkan and was visually reviewed. It does not
+establish Windows, physical GPU/input/DPI, full-editor or graphical EXE acceptance.
+
 ## Tile collision contours
 
 [Contour controls](../../../manual/images/tile-contour-controls.png) is the

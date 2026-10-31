@@ -65,7 +65,8 @@ inline bool tile_map_layer_field(const PublishedTileMapReader& read, const Json&
                                                 : view.status;
         ImGui::TextWrapped("%s", note.c_str());
         help("Tiles in this layer use their Tile Set collision profiles, according to Physics "
-             "Body 2D. Use Static or Kinematic Motion; Sensor makes a trigger. Hidden layers can "
+             "Body 2D. Static, Kinematic and Dynamic Motion are supported; Dynamic requires World "
+             "space. Sensor makes a trigger. Hidden layers can "
              "provide collision; cell flips also transform custom collision polygons.");
         return changed;
     } catch (const std::exception& error) {

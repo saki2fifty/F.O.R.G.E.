@@ -1,6 +1,7 @@
 #pragma once
 #include "asset_bytes.hpp"
 #include "builtins.hpp"
+#include "physics_dynamic_tile_map_tests.hpp"
 #include "physics_moving_tile_map_tests.hpp"
 #include "runtime_tile_map.hpp"
 #include "tile_asset_fixture.hpp"
@@ -91,6 +92,8 @@ inline void test_physics_tile_map(const std::filesystem::path& root,
          {"name", "Optional floor connection"},
          {"components", {{"forge.physics_joint_2d", connection_value}}}});
     test_moving_trigger_tile_maps(root, document);
+    test_dynamic_tile_maps(root, document);
+    test_dynamic_tile_map_replacement(root, document, *map, importer);
     RuntimeWorld world({}, {}, std::nullopt, root, false);
     world.scene.restore_snapshot(document);
     const auto deadline = std::chrono::steady_clock::now() + 15s;

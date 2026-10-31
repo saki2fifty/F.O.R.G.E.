@@ -44,6 +44,33 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char* error, uint32_t 
                 require(client.entity_reference(entity.id(), ref) == 1 &&
                             client.move_2d(ref.scene_uuid, ref.entity_uuid, target, 0, true),
                         "Moving Map SDK could not queue its Kinematic target");
+            } else if (body.motion == 2) {
+                forge::sdk::Client client(host);
+                ForgeSdkEntityRefV1 ref{};
+                require(client.entity_reference(entity.id(), ref) == 1,
+                        "Dynamic Map SDK lost its canonical body reference");
+                if (state.ticks == 1) {
+                    const double stopped[]{0, 0};
+                    ForgeSdkPhysicsLoad2DV1 impulse{};
+                    impulse.kind = FORGE_SDK_PHYSICS_IMPULSE;
+                    impulse.linear[0] = body.mass;
+                    require(
+                        client.set_linear_velocity_2d(ref.scene_uuid, ref.entity_uuid, stopped) &&
+                            client.apply_2d(ref.scene_uuid, ref.entity_uuid, impulse) &&
+                            client.set_angular_velocity_2d(ref.scene_uuid, ref.entity_uuid, .5),
+                        "Dynamic Map SDK rejected existing impulse/velocity controls");
+                }
+                if (state.ticks == 30 || state.ticks == 31) {
+                    ForgeSdkPhysicsBodyState2DV1 native{};
+                    require(client.body_state_2d(ref.scene_uuid, ref.entity_uuid, native) == 1 &&
+                                native.rotational_inertia > 0,
+                            "Dynamic Map SDK lost aggregate centroid inertia");
+                    ForgeSdkPhysicsLoad2DV1 impulse{};
+                    impulse.kind = FORGE_SDK_PHYSICS_ANGULAR_IMPULSE;
+                    impulse.angular = native.rotational_inertia * (state.ticks == 30 ? .25 : -.25);
+                    require(client.apply_2d(ref.scene_uuid, ref.entity_uuid, impulse),
+                            "Dynamic Map SDK rejected an angular impulse");
+                }
             }
         })
         .add(host->fixed_tag);
@@ -60,6 +87,27 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char* error, uint32_t 
                     "Moving Map SDK lost its body state");
             if (!state.epoch)
                 state.epoch = native.epoch;
+            if (body.motion == 2) {
+                const double angular = state.ticks == 30 ? .75 : .5;
+                double point_velocity[2]{};
+                require(native.epoch == state.epoch && native.motion == 2 &&
+                            std::abs(native.mass - 12) < 1e-5 &&
+                            std::abs(native.linear_velocity[0] - 1) < 1e-5 &&
+                            std::abs(native.linear_velocity[1]) < 1e-5 &&
+                            std::abs(native.angular_velocity - angular) < 1e-5 &&
+                            client.point_velocity_2d(ref.scene_uuid, ref.entity_uuid,
+                                                     native.position, point_velocity) == 1 &&
+                            std::isfinite(point_velocity[0]) && std::isfinite(point_velocity[1]),
+                        "Dynamic Map SDK mass/impulse/velocity/inertia/point-state differs");
+                if (state.ticks == 150) {
+                    char message[96];
+                    std::snprintf(message, sizeof(message), "Map profile SDK passed 150 2 %u 0 0 0",
+                                  unsigned(body.sensor));
+                    require(host->diagnostic(host->context, 1, message) == 1,
+                            "Dynamic Map SDK diagnostic rejected");
+                }
+                return;
+            }
             const double offset = body.motion == 1 ? state.ticks * .01 : 0;
             require(native.epoch == state.epoch && native.motion == body.motion &&
                         std::abs(native.position[0] - offset) < 1e-5 &&

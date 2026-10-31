@@ -110,8 +110,8 @@ native2D shapes to4096 within existing shared body/joint/pair/event/byte budgets
 The Map profile now admits Static or Kinematic PhysicsBody2D, with the existing
 Sensor flag selecting trigger rectangles. This supersedes only the original
 Static nonsensor restriction above. Every rectangle shares its existing native
-body, motion, filter, sensor flag, epoch and command/recovery lifetime. Dynamic
-Maps remain excluded; no compound Dynamic mass/inertia policy is introduced.
+body, motion, filter, sensor flag, epoch and command/recovery lifetime. The Dynamic
+extension below supersedes the original Dynamic exclusion.
 One-way admits Static nonsensor boxes and painted rectangles as specified below.
 The moving one-way extension below also admits Kinematic nonsensor platforms;
 sensor one-way combinations remain excluded.
@@ -124,6 +124,30 @@ budgets retain their existing owners. No authored schema, identity, checkpoint
 layout, ABI or dependency version changes. Sensor observations retain native
 shape-pair multiplicity and discrete sampling; this is not a compound occupancy
 manager or a swept-trigger guarantee.
+
+## Dynamic Map extension
+
+Admit World-bound Dynamic Map bodies through the same compound/native owner,
+including sensors and every admitted tile profile. One body owns all pieces;
+there is no per-cell rigid body. Keep existing shape, extent, work and recovery
+budgets. Dynamic one-way response remains excluded.
+
+Compute each piece's mass and centroid inertia through the pinned public geometry
+API. Combine weighted centroids and centroid moments with the parallel-axis
+theorem in double precision, then check native float mass, inertia and inverses.
+Density applies uniformly to the complete compound. A positive mass override
+scales total mass and inertia proportionally. The physical center of mass may
+differ from the authored Map origin; do not recenter cells, transforms or IDs.
+Batch Dynamic compound shape creation and set the admitted mass once before Step.
+Fresh recovery validates the same aggregate center, mass and locked/free inertia.
+
+Use existing pre-adoption Map physics admission and same-reference/same-motion
+body replacement. Changing cells retains the origin pose, center-of-mass linear
+velocity, angular velocity and sleep state. It does not preserve momentum across
+a mass change. Empty geometry retires the body; refilling starts a new epoch with
+zero velocity. Reset retains the Map owner's existing new-generation semantics.
+No source format, C table, authored identity or private checkpoint layout changes
+are needed. Existing C++ body controls and checked Map edits expose this support.
 
 ## Capacity and failed native steps
 

@@ -245,6 +245,27 @@ void exercise(const std::filesystem::path& scratch, float scale) {
     project.open_project(root);
     check(scene.entity(actor).get<PhysicsBody2D>().one_way,
           "Painted one-way checkbox did not survive Save/reopen");
+    authoring_command(scene, "transform.binding",
+                      {{"entity", actor}, {"spatial", {{"mode", "world"}}}});
+    const auto before_dynamic = scene.document();
+    authoring_command(scene, "property.set_many",
+                      {{"entity", actor},
+                       {"component", "forge.physics_body_2d"},
+                       {"values", {{"motion", 2}, {"one_way", false}, {"mass", 12}}}});
+    const auto dynamic = scene.document();
+    check(scene.undo() && scene.document() == before_dynamic && scene.redo() &&
+              scene.document() == dynamic,
+          "Dynamic Map authoring did not preserve one property transaction");
+    inspector.fixture_focus_component = "forge.physics_body_2d";
+    frame();
+    frame();
+    check(test::ui_targets.contains("component-field:forge.physics_body_2d:motion"),
+          "Dynamic Map lost its existing Motion control");
+    project.save();
+    project.open_project(root);
+    check(scene.entity(actor).get<PhysicsBody2D>().motion == 2 &&
+              scene.entity(actor).get<PhysicsBody2D>().mass == 12 && scene.document() == dynamic,
+          "World-bound Dynamic Map did not survive Save/reopen");
     inspector.fixture_focus_component = "forge.tile_map_collider_2d";
     prefab.edit_source(project, prefab_asset);
     prefab_mode = true;

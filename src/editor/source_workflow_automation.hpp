@@ -234,7 +234,9 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                        "Explicit edits promote to Source2, Source3 for polygon, or Source6 for "
                        "contours; conflicting legacy extensions block promotion. Ordinary edits "
                        "cannot downgrade source versions. Custom polygons follow cell flips and "
-                       "support Static/Kinematic bodies/sensors, without one-way collision."
+                       "support Static, Kinematic and Dynamic bodies/sensors, without one-way "
+                       "collision. "
+                       "Dynamic Map bodies require World spatial binding."
                      : "") +
                 (std::string_view(action) == "tile_animation"
                      ? " Tile Sets only: apply an enabled boolean and ordered frames with uint32 "

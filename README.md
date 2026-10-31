@@ -135,10 +135,17 @@ Gallery81 adds an animated Kinematic painted course;82 uses painted sensor regio
 above a solid receiver. See the [Tile Maps guide](manual/editor/tile-maps.md).
 Gallery101 adds per-tile **Full cell**, **None** and **Convex polygon** profiles,
 with mirrored ramps and decorative tiles. Edit normalized vertices in the Tile Set
-Inspector, publish the Set and Map, then test Static or Kinematic collision.
+Inspector, publish the Set and Map, then test Static, Kinematic or Dynamic collision.
 Gallery120 adds **Polygon (decomposed)** for3–8 vertex simple concave outlines,
 with falling actors landing on upper edges and inside L/U notches. Custom one-way
-polygons and holes remain unavailable. This extension is local development source;
+polygons remain unavailable; Contours / holes supports bounded voids and separate
+solid regions. Gallery124 adds World-bound Dynamic compound Maps with density or
+mass override, reflection and rotation locks. All pieces share one body and the
+usual C++ controls, cell edits and export workflow.
+
+[![Three compound Tile Maps falling toward a receiver, including mirrored and rotation-locked instances](manual/images/dynamic-tile-map-gallery.png)](manual/editor/tile-maps.md#make-a-falling-or-tumbling-map)
+
+These extensions are local development source;
 Windows and physical GPU verification remain pending.
 This actual Windows D3D12 WARP Game capture demonstrates the original static course:
 

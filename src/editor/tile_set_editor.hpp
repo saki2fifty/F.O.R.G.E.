@@ -1031,7 +1031,8 @@ class TileSetEditor {
         ui::help(
             "Collision is used by Tile Map Collider 2D on the selected layer. Full cell merges "
             "with neighboring full cells; None is decorative. Cell flips transform polygons. "
-            "Custom polygons support Static/Kinematic bodies and sensors, without one-way "
+            "Custom polygons support Static, Kinematic and Dynamic bodies and sensors, without "
+            "one-way "
             "collision.");
     }
     void publish() {

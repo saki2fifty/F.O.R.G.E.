@@ -30,7 +30,7 @@ choose **+ Add Component → Physics Body 2D**, then add one of:
 - **Box Collider 2D**: full width and height, centered on the entity.
 - **Circle Collider 2D**: radius, centered on the entity.
 - **Capsule Collider 2D**: radius and straight segment height along local Y. Total height includes both rounded ends.
-- **Tile Map Collider 2D**: full-cell or custom polygon tile collision from one published Tile Map layer, on a Static or Kinematic body; Sensor makes a trigger.
+- **Tile Map Collider 2D**: full-cell or custom polygon tile collision from one published Tile Map layer, on a Static, Kinematic or Dynamic body; Sensor makes a trigger.
 
 Set **Spatial binding** to **World** before choosing Dynamic. Static bodies
 stay in place; Kinematic bodies follow supported authored/animated targets;
@@ -162,7 +162,7 @@ platforms**, erase the left raised platform, then **Save / Publish**. On the nex
 Play, the amber box drops to the lowest floor. Undo the source edit and
 **Save / Publish** again to restore it.
 
-For your own Map, put **Tile Map Renderer**, a Static or Kinematic **Physics Body 2D**
+For your own Map, put **Tile Map Renderer**, a **Physics Body 2D**
 and **Tile Map Collider 2D** on the same entity. Choose its **Collision layer** in the
 Inspector. Use this collider instead of a Box, Circle or Capsule Collider 2D.
 Publish the Map before Play or export. **Selected collision** outlines the
@@ -172,8 +172,12 @@ Choose **Full cell**, **None**, **Convex polygon** or **Polygon (decomposed)** f
 Inspector. Full cells include transparent image pixels; None is decorative and
 convex polygons can form slopes. Polygon (decomposed) supports a simple concave
 outline, leaving notches empty. Apply and publish the Set, then republish the Map.
-Choose Kinematic for a moving Map or enable Sensor for triggers. Dynamic Maps are
-unavailable. Static or Kinematic nonsensor Maps using full cells can use **One-way collision**;
+Choose Kinematic for a controlled Map, or set **Spatial binding → World** and
+choose Dynamic for a falling rigid Map. Enable Sensor for triggers with any
+motion type. Density, mass override, locks and ordinary C++ body controls apply
+to the whole selected layer. See **Scenes/124-dynamic-tile-map-bodies.scene.json**
+for falling, tumbling, reflected and rotation-locked instances.
+Static or Kinematic nonsensor Maps using full cells can use **One-way collision**;
 custom polygons cannot. See [Tile Maps](tile-maps.md)
 for profile controls, limits, moving courses and trigger examples.
 

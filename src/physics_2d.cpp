@@ -103,6 +103,20 @@ struct Geometry {
     b2Capsule capsule{};
     b2MassData mass{};
 };
+b2MassData admitted_mass(b2MassData value, float requested) {
+    if (!std::isfinite(requested) || requested < 0)
+        throw std::runtime_error("2D mass override must be nonnegative and finite");
+    if (requested > 0) {
+        const float ratio = requested / value.mass;
+        value.mass = requested;
+        value.rotationalInertia *= ratio;
+    }
+    if (!(value.mass > 0) || !std::isfinite(value.mass) || !(value.rotationalInertia > 0) ||
+        !std::isfinite(value.rotationalInertia) || !std::isfinite(value.center.x) ||
+        !std::isfinite(value.center.y))
+        throw std::runtime_error("2D collider mass/inertia is not positive and finite");
+    return value;
+}
 Geometry geometry(const Body2DConfiguration& config) {
     Geometry result;
     const auto& d = config.dimensions;
@@ -121,14 +135,7 @@ Geometry geometry(const Body2DConfiguration& config) {
         result.mass = b2ComputeCapsuleMass(&result.capsule, config.body.density);
     } else
         throw std::runtime_error("Unknown admitted 2D collider kind");
-    if (config.body.mass > 0) {
-        const float ratio = config.body.mass / result.mass.mass;
-        result.mass.mass = config.body.mass;
-        result.mass.rotationalInertia *= ratio;
-    }
-    if (!(result.mass.mass > 0) || !std::isfinite(result.mass.mass) ||
-        !(result.mass.rotationalInertia > 0) || !std::isfinite(result.mass.rotationalInertia))
-        throw std::runtime_error("2D collider mass/inertia is not positive and finite");
+    result.mass = admitted_mass(result.mass, config.body.mass);
     return result;
 }
 b2Polygon compound_box(const BoxPart2D& value) {
@@ -179,6 +186,38 @@ b2Polygon compound_part(const Body2DConfiguration& config, std::size_t index) {
         throw std::runtime_error("2D compound polygon part is unavailable");
     return compound_polygon(config.polygons->at(index - boxes));
 }
+b2MassData compound_mass(const Body2DConfiguration& config) {
+    if (!std::isfinite(config.body.density) || config.body.density <= 0)
+        throw std::runtime_error("Dynamic compound density must be positive and finite");
+    std::vector<b2MassData> pieces;
+    pieces.reserve(shape_count(config));
+    double total = 0, x = 0, y = 0;
+    for (std::size_t i = 0; i < shape_count(config); ++i) {
+        const auto polygon = compound_part(config, i);
+        const auto mass = admitted_mass(b2ComputePolygonMass(&polygon, config.body.density), 0);
+        total += mass.mass;
+        x += double(mass.mass) * mass.center.x;
+        y += double(mass.mass) * mass.center.y;
+        pieces.push_back(mass);
+    }
+    if (!(total > 0) || !std::isfinite(total))
+        throw std::runtime_error("Dynamic compound requires finite nonzero mass");
+    x /= total;
+    y /= total;
+    double inertia = 0;
+    // Public per-piece inertia is about each centroid. Combine about the total
+    // centroid directly, avoiding subtraction of large origin moments.
+    for (const auto& mass : pieces) {
+        const double dx = double(mass.center.x) - x, dy = double(mass.center.y) - y;
+        inertia += mass.rotationalInertia + double(mass.mass) * (dx * dx + dy * dy);
+    }
+    const auto result =
+        admitted_mass({float(total), {float(x), float(y)}, float(inertia)}, config.body.mass);
+    if (!std::isfinite(1.f / result.mass) ||
+        (!config.body.lock_rotation && !std::isfinite(1.f / result.rotationalInertia)))
+        throw std::runtime_error("Dynamic compound mass/inertia exceeds native inverse range");
+    return result;
+}
 void validate_one_way(const PhysicsBody2D& body, unsigned shape, bool custom_polygons = false) {
     if (body.one_way && custom_polygons)
         throw std::runtime_error("Custom tile polygons do not support one-way collision");
@@ -191,8 +230,8 @@ void validate_one_way(const PhysicsBody2D& body, unsigned shape, bool custom_pol
 }
 void validate_tile_map_body(const PhysicsBody2D& body) {
     validate_one_way(body, 3);
-    if (body.motion > 1)
-        throw std::runtime_error("Tile Map collision requires Static or Kinematic motion");
+    if (body.motion > 2)
+        throw std::runtime_error("Tile Map collision has an unknown motion type");
 }
 void validate_geometry(const Body2DConfiguration& config) {
     validate_one_way(config.body, config.shape, config.polygons && !config.polygons->empty());
@@ -228,8 +267,11 @@ void validate_geometry(const Body2DConfiguration& config) {
     if (config.dimensions != std::array<float, 2>{} || !shape_count(config) ||
         shape_count(config) > shape_limit)
         throw std::runtime_error("2D compound collider requires bounded nonempty geometry");
-    for (std::size_t i = 0; i < shape_count(config); ++i)
-        (void)compound_part(config, i);
+    if (config.body.motion == 2)
+        (void)compound_mass(config);
+    else
+        for (std::size_t i = 0; i < shape_count(config); ++i)
+            (void)compound_part(config, i);
 }
 b2ShapeProxy configured_proxy(const Body2DConfiguration& config, std::size_t part = 0) {
     if (config.shape == 3) {
@@ -497,6 +539,10 @@ Body2DConfiguration tile_map_configuration_2d(PhysicsBody2D body, const TileMapD
         }
         config.polygons = std::make_shared<const std::vector<PolygonPart2D>>(std::move(polygons));
     }
+    // Initial/replacement resource admission also uses this conversion, before
+    // a Map snapshot is adopted or any native body is created.
+    if (body.motion == 2 && shape_count(config))
+        (void)compound_mass(config);
     return config;
 }
 LocalTransform debug_pose_2d(const AffineTransform& world) {
@@ -1882,6 +1928,8 @@ struct Native2D::Impl {
                                   value.motion == 2 && value.lock_y,
                                   value.motion == 2 && value.lock_rotation};
         definition.isBullet = value.motion == 2 && !value.sensor && value.bullet;
+        const bool dynamic_compound = config.shape == 3 && value.motion == 2;
+        const auto mass = dynamic_compound ? compound_mass(config) : b2MassData{};
         const auto id = b2CreateBody(world, &definition);
         if (!b2Body_IsValid(id))
             throw std::runtime_error("Native 2D body allocation failed");
@@ -1897,6 +1945,8 @@ struct Native2D::Impl {
         shape_definition.enableContactEvents = true;
         shape_definition.enableCustomFiltering = true;
         shape_definition.enablePreSolveEvents = value.one_way;
+        if (dynamic_compound)
+            shape_definition.updateBodyMass = false;
         for (std::size_t index = 0; index < shape_count(config); ++index) {
             b2ShapeId native{};
             if (config.shape == 3) {
@@ -1914,7 +1964,9 @@ struct Native2D::Impl {
             }
             shapes.push_back(native);
         }
-        if (value.motion == 2 && value.mass > 0)
+        if (dynamic_compound)
+            b2Body_SetMassData(id, mass);
+        else if (value.motion == 2 && value.mass > 0)
             b2Body_SetMassData(id, shape.mass);
         Body record{id, std::move(shapes), admitted, epoch};
         record.mover_crouched = crouched;
@@ -2062,13 +2114,16 @@ Json recovery_native_state(b2BodyId id, std::span<const b2ShapeId> shapes,
         }
     }
     const auto mass = b2Body_GetMassData(id);
+    const auto expected_mass = body.motion != 2    ? b2MassData{}
+                               : config.shape == 3 ? compound_mass(config)
+                                                   : expected.mass;
     const auto near = [](float a, float b) {
         return std::isfinite(a) && std::abs(double(a) - b) <= 1e-5 * std::max(1e-20, double(b));
     };
-    if (!matches || !same_vector(mass.center, {0, 0}) ||
-        !near(mass.mass, body.motion == 2 ? expected.mass.mass : 0) ||
+    if (!matches || !same_vector(mass.center, expected_mass.center) ||
+        !near(mass.mass, expected_mass.mass) ||
         !near(mass.rotationalInertia,
-              body.motion == 2 && !body.lock_rotation ? expected.mass.rotationalInertia : 0))
+              body.motion == 2 && !body.lock_rotation ? expected_mass.rotationalInertia : 0))
         throw std::runtime_error("2D recovery native geometry/mass mismatch");
     const auto position = b2Body_GetPosition(id);
     const auto rotation = b2Body_GetRotation(id);

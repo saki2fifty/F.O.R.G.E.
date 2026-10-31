@@ -148,15 +148,43 @@ to restore the platform.
 
 For your own Map actor:
 
-1. Add **Physics Body 2D**. Choose **Motion** as Static or Kinematic. Leave **Sensor** off for solid collision.
+1. Add **Physics Body 2D**. Choose **Motion** as Static for fixed terrain, Kinematic for controlled platforms, or Dynamic for a falling rigid Map. Dynamic requires **Spatial binding → World**. Leave **Sensor** off for solid collision.
 2. Add **Tile Map Collider 2D**. Choose its **Collision layer** by name.
 3. Choose each tile's collision profile in the Tile Set Inspector, or put decoration in a different layer. Hiding a layer or renderer does not remove collision.
 4. Turn on the Scene collision outline to inspect the selected published layer. Save the Scene, then test with ordinary Dynamic2D bodies.
 
-Maps use full cells or custom polygons with Static or Kinematic bodies. Dynamic
-Maps are unavailable. Static or Kinematic nonsensor Maps using full cells can use the
+Maps use full cells or custom polygons with Static, Kinematic or Dynamic bodies.
+Static or Kinematic nonsensor Maps using full cells can use the
 one-way option below. An empty or all-None selected layer has no native shape. Excessively large or complex collision reports a problem and
 keeps the previous working runtime cells and collision.
+
+### Make a falling or tumbling Map
+
+1. Select the Map entity in Hierarchy and set **Spatial binding** to **World**.
+2. Under **Physics Body 2D**, set **Motion → Dynamic** and leave **One-way collision** off. Choose the published **Collision layer** under **Tile Map Collider 2D**.
+3. Set **Density** for mass based on the occupied collision area, or enter a positive **Mass** in kilograms. A Mass of 0 uses Density. Holes and None tiles contribute no mass.
+4. Place the Map above a solid receiver. Give it a small Z rotation to see it tumble when it lands. Enable **Lock rotation** to keep its orientation, or **Sensor** to let it pass through solid bodies while reporting trigger events.
+5. Save the Scene and press Play. All collision pieces move as one rigid body, including separate solid regions. Stop restores the authored transform and cells.
+
+Open **Scenes/124-dynamic-tile-map-bodies.scene.json** in the Feature Gallery to
+compare density mass, a mirrored 12 kg Map and a rotation-locked Map. The three
+instances share one source Map but move independently above an amber receiver.
+Export this Scene through the normal Export Game workflow.
+
+![Three compound Tile Maps falling toward an amber receiver, with free-angle, mirrored and rotation-locked instances](../images/dynamic-tile-map-gallery.png)
+
+Press Play to compare independent rigid motion while each Map keeps its ring,
+island, holes and separate bars together.
+
+The physical center of mass can differ from the Map origin. C++ linear velocity
+refers to that center; point velocity also includes rotation. **Lock X** and
+**Lock Y** constrain the center's world-axis motion. Rotation can
+still move an offset Map origin; enable **Lock rotation** to keep orientation fixed.
+Runtime cell edits keep the body's current origin pose and velocities while updating mass. Removing
+all collision removes the body; refilling starts with zero velocity. Reset adopts
+current source cells and a new instance generation. Use the returned generation
+for later C++ edits. Oversized or excessively complex candidates keep the last
+working cells and report a problem.
 
 ## Choose collision for a tile
 
@@ -200,7 +228,7 @@ The diagram shows cyan solid boundaries and orange hole boundaries. Numbers mark
 the selected loop. All regions share the same cell image, flags and material;
 create a matching image with transparent voids when the visible tile should show
 the empty areas. Detailed profiles use more of the Map's shared collision-shape
-budget. Static/Kinematic solid and sensor rules remain the same as for polygons.
+budget. Static/Kinematic/Dynamic solid and sensor rules remain the same as for polygons.
 
 ![Tile Set Inspector showing outer and hole boundaries, a central island, contour and loop selectors, and staged point controls](../images/tile-contour-controls.png)
 
@@ -277,7 +305,7 @@ motion. Large instantaneous changes should use explicit teleport.
 
 Open **82-tile-map-triggers** and Play. The translucent painted regions have
 **Sensor** enabled. Bodies pass through them and land on the solid receiver below.
-To create a trigger, enable **Sensor** on a Static or Kinematic Map body, choose
+To create a trigger, enable **Sensor** on a Static, Kinematic or Dynamic Map body, choose
 its Collision layer and save the Scene. Sensor regions still respect body layers
 and masks. **Selected collision** identifies a Map sensor and shows its published
 outline; runtime cell edits are not drawn by that authored outline.
