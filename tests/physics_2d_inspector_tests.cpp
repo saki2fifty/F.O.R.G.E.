@@ -167,12 +167,16 @@ void exercise(const std::filesystem::path& project, float scale) {
                 !scene.entity(entity).get<PhysicsBody2D>().one_way && scene.redo() &&
                 scene.entity(entity).get<PhysicsBody2D>().one_way,
             "One-way checkbox did not share typed Inspector history");
+    require(choose("motion", 1) == 1 && scene.entity(entity).get<PhysicsBody2D>().one_way &&
+                scene.undo() && scene.entity(entity).get<PhysicsBody2D>().motion == 2 &&
+                scene.redo() && scene.entity(entity).get<PhysicsBody2D>().motion == 1,
+            "Kinematic one-way selection did not preserve flags and Inspector history");
     authoring_command(scene, "component.add",
                       {{"entity", entity}, {"component", "forge.character_controller_2d"}});
     Json carry_field, slope_field, ceiling_field, step_field;
     const auto controller_schema = scene.schema();
     for (const auto& component : controller_schema.at("components"))
-        if (component.at("id") == "forge.character_controller_2d")
+        if (component.at("id") == "forge.character_controller_2d") {
             for (const auto& field : component.at("fields"))
                 if (field.at("id") == "platform_carry")
                     carry_field = field;
@@ -182,6 +186,7 @@ void exercise(const std::filesystem::path& project, float scale) {
                     ceiling_field = field;
                 else if (field.at("id") == "step_height")
                     step_field = field;
+        }
     require(carry_field.at("display_name") == "Follow moving platforms",
             "Inspector did not discover the platform carry setting");
     require(slope_field.at("display_name") == "Stop on slopes" &&

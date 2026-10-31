@@ -102,8 +102,9 @@ struct PhysicsBody2D {
     float linear_damping = 0, angular_damping = 0; // Per second.
     bool allow_sleeping = true;
     bool lock_x = false, lock_y = false, lock_rotation = false;
-    bool bullet = false;         // Additional Dynamic-solid CCD against moving bodies.
-    bool one_way = false;        // Static nonsensor Box/Map: each rectangle's transformed +Y face.
+    bool bullet = false; // Additional Dynamic-solid CCD against moving bodies.
+    bool one_way =
+        false; // Static/Kinematic nonsensor Box/Map: each rectangle's transformed +Y face.
     float one_way_margin = .02f; // World metres; native contact slop remains a minimum.
     bool operator==(const PhysicsBody2D&) const = default;
 };

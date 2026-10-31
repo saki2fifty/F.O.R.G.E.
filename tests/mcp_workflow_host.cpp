@@ -136,8 +136,9 @@ int main(int argc, char** argv) {
             append(forge::ScriptAutomation::methods(scripts, files, permissions, blocked));
             forge::PlayAutomationProviders controls;
             controls.start = [&] {
-                if (!blocked().empty() || settings.dirty())
-                    throw std::runtime_error("Project work pending");
+                if (!blocked().empty() || settings.dirty() || !imports.ready_for_play())
+                    throw forge::AuthoringError("play_busy",
+                                                "Settle pending project work before Play");
                 play.configure(files.document.settings().simulation_hz(),
                                files.document.settings().input(),
                                files.document.settings().physics().gravity,

@@ -226,9 +226,12 @@ and `forge.tile_map_collider_2d`, then set the collider's exact layer key. The
 existing `forge_property_set_many` operation authors `motion` (0 Static or1
 Kinematic for Maps) and `sensor` together, with normal revision guards and one
 Undo/Redo step. Sensor applies to the selected layer's rectangles. Save before
-Play/export. Static nonsensor Maps can set the existing `one_way`/`one_way_margin`
-fields through the same property operations. Kinematic/sensor one-way and Dynamic
-Maps remain outside the runtime profile;
+Play/export. Static or Kinematic nonsensor Boxes and full-cell Maps can set the
+existing `one_way`/`one_way_margin` fields through the same property operations.
+Kinematic targets or Transform Animator clips can move them. The existing
+Character Controller 2D `platform_carry` property enables walkable support transport.
+Sensor, Dynamic and custom-polygon one-way collision and Dynamic Maps remain
+outside the runtime profile;
 the general body schema still supports Dynamic for ordinary inline bodies.
 
 Queue admission is not completion. Inspect the returned owner progress/result;

@@ -28,7 +28,8 @@ inline void test_moving_trigger_tile_maps(const std::filesystem::path& root,
     for (const auto& [motion, sensor, one_way, sign] :
          {std::tuple{0u, false, false, 1.f}, std::tuple{0u, true, false, 1.f},
           std::tuple{1u, false, false, 1.f}, std::tuple{1u, true, false, 1.f},
-          std::tuple{0u, false, true, 1.f}, std::tuple{0u, false, true, -1.f}}) {
+          std::tuple{0u, false, true, 1.f}, std::tuple{0u, false, true, -1.f},
+          std::tuple{1u, false, true, 1.f}, std::tuple{1u, false, true, -1.f}}) {
         auto document = original;
         document["entities"] =
             Json::array({original.at("entities")[1], original.at("entities")[3]});
@@ -93,7 +94,7 @@ inline void test_moving_trigger_tile_maps(const std::filesystem::path& root,
                 // not teleported to the exact authored quaternion.
                 std::abs(moved->angle - angle) < .001 &&
                 runtime_tile_map_snapshot(context, floor) == cells &&
-                world.scene.entity(map_id).get<LocalScale>() == LocalScale{1, 1, 0} &&
+                world.scene.entity(map_id).get<LocalScale>() == LocalScale{1, sign, 0} &&
                 world.scene.entity(map_id).get<LocalTranslation>().z == 7;
             if (!accepted)
                 throw std::runtime_error(

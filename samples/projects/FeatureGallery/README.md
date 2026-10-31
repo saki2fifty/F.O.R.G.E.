@@ -1,5 +1,22 @@
 # Feature Gallery
 
+## Moving one-way platforms
+
+Open **Scenes/119-moving-one-way-platforms.scene.json**, press Play and switch to
+Game. The painted course and narrow cyan ledge share a four-second horizontal
+translation clip. The amber box falls onto the moving ledge; reversed gravity
+pushes the cyan circle through both one-way surfaces to the ordinary ceiling.
+
+Stop and select **Moving one-way inline ledge - same translation clip** or
+**Moving one-way painted course - edit its translation clip**. Both have
+**Physics Body 2D → Motion: Kinematic**, **Sensor** off and **One-way collision**
+on. Open **Assets/Physics2D/Platform.animation.json** to edit their shared motion,
+then **Save / Publish**. The ledge's fixed parent gives it a different world height
+while reusing the same local clip. Stop before changing saved body settings.
+Save and choose this Scene as startup before export. No Project Code module or
+additional imported asset is required. Dynamic, sensor and custom-polygon one-way
+collision are unavailable.
+
 ## Local diffuse lighting
 
 Open **Scenes/118-local-diffuse-irradiance.scene.json** and press Play. The included

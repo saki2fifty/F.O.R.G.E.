@@ -5,7 +5,23 @@ The accepted local Windows package is **261024-000213**, source
 in the [README](../README.md#current-implementation). No new numbered Windows
 package accompanies the local source changes described here.
 
-Local source adds optional local diffuse lighting from Reflection Probe maps.
+Local source admits moving one-way Kinematic nonsensor Boxes and full-cell Tile
+Maps through the existing physics/contact/controller owners. Matching actor and
+platform boundary poses preserve front-side evidence during movement. The same
+opt-in character support transport applies. Dynamic, sensor and custom-polygon
+one-way response remain excluded. Gallery119 demonstrates shared transform-clip
+motion, landing and passage with source-free relocated playback and four exact
+software Vulkan display pairs. Normal source/native/Inspector/MCP/installed-SDK
+checks pass, as do17selected strict units and11consumer links. Ten instrumented
+CPU/UI/MCP/runtime consumers exit cleanly; the native Gallery finishes functionally
+with the exact recorded unresolved184-byte shutdown allocation condition. Authored
+sources are unchanged when reusing matching normal worker publications for that
+instrumented runtime gate. Offline manual/package fixtures pass. No public layout,
+checkpoint field or asset identity changes; matching SDK modules must rebuild for
+the public contract fingerprint. Windows/full-editor/physical and graphical EXE
+acceptance remain pending. See the [2D physics contract](physics-2d.md).
+
+Local source also adds optional local diffuse lighting from Reflection Probe maps.
 The default-zero **Diffuse intensity** shares the existing map, volume, resource
 and authoring owners; **Intensity** continues to control specular reflections.
 Eight active assigned probes total are supported. Shader 13 retains 19 roles and

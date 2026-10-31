@@ -82,6 +82,14 @@ Windows validation capture shows the actual whole-image, cropped and filled obje
 
 ## 2D physics
 
+Local source supports moving one-way Kinematic Boxes and full-cell Tile Maps,
+including optional character support transport. Editable Gallery119 demonstrates
+an amber box landing while a cyan circle passes through moving surfaces. This
+development Game capture uses software Vulkan; Windows acceptance is pending.
+See the [2D physics guide](manual/editor/physics-2d.md) for setup and limits.
+
+[![Amber box resting on a moving one-way ledge while the cyan circle has passed both moving surfaces](manual/images/moving-one-way-platforms.png)](manual/images/moving-one-way-platforms.png)
+
 Build206 adds the editable [C++ Character2D project](samples/projects/Character2D/README.md).
 Its native 2D controller provides grounded movement, sliding, floor support and
 checked placement. Project C++ supplies gravity and jumping. The actual Windows

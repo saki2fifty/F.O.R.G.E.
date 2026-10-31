@@ -50,7 +50,7 @@ content may differ; use **Window** to open a panel mentioned in a guide.
 
 - [World sprites, frame filtering, atlas packing, trimming and packed fills](editor/sprites.md)
 - [Tile Sets and Tile Maps, convex collision profiles, moving platforms and triggers](editor/tile-maps.md)
-- [2D physics and character movement](editor/physics-2d.md), including slopes, ceilings and stair stepping
+- [2D physics and character movement](editor/physics-2d.md), including moving one-way platforms, slopes, ceilings and stair stepping
 
 ## Animation
 

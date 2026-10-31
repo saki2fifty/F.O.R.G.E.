@@ -104,7 +104,7 @@ extension in the source before applying a collision profile.
 
 ## Make painted platforms one-way
 
-1. Select the Map entity. Under **Physics Body 2D**, choose **Static** and turn **Sensor** off.
+1. Select the Map entity. Under **Physics Body 2D**, choose **Static** or **Kinematic** and turn **Sensor** off.
 2. Enable **One-way collision**. Keep **One-way margin** at 0.02 m initially.
 3. Enable **Selected collision** in Scene. Each rectangle's arrow points toward its solid face.
 4. Save and Play. Objects can pass from the opposite side and land on that face. Stop restores the saved starting scene; export uses the saved policy.
@@ -112,7 +112,7 @@ extension in the source before applying a collision profile.
 The policy applies to every occupied rectangle in the selected collision layer.
 Each rectangle has its own face, including raised platforms. Negative Y scale
 reverses the face; Z rotation rotates it. Flipping a tile's image does not change
-its collision face. Kinematic, sensor and Dynamic one-way Maps are unavailable.
+its collision face. Sensor, Dynamic and custom-polygon one-way Maps are unavailable.
 Ordinary ray/overlap/sweep queries still see complete rectangles, and checked
 character placement still rejects embedded positions.
 
@@ -122,6 +122,13 @@ onto painted roofs. Stop, disable **One-way collision** on the Map and Play agai
 to compare its underside response. Restore the option and save. Existing Project
 Code can use the same painted-cell editing and physics query APIs; no new API or
 special tile entity is needed.
+
+For a moving course, choose **Kinematic** and assign a translation or Z-rotation
+clip with **Transform Animator**, or submit target movement from Project Code.
+Enable **Follow moving platforms** on a Grounded Character Controller 2D when
+the character should ride a walkable face. See
+[2D physics](physics-2d.md) for the moving one-way workflow
+and movement limits.
 
 ## Moving Maps and trigger regions
 

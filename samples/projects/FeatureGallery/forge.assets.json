@@ -11473,6 +11473,16 @@
       "source": "Scenes/118-local-diffuse-irradiance.scene.json",
       "source_dependencies": [],
       "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "39a8c3c8-012d-45e8-9a8c-4510b1a00879",
+      "metadata": {},
+      "schema_version": 5,
+      "source": "Scenes/119-moving-one-way-platforms.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
     }
   ],
   "version": 2

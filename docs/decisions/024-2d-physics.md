@@ -112,8 +112,9 @@ Sensor flag selecting trigger rectangles. This supersedes only the original
 Static nonsensor restriction above. Every rectangle shares its existing native
 body, motion, filter, sensor flag, epoch and command/recovery lifetime. Dynamic
 Maps remain excluded; no compound Dynamic mass/inertia policy is introduced.
-One-way admits Static nonsensor boxes and painted rectangles as specified below;
-Kinematic/sensor one-way combinations remain excluded.
+One-way admits Static nonsensor boxes and painted rectangles as specified below.
+The moving one-way extension below also admits Kinematic nonsensor platforms;
+sensor one-way combinations remain excluded.
 
 Reuse the checked geometry admission in native realization, Map candidate
 preflight and editor preview. Kinematic targets/rotation use the existing body
@@ -172,7 +173,8 @@ relative locomotion. Exclude only the carrier during transport. The following
 ordinary locomotion owns shallow recovery and endpoint checks against all solids.
 Crush follows the existing fail-before-adoption deep-overlap policy. No new
 parenting, pose authority, service, native world or durable contact cache.
-Other controllers and moving one-way surfaces are excluded. Separating intent
+Other controllers are excluded. The moving one-way extension below admits
+walkable Kinematic one-way support through this same transport owner. Separating intent
 detaches without departure momentum. The capsule stays upright; each step casts
 linear transport displacement, not an angular swept volume.
 
@@ -187,8 +189,9 @@ old default behavior. Technical/manual contracts define numerical limits.
 
 Use an optional default-off response setting on existing PhysicsBody2D. The
 selected profile is a Static nonsensor single Box, solid on its transformed local
-+Y face. Signed Y scale reverses that face; margins are world metres. No moving one-way platform profile, new contact owner, pair database or native
-world is introduced. The Static painted extension below supersedes the original
++Y face. Signed Y scale reverses that face; margins are world metres. The moving
+one-way extension below extends motion admission without a new contact owner,
+pair database or native world. The Static painted extension below supersedes the original
 single-box restriction. Ordinary ray/overlap/sweep queries remain geometric; checked feet
 placement remains conservative. Native CharacterController2D physical response
 uses explicit context through its existing plane/cast/penetration/support path.
@@ -337,7 +340,8 @@ per-cell entity, durable shape identity, parallel collision database or second
 physics/resource owner is introduced. None definitions omit their shapes; an
 all-None layer has no native body. Dynamic Maps, concave decomposition and custom
 polygon one-way response remain outside this profile. Static/Kinematic ordinary
-polygons and sensors use existing policies; full-cell Static one-way roofs remain.
+polygons and sensors use existing policies; full-cell Static and, through the
+moving one-way extension below, Kinematic one-way roofs remain.
 
 Tile Set source2 and cooked2 are backward-readable additions. Source1 opaque
 collision fields cannot gain physical meaning through implicit promotion: explicit
@@ -364,3 +368,33 @@ collision values through the existing projection/receiver. Legacy definition
 headers remain readable; known-revision reuse compares normalized admitted data.
 The existing scope, frozen-transfer, acknowledgement and byte budgets remain
 authoritative. This does not introduce a second asset/physics channel.
+
+## Moving one-way platform extension
+
+Extend the existing one-way policy to Kinematic nonsensor Boxes and full-cell
+Tile Maps. This supersedes the Static-only motion limits in the one-way and
+painted one-way sections, and the transport exclusion above. Dynamic, sensor
+and custom-polygon one-way collision remain excluded. Ordinary body controls,
+transform animation, Map admission and opt-in Character Controller 2D transport
+retain their existing owners and budgets.
+
+Solid-side evidence must compare actor and platform poses from the same boundary.
+Native rigid callbacks use both bodies' admitted fixed starts; character physical
+queries use the candidate actor pose and the platform's actual current pose.
+Previous evidence pairs their preceding fixed starts. Reuse the existing
+body-owned samples, angular-aware relative point velocity and bounded native
+touching-contact snapshot. A previous actor pose evaluated against a moving
+platform's current plane is not sufficient evidence. No pair-history cache,
+second contact lifecycle, native world or pose authority is introduced.
+
+Continuous Kinematic targets retain continuity. Creation, replacement and
+discontinuous placement retain their existing resets. Geometric queries remain
+geometric and checked placement remains conservative. Opt-in support transport
+uses the same walkability, bounded move/slide, jump detachment and crush policy;
+it does not add implicit departure momentum or an angular swept-volume claim.
+
+No authored value, identity, field layout, callback table or checkpoint field is
+added. The updated public contract header changes the exact SDK fingerprint;
+modules must use the matching SDK. Local native/source/UI/MCP/installed-SDK and
+source-free content checks are distinct from Windows, physical input/GPU and
+graphical executable acceptance.

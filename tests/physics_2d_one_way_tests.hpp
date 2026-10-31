@@ -28,10 +28,8 @@ inline void test_one_way_profile() {
     };
     PhysicsBody2D platform;
     platform.one_way = true;
-    for (unsigned motion : {1u, 2u}) {
-        platform.motion = motion;
-        rejected([&] { inline_configuration_2d(platform, 0, {4, .2f}, {1, 1, 1}); });
-    }
+    platform.motion = 2;
+    rejected([&] { inline_configuration_2d(platform, 0, {4, .2f}, {1, 1, 1}); });
     platform.motion = 0;
     platform.sensor = true;
     rejected([&] { inline_configuration_2d(platform, 0, {4, .2f}, {1, 1, 1}); });

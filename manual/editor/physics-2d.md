@@ -46,7 +46,7 @@ follow a Dynamic body; another simulated body cannot inherit its movement.
 ## Create a one-way platform
 
 1. Add **Physics Body 2D** and **Box Collider 2D** to an ordinary entity.
-2. Set **Motion** to **Static**, leave **Sensor** off, then enable **One-way collision**.
+2. Set **Motion** to **Static** for a fixed platform or **Kinematic** for a moving one. Leave **Sensor** off, then enable **One-way collision**.
 3. Set the Box width and height to match the platform. Objects can pass through from below and land on its local positive Y face. Z rotation changes that face; negative Y scale reverses it.
 4. Enable **Selected collision** in Scene. The arrow points toward the solid face.
 5. Leave **One-way margin** at `0.02 m` initially. It controls tolerance near the solid face; the permitted range is `0` to `1 m`, with a minimum effective contact tolerance of `0.005 m`.
@@ -61,10 +61,40 @@ In **Examples/Character2D**, walk slightly left under the green platform and jum
 The character passes through its underside and lands on top. Its C++ code still
 chooses jump speed and gravity; the controller handles the platform response.
 
-This setting supports Static nonsensor Box platforms and painted Tile Maps.
-Moving one-way platforms are unavailable. Geometric ray, overlap and sweep
+This setting supports Static and Kinematic nonsensor Box platforms and full-cell
+painted Tile Maps. Dynamic bodies, sensors and custom tile polygons do not support
+one-way collision. Geometric ray, overlap and sweep
 queries still see the whole shape. Checked character placement rejects embedded
 positions even when the character could pass through during ordinary movement.
+
+### Move a one-way platform
+
+1. Stop Play and select a Box platform or a full-cell painted Map.
+2. In **Physics Body 2D**, choose **Kinematic**, leave **Sensor** off and enable **One-way collision**.
+3. Drive its translation or Z rotation with a Transform Animation Clip, or use the matching C++ Kinematic target controls. A moving Box and Map use the same one-way rules.
+4. To let a Grounded character ride the platform, enable **Character Controller 2D → Follow moving platforms** on that character. It is off by default. Jumping leaves the platform without adding departure momentum.
+5. Save, then Play. Approach from below and from above to check the solid face. Stop before changing saved body settings, and save before export.
+
+Discrete placement and teleports do not carry a character. Leave enough room
+along the path: a platform can crush a character against another solid. The
+ordinary movement error reports that obstruction; it does not stop the platform.
+
+Try **Scenes/119-moving-one-way-platforms.scene.json** in FeatureGallery. Press
+Play and switch to Game: the painted course and cyan ledge move horizontally,
+the amber box lands on the ledge, and the cyan circle rises through both surfaces
+toward the ordinary ceiling. Stop and open
+**Assets/Physics2D/Platform.animation.json** to edit their shared motion, then
+**Save / Publish**. The ledge has a fixed parent that offsets the same local clip
+to a higher lane. Save and choose this Scene as startup before exporting; it
+needs no Project Code module.
+
+![Inspector showing Kinematic motion, Sensor off and One-way collision enabled](../images/moving-one-way-controls.png)
+
+Choose Kinematic motion and enable One-way collision on the platform.
+
+![Moving painted course and narrow ledge, with the amber box supported above and cyan circle past both surfaces](../images/moving-one-way-platforms.png)
+
+The Game view shows landing on the moving ledge and passage from below.
 
 ## Settings and C++
 
@@ -89,7 +119,9 @@ project's **README.md** for the
 experiment, C++ source and matching runtime/module-kit export workflow. This
 example uses a Dynamic body and capsule sweeps. For the dedicated controller,
 use **Examples/Character2D** as described below. Its optional **Step Height**
-handles bounded stair rise; 2D navigation remains unavailable.
+handles bounded stair rise. [Navigation](navigation.md) supports separate 2D
+regions, but Navigation Agent does not drive an enabled physics body or character
+controller. Project Code may query a route and choose its own movement intent.
 
 Bullet improves high-speed solid collision with supported receivers. It does
 not guarantee exact projectile timing or every fast sensor crossing. The native
@@ -140,7 +172,7 @@ Choose **Full cell**, **None** or **Convex polygon** for each tile in the Tile S
 Inspector. Full cells include transparent image pixels; None is decorative and
 convex polygons can form slopes. Apply and publish the Set, then republish the Map.
 Choose Kinematic for a moving Map or enable Sensor for triggers. Dynamic Maps are
-unavailable. Static nonsensor Maps using full cells can use **One-way collision**;
+unavailable. Static or Kinematic nonsensor Maps using full cells can use **One-way collision**;
 custom polygons cannot. See [Tile Maps](tile-maps.md)
 for profile controls, limits, moving courses and trigger examples.
 
@@ -191,7 +223,8 @@ transforms or follow a teleported platform.
 Walls can stop the carried character. If an elevator traps it against a ceiling
 or another solid, Play reports an embedded/crushed movement error. Stop and leave
 enough clearance or change the path. The engine does not stop the platform for
-the character. Moving one-way platforms are unavailable.
+the character. Kinematic Box and full-cell Map platforms may also use
+**One-way collision**; follow **Move a one-way platform** earlier in this guide.
 
 ### Crouch under a ceiling
 

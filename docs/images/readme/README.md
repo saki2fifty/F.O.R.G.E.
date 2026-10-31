@@ -1,5 +1,29 @@
 # README screenshots
 
+## Moving one-way platforms
+
+[Moving one-way controls](../../../manual/images/moving-one-way-controls.png) is
+an unretouched820×1060 production ComponentInspector/Meta capture at1x using the
+software SDL/ImGui backend. It shows MotionKinematic, Sensoroff, One-way collision
+on, margin0.02m and a4×0.2m Box. The source uses shared authoring operations and
+Inspector drawing; separate actual selector/Undo/Redo checks cover100/150/200%.
+PNG SHA256:`f15e6e6e87a4b5b7a737a0c24f8192b68ec1ca87c488b0d861f61e4f90d2a6a0`.
+
+[Moving one-way Game](../../../manual/images/moving-one-way-platforms.png) is the
+complete640×360 FrameRenderer display of Gallery119 after90fixed60Hzsteps. Scene
+`39a8c3c8-012d-45e8-9a8c-4510b1a00879` uses the original painted course and
+Platform transform clip with a separate inline ledge. Amber is supported above
+the moving ledge; reversed-gravity Cyan has passed both surfaces. PPM-to-PNG
+conversion preserves every RGBpixel. Four actual source/relocated display pairs
+match exactly with source offline. PNG SHA256:`4b3623fe07f61d5695d084563c26806a15608a194eb91ac609e220185b52caff`.
+
+Captured31October2026, GCC12Release, local source based on1d0b306 plus the moving
+one-way extension. Game rendering uses software Vulkan/lavapipe. Exact private
+source/executable/pixel receipts are in
+`AgentFiles/build/phase198-kinematic-one-way-platforms`. These are real shared
+Inspector and Game captures, not full docked-editor, Windows/D3D12, physical input /
+DPI/GPU or graphical exported executable acceptance.
+
 ## Local diffuse irradiance
 
 [Diffuse controls](../../../manual/images/local-diffuse-irradiance-controls.png) is

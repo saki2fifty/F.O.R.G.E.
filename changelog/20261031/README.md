@@ -1,5 +1,25 @@
 # 2026-10-31
 
+## Moving one-way platforms
+
+Kinematic nonsensor Boxes and full-cell Tile Maps can use One-way collision.
+Solid-side checks pair actor and platform poses from the same fixed boundary;
+native contact, controller movement and optional platform transport retain their
+existing owners. Transform clips and queued C++ targets drive the platforms.
+Dynamic, sensor and custom-polygon one-way response remain unsupported. Public
+layouts and checkpoint fields are unchanged; use the matching SDK fingerprint.
+
+Gallery119 supplies an editable moving course and inline ledge, with landing and
+passage, relocated native playback and four exact source-free Game display pairs.
+Authentic Inspector/Game captures accompany the usage guide. Normal native/source /
+UI/MCP and relocated installed-SDK checks pass, including432translation cases and
+32actually rotating rigid cases. Seventeen selected strict units and11links pass;
+ten CPU/UI/MCP/runtime consumers exit cleanly with unsuppressed sanitizers. The
+native renderer finishes functionally with the exact known unresolved184-byte
+shutdown allocation condition. Offline manual and package-fixture checks pass.
+Windows, physical GPU/input and full-editor/exported-EXE acceptance remain pending.
+No new numbered package accompanies these local changes.
+
 ## Local diffuse probe lighting
 
 Reflection Probe maps can supply local base diffuse lighting with a separate,

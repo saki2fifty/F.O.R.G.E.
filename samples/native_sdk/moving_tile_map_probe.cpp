@@ -120,9 +120,9 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char* error, uint32_t 
                     require(state.begins && state.ends,
                             "Moving Map SDK never observed both trigger transitions");
                 char message[160];
-                std::snprintf(message, sizeof(message), "Map profile SDK passed %u %u %u %u %u",
-                              state.ticks, body.motion, unsigned(body.sensor), state.begins,
-                              state.ends);
+                std::snprintf(message, sizeof(message), "Map profile SDK passed %u %u %u %u %u %u",
+                              state.ticks, body.motion, unsigned(body.sensor),
+                              unsigned(body.one_way), state.begins, state.ends);
                 require(host->diagnostic(host->context, 1, message) == 1,
                         "Moving Map SDK diagnostic rejected");
             }

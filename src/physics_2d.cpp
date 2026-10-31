@@ -185,9 +185,9 @@ void validate_one_way(const PhysicsBody2D& body, unsigned shape, bool custom_pol
     if (!std::isfinite(body.one_way_margin) || body.one_way_margin < 0 || body.one_way_margin > 1)
         throw std::runtime_error("2D one-way margin must be finite metres in [0,1]");
     if (body.enabled && body.one_way &&
-        (body.motion != 0 || body.sensor || (shape != 0 && shape != 3)))
-        throw std::runtime_error(
-            "One-way collision requires a Static nonsensor Box or Tile Map Collider 2D");
+        (body.motion > 1 || body.sensor || (shape != 0 && shape != 3)))
+        throw std::runtime_error("One-way collision requires a Static or Kinematic nonsensor Box "
+                                 "or Tile Map Collider 2D");
 }
 void validate_tile_map_body(const PhysicsBody2D& body) {
     validate_one_way(body, 3);
@@ -861,9 +861,10 @@ struct Native2D::Impl {
         return roof + polygon.radius;
     }
     static double side_gap(const Body& platform, double surface, const b2ShapeProxy& actor,
-                           SideSample pose) noexcept {
-        const auto origin = b2Body_GetPosition(platform.id);
-        const auto normal = one_way_normal(platform);
+                           SideSample pose, SideSample platform_pose) noexcept {
+        const auto origin = platform_pose.position;
+        const auto normal = b2RotateVector(
+            platform_pose.rotation, {0, std::signbit(platform.admitted.pose.scale.y) ? -1.f : 1.f});
         double minimum = std::numeric_limits<double>::infinity();
         for (int i = 0; i < actor.count; ++i) {
             const auto point = b2RotateVector(pose.rotation, actor.points[i]);
@@ -874,15 +875,15 @@ struct Native2D::Impl {
     }
     static bool solid_side(const Body& platform, double surface, const Body& actor,
                            const b2ShapeProxy& proxy, SideSample current,
-                           bool native_step) noexcept {
-        double gap = side_gap(platform, surface, proxy, current);
-        // A newly created/moved platform has no preceding side evidence. A
-        // snapshot/read never advances these fixed-boundary samples.
-        const auto& previous = native_step ? actor.preceding_start : actor.last_start;
-        const auto& platform_previous =
-            native_step ? platform.preceding_start : platform.last_start;
+                           SideSample platform_pose) noexcept {
+        double gap = side_gap(platform, surface, proxy, current, platform_pose);
+        // Compare each actor sample with the platform pose from that same
+        // fixed boundary. Creation/discontinuous placement clears history;
+        // a snapshot/read never advances it.
+        const auto& previous = actor.preceding_start;
+        const auto& platform_previous = platform.preceding_start;
         if (previous && platform_previous)
-            gap = std::max(gap, side_gap(platform, surface, proxy, *previous));
+            gap = std::max(gap, side_gap(platform, surface, proxy, *previous, *platform_previous));
         return gap >= -std::max(mover_slop, platform.admitted.config.body.one_way_margin);
     }
     bool admit_response(const Body& platform, b2ShapeId shape, const Body& actor,
@@ -894,9 +895,10 @@ struct Native2D::Impl {
             return false;
         const bool continued = std::binary_search(
             response_contacts.begin(), response_contacts.end(), shape_pair(shape, actor_shape));
-        if (!actor.last_start ||
-            (!continued && !solid_side(platform, one_way_surface(platform, shape), actor,
-                                       actor.response_proxy, *actor.last_start, true)))
+        if (!actor.last_start || !platform.last_start ||
+            (!continued &&
+             !solid_side(platform, one_way_surface(platform, shape), actor, actor.response_proxy,
+                         *actor.last_start, *platform.last_start)))
             return false;
         const auto a = b2Body_GetWorldPointVelocity(actor.id, point);
         const auto b = b2Body_GetWorldPointVelocity(platform.id, point);
@@ -973,7 +975,7 @@ struct Native2D::Impl {
         const auto intent = mover->actor->mover_intent;
         return normal.x * intent[0] + normal.y * intent[1] <= mover_tolerance &&
                solid_side(platform, one_way_surface(platform, shape), *mover->actor,
-                          mover->actor->response_proxy, mover->pose, true);
+                          mover->actor->response_proxy, mover->pose, sample(platform));
     }
     std::map<std::uint64_t, Body> bodies;
     bool one_way_present = false;

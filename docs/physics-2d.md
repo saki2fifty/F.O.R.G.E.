@@ -154,7 +154,7 @@ reuse immutable geometry inside the existing native-body record.
 There are at most4096 total native2D shapes across Map rectangles, convex pieces and inline bodies,
 within existing body, joint, pair and event limits. Empty Map actors do not consume
 native body/shape slots. This profile excludes Dynamic Maps, automatic concave decomposition and custom
-polygon or Kinematic/sensor one-way Map collision. Convex slopes use ordinary
+polygon or sensor one-way Map collision. Convex slopes use ordinary
 contact, query and controller response within the existing controller limits. A Map is not itself a character controller or
 a navigation mesh.
 
@@ -177,16 +177,16 @@ old Ends keep their old epoch and current availability. Empty/refill and source
 replacement still pass through the existing Map preflight and last-good ownership.
 Fresh recovery restores Map edits before native physics and does not replay events.
 
-### Static one-way Maps
+### Static and Kinematic one-way Maps
 
-Static nonsensor Map bodies can enable the existing PhysicsBody2D.one_way flag.
+Static or Kinematic nonsensor Map bodies can enable PhysicsBody2D.one_way.
 The selected layer's rectangles each use their own roof plane, including offset
 and stacked runs. The same native pre-solve/pre-continuous and explicit character
 physical-response context reads one bounded readonly polygon per hit; inline boxes
 retain their existing path. No scan of other rectangles, second plane cache or
 changed native binding/checkpoint layout is needed. Geometric/excluded queries
 still observe complete rectangles. Source edits/empty/refill retain shared Map
-preflight and native retirement. Kinematic/sensor/Dynamic one-way Maps reject.
+preflight and native retirement. Sensor, Dynamic and custom-polygon one-way Maps reject.
 
 Original Gallery86 reuses PaintedPlatforms: falling actors land on painted roofs,
 and the reversed-gravity cyan circle passes the right platform to an ordinary
@@ -194,14 +194,38 @@ ceiling. Existing public PaintedCollision helpers exercise cell edits/queries wi
 the same policy, both hosts and recovery. SDK fingerprints follow matching public
 contract headers; no public field or callback layout is added.
 
+Gallery119 reuses the same painted asset and existing Platform transform clip.
+Both its Kinematic one-way Map and inline Box follow that clip; a fixed parent
+offsets the inline ledge into a separate lane. Falling Amber lands while
+reversed-gravity Cyan crosses both moving surfaces. The shared SceneDocument /
+authoring fixture verifies source registration, native motion and landing/passage,
+then compares source-free playback after relocating the package and taking source
+offline. The software Vulkan consumer compares four exact rendered display pairs.
+These checks do not establish Windows or graphical executable acceptance.
+
 ## One-way platforms
 
-`PhysicsBody2D.one_way` defaults to false. Enable it only on a Static nonsensor
+`PhysicsBody2D.one_way` defaults to false. Enable it only on a Static or Kinematic nonsensor
 body with one Box Collider 2D or Tile Map Collider 2D. Each rectangle's solid face is transformed local +Y; signed Y
 scale reverses it, and supported Z rotation rotates it. `one_way_margin` is a
 finite world-space tolerance in0..1m, default0.02m, with effective minimum0.005m
-native slop. Inactive values remain authored. Moving one-way
-platforms are outside this profile.
+native slop. Inactive values remain authored. Kinematic targets or admitted transform
+animation can move one-way platforms; ordinary Dynamic platforms remain outside
+the one-way profile.
+
+Solid-side history pairs each actor pose with the platform pose from the same fixed
+boundary. Native rigid callbacks use both bodies' current fixed starts; character
+queries use the candidate character pose and actual current platform pose. Previous
+evidence uses the matching preceding pair. Existing body-owned samples and bounded
+native touching contacts remain authoritative. No additional pair history or world
+is introduced. Creation, discontinuous placement, replacement and sign changes keep
+their existing continuity resets; continuous Kinematic targets preserve history.
+
+The existing opt-in Character Controller 2D platform transport also applies to
+walkable Kinematic one-way support. Jumping detaches, with no implicit departure
+momentum. Geometric queries and conservative explicit placement remain unchanged.
+Public values, callback tables and checkpoint fields retain their layout; matching
+SDK distributions use the current exact contract fingerprint.
 
 Native rigid response uses both exact-pin pre-solve and pre-continuous callbacks.
 The existing body record supplies current/preceding fixed-start side evidence;
@@ -568,9 +592,10 @@ profile. Optional bounded stair rise is described below.
 
 `CharacterController2D.platform_carry` defaults false and is displayed as
 **Follow moving platforms**. Grounded characters can ride an ordinary nonsensor
-Kinematic or Dynamic walkable support. Floating mode, steep surfaces, sensors,
-masked bodies and other controllers do not provide transport. Moving one-way
-platforms remain outside the admitted one-way profile.
+Kinematic or Dynamic walkable support, including admitted Kinematic one-way
+Boxes and full-cell Maps. Floating mode, steep surfaces, sensors, masked bodies
+and other controllers do not provide transport. Dynamic one-way supports remain
+outside the admitted profile.
 
 Native2D temporarily samples the current support's rigid transform in its existing
 controller body record. After rigid motion, the lower capsule cap center retains

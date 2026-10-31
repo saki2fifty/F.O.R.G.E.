@@ -26,11 +26,13 @@ def verify(runtime, module, gallery):
         before = source.read_bytes()
         saved = json.loads(before)
         for sdk_play in (False, True):
-            for motion, sensor in ((0, False), (1, False), (0, True), (1, True)):
+            for motion, sensor, one_way in ((0, False, False), (1, False, False),
+                                           (0, True, False), (1, True, False),
+                                           (0, False, True), (1, False, True)):
                 scene = copy.deepcopy(saved)
                 actor = next(e for e in scene['entities'] if 'forge.tile_map_collider_2d' in e['components'])
                 body = actor['components']['forge.physics_body_2d']
-                body.update(motion=motion, sensor=sensor)
+                body.update(motion=motion, sensor=sensor, one_way=one_way)
                 args = ['--sdk-project', root]
                 if sdk_play:
                     args += ['--sdk-play', 'on', '--user-data', root / 'users']
@@ -44,19 +46,20 @@ def verify(runtime, module, gallery):
                         assert current['physics']['shapes_2d'] == 8, current['physics']
                         reports += [row['text'] for row in current['diagnostics']
                                     if row['text'].startswith('Map profile SDK passed ')]
-                    assert any(row.startswith(f'Map profile SDK passed 150 {motion} {int(sensor)} ')
+                    assert any(row.startswith(f'Map profile SDK passed 150 {motion} {int(sensor)} {int(one_way)} ')
                                for row in reports), reports
                     if sdk_play:
                         assert current['recovery'] is None
                     else:
                         assert current['recovery']['version'] == 2
                     row = next(e for e in current['scene']['entities'] if e['id'] == actor['id'])
+                    assert row['components']['forge.physics_body_2d']['one_way'] is one_way
                     assert abs(row['components']['forge.local_translation']['x'] -
                                (1.5 if motion else 0)) < 1e-5, row
                     assert source.read_bytes() == before
                 finally:
                     worker.close()
-    print('Public SDK Map flags/targets/queries/exclusions/trigger events passed all4 profiles in both hosts')
+    print('Public SDK Map flags/targets/queries/exclusions/trigger/one-way response passed all6 profiles in both hosts')
 
 
 if __name__ == '__main__':

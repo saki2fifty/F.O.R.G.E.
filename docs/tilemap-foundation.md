@@ -7,9 +7,12 @@ instances, copied C++ cell queries/queued edits and both Editor Play hosts.
 Original editable Gallery74 demonstrates two layers and mirrored instances.
 [2D physics](physics-2d.md) integrates painted full-cell/convex collision, Kinematic
 Map movement and Static/Kinematic sensor regions through the same Map instances.
-Gallery81/82 demonstrate movement and triggers; Gallery86 adds Static nonsensor
-one-way rectangles through PhysicsBody2D.one_way. Dynamic and moving one-way Maps remain
-outside the current collision profile.
+Gallery81/82 demonstrate movement and triggers; Gallery86 demonstrates Static
+nonsensor one-way rectangles through PhysicsBody2D.one_way. Kinematic nonsensor
+Maps can use the same policy with fixed target commands or transform animation.
+Dynamic, sensor and custom-polygon one-way Maps remain outside the current profile.
+Gallery119 demonstrates the moving policy alongside an inline one-way ledge;
+both share the included transform clip.
 
 The source format, cooked profile and runtime budgets below describe implemented
 behavior. [Validation](#validation) records passing automated checks and their scope. Build261020-000194 predates this feature.

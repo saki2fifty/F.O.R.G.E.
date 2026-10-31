@@ -300,13 +300,18 @@ publish at the next fixed boundary and recheck the target/adopted generation.
 cell is a successful zero tile. Batches are atomic and limited to4096 entries.
 See the [development map contract](tilemap-foundation.md) for limits and readiness.
 Map painting/rendering, Static/Kinematic collision and sensor regions use the same
-instances and publication owners. Static nonsensor Map bodies also support the
+instances and publication owners. Static or Kinematic nonsensor Map bodies also support the
 existing PhysicsBody2D.one_way policy on each painted rectangle; public geometric
 queries still see full shapes. See the [Map contract](tilemap-foundation.md)
 for publication, examples and current limits, and the editor's Tile Maps manual
 for the authoring workflow.
 
-This changes the exact SDK table/fingerprint; rebuild against the matching SDK.
+Kinematic one-way Boxes and full-cell Maps use the same public PhysicsBody2D flag,
+queued `move_2d` target controls and geometric queries as ordinary bodies. Keep
+Sensor off. Dynamic and custom-polygon one-way bodies remain unsupported. This
+extends admission without adding a public field, callback or checkpoint payload;
+rebuild modules against the exact SDK shipped with the matching runtime.
+
 The installed `tile_map_probe.cpp` demonstrates copied reads and fixed submissions
 without private headers. It is an integration probe, not an editor or save format.
 

@@ -4,6 +4,7 @@
 #include "physics_2d_mover_native_tests.hpp"
 #include "physics_2d_mover_support_tests.hpp"
 #include "physics_2d_mover_tests.hpp"
+#include "physics_2d_moving_one_way_tests.hpp"
 #include "physics_2d_one_way_tests.hpp"
 #include "physics_2d_platform_carry_tests.hpp"
 #include "physics_2d_stance_tests.hpp"
@@ -452,11 +453,11 @@ void capacity_and_invalid_geometry() {
     reject([&] { test.native.validate(bad); });
     bad = test.desired;
     bad.at(1).config.body.one_way = true;
-    test.native.validate(bad); // Static nonsensor painted rectangles share one-way response.
-    for (unsigned motion : {1u, 2u}) {
-        bad.at(1).config.body.motion = motion;
-        reject([&] { test.native.validate(bad); });
-    }
+    test.native.validate(bad); // Static and Kinematic nonsensor rectangles share the policy.
+    bad.at(1).config.body.motion = 1;
+    test.native.validate(bad);
+    bad.at(1).config.body.motion = 2;
+    reject([&] { test.native.validate(bad); });
     bad.at(1).config.body.motion = 0;
     bad.at(1).config.body.sensor = true;
     reject([&] { test.native.validate(bad); });
@@ -628,6 +629,7 @@ int main() {
         forge::test::test_mover_motion_limits();
         std::cout << "Checked mover motion/feasibility/shared-budget PASS\n";
         forge::test::test_one_way_profile();
+        forge::test::test_moving_one_way_native();
         forge::test::test_one_way_contact_stability();
         forge::test::test_one_way_rigid();
         forge::test::test_one_way_point_motion();
