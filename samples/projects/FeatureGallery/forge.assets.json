@@ -780,6 +780,16 @@
       "type": "model_node"
     },
     {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "0dd80adc-f80b-45a7-81e7-22ca6fb7b6c7",
+      "metadata": {},
+      "schema_version": 5,
+      "source": "Scenes/120-concave-tile-collision.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
       "dependencies": [
         "03f314d8-69d9-4650-9683-4c9a1ae0b87d",
         "0b7f4452-132e-4ec7-993b-583536cf46f9",
@@ -1352,6 +1362,52 @@
       "type": "scene"
     },
     {
+      "dependencies": [
+        "dba4a73b-12db-4966-9af6-320ba97c940c"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "ecbfae3e1fa732caff2ec3c199903fbf7e4d30f153f8609dc82ec42c2141993d",
+          "role": "material.texture:baseColorTexture",
+          "target": "dba4a73b-12db-4966-9af6-320ba97c940c",
+          "type": "texture"
+        }
+      ],
+      "id": "16a96cb9-c86b-4238-8f7d-fe3f359b0402",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "17c9be1ec70c6926ec91dc2642e6371a804a06f9dee9295e990a62f4006b8ea8",
+          "backend": "none",
+          "dependency_digest": "285b2a20c94536e0ad2ee5ac0de2cc7bba73d1a31b1238be5a732ad13b9b2a78",
+          "generation": 1,
+          "importer": "forge.material.builtin",
+          "importer_revision": "ce411c4c3dba9f1c80d6a4696e12f0995af81d787ed87012dc57def7a19f5c98",
+          "key": "bf8f3382d9761bf4d45e03bb37589f8f5954ee0b1f8a7a009f886f5d8ea61dfb",
+          "output_format": "forge.material-bundle",
+          "output_version": 2,
+          "platform": "linux",
+          "profile": "cpu",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "5135b4744120c886a2a6bdfce7a541625d3fe3b84f75334fccc454a313d67de5",
+          "source_digest": "2cb282e48d598896d737320ce8a06a764e7a237e115eca6555ba90ff534d3314",
+          "version": 1
+        },
+        "forge.material": {
+          "shader": null,
+          "textures": {
+            "baseColorTexture": "dba4a73b-12db-4966-9af6-320ba97c940c"
+          },
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Tiles/ConcaveTiles.material.json",
+      "source_dependencies": [],
+      "type": "material"
+    },
+    {
       "dependencies": [],
       "dependency_edges": [],
       "id": "177b3d5b-f5a7-41df-a1f8-f36ab10ac6e0",
@@ -1395,6 +1451,16 @@
       "source": "Assets/ModelRefinement/CenterSplitCube.mesh.json",
       "source_dependencies": [],
       "type": "mesh"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "180d3ed7-99b8-48ff-a849-40e12ebf04b9",
+      "metadata": {},
+      "schema_version": 5,
+      "source": "Scenes/118-local-diffuse-irradiance.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
     },
     {
       "dependencies": [
@@ -3230,6 +3296,68 @@
       "source": "Assets/Platform.animation.json",
       "source_dependencies": [],
       "type": "transform_animation"
+    },
+    {
+      "dependencies": [
+        "16a96cb9-c86b-4238-8f7d-fe3f359b0402"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "build",
+          "revision": "bf8f3382d9761bf4d45e03bb37589f8f5954ee0b1f8a7a009f886f5d8ea61dfb",
+          "role": "tile_set.material.16a96cb9-c86b-4238-8f7d-fe3f359b0402",
+          "target": "16a96cb9-c86b-4238-8f7d-fe3f359b0402",
+          "type": "material"
+        },
+        {
+          "kind": "runtime",
+          "revision": "bf8f3382d9761bf4d45e03bb37589f8f5954ee0b1f8a7a009f886f5d8ea61dfb",
+          "role": "tile_set.material.16a96cb9-c86b-4238-8f7d-fe3f359b0402",
+          "target": "16a96cb9-c86b-4238-8f7d-fe3f359b0402",
+          "type": "material"
+        }
+      ],
+      "id": "39a3c132-e3ce-4567-9b23-c6f9339158a6",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "5c1f8ef1a50c0c512254b76aba10a555bd266038785e20ea3ac708126996f278",
+          "backend": "none",
+          "dependency_digest": "d5e972059c8d439039abdf81c79947e6a6b734300857da612b0e9e815941b273",
+          "generation": 1,
+          "importer": "forge.tileset",
+          "importer_revision": "661d75d27f3a606ae42e107ec6b0c81c24c1454e41c1684ae638ae590363977e",
+          "key": "ed427b6ffcd8c9178e06d8bbc8c11ab48aff206d29ad3e59d2cec7f8105c04e1",
+          "output_format": "forge.tile-set-cooked",
+          "output_version": 3,
+          "platform": "linux",
+          "profile": "cpu",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "4548f65cbaa6df5ea4bda828765159cccfcf5c37f3cfa47d3cfbad6e4511b127",
+          "source_digest": "71c7cec90ab1447b11069ee3a547398c6878dcedf63f5425df2443767331f441",
+          "version": 1
+        },
+        "forge.tile_set": {
+          "bytes": 717,
+          "file": "tileset.bin",
+          "sha256": "7c8673db6a3773cc35c3ecba686862a0189ea6a71af75fb6e76e973c59a1b4a5",
+          "version": 1
+        }
+      },
+      "schema_version": 3,
+      "source": "Assets/Tiles/ConcaveTiles.tileset.json",
+      "source_dependencies": [],
+      "type": "tile_set"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "39a8c3c8-012d-45e8-9a8c-4510b1a00879",
+      "metadata": {},
+      "schema_version": 5,
+      "source": "Scenes/119-moving-one-way-platforms.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
     },
     {
       "dependencies": [],
@@ -7707,6 +7835,58 @@
       "type": "transform_animation"
     },
     {
+      "dependencies": [
+        "39a3c132-e3ce-4567-9b23-c6f9339158a6"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "build",
+          "revision": "ed427b6ffcd8c9178e06d8bbc8c11ab48aff206d29ad3e59d2cec7f8105c04e1",
+          "role": "tile_map.tile_set",
+          "target": "39a3c132-e3ce-4567-9b23-c6f9339158a6",
+          "type": "tile_set"
+        },
+        {
+          "kind": "runtime",
+          "revision": "ed427b6ffcd8c9178e06d8bbc8c11ab48aff206d29ad3e59d2cec7f8105c04e1",
+          "role": "tile_map.tile_set",
+          "target": "39a3c132-e3ce-4567-9b23-c6f9339158a6",
+          "type": "tile_set"
+        }
+      ],
+      "id": "a18cae08-9d7e-4380-8194-9afb6742156a",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "b98608e6efd66e06a674fa98e768c51027e4c8b198d195938eea8c2379582f31",
+          "backend": "none",
+          "dependency_digest": "dde0923eef8106243705853aa1877086de159d7a02034735b2344c6f30645f9d",
+          "generation": 1,
+          "importer": "forge.tilemap",
+          "importer_revision": "d3123443b02f5cb4c7bf0d2d8926ac042b717abe215fea906eaecbe47e5cb675",
+          "key": "3380278a4c0629ab3751a8704a603fc7c8a09fe00a6c267ae63f8d56011dd537",
+          "output_format": "forge.tile-map-cooked",
+          "output_version": 1,
+          "platform": "linux",
+          "profile": "cpu",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "7ec2182f419a137bad4a0d83709042b38ece3b4cdff306089d3875869bfb1b1b",
+          "source_digest": "9ef35d929285602c5a402505433898cbf4a5126c417dfd75306c9240fee078a4",
+          "version": 1
+        },
+        "forge.tile_map": {
+          "bytes": 312,
+          "file": "tilemap.bin",
+          "sha256": "5d874b7c4b88f72b8c74a03c2eb230a9bc251bb963c81f7224286ca5c10e6cc7",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Tiles/ConcaveTiles.tilemap.json",
+      "source_dependencies": [],
+      "type": "tile_map"
+    },
+    {
       "dependencies": [],
       "dependency_edges": [],
       "id": "a2d19777-70d1-4e00-b1c0-89e0f544fafb",
@@ -10013,6 +10193,35 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "dba4a73b-12db-4966-9af6-320ba97c940c",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "21c5ca159f52f7b749dbb7a845d194df446b34196dcd1494bc3676da31919ec4",
+          "backend": "none",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.texture.image",
+          "importer_revision": "a72711a84ab8aba2fcd68c6e2ac7fa005f4b3e86dcae32d1b171e06b00773837",
+          "key": "ecbfae3e1fa732caff2ec3c199903fbf7e4d30f153f8609dc82ec42c2141993d",
+          "output_format": "forge.texture-bundle",
+          "output_version": 1,
+          "platform": "linux",
+          "profile": "cpu",
+          "settings_digest": "6e500d6e7e08e5b11f498e154d26275d6288d83ed4b295b9c56c95d747c76521",
+          "settings_version": 1,
+          "sidecar_digest": "83f632ce94fb328e3891dbd0ecc6d588a93b16b91e6f5e37624da5767002c340",
+          "source_digest": "0e081f72fea81d8e9adfdc8bf3f1ed42990467a95d9cab771fcaf2d4ab574ba5",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Tiles/ConcaveTiles.png",
+      "source_dependencies": [],
+      "type": "texture"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "dc6712eb-3cee-46c1-93c2-bfb52bcc45c2",
       "metadata": {
         "forge.ui_source": {
@@ -11461,26 +11670,6 @@
       "metadata": {},
       "schema_version": 5,
       "source": "Scenes/75-2d-physics.scene.json",
-      "source_dependencies": [],
-      "type": "scene"
-    },
-    {
-      "dependencies": [],
-      "dependency_edges": [],
-      "id": "180d3ed7-99b8-48ff-a849-40e12ebf04b9",
-      "metadata": {},
-      "schema_version": 5,
-      "source": "Scenes/118-local-diffuse-irradiance.scene.json",
-      "source_dependencies": [],
-      "type": "scene"
-    },
-    {
-      "dependencies": [],
-      "dependency_edges": [],
-      "id": "39a8c3c8-012d-45e8-9a8c-4510b1a00879",
-      "metadata": {},
-      "schema_version": 5,
-      "source": "Scenes/119-moving-one-way-platforms.scene.json",
       "source_dependencies": [],
       "type": "scene"
     }

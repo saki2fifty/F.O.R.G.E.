@@ -127,8 +127,9 @@ above a solid receiver. See the [Tile Maps guide](manual/editor/tile-maps.md).
 Gallery101 adds per-tile **Full cell**, **None** and **Convex polygon** profiles,
 with mirrored ramps and decorative tiles. Edit normalized vertices in the Tile Set
 Inspector, publish the Set and Map, then test Static or Kinematic collision.
-Custom profiles admit 3–8 convex vertices; concave shapes and custom one-way
-polygons are outside this profile. This extension is local development source;
+Gallery120 adds **Polygon (decomposed)** for3–8 vertex simple concave outlines,
+with falling actors landing on upper edges and inside L/U notches. Custom one-way
+polygons and holes remain unavailable. This extension is local development source;
 Windows and physical GPU verification remain pending.
 This actual Windows D3D12 WARP Game capture demonstrates the original static course:
 

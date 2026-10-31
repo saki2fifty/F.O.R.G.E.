@@ -187,6 +187,32 @@ void exercise(const std::filesystem::path& scratch, float scale, bool compact) {
     check(editor.document()->source().values().tiles.back().collision.kind ==
               TileCollisionKind::Convex,
           "Discard changed the applied collision profile");
+    const auto convex_source = editor.document()->source().document;
+    click("tile_set:collision_kind");
+    click("tile_set:collision_kind:3");
+    click("tile_set:collision_add");
+    click("tile_set:collision_add");
+    number("tile_set:collision_point:2:y", "0.5");
+    number("tile_set:collision_point:3:x", "0.5");
+    number("tile_set:collision_point:3:y", "0.5");
+    number("tile_set:collision_point:4:x", "0.5");
+    number("tile_set:collision_point:4:y", "1");
+    number("tile_set:collision_point:5:x", "0");
+    number("tile_set:collision_point:5:y", "1");
+    click("tile_set:collision_apply");
+    const auto concave_source = editor.document()->source().document;
+    check(concave_source.at("version") == 3 &&
+              editor.document()->source().values().tiles.back().collision.kind ==
+                  TileCollisionKind::Polygon &&
+              editor.document()->source().values().tiles.back().collision.points.size() == 6,
+          "Concave Inspector draft did not promote/apply the complete six-point outline");
+    click("tile_set:undo");
+    check(editor.document()->source().document == convex_source,
+          "Concave Inspector Undo changed the previous convex source");
+    click("tile_set:redo");
+    check(editor.document()->source().document == concave_source,
+          "Concave Inspector Redo lost the promoted outline");
+    click("tile_set:undo");
     click("tile_set:undo");
     click("tile_set:remove_tile");
     check(editor.document()->source().values().tiles.size() == 2, "Remove tile did not apply");
@@ -242,9 +268,9 @@ void exercise(const std::filesystem::path& scratch, float scale, bool compact) {
     test::observe_ui = false;
     ImGui::DestroyContext();
 }
-void capture_collision(const std::filesystem::path& root) {
+void capture_collision(const std::filesystem::path& root, bool concave = false) {
     std::filesystem::create_directories(root / "project");
-    test::ImGuiSoftwareCapture capture(760, 1000);
+    test::ImGuiSoftwareCapture capture(760, concave ? 1100 : 1000);
     ui::style(1);
     ui::EditorUiContext context;
     ui::ContextScope scope(context);
@@ -254,7 +280,7 @@ void capture_collision(const std::filesystem::path& root) {
     project.open_project(root / "project", true);
     auto document =
         TileSetDocument::create(project.writer_guard(), "Assets/Collision.tileset.json");
-    document->edit_source(document->revision(), "Capture convex tile", [](auto& source) {
+    document->edit_source(document->revision(), "Capture tile profile", [concave](auto& source) {
         source.document["next_id"] = 3;
         source.document["images"] = {{{"id", 1},
                                       {"name", "Tile image"},
@@ -266,9 +292,17 @@ void capture_collision(const std::filesystem::path& root) {
                                         {"margin_y", 0},
                                         {"spacing_x", 0},
                                         {"spacing_y", 0}}}}};
-        source.document["tiles"] = {
-            {{"id", 2}, {"name", "Convex ramp"}, {"image", 1}, {"frame", 0}}};
-        source.set_collision(2, {{"kind", "convex"}, {"points", {{0., 0.}, {1., 0.}, {1., 1.}}}});
+        source.document["tiles"] = {{{"id", 2},
+                                     {"name", concave ? "Concave corner" : "Convex ramp"},
+                                     {"image", 1},
+                                     {"frame", 0}}};
+        if (concave)
+            source.set_collision(
+                2, {{"kind", "polygon"},
+                    {"points", {{0., 0.}, {1., 0.}, {1., .5}, {.5, .5}, {.5, 1.}, {0., 1.}}}});
+        else
+            source.set_collision(2,
+                                 {{"kind", "convex"}, {"points", {{0., 0.}, {1., 0.}, {1., 1.}}}});
     });
     document->save();
     document.reset();
@@ -278,20 +312,23 @@ void capture_collision(const std::filesystem::path& root) {
     for (unsigned frame = 0; frame < 3; ++frame) {
         capture.new_frame();
         ImGui::SetNextWindowPos({10, 10});
-        ImGui::SetNextWindowSize({740, 980});
+        ImGui::SetNextWindowSize({740, concave ? 1080.f : 980.f});
         ImGui::Begin("Inspector", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
         editor.inspect("tile/2", false);
         ImGui::End();
         capture.render();
     }
     check(editor.diagnostic().empty(), "Collision capture has source diagnostics");
-    capture.save(root / "tile-collision-profile.png");
+    capture.save(root /
+                 (concave ? "concave-tile-collision-controls.png" : "tile-collision-profile.png"));
 }
 } // namespace
 int main(int argc, char** argv) {
     try {
-        if (argc == 3 && std::string_view(argv[2]) == "--capture") {
-            capture_collision(std::filesystem::absolute(argv[1]));
+        if (argc == 3 && (std::string_view(argv[2]) == "--capture" ||
+                          std::string_view(argv[2]) == "--capture-concave")) {
+            capture_collision(std::filesystem::absolute(argv[1]),
+                              std::string_view(argv[2]) == "--capture-concave");
             return 0;
         }
         check(argc == 2, "Expected scratch directory");

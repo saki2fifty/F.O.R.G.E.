@@ -1,5 +1,17 @@
 # Explore the Feature Gallery
 
+**120-concave-tile-collision** uses editable L and U tile outlines. Press Play:
+amber and rose land on upper edges while cyan and green fall into the notches.
+Stop and open **Assets/Tiles/ConcaveTiles.tileset.json** to edit the points in
+**Tile collision**. Publish the Set and Map, save, then choose the Scene as startup
+before export. See [Tile collision controls](../editor/tile-maps.md).
+
+**119-moving-one-way-platforms** moves a painted course and narrow ledge using one
+translation clip. Amber lands on the moving ledge while cyan passes upward through
+the one-way surfaces. Stop before changing body settings; edit the included
+**Assets/Physics2D/Platform.animation.json** to change their shared movement.
+See [Moving platforms](../editor/tile-maps.md).
+
 **118-local-diffuse-irradiance** compares warm, overlapping and cool map-based
 diffuse light on receivers and a floor, without direct lights or a global environment.
 Select either diffuse volume and adjust **Diffuse intensity**, **Edge fade**,

@@ -20,14 +20,15 @@ std::uint64_t natural(const Json& value, std::uint64_t maximum = UINT64_MAX, boo
 }
 TileSetValues decode(const Json& root) {
     require(root.is_object() && root.at("format") == "forge.tile-set" &&
-                (natural(root.at("version")) == 1 || natural(root.at("version")) == 2),
+                natural(root.at("version")) >= 1 &&
+                natural(root.at("version")) <= tile_set_source_version,
             "Unsupported Tile Set source format/version");
     TileSetValues result;
     result.asset = root.at("asset_id").get<AssetId>();
     require(bool(result.asset), "Tile Set requires an asset identity");
     result.next_id = natural(root.at("next_id"), UINT64_MAX, true);
     auto rows = tile_detail::decode_tile_set_rows(root.at("images"), root.at("tiles"),
-                                                  root.at("version") >= 2);
+                                                  root.at("version").get<std::uint32_t>());
     for (const auto& image : rows.images)
         require(image.id < result.next_id, "Tile Set image ID is unallocated");
     for (const auto& tile : rows.tiles)
@@ -74,14 +75,15 @@ void TileSetSource::validate_upgrade(const TileSetSource& next) const {
 }
 void TileSetSource::set_collision(std::uint64_t tile, const Json& value) {
     validate();
+    require(value.is_object() && value.contains("kind"), "Tile collision requires a kind");
     auto candidate = *this;
-    candidate.document["version"] = 2;
+    candidate.document["version"] = std::max(document.at("version").get<std::uint32_t>(),
+                                             value.at("kind") == "polygon" ? 3u : 2u);
     validate_upgrade(candidate);
     auto& rows = candidate.document.at("tiles");
     const auto at = std::find_if(rows.begin(), rows.end(),
                                  [&](const auto& row) { return row.at("id") == tile; });
     require(at != rows.end(), "Tile collision definition is unavailable");
-    require(value.is_object() && value.contains("kind"), "Tile collision requires a kind");
     auto merged = at->value("collision", Json::object());
     merged.erase("kind");
     merged.erase("points");

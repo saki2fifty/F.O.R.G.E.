@@ -338,8 +338,9 @@ records own both merged boxes and convex pieces, sharing the total4096 shape
 budget, filters, epochs, queries, events and checked candidate publication. No
 per-cell entity, durable shape identity, parallel collision database or second
 physics/resource owner is introduced. None definitions omit their shapes; an
-all-None layer has no native body. Dynamic Maps, concave decomposition and custom
-polygon one-way response remain outside this profile. Static/Kinematic ordinary
+all-None layer has no native body. Dynamic Maps and custom polygon one-way response
+remain outside this profile. The simple-polygon extension below adds concave
+decomposition. Static/Kinematic ordinary
 polygons and sensors use existing policies; full-cell Static and, through the
 moving one-way extension below, Kinematic one-way roofs remain.
 
@@ -363,11 +364,40 @@ This is a private recovery boundary, not a durable authored-source migration or
 C callback-table change. Completion and acceptance evidence remain in the affected
 technical contracts and validation records.
 
-Copied Play definitions carry their explicit nested cooked-profile version2 and
+Copied Play definitions originally carry their explicit nested cooked-profile version2 and
 collision values through the existing projection/receiver. Legacy definition
 headers remain readable; known-revision reuse compares normalized admitted data.
 The existing scope, frozen-transfer, acknowledgement and byte budgets remain
 authoritative. This does not introduce a second asset/physics channel.
+
+## Simple concave tile outlines
+
+Add a separate `polygon` collision kind for one simple, counterclockwise contour
+of3..8 finite unit-cell vertices. Preserve strict `convex` admission. Reject repeated
+vertices, adjacent collinearity, intersections and touching nonadjacent edges;
+do not infer a convex hull or repair an invalid outline. An original deterministic
+first-ear decomposition returns triangles indexed into the admitted contour.
+Validation and Map geometry use the same bounded helper. Holes, multiple contours
+and an optimal or seamless decomposition are not promised.
+
+Source3 and cooked3 admit this additive kind. Reads of1/2 retain their prior
+meaning; old profiles cannot admit the new kind. Explicit collision edits promote
+to the required source version, ordinary edits never downgrade, and existing
+source1 opaque-field conflict checks and exact history remain authoritative.
+Recipe3 publishes cooked3; copied Play definitions write nested version3 through
+the existing projection/receiver. AssetCatalog and runtime packaging accept source3
+only for Tile Sets. No durable identity or public SDK layout changes are required.
+The existing exact SDK fingerprint includes the new decomposition helper and its
+typed value header as value-support semantics; matching modules must rebuild.
+
+Invert the existing Sprite cell transform once per contour, then emit checked
+triangles through the existing Map polygon conversion. All pieces count against
+the shared4096 native-shape budget. Full-cell rectangle merging remains unchanged.
+Native bodies, last-good candidate publication, outlines, queries, contacts and
+recovery continue to own the same convex-piece data. Private physics10 and Map
+checkpoint1 need no new fields: fresh recovery validates the same realized pieces.
+Static/Kinematic solid and sensor policies apply; Dynamic Maps and custom-polygon
+one-way response remain excluded.
 
 ## Moving one-way platform extension
 

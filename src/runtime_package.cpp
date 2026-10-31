@@ -92,7 +92,8 @@ std::string revision(const AssetRecord& record) {
         return key;
     }
     require((record.schema_version == 1 ||
-             (record.type == TileSetAsset::type && record.schema_version == 2)) &&
+             (record.type == TileSetAsset::type && record.schema_version >= 2 &&
+              record.schema_version <= tile_set_source_version)) &&
                 record.metadata.contains("forge.import"),
             "Asset " + record.id.str() + " (" + record.type +
                 ") has no supported cooked selection; import it before packaging");

@@ -223,6 +223,79 @@ void definition_shapes() {
         }
         reject([&] { (void)tile_map_collision_geometry(map, definitions, selected_layer, 2); });
     }
+    auto concave_source = source;
+    concave_source.set_collision(
+        4, {{"kind", "polygon"},
+            {"points", {{0., 0.}, {1., 0.}, {1., .5}, {.5, .5}, {.5, 1.}, {0., 1.}}}});
+    const auto concave = decode_cooked_tile_set(cook_tile_set(concave_source), source.asset(), 3);
+    for (std::uint32_t flags = 0; flags < 8; ++flags) {
+        const Cells cells{{{selected_layer, {0, 0}}, {{0, {2, 0}}, {1, {3, 0}}, {2, {4, flags}}}}};
+        const auto map = map_value(cells, source.asset());
+        const auto parts = tile_map_collision_geometry(map, concave, selected_layer, 5);
+        require(parts.rectangles.size() == 1 && parts.polygons.size() == 4,
+                "Concave tile did not retain its four pieces beside FullCell/None");
+        const auto draw = tile_draw_values(concave, 4, flags, 16, 16);
+        for (unsigned y = 0; y < 8; ++y)
+            for (unsigned x = 0; x < 8; ++x) {
+                const std::array<double, 2> point{(x + .5) / 8, (y + .5) / 8};
+                auto uv = std::array{point[0], 1 - point[1]};
+                if (draw.sprite.transpose_uv)
+                    std::swap(uv[0], uv[1]);
+                for (unsigned axis = 0; axis < 2; ++axis)
+                    uv[axis] =
+                        draw.sprite.region.origin[axis] + uv[axis] * draw.sprite.region.scale[axis];
+                const bool filled = uv[0] < .5 || (1 - uv[1]) < .5;
+                bool hit = false;
+                for (const auto& piece : parts.polygons) {
+                    require(piece.count == 3 && piece.origin == TileCellAddress{2, 0},
+                            "Concave piece escaped its existing cell address");
+                    const auto& a = piece.points[0];
+                    const auto& b = piece.points[1];
+                    const auto& c = piece.points[2];
+                    const double denominator =
+                        (b[1] - c[1]) * (a[0] - c[0]) + (c[0] - b[0]) * (a[1] - c[1]);
+                    const double u =
+                        ((b[1] - c[1]) * (point[0] - c[0]) + (c[0] - b[0]) * (point[1] - c[1])) /
+                        denominator;
+                    const double v =
+                        ((c[1] - a[1]) * (point[0] - c[0]) + (a[0] - c[0]) * (point[1] - c[1])) /
+                        denominator;
+                    hit |= u >= -1e-12 && v >= -1e-12 && u + v <= 1 + 1e-12;
+                }
+                require(hit == filled,
+                        "Concave pieces disagree with actual flipped/transposed artwork");
+            }
+        reject([&] { (void)tile_map_collision_geometry(map, concave, selected_layer, 4); });
+    }
+    Cells filled;
+    for (std::uint32_t slot = 0; slot < 1024; ++slot)
+        filled[{selected_layer, {0, 0}}][slot] = {4, slot % 8};
+    require(tile_map_collision_geometry(map_value(filled, source.asset()), concave, selected_layer)
+                    .polygons.size() == 4096,
+            "Maximum decomposed convex-piece budget rejected");
+    filled[{selected_layer, {1, 0}}][0] = {4, 0};
+    reject([&] {
+        (void)tile_map_collision_geometry(map_value(filled, source.asset()), concave,
+                                          selected_layer);
+    });
+    const auto convex_envelope =
+        asset_detail::decode_envelope(cook_tile_set(source), tile_set_cooked_magic,
+                                      tile_set_cooked_metadata_limit, 0, tile_set_cooked_version);
+    const auto old_convex = decode_cooked_tile_set(
+        asset_detail::encode_envelope(convex_envelope.metadata, {}, tile_set_cooked_magic,
+                                      tile_set_cooked_metadata_limit, 2),
+        source.asset(), 2);
+    require(old_convex.tile(4).collision == definitions.tile(4).collision,
+            "Legacy cooked2 convex data changed");
+    const auto polygon_envelope =
+        asset_detail::decode_envelope(cook_tile_set(concave_source), tile_set_cooked_magic,
+                                      tile_set_cooked_metadata_limit, 0, tile_set_cooked_version);
+    reject([&] {
+        (void)decode_cooked_tile_set(
+            asset_detail::encode_envelope(polygon_envelope.metadata, {}, tile_set_cooked_magic,
+                                          tile_set_cooked_metadata_limit, 2),
+            source.asset(), 2);
+    });
     source.document["version"] = 1; // All collision fields are opaque in this legacy source.
     const auto legacy = decode_cooked_tile_set(cook_tile_set(source), source.asset());
     const Cells cells{{{selected_layer, {-1, 0}}, {{0, {2, 0}}, {1, {3, 4}}, {2, {4, 7}}}}};

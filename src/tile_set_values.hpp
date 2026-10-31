@@ -16,7 +16,7 @@ struct TileSetImage {
     AssetRef<MaterialAsset> material;
     SpriteGridLayout grid;
 };
-enum class TileCollisionKind { FullCell, None, Convex };
+enum class TileCollisionKind { FullCell, None, Convex, Polygon };
 struct TileCollisionProfile {
     TileCollisionKind kind = TileCollisionKind::FullCell;
     // Unit cell in local XY, counterclockwise; physical scale is admitted later.
@@ -62,7 +62,7 @@ template <class Scalar> int tile_collision_winding(std::span<const std::array<Sc
 // Shared value admission. Source owns unknown fields/allocation history;
 // the cooked decoder separately requires exactly its runtime fields.
 TileSetRows decode_tile_set_rows(const nlohmann::json& images, const nlohmann::json& tiles,
-                                 bool collision_profiles = false);
+                                 std::uint32_t profile_version = 1);
 nlohmann::json tile_collision_json(const TileCollisionProfile&);
 } // namespace tile_detail
 } // namespace forge

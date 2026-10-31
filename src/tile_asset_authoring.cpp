@@ -81,7 +81,7 @@ Snapshot capture(const AssetImportRequest& request, bool map, std::stop_token st
     input.importer = map ? tile_map_importer_id : tile_set_importer_id;
     input.importer_revision = map ? tile_map_recipe_revision() : tile_set_recipe_revision();
     input.output_format = map ? tile_map_cooked_format : tile_set_cooked_format;
-    input.output_version = map ? 1 : 2;
+    input.output_version = map ? 1 : tile_set_cooked_version;
     input.platform = request.target.platform;
     input.backend = request.target.backend;
     input.profile = request.target.profile;
@@ -151,7 +151,7 @@ class TileImporter final : public AssetImporter {
                   d.source_kinds = {map ? "forge.tile-map" : "forge.tile-set"};
                   d.output_types = {map ? TileMapAsset::type : TileSetAsset::type};
                   d.output_format = map ? tile_map_cooked_format : tile_set_cooked_format;
-                  d.output_version = map ? 1 : 2;
+                  d.output_version = map ? 1 : tile_set_cooked_version;
                   d.targets = {{"windows", "d3d12", "desktop"}, {"linux", "none", "cpu"}};
                   d.execution = ImportExecution::IsolatedProcess;
                   const auto limits = asset_detail::tile_worker_limits();
@@ -223,8 +223,8 @@ class TileImporter final : public AssetImporter {
         const auto envelope = asset_detail::decode_envelope(
             bytes, map_ ? tile_map_cooked_magic : tile_set_cooked_magic,
             map_ ? tile_map_cooked_metadata_limit : tile_set_cooked_metadata_limit,
-            map_ ? tile_map_cooked_payload_limit : 0, map_ ? 1 : 2);
-        require(envelope.version == (map_ ? 1u : 2u),
+            map_ ? tile_map_cooked_payload_limit : 0, map_ ? 1 : tile_set_cooked_version);
+        require(envelope.version == (map_ ? 1u : tile_set_cooked_version),
                 "Tile candidate output version differs from its current recipe");
         const auto id = envelope.metadata.at("asset_id").get<AssetId>();
         if (map_)
@@ -236,14 +236,14 @@ class TileImporter final : public AssetImporter {
 void publish(AssetPublicationCandidate& candidate, const AssetImportPlan& plan, bool map) {
     const auto& source_schema = plan.data.at("source_schema_version");
     require(source_schema.is_number_integer() && source_schema >= 1 &&
-                source_schema <= (map ? 1 : 2),
+                source_schema <= (map ? 1 : tile_set_source_version),
             "Tile source schema version is unsupported");
     require(plan.input.importer == (map ? tile_map_importer_id : tile_set_importer_id) &&
                 plan.input.importer_revision ==
                     (map ? tile_map_recipe_revision() : tile_set_recipe_revision()) &&
                 plan.input.output_format ==
                     (map ? tile_map_cooked_format : tile_set_cooked_format) &&
-                plan.input.output_version == (map ? 1u : 2u) &&
+                plan.input.output_version == (map ? 1u : tile_set_cooked_version) &&
                 candidate.input.document() == plan.input.document() &&
                 plan.data.at("asset").get<AssetId>() == candidate.ticket.owner &&
                 plan.data.at("map").get<bool>() == map &&

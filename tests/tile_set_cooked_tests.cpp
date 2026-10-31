@@ -92,8 +92,8 @@ void values() {
 void malformed() {
     const auto source = example();
     const auto bytes = cook_tile_set(source);
-    const auto envelope = asset_detail::decode_envelope(bytes, tile_set_cooked_magic,
-                                                        tile_set_cooked_metadata_limit, 0, 2);
+    const auto envelope = asset_detail::decode_envelope(
+        bytes, tile_set_cooked_magic, tile_set_cooked_metadata_limit, 0, tile_set_cooked_version);
     const auto bad = [&](const auto& mutate) {
         auto metadata = envelope.metadata;
         mutate(metadata);
@@ -132,7 +132,7 @@ void collision_profiles() {
     source.set_collision(7, {{"kind", "convex"}, {"points", {{0., 0.}, {1., 0.}, {1., 1.}}}});
     source.set_collision(9, {{"kind", "none"}, {"source_only", "COLLISION_EXTENSION"}});
     const auto bytes = cook_tile_set(source);
-    const auto data = decode_cooked_tile_set(bytes, source.asset(), 2);
+    const auto data = decode_cooked_tile_set(bytes, source.asset(), tile_set_cooked_version);
     require(data.tile(7).collision.kind == TileCollisionKind::Convex &&
                 data.tile(7).collision.points ==
                     std::vector<std::array<double, 2>>{{0, 0}, {1, 0}, {1, 1}} &&
@@ -144,10 +144,35 @@ void collision_profiles() {
     const auto copy = data;
     require(copy.tile(7).collision.points.data() == data.tile(7).collision.points.data(),
             "Immutable collision copy duplicated geometry");
+    const auto current = asset_detail::decode_envelope(
+        bytes, tile_set_cooked_magic, tile_set_cooked_metadata_limit, 0, tile_set_cooked_version);
+    const auto version_two = asset_detail::encode_envelope(
+        current.metadata, {}, tile_set_cooked_magic, tile_set_cooked_metadata_limit, 2);
+    require(decode_cooked_tile_set(version_two, source.asset(), 2).tile(7).collision ==
+                data.tile(7).collision,
+            "Previous cooked2 convex profile changed");
+    source.set_collision(
+        7, {{"kind", "polygon"},
+            {"points", {{0., 0.}, {1., 0.}, {1., .5}, {.5, .5}, {.5, 1.}, {0., 1.}}}});
+    const auto concave = cook_tile_set(source);
+    require(decode_cooked_tile_set(concave, source.asset(), tile_set_cooked_version)
+                    .tile(7)
+                    .collision == source.values().tiles[1].collision,
+            "Current cooked3 concave contour changed");
+    reject([&] { (void)decode_cooked_tile_set(concave, source.asset(), 2); });
+    const auto contour = asset_detail::decode_envelope(
+        concave, tile_set_cooked_magic, tile_set_cooked_metadata_limit, 0, tile_set_cooked_version);
+    reject([&] {
+        (void)decode_cooked_tile_set(
+            asset_detail::encode_envelope(contour.metadata, {}, tile_set_cooked_magic,
+                                          tile_set_cooked_metadata_limit, 2),
+            source.asset(), 2);
+    });
     const auto ordinary = example();
-    auto root = asset_detail::decode_envelope(cook_tile_set(ordinary), tile_set_cooked_magic,
-                                              tile_set_cooked_metadata_limit, 0, 2)
-                    .metadata;
+    auto root =
+        asset_detail::decode_envelope(cook_tile_set(ordinary), tile_set_cooked_magic,
+                                      tile_set_cooked_metadata_limit, 0, tile_set_cooked_version)
+            .metadata;
     for (auto& row : root["tiles"])
         row.erase("collision");
     const auto legacy = asset_detail::encode_envelope(root, {}, tile_set_cooked_magic,
@@ -159,10 +184,10 @@ void collision_profiles() {
     reject([&] { (void)decode_cooked_tile_set(legacy, ordinary.asset(), 2); });
     auto opaque = ordinary;
     opaque.document["tiles"][0]["collision"] = {{"kind", "none"}};
-    require(
-        decode_cooked_tile_set(cook_tile_set(opaque), opaque.asset(), 2).tile(9).collision.kind ==
-            TileCollisionKind::FullCell,
-        "Legacy opaque source collision acquired physical meaning when cooking");
+    require(decode_cooked_tile_set(cook_tile_set(opaque), opaque.asset(), tile_set_cooked_version)
+                    .tile(9)
+                    .collision.kind == TileCollisionKind::FullCell,
+            "Legacy opaque source collision acquired physical meaning when cooking");
 }
 void maximum() {
     auto source = TileSetSource::create(AssetId::generate());

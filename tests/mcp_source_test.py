@@ -78,6 +78,31 @@ for legacy in (False, True):
         kinds.sort(key=lambda item: item['editor'] == 'tile_map')
         if COLLISION_ONLY:
             kinds = [kind for kind in kinds if kind['editor'] in ('tile_set', 'tile_map')]
+        image_material = '00000000-0000-4000-8000-000000000021'
+        def save_published(owner):
+            result = edit('forge_asset_document_save', owner)
+            assert result['ok'], result
+            end = time.monotonic() + 35
+            while True:
+                settled = status(owner)
+                if not settled['save_requested'] and not settled['publishing']:
+                    break
+                assert time.monotonic() < end, settled
+                time.sleep(.02)
+            assert not settled['dirty'] and not settled['unpublished'] and not settled['diagnostic'], settled
+            return settled
+        if COLLISION_ONLY:
+            # FORGE's own unlit image fixture references the immutable engine White
+            # texture, so every dependent source is created/published through MCP.
+            fixture = Path(__file__).resolve().parents[1]/'samples/projects/FeatureGallery/Assets/Physics2D/Solid.material.json'
+            overrides = json.loads(fixture.read_text(encoding='utf-8'))['overrides']
+            result = mutate('forge_asset_document_create', editor='material', path='Assets/MCP-TileImage.material.json')
+            assert result['ok'], result
+            assert edit('forge_asset_document_patch', 'material',
+                        patch=[dict(op='add', path='/overrides', value=overrides)])['ok']
+            image_material = content('material')['asset_id']
+            save_published('material')
+            assert edit('forge_asset_document_close', 'material')['ok']
         set_id = None
         for kind in kinds:
             owner = kind['editor']
@@ -123,7 +148,7 @@ for legacy in (False, True):
                 tile = 2**64 - 2
                 rows = [dict(op='replace', path='/next_id', value=2**64 - 1),
                         dict(op='add', path='/images/-', value=dict(id=1, name='Image',
-                             material='00000000-0000-4000-8000-000000000021',
+                             material=image_material,
                              grid=dict(columns=1, rows=1, margin_x=0, margin_y=0, spacing_x=0, spacing_y=0))),
                         dict(op='add', path='/tiles/-', value=dict(id=tile, name='Ramp', image=1, frame=0))]
                 assert edit('forge_asset_document_patch', owner, patch=rows)['ok']
@@ -147,6 +172,28 @@ for legacy in (False, True):
                 assert not edit('forge_asset_document_tile_collision', owner, tile=tile-1, collision=collision)['ok']
                 assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == seeded
                 assert edit('forge_asset_document_redo', owner)['ok'] and content(owner) == promoted
+                polygon = dict(kind='polygon', points=[[0, 0], [1, 0], [1, .5],
+                                                       [.5, .5], [.5, 1], [0, 1]])
+                result = edit('forge_asset_document_tile_collision', owner, tile=tile, collision=polygon)
+                assert result['ok'], result
+                concave = content(owner)
+                assert concave['version'] == 3 and concave['tiles'][0]['collision'] == polygon
+                for bad in (dict(kind='polygon', points=[[0, 0], [1, 1], [0, 1], [1, 0]]),
+                            dict(kind='polygon', points=[[0, 0], [1, 0], [1, 1], [.5, 0], [0, 1]]),
+                            dict(kind='polygon', points=[[0, 0], [.5, 0], [1, 0], [1, 1], [0, 1]])):
+                    revision = status(owner)['revision']
+                    assert not edit('forge_asset_document_tile_collision', owner, tile=tile, collision=bad)['ok']
+                    assert content(owner) == concave and status(owner)['revision'] == revision
+                if COLLISION_ONLY:
+                    save_published(owner)
+                    saved = json.loads((root/'Game'/path).read_text(encoding='utf-8'))
+                    assert saved == concave and saved['version'] == 3
+                    catalog = json.loads((root/'Game/forge.assets.json').read_text(encoding='utf-8'))
+                    record = next(row for row in catalog['assets'] if row['id'] == set_id)
+                    assert record['schema_version'] == 3 and record['metadata']['forge.import']['output_version'] == 3
+                assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == promoted
+                assert edit('forge_asset_document_redo', owner)['ok'] and content(owner) == concave
+                assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == promoted
                 assert edit('forge_asset_document_tile_collision', owner, tile=tile, collision=dict(kind='none'))['ok']
                 assert content(owner)['tiles'][0]['collision'] == dict(kind='none')
                 assert edit('forge_asset_document_undo', owner)['ok']

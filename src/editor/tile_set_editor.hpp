@@ -491,12 +491,12 @@ class TileSetEditor {
             collision_dirty_ = false;
         }
         ImGui::SeparatorText("Tile collision");
-        const char* labels[]{"Full cell", "None", "Convex polygon"};
+        const char* labels[]{"Full cell", "None", "Convex polygon", "Polygon (decomposed)"};
         if (ImGui::BeginCombo("Shape", labels[unsigned(collision_draft_.kind)])) {
-            for (unsigned i = 0; i < 3; ++i) {
+            for (unsigned i = 0; i < std::size(labels); ++i) {
                 if (ImGui::Selectable(labels[i], unsigned(collision_draft_.kind) == i)) {
                     collision_draft_.kind = TileCollisionKind(i);
-                    if (i == 2 && collision_draft_.points.empty())
+                    if (i >= 2 && collision_draft_.points.empty())
                         collision_draft_.points = {{0, 0}, {1, 0}, {1, 1}};
                     collision_dirty_ = true;
                 }
@@ -505,7 +505,8 @@ class TileSetEditor {
             ImGui::EndCombo();
         }
         FORGE_UI_PROBE("tile_set:collision_kind");
-        if (collision_draft_.kind == TileCollisionKind::Convex) {
+        if (collision_draft_.kind == TileCollisionKind::Convex ||
+            collision_draft_.kind == TileCollisionKind::Polygon) {
             ImGui::TextWrapped("Local XY: X right, Y up, from 0 to 1. Enter 3 to 8 points "
                                "counterclockwise. Press Enter to finish each coordinate edit.");
             const float side =
@@ -582,7 +583,8 @@ class TileSetEditor {
         if (ui::button("Apply collision",
                        "Validate and apply the complete profile in one Undo step.")) {
             auto profile = collision_draft_;
-            if (profile.kind != TileCollisionKind::Convex)
+            if (profile.kind != TileCollisionKind::Convex &&
+                profile.kind != TileCollisionKind::Polygon)
                 profile.points.clear();
             mutate("Change tile collision", [&](auto& source) {
                 TileSetSource candidate{source};

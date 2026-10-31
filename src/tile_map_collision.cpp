@@ -1,4 +1,5 @@
 #include "tile_map_collision.hpp"
+#include "tile_polygon_decomposition.hpp"
 #include <algorithm>
 #include <map>
 
@@ -85,10 +86,9 @@ TileMapCollisionGeometry tile_map_collision_geometry(const TileMapData& map,
             if (!cell.tile)
                 continue;
             const auto& profile = definitions.tile(cell.tile).collision;
-            if (profile.kind != TileCollisionKind::Convex)
+            if (profile.kind != TileCollisionKind::Convex &&
+                profile.kind != TileCollisionKind::Polygon)
                 continue;
-            if (result.rectangles.size() + result.polygons.size() == limit)
-                throw std::runtime_error("Tile Map collision shape capacity exceeded");
             TileMapCollisionPolygon polygon;
             polygon.origin = tile_cell_address({key.address, slot});
             polygon.count = profile.points.size();
@@ -104,7 +104,23 @@ TileMapCollisionGeometry tile_map_collision_geometry(const TileMapData& map,
                     std::swap(uv[0], uv[1]);
                 polygon.points[i] = {uv[0], 1 - uv[1]};
             }
-            result.polygons.push_back(polygon);
+            const auto append = [&](const TileMapCollisionPolygon& value) {
+                if (result.rectangles.size() + result.polygons.size() == limit)
+                    throw std::runtime_error("Tile Map collision shape capacity exceeded");
+                result.polygons.push_back(value);
+            };
+            if (profile.kind == TileCollisionKind::Convex) {
+                append(polygon);
+            } else {
+                for (const auto& indices : tile_detail::tile_polygon_triangles(profile.points)) {
+                    TileMapCollisionPolygon piece;
+                    piece.origin = polygon.origin;
+                    piece.count = indices.size();
+                    for (std::size_t i = 0; i < indices.size(); ++i)
+                        piece.points[i] = polygon.points[indices[i]];
+                    append(piece);
+                }
+            }
         }
     });
     return result;

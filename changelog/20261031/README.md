@@ -1,5 +1,35 @@
 # 2026-10-31
 
+## Concave tile collision
+
+Tile Set collision adds Polygon(decomposed): one simple counterclockwise outline
+with3–8 unit-cell vertices. A bounded deterministic triangle decomposition preserves
+inward L/U notches. Existing strict Convex admission and merged FullCell rectangles
+remain unchanged. Pieces share the existing Static/Kinematic native body, sensor,
+query, controller, last-good publication and4096shape budget. Holes/multiple contours,
+Dynamic Maps and custom-polygon one-way response remain unsupported.
+
+Source3, cooked3 and recipe3 retain1/2reads, source identity/allocator/history and
+legacy opaque-field guards. Copied Play definitions carry nested version3 through
+the existing transfer/receiver. Public SDK layouts and checkpoint fields stay
+unchanged; changed value-support code updates the existing exact SDK fingerprint,
+so matching native modules must rebuild.
+
+Inspector and the existing automation/MCP collision operation use the same source
+owner, validation, revisions, permissions, history and publication. Gallery120 adds
+an original L/U atlas and five assets, preserving all317prior catalog records and
+119prior Scene sources. Native upper/notch landing, relocated source-free playback,
+four exact Game display pairs and an installed-only relocated SDK consumer pass.
+Authentic Inspector/Game captures accompany the usage guide. Windows/full-editor,
+physical input/GPU and graphical exported-EXE acceptance remain pending; no numbered
+package accompanies this local source.
+
+Twenty-eight selected strict units and13consumer links pass. Twelve CPU/UI/MCP /
+runtime consumers exit cleanly with unsuppressed ASan/UBSan; the native Gallery
+finishes functionally and retains the exact known unresolved184-byte shutdown
+allocation condition. Normal and strict Gallery displays are identical. Offline
+manual/package fixtures and protected-source checks pass.
+
 ## Moving one-way platforms
 
 Kinematic nonsensor Boxes and full-cell Tile Maps can use One-way collision.

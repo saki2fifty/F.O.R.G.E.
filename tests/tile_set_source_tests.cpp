@@ -112,7 +112,7 @@ void bad_values() {
         reject([&] { source.validate(); });
         reject([&] { (void)roundtrip(source); });
     };
-    test([](auto& j) { j["version"] = 3; });
+    test([](auto& j) { j["version"] = 4; });
     test([](auto& j) { j["version"] = 1.; });
     test([](auto& j) { j["format"] = "other"; });
     test([](auto& j) { j["asset_id"] = nullptr; });
@@ -272,6 +272,70 @@ void collision_values(const std::filesystem::path& root) {
     TileSetDocument reopened(lease, "Collision.tileset.json");
     require(reopened.source().document == promoted, "Saved collision profile changed");
 }
+void concave_collision_values(const std::filesystem::path& root) {
+    const Json profile{{"kind", "polygon"},
+                       {"points", {{0., 0.}, {1., 0.}, {1., .5}, {.5, .5}, {.5, 1.}, {0., 1.}}}};
+    const auto baseline = example();
+    auto source = baseline;
+    source.set_collision(2, profile);
+    const auto parsed = roundtrip(source);
+    require(parsed.document == source.document && source.document.at("version") == 3 &&
+                parsed.asset() == baseline.asset() &&
+                parsed.values().next_id == baseline.values().next_id &&
+                parsed.values().tiles[0].collision.kind == TileCollisionKind::Polygon &&
+                parsed.values().tiles[0].collision.points.size() == 6 &&
+                parsed.document.at("opaque/~root") == baseline.document.at("opaque/~root"),
+            "Concave profile promotion changed source identity/opaque data or lost points");
+    auto old = source;
+    old.document["version"] = 2;
+    reject([&] { old.validate(); });
+    auto legacy = baseline;
+    legacy.document["tiles"][1]["collision"] = {{"unknown", "preserve"}};
+    const auto opaque = legacy.document;
+    reject([&] { legacy.set_collision(2, profile); });
+    require(legacy.document == opaque, "Concave promotion reinterpreted legacy collision data");
+    source.document["tiles"][0]["collision"]["opaque"] = {"retained", UINT64_MAX};
+    source.set_collision(2, {{"kind", "none"}});
+    require(source.document.at("version") == 3 &&
+                source.document.at("tiles")[0]["collision"]["opaque"] ==
+                    Json({"retained", UINT64_MAX}) &&
+                !source.document.at("tiles")[0]["collision"].contains("points"),
+            "Changing concave kind downgraded source or lost opaque values");
+    source.set_collision(2, {{"kind", "convex"}, {"points", {{0., 0.}, {1., 0.}, {0., 1.}}}});
+    require(source.document.at("version") == 3, "Convex edit downgraded a Source3 document");
+    for (const Json& points : std::vector<Json>{{{0., 0.}, {1., 0.}},
+                                                {{0., 0.}, {1., 1.}, {0., 1.}, {1., 0.}},
+                                                {{0., 0.}, {1., 0.}, {1., 1.}, {.5, 0.}, {0., 1.}},
+                                                {{0., 0.}, {.5, 0.}, {1., 0.}, {1., 1.}, {0., 1.}},
+                                                {{0., 0.}, {0., 1.}, {1., 0.}},
+                                                {{0., 0.}, {1., 0.}, {1., 1.}, {0., 0.}},
+                                                {{0., 0.}, {1., false}, {0., 1.}}}) {
+        auto candidate = baseline;
+        reject([&] { candidate.set_collision(2, {{"kind", "polygon"}, {"points", points}}); });
+        require(candidate.document == baseline.document, "Rejected simple polygon changed source");
+    }
+    auto lease = std::make_shared<ProjectLease>(root);
+    auto doc = TileSetDocument::create(lease, "Concave.tileset.json");
+    doc->edit(doc->revision(), "Original values", [&](auto& j) {
+        j = baseline.document;
+        j["asset_id"] = doc->source().asset();
+    });
+    const auto original = doc->source().document;
+    doc->edit(doc->revision(), "Concave tile", [&](auto& j) {
+        TileSetSource candidate{j};
+        candidate.set_collision(2, profile);
+        j = std::move(candidate.document);
+    });
+    const auto promoted = doc->source().document;
+    doc->undo();
+    require(doc->source().document == original, "Concave Undo lost exact old source");
+    doc->redo();
+    require(doc->source().document == promoted, "Concave Redo lost exact promoted source");
+    reject([&] { doc->edit(doc->revision(), "Downgrade", [](auto& j) { j["version"] = 2; }); });
+    doc->save();
+    TileSetDocument reopened(lease, "Concave.tileset.json");
+    require(reopened.source().document == promoted, "Saved concave profile changed on reopen");
+}
 } // namespace
 int main(int argc, char** argv) {
     try {
@@ -282,6 +346,7 @@ int main(int argc, char** argv) {
         std::filesystem::create_directories(root);
         document(root);
         collision_values(root);
+        concave_collision_values(root);
         std::filesystem::remove_all(root);
         std::cout << "Internal Tile Set source values, limits, identity/history and opaque "
                      "preservation passed\n";

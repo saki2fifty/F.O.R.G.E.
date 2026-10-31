@@ -1,5 +1,31 @@
 # README screenshots
 
+## Concave tile outlines
+
+[Concave controls](../../../manual/images/concave-tile-controls.png) is an
+unretouched760×1100 production TileSetEditor Inspector capture at1x using software
+SDL/ImGui. Polygon(decomposed) is applied with six numbered L-shaped vertices and
+the actual editable coordinate table. Separate actual selector/typed-input/history
+checks cover the existing six viewport/scale pairs.
+PNG SHA256:`b2ea44534f89861807e293a5239cc3da21cf655868273a616511ff47df2b1498`.
+
+[Concave Game](../../../manual/images/concave-tile-gallery.png) is the complete
+640×360 FrameRenderer Game display after90fixed60Hzsteps, Scene
+`0dd80adc-f80b-45a7-81e7-22ca6fb7b6c7`. The original L/U atlas matches the
+source collision contours. Amber/rose rest on upper edges; cyan/green rest inside
+the notches. PPM-to-PNG conversion preserves every RGB pixel. Four source/relocated
+display pairs match exactly with the source offline. The portrait crop has nine
+distinct colors, so its scoped flat-color check requires seven; the older textured
+course retains its21-color requirement and passes the shared capture helper.
+PNG SHA256:`a3505d4e8dd9352ac6608623d12e21b10774f68cb99a73128b68d821ac0c449b`.
+
+Captured31October2026, GCC12Release, local source based onff0033a plus the
+concave-tile extension. Game rendering uses software Vulkan/lavapipe. Exact private
+source/executable/pixel receipts are in
+`AgentFiles/build/phase199-concave-tile-collision`. These are actual shared Inspector
+and Game captures, not full docked-editor, Windows/D3D12, physical input/DPI/GPU or
+graphical exported-executable acceptance.
+
 ## Moving one-way platforms
 
 [Moving one-way controls](../../../manual/images/moving-one-way-controls.png) is

@@ -1,4 +1,5 @@
 #pragma once
+#include "tile_asset_types.hpp"
 #include "tile_set_values.hpp"
 #include <cstdint>
 #include <forge/asset_ref.hpp>

@@ -19,7 +19,8 @@ template <class F> void rejects(F action) {
     }
     throw std::runtime_error("Malformed tile presentation was accepted");
 }
-inline TileSetData definitions(AssetId id, bool collision_profiles = false) {
+inline TileSetData definitions(AssetId id, bool collision_profiles = false,
+                               bool concave_profile = false) {
     Json root{{"asset_id", id},
               {"images",
                {{{"id", 1},
@@ -40,9 +41,15 @@ inline TileSetData definitions(AssetId id, bool collision_profiles = false) {
                                          {"points", {{0., 0.}, {1., 0.}, {1., 1.}}}};
         root["tiles"][1]["collision"] = {{"kind", "none"}};
     }
+    if (concave_profile)
+        root["tiles"][0]["collision"] = {
+            {"kind", "polygon"},
+            {"points", {{0., 0.}, {1., 0.}, {1., .5}, {.5, .5}, {.5, 1.}, {0., 1.}}}};
     return decode_cooked_tile_set(asset_detail::encode_envelope(root, {}, tile_set_cooked_magic,
                                                                 tile_set_cooked_metadata_limit,
-                                                                collision_profiles ? 2 : 1),
+                                                                concave_profile      ? 3
+                                                                : collision_profiles ? 2
+                                                                                     : 1),
                                   id);
 }
 inline TileMapData profile(AssetId id, AssetId set, unsigned count, unsigned occupied,

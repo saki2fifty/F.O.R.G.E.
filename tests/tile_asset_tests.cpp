@@ -6,6 +6,7 @@
 #include "editor/content_model.hpp"
 #include "material_authoring.hpp"
 #include "material_selection.hpp"
+#include "physics_tile_concave_tests.hpp"
 #include "physics_tile_map_tests.hpp"
 #include "physics_tile_polygon_tests.hpp"
 #include "runtime_package.hpp"
@@ -778,13 +779,13 @@ void collision_profile_publication(const std::filesystem::path& root,
     const auto catalog = std::make_shared<const AssetCatalog>(AssetCatalog::open_project(root));
     const auto& record = catalog->records().at(source.asset());
     require(record.schema_version == 2 &&
-                record.metadata.at("forge.import").at("output_version") == 2,
+                record.metadata.at("forge.import").at("output_version") == tile_set_cooked_version,
             "Collision publication source/cook versions differ");
     require(catalog->resolve(source.asset(), TileSetAsset::type).state == AssetState::Available,
             "Catalog did not admit the supported Tile Set source schema2");
     auto invalid_catalog = *catalog;
     auto future = record;
-    future.schema_version = 3;
+    future.schema_version = tile_set_source_version + 1;
     invalid_catalog.replace(future);
     require(invalid_catalog.resolve(source.asset(), TileSetAsset::type).state ==
                 AssetState::Incompatible,
@@ -808,6 +809,7 @@ void collision_profile_publication(const std::filesystem::path& root,
     artifact.manifest["inputs"]["output_version"] = 1;
     reject([&] { (void)admit_tile_set_artifact(artifact, mismatch); });
     test_tile_polygon_runtime(root, lease, worker, source.asset());
+    test_concave_tile_runtime(root, lease, worker, image_material);
 }
 void workflow(const std::filesystem::path& root, const std::filesystem::path& worker,
               const std::filesystem::path& sdk_library) {

@@ -8,6 +8,7 @@ inline constexpr std::array<std::byte, 8> tile_set_cooked_magic{
     std::byte{'F'}, std::byte{'T'}, std::byte{'I'}, std::byte{'L'},
     std::byte{'E'}, std::byte{'S'}, std::byte{'E'}, std::byte{'T'}};
 inline constexpr std::size_t tile_set_cooked_metadata_limit = 2 * 1024 * 1024;
+inline constexpr std::uint32_t tile_set_cooked_version = 3;
 class TileSetData {
   public:
     AssetId asset() const;

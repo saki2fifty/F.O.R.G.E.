@@ -1,0 +1,43 @@
+{
+  "build_inputs": {
+    "backend": "none",
+    "dependencies": [
+      {
+        "kind": "runtime",
+        "revision": "ecbfae3e1fa732caff2ec3c199903fbf7e4d30f153f8609dc82ec42c2141993d",
+        "role": "material.texture:baseColorTexture",
+        "target": "dba4a73b-12db-4966-9af6-320ba97c940c",
+        "type": "texture"
+      }
+    ],
+    "importer": "forge.material.builtin",
+    "importer_revision": "ce411c4c3dba9f1c80d6a4696e12f0995af81d787ed87012dc57def7a19f5c98",
+    "key_version": 1,
+    "output_format": "forge.material-bundle",
+    "output_version": 2,
+    "platform": "linux",
+    "profile": "cpu",
+    "settings": {},
+    "settings_version": 1,
+    "source": "2cb282e48d598896d737320ce8a06a764e7a237e115eca6555ba90ff534d3314",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.material.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "16a96cb9-c86b-4238-8f7d-fe3f359b0402",
+    "source": "Assets/Tiles/ConcaveTiles.material.json",
+    "source_digest": "2cb282e48d598896d737320ce8a06a764e7a237e115eca6555ba90ff534d3314",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.material.builtin",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

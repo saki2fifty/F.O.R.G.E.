@@ -81,15 +81,16 @@ Json tile_map_projection_header(const TileMapData& map, const TileSetData& defin
             "Tile presentation definitions have a different root");
     return {{"map", map_metadata(map)},
             {"definitions", set_metadata(definitions)},
-            {"definitions_version", 2}};
+            {"definitions_version", tile_set_cooked_version}};
 }
 TileMapProjectionHeader decode_tile_map_projection_header(const Json& header, AssetId map,
                                                           AssetId definitions) {
     require(header.is_object() &&
                 header.size() == (header.contains("definitions_version") ? 3u : 2u),
             "Invalid Tile presentation header");
-    const auto version =
-        header.contains("definitions_version") ? natural(header.at("definitions_version"), 2) : 1;
+    const auto version = header.contains("definitions_version")
+                             ? natural(header.at("definitions_version"), tile_set_cooked_version)
+                             : 1;
     require(version >= 1, "Unsupported Tile presentation definition version");
     auto metadata = header.at("map");
     TileMapProjectionHeader result;

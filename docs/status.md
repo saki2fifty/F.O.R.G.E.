@@ -5,6 +5,25 @@ The accepted local Windows package is **261024-000213**, source
 in the [README](../README.md#current-implementation). No new numbered Windows
 package accompanies the local source changes described here.
 
+Local source adds simple concave Tile Set outlines through Polygon(decomposed).
+One3–8point counterclockwise outline decomposes into bounded triangles while old
+Convex/default profiles retain their meaning. Source/cooked/recipe3 preserve1/2
+reads, source identity/history and the existing Map/native/recovery owners. Pieces
+share the total4096shape budget. Inspector, automation/MCP, copied Play and ordinary
+publication use the same source operations. Gallery120 supplies original L/U
+artwork and upper/notch landing lanes, with317prior records and119prior Scene
+sources unchanged. Native gameplay, source-free relocation, four exact software
+Vulkan display pairs, both real Play hosts and an installed SDK consumer pass.
+Twenty-eight selected strict units feed13consumer links;12CPU/UI/MCP/runtime
+consumers exit cleanly under unsuppressed ASan/UBSan. The native renderer finishes
+functionally and retains the exact known unresolved184-byte shutdown condition.
+Offline manual/package fixtures and source preservation checks pass.
+Public SDK layouts and private checkpoint fields remain unchanged; exact native
+modules must rebuild for changed value-support identity. Holes/multiple contours,
+Dynamic Maps and custom-polygon one-way remain unavailable. Windows/full-editor,
+physical input/GPU and graphical exported-EXE acceptance remain pending. See the
+[contract](tilemap-foundation.md) and [guide](../manual/editor/tile-maps.md).
+
 Local source admits moving one-way Kinematic nonsensor Boxes and full-cell Tile
 Maps through the existing physics/contact/controller owners. Matching actor and
 platform boundary poses preserve front-side evidence during movement. The same

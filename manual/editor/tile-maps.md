@@ -74,8 +74,8 @@ For your own Map actor:
 3. Choose each tile's collision profile in the Tile Set Inspector, or put decoration in a different layer. Hiding a layer or renderer does not remove collision.
 4. Turn on the Scene collision outline to inspect the selected published layer. Save the Scene, then test with ordinary Dynamic2D bodies.
 
-Maps use full cells or convex polygons with Static or Kinematic bodies. Dynamic
-Maps are unavailable. Static nonsensor Maps using full cells can use the
+Maps use full cells or custom polygons with Static or Kinematic bodies. Dynamic
+Maps are unavailable. Static or Kinematic nonsensor Maps using full cells can use the
 one-way option below. An empty or all-None selected layer has no native shape. Excessively large or complex collision reports a problem and
 keeps the previous working runtime cells and collision.
 
@@ -86,17 +86,37 @@ keeps the previous working runtime cells and collision.
 The diagram shows the applied ramp in local XY coordinates.
 
 1. Open the `.tileset.json` in Content, then select a tile definition.
-2. In Inspector, find **Tile collision**. Set **Shape** to **Full cell**, **None** or **Convex polygon**. Full cells merge with neighboring full cells; None makes the tile decorative.
+2. In Inspector, find **Tile collision**. Set **Shape** to **Full cell**, **None**, **Convex polygon** or **Polygon (decomposed)**. Full cells merge with neighboring full cells; None makes the tile decorative. Choose Polygon (decomposed) for an outline with an inward corner, such as an L or U.
 3. For a polygon, enter 3–8 points in the X/Y table. Coordinates run from 0 to 1 across the cell, with X right and Y up. List points counterclockwise; press Enter after editing a coordinate.
 4. **Add point** appends a point on the closing edge. Move it off that edge before applying. **Remove last point** removes the final vertex. The diagram numbers the current draft points.
-5. Choose **Apply collision** to validate the complete profile in one Undo step. Invalid or nonconvex shapes leave the applied source unchanged. **Discard collision edits** returns to the applied profile. Apply or discard before Save, Undo or selecting another tile.
+5. Choose **Apply collision** to validate the complete profile in one Undo step. Invalid shapes leave the applied source unchanged. Convex polygon also rejects inward corners. **Discard collision edits** returns to the applied profile. Apply or discard before Save, Undo or selecting another tile.
 6. Choose **Save / Publish** for the Tile Set, then save and publish each Map that uses it. Return to Scene and enable **Selected collision** on its Map actor to inspect the published shapes. Save the Scene and Play.
 
 Cell flips and transpose also transform custom polygons. Polygons can provide
 ordinary solid or sensor collision; custom polygons cannot use **One-way
 collision**. Use separate Map actors/layers when a scene needs both types.
-Automatic concave decomposition is unavailable. A very small polygon can fail
-physical-scale validation even when its normalized coordinates are valid.
+Polygon (decomposed) fills the area inside one simple outline with triangles,
+leaving inward notches empty. Points must not repeat, cross or touch another
+edge; neighboring edges must not form a straight line. Holes and multiple outlines
+in one tile are unavailable. Each triangle counts against the shared collision
+shape limit, so a detailed outline uses more capacity than a full cell or convex
+polygon. A very small polygon can fail physical-scale validation even when its
+normalized coordinates are valid.
+
+### Try concave collision
+
+![Amber and rose objects rest on the upper edges of blue L and green U tiles while cyan and green circles rest inside their notches](../images/concave-tile-gallery.png)
+
+Open **Scenes/120-concave-tile-collision.scene.json** in the Feature Gallery and
+press Play. Amber and rose objects land on the upper edges; cyan and green objects
+fall into the L and U notches. Stop Play, open
+**Assets/Tiles/ConcaveTiles.tileset.json** and select a tile to edit its outline.
+Publish the Set, then **Assets/Tiles/ConcaveTiles.tilemap.json**, before testing or
+exporting the changed course. Choose the scene as the startup scene to export it.
+
+![Tile Set Inspector with Polygon (decomposed) selected and six editable L-shaped outline points](../images/concave-tile-controls.png)
+
+The numbered outline uses unit-cell coordinates with Y pointing up.
 
 Older sources may contain unrelated extension data named `collision`. A profile
 edit reports a conflict rather than reinterpreting that data. Resolve the named

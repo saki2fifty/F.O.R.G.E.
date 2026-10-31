@@ -61,6 +61,23 @@ int main() {
         view.set_revision = "set-one";
         view.cells = std::make_shared<const TileMapData>(original);
         view.definitions = std::make_shared<const TileSetData>(defs);
+        {
+            auto polygon_view = view;
+            polygon_view.definitions =
+                std::make_shared<const TileSetData>(definitions(set, true, true));
+            polygon_view.set_revision = "concave-three";
+            TileMapPlaySource polygon_source;
+            TileMapPlayReceiver polygon_receiver;
+            polygon_receiver.observe(polygon_source.capture(1, scene, std::span(&polygon_view, 1)));
+            drain(polygon_source, polygon_receiver);
+            const auto copied = bound(polygon_receiver, scene, polygon_view);
+            check(copied.definitions && !copied.pending &&
+                      copied.definitions->tile(9).collision ==
+                          polygon_view.definitions->tile(9).collision &&
+                      copied.definitions->tile(9).collision.kind == TileCollisionKind::Polygon,
+                  "Acknowledged Play receiver lost the concave contour");
+            equal(*copied.cells, original);
+        }
         TileMapPlaySource source;
         TileMapPlayReceiver receiver;
         receiver.observe(source.capture(1, scene, std::span(&view, 1)));

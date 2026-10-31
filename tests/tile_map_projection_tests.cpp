@@ -15,12 +15,30 @@ int main() {
               "Header inlined cells or lost maximum profile counts");
         const auto shaped = definitions(set, true);
         const auto shaped_header = tile_map_projection_header(maximum, shaped);
-        check(shaped_header.at("definitions_version") == 2,
+        check(shaped_header.at("definitions_version") == tile_set_cooked_version,
               "Copied definitions did not declare their profile");
         const auto copied_shapes = decode_tile_map_projection_header(shaped_header, id, set);
         check(copied_shapes.definitions.tile(9).collision == shaped.tile(9).collision &&
                   copied_shapes.definitions.tile(wide).collision.kind == TileCollisionKind::None,
               "Copied Tile Set lost collision profiles");
+        auto old_convex_header = shaped_header;
+        old_convex_header["definitions_version"] = 2;
+        check(decode_tile_map_projection_header(old_convex_header, id, set)
+                      .definitions.tile(9)
+                      .collision == shaped.tile(9).collision,
+              "Legacy version2 copied convex definitions became unreadable");
+        auto concave_header = shaped_header;
+        concave_header["definitions"]["tiles"][0]["collision"] = {
+            {"kind", "polygon"},
+            {"points", {{0., 0.}, {1., 0.}, {1., .5}, {.5, .5}, {.5, 1.}, {0., 1.}}}};
+        const auto concave = decode_tile_map_projection_header(concave_header, id, set);
+        check(concave.definitions.tiles()[0].collision.kind == TileCollisionKind::Polygon &&
+                  concave.definitions.tiles()[0].collision.points.size() == 6,
+              "Copied version3 definitions lost their simple polygon contour");
+        check(tile_map_projection_header(maximum, concave.definitions) == concave_header,
+              "Copied concave definitions do not roundtrip through the existing projection");
+        concave_header["definitions_version"] = 2;
+        rejects([&] { decode_tile_map_projection_header(concave_header, id, set); });
         auto legacy_header = tile_map_projection_header(maximum, defs);
         legacy_header.erase("definitions_version");
         for (auto& tile : legacy_header["definitions"]["tiles"])
@@ -28,7 +46,7 @@ int main() {
         const auto legacy = decode_tile_map_projection_header(legacy_header, id, set);
         check(legacy.definitions.tile(9).collision.kind == TileCollisionKind::FullCell,
               "Legacy copied Tile Set did not retain full-cell behavior");
-        for (const Json& version : {Json(0), Json(3), Json(2.0)}) {
+        for (const Json& version : {Json(0), Json(4), Json(2.0)}) {
             auto invalid = shaped_header;
             invalid["definitions_version"] = version;
             rejects([&] { decode_tile_map_projection_header(invalid, id, set); });

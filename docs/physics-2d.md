@@ -109,9 +109,9 @@ must finish before a new layer choice is offered.
 
 This profile requires a Static or Kinematic PhysicsBody2D. Sensor may be enabled
 for a trigger layer. The Map collider is mutually exclusive with inline colliders.
-Tile Set definitions supply full-cell, None or convex collision profiles. Full-cell
-regions merge into solid/sensor rectangles; None contributes no shape. Convex
-contours follow the renderer's cell flips/transpose. Renderer/layer visibility does
+Tile Set definitions supply full-cell, None, convex or decomposed polygon collision profiles. Full-cell
+regions merge into solid/sensor rectangles; None contributes no shape. Simple concave contours decompose into deterministic
+triangles, retaining empty notches. Custom contours follow the renderer's cell flips/transpose. Renderer/layer visibility does
 not disable collision. Decorative cells can use None or another layer. Empty or
 all-None valid layers have no
 native body or placeholder shape; refilling creates a new private realization epoch.
@@ -153,8 +153,8 @@ reuse immutable geometry inside the existing native-body record.
 
 There are at most4096 total native2D shapes across Map rectangles, convex pieces and inline bodies,
 within existing body, joint, pair and event limits. Empty Map actors do not consume
-native body/shape slots. This profile excludes Dynamic Maps, automatic concave decomposition and custom
-polygon or sensor one-way Map collision. Convex slopes use ordinary
+native body/shape slots. This profile excludes Dynamic Maps, holes/multiple contours and custom
+polygon or sensor one-way Map collision. Polygon slopes and decomposed contours use ordinary
 contact, query and controller response within the existing controller limits. A Map is not itself a character controller or
 a navigation mesh.
 

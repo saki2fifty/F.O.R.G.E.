@@ -2,6 +2,7 @@
 #include "json_document.hpp"
 #include "native_io_path.hpp"
 #include "scene_asset_record.hpp"
+#include "tile_asset_types.hpp"
 #include <algorithm>
 #include <cctype>
 #include <forge/assets.hpp>
@@ -353,7 +354,8 @@ AssetResolution AssetCatalog::resolve(AssetId id, const std::string& expected_ty
         } else if (record.schema_version != 1 &&
                    !(record.type == NavMeshAsset::type &&
                      (record.schema_version == 2 || record.schema_version == 3)) &&
-                   !(record.type == TileSetAsset::type && record.schema_version == 2)) {
+                   !(record.type == TileSetAsset::type && record.schema_version >= 2 &&
+                     record.schema_version <= tile_set_source_version)) {
             return {AssetState::Incompatible, record, "Unsupported asset metadata schema"};
         }
         return {AssetState::Available, record, {}};

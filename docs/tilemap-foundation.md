@@ -5,7 +5,7 @@ store layered grid cells without an entity per cell. FORGE provides central
 source-document tools, native rendering and grid selection, independent runtime
 instances, copied C++ cell queries/queued edits and both Editor Play hosts.
 Original editable Gallery74 demonstrates two layers and mirrored instances.
-[2D physics](physics-2d.md) integrates painted full-cell/convex collision, Kinematic
+[2D physics](physics-2d.md) integrates painted full-cell/polygon collision, Kinematic
 Map movement and Static/Kinematic sensor regions through the same Map instances.
 Gallery81/82 demonstrate movement and triggers; Gallery86 demonstrates Static
 nonsensor one-way rectangles through PhysicsBody2D.one_way. Kinematic nonsensor
@@ -186,9 +186,9 @@ is retained. Invalid candidates leave the adopted value unchanged.
 
 ### Copied definition profiles
 
-The existing Play projection header now writes `definitions_version:2` and
+The existing Play projection header now writes `definitions_version:3` and
 normalized collision fields on every copied definition. Its decoder retains the
-legacy two-field header with version1 definition rows. Both forms use the same
+legacy two-field header with version1 definition rows and explicit version2. All use the same
 typed cooked-data admission; unsupported versions, malformed profiles and unknown
 fields reject before an acknowledged frame can publish. Known-revision reuse
 compares normalized decoded values, including collision profiles. Cell pages,
@@ -198,7 +198,7 @@ legal source combinations are not guaranteed to fit every transport budget.
 
 ## Internal Tile Set profile
 
-The private JSON discriminator is `forge.tile-set`, version 1 or 2, with a UUID
+The private JSON discriminator is `forge.tile-set`, version 1, 2 or 3, with a UUID
 `asset_id`, monotonic uint64 `next_id`, `images` and `tiles` arrays. Zero is reserved
 in the shared image/tile local-key space. Every entry key is unique and below
 `next_id`; names are display values. Edits cannot reuse retired keys, move the
@@ -217,9 +217,16 @@ omitted default), `{"kind":"none"}`, or `{"kind":"convex","points":[[x,y],...]}`
 A convex contour has3..8 finite0..1 unit-cell XY/up vertices in strictly
 counterclockwise order. Every other vertex must lie strictly left of each directed
 edge; duplicate, collinear, concave, clockwise and self-intersecting input rejects.
+Source3 additionally admits `{"kind":"polygon","points":[[x,y],...]}` for a
+simple, possibly concave contour with3..8 finite0..1 counterclockwise vertices.
+Duplicate vertices, adjacent collinearity, crossings and nonadjacent edge touches
+reject. One deterministic first-ear decomposition produces original-index triangles;
+it does not fill notches, accept holes/multiple contours or optimize piece count.
+Every native piece shares the existing shape budget and physical-scale checks.
 Source1 collision fields remain opaque and cook as full-cell. Explicit profile
-editing promotes to2 only when no prior row contains an opaque collision field;
-an ordinary full-document edit has the same guard and cannot downgrade2 to1.
+editing promotes to2, or3 for Polygon, only when no prior row contains an opaque
+collision field. An ordinary full-document edit has the same guard and cannot
+downgrade an already promoted source.
 Undo/Redo restore source versions through existing history. Known profile changes
 preserve unknown collision siblings. Unused `points` reject on FullCell/None.
 IDs, allocator history and unrelated extensions remain owned by the document.
@@ -238,15 +245,15 @@ unknown fields and its allocation high-water mark. Cooking sorts image/tile rows
 by numeric key and omits unknown fields and allocator metadata. Reordering source
 rows or advancing the allocator alone does not change cooked runtime bytes.
 
-The cooked envelope uses eight-byte magic `FTILESET`, version 2 (with version1 reads retained), at most 2MiB of
+The cooked envelope uses eight-byte magic `FTILESET`, version 3 (with version1/2 reads retained), at most 2MiB of
 metadata and no binary payload. Root fields are exactly `asset_id`, `images` and
 `tiles`; their known row/grid fields match the source value profile. Extra cooked
 fields reject. The decoder checks the expected root UUID and the same combined
-image/tile key space, frame references and limits as source admission. Cooked2
-normalizes the known collision profile on every definition; cooked1 supplies
+image/tile key space, frame references and limits as source admission. Cooked2/3
+normalize the known collision profile on every definition; cooked1 supplies
 FullCell. The declared selected output version must match the actual envelope.
-Tile Set recipe2 publishes cooked2; Tile Map recipe/output remain1. Catalog source
-schema1/2 is separate from publication metadata API1.
+Tile Set recipe3 publishes cooked3; only cooked3 admits Polygon. Tile Map recipe/output
+remain1. Catalog source schema1/2/3 is separate from publication metadata API1.
 
 `TileSetData` retains shared immutable typed rows sorted for local-key lookup.
 Copies share that storage. Material dependency enumeration deduplicates Material

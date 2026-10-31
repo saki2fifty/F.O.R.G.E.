@@ -1,5 +1,19 @@
 # Feature Gallery
 
+## Concave tile collision
+
+Open **Scenes/120-concave-tile-collision.scene.json** and press Play. Amber and rose
+land on the upper edges of the blue L and green U. Cyan and green fall into their
+empty notches. The original image silhouettes match the authored collision outlines.
+
+Stop, open **Assets/Tiles/ConcaveTiles.tileset.json**, select either tile and edit
+**Tile collision → Polygon (decomposed)**. Enter3–8 counterclockwise unit-cell
+points with Y up. Apply collision, then Save / Publish the Set and
+**Assets/Tiles/ConcaveTiles.tilemap.json**. Enable Selected collision on the course
+to inspect the published pieces. Save and choose this Scene as startup before
+export. No Project Code module is required. One outline per tile is supported;
+holes, Dynamic Maps and custom-polygon one-way response are unavailable.
+
 ## Moving one-way platforms
 
 Open **Scenes/119-moving-one-way-platforms.scene.json**, press Play and switch to

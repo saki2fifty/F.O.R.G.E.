@@ -14,13 +14,9 @@ struct Contract {
     std::uint32_t maximum_version = 1;
 };
 Contract set_contract() {
-    return {TileSetAsset::type,
-            tile_set_importer_id,
-            tile_set_cooked_format,
-            "forge.tile_set",
-            tile_set_artifact_file,
-            tile_set_cooked_metadata_limit + 24,
-            2};
+    return {TileSetAsset::type,     tile_set_importer_id,   tile_set_cooked_format,
+            "forge.tile_set",       tile_set_artifact_file, tile_set_cooked_metadata_limit + 24,
+            tile_set_cooked_version};
 }
 Contract map_contract() {
     return {TileMapAsset::type,

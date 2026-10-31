@@ -158,13 +158,13 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
             const auto pair = automation_array(coordinate, 2, 2);
             const auto simple = automation_object(
                 {{"kind", {{"type", "string"}, {"enum", {"full_cell", "none"}}}}}, {"kind"});
-            const auto convex = automation_object(
-                {{"kind", {{"const", "convex"}}},
+            const auto polygon = automation_object(
+                {{"kind", {{"type", "string"}, {"enum", {"convex", "polygon"}}}},
                  {"points", automation_array(pair, tile_collision_vertex_limit, 3)}},
                 {"kind", "points"});
             properties["tile"] = automation_integer(1, UINT64_MAX);
             properties["editor"] = {{"type", "string"}, {"const", "tile_set"}};
-            properties["collision"] = {{"oneOf", {simple, convex}}};
+            properties["collision"] = {{"oneOf", {simple, polygon}}};
             needed.push_back("tile");
             needed.push_back("collision");
         } else if (std::string_view(action) == "close")
@@ -178,11 +178,14 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                 "publication; poll status for completion. Close requires discard for "
                 "unsaved/unpublished drafts." +
                 (std::string_view(action) == "tile_collision"
-                     ? " Tile Sets only: apply full_cell, none or a strictly convex 3..8 point "
-                       "counterclockwise contour in unit-cell XY/up coordinates. Explicitly "
-                       "promotes Source1 to Source2; existing legacy collision extensions block "
-                       "promotion. Custom polygons follow cell flips and support Static/Kinematic "
-                       "bodies/sensors, without one-way collision."
+                     ? " Tile Sets only: apply full_cell, none, convex or polygon. Contours need "
+                       "3..8 counterclockwise unit-cell XY/up points; convex requires strict "
+                       "convexity, polygon admits a simple concave contour decomposed into convex "
+                       "pieces. Self intersections, repeated/adjacent-collinear vertices and holes "
+                       "reject. Explicit profile edits promote Source1 to Source2, or Source3 for "
+                       "polygon; legacy collision extensions block promotion. Ordinary edits "
+                       "cannot downgrade source versions. Custom polygons follow cell flips and "
+                       "support Static/Kinematic bodies/sensors, without one-way collision."
                      : "") +
                 (std::string_view(action) == "patch"
                      ? " Timeline source6 supports editable scalar C++ component fields with "

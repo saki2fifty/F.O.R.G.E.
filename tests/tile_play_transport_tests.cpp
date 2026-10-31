@@ -38,6 +38,12 @@ Json publish_scene(const std::filesystem::path& root, const std::filesystem::pat
                                {"spacing_y", 0}}}}};
         source["tiles"] = {{{"id", 2}, {"name", "Cell"}, {"image", 1}, {"frame", 0}}};
     });
+    definitions->edit_source(
+        definitions->revision(), "Concave copied definition", [](auto& source) {
+            source.set_collision(
+                2, {{"kind", "polygon"},
+                    {"points", {{0., 0.}, {1., 0.}, {1., .5}, {.5, .5}, {.5, 1.}, {0., 1.}}}});
+        });
     definitions->save();
     AssetImportService importer(lease, tile_asset_import_registry(worker),
                                 {"linux", "none", "cpu"});
@@ -144,7 +150,9 @@ int main(int argc, char** argv) {
             wait([&] { return play.control_ready() && copied(); });
             const auto retained = bound();
             for (const auto& map : retained.tile_maps)
-                check(map.cells->occupied() == 9 && map.cells->cell(1, {-65, 0}).tile == 2,
+                check(map.cells->occupied() == 9 && map.cells->cell(1, {-65, 0}).tile == 2 &&
+                          map.definitions->tile(2).collision.kind == TileCollisionKind::Polygon &&
+                          map.definitions->tile(2).collision.points.size() == 6,
                       "Real process copied different cross-chunk tile contents");
             play.pause();
             wait([&] { return play.paused() && play.control_ready(); });

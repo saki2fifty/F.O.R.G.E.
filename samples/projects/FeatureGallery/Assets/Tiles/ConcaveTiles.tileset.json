@@ -1,0 +1,110 @@
+{
+  "asset_id": "39a3c132-e3ce-4567-9b23-c6f9339158a6",
+  "format": "forge.tile-set",
+  "images": [
+    {
+      "grid": {
+        "columns": 2,
+        "margin_x": 0,
+        "margin_y": 0,
+        "rows": 1,
+        "spacing_x": 0,
+        "spacing_y": 0
+      },
+      "id": 1,
+      "material": "16a96cb9-c86b-4238-8f7d-fe3f359b0402",
+      "name": "Original L/U silhouettes"
+    }
+  ],
+  "next_id": 5,
+  "tiles": [
+    {
+      "collision": {
+        "kind": "polygon",
+        "points": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.0,
+            0.0
+          ],
+          [
+            1.0,
+            0.5
+          ],
+          [
+            0.5,
+            0.5
+          ],
+          [
+            0.5,
+            1.0
+          ],
+          [
+            0.0,
+            1.0
+          ]
+        ]
+      },
+      "frame": 0,
+      "id": 2,
+      "image": 1,
+      "name": "L - upper-right notch"
+    },
+    {
+      "collision": {
+        "kind": "polygon",
+        "points": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.0,
+            0.0
+          ],
+          [
+            1.0,
+            1.0
+          ],
+          [
+            0.75,
+            1.0
+          ],
+          [
+            0.75,
+            0.25
+          ],
+          [
+            0.25,
+            0.25
+          ],
+          [
+            0.25,
+            1.0
+          ],
+          [
+            0.0,
+            1.0
+          ]
+        ]
+      },
+      "frame": 1,
+      "id": 3,
+      "image": 1,
+      "name": "U - deep middle notch"
+    },
+    {
+      "collision": {
+        "kind": "none"
+      },
+      "frame": 0,
+      "id": 4,
+      "image": 1,
+      "name": "L decoration - no collision"
+    }
+  ],
+  "version": 3
+}

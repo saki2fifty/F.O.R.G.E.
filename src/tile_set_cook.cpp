@@ -30,6 +30,6 @@ std::vector<std::byte> cook_tile_set(const TileSetSource& source) {
                                  {"frame", tile.frame},
                                  {"collision", tile_detail::tile_collision_json(tile.collision)}});
     return asset_detail::encode_envelope(root, {}, tile_set_cooked_magic,
-                                         tile_set_cooked_metadata_limit, 2);
+                                         tile_set_cooked_metadata_limit, tile_set_cooked_version);
 }
 } // namespace forge

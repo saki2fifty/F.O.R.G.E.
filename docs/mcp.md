@@ -273,11 +273,15 @@ replacement through the same registered owner used by the interactive editor.
 `forge_asset_document_tile_collision` edits one Tile Set definition through the
 same source owner. Supply `editor:"tile_set"`, exact session/revision, the full
 uint64 local `tile` key and `collision`. Profiles are `{"kind":"full_cell"}`,
-`{"kind":"none"}`, or `{"kind":"convex","points":[[0,0],[1,0],[1,1]]}`.
+`{"kind":"none"}`, `{"kind":"convex","points":[[0,0],[1,0],[1,1]]}`, or
+`{"kind":"polygon","points":[[0,0],[1,0],[1,0.5],[0.5,0.5],[0.5,1],[0,1]]}`.
 Convex points require3..8 strictly counterclockwise unit-cell XY/up coordinates.
 The published schema validates the exclusive profile alternatives; native source
 validation rejects bad ordering/degeneracy and guards legacy reserved fields.
-Explicit profile editing promotes Source1 to2 when safe. It does not remint keys,
+Polygon admits one simple concave contour, rejects repeated/adjacent-collinear
+vertices and crossed/touching nonadjacent edges, and decomposes into triangles.
+Explicit profile editing promotes to Source2, or Source3 for Polygon, when safe;
+an already promoted source never downgrades through ordinary edits. It does not remint keys,
 write Scene values or publish automatically. Undo/Redo and Save use the ordinary
 asset-document methods. After publishing a Set, republish its dependent Maps
 against that selected revision. Collision uses existing Static/Kinematic bodies,
