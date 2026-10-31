@@ -1319,21 +1319,39 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                                     "Visible Tile Map cells exceed the 262144-instance profile");
                             const auto key = std::pair{cell.tile, cell.flags};
                             auto values = source.values.find(key);
-                            if (values == source.values.end()) {
-                                const auto bytes =
-                                    sizeof(decltype(source.values)::value_type) + 4 * sizeof(void*);
-                                if (bytes > material_budget_ - material_payload_bytes())
-                                    throw std::runtime_error(
-                                        "Tile image values exceed the scene payload budget");
-                                auto numeric =
-                                    tile_draw_values(*source.definitions, cell.tile, cell.flags,
-                                                     image.width, image.height, source.color);
+                            const bool missing = values == source.values.end();
+                            const bool animated =
+                                definition.animation && definition.animation->enabled;
+                            bool refresh = missing;
+                            auto selected = missing ? tile_detail::tile_frame_at(
+                                                          definition, source.animation_seconds)
+                                                    : values->second.frame;
+                            if (!missing && animated &&
+                                values->second.animation_sample != source.animation_seconds) {
+                                selected = tile_detail::tile_frame_at(definition,
+                                                                      source.animation_seconds);
+                                refresh = selected != values->second.frame;
+                                if (!refresh)
+                                    values->second.animation_sample = source.animation_seconds;
+                            }
+                            if (refresh) {
+                                if (missing) {
+                                    const auto bytes = sizeof(decltype(source.values)::value_type) +
+                                                       4 * sizeof(void*);
+                                    if (bytes > material_budget_ - material_payload_bytes())
+                                        throw std::runtime_error(
+                                            "Tile image values exceed the scene payload budget");
+                                }
+                                auto numeric = tile_draw_frame_values(
+                                    *source.definitions, cell.tile, cell.flags, image.width,
+                                    image.height, selected, source.color);
                                 TileDrawSource::Values prepared{std::move(numeric.sprite)};
+                                prepared.frame = selected;
+                                prepared.animation_sample = source.animation_seconds;
                                 if (image.mips) {
                                     const auto region = sprite_grid_region(
                                         image.width, image.height,
-                                        source.definitions->image(definition.image).grid,
-                                        definition.frame);
+                                        source.definitions->image(definition.image).grid, selected);
                                     const SpriteFrameMipKey frame{region.x,
                                                                   region.y,
                                                                   region.width,
@@ -1348,7 +1366,10 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                                         {0, 0, region.width, region.height}, region.width,
                                         region.height, bool(cell.flags & 1), bool(cell.flags & 2));
                                 }
-                                values = source.values.emplace(key, std::move(prepared)).first;
+                                if (missing)
+                                    values = source.values.emplace(key, std::move(prepared)).first;
+                                else
+                                    values->second = std::move(prepared);
                             }
                             tile_worlds_.push_back(
                                 world); // Capacity reserved before storing any pointers.

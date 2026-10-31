@@ -158,7 +158,7 @@ void collision_profiles() {
     require(decode_cooked_tile_set(concave, source.asset(), tile_set_cooked_version)
                     .tile(7)
                     .collision == source.values().tiles[1].collision,
-            "Current cooked3 concave contour changed");
+            "Current cooked concave contour changed");
     reject([&] { (void)decode_cooked_tile_set(concave, source.asset(), 2); });
     const auto contour = asset_detail::decode_envelope(
         concave, tile_set_cooked_magic, tile_set_cooked_metadata_limit, 0, tile_set_cooked_version);

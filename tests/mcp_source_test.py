@@ -32,7 +32,7 @@ for legacy in (False, True):
     with editor('read') as (root, process, config), Client(config, legacy) as client:
         names = {tool['name'] for tool in client.request('tools/list')['result']['tools']}
         assert 'forge_asset_document_types' in names
-        assert not any('forge_asset_document_' + name in names for name in ('create', 'patch', 'save', 'paint', 'close', 'tile_collision'))
+        assert not any('forge_asset_document_' + name in names for name in ('create', 'patch', 'save', 'paint', 'close', 'tile_collision', 'tile_animation'))
 
     with editor() as (root, process, config), Client(config, legacy) as client:
         declared_tools = client.request('tools/list')['result']['tools']
@@ -40,7 +40,7 @@ for legacy in (False, True):
         patch_description = next(tool['description'] for tool in declared_tools
                                  if tool['name'] == 'forge_asset_document_patch')
         assert all(word in patch_description for word in ('Source7', 'int64', 'uint64', 'Source8', 'member_path', 'Source9', 'element_path'))
-        assert {'forge_asset_document_create', 'forge_asset_settings_publish', 'forge_prefab_apply_commit', 'forge_asset_document_tile_collision'} <= tool_names
+        assert {'forge_asset_document_create', 'forge_asset_settings_publish', 'forge_prefab_apply_commit', 'forge_asset_document_tile_collision', 'forge_asset_document_tile_animation'} <= tool_names
         def discovery():
             result = client.tool('forge_discover')
             assert result['ok'], result
@@ -92,10 +92,11 @@ for legacy in (False, True):
             assert not settled['dirty'] and not settled['unpublished'] and not settled['diagnostic'], settled
             return settled
         if COLLISION_ONLY:
-            # FORGE's own unlit image fixture references the immutable engine White
+            # FORGE's own unlit image fixture references the immutable engine Checker
             # texture, so every dependent source is created/published through MCP.
             fixture = Path(__file__).resolve().parents[1]/'samples/projects/FeatureGallery/Assets/Physics2D/Solid.material.json'
             overrides = json.loads(fixture.read_text(encoding='utf-8'))['overrides']
+            overrides['textures']['baseColorTexture']['asset'] = '619babf9-df8f-4d18-91da-2e8096bd9464'
             result = mutate('forge_asset_document_create', editor='material', path='Assets/MCP-TileImage.material.json')
             assert result['ok'], result
             assert edit('forge_asset_document_patch', 'material',
@@ -149,7 +150,7 @@ for legacy in (False, True):
                 rows = [dict(op='replace', path='/next_id', value=2**64 - 1),
                         dict(op='add', path='/images/-', value=dict(id=1, name='Image',
                              material=image_material,
-                             grid=dict(columns=1, rows=1, margin_x=0, margin_y=0, spacing_x=0, spacing_y=0))),
+                             grid=dict(columns=4 if COLLISION_ONLY else 1, rows=1, margin_x=0, margin_y=0, spacing_x=0, spacing_y=0))),
                         dict(op='add', path='/tiles/-', value=dict(id=tile, name='Ramp', image=1, frame=0))]
                 assert edit('forge_asset_document_patch', owner, patch=rows)['ok']
                 seeded = content(owner)
@@ -190,10 +191,38 @@ for legacy in (False, True):
                     assert saved == concave and saved['version'] == 3
                     catalog = json.loads((root/'Game/forge.assets.json').read_text(encoding='utf-8'))
                     record = next(row for row in catalog['assets'] if row['id'] == set_id)
-                    assert record['schema_version'] == 3 and record['metadata']['forge.import']['output_version'] == 3
+                    assert record['schema_version'] == 3 and record['metadata']['forge.import']['output_version'] == 4
                 assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == promoted
                 assert edit('forge_asset_document_redo', owner)['ok'] and content(owner) == concave
                 assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == promoted
+                if COLLISION_ONLY:
+                    animation = dict(enabled=True, frames=[dict(frame=1, seconds=.125),
+                                                           dict(frame=3, seconds=.25),
+                                                           dict(frame=0, seconds=.125)])
+                    prior = status(owner)['revision']
+                    result = edit('forge_asset_document_tile_animation', owner, tile=tile, animation=animation)
+                    assert result['ok'], result
+                    animated = content(owner)
+                    assert animated['version'] == 4 and animated['tiles'][0]['animation'] == animation
+                    current = status(owner)
+                    stale = mutate('forge_asset_document_tile_animation', editor=owner,
+                                   document_session=current['session'], document_revision=prior,
+                                   tile=tile, animation=animation)
+                    assert not stale['ok'] and content(owner) == animated
+                    for bad in (dict(enabled=True, frames=[]),
+                                dict(enabled=True, frames=[dict(frame=4, seconds=.1)]),
+                                dict(enabled=True, frames=[dict(frame=0, seconds=0)])):
+                        revision = status(owner)['revision']
+                        assert not edit('forge_asset_document_tile_animation', owner, tile=tile, animation=bad)['ok']
+                        assert content(owner) == animated and status(owner)['revision'] == revision
+                    save_published(owner)
+                    assert json.loads((root/'Game'/path).read_text(encoding='utf-8')) == animated
+                    catalog = json.loads((root/'Game/forge.assets.json').read_text(encoding='utf-8'))
+                    record = next(row for row in catalog['assets'] if row['id'] == set_id)
+                    assert record['schema_version'] == 4 and record['metadata']['forge.import']['output_version'] == 4
+                    assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == promoted
+                    assert edit('forge_asset_document_redo', owner)['ok'] and content(owner) == animated
+                    assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == promoted
                 assert edit('forge_asset_document_tile_collision', owner, tile=tile, collision=dict(kind='none'))['ok']
                 assert content(owner)['tiles'][0]['collision'] == dict(kind='none')
                 assert edit('forge_asset_document_undo', owner)['ok']

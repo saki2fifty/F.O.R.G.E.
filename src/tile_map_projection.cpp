@@ -68,11 +68,7 @@ Json set_metadata(const TileSetData& set) {
                                    {"spacing_y", grid.spacing_y}}}});
     }
     for (const auto& tile : set.tiles())
-        out["tiles"].push_back({{"id", tile.id},
-                                {"name", tile.name},
-                                {"image", tile.image},
-                                {"frame", tile.frame},
-                                {"collision", tile_detail::tile_collision_json(tile.collision)}});
+        out["tiles"].push_back(tile_detail::tile_definition_json(tile));
     return out;
 }
 } // namespace

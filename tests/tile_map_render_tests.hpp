@@ -345,6 +345,60 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
                   renderer.draw_stats().instances == 4 && renderer.draw_stats().calls > 1,
               "Tile mip frames lost cells, flags, pixels, or distinct image bindings");
     }
+    auto animated_metadata = metadata;
+    for (auto& row : animated_metadata["tiles"])
+        row["collision"] = {{"kind", "full_cell"}};
+    animated_metadata["tiles"][0]["animation"] = {
+        {"enabled", true},
+        {"frames", {{{"frame", 0}, {"seconds", .125}}, {{"frame", 1}, {"seconds", .125}}}}};
+    const auto animated = std::make_shared<const TileSetData>(decode_cooked_tile_set(
+        asset_detail::encode_envelope(animated_metadata, {}, tile_set_cooked_magic,
+                                      tile_set_cooked_metadata_limit, tile_set_cooked_version),
+        set_id));
+    scene.tile_maps[0].definitions = animated;
+    for (unsigned filter : {0u, 1u, 2u}) {
+        scene.tile_maps[0].renderer.mip_filter = filter;
+        scene.tile_maps[0].animation_seconds = 0;
+        settle();
+        check(render() == baseline && renderer.diagnostics().empty(),
+              "Animated Tile initial frame differs with image/mip filtering");
+        const auto material_bytes = renderer.material_payload_bytes();
+        const auto pose_bytes = renderer.pose_payload_bytes();
+        const auto bundles = renderer.bundle_count();
+        for (unsigned sample = 1; sample <= 24; ++sample) {
+            scene.tile_maps[0].animation_seconds = sample * .0625;
+            settle();
+            const auto pixels = render();
+            const bool black = sample % 4 >= 2;
+            check(renderer.diagnostics().empty() &&
+                      (black ? std::all_of(pixels.begin(), pixels.end(),
+                                           [](const auto& pixel) {
+                                               return pixel ==
+                                                      std::array<std::uint8_t, 4>{0, 0, 0, 255};
+                                           })
+                             : pixels == baseline),
+                  "Animated Tile hold/frame/loop pixels differ with image/mip filtering");
+            check(renderer.material_payload_bytes() == material_bytes &&
+                      renderer.pose_payload_bytes() == pose_bytes &&
+                      renderer.bundle_count() == bundles && scene.tile_maps[0].cells == map.cells &&
+                      scene.tile_maps[0].definitions == animated,
+                  "Tile animation grew phase caches or replaced immutable cells/definitions");
+            check(render() == pixels,
+                  "Repeated presentation advanced animation without a new simulation sample");
+        }
+    }
+    const auto held = render();
+    for (const auto invalid : {-.125, std::numeric_limits<double>::infinity(),
+                               std::numeric_limits<double>::quiet_NaN()}) {
+        scene.tile_maps[0].animation_seconds = invalid;
+        settle();
+        check(!renderer.diagnostics().empty() && render() == held,
+              "Invalid animation time discarded the complete last-good Tile draw");
+    }
+    scene.tile_maps[0].animation_seconds = 0;
+    scene.tile_maps[0].definitions = definitions;
+    settle();
+    check(render() == baseline, "Static Tile fallback changed after animated definition removal");
     auto recolored = metadata;
     recolored["tiles"][1]["frame"] = 5;
     scene.tile_maps[0].definitions = std::make_shared<const TileSetData>(

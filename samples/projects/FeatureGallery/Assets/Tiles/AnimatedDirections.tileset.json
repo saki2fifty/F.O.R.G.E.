@@ -1,0 +1,110 @@
+{
+  "asset_id": "850a1ebb-ffb2-41d6-81be-d74652017100",
+  "format": "forge.tile-set",
+  "images": [
+    {
+      "grid": {
+        "columns": 4,
+        "margin_x": 0,
+        "margin_y": 0,
+        "rows": 1,
+        "spacing_x": 0,
+        "spacing_y": 0
+      },
+      "id": 1,
+      "material": "258b9537-c0f6-448d-af8c-818f150d67cf",
+      "name": "Original FORGE arrow sheet"
+    }
+  ],
+  "next_id": 6,
+  "tiles": [
+    {
+      "animation": {
+        "enabled": true,
+        "frames": [
+          {
+            "frame": 0,
+            "seconds": 0.2
+          },
+          {
+            "frame": 1,
+            "seconds": 0.2
+          },
+          {
+            "frame": 2,
+            "seconds": 0.2
+          },
+          {
+            "frame": 3,
+            "seconds": 0.2
+          }
+        ]
+      },
+      "frame": 1,
+      "id": 2,
+      "image": 1,
+      "name": "Forward - 0.2 seconds per frame"
+    },
+    {
+      "animation": {
+        "enabled": true,
+        "frames": [
+          {
+            "frame": 3,
+            "seconds": 0.2
+          },
+          {
+            "frame": 2,
+            "seconds": 0.2
+          },
+          {
+            "frame": 1,
+            "seconds": 0.2
+          },
+          {
+            "frame": 0,
+            "seconds": 0.2
+          }
+        ]
+      },
+      "frame": 1,
+      "id": 3,
+      "image": 1,
+      "name": "Reverse - 0.2 seconds per frame"
+    },
+    {
+      "animation": {
+        "enabled": true,
+        "frames": [
+          {
+            "frame": 0,
+            "seconds": 0.125
+          },
+          {
+            "frame": 1,
+            "seconds": 0.25
+          },
+          {
+            "frame": 2,
+            "seconds": 0.125
+          },
+          {
+            "frame": 3,
+            "seconds": 0.5
+          }
+        ]
+      },
+      "frame": 1,
+      "id": 4,
+      "image": 1,
+      "name": "Variable duration - final frame held"
+    },
+    {
+      "frame": 1,
+      "id": 5,
+      "image": 1,
+      "name": "Static - blue right arrow"
+    }
+  ],
+  "version": 4
+}

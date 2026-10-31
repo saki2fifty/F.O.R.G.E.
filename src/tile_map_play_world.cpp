@@ -9,6 +9,7 @@ std::vector<TileMapPlayView> tile_map_play_views(WorldContext& context) {
     if (!context.on_owner_thread() || context.role() != WorldRole::Runtime)
         throw std::runtime_error("Tile Play observations require their runtime world owner");
     std::vector<TileMapPlayView> result;
+    const auto seconds = detail::runtime_tile_animation_seconds(context);
     std::exception_ptr failure;
     context.world().each([&](flecs::entity entity, const TileMapRenderer& renderer) {
         if (failure || !renderer.enabled || !renderer.map.id)
@@ -21,6 +22,7 @@ std::vector<TileMapPlayView> tile_map_play_views(WorldContext& context) {
                 throw std::runtime_error("Tile Play observations exceed 256 map actors");
             const auto status = detail::inspect_runtime_tile_map(context, *reference);
             TileMapPlayView view;
+            view.animation_seconds = seconds;
             view.entity = reference->entity;
             view.requested = status.requested;
             view.pending = status.pending;

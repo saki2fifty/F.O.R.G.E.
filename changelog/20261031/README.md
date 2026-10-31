@@ -1,5 +1,35 @@
 # 2026-10-31
 
+## Animated tile sequences
+
+Tile definitions support looping atlas frames with individual durations. Static
+fallback frames, cell orientation and fixed collision retain their existing owners.
+One world-scoped completed-tick sample follows Pause, zero rate, Step and restart;
+the source tab has a separate local preview. Renderer values update in place only
+when a displayed frame changes; all sequence frames share existing mip banks and
+resource limits. No per-phase cache entries or per-cell animation entities are added.
+
+Source/cooked/recipe4 retain older1/2/3 reads and guard opaque legacy animation
+fields before promotion. The private Map recovery block is2; copied observation
+manifests are2, with legacy untimed observation reads. Timing stays outside cell
+transfer identity. Matching native modules require rebuilding with the current
+exact SDK fingerprint. The outer recovery envelope and public native C table
+retain their existing contracts.
+
+Inspector, automation and MCP share sequence validation, document revisions,
+history, permissions and publication. Gallery121 reuses original FORGE arrow
+artwork and adds three editable assets, preserving322prior records and120Scenes.
+Windows/MSVC/full-editor/physical-GPU/graphical-EXE acceptance remains pending.
+
+Thirty selected FORGE units pass strict ASan/UBSan compilation across fourteen
+consumer links. Twelve CPU/UI/MCP/runtime consumers exit cleanly with leak
+detection enabled. Both native consumers finish functionally and retain the exact
+known unresolved184-byte/five-allocation shutdown condition; no suppression is
+used. Four normal/strict/authored/source-free relocated Game display pairs match
+exactly. The matching installed SDK, all121GalleryScenes, offline manual and
+protected-source checks pass. No numbered package or remote action accompanies
+this local source.
+
 ## Concave tile collision
 
 Tile Set collision adds Polygon(decomposed): one simple counterclockwise outline

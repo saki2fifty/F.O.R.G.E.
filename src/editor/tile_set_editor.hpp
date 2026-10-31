@@ -15,20 +15,22 @@ class TileSetEditor {
   public:
     explicit TileSetEditor(std::filesystem::path worker) : worker_(std::move(worker)) {}
     std::function<void(const TileSetSource&, std::uint64_t, std::shared_ptr<const AssetCatalog>,
-                       std::uint64_t)>
+                       std::uint64_t, double)>
         draw_preview;
     std::function<void()> release_preview;
     bool close_cancelled = false;
     bool is_open() const { return document_ || open_error_; }
     bool pending() const { return job_ != 0; }
+    bool has_unapplied_edits() const { return collision_dirty_ || animation_dirty_; }
     bool dirty() const {
-        return document_ && (document_->dirty() || needs_publish_ || pending() || collision_dirty_);
+        return document_ &&
+               (document_->dirty() || needs_publish_ || pending() || has_unapplied_edits());
     }
     bool can_undo() const {
-        return document_ && !pending() && !collision_dirty_ && document_->can_undo();
+        return document_ && !pending() && !has_unapplied_edits() && document_->can_undo();
     }
     bool can_redo() const {
-        return document_ && !pending() && !collision_dirty_ && document_->can_redo();
+        return document_ && !pending() && !has_unapplied_edits() && document_->can_redo();
     }
     const TileSetDocument* document() const { return document_.get(); }
     const std::string& diagnostic() const { return error_; }
@@ -148,11 +150,13 @@ class TileSetEditor {
         if (expanded && document_) {
             ImGui::TextUnformatted(path_utf8(document_->locator()).c_str());
             ImGui::BeginDisabled(locked || pending());
+            ImGui::BeginDisabled(has_unapplied_edits());
             if (ui::button(
                     "Save / Publish",
                     "Save definitions and publish; failures retain the last working selection."))
                 request_save();
             FORGE_UI_PROBE("tile_set:save");
+            ImGui::EndDisabled();
             ImGui::SameLine();
             ImGui::BeginDisabled(!can_undo());
             if (ui::button("Undo", "Undo the last Tile Set source edit."))
@@ -175,7 +179,17 @@ class TileSetEditor {
                 }
                 FORGE_UI_PROBE("tile_set:collision_review");
             }
-            ImGui::BeginDisabled(collision_dirty_);
+            if (animation_dirty_) {
+                ImGui::TextWrapped(
+                    "Unapplied animation edits: review them in Inspector before continuing.");
+                if (ui::button("Review animation edits",
+                               "Select the tile whose animation is being edited.")) {
+                    selected_tile_ = animation_tile_;
+                    select("tile", animation_tile_);
+                }
+                FORGE_UI_PROBE("tile_set:animation_review");
+            }
+            ImGui::BeginDisabled(has_unapplied_edits());
             draw_lists();
             ImGui::EndDisabled();
             ImGui::EndDisabled();
@@ -183,7 +197,25 @@ class TileSetEditor {
                      "one color image. Grid margins and spacing are pixels.");
             if (draw_preview) {
                 try {
-                    draw_preview(document_->source(), preview_revision_, catalog_, selected_tile_);
+                    if (ui::button(preview_playing_ ? "Pause preview" : "Play preview",
+                                   "Preview the applied tile sequence; static tiles stay still.")) {
+                        preview_playing_ = !preview_playing_;
+                        preview_last_time_ = -1;
+                    }
+                    FORGE_UI_PROBE("tile_set:preview_play");
+                    ImGui::SameLine();
+                    if (ui::button("Restart preview",
+                                   "Return the asset preview to the first frame.")) {
+                        preview_seconds_ = 0;
+                        preview_last_time_ = -1;
+                    }
+                    FORGE_UI_PROBE("tile_set:preview_restart");
+                    const auto now = ImGui::GetTime();
+                    if (preview_playing_ && preview_last_time_ >= 0)
+                        preview_seconds_ += std::clamp(now - preview_last_time_, 0., .25);
+                    preview_last_time_ = now;
+                    draw_preview(document_->source(), preview_revision_, catalog_, selected_tile_,
+                                 preview_seconds_);
                 } catch (const std::exception& e) {
                     error_ = e.what();
                 }
@@ -208,6 +240,13 @@ class TileSetEditor {
         const auto parsed = std::from_chars(key.data() + split + 1, key.data() + key.size(), id);
         if (parsed.ec != std::errc{} || parsed.ptr != key.data() + key.size())
             return;
+        if (has_unapplied_edits() &&
+            (key.substr(0, split) != "tile" ||
+             id != (collision_dirty_ ? collision_tile_ : animation_tile_))) {
+            ImGui::TextWrapped(
+                "Apply or discard the pending tile profile before inspecting another definition.");
+            return;
+        }
         const auto snapshot = values();
         ImGui::BeginDisabled(locked || pending());
         if (key.substr(0, split) == "image") {
@@ -249,6 +288,11 @@ class TileSetEditor {
     TileCollisionProfile collision_draft_;
     std::uint64_t collision_tile_ = 0, collision_revision_ = 0;
     bool collision_dirty_ = false;
+    TileAnimation animation_draft_;
+    std::uint64_t animation_tile_ = 0, animation_revision_ = 0;
+    bool animation_dirty_ = false;
+    bool preview_playing_ = false;
+    double preview_seconds_ = 0, preview_last_time_ = -1;
     char path_[256] = "Assets/NewTiles.tileset.json";
     std::string error_;
     void changed() {
@@ -258,6 +302,10 @@ class TileSetEditor {
         error_.clear();
         collision_revision_ = 0;
         collision_dirty_ = false;
+        animation_revision_ = 0;
+        animation_dirty_ = false;
+        preview_seconds_ = 0;
+        preview_last_time_ = -1;
     }
     std::shared_ptr<const TileSetValues> values() {
         if (!values_ || values_revision_ != document_->revision()) {
@@ -285,8 +333,13 @@ class TileSetEditor {
         values_.reset();
         values_revision_ = selected_image_ = selected_tile_ = 0;
         job_ = 0;
-        needs_publish_ = save_ = close_ = open_error_ = collision_dirty_ = false;
+        needs_publish_ = save_ = close_ = open_error_ = collision_dirty_ = animation_dirty_ = false;
         collision_tile_ = collision_revision_ = 0;
+        animation_tile_ = animation_revision_ = 0;
+        animation_draft_ = {};
+        preview_playing_ = false;
+        preview_seconds_ = 0;
+        preview_last_time_ = -1;
     }
     void load(SceneDocument& project, const std::filesystem::path& path) {
         auto document = std::make_unique<TileSetDocument>(project.writer_guard(), path);
@@ -448,7 +501,7 @@ class TileSetEditor {
         FORGE_UI_PROBE("tile_set:remove_image");
     }
     void tile_fields(const TileSetDefinition& tile, const TileSetValues& source_values) {
-        ImGui::BeginDisabled(collision_dirty_);
+        ImGui::BeginDisabled(has_unapplied_edits());
         ImGui::SeparatorText("Tile definition");
         name_field("tiles", tile.id, tile.name);
         const auto image = std::find_if(source_values.images.begin(), source_values.images.end(),
@@ -472,8 +525,13 @@ class TileSetEditor {
                    [&](auto& source) { row(source, "tiles", tile.id)["frame"] = frame; });
         FORGE_UI_PROBE("tile_set:frame");
         ImGui::EndDisabled();
+        ImGui::BeginDisabled(animation_dirty_);
         collision_fields(tile);
+        ImGui::EndDisabled();
         ImGui::BeginDisabled(collision_dirty_);
+        animation_fields(tile);
+        ImGui::EndDisabled();
+        ImGui::BeginDisabled(has_unapplied_edits());
         if (ui::button("Remove tile", "Remove this definition. Existing map cells keep the "
                                       "unresolved key until replaced or erased."))
             mutate("Remove Tile Set tile", [&](auto& source) {
@@ -482,6 +540,108 @@ class TileSetEditor {
             });
         FORGE_UI_PROBE("tile_set:remove_tile");
         ImGui::EndDisabled();
+    }
+    void animation_fields(const TileSetDefinition& tile) {
+        if (animation_tile_ != tile.id || animation_revision_ != document_->revision()) {
+            animation_draft_ = tile.animation ? *tile.animation : TileAnimation{};
+            animation_tile_ = tile.id;
+            animation_revision_ = document_->revision();
+            animation_dirty_ = false;
+        }
+        ImGui::SeparatorText("Tile animation");
+        if (ImGui::Checkbox("Enabled###TileAnimationEnabled", &animation_draft_.enabled)) {
+            if (animation_draft_.enabled && animation_draft_.frames.empty())
+                animation_draft_.frames.push_back({tile.frame, .1});
+            animation_dirty_ = true;
+        }
+        FORGE_UI_PROBE("tile_set:animation_enabled");
+        if (ImGui::BeginTable("TileAnimationFrames", 3,
+                              ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_RowBg)) {
+            ImGui::TableSetupColumn("#", ImGuiTableColumnFlags_WidthFixed,
+                                    2.5f * ImGui::GetFontSize());
+            ImGui::TableSetupColumn("Frame", ImGuiTableColumnFlags_WidthStretch);
+            ImGui::TableSetupColumn("Duration (s)", ImGuiTableColumnFlags_WidthStretch);
+            ImGui::TableHeadersRow();
+            for (std::size_t i = 0; i < animation_draft_.frames.size(); ++i) {
+                auto& entry = animation_draft_.frames[i];
+                ImGui::PushID(int(i));
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::Text("%u", unsigned(i + 1));
+                ImGui::TableSetColumnIndex(1);
+                ImGui::SetNextItemWidth(-1);
+                auto frame = entry.frame;
+                if (ImGui::InputScalar("##frame", ImGuiDataType_U32, &frame, nullptr, nullptr, "%u",
+                                       ImGuiInputTextFlags_EnterReturnsTrue)) {
+                    entry.frame = frame;
+                    animation_dirty_ = true;
+                }
+                FORGE_UI_PROBE("tile_set:animation_frame:" + std::to_string(i));
+                ImGui::TableSetColumnIndex(2);
+                ImGui::SetNextItemWidth(-1);
+                auto seconds = entry.seconds;
+                if (ImGui::InputScalar("##duration", ImGuiDataType_Double, &seconds, nullptr,
+                                       nullptr, "%.4f", ImGuiInputTextFlags_EnterReturnsTrue)) {
+                    entry.seconds = seconds;
+                    animation_dirty_ = true;
+                }
+                FORGE_UI_PROBE("tile_set:animation_duration:" + std::to_string(i));
+                ImGui::PopID();
+            }
+            ImGui::EndTable();
+        }
+        ImGui::BeginDisabled(animation_draft_.frames.size() >= tile_animation_frame_limit);
+        if (ui::button("Add frame", "Append another image-grid frame to the sequence.")) {
+            auto entry = animation_draft_.frames.empty() ? TileAnimationFrame{tile.frame, .1}
+                                                         : animation_draft_.frames.back();
+            if (!animation_draft_.frames.empty()) {
+                const auto data = values();
+                const auto image =
+                    std::find_if(data->images.begin(), data->images.end(),
+                                 [&](const auto& row) { return row.id == tile.image; });
+                if (image != data->images.end())
+                    entry.frame =
+                        std::uint32_t((std::uint64_t(entry.frame) + 1) %
+                                      (std::uint64_t(image->grid.columns) * image->grid.rows));
+            }
+            animation_draft_.frames.push_back(entry);
+            animation_dirty_ = true;
+        }
+        FORGE_UI_PROBE("tile_set:animation_add");
+        ImGui::EndDisabled();
+        ImGui::BeginDisabled(animation_draft_.frames.empty() ||
+                             (animation_draft_.enabled && animation_draft_.frames.size() == 1));
+        if (ui::button("Remove last frame", "Remove the final frame from this sequence.")) {
+            animation_draft_.frames.pop_back();
+            animation_dirty_ = true;
+        }
+        FORGE_UI_PROBE("tile_set:animation_remove");
+        ImGui::EndDisabled();
+        ImGui::BeginDisabled(!animation_dirty_);
+        if (ui::button("Apply animation",
+                       "Validate and apply the complete sequence in one Undo step.")) {
+            const auto profile = tile_detail::tile_animation_json(animation_draft_);
+            mutate("Change tile animation", [&](auto& source) {
+                TileSetSource candidate{source};
+                candidate.set_animation(tile.id, profile);
+                source = std::move(candidate.document);
+            });
+        }
+        FORGE_UI_PROBE("tile_set:animation_apply");
+        if (ui::button("Discard animation edits", "Keep the applied animation sequence.")) {
+            animation_draft_ = tile.animation ? *tile.animation : TileAnimation{};
+            animation_dirty_ = false;
+            error_.clear();
+        }
+        FORGE_UI_PROBE("tile_set:animation_discard");
+        ImGui::EndDisabled();
+        if (animation_dirty_)
+            ImGui::TextWrapped("Unapplied animation edits: Apply or Discard before Save, Undo or "
+                               "selecting another tile.");
+        ui::help("Frames loop in their listed order. Use 1 to 64 frames with durations from "
+                 "0.001 to 600 seconds. The Frame above is used when animation is off. "
+                 "All cells share the runtime timeline. Animation changes appearance; the "
+                 "tile's collision profile stays fixed.");
     }
     void collision_fields(const TileSetDefinition& tile) {
         if (collision_tile_ != tile.id || collision_revision_ != document_->revision()) {
@@ -611,8 +771,9 @@ class TileSetEditor {
     }
     void publish() {
         try {
-            if (collision_dirty_)
-                throw std::runtime_error("Apply or discard collision edits before Save / Publish.");
+            if (has_unapplied_edits())
+                throw std::runtime_error(
+                    "Apply or discard tile profile edits before Save / Publish.");
             document_->save();
             job_ = service_->submit(
                 service_->prepare(document_->locator(), {}, document_->source().asset()),

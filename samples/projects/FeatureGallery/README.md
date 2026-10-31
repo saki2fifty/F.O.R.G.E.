@@ -1,5 +1,16 @@
 # Feature Gallery
 
+## Animated tiles
+
+Open **Scenes/121-animated-tiles.scene.json** and press Play. The four rows run
+forward, reverse, with a held final frame, and as a static arrow. Cells also show
+mirrors and transposition. Stop and open **Assets/Tiles/AnimatedDirections.tileset.json**,
+select a tile, and edit **Tile animation** in Inspector. Apply, then Save / Publish
+the Set and **Assets/Tiles/AnimatedDirections.tilemap.json**. The source tab has
+local preview Play/Pause/Restart controls. The game uses simulation ticks: Pause
+holds, Step advances once, and restarting Play resets the loop. Collision does
+not change with the image. Save and select this Scene as startup before export.
+
 ## Concave tile collision
 
 Open **Scenes/120-concave-tile-collision.scene.json** and press Play. Amber and rose

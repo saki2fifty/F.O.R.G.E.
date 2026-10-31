@@ -1,5 +1,6 @@
 #pragma once
 #include "sprite_draw_values.hpp"
+#include "tile_animation.hpp"
 #include "tile_grid.hpp"
 #include "tile_set_data.hpp"
 #include <forge/transform.hpp>
@@ -12,21 +13,30 @@ struct TileDrawValues {
     AssetRef<MaterialAsset> material;
     SpriteDrawValues sprite;
 };
-inline TileDrawValues tile_draw_values(const TileSetData& definitions, std::uint64_t tile,
-                                       std::uint32_t flags, std::uint32_t texture_width,
-                                       std::uint32_t texture_height,
-                                       std::array<float, 4> color = {1, 1, 1, 1}) {
+inline TileDrawValues tile_draw_frame_values(const TileSetData& definitions, std::uint64_t tile,
+                                             std::uint32_t flags, std::uint32_t texture_width,
+                                             std::uint32_t texture_height, std::uint32_t frame,
+                                             std::array<float, 4> color = {1, 1, 1, 1}) {
     if (flags > 7)
         throw std::invalid_argument("Unsupported Tile Map UV transform flags");
     const auto& entry = definitions.tile(tile);
     const auto& image = definitions.image(entry.image);
-    const auto region = sprite_grid_region(texture_width, texture_height, image.grid, entry.frame);
+    const auto region = sprite_grid_region(texture_width, texture_height, image.grid, frame);
     SpriteDrawValues values{sprite_region_mapping(region, texture_width, texture_height,
                                                   bool(flags & 1), bool(flags & 2)),
                             color};
     values.transpose_uv = flags & 4;
     validate_sprite_draw_values(values);
     return {image.id, image.material, values};
+}
+inline TileDrawValues tile_draw_values(const TileSetData& definitions, std::uint64_t tile,
+                                       std::uint32_t flags, std::uint32_t texture_width,
+                                       std::uint32_t texture_height,
+                                       std::array<float, 4> color = {1, 1, 1, 1},
+                                       double animation_seconds = 0) {
+    return tile_draw_frame_values(
+        definitions, tile, flags, texture_width, texture_height,
+        tile_detail::tile_frame_at(definitions.tile(tile), animation_seconds), color);
 }
 // The shared Quad is centered. Cells cover their ordinary local XY grid area;
 // preserve double coordinates until the existing camera-relative GPU upload.

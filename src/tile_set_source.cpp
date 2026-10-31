@@ -72,6 +72,11 @@ void TileSetSource::validate_upgrade(const TileSetSource& next) const {
             require(
                 !row.contains("collision"),
                 "Legacy collision extension conflicts with Tile Set version2; source unchanged");
+    if (document.at("version") < 4 && next.document.at("version") >= 4)
+        for (const auto& row : document.at("tiles"))
+            require(
+                !row.contains("animation"),
+                "Legacy animation extension conflicts with Tile Set version4; source unchanged");
 }
 void TileSetSource::set_collision(std::uint64_t tile, const Json& value) {
     validate();
@@ -89,6 +94,35 @@ void TileSetSource::set_collision(std::uint64_t tile, const Json& value) {
     merged.erase("points");
     merged.update(value);
     (*at)["collision"] = std::move(merged);
+    candidate.validate();
+    document.swap(candidate.document);
+}
+void TileSetSource::set_animation(std::uint64_t tile, const Json& value) {
+    validate();
+    require(value.is_object() && value.contains("enabled") && value.at("enabled").is_boolean() &&
+                value.contains("frames") && value.at("frames").is_array() &&
+                value.at("frames").size() <= tile_animation_frame_limit,
+            "Tile animation requires enabled and frame values");
+    auto candidate = *this;
+    candidate.document["version"] = std::max(document.at("version").get<std::uint32_t>(), 4u);
+    validate_upgrade(candidate);
+    auto& rows = candidate.document.at("tiles");
+    const auto at = std::find_if(rows.begin(), rows.end(),
+                                 [&](const auto& row) { return row.at("id") == tile; });
+    require(at != rows.end(), "Tile animation definition is unavailable");
+    auto merged = at->value("animation", Json::object());
+    const auto prior = merged.value("frames", Json::array());
+    merged.update(value);
+    // Frame rows have positional ownership. Preserve unrecognized siblings of
+    // retained rows; explicitly removing a row removes that row's extensions.
+    auto& frames = merged.at("frames");
+    for (std::size_t i = 0; i < frames.size(); ++i) {
+        require(frames[i].is_object(), "Tile animation frame must be an object");
+        auto row = i < prior.size() ? prior[i] : Json::object();
+        row.update(frames[i]);
+        frames[i] = std::move(row);
+    }
+    (*at)["animation"] = std::move(merged);
     candidate.validate();
     document.swap(candidate.document);
 }

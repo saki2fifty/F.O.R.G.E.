@@ -77,6 +77,7 @@ struct RenderTileMap {
     std::shared_ptr<const TileMapData> cells;
     std::shared_ptr<const TileSetData> definitions;
     std::string diagnostic;
+    double animation_seconds = 0; // Discrete completed-tick sample; Edit stays at zero.
 };
 struct RenderModelNode {
     EntityId entity;

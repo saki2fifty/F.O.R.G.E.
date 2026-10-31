@@ -316,9 +316,12 @@ class MeshSceneRenderer {
         struct Values {
             SpriteDrawValues sprite;
             const GpuLease<TextureAsset>* mip = nullptr; // Retained by images' complete banks.
+            std::uint32_t frame = 0;
+            double animation_sample = -1;
         };
         std::map<std::pair<std::uint64_t, std::uint32_t>, Values> values;
         std::array<float, 4> color{};
+        double animation_seconds = 0; // Last valid copied sample; never a separate clock.
         bool pending = false, visible_this_view = false;
         bool rejected = false;
     };

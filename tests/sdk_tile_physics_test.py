@@ -77,7 +77,7 @@ with tempfile.TemporaryDirectory(dir=runtime.parent) as directory:
                 if not sdk_play and tick == 10:
                     checkpoint = left['recovery']
                     assert checkpoint['version'] == 2
-                    assert checkpoint['tile_maps']['version'] == 1
+                    assert checkpoint['tile_maps']['version'] == 2
                     entry, = checkpoint['tile_maps']['entries']
                     assert entry['edited'] and entry['revision'] == 1 and entry['cells']
                     b = Runtime(runtime, arguments)

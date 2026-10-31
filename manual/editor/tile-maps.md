@@ -30,6 +30,44 @@ through the pink decoration onto the floor. Stop before editing their profiles.
 
 The course at its saved starting positions.
 
+## Animate a tile
+
+Open **Scenes/121-animated-tiles.scene.json** in the Feature Gallery and press
+Play. From top to bottom, the rows show forward playback, reverse playback,
+variable durations with a held final frame, and a static blue arrow. Mirroring
+and transposition still apply to each cell. The camera is included; no Project
+Code module or light is needed.
+
+Stop Play, then:
+
+1. Open **Assets/Tiles/AnimatedDirections.tileset.json** in Content and select a tile.
+2. In Inspector, find **Tile animation** and turn on **Enabled**.
+3. Set each **Frame** and **Duration (s)**. Press Enter to accept a typed number. Frame numbers start at zero and follow the image grid across each row.
+4. Use **Add frame** or **Remove last frame** to change the sequence. Put frame numbers in reverse order to reverse playback; give a frame more time to hold it.
+5. Choose **Apply animation** to validate the complete sequence as one Undo step, or **Discard animation edits** to keep the applied sequence.
+6. Use **Play preview**, **Pause preview** and **Restart preview** in the source tab to inspect the applied result. Preview controls do not change the game.
+7. Choose **Save / Publish**, then save/publish the affected Tile Map. Return to Scene and press Play. Save the Scene and select it as startup before export.
+
+![Tile animation Inspector with four numbered frames and individual durations](../images/animated-tile-controls.png)
+
+Apply the complete frame sequence before saving and publishing the Tile Set.
+
+![Game view showing forward, reverse, held and static arrow rows](../images/animated-tile-gallery.png)
+
+The four rows share one game timeline; cell mirrors and transposition still apply.
+
+An enabled sequence loops through 1–64 frames. Each duration must be from 0.001
+to 600 seconds, and each frame must fit the selected image grid. Invalid values
+remain a draft; Apply reports the problem. Apply or discard a draft before saving,
+switching tile fields or using Undo/Redo. Turning **Enabled** off uses the tile's
+ordinary **Frame** value and retains the configured sequence.
+
+All cells share the game's simulation timeline. Pause and zero simulation speed
+hold the current frame; Step advances one simulation tick. Restarting Play starts
+the sequence again. Frames are sampled at simulation ticks, so very short frames
+may be skipped. Animation changes the image only: painted collision stays
+fixed. Use separate collision definitions when different shapes are needed.
+
 ## Make a map
 
 Create a Sprite image material from an imported image. Use Content's **Create /
@@ -45,7 +83,7 @@ rotate, scale or mirror the complete map. Coordinates may be negative.
 To filter small or distant cells, select the Map entity and set **Mip filtering**
 in **Tile Map Renderer** to **Nearest** or **Linear**. Nearest selects one smaller
 image level; Linear blends adjacent levels. Disabled is the default. Each defined
-tile frame is filtered independently, so neighboring atlas frames stay separate.
+tile frame, including animation frames, is filtered independently, so neighboring atlas frames stay separate.
 Save the Scene or Prefab before exporting. Each used Tile Set image supports up
 to 512 filtered frames; large image banks can exceed the resource budget. A failed
 replacement keeps the last complete working map and reports the problem.

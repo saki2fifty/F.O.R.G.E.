@@ -1,5 +1,6 @@
 #pragma once
 #include "frame_renderer.hpp"
+#include "runtime_tile_map.hpp"
 #include "sprite_draw_render_tests.hpp"
 #include <forge/game_content.hpp>
 #include <forge/physics.hpp>
@@ -41,7 +42,8 @@ inline std::vector<Pixels> render(DiligentPresentation& presentation, IDeviceCon
     std::filesystem::create_directories(output);
     std::vector<Pixels> results;
     const auto capture = [&](unsigned tick, unsigned width, unsigned height) {
-        const auto scene = extract_render_scene(world.simulation.presentation(1));
+        auto scene = extract_render_scene(world.simulation.presentation(1));
+        detail::bind_runtime_tile_maps(world.engine.world(), scene);
         deadline = std::chrono::steady_clock::now() + std::chrono::seconds(45);
         Pixels pixels;
         do {

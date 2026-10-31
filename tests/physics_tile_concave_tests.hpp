@@ -71,9 +71,9 @@ inline void test_concave_tile_runtime(const std::filesystem::path& root,
     const auto catalog = AssetCatalog::open_project(root);
     const auto& record = catalog.records().at(definitions->source().asset());
     check(record.schema_version == 3 &&
-              record.metadata.at("forge.import").at("output_version") == 3,
+              record.metadata.at("forge.import").at("output_version") == tile_set_cooked_version,
           "Concave source/cook publication versions differ");
-    std::cout << "Concave source3/cooked3 publication PASS\n";
+    std::cout << "Concave source3/current cooked publication PASS\n";
     const auto scene = AssetId::generate();
     const auto floor = EntityId::generate();
     const auto upper = EntityId::generate(), lower = EntityId::generate();
@@ -182,6 +182,7 @@ inline void test_concave_tile_runtime(const std::filesystem::path& root,
             check(world.physics()->body_state_2d(ref) == recovered.physics()->body_state_2d(ref),
                   "Actual cooked concave fresh-world continuation diverged");
     }
-    std::cout << "Concave source3/cooked3 native queries, landing, rejected edit, empty/refill and "
+    std::cout << "Concave source3/current cooked native queries, landing, rejected edit, "
+                 "empty/refill and "
                  "exact RuntimeWorld recovery PASS\n";
 }

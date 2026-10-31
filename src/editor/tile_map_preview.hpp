@@ -35,7 +35,7 @@ class TileMapPreview {
     Diligent::ITextureView* render(std::shared_ptr<const TileMapData> cells,
                                    std::shared_ptr<const TileSetData> definitions,
                                    std::shared_ptr<const AssetCatalog> catalog, unsigned width,
-                                   unsigned height) {
+                                   unsigned height, double animation_seconds = 0) {
         if (!cells || cells->asset() != map_ || cells->tile_set() != definitions_ ||
             (definitions && definitions->asset() != definitions_) || !width || !height)
             throw std::runtime_error("Tile preview values or dimensions changed");
@@ -92,6 +92,7 @@ class TileMapPreview {
         camera.m[11] = 4;
         view_ = camera_view(lens, camera, width, height);
         const std::array views{PreparedCamera{camera_id_, lens, view_}};
+        scene_.tile_maps.front().animation_seconds = animation_seconds;
         auto* image = frame_.render(context_, scene_, views, width, height, 0);
         host_->submit();
         return image;
@@ -100,7 +101,7 @@ class TileMapPreview {
                                         std::shared_ptr<const TileSetData> definitions,
                                         std::shared_ptr<const AssetCatalog> catalog,
                                         bool stroke_active, bool painting,
-                                        float minimum_height = 220) {
+                                        float minimum_height = 220, double animation_seconds = 0) {
         ImGui::BeginDisabled(stroke_active);
         if (ui::button("Frame cells", "Fit occupied cells; middle mouse pans and wheel zooms."))
             frame_cells();
@@ -112,7 +113,8 @@ class TileMapPreview {
         const float scale = std::min(1.f, 4096.f / std::max(size.x, size.y));
         const auto width = std::max(1u, unsigned(size.x * scale)),
                    height = std::max(1u, unsigned(size.y * scale));
-        auto* image = render(cells, definitions, std::move(catalog), width, height);
+        auto* image =
+            render(cells, definitions, std::move(catalog), width, height, animation_seconds);
         const auto origin = ImGui::GetCursorScreenPos();
         ImGui::Image(ImTextureRef{reinterpret_cast<ImTextureID>(image)}, size);
         FORGE_UI_PROBE("tile_map:preview_image");

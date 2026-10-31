@@ -112,7 +112,7 @@ void bad_values() {
         reject([&] { source.validate(); });
         reject([&] { (void)roundtrip(source); });
     };
-    test([](auto& j) { j["version"] = 4; });
+    test([](auto& j) { j["version"] = 5; });
     test([](auto& j) { j["version"] = 1.; });
     test([](auto& j) { j["format"] = "other"; });
     test([](auto& j) { j["asset_id"] = nullptr; });

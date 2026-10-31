@@ -9,6 +9,7 @@ foreach(source
  src/tile_map_data.hpp src/tile_map_data.cpp src/tile_map_cook.hpp src/tile_map_cook.cpp
  src/tile_set_values.hpp src/tile_set_source.hpp src/tile_set_source.cpp
  src/tile_polygon_decomposition.hpp
+ src/tile_animation.hpp
  src/tile_set_data.hpp src/tile_set_data.cpp src/tile_set_cook.hpp src/tile_set_cook.cpp
  src/sprite_region.hpp src/sprite_material_profile.hpp src/sprite_draw_selection.hpp
  src/model_draw_candidate.hpp src/model_draw_candidate.cpp src/model_render_resource.cpp

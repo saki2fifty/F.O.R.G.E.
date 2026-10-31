@@ -15,7 +15,8 @@ class TileSetPreview {
     const std::filesystem::path& project() const { return canvas_.project(); }
     AssetId asset() const { return source_; }
     void draw(const TileSetSource& source, std::uint64_t revision,
-              std::shared_ptr<const AssetCatalog> catalog, std::uint64_t selected) {
+              std::shared_ptr<const AssetCatalog> catalog, std::uint64_t selected,
+              double animation_seconds = 0) {
         if (source.asset() != source_ || !revision)
             throw std::runtime_error("Tile Set preview source changed");
         if (revision_ != revision) {
@@ -44,7 +45,8 @@ class TileSetPreview {
             canvas_.frame_cells();
         }
         ImGui::TextWrapped("Preview: %s (one map cell)", tile.name.c_str());
-        (void)canvas_.draw(cells_, definitions_, std::move(catalog), false, false, 180);
+        (void)canvas_.draw(cells_, definitions_, std::move(catalog), false, false, 180,
+                           animation_seconds);
     }
 
   private:

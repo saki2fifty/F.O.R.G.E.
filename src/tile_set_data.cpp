@@ -1,5 +1,6 @@
 #include "tile_set_data.hpp"
 #include "cooked_envelope.hpp"
+#include "tile_animation.hpp"
 #include "tile_polygon_decomposition.hpp"
 #include <cmath>
 #include <map>
@@ -66,6 +67,26 @@ TileCollisionProfile collision(const Json& value, std::uint32_t profile_version)
         (void)tile_detail::tile_polygon_triangles(result.points);
     return result;
 }
+std::shared_ptr<const TileAnimation> animation(const Json& value, std::uint64_t image_frames) {
+    require(value.is_object() && value.at("enabled").is_boolean(),
+            "Tile animation requires an enabled boolean");
+    auto result = std::make_shared<TileAnimation>();
+    result->enabled = value.at("enabled").get<bool>();
+    const auto& frames = value.at("frames");
+    require(frames.is_array() && frames.size() <= tile_animation_frame_limit &&
+                (!result->enabled || !frames.empty()),
+            "Enabled tile animation needs1..64frames");
+    result->frames.reserve(frames.size());
+    for (const auto& row : frames) {
+        require(row.is_object() && row.at("seconds").is_number(),
+                "Tile animation frame needs a numeric duration");
+        result->frames.push_back(
+            {std::uint32_t(natural(row.at("frame"), UINT32_MAX)), row.at("seconds").get<double>()});
+    }
+    if (!result->frames.empty())
+        result->duration = tile_detail::tile_animation_duration(result->frames, image_frames);
+    return result;
+}
 } // namespace
 Json tile_detail::tile_collision_json(const TileCollisionProfile& value) {
     if (value.kind == TileCollisionKind::Convex || value.kind == TileCollisionKind::Polygon)
@@ -74,6 +95,22 @@ Json tile_detail::tile_collision_json(const TileCollisionProfile& value) {
     require(value.kind == TileCollisionKind::FullCell || value.kind == TileCollisionKind::None,
             "Unknown typed tile collision kind");
     return {{"kind", value.kind == TileCollisionKind::None ? "none" : "full_cell"}};
+}
+Json tile_detail::tile_animation_json(const TileAnimation& value) {
+    Json rows = Json::array();
+    for (const auto& frame : value.frames)
+        rows.push_back({{"frame", frame.frame}, {"seconds", frame.seconds}});
+    return {{"enabled", value.enabled}, {"frames", std::move(rows)}};
+}
+Json tile_detail::tile_definition_json(const TileSetDefinition& value) {
+    Json row{{"id", value.id},
+             {"name", value.name},
+             {"image", value.image},
+             {"frame", value.frame},
+             {"collision", tile_collision_json(value.collision)}};
+    if (value.animation && (value.animation->enabled || !value.animation->frames.empty()))
+        row["animation"] = tile_animation_json(*value.animation);
+    return row;
 }
 TileSetRows tile_detail::decode_tile_set_rows(const Json& images, const Json& tiles,
                                               std::uint32_t profile_version) {
@@ -117,6 +154,8 @@ TileSetRows tile_detail::decode_tile_set_rows(const Json& images, const Json& ti
         require(tile.frame < image->second, "Tile Set definition frame is outside its grid");
         if (profile_version >= 2 && row.contains("collision"))
             tile.collision = collision(row.at("collision"), profile_version);
+        if (profile_version >= 4 && row.contains("animation"))
+            tile.animation = animation(row.at("animation"), image->second);
         result.tiles.push_back(std::move(tile));
     }
     return result;
@@ -137,7 +176,8 @@ TileSetData decode_cooked_tile_set(std::span<const std::byte> bytes, AssetId exp
         require(row.size() == 4 && row.at("grid").size() == 6,
                 "Cooked Tile Set image contains unsupported fields");
     for (const auto& row : root.at("tiles")) {
-        require(row.size() == (envelope.version >= 2 ? 5u : 4u),
+        const bool animated = envelope.version >= 4 && row.contains("animation");
+        require(row.size() == (envelope.version >= 2 ? 5u : 4u) + unsigned(animated),
                 "Cooked Tile Set definition contains unsupported fields");
         if (envelope.version >= 2) {
             const auto& profile = row.at("collision");
@@ -145,6 +185,13 @@ TileSetData decode_cooked_tile_set(std::span<const std::byte> bytes, AssetId exp
                 profile.size() ==
                     ((profile.at("kind") == "convex" || profile.at("kind") == "polygon") ? 2u : 1u),
                 "Cooked tile collision contains unsupported fields");
+        }
+        if (animated) {
+            const auto& value = row.at("animation");
+            require(value.size() == 2, "Cooked tile animation contains unsupported fields");
+            for (const auto& frame : value.at("frames"))
+                require(frame.size() == 2,
+                        "Cooked tile animation frame contains unsupported fields");
         }
     }
     const auto by_id = [](const auto& a, const auto& b) { return a.id < b.id; };
@@ -186,8 +233,12 @@ std::size_t TileSetData::resident_bytes() const {
     for (const auto& image : rows_->images)
         bytes += image.name.capacity() + 1;
     for (const auto& tile : rows_->tiles)
-        bytes += tile.name.capacity() + 1 +
-                 tile.collision.points.capacity() * sizeof(std::array<double, 2>);
+        bytes +=
+            tile.name.capacity() + 1 +
+            tile.collision.points.capacity() * sizeof(std::array<double, 2>) +
+            (tile.animation ? sizeof(TileAnimation) + 64 +
+                                  tile.animation->frames.capacity() * sizeof(TileAnimationFrame)
+                            : 0);
     return bytes;
 }
 } // namespace forge

@@ -26,7 +26,7 @@ struct Prepared {
 inline Prepared prepare(const std::filesystem::path& gallery,
                         const std::filesystem::path& scratch) {
     Prepared result;
-    result.root = scratch / AssetId::generate().str();
+    result.root = scratch / AssetId::generate().str() / "Project";
     std::filesystem::create_directories(result.root.parent_path());
     std::filesystem::copy(gallery, result.root, std::filesystem::copy_options::recursive);
     const auto prior = AssetCatalog::open_project(result.root).document().at("assets");

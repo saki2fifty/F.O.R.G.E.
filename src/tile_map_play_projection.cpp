@@ -1,5 +1,6 @@
 #include "tile_map_play_projection.hpp"
 #include <algorithm>
+#include <cmath>
 #include <set>
 #include <stdexcept>
 
@@ -38,6 +39,8 @@ Json TileMapPlaySource::capture(std::uint64_t world, AssetId scene,
         require(view.diagnostic.size() <= 1024 && view.map_revision.size() <= 256 &&
                     view.set_revision.size() <= 256,
                 "Tile Play projection diagnostic/revision exceeds its profile");
+        require(std::isfinite(view.animation_seconds) && view.animation_seconds >= 0,
+                "Tile Play animation sample must be finite and nonnegative");
         const bool ready = bool(view.cells && view.definitions);
         if (ready)
             require(view.generation && !view.map_revision.empty() && !view.set_revision.empty() &&
@@ -50,6 +53,7 @@ Json TileMapPlaySource::capture(std::uint64_t world, AssetId scene,
                  {"map", view.requested},
                  {"ready", ready},
                  {"pending", view.pending},
+                 {"animation_seconds", view.animation_seconds},
                  {"diagnostic", view.diagnostic}};
         if (ready) {
             row["generation"] = view.generation;
@@ -71,7 +75,7 @@ Json TileMapPlaySource::capture(std::uint64_t world, AssetId scene,
     // Retire departed actors promptly. A frozen in-flight value remains detached
     // and can finish; the next manifest prevents applying it to a removed actor.
     std::erase_if(baselines_, [&](const auto& entry) { return !observed_.contains(entry.first); });
-    return {{"world", world_}, {"scene", scene_}, {"maps", std::move(manifest)}};
+    return {{"version", 2}, {"world", world_}, {"scene", scene_}, {"maps", std::move(manifest)}};
 }
 std::size_t TileMapPlaySource::retained_bytes() const {
     owner();

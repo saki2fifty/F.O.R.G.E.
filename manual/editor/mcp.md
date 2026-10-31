@@ -72,6 +72,12 @@ collision, terrain, tile, particle and animation source editors. The agent can
 create or open a source, inspect its format, edit validated fields, and use that
 source document's Undo and Redo. You see the same draft in the editor.
 
+For animated tiles, the agent can set the ordered image-grid frames and their
+durations in the Tile Set source. Publish the Set and then its affected Maps.
+Pause and Step in Game follow simulation time; the source tab's preview controls
+only preview the applied sequence. Finish or discard an interactive animation
+draft before the agent changes that source.
+
 Saving checks for external changes before publishing. The agent must inspect the
 publication result; a saved file can remain after compilation fails. Closing an
 unsaved or unpublished source requires an explicit discard. Active graph, brush

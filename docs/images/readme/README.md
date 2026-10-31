@@ -1,5 +1,30 @@
 # README screenshots
 
+## Animated tile sequences
+
+[Animation controls](../../../manual/images/animated-tile-controls.png) is the
+unretouched 760×1000 production TileSetEditor Inspector at 1x through the SDL/ImGui
+software harness: `forge_tile_set_editor_tests <scratch> --capture-animation`.
+The enabled four-frame table, individual durations and Apply/Discard controls are
+actual production drawing. SHA256:
+`5c3a3390b15a59b37b244aa8a0f16794e8beb2681e87bad77075f1f1f029e4ff`.
+
+[Animated Game](../../../manual/images/animated-tile-gallery.png) is the complete
+640×360 FrameRenderer Game after 90 fixed steps at 60 Hz in Scene
+`3380e046-21be-4161-82b1-edf2e898ac8d`. Forward, reverse, variable-duration and
+static rows reuse FORGE's original arrow atlas. The `animated_tile_gallery_vulkan`
+test checks the lane frame order and four exact authored/source-free relocated
+display pairs. PNG conversion preserves all original RGB pixels. SHA256:
+`0ccd5567ef18172442234699798572beae353c46080479253b870c7d8c6d4288`.
+
+Both are development source based on a86a2e8 with the animated tile extension,
+unassigned build identity, exact SDK
+`d634f73b60fe724a141a29494e87c70ed98110f98d5148fe8dc83270484db430`.
+Capture provenance and hashes are retained locally in
+`AgentFiles/build/phase200-animated-tiles/captures.json`. Controls are the shared
+Inspector harness; Game uses software Vulkan/lavapipe. These do not establish
+full editor, Windows/MSVC, physical DPI/GPU or graphical exported-EXE acceptance.
+
 ## Concave tile outlines
 
 [Concave controls](../../../manual/images/concave-tile-controls.png) is an

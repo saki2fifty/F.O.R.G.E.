@@ -17,8 +17,14 @@ SpriteFrameMipPlan tile_mip_plan(const TileSetData& definitions, std::uint64_t i
     const auto& source = definitions.image(image);
     std::set<std::uint32_t> frames;
     for (const auto& tile : definitions.tiles())
-        if (tile.image == image)
-            frames.insert(tile.frame);
+        if (tile.image == image) {
+            if (tile.animation && tile.animation->enabled) {
+                for (const auto& frame : tile.animation->frames)
+                    frames.insert(frame.frame);
+            } else {
+                frames.insert(tile.frame);
+            }
+        }
     if (frames.empty() || frames.size() > sprite_frame_region_limit)
         throw std::invalid_argument("Tile mip filtering needs 1 to 512 defined frames per image");
     SpriteRenderer layout;

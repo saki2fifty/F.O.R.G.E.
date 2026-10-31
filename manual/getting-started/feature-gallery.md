@@ -1,5 +1,11 @@
 # Explore the Feature Gallery
 
+**121-animated-tiles** has four rows of arrows: forward, reverse, variable-duration
+and static. Open **Assets/Tiles/AnimatedDirections.tileset.json**, select a tile
+and edit **Tile animation** in Inspector. Apply, save/publish the Set and Map,
+then Play again. Pause holds the images and Step advances one simulation tick.
+See [Animate a tile](../editor/tile-maps.md).
+
 **120-concave-tile-collision** uses editable L and U tile outlines. Press Play:
 amber and rose land on upper edges while cyan and green fall into the notches.
 Stop and open **Assets/Tiles/ConcaveTiles.tileset.json** to edit the points in

@@ -388,6 +388,7 @@ void RuntimeSimulation::tick(float dt) {
         auto profile = context_.services().profile("runtime", "AudioSynchronization", input_tick_);
         audio_->synchronize(input_tick_, dt, discontinuities);
     }
+    detail::advance_runtime_tile_animation(context_, dt);
 }
 Json RuntimeSimulation::system_profile() const {
     // This also checks service lifetime/capability/owner-thread admission.

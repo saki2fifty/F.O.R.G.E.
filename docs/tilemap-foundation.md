@@ -13,6 +13,8 @@ Maps can use the same policy with fixed target commands or transform animation.
 Dynamic, sensor and custom-polygon one-way Maps remain outside the current profile.
 Gallery119 demonstrates the moving policy alongside an inline one-way ledge;
 both share the included transform clip.
+Gallery121 demonstrates looping atlas animation: forward, reverse, variable-duration
+and static rows use the existing arrow image material.
 
 The source format, cooked profile and runtime budgets below describe implemented
 behavior. [Validation](#validation) records passing automated checks and their scope. Build261020-000194 predates this feature.
@@ -116,6 +118,29 @@ loads are distinguished from terminal admission failures. `GamePresentation`
 passes this typed view through the existing `FrameRenderer`. Editor Play binds
 the receiver's admitted immutable values through the same typed presentation path.
 
+## Tile animation timing
+
+The existing world-scoped runtime Map owner stores one nonnegative elapsed sample.
+RuntimeSimulation advances it once, at the end of a successful fixed tick, using
+that tick's actual delta. Authoring worlds do not advance it. All Map actors and
+cells use the same completed-tick timeline. Pause and zero simulation rate hold;
+explicit Step advances one tick, including at zero rate. New worlds start at zero.
+Atlas frames are discrete; presentation interpolation and resource polling do not
+advance them. Collision continues to use the fixed definition profile.
+
+Direct Map binding and copied Play observations expose this sample without
+mutating immutable cells/definitions or their generation/revision. The existing
+per-(tile,flags) draw cache evaluates once per new sample and replaces UV/mip values
+in place only when the selected frame changes. Timing is never a cache key.
+The existing draw source retains the last validated copied sample; negative or
+nonfinite input reports a diagnostic while preserving the complete working draw.
+This retained value does not advance time or create a second clock.
+The private Map checkpoint is version2: exactly `version`, `next_generation`,
+`animation_seconds` and `entries`. Restore validates finite nonnegative numeric
+time before candidate adoption and restores it only after complete validation.
+Old private Map checkpoint1 is deliberately rejected; durable source/cooked old
+reads and the outer recovery envelope remain separate contracts.
+
 ## Copied C++ cell interface
 
 The exact SDK appends CPU map callbacks to the existing host table. Its changed
@@ -198,7 +223,7 @@ legal source combinations are not guaranteed to fit every transport budget.
 
 ## Internal Tile Set profile
 
-The private JSON discriminator is `forge.tile-set`, version 1, 2 or 3, with a UUID
+The private JSON discriminator is `forge.tile-set`, version 1, 2, 3 or 4, with a UUID
 `asset_id`, monotonic uint64 `next_id`, `images` and `tiles` arrays. Zero is reserved
 in the shared image/tile local-key space. Every entry key is unique and below
 `next_id`; names are display values. Edits cannot reuse retired keys, move the
@@ -231,6 +256,20 @@ Undo/Redo restore source versions through existing history. Known profile change
 preserve unknown collision siblings. Unused `points` reject on FullCell/None.
 IDs, allocator history and unrelated extensions remain owned by the document.
 
+Source4 additionally interprets optional `animation` on a definition:
+`{"enabled":true,"frames":[{"frame":0,"seconds":0.125},{"frame":3,"seconds":0.25}]}`.
+An enabled loop has 1..64 rows; a disabled sequence has 0..64. Every frame must
+fit the definition's image grid and every duration must be finite, from 0.001
+through 600 seconds inclusive. Row order is playback order; repeated frames are
+allowed. Disabled/unconfigured animation uses the scalar `frame` fallback.
+Source1/2/3 animation fields remain opaque. Explicit animation editing promotes to4
+only when no legacy row has a reserved animation field; full-document edits use
+the same guard. Unknown profile siblings and retained frame-position siblings
+survive typed edits. Removing a row explicitly removes that row's extension data.
+The Inspector stages the complete sequence, validates Apply as one Undo step and
+blocks conflicting edits, Save and history until Apply or Discard. Its local
+Play/Pause/Restart preview never advances simulation time or changes source.
+
 Admission limits are 16 images, 4096 tile definitions, 2MiB source bytes,
 100000 JSON events and depth 16. Names contain 1–128 UTF-8 bytes without ASCII
 controls. Source admission checks structure; publication additionally checks
@@ -245,15 +284,17 @@ unknown fields and its allocation high-water mark. Cooking sorts image/tile rows
 by numeric key and omits unknown fields and allocator metadata. Reordering source
 rows or advancing the allocator alone does not change cooked runtime bytes.
 
-The cooked envelope uses eight-byte magic `FTILESET`, version 3 (with version1/2 reads retained), at most 2MiB of
+The cooked envelope uses eight-byte magic `FTILESET`, version4 (with version1/2/3 reads retained), at most 2MiB of
 metadata and no binary payload. Root fields are exactly `asset_id`, `images` and
 `tiles`; their known row/grid fields match the source value profile. Extra cooked
 fields reject. The decoder checks the expected root UUID and the same combined
-image/tile key space, frame references and limits as source admission. Cooked2/3
+image/tile key space, frame references and limits as source admission. Cooked2/3/4
 normalize the known collision profile on every definition; cooked1 supplies
 FullCell. The declared selected output version must match the actual envelope.
-Tile Set recipe3 publishes cooked3; only cooked3 admits Polygon. Tile Map recipe/output
-remain1. Catalog source schema1/2/3 is separate from publication metadata API1.
+Tile Set recipe4 publishes cooked4; cooked3/4 admit Polygon, and only cooked4
+admits animation. Disabled empty sequences normalize to the static representation.
+Tile Map recipe/output remain1. Catalog source schema1/2/3/4 is separate from
+publication metadata API1.
 
 `TileSetData` retains shared immutable typed rows sorted for local-key lookup.
 Copies share that storage. Material dependency enumeration deduplicates Material
@@ -433,7 +474,8 @@ across image keys and independently edited map actors.
 
 `TileMapRenderer.mip_filter` is Disabled (0) by default, Nearest (1) or Linear (2). The
 shared Sprite resource owner prepares the actual defined frames for each used
-Set image, with at most 512 distinct frames per image. Equal frame views can share
+Set image, including every enabled animation frame, with at most 512 distinct
+frames per image. Equal frame views can share
 consecutive instance batches; different views split draws without reordering.
 Definition changes replace the complete bank, and a failed source/layout retains
 the complete old map. Each bank has a 256 MiB unique-chain payload limit, within the
@@ -484,6 +526,14 @@ transfer at a time using begin/page/ack/cancel commands. A page contains at most
 four chunks and 256 KiB. A complete header, explicit full-transfer chunk keys,
 counts and all pages must validate before the receiver acknowledges and publishes
 an immutable frame. Partial packets cannot become visible map cells.
+
+Current observation manifests have `version:2` and one finite nonnegative numeric
+`animation_seconds` per actor. Legacy observations without a version are accepted
+only without timing and bind static time zero. A version2 actor without valid time
+rejects atomically. Time is excluded from frozen cell-transfer identity and
+compatibility; a time-only observation requests no cell pages. Completing an older
+frozen transfer binds the latest observed sample, preserving paused holds and
+ordinary frame progression without retransmission.
 
 The existing PlaySession owns separate active and prepared receiving state; the
 hosts retain corresponding derived sending state. These adapters own neither a
@@ -625,6 +675,24 @@ and edits independently after source removal/relocation. Native Game readbacks
 check layered markers and mirrored image cells at two resolutions.
 
 ## Validation
+
+Local animated-tile checks cover source4/cooked4 and older reads, bounded frame
+selection, unknown-field/identity/history preservation, actual worker publication,
+fixed collision, completed-tick timing and exact Map2 recovery. Six Inspector
+size/scale pairs and both MCP envelopes cover staged editing, invalid/stale inputs,
+history and publication. Both real Play hosts cover Pause, zero rate, Step and
+restart; ordinary fresh recovery continues90exact animation ticks with three
+graceful zero-exit runtime children. Matching installed/relocated SDK checks pass.
+
+Software-Vulkan readbacks cover frame changes, holds, looping, all three filters,
+resource reuse and rejected negative/infinite/NaN samples retaining the working
+draw. Gallery121 checks forward/reverse/variable/static lane order and four exact
+authored/source-free relocated displays; strict and normal displays are identical.
+Thirty selected strict units feed fourteen links; twelve CPU/UI/MCP/runtime
+consumers exit cleanly with unsuppressed ASan/UBSan. Both native consumers retain
+the exact known unresolved184-byte/five-allocation shutdown signature. This is
+functional native evidence, not a clean native shutdown claim. Windows/MSVC/full
+editor/physical GPU and graphical exported-EXE acceptance remain queued.
 
 Focused tests cover source/identity/history, real worker publication and resources,
 native C++ requests, installed-only module compilation, both actual Play pipes,

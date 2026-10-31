@@ -2,6 +2,7 @@
 #include "tile_map_projection.hpp"
 #include <algorithm>
 #include <atomic>
+#include <cmath>
 #include <forge/physics_components.hpp>
 #include <forge/render_components.hpp>
 #include <forge/render_scene.hpp>
@@ -82,6 +83,7 @@ struct Queue {
     std::uint64_t next_generation = 1;
     bool observing = false;
     TileMapPhysicsAdmission physics_admission;
+    double animation_seconds = 0;
 };
 struct RuntimeTileMapHost {
     std::shared_ptr<Queue> queue;
@@ -214,6 +216,20 @@ void register_runtime_tile_maps(WorldContext& context) {
     if (context.role() == WorldRole::Runtime)
         world.set<RuntimeTileMapHost>({std::make_shared<Queue>()});
 }
+void advance_runtime_tile_animation(WorldContext& context, double fixed_delta) {
+    if (context.role() != WorldRole::Runtime)
+        return;
+    boundary(context);
+    auto& values = queue(context);
+    const auto next = values.animation_seconds + fixed_delta;
+    require(std::isfinite(fixed_delta) && fixed_delta > 0 && std::isfinite(next),
+            "Tile animation requires a finite positive fixed delta");
+    values.animation_seconds = next;
+}
+double runtime_tile_animation_seconds(WorldContext& context) {
+    boundary(context);
+    return queue(context).animation_seconds;
+}
 void synchronize_runtime_tile_maps(WorldContext& context) {
     if (context.role() != WorldRole::Runtime)
         return;
@@ -327,9 +343,10 @@ std::shared_ptr<const RuntimeTileMapSnapshot> runtime_tile_map_snapshot(WorldCon
     return state->snapshot;
 }
 void bind_runtime_tile_maps(WorldContext& context, RenderScene& scene) {
-    (void)queue(context);
+    const auto seconds = runtime_tile_animation_seconds(context);
     for (auto& map : scene.tile_maps) {
         map.runtime_instance = true;
+        map.animation_seconds = seconds;
         map.pending = false;
         map.generation = map.revision = 0;
         map.cells.reset();
@@ -525,8 +542,9 @@ Json checkpoint_runtime_tile_maps(WorldContext& context) {
         entry["cells"] = std::move(cells);
         entries.push_back(std::move(entry));
     }
-    Json result{{"version", 1},
+    Json result{{"version", runtime_tile_map_checkpoint_version},
                 {"next_generation", values.next_generation},
+                {"animation_seconds", values.animation_seconds},
                 {"entries", std::move(entries)}};
     require(result.dump().size() <= checkpoint_byte_limit,
             "Tile Map checkpoint exceeds whole recovery byte budget");
@@ -536,9 +554,15 @@ void restore_runtime_tile_maps(WorldContext& context, const Json& input) {
     boundary(context);
     auto& values = queue(context);
     require(values.requests.empty(), "Tile Map recovery requires a fresh request queue");
-    require(input.is_object() && input.size() == 3 && input.at("version").is_number_integer() &&
-                input.at("version") == 1 && input.dump().size() <= checkpoint_byte_limit,
+    require(input.is_object() && input.size() == 4 && input.at("version").is_number_integer() &&
+                input.at("version") == runtime_tile_map_checkpoint_version &&
+                input.dump().size() <= checkpoint_byte_limit,
             "Invalid Tile Map checkpoint version/size/fields");
+    require(input.at("animation_seconds").is_number(),
+            "Tile Map recovery animation time must be numeric");
+    const auto seconds = input.at("animation_seconds").get<double>();
+    require(std::isfinite(seconds) && seconds >= 0,
+            "Tile Map recovery animation time must be finite and nonnegative");
     const auto next_generation = checkpoint_integer(input.at("next_generation"));
     require(next_generation != 0, "Invalid Tile Map checkpoint generation frontier");
     const auto& entries = input.at("entries");
@@ -629,5 +653,6 @@ void restore_runtime_tile_maps(WorldContext& context, const Json& input) {
     // Nonrestored disabled instances can have prepared newer generations in the
     // fresh world. Never reuse those values for a later reset or replacement.
     values.next_generation = std::max(next_generation, values.next_generation);
+    values.animation_seconds = seconds;
 }
 } // namespace forge::detail

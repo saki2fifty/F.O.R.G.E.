@@ -70,13 +70,51 @@ void values() {
             }
         }
     }
+    auto animated_metadata = metadata;
+    animated_metadata["tiles"][0]["collision"] = {{"kind", "full_cell"}};
+    animated_metadata["tiles"][0]["animation"] = {
+        {"enabled", true},
+        {"frames", {{{"frame", 4}, {"seconds", .125}}, {{"frame", 0}, {"seconds", .125}}}}};
+    const auto animated = decode_cooked_tile_set(
+        asset_detail::encode_envelope(animated_metadata, {}, tile_set_cooked_magic,
+                                      tile_set_cooked_metadata_limit, 4),
+        id);
+    const std::array<std::array<double, 2>, 4> first_frame{{{{1.5 / 14, 1.5 / 12}},
+                                                            {{4.5 / 14, 1.5 / 12}},
+                                                            {{4.5 / 14, 5.5 / 12}},
+                                                            {{1.5 / 14, 5.5 / 12}}}};
+    for (const auto& [time, frame] : std::array<std::pair<double, unsigned>, 6>{
+             {{0, 4}, {.0625, 4}, {.125, 0}, {.1875, 0}, {.25, 4}, {0x1p46, 4}}})
+        for (unsigned flags = 0; flags < 8; ++flags) {
+            const auto draw =
+                tile_draw_values(animated, tile, flags, 14, 12, {.5f, .75f, 1, .25f}, time);
+            const auto& pixels = frame == 4 ? samples : first_frame;
+            check(draw.image == 17 && draw.material.id == material && draw.sprite.color[3] == .25,
+                  "Animation changed image/Material/tint identity");
+            for (unsigned corner = 0; corner < 4; ++corner) {
+                auto uv = corners[corner];
+                if (draw.sprite.transpose_uv)
+                    std::swap(uv[0], uv[1]);
+                for (unsigned axis = 0; axis < 2; ++axis) {
+                    const auto& region = draw.sprite.region;
+                    const auto value =
+                        std::clamp(region.origin[axis] + uv[axis] * region.scale[axis],
+                                   region.sample_minimum[axis], region.sample_maximum[axis]);
+                    check(std::abs(value - pixels[expected[flags][corner]][axis]) < 1e-14,
+                          "Animated UVs differ from independent frame pixel corners");
+                }
+            }
+        }
+    reject([&] { tile_draw_values(animated, tile, 0, 14, 12, {1, 1, 1, 1}, NAN); });
     reject([&] { tile_draw_values(definitions, 0, 0, 14, 12); });
     reject([&] { tile_draw_values(definitions, tile, 8, 14, 12); });
     reject([&] { tile_draw_values(definitions, tile, 0, 15, 12); });
     reject([&] { tile_draw_values(definitions, tile, 0, 0, 12); });
     reject([&] { tile_draw_values(definitions, tile, 0, 14, 12, {1, 1, 1, 2}); });
     auto sliced = tile_draw_values(definitions, tile, 4, 14, 12).sprite;
-    sliced.image.mode = 1;
+    check(sliced.image.mode == 0, "Tile draw unexpectedly requested Sprite fill mapping");
+    // Shared Sprite validation admits Simple/Sliced/Tiled; Tiles request Simple.
+    sliced.image.mode = 3;
     reject([&] { validate_sprite_draw_values(sliced); });
 }
 void transforms() {

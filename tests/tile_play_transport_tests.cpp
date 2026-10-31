@@ -30,7 +30,7 @@ Json publish_scene(const std::filesystem::path& root, const std::filesystem::pat
                              {"name", "Original"},
                              {"material", material},
                              {"grid",
-                              {{"columns", 1},
+                              {{"columns", 4},
                                {"rows", 1},
                                {"margin_x", 0},
                                {"margin_y", 0},
@@ -43,6 +43,13 @@ Json publish_scene(const std::filesystem::path& root, const std::filesystem::pat
             source.set_collision(
                 2, {{"kind", "polygon"},
                     {"points", {{0., 0.}, {1., 0.}, {1., .5}, {.5, .5}, {.5, 1.}, {0., 1.}}}});
+        });
+    definitions->edit_source(
+        definitions->revision(), "Looping copied definition", [](auto& source) {
+            source.set_animation(
+                2, {{"enabled", true},
+                    {"frames",
+                     {{{"frame", 0}, {"seconds", .125}}, {{"frame", 3}, {"seconds", .25}}}}});
         });
     definitions->save();
     AssetImportService importer(lease, tile_asset_import_registry(worker),
@@ -152,14 +159,45 @@ int main(int argc, char** argv) {
             for (const auto& map : retained.tile_maps)
                 check(map.cells->occupied() == 9 && map.cells->cell(1, {-65, 0}).tile == 2 &&
                           map.definitions->tile(2).collision.kind == TileCollisionKind::Polygon &&
-                          map.definitions->tile(2).collision.points.size() == 6,
+                          map.definitions->tile(2).collision.points.size() == 6 &&
+                          map.definitions->tile(2).animation &&
+                          map.definitions->tile(2).animation->frames.size() == 2 &&
+                          map.animation_seconds == 0,
                       "Real process copied different cross-chunk tile contents");
             play.pause();
             wait([&] { return play.paused() && play.control_ready(); });
             const auto tick = play.timing().at("tick").get<std::uint64_t>();
+            const auto fixed_dt = float(play.timing().at("fixed_dt").get<double>());
+            const auto paused_time = bound().tile_maps[0].animation_seconds;
             play.step();
             wait([&] { return play.control_ready() && play.timing().at("tick") == tick + 1; });
             check(copied(), "Control scheduling dropped copied tiles");
+            const auto stepped = bound();
+            check(stepped.tile_maps[0].animation_seconds == paused_time + fixed_dt &&
+                      stepped.tile_maps[1].animation_seconds ==
+                          stepped.tile_maps[0].animation_seconds &&
+                      stepped.tile_maps[0].cells == retained.tile_maps[0].cells &&
+                      stepped.tile_maps[0].definitions == retained.tile_maps[0].definitions,
+                  "Real Play Step lost the shared animation sample or retransferred cells");
+            check(play.set_time_scale(0), "Zero simulation rate was rejected");
+            wait([&] { return !play.time_scale_pending() && play.control_ready(); });
+            play.resume();
+            wait([&] { return !play.paused() && play.control_ready(); });
+            const auto hold_until = SDL_GetTicks() + 150;
+            while (SDL_GetTicks() < hold_until) {
+                play.pump();
+                SDL_Delay(1);
+            }
+            check(bound().tile_maps[0].animation_seconds ==
+                          stepped.tile_maps[0].animation_seconds &&
+                      play.timing().at("tick") == tick + 1,
+                  "Zero-rate real Play advanced tile animation");
+            play.pause();
+            wait([&] { return play.paused() && play.control_ready(); });
+            play.step();
+            wait([&] { return play.control_ready() && play.timing().at("tick") == tick + 2; });
+            check(bound().tile_maps[0].animation_seconds == paused_time + 2 * double(fixed_dt),
+                  "Explicit Step at zero rate did not advance exactly one animation tick");
             publish_cell({});
             play.model_assets_changed();
             wait([&] { return copied() && bound().tile_maps[0].cells->occupied() == 8; });
@@ -173,7 +211,7 @@ int main(int argc, char** argv) {
             check(asset_detail::read_bytes(root / "Assets/Original.tilemap.json",
                                            tile_map_source_byte_limit) == original_source,
                   "Round-trip source replacement changed unrelated authoring values");
-            play.start(argv[1], document);
+            play.start(argv[1], document, true);
             if (sdk) {
                 wait([&] { return !play.sdk_candidate_envelope().is_null(); });
                 const auto ticket = play.sdk_candidate_ticket();
@@ -183,6 +221,9 @@ int main(int argc, char** argv) {
                       "Restarted candidate admission failed");
             }
             wait([&] { return play.control_ready() && copied(); });
+            check(bound().tile_maps[0].animation_seconds == 0 &&
+                      bound().tile_maps[1].animation_seconds == 0,
+                  "Restarted Play inherited the previous world's animation time");
             play.stop();
         }
         check(AssetCatalog::open_project(root).document() == catalog,

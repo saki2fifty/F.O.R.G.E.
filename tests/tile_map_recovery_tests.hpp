@@ -62,7 +62,7 @@ inline void test_tile_map_recovery(const std::filesystem::path& root, const forg
               "Rejected Tile Map recovery partially changed cells, generations or source");
     };
     auto bad = saved;
-    bad["version"] = 2;
+    bad["version"] = 3;
     reject(bad);
     bad = saved;
     bad["entries"][1]["map_revision"] = "changed published revision";

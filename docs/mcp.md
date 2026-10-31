@@ -289,6 +289,21 @@ sensors, cell flags and shape budgets; custom one-way polygons are unsupported.
 Interactive unapplied collision drafts participate in the existing document-busy
 guard. Read-only connections advertise no collision mutation binding.
 
+`forge_asset_document_tile_animation` edits an atlas sequence through the same
+Tile Set source owner. Supply `editor:"tile_set"`, exact session/revision, uint64
+local `tile`, and `animation:{"enabled":true,"frames":[{"frame":0,"seconds":0.125},
+{"frame":3,"seconds":0.25}]}`. Enabled loops need 1..64 rows; disabled sequences
+allow 0..64. Frames must fit that tile's image grid, and durations must be finite
+0.001..600 seconds. Order controls playback, including reverse order and repeated
+frames. Disabled animation uses the scalar frame. Safe editing promotes to Source4
+without changing keys, allocator or collision. It preserves unknown profile and
+retained frame-position siblings. Legacy reserved animation fields block promotion.
+Use ordinary Undo/Redo and Save, then republish dependent Maps. Unapplied interactive
+animation/collision drafts block conflicting requests through the shared busy
+guard. Read-only connections advertise no animation mutation binding. Runtime
+animation uses completed simulation ticks; the asset preview has its own local
+Play/Pause/Restart controls.
+
 Timeline component fields use the same `forge_asset_document_patch`, validation,
 Undo/Redo and publication tools. Read the current inspected custom component
 admission with `forge_code_schemas`. Use its `reference_schema.components` fields

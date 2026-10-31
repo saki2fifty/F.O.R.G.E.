@@ -1,5 +1,6 @@
 #include "tile_map_play_receiver.hpp"
 #include <algorithm>
+#include <cmath>
 #include <forge/render_scene.hpp>
 #include <limits>
 #include <set>
@@ -75,6 +76,10 @@ bool TileMapPlayReceiver::compatible(const TileMapPlayView& value) const {
 }
 void TileMapPlayReceiver::observe(const Json& manifest) {
     owner();
+    const bool timed = manifest.contains("version");
+    if (timed)
+        require(natural(manifest.at("version"), 2) == 2,
+                "Unsupported Tile Play observation version");
     const auto world = natural(manifest.at("world"));
     const auto scene = manifest.at("scene").get<AssetId>();
     require(world && scene && manifest.at("maps").is_array() && manifest.at("maps").size() <= 256,
@@ -88,6 +93,16 @@ void TileMapPlayReceiver::observe(const Json& manifest) {
         wanted.ready = flag(row, "ready");
         value.pending = flag(row, "pending");
         value.diagnostic = bounded(row, "diagnostic", 1024);
+        if (timed) {
+            require(row.at("animation_seconds").is_number(),
+                    "Tile Play animation time must be numeric");
+            value.animation_seconds = row.at("animation_seconds").get<double>();
+            require(std::isfinite(value.animation_seconds) && value.animation_seconds >= 0,
+                    "Tile Play animation time must be finite and nonnegative");
+        } else {
+            require(!row.contains("animation_seconds"),
+                    "Timed Tile Play observations require their explicit version");
+        }
         require(value.entity && value.requested, "Tile Play manifest has an empty identity");
         if (wanted.ready) {
             value.generation = natural(row.at("generation"));
@@ -467,6 +482,7 @@ void TileMapPlayReceiver::bind(RenderScene& scene) const {
         map.cells.reset();
         map.definitions.reset();
         map.generation = map.revision = 0;
+        map.animation_seconds = 0;
         map.pending = true;
         map.diagnostic.clear();
         if (scene.scene != scene_)
@@ -476,6 +492,8 @@ void TileMapPlayReceiver::bind(RenderScene& scene) const {
             continue;
         map.pending = wanted->second.ready || wanted->second.value.pending;
         map.diagnostic = wanted->second.value.diagnostic;
+        // Use the newest scoped observation, not the frozen transfer's timestamp.
+        map.animation_seconds = wanted->second.value.animation_seconds;
         const auto frame = frames_.find(map.entity);
         if (frame == frames_.end())
             continue;

@@ -1,6 +1,7 @@
 #include "mesh_render_host.hpp"
 #include "sprite_render_values.hpp"
 #include "tile_map_data.hpp"
+#include <cmath>
 #include <forge/engine_assets.hpp>
 #include <set>
 
@@ -164,6 +165,9 @@ MeshSceneRenderer::prepare_tile_sources(const RenderScene& scene) {
         source.rejected = false;
         try {
             detail::validate_tile_map_renderer(map.renderer);
+            require(std::isfinite(map.animation_seconds) && map.animation_seconds >= 0,
+                    "Tile Map animation sample must be finite and nonnegative");
+            source.animation_seconds = map.animation_seconds;
             if (!map.diagnostic.empty() && !map.pending)
                 report(map.entity, map.diagnostic, DrawScope::TileMap);
             if (!map.cells || !map.definitions) {
@@ -325,10 +329,18 @@ void MeshSceneRenderer::adopt_tile_images() {
                 // map's complete retained draw. No mixed old/new image selection.
                 for (const auto& tile : request.definitions->tiles()) {
                     const auto image = images.find(tile.image);
-                    if (image != images.end())
-                        (void)tile_draw_values(*request.definitions, tile.id, 0,
-                                               image->second.width, image->second.height,
-                                               tint(request.renderer));
+                    if (image != images.end()) {
+                        if (tile.animation && tile.animation->enabled) {
+                            for (const auto& frame : tile.animation->frames)
+                                (void)tile_draw_frame_values(
+                                    *request.definitions, tile.id, 0, image->second.width,
+                                    image->second.height, frame.frame, tint(request.renderer));
+                        } else {
+                            (void)tile_draw_values(*request.definitions, tile.id, 0,
+                                                   image->second.width, image->second.height,
+                                                   tint(request.renderer));
+                        }
+                    }
                 }
                 source.values.clear();
             }

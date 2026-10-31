@@ -58,12 +58,15 @@ void exercise(const std::filesystem::path& scratch, float scale, bool compact) {
     ui::ContextScope scope(context);
     unsigned previews = 0, releases = 0;
     std::uint64_t preview_revision = 0;
-    editor.draw_preview = [&](const auto& source, std::uint64_t revision, const auto& catalog,
-                              auto) {
+    double preview_seconds = 0;
+    editor.draw_preview = [&](const auto& source, std::uint64_t revision, const auto& catalog, auto,
+                              double seconds) {
         check(revision && catalog && source.asset() == editor.document()->source().asset(),
               "Tile Set preview lost document identity");
+        check(std::isfinite(seconds) && seconds >= 0, "Tile Set asset preview time is invalid");
         ++previews;
         preview_revision = revision;
+        preview_seconds = seconds;
         ImGui::Dummy({100, 30});
     };
     editor.release_preview = [&] { ++releases; };
@@ -212,6 +215,65 @@ void exercise(const std::filesystem::path& scratch, float scale, bool compact) {
     click("tile_set:redo");
     check(editor.document()->source().document == concave_source,
           "Concave Inspector Redo lost the promoted outline");
+    const auto animation_revision = editor.document()->revision();
+    click("tile_set:animation_enabled");
+    frame();
+    check(editor.has_unapplied_edits() && !editor.can_undo() &&
+              editor.document()->revision() == animation_revision &&
+              !test::ui_targets.at("tile_set:save").enabled &&
+              !test::ui_targets.at("tile_set:frame").enabled &&
+              !test::ui_targets.at("tile_set:collision_kind").enabled,
+          "Animation draft changed source or allowed conflicting edits/history/save");
+    context.selection.clear();
+    frame();
+    click("tile_set:animation_review");
+    check(context.selection.member() == "tile/4",
+          "Animation draft could not be reopened after another selection");
+    number("tile_set:animation_duration:0", "0");
+    click("tile_set:animation_apply");
+    check(editor.has_unapplied_edits() && !editor.diagnostic().empty() &&
+              editor.document()->revision() == animation_revision &&
+              editor.document()->source().document == concave_source,
+          "Invalid animation duration entered source/history");
+    number("tile_set:animation_duration:0", "0.125");
+    click("tile_set:animation_add");
+    number("tile_set:animation_frame:1", "1");
+    number("tile_set:animation_duration:1", "0.25");
+    click("tile_set:animation_apply");
+    const auto animated_source = editor.document()->source().document;
+    const auto animation = editor.document()->source().values().tiles.back().animation;
+    check(!editor.has_unapplied_edits() && animated_source.at("version") == 4 && animation &&
+              animation->enabled && animation->frames.size() == 2 &&
+              animation->frames[0] == TileAnimationFrame{3, .125} &&
+              animation->frames[1] == TileAnimationFrame{1, .25} &&
+              editor.document()->source().values().tiles.back().collision.kind ==
+                  TileCollisionKind::Polygon,
+          "Animation Inspector did not apply the sequence while retaining collision");
+    click("tile_set:animation_remove");
+    click("tile_set:animation_discard");
+    check(!editor.has_unapplied_edits() && editor.document()->source().document == animated_source,
+          "Animation discard changed the applied source");
+    const auto before_preview = editor.document()->revision();
+    click("tile_set:preview_play");
+    for (unsigned i = 0; i < 4; ++i)
+        frame();
+    check(preview_seconds > 0, "Asset animation preview did not advance");
+    click("tile_set:preview_play");
+    const auto paused_preview = preview_seconds;
+    frame();
+    frame();
+    check(preview_seconds == paused_preview, "Paused asset preview advanced");
+    click("tile_set:preview_restart");
+    check(preview_seconds == 0 && editor.document()->revision() == before_preview &&
+              editor.document()->source().document == animated_source,
+          "Asset preview restart changed authored source or did not reset local time");
+    click("tile_set:undo");
+    check(editor.document()->source().document == concave_source,
+          "Animation Undo lost the complete previous source/profile version");
+    click("tile_set:redo");
+    check(editor.document()->source().document == animated_source,
+          "Animation Redo lost the sequence");
+    click("tile_set:undo");
     click("tile_set:undo");
     click("tile_set:undo");
     click("tile_set:remove_tile");
@@ -268,7 +330,8 @@ void exercise(const std::filesystem::path& scratch, float scale, bool compact) {
     test::observe_ui = false;
     ImGui::DestroyContext();
 }
-void capture_collision(const std::filesystem::path& root, bool concave = false) {
+void capture_controls(const std::filesystem::path& root, bool concave = false,
+                      bool animated = false) {
     std::filesystem::create_directories(root / "project");
     test::ImGuiSoftwareCapture capture(760, concave ? 1100 : 1000);
     ui::style(1);
@@ -280,23 +343,32 @@ void capture_collision(const std::filesystem::path& root, bool concave = false) 
     project.open_project(root / "project", true);
     auto document =
         TileSetDocument::create(project.writer_guard(), "Assets/Collision.tileset.json");
-    document->edit_source(document->revision(), "Capture tile profile", [concave](auto& source) {
+    document->edit_source(document->revision(), "Capture tile profile", [=](auto& source) {
         source.document["next_id"] = 3;
         source.document["images"] = {{{"id", 1},
                                       {"name", "Tile image"},
                                       {"material", AssetId::generate()},
                                       {"grid",
-                                       {{"columns", 1},
+                                       {{"columns", animated ? 4 : 1},
                                         {"rows", 1},
                                         {"margin_x", 0},
                                         {"margin_y", 0},
                                         {"spacing_x", 0},
                                         {"spacing_y", 0}}}}};
         source.document["tiles"] = {{{"id", 2},
-                                     {"name", concave ? "Concave corner" : "Convex ramp"},
+                                     {"name", animated  ? "Forward arrows"
+                                              : concave ? "Concave corner"
+                                                        : "Convex ramp"},
                                      {"image", 1},
                                      {"frame", 0}}};
-        if (concave)
+        if (animated)
+            source.set_animation(2, {{"enabled", true},
+                                     {"frames",
+                                      {{{"frame", 0}, {"seconds", .2}},
+                                       {{"frame", 1}, {"seconds", .2}},
+                                       {{"frame", 2}, {"seconds", .2}},
+                                       {{"frame", 3}, {"seconds", .2}}}}});
+        else if (concave)
             source.set_collision(
                 2, {{"kind", "polygon"},
                     {"points", {{0., 0.}, {1., 0.}, {1., .5}, {.5, .5}, {.5, 1.}, {0., 1.}}}});
@@ -319,16 +391,19 @@ void capture_collision(const std::filesystem::path& root, bool concave = false) 
         capture.render();
     }
     check(editor.diagnostic().empty(), "Collision capture has source diagnostics");
-    capture.save(root /
-                 (concave ? "concave-tile-collision-controls.png" : "tile-collision-profile.png"));
+    capture.save(root / (animated  ? "animated-tile-controls.png"
+                         : concave ? "concave-tile-collision-controls.png"
+                                   : "tile-collision-profile.png"));
 }
 } // namespace
 int main(int argc, char** argv) {
     try {
         if (argc == 3 && (std::string_view(argv[2]) == "--capture" ||
-                          std::string_view(argv[2]) == "--capture-concave")) {
-            capture_collision(std::filesystem::absolute(argv[1]),
-                              std::string_view(argv[2]) == "--capture-concave");
+                          std::string_view(argv[2]) == "--capture-concave" ||
+                          std::string_view(argv[2]) == "--capture-animation")) {
+            capture_controls(std::filesystem::absolute(argv[1]),
+                             std::string_view(argv[2]) == "--capture-concave",
+                             std::string_view(argv[2]) == "--capture-animation");
             return 0;
         }
         check(argc == 2, "Expected scratch directory");

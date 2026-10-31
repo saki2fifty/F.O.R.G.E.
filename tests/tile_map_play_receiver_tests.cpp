@@ -62,6 +62,53 @@ int main() {
         view.cells = std::make_shared<const TileMapData>(original);
         view.definitions = std::make_shared<const TileSetData>(defs);
         {
+            auto animated = view;
+            animated.definitions =
+                std::make_shared<const TileSetData>(definitions(set, true, false, true));
+            animated.set_revision = "animated-four";
+            animated.animation_seconds = .375;
+            TileMapPlaySource sender;
+            TileMapPlayReceiver observer;
+            observer.observe(sender.capture(1, scene, std::span(&animated, 1)));
+            drain(sender, observer);
+            auto current = bound(observer, scene, animated);
+            check(current.animation_seconds == .375 && current.definitions &&
+                      current.definitions->tile(9).animation &&
+                      current.definitions->tile(9).animation->frames.size() == 2,
+                  "Copied animation definition/time was lost");
+            const auto cells = current.cells;
+            animated.animation_seconds = .5;
+            observer.observe(sender.capture(1, scene, std::span(&animated, 1)));
+            check(!observer.next_request() && !observer.pending() &&
+                      bound(observer, scene, animated).cells == cells &&
+                      bound(observer, scene, animated).animation_seconds == .5,
+                  "Time-only observation retransmitted cells or retained stale time");
+            for (unsigned scenario = 0; scenario < 4; ++scenario) {
+                auto bad = sender.capture(1, scene, std::span(&animated, 1));
+                if (scenario == 0)
+                    bad["maps"][0]["animation_seconds"] = -1;
+                if (scenario == 1)
+                    bad["maps"][0]["animation_seconds"] = true;
+                if (scenario == 2)
+                    bad["maps"][0].erase("animation_seconds");
+                if (scenario == 3)
+                    bad.erase("version");
+                rejects([&] { observer.observe(bad); });
+                check(bound(observer, scene, animated).cells == cells &&
+                          bound(observer, scene, animated).animation_seconds == .5,
+                      "Invalid clock observation mutated the adopted frame");
+            }
+            auto legacy = sender.capture(1, scene, std::span(&view, 1));
+            legacy.erase("version");
+            for (auto& row : legacy["maps"])
+                row.erase("animation_seconds");
+            TileMapPlayReceiver old_observer;
+            old_observer.observe(legacy);
+            drain(sender, old_observer);
+            check(bound(old_observer, scene, view).animation_seconds == 0,
+                  "Legacy untimed observation acquired animation time");
+        }
+        {
             auto polygon_view = view;
             polygon_view.definitions =
                 std::make_shared<const TileSetData>(definitions(set, true, true));
@@ -118,6 +165,7 @@ int main() {
         check(bound(receiver, scene, view).cells == retained && receiver.pending(),
               "Update discarded the last complete copied frame");
         step(source, receiver); // Freeze revision1.
+        view.animation_seconds = 1.25;
         const std::array<TileMapCellEdit, 1> later_write{{{1, {32, 0}, {9, 3}}}};
         const auto later = changed.with_cells(later_write, defs);
         view.cells = std::make_shared<const TileMapData>(later);
@@ -128,6 +176,8 @@ int main() {
         frame = bound(receiver, scene, view);
         check(frame.revision == 1 && receiver.pending(),
               "New observation mixed into frozen revision1");
+        check(frame.animation_seconds == 1.25,
+              "Frozen cell acknowledgement rewound the latest animation sample");
         equal(*frame.cells, changed);
         drain(source, receiver);
         frame = bound(receiver, scene, view);

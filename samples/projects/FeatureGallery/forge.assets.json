@@ -1906,6 +1906,58 @@
     },
     {
       "dependencies": [
+        "850a1ebb-ffb2-41d6-81be-d74652017100"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "build",
+          "revision": "1a2307e266586f0900620775c17544872e827842b195d09f88410c161d9a5db5",
+          "role": "tile_map.tile_set",
+          "target": "850a1ebb-ffb2-41d6-81be-d74652017100",
+          "type": "tile_set"
+        },
+        {
+          "kind": "runtime",
+          "revision": "1a2307e266586f0900620775c17544872e827842b195d09f88410c161d9a5db5",
+          "role": "tile_map.tile_set",
+          "target": "850a1ebb-ffb2-41d6-81be-d74652017100",
+          "type": "tile_set"
+        }
+      ],
+      "id": "22bee8d3-2448-405c-b869-31a6c22173b4",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "e05185df6ab1fc39362530740ebb0ab635e37e83e7c1ef2534045d60900dafe9",
+          "backend": "none",
+          "dependency_digest": "d938c31b057d93d1301b9760ee86efaf2430db0cc5a30331de7b5392d2831e4d",
+          "generation": 1,
+          "importer": "forge.tilemap",
+          "importer_revision": "8e777986165a0fe16fdac643393be5ac2ffc52ff9d724f89b86318c5e81ca075",
+          "key": "3d9e215f8231a5ba0b509ea00401a1a61a599555b33cbb3bbd105eef3e80684c",
+          "output_format": "forge.tile-map-cooked",
+          "output_version": 1,
+          "platform": "linux",
+          "profile": "cpu",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "f22f15eadb0ecc27afe27a07f5978974de1d7059dda971c7099ed0576e0c1f26",
+          "source_digest": "129a76ea5e459b10cf55252afa19ce62e7bfc58090ab200b35f973100aacea97",
+          "version": 1
+        },
+        "forge.tile_map": {
+          "bytes": 645,
+          "file": "tilemap.bin",
+          "sha256": "3ad832f0f602859ee9a944084448ac0c4e0057a43c3930cbfd3a17454b5a3c6c",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Tiles/AnimatedDirections.tilemap.json",
+      "source_dependencies": [],
+      "type": "tile_map"
+    },
+    {
+      "dependencies": [
         "619babf9-df8f-4d18-91da-2e8096bd9464"
       ],
       "dependency_edges": [
@@ -3143,6 +3195,16 @@
         "removed": false
       },
       "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "3380e046-21be-4161-82b1-edf2e898ac8d",
+      "metadata": {},
+      "schema_version": 5,
+      "source": "Scenes/121-animated-tiles.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
     },
     {
       "dependencies": [],
@@ -7043,6 +7105,58 @@
         "removed": false
       },
       "type": "model_node"
+    },
+    {
+      "dependencies": [
+        "258b9537-c0f6-448d-af8c-818f150d67cf"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "build",
+          "revision": "9d9a5a8f183ab0f78846c7cbaa3e5ee0bfc9606e8859c05c4eb3d2bf6c032e24",
+          "role": "tile_set.material.258b9537-c0f6-448d-af8c-818f150d67cf",
+          "target": "258b9537-c0f6-448d-af8c-818f150d67cf",
+          "type": "material"
+        },
+        {
+          "kind": "runtime",
+          "revision": "9d9a5a8f183ab0f78846c7cbaa3e5ee0bfc9606e8859c05c4eb3d2bf6c032e24",
+          "role": "tile_set.material.258b9537-c0f6-448d-af8c-818f150d67cf",
+          "target": "258b9537-c0f6-448d-af8c-818f150d67cf",
+          "type": "material"
+        }
+      ],
+      "id": "850a1ebb-ffb2-41d6-81be-d74652017100",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "1a3d6fd87c01ead9f40d6158e4b84fcfaa2df6f8e49922605f5889879bc690d6",
+          "backend": "none",
+          "dependency_digest": "94daf517bd9a626482cae31804ac7983f633e21e548b50e20864553d3245e07b",
+          "generation": 1,
+          "importer": "forge.tileset",
+          "importer_revision": "5753a5138d454fa21e060ba810524b8f7cee6effb2d82a3afb8ca6b24ba98e1f",
+          "key": "1a2307e266586f0900620775c17544872e827842b195d09f88410c161d9a5db5",
+          "output_format": "forge.tile-set-cooked",
+          "output_version": 4,
+          "platform": "linux",
+          "profile": "cpu",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "42aec8442c3adc3b37ec2fc0db8b49bd083ef794307ae99686d05acd1530df36",
+          "source_digest": "f9504368af6cfc0cf8ed00680f960fcfb58ef57ee52665770418e2193a9c4fee",
+          "version": 1
+        },
+        "forge.tile_set": {
+          "bytes": 1123,
+          "file": "tileset.bin",
+          "sha256": "bf78f38448b97a96a18cc9555d54ceacee076d7fb817984c54d92a9be30655fe",
+          "version": 1
+        }
+      },
+      "schema_version": 4,
+      "source": "Assets/Tiles/AnimatedDirections.tileset.json",
+      "source_dependencies": [],
+      "type": "tile_set"
     },
     {
       "dependencies": [],

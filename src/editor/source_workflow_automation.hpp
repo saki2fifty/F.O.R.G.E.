@@ -140,7 +140,7 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                        {"document_revision", automation_integer(1)}};
     const Json required = {"editor", "document_session", "document_revision"};
     for (const auto* action :
-         {"patch", "paint", "tile_collision", "undo", "redo", "save", "close"}) {
+         {"patch", "paint", "tile_collision", "tile_animation", "undo", "redo", "save", "close"}) {
         auto properties = fields;
         auto needed = required;
         if (std::string_view(action) == "patch") {
@@ -167,6 +167,24 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
             properties["collision"] = {{"oneOf", {simple, polygon}}};
             needed.push_back("tile");
             needed.push_back("collision");
+        } else if (std::string_view(action) == "tile_animation") {
+            const auto frame = automation_object(
+                {{"frame", automation_integer(0, UINT32_MAX)},
+                 {"seconds", {{"type", "number"}, {"minimum", .001}, {"maximum", 600}}}},
+                {"frame", "seconds"});
+            const auto enabled = automation_object(
+                {{"enabled", {{"const", true}}},
+                 {"frames", automation_array(frame, tile_animation_frame_limit, 1)}},
+                {"enabled", "frames"});
+            const auto disabled = automation_object(
+                {{"enabled", {{"const", false}}},
+                 {"frames", automation_array(frame, tile_animation_frame_limit, 0)}},
+                {"enabled", "frames"});
+            properties["tile"] = automation_integer(1, UINT64_MAX);
+            properties["editor"] = {{"type", "string"}, {"const", "tile_set"}};
+            properties["animation"] = {{"oneOf", {enabled, disabled}}};
+            needed.push_back("tile");
+            needed.push_back("animation");
         } else if (std::string_view(action) == "close")
             properties["discard"] = {{"type", "boolean"}};
         methods.push_back(automation_method(
@@ -186,6 +204,16 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                        "polygon; legacy collision extensions block promotion. Ordinary edits "
                        "cannot downgrade source versions. Custom polygons follow cell flips and "
                        "support Static/Kinematic bodies/sensors, without one-way collision."
+                     : "") +
+                (std::string_view(action) == "tile_animation"
+                     ? " Tile Sets only: apply an enabled boolean and ordered frames with uint32 "
+                       "frame indices and durations in seconds (0.001..600). Enabled sequences "
+                       "need1..64frames; disabled sequences allow0..64. Frames must fit the tile's "
+                       "image grid. Explicit safe promotion to Source4 preserves identities and "
+                       "history; legacy collision/animation extensions can block promotion. "
+                       "Sequences loop on completed simulation ticks, sharing a world timeline. "
+                       "Pause/Step/speed apply; collision stays fixed. Publish the Set and its "
+                       "dependent Maps before Play/export."
                      : "") +
                 (std::string_view(action) == "patch"
                      ? " Timeline source6 supports editable scalar C++ component fields with "

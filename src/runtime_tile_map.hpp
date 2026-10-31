@@ -33,6 +33,9 @@ struct RuntimeTileEditResult {
 void register_runtime_tile_maps(WorldContext&);
 // Asset adoption may progress while paused; this never publishes cell requests.
 void synchronize_runtime_tile_maps(WorldContext&);
+// One discrete world sample, advanced only after a completed fixed tick.
+void advance_runtime_tile_animation(WorldContext&, double fixed_delta);
+double runtime_tile_animation_seconds(WorldContext&);
 // Candidate readiness reads the instances already synchronized by the resource
 // owner. It does not advance the simulation or publish pending cell edits.
 bool prepare_runtime_tile_maps(WorldContext&);
@@ -55,6 +58,7 @@ using TileMapPhysicsAdmission =
 void set_tile_map_physics_admission(WorldContext&, TileMapPhysicsAdmission);
 // Private same-build recovery, not authored source or a gameplay SDK token API.
 // A null capture means a binding or pending edit is not at a checkpoint boundary.
+inline constexpr std::uint32_t runtime_tile_map_checkpoint_version = 2;
 Json checkpoint_runtime_tile_maps(WorldContext&);
 // Fresh unpublished world with synchronized resources; validate all before writes.
 void restore_runtime_tile_maps(WorldContext&, const Json&);

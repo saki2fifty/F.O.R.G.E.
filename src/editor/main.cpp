@@ -1090,14 +1090,14 @@ int main(int argc, char** argv) {
         std::unique_ptr<forge::TileSetPreview> tile_set_preview;
         bool release_tile_set_preview = false;
         tile_set_editor.draw_preview = [&](const auto& source, std::uint64_t revision, auto catalog,
-                                           std::uint64_t selected) {
+                                           std::uint64_t selected, double seconds) {
             const auto& project = tile_set_editor.document()->project();
             if (!tile_set_preview || tile_set_preview->project() != project ||
                 tile_set_preview->asset() != source.asset())
                 tile_set_preview = std::make_unique<forge::TileSetPreview>(presentation, context,
                                                                            project, source.asset());
             release_tile_set_preview = false;
-            tile_set_preview->draw(source, revision, std::move(catalog), selected);
+            tile_set_preview->draw(source, revision, std::move(catalog), selected, seconds);
         };
         tile_set_editor.release_preview = [&] { release_tile_set_preview = true; };
         forge::TileMapEditor tile_map_editor(std::filesystem::path(base) / "forge_asset_build.exe");

@@ -14,6 +14,7 @@ struct TileMapPlayView {
     std::string map_revision, set_revision, diagnostic;
     std::shared_ptr<const TileMapData> cells;
     std::shared_ptr<const TileSetData> definitions;
+    double animation_seconds = 0;
 };
 // Composed into an existing runtime transport owner, one per world scope. No IO,
 // thread, world, gameplay commands or catalog is owned by this adapter.

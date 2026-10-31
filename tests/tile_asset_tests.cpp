@@ -11,6 +11,7 @@
 #include "physics_tile_polygon_tests.hpp"
 #include "runtime_package.hpp"
 #include "runtime_tile_map.hpp"
+#include "tile_animation_runtime_tests.hpp"
 #include "tile_asset_authoring.hpp"
 #include "tile_asset_fixture.hpp"
 #include "tile_asset_reimport_routes.hpp"
@@ -810,6 +811,7 @@ void collision_profile_publication(const std::filesystem::path& root,
     reject([&] { (void)admit_tile_set_artifact(artifact, mismatch); });
     test_tile_polygon_runtime(root, lease, worker, source.asset());
     test_concave_tile_runtime(root, lease, worker, image_material);
+    test_animated_tile_runtime(root, lease, worker, image_material);
 }
 void workflow(const std::filesystem::path& root, const std::filesystem::path& worker,
               const std::filesystem::path& sdk_library) {

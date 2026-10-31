@@ -3,6 +3,7 @@
 #include <array>
 #include <cmath>
 #include <forge/asset_ref.hpp>
+#include <memory>
 #include <span>
 #include <string>
 #include <vector>
@@ -10,6 +11,7 @@
 namespace forge {
 inline constexpr std::size_t tile_set_image_limit = 16, tile_set_definition_limit = 4096;
 inline constexpr std::size_t tile_collision_vertex_limit = 8;
+inline constexpr std::size_t tile_animation_frame_limit = 64;
 struct TileSetImage {
     std::uint64_t id = 0;
     std::string name;
@@ -23,11 +25,23 @@ struct TileCollisionProfile {
     std::vector<std::array<double, 2>> points;
     bool operator==(const TileCollisionProfile&) const = default;
 };
+struct TileAnimationFrame {
+    std::uint32_t frame = 0;
+    double seconds = .1;
+    bool operator==(const TileAnimationFrame&) const = default;
+};
+struct TileAnimation {
+    bool enabled = false;
+    std::vector<TileAnimationFrame> frames;
+    double duration = 0; // Derived once from admitted frames, never source authority.
+    bool operator==(const TileAnimation&) const = default;
+};
 struct TileSetDefinition {
     std::uint64_t id = 0, image = 0;
     std::string name;
     std::uint32_t frame = 0;
     TileCollisionProfile collision{};
+    std::shared_ptr<const TileAnimation> animation;
 };
 struct TileSetRows {
     std::vector<TileSetImage> images;
@@ -64,5 +78,7 @@ template <class Scalar> int tile_collision_winding(std::span<const std::array<Sc
 TileSetRows decode_tile_set_rows(const nlohmann::json& images, const nlohmann::json& tiles,
                                  std::uint32_t profile_version = 1);
 nlohmann::json tile_collision_json(const TileCollisionProfile&);
+nlohmann::json tile_animation_json(const TileAnimation&);
+nlohmann::json tile_definition_json(const TileSetDefinition&);
 } // namespace tile_detail
 } // namespace forge

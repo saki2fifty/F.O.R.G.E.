@@ -13,8 +13,8 @@ namespace forge {
 struct AssetDocumentAutomation {
     template <class Editor> static bool transient(const Editor& editor) {
         bool active = false;
-        if constexpr (requires { editor.collision_dirty_; })
-            active = active || editor.collision_dirty_;
+        if constexpr (requires { editor.has_unapplied_edits(); })
+            active = active || editor.has_unapplied_edits();
         if constexpr (requires { editor.canvas.draft_dirty(); })
             active = active || editor.canvas.draft_dirty();
         if constexpr (requires { editor.graph_.draft_dirty(); })
@@ -248,22 +248,30 @@ struct AssetDocumentAutomation {
                                     });
                     if (doc.revision() != previous)
                         changed(editor);
-                } else if (action == "tile_collision") {
+                } else if (action == "tile_collision" || action == "tile_animation") {
                     if constexpr (std::is_same_v<Source, TileSetSource>) {
+                        const bool animation = action == "tile_animation";
                         const auto previous = doc.revision();
-                        doc.edit_source(previous, "Change tile collision", [&](Source& source) {
-                            source.set_collision(request.at("tile").get<std::uint64_t>(),
-                                                 request.at("collision"));
-                            if (!doc.retains_history(source))
-                                throw AuthoringError(
-                                    "history_limit",
-                                    "Split this source edit to retain Undo and Redo");
-                        });
+                        doc.edit_source(
+                            previous, animation ? "Change tile animation" : "Change tile collision",
+                            [&](Source& source) {
+                                const auto tile = request.at("tile").get<std::uint64_t>();
+                                if (animation)
+                                    source.set_animation(tile, request.at("animation"));
+                                else
+                                    source.set_collision(tile, request.at("collision"));
+                                if (!doc.retains_history(source))
+                                    throw AuthoringError(
+                                        "history_limit",
+                                        "Split this source edit to retain Undo and Redo");
+                            });
                         if (doc.revision() != previous)
                             changed(editor);
                     } else
                         throw AuthoringError("wrong_document_type",
-                                             "Collision profiles require a Tile Set");
+                                             action == "tile_animation"
+                                                 ? "Tile animation requires a Tile Set"
+                                                 : "Collision profiles require a Tile Set");
                 } else if (action == "paint") {
                     if constexpr (!tiles)
                         throw AuthoringError("wrong_document_type",
