@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <forge/authoring.hpp>
 #include <forge/engine_assets.hpp>
+#include <forge/engine_texture_assets.hpp>
 #include <forge/material_source.hpp>
 #include <forge/render_scene.hpp>
 #include <fstream>
@@ -12,19 +13,24 @@ inline void check(bool value, const char* why) {
     if (!value)
         throw std::runtime_error(why);
 }
-enum class Profile { Color, SurfaceChannels, Clustered };
+enum class Profile { Color, SurfaceChannels, Clustered, LightImages };
 inline const char* scene_path(Profile profile) {
     switch (profile) {
     case Profile::SurfaceChannels:
         return "Scenes/115-projected-surface-channels.scene.json";
     case Profile::Clustered:
         return "Scenes/116-clustered-projectors.scene.json";
+    case Profile::LightImages:
+        return "Scenes/117-light-images.scene.json";
     default:
         return "Scenes/113-projected-color-decals.scene.json";
     }
 }
 inline unsigned projector_count(Profile profile) {
-    return profile == Profile::Clustered ? 64 : profile == Profile::SurfaceChannels ? 3 : 4;
+    return profile == Profile::LightImages       ? 0
+           : profile == Profile::Clustered       ? 64
+           : profile == Profile::SurfaceChannels ? 3
+                                                 : 4;
 }
 struct Prepared {
     std::filesystem::path root, scratch;
@@ -84,7 +90,68 @@ inline Prepared prepare(const std::filesystem::path& gallery, const std::filesys
                    {{"type", unsigned(MaterialParameterType::Scalar)},
                     {"value", {.6, 0, 0, 0}}}}}});
         };
-        if (surface_channels) {
+        if (profile == Profile::LightImages) {
+            const auto original = scene.document();
+            for (const auto& row : original.at("entities"))
+                authoring_command(scene, "entity.delete", {{"entity", row.at("id")}});
+            authoring_command(scene, "scene.rendering.set", {{"shadows", {{"enabled", false}}}});
+            const auto create = [&](const char* recipe, const std::string& name) {
+                return authoring_command(scene, "entity.create",
+                                         {{"recipe", recipe}, {"name", name}})
+                    .at("selected")
+                    .get<std::string>();
+            };
+            const auto camera = create("render.camera", "Camera - three light image examples");
+            set(camera, "forge.camera",
+                {{"projection", 1},
+                 {"orthographic_width", 14},
+                 {"orthographic_height", 10},
+                 {"background_r", .012},
+                 {"background_g", .016},
+                 {"background_b", .024}});
+            pose(camera, {0, 8, -9}, rotation_from_euler({40, 0, 0}));
+            for (unsigned i = 0; i < 3; ++i) {
+                const double x = (int(i) - 1) * 4.;
+                const unsigned layer = 1u << i;
+                const std::string label = i == 0 ? "Directional" : i == 1 ? "Spot" : "Point";
+                const auto floor =
+                    create("primitive.0", label + " receiver - separate light layer");
+                set(floor, "forge.mesh_renderer",
+                    {{"layers", layer},
+                     {"cast_shadows", false},
+                     {"material_parameters", parameters({.65f, .7f, .75f, 1})}});
+                pose(floor, {x, -.2, 0}, {}, {3.5f, .3f, 4.5f});
+                const auto block = create("primitive.0", label + " raised receiver");
+                set(block, "forge.mesh_renderer",
+                    {{"layers", layer},
+                     {"cast_shadows", false},
+                     {"material_parameters", parameters({.5f, .55f, .6f, 1})}});
+                pose(block, {x, .4, .7}, {}, {.7f, 1.f, .7f});
+                const auto light = create("render.light", label + " - change Light image");
+                const AssetRef<TextureAsset> texture{
+                    AssetId::parse(i == 0   ? "c89058da-027b-4f84-97be-75fd538d15c4"
+                                   : i == 1 ? "e7a40664-a742-4d12-a29f-236aa703ba7c"
+                                            : "cb50dced-5d4b-4e7f-9d06-f13fa65ea8fc")};
+                set(light, "forge.light",
+                    {{"kind", i == 0   ? 0
+                              : i == 1 ? 2
+                                       : 1},
+                     {"layers", layer},
+                     {"intensity", i == 0   ? 2.
+                                   : i == 1 ? 25.
+                                            : 12.},
+                     {"range", i == 0 ? 0 : 8},
+                     {"texture", texture.id},
+                     {"image_width", i == 0 ? 3.5 : 2.5},
+                     {"image_height", i == 0 ? .875 : 2.5},
+                     {"image_tiled", i == 0},
+                     {"cast_shadows", false}});
+                pose(light, {x, i == 2 ? 2. : 3., 0}, rotation_from_euler({90, 0, 0}));
+            }
+            const auto fill = create("render.light", "Fill light - ordinary illumination");
+            set(fill, "forge.light", {{"layers", 7}, {"intensity", .18}, {"cast_shadows", false}});
+            pose(fill, {0, 4, -3}, rotation_from_euler({60, -30, 0}));
+        } else if (surface_channels) {
             const auto original = scene.document();
             unsigned mesh_index = 0;
             for (const auto& row : original.at("entities")) {
@@ -283,8 +350,10 @@ inline Prepared prepare(const std::filesystem::path& gallery, const std::filesys
     }
     result.scene = scene.asset_id();
     const auto extracted = extract_render_scene(scene.effective_document());
-    check(extracted.decals.size() == projector_count(profile) && extracted.meshes.size() == 4 &&
-              extracted.cameras.size() == 1 && extracted.lights.size() == 2 &&
+    check(extracted.decals.size() == projector_count(profile) &&
+              extracted.meshes.size() == (profile == Profile::LightImages ? 6u : 4u) &&
+              extracted.cameras.size() == 1 &&
+              extracted.lights.size() == (profile == Profile::LightImages ? 4u : 2u) &&
               extracted.diagnostics.empty(),
           "Decal Gallery lost its admitted scene composition");
     const std::array roots{result.scene};

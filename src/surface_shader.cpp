@@ -331,6 +331,7 @@ SurfaceBindingLayout binding_layout(const SurfaceShaderDefinition& d, const Json
     const bool projected_decals = projection_version >= 8;
     const bool projected_surface_channels = projection_version >= 10;
     const bool clustered = projection_version >= 11;
+    const bool light_images = projection_version >= 12;
     validate_surface_definition(d);
     require(reflection.at("stage") == "pixel" && reflection.at("resources").is_array() &&
                 reflection.at("resources").size() <= 256,
@@ -393,6 +394,27 @@ SurfaceBindingLayout binding_layout(const SurfaceShaderDefinition& d, const Json
                                                                     clustered) &&
                         field.at("members").empty(),
                     "Decal fields differ from the receiver profile");
+        } else if (name == "ForgeLightImages") {
+            require(light_images && decal_capacity && kind == "constant_buffer" &&
+                        resource.at("array_size") == 1 && resource.at("size") == 256 * 16,
+                    "Light image buffer differs from the receiver profile");
+            const auto& fields = resource.at("variables");
+            require(fields.is_array() && fields.size() == 1,
+                    "Light image buffer has incompatible fields");
+            const auto& field = fields[0];
+            require(field.at("name") == "g_ForgeLightImages" && field.at("offset") == 0 &&
+                        field.at("basic") == "float" && field.at("class") == "vector" &&
+                        field.at("rows") == 1 && field.at("columns") == 4 &&
+                        field.at("array_size") == 256 && field.at("members").empty(),
+                    "Light image fields differ from the receiver profile");
+        } else if (name.starts_with("g_ForgeLightCube")) {
+            bool declared = false;
+            for (unsigned i = 0; i < decal_capacity; ++i)
+                declared = declared || name == "g_ForgeLightCube" + std::to_string(i);
+            require(light_images && declared && kind == "texture_srv" &&
+                        resource.at("array_size") == 1 &&
+                        resource.at("dimension") == "texture_cube",
+                    "Light image cubemap differs from the receiver profile");
         } else if (name == "g_ForgeDecalRows" || name == "g_ForgeDecalRanges" ||
                    name == "g_ForgeDecalIndices") {
             require(clustered && decal_capacity && kind == "buffer_srv" &&
@@ -513,6 +535,12 @@ SurfaceBindingLayout binding_layout(const SurfaceShaderDefinition& d, const Json
                 throw std::runtime_error("Undeclared graph surface resource: " + name);
         } else
             throw std::runtime_error("Undeclared surface resource: " + name);
+    }
+    if (light_images && decal_capacity) {
+        require(names.contains("ForgeLightImages"), "Light image packet is missing");
+        for (unsigned i = 0; i < decal_capacity; ++i)
+            require(names.contains("g_ForgeLightCube" + std::to_string(i)),
+                    "Light image cubemap slot is missing");
     }
     return result;
 }

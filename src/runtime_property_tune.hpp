@@ -38,7 +38,8 @@ struct RuntimePropertyTune {
     static bool light_property(std::string_view property) {
         return property == "shadow_source_radius" || property == "shadow_angular_radius" ||
                property == "emitter_radius" || property == "emitter_width" ||
-               property == "emitter_height";
+               property == "emitter_height" || property == "image_width" ||
+               property == "image_height" || property == "image_tiled";
     }
     static bool probe_property(std::string_view property) {
         return property == "enabled" || property == "intensity" || property == "half_extent_x" ||

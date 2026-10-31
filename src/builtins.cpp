@@ -788,6 +788,7 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
                     "Reflection probe native Meta disagrees with typed layout");
         }
     } else if constexpr (std::is_same_v<T, Light>) {
+        register_asset_ref<TextureAsset>(w, "forge.texture_ref");
         c.template member<bool>("enabled")
             .template member<std::uint32_t>("kind")
             .template member<std::uint32_t>("basis")
@@ -806,10 +807,15 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<float>("shadow_angular_radius")
             .template member<float>("emitter_radius")
             .template member<float>("emitter_width")
-            .template member<float>("emitter_height");
+            .template member<float>("emitter_height")
+            .template member<AssetRef<TextureAsset>>("texture")
+            .template member<float>("image_width")
+            .template member<float>("image_height")
+            .template member<bool>("image_tiled");
         for (const auto& [field, offset] :
              {std::pair{"enabled", offsetof(Light, enabled)},
-              std::pair{"kind", offsetof(Light, kind)}, std::pair{"basis", offsetof(Light, basis)},
+              std::pair{"kind", offsetof(Light, kind)},
+              std::pair{"basis", offsetof(Light, basis)},
               std::pair{"color_r", offsetof(Light, color_r)},
               std::pair{"color_g", offsetof(Light, color_g)},
               std::pair{"color_b", offsetof(Light, color_b)},
@@ -825,6 +831,10 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
               std::pair{"emitter_radius", offsetof(Light, emitter_radius)},
               std::pair{"emitter_width", offsetof(Light, emitter_width)},
               std::pair{"emitter_height", offsetof(Light, emitter_height)},
+              std::pair{"texture", offsetof(Light, texture)},
+              std::pair{"image_width", offsetof(Light, image_width)},
+              std::pair{"image_height", offsetof(Light, image_height)},
+              std::pair{"image_tiled", offsetof(Light, image_tiled)},
               std::pair{"layers", offsetof(Light, layers)}}) {
             const auto* member = ecs_struct_get_member(w.c_ptr(), c.id(), field);
             if (!member || std::size_t(member->offset) != offset)
@@ -1813,6 +1823,13 @@ Json registration_options(const Builtin& type, const std::string& field) {
         }
     }
     if (name == "forge.light") {
+        static const std::map<std::string, const char*> image_labels{
+            {"texture", "Light image"},
+            {"image_width", "Image width"},
+            {"image_height", "Image height"},
+            {"image_tiled", "Tile image"}};
+        if (const auto label = image_labels.find(field); label != image_labels.end())
+            value["display_name"] = label->second;
         static const std::map<std::string, const char*> help = {
             {"enabled", "Include this light in rendering"},
             {"kind", "Directional, point, spot, rectangular area or spherical area light"},
@@ -1847,6 +1864,15 @@ Json registration_options(const Builtin& type, const std::string& field) {
                               "node scale. Emits from its forward side only"},
             {"emitter_height", "Rectangular emitter full height in world meters; independent of "
                                "node scale. Rotation controls its plane and roll"},
+            {"texture", "Optional Texture RGB multiplier for direct lighting: 2D for directional/"
+                        "spot or Cube for point. Alpha is ignored; area lights are unsupported"},
+            {"image_width",
+             "Directional image full width in world meters; independent of node scale"},
+            {"image_height",
+             "Directional image full height in world meters; independent of node scale"},
+            {"image_tiled",
+             "Directional image extends beyond its bounds using the Texture sampler; "
+             "otherwise light outside the image is black. Spot is always clipped"},
             {"layers", "Affected render layer bit mask"}};
         value["description"] = help.at(field);
         if (field.starts_with("color_")) {
@@ -1865,7 +1891,11 @@ Json registration_options(const Builtin& type, const std::string& field) {
         }
         if (field == "shadow_angular_radius")
             value["unit"] = "radians";
-        if (field.starts_with("emitter_")) {
+        if (field == "texture") {
+            value["asset_type"] = TextureAsset::type;
+            value["nullable"] = true;
+        }
+        if (field.starts_with("emitter_") || field == "image_width" || field == "image_height") {
             value["minimum"] = double(.001f);
             value["maximum"] = 10000;
             value["unit"] = "meters";
@@ -3189,8 +3219,9 @@ Json admitted_builtin_source(const Builtin& type, const Json& source) {
     if (std::string_view(type.name) == "forge.tile_map_renderer" && !current.contains("mip_filter"))
         current["mip_filter"] = type.defaults.at("mip_filter");
     if (std::string_view(type.name) == "forge.light")
-        for (const auto* field : {"shadow_source_radius", "shadow_angular_radius", "emitter_radius",
-                                  "emitter_width", "emitter_height"})
+        for (const auto* field :
+             {"shadow_source_radius", "shadow_angular_radius", "emitter_radius", "emitter_width",
+              "emitter_height", "texture", "image_width", "image_height", "image_tiled"})
             if (!current.contains(field))
                 current[field] = type.defaults.at(field);
     if (std::string_view(type.name) == "forge.decal")

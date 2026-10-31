@@ -5,6 +5,19 @@ The accepted local Windows package is **261024-000213**, source
 in the [README](../README.md#current-implementation). No new numbered Windows
 package accompanies the local source changes described here.
 
+Local source includes Directional/Spot 2D and Point cubemap light images through the
+existing Light, Texture, draw and authoring owners. Source RGB modulates direct
+illumination; alpha is ignored. Shader 12 preserves 19 roles and 1–11 readers while
+sharing projected map/sampler slots with Decals. Public Light layout changes
+require exact SDK module rebuilds. Gallery 117 has editable examples and source-free
+relocated display proof. Focused native PBR/resource, Inspector, MCP, installed SDK
+and offline manual/package-fixture checks pass. Thirty selected strict units and
+nine consumer links pass; seven CPU/UI/MCP/runtime sanitizer consumers exit cleanly.
+Two native consumers complete functionally and reproduce the known unsuppressed
+184-byte shutdown allocation condition, which remains unresolved.
+Windows/full-editor/MSVC/FXC/cooked D3D12 and physical acceptance remain pending.
+See [the contract](light-images.md) and [guide](../manual/editor/lighting.md#use-an-image-to-shape-a-light).
+
 Local source adds opt-in weighted Mesh transparency through the existing Scene,
 material and draw owners. Wrapper9 adds ordinary/area weighted color roles (19
 total), retaining readable1–8 artifacts and unchanged authored surface interfaces.
@@ -25,7 +38,7 @@ surface channels and Gallery 116 supplies 64 projectors sharing one badge materi
 The visual profile admits 128 active projectors with up to eight unique projected
 map/sampler combinations per receiver; complex materials can leave fewer map slots.
 Larger lists use spatial selection through existing bounds and draw owners. Shader
-capability 11 retains 19 output roles and readable versions 1–10, including legacy
+capability 12 retains 19 output roles and readable versions 1–11, including legacy
 packet uploads. Older graph receivers need a current cook for larger lists. See the
 [projection contract](rendering-foundation.md#projected-material-channels) and
 [manual](../manual/editor/decals.md). Local functional and selected strict/sanitizer

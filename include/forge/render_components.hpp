@@ -141,6 +141,11 @@ struct Light {
     // World metres, independent of node scale. Rectangle emits along its basis
     // forward axis; Sphere emits outward and does not require an orientation.
     float emitter_radius = .5f, emitter_width = 1, emitter_height = 1;
+    // Optional direct-light RGB modulation: 2D for directional/spot, Cube for point.
+    // Texture metadata owns sampler/color intent. Alpha does not mask the light.
+    AssetRef<TextureAsset> texture{};
+    float image_width = 1, image_height = 1; // Directional full extent in world metres.
+    bool image_tiled = false; // Directional only; repeat follows the texture sampler.
     bool operator==(const Light&) const = default;
 };
 } // namespace forge

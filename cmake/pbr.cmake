@@ -28,6 +28,7 @@ list(APPEND forge_fx_shaders "${PROJECT_SOURCE_DIR}/resources/shaders/ForgeSurfa
  "${PROJECT_SOURCE_DIR}/resources/shaders/ForgeLighting.fxh"
  "${PROJECT_SOURCE_DIR}/resources/shaders/ForgeAreaLights.fxh"
  "${PROJECT_SOURCE_DIR}/resources/shaders/ForgeDecals.fxh"
+ "${PROJECT_SOURCE_DIR}/resources/shaders/ForgeLightImages.fxh"
  "${PROJECT_SOURCE_DIR}/resources/shaders/ForgeTransparency.fxh"
  "${PROJECT_SOURCE_DIR}/resources/shaders/ForgeShadows.fxh"
  "${PROJECT_SOURCE_DIR}/resources/shaders/ForgeTransmission.fxh")

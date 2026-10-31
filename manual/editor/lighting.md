@@ -57,6 +57,49 @@ must be rebuilt with the current shader compiler to supply the area-light varian
 Built-in PBR materials work without an additional shader import. Unlit surfaces do
 not receive light.
 
+## Use an image to shape a light
+
+1. Import a Texture for scene rendering with **Color** or **HDR color** usage. Directional and Spot lights use a 2D image. Point lights use a Cube Texture, such as an imported DDS or KTX cubemap; a flat panorama or cross-layout image is not a Cube Texture.
+2. Choose **Entity > Create > Rendering > Light**, select it, and set **Kind** to **Directional**, **Spot** or **Point**.
+3. Assign **Light image** in Inspector. Search the picker by path, or drag a registered Texture from Content onto the field. Use a lit material on the receiving Mesh.
+4. For Directional, set **Image width (m)** and **Image height (m)** to the full image size in world metres. Move the light to slide the pattern and rotate it to aim or roll the image. Entity scale does not resize it. With **Tile image** off, the light contributes nothing outside the image rectangle. With it on, the Texture's wrap settings determine repetition, mirroring or clamping.
+5. For Spot, position and aim the light, then adjust **Inner Cone**, **Outer Cone**, **Intensity** and **Range**. The image fills the spot's square projection; the cone still controls illumination. For Point, move the light and rotate its cubemap orientation. Directional image size and tiling controls do not affect Spot or Point.
+6. Turn off **Preview light** in Scene, or press Play with an enabled Camera, to inspect authored lighting. Save the Scene before export.
+
+![Directional Light Inspector showing image assignment, world size and tiling](../images/light-image-controls.png)
+
+Directional image dimensions accept **0.001** to **10000** metres.
+
+The image multiplies the light's color and intensity using its RGB values. Alpha
+is ignored: transparent pixels can still illuminate if their stored RGB is nonzero.
+This changes direct illumination; material color, emission and environment lighting
+keep their own controls. The Texture's filtering, mip and sampler settings apply.
+Rectangle and Sphere lights do not accept light images.
+
+During Play, a Directional light with an assigned image exposes **Image width**,
+**Image height** and **Tile image** under **Live gameplay**. Stop and use the tuning
+review to keep selected values, then save. Assign or clear **Light image** in Edit.
+**None / Clear** removes the image and restores ordinary illumination.
+
+Open **117-light-images** in the [Feature Gallery](../getting-started/feature-gallery.md)
+for a repeating directional arrow pattern, a patterned Spot light and a Point light
+using a captured cubemap.
+
+![Gallery with directional arrows, a patterned spot and cubemap point lighting](../images/light-image-gallery.png)
+
+If an image cannot load, **Problems** explains the failure. The previous usable
+image remains when compatible with the light kind; otherwise ordinary lighting
+remains. An undefined image orientation also retains ordinary lighting. Restore
+independent transform axes to use the image again. Changing between Point and the
+2D light kinds requires a compatible Texture.
+
+Light images share the receiving Mesh part's projected Texture/sampler slots with
+Decals: up to eight distinct pairs, with fewer available for some complex materials.
+If the complete set cannot fit, Problems explains the omitted projections and
+ordinary materials and lighting remain available. Reusing a Texture with the same
+sampler settings shares a slot. Custom physically based Surface Shaders need a
+current cook to receive light images; older cooks retain ordinary lighting.
+
 ## Add an environment
 
 1. Import a color image or cubemap using [Textures](textures.md). Use **HDR color** for a high-dynamic-range environment. A flat image should be an equirectangular panorama rather than an ordinary photograph.

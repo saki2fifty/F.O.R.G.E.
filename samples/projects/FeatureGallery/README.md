@@ -1,5 +1,19 @@
 # Feature Gallery
 
+## Light images
+
+Open **Scenes/117-light-images.scene.json** and press Play. Directional arrows
+repeat over the left receiver, a patterned Spot illuminates the middle, and a
+Point light uses the included captured cubemap on the right. A weak ordinary fill
+keeps unlit parts visible. The receivers use separate layer masks.
+
+Select a **... change Light image** entity. Assign **Light image**, rotate the
+light, or adjust intensity. Directional **Image width**, **Image height** and
+**Tile image** also support Live gameplay tuning. Stop and review values to keep,
+then save. Clear the image to compare ordinary illumination. Choose this Scene as
+startup before export. It reuses the included arrow-sheet, panel and cubemap
+Textures; no C++ module or additional import is required.
+
 ## Many shared projectors
 
 Open **Scenes/116-clustered-projectors.scene.json** and press Play. The floor
@@ -44,8 +58,8 @@ Live gameplay exposes scalar appearance, volume and channel influences; Source M
 assigned in Edit mode. Stop, review any values you want to keep and save. Choose
 this Scene as startup before export. It needs no C++ module or additional import.
 
-There are eight active projectors per scene and a material-dependent per-part
-sampler limit. Problems explains omitted projections; ordinary materials remain
+The profile admits 128 active projectors per scene and a material-dependent
+per-part shared image/sampler limit. Problems explains omitted projections; ordinary materials remain
 available. Physical Mesh surfaces receive the selected color, normal and roughness
 channels. Custom Surface Shader sources are unsupported. See the manual's
 **Project material channels onto a Mesh** guide for placement, saving and limits.

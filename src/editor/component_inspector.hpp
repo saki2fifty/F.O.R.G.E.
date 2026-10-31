@@ -151,6 +151,10 @@ class ComponentInspector {
         if (field == "emitter_width" || field == "emitter_height")
             return kind == LightKind::Rectangle;
         const bool area = kind == LightKind::Rectangle || kind == LightKind::Sphere;
+        if (field == "image_width" || field == "image_height" || field == "image_tiled")
+            return kind == LightKind::Directional && !value.value("texture", Json()).is_null();
+        if (field == "texture" && area)
+            return !value.value("texture", Json()).is_null();
         if (area && field == "cast_shadows")
             return value.value("cast_shadows", false);
         if (area && (field.starts_with("shadow_") || field.ends_with("_cone")))
@@ -531,6 +535,11 @@ class ComponentInspector {
                 if (kind == LightKind::Rectangle || kind == LightKind::Sphere)
                     ui::help("Area lights illuminate surfaces from their emitter shape. "
                              "Area-light shadows are unavailable.");
+                else
+                    ui::help("Light image multiplies direct illumination by Texture RGB; alpha is "
+                             "ignored. Directional and spot lights use 2D images; point lights use "
+                             "Cube textures. Directional image size is in world metres; Tile image "
+                             "uses the Texture sampler outside the image bounds.");
             }
             if (RuntimePropertyTune::decal_type(key))
                 ui::help(

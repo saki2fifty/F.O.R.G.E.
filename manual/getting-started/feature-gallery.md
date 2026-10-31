@@ -1,5 +1,12 @@
 # Explore the Feature Gallery
 
+**117-light-images** compares repeating Directional arrows, a patterned Spot light
+and a Point light using a captured cubemap. Select a **... change Light image**
+entity and try its image assignment, rotation or intensity. Directional also exposes
+world size and tiling. Save and choose this Scene as startup before export. It reuses
+included Textures and needs no C++ module or additional import. See
+[Use an image to shape a light](../editor/lighting.md).
+
 **116-clustered-projectors** places 64 tinted badge projectors over a lit floor.
 They share one material and image. Select a **Paint row ... column ...** entity in
 Hierarchy, then change its tint, opacity, position or size. The other patches keep

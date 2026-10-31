@@ -58,10 +58,6 @@ bool is_known_input_device(const std::string& device) {
     return device == "KeyboardMouse" || device == "Gamepad" || device == "EditorHost";
 }
 Json empty_scene_schema() { return Json{{"version", 1}, {"entities", Json::array()}}; }
-Json empty_scene_snapshot() {
-    return Json{
-        {"version", 1}, {"asset_id", AssetId::generate().str()}, {"entities", Json::array()}};
-}
 bool session_is_empty(const Json& status_value) {
     const auto state = status_value.value("state", std::string{});
     return state == "empty" || state == "faulted";

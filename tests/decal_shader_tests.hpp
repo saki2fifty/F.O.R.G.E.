@@ -136,6 +136,37 @@ inline void test_decal_shader_profile() {
     bad_cluster["resources"].back()["array_size"] = 2;
     reject([&] { surface_binding_layout(graph, bad_cluster, ShaderEntryRole::SurfaceColor, 11); });
     reject([&] { surface_binding_layout(graph, channels, ShaderEntryRole::SurfaceColor, 11); });
+    auto images = clustered;
+    auto packet = images["resources"][0];
+    packet["name"] = "ForgeLightImages";
+    packet["size"] = 256 * 16;
+    packet["variables"][0]["name"] = "g_ForgeLightImages";
+    packet["variables"][0]["array_size"] = 256;
+    images["resources"].push_back(packet);
+    for (unsigned i = 0; i < 8; ++i)
+        images["resources"].push_back({{"name", "g_ForgeLightCube" + std::to_string(i)},
+                                       {"kind", "texture_srv"},
+                                       {"array_size", 1},
+                                       {"dimension", "texture_cube"}});
+    (void)surface_binding_layout(graph, images, ShaderEntryRole::SurfaceColor, 12);
+    reject([&] { surface_binding_layout(graph, images, ShaderEntryRole::SurfaceColor, 11); });
+    reject([&] { surface_binding_layout(graph, clustered, ShaderEntryRole::SurfaceColor, 12); });
+    reject([&] { surface_binding_layout(graph, images, ShaderEntryRole::SurfaceDepth, 12); });
+    auto bad_image = images;
+    bad_image["resources"].back()["dimension"] = "texture2d";
+    reject([&] { surface_binding_layout(graph, bad_image, ShaderEntryRole::SurfaceColor, 12); });
+    bad_image = images;
+    bad_image["resources"].erase(bad_image["resources"].size() - 1);
+    reject([&] { surface_binding_layout(graph, bad_image, ShaderEntryRole::SurfaceColor, 12); });
+    bad_image = images;
+    bad_image["resources"][6]["variables"][0]["array_size"] = 255;
+    reject([&] { surface_binding_layout(graph, bad_image, ShaderEntryRole::SurfaceColor, 12); });
+    const auto image_at = projected.pixel.find("ForgeLightImage(i,input.World,dpdx,dpdy,image)");
+    const auto direct_at = projected.pixel.find("ForgeApplyPunctualLight(s,light,");
+    check(image_at != std::string::npos && image_at < direct_at &&
+              projected.pixel.find("ForgeLightImages.fxh") != std::string::npos &&
+              old.pixel.find("ForgeLightImages.fxh") == std::string::npos,
+          "Light images bypass direct radiance or change a program without image slots");
     graph.physically_based = false;
     reject([&] { surface_binding_layout(graph, reflection, false, true); });
 }

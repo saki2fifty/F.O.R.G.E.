@@ -1,4 +1,5 @@
 #pragma once
+#include "light_image_frame_tests.hpp"
 #include <cmath>
 #include <forge/authoring.hpp>
 #include <forge/engine_assets.hpp>
@@ -7,6 +8,7 @@
 #include <limits>
 #include <numbers>
 inline void test_render_views() {
+    test_light_image_frames();
     using namespace forge;
     auto require = [](bool ok, const char* why) {
         if (!ok)
@@ -245,7 +247,8 @@ inline void test_render_views() {
     auto legacy = doc;
     legacy["entities"][0]["components"]["forge.light"].erase("shadow_source_radius");
     legacy["entities"][0]["components"]["forge.light"].erase("shadow_angular_radius");
-    for (const auto* field : {"emitter_radius", "emitter_width", "emitter_height"})
+    for (const auto* field : {"emitter_radius", "emitter_width", "emitter_height", "texture",
+                              "image_width", "image_height", "image_tiled"})
         legacy["entities"][0]["components"]["forge.light"].erase(field);
     scene.reset(legacy);
     require(scene.entity(id).get<Light>().shadow_source_radius == 0 &&
@@ -255,6 +258,53 @@ inline void test_render_views() {
                 scene.entity(id).get<Light>().emitter_width == 1 &&
                 scene.entity(id).get<Light>().emitter_height == 1,
             "Existing lights lost area dimension defaults");
+    require(!scene.entity(id).get<Light>().texture.id &&
+                scene.entity(id).get<Light>().image_width == 1 &&
+                scene.entity(id).get<Light>().image_height == 1 &&
+                !scene.entity(id).get<Light>().image_tiled,
+            "Legacy lights did not retain disabled image defaults");
+    scene.reset(doc);
+    const auto image = AssetId::generate();
+    apply_authoring(scene,
+                    Json::array({{{"operation", "property.set"},
+                                  {"arguments",
+                                   {{"entity", id},
+                                    {"component", "forge.light"},
+                                    {"field", "texture"},
+                                    {"value", image}}}},
+                                 {{"operation", "property.set"},
+                                  {"arguments",
+                                   {{"entity", id},
+                                    {"component", "forge.light"},
+                                    {"field", "image_width"},
+                                    {"value", 4}}}},
+                                 {{"operation", "property.set"},
+                                  {"arguments",
+                                   {{"entity", id},
+                                    {"component", "forge.light"},
+                                    {"field", "image_tiled"},
+                                    {"value", true}}}}}),
+                    scene.revision());
+    require(scene.entity(id).get<Light>().texture.id == image &&
+                scene.entity(id).get<Light>().image_width == 4 &&
+                scene.entity(id).get<Light>().image_tiled,
+            "Light image authoring lost typed values");
+    const auto image_doc = scene.document();
+    for (const auto& patch : {Json{{"field", "image_height"}, {"value", 0}},
+                              Json{{"field", "texture"}, {"value", "invalid-uuid"}},
+                              Json{{"field", "kind"}, {"value", unsigned(LightKind::Sphere)}}}) {
+        auto args = patch;
+        args["entity"] = id;
+        args["component"] = "forge.light";
+        rejects([&] { authoring_command(scene, "property.set", args); });
+        require(scene.document() == image_doc, "Rejected light image edit changed source");
+    }
+    require(scene.undo() && scene.document() == doc && scene.redo() &&
+                scene.document() == image_doc,
+            "Light image batch history lost unrelated source data");
+    scene.reset(image_doc);
+    require(scene.entity(id).get<Light>().texture.id == image,
+            "Light image source roundtrip lost its asset identity");
     scene.reset(doc);
     const auto edit_revision = scene.revision();
     apply_authoring(scene,

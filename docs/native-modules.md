@@ -214,7 +214,7 @@ reports each cube's measured first-step speed through ordinary diagnostics.
 
 ### Music and UI sound during Pause
 
-AudioSource.pause_with_game defaults totrue. Set it tofalse for sound that should
+AudioSource.pause_with_game defaults totrue. Set it to false for sound that should
 continue while gameplay is paused. In SDK control callbacks, existing
 sdk::Client audio operations can target only active opted-out sources; ordinary
 sources and suspended output reject. Fixed callbacks retain their queued audio
@@ -230,3 +230,12 @@ component writes; its installed `audio_gameplay` target uses only public headers
 The existing unpaused example can play filtered UI sources during game Pause.
 Native DSP nodes remain private; no new Audio command, callback layout or ABI
 number is needed. Header fingerprint changes require a matching module rebuild.
+
+## Light image values
+
+The installed `Light` layout includes an optional Texture reference, Directional
+image width/height and tiling. These appended values change the exact SDK header
+fingerprint; rebuild matching C++ modules. ABI1 callback tables remain unchanged.
+The installed `soft_shadows.cpp` example writes all three supported image kinds
+with matching built-in 2D/Cube resources, then clears the image for area kinds.
+See [light-image ownership and limits](light-images.md).

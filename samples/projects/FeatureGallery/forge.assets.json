@@ -3349,6 +3349,16 @@
       "type": "model_node"
     },
     {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "3c9dbfd3-b805-4dbb-809c-e300b069629a",
+      "metadata": {},
+      "schema_version": 5,
+      "source": "Scenes/117-light-images.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
       "dependencies": [
         "39bab1fe-073f-4b6f-abd2-6ee2fc780696",
         "80c55df2-1abb-42b0-9591-502e783cdc97"

@@ -1763,7 +1763,8 @@ inputs, enum/flag choices, Undo/Redo and copied sequence preview at supported sc
 samples, float-boundary/overflow cases, large origins, collapsed axes and stable
 index order. `shader_assets` preserves 1–10 archives and rejects unsupported packet/
 storage metadata; `material_asset` checks typed capability reflection and existing
-sampler budgets. Current capability 11 keeps19 surface output roles.
+sampler budgets. Spatial transport capability 11 keeps 19 surface output roles;
+capability 12 extends this profile with the light images described below.
 
 `decal_vulkan` exercises the actual prepared-draw and scene/resource owners.
 The focused `--clusters-only` path compares 128 projector spatial output against an
@@ -1786,3 +1787,33 @@ These portable/software-Vulkan checks do not establish MSVC/FXC/cookedD3D12, ful
 Windows editor input/DPI, physical GPU performance or graphical exported-EXE acceptance.
 Native sanitizer shutdown remains an independent unresolved/unsuppressed condition;
 functional completion is separate from a clean process exit.
+
+## Light image regression gate
+
+`authoring_api` covers typed Light values, defaults, source/history validation and
+image-only frame rejection while ordinary Point lighting survives. `material_asset`
+checks Shader 12 packet/Cube reflection and readable old capabilities.
+`reflection_probe_editor` also exercises actual Light image assignment, dimensions,
+clear, Undo/Redo, save/reopen and contextual live availability.
+
+`mcp_soft_shadows_stdio` includes all three image kinds, metadata, invalid atomic
+edits, revision/replay, history, disk and read-only grants in both protocols. Its
+180-second fixture budget accommodates the expanded instrumented workload;
+production transport timeouts are unchanged. The
+soft-shadow Play consumer checks live image dimensions/tiling and rejects texture
+replacement. `native_sdk_soft_shadows_installed` compiles from the installed SDK,
+relocates it, checks incompatible fingerprints and exercises public image values,
+both hosts, live validation, unchanged legacy source bytes and cold recovery.
+
+`light_images_vulkan` runs actual direct-radiance/image sampling, source mip/LOD,
+shared slot admission and scene last-good/dimension/layer/replacement checks. The
+full `decal_vulkan` gate includes these cases alongside existing output/resource
+profiles. `light_image_gallery_vulkan` checks Gallery 117, each visible image, exact
+Scene/three-Texture export closure and four source-free relocated displays. The
+Gallery catalog retains every prior record. Private independent coordinate/color
+oracles supplement these product tests with exact-input receipts.
+
+Run the corresponding strict/unsuppressed consumers at the coherent batch gate.
+Normal functional success is separate from known native sanitizer shutdown behavior.
+Do not claim Windows/MSVC/FXC/cooked D3D12, full graphical editor/input/DPI or physical
+GPU acceptance from these portable/software-renderer fixtures.

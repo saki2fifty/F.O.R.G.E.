@@ -66,7 +66,7 @@ Include `forge/decal.hpp` and use `forge::DecalProjector` on an entity with a
 resolved node transform.
 Its typed `AssetRef<MaterialAsset>` selects the channel source; resources remain
 owned by the renderer. Width, height and depth are full local metres before node
-scale, in0.001–10000. The centered volume projects along local+Z. Tint, opacity and color/normal/roughness influences
+scale, in 0.001–10000. The centered volume projects along local+Z. Tint, opacity and color/normal/roughness influences
 are finite0–1. Influences default to1/0/0, preserving existing color behavior. Fade angles are radians with0≤start<end≤π/2 and must remain
 distinguishable at GPU precision. Layers are a bit mask and priority is int32.
 Higher priorities paint later, with stable EntityId ties.
@@ -105,6 +105,22 @@ that have `project.shadow_control` and `forge.light`. This is a small field-acce
 example, not a complete visual game. Rebuild project modules with the SDK matching
 the runtime: these appended installed Light fields change the exact fingerprint.
 Never repair a mismatch by editing the fingerprint declaration.
+
+## Light image values
+
+The installed Light value has a nullable `texture` reference, `image_width`,
+`image_height` and `image_tiled`. Directional/Spot use a Color/HDR 2D Texture and
+Point uses a Cube; clear the texture for Rectangle/Sphere. Image RGB multiplies
+ordinary direct-light radiance and alpha is ignored. Directional full dimensions
+are 0.001–10000 world metres, default1; tiling defaults to false and preserves the
+Texture sampler's wrap intent. Node scale does not multiply these dimensions.
+
+The installed `soft_shadows.cpp` sample writes matching built-in 2D/Cube references
+and all image values through ordinary native Light access. Rebuild exact modules
+for the appended layout/fingerprint. ABI1 callback tables remain unchanged; editing
+a project fingerprint cannot make an older module compatible. Image dimensions
+and tiling support the existing runtime property tuning service; editor texture
+assignment remains an authored Edit operation.
 
 ## Area emitter dimensions
 

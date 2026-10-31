@@ -104,7 +104,7 @@ if(BUILD_TESTING AND (FORGE_BUILD_EDITOR OR FORGE_BUILD_MCP_EDITOR_TESTS))
  # Both framings cover the 128-projector authoring workload and receipt recovery.
  set_tests_properties(mcp_document_stdio PROPERTIES TIMEOUT 240)
  add_test(NAME mcp_soft_shadows_stdio COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/mcp_soft_shadows_test.py $<TARGET_FILE:forge_tools> $<TARGET_FILE:forge_mcp_document_host> "${CMAKE_CURRENT_BINARY_DIR}/mcp-soft-shadows-capture.json.gz")
- set_tests_properties(mcp_soft_shadows_stdio PROPERTIES TIMEOUT 90)
+ set_tests_properties(mcp_soft_shadows_stdio PROPERTIES TIMEOUT 180)
  add_executable(forge_mcp_asset_host tests/mcp_asset_host.cpp)
  target_include_directories(forge_mcp_asset_host PRIVATE src src/editor)
  target_link_libraries(forge_mcp_asset_host PRIVATE forge_mcp forge_authoring forge_import_authoring forge_material_authoring forge_model_placement forge_asset_files SDL3::SDL3 imgui)

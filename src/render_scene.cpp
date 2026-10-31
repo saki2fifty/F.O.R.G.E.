@@ -175,8 +175,20 @@ RenderScene extract_render_scene(const Json& source) {
         });
         admit("forge.light", "render.light.invalid", [&] {
             const auto l = component<Light>(values, "forge.light");
-            if (l.enabled && state.valid && state.visible)
-                result.lights.push_back({id, light_view(l, world_transform(row))});
+            if (l.enabled && state.valid && state.visible) {
+                const auto world = world_transform(row);
+                RenderLight light{id, light_view(l, world), l.texture, {}};
+                if (l.texture.id)
+                    try {
+                        light.image = light_image_frame(l, world);
+                    } catch (const std::exception& error) {
+                        report(result,
+                               diagnostic(result.scene, id, "render.light.image",
+                                          std::string(error.what()) + " (ordinary light retained)",
+                                          "forge.light.texture"));
+                    }
+                result.lights.push_back(std::move(light));
+            }
         });
         admit("forge.decal", "render.decal.invalid", [&] {
             const auto value = component<DecalProjector>(values, "forge.decal");

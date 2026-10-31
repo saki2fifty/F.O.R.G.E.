@@ -304,7 +304,7 @@ first part selects an entry: `{"index":0}` for unkeyed positional collections or
 Later parts can be member IDs or nested selectors. Copy the entire identity to all
 key-value rows. Use the schema's declared key order, native counts/domains and
 current entries; keyed collections reject positional selectors. Missing entries
-reject without creating/resizing a collection. Combined paths have at most16parts;
+reject without creating/resizing a collection. Combined paths have at most 16parts;
 read-only ancestors and UI fields remain unsupported. Preserve other source fields and
 key/asset identities. Read the latest
 document session/revision before patching; an invalid value leaves history intact.
@@ -1029,3 +1029,20 @@ receiver cooks report presentation diagnostics and keep ordinary rendering.
 The document/MCP regression creates 127 projectors alongside an existing one in one
 transaction, reads all 128, rejects an invalid atomic batch without revision changes,
 checks whole-batch Undo/Redo and saves all 128 through the ordinary document owner.
+
+### Light images
+
+Create an ordinary Light with `forge_entity_create` and use the discovered
+`forge.light` schema with `forge_property_set` / `forge_property_set_many`.
+`texture` is nullable; Directional/Spot require a rendering-capable 2D Color/HDR
+Texture and Point requires a Cube. Set `image_width`, `image_height` and
+`image_tiled` for Directional projection. Clear the image when switching to an
+area kind; use one atomic property update for related values. Existing revision,
+sequence replay, Undo/Redo and document save behavior applies.
+
+During Play, `forge_play_tune` supports the image dimensions and tiling through
+the existing runtime tuning owner. Image assignment remains Edit-only. Stale play
+identity, invalid values and unsupported texture replacement retain current values.
+Use normal source edits and saved assets for changes that must survive export.
+See [coordinates, resource admission and limits](light-images.md). No additional
+agent-only light or rendering operation is needed.

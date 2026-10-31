@@ -215,6 +215,7 @@ class MeshSceneRenderer {
     bool update_environment(const RenderScene&);
     bool update_reflection_probes(const RenderScene&);
     bool update_decals(const RenderScene&);
+    bool update_light_images(const RenderScene&);
     void clear_decal_bindings();
     void report(Diagnostic);
     void report(EntityId, const std::string&, DrawScope = DrawScope::Mesh);
@@ -236,15 +237,15 @@ class MeshSceneRenderer {
     };
     std::map<EntityId, ProbeEntry> probe_entries_;
     std::vector<SurfaceReflections::Probe> reflection_probes_;
+    struct ProjectedTextureResource {
+        ResourceLease<TextureAsset> source;
+        GpuLease<TextureAsset> gpu;
+        Diligent::RefCntAutoPtr<Diligent::ISampler> sampler;
+    };
     struct DecalResources {
-        struct Texture {
-            ResourceLease<TextureAsset> source;
-            GpuLease<TextureAsset> gpu;
-            Diligent::RefCntAutoPtr<Diligent::ISampler> sampler;
-        };
         ResourceLease<MaterialAsset> material;
         DecalMaterial values;
-        std::array<Texture, decal_channel_count> textures;
+        std::array<ProjectedTextureResource, decal_channel_count> textures;
         unsigned channels = 0;
     };
     struct DecalEntry {
@@ -259,6 +260,15 @@ class MeshSceneRenderer {
     };
     std::map<EntityId, DecalEntry> decal_entries_;
     std::vector<EntityId> decal_order_;
+    struct LightImageEntry {
+        AssetRef<TextureAsset> requested;
+        TextureDimension dimension = TextureDimension::D2;
+        std::uint64_t epoch = UINT64_MAX;
+        std::optional<ResourceTicket> ticket;
+        std::optional<ProjectedTextureResource> ready;
+        std::string error;
+    };
+    std::map<EntityId, LightImageEntry> light_image_entries_;
     struct DrawOwner {
         EntityId first;
         DrawScope second;

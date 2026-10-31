@@ -304,7 +304,7 @@ MeshDrawShader mesh_draw_shader(const MeshVertexFetch& fetch, const PbrMaterialP
         ps += "#define FORGE_DECAL_CAPACITY " + std::to_string(decal_capacity) + "\n";
         ps += std::string("#define FORGE_DECAL_NAMED_SAMPLERS ") +
               (sampler_binding == MaterialSamplerBinding::NamedElements ? "1\n" : "0\n");
-        ps += "#include \"ForgeDecals.fxh\"\n";
+        ps += "#include \"ForgeDecals.fxh\"\n#include \"ForgeLightImages.fxh\"\n";
     }
     if (profile.workflow == PbrWorkflow::MetallicRoughness)
         ps += "#include \"Iridescence.fxh\"\n";
@@ -608,6 +608,12 @@ float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
 #endif
                                      lighting)&&valid;
         } else {
+)";
+        if (decal_capacity)
+            ps += R"(
+        float3 image;
+        valid=ForgeLightImage(i,input.World,dpdx,dpdy,image)&&valid;
+        light.IntensityR*=image.r;light.IntensityG*=image.g;light.IntensityB*=image.b;
 )";
         ps += R"(
         float visibility=ForgeShadowVisibility(light.ShadowMapIndex,input.World,

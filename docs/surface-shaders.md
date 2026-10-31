@@ -197,3 +197,13 @@ and dependent Materials for larger lists. Logical asset IDs, authored surface
 function interfaces, geometry and resource ownership remain unchanged. See
 [projected material channels](rendering-foundation.md#projected-material-channels)
 for bounds, numeric behavior, sampler budgets and current platform acceptance limits.
+
+## Direct-light image bindings
+
+Capability 12 keeps 19 output roles and readable 1–11 artifacts. Current lit wrappers
+with projected slots add a checked 4096-byte `ForgeLightImages` packet and bounded
+Cube views. Light images share the existing projected map/sampler capacity with
+Decals. The old projector packets and authored Surface interfaces remain unchanged.
+Older cooks retain ordinary lighting and their supported projections; recook the
+Shader and dependent Materials to receive light images. See
+[coordinates, bindings and admission](light-images.md).

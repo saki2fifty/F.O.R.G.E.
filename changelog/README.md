@@ -1,6 +1,6 @@
 # Changelog
 
-- [2026-10-31](20261031/README.md) — Spatially selected shared projectors, Gallery116, compatible Shader transport and illustrated manual. Local source; Windows verification and delivery pending.
+- [2026-10-31](20261031/README.md) — Light images/Gallery117, spatially selected shared projectors/Gallery116, compatible Shader transport and illustrated manual. Local source; Windows verification and delivery pending.
 
 - [2026-10-30](20261030/README.md) — Weighted Mesh transparency/Gallery114, projected material color/Gallery113 and rectangular/spherical direct lights/Gallery112, shared Inspector/live/MCP/SDK controls and illustrated guides. Local source; Windows verification and delivery pending.
 

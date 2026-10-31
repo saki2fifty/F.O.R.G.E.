@@ -542,6 +542,7 @@ for legacy in (False, True):
             continue
 
         if SOFT_SHADOWS_ONLY:
+            assert 'image width/height/tiling' in advertised['forge_play_tune']['description']
             assert 'Light shadow source' in advertised['forge_play_tune']['description']
             assert 'emitter radius/full width/full height' in advertised['forge_play_tune']['description']
             actor = ok('forge_entity_create', arguments=dict(recipe='render.light',
@@ -560,7 +561,8 @@ for legacy in (False, True):
                             if row['id'] == actor)
             for field, value in [('shadow_source_radius', .25), ('shadow_angular_radius', .125),
                                  ('emitter_radius', .75), ('emitter_width', 2),
-                                 ('emitter_height', .5)]:
+                                 ('emitter_height', .5), ('image_width', 4),
+                                 ('image_height', 2), ('image_tiled', True)]:
                 control('forge_play_tune', entity=actor, component='forge.light', property=field, value=value)
                 ack = until(lambda: read('forge_play_status'), lambda row:
                             not row['tune_pending'] and row['tune_ack'] is not None)
@@ -570,16 +572,20 @@ for legacy in (False, True):
             for field, value in [('shadow_source_radius', -1), ('shadow_source_radius', 10001),
                                  ('shadow_angular_radius', 1), ('shadow_angular_radius', True),
                                  ('emitter_radius', 0), ('emitter_radius', True),
-                                 ('emitter_width', .0001), ('emitter_height', 10001)]:
+                                 ('emitter_width', .0001), ('emitter_height', 10001),
+                                 ('image_width', 0), ('image_height', 10001),
+                                 ('image_tiled', 1)]:
                 control('forge_play_tune', entity=actor, component='forge.light', property=field, value=value)
                 ack = until(lambda: read('forge_play_status'), lambda row:
                             not row['tune_pending'] and row['tune_ack'] is not None)
                 assert 'error' in ack['tune_ack'] and runtime_light() == tuned, ack
                 assert ack['timing']['tick'] == paused['timing']['tick']
             state = until(lambda: read('forge_play_status'), lambda row: row['control_ready'])
-            failed(mutate('forge_play_tune', launch=state['launch'], session=state['session'],
-                          generation=state['generation'], entity=actor, component='forge.light',
-                          property='cast_shadows', value=False), 'play_busy')
+            for field, value in [('cast_shadows', False), ('texture', None)]:
+                failed(mutate('forge_play_tune', launch=state['launch'], session=state['session'],
+                              generation=state['generation'], entity=actor, component='forge.light',
+                              property=field, value=value), 'play_busy')
+                assert runtime_light() == tuned
             wrong = {key: paused[key] for key in ('launch', 'session', 'generation')}
             wrong['generation'] += 1
             failed(mutate('forge_play_tune', **wrong, entity=actor, component='forge.light',

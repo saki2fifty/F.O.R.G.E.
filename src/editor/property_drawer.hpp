@@ -134,6 +134,7 @@ inline bool asset_ref_picker(const AssetCatalog& catalog, Json& value, const std
                 value = nullptr;
                 changed = true;
             }
+            FORGE_UI_PROBE("asset-clear:" + type + ":" + title);
             ui::help(
                 "Clear this reference. Required resources will report a missing-asset diagnostic.");
             const auto rows =

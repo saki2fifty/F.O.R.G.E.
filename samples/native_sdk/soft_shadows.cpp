@@ -1,6 +1,7 @@
 #include <cstdio>
 #include <exception>
 #include <flecs.h>
+#include <forge/engine_texture_assets.hpp>
 #include <forge/native_sdk.h>
 #include <forge/native_sdk_identity.h>
 #include <forge/render_components.hpp>
@@ -39,6 +40,16 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char* error, uint32_t 
                 light.emitter_radius = .25f * control.ticks;
                 light.emitter_width = .5f * control.ticks;
                 light.emitter_height = .75f * control.ticks;
+                light.image_width = .75f * control.ticks;
+                light.image_height = .5f * control.ticks;
+                light.image_tiled = control.ticks % 2 == 1;
+                light.texture =
+                    light.kind <= unsigned(forge::LightKind::Spot)
+                        ? forge::engine_texture(forge::EngineTexture::White,
+                                                light.kind == unsigned(forge::LightKind::Point)
+                                                    ? forge::TextureDimension::Cube
+                                                    : forge::TextureDimension::D2)
+                        : forge::AssetRef<forge::TextureAsset>{};
             })
             .add(host->fixed_tag);
         return 1;

@@ -55,6 +55,11 @@ def verify(state, tick):
     assert light['emitter_radius'] == .25*tick
     assert light['emitter_width'] == .5*tick
     assert light['emitter_height'] == .75*tick
+    assert light['image_width'] == .75*tick and light['image_height'] == .5*tick
+    assert light['image_tiled'] == (tick % 2 == 1)
+    assert light['texture'] == (None if tick >= 4 else
+        'd4c60053-60c8-4456-8771-a7cf8182a902' if tick == 2 else
+        'af69e469-dd94-4545-a61f-682cafb574ee')
     assert light['intensity'] == 1 and light['range'] == 0
     assert light['extension'] == dict(retain=17)
 
@@ -62,11 +67,11 @@ def live(client, state):
     generation = state['world_generation'] if 'world_generation' in state else state['activation']['generation']
     target = dict(generation=generation, scene_asset=state['effective_scene']['asset_id'],
                   entity=actor, type='forge.light')
-    for name, value in [('shadow_source_radius', 1.25), ('shadow_angular_radius', .125), ('emitter_radius', 2), ('emitter_width', 3), ('emitter_height', 4)]:
+    for name, value in [('shadow_source_radius', 1.25), ('shadow_angular_radius', .125), ('emitter_radius', 2), ('emitter_width', 3), ('emitter_height', 4), ('image_width', 8), ('image_height', 4), ('image_tiled', True)]:
         updated = client.request('property_tune', **target, property=name, value=value)
         assert updated['ok'] and updated['property_tune']['value'] == value, updated
     before = client.request('snapshot')
-    for name, value in [('shadow_source_radius', -1), ('shadow_source_radius', 10001), ('shadow_angular_radius', 1), ('shadow_angular_radius', '0.1'), ('cast_shadows', False), ('emitter_radius', 0), ('emitter_width', 10001), ('emitter_height', '1')]:
+    for name, value in [('shadow_source_radius', -1), ('shadow_source_radius', 10001), ('shadow_angular_radius', 1), ('shadow_angular_radius', '0.1'), ('cast_shadows', False), ('emitter_radius', 0), ('emitter_width', 10001), ('emitter_height', '1'), ('image_width', 0), ('image_height', 10001), ('image_tiled', 1), ('texture', None)]:
         try:
             client.request('property_tune', **target, property=name, value=value)
         except RuntimeError as error:
@@ -86,6 +91,8 @@ try:
         return {field['id']: field['default'] for field in component['fields']}
     probe = defaults('forge.light')
     probe.update(extension=dict(retain=17))
+    for field in ('texture', 'image_width', 'image_height', 'image_tiled'):
+        probe.pop(field)  # Legacy saved input acquires defaults without changing its file bytes.
     scene = dict(version=3, asset_id=str(uuid.uuid4()), entities=[dict(
         id=actor, name='SDK soft shadow light', components={
             'forge.local_translation': defaults('forge.local_translation'),

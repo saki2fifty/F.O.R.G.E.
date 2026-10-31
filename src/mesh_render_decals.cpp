@@ -5,6 +5,17 @@
 #include <algorithm>
 #include <set>
 namespace forge {
+namespace {
+bool projected_resource_ready(const ResourceTicket& ticket) {
+    const auto info = ticket.inspect();
+    if (info.state == ResourceState::Ready)
+        return true;
+    if (!resource_detail::terminal(info.state))
+        return false;
+    throw std::runtime_error(info.diagnostic.empty() ? resource_state_name(info.state)
+                                                     : info.diagnostic);
+}
+} // namespace
 void MeshSceneRenderer::clear_decal_bindings() {
     // Invisible parts can retain native references too. Clear all live bundles
     // before replacing the corresponding leases, as for environment revisions.
@@ -90,16 +101,7 @@ bool MeshSceneRenderer::update_decals(const RenderScene& scene) {
         try {
             constexpr std::array semantics{TextureSemantic::Color, TextureSemantic::Normal,
                                            TextureSemantic::Data};
-            const auto ready = [](const ResourceTicket& ticket) {
-                const auto info = ticket.inspect();
-                if (info.state == ResourceState::Ready)
-                    return true;
-                if (!resource_detail::terminal(info.state))
-                    return false;
-                throw std::runtime_error(info.diagnostic.empty() ? resource_state_name(info.state)
-                                                                 : info.diagnostic);
-            };
-            if (entry.material_ticket && ready(*entry.material_ticket)) {
+            if (entry.material_ticket && projected_resource_ready(*entry.material_ticket)) {
                 auto material = host_->materials_.acquire(*entry.material_ticket);
                 if (!material)
                     throw std::runtime_error("Decal material became stale before adoption");
@@ -120,7 +122,8 @@ bool MeshSceneRenderer::update_decals(const RenderScene& scene) {
                 entry.material_ticket.reset();
             }
             for (unsigned c = 0; c < decal_channel_count; ++c)
-                if (entry.texture_tickets[c] && ready(*entry.texture_tickets[c])) {
+                if (entry.texture_tickets[c] &&
+                    projected_resource_ready(*entry.texture_tickets[c])) {
                     auto texture = host_->textures_.acquire(*entry.texture_tickets[c]);
                     if (!texture || texture->dimension != TextureDimension::D2 ||
                         texture->semantic != semantics[c])
@@ -162,6 +165,95 @@ bool MeshSceneRenderer::update_decals(const RenderScene& scene) {
     for (const auto* decal : active)
         if (decal_entries_.at(decal->entity).ready)
             decal_order_.push_back(decal->entity);
+    return changed;
+}
+bool MeshSceneRenderer::update_light_images(const RenderScene& scene) {
+    bool changed = false, cleared = false;
+    const auto before_release = [&] {
+        if (!cleared) {
+            clear_decal_bindings();
+            cleared = true;
+        }
+        changed = true;
+    };
+    std::set<EntityId> active;
+    for (const auto& light : scene.lights)
+        if (light.texture.id && light.image)
+            active.insert(light.entity);
+    for (auto it = light_image_entries_.begin(); it != light_image_entries_.end();)
+        if (!active.contains(it->first)) {
+            before_release();
+            it = light_image_entries_.erase(it);
+        } else
+            ++it;
+    for (const auto& light : scene.lights) {
+        if (!light.texture.id || !light.image)
+            continue;
+        auto& entry = light_image_entries_[light.entity];
+        const auto dimension = light.light.kind == unsigned(LightKind::Point)
+                                   ? TextureDimension::Cube
+                                   : TextureDimension::D2;
+        if (entry.requested != light.texture || entry.dimension != dimension ||
+            entry.epoch != host_->epoch_) {
+            changed = true;
+            if (entry.dimension != dimension && entry.ready) {
+                before_release();
+                entry.ready.reset();
+            }
+            entry.requested = light.texture;
+            entry.dimension = dimension;
+            entry.epoch = host_->epoch_;
+            entry.ticket.reset();
+            entry.error.clear();
+            try {
+                // Existing selection chooses HDR color when present, otherwise Color.
+                entry.ticket = asset_detail::request_texture(host_->textures_, host_->project_,
+                                                             host_->catalog_, entry.requested);
+            } catch (const std::exception& error) {
+                entry.error = error.what();
+            }
+        }
+        try {
+            if (entry.ticket && projected_resource_ready(*entry.ticket)) {
+                ProjectedTextureResource candidate;
+                candidate.source = host_->textures_.acquire(*entry.ticket);
+                if (!candidate.source || candidate.source->dimension != dimension ||
+                    (candidate.source->semantic != TextureSemantic::Color &&
+                     candidate.source->semantic != TextureSemantic::HdrColor))
+                    throw std::runtime_error(
+                        dimension == TextureDimension::Cube
+                            ? "Point light image requires a current Color/HDR Cube Texture"
+                            : "Directional/spot light image requires a current Color/HDR 2D "
+                              "Texture");
+                if (candidate.source->sampler.compare != TextureCompare::None)
+                    throw std::runtime_error(
+                        "Light images require a non-comparison Texture sampler");
+                candidate.gpu = host_->gpu_textures_.acquire(candidate.source);
+                candidate.sampler =
+                    upload_sampler(host_->presentation_.device(), candidate.source->sampler);
+                before_release();
+                entry.ready = std::move(candidate);
+                entry.ticket.reset();
+                entry.error.clear();
+            }
+        } catch (const std::exception& error) {
+            entry.ticket.reset();
+            entry.error = error.what();
+        }
+        if (!entry.error.empty()) {
+            Diagnostic diagnostic{Severity::Warning,
+                                  "render.light.image.resource",
+                                  (entry.error + (entry.ready ? " (previous light image retained)"
+                                                              : " (ordinary light retained)"))
+                                      .substr(0, 4000),
+                                  {}};
+            diagnostic.context.asset = scene.scene;
+            diagnostic.context.entity = light.entity;
+            diagnostic.context.property = "forge.light.texture";
+            diagnostic.context.source = "presentation";
+            report(std::move(diagnostic));
+        }
+    }
     return changed;
 }
 } // namespace forge

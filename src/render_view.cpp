@@ -88,6 +88,11 @@ void validate_light(const Light& l) {
     for (float size : {l.emitter_radius, l.emitter_width, l.emitter_height})
         require(finite(size) && size >= .001f && size <= 10000,
                 "Light emitter dimensions must be 0.001–10000 metres");
+    for (float size : {l.image_width, l.image_height})
+        require(finite(size) && size >= .001f && size <= 10000,
+                "Directional light image dimensions must be 0.001–10000 metres");
+    require(!l.texture.id || l.kind <= std::uint32_t(LightKind::Spot),
+            "Light textures require directional, point or spot lights");
 }
 void validate_decal(const DecalProjector& value) {
     for (float size : {value.width, value.height, value.depth})
@@ -254,6 +259,59 @@ LightView light_view(const Light& l, const AffineTransform& a) {
     result.emitter_radius = l.emitter_radius;
     result.emitter_width = l.emitter_width;
     result.emitter_height = l.emitter_height;
+    return result;
+}
+LightImageFrame light_image_frame(const Light& source, const AffineTransform& world) {
+    const auto light = light_view(source, world);
+    require(light.kind <= std::uint32_t(LightKind::Spot),
+            "Light images require directional, point or spot lights");
+    const auto forward =
+        light.kind == std::uint32_t(LightKind::Point)
+            ? unit(world.vector(
+                  {0, 0, source.basis == std::uint32_t(ViewBasis::GltfNegativeZ) ? -1. : 1.}))
+            : light.direction;
+    auto right = unit(world.vector({1, 0, 0}));
+    const double projection = dot(right, forward);
+    for (unsigned a = 0; a < 3; ++a)
+        right[a] -= projection * forward[a];
+    require(std::hypot(right[0], right[1], right[2]) > 1e-12,
+            "Light image needs independent right and forward axes");
+    right = unit(right);
+    auto up = unit(cross(forward, right));
+    const double orientation = dot(up, unit(world.vector({0, 1, 0})));
+    require(std::abs(orientation) > 1e-12, "Light image needs an independent up axis");
+    if (orientation < 0)
+        for (auto& value : up)
+            value = -value;
+    LightImageFrame result{light.position,
+                           {right, up, forward},
+                           light.kind,
+                           light.kind == std::uint32_t(LightKind::Directional)
+                               ? !source.image_tiled
+                               : light.kind == std::uint32_t(LightKind::Spot)};
+    std::array<double, 2> scale{1, 1};
+    if (light.kind == std::uint32_t(LightKind::Directional))
+        scale = {1. / source.image_width, 1. / source.image_height};
+    else if (light.kind == std::uint32_t(LightKind::Spot)) {
+        // Match the admitted float cone used by punctual lighting, including
+        // its precision guard, rather than constructing a second camera model.
+        const double cosine = light.cosine_outer;
+        scale.fill(cosine / (2 * std::sqrt(1 - cosine * cosine)));
+    }
+    for (unsigned row = 0; row < 2; ++row)
+        for (auto& value : result.rows[row])
+            value *= scale[row];
+    return result;
+}
+std::array<std::array<float, 4>, 4> light_image_gpu_frame(const LightImageFrame& frame,
+                                                          Double3 origin) {
+    require(frame.kind <= std::uint32_t(LightKind::Spot), "Unknown light image frame kind");
+    std::array<std::array<float, 4>, 4> result{};
+    for (unsigned axis = 0; axis < 3; ++axis) {
+        result[0][axis] = gpu(frame.position[axis] - origin[axis]);
+        for (unsigned row = 0; row < 3; ++row)
+            result[row + 1][axis] = gpu(frame.rows[row][axis]);
+    }
     return result;
 }
 } // namespace forge

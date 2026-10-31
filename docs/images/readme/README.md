@@ -1,5 +1,33 @@
 # README screenshots
 
+## Light images
+
+[Light image controls](../../../manual/images/light-image-controls.png) is the
+complete unretouched 1080×900 ComponentInspector capture from
+`forge_reflection_probe_editor_tests <scratch> --capture-light-image`, captured
+31 October 2026 using the production Meta/property controls and software ImGui/SDL
+fixture at 1x. The picker, directional dimensions and tiling are visible. Actual
+input/history/save/live-availability checks separately run at 1x/1.5x/2x and two
+fixture sizes. This is not a full docked-editor or physical input/DPI acceptance.
+PNG SHA256: `4cdbeb9a79a81c89653edac22051da4803b45298035d53ce6ca711fac9646b40`.
+
+[Light image Gallery](../../../manual/images/light-image-gallery.png) is the
+complete 640×360 FrameRenderer display for Gallery 117, Scene
+`3c9dbfd3-b805-4dbb-809c-e300b069629a`. It uses existing arrow-sheet, panel and
+captured-Cube Textures. Each image has a separately checked visible effect. The
+`forge_decal_gallery_tests <Gallery> <scratch> --light-images` fixture checks the
+Scene/three-Texture export closure and four exact authored/source-free relocated
+display pairs. PPM-to-PNG conversion preserves every RGB pixel; no controls,
+geometry, colors or light patterns were retouched. PNG SHA256:
+`c12461b09809fd873329ff1cfe9d851cfd4503f77661dffeba3ba91af6c15a38`.
+
+Both captures use GCC 12 Release and local light-image source based on 625e43b.
+Exact source/executable/capture hashes are recorded in the local
+`AgentFiles/build/phase196-light-textures` evidence. Renderer capture uses software
+Vulkan/lavapipe; Windows/D3D12, full graphical editor and physical GPU acceptance
+remain pending. The earlier checker/badge composition was replaced in source and
+recaptured after visual review; its pixels were not edited.
+
 ## Many shared projectors
 
 [Clustered-projector Gallery](../../../manual/images/decal-cluster-gallery.png) is
@@ -28,7 +56,7 @@ percent in two window sizes. The canonical PNG is copied unchanged; SHA256 is
 `a285ff3a8a75f9944d8eb98780278e3f4a101fe7c8bc4003998029a326ecc912`.
 
 [Surface-channel Gallery](../../../manual/images/decal-surface-gallery.png) is the
-complete640×360 FrameRenderer display capture for Gallery115,
+complete 640×360 FrameRenderer display capture for Gallery115,
 Scene `374c17f6-609a-40ad-8095-f746d16aeea8`. The left projector affects normals,
 the right roughness, and the floor both, with color influence0. It comes from
 `forge_decal_gallery_tests --surface-channels` on software Vulkan/lavapipe. Its
@@ -41,7 +69,7 @@ The current controls and Gallery115 capture receipts are in the local
 on7cc06f0 plus the current projected-channel batch. They are authentic production
 controls/rendering, not Windows/full-editor/physical GPU acceptance.
 
-[Gallery image](../../../manual/images/decal-gallery.png) is the complete640×360
+[Gallery image](../../../manual/images/decal-gallery.png) is the complete 640×360
 FrameRenderer display output for Gallery113,
 Scene `0aa828ed-f49d-4b9a-9367-ab1b9b251e92`. It shows mirrored/tinted badge
 projections and overlapping floor paint. The source is
@@ -506,7 +534,7 @@ OS-input acceptance; no controls or pixels were retouched. PNG SHA256:
 `fe7f3bd35aa57c353947d50a0fcc83a74c8105ee228daf4c356a2125b500ec1c`.
 
 [The canonical focus Gallery image](../../../manual/images/depth-of-field.png)
-is the complete640x360 RGB readback from `depth_of_field_vulkan`,
+is the complete 640x360 RGB readback from `depth_of_field_vulkan`,
 `tests/depth_of_field_scene_tests.hpp`, RuntimeSimulation and the actual shared
 FrameRenderer. Original Gallery103 has192 colored cells at three depths. Wide
 and tall captures compare enabled/disabled views, preserve alpha and verify that
@@ -637,7 +665,7 @@ PNG SHA256, Game: `a4c1778eb28a333456b98b7374162598f10e5da85f95212b75f068b9dc6db
 ## Material-normal ambient occlusion Gallery
 
 [The canonical mapped Gallery image](../../../manual/images/ambient-occlusion-material-normals.png)
-is the complete640×360 FrameRenderer Game output from Gallery108, Scene
+is the complete 640×360 FrameRenderer Game output from Gallery108, Scene
 `277f080c-b97b-4202-bd31-5cded7e4dd18`, on branch
 `forge/normal-aware-occlusion` based on `26053ad`. The test uses the original
 procedural RippleNormals PNG, its real imported Windows/desktop/D3D12 texture and
@@ -660,7 +688,7 @@ implied.
 ## Roughness-filtered reflection Gallery
 
 [The canonical Game image](../../../manual/images/rough-reflection-filtering.png)
-is the complete640×360 FrameRenderer/RuntimeSimulation readback of Gallery109,
+is the complete 640×360 FrameRenderer/RuntimeSimulation readback of Gallery109,
 Scene `03d7f430-77ba-4c78-b75a-ff3a638ea3d9`, on branch
 `forge/rough-reflection-filtering`, based on `12ab11f`. Eleven original alternating
 amber/blue columns form a contiguous source face above a metal floor with

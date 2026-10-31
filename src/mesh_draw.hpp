@@ -35,18 +35,25 @@ class MeshDraw {
         bool valid = false;
     };
     bool supports_instances() const { return bool(instances_); }
+    struct ProjectedTexture {
+        Diligent::ITextureView* view{};
+        Diligent::ISampler* sampler{};
+    };
+    struct LightImage {
+        const LightImageFrame* frame{};
+        ProjectedTexture texture;
+        const SamplerState* intent{};
+    };
     struct Decal {
-        struct Texture {
-            Diligent::ITextureView* view{};
-            Diligent::ISampler* sampler{};
-        };
         const DecalView* projection{};
         const DecalMaterial* material{};
-        std::array<Texture, decal_channel_count> textures{};
+        std::array<ProjectedTexture, decal_channel_count> textures{};
         unsigned channels = decal_all_channels;
     };
     unsigned decal_capacity() const { return decal_capacity_; }
     bool accepts_decals(std::span<const Decal>) const;
+    bool accepts_projected(std::span<const Decal>, std::span<const LightImage>) const;
+    bool supports_light_images() const { return light_images_; }
     // Drop every winding SRB reference before a scene releases old GPU leases.
     void clear_decals(Diligent::IDeviceContext*);
     using Textures = std::map<std::string, Diligent::RefCntAutoPtr<Diligent::ITextureView>>;
@@ -76,7 +83,8 @@ class MeshDraw {
               std::span<const MaterialParameterOverride> object_parameters = {},
               std::string_view material_slot = {}, const SpriteDrawValues* sprite = nullptr,
               const SceneDistanceFog* fog = nullptr, const Motion* motion = nullptr,
-              std::span<const Decal> decals = {}, const RenderBounds* decal_bounds = nullptr);
+              std::span<const Decal> decals = {}, const RenderBounds* decal_bounds = nullptr,
+              std::span<const LightImage> light_images = {});
 
   private:
     unsigned instance_rows() const;
@@ -98,11 +106,15 @@ class MeshDraw {
     Diligent::RefCntAutoPtr<Diligent::ISampler> default_decal_sampler_;
     unsigned decal_capacity_{};
     bool decals_active_{}, decal_surface_channels_{}, decal_clustered_{};
+    bool light_images_{};
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> light_images_buffer_, empty_light_images_;
     struct DecalBindings {
-        std::array<Diligent::IDeviceObject*, 8> textures{}, samplers{};
+        std::array<Diligent::IDeviceObject*, 8> textures{}, cubes{}, samplers{};
         std::array<std::array<float, decal_channel_count>, 128> slots{};
+        std::array<float, 64> image_slots{};
     };
-    std::optional<DecalBindings> decal_bindings(std::span<const Decal>) const;
+    std::optional<DecalBindings> decal_bindings(std::span<const Decal>,
+                                                std::span<const LightImage> = {}) const;
     void bind_decal_storage(const DiligentPresentation::ProjectedBuffers&);
     bool shadow_pass_{};
     bool fog_supported_ = true;

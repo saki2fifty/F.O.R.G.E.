@@ -36,6 +36,18 @@ struct LightView {
     Double3 right{}, up{}; // Rectangle plane; cross(right, up) opposes emission.
 };
 LightView light_view(const Light&, const AffineTransform&);
+// Transient image coordinates owned by view extraction. Node scale does not size
+// a directional image or change a spot cone; reflections retain image orientation.
+struct LightImageFrame {
+    Double3 position{};
+    std::array<Double3, 3> rows{};
+    std::uint32_t kind{};
+    bool clipped = true;
+};
+LightImageFrame light_image_frame(const Light&, const AffineTransform&);
+// Position relative to origin, then the three coordinate rows. Subtract position
+// before applying rows in the shader, as for the existing positional light ray.
+std::array<std::array<float, 4>, 4> light_image_gpu_frame(const LightImageFrame&, Double3 origin);
 // Derived normalized projector coordinates: centered box[-.5,.5], +Z travel.
 // World/inverse data is transient; the component owns only local dimensions.
 struct DecalView {

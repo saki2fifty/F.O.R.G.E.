@@ -101,10 +101,21 @@ The renderer contract describes the bounded original integration and limits.
 There is no glTF area-light import extension in this implementation.
 
 All authoring paths reuse Meta, Scene property validation, history and persistence.
-The three emitter dimensions join the two punctual shadow-source dimensions in
-live tuning; all other Light properties remain Edit-only. Matching C++ modules
+The three emitter dimensions and two punctual shadow-source dimensions support
+live tuning. Light-image dimensions and tiling also support live tuning when
+applicable; image assignment and other Light properties remain Edit-only. Matching C++ modules
 must rebuild against the new installed SDK fingerprint. No C ABI function table
 or separate light registry is introduced.
+
+## Light images
+
+Light appends a nullable Texture reference, Directional image width/height and a
+tiling flag. Directional/Spot use Color/HDR 2D textures; Point uses a Cube. Their
+RGB modulates direct radiance; alpha is ignored. Source sampler intent, native
+Meta/defaults, scene extraction and current resource owners remain authoritative.
+Undefined image-only orientation retains ordinary lighting. See the
+[light-image contract](light-images.md) for coordinates, private Shader 12 packets,
+shared image budgets, exact SDK rebuild requirements and current evidence limits.
 
 ## Admission and history
 

@@ -1,0 +1,768 @@
+{
+  "asset_id": "3c9dbfd3-b805-4dbb-809c-e300b069629a",
+  "entities": [
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 0.0,
+          "background_a": 1.0,
+          "background_b": 0.024000000208616257,
+          "background_g": 0.01600000075995922,
+          "background_r": 0.012000000104308128,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 1000.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 10.0,
+          "orthographic_width": 14.0,
+          "projection": 1,
+          "vertical_fov": 1.0471975511965976,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 0.9396926164627075,
+          "x": 0.3420201539993286,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 8.0,
+          "z": -9.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "5dc05e74-031f-4e0c-89e5-f558657d3543",
+      "name": "Camera - three light image examples",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 3.5,
+          "y": 0.30000001192092896,
+          "z": 4.5
+        },
+        "forge.local_translation": {
+          "x": -4.0,
+          "y": -0.2,
+          "z": 0.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": false,
+          "enabled": true,
+          "layers": 1,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.6499999761581421,
+                  0.699999988079071,
+                  0.75,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "metallicFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.6000000238418579,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "9d087798-a173-48e0-938d-7607eed42f91",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "b44535b6-53a5-420d-91f0-45c7bbc322fc",
+      "name": "Directional receiver - separate light layer",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.699999988079071,
+          "y": 1.0,
+          "z": 0.699999988079071
+        },
+        "forge.local_translation": {
+          "x": -4.0,
+          "y": 0.4,
+          "z": 0.7
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": false,
+          "enabled": true,
+          "layers": 1,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.5,
+                  0.550000011920929,
+                  0.6000000238418579,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "metallicFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.6000000238418579,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "9d087798-a173-48e0-938d-7607eed42f91",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "0b83a875-63c2-420e-b4b8-634cdbe02de7",
+      "name": "Directional raised receiver",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.light": {
+          "basis": 0,
+          "cast_shadows": false,
+          "color_b": 1.0,
+          "color_g": 1.0,
+          "color_r": 1.0,
+          "emitter_height": 1.0,
+          "emitter_radius": 0.5,
+          "emitter_width": 1.0,
+          "enabled": true,
+          "image_height": 0.875,
+          "image_tiled": true,
+          "image_width": 3.5,
+          "inner_cone": 0.0,
+          "intensity": 2.0,
+          "kind": 0,
+          "layers": 1,
+          "outer_cone": 0.7853981633974483,
+          "range": 0.0,
+          "shadow_angular_radius": 0.0,
+          "shadow_bias": 0.0010000000474974513,
+          "shadow_normal_bias": 0.019999999552965164,
+          "shadow_source_radius": 0.0,
+          "texture": "c89058da-027b-4f84-97be-75fd538d15c4"
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -4.0,
+          "y": 3.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "d3762e9a-2cdf-48f5-bddf-5ab4d51ce15b",
+      "name": "Directional - change Light image",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 3.5,
+          "y": 0.30000001192092896,
+          "z": 4.5
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": -0.2,
+          "z": 0.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": false,
+          "enabled": true,
+          "layers": 2,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.6499999761581421,
+                  0.699999988079071,
+                  0.75,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "metallicFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.6000000238418579,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "9d087798-a173-48e0-938d-7607eed42f91",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "6d9f8cf1-6f65-4074-afca-714cc2cd02e9",
+      "name": "Spot receiver - separate light layer",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.699999988079071,
+          "y": 1.0,
+          "z": 0.699999988079071
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.4,
+          "z": 0.7
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": false,
+          "enabled": true,
+          "layers": 2,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.5,
+                  0.550000011920929,
+                  0.6000000238418579,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "metallicFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.6000000238418579,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "9d087798-a173-48e0-938d-7607eed42f91",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "73a0ef1b-19e5-427c-b0c7-f5b2e03125bc",
+      "name": "Spot raised receiver",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.light": {
+          "basis": 0,
+          "cast_shadows": false,
+          "color_b": 1.0,
+          "color_g": 1.0,
+          "color_r": 1.0,
+          "emitter_height": 1.0,
+          "emitter_radius": 0.5,
+          "emitter_width": 1.0,
+          "enabled": true,
+          "image_height": 2.5,
+          "image_tiled": false,
+          "image_width": 2.5,
+          "inner_cone": 0.0,
+          "intensity": 25.0,
+          "kind": 2,
+          "layers": 2,
+          "outer_cone": 0.7853981633974483,
+          "range": 8.0,
+          "shadow_angular_radius": 0.0,
+          "shadow_bias": 0.0010000000474974513,
+          "shadow_normal_bias": 0.019999999552965164,
+          "shadow_source_radius": 0.0,
+          "texture": "e7a40664-a742-4d12-a29f-236aa703ba7c"
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 3.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "e72c548b-4d7e-41de-9cf1-be6007357e0d",
+      "name": "Spot - change Light image",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 3.5,
+          "y": 0.30000001192092896,
+          "z": 4.5
+        },
+        "forge.local_translation": {
+          "x": 4.0,
+          "y": -0.2,
+          "z": 0.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": false,
+          "enabled": true,
+          "layers": 4,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.6499999761581421,
+                  0.699999988079071,
+                  0.75,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "metallicFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.6000000238418579,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "9d087798-a173-48e0-938d-7607eed42f91",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "c2d20190-5935-4c2a-8312-6d0eef6b30d6",
+      "name": "Point receiver - separate light layer",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.699999988079071,
+          "y": 1.0,
+          "z": 0.699999988079071
+        },
+        "forge.local_translation": {
+          "x": 4.0,
+          "y": 0.4,
+          "z": 0.7
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": false,
+          "enabled": true,
+          "layers": 4,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.5,
+                  0.550000011920929,
+                  0.6000000238418579,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "metallicFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.6000000238418579,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "9d087798-a173-48e0-938d-7607eed42f91",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "e895b56c-c17f-4789-9ffe-65f9f5a1bfa1",
+      "name": "Point raised receiver",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.light": {
+          "basis": 0,
+          "cast_shadows": false,
+          "color_b": 1.0,
+          "color_g": 1.0,
+          "color_r": 1.0,
+          "emitter_height": 1.0,
+          "emitter_radius": 0.5,
+          "emitter_width": 1.0,
+          "enabled": true,
+          "image_height": 2.5,
+          "image_tiled": false,
+          "image_width": 2.5,
+          "inner_cone": 0.0,
+          "intensity": 12.0,
+          "kind": 1,
+          "layers": 4,
+          "outer_cone": 0.7853981633974483,
+          "range": 8.0,
+          "shadow_angular_radius": 0.0,
+          "shadow_bias": 0.0010000000474974513,
+          "shadow_normal_bias": 0.019999999552965164,
+          "shadow_source_radius": 0.0,
+          "texture": "cb50dced-5d4b-4e7f-9d06-f13fa65ea8fc"
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 4.0,
+          "y": 2.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "33ac78dc-f5dc-405a-83af-6efb63aa9758",
+      "name": "Point - change Light image",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.light": {
+          "basis": 0,
+          "cast_shadows": false,
+          "color_b": 1.0,
+          "color_g": 1.0,
+          "color_r": 1.0,
+          "emitter_height": 1.0,
+          "emitter_radius": 0.5,
+          "emitter_width": 1.0,
+          "enabled": true,
+          "image_height": 1.0,
+          "image_tiled": false,
+          "image_width": 1.0,
+          "inner_cone": 0.0,
+          "intensity": 0.18,
+          "kind": 0,
+          "layers": 7,
+          "outer_cone": 0.7853981633974483,
+          "range": 0.0,
+          "shadow_angular_radius": 0.0,
+          "shadow_bias": 0.0010000000474974513,
+          "shadow_normal_bias": 0.019999999552965164,
+          "shadow_source_radius": 0.0,
+          "texture": null
+        },
+        "forge.local_rotation": {
+          "w": 0.8365163207054138,
+          "x": 0.4829629063606262,
+          "y": -0.2241438627243042,
+          "z": 0.129409521818161
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 4.0,
+          "z": -3.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "8d5b6409-e9ad-4699-9acd-8bb6a1e74fa3",
+      "name": "Fill light - ordinary illumination",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    }
+  ],
+  "rendering": {
+    "shadows": {
+      "cascades": 3,
+      "distance": 40,
+      "enabled": false,
+      "max_lights": 1,
+      "resolution": 1024
+    },
+    "version": 1
+  },
+  "version": 5
+}

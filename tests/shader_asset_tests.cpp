@@ -366,6 +366,15 @@ int main() {
                         encode_shader(decode_shader(encoded_clustered)) == encoded_clustered &&
                         clustered_surface.layout_digest() != projected_channels.layout_digest(),
                     "Clustered capability lost its archive or layout identity");
+            auto light_image_surface = clustered_surface;
+            light_image_surface.surface_wrapper_version = 12;
+            const auto encoded_light_images = encode_shader(light_image_surface);
+            require(decode_shader(encoded_light_images).surface_wrapper_version == 12 &&
+                        decode_shader(encoded_light_images).stages.size() == 19 &&
+                        encode_shader(decode_shader(encoded_light_images)) ==
+                            encoded_light_images &&
+                        light_image_surface.layout_digest() != clustered_surface.layout_digest(),
+                    "Light image capability lost its archive or layout identity");
             auto invalid_weighted = weighted_surface;
             invalid_weighted.surface_wrapper_version = 8;
             rejected([&] { validate_shader(invalid_weighted); });

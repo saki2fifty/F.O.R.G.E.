@@ -59,6 +59,13 @@ for legacy in (False, True):
             assert fields[field]['default'] == default and fields[field]['unit'] == 'm'
             assert .00099 < fields[field]['minimum'] < .00101
             assert fields[field]['maximum'] == 10000
+        assert fields['texture']['default'] is None and fields['texture']['nullable']
+        assert fields['texture']['asset_type'] == 'texture'
+        assert fields['image_tiled']['default'] is False
+        for name in ('image_width', 'image_height'):
+            assert fields[name]['default'] == 1 and fields[name]['unit'] == 'm'
+            assert .00099 < fields[name]['minimum'] < .00101
+            assert fields[name]['maximum'] == 10000
         light = ok('forge_entity_create', arguments=dict(recipe='render.light'))['results'][0]['selected']
         before = read()
         request = args(arguments=dict(entity=light, component='forge.light', values=dict(
@@ -93,6 +100,38 @@ for legacy in (False, True):
         ok('forge_document_open', path='Scenes/main.scene.json', discard=True)
         assert read() == authored
         assert config['token'] not in json.dumps(authored)
+        for kind in (0, 1, 2):
+            previous = read()
+            texture = ('d4c60053-60c8-4456-8771-a7cf8182a902' if kind == 1
+                       else 'af69e469-dd94-4545-a61f-682cafb574ee')
+            values = dict(kind=kind, texture=texture, image_width=4, image_height=2,
+                          image_tiled=True)
+            request = args(arguments=dict(entity=light, component='forge.light', values=values))
+            result = client.tool('forge_property_set_many', **request)
+            assert result['ok'] and client.tool('forge_property_set_many', **request) == result
+            textured = read()
+            value = next(e for e in textured['entities'] if e['id'] == light)['components']['forge.light']
+            assert all(value[key] == expected for key, expected in values.items())
+            for patch in (dict(image_width=0), dict(image_height=10001),
+                          dict(image_width=True), dict(image_height='1'),
+                          dict(texture='not-a-uuid'), dict(texture=7),
+                          dict(image_tiled=1), dict(kind=3), dict(kind=4),
+                          dict(image_width=8, image_height=0)):
+                revision = discover()['revision']
+                rejected = client.tool('forge_property_set_many', **args(arguments=dict(
+                    entity=light, component='forge.light', values=patch)))
+                assert not rejected['ok'] and discover()['revision'] == revision, rejected
+                assert read() == textured
+            ok('forge_history_undo')
+            assert read() == previous
+            ok('forge_history_redo')
+            assert read() == textured
+            ok('forge_document_save')
+            assert json.loads(disk.read_text()) == textured
+            ok('forge_document_open', path='Scenes/main.scene.json', discard=True)
+            assert read() == textured
+        ok('forge_property_set', arguments=dict(entity=light, component='forge.light',
+                                              field='texture', value=None))
         for kind in (3, 4):
             previous = read()
             values = dict(kind=kind, cast_shadows=False, emitter_radius=.75,
@@ -125,4 +164,4 @@ for legacy in (False, True):
         assert 'forge_scene_read' in advertised
 
 write_capture(sys.argv[3])
-print('Light kinds, shadow/emitter schema/units/defaults, revisions/replay, validation, history/save/reopen and grants PASS in both protocols')
+print('Light kinds/images, shadow/emitter schema/units/defaults, revisions/replay, validation, history/save/reopen and grants PASS in both protocols')

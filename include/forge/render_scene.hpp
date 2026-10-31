@@ -5,6 +5,7 @@
 #include <forge/services.hpp>
 #include <map>
 #include <memory>
+#include <optional>
 namespace forge {
 class TileMapData;
 class TileSetData;
@@ -29,6 +30,8 @@ struct RenderCamera {
 struct RenderLight {
     EntityId entity;
     LightView light;
+    AssetRef<TextureAsset> texture{};
+    std::optional<LightImageFrame> image{};
 };
 struct RenderDecal {
     EntityId entity;

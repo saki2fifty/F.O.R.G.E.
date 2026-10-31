@@ -1,5 +1,25 @@
 # 2026-10-31
 
+## Light images
+
+Directional/Spot 2D and Point cubemap Textures modulate direct RGB illumination through
+the existing Light, Texture, resource and draw owners. Source sampler/filter/mip
+intent is retained; alpha is ignored. Light image width/height/tiling have shared
+Inspector/live/automation/MCP history and save behavior. Public Light layout changes
+require a matching SDK module rebuild. Shader 12 keeps 19 roles and 1–11 readers, with
+shared Decal/image slots and explicit complete-set fallback.
+
+Gallery 117 compares repeating arrows, a patterned Spot and a captured-Cube Point
+light using existing Textures. Its Scene/three-Texture source-free export has four
+exact matching displays. All314 prior catalog records are unchanged. Authentic
+Inspector and renderer images accompany the task-based manual. Local functional
+checks cover PBR, projection/mips, resource recovery, UI, MCP and relocated SDK.
+Thirty selected strict units and nine consumer links pass. Seven CPU/UI/MCP/runtime
+sanitizer consumers exit cleanly; two native consumers finish functionality and
+reproduce the known unsuppressed 184-byte shutdown allocation condition. Offline
+manual and package-fixture checks pass. Windows, physical GPU and full editor
+acceptance remain pending. No new numbered package is created.
+
 ## Many shared material projectors
 
 A visual scene supports 128 active Decal Projectors. Larger receiver lists use

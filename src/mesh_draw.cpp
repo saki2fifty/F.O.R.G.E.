@@ -248,6 +248,14 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
         pixel = compile(SHADER_TYPE_PIXEL, program.pixel);
     const bool lit = !shadow_pass_ && (surface ? surface->program.surface->physically_based
                                                : profile->workflow != PbrWorkflow::Unlit);
+    light_images_ =
+        lit && decal_capacity_ && (!surface || surface->program.surface_wrapper_version >= 12);
+    if (light_images_) {
+        const std::array<Row, mesh_draw_light_limit * 4> empty{};
+        light_images_buffer_ = buffer(device, "FORGE light images", sizeof(empty));
+        empty_light_images_ =
+            buffer(device, "FORGE empty light images", sizeof(empty), empty.data());
+    }
     if (decal_capacity_) {
         decals_ =
             buffer(device, "FORGE projected surface",
@@ -410,6 +418,7 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
                 {SHADER_TYPE_PIXEL, "g_ForgeTransmission", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC});
     }
     std::array<std::string, decal_draw_limit> decal_names;
+    std::array<std::string, decal_draw_limit> cube_names;
     if (decal_capacity_) {
         resource_variables.push_back(
             {SHADER_TYPE_PIXEL, "ForgeDecals", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC});
@@ -423,7 +432,15 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
             decal_names[i] = decal_shader_map_name(i, decal_surface_channels_);
             resource_variables.push_back(
                 {SHADER_TYPE_PIXEL, decal_names[i].c_str(), SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC});
+            if (light_images_) {
+                cube_names[i] = "g_ForgeLightCube" + std::to_string(i);
+                resource_variables.push_back({SHADER_TYPE_PIXEL, cube_names[i].c_str(),
+                                              SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC});
+            }
         }
+        if (light_images_)
+            resource_variables.push_back(
+                {SHADER_TYPE_PIXEL, "ForgeLightImages", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC});
     }
     ci.PSODesc.ResourceLayout.Variables = resource_variables.data();
     ci.PSODesc.ResourceLayout.NumVariables = Uint32(resource_variables.size());
@@ -519,6 +536,11 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
             variable->SetArray(defaults.data(), 0, decal_capacity_);
             for (unsigned i = 0; i < decal_capacity_; ++i)
                 bind(SHADER_TYPE_PIXEL, decal_names[i].c_str(), white_decal_);
+            if (light_images_) {
+                bind(SHADER_TYPE_PIXEL, "ForgeLightImages", empty_light_images_);
+                for (unsigned i = 0; i < decal_capacity_; ++i)
+                    bind(SHADER_TYPE_PIXEL, cube_names[i].c_str(), black_environment_);
+            }
         }
         if (!shadow_pass_ &&
             bindings_[parity]->GetVariableByName(SHADER_TYPE_PIXEL, "ForgeDistanceFog")) {
@@ -738,6 +760,15 @@ void MeshDraw::clear_decals(IDeviceContext*) {
                 ->Set(white_decal_);
         binding->GetVariableByName(SHADER_TYPE_PIXEL, "g_ForgeDecalSamplers")
             ->SetArray(samplers.data(), 0, decal_capacity_);
+        if (light_images_) {
+            binding->GetVariableByName(SHADER_TYPE_PIXEL, "ForgeLightImages")
+                ->Set(empty_light_images_);
+            for (unsigned i = 0; i < decal_capacity_; ++i)
+                binding
+                    ->GetVariableByName(SHADER_TYPE_PIXEL,
+                                        ("g_ForgeLightCube" + std::to_string(i)).c_str())
+                    ->Set(black_environment_);
+        }
     }
     if (decal_clustered_)
         bind_decal_storage(empty_decal_storage_);
@@ -753,14 +784,39 @@ void MeshDraw::bind_decal_storage(const DiligentPresentation::ProjectedBuffers& 
         }
 }
 std::optional<MeshDraw::DecalBindings>
-MeshDraw::decal_bindings(std::span<const Decal> decals) const {
+MeshDraw::decal_bindings(std::span<const Decal> decals, std::span<const LightImage> images) const {
     if (decals.size() > (decal_clustered_ && decal_capacity_ ? decal_scene_limit : decal_capacity_))
+        return {};
+    if ((!images.empty() && !light_images_) || images.size() > mesh_draw_light_limit)
         return {};
     DecalBindings result;
     result.textures.fill(white_decal_);
+    result.cubes.fill(black_environment_);
     result.samplers.fill(default_decal_sampler_);
     std::array<const SamplerState*, decal_draw_limit> intents{};
+    std::array<IDeviceObject*, decal_draw_limit> views{};
     unsigned used = 0;
+    const auto select = [&](const ProjectedTexture& texture, const SamplerState& intent,
+                            bool cube) -> float {
+        if (!texture.view || !texture.sampler)
+            return 0;
+        if (texture.view->GetDesc().TextureDim !=
+                (cube ? RESOURCE_DIM_TEX_CUBE : RESOURCE_DIM_TEX_2D) ||
+            intent.compare != TextureCompare::None)
+            return 0;
+        unsigned slot = 0;
+        while (slot < used && (views[slot] != texture.view || *intents[slot] != intent))
+            ++slot;
+        if (slot == used) {
+            if (used == decal_capacity_)
+                return 0;
+            views[slot] = texture.view;
+            (cube ? result.cubes : result.textures)[slot] = texture.view;
+            result.samplers[slot] = texture.sampler;
+            intents[used++] = &intent;
+        }
+        return float(slot + 1);
+    };
     for (unsigned i = 0; i < decals.size(); ++i) {
         const auto& selected = decals[i];
         if (!selected.projection || !selected.material)
@@ -787,24 +843,30 @@ MeshDraw::decal_bindings(std::span<const Decal> decals) const {
                 continue;
             }
             const auto& intent = selected.material->textures[c].slot.sampler;
-            unsigned slot = 0;
-            while (slot < used &&
-                   (result.textures[slot] != texture.view || *intents[slot] != intent))
-                ++slot;
-            if (slot == used) {
-                if (used == decal_capacity_)
-                    return {};
-                result.textures[used] = texture.view;
-                result.samplers[used] = texture.sampler;
-                intents[used++] = &intent;
-            }
-            result.slots[i][c] = float(slot + 1);
+            result.slots[i][c] = select(texture, intent, false);
+            if (!result.slots[i][c])
+                return {};
         }
+    }
+    for (unsigned i = 0; i < images.size(); ++i) {
+        const auto& image = images[i];
+        if (!image.frame)
+            continue;
+        if (!image.intent || image.frame->kind > unsigned(LightKind::Spot))
+            return {};
+        result.image_slots[i] =
+            select(image.texture, *image.intent, image.frame->kind == unsigned(LightKind::Point));
+        if (!result.image_slots[i])
+            return {};
     }
     return result;
 }
 bool MeshDraw::accepts_decals(std::span<const Decal> decals) const {
     return decal_bindings(decals).has_value();
+}
+bool MeshDraw::accepts_projected(std::span<const Decal> decals,
+                                 std::span<const LightImage> images) const {
+    return decal_bindings(decals, images).has_value();
 }
 void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world,
                     const CameraView& view, std::span<const LightView> lights,
@@ -815,10 +877,27 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
                     std::span<const MaterialParameterOverride> object_parameters,
                     std::string_view material_slot, const SpriteDrawValues* sprite,
                     const SceneDistanceFog* fog, const Motion* motion,
-                    std::span<const Decal> decals, const RenderBounds* decal_bounds) {
-    const auto bindings = decal_bindings(decals);
+                    std::span<const Decal> decals, const RenderBounds* decal_bounds,
+                    std::span<const LightImage> images) {
+    require(images.empty() || images.size() == lights.size(),
+            "Light image selection differs from the ordinary light list");
+    const auto bindings = decal_bindings(decals, images);
     require(bindings.has_value(), "Projected channels exceed this receiver's map/profile capacity; "
                                   "ordinary rendering remains available");
+    std::optional<std::array<Row, mesh_draw_light_limit * 4>> image_values;
+    for (unsigned i = 0; i < images.size(); ++i)
+        if (images[i].frame) {
+            require(images[i].frame->kind == lights[i].kind,
+                    "Light image projection differs from its light kind");
+            const auto frame = light_image_gpu_frame(*images[i].frame, view.position);
+            if (!image_values)
+                image_values.emplace();
+            std::copy(frame.begin(), frame.end(), image_values->begin() + i * 4);
+            (*image_values)[i * 4][3] = bindings->image_slots[i];
+            (*image_values)[i * 4 + 1][3] = float(images[i].frame->kind);
+            (*image_values)[i * 4 + 2][3] = float(images[i].frame->clipped);
+        }
+    const bool has_images = image_values.has_value();
     std::vector<Row> decal_values;
     std::vector<DecalTransformRows> decal_transforms;
     const bool storage = decal_clustered_ && decals.size() > decal_capacity_;
@@ -1167,6 +1246,17 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
         // dropping an old selection, including winding modes absent this frame.
         for (const auto& binding : bindings_) {
             binding->GetVariableByName(SHADER_TYPE_PIXEL, "ForgeDecals")->Set(decals_);
+        }
+        decals_active_ = true;
+    }
+    if (!decals.empty() || has_images) {
+        if (light_images_ && has_images) {
+            MapHelper<Row> rows(context, light_images_buffer_, MAP_WRITE, MAP_FLAG_DISCARD);
+            require(static_cast<Row*>(rows), "Light image upload allocation failed");
+            std::copy(image_values->begin(), image_values->end(), static_cast<Row*>(rows));
+        }
+        // Every winding retains references, even when absent from this frame.
+        for (const auto& binding : bindings_) {
             for (unsigned i = 0; i < decal_capacity_; ++i)
                 binding
                     ->GetVariableByName(SHADER_TYPE_PIXEL,
@@ -1174,8 +1264,17 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
                     ->Set(bindings->textures[i]);
             binding->GetVariableByName(SHADER_TYPE_PIXEL, "g_ForgeDecalSamplers")
                 ->SetArray(bindings->samplers.data(), 0, decal_capacity_);
+            if (light_images_) {
+                binding->GetVariableByName(SHADER_TYPE_PIXEL, "ForgeLightImages")
+                    ->Set(has_images ? light_images_buffer_ : empty_light_images_);
+                for (unsigned i = 0; i < decal_capacity_; ++i)
+                    binding
+                        ->GetVariableByName(SHADER_TYPE_PIXEL,
+                                            ("g_ForgeLightCube" + std::to_string(i)).c_str())
+                        ->Set(bindings->cubes[i]);
+            }
         }
-        decals_active_ = !decals.empty();
+        decals_active_ = true;
     }
     if (environment_) {
         Row params{0, 0, 1, 0};

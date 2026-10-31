@@ -2,6 +2,8 @@
 #include "Utilities/interface/DiligentFXShaderSourceStreamFactory.hpp"
 #include "frame_renderer.hpp"
 #include "hdr_bloom_gpu_tests.hpp"
+#include "light_image_draw_tests.hpp"
+#include "light_image_scene_tests.hpp"
 #include "mesh_draw.hpp"
 #include "mesh_draw_shader.hpp"
 #include "mesh_vertex_fetch.hpp"
@@ -27,7 +29,7 @@ void equal_pixels(const Pixels& actual, const Pixels& expected, const char* why)
                   why);
 }
 void execute(const std::filesystem::path& root, bool scene_only, bool channels_only,
-             bool clusters_only) {
+             bool clusters_only, bool light_images_only) {
     RefCntAutoPtr<IRenderDevice> device;
     RefCntAutoPtr<IDeviceContext> context;
     EngineVkCreateInfo create;
@@ -123,6 +125,17 @@ void execute(const std::filesystem::path& root, bool scene_only, bool channels_o
                       region);
         return test_bloom::read(device, context, color);
     };
+    if (light_images_only || (!scene_only && !channels_only && !clusters_only)) {
+        test_light_image_draws(presentation, context, gpu_mesh.lods[0].parts[0], color, dsv, world,
+                               view);
+        test_light_image_scene(presentation, context, root / "light-images");
+    }
+    if (light_images_only) {
+        context->WaitForIdle();
+        std::cout
+            << "Light image PBR radiance, kinds, mip gradients, shared slots and recovery passed\n";
+        return;
+    }
     DecalProjector projector;
     projector.width = projector.height = 8;
     projector.depth = 2;
@@ -966,12 +979,14 @@ int main(int argc, char** argv) {
     try {
         check(argc == 2 || (argc == 3 && (std::string_view(argv[2]) == "--scene-only" ||
                                           std::string_view(argv[2]) == "--channels-only" ||
-                                          std::string_view(argv[2]) == "--clusters-only")),
+                                          std::string_view(argv[2]) == "--clusters-only" ||
+                                          std::string_view(argv[2]) == "--light-images-only")),
               "Need decal scratch directory and optional --scene-only / --channels-only / "
-              "--clusters-only");
+              "--clusters-only / --light-images-only");
         execute(argv[1], argc == 3 && std::string_view(argv[2]) == "--scene-only",
                 argc == 3 && std::string_view(argv[2]) == "--channels-only",
-                argc == 3 && std::string_view(argv[2]) == "--clusters-only");
+                argc == 3 && std::string_view(argv[2]) == "--clusters-only",
+                argc == 3 && std::string_view(argv[2]) == "--light-images-only");
         return 0;
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

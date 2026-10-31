@@ -117,6 +117,37 @@ inline void test_render_scene() {
     require(views.cameras.size() == 3 && views.diagnostics.empty() &&
                 views.cameras[0].entity == third,
             "Game camera preparation lost selection");
+    auto textured = scene.effective_document();
+    const auto light_texture = AssetId::generate();
+    auto& image_source = textured["entities"][0]["components"]["forge.light"];
+    image_source["texture"] = light_texture;
+    image_source["image_width"] = 4;
+    image_source["image_height"] = 2;
+    image_source["image_tiled"] = true;
+    auto images = extract_render_scene(textured);
+    const auto image_light = [&](const RenderScene& value) -> const RenderLight& {
+        return *std::find_if(value.lights.begin(), value.lights.end(), [&](const auto& light) {
+            return light.entity == textured["entities"][0]["id"].get<EntityId>();
+        });
+    };
+    require(images.lights.size() == 3 && images.diagnostics.empty() &&
+                image_light(images).texture.id == light_texture && image_light(images).image &&
+                !image_light(images).image->clipped &&
+                image_light(images).image->rows[0][0] == .25 &&
+                image_light(images).image->rows[1][1] == .5,
+            "Copied light image lost its identity, extent or tiling policy");
+    image_source["kind"] = unsigned(LightKind::Point);
+    textured["entities"][0]["world_affine"][0] = 0;
+    images = extract_render_scene(textured);
+    require(images.lights.size() == 3 && !image_light(images).image &&
+                images.diagnostics.size() == 1 &&
+                std::any_of(images.diagnostics.begin(), images.diagnostics.end(),
+                            [](const auto& d) {
+                                return d.category == "render.light.image" &&
+                                       d.context.property == "forge.light.texture";
+                            }),
+            "An undefined image frame discarded ordinary point lighting or hid its diagnostic");
+    require(scene.document() == original, "Image extraction changed source or history");
     auto broken = scene.effective_document();
     broken["entities"][0]["components"]["forge.camera"]["near_plane"] = 0;
     broken["entities"][1]["components"]["forge.light"]["intensity"] = -1;

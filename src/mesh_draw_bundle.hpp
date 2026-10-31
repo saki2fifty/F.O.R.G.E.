@@ -34,6 +34,13 @@ class MeshDrawBundle {
                         std::span<const MeshDraw::Decal> decals) const {
         return lods_.at(lod).at(part)->accepts_decals(decals);
     }
+    bool supports_light_images(unsigned lod, unsigned part) const {
+        return lods_.at(lod).at(part)->supports_light_images();
+    }
+    bool accepts_projected(unsigned lod, unsigned part, std::span<const MeshDraw::Decal> decals,
+                           std::span<const MeshDraw::LightImage> images) const {
+        return lods_.at(lod).at(part)->accepts_projected(decals, images);
+    }
     void prepare_material_parameters(std::span<const MaterialParameterOverride>);
     // Specialize the same admitted part before a temporal view changes targets.
     // Failure leaves the ordinary color and shadow draws available.
@@ -77,7 +84,8 @@ class MeshDrawBundle {
                    const MeshDraw::Motion* motion = nullptr, bool indirect = false,
                    bool reflection = false, bool normal = false,
                    std::span<const MeshDraw::Decal> decals = {}, bool weighted = false,
-                   const RenderBounds* decal_bounds = nullptr);
+                   const RenderBounds* decal_bounds = nullptr,
+                   std::span<const MeshDraw::LightImage> images = {});
     std::string_view slot(unsigned lod, unsigned part) const {
         return prepared_.selection.bindings.at(info_.at(lod).at(part).binding).key;
     }

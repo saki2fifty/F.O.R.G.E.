@@ -342,6 +342,10 @@ Json render_value(const Light& p) {
             {"emitter_radius", p.emitter_radius},
             {"emitter_width", p.emitter_width},
             {"emitter_height", p.emitter_height},
+            {"texture", p.texture.id ? Json(p.texture.id) : Json()},
+            {"image_width", p.image_width},
+            {"image_height", p.image_height},
+            {"image_tiled", p.image_tiled},
             {"layers", p.layers}};
 }
 Camera camera_value(const Json& p) {
@@ -393,6 +397,11 @@ Light light_value(const Json& p) {
     value.emitter_radius = p.value("emitter_radius", .5f);
     value.emitter_width = p.value("emitter_width", 1.f);
     value.emitter_height = p.value("emitter_height", 1.f);
+    if (p.contains("texture") && !p.at("texture").is_null())
+        value.texture = {p.at("texture").get<AssetId>()};
+    value.image_width = p.value("image_width", 1.f);
+    value.image_height = p.value("image_height", 1.f);
+    value.image_tiled = p.value("image_tiled", false);
     value.layers = p.at("layers").get<std::uint32_t>();
     validate_light(value);
     return value;

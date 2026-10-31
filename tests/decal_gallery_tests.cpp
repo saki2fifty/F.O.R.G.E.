@@ -76,11 +76,33 @@ std::vector<Pixels> render(DiligentPresentation& presentation, IDeviceContext* c
         if (check_projection && width == 640) {
             auto ordinary = scene;
             ordinary.decals.clear();
+            if (profile == test_decal_scene::Profile::LightImages)
+                for (auto& light : ordinary.lights) {
+                    light.texture = {};
+                    light.image.reset();
+                }
             const auto plain = image(ordinary, width, height);
             unsigned changed = 0;
             for (std::size_t i = 0; i < pixels.size(); ++i)
                 changed += pixels[i] != plain[i];
             check(changed > 100, "Textured and color projectors did not change the Gallery");
+            if (profile == test_decal_scene::Profile::LightImages)
+                for (const auto& light : scene.lights)
+                    if (light.image) {
+                        auto individual = ordinary;
+                        const auto target = std::find_if(
+                            individual.lights.begin(), individual.lights.end(),
+                            [&](const auto& value) { return value.entity == light.entity; });
+                        check(target != individual.lights.end(),
+                              "Light image Gallery identity disappeared");
+                        *target = light;
+                        const auto isolated = image(individual, width, height);
+                        unsigned affected = 0;
+                        for (std::size_t i = 0; i < isolated.size(); ++i)
+                            affected += isolated[i] != plain[i];
+                        check(affected > 5,
+                              "An authored Gallery light image has no visible effect");
+                    }
             for (const auto& projector : scene.decals) {
                 if (profile == test_decal_scene::Profile::Clustered)
                     break; // Occluded patches need not affect every camera; aggregate paint is
@@ -107,19 +129,21 @@ std::vector<Pixels> render(DiligentPresentation& presentation, IDeviceContext* c
 int main(int argc, char** argv) {
     try {
         check(argc >= 3 && argc <= 6, "Need Gallery, scratch root and optional --prepare-only / "
-                                      "--surface-channels / --clustered");
+                                      "--surface-channels / --clustered / --light-images");
         bool prepare_only = false;
         auto profile = test_decal_scene::Profile::Color;
         for (int i = 3; i < argc; ++i) {
             const std::string_view option(argv[i]);
             check(option == "--prepare-only" || option == "--surface-channels" ||
-                      option == "--clustered",
+                      option == "--clustered" || option == "--light-images",
                   "Unknown Gallery option");
             prepare_only = prepare_only || option == "--prepare-only";
             if (option == "--surface-channels")
                 profile = test_decal_scene::Profile::SurfaceChannels;
             if (option == "--clustered")
                 profile = test_decal_scene::Profile::Clustered;
+            if (option == "--light-images")
+                profile = test_decal_scene::Profile::LightImages;
         }
         const auto prepared = test_decal_scene::prepare(argv[1], argv[2], profile);
         const auto catalog = AssetCatalog::open_project(prepared.root);
@@ -154,6 +178,10 @@ int main(int argc, char** argv) {
             AssetId::parse(profile == test_decal_scene::Profile::SurfaceChannels
                                ? "45cb1cd6-c3ae-4f51-a7ff-314eea5cc26f"
                                : "0c07b499-c865-4e5b-838d-8021bb7a99d3")};
+        if (profile == test_decal_scene::Profile::LightImages)
+            expected = {prepared.scene, AssetId::parse("c89058da-027b-4f84-97be-75fd538d15c4"),
+                        AssetId::parse("e7a40664-a742-4d12-a29f-236aa703ba7c"),
+                        AssetId::parse("cb50dced-5d4b-4e7f-9d06-f13fa65ea8fc")};
         std::set<AssetId> actual;
         for (const auto& [id, record] : shipped.records()) {
             (void)record;

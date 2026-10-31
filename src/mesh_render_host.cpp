@@ -612,6 +612,7 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
         bundles_.clear();
         decal_entries_.clear();
         decal_order_.clear();
+        light_image_entries_.clear();
         weighted_->clear();
         environment_ = {};
         probe_entries_.clear();
@@ -622,6 +623,7 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
     changed |= update_environment(scene);
     changed |= update_reflection_probes(scene);
     changed |= update_decals(scene);
+    changed |= update_light_images(scene);
     const ModelSceneIndex model_index(scene);
     auto particle_sources = prepare_particle_sources(scene);
     tile_images_ = prepare_tile_sources(scene);
@@ -1007,7 +1009,11 @@ bool MeshSceneRenderer::pending() const {
                    std::any_of(row.second.texture_tickets.begin(), row.second.texture_tickets.end(),
                                [](const auto& ticket) { return ticket.has_value(); });
         });
-    return particles || tiles || probes || decals || environment_.candidate.has_value() ||
+    const bool light_images =
+        std::any_of(light_image_entries_.begin(), light_image_entries_.end(),
+                    [](const auto& row) { return row.second.ticket.has_value(); });
+    return particles || tiles || probes || decals || light_images ||
+           environment_.candidate.has_value() ||
            std::any_of(entries_.begin(), entries_.end(), [](const auto& pair) {
                return (pair.second.sprite && pair.second.sprite->mip_pending) ||
                       (pair.second.candidate &&
@@ -1044,6 +1050,36 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
             value.context.source = "presentation";
             report(std::move(value));
         }
+    std::map<EntityId, MeshDraw::LightImage> view_images;
+    for (const auto& light : scene.lights)
+        if (light.image && (light.light.layers & layers)) {
+            const auto found = light_image_entries_.find(light.entity);
+            if (found == light_image_entries_.end() || !found->second.ready)
+                continue;
+            try {
+                (void)light_image_gpu_frame(*light.image, camera.position);
+                if (temporal)
+                    (void)light_image_gpu_frame(*light.image, temporal->current.position);
+                const auto& image = *found->second.ready;
+                (void)image.source.get();
+                view_images.emplace(
+                    light.entity, MeshDraw::LightImage{&*light.image,
+                                                       {image.gpu.get()->GetDefaultView(
+                                                            Diligent::TEXTURE_VIEW_SHADER_RESOURCE),
+                                                        image.sampler},
+                                                       &image.source->sampler});
+            } catch (const std::exception& error) {
+                Diagnostic value{Severity::Warning,
+                                 "render.light.image.view",
+                                 std::string(error.what()) + " (ordinary light retained)",
+                                 {}};
+                value.context.asset = scene.scene;
+                value.context.entity = light.entity;
+                value.context.property = "forge.light.texture";
+                value.context.source = "presentation";
+                report(std::move(value));
+            }
+        }
     struct Object {
         const RenderMesh* mesh;
         MeshDrawBundle* bundle;
@@ -1060,6 +1096,7 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
         bool area_lights = false;
         std::vector<EntityId> decals{};
         RenderBounds bounds{};
+        std::vector<MeshDraw::LightImage> images{};
     };
     struct Item {
         RenderSortKey key;
@@ -1125,6 +1162,9 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                         throw std::runtime_error(
                             "Visible light list exceeds the current draw profile");
                     object.lights.push_back(light.light);
+                    const auto image = view_images.find(light.entity);
+                    object.images.push_back(image == view_images.end() ? MeshDraw::LightImage{}
+                                                                       : image->second);
                     object.area_lights =
                         object.area_lights || light.light.kind >= unsigned(LightKind::Rectangle);
                     object.shadow_slots.push_back(
@@ -1538,7 +1578,25 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
     if (!needs_background)
         transmission_->clear();
     draw_stats_ = {};
-    const auto projected_surface = [&](const Object& object, unsigned part) {
+    const auto projected_surface = [&](const Object& object, unsigned part,
+                                       std::span<const MeshDraw::LightImage>& images) {
+        if (std::any_of(object.images.begin(), object.images.end(),
+                        [](const auto& image) { return image.frame != nullptr; }))
+            images = object.images;
+        if (!images.empty() && !object.bundle->supports_light_images(object.lod, part)) {
+            Diagnostic value{
+                Severity::Warning,
+                "render.light.image.profile",
+                "Mesh part cannot consume light images. Ordinary lighting retained; use a lit "
+                "material with available projected map slots and a current Surface Shader cook.",
+                {}};
+            value.context.asset = scene.scene;
+            value.context.entity = object.mesh->entity;
+            value.context.property = "forge.light.texture";
+            value.context.source = "presentation";
+            report(std::move(value));
+            images = {};
+        }
         std::vector<MeshDraw::Decal> result;
         result.reserve(object.decals.size());
         for (const auto& id : object.decals) {
@@ -1556,11 +1614,11 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
             }
             result.push_back(selected);
         }
-        if (!object.bundle->accepts_decals(object.lod, part, result)) {
+        if (!object.bundle->accepts_projected(object.lod, part, result, images)) {
             Diagnostic value{
                 Severity::Warning,
                 "render.decal.capacity",
-                "Mesh part cannot admit the complete projected channel set within its " +
+                "Mesh part cannot admit the complete decal/light image set within its " +
                     std::to_string(object.bundle->decal_capacity(object.lod, part)) +
                     " map slots or its Shader projector capacity; ordinary material retained. "
                     "Reduce unique maps/samplers. Lists above the small packet capacity and "
@@ -1572,6 +1630,7 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
             value.context.source = "presentation";
             report(std::move(value));
             result.clear();
+            images = {};
         }
         return result;
     };
@@ -1649,7 +1708,8 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                 ++cursor;
             }
             const auto motion = motion_for(object, item.key.part);
-            const auto decals = projected_surface(object, item.key.part);
+            std::span<const MeshDraw::LightImage> images;
+            const auto decals = projected_surface(object, item.key.part, images);
             object.bundle->draw_part(
                 host_->context_, *object.world, draw_view, object.lights, object.lod, item.key.part,
                 environment_.ready ? &lighting : nullptr,
@@ -1664,7 +1724,7 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                 accumulated && temporal->indirect_output,
                 accumulated && temporal->reflection_output,
                 accumulated && temporal->normal_only_output, decals,
-                weighted && item.key.alpha == MaterialAlpha::Blend, &batch_bounds);
+                weighted && item.key.alpha == MaterialAlpha::Blend, &batch_bounds, images);
             ++draw_stats_.calls;
             draw_stats_.instances += count;
             draw_stats_.batched_calls += count > 1;
@@ -1680,7 +1740,8 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                 const auto& single = objects[failed_item.object];
                 try {
                     const auto motion = motion_for(single, failed_item.key.part);
-                    const auto decals = projected_surface(single, failed_item.key.part);
+                    std::span<const MeshDraw::LightImage> images;
+                    const auto decals = projected_surface(single, failed_item.key.part, images);
                     single.bundle->draw_part(
                         host_->context_, *single.world, draw_view, single.lights, single.lod,
                         failed_item.key.part, environment_.ready ? &lighting : nullptr,
@@ -1693,7 +1754,8 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                         accumulated && temporal->indirect_output,
                         accumulated && temporal->reflection_output,
                         accumulated && temporal->normal_only_output, decals,
-                        weighted && failed_item.key.alpha == MaterialAlpha::Blend, &single.bounds);
+                        weighted && failed_item.key.alpha == MaterialAlpha::Blend, &single.bounds,
+                        images);
                     ++draw_stats_.calls;
                     ++draw_stats_.instances;
                 } catch (const std::exception& error) {

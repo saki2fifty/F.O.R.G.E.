@@ -307,6 +307,15 @@ try:
                 light.setdefault('emitter_radius', .5)
                 light.setdefault('emitter_width', 1.)
                 light.setdefault('emitter_height', 1.)
+                light.setdefault('texture', None)
+                light.setdefault('image_width', 1.)
+                light.setdefault('image_height', 1.)
+                light.setdefault('image_tiled', False)
+            decal = row['components'].get('forge.decal')
+            if decal is not None:
+                decal.setdefault('color_influence', 1.)
+                decal.setdefault('normal_influence', 0.)
+                decal.setdefault('roughness_influence', 0.)
             renderer = row['components'].get('forge.mesh_renderer')
             if renderer is not None:
                 renderer.setdefault('material_parameters', [])

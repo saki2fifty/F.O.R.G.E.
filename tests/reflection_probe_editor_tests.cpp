@@ -204,6 +204,52 @@ void exercise(const std::filesystem::path& root, float scale, ImVec2 display) {
                        field.at("id") == "shadow_angular_radius"),
                   "Punctual Live controls exposed inactive area dimensions");
     }
+    frame();
+    check(!test::ui_targets.contains("component-field:forge.light:image_width"),
+          "Unassigned light image exposed inactive sizing controls");
+    click("asset-picker:texture:##Light image");
+    type("asset-search:texture:##Light image", "White / 2D");
+    click("picker-option:" + engine_texture(EngineTexture::White).id.str());
+    type("component-field:forge.light:image_width", "4");
+    type("component-field:forge.light:image_height", "2");
+    click("component-field:forge.light:image_tiled");
+    check(scene.entity(selected).get<Light>().texture == engine_texture(EngineTexture::White) &&
+              scene.entity(selected).get<Light>().image_width == 4 &&
+              scene.entity(selected).get<Light>().image_height == 2 &&
+              scene.entity(selected).get<Light>().image_tiled,
+          "Light image picker and dimensions did not reach native Light values");
+    const auto image_source = scene.document();
+    for (unsigned i = 0; i < 4; ++i)
+        check(scene.undo(), "Light image Inspector Undo unavailable");
+    check(scene.document() == sources, "Light image Inspector Undo changed prior source data");
+    for (unsigned i = 0; i < 4; ++i)
+        check(scene.redo(), "Light image Inspector Redo unavailable");
+    check(scene.document() == image_source, "Light image Inspector Redo changed values");
+    scene.save(project.project() / "light-image.scene.json");
+    reopened.load(project.project() / "light-image.scene.json");
+    check(reopened.document() == image_source, "Light image Inspector did not save and reopen");
+    for (const auto& row : image_source.at("entities"))
+        if (row.at("id") == selected)
+            light_components = row.at("components");
+    for (const auto& type : schema.at("components"))
+        if (type.at("id") == "forge.light")
+            for (const auto& field : type.at("fields")) {
+                const auto key = field.at("id").get<std::string>();
+                const bool expected = key == "shadow_source_radius" ||
+                                      key == "shadow_angular_radius" || key == "image_width" ||
+                                      key == "image_height" || key == "image_tiled";
+                check(ComponentInspector::runtime_field_available("forge.light", field,
+                                                                  light_components) == expected,
+                      "Live light image controls exposed resource replacement or hid tuning");
+            }
+    click("asset-picker:texture:##Light image");
+    click("asset-clear:texture:##Light image");
+    check(!scene.entity(selected).get<Light>().texture.id,
+          "Light image clear did not reach nullable asset ownership");
+    frame();
+    check(!test::ui_targets.contains("component-field:forge.light:image_height"),
+          "Cleared light image retained inactive controls");
+    light_components["forge.light"]["texture"] = nullptr;
     click("component-field:forge.light:cast_shadows");
     click("component-field:forge.light:kind");
     click("property:choice:kind:3");
@@ -337,7 +383,8 @@ void exercise(const std::filesystem::path& root, float scale, ImVec2 display) {
     ImGui::DestroyContext();
 }
 void capture(const std::filesystem::path& root, bool light = false,
-             LightKind light_kind = LightKind::Directional, bool decal = false) {
+             LightKind light_kind = LightKind::Directional, bool decal = false,
+             bool image = false) {
     std::filesystem::create_directories(root / "project");
     test::ImGuiSoftwareCapture capture(
         light || decal ? 1080 : 760,
@@ -400,6 +447,16 @@ void capture(const std::filesystem::path& root, bool light = false,
              {"component", "forge.reflection_probe"},
              {"field", "texture"},
              {"value", engine_texture(EngineTexture::White, TextureDimension::Cube).id}});
+    if (image)
+        authoring_command(scene, "property.set_many",
+                          {{"entity", id},
+                           {"component", "forge.light"},
+                           {"values",
+                            {{"texture", engine_texture(EngineTexture::Checker).id},
+                             {"image_width", 2.5},
+                             {"image_height", 2.5},
+                             {"image_tiled", false},
+                             {"cast_shadows", false}}}});
     ComponentInspector inspector;
     inspector.fixture_focus_component = decal   ? "forge.decal"
                                         : light ? "forge.light"
@@ -415,7 +472,8 @@ void capture(const std::filesystem::path& root, bool light = false,
         ImGui::End();
         capture.render();
     }
-    capture.save(root / (decal    ? "decal-projector-controls.png"
+    capture.save(root / (image    ? "light-image-controls.png"
+                         : decal  ? "decal-projector-controls.png"
                          : !light ? "local-reflection-probe-controls.png"
                          : light_kind == LightKind::Rectangle ? "rectangle-area-light-controls.png"
                          : light_kind == LightKind::Sphere    ? "sphere-area-light-controls.png"
@@ -426,6 +484,7 @@ int main(int argc, char** argv) {
     try {
         check(argc == 2 || (argc == 3 && (std::string_view(argv[2]) == "--capture" ||
                                           std::string_view(argv[2]) == "--capture-light" ||
+                                          std::string_view(argv[2]) == "--capture-light-image" ||
                                           std::string_view(argv[2]) == "--capture-rectangle" ||
                                           std::string_view(argv[2]) == "--capture-decal" ||
                                           std::string_view(argv[2]) == "--capture-sphere")),
@@ -435,7 +494,8 @@ int main(int argc, char** argv) {
                     std::string_view(argv[2]) == "--capture-rectangle" ? LightKind::Rectangle
                     : std::string_view(argv[2]) == "--capture-sphere"  ? LightKind::Sphere
                                                                        : LightKind::Directional,
-                    std::string_view(argv[2]) == "--capture-decal");
+                    std::string_view(argv[2]) == "--capture-decal",
+                    std::string_view(argv[2]) == "--capture-light-image");
         else
             for (const auto scale : {1.f, 1.5f, 2.f})
                 for (const auto size : {ImVec2{1200, 1000}, ImVec2{960, 640}})
