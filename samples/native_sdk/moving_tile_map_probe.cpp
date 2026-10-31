@@ -113,11 +113,17 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char* error, uint32_t 
                         std::abs(native.position[0] - offset) < 1e-5 &&
                         std::abs(native.position[1]) < 1e-5,
                     "Moving Map SDK pose/epoch does not match the admitted target");
-            const std::array<double, 2> origin{-5.5 + offset, 2}, delta{0, -8};
+            ForgeSdkTileMapV1 map{};
+            require(client.tile_map(ref.scene_uuid, ref.entity_uuid, map) == 1 && map.ready,
+                    "Map profile SDK lost its copied Map configuration");
+            // This consumer covers both included courses: painted rectangles
+            // and the four-metre ring/void/island one-way Gallery.
+            const bool contours = body.one_way && map.cell_size[0] == 4 && map.cell_size[1] == 4;
+            const std::array<double, 2> origin{(contours ? -3.5 : -5.5) + offset, 2}, delta{0, -8};
             ForgeSdkPhysicsHit2DV1 hit{};
             require(client.raycast_2d(origin.data(), delta.data(), UINT32_MAX, true, hit) == 1 &&
                         std::strcmp(hit.entity, ref.entity_uuid) == 0 &&
-                        std::abs(hit.fraction - .625) < 1e-5,
+                        std::abs(hit.fraction - (contours ? .25 : .625)) < 1e-5,
                     "Moving Map SDK ray lost compound geometry");
             require(client.raycast_2d(origin.data(), delta.data(), UINT32_MAX, false, hit) ==
                         (body.sensor ? 0 : 1),
@@ -128,7 +134,7 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char* error, uint32_t 
             overlap.include_sensors = 1;
             overlap.dimensions[0] = .1;
             overlap.origin[0] = origin[0];
-            overlap.origin[1] = -3.5;
+            overlap.origin[1] = contours ? -2 : -3.5;
             std::array<ForgeSdkEntityRefV1, 4> found{};
             require(client.overlap_shape_2d(overlap, found.data(), found.size()) == 1 &&
                         std::strcmp(found[0].entity_uuid, ref.entity_uuid) == 0,

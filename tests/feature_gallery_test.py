@@ -230,6 +230,18 @@ assert all(row['spatial']['mode'] == 'world' and
 assert sum(row['components']['forge.physics_body_2d']['lock_rotation'] for row in dynamic_maps) == 1
 assert sorted(row['components']['forge.physics_body_2d']['mass'] for row in dynamic_maps) == [0, 0, 12]
 assert sum(row['components']['forge.local_scale']['x'] < 0 for row in dynamic_maps) == 1
+one_way_scene = json.loads((project_root / 'Scenes/125-custom-polygon-one-way.scene.json').read_text())
+one_way_maps = [row for row in one_way_scene['entities']
+                if 'forge.tile_map_collider_2d' in row['components']]
+assert len(one_way_maps) == 1
+one_way_components = one_way_maps[0]['components']
+assert one_way_components['forge.tile_map_renderer']['map'] == by_source['Assets/Tiles/ContourTiles.tilemap.json']['id']
+assert one_way_components['forge.physics_body_2d']['one_way'] is True
+assert one_way_components['forge.physics_body_2d']['motion'] == 0
+assert one_way_components['forge.physics_body_2d']['sensor'] is False
+riser = next(row for row in one_way_scene['entities'] if row['name'] == 'Violet - upward passage through the ring')
+assert riser['components']['forge.physics_body_2d']['motion'] == 2
+assert riser['components']['forge.physics_body_2d']['gravity_factor'] == -1
 panel_scene = json.loads((project_root / 'Scenes/73-sprite-image-fill.scene.json').read_text(encoding='utf-8'))
 panels = [row['components']['forge.sprite_renderer'] for row in panel_scene['entities']
           if 'forge.sprite_renderer' in row['components']]

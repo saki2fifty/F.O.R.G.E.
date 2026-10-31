@@ -1,5 +1,20 @@
 # Feature Gallery
 
+## Custom polygon one-way collision
+
+Open **Scenes/125-custom-polygon-one-way.scene.json** and press Play. Amber lands
+on the outer ring roof, cyan on the hole floor and rose on the separate island.
+Violet rises through the ring to an ordinary Static ceiling. Green falls between
+the bars to the catch floor. Internal triangle edges do not become platforms.
+
+Stop, select **One-way course - ring, island and separate bars**, and toggle
+**Physics Body 2D → One-way collision** to compare solid response. Keep **Sensor**
+off and use **Static** or **Kinematic** motion. Enable **Selected collision** to
+see arrows on eligible original edges. Edit the shared
+**Assets/Tiles/ContourTiles.tileset.json**, publish the Set and Map, then save.
+Choose this Scene as startup before export. See
+[Tile Maps](../../../manual/editor/tile-maps.md) for boundary and margin controls.
+
 ## Dynamic Tile Map bodies
 
 Open **Scenes/124-dynamic-tile-map-bodies.scene.json** and press Play. Three
@@ -81,8 +96,8 @@ on. Open **Assets/Physics2D/Platform.animation.json** to edit their shared motio
 then **Save / Publish**. The ledge's fixed parent gives it a different world height
 while reusing the same local clip. Stop before changing saved body settings.
 Save and choose this Scene as startup before export. No Project Code module or
-additional imported asset is required. Dynamic, sensor and custom-polygon one-way
-collision are unavailable.
+additional imported asset is required. Dynamic and sensor one-way collision are
+unavailable. Open **125-custom-polygon-one-way** for custom boundary examples.
 
 ## Local diffuse lighting
 

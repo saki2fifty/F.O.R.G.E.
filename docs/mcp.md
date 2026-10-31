@@ -226,12 +226,12 @@ and `forge.tile_map_collider_2d`, then set the collider's exact layer key. The
 existing `forge_property_set_many` operation authors `motion` (0 Static,1
 Kinematic or2 Dynamic) and `sensor` together, with normal revision guards and one
 Undo/Redo step. Sensor applies to the selected layer's rectangles. Save before
-Play/export. Static or Kinematic nonsensor Boxes and full-cell Maps can set the
+Play/export. Static or Kinematic nonsensor Boxes and full-cell/custom-polygon Maps can set the
 existing `one_way`/`one_way_margin` fields through the same property operations.
 Kinematic targets or Transform Animator clips can move them. The existing
 Character Controller 2D `platform_carry` property enables walkable support transport.
-Sensor, Dynamic and custom-polygon one-way collision remain outside the runtime
-profile. Dynamic Map bodies require `forge_transform_binding` with
+Sensor and Dynamic one-way collision remain outside the runtime profile. Custom
+polygons use original front-facing edges through the same runtime owner. Dynamic Map bodies require `forge_transform_binding` with
 `spatial:{mode:"world"}` before Play. Existing body density, mass, lock and gravity
 properties apply to the complete compound. No separate agent-only body operation
 is needed.
@@ -300,7 +300,8 @@ an already promoted source never downgrades through ordinary edits. It does not 
 write Scene values or publish automatically. Undo/Redo and Save use the ordinary
 asset-document methods. After publishing a Set, republish its dependent Maps
 against that selected revision. Collision uses existing Static/Kinematic/Dynamic bodies,
-sensors, cell flags and shape budgets; custom one-way polygons are unsupported.
+sensors, cell flags and shape budgets. Static/Kinematic nonsensor custom one-way
+polygons use original front-facing edges; decomposition diagonals have no response.
 Interactive unapplied collision drafts participate in the existing document-busy
 guard. Read-only connections advertise no collision mutation binding.
 

@@ -21,6 +21,9 @@ struct TileMapCollisionPolygon {
     std::array<std::array<double, 2>, tile_collision_vertex_limit>
         points{}; // Cell-local XY; follows image flags.
     std::size_t count = 0;
+    // Bit i identifies an original source edge from point i to the next point.
+    // Decomposition diagonals and hole bridges are never boundary edges.
+    std::uint8_t boundary_edges = 0;
     bool operator==(const TileMapCollisionPolygon&) const = default;
 };
 struct TileMapCollisionGeometry {

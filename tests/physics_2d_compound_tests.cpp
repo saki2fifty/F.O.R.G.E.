@@ -7,6 +7,7 @@
 #include "physics_2d_moving_one_way_tests.hpp"
 #include "physics_2d_one_way_tests.hpp"
 #include "physics_2d_platform_carry_tests.hpp"
+#include "physics_2d_polygon_one_way_tests.hpp"
 #include "physics_2d_stance_tests.hpp"
 #include "physics_2d_step_tests.hpp"
 #include "physics_2d_surface_response_tests.hpp"
@@ -179,9 +180,13 @@ void tile_contours_projection_and_recovery() {
                         verify(test.native);
                         auto one_way = body;
                         one_way.one_way = true;
-                        reject([&] {
+                        if (motion == 2 || sensor)
+                            reject([&] {
+                                (void)tile_map_configuration_2d(one_way, map, 1, scale,
+                                                                &definitions);
+                            });
+                        else
                             (void)tile_map_configuration_2d(one_way, map, 1, scale, &definitions);
-                        });
                         TileMapRenderer renderer;
                         renderer.map = {map.asset()};
                         Json components{
@@ -451,6 +456,83 @@ void dynamic_compound_sensor_events() {
           "Moving Dynamic compound sensor lost End, impulse motion or no-response policy");
     std::cout << "Dynamic compound sensor Begin/End/current epochs and no solid response PASS\n";
 }
+void compound_one_way_actor_side() {
+    for (unsigned motion : {0u, 1u})
+        for (bool compound : {false, true}) {
+            Fixture test(1);
+            PhysicsBody2D platform;
+            platform.motion = motion;
+            platform.one_way = true;
+            test.desired.at(1).config = inline_configuration_2d(platform, 0, {8, .5f}, {1, 1, 1});
+            test.desired.at(1).pose.translation = {0, -.25, 7};
+            auto& actor = test.desired.at(2);
+            actor.ref.entity = EntityId::generate();
+            PhysicsBody2D body;
+            body.motion = 2;
+            body.gravity_factor = 0;
+            body.allow_sleeping = false;
+            body.lock_rotation = true;
+            actor.config = inline_configuration_2d(body, 0, {.4f, .4f}, {1, 1, 1});
+            if (compound) {
+                actor.config = Body2DConfiguration{body, 3};
+                actor.config.parts = std::make_shared<const std::vector<BoxPart2D>>(
+                    1, BoxPart2D{{0, 0}, {.4f, .4f}});
+            }
+            actor.pose.translation = {0, -.1, 7};
+            test.synchronize();
+            std::vector<std::uint64_t> discontinuities;
+            BodyCommand impulse{actor.ref, {}, {}, BodyCommandKind::Impulse};
+            impulse.planar = true;
+            impulse.value = {0, -test.native.state(2, actor.ref)->mass, 0};
+            test.native.apply(2, impulse, discontinuities);
+            test.advance(60);
+            const auto state = test.native.state(2, actor.ref);
+            check(
+                state && std::abs(state->position[1] + 1.1) < 1e-4 &&
+                    std::abs(state->linear_velocity[1] + 1) < 1e-5,
+                "One-way side admission caught a compound visitor whose foot began below the roof");
+        }
+    for (unsigned motion : {0u, 1u})
+        for (bool reverse : {false, true}) {
+            Fixture test(1);
+            PhysicsBody2D platform;
+            platform.motion = motion;
+            platform.one_way = true;
+            test.desired.at(1).config = inline_configuration_2d(platform, 0, {8, .5f}, {1, 1, 1});
+            test.desired.at(1).pose.translation = {0, -.25, 7};
+            auto& actor = test.desired.at(2);
+            actor.ref.entity = EntityId::generate();
+            PhysicsBody2D body;
+            body.motion = 2;
+            body.gravity_factor = 0;
+            body.allow_sleeping = false;
+            body.lock_rotation = true;
+            actor.config = Body2DConfiguration{body, 3};
+            std::vector<BoxPart2D> parts{{{0, -1}, {.4f, .4f}}, {{0, .7f}, {.4f, .4f}}};
+            if (reverse)
+                std::reverse(parts.begin(), parts.end());
+            actor.config.parts = std::make_shared<const std::vector<BoxPart2D>>(std::move(parts));
+            actor.pose.translation = {0, -.4, 7};
+            test.synchronize();
+            std::vector<std::uint64_t> discontinuities;
+            BodyCommand impulse{actor.ref, {}, {}, BodyCommandKind::Impulse};
+            impulse.planar = true;
+            impulse.value = {0, -test.native.state(2, actor.ref)->mass, 0};
+            test.native.apply(2, impulse, discontinuities);
+            test.advance(60);
+            const auto state = test.native.state(2, actor.ref);
+            if (!state || std::abs(state->position[1] + .5) >= .04 ||
+                std::abs(state->linear_velocity[1]) >= .02)
+                throw std::runtime_error(
+                    "Compound one-way landing: motion=" + std::to_string(motion) +
+                    " reverse=" + std::to_string(reverse) +
+                    " position=" + (state ? Json(state->position).dump() : "missing") +
+                    " velocity=" + (state ? Json(state->linear_velocity).dump() : "missing") +
+                    " angle=" + (state ? std::to_string(state->angle) : "missing"));
+        }
+    std::cout << "Inline/compound visitor side evidence and per-piece landing on Static/Kinematic "
+                 "one-way roofs PASS\n";
+}
 void tile_polygon_projection_and_recovery() {
     auto source = TileSetSource::create(AssetId::generate());
     source.document["next_id"] = 4;
@@ -533,8 +615,7 @@ void tile_polygon_projection_and_recovery() {
                           "Polygon outline ignored its line cap");
                     auto one_way = PhysicsBody2D{};
                     one_way.one_way = true;
-                    reject(
-                        [&] { tile_map_configuration_2d(one_way, map, 1, scale, &definitions); });
+                    (void)tile_map_configuration_2d(one_way, map, 1, scale, &definitions);
                     const auto image = test.native.checkpoint(test.desired, 2 * 1024 * 1024);
                     Native2D restored(test.config);
                     Desired2D remapped{{101, test.desired.at(1)}, {202, test.desired.at(2)}};
@@ -640,10 +721,11 @@ void tile_polygon_projection_and_recovery() {
               "Rejected polygon candidate changed the active collider");
     }
 }
-void tile_polygon_controller() {
+void tile_polygon_controller(bool one_way = false) {
     forge::test::MoverNativeFixture test;
     Body2DConfiguration floor;
     floor.shape = 3;
+    floor.body.one_way = one_way;
     floor.polygons = std::make_shared<const std::vector<PolygonPart2D>>(
         std::vector<PolygonPart2D>{{{{{-5, -1}, {5, -1}, {5, 1}}}, 3}});
     const auto support = test.add(floor, 0, 0);
@@ -1000,6 +1082,10 @@ int main() {
         dynamic_compound_hinge();
         dynamic_compound_translation_locks();
         dynamic_compound_sensor_events();
+        compound_one_way_actor_side();
+        forge::test::test_custom_one_way_boundaries();
+        forge::test::test_custom_one_way_slopes();
+        tile_polygon_controller(true);
         tile_polygon_projection_and_recovery();
         tile_polygon_controller();
         std::cout

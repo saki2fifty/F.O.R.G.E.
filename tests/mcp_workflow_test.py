@@ -797,6 +797,8 @@ for legacy in (False, True):
             catalog = json.loads((root/'Game/forge.assets.json').read_text())
             tile_map = next(row['id'] for row in catalog['assets']
                             if row['source'] == 'Assets/Tiles/PaintedPlatforms.tilemap.json')
+            contour_map = next(row['id'] for row in catalog['assets']
+                               if row['source'] == 'Assets/Tiles/ContourTiles.tilemap.json')
             until(lambda: client.tool('forge_asset_read', target=discovery()['result']['target'],
                                       asset=tile_map), lambda value: value.get('ok', False))
             ok('forge_asset_place', asset=tile_map, position=[0, 0, 7], name='MCP trigger Map')
@@ -839,7 +841,16 @@ for legacy in (False, True):
             control('forge_play_stop')
             assert read('forge_scene_read') == authored
             previous = authored
-            for one_way_motion in (0, 1):
+            for selected_map, one_way_motion in ((tile_map, 0), (tile_map, 1),
+                                                  (contour_map, 0), (contour_map, 1)):
+                before_map = read('forge_scene_read')
+                if next(e for e in before_map['entities'] if e['id'] == actor)['components']['forge.tile_map_renderer']['map'] != selected_map:
+                    ok('forge_property_set', arguments=dict(entity=actor, component='forge.tile_map_renderer',
+                                                            field='map', value=selected_map))
+                    changed_map = read('forge_scene_read')
+                    assert ok('forge_history_undo')['changed'] and read('forge_scene_read') == before_map
+                    assert ok('forge_history_redo')['changed'] and read('forge_scene_read') == changed_map
+                    previous = changed_map
                 ok('forge_property_set_many', arguments=dict(entity=actor, component='forge.physics_body_2d',
                                                             values=dict(motion=one_way_motion, sensor=False, one_way=True)))
                 one_way = read('forge_scene_read')
@@ -857,6 +868,8 @@ for legacy in (False, True):
                 control('forge_play_stop')
                 assert read('forge_scene_read') == one_way
                 previous = one_way
+            ok('forge_property_set', arguments=dict(entity=actor, component='forge.tile_map_renderer',
+                                                    field='map', value=tile_map))
             before_binding = read('forge_scene_read')
             ok('forge_transform_binding', arguments=dict(entity=actor, spatial=dict(mode='world')))
             world_bound = read('forge_scene_read')

@@ -116,6 +116,23 @@ TileMapCollisionGeometry collision_geometry(const Map& map, const TileSetData& d
                 if (!profile.contours)
                     throw std::runtime_error("Tile collision contours are unavailable");
                 const auto& prepared = *profile.contours;
+                // The prepared vertex table flattens each original loop in
+                // order. Preserve adjacency before any image transformation;
+                // bridge/decomposition edges have no matching source pair.
+                std::array<std::uint16_t, tile_collision_contour_vertex_limit> next{};
+                std::size_t offset = 0;
+                const auto loop = [&](const auto& vertices) {
+                    for (std::size_t i = 0; i < vertices.size(); ++i)
+                        next.at(offset + i) = std::uint16_t(offset + (i + 1) % vertices.size());
+                    offset += vertices.size();
+                };
+                for (const auto& region : prepared.contours) {
+                    loop(region.points);
+                    for (const auto& hole : region.holes)
+                        loop(hole);
+                }
+                if (offset != prepared.vertices.size())
+                    throw std::runtime_error("Tile contour boundary preparation mismatch");
                 std::array<std::array<double, 2>, tile_collision_contour_vertex_limit> points;
                 for (std::size_t i = 0; i < prepared.vertices.size(); ++i)
                     points.at(i) = transform(prepared.vertices[i]);
@@ -123,8 +140,12 @@ TileMapCollisionGeometry collision_geometry(const Map& map, const TileSetData& d
                     TileMapCollisionPolygon piece;
                     piece.origin = polygon.origin;
                     piece.count = indices.size();
-                    for (std::size_t i = 0; i < indices.size(); ++i)
+                    for (std::size_t i = 0; i < indices.size(); ++i) {
                         piece.points[i] = points.at(indices[i]);
+                        const auto a = indices[i], b = indices[(i + 1) % indices.size()];
+                        if (next.at(a) == b || next.at(b) == a)
+                            piece.boundary_edges |= std::uint8_t(1u << i);
+                    }
                     append(piece);
                 }
                 continue;
@@ -133,14 +154,19 @@ TileMapCollisionGeometry collision_geometry(const Map& map, const TileSetData& d
             for (std::size_t i = 0; i < polygon.count; ++i)
                 polygon.points[i] = transform(profile.points[i]);
             if (profile.kind == TileCollisionKind::Convex) {
+                polygon.boundary_edges = std::uint8_t((1u << polygon.count) - 1);
                 append(polygon);
             } else {
                 for (const auto& indices : tile_detail::tile_polygon_triangles(profile.points)) {
                     TileMapCollisionPolygon piece;
                     piece.origin = polygon.origin;
                     piece.count = indices.size();
-                    for (std::size_t i = 0; i < indices.size(); ++i)
+                    for (std::size_t i = 0; i < indices.size(); ++i) {
                         piece.points[i] = polygon.points[indices[i]];
+                        const auto a = indices[i], b = indices[(i + 1) % indices.size()];
+                        if ((a + 1) % polygon.count == b || (b + 1) % polygon.count == a)
+                            piece.boundary_edges |= std::uint8_t(1u << i);
+                    }
                     append(piece);
                 }
             }

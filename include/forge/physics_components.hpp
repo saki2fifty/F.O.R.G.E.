@@ -104,7 +104,7 @@ struct PhysicsBody2D {
     bool lock_x = false, lock_y = false, lock_rotation = false;
     bool bullet = false; // Additional Dynamic-solid CCD against moving bodies.
     bool one_way =
-        false; // Static/Kinematic nonsensor Box/Map: each rectangle's transformed +Y face.
+        false; // Static/Kinematic nonsensor Box/Map: original edges facing transformed +Y.
     float one_way_margin = .02f; // World metres; native contact slop remains a minimum.
     bool operator==(const PhysicsBody2D&) const = default;
 };

@@ -1,5 +1,21 @@
 # Explore the Feature Gallery
 
+**125-custom-polygon-one-way** shows landing on a ring roof, a hole floor and an
+island while violet passes upward through the ring to a ceiling. Stop, select the
+course and toggle **Physics Body 2D → One-way collision** to compare response.
+Enable **Selected collision** to inspect arrows on original edges. See
+[Tile collision controls](../editor/tile-maps.md).
+
+**124-dynamic-tile-map-bodies** drops three two-cell Maps onto an amber receiver.
+Compare density mass, a mirrored 12 kg override and locked rotation. Stop before
+editing **Density**, **Mass** or **Lock rotation**. Keep **Spatial binding → World**
+and **One-way collision** off. See [Dynamic Maps](../editor/tile-maps.md).
+
+**123-tile-collision-contours** shows a ring, its inner void, a separate island and
+two bars. Open **Assets/Tiles/ContourTiles.tileset.json** and choose **Tile collision
+→ Contours / holes**. Select a **Contour** and **Loop**, edit its points, then apply
+and publish the Set and Map. See [Tile collision controls](../editor/tile-maps.md).
+
 **122-neighbor-tiles** uses one painted tile for edges around a hole, a flipped L
 and an isolated arrow; connected interiors animate. Open
 **Assets/Tiles/NeighborDirections.tileset.json**, select the paint tile and edit

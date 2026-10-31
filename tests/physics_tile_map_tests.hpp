@@ -1,6 +1,7 @@
 #pragma once
 #include "asset_bytes.hpp"
 #include "builtins.hpp"
+#include "physics_custom_one_way_tile_maps.hpp"
 #include "physics_dynamic_tile_map_tests.hpp"
 #include "physics_moving_tile_map_tests.hpp"
 #include "runtime_tile_map.hpp"
@@ -94,6 +95,7 @@ inline void test_physics_tile_map(const std::filesystem::path& root,
     test_moving_trigger_tile_maps(root, document);
     test_dynamic_tile_maps(root, document);
     test_dynamic_tile_map_replacement(root, document, *map, importer);
+    test_custom_one_way_tile_maps(root, lease, worker, set, document);
     RuntimeWorld world({}, {}, std::nullopt, root, false);
     world.scene.restore_snapshot(document);
     const auto deadline = std::chrono::steady_clock::now() + 15s;

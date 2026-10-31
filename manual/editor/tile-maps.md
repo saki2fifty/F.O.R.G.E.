@@ -200,8 +200,12 @@ The diagram shows the applied ramp in local XY coordinates.
 6. Choose **Save / Publish** for the Tile Set, then save and publish each Map that uses it. Return to Scene and enable **Selected collision** on its Map actor to inspect the published shapes. Save the Scene and Play.
 
 Cell flips and transpose also transform custom polygons. Polygons can provide
-ordinary solid or sensor collision; custom polygons cannot use **One-way
-collision**. Use separate Map actors/layers when a scene needs both types.
+ordinary solid or sensor collision. For a Static or Kinematic nonsensor Map,
+**One-way collision** also supports custom profiles. Objects pass from the back
+and land on original edges facing the Map's local positive Y direction. Slopes,
+hole floors and islands use their own edge planes; triangle diagonals do not block
+movement. Cell flips and transpose transform these edges with the image. Use
+**Selected collision** to see outward arrows on eligible original edges.
 Polygon (decomposed) fills the area inside one simple outline with triangles,
 leaving inward notches empty. Points must not repeat, cross or touch another
 edge; neighboring edges must not form a straight line. Use Contours / holes for
@@ -270,15 +274,31 @@ when choosing Contours / holes; resolve the reported field before applying.
 
 1. Select the Map entity. Under **Physics Body 2D**, choose **Static** or **Kinematic** and turn **Sensor** off.
 2. Enable **One-way collision**. Keep **One-way margin** at 0.02 m initially.
-3. Enable **Selected collision** in Scene. Each rectangle's arrow points toward its solid face.
+3. Enable **Selected collision** in Scene. Arrows point outward from eligible original solid faces.
 4. Save and Play. Objects can pass from the opposite side and land on that face. Stop restores the saved starting scene; export uses the saved policy.
 
-The policy applies to every occupied rectangle in the selected collision layer.
-Each rectangle has its own face, including raised platforms. Negative Y scale
-reverses the face; Z rotation rotates it. Flipping a tile's image does not change
-its collision face. Sensor, Dynamic and custom-polygon one-way Maps are unavailable.
-Ordinary ray/overlap/sweep queries still see complete rectangles, and checked
-character placement still rejects embedded positions.
+The policy applies to the complete selected collision layer. Each full-cell
+rectangle has its own face, including raised platforms. Custom polygons instead
+use original edges facing within 60 degrees of the Map's local positive Y direction.
+Hole floors and separate islands retain their own faces. Internal triangle edges
+do not block movement. Negative Y scale reverses the front reference; Z rotation
+rotates it. Image flips and transpose transform custom edges; they leave a full
+cell unchanged. Sensor and Dynamic one-way Maps are unavailable. Ordinary
+ray/overlap/sweep queries still see complete shapes, and checked character
+placement still rejects embedded positions.
+
+Open **125-custom-polygon-one-way** in the Feature Gallery. Amber lands on the
+outer ring roof, cyan on the hole floor and rose on the separate island. Violet
+starts below the ring and passes upward to the ordinary ceiling. Green falls
+between the separate bars to the catch floor. Stop before editing the course's
+body settings or the shared **ContourTiles.tileset.json** profile. Publish the Set
+and Map after changing points, then save the Scene. Choose this Scene as startup
+before exporting.
+
+![Amber on the ring roof, cyan in its hole, rose on its island and violet at the ceiling above](../images/custom-one-way-gallery.png)
+
+The ring, hole floor and island provide separate landing surfaces. Violet passes
+through the ring from below and reaches the ordinary ceiling.
 
 Open **86-one-way-tile-maps** in the Feature Gallery. The cyan circle rises
 through a painted platform toward an ordinary ceiling; the other bodies fall

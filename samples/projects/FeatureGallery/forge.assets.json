@@ -11230,6 +11230,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "f01d3e31-4094-4eaf-bc45-031717a6e13b",
+      "metadata": {},
+      "schema_version": 5,
+      "source": "Scenes/125-custom-polygon-one-way.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "f08e33ac-26d1-4e79-a238-374e5c1b0e92",
       "metadata": {},
       "schema_version": 5,

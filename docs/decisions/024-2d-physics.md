@@ -362,8 +362,8 @@ records own both merged boxes and convex pieces, sharing the total4096 shape
 budget, filters, epochs, queries, events and checked candidate publication. No
 per-cell entity, durable shape identity, parallel collision database or second
 physics/resource owner is introduced. None definitions omit their shapes; an
-all-None layer has no native body. Dynamic Maps and custom polygon one-way response
-remain outside this profile. The simple-polygon extension below adds concave
+all-None layer has no native body. Dynamic Maps follow the Dynamic Map extension
+above; custom polygon one-way response remains outside this profile. The simple-polygon extension below adds concave
 decomposition. Static/Kinematic ordinary
 polygons and sensors use existing policies; full-cell Static and, through the
 moving one-way extension below, Kinematic one-way roofs remain.
@@ -420,8 +420,8 @@ the shared4096 native-shape budget. Full-cell rectangle merging remains unchange
 Native bodies, last-good candidate publication, outlines, queries, contacts and
 recovery continue to own the same convex-piece data. Private physics10 and Map
 checkpoint1 need no new fields: fresh recovery validates the same realized pieces.
-Static/Kinematic solid and sensor policies apply; Dynamic Maps and custom-polygon
-one-way response remain excluded.
+Static/Kinematic solid and sensor policies apply; the Dynamic Map extension above
+also admits Dynamic bodies. Custom-polygon one-way response remains excluded.
 
 ## Tile collision contours and holes
 
@@ -454,8 +454,8 @@ use that source transaction; there is no parallel authoring implementation.
 
 All pieces use existing physical float admission, Static/Kinematic solid/sensor
 policies, the combined4096-shape limit, candidate/last-good publication, debug,
-native queries and recovery. Dynamic Maps and custom-polygon one-way remain
-excluded. Private recovery already stores complete convex pieces, so this addition
+native queries and recovery. Dynamic Maps follow the Dynamic Map extension above;
+custom-polygon one-way remains excluded. Private recovery already stores complete convex pieces, so this addition
 does not require another private recovery field/version or public C-table change.
 Copied definitions carry nested version6 through the existing bounded channel;
 the helper and typed semantics participate in the exact SDK fingerprint.
@@ -489,3 +489,45 @@ added. The updated public contract header changes the exact SDK fingerprint;
 modules must use the matching SDK. Local native/source/UI/MCP/installed-SDK and
 source-free content checks are distinct from Windows, physical input/GPU and
 graphical executable acceptance.
+
+
+## Custom polygon one-way extension
+
+Extend the existing Static/Kinematic nonsensor one-way policy to custom Tile Set
+convex polygons, concave polygons and contour regions with holes/islands. This
+supersedes the custom-polygon exclusions above. Dynamic and sensor one-way bodies
+remain excluded. The signed body-local Y direction remains the front reference;
+eligible original boundary edges and contact normals must face within60degrees
+of that direction. An eligible slope uses its actual outward edge normal and
+plane for side and relative point-velocity admission. It does not use the highest
+vertex of an arbitrary decomposition piece as a substitute surface.
+
+Carry an eight-bit original-edge mask beside each existing derived convex piece.
+Build it from adjacency in the original source loops before image orientation or
+signed physical scale. Native hull preparation remaps edge bits by exact endpoint
+pairs. Decomposition diagonals and hole bridges have no original-edge evidence.
+The actual native contact normal selects the closest polygon face; only an
+original, front-facing face may respond. Tied closest faces may select an eligible
+original edge. Internal edges cannot acquire response merely because they face up.
+
+The existing body record owns a sorted native-shape-to-edge-mask lookup derived
+from its admitted geometry. This is a bounded acceleration cache, not another
+shape owner or contact lifecycle. Shape userdata continues to reference that body.
+Fresh recovery first validates complete native geometry/state, then rebuilds the
+lookup by exact polygon geometry rather than assuming native enumeration order.
+No pointer or native shape handle is serialized as boundary evidence.
+
+Retain matching current/preceding actor and platform samples, existing margins,
+angular-aware relative point velocity, native contact continuity, CCD callbacks
+and controller query ownership. A compound visitor uses the actual contacting
+piece as its support proxy. Ordinary geometric queries and conservative checked
+placement continue to see the complete solid geometry, including undersides.
+Debug arrows identify eligible original edges with their outward normals.
+
+Original loops remain the source/cooked authority. The newly admitted custom
+one-way checkpoint configuration includes normalized original-edge masks; this
+profile had no valid checkpoint representation before this extension. Previously
+representable configurations keep their exact JSON and private codec10/outer2
+remain unchanged. No authored field, identity, C table, dependency revision or
+body/shape/work budget changes. Implementation, validation and physical acceptance
+are separate claims recorded in the subsystem documentation and evidence ledger.

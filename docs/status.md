@@ -5,6 +5,23 @@ The accepted local Windows package is **261024-000213**, source
 in the [README](../README.md#current-implementation). No new numbered Windows
 package accompanies the local source changes described here.
 
+Local source supports Static/Kinematic nonsensor custom polygon one-way Maps,
+including concavity, holes and islands. Original front-facing edge planes serve
+rigid contacts, CCD and controller physical queries; decomposition edges never
+become surfaces. Existing cell/source admission, last-good, Reset, native epochs
+and fresh recovery retain ownership. Source/cooked formats, identities, C layout
+and private codec10 remain unchanged. Matching C++ modules must rebuild against
+the updated exact SDK contract fingerprint.
+
+Gallery125 adds one editable Scene demonstrating roof/hole-floor/island landings
+and upward passage, preserving 335 prior asset records, 124 Scenes and settings.
+Both actual Play hosts, current/relocated installed SDKs, both MCP envelopes and
+native source-free relocated gameplay pass focused local checks. Software Vulkan
+also provides four exact source-free display pairs and an authentic manual/README
+capture. Dynamic and sensor one-way remain excluded. Windows/full-editor,
+physical input/GPU, external-client and graphical exported-EXE acceptance remain
+pending. See the [2D contract](physics-2d.md) and [Map guide](../manual/editor/tile-maps.md).
+
 Local source adds simple concave Tile Set outlines through Polygon(decomposed).
 One3–8point counterclockwise outline decomposes into bounded triangles while old
 Convex/default profiles retain their meaning. Source/cooked/recipe3 preserve1/2
@@ -19,16 +36,16 @@ consumers exit cleanly under unsuppressed ASan/UBSan. The native renderer finish
 functionally and retains the exact known unresolved184-byte shutdown condition.
 Offline manual/package fixtures and source preservation checks pass.
 Public SDK layouts and private checkpoint fields remain unchanged; exact native
-modules must rebuild for changed value-support identity. Holes/multiple contours,
-Dynamic Maps and custom-polygon one-way remain unavailable. Windows/full-editor,
+modules must rebuild for changed value-support identity. Later local-source sections supersede the original holes/multiple-contour,
+Dynamic Map and custom-polygon one-way limits. Windows/full-editor,
 physical input/GPU and graphical exported-EXE acceptance remain pending. See the
 [contract](tilemap-foundation.md) and [guide](../manual/editor/tile-maps.md).
 
 Local source admits moving one-way Kinematic nonsensor Boxes and full-cell Tile
 Maps through the existing physics/contact/controller owners. Matching actor and
 platform boundary poses preserve front-side evidence during movement. The same
-opt-in character support transport applies. Dynamic, sensor and custom-polygon
-one-way response remain excluded. Gallery119 demonstrates shared transform-clip
+opt-in character support transport applies. Dynamic and sensor one-way response
+remain excluded; the custom-polygon extension supersedes its earlier exclusion. Gallery119 demonstrates shared transform-clip
 motion, landing and passage with source-free relocated playback and four exact
 software Vulkan display pairs. Normal source/native/Inspector/MCP/installed-SDK
 checks pass, as do17selected strict units and11consumer links. Ten instrumented

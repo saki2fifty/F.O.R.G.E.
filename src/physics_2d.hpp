@@ -27,6 +27,7 @@ struct BoxPart2D {
 struct PolygonPart2D {
     std::array<std::array<float, 2>, tile_collision_vertex_limit> points{};
     std::uint32_t count = 0;
+    std::uint8_t boundary_edges = 0xff; // Original edges in the input point order.
     bool operator==(const PolygonPart2D&) const = default;
 };
 struct MoverProfile2D {

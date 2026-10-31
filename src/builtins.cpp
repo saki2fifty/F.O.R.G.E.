@@ -2318,10 +2318,10 @@ Json registration_options(const Builtin& type, const std::string& field) {
         if (field == "one_way") {
             value["display_name"] = "One-way collision";
             value["description"] =
-                "Static or Kinematic nonsensor Box or Tile Map Collider 2D: land on each "
-                "rectangle's transformed "
-                "local +Y face and pass from the opposite side. Geometric "
-                "queries see whole shapes. Custom tile polygons are unsupported.";
+                "Static or Kinematic nonsensor Box or Tile Map Collider 2D: land on original "
+                "boundary edges facing within 60 degrees of transformed signed local +Y, "
+                "including slopes, hole floors and islands. Pass from the opposite side. "
+                "Internal diagonals do not block; geometric queries see whole shapes.";
         }
         if (field == "one_way_margin") {
             value["display_name"] = "One-way margin";

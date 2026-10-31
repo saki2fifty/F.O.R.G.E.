@@ -14,7 +14,9 @@ instances. The same geometry and native body owners serve Play and export.
 Gallery81/82 demonstrate movement and triggers; Gallery86 demonstrates Static
 nonsensor one-way rectangles through PhysicsBody2D.one_way. Kinematic nonsensor
 Maps can use the same policy with fixed target commands or transform animation.
-Dynamic, sensor and custom-polygon one-way Maps remain outside the current profile.
+Custom one-way polygons use original front-facing edges, including slopes, hole
+floors and islands. Decomposition edges never become surfaces. Dynamic and sensor
+one-way Maps remain outside the current profile.
 Gallery119 demonstrates the moving policy alongside an inline one-way ledge;
 both share the included transform clip.
 Gallery121 demonstrates looping atlas animation: forward, reverse, variable-duration

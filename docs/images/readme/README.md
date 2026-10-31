@@ -1,5 +1,25 @@
 # README screenshots
 
+## Custom polygon one-way boundaries
+
+[Custom one-way Game](../../../manual/images/custom-one-way-gallery.png) is the
+unretouched 640×360 FrameRenderer Game after 90 fixed ticks at 60 Hz in Scene
+`f01d3e31-4094-4eaf-bc45-031717a6e13b`. Amber, cyan and rose have landed on the
+ring roof, hole floor and island; violet passed upward through the ring to the
+ordinary ceiling. The `polygon_one_way_gallery_vulkan` test checks passage/landing
+pixels and four exact authored/source-free relocated display pairs.
+Original output: `f01d3e31-4094-4eaf-bc45-031717a6e13b-images/authored/90-640.ppm`.
+PNG conversion preserves RGB pixels. SHA256:
+`e633bfe77caf196376b7e4e1813aa8157506afc549e44890a1f274d3cfe3ed54`.
+
+Capture source is local development based on 459378b with custom-boundary work
+and an unassigned build identity. Executable and affected input hashes are in
+`AgentFiles/build/phase204-custom-polygon-one-way/captures.json`. Graphics SDK:
+`c670461de1435a5ae9a2ce038ac4463bb270e05905eafed7bd7573ed718689f4`.
+Both 60/90-tick captures were visually reviewed. This uses Linux software Vulkan;
+it does not establish Windows, physical GPU/input/DPI, full-editor or graphical
+EXE acceptance.
+
 ## Dynamic Tile Map bodies
 
 [Dynamic Map Game](../../../manual/images/dynamic-tile-map-gallery.png) is the

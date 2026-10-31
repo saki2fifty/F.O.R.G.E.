@@ -11,17 +11,16 @@
 using namespace forge;
 using namespace Diligent;
 namespace {
-using test_tile_asset_io::check;
-constexpr auto source = "Scenes/123-tile-collision-contours.scene.json";
 using test_gallery_capture::render;
-void verify_course(const std::vector<test_gallery_capture::Pixels>& captures) {
+using test_tile_asset_io::check;
+void verify_course(const std::vector<test_gallery_capture::Pixels>& captures, bool one_way) {
     check(captures.size() == 4, "Contour Gallery lost a requested display");
     for (unsigned i = 0; i < 3; ++i) {
         const auto& pixels = captures[i];
         const auto at = [&](double x, double y) {
-            // Authored camera: center(2,-1.8), height10; 640x360 auto aspect.
-            const auto px = unsigned(std::floor(320 + (x - 2) * 36));
-            const auto py = unsigned(std::floor(180 - (y + 1.8) * 36));
+            const double scale = one_way ? 30 : 36, camera_y = one_way ? -1.2 : -1.8;
+            const auto px = unsigned(std::floor(320 + (x - 2) * scale));
+            const auto py = unsigned(std::floor(180 - (y - camera_y) * scale));
             return pixels.at(py * 640 + px);
         };
         const auto background = at(2, 2), ring = at(-3.5, -2), bar = at(4.5, -2);
@@ -33,12 +32,21 @@ void verify_course(const std::vector<test_gallery_capture::Pixels>& captures) {
               "Contour Gallery lost its catch floor");
         const std::set<std::array<std::uint8_t, 4>> colors(pixels.begin(), pixels.end());
         check(colors.size() >= 8, "Landscape contour display lost its actor/course colors");
+        if (one_way && i == 0)
+            check(at(-1.2, -3.53) != ring && at(-1.2, -3.53) != background,
+                  "Custom one-way display lost passage through the ring's bottom band");
+        if (one_way && i == 2)
+            check(at(-1.2, 2.1) != background && at(-1.2, -4.8) == floor,
+                  "Custom one-way display lost its rising actor at the ordinary ceiling");
     }
 }
 } // namespace
 int main(int argc, char** argv) {
     try {
-        check(argc == 4, "Need Gallery, scratch and matching asset worker");
+        check(argc == 4 || argc == 5,
+              "Need Gallery, scratch, matching asset worker and optional one-way Scene");
+        const bool one_way = argc == 5;
+        const auto source = one_way ? argv[4] : "Scenes/123-tile-collision-contours.scene.json";
         const auto prepared = test_tile_gallery_scene::prepare(argv[1], argv[2], argv[3], source);
         EngineVkCreateInfo create;
         create.Features.GeometryShaders = DEVICE_FEATURE_STATE_ENABLED;
@@ -51,7 +59,7 @@ int main(int argc, char** argv) {
         // Auto-aspect portrait crops the actors; it retains four course colors.
         const auto authored =
             render(presentation, context, prepared.root, prepared.scene, captures / "authored", 4);
-        verify_course(authored);
+        verify_course(authored, one_way);
         const auto output = prepared.root.parent_path() / (prepared.scene.str() + "-content");
         const std::array roots{prepared.scene};
         const auto target = desktop_texture_target();
@@ -61,7 +69,7 @@ int main(int argc, char** argv) {
         std::filesystem::rename(prepared.root, prepared.root.string() + "-source-offline");
         const auto exported =
             render(presentation, context, moved, prepared.scene, captures / "relocated", 4);
-        verify_course(exported);
+        verify_course(exported, one_way);
         check(authored == exported, "Relocated source-free contour tile Gallery displays changed");
         std::ofstream receipt(captures / "receipt.json");
         receipt << Json{{"scene", prepared.scene},

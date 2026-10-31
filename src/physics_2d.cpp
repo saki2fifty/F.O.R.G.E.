@@ -22,21 +22,29 @@ constexpr std::size_t query_work_limit = 16384, event_limit = 16384;
 constexpr float mover_slop = .005f, mover_tolerance = .00001f;
 constexpr std::size_t mover_plane_limit = 64;
 constexpr unsigned mover_iteration_limit = 8;
-void one_way_arrow(PhysicsDebugGeometry& result, float x, float face, float width, float sign,
+void one_way_arrow(PhysicsDebugGeometry& result, b2Vec2 origin, b2Vec2 normal, float width,
                    std::size_t limit) {
     using Point = std::array<float, 3>;
     const float length = std::clamp(.2f * width, .2f, 1.f);
-    const Point start{x, face, 0}, tip{x, face + sign * length, 0};
+    const Point start{origin.x, origin.y, 0},
+        tip{origin.x + normal.x * length, origin.y + normal.y * length, 0};
+    const auto barb = [&](float side) {
+        return Point{tip[0] - normal.x * .3f * length - normal.y * side * .25f * length,
+                     tip[1] - normal.y * .3f * length + normal.x * side * .25f * length, 0};
+    };
+    const float first = normal.y < 0 ? -1.f : 1.f;
     for (const auto& line : std::array<std::array<Point, 2>, 3>{
-             {{start, tip},
-              {tip, Point{x - .25f * length, tip[1] - sign * .3f * length, 0}},
-              {tip, Point{x + .25f * length, tip[1] - sign * .3f * length, 0}}}}) {
+             {{start, tip}, {tip, barb(first)}, {tip, barb(-first)}}}) {
         if (result.lines.size() == limit) {
             result.truncated = true;
             return;
         }
         result.lines.push_back(line);
     }
+}
+void one_way_arrow(PhysicsDebugGeometry& result, float x, float face, float width, float sign,
+                   std::size_t limit) {
+    one_way_arrow(result, {x, face}, {0, sign}, width, limit);
 }
 // Private native query traffic bypasses body collision masks while retaining
 // the existing 32 named project layers. No extra authored layer is introduced.
@@ -186,6 +194,38 @@ b2Polygon compound_part(const Body2DConfiguration& config, std::size_t index) {
         throw std::runtime_error("2D compound polygon part is unavailable");
     return compound_polygon(config.polygons->at(index - boxes));
 }
+std::uint8_t native_boundary_edges(const PolygonPart2D& source, const b2Polygon& polygon) {
+    std::uint8_t result = 0;
+    const auto same = [](b2Vec2 a, const std::array<float, 2>& b) {
+        return a.x == b[0] && a.y == b[1];
+    };
+    for (int i = 0; i < polygon.count; ++i) {
+        const auto a = polygon.vertices[i], b = polygon.vertices[(i + 1) % polygon.count];
+        for (std::uint32_t j = 0; j < source.count; ++j) {
+            const auto& p = source.points[j];
+            const auto& q = source.points[(j + 1) % source.count];
+            if ((source.boundary_edges & (1u << j)) &&
+                ((same(a, p) && same(b, q)) || (same(a, q) && same(b, p))))
+                result |= std::uint8_t(1u << i);
+        }
+    }
+    return result;
+}
+using PolygonKey = std::array<float, 4 + 4 * tile_collision_vertex_limit>;
+PolygonKey polygon_key(const b2Polygon& value) {
+    if (value.count < 3 || value.count > int(tile_collision_vertex_limit))
+        throw std::runtime_error("2D compound recovery contains an unsupported polygon");
+    PolygonKey key{float(value.count), value.radius, value.centroid.x, value.centroid.y};
+    for (unsigned i = 0; i < unsigned(value.count); ++i) {
+        key[4 + 4 * i] = value.vertices[i].x;
+        key[5 + 4 * i] = value.vertices[i].y;
+        key[6 + 4 * i] = value.normals[i].x;
+        key[7 + 4 * i] = value.normals[i].y;
+    }
+    if (std::any_of(key.begin(), key.end(), [](float scalar) { return !std::isfinite(scalar); }))
+        throw std::runtime_error("2D compound recovery contains nonfinite polygon geometry");
+    return key;
+}
 b2MassData compound_mass(const Body2DConfiguration& config) {
     if (!std::isfinite(config.body.density) || config.body.density <= 0)
         throw std::runtime_error("Dynamic compound density must be positive and finite");
@@ -218,9 +258,7 @@ b2MassData compound_mass(const Body2DConfiguration& config) {
         throw std::runtime_error("Dynamic compound mass/inertia exceeds native inverse range");
     return result;
 }
-void validate_one_way(const PhysicsBody2D& body, unsigned shape, bool custom_polygons = false) {
-    if (body.one_way && custom_polygons)
-        throw std::runtime_error("Custom tile polygons do not support one-way collision");
+void validate_one_way(const PhysicsBody2D& body, unsigned shape) {
     if (!std::isfinite(body.one_way_margin) || body.one_way_margin < 0 || body.one_way_margin > 1)
         throw std::runtime_error("2D one-way margin must be finite metres in [0,1]");
     if (body.enabled && body.one_way &&
@@ -234,7 +272,7 @@ void validate_tile_map_body(const PhysicsBody2D& body) {
         throw std::runtime_error("Tile Map collision has an unknown motion type");
 }
 void validate_geometry(const Body2DConfiguration& config) {
-    validate_one_way(config.body, config.shape, config.polygons && !config.polygons->empty());
+    validate_one_way(config.body, config.shape);
     if (config.mover_profile) {
         const auto& profile = *config.mover_profile;
         const auto floor = profile.minimum_floor_y;
@@ -492,7 +530,7 @@ Body2DConfiguration tile_map_configuration_2d(PhysicsBody2D body, const TileMapD
         definitions ? tile_map_collision_geometry(cells, *definitions, layer,
                                                   tile_map_collision_rectangle_limit, variants)
                     : TileMapCollisionGeometry{tile_map_collision_rectangles(cells, layer), {}};
-    validate_one_way(body, 3, !geometry.polygons.empty());
+    validate_one_way(body, 3);
     const auto& rectangles = geometry.rectangles;
     const auto size = cells.cell_size();
     std::vector<BoxPart2D> values;
@@ -524,6 +562,7 @@ Body2DConfiguration tile_map_configuration_2d(PhysicsBody2D body, const TileMapD
         for (const auto& cell : geometry.polygons) {
             PolygonPart2D polygon;
             polygon.count = std::uint32_t(cell.count);
+            polygon.boundary_edges = cell.boundary_edges;
             for (std::size_t i = 0; i < cell.count; ++i)
                 for (unsigned axis = 0; axis < 2; ++axis) {
                     const double origin = axis == 0 ? cell.origin.x : cell.origin.y;
@@ -608,9 +647,19 @@ PhysicsDebugGeometry prepare_debug_2d(const Json& components, LocalScale scale, 
         const auto config =
             tile_map_configuration_2d(body, *tile_map, collider.layer, scale, definitions);
         PhysicsDebugGeometry result;
-        std::size_t lines = body.one_way ? 3 * config.parts->size() : 0;
-        for (std::size_t part = 0; part < shape_count(config); ++part)
-            lines += std::size_t(compound_part(config, part).count);
+        const auto boxes = config.parts->size();
+        const float sign = std::signbit(scale.y) ? -1.f : 1.f;
+        std::size_t lines = body.one_way ? 3 * boxes : 0;
+        for (std::size_t part = 0; part < shape_count(config); ++part) {
+            const auto polygon = compound_part(config, part);
+            lines += std::size_t(polygon.count);
+            if (body.one_way && part >= boxes) {
+                const auto mask = native_boundary_edges(config.polygons->at(part - boxes), polygon);
+                for (int i = 0; i < polygon.count; ++i)
+                    if ((mask & (1u << i)) && polygon.normals[i].y * sign >= .5f)
+                        lines += 3;
+            }
+        }
         result.truncated = lines > limit;
         for (std::size_t part = 0; part < shape_count(config); ++part) {
             const auto polygon = compound_part(config, part);
@@ -620,11 +669,19 @@ PhysicsDebugGeometry prepare_debug_2d(const Json& components, LocalScale scale, 
                 const auto a = polygon.vertices[i], b = polygon.vertices[(i + 1) % polygon.count];
                 result.lines.push_back({{{a.x, a.y, 0}, {b.x, b.y, 0}}});
             }
-            if (body.one_way) {
-                const float sign = std::signbit(scale.y) ? -1.f : 1.f;
+            if (body.one_way && part < boxes) {
                 const auto& box = config.parts->at(part);
                 one_way_arrow(result, box.center[0], box.center[1] + sign * .5f * box.dimensions[1],
                               box.dimensions[0], sign, limit);
+            } else if (body.one_way) {
+                const auto mask = native_boundary_edges(config.polygons->at(part - boxes), polygon);
+                for (int i = 0; i < polygon.count; ++i)
+                    if ((mask & (1u << i)) && polygon.normals[i].y * sign >= .5f) {
+                        const auto a = polygon.vertices[i],
+                                   b = polygon.vertices[(i + 1) % polygon.count];
+                        one_way_arrow(result, {.5f * (a.x + b.x), .5f * (a.y + b.y)},
+                                      polygon.normals[i], b2Distance(a, b), limit);
+                    }
             }
         }
         return result;
@@ -804,7 +861,7 @@ Desired2D desired_bodies_2d(WorldContext& context, const PhysicsConfig& settings
                                                    pose.scale, &selected->definition_values,
                                                    selected->variants.get());
             }
-            validate_one_way(body, 3, config.polygons && !config.polygons->empty());
+            validate_one_way(body, 3);
             // An empty layer has no collision or native handle. Refilling it
             // creates a new realization epoch; no hidden placeholder shape exists.
             if (!shape_count(config))
@@ -879,7 +936,30 @@ struct Native2D::Impl {
         // Borrowed only across one rigid step; never checkpointed or retained
         // across synchronization, body replacement or command application.
         std::optional<CarryStart> carry_start{};
+        // Derived original-boundary bits in native hull order. Native handles
+        // remain owned by shapes; recovery rebuilds this lookup from geometry.
+        std::vector<std::pair<std::uint64_t, std::uint8_t>> response_boundaries;
     };
+    static void bind_response_boundaries(Body& body) {
+        body.response_boundaries.clear();
+        const auto& config = body.admitted.config;
+        if (!config.body.one_way || !config.polygons || config.polygons->empty())
+            return;
+        std::map<PolygonKey, std::uint8_t> expected;
+        for (const auto& source : *config.polygons) {
+            const auto polygon = compound_polygon(source);
+            const auto mask = native_boundary_edges(source, polygon);
+            const auto [it, added] = expected.emplace(polygon_key(polygon), mask);
+            if (!added && it->second != mask)
+                throw std::runtime_error("2D one-way boundary geometry is ambiguous");
+        }
+        for (const auto shape : body.shapes) {
+            const auto found = expected.find(polygon_key(b2Shape_GetPolygon(shape)));
+            if (found != expected.end())
+                body.response_boundaries.emplace_back(b2StoreShapeId(shape), found->second);
+        }
+        std::sort(body.response_boundaries.begin(), body.response_boundaries.end());
+    }
     std::size_t response_work = 0;
     bool response_failed = false;
     using ShapePair = std::pair<std::uint64_t, std::uint64_t>;
@@ -909,46 +989,90 @@ struct Native2D::Impl {
             roof = std::max(roof, sign * polygon.vertices[i].y);
         return roof + polygon.radius;
     }
-    static double side_gap(const Body& platform, double surface, const b2ShapeProxy& actor,
-                           SideSample pose, SideSample platform_pose) noexcept {
+    struct ResponseSurface {
+        b2Vec2 normal;
+        double offset;
+    };
+    static const std::uint8_t* boundary_edges(const Body& platform, b2ShapeId shape) noexcept {
+        const auto id = b2StoreShapeId(shape);
+        const auto& values = platform.response_boundaries;
+        const auto found =
+            std::lower_bound(values.begin(), values.end(), id,
+                             [](const auto& entry, auto key) { return entry.first < key; });
+        return found != values.end() && found->first == id ? &found->second : nullptr;
+    }
+    static std::optional<ResponseSurface> response_surface(const Body& platform, b2ShapeId shape,
+                                                           b2Vec2 outward) noexcept {
+        const float sign = std::signbit(platform.admitted.pose.scale.y) ? -1.f : 1.f;
+        if (b2Dot(one_way_normal(platform), outward) < .5f)
+            return {};
+        const auto* mask = boundary_edges(platform, shape);
+        if (!mask)
+            return ResponseSurface{{0, sign}, one_way_surface(platform, shape)};
+        const auto polygon = b2Shape_GetPolygon(shape);
+        const auto local = b2InvRotateVector(b2Body_GetRotation(platform.id), outward);
+        float best = -1;
+        for (int i = 0; i < polygon.count; ++i)
+            best = std::max(best, b2Dot(local, polygon.normals[i]));
+        for (int i = 0; i < polygon.count; ++i)
+            if ((*mask & (1u << i)) && polygon.normals[i].y * sign >= .5f &&
+                b2Dot(local, polygon.normals[i]) >= best - mover_tolerance)
+                return ResponseSurface{polygon.normals[i],
+                                       double(b2Dot(polygon.normals[i], polygon.vertices[i])) +
+                                           polygon.radius};
+        return {}; // An internal triangle edge cannot acquire response.
+    }
+    static double side_gap(ResponseSurface surface, const b2ShapeProxy& actor, SideSample pose,
+                           SideSample platform_pose) noexcept {
         const auto origin = platform_pose.position;
-        const auto normal = b2RotateVector(
-            platform_pose.rotation, {0, std::signbit(platform.admitted.pose.scale.y) ? -1.f : 1.f});
+        const auto normal = b2RotateVector(platform_pose.rotation, surface.normal);
         double minimum = std::numeric_limits<double>::infinity();
         for (int i = 0; i < actor.count; ++i) {
             const auto point = b2RotateVector(pose.rotation, actor.points[i]);
             minimum = std::min(minimum, double(normal.x) * point.x + double(normal.y) * point.y);
         }
         return normal.x * (pose.position.x - origin.x) + normal.y * (pose.position.y - origin.y) +
-               minimum - actor.radius - surface;
+               minimum - actor.radius - surface.offset;
     }
-    static bool solid_side(const Body& platform, double surface, const Body& actor,
+    static bool solid_side(const Body& platform, ResponseSurface surface, const Body& actor,
                            const b2ShapeProxy& proxy, SideSample current,
                            SideSample platform_pose) noexcept {
-        double gap = side_gap(platform, surface, proxy, current, platform_pose);
+        double gap = side_gap(surface, proxy, current, platform_pose);
         // Compare each actor sample with the platform pose from that same
         // fixed boundary. Creation/discontinuous placement clears history;
         // a snapshot/read never advances it.
         const auto& previous = actor.preceding_start;
         const auto& platform_previous = platform.preceding_start;
         if (previous && platform_previous)
-            gap = std::max(gap, side_gap(platform, surface, proxy, *previous, *platform_previous));
+            gap = std::max(gap, side_gap(surface, proxy, *previous, *platform_previous));
         return gap >= -std::max(mover_slop, platform.admitted.config.body.one_way_margin);
     }
     bool admit_response(const Body& platform, b2ShapeId shape, const Body& actor,
                         b2ShapeId actor_shape, b2Pos point, b2Vec2 outward) noexcept {
-        const auto normal = one_way_normal(platform);
-        // Front-facing contacts within60degrees belong to the solid face;
-        // side and underside normals never turn into invisible walls.
-        if (b2Dot(normal, outward) < .5f)
+        const auto surface = response_surface(platform, shape, outward);
+        if (!surface)
             return false;
+        const auto normal = b2RotateVector(b2Body_GetRotation(platform.id), surface->normal);
         const bool continued = std::binary_search(
             response_contacts.begin(), response_contacts.end(), shape_pair(shape, actor_shape));
-        if (!actor.last_start || !platform.last_start ||
-            (!continued &&
-             !solid_side(platform, one_way_surface(platform, shape), actor, actor.response_proxy,
-                         *actor.last_start, *platform.last_start)))
+        if (!actor.last_start || !platform.last_start)
             return false;
+        if (!continued) {
+            auto proxy = actor.response_proxy;
+            if (actor.admitted.config.shape == 3) {
+                // Compound visitors have no single primitive proxy. Use this
+                // contact's admitted piece, including its body-local offset.
+                const auto polygon = b2Shape_GetPolygon(actor_shape);
+                if (polygon.count < 3 || polygon.count > int(tile_collision_vertex_limit)) {
+                    response_failed = true;
+                    return false;
+                }
+                proxy = b2MakeProxy(polygon.vertices, polygon.count, polygon.radius);
+            }
+            if (!solid_side(platform, *surface, actor, proxy, *actor.last_start,
+                            *platform.last_start))
+                return false;
+        }
         const auto a = b2Body_GetWorldPointVelocity(actor.id, point);
         const auto b = b2Body_GetWorldPointVelocity(platform.id, point);
         const double speed =
@@ -1018,13 +1142,19 @@ struct Native2D::Impl {
             return false;
         if (!mover || !platform.admitted.config.body.one_way)
             return true;
-        const auto normal = one_way_normal(platform);
-        if (outward && b2Dot(normal, *outward) < .5f)
+        // Overlap depth performs a broad admission before obtaining a manifold.
+        // Custom surfaces require that manifold's actual face normal.
+        if (!outward && boundary_edges(platform, shape))
+            return true;
+        const auto surface =
+            response_surface(platform, shape, outward ? *outward : one_way_normal(platform));
+        if (!surface)
             return false;
+        const auto normal = b2RotateVector(b2Body_GetRotation(platform.id), surface->normal);
         const auto intent = mover->actor->mover_intent;
         return normal.x * intent[0] + normal.y * intent[1] <= mover_tolerance &&
-               solid_side(platform, one_way_surface(platform, shape), *mover->actor,
-                          mover->actor->response_proxy, mover->pose, sample(platform));
+               solid_side(platform, *surface, *mover->actor, mover->actor->response_proxy,
+                          mover->pose, sample(platform));
     }
     std::map<std::uint64_t, Body> bodies;
     bool one_way_present = false;
@@ -1972,6 +2102,12 @@ struct Native2D::Impl {
         record.mover_crouched = crouched;
         if (config.shape != 3)
             record.response_proxy = configured_proxy(config);
+        try {
+            bind_response_boundaries(record);
+        } catch (...) {
+            b2DestroyBody(id);
+            throw;
+        }
         return record;
     }
 };
@@ -2003,6 +2139,15 @@ Json Body2DConfiguration::json() const {
                     points.push_back(polygon.points[i]);
                 result["polygons"].push_back(std::move(points));
             }
+        // Only the newly admitted custom one-way profile needs boundary
+        // evidence. Previously representable checkpoint configurations retain
+        // their exact value; source loops remain the authoring authority.
+        if (body.one_way && polygons && !polygons->empty()) {
+            result["one_way_edges"] = Json::array();
+            for (const auto& polygon : *polygons)
+                result["one_way_edges"].push_back(polygon.boundary_edges &
+                                                  ((1u << polygon.count) - 1));
+        }
     }
     return result;
 }
@@ -2025,21 +2170,6 @@ bool recovery_pose_matches(const Json& input, const LocalTransform& pose) {
            equivalent(LocalScale{s[0], s[1], s[2]}, pose.scale);
 }
 bool same_vector(b2Vec2 a, b2Vec2 b) { return a.x == b.x && a.y == b.y; }
-using PolygonKey = std::array<float, 4 + 4 * tile_collision_vertex_limit>;
-PolygonKey polygon_key(const b2Polygon& value) {
-    if (value.count < 3 || value.count > int(tile_collision_vertex_limit))
-        throw std::runtime_error("2D compound recovery contains an unsupported polygon");
-    PolygonKey key{float(value.count), value.radius, value.centroid.x, value.centroid.y};
-    for (unsigned i = 0; i < unsigned(value.count); ++i) {
-        key[4 + 4 * i] = value.vertices[i].x;
-        key[5 + 4 * i] = value.vertices[i].y;
-        key[6 + 4 * i] = value.normals[i].x;
-        key[7 + 4 * i] = value.normals[i].y;
-    }
-    if (std::any_of(key.begin(), key.end(), [](float scalar) { return !std::isfinite(scalar); }))
-        throw std::runtime_error("2D compound recovery contains nonfinite polygon geometry");
-    return key;
-}
 // Validate supported public native properties, never native layouts or ID fields.
 Json recovery_native_state(b2BodyId id, std::span<const b2ShapeId> shapes,
                            const Body2DConfiguration& config) {
@@ -2384,6 +2514,7 @@ void Native2D::restore(const Json& metadata, const std::string& bytes, const Des
                 throw std::runtime_error("Recovered2D controller has rigid-body motion");
         } else if (entry->contains("mover"))
             throw std::runtime_error("Rigid2D body has controller recovery state");
+        Impl::bind_response_boundaries(record);
         b2Body_SetUserData(native, &record);
         for (const auto part : record.shapes)
             b2Shape_SetUserData(part, &record);

@@ -10,8 +10,7 @@
 using namespace forge;
 namespace {
 using test_tile_asset_io::check;
-constexpr auto source = "Scenes/123-tile-collision-contours.scene.json";
-Json playback(const std::filesystem::path& root, AssetId scene) {
+Json playback(const std::filesystem::path& root, AssetId scene, bool one_way) {
     RuntimeWorld world({}, {}, std::nullopt, root, false);
     world.scene.restore_snapshot(load_game_scene(root, {scene}));
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(20);
@@ -28,11 +27,13 @@ Json playback(const std::filesystem::path& root, AssetId scene) {
         if (row.at("components").contains("forge.tile_map_renderer"))
             floor = ref;
     }
-    check(world.physics()->status().at("bodies_2d") == 5 &&
-              world.physics()->status().at("shapes_2d") == 20,
+    check(world.physics()->status().at("bodies_2d") == (one_way ? 7 : 5) &&
+              world.physics()->status().at("shapes_2d") == (one_way ? 22 : 20),
           "Contour Gallery lost compound pieces or its four independent actors: " +
               world.physics()->status().dump());
     const auto snapshot = detail::runtime_tile_map_snapshot(world.engine.world(), floor);
+    check(world.scene.entity(floor.entity.str()).get<PhysicsBody2D>().one_way == one_way,
+          "Contour Gallery loaded the wrong one-way body policy");
     check(snapshot && snapshot->cells.occupied() == 5 &&
               snapshot->definition_values.tile(2).collision.contours &&
               snapshot->definition_values.tile(2).collision.contours->contours.size() == 2 &&
@@ -73,19 +74,35 @@ Json playback(const std::filesystem::path& root, AssetId scene) {
             }
             samples.push_back(std::move(sample));
         }
+        if (one_way && (tick == 60 || tick == 90 || tick == 180)) {
+            const auto state =
+                world.physics()->body_state_2d(refs.at("Violet - upward passage through the ring"));
+            check(bool(state), "Custom one-way Gallery lost its rising actor");
+            samples.push_back({{"tick", tick}, {"rising", state->position}});
+            if (tick == 60)
+                check(state->position[1] > -1 && state->linear_velocity[1] > 8,
+                      "Custom one-way Gallery blocked passage through the ring");
+            if (tick == 180)
+                check(std::abs(state->position[1] - 2.1) < .04 &&
+                          std::abs(state->linear_velocity[1]) < .03,
+                      "Custom one-way Gallery riser missed the ordinary ceiling");
+        }
     }
     const auto frame = extract_render_scene(world.simulation.presentation(1));
-    check(frame.diagnostics.empty() && frame.cameras.size() == 1 && frame.sprites.size() == 4 &&
-              frame.tile_maps.size() == 1,
+    check(frame.diagnostics.empty() && frame.cameras.size() == 1 &&
+              frame.sprites.size() == (one_way ? 6 : 4) && frame.tile_maps.size() == 1,
           "Contour Gallery lost its Camera/Sprite/Map composition");
     return samples;
 }
 } // namespace
 int main(int argc, char** argv) {
     try {
-        check(argc == 4, "Need Gallery, scratch and matching asset worker");
+        check(argc == 4 || argc == 5,
+              "Need Gallery, scratch, matching asset worker and optional one-way Scene");
+        const bool one_way = argc == 5;
+        const auto source = one_way ? argv[4] : "Scenes/123-tile-collision-contours.scene.json";
         const auto prepared = test_tile_gallery_scene::prepare(argv[1], argv[2], argv[3], source);
-        const auto authored = playback(prepared.root, prepared.scene);
+        const auto authored = playback(prepared.root, prepared.scene, one_way);
         const auto output = prepared.root.parent_path() / "Content";
         const std::array roots{prepared.scene};
         const auto target = desktop_texture_target();
@@ -93,7 +110,7 @@ int main(int argc, char** argv) {
         const auto moved = prepared.root.parent_path() / "Relocated content";
         std::filesystem::rename(output, moved);
         std::filesystem::rename(prepared.root, prepared.root.string() + "-source-offline");
-        check(playback(moved, prepared.scene) == authored,
+        check(playback(moved, prepared.scene, one_way) == authored,
               "Source-free relocated contour Gallery playback differs");
         std::ofstream out(prepared.root.parent_path() / "contour-playback.json");
         out << Json{{"scene", prepared.scene},

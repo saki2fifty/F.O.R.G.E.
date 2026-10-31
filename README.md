@@ -137,11 +137,16 @@ Gallery101 adds per-tile **Full cell**, **None** and **Convex polygon** profiles
 with mirrored ramps and decorative tiles. Edit normalized vertices in the Tile Set
 Inspector, publish the Set and Map, then test Static, Kinematic or Dynamic collision.
 Gallery120 adds **Polygon (decomposed)** for3–8 vertex simple concave outlines,
-with falling actors landing on upper edges and inside L/U notches. Custom one-way
-polygons remain unavailable; Contours / holes supports bounded voids and separate
+with falling actors landing on upper edges and inside L/U notches. Contours / holes supports bounded voids and separate
 solid regions. Gallery124 adds World-bound Dynamic compound Maps with density or
 mass override, reflection and rotation locks. All pieces share one body and the
 usual C++ controls, cell edits and export workflow.
+
+Gallery125 demonstrates Static/Kinematic nonsensor custom one-way boundaries:
+actors land on original roof, hole-floor and island edges while passing through
+from the back. Decomposition diagonals never become one-way surfaces.
+
+[![Actors resting on a ring roof, its hole floor and island, with a violet actor above the ring at a ceiling](manual/images/custom-one-way-gallery.png)](manual/editor/tile-maps.md#make-painted-platforms-one-way)
 
 [![Three compound Tile Maps falling toward a receiver, including mirrored and rotation-locked instances](manual/images/dynamic-tile-map-gallery.png)](manual/editor/tile-maps.md#make-a-falling-or-tumbling-map)
 

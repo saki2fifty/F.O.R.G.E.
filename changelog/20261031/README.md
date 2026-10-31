@@ -1,5 +1,29 @@
 # 2026-10-31
 
+## Custom polygon one-way boundaries
+
+Static/Kinematic nonsensor Tile Maps now support one-way convex polygons,
+concave outlines, holes and separate regions. Original front-facing edges supply
+their own slope/landing planes. Decomposition diagonals and hole bridges cannot
+become platforms. Rigid contacts, fast-body CCD and character physical queries
+share admission through the existing physics owner. Compound visitors use the
+actual contacting piece for side evidence.
+
+Cell/source replacement, last-good geometry, independent instances, Reset and
+fresh recovery retain their existing owners. Original-boundary acceleration is
+body-owned and rebuilt from checked native geometry after recovery. Source IDs,
+source/cooked formats, C table layout and private codec10 remain unchanged.
+The new custom one-way configuration carries its derived edge masks; older valid
+configurations keep their exact representation. Rebuild C++ modules against the
+matching SDK contract fingerprint.
+
+Gallery125 demonstrates roof, hole-floor and island landings plus upward passage
+to an ordinary ceiling. It adds one Scene and preserves the prior 335 asset records,
+124 Scenes and project settings. Existing Inspector, automation/MCP, C++ and export
+workflows use the same geometry. The README and manual share an authentic Game
+capture. Dynamic/sensor one-way collision remains unsupported. Windows and
+physical desktop/GPU acceptance remain pending.
+
 ## Dynamic Tile Map bodies
 
 World-bound Dynamic Physics Body 2D now admits a complete Tile Map collision layer

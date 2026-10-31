@@ -156,7 +156,8 @@ There are at most4096 total native2D shapes across Map rectangles, convex pieces
 within existing body, joint, pair and event limits. Empty Map actors do not consume
 native body/shape slots. Source6 supports1..4 filled contours with0..4 holes each
 and3..8 counterclockwise points per loop through the same checked convex pieces.
-One-way Map collision excludes Dynamic bodies, custom polygons and sensors.
+One-way Map collision excludes Dynamic bodies and sensors. Custom polygons use
+original front-facing boundary edges, including hole floors and islands.
 Polygon slopes and decomposed contours use ordinary
 contact, query and controller response within the existing controller limits. A Map is not itself a character controller or
 a navigation mesh.
@@ -210,13 +211,23 @@ Fresh recovery restores Map edits before native physics and does not replay even
 ### Static and Kinematic one-way Maps
 
 Static or Kinematic nonsensor Map bodies can enable PhysicsBody2D.one_way.
-The selected layer's rectangles each use their own roof plane, including offset
-and stacked runs. The same native pre-solve/pre-continuous and explicit character
-physical-response context reads one bounded readonly polygon per hit; inline boxes
-retain their existing path. No scan of other rectangles, second plane cache or
-changed native binding/checkpoint layout is needed. Geometric/excluded queries
-still observe complete rectangles. Source edits/empty/refill retain shared Map
-preflight and native retirement. Sensor, Dynamic and custom-polygon one-way Maps reject.
+The selected layer's full-cell rectangles each use their own roof plane, including
+offset and stacked runs. Custom convex/concave/contour pieces preserve original
+boundary edges through decomposition, image orientation and signed physical scale.
+Eligible edges and contact normals must face within 60 degrees of signed local +Y.
+Slopes use their actual outward normal and plane; hole floors and islands remain
+separate surfaces. Decomposition diagonals and hole bridges never become one-way
+surfaces. Both native pre-solve/pre-continuous callbacks and controller physical
+queries use this same admission. Inline boxes retain their existing path.
+
+The native body owns a bounded sorted shape/edge-mask acceleration lookup. Fresh
+recovery validates full geometry and reconstructs it without assuming shape order.
+Original loops stay in source/cooked values; masks enter configuration JSON only
+for the newly admitted custom one-way profile. Previously representable checkpoint
+values and private codec10/outer2 stay unchanged. Geometric queries and conservative
+checked placement still observe complete solid shapes. Source edits/empty/refill
+retain shared Map preflight, epochs and native retirement. Sensor and Dynamic
+one-way Maps reject.
 
 Original Gallery86 reuses PaintedPlatforms: falling actors land on painted roofs,
 and the reversed-gravity cyan circle passes the right platform to an ordinary
@@ -236,8 +247,9 @@ These checks do not establish Windows or graphical executable acceptance.
 ## One-way platforms
 
 `PhysicsBody2D.one_way` defaults to false. Enable it only on a Static or Kinematic nonsensor
-body with one Box Collider 2D or Tile Map Collider 2D. Each rectangle's solid face is transformed local +Y; signed Y
-scale reverses it, and supported Z rotation rotates it. `one_way_margin` is a
+body with one Box Collider 2D or Tile Map Collider 2D. Each rectangle's solid face is transformed local +Y; custom polygons select
+original boundary edges facing within 60 degrees of that direction. Signed Y scale
+reverses the front reference, and supported Z rotation rotates it. `one_way_margin` is a
 finite world-space tolerance in0..1m, default0.02m, with effective minimum0.005m
 native slop. Inactive values remain authored. Kinematic targets or admitted transform
 animation can move one-way platforms; ordinary Dynamic platforms remain outside

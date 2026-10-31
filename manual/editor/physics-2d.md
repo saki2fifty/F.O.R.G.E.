@@ -177,8 +177,9 @@ choose Dynamic for a falling rigid Map. Enable Sensor for triggers with any
 motion type. Density, mass override, locks and ordinary C++ body controls apply
 to the whole selected layer. See **Scenes/124-dynamic-tile-map-bodies.scene.json**
 for falling, tumbling, reflected and rotation-locked instances.
-Static or Kinematic nonsensor Maps using full cells can use **One-way collision**;
-custom polygons cannot. See [Tile Maps](tile-maps.md)
+Static or Kinematic nonsensor Maps using full cells or custom polygons can use
+**One-way collision**. Custom profiles use original front-facing edges, including
+slopes, hole floors and islands. See [Tile Maps](tile-maps.md)
 for profile controls, limits, moving courses and trigger examples.
 
 ## Character movement

@@ -205,7 +205,7 @@ void definition_shapes() {
         const std::vector<TileMapCollisionRectangle> boxes{{{0, 0}, 1, 1}, {{2, 0}, 1, 1}};
         require(geometry.rectangles == boxes && geometry.polygons.size() == 1 &&
                     geometry.polygons[0].origin == TileCellAddress{3, 0} &&
-                    geometry.polygons[0].count == 3,
+                    geometry.polygons[0].count == 3 && geometry.polygons[0].boundary_edges == 7,
                 "No-collision/custom definitions did not split full-cell runs");
         const auto draw = tile_draw_values(definitions, 4, flags, 16, 16);
         for (std::size_t i = 0; i < 3; ++i) {
@@ -236,6 +236,35 @@ void definition_shapes() {
         require(parts.rectangles.size() == 1 && parts.polygons.size() == 4,
                 "Concave tile did not retain its four pieces beside FullCell/None");
         const auto draw = tile_draw_values(concave, 4, flags, 16, 16);
+        const std::array<std::array<double, 2>, 6> boundary{
+            {{0, 0}, {1, 0}, {1, .5}, {.5, .5}, {.5, 1}, {0, 1}}};
+        const auto source_point = [&](const auto& point) {
+            std::array<double, 2> uv{point[0], 1 - point[1]};
+            if (draw.sprite.transpose_uv)
+                std::swap(uv[0], uv[1]);
+            for (unsigned axis = 0; axis < 2; ++axis)
+                uv[axis] =
+                    draw.sprite.region.origin[axis] + uv[axis] * draw.sprite.region.scale[axis];
+            return std::array{uv[0], 1 - uv[1]};
+        };
+        unsigned boundary_count = 0;
+        for (const auto& piece : parts.polygons)
+            for (std::size_t i = 0; i < piece.count; ++i) {
+                const auto a = source_point(piece.points[i]);
+                const auto b = source_point(piece.points[(i + 1) % piece.count]);
+                bool original = false;
+                for (std::size_t j = 0; j < boundary.size(); ++j) {
+                    const auto& p = boundary[j];
+                    const auto& q = boundary[(j + 1) % boundary.size()];
+                    original |= (a == p && b == q) || (a == q && b == p);
+                }
+                const bool marked = (piece.boundary_edges & (1u << i)) != 0;
+                require(marked == original,
+                        "Image-oriented decomposition confused an original edge with a diagonal");
+                boundary_count += unsigned(marked);
+            }
+        require(boundary_count == boundary.size(),
+                "Concave projection lost an original boundary edge");
         for (unsigned y = 0; y < 8; ++y)
             for (unsigned x = 0; x < 8; ++x) {
                 const std::array<double, 2> point{(x + .5) / 8, (y + .5) / 8};
