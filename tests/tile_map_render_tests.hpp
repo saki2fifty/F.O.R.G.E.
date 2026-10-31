@@ -3,6 +3,7 @@
 #include "mesh_render_host.hpp"
 #include "sprite_draw_render_tests.hpp"
 #include "tile_map_data.hpp"
+#include "tile_map_variants.hpp"
 #include "view_image.hpp"
 #include <forge/engine_texture_assets.hpp>
 #include <thread>
@@ -434,5 +435,71 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
                               return pixel == std::array<std::uint8_t, 4>{255, 255, 255, 255};
                           }),
           "Corrected Tile definitions did not adopt the new complete source");
+    surface.textures["baseColorTexture"] = engine_texture(EngineTexture::Checker);
+    host->preview_material({material}, surface);
+    auto neighbor_metadata = animated_metadata;
+    neighbor_metadata["tiles"][0]["autotile"] = {
+        {"enabled", true}, {"rules", {{{"mask", 1}, {"same", 1}, {"tile", tile_key}}}}};
+    const auto neighbor_definitions = std::make_shared<const TileSetData>(decode_cooked_tile_set(
+        asset_detail::encode_envelope(neighbor_metadata, {}, tile_set_cooked_magic,
+                                      tile_set_cooked_metadata_limit, tile_set_cooked_version),
+        set_id));
+    // Independent baked oracle: a north neighbor maps to local north only for
+    // identity/X flip. The other six orientations fall back to the animated root.
+    for (unsigned filter : {0u, 1u, 2u})
+        for (unsigned flags = 0; flags < 8; ++flags) {
+            const std::array<TileMapCellEdit, 2> logical{
+                {{1, {-1, -1}, {9, flags}}, {1, {-1, 0}, {9, 0}}}};
+            const auto raw = std::make_shared<const TileMapData>(cells(map_id, set_id, logical));
+            auto baked = logical;
+            if (flags <= 1)
+                baked[0].value.tile = tile_key;
+            const auto expected = std::make_shared<const TileMapData>(cells(map_id, set_id, baked));
+            scene.tile_maps[0].renderer.mip_filter = filter;
+            for (double time : {0., .125, .25}) {
+                scene.tile_maps[0].animation_seconds = time;
+                scene.tile_maps[0].cells = expected;
+                scene.tile_maps[0].definitions = animated;
+                scene.tile_maps[0].variants.reset();
+                settle();
+                const auto oracle = render();
+                scene.tile_maps[0].cells = raw;
+                scene.tile_maps[0].definitions = neighbor_definitions;
+                settle();
+                check(renderer.diagnostics().empty() && render() == oracle &&
+                          raw->cell(1, {-1, -1}).tile == 9,
+                      "Native selected images/animation/flags differ from independent baked cells");
+                const auto bytes = renderer.material_payload_bytes();
+                settle();
+                check(render() == oracle && renderer.material_payload_bytes() == bytes,
+                      "Unchanged neighbor draw grew retained selection/value storage");
+            }
+            // Reject a new raw pair before preparation, then retry that exact
+            // pair with a corrected projection. The extra tile needs an image
+            // absent from the old draw in six orientations; stale request keys
+            // would skip its image/bounds discovery on the retry.
+            const auto held = render();
+            const std::array<TileMapCellEdit, 3> retry_cells{
+                logical[0], logical[1], {1, {0, -1}, {tile_key, 0}}};
+            const auto retry_raw =
+                std::make_shared<const TileMapData>(cells(map_id, set_id, retry_cells));
+            scene.tile_maps[0].cells = retry_raw;
+            scene.tile_maps[0].variants = resolve_tile_variants(expected, neighbor_definitions);
+            settle();
+            check(!renderer.diagnostics().empty() && render() == held,
+                  "Foreign neighbor projection discarded the complete last-good draw");
+            scene.tile_maps[0].variants.reset();
+            settle();
+            const auto retried = render();
+            check(renderer.diagnostics().empty() && renderer.draw_stats().instances == 3,
+                  "Corrected neighbor request did not discover/admit its new image and cells");
+            const std::array<TileMapCellEdit, 3> retry_baked{baked[0], baked[1], retry_cells[2]};
+            scene.tile_maps[0].cells =
+                std::make_shared<const TileMapData>(cells(map_id, set_id, retry_baked));
+            scene.tile_maps[0].definitions = animated;
+            settle();
+            check(renderer.diagnostics().empty() && render() == retried,
+                  "Retried neighbor draw differs from the independent three-cell oracle");
+        }
 }
 } // namespace forge::test_tile_map_render

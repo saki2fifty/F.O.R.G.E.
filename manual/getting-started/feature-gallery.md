@@ -1,5 +1,12 @@
 # Explore the Feature Gallery
 
+**122-neighbor-tiles** uses one painted tile for edges around a hole, a flipped L
+and an isolated arrow; connected interiors animate. Open
+**Assets/Tiles/NeighborDirections.tileset.json**, select the paint tile and edit
+**Tile neighbor rules** in Inspector. Apply, save/publish the Set and Map, then
+Play. Paint or erase cells to change their selected neighbors. See
+[Choose tiles from their neighbors](../editor/tile-maps.md).
+
 **121-animated-tiles** has four rows of arrows: forward, reverse, variable-duration
 and static. Open **Assets/Tiles/AnimatedDirections.tileset.json**, select a tile
 and edit **Tile animation** in Inspector. Apply, save/publish the Set and Map,

@@ -46,7 +46,7 @@ int main() {
         const auto legacy = decode_tile_map_projection_header(legacy_header, id, set);
         check(legacy.definitions.tile(9).collision.kind == TileCollisionKind::FullCell,
               "Legacy copied Tile Set did not retain full-cell behavior");
-        for (const Json& version : {Json(0), Json(5), Json(2.0)}) {
+        for (const Json& version : {Json(0), Json(tile_set_cooked_version + 1), Json(2.0)}) {
             auto invalid = shaped_header;
             invalid["definitions_version"] = version;
             rejects([&] { decode_tile_map_projection_header(invalid, id, set); });

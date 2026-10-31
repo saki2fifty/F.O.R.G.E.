@@ -26,6 +26,7 @@ struct TileSetSource {
     void validate_upgrade(const TileSetSource& next) const;
     void set_collision(std::uint64_t tile, const nlohmann::json&);
     void set_animation(std::uint64_t tile, const nlohmann::json&);
+    void set_autotile(std::uint64_t tile, const nlohmann::json&);
     std::vector<AssetRef<MaterialAsset>> materials() const;
 };
 } // namespace forge

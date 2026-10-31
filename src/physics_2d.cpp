@@ -439,14 +439,16 @@ PhysicsOverlap2D controller_shape_2d(const Body2DConfiguration& config, Double2 
 }
 Body2DConfiguration tile_map_configuration_2d(PhysicsBody2D body, const TileMapData& cells,
                                               std::uint64_t layer, LocalScale scale,
-                                              const TileSetData* definitions) {
+                                              const TileSetData* definitions,
+                                              const TileMapVariants* variants) {
     validate_tile_map_body(body);
     if (!std::isfinite(scale.x) || !std::isfinite(scale.y) || !std::isfinite(scale.z))
         throw std::runtime_error("2D collider scale must be finite");
     if (scale.x == 0 || scale.y == 0)
         throw std::runtime_error("Tile Map collision requires nonzero XY scale");
     const auto geometry =
-        definitions ? tile_map_collision_geometry(cells, *definitions, layer)
+        definitions ? tile_map_collision_geometry(cells, *definitions, layer,
+                                                  tile_map_collision_rectangle_limit, variants)
                     : TileMapCollisionGeometry{tile_map_collision_rectangles(cells, layer), {}};
     validate_one_way(body, 3, !geometry.polygons.empty());
     const auto& rectangles = geometry.rectangles;
@@ -753,7 +755,8 @@ Desired2D desired_bodies_2d(WorldContext& context, const PhysicsConfig& settings
                 config.polygons = old->config.polygons;
             } else {
                 config = tile_map_configuration_2d(body, selected->cells, collider.layer,
-                                                   pose.scale, &selected->definition_values);
+                                                   pose.scale, &selected->definition_values,
+                                                   selected->variants.get());
             }
             validate_one_way(body, 3, config.polygons && !config.polygons->empty());
             // An empty layer has no collision or native handle. Refilling it

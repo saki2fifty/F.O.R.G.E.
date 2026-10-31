@@ -1,5 +1,6 @@
 #include "tile_map_play_receiver.hpp"
 #include "tile_map_projection_fixture.hpp"
+#include "tile_map_variants.hpp"
 #include <forge/render_scene.hpp>
 #include <iostream>
 using namespace forge;
@@ -107,6 +108,35 @@ int main() {
             drain(sender, old_observer);
             check(bound(old_observer, scene, view).animation_seconds == 0,
                   "Legacy untimed observation acquired animation time");
+        }
+        {
+            auto neighbor_view = view;
+            neighbor_view.definitions =
+                std::make_shared<const TileSetData>(definitions(set, true, false, true, true));
+            neighbor_view.set_revision = "neighbor-five";
+            TileMapPlaySource sender;
+            TileMapPlayReceiver observer;
+            observer.observe(sender.capture(1, scene, std::span(&neighbor_view, 1)));
+            drain(sender, observer);
+            auto current = bound(observer, scene, neighbor_view);
+            check(current.cells && current.definitions && current.definitions->has_autotiles() &&
+                      current.cells->cell(1, {}).tile == 9 &&
+                      current.definitions->tile(9).autotile->rules[0].tile == wide,
+                  "Copied Source5 definitions lost neighbor rules/full-width IDs or changed "
+                  "logical cells");
+            const auto selected = resolve_tile_variants(current.cells, current.definitions);
+            selected->for_each_chunk([&](auto, auto cells, auto) {
+                for (const auto& cell : cells)
+                    check(!cell.tile || cell.tile == wide,
+                          "Copied neighbor selection differs from authored rules");
+            });
+            neighbor_view.animation_seconds = .5;
+            observer.observe(sender.capture(1, scene, std::span(&neighbor_view, 1)));
+            const auto next = bound(observer, scene, neighbor_view);
+            check(!observer.pending() && !observer.next_request() && next.cells == current.cells &&
+                      next.definitions == current.definitions &&
+                      resolve_tile_variants(next.cells, next.definitions, selected) == selected,
+                  "Copied time-only update rebuilt cells/definitions/neighbor selection");
         }
         {
             auto polygon_view = view;

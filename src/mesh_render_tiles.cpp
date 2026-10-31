@@ -1,6 +1,7 @@
 #include "mesh_render_host.hpp"
 #include "sprite_render_values.hpp"
 #include "tile_map_data.hpp"
+#include "tile_map_variants.hpp"
 #include <cmath>
 #include <forge/engine_assets.hpp>
 #include <set>
@@ -131,6 +132,21 @@ std::uint64_t MeshSceneRenderer::tile_material_bytes() const {
             throw std::runtime_error("Tile image values exceed the scene payload budget");
         result += count;
     }
+    if (!tile_variant_bytes_) {
+        std::vector<const TileMapVariants*> variants;
+        for (const auto& [id, source] : tile_sources_) {
+            (void)id;
+            if (source.variants)
+                variants.push_back(source.variants.get());
+            if (source.requested_variants)
+                variants.push_back(source.requested_variants.get());
+        }
+        tile_variant_bytes_ = TileMapVariants::resident_bytes(variants);
+    }
+    const auto derived = *tile_variant_bytes_;
+    if (derived > material_budget_ - result)
+        throw std::runtime_error("Tile neighbor selections exceed the scene payload budget");
+    result += derived;
     return result;
 }
 std::vector<MeshSceneRenderer::TileImageInput>
@@ -139,7 +155,9 @@ MeshSceneRenderer::prepare_tile_sources(const RenderScene& scene) {
     std::set<EntityId> used;
     for (const auto& map : scene.tile_maps)
         require(used.insert(map.entity).second, "Presentation repeats a Tile Map actor");
-    std::erase_if(tile_sources_, [&](const auto& value) { return !used.contains(value.first); });
+    if (std::erase_if(tile_sources_,
+                      [&](const auto& value) { return !used.contains(value.first); }))
+        tile_variant_bytes_.reset();
     if (tile_sources_.empty())
         std::vector<AffineTransform>{}.swap(tile_worlds_);
     std::vector<TileImageInput> inputs;
@@ -150,17 +168,19 @@ MeshSceneRenderer::prepare_tile_sources(const RenderScene& scene) {
         if (input.runtime_instance &&
             (!input.cells || !input.definitions || !source.requested.runtime_instance ||
              source.requested.generation != input.generation ||
-             source.requested.renderer.map != input.renderer.map))
+             source.requested.renderer.map != input.renderer.map)) {
             source = {};
+            tile_variant_bytes_.reset();
+        }
         if (!input.renderer.map.id || !input.renderer.enabled) {
             source = {};
+            tile_variant_bytes_.reset();
             source.requested = input;
             continue;
         }
         const auto map = resolve_tile_assets(source, input);
         const bool changed =
             source.requested.cells != map.cells || source.requested.definitions != map.definitions;
-        source.requested = map;
         source.pending = map.pending;
         source.rejected = false;
         try {
@@ -171,6 +191,7 @@ MeshSceneRenderer::prepare_tile_sources(const RenderScene& scene) {
             if (!map.diagnostic.empty() && !map.pending)
                 report(map.entity, map.diagnostic, DrawScope::TileMap);
             if (!map.cells || !map.definitions) {
+                source.requested = map;
                 if (!map.pending && map.diagnostic.empty())
                     report(map.entity, "Tile Map data is unavailable", DrawScope::TileMap);
                 continue;
@@ -179,12 +200,37 @@ MeshSceneRenderer::prepare_tile_sources(const RenderScene& scene) {
                     "Tile Map draw cells have a different root identity");
             require(map.cells->tile_set() == map.definitions->asset(),
                     "Tile Map cells and definitions have different bindings");
+            if (map.variants)
+                require(map.variants->matches(map.cells.get(), map.definitions.get()),
+                        "Tile neighbor selection belongs to a different snapshot");
+            if (!map.definitions->has_autotiles()) {
+                if (source.requested_variants) {
+                    source.requested_variants.reset();
+                    tile_variant_bytes_.reset();
+                }
+            } else if (!source.requested_variants || !source.requested_variants->matches(
+                                                         map.cells.get(), map.definitions.get())) {
+                auto previous =
+                    source.requested_variants ? source.requested_variants : source.variants;
+                source.requested_variants =
+                    map.variants
+                        ? map.variants
+                        : resolve_tile_variants(map.cells, map.definitions, std::move(previous));
+                tile_variant_bytes_.reset();
+                try {
+                    (void)tile_material_bytes();
+                } catch (...) {
+                    source.requested_variants.reset();
+                    tile_variant_bytes_.reset();
+                    throw;
+                }
+            }
             if (changed) {
                 std::set<std::uint64_t> images;
                 std::map<std::uint64_t, RenderBounds> bounds;
                 std::size_t visible_cells = 0;
                 const auto size = map.cells->cell_size();
-                map.cells->for_each_chunk([&](auto chunk, auto cells, auto occupied) {
+                const auto inspect_chunk = [&](auto chunk, auto cells, auto occupied) {
                     const auto& layers = map.cells->layers();
                     const auto layer =
                         std::find_if(layers.begin(), layers.end(),
@@ -208,7 +254,11 @@ MeshSceneRenderer::prepare_tile_sources(const RenderScene& scene) {
                                     std::max(row->second.maximum[axis], cell.maximum[axis]);
                             }
                     }
-                });
+                };
+                if (source.requested_variants)
+                    source.requested_variants->for_each_chunk(inspect_chunk);
+                else
+                    map.cells->for_each_chunk(inspect_chunk);
                 source.used_images.assign(images.begin(), images.end());
                 source.requested_bounds = std::move(bounds);
                 source.requested_visible_cells = visible_cells;
@@ -231,6 +281,7 @@ MeshSceneRenderer::prepare_tile_sources(const RenderScene& scene) {
                 input.sprite.mip_filter = map.renderer.mip_filter;
                 inputs.push_back(std::move(input));
             }
+            source.requested = map;
         } catch (const std::exception& error) {
             source.pending = false;
             source.rejected = true;
@@ -274,6 +325,10 @@ void MeshSceneRenderer::adopt_tile_images() {
                     source.bounds = source.requested_bounds;
                 source.cells = request.cells;
                 source.definitions = request.definitions;
+                if (source.variants != source.requested_variants) {
+                    source.variants = source.requested_variants;
+                    tile_variant_bytes_.reset();
+                }
                 source.visible_cells = source.requested_visible_cells;
                 continue;
             }
@@ -346,6 +401,10 @@ void MeshSceneRenderer::adopt_tile_images() {
             }
             source.cells = request.cells;
             source.definitions = request.definitions;
+            if (source.variants != source.requested_variants) {
+                source.variants = source.requested_variants;
+                tile_variant_bytes_.reset();
+            }
             source.images = std::move(images);
             source.bounds = source.requested_bounds;
             source.visible_cells = source.requested_visible_cells;

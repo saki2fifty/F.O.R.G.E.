@@ -227,7 +227,8 @@ void definition_shapes() {
     concave_source.set_collision(
         4, {{"kind", "polygon"},
             {"points", {{0., 0.}, {1., 0.}, {1., .5}, {.5, .5}, {.5, 1.}, {0., 1.}}}});
-    const auto concave = decode_cooked_tile_set(cook_tile_set(concave_source), source.asset(), 3);
+    const auto concave = decode_cooked_tile_set(cook_tile_set(concave_source), source.asset(),
+                                                tile_set_cooked_version);
     for (std::uint32_t flags = 0; flags < 8; ++flags) {
         const Cells cells{{{selected_layer, {0, 0}}, {{0, {2, 0}}, {1, {3, 0}}, {2, {4, flags}}}}};
         const auto map = map_value(cells, source.asset());

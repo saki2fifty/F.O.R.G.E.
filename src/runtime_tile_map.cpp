@@ -16,6 +16,7 @@ constexpr std::size_t checkpoint_byte_limit = 8 * 1024 * 1024;
 // Same copied-cell profile as Play projection; compact sparse JSON must not
 // expand into unbounded chunk arrays during private reconstruction.
 constexpr std::size_t checkpoint_cell_limit = 64 * 1024 * 1024;
+constexpr std::size_t variant_byte_limit = 64 * 1024 * 1024;
 void require(bool value, const char* why) {
     if (!value)
         throw std::runtime_error(why);
@@ -129,6 +130,25 @@ void require_ready(Instance& state, const RuntimeResourceStatus& status, const c
     throw std::runtime_error(std::string(label) + ": " +
                              (status.diagnostic.empty() ? status.state : status.diagnostic));
 }
+void select_variants(const std::shared_ptr<RuntimeTileMapSnapshot>& candidate,
+                     std::shared_ptr<const TileMapVariants> previous) {
+    candidate->variants =
+        resolve_tile_variants({candidate, &candidate->cells},
+                              {candidate, &candidate->definition_values}, std::move(previous));
+}
+void admit_variants(WorldContext& context, const Instance* replaced,
+                    const RuntimeTileMapSnapshot& candidate) {
+    std::vector<const TileMapVariants*> retained;
+    context.world().each([&](const RuntimeTileMapState& state) {
+        if (state.value.get() != replaced && state.value->snapshot &&
+            state.value->snapshot->variants)
+            retained.push_back(state.value->snapshot->variants.get());
+    });
+    if (candidate.variants)
+        retained.push_back(candidate.variants.get());
+    require(TileMapVariants::resident_bytes(retained) <= variant_byte_limit,
+            "Runtime Tile Map neighbor selections exceed the world memory profile");
+}
 void adopt(WorldContext& context, Instance& state, bool reset, EntityRef target) {
     state.pending = false;
     require(bool(state.requested), "Tile Map has no assigned asset");
@@ -172,6 +192,17 @@ void adopt(WorldContext& context, Instance& state, bool reset, EntityRef target)
     candidate->asset = map;
     candidate->definitions = definitions;
     candidate->definition_values = definitions.get();
+    auto hint = previous ? previous->variants : nullptr;
+    if (!hint && candidate->definition_values.has_autotiles())
+        context.world().each([&](const RuntimeTileMapState& other) {
+            const auto& snapshot = other.value->snapshot;
+            if (!hint && snapshot && snapshot->variants &&
+                snapshot->cells.asset() == candidate->cells.asset() &&
+                &snapshot->definition_values.tiles() == &candidate->definition_values.tiles())
+                hint = snapshot->variants;
+        });
+    select_variants(candidate, std::move(hint));
+    admit_variants(context, &state, *candidate);
     if (const auto& admission = queue(context).physics_admission)
         admission(target, *candidate, reset);
     candidate->generation = generation(queue(context));
@@ -351,6 +382,7 @@ void bind_runtime_tile_maps(WorldContext& context, RenderScene& scene) {
         map.generation = map.revision = 0;
         map.cells.reset();
         map.definitions.reset();
+        map.variants.reset();
         map.diagnostic.clear();
         try {
             const EntityRef target{scene.scene, map.entity};
@@ -362,6 +394,7 @@ void bind_runtime_tile_maps(WorldContext& context, RenderScene& scene) {
             const auto snapshot = runtime_tile_map_snapshot(context, target);
             map.cells = {snapshot, &snapshot->cells};
             map.definitions = {snapshot, &snapshot->definition_values};
+            map.variants = snapshot->variants;
             map.generation = snapshot->generation;
             map.revision = snapshot->revision;
         } catch (const std::exception& error) {
@@ -449,6 +482,8 @@ void publish_runtime_tile_edits(WorldContext& context) {
                 auto candidate = std::make_shared<RuntimeTileMapSnapshot>(*snapshot);
                 candidate->cells =
                     snapshot->cells.with_cells(command.writes, snapshot->definitions.get());
+                select_variants(candidate, snapshot->variants);
+                admit_variants(context, state.get(), *candidate);
                 if (const auto& admission = values.physics_admission)
                     admission(command.target, *candidate, true);
                 ++candidate->revision;
@@ -640,6 +675,7 @@ void restore_runtime_tile_maps(WorldContext& context, const Json& input) {
             (void)tile_map_projection_changes(restored, &selected->cells);
             candidate->cells = std::move(restored);
         }
+        select_variants(candidate, selected->variants);
         retained.push_back(&candidate->cells);
         require(TileMapData::resident_bytes(retained) <= checkpoint_cell_limit,
                 "Tile Map recovery exceeds copied cell memory profile");
@@ -648,6 +684,20 @@ void restore_runtime_tile_maps(WorldContext& context, const Json& input) {
     for (const auto ref : targets)
         require(!active_map(target_entity(context, ref)) || seen.contains(ref),
                 "Tile Map checkpoint omits an active instance");
+    std::set<const Instance*> replaced;
+    std::vector<const TileMapVariants*> selected_variants;
+    for (const auto& [state, snapshot] : candidates) {
+        replaced.insert(state.get());
+        if (snapshot->variants)
+            selected_variants.push_back(snapshot->variants.get());
+    }
+    context.world().each([&](const RuntimeTileMapState& state) {
+        if (!replaced.contains(state.value.get()) && state.value->snapshot &&
+            state.value->snapshot->variants)
+            selected_variants.push_back(state.value->snapshot->variants.get());
+    });
+    require(TileMapVariants::resident_bytes(selected_variants) <= variant_byte_limit,
+            "Tile Map recovery neighbor selections exceed the world memory profile");
     for (auto& [state, snapshot] : candidates)
         state->snapshot = std::move(snapshot);
     // Nonrestored disabled instances can have prepared newer generations in the

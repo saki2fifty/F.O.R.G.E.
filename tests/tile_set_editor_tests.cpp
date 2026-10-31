@@ -267,6 +267,43 @@ void exercise(const std::filesystem::path& scratch, float scale, bool compact) {
     check(preview_seconds == 0 && editor.document()->revision() == before_preview &&
               editor.document()->source().document == animated_source,
           "Asset preview restart changed authored source or did not reset local time");
+    click("tile_set:autotile_enabled");
+    check(editor.has_unapplied_edits() && !editor.can_undo() && !editor.can_redo(),
+          "Unapplied neighbor rules did not lock source history");
+    click("tile_set:autotile_neighbor:0:0");
+    click("tile_set:autotile_neighbor:0:7");
+    click("tile_set:autotile_neighbor:0:7");
+    click("tile_set:autotile_add");
+    click("tile_set:autotile_target:1");
+    click("tile_set:autotile_target:1:2");
+    click("tile_set:autotile_up:1");
+    click("tile_set:autotile_apply");
+    const auto neighbor_source = editor.document()->source().document;
+    const auto neighbor = editor.document()->source().values().tiles.back().autotile;
+    check(
+        !editor.has_unapplied_edits() && neighbor_source.at("version") == 5 && neighbor &&
+            neighbor->enabled && neighbor->rules.size() == 2 &&
+            neighbor->rules[0] == TileNeighborRule{0, 0, 2} &&
+            neighbor->rules[1] == TileNeighborRule{129, 1, 4} &&
+            neighbor_source["tiles"].back()["animation"] ==
+                animated_source["tiles"].back()["animation"] &&
+            neighbor_source["tiles"].back()["collision"] ==
+                animated_source["tiles"].back()["collision"],
+        "Neighbor Inspector did not preserve rule order, compass conditions and sibling profiles");
+    click("tile_set:autotile_remove:0");
+    check(editor.has_unapplied_edits(), "Remove neighbor rule did not stage an edit at scale " +
+                                            std::to_string(scale) + ": " +
+                                            editor.document()->source().document.dump());
+    click("tile_set:autotile_discard");
+    check(!editor.has_unapplied_edits() && editor.document()->source().document == neighbor_source,
+          "Discarding neighbor edits changed authored source");
+    click("tile_set:undo");
+    check(editor.document()->source().document == animated_source,
+          "Neighbor Undo lost source history");
+    click("tile_set:redo");
+    check(editor.document()->source().document == neighbor_source,
+          "Neighbor Redo lost source history");
+    click("tile_set:undo");
     click("tile_set:undo");
     check(editor.document()->source().document == concave_source,
           "Animation Undo lost the complete previous source/profile version");
@@ -331,9 +368,9 @@ void exercise(const std::filesystem::path& scratch, float scale, bool compact) {
     ImGui::DestroyContext();
 }
 void capture_controls(const std::filesystem::path& root, bool concave = false,
-                      bool animated = false) {
+                      bool animated = false, bool neighbors = false) {
     std::filesystem::create_directories(root / "project");
-    test::ImGuiSoftwareCapture capture(760, concave ? 1100 : 1000);
+    test::ImGuiSoftwareCapture capture(760, neighbors ? 620 : concave ? 1100 : 1000);
     ui::style(1);
     ui::EditorUiContext context;
     ui::ContextScope scope(context);
@@ -375,6 +412,18 @@ void capture_controls(const std::filesystem::path& root, bool concave = false,
         else
             source.set_collision(2,
                                  {{"kind", "convex"}, {"points", {{0., 0.}, {1., 0.}, {1., 1.}}}});
+        if (neighbors) {
+            source.document["next_id"] = 5;
+            source.document["tiles"][0]["name"] = "Paint this tile";
+            source.document["tiles"].push_back(
+                {{"id", 3}, {"name", "North edge"}, {"image", 1}, {"frame", 0}});
+            source.document["tiles"].push_back(
+                {{"id", 4}, {"name", "South edge"}, {"image", 1}, {"frame", 0}});
+            source.set_autotile(2, {{"enabled", true},
+                                    {"rules",
+                                     {{{"mask", 1}, {"same", 0}, {"tile", 3}},
+                                      {{"mask", 16}, {"same", 0}, {"tile", 4}}}}});
+        }
     });
     document->save();
     document.reset();
@@ -384,26 +433,31 @@ void capture_controls(const std::filesystem::path& root, bool concave = false,
     for (unsigned frame = 0; frame < 3; ++frame) {
         capture.new_frame();
         ImGui::SetNextWindowPos({10, 10});
-        ImGui::SetNextWindowSize({740, concave ? 1080.f : 980.f});
+        ImGui::SetNextWindowSize({740, neighbors ? 600.f : concave ? 1080.f : 980.f});
         ImGui::Begin("Inspector", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
         editor.inspect("tile/2", false);
+        if (neighbors)
+            ImGui::SetScrollY(ImGui::GetScrollMaxY());
         ImGui::End();
         capture.render();
     }
     check(editor.diagnostic().empty(), "Collision capture has source diagnostics");
-    capture.save(root / (animated  ? "animated-tile-controls.png"
-                         : concave ? "concave-tile-collision-controls.png"
-                                   : "tile-collision-profile.png"));
+    capture.save(root / (neighbors  ? "neighbor-tile-controls.png"
+                         : animated ? "animated-tile-controls.png"
+                         : concave  ? "concave-tile-collision-controls.png"
+                                    : "tile-collision-profile.png"));
 }
 } // namespace
 int main(int argc, char** argv) {
     try {
         if (argc == 3 && (std::string_view(argv[2]) == "--capture" ||
                           std::string_view(argv[2]) == "--capture-concave" ||
-                          std::string_view(argv[2]) == "--capture-animation")) {
+                          std::string_view(argv[2]) == "--capture-animation" ||
+                          std::string_view(argv[2]) == "--capture-neighbors")) {
             capture_controls(std::filesystem::absolute(argv[1]),
                              std::string_view(argv[2]) == "--capture-concave",
-                             std::string_view(argv[2]) == "--capture-animation");
+                             std::string_view(argv[2]) == "--capture-animation",
+                             std::string_view(argv[2]) == "--capture-neighbors");
             return 0;
         }
         check(argc == 2, "Expected scratch directory");

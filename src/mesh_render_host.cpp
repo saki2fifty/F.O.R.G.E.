@@ -9,6 +9,7 @@
 #include "sprite_draw_selection.hpp"
 #include "sprite_render_values.hpp"
 #include "tile_map_pick.hpp"
+#include "tile_map_variants.hpp"
 #include "tile_map_view.hpp"
 #include <forge/asset_build.hpp>
 #include <forge/engine_assets.hpp>
@@ -605,6 +606,7 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
         sprites_.clear();
         tile_images_.clear();
         tile_sources_.clear();
+        tile_variant_bytes_.reset();
         std::vector<AffineTransform>{}.swap(tile_worlds_);
         particle_sources_.clear();
         particle_instances_.clear();
@@ -1301,11 +1303,19 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                             [&](const auto& value) { return value.id == chunk.key.layer; });
                         if (layer == available_layers.end())
                             throw std::runtime_error("Tile draw chunk has no layer");
+                        auto overrides = source.variants ? source.variants->overrides(chunk.key)
+                                                         : std::span<const TileVariantOverride>{};
                         for (std::uint32_t slot = 0; slot < tile_chunk_cells; ++slot) {
                             const auto& cell = chunk.cells[slot];
                             if (!cell.tile)
                                 continue;
-                            const auto& definition = source.definitions->tile(cell.tile);
+                            const auto selected_tile =
+                                !overrides.empty() && overrides.front().slot == slot
+                                    ? overrides.front().tile
+                                    : cell.tile;
+                            if (!overrides.empty() && overrides.front().slot == slot)
+                                overrides = overrides.subspan(1);
+                            const auto& definition = source.definitions->tile(selected_tile);
                             auto& image = source.images.at(definition.image);
                             const auto world =
                                 tile_cell_world(tile_cell_address({chunk.key.address, slot}),
@@ -1317,7 +1327,7 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                             if (tile_worlds_.size() == tile_map_cell_limit)
                                 throw std::runtime_error(
                                     "Visible Tile Map cells exceed the 262144-instance profile");
-                            const auto key = std::pair{cell.tile, cell.flags};
+                            const auto key = std::pair{selected_tile, cell.flags};
                             auto values = source.values.find(key);
                             const bool missing = values == source.values.end();
                             const bool animated =
@@ -1343,7 +1353,7 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                                             "Tile image values exceed the scene payload budget");
                                 }
                                 auto numeric = tile_draw_frame_values(
-                                    *source.definitions, cell.tile, cell.flags, image.width,
+                                    *source.definitions, selected_tile, cell.flags, image.width,
                                     image.height, selected, source.color);
                                 TileDrawSource::Values prepared{std::move(numeric.sprite)};
                                 prepared.frame = selected;

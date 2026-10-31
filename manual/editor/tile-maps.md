@@ -68,6 +68,47 @@ the sequence again. Frames are sampled at simulation ticks, so very short frames
 may be skipped. Animation changes the image only: painted collision stays
 fixed. Use separate collision definitions when different shapes are needed.
 
+## Choose tiles from their neighbors
+
+Open **Scenes/122-neighbor-tiles.scene.json** in the Feature Gallery and press
+Play. One painted tile makes the edges around a hole, the flipped L and the
+isolated arrow. Connected interior cells animate. Stop and open
+**Assets/Tiles/NeighborDirections.tileset.json** to edit the paint tile's rules.
+
+![Arrow tiles form edges around a hole, a flipped L and an isolated cell](../images/neighbor-tile-gallery.png)
+
+Each occupied cell stores the same paint tile; its neighbors choose the result.
+
+A tile can choose its appearance and collision from surrounding painted cells.
+The Map continues to store the tile you painted. Painting or erasing a neighbor
+updates the selected result, including across chunk boundaries.
+
+1. Open a Tile Set in Content and select the tile you want to paint.
+2. In Inspector, expand **Tile neighbor rules** and turn on **Enabled**.
+3. Under **Rule 1**, use **Select tile** to choose the result. You can choose this tile itself or a tile without enabled neighbor rules.
+4. Click the compass buttons to cycle **Any**, **Same** and **Different**. Same means the same painted tile in the same Map layer. Different includes empty cells. For example, **N: Different** matches an exposed upper edge.
+5. Use **Add rule** for more cases. **Move up** and **Move down** change priority; **Remove** deletes a rule. The first matching rule wins. If none matches, the painted tile uses its own image, animation and collision.
+6. Choose **Apply neighbor rules** to validate all rules in one Undo step, or **Discard neighbor edits** to keep the applied rules. Apply or discard before saving, using history or selecting another tile.
+7. Choose **Save / Publish**, then save/publish each affected Tile Map. Open the Map and paint the rule tile. Return to Scene or Play to inspect the result. Save the Scene and choose it as startup before exporting.
+
+Enabled profiles need 1–64 rules. **Any** ignores that neighbor. All other
+conditions in a rule must match together. Compass directions follow the painted
+cell's flip/transpose settings. Separate layers do not connect. The selected tile
+can animate and have its own collision shape; animation frames keep that selected
+shape. For collision in the game, add the usual Tile Map Collider and Physics
+Body 2D to the Map actor. Turning **Enabled** off keeps the rules and uses the
+painted tile's own definition.
+
+Rules cannot select another tile with enabled neighbor rules. A missing target
+or a conflicting legacy `autotile` extension prevents Apply. Resolve the named
+source data before trying again. The existing Tile Set size and publication
+limits still apply to the complete source.
+
+![Tile neighbor rule Inspector with compass conditions, target tiles, priority and Apply or Discard](../images/neighbor-tile-controls.png)
+
+The first rule selects an exposed north edge; the second selects an exposed south edge.
+
+
 ## Make a map
 
 Create a Sprite image material from an imported image. Use Content's **Create /

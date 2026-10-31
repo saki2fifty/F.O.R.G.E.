@@ -23,6 +23,8 @@ for source, cooked in (('Assets/Shape.mesh.json', 'mesh.bin'),
                        ('Assets/Tiles/Directions.tileset.json', 'tileset.bin'),
                        ('Assets/Tiles/AnimatedDirections.tileset.json', 'tileset.bin'),
                        ('Assets/Tiles/AnimatedDirections.tilemap.json', 'tilemap.bin'),
+                       ('Assets/Tiles/NeighborDirections.tileset.json', 'tileset.bin'),
+                       ('Assets/Tiles/NeighborDirections.tilemap.json', 'tilemap.bin'),
                        ('Assets/Tiles/CollisionProfiles.tileset.json', 'tileset.bin'),
                        ('Assets/Tiles/CollisionProfiles.tilemap.json', 'tilemap.bin'),
                        ('Assets/Tiles/ConcaveTiles.material.json', 'material.values'),
@@ -186,6 +188,18 @@ assert [f['frame'] for f in animated_set['tiles'][0]['animation']['frames']] == 
 assert [f['frame'] for f in animated_set['tiles'][1]['animation']['frames']] == [3, 2, 1, 0]
 assert [f['seconds'] for f in animated_set['tiles'][2]['animation']['frames']] == [.125, .25, .125, .5]
 assert 'animation' not in animated_set['tiles'][3]
+neighbor_scene = json.loads((project_root / 'Scenes/122-neighbor-tiles.scene.json').read_text())
+neighbor_maps = [e['components']['forge.tile_map_renderer'] for e in neighbor_scene['entities']
+                 if 'forge.tile_map_renderer' in e['components']]
+assert len(neighbor_maps) == 1 and neighbor_maps[0]['map'] == by_source[
+    'Assets/Tiles/NeighborDirections.tilemap.json']['id']
+neighbor_set = json.loads((project_root / 'Assets/Tiles/NeighborDirections.tileset.json').read_text())
+assert neighbor_set['version'] == 5 and len(neighbor_set['tiles']) == 5
+assert neighbor_set['tiles'][0]['autotile'] == dict(enabled=True, rules=[
+    dict(mask=1, same=0, tile=3), dict(mask=4, same=0, tile=4),
+    dict(mask=16, same=0, tile=5), dict(mask=64, same=0, tile=6)])
+assert len(neighbor_set['tiles'][0]['animation']['frames']) == 4
+assert not any('autotile' in row for row in neighbor_set['tiles'][1:])
 panel_scene = json.loads((project_root / 'Scenes/73-sprite-image-fill.scene.json').read_text(encoding='utf-8'))
 panels = [row['components']['forge.sprite_renderer'] for row in panel_scene['entities']
           if 'forge.sprite_renderer' in row['components']]

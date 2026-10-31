@@ -481,6 +481,7 @@ void TileMapPlayReceiver::bind(RenderScene& scene) const {
         map.runtime_instance = true;
         map.cells.reset();
         map.definitions.reset();
+        map.variants.reset();
         map.generation = map.revision = 0;
         map.animation_seconds = 0;
         map.pending = true;

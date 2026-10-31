@@ -3,6 +3,7 @@
 #include "tile_set_data.hpp"
 
 namespace forge {
+class TileMapVariants;
 inline constexpr std::size_t tile_map_collision_rectangle_limit = 4096;
 struct TileMapCollisionRectangle {
     TileCellAddress origin;
@@ -31,5 +32,6 @@ struct TileMapCollisionGeometry {
 // groups share one budget; no-collision definitions leave holes in merged runs.
 TileMapCollisionGeometry
 tile_map_collision_geometry(const TileMapData&, const TileSetData&, std::uint64_t layer,
-                            std::size_t limit = tile_map_collision_rectangle_limit);
+                            std::size_t limit = tile_map_collision_rectangle_limit,
+                            const TileMapVariants* = nullptr);
 } // namespace forge

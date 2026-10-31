@@ -1,5 +1,17 @@
 # Feature Gallery
 
+## Tiles from neighbors
+
+Open **Scenes/122-neighbor-tiles.scene.json** and press Play. One painted tile key
+forms the edges around a hole, the flipped L and the isolated arrow. Connected
+interiors animate. Stop, open **Assets/Tiles/NeighborDirections.tileset.json** and
+select **Paint this tile - animated interior**. Edit **Tile neighbor rules** in
+Inspector: click compass conditions, choose result tiles, and change rule order.
+Apply, save/publish the Set and **Assets/Tiles/NeighborDirections.tilemap.json**,
+then Play again. Paint or erase the logical tile to change its selected neighbors.
+Save and choose this Scene as startup before export. See
+[Tile Maps](../../../manual/editor/tile-maps.md) for conditions and collision.
+
 ## Animated tiles
 
 Open **Scenes/121-animated-tiles.scene.json** and press Play. The four rows run

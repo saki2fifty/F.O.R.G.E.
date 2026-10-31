@@ -1,5 +1,6 @@
 #pragma once
 #include "sprite_region.hpp"
+#include "tile_neighbors.hpp"
 #include <array>
 #include <cmath>
 #include <forge/asset_ref.hpp>
@@ -36,16 +37,24 @@ struct TileAnimation {
     double duration = 0; // Derived once from admitted frames, never source authority.
     bool operator==(const TileAnimation&) const = default;
 };
+struct TileAutotile {
+    bool enabled = false;
+    std::vector<TileNeighborRule> rules;
+    TileNeighborTable lookup{}; // Derived once from admitted ordered rules.
+    bool operator==(const TileAutotile&) const = default;
+};
 struct TileSetDefinition {
     std::uint64_t id = 0, image = 0;
     std::string name;
     std::uint32_t frame = 0;
     TileCollisionProfile collision{};
     std::shared_ptr<const TileAnimation> animation;
+    std::shared_ptr<const TileAutotile> autotile;
 };
 struct TileSetRows {
     std::vector<TileSetImage> images;
     std::vector<TileSetDefinition> tiles;
+    bool has_autotiles = false;
 };
 namespace tile_detail {
 // Source contours require +1. Signed physical scale may reverse them to -1;
@@ -79,6 +88,7 @@ TileSetRows decode_tile_set_rows(const nlohmann::json& images, const nlohmann::j
                                  std::uint32_t profile_version = 1);
 nlohmann::json tile_collision_json(const TileCollisionProfile&);
 nlohmann::json tile_animation_json(const TileAnimation&);
+nlohmann::json tile_autotile_json(const TileAutotile&);
 nlohmann::json tile_definition_json(const TileSetDefinition&);
 } // namespace tile_detail
 } // namespace forge

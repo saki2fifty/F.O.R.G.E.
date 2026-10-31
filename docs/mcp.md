@@ -304,6 +304,22 @@ guard. Read-only connections advertise no animation mutation binding. Runtime
 animation uses completed simulation ticks; the asset preview has its own local
 Play/Pause/Restart controls.
 
+`forge_asset_document_tile_autotile` applies an `autotile` profile to a local
+`tile` key in a Tile Set at its exact document session/revision. Enabled profiles
+need 1..64 ordered rules; disabled profiles allow 0..64. Each rule has byte
+`mask`/`same` bitsets and a full-width local `tile` key; `same` must be a subset
+of `mask`. Bits clockwise in XY/up are N, NE, E, SE, S, SW, W, NW. Same means
+the same logical tile ID in the same layer, adjusted for cell orientation.
+Different includes empty cells. First match selects an existing definition;
+fallback uses the root's own definition. Targets may be self or definitions
+without enabled neighbor rules. Missing/image IDs and chains reject.
+Safe Source5 promotion preserves identity, allocator, unknown profile/rule-position
+siblings, animation and collision. Rendering and collision consume the selected
+definition; raw cells, SDK queries and checkpoints retain logical IDs. Use the
+ordinary Undo/Redo, Save and dependent-Map publication flow. Interactive neighbor,
+animation and collision drafts share the document-busy guard. Read-only connections
+advertise no neighbor mutation binding.
+
 Timeline component fields use the same `forge_asset_document_patch`, validation,
 Undo/Redo and publication tools. Read the current inspected custom component
 admission with `forge_code_schemas`. Use its `reference_schema.components` fields

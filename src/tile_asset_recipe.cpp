@@ -4,7 +4,7 @@
 namespace forge {
 std::string tile_set_recipe_revision() {
     return asset_build_digest(
-        {{"recipe", "forge.tileset.v4"}, {"source_toolchain", FORGE_TILE_RECIPE_FINGERPRINT}});
+        {{"recipe", "forge.tileset.v5"}, {"source_toolchain", FORGE_TILE_RECIPE_FINGERPRINT}});
 }
 std::string tile_map_recipe_revision() {
     return asset_build_digest(

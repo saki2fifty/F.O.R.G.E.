@@ -1,12 +1,13 @@
 #include "tile_map_collision.hpp"
+#include "tile_map_variants.hpp"
 #include "tile_polygon_decomposition.hpp"
 #include <algorithm>
 #include <map>
 
 namespace forge {
 namespace {
-template <class Solid>
-std::vector<TileMapCollisionRectangle> rectangles(const TileMapData& map, std::uint64_t layer,
+template <class Map, class Solid>
+std::vector<TileMapCollisionRectangle> rectangles(const Map& map, std::uint64_t layer,
                                                   std::size_t limit, Solid&& solid) {
     map.validate();
     if (!limit || limit > tile_map_collision_rectangle_limit)
@@ -53,9 +54,10 @@ std::vector<TileMapCollisionRectangle>
 tile_map_collision_rectangles(const TileMapData& map, std::uint64_t layer, std::size_t limit) {
     return rectangles(map, layer, limit, [](const auto& cell) { return bool(cell.tile); });
 }
-TileMapCollisionGeometry tile_map_collision_geometry(const TileMapData& map,
-                                                     const TileSetData& definitions,
-                                                     std::uint64_t layer, std::size_t limit) {
+namespace {
+template <class Map>
+TileMapCollisionGeometry collision_geometry(const Map& map, const TileSetData& definitions,
+                                            std::uint64_t layer, std::size_t limit) {
     if (definitions.asset() != map.tile_set())
         throw std::invalid_argument("Tile collision definitions belong to a different Tile Set");
     TileMapCollisionGeometry result;
@@ -71,7 +73,8 @@ TileMapCollisionGeometry tile_map_collision_geometry(const TileMapData& map,
                     if (cell.tile)
                         (void)definitions.tile(cell.tile);
         });
-        result.rectangles = tile_map_collision_rectangles(map, layer, limit);
+        result.rectangles =
+            rectangles(map, layer, limit, [](const auto& cell) { return bool(cell.tile); });
         return result;
     }
     result.rectangles = rectangles(map, layer, limit, [&](const auto& cell) {
@@ -124,5 +127,22 @@ TileMapCollisionGeometry tile_map_collision_geometry(const TileMapData& map,
         }
     });
     return result;
+}
+} // namespace
+TileMapCollisionGeometry tile_map_collision_geometry(const TileMapData& map,
+                                                     const TileSetData& definitions,
+                                                     std::uint64_t layer, std::size_t limit,
+                                                     const TileMapVariants* supplied) {
+    const bool full =
+        std::all_of(definitions.tiles().begin(), definitions.tiles().end(), [](const auto& tile) {
+            return tile.collision.kind == TileCollisionKind::FullCell;
+        });
+    if (!definitions.has_autotiles() || full)
+        return collision_geometry(map, definitions, layer, limit);
+    if (supplied && supplied->matches(&map, &definitions))
+        return collision_geometry(*supplied, definitions, layer, limit);
+    const auto variants = resolve_tile_variants(std::make_shared<const TileMapData>(map),
+                                                std::make_shared<const TileSetData>(definitions));
+    return collision_geometry(*variants, definitions, layer, limit);
 }
 } // namespace forge

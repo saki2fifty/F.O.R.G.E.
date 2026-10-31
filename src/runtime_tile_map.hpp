@@ -1,5 +1,6 @@
 #pragma once
 #include "tile_asset_resources.hpp"
+#include "tile_map_variants.hpp"
 #include <forge/world.hpp>
 #include <functional>
 
@@ -17,6 +18,7 @@ struct RuntimeTileMapSnapshot {
     // Immutable shared rows remain valid for detached presentation after scope
     // retirement. A presentation view must never alias a lease's retired value.
     TileSetData definition_values;
+    std::shared_ptr<const TileMapVariants> variants;
 };
 struct RuntimeTileMapStatus {
     AssetId requested, adopted, tile_set;

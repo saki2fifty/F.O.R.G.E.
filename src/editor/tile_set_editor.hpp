@@ -21,7 +21,9 @@ class TileSetEditor {
     bool close_cancelled = false;
     bool is_open() const { return document_ || open_error_; }
     bool pending() const { return job_ != 0; }
-    bool has_unapplied_edits() const { return collision_dirty_ || animation_dirty_; }
+    bool has_unapplied_edits() const {
+        return collision_dirty_ || animation_dirty_ || autotile_dirty_;
+    }
     bool dirty() const {
         return document_ &&
                (document_->dirty() || needs_publish_ || pending() || has_unapplied_edits());
@@ -189,6 +191,16 @@ class TileSetEditor {
                 }
                 FORGE_UI_PROBE("tile_set:animation_review");
             }
+            if (autotile_dirty_) {
+                ImGui::TextWrapped(
+                    "Unapplied neighbor rules: review them in Inspector before continuing.");
+                if (ui::button("Review neighbor rules",
+                               "Select the tile whose neighbor rules are being edited.")) {
+                    selected_tile_ = autotile_tile_;
+                    select("tile", autotile_tile_);
+                }
+                FORGE_UI_PROBE("tile_set:autotile_review");
+            }
             ImGui::BeginDisabled(has_unapplied_edits());
             draw_lists();
             ImGui::EndDisabled();
@@ -241,8 +253,9 @@ class TileSetEditor {
         if (parsed.ec != std::errc{} || parsed.ptr != key.data() + key.size())
             return;
         if (has_unapplied_edits() &&
-            (key.substr(0, split) != "tile" ||
-             id != (collision_dirty_ ? collision_tile_ : animation_tile_))) {
+            (key.substr(0, split) != "tile" || id != (collision_dirty_   ? collision_tile_
+                                                      : animation_dirty_ ? animation_tile_
+                                                                         : autotile_tile_))) {
             ImGui::TextWrapped(
                 "Apply or discard the pending tile profile before inspecting another definition.");
             return;
@@ -291,6 +304,9 @@ class TileSetEditor {
     TileAnimation animation_draft_;
     std::uint64_t animation_tile_ = 0, animation_revision_ = 0;
     bool animation_dirty_ = false;
+    TileAutotile autotile_draft_;
+    std::uint64_t autotile_tile_ = 0, autotile_revision_ = 0;
+    bool autotile_dirty_ = false;
     bool preview_playing_ = false;
     double preview_seconds_ = 0, preview_last_time_ = -1;
     char path_[256] = "Assets/NewTiles.tileset.json";
@@ -304,6 +320,8 @@ class TileSetEditor {
         collision_dirty_ = false;
         animation_revision_ = 0;
         animation_dirty_ = false;
+        autotile_revision_ = 0;
+        autotile_dirty_ = false;
         preview_seconds_ = 0;
         preview_last_time_ = -1;
     }
@@ -334,6 +352,9 @@ class TileSetEditor {
         values_revision_ = selected_image_ = selected_tile_ = 0;
         job_ = 0;
         needs_publish_ = save_ = close_ = open_error_ = collision_dirty_ = animation_dirty_ = false;
+        autotile_dirty_ = false;
+        autotile_tile_ = autotile_revision_ = 0;
+        autotile_draft_ = {};
         collision_tile_ = collision_revision_ = 0;
         animation_tile_ = animation_revision_ = 0;
         animation_draft_ = {};
@@ -525,11 +546,14 @@ class TileSetEditor {
                    [&](auto& source) { row(source, "tiles", tile.id)["frame"] = frame; });
         FORGE_UI_PROBE("tile_set:frame");
         ImGui::EndDisabled();
-        ImGui::BeginDisabled(animation_dirty_);
+        ImGui::BeginDisabled(animation_dirty_ || autotile_dirty_);
         collision_fields(tile);
         ImGui::EndDisabled();
-        ImGui::BeginDisabled(collision_dirty_);
+        ImGui::BeginDisabled(collision_dirty_ || autotile_dirty_);
         animation_fields(tile);
+        ImGui::EndDisabled();
+        ImGui::BeginDisabled(collision_dirty_ || animation_dirty_);
+        autotile_fields(tile);
         ImGui::EndDisabled();
         ImGui::BeginDisabled(has_unapplied_edits());
         if (ui::button("Remove tile", "Remove this definition. Existing map cells keep the "
@@ -540,6 +564,147 @@ class TileSetEditor {
             });
         FORGE_UI_PROBE("tile_set:remove_tile");
         ImGui::EndDisabled();
+    }
+    void autotile_fields(const TileSetDefinition& tile) {
+        if (autotile_tile_ != tile.id || autotile_revision_ != document_->revision()) {
+            autotile_draft_ = tile.autotile ? *tile.autotile : TileAutotile{};
+            autotile_tile_ = tile.id;
+            autotile_revision_ = document_->revision();
+            autotile_dirty_ = false;
+        }
+        if (!ImGui::CollapsingHeader("Tile neighbor rules", ImGuiTreeNodeFlags_DefaultOpen))
+            return;
+        if (ImGui::Checkbox("Enabled###TileAutotileEnabled", &autotile_draft_.enabled)) {
+            if (autotile_draft_.enabled && autotile_draft_.rules.empty())
+                autotile_draft_.rules.push_back({0, 0, tile.id});
+            autotile_dirty_ = true;
+        }
+        FORGE_UI_PROBE("tile_set:autotile_enabled");
+        const auto data = values();
+        for (std::size_t i = 0; i < autotile_draft_.rules.size(); ++i) {
+            ImGui::PushID(int(i));
+            auto& rule = autotile_draft_.rules[i];
+            ImGui::Separator();
+            ImGui::Text("Rule %zu", i + 1);
+            const auto target =
+                std::find_if(data->tiles.begin(), data->tiles.end(),
+                             [&](const auto& value) { return value.id == rule.tile; });
+            if (ImGui::BeginCombo("Select tile", target == data->tiles.end()
+                                                     ? "Missing tile"
+                                                     : target->name.c_str())) {
+                for (const auto& value : data->tiles) {
+                    if (value.id != tile.id && value.autotile && value.autotile->enabled)
+                        continue;
+                    const auto label = value.name + "###target/" + std::to_string(value.id);
+                    if (ImGui::Selectable(label.c_str(), rule.tile == value.id)) {
+                        rule.tile = value.id;
+                        autotile_dirty_ = true;
+                    }
+                    FORGE_UI_PROBE("tile_set:autotile_target:" + std::to_string(i) + ":" +
+                                   std::to_string(value.id));
+                }
+                ImGui::EndCombo();
+            }
+            FORGE_UI_PROBE("tile_set:autotile_target:" + std::to_string(i));
+            if (ImGui::BeginTable("Neighbors", 3, ImGuiTableFlags_SizingStretchSame)) {
+                constexpr int compass[]{7, 0, 1, 6, -1, 2, 5, 4, 3};
+                constexpr const char* directions[]{"N", "NE", "E", "SE", "S", "SW", "W", "NW"};
+                for (const auto direction : compass) {
+                    ImGui::TableNextColumn();
+                    if (direction < 0) {
+                        ImGui::TextUnformatted("This tile");
+                        continue;
+                    }
+                    const auto bit = std::uint8_t(1u << direction);
+                    const auto state = !(rule.mask & bit) ? 0 : (rule.same & bit) ? 1 : 2;
+                    const auto* condition = state == 0 ? "Any" : state == 1 ? "Same" : "Different";
+                    auto label = std::string(directions[direction]) + ": " + condition;
+                    if (ImGui::CalcTextSize(label.c_str()).x +
+                            2 * ImGui::GetStyle().FramePadding.x >
+                        ImGui::GetContentRegionAvail().x)
+                        label = std::string(directions[direction]) + "\n" + condition;
+                    if (ImGui::Button(label.c_str(), {-FLT_MIN, 0})) {
+                        if (state == 0) {
+                            rule.mask |= bit;
+                            rule.same |= bit;
+                        } else if (state == 1)
+                            rule.same &= ~bit;
+                        else {
+                            rule.mask &= ~bit;
+                            rule.same &= ~bit;
+                        }
+                        autotile_dirty_ = true;
+                    }
+                    FORGE_UI_PROBE("tile_set:autotile_neighbor:" + std::to_string(i) + ":" +
+                                   std::to_string(direction));
+                }
+                ImGui::EndTable();
+            }
+            bool remove = false;
+            if (ImGui::BeginTable("Rule order", 3, ImGuiTableFlags_SizingStretchSame)) {
+                ImGui::TableNextColumn();
+                ImGui::BeginDisabled(i == 0);
+                if (ImGui::Button("Move up", {-FLT_MIN, 0})) {
+                    std::swap(autotile_draft_.rules[i], autotile_draft_.rules[i - 1]);
+                    autotile_dirty_ = true;
+                }
+                FORGE_UI_PROBE("tile_set:autotile_up:" + std::to_string(i));
+                ImGui::EndDisabled();
+                ImGui::TableNextColumn();
+                ImGui::BeginDisabled(i + 1 == autotile_draft_.rules.size());
+                if (ImGui::Button("Move down", {-FLT_MIN, 0})) {
+                    std::swap(autotile_draft_.rules[i], autotile_draft_.rules[i + 1]);
+                    autotile_dirty_ = true;
+                }
+                FORGE_UI_PROBE("tile_set:autotile_down:" + std::to_string(i));
+                ImGui::EndDisabled();
+                ImGui::TableNextColumn();
+                ImGui::BeginDisabled(autotile_draft_.enabled && autotile_draft_.rules.size() == 1);
+                remove = ImGui::Button("Remove", {-FLT_MIN, 0});
+                FORGE_UI_PROBE("tile_set:autotile_remove:" + std::to_string(i));
+                ImGui::EndDisabled();
+                ImGui::EndTable();
+            }
+            ImGui::PopID();
+            if (remove) {
+                autotile_draft_.rules.erase(autotile_draft_.rules.begin() + i);
+                autotile_dirty_ = true;
+                break;
+            }
+        }
+        ImGui::BeginDisabled(autotile_draft_.rules.size() >= tile_neighbor_rule_limit);
+        if (ui::button("Add rule", "Append a rule. Rules are tested from top to bottom.")) {
+            autotile_draft_.rules.push_back({0, 0, tile.id});
+            autotile_dirty_ = true;
+        }
+        FORGE_UI_PROBE("tile_set:autotile_add");
+        ImGui::EndDisabled();
+        ImGui::BeginDisabled(!autotile_dirty_);
+        if (ui::button("Apply neighbor rules", "Validate and apply all rules in one Undo step.")) {
+            const auto profile = tile_detail::tile_autotile_json(autotile_draft_);
+            mutate("Change tile neighbor rules", [&](auto& source) {
+                TileSetSource candidate{source};
+                candidate.set_autotile(tile.id, profile);
+                source = std::move(candidate.document);
+            });
+        }
+        FORGE_UI_PROBE("tile_set:autotile_apply");
+        if (ui::button("Discard neighbor edits", "Keep the applied neighbor rules.")) {
+            autotile_draft_ = tile.autotile ? *tile.autotile : TileAutotile{};
+            autotile_dirty_ = false;
+            error_.clear();
+        }
+        FORGE_UI_PROBE("tile_set:autotile_discard");
+        ImGui::EndDisabled();
+        if (autotile_dirty_)
+            ImGui::TextWrapped("Unapplied neighbor rules: Apply or Discard before Save, Undo or "
+                               "selecting another tile.");
+        ui::help("Click each neighbor to cycle Any, Same and Different. Same means this logical "
+                 "tile ID in the same layer; "
+                 "Different includes empty cells. Conditions follow the painted cell's "
+                 "orientation. First matching rule wins; "
+                 "otherwise this tile's own appearance and collision apply. Targets may animate "
+                 "and choose their own collision.");
     }
     void animation_fields(const TileSetDefinition& tile) {
         if (animation_tile_ != tile.id || animation_revision_ != document_->revision()) {

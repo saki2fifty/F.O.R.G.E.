@@ -88,6 +88,12 @@ std::shared_ptr<const TileAnimation> animation(const Json& value, std::uint64_t 
     return result;
 }
 } // namespace
+Json tile_detail::tile_autotile_json(const TileAutotile& value) {
+    Json rows = Json::array();
+    for (const auto& rule : value.rules)
+        rows.push_back({{"mask", rule.mask}, {"same", rule.same}, {"tile", rule.tile}});
+    return {{"enabled", value.enabled}, {"rules", std::move(rows)}};
+}
 Json tile_detail::tile_collision_json(const TileCollisionProfile& value) {
     if (value.kind == TileCollisionKind::Convex || value.kind == TileCollisionKind::Polygon)
         return {{"kind", value.kind == TileCollisionKind::Convex ? "convex" : "polygon"},
@@ -110,6 +116,8 @@ Json tile_detail::tile_definition_json(const TileSetDefinition& value) {
              {"collision", tile_collision_json(value.collision)}};
     if (value.animation && (value.animation->enabled || !value.animation->frames.empty()))
         row["animation"] = tile_animation_json(*value.animation);
+    if (value.autotile && (value.autotile->enabled || !value.autotile->rules.empty()))
+        row["autotile"] = tile_autotile_json(*value.autotile);
     return row;
 }
 TileSetRows tile_detail::decode_tile_set_rows(const Json& images, const Json& tiles,
@@ -156,7 +164,45 @@ TileSetRows tile_detail::decode_tile_set_rows(const Json& images, const Json& ti
             tile.collision = collision(row.at("collision"), profile_version);
         if (profile_version >= 4 && row.contains("animation"))
             tile.animation = animation(row.at("animation"), image->second);
+        if (profile_version >= 5 && row.contains("autotile")) {
+            const auto& value = row.at("autotile");
+            require(value.is_object() && value.at("enabled").is_boolean() &&
+                        value.at("rules").is_array() &&
+                        value.at("rules").size() <= tile_neighbor_rule_limit,
+                    "Tile neighbor rules require enabled and bounded rules");
+            auto config = std::make_shared<TileAutotile>();
+            config->enabled = value.at("enabled").get<bool>();
+            require(!config->enabled || !value.at("rules").empty(),
+                    "Enabled neighbor rules require at least one row");
+            config->rules.reserve(value.at("rules").size());
+            for (const auto& entry : value.at("rules")) {
+                require(entry.is_object(), "Tile neighbor rule must be an object");
+                config->rules.push_back({std::uint8_t(natural(entry.at("mask"), 255)),
+                                         std::uint8_t(natural(entry.at("same"), 255)),
+                                         natural(entry.at("tile"), UINT64_MAX - 1, true)});
+            }
+            config->lookup = tile_detail::compile_tile_neighbors(config->rules);
+            result.has_autotiles |= config->enabled;
+            tile.autotile = std::move(config);
+        }
         result.tiles.push_back(std::move(tile));
+    }
+    if (profile_version >= 5 &&
+        std::any_of(result.tiles.begin(), result.tiles.end(), [](const auto& tile) {
+            return tile.autotile && !tile.autotile->rules.empty();
+        })) {
+        std::map<std::uint64_t, const TileSetDefinition*> definitions;
+        for (const auto& tile : result.tiles)
+            definitions.emplace(tile.id, &tile);
+        for (const auto& tile : result.tiles)
+            if (tile.autotile)
+                for (const auto& rule : tile.autotile->rules) {
+                    const auto target = definitions.find(rule.tile);
+                    require(target != definitions.end(), "Neighbor rule refers to a missing tile");
+                    require(rule.tile == tile.id || !target->second->autotile ||
+                                !target->second->autotile->enabled,
+                            "Neighbor rule cannot select another enabled rule tile");
+                }
     }
     return result;
 }
@@ -177,7 +223,9 @@ TileSetData decode_cooked_tile_set(std::span<const std::byte> bytes, AssetId exp
                 "Cooked Tile Set image contains unsupported fields");
     for (const auto& row : root.at("tiles")) {
         const bool animated = envelope.version >= 4 && row.contains("animation");
-        require(row.size() == (envelope.version >= 2 ? 5u : 4u) + unsigned(animated),
+        const bool autotile = envelope.version >= 5 && row.contains("autotile");
+        require(row.size() ==
+                    (envelope.version >= 2 ? 5u : 4u) + unsigned(animated) + unsigned(autotile),
                 "Cooked Tile Set definition contains unsupported fields");
         if (envelope.version >= 2) {
             const auto& profile = row.at("collision");
@@ -192,6 +240,12 @@ TileSetData decode_cooked_tile_set(std::span<const std::byte> bytes, AssetId exp
             for (const auto& frame : value.at("frames"))
                 require(frame.size() == 2,
                         "Cooked tile animation frame contains unsupported fields");
+        }
+        if (autotile) {
+            const auto& value = row.at("autotile");
+            require(value.size() == 2, "Cooked tile neighbor rules contain unsupported fields");
+            for (const auto& rule : value.at("rules"))
+                require(rule.size() == 3, "Cooked tile neighbor rule contains unsupported fields");
         }
     }
     const auto by_id = [](const auto& a, const auto& b) { return a.id < b.id; };
@@ -219,6 +273,10 @@ const std::vector<TileSetDefinition>& TileSetData::tiles() const {
 }
 const TileSetImage& TileSetData::image(std::uint64_t key) const { return find(images(), key); }
 const TileSetDefinition& TileSetData::tile(std::uint64_t key) const { return find(tiles(), key); }
+bool TileSetData::has_autotiles() const {
+    validate();
+    return rows_->has_autotiles;
+}
 std::vector<AssetRef<MaterialAsset>> TileSetData::materials() const {
     std::set<AssetRef<MaterialAsset>> unique;
     for (const auto& image : images())
@@ -238,7 +296,10 @@ std::size_t TileSetData::resident_bytes() const {
             tile.collision.points.capacity() * sizeof(std::array<double, 2>) +
             (tile.animation ? sizeof(TileAnimation) + 64 +
                                   tile.animation->frames.capacity() * sizeof(TileAnimationFrame)
-                            : 0);
+                            : 0) +
+            (tile.autotile ? sizeof(TileAutotile) + 64 +
+                                 tile.autotile->rules.capacity() * sizeof(TileNeighborRule)
+                           : 0);
     return bytes;
 }
 } // namespace forge

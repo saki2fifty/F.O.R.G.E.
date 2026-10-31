@@ -14,6 +14,7 @@ namespace forge {
 struct PhysicsDebugGeometry;
 class TileMapData;
 class TileSetData;
+class TileMapVariants;
 } // namespace forge
 namespace forge::detail {
 struct RuntimeTileMapSnapshot;
@@ -72,7 +73,8 @@ Body2DConfiguration controller_configuration_2d(const CharacterController2D&, Lo
 PhysicsOverlap2D controller_shape_2d(const Body2DConfiguration&, Double2 feet);
 Body2DConfiguration tile_map_configuration_2d(PhysicsBody2D, const TileMapData&,
                                               std::uint64_t layer, LocalScale,
-                                              const TileSetData* definitions = nullptr);
+                                              const TileSetData* definitions = nullptr,
+                                              const TileMapVariants* variants = nullptr);
 PhysicsDebugGeometry prepare_debug_2d(const Json&, LocalScale, std::size_t line_limit,
                                       const TileMapData* = nullptr, bool crouched = false,
                                       const TileSetData* = nullptr);

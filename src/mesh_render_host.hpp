@@ -309,6 +309,7 @@ class MeshSceneRenderer {
         RenderTileMap requested;
         std::shared_ptr<const TileMapData> cells;
         std::shared_ptr<const TileSetData> definitions;
+        std::shared_ptr<const TileMapVariants> requested_variants, variants;
         std::map<std::uint64_t, TileImageDraw> images;
         std::vector<std::uint64_t> used_images;
         std::map<std::uint64_t, RenderBounds> requested_bounds, bounds;
@@ -327,6 +328,7 @@ class MeshSceneRenderer {
     };
     std::vector<TileImageInput> tile_images_;
     std::map<EntityId, TileDrawSource> tile_sources_;
+    mutable std::optional<std::uint64_t> tile_variant_bytes_;
     std::vector<AffineTransform> tile_worlds_;
     std::vector<TileImageInput> prepare_tile_sources(const RenderScene&);
     RenderTileMap resolve_tile_assets(TileDrawSource&, const RenderTileMap&);

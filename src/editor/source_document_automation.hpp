@@ -248,16 +248,23 @@ struct AssetDocumentAutomation {
                                     });
                     if (doc.revision() != previous)
                         changed(editor);
-                } else if (action == "tile_collision" || action == "tile_animation") {
+                } else if (action == "tile_collision" || action == "tile_animation" ||
+                           action == "tile_autotile") {
                     if constexpr (std::is_same_v<Source, TileSetSource>) {
                         const bool animation = action == "tile_animation";
+                        const bool autotile = action == "tile_autotile";
                         const auto previous = doc.revision();
                         doc.edit_source(
-                            previous, animation ? "Change tile animation" : "Change tile collision",
+                            previous,
+                            animation  ? "Change tile animation"
+                            : autotile ? "Change tile neighbor rules"
+                                       : "Change tile collision",
                             [&](Source& source) {
                                 const auto tile = request.at("tile").get<std::uint64_t>();
                                 if (animation)
                                     source.set_animation(tile, request.at("animation"));
+                                else if (autotile)
+                                    source.set_autotile(tile, request.at("autotile"));
                                 else
                                     source.set_collision(tile, request.at("collision"));
                                 if (!doc.retains_history(source))
@@ -269,9 +276,7 @@ struct AssetDocumentAutomation {
                             changed(editor);
                     } else
                         throw AuthoringError("wrong_document_type",
-                                             action == "tile_animation"
-                                                 ? "Tile animation requires a Tile Set"
-                                                 : "Collision profiles require a Tile Set");
+                                             "Tile profiles require a Tile Set");
                 } else if (action == "paint") {
                     if constexpr (!tiles)
                         throw AuthoringError("wrong_document_type",

@@ -1,0 +1,50 @@
+{
+  "build_inputs": {
+    "backend": "none",
+    "dependencies": [
+      {
+        "kind": "build",
+        "revision": "9d9a5a8f183ab0f78846c7cbaa3e5ee0bfc9606e8859c05c4eb3d2bf6c032e24",
+        "role": "tile_set.material.258b9537-c0f6-448d-af8c-818f150d67cf",
+        "target": "258b9537-c0f6-448d-af8c-818f150d67cf",
+        "type": "material"
+      },
+      {
+        "kind": "runtime",
+        "revision": "9d9a5a8f183ab0f78846c7cbaa3e5ee0bfc9606e8859c05c4eb3d2bf6c032e24",
+        "role": "tile_set.material.258b9537-c0f6-448d-af8c-818f150d67cf",
+        "target": "258b9537-c0f6-448d-af8c-818f150d67cf",
+        "type": "material"
+      }
+    ],
+    "importer": "forge.tileset",
+    "importer_revision": "9ae58c17cf93a833b2c9c29db448d8f4efebb126bd1dd60ba95791b67d8afc2c",
+    "key_version": 1,
+    "output_format": "forge.tile-set-cooked",
+    "output_version": 5,
+    "platform": "linux",
+    "profile": "cpu",
+    "settings": {},
+    "settings_version": 1,
+    "source": "956b91bdbea73185535b525a391eeaad3f130022caef04908ca44fc4fccd0345",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.tile-set.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "39407adb-7749-45d6-8b40-07eaf4c41707",
+    "source": "Assets/Tiles/NeighborDirections.tileset.json",
+    "source_digest": "956b91bdbea73185535b525a391eeaad3f130022caef04908ca44fc4fccd0345",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.tileset",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

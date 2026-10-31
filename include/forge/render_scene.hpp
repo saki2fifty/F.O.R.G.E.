@@ -8,6 +8,7 @@
 #include <optional>
 namespace forge {
 class TileMapData;
+class TileMapVariants;
 class TileSetData;
 // Detached presentation values, never a second world or authored hierarchy.
 // Input is the existing bounded effective_scene transport used by Editor Play.
@@ -78,6 +79,7 @@ struct RenderTileMap {
     std::shared_ptr<const TileSetData> definitions;
     std::string diagnostic;
     double animation_seconds = 0; // Discrete completed-tick sample; Edit stays at zero.
+    std::shared_ptr<const TileMapVariants> variants;
 };
 struct RenderModelNode {
     EntityId entity;

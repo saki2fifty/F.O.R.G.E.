@@ -139,8 +139,8 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                        {"document_session", automation_integer(1)},
                        {"document_revision", automation_integer(1)}};
     const Json required = {"editor", "document_session", "document_revision"};
-    for (const auto* action :
-         {"patch", "paint", "tile_collision", "tile_animation", "undo", "redo", "save", "close"}) {
+    for (const auto* action : {"patch", "paint", "tile_collision", "tile_animation",
+                               "tile_autotile", "undo", "redo", "save", "close"}) {
         auto properties = fields;
         auto needed = required;
         if (std::string_view(action) == "patch") {
@@ -185,6 +185,24 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
             properties["animation"] = {{"oneOf", {enabled, disabled}}};
             needed.push_back("tile");
             needed.push_back("animation");
+        } else if (std::string_view(action) == "tile_autotile") {
+            const auto rule = automation_object({{"mask", automation_integer(0, 255)},
+                                                 {"same", automation_integer(0, 255)},
+                                                 {"tile", automation_integer(1, UINT64_MAX)}},
+                                                {"mask", "same", "tile"});
+            const auto enabled =
+                automation_object({{"enabled", {{"const", true}}},
+                                   {"rules", automation_array(rule, tile_neighbor_rule_limit, 1)}},
+                                  {"enabled", "rules"});
+            const auto disabled =
+                automation_object({{"enabled", {{"const", false}}},
+                                   {"rules", automation_array(rule, tile_neighbor_rule_limit, 0)}},
+                                  {"enabled", "rules"});
+            properties["tile"] = automation_integer(1, UINT64_MAX);
+            properties["editor"] = {{"type", "string"}, {"const", "tile_set"}};
+            properties["autotile"] = {{"oneOf", {enabled, disabled}}};
+            needed.push_back("tile");
+            needed.push_back("autotile");
         } else if (std::string_view(action) == "close")
             properties["discard"] = {{"type", "boolean"}};
         methods.push_back(automation_method(
@@ -214,6 +232,23 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                        "Sequences loop on completed simulation ticks, sharing a world timeline. "
                        "Pause/Step/speed apply; collision stays fixed. Publish the Set and its "
                        "dependent Maps before Play/export."
+                     : "") +
+                (std::string_view(action) == "tile_autotile"
+                     ? " Tile Sets only: apply ordered eight-neighbor rules. Enabled profiles "
+                       "need1..64rules; "
+                       "disabled profiles allow0..64. Mask and same are byte bitsets; same must be "
+                       "a subset "
+                       "of mask. Bits clockwise in XY/up: N,NE,E,SE,S,SW,W,NW. Neighbors match the "
+                       "same logical "
+                       "tile ID in the same layer, transformed by cell orientation. First match "
+                       "selects an "
+                       "existing local tile ID; fallback uses the root. Targets can be self or "
+                       "tiles without "
+                       "enabled neighbor rules. Safe Source5 promotion preserves IDs/history. "
+                       "Rendering and "
+                       "collision use selected definitions; raw cells/SDK/checkpoints keep logical "
+                       "IDs. "
+                       "Publish the Set and dependent Maps before Play/export."
                      : "") +
                 (std::string_view(action) == "patch"
                      ? " Timeline source6 supports editable scalar C++ component fields with "

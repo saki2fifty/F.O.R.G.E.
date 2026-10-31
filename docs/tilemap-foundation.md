@@ -15,6 +15,8 @@ Gallery119 demonstrates the moving policy alongside an inline one-way ledge;
 both share the included transform clip.
 Gallery121 demonstrates looping atlas animation: forward, reverse, variable-duration
 and static rows use the existing arrow image material.
+Gallery122 uses one logical paint key for selected edges, a hole, a flipped L,
+an isolated cell and animated connected interiors.
 
 The source format, cooked profile and runtime budgets below describe implemented
 behavior. [Validation](#validation) records passing automated checks and their scope. Build261020-000194 predates this feature.
@@ -270,6 +272,41 @@ The Inspector stages the complete sequence, validates Apply as one Undo step and
 blocks conflicting edits, Save and history until Apply or Discard. Its local
 Play/Pause/Restart preview never advances simulation time or changes source.
 
+Source5 interprets optional `autotile` on a definition:
+`{"enabled":true,"rules":[{"mask":1,"same":0,"tile":3}]}`.
+Enabled profiles contain 1..64 ordered rules; disabled profiles allow 0..64.
+`mask` and `same` are byte bitsets, with `same` a subset of `mask`. Bits run
+clockwise in XY/up: N, NE, E, SE, S, SW, W, NW. A neighbor is Same only when its
+logical tile key equals the root key in the same layer. Empty/out-of-range cells
+are Different. Conditions transform into the painted cell's local orientation
+using the existing UV flip/transpose convention. First match selects an existing
+local definition; fallback uses the root's own definition. Targets may be self
+or definitions without enabled neighbor rules. Missing/image keys and chained
+enabled roots reject, including in disabled retained rules.
+
+Selection changes appearance, animation and collision together. Source/runtime
+cells, SDK queries, copied cell transfers and checkpoint2 retain logical keys;
+derived selections are never serialized as painted cells. Safe explicit editing
+promotes to Source5 with an all-row legacy reserved-field guard. Unknown profile
+and retained rule-position siblings survive typed edits; IDs and allocator do
+not change. The Inspector stages ordered rules with compass conditions and
+Apply/Discard; all profile drafts participate in the shared document-busy guard.
+
+`TileMapVariants` is an immutable derived value owned by the existing runtime
+snapshot or renderer. It retains compact `(slot, selected key)` overrides and
+shares unaffected chunks; a raw changed chunk invalidates its same-layer neighbor
+halo. Definition changes recompute selection. Weak original identities avoid a
+snapshot ownership cycle; copied immutable raw chunks/rows preserve borrowed-read
+safety. Selected chunk spans exist only during their callback. Culling retains
+stable raw spans and merges overrides when drawing. Timing alone reuses the
+selection. Selected images enter complete image admission before any draw is
+replaced; failure retains the prior admitted cells, selection and images.
+Derived retained values count against the existing 16MiB default renderer material
+budget; estimates are cached between structural changes. Runtime admission has a
+64MiB aggregate derived-value profile, deduplicating shared arrays. Recovery checks
+the complete candidate set before adopting any instance. These are allocation
+estimates, not allocator RSS or physical hardware performance guarantees.
+
 Admission limits are 16 images, 4096 tile definitions, 2MiB source bytes,
 100000 JSON events and depth 16. Names contain 1–128 UTF-8 bytes without ASCII
 controls. Source admission checks structure; publication additionally checks
@@ -284,16 +321,17 @@ unknown fields and its allocation high-water mark. Cooking sorts image/tile rows
 by numeric key and omits unknown fields and allocator metadata. Reordering source
 rows or advancing the allocator alone does not change cooked runtime bytes.
 
-The cooked envelope uses eight-byte magic `FTILESET`, version4 (with version1/2/3 reads retained), at most 2MiB of
+The cooked envelope uses eight-byte magic `FTILESET`, version5 (with version1/2/3/4 reads retained), at most 2MiB of
 metadata and no binary payload. Root fields are exactly `asset_id`, `images` and
 `tiles`; their known row/grid fields match the source value profile. Extra cooked
 fields reject. The decoder checks the expected root UUID and the same combined
-image/tile key space, frame references and limits as source admission. Cooked2/3/4
+image/tile key space, frame references and limits as source admission. Cooked2/3/4/5
 normalize the known collision profile on every definition; cooked1 supplies
 FullCell. The declared selected output version must match the actual envelope.
-Tile Set recipe4 publishes cooked4; cooked3/4 admit Polygon, and only cooked4
-admits animation. Disabled empty sequences normalize to the static representation.
-Tile Map recipe/output remain1. Catalog source schema1/2/3/4 is separate from
+Tile Set recipe5 publishes cooked5; cooked3/4/5 admit Polygon, cooked4/5 admit
+animation and cooked5 admits neighbor rules. Disabled empty profiles normalize
+to the static representation. Older cooked versions reject newer reserved fields.
+Tile Map recipe/output remain1. Catalog source schema1/2/3/4/5 is separate from
 publication metadata API1.
 
 `TileSetData` retains shared immutable typed rows sorted for local-key lookup.
@@ -676,6 +714,33 @@ check layered markers and mirrored image cells at two resolutions.
 
 ## Validation
 
+Local neighbor-rule checks cover Source/cooked5 with older 1..4 reads, full-width
+keys, ordered rules, orientation, signed/cross-chunk boundaries and layer isolation.
+The maximum 1024-chunk/262144-cell fixture verifies compact retained overrides and
+incremental/full equality. Retired definition rows remain readable and count once
+in memory estimates. Real worker/runtime checks exercise two independent instances,
+shared unchanged storage, a cell edit changing native collision and fresh recovery.
+Copied version5 headers preserve logical keys/rules and reuse values on time-only updates.
+Six Inspector size/scale pairs and both MCP envelopes cover controls, profile
+history, permissions, validation, revisions and publication. Matching installed /
+relocated SDK checks pass with the current exact fingerprint.
+
+Independent native baked-cell comparisons cover eight orientations, three filters,
+animation and foreign-selection rejection/retry. Gallery122 has an independent
+cardinal/frame oracle and four exact normal/strict/authored/source-free relocated
+display pairs. Its canonical Inspector/Game images match current strict captures.
+Both real Play hosts complete 120 exact Scene122 ticks; ordinary fresh recovery
+continues 90 ticks with three clean runtime child exits. Thirty-seven selected
+compiler units feed 17 links; all 15 CPU/UI/MCP/runtime consumers exit0 under
+unsuppressed ASan/UBSan. The two native consumers render successfully but exit23
+with the known unresolved 184-byte/five-allocation shutdown condition. Equal-sized
+leak reports are normalized by address before exact signature comparison; report
+order is not allocation-site identity. Other units/dependencies/workers are normal.
+These checks do not establish Windows/full-editor/physical GPU acceptance or
+physical performance. Aggregate world/renderer pressure transitions have not been
+tested to exhaustion; maximum-map and retained-allocation checks do not claim that
+coverage. The enforceable profiles and pending Windows review remain explicit.
+
 Local animated-tile checks cover source4/cooked4 and older reads, bounded frame
 selection, unknown-field/identity/history preservation, actual worker publication,
 fixed collision, completed-tick timing and exact Map2 recovery. Six Inspector
@@ -690,7 +755,7 @@ draw. Gallery121 checks forward/reverse/variable/static lane order and four exac
 authored/source-free relocated displays; strict and normal displays are identical.
 Thirty selected strict units feed fourteen links; twelve CPU/UI/MCP/runtime
 consumers exit cleanly with unsuppressed ASan/UBSan. Both native consumers retain
-the exact known unresolved184-byte/five-allocation shutdown signature. This is
+the exact known unresolved 184-byte/five-allocation shutdown signature. This is
 functional native evidence, not a clean native shutdown claim. Windows/MSVC/full
 editor/physical GPU and graphical exported-EXE acceptance remain queued.
 
@@ -715,4 +780,6 @@ documentation and a genuine README screenshot only.
 Physical Windows/GPU, listening and OS file-picker acceptance remain deferred.
 That historical gate does not validate later 2D collision extensions; their
 current contract and focused checks are recorded in [2D physics](physics-2d.md).
-Autotiling, animated tile definitions and streaming remain outside this profile.
+That historical gate also predates animated tile definitions and neighbor rules;
+their local checks do not establish Windows acceptance. Streaming remains outside
+the current profile.

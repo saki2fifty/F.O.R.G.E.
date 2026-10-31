@@ -1,5 +1,28 @@
 # README screenshots
 
+## Tile neighbor rules
+
+[Neighbor controls](../../../manual/images/neighbor-tile-controls.png) is the
+unretouched 760×620 production TileSetEditor Inspector at 1x, scrolled to the
+neighbor section through the SDL/ImGui software harness:
+`forge_tile_set_editor_tests <scratch> --capture-neighbors`.
+Targets, compass conditions, priority and Apply/Discard are actual production
+controls. SHA256:
+`b816c21c5d9ac2e31d44671cbf6402ce55f4916196ddd7ec5ba8cfabbc89d207`.
+
+[Neighbor Game](../../../manual/images/neighbor-tile-gallery.png) is the complete
+640×360 FrameRenderer Game after 90 fixed ticks at 60 Hz in Scene
+`437021c5-7fd9-480c-bcb0-ce3a7a350c7a`. It reuses FORGE's original arrow atlas.
+The `neighbor_tile_gallery_vulkan` test checks four exact authored/source-free
+relocated display pairs. PNG conversion preserves every original RGB pixel.
+SHA256: `305483bff88147170c8480a8514dcaead696d4e2d11178bafcdf431dcd7a23ab`.
+
+Both are local development source based on 018d3fa with neighbor rules, unassigned
+build identity, exact SDK `ce28b6243d30e40f9377d1e47894022fa73cd774be85941326e0e0f71f008d11`. Capture receipts are retained in
+`AgentFiles/build/phase201-autotile-neighbor-rules/captures.json`. Game uses Linux
+software Vulkan; Inspector uses software SDL/ImGui. Neither is a Windows editor,
+physical input/DPI/GPU, performance or graphical EXE acceptance claim.
+
 ## Animated tile sequences
 
 [Animation controls](../../../manual/images/animated-tile-controls.png) is the

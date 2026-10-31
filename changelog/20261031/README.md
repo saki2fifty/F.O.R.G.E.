@@ -1,5 +1,23 @@
 # 2026-10-31
 
+## Tile neighbor rules
+
+Tile definitions can select existing local definitions with up to 64 ordered
+eight-neighbor conditions. Same/Different follow cell orientation and layer;
+first match wins and fallback uses the painted definition. Selected images,
+animation and collision share one immutable derived value. Saved cells, SDK
+queries and checkpoints retain logical paint IDs. Compact overrides reuse
+unchanged chunks and neighbor halos, with bounded renderer/world admission.
+
+Source/cooked/recipe5 retain older 1..4 reads and guard reserved legacy extensions.
+Inspector compass controls, target selection, priority and Apply/Discard share
+document history and busy rules with automation/MCP
+`forge_asset_document_tile_autotile`. Gallery122 demonstrates edges, a hole,
+a flipped L, an isolated tile and animated interiors. The manual includes real
+Inspector and Game captures. Matching modules must rebuild with the current SDK;
+the public native C table and outer recovery envelope retain their contracts.
+Windows editor and physical hardware review remain pending.
+
 ## Animated tile sequences
 
 Tile definitions support looping atlas frames with individual durations. Static

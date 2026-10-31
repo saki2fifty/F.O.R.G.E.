@@ -812,6 +812,7 @@ void collision_profile_publication(const std::filesystem::path& root,
     test_tile_polygon_runtime(root, lease, worker, source.asset());
     test_concave_tile_runtime(root, lease, worker, image_material);
     test_animated_tile_runtime(root, lease, worker, image_material);
+    test_animated_tile_runtime(root, lease, worker, image_material, true);
 }
 void workflow(const std::filesystem::path& root, const std::filesystem::path& worker,
               const std::filesystem::path& sdk_library) {

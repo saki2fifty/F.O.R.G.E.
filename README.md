@@ -71,6 +71,15 @@ map. Native Game rendering on Linux software Vulkan:
 
 [![Two arrow courses rendered from one Tile Map, including a smaller mirrored instance](manual/images/tile-maps.png)](manual/images/tile-maps.png)
 
+Tile definitions also support ordered neighbor rules. One painted tile can choose
+edge images, animation and collision while its saved cell key stays unchanged.
+Gallery122 includes a hole, a flipped L and animated connected interiors.
+
+[![Neighbor-selected arrow edges around a hole, a flipped L and an isolated cell](manual/images/neighbor-tile-gallery.png)](manual/editor/tile-maps.md#choose-tiles-from-their-neighbors)
+
+This is the shared Game renderer on Linux software Vulkan. Inspector controls,
+saving, publishing and export are covered in the guide.
+
 ## Sprite image regions
 
 Sprite Renderer can select part of an existing image, animate frames inside it,
