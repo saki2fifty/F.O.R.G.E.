@@ -13,13 +13,15 @@ inline void check(bool value, const char* why) {
     if (!value)
         throw std::runtime_error(why);
 }
-enum class Profile { Color, SurfaceChannels, Clustered, LightImages };
+enum class Profile { Color, SurfaceChannels, Clustered, LightImages, LocalIrradiance };
 inline const char* scene_path(Profile profile) {
     switch (profile) {
     case Profile::SurfaceChannels:
         return "Scenes/115-projected-surface-channels.scene.json";
     case Profile::Clustered:
         return "Scenes/116-clustered-projectors.scene.json";
+    case Profile::LocalIrradiance:
+        return "Scenes/118-local-diffuse-irradiance.scene.json";
     case Profile::LightImages:
         return "Scenes/117-light-images.scene.json";
     default:
@@ -27,10 +29,10 @@ inline const char* scene_path(Profile profile) {
     }
 }
 inline unsigned projector_count(Profile profile) {
-    return profile == Profile::LightImages       ? 0
-           : profile == Profile::Clustered       ? 64
-           : profile == Profile::SurfaceChannels ? 3
-                                                 : 4;
+    return profile == Profile::LightImages || profile == Profile::LocalIrradiance ? 0
+           : profile == Profile::Clustered                                        ? 64
+           : profile == Profile::SurfaceChannels                                  ? 3
+                                                                                  : 4;
 }
 struct Prepared {
     std::filesystem::path root, scratch;
@@ -90,7 +92,59 @@ inline Prepared prepare(const std::filesystem::path& gallery, const std::filesys
                    {{"type", unsigned(MaterialParameterType::Scalar)},
                     {"value", {.6, 0, 0, 0}}}}}});
         };
-        if (profile == Profile::LightImages) {
+        if (profile == Profile::LocalIrradiance) {
+            const auto original = scene.document();
+            for (const auto& row : original.at("entities"))
+                authoring_command(scene, "entity.delete", {{"entity", row.at("id")}});
+            authoring_command(scene, "scene.rendering.set", {{"shadows", {{"enabled", false}}}});
+            const auto create = [&](const char* recipe, const std::string& name) {
+                return authoring_command(scene, "entity.create",
+                                         {{"recipe", recipe}, {"name", name}})
+                    .at("selected")
+                    .get<std::string>();
+            };
+            const auto camera =
+                create("render.camera", "Camera - local diffuse light without direct lights");
+            set(camera, "forge.camera",
+                {{"projection", 0},
+                 {"vertical_fov", .75},
+                 {"orthographic_height", 9},
+                 {"background_r", .012},
+                 {"background_g", .016},
+                 {"background_b", .024}});
+            pose(camera, {4.5, 5.5, -7}, rotation_from_euler({24.5, -24, 0}));
+            const auto floor = create("primitive.0", "Floor - receives both diffuse maps");
+            set(floor, "forge.mesh_renderer",
+                {{"cast_shadows", false}, {"material_parameters", parameters({.7f, .7f, .7f, 1})}});
+            pose(floor, {0, -.2, 3}, {}, {10, .25f, 6});
+            for (unsigned i = 0; i < 5; ++i) {
+                const auto block =
+                    create((i == 0 || i == 4) ? "primitive.0" : "primitive.1",
+                           "Receiver " + std::to_string(i + 1) + " - warm / overlap / cool");
+                set(block, "forge.mesh_renderer",
+                    {{"cast_shadows", false},
+                     {"material_parameters", parameters({.7f, .7f, .7f, 1})}});
+                pose(block, {(int(i) - 2) * 1.5, .6, 3},
+                     rotation_from_euler({0, i % 2 ? -20. : 25., 0}), {1.2f, 1.2f, 1.2f});
+            }
+            for (unsigned i = 0; i < 2; ++i) {
+                const auto probe =
+                    create("render.reflection_probe", i == 0 ? "Warm diffuse volume - priority 1"
+                                                             : "Cool diffuse volume - priority 0");
+                set(probe, "forge.reflection_probe",
+                    {{"texture", AssetId::parse(i == 0 ? "6ec03ae9-356c-47cc-a2d0-66752bb063bd"
+                                                       : "d26ec4ff-f4cb-47c6-bf5d-b99f6de97cb0")},
+                     {"intensity", 0},
+                     {"diffuse_intensity", 1},
+                     {"half_extent_x", 3},
+                     {"half_extent_y", 4},
+                     {"half_extent_z", 4},
+                     {"blend_distance", 1.5},
+                     {"priority", i == 0 ? 1 : 0},
+                     {"box_projection", false}});
+                pose(probe, {i == 0 ? -2. : 2., 1, 3}, {});
+            }
+        } else if (profile == Profile::LightImages) {
             const auto original = scene.document();
             for (const auto& row : original.at("entities"))
                 authoring_command(scene, "entity.delete", {{"entity", row.at("id")}});
@@ -351,9 +405,15 @@ inline Prepared prepare(const std::filesystem::path& gallery, const std::filesys
     result.scene = scene.asset_id();
     const auto extracted = extract_render_scene(scene.effective_document());
     check(extracted.decals.size() == projector_count(profile) &&
-              extracted.meshes.size() == (profile == Profile::LightImages ? 6u : 4u) &&
+              extracted.meshes.size() ==
+                  ((profile == Profile::LightImages || profile == Profile::LocalIrradiance) ? 6u
+                                                                                            : 4u) &&
               extracted.cameras.size() == 1 &&
-              extracted.lights.size() == (profile == Profile::LightImages ? 4u : 2u) &&
+              extracted.lights.size() == (profile == Profile::LocalIrradiance ? 0u
+                                          : profile == Profile::LightImages   ? 4u
+                                                                              : 2u) &&
+              extracted.reflection_probes.size() ==
+                  (profile == Profile::LocalIrradiance ? 2u : 0u) &&
               extracted.diagnostics.empty(),
           "Decal Gallery lost its admitted scene composition");
     const std::array roots{result.scene};

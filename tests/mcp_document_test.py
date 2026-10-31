@@ -74,7 +74,9 @@ for legacy in (False, True):
         probe_schema = next(c for c in state['result']['schema']['components']
                             if c['id'] == 'forge.reflection_probe')
         probe_fields = {field['id']: field for field in probe_schema['fields']}
-        assert probe_schema['optional'] and len(probe_fields) == 10
+        assert probe_schema['optional'] and len(probe_fields) == 11
+        assert probe_fields['diffuse_intensity']['default'] == 0
+        assert probe_fields['diffuse_intensity']['minimum'] == 0 and probe_fields['diffuse_intensity']['maximum'] == 1000000
         assert probe_fields['texture']['asset_type'] == 'texture'
         assert probe_fields['half_extent_x']['minimum'] == .0001
         assert probe_fields['half_extent_x']['maximum'] == 1000000
@@ -425,7 +427,7 @@ for legacy in (False, True):
         assert created_probe['ok'], created_probe
         probe = created_probe['result']['results'][0]['selected']
         probe_values = dict(texture='d4c60053-60c8-4456-8771-a7cf8182a902', intensity=2.5,
-                            half_extent_x=.0001, priority=-7, rotation_degrees=90,
+                            half_extent_x=.0001, priority=-7, rotation_degrees=90, diffuse_intensity=.75,
                             box_projection=False)
         for field, value in probe_values.items():
             request = arguments(arguments=dict(entity=probe, component='forge.reflection_probe',
@@ -434,7 +436,8 @@ for legacy in (False, True):
             assert changed_probe['ok'], changed_probe
             assert client.tool('forge_property_set', **request)['result'] == changed_probe['result']
         for field, value in (('half_extent_x', .000099999999), ('priority', 2147483648),
-                             ('enabled', 1), ('intensity', -1)):
+                             ('enabled', 1), ('intensity', -1), ('diffuse_intensity', -1),
+                             ('diffuse_intensity', 1000000.1), ('diffuse_intensity', True), ('diffuse_intensity', '1')):
             before_probe = discover()
             invalid = mutate('forge_property_set', arguments=dict(entity=probe,
                 component='forge.reflection_probe', field=field, value=value))

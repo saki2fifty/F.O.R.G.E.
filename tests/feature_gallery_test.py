@@ -311,6 +311,9 @@ try:
                 light.setdefault('image_width', 1.)
                 light.setdefault('image_height', 1.)
                 light.setdefault('image_tiled', False)
+            probe = row['components'].get('forge.reflection_probe')
+            if probe is not None:
+                probe.setdefault('diffuse_intensity', 0.)
             decal = row['components'].get('forge.decal')
             if decal is not None:
                 decal.setdefault('color_influence', 1.)

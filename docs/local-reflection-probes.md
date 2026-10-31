@@ -6,9 +6,12 @@
 `forge/reflection_probe.hpp` defines `ReflectionProbe`. Defaults: unassigned typed
 TextureAsset `texture`, `enabled=true`, `intensity=1`, local half extents 5 m,
 `blend_distance=1` world metre, `rotation_degrees=0`, signed 32-bit `priority=0`,
-`box_projection=true`. Finite intensity/fade bounds are 0–1000000; half extents are
+`box_projection=true`, `diffuse_intensity=0`. Finite specular/diffuse intensity and
+fade bounds are 0–1000000; half extents are
 0.0001–1000000. Yaw accepts finite doubles. Disabled values still validate.
-Absent, disabled, empty-map and zero-intensity components are inactive.
+Absent, disabled, empty-map and both-intensities-zero components are inactive.
+Optional [local diffuse irradiance](local-diffuse-irradiance.md) reuses the same map
+and volume; the default retains the original specular-only behavior.
 
 The existing built-in codec, native Meta validation and Scene/Prefab owners retain
 identity, unknown extensions, references, inheritance, Undo and saving. The
@@ -17,7 +20,7 @@ Inspector, automation and MCP share this catalog and the ordinary `property.set`
 operation. Discovery carries typed texture and field bounds. Permissions, expected
 revision, exact replay and project scope are unchanged.
 
-Live gameplay admits the nine scalar controls through the existing runtime
+Live gameplay admits the ten scalar controls through the existing runtime
 property-tuning owner. It cannot assign a texture or create a component. Generation,
 Scene and entity checks precede complete-value validation; rejection leaves values
 unchanged. Stopping restores authored values unless the existing tuning review is
@@ -102,8 +105,10 @@ Ready probes sort by descending priority, then stable EntityId. Each consumes it
 fade weight from remaining coverage; uncovered weight keeps global base specular.
 Optional box projection intersects the world reflection ray with the influence box
 and samples from the entity's capture center toward the exit. A map is a fixed source snapshot; the component does not automatically
-capture changes in the Scene. The probe does not rotate the sky or replace diffuse,
-clearcoat or sheen lighting; anisotropic receivers retain environment lighting.
+capture changes in the Scene. The specular pass does not rotate the sky or replace
+diffuse, clearcoat or sheen lighting; anisotropic specular receivers retain
+environment lighting. The optional
+diffuse control is integrated separately in ordinary Mesh shading.
 
 At most eight active assigned probes are admitted per Scene profile. More preserve
 global lighting for all probes and issue an actionable capacity warning. This is
@@ -138,7 +143,7 @@ residency and transient overhead are additional. Target/pipeline changes stage
 before adoption. Spatial-only use adds no motion field, jitter, pose/color history,
 clock or warmup.
 
-No runtime recapture, in-place rebaking, irradiance volumes, per-Mesh probe masks, arbitrary
+No runtime recapture, in-place rebaking, sampled irradiance grids, per-Mesh probe masks, arbitrary
 layered reflection, separate coat/sheen probe response or multi-bounce GI is claimed.
 Windows/MSVC/cooked D3D12 and physical GPU/input/DPI acceptance remain pending.
 See the [lighting guide](../manual/editor/lighting.md) for the editable workflow.

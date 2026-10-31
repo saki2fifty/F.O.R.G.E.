@@ -1,5 +1,28 @@
 # 2026-10-31
 
+## Local diffuse probe lighting
+
+Reflection Probe maps can supply local base diffuse lighting with a separate,
+default-zero **Diffuse intensity**. The existing map resource, transformed volume,
+priority and world-distance fade serve both lighting modes. Lit Meshes and Mesh
+particles receive the light through native material layering; direct illumination,
+emission and other global specular terms retain their existing behavior. Eight
+active assigned probes total remain supported, with complete-set and last-usable
+resource fallback. Shader 13 retains 19 roles and readable versions 1–12. Matching
+SDK modules must rebuild for the appended public value.
+
+The shared Inspector, live controls, authoring/history and MCP expose the scalar.
+Gallery 118 has two warm/cool overlapping volumes and source-free relocated export
+proof. Authentic controls and renderer captures accompany the usage guide. Local
+normal functional checks pass, including all 19 graph roles and the actual combined
+shader binding profile. Thirty-six selected strict units and ten consumer links
+pass. Eight CPU/UI/MCP/runtime sanitizer consumers exit cleanly; two native
+functional consumers reproduce the exact known unsuppressed 184-byte shutdown
+allocation condition. Offline manual and package-fixture checks pass.
+Sampled irradiance grids, runtime recapture and multi-bounce lighting remain
+unavailable. Windows, physical GPU and full editor acceptance remain pending.
+No new numbered package accompanies these local source changes.
+
 ## Light images
 
 Directional/Spot 2D and Point cubemap Textures modulate direct RGB illumination through

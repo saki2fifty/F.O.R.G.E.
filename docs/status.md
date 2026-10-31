@@ -5,6 +5,21 @@ The accepted local Windows package is **261024-000213**, source
 in the [README](../README.md#current-implementation). No new numbered Windows
 package accompanies the local source changes described here.
 
+Local source adds optional local diffuse lighting from Reflection Probe maps.
+The default-zero **Diffuse intensity** shares the existing map, volume, resource
+and authoring owners; **Intensity** continues to control specular reflections.
+Eight active assigned probes total are supported. Shader 13 retains 19 roles and
+readable versions 1–12; the public value change requires matching SDK modules.
+Gallery 118 demonstrates two overlapping warm/cool volumes without direct lights
+or a global environment. Focused Mesh/Scene, Inspector, MCP, installed SDK and
+source-free Gallery checks pass. Thirty-six selected strict units and ten consumer
+links pass; eight CPU/UI/MCP/runtime sanitizer consumers exit cleanly. Two native
+consumers finish functionally with the separately recorded, unresolved 184-byte
+shutdown allocation condition. Sampled irradiance grids, automatic recapture and multi-bounce lighting
+remain unavailable. Windows and physical acceptance remain pending. See the
+[contract](local-diffuse-irradiance.md) and
+[guide](../manual/editor/lighting.md#add-local-diffuse-light).
+
 Local source includes Directional/Spot 2D and Point cubemap light images through the
 existing Light, Texture, draw and authoring owners. Source RGB modulates direct
 illumination; alpha is ignored. Shader 12 preserves 19 roles and 1–11 readers while
@@ -38,7 +53,7 @@ surface channels and Gallery 116 supplies 64 projectors sharing one badge materi
 The visual profile admits 128 active projectors with up to eight unique projected
 map/sampler combinations per receiver; complex materials can leave fewer map slots.
 Larger lists use spatial selection through existing bounds and draw owners. Shader
-capability 12 retains 19 output roles and readable versions 1–11, including legacy
+capability 13 retains 19 output roles and readable versions 1–12, including legacy
 packet uploads. Older graph receivers need a current cook for larger lists. See the
 [projection contract](rendering-foundation.md#projected-material-channels) and
 [manual](../manual/editor/decals.md). Local functional and selected strict/sanitizer

@@ -78,20 +78,25 @@ void volumes() {
 void exercise(const std::filesystem::path& directory) {
     EngineContext engine;
     Scene scene(engine.world());
-    bool found = false, texture = false, extent = false;
+    bool found = false, texture = false, extent = false, diffuse = false;
     const auto schema = scene.schema();
     for (const auto& type : schema.at("components"))
         if (type.at("id") == "forge.reflection_probe") {
-            found = type.at("optional") && type.at("fields").size() == 10;
+            found = type.at("optional") && type.at("fields").size() == 11;
             for (const auto& field : type.at("fields")) {
                 if (field.at("id") == "texture")
                     texture = field.at("type") == "asset_ref" &&
                               field.at("asset_type") == TextureAsset::type;
+                if (field.at("id") == "diffuse_intensity")
+                    diffuse = field.at("default") == 0 && field.at("minimum") == 0 &&
+                              field.at("maximum") == 1000000 &&
+                              field.at("display_name") == "Diffuse intensity";
                 if (field.at("id") == "half_extent_x")
                     extent = field.at("minimum") == .0001 && field.at("maximum") == 1000000;
             }
         }
-    check(found && texture && extent, "Probe missing typed optional schema or precise bounds");
+    check(found && texture && extent && diffuse,
+          "Probe missing typed optional schema or precise bounds");
     const std::string id =
         authoring_command(scene, "entity.create", {{"name", "Probe"}, {"kind", 4}}).at("selected");
     const auto before = scene.document();
@@ -111,17 +116,23 @@ void exercise(const std::filesystem::path& directory) {
     set("texture", image);
     set("half_extent_x", .0001);
     set("intensity", 2.);
+    set("diffuse_intensity", .75);
     set("rotation_degrees", -45.);
     set("priority", INT32_MIN);
     const auto saved = scene.document();
     const auto value = scene.entity(id).get<ReflectionProbe>();
     check(value.texture.id == image && value.half_extent_x == .0001 && value.intensity == 2 &&
-              value.rotation_degrees == -45 && value.priority == INT32_MIN,
+              value.rotation_degrees == -45 && value.priority == INT32_MIN &&
+              value.diffuse_intensity == .75,
           "Probe typed fields did not retain their values");
     for (const auto& [field, bad] :
          std::vector<std::pair<const char*, Json>>{{"half_extent_x", .000099999999},
                                                    {"half_extent_z", 1000000.0001},
                                                    {"intensity", -1},
+                                                   {"diffuse_intensity", -1},
+                                                   {"diffuse_intensity", 1000000.1},
+                                                   {"diffuse_intensity", true},
+                                                   {"diffuse_intensity", "1"},
                                                    {"blend_distance", -1},
                                                    {"priority", 2147483648LL},
                                                    {"enabled", 1}}) {
@@ -142,14 +153,20 @@ void exercise(const std::filesystem::path& directory) {
     for (unsigned zero = 0; zero < 3; ++zero) {
         if (zero == 0)
             set("enabled", false);
-        if (zero == 1)
+        if (zero == 1) {
             set("intensity", 0.);
+            check(extract_render_scene(scene.preview_document(scene.document()))
+                          .reflection_probes.size() == 1,
+                  "Diffuse-only probe was dropped with zero specular intensity");
+            set("diffuse_intensity", 0.);
+        }
         if (zero == 2)
             set("texture", nullptr);
         check(extract_render_scene(scene.preview_document(scene.document()))
                   .reflection_probes.empty(),
               "Inactive probe entered presentation");
-        check(scene.undo() && scene.document() == saved, "Probe zero edit did not Undo cleanly");
+        check(scene.undo() && (zero != 1 || scene.undo()) && scene.document() == saved,
+              "Probe zero edit did not Undo cleanly");
     }
     const std::array documents{AssetReferenceDocument{"Probe.scene.json", saved}};
     const auto references = collect_asset_references(scene.schema(), documents);

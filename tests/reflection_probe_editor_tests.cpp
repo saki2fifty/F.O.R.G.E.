@@ -127,6 +127,16 @@ void exercise(const std::filesystem::path& root, float scale, ImVec2 display) {
           "Probe Inspector texture picker bypassed the native reference field");
     type("half_extent_x", "0.0001");
     type("intensity", "2.5");
+    const auto before_diffuse = scene.document();
+    type("diffuse_intensity", "0.75");
+    const auto with_diffuse = scene.document();
+    check(scene.entity(selected).get<ReflectionProbe>().diffuse_intensity == .75 && scene.undo() &&
+              scene.document() == before_diffuse && scene.redo() &&
+              scene.document() == with_diffuse,
+          "Diffuse Inspector value bypassed typed data or history");
+    type("diffuse_intensity", "-1");
+    check(scene.document() == with_diffuse, "Invalid diffuse Inspector intensity changed source");
+    type("diffuse_intensity", "0.75");
     type("priority", "-7");
     type("rotation_degrees", "90");
     auto value = scene.entity(selected).get<ReflectionProbe>();
@@ -156,6 +166,16 @@ void exercise(const std::filesystem::path& root, float scale, ImVec2 display) {
                   "Probe Live gameplay differs from the shared runtime admission");
     }
     const auto saved = scene.document();
+    authoring_command(scene, "property.set",
+                      {{"entity", selected},
+                       {"component", "forge.reflection_probe"},
+                       {"field", "intensity"},
+                       {"value", 0}});
+    const auto diffuse_markers = ui::spatial_markers(scene.effective_document(), 800, 600, 10);
+    check(diffuse_markers.size() == 1 && diffuse_markers[0].enabled &&
+              diffuse_markers[0].note.find("Diffuse 0.75") != std::string::npos && scene.undo() &&
+              scene.document() == saved,
+          "Diffuse-only probe was marked inactive or its guide changed source state");
     const auto markers = ui::spatial_markers(scene.effective_document(), 800, 600, 10);
     check(markers.size() == 1 && markers[0].probe && markers[0].enabled &&
               markers[0].lines.size() == 24 && markers[0].note.find("world m") != std::string::npos,
@@ -383,12 +403,12 @@ void exercise(const std::filesystem::path& root, float scale, ImVec2 display) {
     ImGui::DestroyContext();
 }
 void capture(const std::filesystem::path& root, bool light = false,
-             LightKind light_kind = LightKind::Directional, bool decal = false,
-             bool image = false) {
+             LightKind light_kind = LightKind::Directional, bool decal = false, bool image = false,
+             bool irradiance = false) {
     std::filesystem::create_directories(root / "project");
     test::ImGuiSoftwareCapture capture(
-        light || decal ? 1080 : 760,
-        decal ? 900
+        light || decal || irradiance ? 1080 : 760,
+        decal || irradiance ? 900
         : light
             ? (light_kind == LightKind::Rectangle || light_kind == LightKind::Sphere ? 560 : 900)
             : 520);
@@ -447,6 +467,11 @@ void capture(const std::filesystem::path& root, bool light = false,
              {"component", "forge.reflection_probe"},
              {"field", "texture"},
              {"value", engine_texture(EngineTexture::White, TextureDimension::Cube).id}});
+    if (irradiance)
+        authoring_command(scene, "property.set_many",
+                          {{"entity", id},
+                           {"component", "forge.reflection_probe"},
+                           {"values", {{"intensity", 0}, {"diffuse_intensity", 1}}}});
     if (image)
         authoring_command(scene, "property.set_many",
                           {{"entity", id},
@@ -464,17 +489,18 @@ void capture(const std::filesystem::path& root, bool light = false,
     for (unsigned frame = 0; frame < 3; ++frame) {
         capture.new_frame();
         ImGui::SetNextWindowPos({10, 10});
-        ImGui::SetNextWindowSize(decal   ? ImVec2{1060, 880}
-                                 : light ? ImVec2{1060, 880}
-                                         : ImVec2{740, 500});
+        ImGui::SetNextWindowSize(decal || irradiance ? ImVec2{1060, 880}
+                                 : light             ? ImVec2{1060, 880}
+                                                     : ImVec2{740, 500});
         ImGui::Begin("Inspector", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
         inspector.draw(scene, project, id);
         ImGui::End();
         capture.render();
     }
-    capture.save(root / (image    ? "light-image-controls.png"
-                         : decal  ? "decal-projector-controls.png"
-                         : !light ? "local-reflection-probe-controls.png"
+    capture.save(root / (irradiance ? "local-diffuse-irradiance-controls.png"
+                         : image    ? "light-image-controls.png"
+                         : decal    ? "decal-projector-controls.png"
+                         : !light   ? "local-reflection-probe-controls.png"
                          : light_kind == LightKind::Rectangle ? "rectangle-area-light-controls.png"
                          : light_kind == LightKind::Sphere    ? "sphere-area-light-controls.png"
                                                               : "soft-shadow-light-controls.png"));
@@ -484,18 +510,22 @@ int main(int argc, char** argv) {
     try {
         check(argc == 2 || (argc == 3 && (std::string_view(argv[2]) == "--capture" ||
                                           std::string_view(argv[2]) == "--capture-light" ||
+                                          std::string_view(argv[2]) == "--capture-irradiance" ||
                                           std::string_view(argv[2]) == "--capture-light-image" ||
                                           std::string_view(argv[2]) == "--capture-rectangle" ||
                                           std::string_view(argv[2]) == "--capture-decal" ||
                                           std::string_view(argv[2]) == "--capture-sphere")),
               "Expected probe UI scratch root or --capture");
         if (argc == 3)
-            capture(std::filesystem::absolute(argv[1]), std::string_view(argv[2]) != "--capture",
+            capture(std::filesystem::absolute(argv[1]),
+                    std::string_view(argv[2]) != "--capture" &&
+                        std::string_view(argv[2]) != "--capture-irradiance",
                     std::string_view(argv[2]) == "--capture-rectangle" ? LightKind::Rectangle
                     : std::string_view(argv[2]) == "--capture-sphere"  ? LightKind::Sphere
                                                                        : LightKind::Directional,
                     std::string_view(argv[2]) == "--capture-decal",
-                    std::string_view(argv[2]) == "--capture-light-image");
+                    std::string_view(argv[2]) == "--capture-light-image",
+                    std::string_view(argv[2]) == "--capture-irradiance");
         else
             for (const auto scale : {1.f, 1.5f, 2.f})
                 for (const auto size : {ImVec2{1200, 1000}, ImVec2{960, 640}})

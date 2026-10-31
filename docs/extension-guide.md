@@ -106,6 +106,18 @@ example, not a complete visual game. Rebuild project modules with the SDK matchi
 the runtime: these appended installed Light fields change the exact fingerprint.
 Never repair a mismatch by editing the fingerprint declaration.
 
+## Local diffuse probe values
+
+`ReflectionProbe::diffuse_intensity` is a finite double multiplier from 0 to
+1000000, default0. It reuses the assigned map and influence box for base diffuse
+illumination. `intensity` still controls local base reflections independently.
+Zero in both fields omits the probe; eight active assigned probes total are admitted.
+Map yaw and edge fades apply to both paths; box projection is specular-only.
+The installed reflection_probe.cpp sample writes both values and the existing live
+service admits the diffuse scalar. Rebuild exact SDK modules for the appended
+public layout. ABI1 tables and asset identities do not change. This is map-based
+local lighting, not a sampled irradiance grid or automatic multi-bounce solver.
+
 ## Light image values
 
 The installed Light value has a nullable `texture` reference, `image_width`,

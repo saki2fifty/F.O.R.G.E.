@@ -27,6 +27,13 @@ class MeshDrawBundle {
     void shadows(const ShadowLighting*);
     void transmission(const TransmissionLighting*);
     void clear_decals(Diligent::IDeviceContext*);
+    void clear_local_irradiance();
+    bool uses_lighting(unsigned lod, unsigned part) const {
+        return lods_.at(lod).at(part)->uses_lighting();
+    }
+    bool supports_local_irradiance(unsigned lod, unsigned part) const {
+        return lods_.at(lod).at(part)->supports_local_irradiance();
+    }
     unsigned decal_capacity(unsigned lod, unsigned part) const {
         return lods_.at(lod).at(part)->decal_capacity();
     }
@@ -85,7 +92,8 @@ class MeshDrawBundle {
                    bool reflection = false, bool normal = false,
                    std::span<const MeshDraw::Decal> decals = {}, bool weighted = false,
                    const RenderBounds* decal_bounds = nullptr,
-                   std::span<const MeshDraw::LightImage> images = {});
+                   std::span<const MeshDraw::LightImage> images = {},
+                   std::span<const EnvironmentProbe> local_irradiance = {});
     std::string_view slot(unsigned lod, unsigned part) const {
         return prepared_.selection.bindings.at(info_.at(lod).at(part).binding).key;
     }

@@ -51,6 +51,35 @@ constexpr std::array decal_storage_names{"g_ForgeDecalRows", "g_ForgeDecalRanges
                                          "g_ForgeDecalIndices"};
 constexpr unsigned mesh_instance_rows = 7, sprite_instance_rows = 10;
 
+using IrradianceValues = std::array<Row, environment_probe_rows>;
+IrradianceValues prepare_irradiance(std::span<const EnvironmentProbe> probes, Double3 origin) {
+    require(probes.size() <= environment_probe_limit, "local irradiance exceeds the probe profile");
+    IrradianceValues values{};
+    values[0][0] = float(probes.size());
+    for (unsigned i = 0; i < probes.size(); ++i) {
+        const auto& probe = probes[i];
+        require(complete_environment_cube(probe.irradiance) &&
+                    probe.irradiance->GetTexture()->GetDesc().MipLevels == 1,
+                "local irradiance requires a complete single-mip HDR cube");
+        require(std::isfinite(probe.diffuse_intensity) && probe.diffuse_intensity > 0 &&
+                    probe.diffuse_intensity <= 1000000 && std::isfinite(probe.blend_distance) &&
+                    probe.blend_distance >= 0 && probe.blend_distance <= 1000000,
+                "local irradiance intensity/fade is outside its supported range");
+        const auto center = reflection_probe_view_center(probe.volume, origin);
+        const unsigned row = 1 + 5 * i;
+        values[row] = {center[0], center[1], center[2], gpu(probe.diffuse_intensity)};
+        for (unsigned axis = 0; axis < 3; ++axis) {
+            require(probe.volume.planes[axis][3] >= std::numeric_limits<float>::min(),
+                    "local irradiance volume has an invalid half distance");
+            for (unsigned c = 0; c < 4; ++c)
+                values[row + 1 + axis][c] = gpu(probe.volume.planes[axis][c]);
+        }
+        values[row + 4] = {gpu(probe.blend_distance), gpu(probe.volume.map_rotation[0]),
+                           gpu(probe.volume.map_rotation[1]), 0};
+    }
+    return values;
+}
+
 std::array<Row, 769> prepare_skin_values(const SkinPose* skin, std::size_t joint_count,
                                          const CameraView& view, float thickness) {
     require(skin && skin->palette.size() == joint_count && joint_count <= 256,
@@ -248,6 +277,13 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
         pixel = compile(SHADER_TYPE_PIXEL, program.pixel);
     const bool lit = !shadow_pass_ && (surface ? surface->program.surface->physically_based
                                                : profile->workflow != PbrWorkflow::Unlit);
+    local_irradiance_ = lit && (!surface || surface->program.surface_wrapper_version >= 13);
+    if (local_irradiance_) {
+        const IrradianceValues empty{};
+        irradiance_buffer_ = buffer(device, "FORGE local irradiance", sizeof(empty));
+        empty_irradiance_ =
+            buffer(device, "FORGE empty local irradiance", sizeof(empty), empty.data());
+    }
     light_images_ =
         lit && decal_capacity_ && (!surface || surface->program.surface_wrapper_version >= 12);
     if (light_images_) {
@@ -417,6 +453,16 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
             resource_variables.push_back(
                 {SHADER_TYPE_PIXEL, "g_ForgeTransmission", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC});
     }
+    std::array<std::string, environment_probe_limit> irradiance_names;
+    if (local_irradiance_) {
+        resource_variables.push_back(
+            {SHADER_TYPE_PIXEL, "ForgeLocalIrradiance", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC});
+        for (unsigned i = 0; i < environment_probe_limit; ++i) {
+            irradiance_names[i] = "g_ForgeIrradiance" + std::to_string(i);
+            resource_variables.push_back({SHADER_TYPE_PIXEL, irradiance_names[i].c_str(),
+                                          SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC});
+        }
+    }
     std::array<std::string, decal_draw_limit> decal_names;
     std::array<std::string, decal_draw_limit> cube_names;
     if (decal_capacity_) {
@@ -523,6 +569,12 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
                 bind(SHADER_TYPE_VERTEX, "ForgePreviousSkin", previous_skin_);
         }
         bind(SHADER_TYPE_PIXEL, "ForgeObject", object_, false);
+        if (local_irradiance_) {
+            bind(SHADER_TYPE_PIXEL, "ForgeLocalIrradiance", empty_irradiance_);
+            for (unsigned i = 0; i < environment_probe_limit; ++i)
+                bind(SHADER_TYPE_PIXEL, irradiance_names[i].c_str(), black_environment_);
+        }
+
         if (decal_capacity_) {
             bind(SHADER_TYPE_PIXEL, "ForgeDecals", empty_decals_);
             std::array<IDeviceObject*, decal_draw_limit> defaults;
@@ -746,6 +798,20 @@ void MeshDraw::object_material_values(IDeviceContext* context,
                     variable->Set(active ? material_dynamic_ : material_immutable_);
     material_dynamic_bound_ = active;
 }
+void MeshDraw::clear_local_irradiance() {
+    if (!local_irradiance_active_)
+        return;
+    for (const auto& binding : bindings_) {
+        binding->GetVariableByName(SHADER_TYPE_PIXEL, "ForgeLocalIrradiance")
+            ->Set(empty_irradiance_);
+        for (unsigned i = 0; i < environment_probe_limit; ++i)
+            binding
+                ->GetVariableByName(SHADER_TYPE_PIXEL,
+                                    ("g_ForgeIrradiance" + std::to_string(i)).c_str())
+                ->Set(black_environment_);
+    }
+    local_irradiance_active_ = false;
+}
 void MeshDraw::clear_decals(IDeviceContext*) {
     if (!decals_active_)
         return;
@@ -878,7 +944,13 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
                     std::string_view material_slot, const SpriteDrawValues* sprite,
                     const SceneDistanceFog* fog, const Motion* motion,
                     std::span<const Decal> decals, const RenderBounds* decal_bounds,
-                    std::span<const LightImage> images) {
+                    std::span<const LightImage> images,
+                    std::span<const EnvironmentProbe> local_irradiance) {
+    require(local_irradiance.empty() || local_irradiance_,
+            "receiver requires a current local irradiance Shader cook");
+    std::optional<IrradianceValues> irradiance;
+    if (!local_irradiance.empty())
+        irradiance = prepare_irradiance(local_irradiance, view.position);
     require(images.empty() || images.size() == lights.size(),
             "Light image selection differs from the ordinary light list");
     const auto bindings = decal_bindings(decals, images);
@@ -1276,6 +1348,25 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
         }
         decals_active_ = true;
     }
+    if (irradiance) {
+        {
+            MapHelper<Row> values(context, irradiance_buffer_, MAP_WRITE, MAP_FLAG_DISCARD);
+            require(static_cast<Row*>(values), "local irradiance upload allocation failed");
+            std::copy(irradiance->begin(), irradiance->end(), static_cast<Row*>(values));
+        }
+        for (const auto& binding : bindings_) {
+            binding->GetVariableByName(SHADER_TYPE_PIXEL, "ForgeLocalIrradiance")
+                ->Set(irradiance_buffer_);
+            for (unsigned i = 0; i < environment_probe_limit; ++i)
+                binding
+                    ->GetVariableByName(SHADER_TYPE_PIXEL,
+                                        ("g_ForgeIrradiance" + std::to_string(i)).c_str())
+                    ->Set(i < local_irradiance.size() ? local_irradiance[i].irradiance
+                                                      : black_environment_.RawPtr());
+        }
+        local_irradiance_active_ = true;
+    } else
+        clear_local_irradiance();
     if (environment_) {
         Row params{0, 0, 1, 0};
         ITextureView *diffuse = black_environment_, *specular = black_environment_,

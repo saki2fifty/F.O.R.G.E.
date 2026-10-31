@@ -112,8 +112,8 @@ inline std::vector<SpatialMarker> spatial_markers(const Json& source, unsigned w
                     if (!probe)
                         continue;
                     const auto& settings = probe->probe;
-                    marker.enabled =
-                        settings.enabled && settings.texture.id && settings.intensity != 0;
+                    marker.enabled = settings.enabled && settings.texture.id &&
+                                     (settings.intensity != 0 || settings.diffuse_intensity != 0);
                     const auto box = [&](const auto& corners) {
                         for (unsigned index = 0; index < 8; ++index)
                             for (unsigned axis = 0; axis < 3; ++axis)
@@ -123,12 +123,13 @@ inline std::vector<SpatialMarker> spatial_markers(const Json& source, unsigned w
                     box(probe->outline);
                     if (probe->fade_outline)
                         box(*probe->fade_outline);
-                    marker.note = settings.texture.id
-                                      ? "Priority " + std::to_string(settings.priority) +
-                                            " | Intensity " + helper_number(settings.intensity) +
-                                            " | Edge fade " +
-                                            helper_number(settings.blend_distance) + " world m"
-                                      : "Assign a color cube or panorama in Inspector";
+                    marker.note =
+                        settings.texture.id
+                            ? "Priority " + std::to_string(settings.priority) + " | Reflections " +
+                                  helper_number(settings.intensity) + " | Diffuse " +
+                                  helper_number(settings.diffuse_intensity) + " | Edge fade " +
+                                  helper_number(settings.blend_distance) + " world m"
+                            : "Assign a color cube or panorama in Inspector";
                 } else if (is_region) {
                     const auto region = navigation_region_view(row);
                     if (!region)

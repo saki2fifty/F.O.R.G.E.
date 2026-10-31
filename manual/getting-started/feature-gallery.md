@@ -1,5 +1,12 @@
 # Explore the Feature Gallery
 
+**118-local-diffuse-irradiance** compares warm, overlapping and cool map-based
+diffuse light on receivers and a floor, without direct lights or a global environment.
+Select either diffuse volume and adjust **Diffuse intensity**, **Edge fade**,
+**Priority** or its bounds. **Intensity** separately controls reflections and is
+zero in this example. Save and choose this Scene as startup before export.
+See [Scene lighting](../editor/lighting.md).
+
 **117-light-images** compares repeating Directional arrows, a patterned Spot light
 and a Point light using a captured cubemap. Select a **... change Light image**
 entity and try its image assignment, rotation or intensity. Directional also exposes

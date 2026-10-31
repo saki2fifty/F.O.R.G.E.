@@ -1,6 +1,6 @@
 #pragma once
+#include "environment_probe.hpp"
 #include "presentation_diligent.hpp"
-#include "reflection_probe_volume.hpp"
 #include "reflection_source_plan.hpp"
 #include <forge/render_view.hpp>
 #include <forge/scene_render_settings.hpp>
@@ -30,13 +30,7 @@ class SurfaceReflections {
         SceneScreenSpaceReflections settings;
         std::span<const SourceLevel> sources;
     };
-    struct Probe {
-        ReflectionProbeVolume volume;
-        Diligent::ITextureView* specular = nullptr;
-        double intensity = 1, blend_distance = 1;
-        bool box_projection = true;
-        EntityId entity{};
-    };
+    using Probe = EnvironmentProbe;
     // Borrowed, priority-ordered ready maps. Existing scene/resource owners retain
     // the leases; the pass neither loads assets nor chooses probe priority.
     struct LocalInput : SurfaceInput {

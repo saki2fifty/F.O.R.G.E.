@@ -31,8 +31,9 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char* error, uint32_t 
                 ++control.ticks;
                 if (control.ticks > 3)
                     return;
-                // Retain the assigned map; tune only the existing local volume.
+                // Retain the assigned map; tune the existing local probe values.
                 probe.intensity = 1 + .5 * control.ticks;
+                probe.diffuse_intensity = .125 * control.ticks;
                 probe.rotation_degrees = 15 * control.ticks;
                 probe.half_extent_x = 2 + .25 * control.ticks;
                 probe.priority = std::int32_t(control.ticks);

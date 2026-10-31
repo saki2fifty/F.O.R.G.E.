@@ -616,7 +616,7 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
         weighted_->clear();
         environment_ = {};
         probe_entries_.clear();
-        reflection_probes_.clear();
+        lighting_probes_.clear();
         scene_ = scene.scene;
         changed = true;
     }
@@ -1080,6 +1080,27 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                 report(std::move(value));
             }
         }
+    std::vector<EnvironmentProbe> view_irradiance;
+    for (const auto& probe : lighting_probes_) {
+        if (probe.diffuse_intensity == 0)
+            continue;
+        try {
+            (void)reflection_probe_view_center(probe.volume, camera.position);
+            if (temporal)
+                (void)reflection_probe_view_center(probe.volume, temporal->current.position);
+            view_irradiance.push_back(probe);
+        } catch (const std::exception& error) {
+            Diagnostic value{Severity::Warning,
+                             "render.irradiance_probe.view",
+                             std::string(error.what()) + " (Scene diffuse lighting retained)",
+                             {}};
+            value.context.asset = scene.scene;
+            value.context.entity = probe.entity;
+            value.context.property = "forge.reflection_probe.diffuse_intensity";
+            value.context.source = "presentation";
+            report(std::move(value));
+        }
+    }
     struct Object {
         const RenderMesh* mesh;
         MeshDrawBundle* bundle;
@@ -1578,6 +1599,24 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
     if (!needs_background)
         transmission_->clear();
     draw_stats_ = {};
+    const auto local_irradiance = [&](const Object& object,
+                                      unsigned part) -> std::span<const EnvironmentProbe> {
+        if (view_irradiance.empty() || !object.bundle->uses_lighting(object.lod, part))
+            return {};
+        if (object.bundle->supports_local_irradiance(object.lod, part))
+            return view_irradiance;
+        Diagnostic value{Severity::Warning,
+                         "render.irradiance_probe.profile",
+                         "Mesh part cannot consume local diffuse probes. Scene diffuse lighting "
+                         "retained; recook its Surface Shader.",
+                         {}};
+        value.context.asset = scene.scene;
+        value.context.entity = object.mesh->entity;
+        value.context.property = "forge.reflection_probe.diffuse_intensity";
+        value.context.source = "presentation";
+        report(std::move(value));
+        return {};
+    };
     const auto projected_surface = [&](const Object& object, unsigned part,
                                        std::span<const MeshDraw::LightImage>& images) {
         if (std::any_of(object.images.begin(), object.images.end(),
@@ -1724,7 +1763,8 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                 accumulated && temporal->indirect_output,
                 accumulated && temporal->reflection_output,
                 accumulated && temporal->normal_only_output, decals,
-                weighted && item.key.alpha == MaterialAlpha::Blend, &batch_bounds, images);
+                weighted && item.key.alpha == MaterialAlpha::Blend, &batch_bounds, images,
+                local_irradiance(object, item.key.part));
             ++draw_stats_.calls;
             draw_stats_.instances += count;
             draw_stats_.batched_calls += count > 1;
@@ -1755,7 +1795,7 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                         accumulated && temporal->reflection_output,
                         accumulated && temporal->normal_only_output, decals,
                         weighted && failed_item.key.alpha == MaterialAlpha::Blend, &single.bounds,
-                        images);
+                        images, local_irradiance(single, failed_item.key.part));
                     ++draw_stats_.calls;
                     ++draw_stats_.instances;
                 } catch (const std::exception& error) {

@@ -42,7 +42,8 @@ struct RuntimePropertyTune {
                property == "image_height" || property == "image_tiled";
     }
     static bool probe_property(std::string_view property) {
-        return property == "enabled" || property == "intensity" || property == "half_extent_x" ||
+        return property == "enabled" || property == "intensity" ||
+               property == "diffuse_intensity" || property == "half_extent_x" ||
                property == "half_extent_y" || property == "half_extent_z" ||
                property == "blend_distance" || property == "rotation_degrees" ||
                property == "priority" || property == "box_projection";

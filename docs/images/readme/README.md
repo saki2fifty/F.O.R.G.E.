@@ -1,5 +1,30 @@
 # README screenshots
 
+## Local diffuse irradiance
+
+[Diffuse controls](../../../manual/images/local-diffuse-irradiance-controls.png) is
+the complete unretouched1080×900 production ComponentInspector/Meta capture from
+`forge_reflection_probe_editor_tests <scratch> --capture-irradiance`,31October2026,
+software ImGui/SDL1x. It shows independent Intensity0 and Diffuse intensity1 with
+the same map/volume controls. Actual input/history/save/live and diffuse-only guide
+checks separately pass six size/scale pairs. PNG SHA256:`4208d463cfaea2e3d2c63a7070a5391bb65a1c0b91171137d2bcf7a113c0871d`.
+
+[Diffuse Gallery](../../../manual/images/local-diffuse-irradiance.png) is the complete
+640×360 FrameRenderer display for Gallery118,Scene`180d3ed7-99b8-48ff-a849-40e12ebf04b9`. Existing WarmRoom
+and CoolRoom maps illuminate three rounded receivers, two rotated boxes and the
+floor without direct lights/global environment. Both probes have separately checked
+visible effects; the Scene/two-Texture closure has four exact source-free relocated
+display pairs. PPM-to-PNG conversion preserves allRGBpixels. PNG SHA256:
+`3e0f9fc41bed523dacd5f2a4df6f88f09149b342eef6273598a511c023459190`.
+
+Both captures use GCC12Release, local source based on257b89b and current diffuse
+lighting changes. Exact source/executable/capture receipts are recorded in local
+`AgentFiles/build/phase197-local-diffuse-irradiance`. Renderer capture uses software
+Vulkan/lavapipe. The first flat-camera composition was replaced in source and
+recaptured; pixels were never retouched. Full desktop/Windows/D3D12/input/DPI and
+physical GPU acceptance remain pending.
+
+
 ## Light images
 
 [Light image controls](../../../manual/images/light-image-controls.png) is the

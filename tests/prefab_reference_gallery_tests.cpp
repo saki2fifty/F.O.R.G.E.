@@ -170,6 +170,9 @@ int main(int argc, char** argv) {
                                                                       {"image_tiled", false}}})
                         if (!light->contains(field))
                             (*light)[field] = value;
+                if (auto probe = components.find("forge.reflection_probe");
+                    probe != components.end() && !probe->contains("diffuse_intensity"))
+                    (*probe)["diffuse_intensity"] = 0.;
                 if (auto renderer = components.find("forge.mesh_renderer");
                     renderer != components.end() && !renderer->contains("material_parameters"))
                     (*renderer)["material_parameters"] = Json::array();

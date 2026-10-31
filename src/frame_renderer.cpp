@@ -213,7 +213,7 @@ ITextureView* FrameRenderer::render(IDeviceContext* context, const RenderScene& 
     const bool reflections_enabled = meshes_ && reflections.enabled &&
                                      reflections.max_distance != 0 && reflections.strength != 0 &&
                                      reflections.max_roughness != 0;
-    const bool local_reflections = meshes_ && !meshes_->reflection_probes().empty();
+    const bool local_reflections = meshes_ && meshes_->has_reflection_probes();
     const bool temporal_enabled =
         aa_enabled || blur_enabled || occlusion_enabled || reflections_enabled || local_reflections;
     const auto transition = temporal_sample_transition(temporal_sample_, sample_key);

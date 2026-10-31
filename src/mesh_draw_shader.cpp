@@ -318,7 +318,8 @@ MeshDrawShader mesh_draw_shader(const MeshVertexFetch& fetch, const PbrMaterialP
         ps +=
             "#include \"ForgeShadows.fxh\"\nTexture2D g_ForgeGGX;SamplerState g_ForgeLightSampler;"
             "TextureCube g_ForgeDiffuse,g_ForgeSpecular,g_ForgeCharlie;"
-            "cbuffer ForgeEnvironment {float4 g_Environment;};\n";
+            "cbuffer ForgeEnvironment {float4 g_Environment;};\n"
+            "#include \"ForgeLocalIrradiance.fxh\"\n";
     if (transmission)
         ps += "#include \"ForgeTransmission.fxh\"\n";
     ps += "cbuffer ForgeLights {PBRLightAttribs g_Lights[" + std::to_string(mesh_draw_light_limit) +
@@ -638,6 +639,7 @@ float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
 #endif
                  lighting);
     }
+    valid=ForgeApplyLocalIrradiance(input.World,g_Environment.x,s,lighting)&&valid;
     float3 color=ResolveLighting(s,lighting);
 )";
         if (transmission) {

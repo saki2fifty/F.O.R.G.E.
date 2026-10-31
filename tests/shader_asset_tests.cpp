@@ -375,6 +375,14 @@ int main() {
                             encoded_light_images &&
                         light_image_surface.layout_digest() != clustered_surface.layout_digest(),
                     "Light image capability lost its archive or layout identity");
+            auto irradiance_surface = light_image_surface;
+            irradiance_surface.surface_wrapper_version = 13;
+            const auto encoded_irradiance = encode_shader(irradiance_surface);
+            require(decode_shader(encoded_irradiance).surface_wrapper_version == 13 &&
+                        decode_shader(encoded_irradiance).stages.size() == 19 &&
+                        encode_shader(decode_shader(encoded_irradiance)) == encoded_irradiance &&
+                        irradiance_surface.layout_digest() != light_image_surface.layout_digest(),
+                    "Local irradiance capability lost its archive or layout identity");
             auto invalid_weighted = weighted_surface;
             invalid_weighted.surface_wrapper_version = 8;
             rejected([&] { validate_shader(invalid_weighted); });

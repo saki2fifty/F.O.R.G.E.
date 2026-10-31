@@ -12,6 +12,21 @@ std::uint64_t cube_bytes(const Diligent::TextureDesc& desc) {
     return total;
 }
 } // namespace
+bool complete_environment_cube(Diligent::ITextureView* view) {
+    using namespace Diligent;
+    if (!view)
+        return false;
+    const auto& image = view->GetTexture()->GetDesc();
+    const auto& selection = view->GetDesc();
+    return image.Type == RESOURCE_DIM_TEX_CUBE && image.ArraySize == 6 &&
+           image.Width == image.Height && image.MipLevels != 0 && image.SampleCount == 1 &&
+           (image.Format == TEX_FORMAT_RGBA16_FLOAT || image.Format == TEX_FORMAT_RGBA32_FLOAT) &&
+           (image.BindFlags & BIND_SHADER_RESOURCE) != 0 &&
+           selection.ViewType == TEXTURE_VIEW_SHADER_RESOURCE &&
+           selection.TextureDim == RESOURCE_DIM_TEX_CUBE && selection.Format == image.Format &&
+           selection.MostDetailedMip == 0 && selection.NumMipLevels == image.MipLevels &&
+           selection.FirstArraySlice == 0 && selection.NumArraySlices == 6;
+}
 std::uint64_t EnvironmentRealization::bytes(const TextureData& source) const {
     validate_texture(source);
     if (!presentation || !diffuse_size || !specular_size ||

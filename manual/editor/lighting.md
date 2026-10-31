@@ -150,10 +150,11 @@ Scene using the steps below.
 **Half extent** is measured before entity scale; **Edge fade** is measured after
 that transform, in world metres. Higher **Priority** takes precedence in overlap;
 its edge fade reveals lower-priority maps and then the Scene environment. Equal
-priorities use stable entity order. **Enabled** off, an unassigned map or zero
-Intensity makes the probe inactive. Outside every box, the Scene environment remains.
-The map affects base reflections; diffuse light, the sky, clearcoat and sheen keep
-the Scene environment. It can supply reflections when global environment intensity
+priorities use stable entity order. **Enabled** off, an unassigned map or both
+intensity controls at zero makes the probe inactive. Outside every box, the Scene environment remains.
+By default, the map affects base reflections; diffuse light, the sky, clearcoat
+and sheen keep the Scene environment. **Diffuse intensity** optionally supplies
+local diffuse light as described below. It can supply reflections when global environment intensity
 is zero. Smooth lit metal makes the result easiest to see.
 
 Open **107-local-reflection-probes** in the Feature Gallery. Select **Warm reflection volume - priority 1**
@@ -168,16 +169,49 @@ changes affect the running world. Stop restores saved authored values unless you
 keep selected fields through the tuning review. Assign maps while stopped.
 
 Use at most **eight active assigned probes**. Above that limit the view keeps
-global reflections and Problems reports the capacity warning. A failed replacement
+global lighting and Problems reports the capacity warning. A failed replacement
 keeps the previous usable map; clearing the field removes it. Singular transforms
 and volumes that cannot be represented for a camera are skipped with a diagnostic.
 
-The same depth-writing Mesh, camera-clear, shader, draw-order and view-budget limits
-as screen-space reflections apply. Transparent objects, Sprites, Tile Maps,
+Local specular reflections use the same depth-writing Mesh, camera-clear, shader,
+draw-order and view-budget limits as screen-space reflections. Transparent objects, Sprites, Tile Maps,
 particles and overlays keep their existing path. Anisotropic surfaces retain the
-Scene environment. Probes do not generate diffuse light or assign different
-probe masks to individual Meshes. Screen-space reflections can
+Scene environment. Per-Mesh probe masks are unavailable. Screen-space reflections can
 run afterward and retain the local map where their visible-depth samples miss.
+
+## Add local diffuse light
+
+A probe can light nearby surfaces using its saved map. **Intensity** controls base
+reflections; **Diffuse intensity** controls diffuse illumination independently.
+Diffuse intensity starts at **0**, leaving the Scene's diffuse lighting unchanged.
+
+1. Stop Play. Import a Color/HDR cube or complete panorama using [Textures](textures.md), or capture a map using the steps below.
+2. Create or select a **Reflection Probe** and assign **Reflection map**.
+3. Set **Diffuse intensity** to **1**. Set **Intensity** to **0** to compare diffuse lighting without local specular reflections. Global environment intensity can also be zero; local diffuse light still contributes.
+4. Move the probe and set its **Half extent** values. **Edge fade** measures world metres inward from the box boundary. **Map rotation** turns the incoming light directions around world Y. **Box projection** affects specular reflections only.
+5. Use **Priority** to control overlapping volumes. Higher priority takes precedence; its fade reveals lower-priority diffuse maps and then the Scene environment. A probe with Diffuse intensity zero does not cover other diffuse lighting.
+6. Save the Scene, then test in Play. **Live gameplay** exposes diffuse intensity with the existing probe controls. Runtime edits are temporary unless kept through the tuning review; assign maps while stopped.
+
+![Reflection Probe Inspector with Intensity zero and Diffuse intensity one](../images/local-diffuse-irradiance-controls.png)
+
+Use the two intensity controls to adjust reflections and diffuse light separately.
+
+Open **118-local-diffuse-irradiance** in the Feature Gallery. Its warm and cool
+volumes light the receivers and floor without direct lights or a global environment.
+Select either volume, toggle Enabled, change Diffuse intensity or move its bounds.
+The center receivers show their overlap.
+
+![Warm and cool local diffuse volumes lighting receivers and a floor](../images/local-diffuse-irradiance.png)
+
+The same map and volume supply both lighting controls. Use at most **eight active
+assigned probes in total**, including reflection-only and diffuse-only probes.
+Lit Meshes and Mesh particles receive diffuse light; Unlit materials remain unlit.
+Older custom Surface Shaders need a current cook for this input. A failed map
+replacement keeps the previous usable map; clearing the map removes it.
+
+The map is a static lighting snapshot. Moving scene objects or lights does not
+update it. Local diffuse probes do not cast shadows, provide a sampled irradiance
+grid or calculate multiple bounces. Capture a new map after changing its sources.
 
 ## Capture a reflection map from your Scene
 
@@ -217,7 +251,7 @@ Toggle the captured reflection volume's **Enabled** control to compare the saved
 
 A capture is a static authored snapshot. It uses source lighting, shadows, fog and
 the source environment, including that environment when its display sky is hidden.
-It excludes recursive local/screen-space reflections, ambient occlusion, temporal
+It excludes local reflection and diffuse probes, screen-space reflections, ambient occlusion, temporal
 smoothing, motion/focus blur, bloom and display exposure/tone mapping/color grading.
 It stores linear HDR values. It does not update when objects, lights or the probe
 move. Capture a new map into a new folder after changing the Scene. Runtime

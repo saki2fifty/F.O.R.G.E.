@@ -770,7 +770,8 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<double>("blend_distance")
             .template member<double>("rotation_degrees")
             .template member<std::int32_t>("priority")
-            .template member<bool>("box_projection");
+            .template member<bool>("box_projection")
+            .template member<double>("diffuse_intensity");
         for (const auto& [field, offset] :
              {std::pair{"texture", offsetof(ReflectionProbe, texture)},
               std::pair{"enabled", offsetof(ReflectionProbe, enabled)},
@@ -781,7 +782,8 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
               std::pair{"blend_distance", offsetof(ReflectionProbe, blend_distance)},
               std::pair{"rotation_degrees", offsetof(ReflectionProbe, rotation_degrees)},
               std::pair{"priority", offsetof(ReflectionProbe, priority)},
-              std::pair{"box_projection", offsetof(ReflectionProbe, box_projection)}}) {
+              std::pair{"box_projection", offsetof(ReflectionProbe, box_projection)},
+              std::pair{"diffuse_intensity", offsetof(ReflectionProbe, diffuse_intensity)}}) {
             const auto* member = ecs_struct_get_member(w.c_ptr(), c.id(), field);
             if (!member || std::size_t(member->offset) != offset)
                 throw std::runtime_error(
@@ -1732,20 +1734,33 @@ Json registration_options(const Builtin& type, const std::string& field) {
     }
     if (name == "forge.reflection_probe") {
         static const std::map<std::string, const char*> labels = {
-            {"texture", "Reflection map"},      {"enabled", "Enabled"},
-            {"intensity", "Intensity"},         {"half_extent_x", "Half extent X"},
-            {"half_extent_y", "Half extent Y"}, {"half_extent_z", "Half extent Z"},
-            {"blend_distance", "Edge fade"},    {"rotation_degrees", "Map rotation"},
-            {"priority", "Priority"},           {"box_projection", "Box projection"}};
+            {"texture", "Reflection map"},
+            {"enabled", "Enabled"},
+            {"intensity", "Intensity"},
+            {"half_extent_x", "Half extent X"},
+            {"half_extent_y", "Half extent Y"},
+            {"half_extent_z", "Half extent Z"},
+            {"blend_distance", "Edge fade"},
+            {"rotation_degrees", "Map rotation"},
+            {"priority", "Priority"},
+            {"box_projection", "Box projection"},
+            {"diffuse_intensity", "Diffuse intensity"}};
         value["display_name"] = labels.at(field);
         if (field == "texture") {
             value["description"] =
                 "Imported color/HDR cubemap or full panorama. None keeps the scene environment.";
         } else if (field == "enabled") {
-            value["description"] = "Use the assigned reflection map within this volume.";
+            value["description"] =
+                "Use the assigned reflection and diffuse lighting map within this volume.";
         } else if (field == "intensity") {
-            value["description"] = "Local base-reflection multiplier. Zero skips this probe; "
-                                   "diffuse lighting stays unchanged.";
+            value["description"] = "Local base-reflection multiplier. Zero omits specular "
+                                   "reflections from this probe.";
+            value["minimum"] = 0;
+            value["maximum"] = 1000000;
+        } else if (field == "diffuse_intensity") {
+            value["description"] = "Local base diffuse-light multiplier from the assigned map. "
+                                   "Zero keeps the Scene's diffuse lighting. Does not alter direct "
+                                   "light, emission, clearcoat or sheen reflections.";
             value["minimum"] = 0;
             value["maximum"] = 1000000;
         } else if (field.starts_with("half_extent_")) {
@@ -1754,8 +1769,9 @@ Json registration_options(const Builtin& type, const std::string& field) {
             value["maximum"] = 1000000;
             value["unit"] = "meters";
         } else if (field == "blend_distance") {
-            value["description"] = "World distance inward from the box edge over which reflections "
-                                   "fade in. Zero gives a hard edge.";
+            value["description"] =
+                "World distance inward from the box edge over which probe lighting "
+                "fade in. Zero gives a hard edge.";
             value["minimum"] = 0;
             value["maximum"] = 1000000;
             value["unit"] = "meters";
@@ -3228,6 +3244,9 @@ Json admitted_builtin_source(const Builtin& type, const Json& source) {
         for (const auto* field : {"color_influence", "normal_influence", "roughness_influence"})
             if (!current.contains(field))
                 current[field] = type.defaults.at(field);
+    if (std::string_view(type.name) == "forge.reflection_probe" &&
+        !current.contains("diffuse_intensity"))
+        current["diffuse_intensity"] = type.defaults.at("diffuse_intensity");
     if (std::string_view(type.name) == "forge.transform_animator")
         for (const auto* field : {"sequence", "sequence_start_seconds"})
             if (!current.contains(field))

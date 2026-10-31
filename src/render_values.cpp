@@ -47,12 +47,14 @@ DecalProjector decal_value(const Json& source) {
 void validate_reflection_probe(const ReflectionProbe& value) {
     const auto extent = [](double x) { return std::isfinite(x) && x >= .0001 && x <= 1000000; };
     if (!std::isfinite(value.intensity) || value.intensity < 0 || value.intensity > 1000000 ||
-        !extent(value.half_extent_x) || !extent(value.half_extent_y) ||
-        !extent(value.half_extent_z) || !std::isfinite(value.blend_distance) ||
-        value.blend_distance < 0 || value.blend_distance > 1000000 ||
-        !std::isfinite(value.rotation_degrees))
+        !std::isfinite(value.diffuse_intensity) || value.diffuse_intensity < 0 ||
+        value.diffuse_intensity > 1000000 || !extent(value.half_extent_x) ||
+        !extent(value.half_extent_y) || !extent(value.half_extent_z) ||
+        !std::isfinite(value.blend_distance) || value.blend_distance < 0 ||
+        value.blend_distance > 1000000 || !std::isfinite(value.rotation_degrees))
         throw std::invalid_argument(
-            "Reflection probe requires finite intensity/blend from 0 to 1000000, "
+            "Reflection probe requires finite specular/diffuse intensity and blend from 0 to "
+            "1000000, "
             "half extents from 0.0001 to 1000000 metres and finite map rotation");
 }
 Json render_value(const ReflectionProbe& value) {
@@ -65,7 +67,8 @@ Json render_value(const ReflectionProbe& value) {
             {"blend_distance", value.blend_distance},
             {"rotation_degrees", value.rotation_degrees},
             {"priority", value.priority},
-            {"box_projection", value.box_projection}};
+            {"box_projection", value.box_projection},
+            {"diffuse_intensity", value.diffuse_intensity}};
 }
 ReflectionProbe reflection_probe_value(const Json& source) {
     ReflectionProbe value;
@@ -80,6 +83,7 @@ ReflectionProbe reflection_probe_value(const Json& source) {
     value.rotation_degrees = source.at("rotation_degrees").get<double>();
     value.priority = source.at("priority").get<std::int32_t>();
     value.box_projection = source.at("box_projection").get<bool>();
+    value.diffuse_intensity = source.value("diffuse_intensity", 0.);
     validate_reflection_probe(value);
     return value;
 }

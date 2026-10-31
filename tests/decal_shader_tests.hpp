@@ -161,6 +161,33 @@ inline void test_decal_shader_profile() {
     bad_image = images;
     bad_image["resources"][6]["variables"][0]["array_size"] = 255;
     reject([&] { surface_binding_layout(graph, bad_image, ShaderEntryRole::SurfaceColor, 12); });
+    auto irradiance = images;
+    const auto irradiance_packet = irradiance["resources"].size();
+    packet["name"] = "ForgeLocalIrradiance";
+    packet["size"] = 41 * 16;
+    packet["variables"][0]["name"] = "g_ForgeLocalIrradiance";
+    packet["variables"][0]["array_size"] = 41;
+    irradiance["resources"].push_back(packet);
+    for (unsigned i = 0; i < 8; ++i)
+        irradiance["resources"].push_back({{"name", "g_ForgeIrradiance" + std::to_string(i)},
+                                           {"kind", "texture_srv"},
+                                           {"array_size", 1},
+                                           {"dimension", "texture_cube"}});
+    (void)surface_binding_layout(graph, irradiance, ShaderEntryRole::SurfaceColor, 13);
+    reject([&] { surface_binding_layout(graph, images, ShaderEntryRole::SurfaceColor, 13); });
+    reject([&] { surface_binding_layout(graph, irradiance, ShaderEntryRole::SurfaceColor, 12); });
+    auto bad_irradiance = irradiance;
+    bad_irradiance["resources"][irradiance_packet]["variables"][0]["array_size"] = 40;
+    reject(
+        [&] { surface_binding_layout(graph, bad_irradiance, ShaderEntryRole::SurfaceColor, 13); });
+    bad_irradiance = irradiance;
+    bad_irradiance["resources"].back()["dimension"] = "texture2d";
+    reject(
+        [&] { surface_binding_layout(graph, bad_irradiance, ShaderEntryRole::SurfaceColor, 13); });
+    bad_irradiance = irradiance;
+    bad_irradiance["resources"].erase(bad_irradiance["resources"].size() - 1);
+    reject(
+        [&] { surface_binding_layout(graph, bad_irradiance, ShaderEntryRole::SurfaceColor, 13); });
     const auto image_at = projected.pixel.find("ForgeLightImage(i,input.World,dpdx,dpdy,image)");
     const auto direct_at = projected.pixel.find("ForgeApplyPunctualLight(s,light,");
     check(image_at != std::string::npos && image_at < direct_at &&

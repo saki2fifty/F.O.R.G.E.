@@ -4,6 +4,8 @@
 #include "hdr_bloom_gpu_tests.hpp"
 #include "light_image_draw_tests.hpp"
 #include "light_image_scene_tests.hpp"
+#include "local_irradiance_draw_tests.hpp"
+#include "local_irradiance_scene_tests.hpp"
 #include "mesh_draw.hpp"
 #include "mesh_draw_shader.hpp"
 #include "mesh_vertex_fetch.hpp"
@@ -29,7 +31,7 @@ void equal_pixels(const Pixels& actual, const Pixels& expected, const char* why)
                   why);
 }
 void execute(const std::filesystem::path& root, bool scene_only, bool channels_only,
-             bool clusters_only, bool light_images_only) {
+             bool clusters_only, bool light_images_only, bool irradiance_only) {
     RefCntAutoPtr<IRenderDevice> device;
     RefCntAutoPtr<IDeviceContext> context;
     EngineVkCreateInfo create;
@@ -102,6 +104,12 @@ void execute(const std::filesystem::path& root, bool scene_only, bool channels_o
     camera.near_plane = .1;
     camera.far_plane = 10;
     const auto view = camera_view(camera, camera_world, 32, 32);
+    if (irradiance_only) {
+        test_local_irradiance_draws(presentation, context, gpu_mesh.lods[0].parts[0], color, dsv,
+                                    world, view);
+        test_local_irradiance_scene(presentation, context, root / "local-irradiance");
+        return;
+    }
     Light light;
     light.intensity = 1;
     auto illumination = light_view(light, {});
@@ -980,13 +988,15 @@ int main(int argc, char** argv) {
         check(argc == 2 || (argc == 3 && (std::string_view(argv[2]) == "--scene-only" ||
                                           std::string_view(argv[2]) == "--channels-only" ||
                                           std::string_view(argv[2]) == "--clusters-only" ||
-                                          std::string_view(argv[2]) == "--light-images-only")),
+                                          std::string_view(argv[2]) == "--light-images-only" ||
+                                          std::string_view(argv[2]) == "--irradiance-only")),
               "Need decal scratch directory and optional --scene-only / --channels-only / "
-              "--clusters-only / --light-images-only");
+              "--clusters-only / --light-images-only / --irradiance-only");
         execute(argv[1], argc == 3 && std::string_view(argv[2]) == "--scene-only",
                 argc == 3 && std::string_view(argv[2]) == "--channels-only",
                 argc == 3 && std::string_view(argv[2]) == "--clusters-only",
-                argc == 3 && std::string_view(argv[2]) == "--light-images-only");
+                argc == 3 && std::string_view(argv[2]) == "--light-images-only",
+                argc == 3 && std::string_view(argv[2]) == "--irradiance-only");
         return 0;
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

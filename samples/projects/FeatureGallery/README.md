@@ -1,5 +1,17 @@
 # Feature Gallery
 
+## Local diffuse lighting
+
+Open **Scenes/118-local-diffuse-irradiance.scene.json** and press Play. The included
+warm and cool maps light the floor, rounded receivers and boxes. There are no
+direct lights or global environment. Select **Warm diffuse volume - priority 1**
+or **Cool diffuse volume - priority 0** and toggle Enabled or adjust Diffuse intensity,
+Edge fade, Priority, map yaw or the influence bounds. Intensity controls reflections
+separately and is zero here. Scalar controls support Live gameplay tuning.
+Save and choose this Scene as startup before export. No C++ module or new import
+is required. At most eight active assigned reflection/diffuse probes are admitted
+in total; this example is static map lighting, not an automatic multi-bounce solver.
+
 ## Light images
 
 Open **Scenes/117-light-images.scene.json** and press Play. Directional arrows

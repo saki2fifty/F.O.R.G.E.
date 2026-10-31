@@ -254,6 +254,16 @@ void MeshDrawBundle::clear_decals(Diligent::IDeviceContext* context) {
                 if (part)
                     part->clear_decals(context);
 }
+void MeshDrawBundle::clear_local_irradiance() {
+    for (auto& lod : lods_)
+        for (auto& part : lod)
+            part->clear_local_irradiance();
+    for (auto& variants : surface_lods_)
+        for (auto& lod : variants)
+            for (auto& part : lod)
+                if (part)
+                    part->clear_local_irradiance();
+}
 void MeshDrawBundle::draw(Diligent::IDeviceContext* context, const AffineTransform& world,
                           const CameraView& camera, std::span<const LightView> lights,
                           const EnvironmentLighting* environment, unsigned lod) {
@@ -273,7 +283,8 @@ void MeshDrawBundle::draw_part(
     const SceneDistanceFog* fog, const GpuLease<TextureAsset>* sprite_mip,
     const MeshDraw::Motion* motion, bool indirect, bool reflection, bool normal,
     std::span<const MeshDraw::Decal> decals, bool weighted, const RenderBounds* decal_bounds,
-    std::span<const MeshDraw::LightImage> images) {
+    std::span<const MeshDraw::LightImage> images,
+    std::span<const EnvironmentProbe> local_irradiance) {
     const bool area_lights = std::any_of(lights.begin(), lights.end(), [](const auto& light) {
         return light.kind >= unsigned(LightKind::Rectangle);
     });
@@ -310,6 +321,6 @@ void MeshDrawBundle::draw_part(
                    shadows, shadow_slots, transmission,
                    pose ? std::span<const float>(pose->morph_weights) : std::span<const float>{},
                    skin, instances, parameters, slot(lod, part), sprite, fog, motion, decals,
-                   decal_bounds, images);
+                   decal_bounds, images, local_irradiance);
 }
 } // namespace forge

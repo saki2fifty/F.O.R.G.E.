@@ -10,6 +10,7 @@
 #include "tile_draw_values.hpp"
 #include "weighted_transparency.hpp"
 #include <forge/render_scene.hpp>
+#include <functional>
 namespace forge {
 struct MeshResourceInspection {
     ResourceStatistics meshes, materials, textures, particles, tile_sets, tile_maps;
@@ -140,8 +141,11 @@ class MeshSceneRenderer {
                                                           std::uint32_t layers = UINT32_MAX,
                                                           double point_line_radius = 5) const;
     const EnvironmentLease& environment() const { return environment_.ready; }
-    std::span<const SurfaceReflections::Probe> reflection_probes() const {
-        return reflection_probes_;
+    bool has_reflection_probes() const {
+        for (const auto& probe : lighting_probes_)
+            if (probe.intensity != 0)
+                return true;
+        return false;
     }
     std::vector<SurfaceReflections::Probe> reflection_probes(const CameraView&);
 
@@ -211,12 +215,14 @@ class MeshSceneRenderer {
         EnvironmentLease ready;
         std::string error;
     };
-    bool resolve_environment(EnvironmentSelection&, AssetRef<TextureAsset>);
+    bool resolve_environment(EnvironmentSelection&, AssetRef<TextureAsset>,
+                             const std::function<void()>& before_replace = {});
     bool update_environment(const RenderScene&);
     bool update_reflection_probes(const RenderScene&);
     bool update_decals(const RenderScene&);
     bool update_light_images(const RenderScene&);
     void clear_decal_bindings();
+    void clear_probe_bindings();
     void report(Diagnostic);
     void report(EntityId, const std::string&, DrawScope = DrawScope::Mesh);
     std::shared_ptr<MeshResourceHost> host_;
@@ -236,7 +242,7 @@ class MeshSceneRenderer {
         EnvironmentSelection environment;
     };
     std::map<EntityId, ProbeEntry> probe_entries_;
-    std::vector<SurfaceReflections::Probe> reflection_probes_;
+    std::vector<EnvironmentProbe> lighting_probes_;
     struct ProjectedTextureResource {
         ResourceLease<TextureAsset> source;
         GpuLease<TextureAsset> gpu;

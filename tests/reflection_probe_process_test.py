@@ -41,6 +41,7 @@ def verify(state, tick):
     probe = components['forge.reflection_probe']
     assert probe['texture'] == 'd4c60053-60c8-4456-8771-a7cf8182a902'
     assert probe['intensity'] == 1 + .5 * tick and probe['rotation_degrees'] == 15 * tick
+    assert probe['diffuse_intensity'] == .125 * tick
     assert probe['half_extent_x'] == 2 + .25 * tick and probe['priority'] == tick
     assert probe['box_projection'] is (tick != 2)
     assert probe['extension'] == dict(retain=17)
@@ -49,11 +50,11 @@ def live(client, state):
     generation = state['world_generation'] if 'world_generation' in state else state['activation']['generation']
     target = dict(generation=generation, scene_asset=state['effective_scene']['asset_id'],
                   entity=actor, type='forge.reflection_probe')
-    for name, value in [('half_extent_x', .0001), ('priority', -2147483648), ('enabled', False)]:
+    for name, value in [('half_extent_x', .0001), ('priority', -2147483648), ('enabled', False), ('diffuse_intensity', .25)]:
         updated = client.request('property_tune', **target, property=name, value=value)
         assert updated['ok'] and updated['property_tune']['value'] == value, updated
     before = client.request('snapshot')
-    for name, value in [('half_extent_x', .000099999999), ('priority', 2147483648), ('enabled', 1)]:
+    for name, value in [('half_extent_x', .000099999999), ('priority', 2147483648), ('enabled', 1), ('diffuse_intensity', -1), ('diffuse_intensity', 1000000.1), ('diffuse_intensity', True), ('diffuse_intensity', '1')]:
         try:
             client.request('property_tune', **target, property=name, value=value)
         except RuntimeError as error:
@@ -72,6 +73,7 @@ try:
         component, = [item for item in schema['components'] if item['id'] == name]
         return {field['id']: field['default'] for field in component['fields']}
     probe = defaults('forge.reflection_probe')
+    assert probe.pop('diffuse_intensity') == 0  # Exercise a legacy source without rewriting it.
     probe.update(texture='d4c60053-60c8-4456-8771-a7cf8182a902', extension=dict(retain=17))
     scene = dict(version=3, asset_id=str(uuid.uuid4()), entities=[dict(
         id=actor, name='SDK local reflection volume', components={
@@ -83,7 +85,8 @@ try:
     source = root / 'Source.scene.json'
     source.write_text(json.dumps(scene), encoding='utf-8')
     digest = hashlib.sha256(source.read_bytes()).hexdigest()
-    assert first.request('replace', scene=scene)['ok']
+    initial = first.request('replace', scene=scene)
+    assert initial['ok'] and values(initial)['forge.reflection_probe']['diffuse_intensity'] == 0
     one = first.request('step')
     verify(one, 1)
     checkpoint = one['recovery']

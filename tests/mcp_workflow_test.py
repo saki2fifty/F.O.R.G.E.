@@ -659,7 +659,7 @@ for legacy in (False, True):
             for field, value in [('enabled', False), ('intensity', 2.5), ('half_extent_x', .0001),
                                  ('half_extent_y', 3.), ('half_extent_z', 4.), ('blend_distance', .5),
                                  ('rotation_degrees', 90.), ('priority', -2147483648),
-                                 ('box_projection', False)]:
+                                 ('box_projection', False), ('diffuse_intensity', .75)]:
                 control('forge_play_tune', entity=actor, component='forge.reflection_probe',
                         property=field, value=value)
                 ack = until(lambda: read('forge_play_status'), lambda row:
@@ -668,7 +668,8 @@ for legacy in (False, True):
                 assert ack['timing']['tick'] == paused['timing']['tick']
             tuned = runtime_probe()
             for field, value in [('half_extent_x', .000099), ('priority', 2147483648),
-                                 ('enabled', 1), ('intensity', -1)]:
+                                 ('enabled', 1), ('intensity', -1), ('diffuse_intensity', -1),
+                                 ('diffuse_intensity', 1000000.1), ('diffuse_intensity', True)]:
                 control('forge_play_tune', entity=actor, component='forge.reflection_probe',
                         property=field, value=value)
                 ack = until(lambda: read('forge_play_status'), lambda row:
@@ -686,7 +687,7 @@ for legacy in (False, True):
                           property='intensity', value=1), 'stale_play')
             control('forge_play_stop')
             assert read('forge_scene_read') == authored
-            print(('legacy' if legacy else 'current') + ': probe recipe/Save, nine live controls, '
+            print(('legacy' if legacy else 'current') + ': probe recipe/Save, ten live controls, '
                   'typed/map/stale rejection, paused clock and authored isolation passed')
             continue
         if TIME_ONLY:

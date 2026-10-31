@@ -1,0 +1,638 @@
+{
+  "asset_id": "180d3ed7-99b8-48ff-a849-40e12ebf04b9",
+  "entities": [
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 0.0,
+          "background_a": 1.0,
+          "background_b": 0.024000000208616257,
+          "background_g": 0.01600000075995922,
+          "background_r": 0.012000000104308128,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 1000.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 9.0,
+          "orthographic_width": 0.0,
+          "projection": 0,
+          "vertical_fov": 0.75,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 0.9558762907981873,
+          "x": 0.2075410783290863,
+          "y": -0.20317776501178741,
+          "z": 0.04411421716213226
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 4.5,
+          "y": 5.5,
+          "z": -7.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "8b6fa2fd-9cc3-4908-ad32-a8409d79a88a",
+      "name": "Camera - local diffuse light without direct lights",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 10.0,
+          "y": 0.25,
+          "z": 6.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": -0.2,
+          "z": 3.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": false,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.699999988079071,
+                  0.699999988079071,
+                  0.699999988079071,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "metallicFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.6000000238418579,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "9d087798-a173-48e0-938d-7607eed42f91",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "1f0bc41e-322c-4d67-aabc-841475583996",
+      "name": "Floor - receives both diffuse maps",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9762960076332092,
+          "x": 0.0,
+          "y": 0.2164396196603775,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.2000000476837158,
+          "y": 1.2000000476837158,
+          "z": 1.2000000476837158
+        },
+        "forge.local_translation": {
+          "x": -3.0,
+          "y": 0.6,
+          "z": 3.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": false,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.699999988079071,
+                  0.699999988079071,
+                  0.699999988079071,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "metallicFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.6000000238418579,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "9d087798-a173-48e0-938d-7607eed42f91",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "905dc826-b873-4a2a-bcc5-0d0e65af60e6",
+      "name": "Receiver 1 - warm / overlap / cool",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9848077297210693,
+          "x": 0.0,
+          "y": -0.1736481785774231,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.2000000476837158,
+          "y": 1.2000000476837158,
+          "z": 1.2000000476837158
+        },
+        "forge.local_translation": {
+          "x": -1.5,
+          "y": 0.6,
+          "z": 3.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": false,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.699999988079071,
+                  0.699999988079071,
+                  0.699999988079071,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "metallicFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.6000000238418579,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "9d087798-a173-48e0-938d-7607eed42f91",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "1c32b0ce-a595-49dc-910b-79f2d696f726",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "acc60c34-3c41-4922-9829-9f547feecc39",
+      "name": "Receiver 2 - warm / overlap / cool",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9762960076332092,
+          "x": 0.0,
+          "y": 0.2164396196603775,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.2000000476837158,
+          "y": 1.2000000476837158,
+          "z": 1.2000000476837158
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.6,
+          "z": 3.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": false,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.699999988079071,
+                  0.699999988079071,
+                  0.699999988079071,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "metallicFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.6000000238418579,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "9d087798-a173-48e0-938d-7607eed42f91",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "1c32b0ce-a595-49dc-910b-79f2d696f726",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "956aaa14-0c68-49e4-aacd-b507db7eea77",
+      "name": "Receiver 3 - warm / overlap / cool",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9848077297210693,
+          "x": 0.0,
+          "y": -0.1736481785774231,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.2000000476837158,
+          "y": 1.2000000476837158,
+          "z": 1.2000000476837158
+        },
+        "forge.local_translation": {
+          "x": 1.5,
+          "y": 0.6,
+          "z": 3.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": false,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.699999988079071,
+                  0.699999988079071,
+                  0.699999988079071,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "metallicFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.6000000238418579,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "9d087798-a173-48e0-938d-7607eed42f91",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "1c32b0ce-a595-49dc-910b-79f2d696f726",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "eaff6c0c-8f95-4a3b-b700-2c364e02b361",
+      "name": "Receiver 4 - warm / overlap / cool",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9762960076332092,
+          "x": 0.0,
+          "y": 0.2164396196603775,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.2000000476837158,
+          "y": 1.2000000476837158,
+          "z": 1.2000000476837158
+        },
+        "forge.local_translation": {
+          "x": 3.0,
+          "y": 0.6,
+          "z": 3.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": false,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.699999988079071,
+                  0.699999988079071,
+                  0.699999988079071,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "metallicFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.6000000238418579,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "9d087798-a173-48e0-938d-7607eed42f91",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "8f4992bb-80e9-4e1d-93e0-2346be55f63a",
+      "name": "Receiver 5 - warm / overlap / cool",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -2.0,
+          "y": 1.0,
+          "z": 3.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.reflection_probe": {
+          "blend_distance": 1.5,
+          "box_projection": false,
+          "diffuse_intensity": 1.0,
+          "enabled": true,
+          "half_extent_x": 3.0,
+          "half_extent_y": 4.0,
+          "half_extent_z": 4.0,
+          "intensity": 0.0,
+          "priority": 1,
+          "rotation_degrees": 0.0,
+          "texture": "6ec03ae9-356c-47cc-a2d0-66752bb063bd"
+        }
+      },
+      "id": "2e598a1f-1006-491c-9c31-3b441ca72bc6",
+      "name": "Warm diffuse volume - priority 1",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 2.0,
+          "y": 1.0,
+          "z": 3.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.reflection_probe": {
+          "blend_distance": 1.5,
+          "box_projection": false,
+          "diffuse_intensity": 1.0,
+          "enabled": true,
+          "half_extent_x": 3.0,
+          "half_extent_y": 4.0,
+          "half_extent_z": 4.0,
+          "intensity": 0.0,
+          "priority": 0,
+          "rotation_degrees": 0.0,
+          "texture": "d26ec4ff-f4cb-47c6-bf5d-b99f6de97cb0"
+        }
+      },
+      "id": "d53c43c8-950f-4846-b048-f9d7f91df757",
+      "name": "Cool diffuse volume - priority 0",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    }
+  ],
+  "rendering": {
+    "shadows": {
+      "cascades": 3,
+      "distance": 40,
+      "enabled": false,
+      "max_lights": 1,
+      "resolution": 1024
+    },
+    "version": 1
+  },
+  "version": 5
+}

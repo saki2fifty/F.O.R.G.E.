@@ -278,7 +278,7 @@ ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsig
         mesh_scene_->settings.screen_space_reflections.max_distance != 0 &&
         mesh_scene_->settings.screen_space_reflections.strength != 0 &&
         mesh_scene_->settings.screen_space_reflections.max_roughness != 0;
-    const bool local_reflections = display_ && meshes_ && !meshes_->reflection_probes().empty();
+    const bool local_reflections = display_ && meshes_ && meshes_->has_reflection_probes();
     const bool temporal_enabled =
         aa_enabled || blur_enabled || occlusion_enabled || reflections_enabled || local_reflections;
     if (!frame_ || *frame_ != key)

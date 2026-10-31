@@ -4,7 +4,8 @@
 #include <set>
 namespace forge {
 bool MeshSceneRenderer::resolve_environment(EnvironmentSelection& selection,
-                                            AssetRef<TextureAsset> source) {
+                                            AssetRef<TextureAsset> source,
+                                            const std::function<void()>& before_replace) {
     bool changed = false;
     if (source != selection.source || selection.epoch != host_->epoch_) {
         selection.source = source;
@@ -12,9 +13,11 @@ bool MeshSceneRenderer::resolve_environment(EnvironmentSelection& selection,
         selection.candidate.reset();
         selection.error.clear();
         changed = true;
-        if (!source.id)
+        if (!source.id) {
+            if (before_replace)
+                before_replace();
             selection.ready = {};
-        else
+        } else
             try {
                 selection.candidate = asset_detail::request_texture(
                     host_->textures_, host_->project_, host_->catalog_, source);
@@ -30,6 +33,8 @@ bool MeshSceneRenderer::resolve_environment(EnvironmentSelection& selection,
                 if (!cpu)
                     throw std::runtime_error("Environment selection became stale before adoption");
                 auto next = host_->environments_.acquire(cpu);
+                if (before_replace)
+                    before_replace();
                 selection.ready = std::move(next);
                 changed = true;
             } catch (const std::exception& error) {
@@ -67,7 +72,22 @@ bool MeshSceneRenderer::update_environment(const RenderScene& scene) {
     }
     return changed;
 }
+void MeshSceneRenderer::clear_probe_bindings() {
+    for (const auto& [key, weak] : bundles_) {
+        (void)key;
+        if (const auto bundle = weak.lock())
+            bundle->clear_local_irradiance();
+    }
+}
 bool MeshSceneRenderer::update_reflection_probes(const RenderScene& scene) {
+    bool cleared = false;
+    const auto before_release = [&] {
+        if (!cleared) {
+            clear_probe_bindings();
+            cleared = true;
+        }
+    };
+
     const auto diagnostic = [&](EntityId entity, const std::string& message, bool warning = false) {
         Diagnostic value{warning ? Severity::Warning : Severity::Error,
                          "render.reflection_probe.resource",
@@ -81,12 +101,14 @@ bool MeshSceneRenderer::update_reflection_probes(const RenderScene& scene) {
     };
     std::vector<const RenderReflectionProbe*> active;
     for (const auto& probe : scene.reflection_probes)
-        if (probe.probe.enabled && probe.probe.texture.id && probe.probe.intensity != 0)
+        if (probe.probe.enabled && probe.probe.texture.id &&
+            (probe.probe.intensity != 0 || probe.probe.diffuse_intensity != 0))
             active.push_back(&probe);
-    if (active.size() > 8) {
+    if (active.size() > environment_probe_limit) {
         const bool changed = !probe_entries_.empty();
+        before_release();
         probe_entries_.clear();
-        reflection_probes_.clear();
+        lighting_probes_.clear();
         diagnostic({},
                    "Scene exceeds the 8 active reflection probe limit; global lighting retained. "
                    "Disable or remove probes.",
@@ -97,8 +119,9 @@ bool MeshSceneRenderer::update_reflection_probes(const RenderScene& scene) {
     for (const auto* probe : active)
         if (!ids.insert(probe->entity).second) {
             const bool changed = !probe_entries_.empty();
+            before_release();
             probe_entries_.clear();
-            reflection_probes_.clear();
+            lighting_probes_.clear();
             diagnostic(probe->entity,
                        "Duplicate reflection probe identity; global lighting retained.");
             return changed;
@@ -115,7 +138,7 @@ bool MeshSceneRenderer::update_reflection_probes(const RenderScene& scene) {
             entry.value = probe->probe;
             entry.world = probe->world;
             entry.volume = volume;
-            changed |= resolve_environment(entry.environment, probe->probe.texture);
+            changed |= resolve_environment(entry.environment, probe->probe.texture, before_release);
             if (!entry.environment.error.empty())
                 diagnostic(probe->entity,
                            entry.environment.error +
@@ -123,11 +146,16 @@ bool MeshSceneRenderer::update_reflection_probes(const RenderScene& scene) {
             if (entry.environment.ready)
                 ready.emplace_back(probe->entity, &entry);
         } catch (const std::exception& error) {
+            if (probe_entries_.contains(probe->entity))
+                before_release();
             changed |= probe_entries_.erase(probe->entity) != 0;
             ids.erase(probe->entity);
             diagnostic(probe->entity, std::string(error.what()) + " (probe skipped)");
         }
     }
+    if (std::any_of(probe_entries_.begin(), probe_entries_.end(),
+                    [&](const auto& row) { return !ids.contains(row.first); }))
+        before_release();
     changed |= std::erase_if(probe_entries_,
                              [&](const auto& row) { return !ids.contains(row.first); }) != 0;
     std::sort(ready.begin(), ready.end(), [](const auto& first, const auto& second) {
@@ -135,14 +163,16 @@ bool MeshSceneRenderer::update_reflection_probes(const RenderScene& scene) {
             return first.second->value.priority > second.second->value.priority;
         return first.first < second.first;
     });
-    reflection_probes_.clear();
+    lighting_probes_.clear();
     for (const auto& [id, entry] : ready) {
         const auto& value = entry->value;
-        reflection_probes_.push_back({entry->volume,
-                                      entry->environment.ready.get().specular->GetDefaultView(
-                                          Diligent::TEXTURE_VIEW_SHADER_RESOURCE),
-                                      value.intensity, value.blend_distance, value.box_projection,
-                                      id});
+        lighting_probes_.push_back({entry->volume,
+                                    entry->environment.ready.get().specular->GetDefaultView(
+                                        Diligent::TEXTURE_VIEW_SHADER_RESOURCE),
+                                    value.intensity, value.blend_distance, value.box_projection, id,
+                                    entry->environment.ready.get().diffuse->GetDefaultView(
+                                        Diligent::TEXTURE_VIEW_SHADER_RESOURCE),
+                                    value.diffuse_intensity});
     }
     return changed;
 }
@@ -150,8 +180,10 @@ std::vector<SurfaceReflections::Probe>
 MeshSceneRenderer::reflection_probes(const CameraView& view) {
     host_->check_thread();
     std::vector<SurfaceReflections::Probe> result;
-    result.reserve(reflection_probes_.size());
-    for (const auto& probe : reflection_probes_) {
+    result.reserve(lighting_probes_.size());
+    for (const auto& probe : lighting_probes_) {
+        if (probe.intensity == 0)
+            continue;
         try {
             (void)reflection_probe_view_center(probe.volume, view.position);
             result.push_back(probe);

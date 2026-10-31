@@ -1,5 +1,6 @@
 #include "decal_shader.hpp"
 #include "distance_fog_shader.hpp"
+#include "environment_probe.hpp"
 #include "indirect_lighting_shader.hpp"
 #include "material_shader.hpp"
 #include "temporal_motion_shader.hpp"
@@ -332,6 +333,7 @@ SurfaceBindingLayout binding_layout(const SurfaceShaderDefinition& d, const Json
     const bool projected_surface_channels = projection_version >= 10;
     const bool clustered = projection_version >= 11;
     const bool light_images = projection_version >= 12;
+    const bool local_irradiance = projection_version >= 13 && d.physically_based;
     validate_surface_definition(d);
     require(reflection.at("stage") == "pixel" && reflection.at("resources").is_array() &&
                 reflection.at("resources").size() <= 256,
@@ -394,6 +396,29 @@ SurfaceBindingLayout binding_layout(const SurfaceShaderDefinition& d, const Json
                                                                     clustered) &&
                         field.at("members").empty(),
                     "Decal fields differ from the receiver profile");
+        } else if (name == "ForgeLocalIrradiance") {
+            require(local_irradiance && kind == "constant_buffer" &&
+                        resource.at("array_size") == 1 &&
+                        resource.at("size") == environment_probe_rows * 16,
+                    "Local irradiance buffer differs from the receiver profile");
+            const auto& fields = resource.at("variables");
+            require(fields.is_array() && fields.size() == 1,
+                    "Local irradiance buffer has incompatible fields");
+            const auto& field = fields[0];
+            require(field.at("name") == "g_ForgeLocalIrradiance" && field.at("offset") == 0 &&
+                        field.at("basic") == "float" && field.at("class") == "vector" &&
+                        field.at("rows") == 1 && field.at("columns") == 4 &&
+                        field.at("array_size") == environment_probe_rows &&
+                        field.at("members").empty(),
+                    "Local irradiance fields differ from the receiver profile");
+        } else if (name.starts_with("g_ForgeIrradiance")) {
+            bool declared = false;
+            for (unsigned i = 0; i < environment_probe_limit; ++i)
+                declared = declared || name == "g_ForgeIrradiance" + std::to_string(i);
+            require(local_irradiance && declared && kind == "texture_srv" &&
+                        resource.at("array_size") == 1 &&
+                        resource.at("dimension") == "texture_cube",
+                    "Local irradiance cubemap differs from the receiver profile");
         } else if (name == "ForgeLightImages") {
             require(light_images && decal_capacity && kind == "constant_buffer" &&
                         resource.at("array_size") == 1 && resource.at("size") == 256 * 16,
@@ -535,6 +560,12 @@ SurfaceBindingLayout binding_layout(const SurfaceShaderDefinition& d, const Json
                 throw std::runtime_error("Undeclared graph surface resource: " + name);
         } else
             throw std::runtime_error("Undeclared surface resource: " + name);
+    }
+    if (local_irradiance) {
+        require(names.contains("ForgeLocalIrradiance"), "Local irradiance packet is missing");
+        for (unsigned i = 0; i < environment_probe_limit; ++i)
+            require(names.contains("g_ForgeIrradiance" + std::to_string(i)),
+                    "Local irradiance cubemap slot is missing");
     }
     if (light_images && decal_capacity) {
         require(names.contains("ForgeLightImages"), "Light image packet is missing");

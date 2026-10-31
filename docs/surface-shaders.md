@@ -207,3 +207,13 @@ Decals. The old projector packets and authored Surface interfaces remain unchang
 Older cooks retain ordinary lighting and their supported projections; recook the
 Shader and dependent Materials to receive light images. See
 [coordinates, bindings and admission](light-images.md).
+
+## Local diffuse probe bindings
+
+Capability 13 keeps19 output roles and readable1–12 artifacts. Current lit wrappers
+add `ForgeLocalIrradiance`,41float4rows/656bytes, and eight complete single-mip HDR
+Cube views sharing the existing lighting sampler. The authored surface interface,
+projected-map slots and old packets remain unchanged. Older lit receivers keep
+Scene diffuse lighting and receive a recook diagnostic when local diffuse probes
+are active. See [local diffuse irradiance](local-diffuse-irradiance.md) for packing,
+resource ownership, native material composition and explicit platform limits.

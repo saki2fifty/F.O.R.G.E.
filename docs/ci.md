@@ -1817,3 +1817,39 @@ Run the corresponding strict/unsuppressed consumers at the coherent batch gate.
 Normal functional success is separate from known native sanitizer shutdown behavior.
 Do not claim Windows/MSVC/FXC/cooked D3D12, full graphical editor/input/DPI or physical
 GPU acceptance from these portable/software-renderer fixtures.
+
+## Local diffuse irradiance regression gate
+
+`reflection_probe_values` covers the appended scalar's native Meta/defaults/bounds,
+independent diffuse-only extraction, history and saving. `material_asset` validates
+capability 13's 41-row/eight-Cube packet and rejects missing, malformed or
+old-capability bindings. `shader_assets` preserves 19-role archives and previous readers.
+`reflection_probe_editor` includes actual diffuse input, invalid rejection, history,
+source persistence and the enabled diffuse-only volume guide at six scale/size pairs.
+Its `--capture-irradiance` mode records authentic current controls.
+
+`mcp_document_stdio` checks discovery, values, invalid mutations, replay/history and
+saving through the ordinary owner. `mcp_reflection_probes_stdio` adds live diffuse
+controls/rejection while preserving paused time and authored state in both protocols.
+`native_sdk_reflection_probes_installed` builds matching public values and tests
+both hosts, native fixed writes, live validation, cold recovery and unchanged legacy
+source bytes. `feature_gallery` admits all 118 sources through the shared API.
+
+`local_irradiance_vulkan` exercises actual Mesh material layers, zero/nonzero global
+environment, large origins, winding/clear/outside transitions and invalid inputs,
+then actual FrameRenderer map adoption, last-good replacement, removal, eight/nine
+capacity, Mesh particles and scene changes. `local_irradiance_gallery_vulkan` checks
+both visible map effects, the Scene/two-Texture closure and four source-free relocated
+display pairs. Private exact-input prerequisites additionally prove actual convolution,
+independent face/volume/material oracles and the full sampler/image/storage workload.
+Actual combined area/projector temporal-reflection and transmission sources reflect
+10 pixel constant buffers, 16 samplers, 43/44 images and three storage views,
+including all eight irradiance Cubes. The broader `decal_vulkan` test also compiles
+all 19 physical graph roles and exercises complex material admission; its combined
+software-renderer workload has a 300-second budget.
+
+Run affected strict/unsuppressed consumers, previous lighting/view/Shader consumers
+and manual/package checks at the coherent batch gate. These checks do not establish
+Windows/MSVC/FXC/cooked D3D12, full desktop input/DPI, physical GPU performance or
+actual graphical exported-EXE acceptance. Functional native completion is separate
+from the existing unresolved unsuppressed sanitizer shutdown condition.

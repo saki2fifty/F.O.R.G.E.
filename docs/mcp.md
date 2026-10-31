@@ -980,9 +980,13 @@ Discovery includes recipe `render.reflection_probe` and optional component
 Scene grant, expected revision, replay, Undo and document-save rules are the same
 as the Inspector. Texture is an imported color/HDR cube or panorama; dimensions,
 finite ranges and signed 32-bit priority validate through the native component.
-Invalid candidates leave the revision unchanged. Live Play tuning admits its nine
-scalar controls through `play.tune` / `forge_play_tune`; texture assignment remains Edit-only.
+Invalid candidates leave the revision unchanged. Live Play tuning admits its ten
+scalar controls, including `diffuse_intensity`, through `play.tune` /
+`forge_play_tune`; texture assignment remains Edit-only.
 Use discovered tools/fields for the current connection and permissions.
+`diffuse_intensity` defaults to zero and controls local base diffuse light independently
+of specular `intensity`. Both use the existing typed source/history and live tuning
+owners; no extra tool is required. See [the lighting contract](local-diffuse-irradiance.md).
 
 `capture.reflection.start` / `forge_capture_reflection_start` requires the project
 asset grant and Edit mode, with the ordinary target/expected revision/sequence

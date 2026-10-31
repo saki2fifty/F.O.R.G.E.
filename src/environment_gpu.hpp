@@ -22,4 +22,5 @@ struct EnvironmentLighting {
     float intensity = 1;
     double rotation = 0; // Radians around world Y.
 };
+bool complete_environment_cube(Diligent::ITextureView*);
 } // namespace forge

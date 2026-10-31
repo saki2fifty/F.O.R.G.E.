@@ -1,5 +1,6 @@
 #include "Graphics/GraphicsTools/interface/MapHelper.hpp"
 #include "Utilities/interface/DiligentFXShaderSourceStreamFactory.hpp"
+#include "environment_gpu.hpp"
 #include "presentation_views.hpp"
 #include "render_projection.hpp"
 #include "surface_depth_shader.hpp"
@@ -15,20 +16,6 @@ constexpr const char* surface_names[]{"CurrentColor",   "CurrentIndirect", "Curr
                                       "CurrentSurface", "CurrentResponse", "CurrentSpecular"};
 constexpr const char* cube_names[]{"Probe0", "Probe1", "Probe2", "Probe3",
                                    "Probe4", "Probe5", "Probe6", "Probe7"};
-bool complete_probe_map(ITextureView* view) {
-    if (!view)
-        return false;
-    const auto& image = view->GetTexture()->GetDesc();
-    const auto& selection = view->GetDesc();
-    return image.Type == RESOURCE_DIM_TEX_CUBE && image.ArraySize == 6 &&
-           image.Width == image.Height && image.MipLevels != 0 && image.SampleCount == 1 &&
-           (image.Format == TEX_FORMAT_RGBA16_FLOAT || image.Format == TEX_FORMAT_RGBA32_FLOAT) &&
-           (image.BindFlags & BIND_SHADER_RESOURCE) != 0 &&
-           selection.ViewType == TEXTURE_VIEW_SHADER_RESOURCE &&
-           selection.TextureDim == RESOURCE_DIM_TEX_CUBE && selection.Format == image.Format &&
-           selection.MostDetailedMip == 0 && selection.NumMipLevels == image.MipLevels &&
-           selection.FirstArraySlice == 0 && selection.NumArraySlices == 6;
-}
 float packed(double value) {
     if (!std::isfinite(value) || std::abs(value) > std::numeric_limits<float>::max())
         throw std::invalid_argument("Reflection probe geometry exceeds the current view profile");
@@ -267,7 +254,7 @@ void SurfaceReflections::apply_probes(IDeviceContext* context, const LocalInput&
     constants[32] = float(input.probes.size());
     for (unsigned index = 0; index < input.probes.size(); ++index) {
         const auto& probe = input.probes[index];
-        if (!complete_probe_map(probe.specular) || !std::isfinite(probe.intensity) ||
+        if (!complete_environment_cube(probe.specular) || !std::isfinite(probe.intensity) ||
             probe.intensity < 0 || probe.intensity > 1000000 ||
             !std::isfinite(probe.blend_distance) || probe.blend_distance < 0 ||
             probe.blend_distance > 1000000)

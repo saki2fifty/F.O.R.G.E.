@@ -1,6 +1,7 @@
 #pragma once
 #include "decal_material.hpp"
 #include "environment_gpu.hpp"
+#include "environment_probe.hpp"
 #include "material_shader.hpp"
 #include "mesh_draw_profile.hpp"
 #include "mesh_vertex_fetch.hpp"
@@ -54,6 +55,9 @@ class MeshDraw {
     bool accepts_decals(std::span<const Decal>) const;
     bool accepts_projected(std::span<const Decal>, std::span<const LightImage>) const;
     bool supports_light_images() const { return light_images_; }
+    bool uses_lighting() const { return bool(environment_); }
+    bool supports_local_irradiance() const { return local_irradiance_; }
+    void clear_local_irradiance();
     // Drop every winding SRB reference before a scene releases old GPU leases.
     void clear_decals(Diligent::IDeviceContext*);
     using Textures = std::map<std::string, Diligent::RefCntAutoPtr<Diligent::ITextureView>>;
@@ -84,7 +88,8 @@ class MeshDraw {
               std::string_view material_slot = {}, const SpriteDrawValues* sprite = nullptr,
               const SceneDistanceFog* fog = nullptr, const Motion* motion = nullptr,
               std::span<const Decal> decals = {}, const RenderBounds* decal_bounds = nullptr,
-              std::span<const LightImage> light_images = {});
+              std::span<const LightImage> light_images = {},
+              std::span<const EnvironmentProbe> local_irradiance = {});
 
   private:
     unsigned instance_rows() const;
@@ -107,6 +112,8 @@ class MeshDraw {
     unsigned decal_capacity_{};
     bool decals_active_{}, decal_surface_channels_{}, decal_clustered_{};
     bool light_images_{};
+    bool local_irradiance_{}, local_irradiance_active_{};
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> irradiance_buffer_, empty_irradiance_;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> light_images_buffer_, empty_light_images_;
     struct DecalBindings {
         std::array<Diligent::IDeviceObject*, 8> textures{}, cubes{}, samplers{};

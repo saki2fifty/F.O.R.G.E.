@@ -237,3 +237,27 @@ rules apply; authored surface interfaces and installed C SDK ABI do not change.
 The opt-in boolean uses existing strict Scene/history/Save/automation/MCP ownership.
 See [weighted transparency](../weighted-transparency.md) for the numerical profile,
 stage order, budgets, fallback and validation boundaries.
+
+## Local diffuse probe illumination — accepted extension
+
+An optional default-zero diffuse multiplier extends the existing ReflectionProbe
+map and influence volume. The current MeshSceneRenderer/EnvironmentResidency owns
+both diffuse and specular Cube leases and one priority-ordered borrowed lighting
+selection. Prepared Mesh draws and the existing specular operator consume that
+value without depending on each other's implementation. No second probe registry,
+texture manager, world, cache lifecycle, frame target or clock is introduced.
+
+Native PBR composition retains direct light, emission, global specular lobes and
+material layering. Uniform irradiance sampling precedes spatial coverage branches;
+world planes and camera-relative centers reuse the existing geometry owner. The
+eight-active-assigned-probe resource bound covers both modes, whose zero multipliers
+independently omit their contribution. Persistent draw bindings clear before map
+leases retire. Missing source fields preserve previous lighting and source bytes.
+
+Private Shader capability 13 deliberately versions the bounded input while retaining
+old readers/roles and ordinary-light fallback for old receivers. The appended
+installed value requires an exact SDK rebuild without changing ABI1 tables or
+logical asset identity. Explicit map capture excludes local diffuse contributions,
+keeping its existing nonrecursive snapshot boundary. Sampled irradiance grids,
+rebaking and multi-bounce simulation are separate unimplemented capabilities.
+See [the current contract](../local-diffuse-irradiance.md).

@@ -13,6 +13,9 @@ struct ReflectionProbe {
     double rotation_degrees = 0;
     std::int32_t priority = 0;
     bool box_projection = true;
+    // Optional local base diffuse illumination from the same convolved map.
+    // Zero preserves the Scene environment's diffuse lighting.
+    double diffuse_intensity = 0;
     bool operator==(const ReflectionProbe&) const = default;
 };
 } // namespace forge
