@@ -4,6 +4,10 @@
 #include <string>
 namespace forge {
 inline constexpr unsigned decal_draw_limit = 8;
+inline constexpr unsigned decal_scene_limit = 128;
+inline constexpr unsigned decal_cluster_side = 4;
+inline constexpr unsigned decal_cluster_cells =
+    decal_cluster_side * decal_cluster_side * decal_cluster_side;
 // The portable receiver profile reserves the existing lighting and comparison
 // samplers. Full old materials keep their own requirements and receive no new
 // bindings; extra samplers must never invalidate an otherwise admitted program.
@@ -14,8 +18,9 @@ inline unsigned decal_shader_capacity(std::size_t material_samplers, bool lit) {
                                                                       material_samplers))
                : 0;
 }
-inline constexpr unsigned decal_shader_rows(unsigned capacity, bool surface_channels = false) {
-    return 1 + (surface_channels ? 13 : 8) * capacity;
+inline constexpr unsigned decal_shader_rows(unsigned capacity, bool surface_channels = false,
+                                            bool clustered = false) {
+    return (clustered ? 4 : 1) + (surface_channels ? 13 : 8) * capacity;
 }
 inline std::string decal_shader_map_name(unsigned index, bool surface_channels) {
     return std::string(surface_channels ? "g_ForgeDecalMap" : "g_ForgeDecalColor") +

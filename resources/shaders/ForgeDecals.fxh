@@ -4,9 +4,25 @@
 #error Unsupported decal receiver capacity
 #endif
 #if FORGE_DECAL_CAPACITY > 0
-// One control row, then thirteen rows per projector. Maps share the existing
-// bounded receiver slots; each channel retains its own affine UV transform.
+// Small lists stay in the constant packet. Larger lists use ordered storage
+// selected by a conservative receiver grid. Maps retain the same bounded slots.
+#if FORGE_DECAL_CLUSTERED
+cbuffer ForgeDecals { float4 g_ForgeDecals[4 + 13 * FORGE_DECAL_CAPACITY]; };
+StructuredBuffer<float4> g_ForgeDecalRows;
+StructuredBuffer<uint2> g_ForgeDecalRanges;
+StructuredBuffer<uint> g_ForgeDecalIndices;
+float4 ForgeProjectedRow(uint i, uint row) {
+    bool stored = g_ForgeDecals[0].y == 1;
+    // Both sides remain in bounds even if the compiler flattens the selection.
+    uint nativeIndex = stored ? min(i, 127u) : 0;
+    uint smallIndex = stored ? 0 : min(i, (uint)FORGE_DECAL_CAPACITY - 1);
+    return stored ? g_ForgeDecalRows[nativeIndex * 13 + row]
+                  : g_ForgeDecals[4 + smallIndex * 13 + row];
+}
+#else
 cbuffer ForgeDecals { float4 g_ForgeDecals[1 + 13 * FORGE_DECAL_CAPACITY]; };
+float4 ForgeProjectedRow(uint i, uint row) { return g_ForgeDecals[1 + i * 13 + row]; }
+#endif
 #if FORGE_DECAL_CAPACITY > 0
 Texture2D<float4> g_ForgeDecalMap0;
 #if FORGE_DECAL_NAMED_SAMPLERS
@@ -116,21 +132,51 @@ bool ForgeProjectedMap(float slot, float4 u, float4 v, float2 uv,
 bool ForgeApplyProjectedSurface(float3 position, float3 geometric, float3 dx, float3 dy,
                                 inout float3 color, inout float3 normal, inout float roughness) {
     float count = g_ForgeDecals[0].x;
-    if (!isfinite(count) || count < 0 || count > FORGE_DECAL_CAPACITY || floor(count) != count)
+    uint limit = FORGE_DECAL_CAPACITY;
+#if FORGE_DECAL_CLUSTERED
+    float4 control = g_ForgeDecals[0];
+    if ((control.y != 0 && control.y != 1) || (control.z != 0 && control.z != 1) ||
+        !isfinite(control.w) || control.w < 0 || control.w > 8192 || floor(control.w) != control.w)
         return false;
+    if (control.y == 1)
+        limit = 128;
+#endif
+    if (!isfinite(count) || count < 0 || count > limit || floor(count) != count)
+        return false;
+    uint total = (uint)count;
+#if FORGE_DECAL_CLUSTERED
+    bool indexed = control.y == 1 && control.z == 1 &&
+        all(position >= g_ForgeDecals[1].xyz) && all(position <= g_ForgeDecals[2].xyz);
+    float3 safePosition = indexed ? position : g_ForgeDecals[1].xyz;
+    precise float3 scaled = safePosition * g_ForgeDecals[3].xyz;
+    precise float3 anchor = g_ForgeDecals[1].xyz * g_ForgeDecals[3].xyz;
+    precise float3 coordinate = scaled - anchor;
+    uint3 cell = (uint3)clamp(floor(coordinate), 0, 3);
+    uint cellIndex = cell.x + 4 * (cell.y + 4 * cell.z);
+    uint2 range = g_ForgeDecalRanges[indexed ? cellIndex : 0];
+    if (indexed && (range.x > (uint)control.w || range.y > (uint)control.w - range.x))
+        return false;
+    total = indexed ? range.y : total;
+#endif
     float3 candidate = color, candidateNormal = normal;
     float candidateRoughness = roughness;
-    [loop] for (uint i = 0; i < (uint)count; ++i) {
-        uint at = 1 + i * 13;
-        float4 x = g_ForgeDecals[at], y = g_ForgeDecals[at + 1], z = g_ForgeDecals[at + 2];
+    [loop] for (uint j = 0; j < total; ++j) {
+        uint i = j;
+#if FORGE_DECAL_CLUSTERED
+        uint storedIndex = g_ForgeDecalIndices[indexed ? range.x + j : 0];
+        i = indexed ? storedIndex : j;
+        if (i >= (uint)count)
+            return false;
+#endif
+        float4 x = ForgeProjectedRow(i, 0), y = ForgeProjectedRow(i, 1), z = ForgeProjectedRow(i, 2);
         float3 p = float3(dot(x.xyz, position) + x.w, dot(y.xyz, position) + y.w,
                           dot(z.xyz, position) + z.w);
         if (!all(isfinite(p)))
             return false;
         if (any(abs(p) > .5))
             continue;
-        float4 tint = g_ForgeDecals[at + 3], face = g_ForgeDecals[at + 4],
-               alpha = g_ForgeDecals[at + 5], influence = g_ForgeDecals[at + 8];
+        float4 tint = ForgeProjectedRow(i, 3), face = ForgeProjectedRow(i, 4),
+               alpha = ForgeProjectedRow(i, 5), influence = ForgeProjectedRow(i, 8);
         if (!(alpha.x > face.w))
             return false;
         float fade = smoothstep(face.w, alpha.x, dot(-face.xyz, geometric));
@@ -139,7 +185,7 @@ bool ForgeApplyProjectedSurface(float3 position, float3 geometric, float3 dx, fl
         float2 uv = float2(.5 + p.x, .5 - p.y);
         float2 gradX = float2(dot(x.xyz, dx), -dot(y.xyz, dx));
         float2 gradY = float2(dot(x.xyz, dy), -dot(y.xyz, dy));
-        float4 u = g_ForgeDecals[at + 6], v = g_ForgeDecals[at + 7], texel;
+        float4 u = ForgeProjectedRow(i, 6), v = ForgeProjectedRow(i, 7), texel;
         float2 mappedX, mappedY;
         if (!ForgeProjectedMap(u.w, u, v, uv, gradX, gradY, texel, mappedX, mappedY))
             return false;
@@ -153,7 +199,7 @@ bool ForgeApplyProjectedSurface(float3 position, float3 geometric, float3 dx, fl
         coverage *= tint.w * fade;
         candidate = lerp(candidate, texel.rgb * tint.rgb, coverage * influence.x);
         if (coverage * influence.y > 0) {
-            float4 nu = g_ForgeDecals[at + 9], nv = g_ForgeDecals[at + 10];
+            float4 nu = ForgeProjectedRow(i, 9), nv = ForgeProjectedRow(i, 10);
             float4 mapped;
             if (!ForgeProjectedMap(v.w, nu, nv, uv, gradX, gradY, mapped, mappedX, mappedY))
                 return false;
@@ -167,9 +213,9 @@ bool ForgeApplyProjectedSurface(float3 position, float3 geometric, float3 dx, fl
                 candidateNormal = blended;
         }
         if (coverage * influence.z > 0) {
-            float4 ru = g_ForgeDecals[at + 11], rv = g_ForgeDecals[at + 12], mapped;
-            float4 info = g_ForgeDecals[at + 9];
-            float channel = g_ForgeDecals[at + 10].w;
+            float4 ru = ForgeProjectedRow(i, 11), rv = ForgeProjectedRow(i, 12), mapped;
+            float4 info = ForgeProjectedRow(i, 9);
+            float channel = ForgeProjectedRow(i, 10).w;
             if ((channel != 1 && channel != 3) ||
                 !ForgeProjectedMap(info.w, ru, rv, uv, gradX, gradY, mapped, mappedX, mappedY))
                 return false;

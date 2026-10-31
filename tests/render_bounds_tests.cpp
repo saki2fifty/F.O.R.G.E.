@@ -1,4 +1,5 @@
 #include "animation_debug_pose_tests.hpp"
+#include "decal_cluster_tests.hpp"
 #include "mesh_morph.hpp"
 #include "mesh_pick_tests.hpp"
 #include "model_instance_pose_tests.hpp"
@@ -28,6 +29,7 @@ template <class F> void rejects(F action) {
 } // namespace
 int main() {
     try {
+        test_decal_cluster_selection();
         using namespace forge;
         check_model_instance_poses();
         check_mesh_picking();

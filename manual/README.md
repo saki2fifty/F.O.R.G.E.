@@ -4,6 +4,7 @@ Learn to build scenes, create game behavior and export a Windows game with FORGE
 Start with [Find your way around](getting-started/editor-tour.md) and
 [Your first scene](getting-started/first-scene.md), or open the editable
 [Feature Gallery](getting-started/feature-gallery.md) to try a specific tool.
+The Gallery includes a [64-projector floor](editor/decals.md) for shared material projections.
 
 Open **Help → User Manual** for the offline edition included with the editor.
 Click a screenshot to view it at full size. Your panel arrangement and example

@@ -76,7 +76,8 @@ class MeshDrawBundle {
                    const GpuLease<TextureAsset>* sprite_mip = nullptr,
                    const MeshDraw::Motion* motion = nullptr, bool indirect = false,
                    bool reflection = false, bool normal = false,
-                   std::span<const MeshDraw::Decal> decals = {}, bool weighted = false);
+                   std::span<const MeshDraw::Decal> decals = {}, bool weighted = false,
+                   const RenderBounds* decal_bounds = nullptr);
     std::string_view slot(unsigned lod, unsigned part) const {
         return prepared_.selection.bindings.at(info_.at(lod).at(part).binding).key;
     }

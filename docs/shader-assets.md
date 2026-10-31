@@ -4,21 +4,28 @@ The shader subsystem provides source/permutation admission, supervised native
 compilation, immutable cooked values, copied reflection, shared cache/publication,
 Content import controls and compatibility-checked material reload. The explicit
 [material surface interface](surface-shaders.md) retains engine-owned geometry,
-color/depth pixel roles and immutable Material snapshots. Capability10 retains19 roles with projected base-normal and roughness inputs.
-Capability9 supplies19 roles, adding ordinary and area-lit weighted color to the prior output families.
-See [weighted transparency](weighted-transparency.md). Capability7 supplies17
-roles: the existing color/depth/temporal, indirect, reflection and material-normal
-roles, plus eight area-light color counterparts (depth remains shared). Area
-variants extend the private Light buffer to7168 bytes; ordinary variants retain
-4096 bytes. Capability6 supplies the prior nine roles. Capabilities1–6 remain
-readable with their original bytes; recook physically based surfaces to receive
-Rectangle/Sphere lighting. Role/layout mismatches reject before realization.
-Capability8 retains17 roles and adds projected-color receiver bindings. Capability10
-uses13float4 rows/projector and shared map slots;8/9 retain their8row packet and
-original bindings. Versions1–9 remain readable with their original bytes. The reader, writer and validator share the same19-stage bound. These Windows cooks
-require current Windows worker and cooked-runtime acceptance; previous worker/WARP
-evidence covers earlier capabilities. Final combined package validation remains a release gate.
-See the [shader manual](../manual/editor/shaders.md) for the end-user workflow.
+color/depth pixel roles and immutable Material snapshots.
+
+Capability 11 retains 19 output roles and adds spatially selected projector storage
+while preserving the receiver's map/sampler budget. Capability 10 supplies projected
+base-normal and roughness inputs. Its packet has one control row plus 13 rows per
+projector; 8/9 retain their eight-row color packets. Capability 11 uses four control
+rows plus the small packet, or three structured buffers for larger selections.
+
+Capability 9 adds ordinary and area-lit weighted color to the prior output families;
+see [weighted transparency](weighted-transparency.md). Capability 8 adds projected
+color to 17 roles. Capability 7 supplies the area-light counterparts of existing
+color, temporal, indirect, reflection and material-normal output roles; depth remains
+shared. Area variants use a 7168-byte private Light buffer and ordinary variants
+retain 4096 bytes. Capability 6 supplies the prior nine roles.
+
+Versions 1–10 remain readable with their original bytes. Rebuild physical Shader
+and dependent Material cooks to use newer receiver capabilities. Role/layout
+mismatches reject before realization. The reader, writer and validator share the
+19-stage bound. Current Windows worker and cooked-runtime acceptance remain pending;
+previous worker/WARP evidence covers earlier capabilities. Final combined package
+validation remains a release gate. See the [shader manual](../manual/editor/shaders.md)
+for the end-user workflow.
 
 ## Source and compilation profile
 

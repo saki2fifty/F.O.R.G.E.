@@ -40,14 +40,14 @@ bool MeshSceneRenderer::update_decals(const RenderScene& scene) {
             active.push_back(&decal);
             duplicate = !ids.insert(decal.entity).second || duplicate;
         }
-    if (duplicate || active.size() > decal_draw_limit) {
+    if (duplicate || active.size() > decal_scene_limit) {
         if (!decal_entries_.empty()) {
             before_release();
             decal_entries_.clear();
         }
         decal_order_.clear();
         diagnostic({}, duplicate ? "Duplicate decal entities; projection omitted."
-                                 : "Scene exceeds the 8 active projector limit; ordinary "
+                                 : "Scene exceeds the 128 active projector limit; ordinary "
                                    "materials retained. Disable or remove projectors.");
         return changed;
     }

@@ -179,7 +179,7 @@ int main() {
                         fog_surface.layout_digest() != legacy_layout,
                     "Optimized-out fog wrapper capability lost roundtrip or layout identity");
             auto future_surface = fog_surface;
-            future_surface.surface_wrapper_version = 11;
+            future_surface.surface_wrapper_version = current_surface_wrapper_version + 1;
             rejected([&] { validate_shader(future_surface); });
             auto temporal_surface = fog_surface;
             temporal_surface.surface_wrapper_version = 3;
@@ -358,6 +358,14 @@ int main() {
                         encode_shader(decode_shader(encoded_channels)) == encoded_channels &&
                         projected_channels.layout_digest() != weighted_surface.layout_digest(),
                     "Projected channel capability lost its archive or layout identity");
+            auto clustered_surface = projected_channels;
+            clustered_surface.surface_wrapper_version = 11;
+            const auto encoded_clustered = encode_shader(clustered_surface);
+            require(decode_shader(encoded_clustered).surface_wrapper_version == 11 &&
+                        decode_shader(encoded_clustered).stages.size() == 19 &&
+                        encode_shader(decode_shader(encoded_clustered)) == encoded_clustered &&
+                        clustered_surface.layout_digest() != projected_channels.layout_digest(),
+                    "Clustered capability lost its archive or layout identity");
             auto invalid_weighted = weighted_surface;
             invalid_weighted.surface_wrapper_version = 8;
             rejected([&] { validate_shader(invalid_weighted); });

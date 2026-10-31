@@ -1,0 +1,3497 @@
+{
+  "asset_id": "e9da9407-f9dc-4b6a-88cf-e5f888a39629",
+  "entities": [
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 12.0,
+          "y": 0.30000001192092896,
+          "z": 8.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": -0.2,
+          "z": 1.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": false,
+          "enabled": true,
+          "layers": 3,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.18000000715255737,
+                  0.20000000298023224,
+                  0.23999999463558197,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "metallicFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.6000000238418579,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.36000001430511475,
+          "g": 0.3100000023841858,
+          "r": 0.2800000011920929
+        }
+      },
+      "id": "5cee44f4-bd72-4b13-b9c1-ea854a5299b5",
+      "name": "Floor - overlapping projected color",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 0.0,
+          "background_a": 1.0,
+          "background_b": 0.029999999329447746,
+          "background_g": 0.02500000037252903,
+          "background_r": 0.019999999552965164,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 100.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 10.0,
+          "orthographic_width": 0.0,
+          "projection": 0,
+          "vertical_fov": 0.7853981633974483,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 0.9659258127212524,
+          "x": 0.258819043636322,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 6.0,
+          "z": -8.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "d4bac086-84c3-4ea6-9e58-876498f5df27",
+      "name": "Camera - shared projector grid",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.light": {
+          "basis": 0,
+          "cast_shadows": false,
+          "color_b": 1.0,
+          "color_g": 1.0,
+          "color_r": 1.0,
+          "emitter_height": 1.0,
+          "emitter_radius": 0.5,
+          "emitter_width": 1.0,
+          "enabled": true,
+          "inner_cone": 0.0,
+          "intensity": 2.0,
+          "kind": 0,
+          "layers": 3,
+          "outer_cone": 0.7853981633974483,
+          "range": 0.0,
+          "shadow_angular_radius": 0.07999999821186066,
+          "shadow_bias": 0.0010000000474974513,
+          "shadow_normal_bias": 0.019999999552965164,
+          "shadow_source_radius": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 0.9311100244522095,
+          "x": 0.2935778796672821,
+          "y": -0.2064221352338791,
+          "z": 0.06508464366197586
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 4.0,
+          "z": -3.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "f158f68a-1214-4b42-bf19-f19463ee5fa0",
+      "name": "Directional light - projected albedo",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 2.0,
+          "y": 2.0,
+          "z": 2.0
+        },
+        "forge.local_translation": {
+          "x": -2.0,
+          "y": 1.0,
+          "z": 0.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": false,
+          "enabled": true,
+          "layers": 1,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.6499999761581421,
+                  0.699999988079071,
+                  0.75,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "metallicFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.6000000238418579,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.20000000298023224,
+          "g": 0.25,
+          "r": 0.800000011920929
+        }
+      },
+      "id": "45967034-8dc3-49ec-94c1-66081aaa8935",
+      "name": "Left receiver - layer 1",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 2.0,
+          "y": 2.0,
+          "z": 2.0
+        },
+        "forge.local_translation": {
+          "x": 2.0,
+          "y": 1.0,
+          "z": 0.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": false,
+          "enabled": true,
+          "layers": 2,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.6499999761581421,
+                  0.699999988079071,
+                  0.75,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "metallicFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.6000000238418579,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.6200000047683716,
+          "g": 0.6200000047683716,
+          "r": 0.6200000047683716
+        }
+      },
+      "id": "e673821a-a478-4f86-b6a6-311a82da7ba6",
+      "name": "Right receiver - layer 2",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.800000011920929,
+          "y": 0.800000011920929,
+          "z": 0.800000011920929
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.4,
+          "z": 2.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": false,
+          "enabled": true,
+          "layers": 3,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.6499999761581421,
+                  0.699999988079071,
+                  0.75,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "metallicFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.6000000238418579,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.8199999928474426,
+          "g": 0.4000000059604645,
+          "r": 0.20000000298023224
+        }
+      },
+      "id": "b9676791-524e-4838-9012-f09b1d7937b2",
+      "name": "Raised receiver - volume clipping",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.light": {
+          "basis": 0,
+          "cast_shadows": false,
+          "color_b": 1.0,
+          "color_g": 1.0,
+          "color_r": 1.0,
+          "emitter_height": 0.550000011920929,
+          "emitter_radius": 0.800000011920929,
+          "emitter_width": 2.4000000953674316,
+          "enabled": true,
+          "inner_cone": 0.0,
+          "intensity": 8.0,
+          "kind": 1,
+          "layers": 3,
+          "outer_cone": 0.7853981633974483,
+          "range": 0.0,
+          "shadow_angular_radius": 0.0,
+          "shadow_bias": 0.0010000000474974513,
+          "shadow_normal_bias": 0.019999999552965164,
+          "shadow_source_radius": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 0.9311100244522095,
+          "x": 0.2935778796672821,
+          "y": -0.2064221352338791,
+          "z": 0.06508464366197586
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 4.0,
+          "z": -3.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "247a1d26-ea81-42d7-8714-aad1f496e623",
+      "name": "Point fill",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.light": {
+          "basis": 0,
+          "cast_shadows": false,
+          "color_b": 1.0,
+          "color_g": 1.0,
+          "color_r": 1.0,
+          "emitter_height": 0.550000011920929,
+          "emitter_radius": 0.800000011920929,
+          "emitter_width": 2.4000000953674316,
+          "enabled": false,
+          "inner_cone": 0.0,
+          "intensity": 8.0,
+          "kind": 1,
+          "layers": 3,
+          "outer_cone": 0.7853981633974483,
+          "range": 0.0,
+          "shadow_angular_radius": 0.0,
+          "shadow_bias": 0.0010000000474974513,
+          "shadow_normal_bias": 0.019999999552965164,
+          "shadow_source_radius": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 0.9311100244522095,
+          "x": 0.2935778796672821,
+          "y": -0.2064221352338791,
+          "z": 0.06508464366197586
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 4.0,
+          "z": -3.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "6061c85c-76d9-4194-b0f4-95927faccf49",
+      "name": "Optional second fill - disabled",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 0,
+          "roughness_influence": 0.0,
+          "tint_b": 0.44999998807907104,
+          "tint_g": 0.3499999940395355,
+          "tint_r": 0.3499999940395355,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -4.2,
+          "y": 0.01,
+          "z": -2.2
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "7af81fae-4f6e-4166-bf59-f105db195301",
+      "name": "Paint row 1 column 1 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 1,
+          "roughness_influence": 0.0,
+          "tint_b": 0.44999998807907104,
+          "tint_g": 0.3499999940395355,
+          "tint_r": 0.44285714626312256,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -3.0,
+          "y": 0.01,
+          "z": -2.2
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "d31a7de2-71ce-4efc-bcce-6a64bbceec11",
+      "name": "Paint row 1 column 2 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 2,
+          "roughness_influence": 0.0,
+          "tint_b": 0.44999998807907104,
+          "tint_g": 0.3499999940395355,
+          "tint_r": 0.5357142686843872,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -1.8000000000000003,
+          "y": 0.01,
+          "z": -2.2
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "660b06cc-e0df-43ac-b969-9b6f8bfe7c0f",
+      "name": "Paint row 1 column 3 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 3,
+          "roughness_influence": 0.0,
+          "tint_b": 0.44999998807907104,
+          "tint_g": 0.3499999940395355,
+          "tint_r": 0.6285714507102966,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -0.6000000000000005,
+          "y": 0.01,
+          "z": -2.2
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "78b9fc66-e287-4d6d-9f8b-c6fd5865dadd",
+      "name": "Paint row 1 column 4 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 4,
+          "roughness_influence": 0.0,
+          "tint_b": 0.44999998807907104,
+          "tint_g": 0.3499999940395355,
+          "tint_r": 0.7214285731315613,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.5999999999999996,
+          "y": 0.01,
+          "z": -2.2
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "2ba69284-a64d-4407-ab13-a6e6816a95bc",
+      "name": "Paint row 1 column 5 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 5,
+          "roughness_influence": 0.0,
+          "tint_b": 0.44999998807907104,
+          "tint_g": 0.3499999940395355,
+          "tint_r": 0.8142856955528259,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 1.7999999999999998,
+          "y": 0.01,
+          "z": -2.2
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "a57b9b75-154f-4323-826f-0c8283a4ac90",
+      "name": "Paint row 1 column 6 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 6,
+          "roughness_influence": 0.0,
+          "tint_b": 0.44999998807907104,
+          "tint_g": 0.3499999940395355,
+          "tint_r": 0.9071428775787354,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 2.999999999999999,
+          "y": 0.01,
+          "z": -2.2
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "a31dc57f-104a-4093-8f32-2748822a913e",
+      "name": "Paint row 1 column 7 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 7,
+          "roughness_influence": 0.0,
+          "tint_b": 0.44999998807907104,
+          "tint_g": 0.3499999940395355,
+          "tint_r": 1.0,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 4.2,
+          "y": 0.01,
+          "z": -2.2
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "bd1b4db1-005d-4c3a-b8f0-1e32bde43f78",
+      "name": "Paint row 1 column 8 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 8,
+          "roughness_influence": 0.0,
+          "tint_b": 0.949999988079071,
+          "tint_g": 0.44285714626312256,
+          "tint_r": 0.3499999940395355,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -4.2,
+          "y": 0.01,
+          "z": -1.2000000000000002
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "a2b43c1f-7cb8-4151-bb49-01df526db866",
+      "name": "Paint row 2 column 1 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 9,
+          "roughness_influence": 0.0,
+          "tint_b": 0.949999988079071,
+          "tint_g": 0.44285714626312256,
+          "tint_r": 0.44285714626312256,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -3.0,
+          "y": 0.01,
+          "z": -1.2000000000000002
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "a8ce8e15-33f5-4833-b93f-0007aded4320",
+      "name": "Paint row 2 column 2 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 10,
+          "roughness_influence": 0.0,
+          "tint_b": 0.949999988079071,
+          "tint_g": 0.44285714626312256,
+          "tint_r": 0.5357142686843872,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -1.8000000000000003,
+          "y": 0.01,
+          "z": -1.2000000000000002
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "c931c5b3-3ee3-458e-9134-1fc0c809ab81",
+      "name": "Paint row 2 column 3 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 11,
+          "roughness_influence": 0.0,
+          "tint_b": 0.949999988079071,
+          "tint_g": 0.44285714626312256,
+          "tint_r": 0.6285714507102966,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -0.6000000000000005,
+          "y": 0.01,
+          "z": -1.2000000000000002
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "f3ea1ae1-ce4b-4150-9cc7-9fe33c59c2e1",
+      "name": "Paint row 2 column 4 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 12,
+          "roughness_influence": 0.0,
+          "tint_b": 0.949999988079071,
+          "tint_g": 0.44285714626312256,
+          "tint_r": 0.7214285731315613,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.5999999999999996,
+          "y": 0.01,
+          "z": -1.2000000000000002
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "f6036c81-aa7c-4625-9d50-c7f9d24237ff",
+      "name": "Paint row 2 column 5 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 13,
+          "roughness_influence": 0.0,
+          "tint_b": 0.949999988079071,
+          "tint_g": 0.44285714626312256,
+          "tint_r": 0.8142856955528259,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 1.7999999999999998,
+          "y": 0.01,
+          "z": -1.2000000000000002
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "2102d146-4fa0-4bf4-8d11-34807b89f04e",
+      "name": "Paint row 2 column 6 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 14,
+          "roughness_influence": 0.0,
+          "tint_b": 0.949999988079071,
+          "tint_g": 0.44285714626312256,
+          "tint_r": 0.9071428775787354,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 2.999999999999999,
+          "y": 0.01,
+          "z": -1.2000000000000002
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "d17655ab-8edf-4c78-9a2d-eaeeb51d3fb2",
+      "name": "Paint row 2 column 7 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 15,
+          "roughness_influence": 0.0,
+          "tint_b": 0.949999988079071,
+          "tint_g": 0.44285714626312256,
+          "tint_r": 1.0,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 4.2,
+          "y": 0.01,
+          "z": -1.2000000000000002
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "db7657a5-ffc1-44d8-8e1e-99b785d91990",
+      "name": "Paint row 2 column 8 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 16,
+          "roughness_influence": 0.0,
+          "tint_b": 0.44999998807907104,
+          "tint_g": 0.5357142686843872,
+          "tint_r": 0.3499999940395355,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -4.2,
+          "y": 0.01,
+          "z": -0.20000000000000018
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "6412eb1b-f138-4f81-8417-7f1fa9d61872",
+      "name": "Paint row 3 column 1 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 17,
+          "roughness_influence": 0.0,
+          "tint_b": 0.44999998807907104,
+          "tint_g": 0.5357142686843872,
+          "tint_r": 0.44285714626312256,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -3.0,
+          "y": 0.01,
+          "z": -0.20000000000000018
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "733315ec-a408-4598-a76f-83a144da4d35",
+      "name": "Paint row 3 column 2 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 18,
+          "roughness_influence": 0.0,
+          "tint_b": 0.44999998807907104,
+          "tint_g": 0.5357142686843872,
+          "tint_r": 0.5357142686843872,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -1.8000000000000003,
+          "y": 0.01,
+          "z": -0.20000000000000018
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "0c1e771e-cd83-49d2-8be4-c32e2d656f16",
+      "name": "Paint row 3 column 3 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 19,
+          "roughness_influence": 0.0,
+          "tint_b": 0.44999998807907104,
+          "tint_g": 0.5357142686843872,
+          "tint_r": 0.6285714507102966,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -0.6000000000000005,
+          "y": 0.01,
+          "z": -0.20000000000000018
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "41d7a5f7-7ee2-4769-9a57-d235ddac22a2",
+      "name": "Paint row 3 column 4 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 20,
+          "roughness_influence": 0.0,
+          "tint_b": 0.44999998807907104,
+          "tint_g": 0.5357142686843872,
+          "tint_r": 0.7214285731315613,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.5999999999999996,
+          "y": 0.01,
+          "z": -0.20000000000000018
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "141bcffc-3d3c-4948-ada3-f8e81b3f2615",
+      "name": "Paint row 3 column 5 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 21,
+          "roughness_influence": 0.0,
+          "tint_b": 0.44999998807907104,
+          "tint_g": 0.5357142686843872,
+          "tint_r": 0.8142856955528259,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 1.7999999999999998,
+          "y": 0.01,
+          "z": -0.20000000000000018
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "74bfdbe7-f431-43c9-9e00-0373ad0777e2",
+      "name": "Paint row 3 column 6 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 22,
+          "roughness_influence": 0.0,
+          "tint_b": 0.44999998807907104,
+          "tint_g": 0.5357142686843872,
+          "tint_r": 0.9071428775787354,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 2.999999999999999,
+          "y": 0.01,
+          "z": -0.20000000000000018
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "612aa882-ad6b-4d32-aad9-61749617853f",
+      "name": "Paint row 3 column 7 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 23,
+          "roughness_influence": 0.0,
+          "tint_b": 0.44999998807907104,
+          "tint_g": 0.5357142686843872,
+          "tint_r": 1.0,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 4.2,
+          "y": 0.01,
+          "z": -0.20000000000000018
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "8f3900ad-af40-466b-8ca7-c46b41316da5",
+      "name": "Paint row 3 column 8 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 24,
+          "roughness_influence": 0.0,
+          "tint_b": 0.949999988079071,
+          "tint_g": 0.6285714507102966,
+          "tint_r": 0.3499999940395355,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -4.2,
+          "y": 0.01,
+          "z": 0.7999999999999998
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "b2fde4e6-ac33-4f0a-abb1-b91b8a65d54b",
+      "name": "Paint row 4 column 1 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 25,
+          "roughness_influence": 0.0,
+          "tint_b": 0.949999988079071,
+          "tint_g": 0.6285714507102966,
+          "tint_r": 0.44285714626312256,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -3.0,
+          "y": 0.01,
+          "z": 0.7999999999999998
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "ca5d4348-d83c-4ceb-b8fc-76df1b295291",
+      "name": "Paint row 4 column 2 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 26,
+          "roughness_influence": 0.0,
+          "tint_b": 0.949999988079071,
+          "tint_g": 0.6285714507102966,
+          "tint_r": 0.5357142686843872,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -1.8000000000000003,
+          "y": 0.01,
+          "z": 0.7999999999999998
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "aaefece5-ee1a-4c1d-a095-84c8b8acc7f2",
+      "name": "Paint row 4 column 3 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 27,
+          "roughness_influence": 0.0,
+          "tint_b": 0.949999988079071,
+          "tint_g": 0.6285714507102966,
+          "tint_r": 0.6285714507102966,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -0.6000000000000005,
+          "y": 0.01,
+          "z": 0.7999999999999998
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "a945aedf-4400-4edc-b1b0-c76a9e742fb9",
+      "name": "Paint row 4 column 4 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 28,
+          "roughness_influence": 0.0,
+          "tint_b": 0.949999988079071,
+          "tint_g": 0.6285714507102966,
+          "tint_r": 0.7214285731315613,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.5999999999999996,
+          "y": 0.01,
+          "z": 0.7999999999999998
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "cdde571f-af22-40ce-8aed-c06725748700",
+      "name": "Paint row 4 column 5 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 29,
+          "roughness_influence": 0.0,
+          "tint_b": 0.949999988079071,
+          "tint_g": 0.6285714507102966,
+          "tint_r": 0.8142856955528259,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 1.7999999999999998,
+          "y": 0.01,
+          "z": 0.7999999999999998
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "0820fbd4-60e1-4685-a12b-497fc49e4fdf",
+      "name": "Paint row 4 column 6 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 30,
+          "roughness_influence": 0.0,
+          "tint_b": 0.949999988079071,
+          "tint_g": 0.6285714507102966,
+          "tint_r": 0.9071428775787354,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 2.999999999999999,
+          "y": 0.01,
+          "z": 0.7999999999999998
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "98576a36-ae79-450f-8c31-6952716cc5bd",
+      "name": "Paint row 4 column 7 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 31,
+          "roughness_influence": 0.0,
+          "tint_b": 0.949999988079071,
+          "tint_g": 0.6285714507102966,
+          "tint_r": 1.0,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 4.2,
+          "y": 0.01,
+          "z": 0.7999999999999998
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "e58f742a-6021-44f6-ad10-c64464b90cb7",
+      "name": "Paint row 4 column 8 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 32,
+          "roughness_influence": 0.0,
+          "tint_b": 0.44999998807907104,
+          "tint_g": 0.7214285731315613,
+          "tint_r": 0.3499999940395355,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -4.2,
+          "y": 0.01,
+          "z": 1.7999999999999998
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "30430e58-e21c-418b-82cb-3fbbcea92b05",
+      "name": "Paint row 5 column 1 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 33,
+          "roughness_influence": 0.0,
+          "tint_b": 0.44999998807907104,
+          "tint_g": 0.7214285731315613,
+          "tint_r": 0.44285714626312256,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -3.0,
+          "y": 0.01,
+          "z": 1.7999999999999998
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "fdcdc558-9657-4de4-81eb-fbe24f77f49a",
+      "name": "Paint row 5 column 2 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 34,
+          "roughness_influence": 0.0,
+          "tint_b": 0.44999998807907104,
+          "tint_g": 0.7214285731315613,
+          "tint_r": 0.5357142686843872,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -1.8000000000000003,
+          "y": 0.01,
+          "z": 1.7999999999999998
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "90f48d6c-92c3-411d-9a9c-36bddc1884e7",
+      "name": "Paint row 5 column 3 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 35,
+          "roughness_influence": 0.0,
+          "tint_b": 0.44999998807907104,
+          "tint_g": 0.7214285731315613,
+          "tint_r": 0.6285714507102966,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -0.6000000000000005,
+          "y": 0.01,
+          "z": 1.7999999999999998
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "a4e692a2-7a4b-4db3-bf30-7ea8c53f05ea",
+      "name": "Paint row 5 column 4 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 36,
+          "roughness_influence": 0.0,
+          "tint_b": 0.44999998807907104,
+          "tint_g": 0.7214285731315613,
+          "tint_r": 0.7214285731315613,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.5999999999999996,
+          "y": 0.01,
+          "z": 1.7999999999999998
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "1a8dc3e0-0174-4e5c-a903-dce5cf69b7bd",
+      "name": "Paint row 5 column 5 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 37,
+          "roughness_influence": 0.0,
+          "tint_b": 0.44999998807907104,
+          "tint_g": 0.7214285731315613,
+          "tint_r": 0.8142856955528259,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 1.7999999999999998,
+          "y": 0.01,
+          "z": 1.7999999999999998
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "f1aa34c1-efbd-4642-9162-a0a3cf487cfe",
+      "name": "Paint row 5 column 6 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 38,
+          "roughness_influence": 0.0,
+          "tint_b": 0.44999998807907104,
+          "tint_g": 0.7214285731315613,
+          "tint_r": 0.9071428775787354,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 2.999999999999999,
+          "y": 0.01,
+          "z": 1.7999999999999998
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "861ad4ea-1f5e-47b4-b8fb-9991414f94c3",
+      "name": "Paint row 5 column 7 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 39,
+          "roughness_influence": 0.0,
+          "tint_b": 0.44999998807907104,
+          "tint_g": 0.7214285731315613,
+          "tint_r": 1.0,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 4.2,
+          "y": 0.01,
+          "z": 1.7999999999999998
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "c3ced1be-cd40-421a-a869-7b38e25e4270",
+      "name": "Paint row 5 column 8 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 40,
+          "roughness_influence": 0.0,
+          "tint_b": 0.949999988079071,
+          "tint_g": 0.8142856955528259,
+          "tint_r": 0.3499999940395355,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -4.2,
+          "y": 0.01,
+          "z": 2.8
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "24d4f53a-b1fa-495d-b1a8-f1e9065e394e",
+      "name": "Paint row 6 column 1 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 41,
+          "roughness_influence": 0.0,
+          "tint_b": 0.949999988079071,
+          "tint_g": 0.8142856955528259,
+          "tint_r": 0.44285714626312256,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -3.0,
+          "y": 0.01,
+          "z": 2.8
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "83fda605-c4d9-4e02-b951-5bd4de5c8736",
+      "name": "Paint row 6 column 2 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 42,
+          "roughness_influence": 0.0,
+          "tint_b": 0.949999988079071,
+          "tint_g": 0.8142856955528259,
+          "tint_r": 0.5357142686843872,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -1.8000000000000003,
+          "y": 0.01,
+          "z": 2.8
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "3531fc94-b8c5-41ff-9417-40a5bff22b9f",
+      "name": "Paint row 6 column 3 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 43,
+          "roughness_influence": 0.0,
+          "tint_b": 0.949999988079071,
+          "tint_g": 0.8142856955528259,
+          "tint_r": 0.6285714507102966,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -0.6000000000000005,
+          "y": 0.01,
+          "z": 2.8
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "bd9beaa7-d4f1-42b6-9235-007d97a95dc6",
+      "name": "Paint row 6 column 4 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 44,
+          "roughness_influence": 0.0,
+          "tint_b": 0.949999988079071,
+          "tint_g": 0.8142856955528259,
+          "tint_r": 0.7214285731315613,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.5999999999999996,
+          "y": 0.01,
+          "z": 2.8
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "0c4162e3-b1b5-4375-ac9f-a93ac253a279",
+      "name": "Paint row 6 column 5 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 45,
+          "roughness_influence": 0.0,
+          "tint_b": 0.949999988079071,
+          "tint_g": 0.8142856955528259,
+          "tint_r": 0.8142856955528259,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 1.7999999999999998,
+          "y": 0.01,
+          "z": 2.8
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "fb5c457f-c01d-4635-8a54-945d06099e0c",
+      "name": "Paint row 6 column 6 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 46,
+          "roughness_influence": 0.0,
+          "tint_b": 0.949999988079071,
+          "tint_g": 0.8142856955528259,
+          "tint_r": 0.9071428775787354,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 2.999999999999999,
+          "y": 0.01,
+          "z": 2.8
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "ca2f9c81-379b-4ff7-9b66-204fc1f77790",
+      "name": "Paint row 6 column 7 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 47,
+          "roughness_influence": 0.0,
+          "tint_b": 0.949999988079071,
+          "tint_g": 0.8142856955528259,
+          "tint_r": 1.0,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 4.2,
+          "y": 0.01,
+          "z": 2.8
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "5500784b-d79c-4141-9dc2-342fd8354e76",
+      "name": "Paint row 6 column 8 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 48,
+          "roughness_influence": 0.0,
+          "tint_b": 0.44999998807907104,
+          "tint_g": 0.9071428775787354,
+          "tint_r": 0.3499999940395355,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -4.2,
+          "y": 0.01,
+          "z": 3.8
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "cc907ff2-23c2-4c98-abcc-e8aa4c8234c1",
+      "name": "Paint row 7 column 1 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 49,
+          "roughness_influence": 0.0,
+          "tint_b": 0.44999998807907104,
+          "tint_g": 0.9071428775787354,
+          "tint_r": 0.44285714626312256,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -3.0,
+          "y": 0.01,
+          "z": 3.8
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "92ccb9c3-149e-411c-8805-24ec1c8d1952",
+      "name": "Paint row 7 column 2 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 50,
+          "roughness_influence": 0.0,
+          "tint_b": 0.44999998807907104,
+          "tint_g": 0.9071428775787354,
+          "tint_r": 0.5357142686843872,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -1.8000000000000003,
+          "y": 0.01,
+          "z": 3.8
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "ecfb0fb0-7f12-447d-8428-fbfb152bf32c",
+      "name": "Paint row 7 column 3 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 51,
+          "roughness_influence": 0.0,
+          "tint_b": 0.44999998807907104,
+          "tint_g": 0.9071428775787354,
+          "tint_r": 0.6285714507102966,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -0.6000000000000005,
+          "y": 0.01,
+          "z": 3.8
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "de3ee846-2a40-419e-a01e-5c55b9a17889",
+      "name": "Paint row 7 column 4 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 52,
+          "roughness_influence": 0.0,
+          "tint_b": 0.44999998807907104,
+          "tint_g": 0.9071428775787354,
+          "tint_r": 0.7214285731315613,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.5999999999999996,
+          "y": 0.01,
+          "z": 3.8
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "b8586e8d-a20a-4d88-8f53-0075e594df5e",
+      "name": "Paint row 7 column 5 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 53,
+          "roughness_influence": 0.0,
+          "tint_b": 0.44999998807907104,
+          "tint_g": 0.9071428775787354,
+          "tint_r": 0.8142856955528259,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 1.7999999999999998,
+          "y": 0.01,
+          "z": 3.8
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "62a53a8d-73f4-4653-9b6b-adc9f1b574e6",
+      "name": "Paint row 7 column 6 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 54,
+          "roughness_influence": 0.0,
+          "tint_b": 0.44999998807907104,
+          "tint_g": 0.9071428775787354,
+          "tint_r": 0.9071428775787354,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 2.999999999999999,
+          "y": 0.01,
+          "z": 3.8
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "a94d6784-a140-4078-a3f2-f9eb5b3c9b17",
+      "name": "Paint row 7 column 7 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 55,
+          "roughness_influence": 0.0,
+          "tint_b": 0.44999998807907104,
+          "tint_g": 0.9071428775787354,
+          "tint_r": 1.0,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 4.2,
+          "y": 0.01,
+          "z": 3.8
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "c7a7212e-cca4-441a-9903-f49ff7292795",
+      "name": "Paint row 7 column 8 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 56,
+          "roughness_influence": 0.0,
+          "tint_b": 0.949999988079071,
+          "tint_g": 1.0,
+          "tint_r": 0.3499999940395355,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -4.2,
+          "y": 0.01,
+          "z": 4.8
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "2a94eb04-157f-467c-b404-b87d8ecf5f4c",
+      "name": "Paint row 8 column 1 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 57,
+          "roughness_influence": 0.0,
+          "tint_b": 0.949999988079071,
+          "tint_g": 1.0,
+          "tint_r": 0.44285714626312256,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -3.0,
+          "y": 0.01,
+          "z": 4.8
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "c65a1481-4106-4ec4-b8e7-5f8ae83d76e2",
+      "name": "Paint row 8 column 2 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 58,
+          "roughness_influence": 0.0,
+          "tint_b": 0.949999988079071,
+          "tint_g": 1.0,
+          "tint_r": 0.5357142686843872,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -1.8000000000000003,
+          "y": 0.01,
+          "z": 4.8
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "87d0b40d-6717-42ab-999f-431ee3c62009",
+      "name": "Paint row 8 column 3 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 59,
+          "roughness_influence": 0.0,
+          "tint_b": 0.949999988079071,
+          "tint_g": 1.0,
+          "tint_r": 0.6285714507102966,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -0.6000000000000005,
+          "y": 0.01,
+          "z": 4.8
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "c44df27e-f585-4469-a673-ae09bc98f457",
+      "name": "Paint row 8 column 4 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 60,
+          "roughness_influence": 0.0,
+          "tint_b": 0.949999988079071,
+          "tint_g": 1.0,
+          "tint_r": 0.7214285731315613,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.5999999999999996,
+          "y": 0.01,
+          "z": 4.8
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "ce28e6aa-5b35-43e8-8bd5-22dbd677f21b",
+      "name": "Paint row 8 column 5 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 61,
+          "roughness_influence": 0.0,
+          "tint_b": 0.949999988079071,
+          "tint_g": 1.0,
+          "tint_r": 0.8142856955528259,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 1.7999999999999998,
+          "y": 0.01,
+          "z": 4.8
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "4413d67c-046c-4f09-af6b-2c6c385d41b6",
+      "name": "Paint row 8 column 6 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 62,
+          "roughness_influence": 0.0,
+          "tint_b": 0.949999988079071,
+          "tint_g": 1.0,
+          "tint_r": 0.9071428775787354,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 2.999999999999999,
+          "y": 0.01,
+          "z": 4.8
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "d7c79416-8943-4e99-80c3-9be93c49a06f",
+      "name": "Paint row 8 column 7 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.decal": {
+          "angle_fade_end": 1.483529806137085,
+          "angle_fade_start": 0.7853981852531433,
+          "color_influence": 1.0,
+          "depth": 1.0,
+          "enabled": true,
+          "height": 0.8999999761581421,
+          "layers": 3,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "normal_influence": 0.0,
+          "opacity": 0.8500000238418579,
+          "priority": 63,
+          "roughness_influence": 0.0,
+          "tint_b": 0.949999988079071,
+          "tint_g": 1.0,
+          "tint_r": 1.0,
+          "width": 0.8999999761581421
+        },
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 4.2,
+          "y": 0.01,
+          "z": 4.8
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "96e13778-2d98-4c84-a7e9-0b89cce14224",
+      "name": "Paint row 8 column 8 - shared badge",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    }
+  ],
+  "rendering": {
+    "shadows": {
+      "cascades": 3,
+      "distance": 40,
+      "enabled": false,
+      "max_lights": 1,
+      "resolution": 1024
+    },
+    "version": 1
+  },
+  "version": 5
+}

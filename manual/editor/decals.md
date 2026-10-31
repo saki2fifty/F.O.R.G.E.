@@ -71,6 +71,16 @@ reordering entries in Hierarchy does not change the paint order.
 
 ## Try the Gallery
 
+Open **116-clustered-projectors** in the [Feature Gallery](../getting-started/feature-gallery.md).
+Its floor receives an eight-by-eight arrangement of 64 projectors sharing one badge
+material and image. Select a **Paint row ... column ...** entity in Hierarchy and
+change its tint, opacity, position or size. The other projectors keep their own
+values. No C++ module or additional import is required.
+
+![A lit floor covered in rows of tinted badge projections, with three unchanged Mesh receivers](../images/decal-cluster-gallery.png)
+
+Many projectors can share a material while retaining individual placement and appearance.
+
 Open **115-projected-surface-channels** in the [Feature Gallery](../getting-started/feature-gallery.md).
 The left cube has a normal-only patch, the right cube a roughness-only patch and
 the floor combines both. The rear block keeps its original surface. Select one
@@ -115,10 +125,11 @@ in Project Settings and save the settings first. See [Export a game or package c
 
 Texture filtering and wrapping configurations consume sampler slots. Matching
 configurations in built-in PBR materials can share a slot. Material Graph texture
-declarations reserve separate slots. More slots can reduce the available paint layers.
+declarations reserve separate slots. More slots can reduce the number of unique projected maps a Mesh part can receive.
 
-- The current profile supports eight active projectors per visual scene. A projector is active when enabled, assigned a Material and given nonzero opacity.
-- A physical Mesh part can have fewer available projector slots when its material uses many distinct samplers. Color, normal and roughness share that part's map slots. Matching texture views and sampler settings share a slot even when UV transforms differ. If overlapping projectors or their combined unique maps exceed that part's capacity, FORGE keeps its ordinary material and reports a warning in Problems. Reduce overlap, disable projectors or simplify the receiving material's sampler requirements.
+- The current profile supports 128 active projectors per visual scene. A projector is active when enabled, assigned a Material and given nonzero opacity. Larger scenes retain their ordinary materials and report a warning; disable or remove projectors to fit this limit.
+- A physical Mesh part supports up to eight unique projected texture/sampler combinations. Materials with many distinct samplers leave fewer map slots. Color, normal and roughness share the available slots. Matching texture views and sampler settings share one slot even when UV transforms differ, so many projectors can reuse the same maps. If the complete overlapping map set does not fit, FORGE keeps that part's ordinary material and reports a warning in Problems. Reuse maps/settings or simplify the receiving material's sampler requirements.
+- Custom physical Material Graph receivers need a Shader and dependent Material rebuilt with the current tools for larger projector lists. Earlier receiver Shaders retain their original smaller list capacity. Spatial selection is automatic and requires no Scene setting.
 - Physical Mesh surfaces are the receivers. Unlit Mesh surfaces, Sprites and Tile Maps do not receive this projection. Custom physical Material Graph receivers need a Shader rebuilt with the current tools.
 - Use an ordinary PBR or Unlit material as the source; normal maps require a PBR source. Custom Surface Shader sources are unsupported. Source emission, metallic values, optics, clearcoat and render-state settings do not become receiving-surface properties.
 - Keep dimensions between 0.001 and 10000 local metres. A collapsed transform cannot define a projection box. A fade interval too small to represent at rendering precision is rejected during extraction.

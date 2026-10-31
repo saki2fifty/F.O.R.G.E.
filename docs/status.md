@@ -17,17 +17,20 @@ exact known unsuppressed184-byte shutdown allocation condition. Windows/full
 editor/MSVC/FXC/cooked D3D12/physical acceptance remain queued.
 See the [contract](weighted-transparency.md) and [guide](../manual/editor/transparency.md).
 
-Local source adds projected material channels: an authored Decal Projector, volume
-guides, Inspector/live controls, shared automation/MCP/SDK access and Gallery113.
-Physical Mesh receivers use source color, normal maps, perceptual roughness, alpha,
-per-channel UVs and sampler intent before lighting. Gallery115 compares individual
-and combined surface channels. The profile admits eight active projectors per scene; individual Mesh
-parts can have fewer slots depending on material sampler use. Shader wrapper10 retains19 output roles and readable1–9 archives with legacy
-color-packet upload. Older
-physical graph receivers need a current cook. See the
+Local source supports authored Decal Projectors with volume guides, Inspector/live
+controls and shared automation/MCP/SDK access. Physical Mesh receivers use source
+color, normal maps, perceptual roughness, alpha, per-channel UVs and sampler intent
+before lighting. Gallery 113 demonstrates color, Gallery 115 compares individual
+surface channels and Gallery 116 supplies 64 projectors sharing one badge material.
+The visual profile admits 128 active projectors with up to eight unique projected
+map/sampler combinations per receiver; complex materials can leave fewer map slots.
+Larger lists use spatial selection through existing bounds and draw owners. Shader
+capability 11 retains 19 output roles and readable versions 1–10, including legacy
+packet uploads. Older graph receivers need a current cook for larger lists. See the
 [projection contract](rendering-foundation.md#projected-material-channels) and
-[manual](../manual/editor/decals.md). Windows/full-editor/MSVC/FXC/cooked D3D12
-and physical GPU acceptance remain queued.
+[manual](../manual/editor/decals.md). Local functional and selected strict/sanitizer
+checks pass with the separately recorded known native shutdown condition. Windows,
+full editor, MSVC/FXC, cooked D3D12 and physical GPU acceptance remain queued.
 
 Local source includes Rectangle/Sphere direct lights: world-space emitter sizes,
 shape guides, Inspector/live tuning, shared authoring/MCP/SDK ownership and editable

@@ -80,12 +80,14 @@ ticks. It demonstrates public data access, not a complete visual game.
 The matching installed header list includes this value-only type. Rebuild modules
 with the SDK matching the runtime; retain the generated exact fingerprint. The C
 ABI table is unchanged. Invalid projection values are diagnosed before rendering.
-The bounded profile admits eight active projectors per visual scene and0–8 per
-physical Mesh shader according to sampler budget. Color, normal and roughness
-maps share those slots; matching native views and sampler intent share a binding.
-Custom Surface Shader sources and unlit receivers are unsupported. Normal and
-roughness need a current physical receiver Shader cook. Source normal scale and
-per-channel UV transforms are retained; clearcoat and optics remain with the receiver.
+The visual profile admits 128 active projectors per scene, independently of the
+physical Mesh part's zero-to-eight projected map/sampler capacity. Matching native
+views and sampler intent share a binding across color, normal and roughness maps.
+Spatial selection uses the existing renderer/bounds owners. Custom Surface Shader
+sources and unlit receivers are unsupported. Normal/roughness require capability 10
+or later; larger lists require capability 11. Older receiving Shader cooks keep their
+original capacities and complete-set fallback. Source normal scale and per-channel
+UV transforms are retained; clearcoat and optics remain with the receiving material.
 
 ## Soft-shadow source dimensions
 

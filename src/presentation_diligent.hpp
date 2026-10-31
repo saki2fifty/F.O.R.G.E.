@@ -44,6 +44,10 @@ class DiligentPresentation {
     Diligent::PBR_Renderer& pbr(Diligent::IDeviceContext*);
     Diligent::ITextureView* black_environment(Diligent::IDeviceContext*);
     Diligent::ITextureView* empty_shadow(Diligent::IDeviceContext*);
+    struct ProjectedBuffers {
+        Diligent::RefCntAutoPtr<Diligent::IBuffer> rows, ranges, indices;
+    };
+    const ProjectedBuffers& empty_projected_buffers();
     std::uint64_t cache_hits() const { return hits_; }
     std::uint64_t cache_misses() const { return misses_; }
     // Optional, flat duration queries. Scope lifetime must remain inside this owner/frame.
@@ -97,6 +101,7 @@ class DiligentPresentation {
     std::unique_ptr<Diligent::PBR_Renderer> pbr_;
     Diligent::RefCntAutoPtr<Diligent::ITexture> black_environment_;
     Diligent::RefCntAutoPtr<Diligent::ITexture> empty_shadow_;
+    ProjectedBuffers empty_projected_buffers_;
     std::uint64_t hits_{}, misses_{};
     unsigned epoch_creations_{};
     Diligent::RefCntAutoPtr<Diligent::ITexture> readback_source_, readback_staging_;

@@ -168,15 +168,32 @@ older cooks require Shader and dependent Material rebuilds for weighted output.
 
 ## Projected base-surface channels
 
-Capability10 retains the19 existing output roles and extends the bounded physical
+Capability 10 retains the 19 existing output roles and extends the bounded physical
 receiver packet to projected color, normal and perceptual roughness. Projection
 runs after receiver normal/roughness preparation and before the native BRDF,
 iridescence and reflection/AO output construction. Clearcoat remains independent.
 
-The projector and map counts share the existing0–8 receiver capacity. Maps deduplicate
-by native view and sampler intent; channel UV transforms remain separate. Overflow
-rejects the complete projected selection and keeps ordinary rendering. The private
-buffer uses one control row plus13float4 rows/projector (1680bytes at8slots).
-Old capability8/9 programs keep their8row/color bindings; normal/roughness require
-recooking Shader and dependent Materials. Versions1–9 remain readable, and logical
-asset IDs, authored function interfaces and geometry ownership are unchanged.
+That packet retains one control row plus 13 `float4` rows per projector, with its
+original material-dependent list capacity up to eight. Capability 8/9 programs keep
+their eight-row color bindings. Normal/roughness require a Shader and dependent
+Material cooked with capability 10 or later.
+
+## Spatially selected projector lists
+
+Capability 11 separates the scene's 128-projector bound from the receiver's map
+capacity. Maps deduplicate by native view and sampler intent while channel UV
+transforms remain independent. Complete selections exceeding the available map
+slots retain ordinary rendering with a contextual diagnostic.
+
+Small lists use four control rows plus 13 `float4` rows per available small-packet
+slot. Larger lists use `g_ForgeDecalRows`, `g_ForgeDecalRanges` and
+`g_ForgeDecalIndices` structured buffers, with an ordered list per receiver-grid
+cell. Outside or unavailable domains use the complete storage list. The renderer
+supplies bounds through its existing geometry owner and unions instance batches.
+
+The private packet and reserved buffer reflection are capability-checked. Versions
+1–10 remain readable with their original uploads and capacities; recook the Shader
+and dependent Materials for larger lists. Logical asset IDs, authored surface
+function interfaces, geometry and resource ownership remain unchanged. See
+[projected material channels](rendering-foundation.md#projected-material-channels)
+for bounds, numeric behavior, sampler budgets and current platform acceptance limits.

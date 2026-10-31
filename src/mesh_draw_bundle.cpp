@@ -272,7 +272,7 @@ void MeshDrawBundle::draw_part(
     std::span<const MaterialParameterOverride> parameters, const SpriteDrawValues* sprite,
     const SceneDistanceFog* fog, const GpuLease<TextureAsset>* sprite_mip,
     const MeshDraw::Motion* motion, bool indirect, bool reflection, bool normal,
-    std::span<const MeshDraw::Decal> decals, bool weighted) {
+    std::span<const MeshDraw::Decal> decals, bool weighted, const RenderBounds* decal_bounds) {
     const bool area_lights = std::any_of(lights.begin(), lights.end(), [](const auto& light) {
         return light.kind >= unsigned(LightKind::Rectangle);
     });
@@ -308,6 +308,7 @@ void MeshDrawBundle::draw_part(
     selected->draw(context, pose ? pose->world : world, camera, lights, environment, legacy_tint,
                    shadows, shadow_slots, transmission,
                    pose ? std::span<const float>(pose->morph_weights) : std::span<const float>{},
-                   skin, instances, parameters, slot(lod, part), sprite, fog, motion, decals);
+                   skin, instances, parameters, slot(lod, part), sprite, fog, motion, decals,
+                   decal_bounds);
 }
 } // namespace forge

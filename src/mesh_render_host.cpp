@@ -1059,6 +1059,7 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
         const MeshInstancePose* previous_pose = nullptr;
         bool area_lights = false;
         std::vector<EntityId> decals{};
+        RenderBounds bounds{};
     };
     struct Item {
         RenderSortKey key;
@@ -1101,6 +1102,7 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                 if (coverage <= entry.thresholds[i])
                     lod = i;
             Object object{&mesh, entry.ready.get(), &pose, entry.parameters, lod, {}, {}};
+            object.bounds = bounds;
             object.world = &pose.world;
             object.scope = draw_scope;
             if (draw_scope == DrawScope::Mesh && entry.previous_pose && entry.previous_mesh &&
@@ -1560,9 +1562,9 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                 "render.decal.capacity",
                 "Mesh part cannot admit the complete projected channel set within its " +
                     std::to_string(object.bundle->decal_capacity(object.lod, part)) +
-                    " projector/map slots; ordinary material retained. Reduce overlapping "
-                    "projectors or unique maps/samplers. Normal and roughness projection "
-                    "require a current receiver Surface Shader cook.",
+                    " map slots or its Shader projector capacity; ordinary material retained. "
+                    "Reduce unique maps/samplers. Lists above the small packet capacity and "
+                    "normal/roughness projection require a current receiver Surface Shader cook.",
                 {}};
             value.context.asset = scene.scene;
             value.context.entity = object.mesh->entity;
@@ -1607,6 +1609,7 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
         const auto batch_start = cursor - 1;
         try {
             std::array<MeshDraw::Instance, MeshDraw::instance_limit> batch;
+            auto batch_bounds = object.bounds;
             std::size_t count = 1;
             batch[0] = {*object.world, object.mesh->legacy_tint, object.sprite,
                         has_previous_part(object, item.key.part) ? &object.previous_pose->world
@@ -1637,6 +1640,12 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                                   has_previous_part(next, next_item.key.part)
                                       ? &next.previous_pose->world
                                       : nullptr};
+                for (unsigned axis = 0; axis < 3; ++axis) {
+                    batch_bounds.minimum[axis] =
+                        std::min(batch_bounds.minimum[axis], next.bounds.minimum[axis]);
+                    batch_bounds.maximum[axis] =
+                        std::max(batch_bounds.maximum[axis], next.bounds.maximum[axis]);
+                }
                 ++cursor;
             }
             const auto motion = motion_for(object, item.key.part);
@@ -1655,7 +1664,7 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                 accumulated && temporal->indirect_output,
                 accumulated && temporal->reflection_output,
                 accumulated && temporal->normal_only_output, decals,
-                weighted && item.key.alpha == MaterialAlpha::Blend);
+                weighted && item.key.alpha == MaterialAlpha::Blend, &batch_bounds);
             ++draw_stats_.calls;
             draw_stats_.instances += count;
             draw_stats_.batched_calls += count > 1;
@@ -1684,7 +1693,7 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                         accumulated && temporal->indirect_output,
                         accumulated && temporal->reflection_output,
                         accumulated && temporal->normal_only_output, decals,
-                        weighted && failed_item.key.alpha == MaterialAlpha::Blend);
+                        weighted && failed_item.key.alpha == MaterialAlpha::Blend, &single.bounds);
                     ++draw_stats_.calls;
                     ++draw_stats_.instances;
                 } catch (const std::exception& error) {

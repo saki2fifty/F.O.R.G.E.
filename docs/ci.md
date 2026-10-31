@@ -1755,3 +1755,34 @@ values, complete identity, revisions/history and publication in both framings. T
 ImGui material editing through the shared Timeline owner; it does not enable or
 claim a portable native editor host. Component controls also exercise exact64-bit
 inputs, enum/flag choices, Undo/Redo and copied sequence preview at supported scales.
+
+
+## Clustered projector regression gate
+
+`render_bounds` checks conservative receiver-cell membership for 4000 deterministic
+samples, float-boundary/overflow cases, large origins, collapsed axes and stable
+index order. `shader_assets` preserves 1–10 archives and rejects unsupported packet/
+storage metadata; `material_asset` checks typed capability reflection and existing
+sampler budgets. Current capability 11 keeps19 surface output roles.
+
+`decal_vulkan` exercises the actual prepared-draw and scene/resource owners.
+The focused `--clusters-only` path compares 128 projector spatial output against an
+exhaustive storage list over affine, large-origin, dense, collapsed and outside-grid
+cases and repeated frame/empty/small/storage transitions. `--channels-only` covers
+shared normal/roughness maps; `--scene-only` checks scene admission,129 projector
+rejection, resource recovery and two-instance/one-draw batching with a unioned grid.
+The complete normal run also covers output variants and actual sampler reflection.
+
+`decal_cluster_gallery_vulkan` opens Gallery 116 through ordinary authoring and content
+owners, checks 64 projectors, preserves prior catalog records/settings, exports the
+exact Scene/Material/Texture closure and compares four source-free relocated display
+readbacks. `mcp_document_stdio` creates/saves 128 projectors through an atomic batch,
+checks idempotency and whole-batch Undo/Redo and rejects invalid commands without
+revision changes in both protocol framings. Lost responses recover the original
+sequence receipt. Its 240-second test budget accommodates the instrumented owner
+workload. No new agent-only authoring path exists.
+
+These portable/software-Vulkan checks do not establish MSVC/FXC/cookedD3D12, full
+Windows editor input/DPI, physical GPU performance or graphical exported-EXE acceptance.
+Native sanitizer shutdown remains an independent unresolved/unsuppressed condition;
+functional completion is separate from a clean process exit.

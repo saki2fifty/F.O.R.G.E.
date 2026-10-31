@@ -1,5 +1,11 @@
 # Explore the Feature Gallery
 
+**116-clustered-projectors** places 64 tinted badge projectors over a lit floor.
+They share one material and image. Select a **Paint row ... column ...** entity in
+Hierarchy, then change its tint, opacity, position or size. The other patches keep
+their own values. Save and choose this Scene as startup before export; no C++ module
+or additional import is required. See [Project material channels onto a Mesh](../editor/decals.md).
+
 **115-projected-surface-channels** compares normal-only, roughness-only and combined
 material projections. Select a projector and change **Normal influence** or
 **Roughness influence** in Inspector. Color influence is 0; the receiver's color

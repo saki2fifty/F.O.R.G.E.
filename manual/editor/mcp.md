@@ -201,10 +201,12 @@ actual build/runtime/export results and anything not tested.**
 - Authoring edits pause during Play, C++ builds, dialogs and active gestures. Exact owner controls such as Stop, job cancellation, live tuning and image capture use their own guarded paths.
 - Direct MCP file tools stay within their granted project/import/output/public-SDK roots. They do not edit FORGE's engine checkout. The separate native execution grant has the OS access described above.
 
-If the agent reports a lost response, it should inspect state or retrieve the
-same command receipt before trying again. Repeating an uncertain action as a
-new command can create duplicate objects. The tools provide revisions and
-sequence numbers to help the agent handle this correctly.
+If the agent reports a lost response, inspect the current state or retrieve the
+original command receipt. To retrieve it, resend the exact original tool arguments,
+including the target, expected revision and sequence number. The receipt returns
+the original result without repeating the edit. If the receipt is unavailable,
+check which changes already exist before issuing a new command. Repeating an
+uncertain action with a fresh sequence can create duplicate objects.
 
 The precise capability checklist and integration contract are maintained in
 **docs/mcp.md** in the source repository.

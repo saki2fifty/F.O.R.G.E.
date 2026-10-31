@@ -300,6 +300,7 @@ MeshDrawShader mesh_draw_shader(const MeshVertexFetch& fetch, const PbrMaterialP
     if (area_lights && profile.workflow != PbrWorkflow::Unlit)
         ps += "#include \"ForgeAreaLights.fxh\"\n";
     if (decal_capacity) {
+        ps += "#define FORGE_DECAL_CLUSTERED 1\n";
         ps += "#define FORGE_DECAL_CAPACITY " + std::to_string(decal_capacity) + "\n";
         ps += std::string("#define FORGE_DECAL_NAMED_SAMPLERS ") +
               (sampler_binding == MaterialSamplerBinding::NamedElements ? "1\n" : "0\n");

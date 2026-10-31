@@ -12,6 +12,20 @@ inline void check(bool value, const char* why) {
     if (!value)
         throw std::runtime_error(why);
 }
+enum class Profile { Color, SurfaceChannels, Clustered };
+inline const char* scene_path(Profile profile) {
+    switch (profile) {
+    case Profile::SurfaceChannels:
+        return "Scenes/115-projected-surface-channels.scene.json";
+    case Profile::Clustered:
+        return "Scenes/116-clustered-projectors.scene.json";
+    default:
+        return "Scenes/113-projected-color-decals.scene.json";
+    }
+}
+inline unsigned projector_count(Profile profile) {
+    return profile == Profile::Clustered ? 64 : profile == Profile::SurfaceChannels ? 3 : 4;
+}
 struct Prepared {
     std::filesystem::path root, scratch;
     AssetId scene;
@@ -19,15 +33,14 @@ struct Prepared {
     bool created{};
 };
 inline Prepared prepare(const std::filesystem::path& gallery, const std::filesystem::path& scratch,
-                        bool surface_channels = false) {
+                        Profile profile = Profile::Color) {
+    const bool surface_channels = profile == Profile::SurfaceChannels;
     Prepared result;
     result.scratch = scratch / AssetId::generate().str();
     result.root = result.scratch / "Project";
     std::filesystem::create_directories(result.scratch);
     std::filesystem::copy(gallery, result.root, std::filesystem::copy_options::recursive);
-    const auto destination =
-        result.root / (surface_channels ? "Scenes/115-projected-surface-channels.scene.json"
-                                        : "Scenes/113-projected-color-decals.scene.json");
+    const auto destination = result.root / scene_path(profile);
     result.created = !std::filesystem::exists(destination);
     const auto prior = AssetCatalog::open_project(result.root).document().at("assets");
     result.prior_records = prior.size();
@@ -37,7 +50,7 @@ inline Prepared prepare(const std::filesystem::path& gallery, const std::filesys
     project.open_project(result.root, true);
     const auto settings = project.settings().document();
     if (result.created) {
-        project.open_scene(result.root / (surface_channels
+        project.open_scene(result.root / (profile != Profile::Color
                                               ? "Scenes/113-projected-color-decals.scene.json"
                                               : "Scenes/112-area-lights.scene.json"));
         project.save_as(destination);
@@ -123,6 +136,41 @@ inline Prepared prepare(const std::filesystem::path& gallery, const std::filesys
                 2, 2);
             add("Floor detail - normal and roughness together", 1, 1, {0, .01, -.75},
                 rotation_from_euler({90, 0, 0}), {}, 4, 3, 1, 3);
+        } else if (profile == Profile::Clustered) {
+            const auto original = scene.document();
+            for (const auto& row : original.at("entities")) {
+                const auto id = row.at("id").get<std::string>();
+                const auto& components = row.at("components");
+                if (components.contains("forge.decal"))
+                    authoring_command(scene, "entity.delete", {{"entity", id}});
+                if (components.contains("forge.camera")) {
+                    pose(id, {0, 6, -8}, rotation_from_euler({30, 0, 0}));
+                    authoring_command(scene, "entity.rename",
+                                      {{"entity", id}, {"name", "Camera - shared projector grid"}});
+                }
+            }
+            const auto badge = AssetId::parse("7949266a-8b55-4b6e-beb6-37526ca79446");
+            for (unsigned row = 0; row < 8; ++row)
+                for (unsigned column = 0; column < 8; ++column) {
+                    const auto name = "Paint row " + std::to_string(row + 1) + " column " +
+                                      std::to_string(column + 1) + " - shared badge";
+                    const auto created = authoring_command(scene, "entity.create",
+                                                           {{"recipe", "render.decal"},
+                                                            {"name", name},
+                                                            {"component_values",
+                                                             {{"material", badge},
+                                                              {"width", .9},
+                                                              {"height", .9},
+                                                              {"depth", 1},
+                                                              {"layers", 3},
+                                                              {"opacity", .85},
+                                                              {"priority", row * 8 + column},
+                                                              {"tint_r", .35 + .65 * column / 7},
+                                                              {"tint_g", .35 + .65 * row / 7},
+                                                              {"tint_b", row % 2 ? .95 : .45}}}});
+                    pose(created.at("selected"), {-4.2 + 1.2 * column, .01, -2.2 + row},
+                         rotation_from_euler({90, 0, 0}));
+                }
         } else {
             authoring_command(scene, "scene.rendering.set", {{"shadows", {{"enabled", false}}}});
             unsigned meshes = 0, lights = 0, cameras = 0;
@@ -235,7 +283,7 @@ inline Prepared prepare(const std::filesystem::path& gallery, const std::filesys
     }
     result.scene = scene.asset_id();
     const auto extracted = extract_render_scene(scene.effective_document());
-    check(extracted.decals.size() == (surface_channels ? 3 : 4) && extracted.meshes.size() == 4 &&
+    check(extracted.decals.size() == projector_count(profile) && extracted.meshes.size() == 4 &&
               extracted.cameras.size() == 1 && extracted.lights.size() == 2 &&
               extracted.diagnostics.empty(),
           "Decal Gallery lost its admitted scene composition");

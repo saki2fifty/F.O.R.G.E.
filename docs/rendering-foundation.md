@@ -801,16 +801,16 @@ Iridescence and reflection/AO outputs consume the resulting base surface. Receiv
 alpha, metallic/specular values, clearcoat normal/roughness, optics, geometry,
 depth and shadow casting remain independent.
 
-The bounded profile admits8 enabled, assigned, nonzero-opacity projectors per
-visual scene. Physical Mesh receivers reserve2 engine samplers and derive capacity
-min(8,max(0,16-2-materialSamplerCount)). Built-ins count deduplicated sampler states;
-physical graphs conservatively count texture declarations. Full old materials
-retain their existing requirements and get0 projection bindings. Projectors and
-all channels share exactly that many map/sampler slots; equal native view plus
-sampler intent shares a slot regardless of UV transforms. Old color-only selections
-still fit. Scene/part/projected-map overflow reports explicit diagnostics and
-keeps ordinary rendering, never a silently truncated set. Sprites, Tile Maps and
-unlit Mesh receivers have no projection profile. Clustered transport and light
+The bounded profile admits 128 enabled, assigned, nonzero-opacity projectors per
+visual scene. Physical Mesh receivers reserve two engine samplers and derive map
+capacity as min(8, max(0, 16 - 2 - materialSamplerCount)). Built-ins count deduplicated
+sampler states; physical graphs conservatively count texture declarations. Full old
+materials retain their existing requirements and get no projection bindings when
+no slots remain. Projected channels share the available map/sampler slots; equal
+native view plus sampler intent shares a slot regardless of UV transforms.
+Projector count is independent of shared map count. Scene, receiver and map overflow
+reports explicit diagnostics and keeps ordinary rendering without truncating sets.
+Sprites, Tile Maps and unlit Mesh receivers have no projection profile. Light
 textures remain unsupported.
 
 MeshSceneRenderer retains complete selections through existing Material/Texture
@@ -822,16 +822,38 @@ All winding/LOD/surface SRBs clear before releasing replaced GPU leases. Bounds 
 shared Camera/Mesh/decal layers filter candidates; ascending priority and stable
 EntityId ties set order. Different selections split existing instance batches.
 
-Capability10 retains19 shader output roles and uses one control float4 plus13rows
-per projector (1680bytes maximum). Maps use1-based indices with0 for no map.
-Capability8/9 receivers retain their8row packet, original map names and1040byte
-maximum; color influence folds into their opacity. Nonzero admitted normal/roughness
-requires a current receiver cook, otherwise the complete set is rejected with a
-contextual capacity/profile warning. Versions1–9 remain readable with unchanged
-bytes. Camera-relative conversion checks representability before view admission;
-unrepresentable projectors are omitted with `render.decal.view` while geometry stays
-visible. Unused maps bind stock white/default samplers; immutable empty buffers and
-dynamic SRB switching preserve zero-projector behavior across frames.
+Capability 11 retains 19 shader output roles. Lists fitting the receiver's small
+packet capacity use a constant buffer with four control `float4` rows and 13 rows
+per projector (1728 bytes maximum). Larger lists use three structured buffers:
+128 × 13 `float4` projector rows, 64 `uint2` cell ranges and up to 8192 `uint` indices
+(59904 bytes maximum storage payload). Map indices remain one-based, with zero for
+no map. Typed reflection dispatch validates stage roles, capability-specific constant
+packet sizes and reserved storage views.
+
+The existing render-bounds owner builds a camera-relative 4×4×4 grid aligned to
+world axes over the receiver's derived bounds. Instance batches use their union.
+Each cell's ordered list conservatively encloses affine GPU-row clipping, including
+cell-coordinate roundoff, denormal flushing and potential overflow diagnostics.
+Poor-resolution axes collapse; unavailable domains and fragments outside the bounds
+use the complete ordered storage list. The existing camera, bounds and projector
+owners remain authoritative for perspective, orthographic and multiple-camera views.
+
+Capability 10 retains one control row and 13 rows per projector (1680 bytes maximum).
+Capabilities 8/9 retain one control row and eight rows per projector, original color
+map names and a 1040-byte maximum. Their original list capacities remain. Color
+influence folds into opacity for 8/9. Nonzero admitted normal/roughness requires 10
+or later; lists beyond the small capacity require 11. Incompatible complete selections
+retain ordinary rendering with a contextual profile warning. Versions 1–10 remain
+readable with unchanged bytes. Camera-relative conversion checks representability
+before view admission; unrepresentable projectors are omitted with
+`render.decal.view` while geometry stays visible.
+
+Unused maps bind stock white/default samplers. DiligentPresentation owns shared
+immutable empty storage; MeshDraw owns its transient dynamic buffers. Every used draw
+remaps DISCARD data in its frame. Empty frames switch all winding SRBs to immutable
+defaults, including safe reads from flattened shader selectors, before replaced GPU
+leases release. Empty, small and storage transitions remain independent of previous
+frame allocations.
 
 Shared `render.decal`, native Meta, Scene/history/Save, Inspector/guides/framing,
 fifteen live scalar controls, automation/MCP and installed SDK use the same owners.

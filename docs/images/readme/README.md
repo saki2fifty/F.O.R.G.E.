@@ -1,5 +1,21 @@
 # README screenshots
 
+## Many shared projectors
+
+[Clustered-projector Gallery](../../../manual/images/decal-cluster-gallery.png) is
+the complete 640×360 FrameRenderer display capture for Gallery 116, Scene
+`e9 da9407-f9 dc-4 b6 a-88 cf-e5 f888 a39629`. It shows 64 tinted badge projectors sharing a
+Material and Texture on a lit floor. It was captured through
+`forge_decal_gallery_tests <Gallery> <scratch> --clustered` on software Vulkan,
+GCC 12 Release, with the pinned backend and normal runtime assets. The same fixture
+checks actual source-free export closure and four exactly equal relocated display
+pairs at 640×360,360×640,96×64 and17×13. The PPM-to-PNG conversion preserves all RGB
+pixels; no controls, geometry or colors were retouched. PNG SHA256 is
+`a6097950 e70 d5 ff8 fc140552 d1 cdf245 cfeea37759 f51 a2 f123 ed1 c6 e49 c6 f4 f`.
+This establishes the renderer/example appearance; Windows/D3D12, full graphical
+editor interaction and physical GPU acceptance remain pending. Existing Decal
+Inspector controls and the earlier Gallery captures are unchanged.
+
 ## Projected material channels
 
 [Decal controls](../../../manual/images/decal-projector-controls.png) is the complete

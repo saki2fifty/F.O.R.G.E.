@@ -26,6 +26,31 @@ DiligentPresentation::DiligentPresentation(IRenderDevice* device) : device_(devi
     if (!frame_fence_)
         throw std::runtime_error("Presentation frame completion fence unavailable");
 }
+const DiligentPresentation::ProjectedBuffers& DiligentPresentation::empty_projected_buffers() {
+    if (!empty_projected_buffers_.rows) {
+        ProjectedBuffers candidate;
+        const std::array<std::uint32_t, 52> zeros{};
+        const auto create = [&](unsigned stride, unsigned elements, auto& target) {
+            BufferDesc desc;
+            desc.Name = "FORGE empty projected storage";
+            desc.Size = stride * elements;
+            desc.ElementByteStride = stride;
+            desc.Mode = BUFFER_MODE_STRUCTURED;
+            desc.BindFlags = BIND_SHADER_RESOURCE;
+            desc.Usage = USAGE_IMMUTABLE;
+            BufferData data{zeros.data(), desc.Size};
+            device_->CreateBuffer(desc, &data, &target);
+            if (!target)
+                throw std::runtime_error("Empty projected storage allocation failed");
+        };
+        // A flattened row selector may read all thirteen rows of projector zero.
+        create(16, 13, candidate.rows);
+        create(8, 1, candidate.ranges);
+        create(4, 1, candidate.indices);
+        empty_projected_buffers_ = std::move(candidate);
+    }
+    return empty_projected_buffers_;
+}
 std::uint64_t DiligentPresentation::pending_frames() const {
     const auto completed = frame_fence_->GetCompletedValue();
     return submitted_frames_ > completed ? submitted_frames_ - completed : 0;

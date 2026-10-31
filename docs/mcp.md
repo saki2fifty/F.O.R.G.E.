@@ -1013,3 +1013,19 @@ existing batch guards. Cancellation/review controls can service their pending
 owner; a new capture still requires normal admission. Runtime recapture and
 in-place map replacement are not available. See
 [local reflection probes](local-reflection-probes.md) for capture/rendering limits.
+
+## Shared projector lists
+
+The clustered projector profile uses the existing `render.decal` recipe and
+`forge.decal` properties through `forge_entity_create`, `forge_property_set_many`
+and `forge_scene_apply`. There is no separate agent projection implementation or
+cluster-setting operation. Schema, target/revision, permissions, atomic history,
+save and export remain owned by the same scene/document subsystems.
+
+A visual scene supports 128 enabled, assigned, nonzero-opacity projectors; receivers
+admit the complete required map/sampler set within their 0–8 slots. This rendering
+profile is not an entity-authoring limit. Excess active projectors or incompatible
+receiver cooks report presentation diagnostics and keep ordinary rendering.
+The document/MCP regression creates 127 projectors alongside an existing one in one
+transaction, reads all 128, rejects an invalid atomic batch without revision changes,
+checks whole-batch Undo/Redo and saves all 128 through the ordinary document owner.

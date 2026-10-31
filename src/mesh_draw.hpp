@@ -76,7 +76,7 @@ class MeshDraw {
               std::span<const MaterialParameterOverride> object_parameters = {},
               std::string_view material_slot = {}, const SpriteDrawValues* sprite = nullptr,
               const SceneDistanceFog* fog = nullptr, const Motion* motion = nullptr,
-              std::span<const Decal> decals = {});
+              std::span<const Decal> decals = {}, const RenderBounds* decal_bounds = nullptr);
 
   private:
     unsigned instance_rows() const;
@@ -93,15 +93,17 @@ class MeshDraw {
     Diligent::RefCntAutoPtr<Diligent::ITextureView> black_environment_;
     Diligent::RefCntAutoPtr<Diligent::ITextureView> black_background_;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> decals_, empty_decals_;
+    DiligentPresentation::ProjectedBuffers decal_storage_, empty_decal_storage_;
     Diligent::RefCntAutoPtr<Diligent::ITextureView> white_decal_;
     Diligent::RefCntAutoPtr<Diligent::ISampler> default_decal_sampler_;
     unsigned decal_capacity_{};
-    bool decals_active_{}, decal_surface_channels_{};
+    bool decals_active_{}, decal_surface_channels_{}, decal_clustered_{};
     struct DecalBindings {
         std::array<Diligent::IDeviceObject*, 8> textures{}, samplers{};
-        std::array<std::array<float, decal_channel_count>, 8> slots{};
+        std::array<std::array<float, decal_channel_count>, 128> slots{};
     };
     std::optional<DecalBindings> decal_bindings(std::span<const Decal>) const;
+    void bind_decal_storage(const DiligentPresentation::ProjectedBuffers&);
     bool shadow_pass_{};
     bool fog_supported_ = true;
     bool temporal_{};

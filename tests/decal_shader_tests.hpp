@@ -1,6 +1,7 @@
 #pragma once
 #include "decal_shader.hpp"
 #include "mesh_draw_shader.hpp"
+#include <forge/shader_asset.hpp>
 #include <limits>
 inline void test_decal_shader_profile() {
     using namespace forge;
@@ -93,6 +94,9 @@ inline void test_decal_shader_profile() {
                        {"array_size", 1},
                        {"dimension", "texture2d"}}})}};
     (void)surface_binding_layout(graph, reflection, false, true);
+    (void)surface_binding_layout(graph, reflection, ShaderEntryRole::SurfaceColor, 8);
+    reject([&] { surface_binding_layout(graph, reflection, ShaderEntryRole::SurfaceDepth, 8); });
+    reject([&] { surface_binding_layout(graph, reflection, ShaderEntryRole::SurfaceColor, 10); });
     reject([&] { surface_binding_layout(graph, reflection); });
     auto bad = reflection;
     bad["resources"][0]["variables"][0]["array_size"] = 64;
@@ -110,8 +114,28 @@ inline void test_decal_shader_profile() {
     channels["resources"][0]["variables"][0]["array_size"] = 105;
     channels["resources"][2]["name"] = "g_ForgeDecalMap7";
     (void)surface_binding_layout(graph, channels, false, true, true);
+    (void)surface_binding_layout(graph, channels, ShaderEntryRole::SurfaceColor, 10);
+    reject([&] {
+        surface_binding_layout(graph, channels, ShaderEntryRole::SurfaceColor,
+                               current_surface_wrapper_version + 1);
+    });
     reject([&] { surface_binding_layout(graph, channels, false, true); });
     reject([&] { surface_binding_layout(graph, reflection, false, true, true); });
+    auto clustered = channels;
+    clustered["resources"][0]["size"] = 108 * 16;
+    clustered["resources"][0]["variables"][0]["array_size"] = 108;
+    for (const char* name : {"g_ForgeDecalRows", "g_ForgeDecalRanges", "g_ForgeDecalIndices"})
+        clustered["resources"].push_back(
+            {{"name", name}, {"kind", "buffer_srv"}, {"array_size", 1}, {"dimension", "buffer"}});
+    (void)surface_binding_layout(graph, clustered, ShaderEntryRole::SurfaceColor, 11);
+    reject([&] { surface_binding_layout(graph, clustered, ShaderEntryRole::SurfaceColor, 10); });
+    auto bad_cluster = clustered;
+    bad_cluster["resources"].back()["dimension"] = "texture2d";
+    reject([&] { surface_binding_layout(graph, bad_cluster, ShaderEntryRole::SurfaceColor, 11); });
+    bad_cluster = clustered;
+    bad_cluster["resources"].back()["array_size"] = 2;
+    reject([&] { surface_binding_layout(graph, bad_cluster, ShaderEntryRole::SurfaceColor, 11); });
+    reject([&] { surface_binding_layout(graph, channels, ShaderEntryRole::SurfaceColor, 11); });
     graph.physically_based = false;
     reject([&] { surface_binding_layout(graph, reflection, false, true); });
 }

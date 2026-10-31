@@ -373,6 +373,44 @@ for legacy in (False, True):
         changed_decal = client.tool('forge_property_set_many', **request)
         assert changed_decal['ok'], changed_decal
         assert client.tool('forge_property_set_many', **request)['result'] == changed_decal['result']
+        # The renderer profile does not require a second agent authoring path.
+        paint_commands = [dict(operation='entity.create', arguments=dict(
+            recipe='render.decal', name='Shared paint ' + str(index),
+            component_values=dict(material=decal_values['material'], width=1., height=1.,
+                                  opacity=.5, priority=index))) for index in range(127)]
+        paint_request = arguments(commands=paint_commands)
+        batch_started = time.monotonic()
+        while True:
+            painted = client.tool('forge_scene_apply', _response_timeout=20, **paint_request)
+            if painted['ok']:
+                break
+            # A slow instrumented owner can outlive the adapter's transport deadline.
+            # Recover the exact receipt; a fresh sequence could apply the batch twice.
+            assert painted['error']['code'] == 'connection_unavailable', painted
+            assert time.monotonic() - batch_started < 60, painted
+            time.sleep(.1)
+        print(('legacy' if legacy else 'current') + ': 127-projector batch and receipt seconds=' +
+              str(round(time.monotonic() - batch_started, 3)), flush=True)
+        assert painted['ok'] and len(painted['result']['results']) == 127, painted
+        assert client.tool('forge_scene_apply', **paint_request)['result'] == painted['result']
+        def paint_count():
+            state = discover()
+            snapshot = client.tool('forge_scene_read', target=state['result']['target'])
+            assert snapshot['ok'], snapshot
+            return sum('forge.decal' in entity['components'] for entity in snapshot['result']['entities'])
+        assert paint_count() == 128
+        before_bad_paint = discover()
+        bad_paint = mutate('forge_scene_apply', commands=[paint_commands[0], dict(
+            operation='entity.create', arguments=dict(recipe='render.decal', name='Invalid paint',
+                component_values=dict(opacity=2.)))])
+        assert not bad_paint['ok'] and discover()['revision'] == before_bad_paint['revision'], bad_paint
+        assert paint_count() == 128
+        assert mutate('forge_history_undo')['result']['changed'] and paint_count() == 1
+        assert mutate('forge_history_redo')['result']['changed'] and paint_count() == 128
+        assert mutate('forge_document_save')['ok']
+        saved_paint = json.loads((project / 'Scenes/main.scene.json').read_bytes())
+        assert sum('forge.decal' in entity['components'] for entity in saved_paint['entities']) == 128
+        assert mutate('forge_history_undo')['result']['changed'] and paint_count() == 1
         for field, value in [('width', 0), ('height', True), ('opacity', 1.01),
                              ('priority', 2147483648), ('angle_fade_end', .4), ('color_influence', -.01),
                              ('normal_influence', 1.01), ('roughness_influence', True)]:

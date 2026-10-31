@@ -26,7 +26,8 @@ void equal_pixels(const Pixels& actual, const Pixels& expected, const char* why)
             check(std::isfinite(actual[i][c]) && std::abs(actual[i][c] - expected[i][c]) <= 2e-5f,
                   why);
 }
-void execute(const std::filesystem::path& root, bool scene_only, bool channels_only) {
+void execute(const std::filesystem::path& root, bool scene_only, bool channels_only,
+             bool clusters_only) {
     RefCntAutoPtr<IRenderDevice> device;
     RefCntAutoPtr<IDeviceContext> context;
     EngineVkCreateInfo create;
@@ -103,7 +104,8 @@ void execute(const std::filesystem::path& root, bool scene_only, bool channels_o
     light.intensity = 1;
     auto illumination = light_view(light, {});
     auto render = [&](MeshDraw& prepared, std::span<const MeshDraw::Decal> decals = {},
-                      const TransmissionLighting* background = nullptr, bool weighted = false) {
+                      const TransmissionLighting* background = nullptr, bool weighted = false,
+                      const RenderBounds* region = nullptr) {
         ITextureView* targets[]{rtv, weights_rtv};
         context->SetRenderTargets(weighted ? 2 : 1, targets, dsv,
                                   RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
@@ -117,12 +119,92 @@ void execute(const std::filesystem::path& root, bool scene_only, bool channels_o
         const Viewport viewport{0, 0, 32, 32, 0, 1};
         context->SetViewports(1, &viewport, 32, 32);
         prepared.draw(context, world, view, std::span(&illumination, 1), nullptr, nullptr, nullptr,
-                      {}, background, {}, nullptr, {}, {}, {}, nullptr, nullptr, nullptr, decals);
+                      {}, background, {}, nullptr, {}, {}, {}, nullptr, nullptr, nullptr, decals,
+                      region);
         return test_bloom::read(device, context, color);
     };
     DecalProjector projector;
     projector.width = projector.height = 8;
     projector.depth = 2;
+    if (!scene_only && !channels_only) {
+        const auto unpainted = render(*draw);
+        std::array<DecalView, 128> projections;
+        std::array<DecalMaterial, 128> materials;
+        std::array<MeshDraw::Decal, 128> selection;
+        MaterialData source;
+        source.model = "forge.gltf.unlit.v1";
+        source.alpha = MaterialAlpha::Blend;
+        source.parameters["baseColorFactor"] = {MaterialParameterType::LinearColor4,
+                                                {1, 1, 1, .7f}};
+        const auto source_material = prepare_decal_material(source, {});
+        for (unsigned case_id = 0; case_id < 6; ++case_id) {
+            auto expected_values = receiver;
+            for (unsigned i = 0; i < selection.size(); ++i) {
+                auto value = projector;
+                value.width = value.height = case_id == 2 ? 8.f : .6f;
+                value.opacity = .35f;
+                auto placement = world;
+                if (case_id != 2) {
+                    placement.m[3] += (double(i % 8) - 3.5) * .25;
+                    placement.m[7] += (double((i / 8) % 8) - 3.5) * .25;
+                }
+                if (case_id == 1) {
+                    placement.m[0] = i % 2 ? -1 : 1;
+                    placement.m[1] = .35;
+                    placement.m[4] = -.15;
+                }
+                projections[i] = decal_view(value, placement);
+                materials[i] = source_material;
+                materials[i].color[0] = float(i % 7) / 7;
+                materials[i].color[1] = float(i % 11) / 11;
+                materials[i].color[2] = float(i % 13) / 13;
+                selection[i] = {&projections[i], &materials[i]};
+                if (case_id == 2)
+                    for (unsigned channel = 0; channel < 3; ++channel) {
+                        auto& color = expected_values.parameters["baseColorFactor"].value[channel];
+                        color = std::lerp(color, materials[i].color[channel], .35f * .7f);
+                    }
+            }
+            auto region = transform_bounds(part.bounds, world);
+            if (case_id == 3)
+                region.minimum = region.maximum = {world.m[3], world.m[7], world.m[11]};
+            if (case_id == 4)
+                region.maximum[0] = region.minimum[0] + .25; // Other fragments use the full list.
+            if (case_id == 5) {
+                region.minimum[0] -= 1e25;
+                region.maximum[0] += 1e25; // This poorly resolved axis must collapse.
+            }
+            const auto exhaustive = render(*draw, selection);
+            for (unsigned frame = 0; frame < 3; ++frame) {
+                equal_pixels(render(*draw, selection, nullptr, false, &region), exhaustive,
+                             "Spatial projector selection differs from exhaustive PBR output");
+                context->FinishFrame();
+            }
+            if (case_id == 2) {
+                auto expected = prepare(expected_values);
+                equal_pixels(
+                    exhaustive, render(*expected),
+                    "Dense storage list lost ordered projectors or changed pre-BRDF blending");
+            }
+            check(exhaustive != unpainted, "Large projector list did not paint the receiver");
+            const auto small = std::span(selection).first(8);
+            const auto small_frame = render(*draw, small);
+            context->FinishFrame();
+            equal_pixels(render(*draw, small, nullptr, false, &region), small_frame,
+                         "Storage-to-small-packet transition changed receiver output");
+            equal_pixels(render(*draw), unpainted,
+                         "Clearing storage projection retained prior rows or maps");
+            context->FinishFrame();
+            equal_pixels(render(*draw, selection, nullptr, false, &region), exhaustive,
+                         "Storage projection did not reactivate after an empty frame");
+        }
+        std::cout << "Clustered PBR 128-projector spatial/exhaustive/order/large-origin/affine/"
+                     "collapsed/outside/clear/reactivate frames passed\n";
+        if (clusters_only) {
+            context->WaitForIdle();
+            return;
+        }
+    }
     if (!scene_only) {
         const auto baseline = render(*draw);
         check(baseline[16 * 32 + 16][3] == 1 && baseline[16 * 32 + 16][1] > .01f,
@@ -175,7 +257,7 @@ void execute(const std::filesystem::path& root, bool scene_only, bool channels_o
         check(dim[16 * 32 + 16][0] < lit[16 * 32 + 16][0] * .3f,
               "Projected color behaves as an unlit overlay");
         illumination.intensity = 1;
-        std::array<MeshDraw::Decal, 9> overflow;
+        std::array<MeshDraw::Decal, 129> overflow;
         overflow.fill(decal);
         bool rejected = false;
         try {
@@ -250,6 +332,14 @@ void execute(const std::filesystem::path& root, bool scene_only, bool channels_o
             normal_views["normalTexture"] = selected.textures[decal_normal_channel].view;
             auto expected = prepare(expected_values, normal_views);
             const auto full = render(*draw, selected_span);
+            std::array<MeshDraw::Decal, 128> large_channels;
+            large_channels.fill(selected);
+            check(draw->accepts_decals(large_channels),
+                  "Shared channel maps were counted once per projector instead of per binding");
+            const auto channel_region = transform_bounds(part.bounds, world);
+            equal_pixels(render(*draw, large_channels, nullptr, false, &channel_region),
+                         render(*draw, large_channels),
+                         "Storage normal/roughness maps differ between grid and full selection");
             equal_pixels(full, render(*expected),
                          "Projected normal/roughness differs from ordinary MR material shading");
             for (bool area : {false, true}) {
@@ -573,7 +663,7 @@ void execute(const std::filesystem::path& root, bool scene_only, bool channels_o
                 }
                 if (std::string_view(resource.Name) == "ForgeDecals") {
                     const auto* buffer = pixel->GetConstantBufferDesc(i);
-                    check(buffer && buffer->Size == (1 + expected_capacity * 13) * 16,
+                    check(buffer && buffer->Size == (4 + expected_capacity * 13) * 16,
                           "Actual combined shader changed the projector packet layout");
                     projected_buffer = true;
                 }
@@ -773,7 +863,48 @@ void execute(const std::filesystem::path& root, bool scene_only, bool channels_o
                       [](const auto& d) { return d.category == "render.decal.resource"; }),
           "Failed decal source lacks its resource diagnostic");
     scene.decals.clear();
-    for (unsigned i = 0; i < 9; ++i)
+    for (unsigned i = 0; i < 128; ++i)
+        scene.decals.push_back({EntityId::generate(), decal_view(projector, scene_projection)});
+    equal_pixels(scene_render(), painted_scene,
+                 "Scene storage projector list or existing instance bounds changed PBR paint");
+    {
+        scene.meshes[1].renderer.layers = 1;
+        MeshSceneRenderer batched(host, TEX_FORMAT_RGBA32_FLOAT);
+        const auto render_batch = [&] {
+            const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
+            do {
+                host->pump();
+                batched.update(scene);
+                check(batched.diagnostics().empty(),
+                      "Projector instance admission reported an error");
+                check(std::chrono::steady_clock::now() < deadline,
+                      "Projector instance admission timed out");
+                if (batched.pending())
+                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            } while (batched.pending());
+            context->SetRenderTargets(1, &rtv, dsv, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+            const float clear[]{0, 0, 0, 0};
+            context->ClearRenderTarget(rtv, clear, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+            context->ClearDepthStencil(dsv, CLEAR_DEPTH_FLAG, 1, 0,
+                                       RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+            const Viewport viewport{0, 0, 32, 32, 0, 1};
+            context->SetViewports(1, &viewport, 32, 32);
+            batched.draw(scene, camera_view(scene_camera, {}, 32, 32), UINT32_MAX, color, dsv);
+            check(batched.diagnostics().empty(), "Projector instance draw reported an error");
+            const auto stats = batched.draw_stats();
+            check(stats.calls == 1 && stats.instances == 2 && stats.batched_calls == 1,
+                  "Equal projector selections did not preserve existing instance batching");
+            return test_bloom::read(device, context, color);
+        };
+        const auto large_batch = render_batch();
+        scene.decals.resize(1);
+        equal_pixels(
+            large_batch, render_batch(),
+            "Storage projection across unioned instance bounds differs from small projection");
+        scene.meshes[1].renderer.layers = 2;
+    }
+    scene.decals.clear();
+    for (unsigned i = 0; i < 129; ++i)
         scene.decals.push_back({EntityId::generate(), decal_view(projector, scene_projection)});
     equal_pixels(scene_render(true), ordinary_scene,
                  "Over-capacity decal scene silently truncated its projector selection");
@@ -834,10 +965,13 @@ void execute(const std::filesystem::path& root, bool scene_only, bool channels_o
 int main(int argc, char** argv) {
     try {
         check(argc == 2 || (argc == 3 && (std::string_view(argv[2]) == "--scene-only" ||
-                                          std::string_view(argv[2]) == "--channels-only")),
-              "Need decal scratch directory and optional --scene-only / --channels-only");
+                                          std::string_view(argv[2]) == "--channels-only" ||
+                                          std::string_view(argv[2]) == "--clusters-only")),
+              "Need decal scratch directory and optional --scene-only / --channels-only / "
+              "--clusters-only");
         execute(argv[1], argc == 3 && std::string_view(argv[2]) == "--scene-only",
-                argc == 3 && std::string_view(argv[2]) == "--channels-only");
+                argc == 3 && std::string_view(argv[2]) == "--channels-only",
+                argc == 3 && std::string_view(argv[2]) == "--clusters-only");
         return 0;
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

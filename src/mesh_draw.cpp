@@ -1,6 +1,7 @@
 #include "mesh_draw.hpp"
 #include "Graphics/GraphicsTools/interface/MapHelper.hpp"
 #include "Utilities/interface/DiligentFXShaderSourceStreamFactory.hpp"
+#include "decal_clusters.hpp"
 #include "decal_shader.hpp"
 #include "material_parameter_values.hpp"
 #include "mesh_draw_shader.hpp"
@@ -29,21 +30,25 @@ float gpu(double x) {
     return float(x);
 }
 RefCntAutoPtr<IBuffer> buffer(IRenderDevice* device, const char* name, Uint64 bytes,
-                              const void* initial = nullptr) {
+                              const void* initial = nullptr, unsigned stride = 0) {
     BufferDesc desc;
     desc.Name = name;
     desc.Size = bytes;
-    desc.BindFlags = BIND_UNIFORM_BUFFER;
+    desc.BindFlags = stride ? BIND_SHADER_RESOURCE : BIND_UNIFORM_BUFFER;
+    desc.Mode = stride ? BUFFER_MODE_STRUCTURED : BUFFER_MODE_UNDEFINED;
+    desc.ElementByteStride = stride;
     desc.Usage = initial ? USAGE_IMMUTABLE : USAGE_DYNAMIC;
     desc.CPUAccessFlags = initial ? CPU_ACCESS_NONE : CPU_ACCESS_WRITE;
     BufferData data{initial, bytes};
     RefCntAutoPtr<IBuffer> result;
     device->CreateBuffer(desc, initial ? &data : nullptr, &result);
-    require(bool(result), "uniform buffer allocation failed");
+    require(bool(result), "draw buffer allocation failed");
     return result;
 }
 // Float4 rows match HLSL cbuffer packing; native PBR's integer lanes use bit_cast.
 using Row = std::array<float, 4>;
+constexpr std::array decal_storage_names{"g_ForgeDecalRows", "g_ForgeDecalRanges",
+                                         "g_ForgeDecalIndices"};
 constexpr unsigned mesh_instance_rows = 7, sprite_instance_rows = 10;
 
 std::array<Row, 769> prepare_skin_values(const SkinPose* skin, std::size_t joint_count,
@@ -196,6 +201,7 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
                                    reflection_, normal_, area_lights_, true);
     decal_capacity_ = program.decal_capacity;
     decal_surface_channels_ = !surface || surface->program.surface_wrapper_version >= 10;
+    decal_clustered_ = !surface || surface->program.surface_wrapper_version >= 11;
     require(!weighted_ || !program.transmission,
             "Weighted transparency cannot replace sorted transmission transport");
     if (weighted_ && !surface)
@@ -235,28 +241,31 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
         const auto stage = std::find_if(native.data.stages.begin(), native.data.stages.end(),
                                         [role](const auto& entry) { return entry.role == role; });
         require(stage != native.data.stages.end(), "custom surface entry role is missing");
-        surface_layout = surface_binding_layout(
-            *surface->program.surface, stage->reflection, area_surface_role(role),
-            surface->program.surface_wrapper_version >= 8 && !shadow_pass_,
-            decal_surface_channels_);
+        surface_layout = surface_binding_layout(*surface->program.surface, stage->reflection, role,
+                                                surface->program.surface_wrapper_version);
         fog_supported_ = surface->program.surface_wrapper_version >= 2;
     } else
         pixel = compile(SHADER_TYPE_PIXEL, program.pixel);
     const bool lit = !shadow_pass_ && (surface ? surface->program.surface->physically_based
                                                : profile->workflow != PbrWorkflow::Unlit);
     if (decal_capacity_) {
-        decals_ = buffer(device, "FORGE projected surface",
-                         decal_shader_rows(decal_capacity_, decal_surface_channels_) * sizeof(Row));
+        decals_ =
+            buffer(device, "FORGE projected surface",
+                   decal_shader_rows(decal_capacity_, decal_surface_channels_, decal_clustered_) *
+                       sizeof(Row));
         white_decal_ = presentation.pbr(context).GetWhiteTexSRV();
         default_decal_sampler_ = upload_sampler(device, SamplerState{});
         require(white_decal_ && default_decal_sampler_, "Decal fallback resources unavailable");
         // Empty receiver state survives frames without a dynamic upload. DISCARD
         // allocations are frame-local and must never serve as retained defaults.
-        const std::array<Row, decal_shader_rows(decal_draw_limit, true)> empty{};
+        const std::array<Row, decal_shader_rows(decal_draw_limit, true, true)> empty{};
         empty_decals_ =
             buffer(device, "FORGE empty projected surface",
-                   decal_shader_rows(decal_capacity_, decal_surface_channels_) * sizeof(Row),
+                   decal_shader_rows(decal_capacity_, decal_surface_channels_, decal_clustered_) *
+                       sizeof(Row),
                    empty.data());
+        if (decal_clustered_)
+            empty_decal_storage_ = presentation.empty_projected_buffers();
     }
     RefCntAutoPtr<ITextureView> ggx;
     if (lit) {
@@ -406,6 +415,10 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
             {SHADER_TYPE_PIXEL, "ForgeDecals", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC});
         resource_variables.push_back(
             {SHADER_TYPE_PIXEL, "g_ForgeDecalSamplers", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC});
+        if (decal_clustered_)
+            for (auto* name : decal_storage_names)
+                resource_variables.push_back(
+                    {SHADER_TYPE_PIXEL, name, SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC});
         for (unsigned i = 0; i < decal_capacity_; ++i) {
             decal_names[i] = decal_shader_map_name(i, decal_surface_channels_);
             resource_variables.push_back(
@@ -607,6 +620,8 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
             bind(SHADER_TYPE_PIXEL, slot.texture_variable.c_str(), found->second, false);
         }
     }
+    if (decal_capacity_ && decal_clustered_)
+        bind_decal_storage(empty_decal_storage_);
 }
 void MeshDraw::bind_sprite_mip(ITextureView* view) {
     require(sprite_mips_ && view, "Sprite mip draw requires a complete filtered frame");
@@ -724,11 +739,22 @@ void MeshDraw::clear_decals(IDeviceContext*) {
         binding->GetVariableByName(SHADER_TYPE_PIXEL, "g_ForgeDecalSamplers")
             ->SetArray(samplers.data(), 0, decal_capacity_);
     }
+    if (decal_clustered_)
+        bind_decal_storage(empty_decal_storage_);
     decals_active_ = false;
+}
+void MeshDraw::bind_decal_storage(const DiligentPresentation::ProjectedBuffers& buffers) {
+    const std::array<IBuffer*, 3> selected{buffers.rows, buffers.ranges, buffers.indices};
+    for (const auto& binding : bindings_)
+        for (unsigned i = 0; i < selected.size(); ++i) {
+            auto* variable = binding->GetVariableByName(SHADER_TYPE_PIXEL, decal_storage_names[i]);
+            require(variable && selected[i], "Projected storage binding is unavailable");
+            variable->Set(selected[i]->GetDefaultView(BUFFER_VIEW_SHADER_RESOURCE));
+        }
 }
 std::optional<MeshDraw::DecalBindings>
 MeshDraw::decal_bindings(std::span<const Decal> decals) const {
-    if (decals.size() > decal_capacity_)
+    if (decals.size() > (decal_clustered_ && decal_capacity_ ? decal_scene_limit : decal_capacity_))
         return {};
     DecalBindings result;
     result.textures.fill(white_decal_);
@@ -789,53 +815,72 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
                     std::span<const MaterialParameterOverride> object_parameters,
                     std::string_view material_slot, const SpriteDrawValues* sprite,
                     const SceneDistanceFog* fog, const Motion* motion,
-                    std::span<const Decal> decals) {
+                    std::span<const Decal> decals, const RenderBounds* decal_bounds) {
     const auto bindings = decal_bindings(decals);
     require(bindings.has_value(), "Projected channels exceed this receiver's map/profile capacity; "
                                   "ordinary rendering remains available");
-    std::optional<std::array<Row, decal_shader_rows(decal_draw_limit, true)>> decal_values;
+    std::vector<Row> decal_values;
+    std::vector<DecalTransformRows> decal_transforms;
+    const bool storage = decal_clustered_ && decals.size() > decal_capacity_;
+    std::optional<DecalClusters> clusters;
     if (!decals.empty()) {
-        decal_values.emplace();
-        (*decal_values)[0][0] = float(decals.size());
+        decal_values.resize(decal_shader_rows(std::max<unsigned>(decal_capacity_, decals.size()),
+                                              decal_surface_channels_, decal_clustered_));
+        decal_values[0][0] = float(decals.size());
+        if (storage)
+            decal_transforms.reserve(decals.size());
         for (unsigned i = 0; i < decals.size(); ++i) {
             const auto& selected = decals[i];
             const auto& projection = *selected.projection;
             const auto& material = *selected.material;
             const auto transform = decal_gpu_transform(projection, view.position);
-            const unsigned at = 1 + (decal_surface_channels_ ? 13 : 8) * i;
+            const unsigned at = (decal_clustered_ ? 4 : 1) + (decal_surface_channels_ ? 13 : 8) * i;
+            if (storage)
+                decal_transforms.push_back(transform);
             for (unsigned r = 0; r < 3; ++r) {
-                (*decal_values)[at + r] = transform[r];
-                (*decal_values)[at + 4][r] = gpu(projection.forward[r]);
+                decal_values[at + r] = transform[r];
+                decal_values[at + 4][r] = gpu(projection.forward[r]);
             }
             const auto& value = projection.values;
-            (*decal_values)[at + 3] = {gpu(double(material.color[0]) * value.tint_r),
-                                       gpu(double(material.color[1]) * value.tint_g),
-                                       gpu(double(material.color[2]) * value.tint_b),
-                                       value.opacity *
-                                           (decal_surface_channels_ ? 1 : value.color_influence)};
-            (*decal_values)[at + 4][3] = projection.cosine_fade_end;
-            (*decal_values)[at + 5] = {projection.cosine_fade_start, material.color[3],
-                                       float(material.alpha), material.cutoff};
-            (*decal_values)[at + 6] = material.textures[decal_color_channel].uv[0];
-            (*decal_values)[at + 7] = material.textures[decal_color_channel].uv[1];
-            (*decal_values)[at + 6][3] = bindings->slots[i][decal_color_channel];
+            decal_values[at + 3] = {gpu(double(material.color[0]) * value.tint_r),
+                                    gpu(double(material.color[1]) * value.tint_g),
+                                    gpu(double(material.color[2]) * value.tint_b),
+                                    value.opacity *
+                                        (decal_surface_channels_ ? 1 : value.color_influence)};
+            decal_values[at + 4][3] = projection.cosine_fade_end;
+            decal_values[at + 5] = {projection.cosine_fade_start, material.color[3],
+                                    float(material.alpha), material.cutoff};
+            decal_values[at + 6] = material.textures[decal_color_channel].uv[0];
+            decal_values[at + 7] = material.textures[decal_color_channel].uv[1];
+            decal_values[at + 6][3] = bindings->slots[i][decal_color_channel];
             if (decal_surface_channels_) {
-                (*decal_values)[at + 7][3] = bindings->slots[i][decal_normal_channel];
-                (*decal_values)[at + 8] = {
+                decal_values[at + 7][3] = bindings->slots[i][decal_normal_channel];
+                decal_values[at + 8] = {
                     value.color_influence,
                     selected.channels & (1u << decal_normal_channel) ? value.normal_influence : 0.f,
                     selected.channels & (1u << decal_roughness_channel) ? value.roughness_influence
                                                                         : 0.f,
                     material.normal_scale};
-                (*decal_values)[at + 9] = material.textures[decal_normal_channel].uv[0];
-                (*decal_values)[at + 9][3] = bindings->slots[i][decal_roughness_channel];
-                (*decal_values)[at + 10] = material.textures[decal_normal_channel].uv[1];
-                (*decal_values)[at + 10][3] = float(material.roughness_component);
-                (*decal_values)[at + 11] = material.textures[decal_roughness_channel].uv[0];
-                (*decal_values)[at + 11][3] = material.roughness_scale;
-                (*decal_values)[at + 12] = material.textures[decal_roughness_channel].uv[1];
-                (*decal_values)[at + 12][3] = material.roughness_bias;
+                decal_values[at + 9] = material.textures[decal_normal_channel].uv[0];
+                decal_values[at + 9][3] = bindings->slots[i][decal_roughness_channel];
+                decal_values[at + 10] = material.textures[decal_normal_channel].uv[1];
+                decal_values[at + 10][3] = float(material.roughness_component);
+                decal_values[at + 11] = material.textures[decal_roughness_channel].uv[0];
+                decal_values[at + 11][3] = material.roughness_scale;
+                decal_values[at + 12] = material.textures[decal_roughness_channel].uv[1];
+                decal_values[at + 12][3] = material.roughness_bias;
             }
+        }
+    }
+    if (storage) {
+        decal_values[0][1] = 1;
+        if (decal_bounds)
+            clusters = prepare_decal_clusters(decal_transforms, *decal_bounds, view.position);
+        if (clusters) {
+            decal_values[0][2] = 1;
+            decal_values[0][3] = float(clusters->indices.size());
+            std::copy(clusters->controls.begin(), clusters->controls.end(),
+                      decal_values.begin() + 1);
         }
     }
     if (fog)
@@ -1070,10 +1115,53 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
     if (decals.empty())
         clear_decals(context);
     else {
+        if (storage) {
+            if (!decal_storage_.rows) {
+                DiligentPresentation::ProjectedBuffers candidate;
+                candidate.rows = buffer(device_, "FORGE projected rows",
+                                        decal_scene_limit * 13 * sizeof(Row), nullptr, sizeof(Row));
+                candidate.ranges = buffer(device_, "FORGE projected cell ranges",
+                                          decal_cluster_cells * 2 * sizeof(std::uint32_t), nullptr,
+                                          2 * sizeof(std::uint32_t));
+                candidate.indices =
+                    buffer(device_, "FORGE projected cell indices",
+                           decal_cluster_cells * decal_scene_limit * sizeof(std::uint32_t), nullptr,
+                           sizeof(std::uint32_t));
+                decal_storage_ = std::move(candidate);
+            }
+            {
+                MapHelper<Row> rows(context, decal_storage_.rows, MAP_WRITE, MAP_FLAG_DISCARD);
+                require(static_cast<Row*>(rows), "Projected row upload allocation failed");
+                std::copy_n(decal_values.data() + 4, decals.size() * 13, static_cast<Row*>(rows));
+            }
+            {
+                using Range = std::array<std::uint32_t, 2>;
+                MapHelper<Range> ranges(context, decal_storage_.ranges, MAP_WRITE,
+                                        MAP_FLAG_DISCARD);
+                require(static_cast<Range*>(ranges), "Projected range upload allocation failed");
+                if (clusters)
+                    std::copy(clusters->ranges.begin(), clusters->ranges.end(),
+                              static_cast<Range*>(ranges));
+                else
+                    ranges[0] = {};
+            }
+            {
+                MapHelper<std::uint32_t> indices(context, decal_storage_.indices, MAP_WRITE,
+                                                 MAP_FLAG_DISCARD);
+                require(static_cast<std::uint32_t*>(indices),
+                        "Projected index upload allocation failed");
+                indices[0] = 0;
+                if (clusters)
+                    std::copy(clusters->indices.begin(), clusters->indices.end(),
+                              static_cast<std::uint32_t*>(indices));
+            }
+        }
+        if (decal_clustered_)
+            bind_decal_storage(storage ? decal_storage_ : empty_decal_storage_);
         MapHelper<Row> values(context, decals_, MAP_WRITE, MAP_FLAG_DISCARD);
         require(static_cast<Row*>(values) != nullptr, "Decal upload allocation failed");
-        std::copy_n(decal_values->data(),
-                    decal_shader_rows(decal_capacity_, decal_surface_channels_),
+        std::copy_n(decal_values.data(),
+                    decal_shader_rows(decal_capacity_, decal_surface_channels_, decal_clustered_),
                     static_cast<Row*>(values));
         // Each winding SRB retains native references. Update every SRB before
         // dropping an old selection, including winding modes absent this frame.

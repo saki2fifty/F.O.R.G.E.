@@ -1,6 +1,7 @@
 #pragma once
 #include <forge/material_asset.hpp>
 namespace forge {
+enum class ShaderEntryRole;
 inline constexpr const char* surface_material_model = "forge.surface.v1";
 // Logical surface interface. No native stage registers, byte offsets or device
 // objects are authored. The selected compiler verifies the generated interface
@@ -50,6 +51,10 @@ SurfaceBindingLayout surface_binding_layout(const SurfaceShaderDefinition&,
                                             const nlohmann::json& reflection,
                                             bool area_lights = false, bool projected_decals = false,
                                             bool projected_surface_channels = false);
+// Explicit stage/capability dispatch keeps packet compatibility with its owner.
+SurfaceBindingLayout surface_binding_layout(const SurfaceShaderDefinition&,
+                                            const nlohmann::json& reflection, ShaderEntryRole,
+                                            unsigned wrapper_version);
 std::vector<std::byte> surface_parameter_bytes(const MaterialData&, const SurfaceBindingLayout&);
 std::vector<std::array<float, 4>> surface_uv_rows(const MaterialData&,
                                                   const SurfaceShaderDefinition&);

@@ -81,7 +81,7 @@ target_link_libraries(forge_asset_build PUBLIC forge_core PRIVATE forge_asset_by
 add_library(forge_mesh src/mesh_asset.cpp)
 add_library(forge_collision_asset src/collision_asset.cpp src/collision_generation.cpp src/collision_source.cpp)
 target_link_libraries(forge_collision_asset PUBLIC forge_identity forge_mesh)
-add_library(forge_render_bounds src/render_bounds.cpp src/model_instance_pose.cpp src/animation_debug_pose.cpp src/mesh_pick.cpp)
+add_library(forge_render_bounds src/decal_clusters.cpp src/render_bounds.cpp src/model_instance_pose.cpp src/animation_debug_pose.cpp src/mesh_pick.cpp)
 target_include_directories(forge_render_bounds PUBLIC src)
 target_link_libraries(forge_render_bounds PUBLIC forge_core forge_mesh)
 add_library(forge_particle_render src/particle_render_instances.cpp)

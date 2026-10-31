@@ -10316,6 +10316,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "e9da9407-f9dc-4b6a-88cf-e5f888a39629",
+      "metadata": {},
+      "schema_version": 5,
+      "source": "Scenes/116-clustered-projectors.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "eb73b27d-8cc9-483c-8aad-fc8ec876eb5a",
       "metadata": {},
       "schema_version": 3,

@@ -1,5 +1,15 @@
 # Feature Gallery
 
+## Many shared projectors
+
+Open **Scenes/116-clustered-projectors.scene.json** and press Play. The floor
+receives 64 separately tinted badge projectors sharing one Material and Texture.
+Select a **Paint row ... column ...** entity and adjust its tint, opacity or box.
+Save and choose this Scene as startup before export. No C++ module or new import
+is required. The rendering profile supports 128 active projectors, with up to eight
+unique projected map/sampler combinations per receiving Mesh part; complex receiving
+materials can leave fewer map slots.
+
 ## Projected normal and roughness
 
 Open **Scenes/115-projected-surface-channels.scene.json** and press Play. The left
