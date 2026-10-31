@@ -3,6 +3,7 @@
 #include "tile_neighbors.hpp"
 #include <array>
 #include <cmath>
+#include <cstdint>
 #include <forge/asset_ref.hpp>
 #include <memory>
 #include <span>
@@ -12,6 +13,9 @@
 namespace forge {
 inline constexpr std::size_t tile_set_image_limit = 16, tile_set_definition_limit = 4096;
 inline constexpr std::size_t tile_collision_vertex_limit = 8;
+inline constexpr std::size_t tile_collision_contour_limit = 4, tile_collision_hole_limit = 4;
+inline constexpr std::size_t tile_collision_contour_vertex_limit =
+    tile_collision_contour_limit * (tile_collision_hole_limit + 1) * tile_collision_vertex_limit;
 inline constexpr std::size_t tile_animation_frame_limit = 64;
 struct TileSetImage {
     std::uint64_t id = 0;
@@ -19,12 +23,29 @@ struct TileSetImage {
     AssetRef<MaterialAsset> material;
     SpriteGridLayout grid;
 };
-enum class TileCollisionKind { FullCell, None, Convex, Polygon };
+enum class TileCollisionKind { FullCell, None, Convex, Polygon, Contours };
+struct TileCollisionContour {
+    std::vector<std::array<double, 2>> points;
+    std::vector<std::vector<std::array<double, 2>>> holes;
+    bool operator==(const TileCollisionContour&) const = default;
+};
+struct TileCollisionContours {
+    std::vector<TileCollisionContour> contours;
+    // Prepared from admitted source loops once; never a second serialized value.
+    std::vector<std::array<double, 2>> vertices;
+    std::vector<std::array<std::uint16_t, 3>> triangles;
+    bool operator==(const TileCollisionContours&) const = default;
+};
 struct TileCollisionProfile {
     TileCollisionKind kind = TileCollisionKind::FullCell;
     // Unit cell in local XY, counterclockwise; physical scale is admitted later.
     std::vector<std::array<double, 2>> points;
-    bool operator==(const TileCollisionProfile&) const = default;
+    std::shared_ptr<const TileCollisionContours> contours;
+    bool operator==(const TileCollisionProfile& other) const {
+        return kind == other.kind && points == other.points &&
+               ((!contours && !other.contours) ||
+                (contours && other.contours && *contours == *other.contours));
+    }
 };
 struct TileAnimationFrame {
     std::uint32_t frame = 0;
@@ -87,6 +108,7 @@ template <class Scalar> int tile_collision_winding(std::span<const std::array<Sc
 TileSetRows decode_tile_set_rows(const nlohmann::json& images, const nlohmann::json& tiles,
                                  std::uint32_t profile_version = 1);
 nlohmann::json tile_collision_json(const TileCollisionProfile&);
+nlohmann::json tile_collision_contours_json(std::span<const TileCollisionContour>);
 nlohmann::json tile_animation_json(const TileAnimation&);
 nlohmann::json tile_autotile_json(const TileAutotile&);
 nlohmann::json tile_definition_json(const TileSetDefinition&);

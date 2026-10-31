@@ -1,0 +1,43 @@
+{
+  "build_inputs": {
+    "backend": "none",
+    "dependencies": [
+      {
+        "kind": "runtime",
+        "revision": "7785438b67a2b645cb8414d5d302fc53a5ab08029f22f8bcbc1e458353c8adb1",
+        "role": "material.texture:baseColorTexture",
+        "target": "8873d0ff-7567-4802-99c0-a1e3b77c778c",
+        "type": "texture"
+      }
+    ],
+    "importer": "forge.material.builtin",
+    "importer_revision": "ce411c4c3dba9f1c80d6a4696e12f0995af81d787ed87012dc57def7a19f5c98",
+    "key_version": 1,
+    "output_format": "forge.material-bundle",
+    "output_version": 2,
+    "platform": "linux",
+    "profile": "cpu",
+    "settings": {},
+    "settings_version": 1,
+    "source": "50f0822b3d9f1fa34358c61f7a5b5157561eb7735dfef0a326dd687d6bc56f06",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.material.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "f5ec2bf3-35f3-48c1-9e2d-e0b0770fb02d",
+    "source": "Assets/Tiles/ContourTiles.material.json",
+    "source_digest": "50f0822b3d9f1fa34358c61f7a5b5157561eb7735dfef0a326dd687d6bc56f06",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.material.builtin",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

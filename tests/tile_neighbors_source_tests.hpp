@@ -57,7 +57,7 @@ inline void exercise() {
               source.document["tiles"][0]["autotile"]["rules"][0].at("note") == "first position",
           "Typed neighbor edit lost unrecognized siblings");
     const auto bytes = cook_tile_set(source);
-    auto data = decode_cooked_tile_set(bytes, source.asset(), 5);
+    auto data = decode_cooked_tile_set(bytes, source.asset(), tile_set_cooked_version);
     check(data.has_autotiles() && data.tile(2).autotile && data.tile(4).animation &&
               data.tile(3).collision.kind == TileCollisionKind::None,
           "Cooked neighbor profile lost animation/collision interoperability");
@@ -118,8 +118,13 @@ inline void exercise() {
         reject([&] { legacy.set_autotile(2, profile()); });
         check(legacy.document == original, "Legacy conflict lost source/IDs");
     }
-    const auto envelope = asset_detail::decode_envelope(bytes, tile_set_cooked_magic,
-                                                        tile_set_cooked_metadata_limit, 0, 5);
+    const auto envelope = asset_detail::decode_envelope(
+        bytes, tile_set_cooked_magic, tile_set_cooked_metadata_limit, 0, tile_set_cooked_version);
+    const auto previous = asset_detail::encode_envelope(
+        envelope.metadata, {}, tile_set_cooked_magic, tile_set_cooked_metadata_limit, 5);
+    const auto old_neighbors = decode_cooked_tile_set(previous, source.asset(), 5);
+    check(old_neighbors.has_autotiles() && old_neighbors.tile(2).autotile->rules == config.rules,
+          "Previous cooked5 neighbor rules changed");
     for (unsigned version = 1; version <= 4; ++version) {
         auto metadata = envelope.metadata;
         for (auto& row : metadata["tiles"]) {
@@ -142,7 +147,7 @@ inline void exercise() {
                                           tile_set_cooked_metadata_limit, 5),
             source.asset());
     });
-    std::cout << "Source5/cooked5 neighbor rules, old1..4reads, guards, unknowns, terminal "
+    std::cout << "Source5/current cooked neighbor rules, old1..5reads, guards, unknowns, terminal "
                  "variants and64bit IDs PASS\n";
 }
 } // namespace forge::test_tile_neighbors_source

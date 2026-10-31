@@ -1,5 +1,20 @@
 # Feature Gallery
 
+## Tile collision contours
+
+Open **Scenes/123-tile-collision-contours.scene.json** and press Play. Amber lands
+on the ring roof; cyan falls within its void; rose lands on the island inside the
+void. Green falls between the separate bars onto the catch floor. The transparent
+image areas match the collision profiles.
+
+Stop, open **Assets/Tiles/ContourTiles.tileset.json**, select a tile and choose
+**Tile collision → Contours / holes**. Use **Contour** and **Loop** to select the
+outer boundary or a hole, then edit its counterclockwise unit-cell points. Apply,
+save/publish the Set and **Assets/Tiles/ContourTiles.tilemap.json**, then test
+again. Each tile allows 1–4 solid contours and 0–4 holes per contour, with 3–8
+points per loop. Save and choose this scene as startup before export. See
+[Tile Maps](../../../manual/editor/tile-maps.md) for controls and current limits.
+
 ## Tiles from neighbors
 
 Open **Scenes/122-neighbor-tiles.scene.json** and press Play. One painted tile key
@@ -34,8 +49,9 @@ Stop, open **Assets/Tiles/ConcaveTiles.tileset.json**, select either tile and ed
 points with Y up. Apply collision, then Save / Publish the Set and
 **Assets/Tiles/ConcaveTiles.tilemap.json**. Enable Selected collision on the course
 to inspect the published pieces. Save and choose this Scene as startup before
-export. No Project Code module is required. One outline per tile is supported;
-holes, Dynamic Maps and custom-polygon one-way response are unavailable.
+export. No Project Code module is required. Polygon (decomposed) uses one outline;
+choose Contours / holes for voids or separate solid regions. Dynamic Maps and
+custom-polygon one-way response are unavailable.
 
 ## Moving one-way platforms
 

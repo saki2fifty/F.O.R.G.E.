@@ -30,6 +30,9 @@ for source, cooked in (('Assets/Shape.mesh.json', 'mesh.bin'),
                        ('Assets/Tiles/ConcaveTiles.material.json', 'material.values'),
                        ('Assets/Tiles/ConcaveTiles.tileset.json', 'tileset.bin'),
                        ('Assets/Tiles/ConcaveTiles.tilemap.json', 'tilemap.bin'),
+                       ('Assets/Tiles/ContourTiles.material.json', 'material.values'),
+                       ('Assets/Tiles/ContourTiles.tileset.json', 'tileset.bin'),
+                       ('Assets/Tiles/ContourTiles.tilemap.json', 'tilemap.bin'),
                        ('Assets/Tiles/ArrowCourse.tilemap.json', 'tilemap.bin'),
                        ('Assets/Tiles/PaintedPlatforms.tilemap.json', 'tilemap.bin'),
                        ('Assets/Sprites/Badge.material.json', 'material.values'),
@@ -200,6 +203,20 @@ assert neighbor_set['tiles'][0]['autotile'] == dict(enabled=True, rules=[
     dict(mask=16, same=0, tile=5), dict(mask=64, same=0, tile=6)])
 assert len(neighbor_set['tiles'][0]['animation']['frames']) == 4
 assert not any('autotile' in row for row in neighbor_set['tiles'][1:])
+contour_scene = json.loads((project_root / 'Scenes/123-tile-collision-contours.scene.json').read_text())
+contour_maps = [e['components']['forge.tile_map_renderer'] for e in contour_scene['entities']
+                if 'forge.tile_map_renderer' in e['components']]
+assert len(contour_maps) == 1 and contour_maps[0]['map'] == by_source[
+    'Assets/Tiles/ContourTiles.tilemap.json']['id']
+contour_set = json.loads((project_root / 'Assets/Tiles/ContourTiles.tileset.json').read_text())
+assert contour_set['version'] == 6 and len(contour_set['tiles']) == 3
+ring, bars, floor = contour_set['tiles']
+assert ring['collision']['kind'] == bars['collision']['kind'] == 'contours'
+assert len(ring['collision']['contours']) == len(bars['collision']['contours']) == 2
+assert len(ring['collision']['contours'][0]['holes']) == 1
+assert not ring['collision']['contours'][1]['holes']
+assert all(not row['holes'] for row in bars['collision']['contours'])
+assert 'collision' not in floor
 panel_scene = json.loads((project_root / 'Scenes/73-sprite-image-fill.scene.json').read_text(encoding='utf-8'))
 panels = [row['components']['forge.sprite_renderer'] for row in panel_scene['entities']
           if 'forge.sprite_renderer' in row['components']]

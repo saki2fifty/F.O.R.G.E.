@@ -165,7 +165,7 @@ keeps the previous working runtime cells and collision.
 The diagram shows the applied ramp in local XY coordinates.
 
 1. Open the `.tileset.json` in Content, then select a tile definition.
-2. In Inspector, find **Tile collision**. Set **Shape** to **Full cell**, **None**, **Convex polygon** or **Polygon (decomposed)**. Full cells merge with neighboring full cells; None makes the tile decorative. Choose Polygon (decomposed) for an outline with an inward corner, such as an L or U.
+2. In Inspector, find **Tile collision**. Set **Shape** to **Full cell**, **None**, **Convex polygon**, **Polygon (decomposed)** or **Contours / holes**. Full cells merge with neighboring full cells; None makes the tile decorative. Choose Polygon (decomposed) for one outline with an inward corner, such as an L or U. Choose Contours / holes for inner voids or separate solid regions.
 3. For a polygon, enter 3–8 points in the X/Y table. Coordinates run from 0 to 1 across the cell, with X right and Y up. List points counterclockwise; press Enter after editing a coordinate.
 4. **Add point** appends a point on the closing edge. Move it off that edge before applying. **Remove last point** removes the final vertex. The diagram numbers the current draft points.
 5. Choose **Apply collision** to validate the complete profile in one Undo step. Invalid shapes leave the applied source unchanged. Convex polygon also rejects inward corners. **Discard collision edits** returns to the applied profile. Apply or discard before Save, Undo or selecting another tile.
@@ -176,11 +176,46 @@ ordinary solid or sensor collision; custom polygons cannot use **One-way
 collision**. Use separate Map actors/layers when a scene needs both types.
 Polygon (decomposed) fills the area inside one simple outline with triangles,
 leaving inward notches empty. Points must not repeat, cross or touch another
-edge; neighboring edges must not form a straight line. Holes and multiple outlines
-in one tile are unavailable. Each triangle counts against the shared collision
+edge; neighboring edges must not form a straight line. Use Contours / holes for
+holes or multiple outlines. Each triangle counts against the shared collision
 shape limit, so a detailed outline uses more capacity than a full cell or convex
 polygon. A very small polygon can fail physical-scale validation even when its
 normalized coordinates are valid.
+
+### Make holes and separate solid regions
+
+1. Select a tile definition and choose **Tile collision → Shape → Contours / holes**.
+2. Choose **Contour** to select a solid region. Under **Loop**, choose **Outer boundary** and edit its 3–8 points counterclockwise in the X/Y table.
+3. Choose **Add hole** to create an inner void. Edit its points so the entire hole stays strictly inside this contour. Hole points also run counterclockwise. Use **Loop** to switch between the outer boundary and its holes; **Remove hole** removes the selected hole.
+4. Use **Add contour** for another solid region. Its boundary must stay separate from the other regions. A solid island inside another contour's hole is allowed. **Remove contour** removes the selected region and all its holes.
+5. Choose **Apply collision**. Crossing or touching boundaries, overlapping solids and nested holes reject without changing the applied profile. Use **Discard collision edits** to return to the applied shape.
+6. **Save / Publish** the Set, then publish its dependent Map. Save the Scene and test in Play or export.
+
+Each tile supports 1–4 solid contours and up to 4 holes per contour. Every loop
+uses 3–8 finite coordinates from 0 to 1. Keep holes away from other holes and
+outer boundaries. A new contour or hole starts with a central square; move its
+points before Apply when that square overlaps existing geometry.
+
+The diagram shows cyan solid boundaries and orange hole boundaries. Numbers mark
+the selected loop. All regions share the same cell image, flags and material;
+create a matching image with transparent voids when the visible tile should show
+the empty areas. Detailed profiles use more of the Map's shared collision-shape
+budget. Static/Kinematic solid and sensor rules remain the same as for polygons.
+
+![Tile Set Inspector showing outer and hole boundaries, a central island, contour and loop selectors, and staged point controls](../images/tile-contour-controls.png)
+
+### Try collision contours
+
+![Amber on the ring roof, cyan inside its void, rose on the central island, and green between two separate bars above a catch floor](../images/tile-contour-gallery.png)
+
+Open **Scenes/123-tile-collision-contours.scene.json** in the Feature Gallery and
+press Play. Amber lands on the ring roof. Cyan starts inside the ring's void and
+lands on its lower inner edge. Rose lands on the solid island inside that void.
+Green falls between the separate bars onto the catch floor.
+
+Stop and open **Assets/Tiles/ContourTiles.tileset.json** to edit either profile.
+Apply and publish the Set, then **Assets/Tiles/ContourTiles.tilemap.json**. Choose
+the saved scene as the startup scene before exporting.
 
 ### Try concave collision
 
@@ -200,6 +235,8 @@ The numbered outline uses unit-cell coordinates with Y pointing up.
 Older sources may contain unrelated extension data named `collision`. A profile
 edit reports a conflict rather than reinterpreting that data. Resolve the named
 extension in the source before applying a collision profile.
+The same protection applies to older extension data named `collision.contours`
+when choosing Contours / holes; resolve the reported field before applying.
 
 ## Make painted platforms one-way
 

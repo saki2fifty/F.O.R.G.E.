@@ -1,6 +1,7 @@
 #include "tile_set_data.hpp"
 #include "cooked_envelope.hpp"
 #include "tile_animation.hpp"
+#include "tile_polygon_contours.hpp"
 #include "tile_polygon_decomposition.hpp"
 #include <cmath>
 #include <map>
@@ -38,6 +39,49 @@ TileCollisionProfile collision(const Json& value, std::uint32_t profile_version)
     require(value.is_object(), "Tile collision must be an object");
     const auto& kind = value.at("kind");
     TileCollisionProfile result;
+    if (kind == "contours") {
+        require(profile_version >= 6 && !value.contains("points"),
+                "Tile contours require version6 without a separate points field");
+        const auto& rows = value.at("contours");
+        require(rows.is_array() && !rows.empty() && rows.size() <= tile_collision_contour_limit,
+                "Tile contours require1..4 filled contours");
+        const auto read_loop = [](const Json& points) {
+            require(points.is_array() && points.size() >= 3 &&
+                        points.size() <= tile_collision_vertex_limit,
+                    "Each tile contour or hole requires3..8 points");
+            std::vector<std::array<double, 2>> out;
+            for (const auto& row : points) {
+                require(row.is_array() && row.size() == 2, "Tile contour point requires XY");
+                std::array<double, 2> p;
+                for (unsigned axis = 0; axis < 2; ++axis) {
+                    require(row[axis].is_number(), "Tile contour coordinates must be numbers");
+                    p[axis] = row[axis].get<double>();
+                }
+                out.push_back(p);
+            }
+            return out;
+        };
+        std::vector<TileCollisionContour> contours;
+        for (const auto& row : rows) {
+            require(row.is_object(), "Filled tile contour must be an object");
+            TileCollisionContour contour;
+            contour.points = read_loop(row.at("points"));
+            if (row.contains("holes")) {
+                require(row.at("holes").is_array() &&
+                            row.at("holes").size() <= tile_collision_hole_limit,
+                        "Filled tile contours allow0..4 holes");
+                for (const auto& hole : row.at("holes"))
+                    contour.holes.push_back(read_loop(hole));
+            }
+            contours.push_back(std::move(contour));
+        }
+        result.kind = TileCollisionKind::Contours;
+        result.contours = std::make_shared<const TileCollisionContours>(
+            tile_detail::prepare_tile_collision_contours(std::move(contours)));
+        return result;
+    }
+    require(profile_version < 6 || !value.contains("contours"),
+            "Only contour tile collision accepts contours");
     if (kind == "full_cell" || kind == "none") {
         require(!value.contains("points"), "Only polygon tile collision accepts points");
         result.kind = kind == "none" ? TileCollisionKind::None : TileCollisionKind::FullCell;
@@ -94,7 +138,17 @@ Json tile_detail::tile_autotile_json(const TileAutotile& value) {
         rows.push_back({{"mask", rule.mask}, {"same", rule.same}, {"tile", rule.tile}});
     return {{"enabled", value.enabled}, {"rules", std::move(rows)}};
 }
+Json tile_detail::tile_collision_contours_json(std::span<const TileCollisionContour> contours) {
+    auto rows = Json::array();
+    for (const auto& contour : contours)
+        rows.push_back({{"points", contour.points}, {"holes", contour.holes}});
+    return {{"kind", "contours"}, {"contours", std::move(rows)}};
+}
 Json tile_detail::tile_collision_json(const TileCollisionProfile& value) {
+    if (value.kind == TileCollisionKind::Contours) {
+        require(bool(value.contours), "Typed tile contours are unavailable");
+        return tile_collision_contours_json(value.contours->contours);
+    }
     if (value.kind == TileCollisionKind::Convex || value.kind == TileCollisionKind::Polygon)
         return {{"kind", value.kind == TileCollisionKind::Convex ? "convex" : "polygon"},
                 {"points", value.points}};
@@ -229,10 +283,17 @@ TileSetData decode_cooked_tile_set(std::span<const std::byte> bytes, AssetId exp
                 "Cooked Tile Set definition contains unsupported fields");
         if (envelope.version >= 2) {
             const auto& profile = row.at("collision");
-            require(
-                profile.size() ==
-                    ((profile.at("kind") == "convex" || profile.at("kind") == "polygon") ? 2u : 1u),
-                "Cooked tile collision contains unsupported fields");
+            require(profile.size() ==
+                        ((profile.at("kind") == "convex" || profile.at("kind") == "polygon" ||
+                          profile.at("kind") == "contours")
+                             ? 2u
+                             : 1u),
+                    "Cooked tile collision contains unsupported fields");
+            if (profile.at("kind") == "contours")
+                for (const auto& contour : profile.at("contours"))
+                    require(contour.size() == 2 && contour.contains("points") &&
+                                contour.contains("holes"),
+                            "Cooked filled contour contains unsupported fields");
         }
         if (animated) {
             const auto& value = row.at("animation");
@@ -290,7 +351,7 @@ std::size_t TileSetData::resident_bytes() const {
                  rows_->tiles.capacity() * sizeof(TileSetDefinition);
     for (const auto& image : rows_->images)
         bytes += image.name.capacity() + 1;
-    for (const auto& tile : rows_->tiles)
+    for (const auto& tile : rows_->tiles) {
         bytes +=
             tile.name.capacity() + 1 +
             tile.collision.points.capacity() * sizeof(std::array<double, 2>) +
@@ -300,6 +361,20 @@ std::size_t TileSetData::resident_bytes() const {
             (tile.autotile ? sizeof(TileAutotile) + 64 +
                                  tile.autotile->rules.capacity() * sizeof(TileNeighborRule)
                            : 0);
+        if (tile.collision.contours) {
+            const auto& shape = *tile.collision.contours;
+            bytes += sizeof(TileCollisionContours) + 64 +
+                     shape.contours.capacity() * sizeof(TileCollisionContour) +
+                     shape.vertices.capacity() * sizeof(std::array<double, 2>) +
+                     shape.triangles.capacity() * sizeof(std::array<std::uint16_t, 3>);
+            for (const auto& contour : shape.contours) {
+                bytes += contour.points.capacity() * sizeof(std::array<double, 2>) +
+                         contour.holes.capacity() * sizeof(std::vector<std::array<double, 2>>);
+                for (const auto& hole : contour.holes)
+                    bytes += hole.capacity() * sizeof(std::array<double, 2>);
+            }
+        }
+    }
     return bytes;
 }
 } // namespace forge

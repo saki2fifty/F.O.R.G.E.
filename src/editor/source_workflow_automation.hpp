@@ -162,9 +162,17 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                 {{"kind", {{"type", "string"}, {"enum", {"convex", "polygon"}}}},
                  {"points", automation_array(pair, tile_collision_vertex_limit, 3)}},
                 {"kind", "points"});
+            const auto loop = automation_array(pair, tile_collision_vertex_limit, 3);
+            const auto contour = automation_object(
+                {{"points", loop}, {"holes", automation_array(loop, tile_collision_hole_limit, 0)}},
+                {"points"});
+            const auto contours = automation_object(
+                {{"kind", {{"const", "contours"}}},
+                 {"contours", automation_array(contour, tile_collision_contour_limit, 1)}},
+                {"kind", "contours"});
             properties["tile"] = automation_integer(1, UINT64_MAX);
             properties["editor"] = {{"type", "string"}, {"const", "tile_set"}};
-            properties["collision"] = {{"oneOf", {simple, polygon}}};
+            properties["collision"] = {{"oneOf", {simple, polygon, contours}}};
             needed.push_back("tile");
             needed.push_back("collision");
         } else if (std::string_view(action) == "tile_animation") {
@@ -214,12 +222,17 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                 "publication; poll status for completion. Close requires discard for "
                 "unsaved/unpublished drafts." +
                 (std::string_view(action) == "tile_collision"
-                     ? " Tile Sets only: apply full_cell, none, convex or polygon. Contours need "
+                     ? " Tile Sets only: apply full_cell, none, convex, polygon or contours. Loops "
+                       "need "
                        "3..8 counterclockwise unit-cell XY/up points; convex requires strict "
                        "convexity, polygon admits a simple concave contour decomposed into convex "
-                       "pieces. Self intersections, repeated/adjacent-collinear vertices and holes "
-                       "reject. Explicit profile edits promote Source1 to Source2, or Source3 for "
-                       "polygon; legacy collision extensions block promotion. Ordinary edits "
+                       "pieces. The contours kind supports1..4 filled contours with0..4 strictly "
+                       "interior holes per contour; all loops use3..8 counterclockwise points. "
+                       "Separate islands inside holes are allowed. Touches, crossings, overlapping "
+                       "filled areas, nested holes and repeated/adjacent-collinear vertices "
+                       "reject. "
+                       "Explicit edits promote to Source2, Source3 for polygon, or Source6 for "
+                       "contours; conflicting legacy extensions block promotion. Ordinary edits "
                        "cannot downgrade source versions. Custom polygons follow cell flips and "
                        "support Static/Kinematic bodies/sensors, without one-way collision."
                      : "") +

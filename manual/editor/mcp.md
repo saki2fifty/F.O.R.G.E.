@@ -72,6 +72,12 @@ collision, terrain, tile, particle and animation source editors. The agent can
 create or open a source, inspect its format, edit validated fields, and use that
 source document's Undo and Redo. You see the same draft in the editor.
 
+For tile collision, the agent can choose full cells, decoration, a convex or
+concave polygon, or **Contours / holes** for separate solid regions and inner
+voids. The same validation, document history and publishing steps apply as in
+[Tile Maps](tile-maps.md). Apply or discard interactive collision edits before
+the agent changes that source. Publish the Set and then its dependent Maps.
+
 For animated tiles, the agent can set the ordered image-grid frames and their
 durations in the Tile Set source. Publish the Set and then its affected Maps.
 Pause and Step in Game follow simulation time; the source tab's preview controls

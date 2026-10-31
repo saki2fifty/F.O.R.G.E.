@@ -1,5 +1,34 @@
 # README screenshots
 
+## Tile collision contours
+
+[Contour controls](../../../manual/images/tile-contour-controls.png) is the
+unretouched 760×1280 production TileSetEditor Inspector at 1x through the SDL/ImGui
+software harness: `forge_tile_set_editor_tests <scratch> --capture-contours`.
+It shows the actual contour/loop selectors, numbered boundary, orange hole,
+separate island, coordinate table and staged Apply/Discard controls. SHA256:
+`b259645cc0e92ee6c4d18fa3310662bf8255b456d822620e108551e88ac8be64`.
+Its exact main-cache SDK is
+`cc71b03f70d0d6ab33f0255a2e1079a0d26d775119e883edd3b849338419ef76`.
+
+[Contour Game](../../../manual/images/tile-contour-gallery.png) is the complete
+640×360 FrameRenderer Game after 90 fixed ticks at 60 Hz in Scene
+`ca73e628-15fc-4b3c-b246-2af9852eefb8`. The original transparent atlas matches the
+ring, hole, island, disconnected bars and catch-floor collision. The
+`tile_contour_gallery_vulkan` test verifies analytic landscape pixel witnesses
+and four exact authored/source-free relocated display pairs. Portrait auto aspect
+crops the actors and retains the course. PNG conversion preserves original RGB
+pixels. SHA256:
+`60a2a346c7b56e806d26d809c74b06cedad028cd4d77a9376b682884315487e6`.
+Its exact graphics-cache SDK is
+`e70620514062bb53671217da074ce9208c575362b5cd8a06663872598b85ef72`.
+
+Both use local development source based on 77892e8 with contour work and an
+unassigned build identity. Capture inputs, executable hashes and limitations are
+recorded in `AgentFiles/build/phase202-tile-collision-contours/captures.json`.
+Game uses Linux software Vulkan; Inspector uses SDL/ImGui software. These are not
+Windows/full editor/physical input-DPI-GPU, performance or graphical EXE acceptance.
+
 ## Tile neighbor rules
 
 [Neighbor controls](../../../manual/images/neighbor-tile-controls.png) is the

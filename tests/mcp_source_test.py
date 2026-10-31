@@ -185,13 +185,43 @@ for legacy in (False, True):
                     revision = status(owner)['revision']
                     assert not edit('forge_asset_document_tile_collision', owner, tile=tile, collision=bad)['ok']
                     assert content(owner) == concave and status(owner)['revision'] == revision
+                contours = dict(kind='contours', contours=[
+                    dict(points=[[0, 0], [1, 0], [1, 1], [0, 1]],
+                         holes=[[[.25, .25], [.75, .25], [.75, .75], [.25, .75]]]),
+                    dict(points=[[.375, .375], [.625, .375], [.625, .625], [.375, .625]], holes=[])])
+                old = status(owner)
+                result = edit('forge_asset_document_tile_collision', owner, tile=tile, collision=contours)
+                assert result['ok'], result
+                compound = content(owner)
+                assert compound['version'] == 6 and compound['tiles'][0]['collision'] == contours
+                failed(mutate('forge_asset_document_tile_collision', editor=owner,
+                              document_session=old['session'], document_revision=old['revision'],
+                              tile=tile, collision=contours), 'stale_document')
+                for bad in (dict(kind='contours', contours=[]),
+                            dict(kind='contours', contours=contours['contours'] * 3),
+                            dict(kind='contours', contours=[dict(points=contours['contours'][0]['points'],
+                                holes=[[[0, .25], [.75, .25], [.75, .75], [.25, .75]]])]),
+                            dict(kind='none', contours=contours['contours'])):
+                    revision = status(owner)['revision']
+                    assert not edit('forge_asset_document_tile_collision', owner, tile=tile, collision=bad)['ok']
+                    assert content(owner) == compound and status(owner)['revision'] == revision
+                assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == concave
+                assert edit('forge_asset_document_redo', owner)['ok'] and content(owner) == compound
+                if COLLISION_ONLY:
+                    save_published(owner)
+                    saved = json.loads((root/'Game'/path).read_text(encoding='utf-8'))
+                    assert saved == compound
+                    catalog = json.loads((root/'Game/forge.assets.json').read_text(encoding='utf-8'))
+                    record = next(row for row in catalog['assets'] if row['id'] == set_id)
+                    assert record['schema_version'] == 6 and record['metadata']['forge.import']['output_version'] == 6
+                assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == concave
                 if COLLISION_ONLY:
                     save_published(owner)
                     saved = json.loads((root/'Game'/path).read_text(encoding='utf-8'))
                     assert saved == concave and saved['version'] == 3
                     catalog = json.loads((root/'Game/forge.assets.json').read_text(encoding='utf-8'))
                     record = next(row for row in catalog['assets'] if row['id'] == set_id)
-                    assert record['schema_version'] == 3 and record['metadata']['forge.import']['output_version'] == 5
+                    assert record['schema_version'] == 3 and record['metadata']['forge.import']['output_version'] == 6
                 assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == promoted
                 assert edit('forge_asset_document_redo', owner)['ok'] and content(owner) == concave
                 assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == promoted
@@ -219,7 +249,7 @@ for legacy in (False, True):
                     assert json.loads((root/'Game'/path).read_text(encoding='utf-8')) == animated
                     catalog = json.loads((root/'Game/forge.assets.json').read_text(encoding='utf-8'))
                     record = next(row for row in catalog['assets'] if row['id'] == set_id)
-                    assert record['schema_version'] == 4 and record['metadata']['forge.import']['output_version'] == 5
+                    assert record['schema_version'] == 4 and record['metadata']['forge.import']['output_version'] == 6
                     assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == promoted
                     assert edit('forge_asset_document_redo', owner)['ok'] and content(owner) == animated
                     assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == promoted
@@ -245,7 +275,7 @@ for legacy in (False, True):
                     assert json.loads((root/'Game'/path).read_text(encoding='utf-8')) == selected
                     catalog = json.loads((root/'Game/forge.assets.json').read_text(encoding='utf-8'))
                     record = next(row for row in catalog['assets'] if row['id'] == set_id)
-                    assert record['schema_version'] == 5 and record['metadata']['forge.import']['output_version'] == 5
+                    assert record['schema_version'] == 5 and record['metadata']['forge.import']['output_version'] == 6
                     assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == promoted
                     assert edit('forge_asset_document_redo', owner)['ok'] and content(owner) == selected
                     assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == promoted

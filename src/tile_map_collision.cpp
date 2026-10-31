@@ -90,28 +90,48 @@ TileMapCollisionGeometry collision_geometry(const Map& map, const TileSetData& d
                 continue;
             const auto& profile = definitions.tile(cell.tile).collision;
             if (profile.kind != TileCollisionKind::Convex &&
-                profile.kind != TileCollisionKind::Polygon)
+                profile.kind != TileCollisionKind::Polygon &&
+                profile.kind != TileCollisionKind::Contours)
                 continue;
             TileMapCollisionPolygon polygon;
             polygon.origin = tile_cell_address({key.address, slot});
-            polygon.count = profile.points.size();
             // Invert the ordinary Sprite atlas mapping: source XY is up, UV rows
             // are down, and the draw transposes logical UV before atlas flips.
             const auto image = sprite_region_mapping({0, 0, 1, 1}, 1, 1, bool(cell.flags & 1),
                                                      bool(cell.flags & 2));
-            for (std::size_t i = 0; i < polygon.count; ++i) {
-                std::array<double, 2> uv{profile.points[i][0], 1 - profile.points[i][1]};
+            const auto transform = [&](const std::array<double, 2>& point) {
+                std::array<double, 2> uv{point[0], 1 - point[1]};
                 for (unsigned axis = 0; axis < 2; ++axis)
                     uv[axis] = (uv[axis] - image.origin[axis]) / image.scale[axis];
                 if (cell.flags & 4)
                     std::swap(uv[0], uv[1]);
-                polygon.points[i] = {uv[0], 1 - uv[1]};
-            }
+                return std::array<double, 2>{uv[0], 1 - uv[1]};
+            };
             const auto append = [&](const TileMapCollisionPolygon& value) {
                 if (result.rectangles.size() + result.polygons.size() == limit)
                     throw std::runtime_error("Tile Map collision shape capacity exceeded");
                 result.polygons.push_back(value);
             };
+            if (profile.kind == TileCollisionKind::Contours) {
+                if (!profile.contours)
+                    throw std::runtime_error("Tile collision contours are unavailable");
+                const auto& prepared = *profile.contours;
+                std::array<std::array<double, 2>, tile_collision_contour_vertex_limit> points;
+                for (std::size_t i = 0; i < prepared.vertices.size(); ++i)
+                    points.at(i) = transform(prepared.vertices[i]);
+                for (const auto& indices : prepared.triangles) {
+                    TileMapCollisionPolygon piece;
+                    piece.origin = polygon.origin;
+                    piece.count = indices.size();
+                    for (std::size_t i = 0; i < indices.size(); ++i)
+                        piece.points[i] = points.at(indices[i]);
+                    append(piece);
+                }
+                continue;
+            }
+            polygon.count = profile.points.size();
+            for (std::size_t i = 0; i < polygon.count; ++i)
+                polygon.points[i] = transform(profile.points[i]);
             if (profile.kind == TileCollisionKind::Convex) {
                 append(polygon);
             } else {

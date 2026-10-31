@@ -81,6 +81,117 @@ struct Fixture {
         }
     }
 };
+void tile_contours_projection_and_recovery() {
+    auto source = TileSetSource::create(AssetId::generate());
+    source.document["next_id"] = 3;
+    source.document["images"] = {{{"id", 1},
+                                  {"name", "Contours image"},
+                                  {"material", AssetId::generate()},
+                                  {"grid",
+                                   {{"columns", 1},
+                                    {"rows", 1},
+                                    {"margin_x", 0},
+                                    {"margin_y", 0},
+                                    {"spacing_x", 0},
+                                    {"spacing_y", 0}}}}};
+    source.document["tiles"] = {
+        {{"id", 2}, {"name", "Ring and island"}, {"image", 1}, {"frame", 0}}};
+    source.set_collision(
+        2, {{"kind", "contours"},
+            {"contours",
+             Json::array({{{"points", {{0, 0}, {1, 0}, {1, 1}, {0, 1}}},
+                           {"holes", Json::array({{{.2, .2}, {.8, .2}, {.8, .8}, {.2, .8}}})}},
+                          {{"points", {{.4, .4}, {.6, .4}, {.6, .6}, {.4, .6}}}}})}});
+    const auto definitions = decode_cooked_tile_set(cook_tile_set(source), source.asset());
+    for (unsigned flags = 0; flags < 8; ++flags)
+        for (float xs : {-1.f, 1.f})
+            for (float ys : {-1.f, 1.f})
+                for (unsigned motion : {0u, 1u})
+                    for (bool sensor : {false, true}) {
+                        auto value = TileMapValue::create(AssetId::generate(), source.asset());
+                        auto metadata = value.metadata();
+                        metadata["cell_size"] = {4, 4};
+                        value = value.with_metadata(metadata);
+                        const TileMapCellEdit cell{1, {-1, -1}, {2, flags}};
+                        value = value.paint(std::span(&cell, 1));
+                        const auto map =
+                            decode_cooked_tile_map(cook_tile_map(value), value.asset());
+                        PhysicsBody2D body;
+                        body.motion = motion;
+                        body.sensor = sensor;
+                        const LocalScale scale{xs, ys, 1};
+                        const auto config =
+                            tile_map_configuration_2d(body, map, 1, scale, &definitions);
+                        check(config.parts->empty() && config.polygons &&
+                                  config.polygons->size() == 10,
+                              "Contour pieces did not reach existing compound configuration");
+                        Fixture test(1, 100);
+                        test.desired.at(1).config = config;
+                        const double angle = .35;
+                        test.desired.at(1).pose.rotation = {0, 0, float(std::sin(angle / 2)),
+                                                            float(std::cos(angle / 2))};
+                        test.desired.at(2).ref.entity = EntityId::generate();
+                        test.desired.at(2).pose.translation.y += 100;
+                        test.advance();
+                        check(test.native.shape_size() == 11,
+                              "Contour profile allocated extra bodies or lost pieces");
+                        const auto position = [&](std::array<double, 2> p) {
+                            double u = flags & 1 ? 1 - p[0] : p[0], v = flags & 2 ? p[1] : 1 - p[1];
+                            if (flags & 4)
+                                std::swap(u, v);
+                            const double x = (u - 1) * 4 * xs, y = -v * 4 * ys;
+                            return std::array<double, 2>{
+                                100 + std::cos(angle) * x - std::sin(angle) * y,
+                                100 + std::sin(angle) * x + std::cos(angle) * y};
+                        };
+                        const auto verify = [&](Native2D& native) {
+                            for (const auto& [p, solid] :
+                                 std::array{std::pair{std::array{.1, .1}, true},
+                                            std::pair{std::array{.3, .3}, false},
+                                            std::pair{std::array{.5, .5}, true}}) {
+                                PhysicsOverlap2D query;
+                                query.origin = position(p);
+                                query.dimensions = {.005, 0};
+                                const auto found = native.overlap(query, {});
+                                check(found == (solid
+                                                    ? std::vector<EntityRef>{test.desired.at(1).ref}
+                                                    : std::vector<EntityRef>{}),
+                                      "Native contour query filled a void or lost "
+                                      "signed/flipped/rotated solid");
+                            }
+                        };
+                        verify(test.native);
+                        auto one_way = body;
+                        one_way.one_way = true;
+                        reject([&] {
+                            (void)tile_map_configuration_2d(one_way, map, 1, scale, &definitions);
+                        });
+                        TileMapRenderer renderer;
+                        renderer.map = {map.asset()};
+                        Json components{
+                            {"forge.physics_body_2d", detail::encode_builtin_value(body)},
+                            {"forge.tile_map_renderer", detail::encode_builtin_value(renderer)},
+                            {"forge.tile_map_collider_2d", {{"layer", 1}}}};
+                        const auto debug = prepare_physics_debug(components, scale, {}, false, 8192,
+                                                                 &map, &definitions);
+                        check(debug.lines.size() == 30 && !debug.truncated,
+                              "Contour debug lost derived pieces");
+                        const auto checkpoint =
+                            test.native.checkpoint(test.desired, 2 * 1024 * 1024);
+                        Native2D restored(test.config);
+                        Desired2D remapped{{101, test.desired.at(1)}, {202, test.desired.at(2)}};
+                        restored.restore(checkpoint.metadata, checkpoint.bytes, remapped,
+                                         test.tick);
+                        check(restored.shape_size() == 11,
+                              "Fresh contour recovery lost compound pieces");
+                        verify(restored);
+                        check(restored.state(202, remapped.at(202).ref) ==
+                                  test.native.state(2, test.desired.at(2).ref),
+                              "Contour recovery changed unrelated native body state");
+                    }
+    std::cout << "128 contour native signed/oriented solid/sensor/motion/query/debug/remapped "
+                 "recovery cases PASS\n";
+}
 void tile_polygon_projection_and_recovery() {
     auto source = TileSetSource::create(AssetId::generate());
     source.document["next_id"] = 4;
@@ -613,6 +724,7 @@ void connected_collision_and_recovery() {
 } // namespace
 int main() {
     try {
+        tile_contours_projection_and_recovery();
         tile_polygon_projection_and_recovery();
         tile_polygon_controller();
         std::cout

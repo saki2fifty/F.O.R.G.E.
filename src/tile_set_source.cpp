@@ -37,6 +37,17 @@ TileSetValues decode(const Json& root) {
     result.tiles = std::move(rows.tiles);
     return result;
 }
+// Rows have positional ownership; removing a row explicitly removes its extensions.
+void merge_indexed_rows(Json& changed, const Json& prior, const char* field) {
+    require(changed.is_array(), "Indexed tile profile requires an array");
+    for (std::size_t i = 0; i < changed.size(); ++i) {
+        if (!changed[i].is_object())
+            throw std::runtime_error(std::string("Tile ") + field + " row must be an object");
+        auto row = i < prior.size() ? prior[i] : Json::object();
+        row.update(changed[i]);
+        changed[i] = std::move(row);
+    }
+}
 // Enabled indexed profiles share the source transaction and extension ownership.
 void set_indexed_profile(TileSetSource& source, std::uint64_t tile, const Json& value,
                          const char* field, const char* entries, std::uint32_t version,
@@ -59,15 +70,7 @@ void set_indexed_profile(TileSetSource& source, std::uint64_t tile, const Json& 
     auto merged = at->value(field, Json::object());
     const auto prior = merged.value(entries, Json::array());
     merged.update(value);
-    // Rows have positional ownership; removing a row explicitly removes its extensions.
-    auto& changed = merged.at(entries);
-    for (std::size_t i = 0; i < changed.size(); ++i) {
-        if (!changed[i].is_object())
-            throw std::runtime_error(std::string("Tile ") + field + " row must be an object");
-        auto row = i < prior.size() ? prior[i] : Json::object();
-        row.update(changed[i]);
-        changed[i] = std::move(row);
-    }
+    merge_indexed_rows(merged.at(entries), prior, field);
     (*at)[field] = std::move(merged);
     candidate.validate();
     source.document.swap(candidate.document);
@@ -116,22 +119,38 @@ void TileSetSource::validate_upgrade(const TileSetSource& next) const {
         for (const auto& row : document.at("tiles"))
             require(!row.contains("autotile"),
                     "Legacy neighbor extension conflicts with Tile Set version5; source unchanged");
+    if (document.at("version") < 6 && next.document.at("version") >= 6)
+        for (const auto& row : document.at("tiles"))
+            require(!row.contains("collision") || !row.at("collision").is_object() ||
+                        !row.at("collision").contains("contours"),
+                    "Legacy contours extension conflicts with Tile Set version6; source unchanged");
 }
 void TileSetSource::set_collision(std::uint64_t tile, const Json& value) {
     validate();
     require(value.is_object() && value.contains("kind"), "Tile collision requires a kind");
     auto candidate = *this;
-    candidate.document["version"] = std::max(document.at("version").get<std::uint32_t>(),
-                                             value.at("kind") == "polygon" ? 3u : 2u);
+    candidate.document["version"] =
+        std::max(document.at("version").get<std::uint32_t>(), value.at("kind") == "contours"  ? 6u
+                                                              : value.at("kind") == "polygon" ? 3u
+                                                                                              : 2u);
     validate_upgrade(candidate);
     auto& rows = candidate.document.at("tiles");
     const auto at = std::find_if(rows.begin(), rows.end(),
                                  [&](const auto& row) { return row.at("id") == tile; });
     require(at != rows.end(), "Tile collision definition is unavailable");
     auto merged = at->value("collision", Json::object());
+    const auto prior = merged.value("contours", Json::array());
     merged.erase("kind");
     merged.erase("points");
+    if (candidate.document.at("version") >= 6)
+        merged.erase("contours");
     merged.update(value);
+    if (value.at("kind") == "contours" && merged.contains("contours")) {
+        for (auto& contour : merged.at("contours"))
+            if (contour.is_object() && !contour.contains("holes"))
+                contour["holes"] = Json::array();
+        merge_indexed_rows(merged.at("contours"), prior, "contours");
+    }
     (*at)["collision"] = std::move(merged);
     candidate.validate();
     document.swap(candidate.document);

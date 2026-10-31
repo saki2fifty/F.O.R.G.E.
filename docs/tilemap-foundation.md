@@ -213,9 +213,9 @@ is retained. Invalid candidates leave the adopted value unchanged.
 
 ### Copied definition profiles
 
-The existing Play projection header now writes `definitions_version:3` and
+The existing Play projection header writes `definitions_version:6` and
 normalized collision fields on every copied definition. Its decoder retains the
-legacy two-field header with version1 definition rows and explicit version2. All use the same
+legacy two-field header with version1 definition rows and explicit versions2..5. All use the same
 typed cooked-data admission; unsupported versions, malformed profiles and unknown
 fields reject before an acknowledged frame can publish. Known-revision reuse
 compares normalized decoded values, including collision profiles. Cell pages,
@@ -225,7 +225,7 @@ legal source combinations are not guaranteed to fit every transport budget.
 
 ## Internal Tile Set profile
 
-The private JSON discriminator is `forge.tile-set`, version 1, 2, 3 or 4, with a UUID
+The private JSON discriminator is `forge.tile-set`, version1 through6, with a UUID
 `asset_id`, monotonic uint64 `next_id`, `images` and `tiles` arrays. Zero is reserved
 in the shared image/tile local-key space. Every entry key is unique and below
 `next_id`; names are display values. Edits cannot reuse retired keys, move the
@@ -307,6 +307,29 @@ budget; estimates are cached between structural changes. Runtime admission has a
 the complete candidate set before adopting any instance. These are allocation
 estimates, not allocator RSS or physical hardware performance guarantees.
 
+Source6 additionally admits `{"kind":"contours","contours":[{"points":[...],"holes":[[...]]}]}`.
+There are1..4 filled contours, each with3..8 counterclockwise unit-cell XY/up points
+and0..4 holes of3..8 counterclockwise points. Holes must be strictly inside their
+own outer boundary. Crossings, touches, overlapping filled regions and nested
+holes reject; a separate solid island inside another contour's hole is valid.
+The shared simple-loop/segment admission and original deterministic visibility
+bridge/ear helper prepare at most160 original vertices and184 indexed triangles.
+An optional immutable value keeps source loops and this prepared flat geometry
+with the existing profile. Per-cell geometry transforms vertices once, reuses
+indices and emits the existing convex pieces. Cooking serializes source loops,
+never the derived cache. Resident estimates include all prepared allocations.
+
+Explicit6 promotion rejects old opaque `collision.contours` fields across all
+definitions; older source versions retain those extensions without geometry.
+Source6 accepts `contours` only for the new kind and rejects a separate `points`
+field on that profile. Typed edits preserve unknown profile/retained contour-row
+siblings through the shared indexed-row merge. Extensions belong to retained
+array positions, including when geometry moves between positions. Omitted holes
+clear the known hole list; truncation discards removed positions, and changing
+kind removes unused contour data. Identity, source history, publication, selected
+neighbor definitions, physical conversion and copied-value budgets keep their
+existing owners. No additional public C-table or private recovery layout is used.
+
 Admission limits are 16 images, 4096 tile definitions, 2MiB source bytes,
 100000 JSON events and depth 16. Names contain 1–128 UTF-8 bytes without ASCII
 controls. Source admission checks structure; publication additionally checks
@@ -321,11 +344,11 @@ unknown fields and its allocation high-water mark. Cooking sorts image/tile rows
 by numeric key and omits unknown fields and allocator metadata. Reordering source
 rows or advancing the allocator alone does not change cooked runtime bytes.
 
-The cooked envelope uses eight-byte magic `FTILESET`, version5 (with version1/2/3/4 reads retained), at most 2MiB of
+The cooked envelope uses eight-byte magic `FTILESET`, version6 (with version1..5 reads retained), at most 2MiB of
 metadata and no binary payload. Root fields are exactly `asset_id`, `images` and
 `tiles`; their known row/grid fields match the source value profile. Extra cooked
 fields reject. The decoder checks the expected root UUID and the same combined
-image/tile key space, frame references and limits as source admission. Cooked2/3/4/5
+image/tile key space, frame references and limits as source admission. Cooked2..6
 normalize the known collision profile on every definition; cooked1 supplies
 FullCell. The declared selected output version must match the actual envelope.
 Tile Set recipe5 publishes cooked5; cooked3/4/5 admit Polygon, cooked4/5 admit
@@ -343,9 +366,21 @@ code. This checks values and linking, not image publication or GPU readiness.
 
 The 16-image/4096-definition fixture, with maximum-length tile names, cooks to
 841453 bytes with normalized full-cell collision profiles. Its retained allocation
-estimate is 890512 bytes in Linux GCC12;
+estimate is1087128 bytes in Linux GCC12 with the current profile layout. The
+optional shared contour holder adds16 bytes per definition (65536 bytes for4096
+rows) without allocating prepared geometry for full-cell definitions. The focused
+static-fixture estimate envelope is1152KiB; existing16MiB Set-pool and64MiB aggregate
+runtime budgets are unchanged and admit actual complete values separately;
 this is not a process RSS or cross-platform allocator guarantee. Publication
 separately admits the Material profile and actual selected image extent.
+
+A single Linux GCC12 Release/O3 CPU sample on a reported QEMU Virtual CPU measured
+200 fresh ring-and-island Set decodes in7.51ms total, and500 projections of256
+cells across eight orientations in159.58ms total. Each projection emitted2560
+triangle pieces from the prepared definition; its Set retained estimate was1164
+bytes. These are standalone CPU workloads, including builder allocations, without
+a previous-implementation comparison. They do not measure native physics update,
+editor latency, rendering, GPU performance or game frame rate.
 
 ## Internal Tile Map profile
 

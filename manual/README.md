@@ -49,7 +49,7 @@ content may differ; use **Window** to open a panel mentioned in a guide.
 ## 2D scenes
 
 - [World sprites, frame filtering, atlas packing, trimming and packed fills](editor/sprites.md)
-- [Tile Sets and Tile Maps, neighbor rules, animated tiles, convex and concave collision, moving platforms and triggers](editor/tile-maps.md)
+- [Tile Sets and Tile Maps, neighbor rules, animated tiles, collision contours and holes, moving platforms and triggers](editor/tile-maps.md)
 - [2D physics and character movement](editor/physics-2d.md), including moving one-way platforms, slopes, ceilings and stair stepping
 
 ## Animation

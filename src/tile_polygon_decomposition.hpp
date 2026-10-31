@@ -16,6 +16,20 @@ inline double tile_polygon_turn(const TilePolygonPoint& a, const TilePolygonPoin
                                 const TilePolygonPoint& c) {
     return (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
 }
+inline bool tile_polygon_on_segment(const TilePolygonPoint& a, const TilePolygonPoint& b,
+                                    const TilePolygonPoint& p) {
+    return tile_polygon_turn(a, b, p) == 0 && p[0] >= std::min(a[0], b[0]) &&
+           p[0] <= std::max(a[0], b[0]) && p[1] >= std::min(a[1], b[1]) &&
+           p[1] <= std::max(a[1], b[1]);
+}
+inline bool tile_polygon_segments_touch(const TilePolygonPoint& a, const TilePolygonPoint& b,
+                                        const TilePolygonPoint& c, const TilePolygonPoint& d) {
+    const auto opposite = [](double x, double y) { return (x < 0 && y > 0) || (x > 0 && y < 0); };
+    return (opposite(tile_polygon_turn(a, b, c), tile_polygon_turn(a, b, d)) &&
+            opposite(tile_polygon_turn(c, d, a), tile_polygon_turn(c, d, b))) ||
+           tile_polygon_on_segment(a, b, c) || tile_polygon_on_segment(a, b, d) ||
+           tile_polygon_on_segment(c, d, a) || tile_polygon_on_segment(c, d, b);
+}
 // Source-space contour only: finite unit-cell coordinates, simple CCW order,
 // no repeated or adjacent-collinear vertices. Physical float admission follows
 // the existing Map/native conversion, after image orientation and scale.
@@ -37,11 +51,6 @@ tile_polygon_triangles(std::span<const TilePolygonPoint> points) {
                                   points[(i + 1) % points.size()]) != 0,
                 "Tile polygon has adjacent collinear vertices");
     }
-    const auto on_segment = [](const TilePolygonPoint& a, const TilePolygonPoint& b,
-                               const TilePolygonPoint& point) {
-        return point[0] >= std::min(a[0], b[0]) && point[0] <= std::max(a[0], b[0]) &&
-               point[1] >= std::min(a[1], b[1]) && point[1] <= std::max(a[1], b[1]);
-    };
     for (std::size_t i = 0; i < points.size(); ++i)
         for (std::size_t j = i + 1; j < points.size(); ++j) {
             const auto next_i = (i + 1) % points.size(), next_j = (j + 1) % points.size();
@@ -51,14 +60,7 @@ tile_polygon_triangles(std::span<const TilePolygonPoint> points) {
             const auto& b = points[next_i];
             const auto& c = points[j];
             const auto& d = points[next_j];
-            const double abc = tile_polygon_turn(a, b, c), abd = tile_polygon_turn(a, b, d),
-                         cda = tile_polygon_turn(c, d, a), cdb = tile_polygon_turn(c, d, b);
-            const auto opposite = [](double x, double y) {
-                return (x < 0 && y > 0) || (x > 0 && y < 0);
-            };
-            require(!((opposite(abc, abd) && opposite(cda, cdb)) ||
-                      (abc == 0 && on_segment(a, b, c)) || (abd == 0 && on_segment(a, b, d)) ||
-                      (cda == 0 && on_segment(c, d, a)) || (cdb == 0 && on_segment(c, d, b))),
+            require(!tile_polygon_segments_touch(a, b, c, d),
                     "Tile polygon edges intersect or touch");
         }
     // An origin-relative fan sum avoids subtracting large almost-equal shoelace

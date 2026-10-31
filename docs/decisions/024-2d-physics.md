@@ -399,6 +399,43 @@ checkpoint1 need no new fields: fresh recovery validates the same realized piece
 Static/Kinematic solid and sensor policies apply; Dynamic Maps and custom-polygon
 one-way response remain excluded.
 
+## Tile collision contours and holes
+
+Add the separate `contours` kind in Tile Set Source/cooked/recipe6, retaining the
+older1..5 meanings and strict `convex`/single-loop `polygon` admission. Each of
+1..4 filled contours has3..8 counterclockwise unit-cell points and0..4 holes of
+3..8 counterclockwise points each. Validate every simple loop through the existing
+owner. Require strict hole containment and reject touching/crossing boundaries,
+overlapping filled regions and nested holes. Separate filled islands inside a
+void are permitted. Do not repair source ordering or infer an outer boundary.
+
+The existing collision profile holds an optional immutable shared value containing
+source loops, a flat original-vertex pool (at most160 vertices), and prepared uint16
+triangle indices (at most184 triangles). An original deterministic visibility
+bridge and ear decomposition reverses holes only in its derived traversal. Share
+segment predicates with the existing simple-loop validator. Prepare once per
+definition admission; repeated cells transform the flat vertices once and emit
+existing convex pieces. The derived cache is never serialized as another source
+authority, and its retained allocations count through the existing Set estimator.
+
+Explicit6 promotion rejects prior opaque `collision.contours` fields across every
+row. Source1..5 retain those fields as extensions. Typed edits preserve unknown
+profile and retained contour-position siblings through the same indexed-row merge
+used by animation and neighbor profiles. Extensions belong to retained array
+positions, including when geometry changes position; truncation discards removed
+positions, and changing kind removes unused known contour data. Ordinary edits never downgrade.
+Asset/local keys, allocator history, document revisions, Undo and publication keep
+their existing owners. Inspector and the existing collision automation/MCP operation
+use that source transaction; there is no parallel authoring implementation.
+
+All pieces use existing physical float admission, Static/Kinematic solid/sensor
+policies, the combined4096-shape limit, candidate/last-good publication, debug,
+native queries and recovery. Dynamic Maps and custom-polygon one-way remain
+excluded. Private recovery already stores complete convex pieces, so this addition
+does not require another private recovery field/version or public C-table change.
+Copied definitions carry nested version6 through the existing bounded channel;
+the helper and typed semantics participate in the exact SDK fingerprint.
+
 ## Moving one-way platform extension
 
 Extend the existing one-way policy to Kinematic nonsensor Boxes and full-cell

@@ -280,7 +280,20 @@ The published schema validates the exclusive profile alternatives; native source
 validation rejects bad ordering/degeneracy and guards legacy reserved fields.
 Polygon admits one simple concave contour, rejects repeated/adjacent-collinear
 vertices and crossed/touching nonadjacent edges, and decomposes into triangles.
-Explicit profile editing promotes to Source2, or Source3 for Polygon, when safe;
+The `contours` alternative is
+`{"kind":"contours","contours":[{"points":[[0,0],[1,0],[1,1],[0,1]],"holes":[[[0.25,0.25],[0.75,0.25],[0.75,0.75],[0.25,0.75]]]}]}`.
+It admits1..4 filled contours with0..4 holes each; all loops use3..8 counterclockwise
+unit-cell XY/up points. Holes must stay strictly inside their own contour. Touches,
+crossings, overlapping solids and nested holes reject; separate islands inside a
+void are valid. The schema advertises these bounds and alternatives. Unknown
+profile fields and surviving contour-position fields remain during typed edits.
+Extensions belong to array positions, including when geometry changes position;
+truncation discards removed positions and changing kind removes contour data.
+Omitted hole lists clear the known old holes.
+
+Explicit profile editing promotes to Source2, Source3 for Polygon, or Source6 for
+Contours, when safe; old opaque `collision.contours` fields across every definition
+block6 promotion. Earlier source versions keep those fields opaque;
 an already promoted source never downgrades through ordinary edits. It does not remint keys,
 write Scene values or publish automatically. Undo/Redo and Save use the ordinary
 asset-document methods. After publishing a Set, republish its dependent Maps

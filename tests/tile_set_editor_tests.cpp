@@ -303,6 +303,52 @@ void exercise(const std::filesystem::path& scratch, float scale, bool compact) {
     click("tile_set:redo");
     check(editor.document()->source().document == neighbor_source,
           "Neighbor Redo lost source history");
+    const auto contour_revision = editor.document()->revision();
+    click("tile_set:collision_kind");
+    click("tile_set:collision_kind:4");
+    click("tile_set:hole_add");
+    number("tile_set:collision_point:0:x", "0");
+    click("tile_set:collision_apply");
+    check(editor.document()->revision() == contour_revision && editor.has_unapplied_edits() &&
+              !editor.diagnostic().empty() &&
+              editor.document()->source().document == neighbor_source,
+          "Touching hole entered source/history");
+    number("tile_set:collision_point:0:x", "0.25");
+    click("tile_set:contour_add");
+    click("tile_set:collision_apply");
+    const auto contour_source = editor.document()->source().document;
+    const auto contour_profile = editor.document()->source().values().tiles.back().collision;
+    check(!editor.has_unapplied_edits() && contour_source.at("version") == 6 &&
+              contour_profile.kind == TileCollisionKind::Contours && contour_profile.contours &&
+              contour_profile.contours->contours.size() == 2 &&
+              contour_profile.contours->contours[0].holes.size() == 1 &&
+              contour_profile.contours->triangles.size() == 10 &&
+              contour_source["tiles"].back()["autotile"] ==
+                  neighbor_source["tiles"].back()["autotile"] &&
+              contour_source["tiles"].back()["animation"] ==
+                  neighbor_source["tiles"].back()["animation"],
+          "Contour Inspector did not apply hole/island or preserve sibling profiles");
+    click("tile_set:undo");
+    check(editor.document()->source().document == neighbor_source,
+          "Contour Undo lost complete previous source");
+    click("tile_set:redo");
+    check(editor.document()->source().document == contour_source,
+          "Contour Redo changed prepared source");
+    click("tile_set:contour_remove");
+    click("tile_set:collision_discard");
+    check(!editor.has_unapplied_edits() && editor.document()->source().document == contour_source,
+          "Discarding contour removal changed applied source");
+    click("tile_set:contour_loop");
+    click("tile_set:contour_loop:1");
+    click("tile_set:hole_remove");
+    click("tile_set:collision_apply");
+    check(editor.has_unapplied_edits() && !editor.diagnostic().empty() &&
+              editor.document()->source().document == contour_source,
+          "Removing a void admitted overlapping filled regions");
+    click("tile_set:collision_discard");
+    click("tile_set:undo");
+    check(editor.document()->source().document == neighbor_source,
+          "Contour discard/Undo changed earlier source history");
     click("tile_set:undo");
     click("tile_set:undo");
     check(editor.document()->source().document == concave_source,
@@ -368,9 +414,12 @@ void exercise(const std::filesystem::path& scratch, float scale, bool compact) {
     ImGui::DestroyContext();
 }
 void capture_controls(const std::filesystem::path& root, bool concave = false,
-                      bool animated = false, bool neighbors = false) {
+                      bool animated = false, bool neighbors = false, bool contours = false) {
     std::filesystem::create_directories(root / "project");
-    test::ImGuiSoftwareCapture capture(760, neighbors ? 620 : concave ? 1100 : 1000);
+    test::ImGuiSoftwareCapture capture(760, contours    ? 1280
+                                            : neighbors ? 620
+                                            : concave   ? 1100
+                                                        : 1000);
     ui::style(1);
     ui::EditorUiContext context;
     ui::ContextScope scope(context);
@@ -393,12 +442,22 @@ void capture_controls(const std::filesystem::path& root, bool concave = false,
                                         {"spacing_x", 0},
                                         {"spacing_y", 0}}}}};
         source.document["tiles"] = {{{"id", 2},
-                                     {"name", animated  ? "Forward arrows"
-                                              : concave ? "Concave corner"
-                                                        : "Convex ramp"},
+                                     {"name", contours   ? "Ring and island"
+                                              : animated ? "Forward arrows"
+                                              : concave  ? "Concave corner"
+                                                         : "Convex ramp"},
                                      {"image", 1},
                                      {"frame", 0}}};
-        if (animated)
+        if (contours)
+            source.set_collision(
+                2,
+                {{"kind", "contours"},
+                 {"contours",
+                  Json::array(
+                      {{{"points", {{0, 0}, {1, 0}, {1, 1}, {0, 1}}},
+                        {"holes", Json::array({{{.25, .25}, {.75, .25}, {.75, .75}, {.25, .75}}})}},
+                       {{"points", {{.375, .375}, {.625, .375}, {.625, .625}, {.375, .625}}}}})}});
+        else if (animated)
             source.set_animation(2, {{"enabled", true},
                                      {"frames",
                                       {{{"frame", 0}, {"seconds", .2}},
@@ -433,7 +492,10 @@ void capture_controls(const std::filesystem::path& root, bool concave = false,
     for (unsigned frame = 0; frame < 3; ++frame) {
         capture.new_frame();
         ImGui::SetNextWindowPos({10, 10});
-        ImGui::SetNextWindowSize({740, neighbors ? 600.f : concave ? 1080.f : 980.f});
+        ImGui::SetNextWindowSize({740, contours    ? 1260.f
+                                       : neighbors ? 600.f
+                                       : concave   ? 1080.f
+                                                   : 980.f});
         ImGui::Begin("Inspector", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
         editor.inspect("tile/2", false);
         if (neighbors)
@@ -442,10 +504,11 @@ void capture_controls(const std::filesystem::path& root, bool concave = false,
         capture.render();
     }
     check(editor.diagnostic().empty(), "Collision capture has source diagnostics");
-    capture.save(root / (neighbors  ? "neighbor-tile-controls.png"
-                         : animated ? "animated-tile-controls.png"
-                         : concave  ? "concave-tile-collision-controls.png"
-                                    : "tile-collision-profile.png"));
+    capture.save(root / (contours    ? "tile-contour-controls.png"
+                         : neighbors ? "neighbor-tile-controls.png"
+                         : animated  ? "animated-tile-controls.png"
+                         : concave   ? "concave-tile-collision-controls.png"
+                                     : "tile-collision-profile.png"));
 }
 } // namespace
 int main(int argc, char** argv) {
@@ -453,11 +516,13 @@ int main(int argc, char** argv) {
         if (argc == 3 && (std::string_view(argv[2]) == "--capture" ||
                           std::string_view(argv[2]) == "--capture-concave" ||
                           std::string_view(argv[2]) == "--capture-animation" ||
-                          std::string_view(argv[2]) == "--capture-neighbors")) {
+                          std::string_view(argv[2]) == "--capture-neighbors" ||
+                          std::string_view(argv[2]) == "--capture-contours")) {
             capture_controls(std::filesystem::absolute(argv[1]),
                              std::string_view(argv[2]) == "--capture-concave",
                              std::string_view(argv[2]) == "--capture-animation",
-                             std::string_view(argv[2]) == "--capture-neighbors");
+                             std::string_view(argv[2]) == "--capture-neighbors",
+                             std::string_view(argv[2]) == "--capture-contours");
             return 0;
         }
         check(argc == 2, "Expected scratch directory");

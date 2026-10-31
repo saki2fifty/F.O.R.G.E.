@@ -299,6 +299,8 @@ class TileSetEditor {
     bool needs_publish_ = false, save_ = false, close_ = false, open_error_ = false;
     Json new_material_ = nullptr;
     TileCollisionProfile collision_draft_;
+    std::vector<TileCollisionContour> collision_contours_draft_;
+    std::size_t collision_contour_ = 0, collision_loop_ = 0;
     std::uint64_t collision_tile_ = 0, collision_revision_ = 0;
     bool collision_dirty_ = false;
     TileAnimation animation_draft_;
@@ -808,20 +810,179 @@ class TileSetEditor {
                  "All cells share the runtime timeline. Animation changes appearance; the "
                  "tile's collision profile stays fixed.");
     }
+    void collision_point_fields(std::vector<std::array<double, 2>>& points) {
+        ImGui::TextWrapped("Local XY: X right, Y up, from 0 to 1. Enter 3 to 8 points "
+                           "counterclockwise. Press Enter to finish each coordinate edit.");
+        const float side = std::min(160.f * ui::interface_scale, ImGui::GetContentRegionAvail().x);
+        const auto origin = ImGui::GetCursorScreenPos();
+        auto* draw = ImGui::GetWindowDrawList();
+        const auto point = [&](const std::array<double, 2>& p) {
+            return ImVec2{origin.x + float(p[0]) * side, origin.y + (1 - float(p[1])) * side};
+        };
+        draw->AddRect(origin, {origin.x + side, origin.y + side}, IM_COL32(100, 110, 120, 255));
+        const auto draw_loop = [&](const auto& loop, ImU32 color) {
+            for (std::size_t i = 0; i < loop.size(); ++i) {
+                const auto valid = [](const auto& p) {
+                    return std::all_of(p.begin(), p.end(), [](double v) {
+                        return std::isfinite(v) && v >= 0 && v <= 1;
+                    });
+                };
+                if (!valid(loop[i]) || !valid(loop[(i + 1) % loop.size()]))
+                    continue;
+                const auto a = point(loop[i]);
+                const auto b = point(loop[(i + 1) % loop.size()]);
+                draw->AddLine(a, b, color, &loop == &points ? 3 : 1.5f);
+                if (&loop != &points)
+                    continue;
+                draw->AddCircleFilled(a, 3, IM_COL32(245, 210, 90, 255));
+                draw->AddText({a.x + 4, a.y + 3}, IM_COL32_WHITE, std::to_string(i + 1).c_str());
+            }
+        };
+        if (collision_draft_.kind == TileCollisionKind::Contours) {
+            for (const auto& region : collision_contours_draft_) {
+                draw_loop(region.points, IM_COL32(90, 210, 245, 255));
+                for (const auto& hole : region.holes)
+                    draw_loop(hole, IM_COL32(240, 150, 90, 255));
+            }
+        } else {
+            draw_loop(points, IM_COL32(90, 210, 245, 255));
+        }
+        ImGui::Dummy({side, side + 16 * ui::interface_scale});
+        if (ImGui::BeginTable("Collision points", 3, ImGuiTableFlags_SizingStretchProp)) {
+            ImGui::TableSetupColumn("Point", ImGuiTableColumnFlags_WidthFixed,
+                                    40 * ui::interface_scale);
+            ImGui::TableSetupColumn("X");
+            ImGui::TableSetupColumn("Y");
+            ImGui::TableHeadersRow();
+            for (std::size_t i = 0; i < points.size(); ++i) {
+                ImGui::PushID(int(i));
+                ImGui::TableNextRow();
+                ImGui::TableNextColumn();
+                ImGui::Text("%u", unsigned(i + 1));
+                for (unsigned axis = 0; axis < 2; ++axis) {
+                    ImGui::TableNextColumn();
+                    ImGui::SetNextItemWidth(-1);
+                    auto value = points[i][axis];
+                    if (ImGui::InputDouble(axis ? "##Y" : "##X", &value, 0, 0, "%.4f",
+                                           ImGuiInputTextFlags_EnterReturnsTrue)) {
+                        points[i][axis] = value;
+                        collision_dirty_ = true;
+                    }
+                    FORGE_UI_PROBE("tile_set:collision_point:" + std::to_string(i) +
+                                   (axis ? ":y" : ":x"));
+                }
+                ImGui::PopID();
+            }
+            ImGui::EndTable();
+        }
+        ImGui::BeginDisabled(points.size() >= tile_collision_vertex_limit);
+        if (ui::button("Add point", "Append a point on the closing edge, then move it off that "
+                                    "edge before Apply.")) {
+            const auto a = points.back(), b = points.front();
+            points.push_back({(a[0] + b[0]) / 2, (a[1] + b[1]) / 2});
+            collision_dirty_ = true;
+        }
+        FORGE_UI_PROBE("tile_set:collision_add");
+        ImGui::EndDisabled();
+        ImGui::BeginDisabled(points.size() <= 3);
+        if (ui::button("Remove last point", "Remove the last vertex from the unapplied polygon.")) {
+            points.pop_back();
+            collision_dirty_ = true;
+        }
+        FORGE_UI_PROBE("tile_set:collision_remove");
+        ImGui::EndDisabled();
+    }
+    void contour_fields() {
+        ImGui::TextWrapped(
+            "Up to 4 separate solid contours with up to 4 holes each. "
+            "All loops use counterclockwise XY points. Holes must stay strictly "
+            "inside their contour; boundaries must not touch. Apply validates the complete shape.");
+        if (ImGui::BeginCombo("Contour", std::to_string(collision_contour_ + 1).c_str())) {
+            for (std::size_t i = 0; i < collision_contours_draft_.size(); ++i) {
+                if (ImGui::Selectable(std::to_string(i + 1).c_str(), collision_contour_ == i)) {
+                    collision_contour_ = i;
+                    collision_loop_ = 0;
+                }
+                FORGE_UI_PROBE("tile_set:contour:" + std::to_string(i));
+            }
+            ImGui::EndCombo();
+        }
+        FORGE_UI_PROBE("tile_set:contour");
+        ImGui::BeginDisabled(collision_contours_draft_.size() >= tile_collision_contour_limit);
+        if (ui::button("Add contour",
+                       "Append a solid island; edit its points to avoid other filled areas.")) {
+            collision_contours_draft_.push_back(
+                {{{.375, .375}, {.625, .375}, {.625, .625}, {.375, .625}}, {}});
+            collision_contour_ = collision_contours_draft_.size() - 1;
+            collision_loop_ = 0;
+            collision_dirty_ = true;
+        }
+        FORGE_UI_PROBE("tile_set:contour_add");
+        ImGui::EndDisabled();
+        ImGui::BeginDisabled(collision_contours_draft_.size() <= 1);
+        if (ui::button("Remove contour",
+                       "Remove the selected contour and its holes from this draft.")) {
+            collision_contours_draft_.erase(collision_contours_draft_.begin() + collision_contour_);
+            collision_contour_ = collision_loop_ = 0;
+            collision_dirty_ = true;
+        }
+        FORGE_UI_PROBE("tile_set:contour_remove");
+        ImGui::EndDisabled();
+        auto& region = collision_contours_draft_.at(collision_contour_);
+        const auto loop_label =
+            collision_loop_ ? "Hole " + std::to_string(collision_loop_) : "Outer boundary";
+        if (ImGui::BeginCombo("Loop", loop_label.c_str())) {
+            for (std::size_t i = 0; i <= region.holes.size(); ++i) {
+                const auto label = i ? "Hole " + std::to_string(i) : "Outer boundary";
+                if (ImGui::Selectable(label.c_str(), collision_loop_ == i))
+                    collision_loop_ = i;
+                FORGE_UI_PROBE("tile_set:contour_loop:" + std::to_string(i));
+            }
+            ImGui::EndCombo();
+        }
+        FORGE_UI_PROBE("tile_set:contour_loop");
+        ImGui::BeginDisabled(region.holes.size() >= tile_collision_hole_limit);
+        if (ui::button(
+                "Add hole",
+                "Append a central void; edit its points to stay inside the outer boundary.")) {
+            region.holes.push_back({{.25, .25}, {.75, .25}, {.75, .75}, {.25, .75}});
+            collision_loop_ = region.holes.size();
+            collision_dirty_ = true;
+        }
+        FORGE_UI_PROBE("tile_set:hole_add");
+        ImGui::EndDisabled();
+        ImGui::BeginDisabled(collision_loop_ == 0);
+        if (ui::button("Remove hole", "Remove the selected hole from this draft.")) {
+            region.holes.erase(region.holes.begin() + collision_loop_ - 1);
+            collision_loop_ = 0;
+            collision_dirty_ = true;
+        }
+        FORGE_UI_PROBE("tile_set:hole_remove");
+        ImGui::EndDisabled();
+        collision_point_fields(collision_loop_ ? region.holes.at(collision_loop_ - 1)
+                                               : region.points);
+    }
     void collision_fields(const TileSetDefinition& tile) {
         if (collision_tile_ != tile.id || collision_revision_ != document_->revision()) {
             collision_draft_ = tile.collision;
+            collision_contours_draft_ = tile.collision.contours
+                                            ? tile.collision.contours->contours
+                                            : std::vector<TileCollisionContour>{};
+            collision_contour_ = collision_loop_ = 0;
             collision_tile_ = tile.id;
             collision_revision_ = document_->revision();
             collision_dirty_ = false;
         }
         ImGui::SeparatorText("Tile collision");
-        const char* labels[]{"Full cell", "None", "Convex polygon", "Polygon (decomposed)"};
+        const char* labels[]{"Full cell", "None", "Convex polygon", "Polygon (decomposed)",
+                             "Contours / holes"};
         if (ImGui::BeginCombo("Shape", labels[unsigned(collision_draft_.kind)])) {
             for (unsigned i = 0; i < std::size(labels); ++i) {
                 if (ImGui::Selectable(labels[i], unsigned(collision_draft_.kind) == i)) {
                     collision_draft_.kind = TileCollisionKind(i);
-                    if (i >= 2 && collision_draft_.points.empty())
+                    if (i == 4 && collision_contours_draft_.empty())
+                        collision_contours_draft_.push_back({{{0, 0}, {1, 0}, {1, 1}, {0, 1}}, {}});
+                    if ((i == 2 || i == 3) && collision_draft_.points.empty())
                         collision_draft_.points = {{0, 0}, {1, 0}, {1, 1}};
                     collision_dirty_ = true;
                 }
@@ -830,79 +991,11 @@ class TileSetEditor {
             ImGui::EndCombo();
         }
         FORGE_UI_PROBE("tile_set:collision_kind");
-        if (collision_draft_.kind == TileCollisionKind::Convex ||
-            collision_draft_.kind == TileCollisionKind::Polygon) {
-            ImGui::TextWrapped("Local XY: X right, Y up, from 0 to 1. Enter 3 to 8 points "
-                               "counterclockwise. Press Enter to finish each coordinate edit.");
-            const float side =
-                std::min(160.f * ui::interface_scale, ImGui::GetContentRegionAvail().x);
-            const auto origin = ImGui::GetCursorScreenPos();
-            auto* draw = ImGui::GetWindowDrawList();
-            const auto point = [&](const std::array<double, 2>& p) {
-                return ImVec2{origin.x + float(p[0]) * side, origin.y + (1 - float(p[1])) * side};
-            };
-            draw->AddRect(origin, {origin.x + side, origin.y + side}, IM_COL32(100, 110, 120, 255));
-            for (std::size_t i = 0; i < collision_draft_.points.size(); ++i) {
-                const auto valid = [](const auto& p) {
-                    return std::all_of(p.begin(), p.end(), [](double v) {
-                        return std::isfinite(v) && v >= 0 && v <= 1;
-                    });
-                };
-                if (!valid(collision_draft_.points[i]) ||
-                    !valid(collision_draft_.points[(i + 1) % collision_draft_.points.size()]))
-                    continue;
-                const auto a = point(collision_draft_.points[i]);
-                const auto b =
-                    point(collision_draft_.points[(i + 1) % collision_draft_.points.size()]);
-                draw->AddLine(a, b, IM_COL32(90, 210, 245, 255), 2);
-                draw->AddCircleFilled(a, 3, IM_COL32(245, 210, 90, 255));
-                draw->AddText({a.x + 4, a.y + 3}, IM_COL32_WHITE, std::to_string(i + 1).c_str());
-            }
-            ImGui::Dummy({side, side + 16 * ui::interface_scale});
-            if (ImGui::BeginTable("Collision points", 3, ImGuiTableFlags_SizingStretchProp)) {
-                ImGui::TableSetupColumn("Point", ImGuiTableColumnFlags_WidthFixed,
-                                        40 * ui::interface_scale);
-                ImGui::TableSetupColumn("X");
-                ImGui::TableSetupColumn("Y");
-                ImGui::TableHeadersRow();
-                for (std::size_t i = 0; i < collision_draft_.points.size(); ++i) {
-                    ImGui::PushID(int(i));
-                    ImGui::TableNextRow();
-                    ImGui::TableNextColumn();
-                    ImGui::Text("%u", unsigned(i + 1));
-                    for (unsigned axis = 0; axis < 2; ++axis) {
-                        ImGui::TableNextColumn();
-                        ImGui::SetNextItemWidth(-1);
-                        auto value = collision_draft_.points[i][axis];
-                        if (ImGui::InputDouble(axis ? "##Y" : "##X", &value, 0, 0, "%.4f",
-                                               ImGuiInputTextFlags_EnterReturnsTrue)) {
-                            collision_draft_.points[i][axis] = value;
-                            collision_dirty_ = true;
-                        }
-                        FORGE_UI_PROBE("tile_set:collision_point:" + std::to_string(i) +
-                                       (axis ? ":y" : ":x"));
-                    }
-                    ImGui::PopID();
-                }
-                ImGui::EndTable();
-            }
-            ImGui::BeginDisabled(collision_draft_.points.size() >= tile_collision_vertex_limit);
-            if (ui::button("Add point", "Append a point on the closing edge, then move it off that "
-                                        "edge before Apply.")) {
-                const auto a = collision_draft_.points.back(), b = collision_draft_.points.front();
-                collision_draft_.points.push_back({(a[0] + b[0]) / 2, (a[1] + b[1]) / 2});
-                collision_dirty_ = true;
-            }
-            FORGE_UI_PROBE("tile_set:collision_add");
-            ImGui::EndDisabled();
-            ImGui::BeginDisabled(collision_draft_.points.size() <= 3);
-            if (ui::button("Remove last point",
-                           "Remove the last vertex from the unapplied polygon.")) {
-                collision_draft_.points.pop_back();
-                collision_dirty_ = true;
-            }
-            FORGE_UI_PROBE("tile_set:collision_remove");
-            ImGui::EndDisabled();
+        if (collision_draft_.kind == TileCollisionKind::Contours) {
+            contour_fields();
+        } else if (collision_draft_.kind == TileCollisionKind::Convex ||
+                   collision_draft_.kind == TileCollisionKind::Polygon) {
+            collision_point_fields(collision_draft_.points);
         }
         ImGui::BeginDisabled(!collision_dirty_);
         if (ui::button("Apply collision",
@@ -913,13 +1006,20 @@ class TileSetEditor {
                 profile.points.clear();
             mutate("Change tile collision", [&](auto& source) {
                 TileSetSource candidate{source};
-                candidate.set_collision(tile.id, tile_detail::tile_collision_json(profile));
+                candidate.set_collision(tile.id, profile.kind == TileCollisionKind::Contours
+                                                     ? tile_detail::tile_collision_contours_json(
+                                                           collision_contours_draft_)
+                                                     : tile_detail::tile_collision_json(profile));
                 source = std::move(candidate.document);
             });
         }
         FORGE_UI_PROBE("tile_set:collision_apply");
         if (ui::button("Discard collision edits", "Keep the applied source profile.")) {
             collision_draft_ = tile.collision;
+            collision_contours_draft_ = tile.collision.contours
+                                            ? tile.collision.contours->contours
+                                            : std::vector<TileCollisionContour>{};
+            collision_contour_ = collision_loop_ = 0;
             collision_dirty_ = false;
             error_.clear();
         }

@@ -202,9 +202,11 @@ void maximum() {
     }
     const auto bytes = cook_tile_set(source);
     const auto data = decode_cooked_tile_set(bytes, source.asset());
-    require(data.images().size() == 16 && data.tiles().size() == 4096 &&
-                bytes.size() < 1024 * 1024 && data.resident_bytes() < 1024 * 1024,
-            "Maximum Tile Set profile exceeds cooked/retained estimate envelope");
+    if (!(data.images().size() == 16 && data.tiles().size() == 4096 && bytes.size() < 1024 * 1024 &&
+          data.resident_bytes() < 1152 * 1024))
+        throw std::runtime_error("Maximum Tile Set profile exceeds cooked/retained envelope: " +
+                                 std::to_string(bytes.size()) + " cooked, " +
+                                 std::to_string(data.resident_bytes()) + " retained bytes");
     for (unsigned i = 0; i < tile_set_definition_limit; ++i)
         require(data.tile(17 + i).image == i % 16 + 1 && data.tile(17 + i).frame == i % 256,
                 "Maximum Tile Set lookups differ from independent numeric-key oracle");

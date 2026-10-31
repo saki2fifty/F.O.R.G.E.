@@ -4233,6 +4233,58 @@
       "type": "scene"
     },
     {
+      "dependencies": [
+        "cd8aad7c-0d7b-4092-a533-6d46fcf0bfd6"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "build",
+          "revision": "79508fb8909636330fb804ab0cdb9077fb11ac8c25ce21611ef4e44461c10ed0",
+          "role": "tile_map.tile_set",
+          "target": "cd8aad7c-0d7b-4092-a533-6d46fcf0bfd6",
+          "type": "tile_set"
+        },
+        {
+          "kind": "runtime",
+          "revision": "79508fb8909636330fb804ab0cdb9077fb11ac8c25ce21611ef4e44461c10ed0",
+          "role": "tile_map.tile_set",
+          "target": "cd8aad7c-0d7b-4092-a533-6d46fcf0bfd6",
+          "type": "tile_set"
+        }
+      ],
+      "id": "4c124ae1-bff5-4d52-b7cd-cea44678e614",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "d09fb67fbb4b02ea3741e55f85b832ff2ed6cd8e74647cca1038cd0353d29bc4",
+          "backend": "none",
+          "dependency_digest": "3b5081cb864ebad632278082332e01f3f2b68aaf77954d7f125a8d6e2c6eaf48",
+          "generation": 1,
+          "importer": "forge.tilemap",
+          "importer_revision": "319fd524fa824ec5b253a32fef09f1e028709b7a11df0e70487636736a4c0c0b",
+          "key": "dfcde4e7e76cac6a88661d81cd950a1d33d2d67344a674801d1a1ee0e2c46339",
+          "output_format": "forge.tile-map-cooked",
+          "output_version": 1,
+          "platform": "linux",
+          "profile": "cpu",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "6b6bf09fba58c541baba04d353a54754e46f1ec571c38c68d2457806a8fd7631",
+          "source_digest": "ff09c8250f0897b86991e88afcf7866034d9a4623cfd4632028e5dd01d24be89",
+          "version": 1
+        },
+        "forge.tile_map": {
+          "bytes": 360,
+          "file": "tilemap.bin",
+          "sha256": "b1347e9bd2554e5b0aff49384daec83e4593c071e70356a4244e83a35b70a605",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Tiles/ContourTiles.tilemap.json",
+      "source_dependencies": [],
+      "type": "tile_map"
+    },
+    {
       "dependencies": [],
       "dependency_edges": [],
       "id": "4c86d5b0-76eb-4d07-a5ab-8d1aee961d3d",
@@ -7484,6 +7536,35 @@
       "type": "navmesh"
     },
     {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "8873d0ff-7567-4802-99c0-a1e3b77c778c",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "02e71adc9073a65a6a570456435c5ab518e5397ee165cdaf9b2b589b36d0a30b",
+          "backend": "none",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.texture.image",
+          "importer_revision": "a72711a84ab8aba2fcd68c6e2ac7fa005f4b3e86dcae32d1b171e06b00773837",
+          "key": "7785438b67a2b645cb8414d5d302fc53a5ab08029f22f8bcbc1e458353c8adb1",
+          "output_format": "forge.texture-bundle",
+          "output_version": 1,
+          "platform": "linux",
+          "profile": "cpu",
+          "settings_digest": "6e500d6e7e08e5b11f498e154d26275d6288d83ed4b295b9c56c95d747c76521",
+          "settings_version": 1,
+          "sidecar_digest": "6f5b9049cf658af8d9f05049e799e36c20375aec2d9055d45c6904ce0c376beb",
+          "source_digest": "81625336cf466045977d3adc3e1233137537edd32b4bc350f43db6b4a5e3af79",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Tiles/ContourTiles.png",
+      "source_dependencies": [],
+      "type": "texture"
+    },
+    {
       "dependencies": [
         "e7a40664-a742-4d12-a29f-236aa703ba7c"
       ],
@@ -9770,6 +9851,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "ca73e628-15fc-4b3c-b246-2af9852eefb8",
+      "metadata": {},
+      "schema_version": 5,
+      "source": "Scenes/123-tile-collision-contours.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "cb50dced-5d4b-4e7f-9d06-f13fa65ea8fc",
       "metadata": {
         "forge.import": {
@@ -9805,6 +9896,58 @@
       "source": "Scenes/67-animated-material-values.scene.json",
       "source_dependencies": [],
       "type": "scene"
+    },
+    {
+      "dependencies": [
+        "f5ec2bf3-35f3-48c1-9e2d-e0b0770fb02d"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "build",
+          "revision": "750c0654701881c4dc8f95b079d089da8b5f5ca0131beac621ae758c02eae903",
+          "role": "tile_set.material.f5ec2bf3-35f3-48c1-9e2d-e0b0770fb02d",
+          "target": "f5ec2bf3-35f3-48c1-9e2d-e0b0770fb02d",
+          "type": "material"
+        },
+        {
+          "kind": "runtime",
+          "revision": "750c0654701881c4dc8f95b079d089da8b5f5ca0131beac621ae758c02eae903",
+          "role": "tile_set.material.f5ec2bf3-35f3-48c1-9e2d-e0b0770fb02d",
+          "target": "f5ec2bf3-35f3-48c1-9e2d-e0b0770fb02d",
+          "type": "material"
+        }
+      ],
+      "id": "cd8aad7c-0d7b-4092-a533-6d46fcf0bfd6",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "427121d52502548b1c3e58cb6c1d09a6817ae6249de80cd9a23e393ec83cba20",
+          "backend": "none",
+          "dependency_digest": "5976d8b78a8d9d5b1148cafe13f2e369c2792547a3f750d1272ea29bdf1779a1",
+          "generation": 1,
+          "importer": "forge.tileset",
+          "importer_revision": "47ed186c3f9a14360958da9adbbf63a9a64294b28bd85c535911bd0539368fdd",
+          "key": "79508fb8909636330fb804ab0cdb9077fb11ac8c25ce21611ef4e44461c10ed0",
+          "output_format": "forge.tile-set-cooked",
+          "output_version": 6,
+          "platform": "linux",
+          "profile": "cpu",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "f97962548bdf1e1822584bb3b1d1b850c230fb48720b88feca917f4d42ba95de",
+          "source_digest": "47f963f0399af654a9d71ac37c2961b974c81088d890d747902d0fb5b5ec5af6",
+          "version": 1
+        },
+        "forge.tile_set": {
+          "bytes": 904,
+          "file": "tileset.bin",
+          "sha256": "1f3a85c07c2090da039181772c3bbacfcafc1de855ff93165d3602231549c6ee",
+          "version": 1
+        }
+      },
+      "schema_version": 6,
+      "source": "Assets/Tiles/ContourTiles.tileset.json",
+      "source_dependencies": [],
+      "type": "tile_set"
     },
     {
       "dependencies": [],
@@ -11283,6 +11426,52 @@
       "source": "Scenes/99-sprite-frame-filtering.scene.json",
       "source_dependencies": [],
       "type": "scene"
+    },
+    {
+      "dependencies": [
+        "8873d0ff-7567-4802-99c0-a1e3b77c778c"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "7785438b67a2b645cb8414d5d302fc53a5ab08029f22f8bcbc1e458353c8adb1",
+          "role": "material.texture:baseColorTexture",
+          "target": "8873d0ff-7567-4802-99c0-a1e3b77c778c",
+          "type": "texture"
+        }
+      ],
+      "id": "f5ec2bf3-35f3-48c1-9e2d-e0b0770fb02d",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "a446e13898fecd1a3296b3457bb086793cebc9ecc5f5d1e6a4a1e8031b975565",
+          "backend": "none",
+          "dependency_digest": "ddfe30ae9a5f9271b639ef15911fb95fb78a99eb3112921c6c8debdc339afae3",
+          "generation": 1,
+          "importer": "forge.material.builtin",
+          "importer_revision": "ce411c4c3dba9f1c80d6a4696e12f0995af81d787ed87012dc57def7a19f5c98",
+          "key": "750c0654701881c4dc8f95b079d089da8b5f5ca0131beac621ae758c02eae903",
+          "output_format": "forge.material-bundle",
+          "output_version": 2,
+          "platform": "linux",
+          "profile": "cpu",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "e5ec87f61985e9be14dcbca922fae597c5ae4789ea7cb391a6696bdf2a640874",
+          "source_digest": "50f0822b3d9f1fa34358c61f7a5b5157561eb7735dfef0a326dd687d6bc56f06",
+          "version": 1
+        },
+        "forge.material": {
+          "shader": null,
+          "textures": {
+            "baseColorTexture": "8873d0ff-7567-4802-99c0-a1e3b77c778c"
+          },
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Tiles/ContourTiles.material.json",
+      "source_dependencies": [],
+      "type": "material"
     },
     {
       "dependencies": [],
