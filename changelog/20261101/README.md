@@ -1,5 +1,28 @@
 # 2026-11-01
 
+## Navigation behavior graphs
+
+Navigation Behavior provides authored patrol, wait and target-following state
+graphs. Navigation Agent retains movement authority; each controller keeps its
+own runtime progress. Ordered elapsed, arrival, distance and missing-target
+conditions run at most one transition per fixed tick. Target and Anchor use
+ordinary Scene/prefab references. Published graphs use the existing immutable
+resource and last-good replacement system.
+
+Content opens a graph document with source-owned card positions, connections,
+priority, stable IDs, Undo/Redo, Save / Publish and attachment to a selected agent.
+Automation/MCP uses the same document and Scene owners. Live gameplay exposes
+readonly progress and enabled-only tuning. Source-free export includes the cooked
+graph; Gallery 131 and 132 provide ready patrol/chase examples. The illustrated
+manual explains creation, controls, testing and export.
+
+Public C++ modules can inspect the behavior/cursor PODs and resource kind8; the C
+host table and dependency pins remain unchanged. Modules need the matching SDK.
+Process recovery requires current graph selections and does not serialize durable
+game saves. The bounded profile supports 32 states, 128 transitions, 64 controllers
+and eight configured graph assets per Scene. Windows/full-editor and physical GPU
+acceptance remain pending; this local work does not create a numbered package.
+
 ## Moving navigation obstacles
 
 Navigation Obstacle adds an authored cylinder in 3D or circle in XY. An explicit

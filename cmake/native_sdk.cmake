@@ -20,7 +20,7 @@ if(FORGE_ENABLE_NATIVE_SDK AND NOT CMAKE_BUILD_TYPE MATCHES "^(Release|Debug|Rel
 endif()
 string(TOUPPER "${CMAKE_BUILD_TYPE}" _forge_config)
 # One explicit installed value boundary drives installation and compatibility hashing.
-set(FORGE_SDK_HEADERS native_sdk.h sdk_client.hpp identity.hpp asset_ref.hpp physics_components.hpp character_components.hpp audio_components.hpp animation_components.hpp navigation_components.hpp ui_components.hpp render_components.hpp reflection_probe.hpp decal.hpp sprite_frames.hpp material_parameter.hpp transform_components.hpp model_asset.hpp engine_assets.hpp engine_texture_assets.hpp texture_dimension.hpp primitive_catalog.hpp)
+set(FORGE_SDK_HEADERS native_sdk.h sdk_client.hpp identity.hpp asset_ref.hpp physics_components.hpp character_components.hpp audio_components.hpp animation_components.hpp navigation_components.hpp navigation_behavior_components.hpp ui_components.hpp render_components.hpp reflection_probe.hpp decal.hpp sprite_frames.hpp material_parameter.hpp transform_components.hpp model_asset.hpp engine_assets.hpp engine_texture_assets.hpp texture_dimension.hpp primitive_catalog.hpp)
 set(FORGE_SDK_CONTRACT_HASHES "")
 foreach(header IN LISTS FORGE_SDK_HEADERS)
  set(path "${PROJECT_SOURCE_DIR}/include/forge/${header}")
@@ -38,7 +38,10 @@ foreach(header IN LISTS FORGE_SDK_HEADERS)
  string(APPEND FORGE_SDK_CONTRACT_HASHES "${header}:${hash};")
 endforeach()
 # Exact bridge and value-support semantics are part of this private SDK contract.
-foreach(source cmake/box2d_snapshot_guards.cmake include/forge/animation_property.hpp src/native_sdk.cpp src/runtime_entity_creation.cpp src/runtime_entity_creation.hpp src/runtime_resources.cpp src/runtime_tile_map.cpp src/runtime_tile_map.hpp src/tile_map_data.cpp src/tile_map_data.hpp src/tile_map_variants.hpp src/tile_map_variants.cpp src/tile_map_values.hpp src/tile_set_data.cpp src/tile_set_data.hpp src/tile_set_values.hpp src/tile_polygon_decomposition.hpp src/tile_polygon_contours.hpp src/tile_animation.hpp src/tile_neighbors.hpp src/tile_grid.hpp src/identity.cpp src/authored_schema.cpp src/authored_schema.hpp src/authored_component.cpp src/authored_component.hpp src/authored_generation.cpp src/authored_generation.hpp src/json_value_equal.hpp src/reflected_value.hpp src/reflected_string.hpp src/reconstructed_meta.hpp src/reflected_extensions.hpp src/reflected_value.cpp src/reflected_native.cpp src/reconstructed_meta.cpp src/reflected_extensions.cpp)
+foreach(source
+ include/forge/runtime_resource_service.hpp include/forge/navigation_behavior.hpp
+ src/navigation_behavior.cpp src/navigation_behavior_resource.hpp src/navigation_behavior_admission.hpp
+ cmake/box2d_snapshot_guards.cmake include/forge/animation_property.hpp src/native_sdk.cpp src/runtime_entity_creation.cpp src/runtime_entity_creation.hpp src/runtime_resources.cpp src/runtime_tile_map.cpp src/runtime_tile_map.hpp src/tile_map_data.cpp src/tile_map_data.hpp src/tile_map_variants.hpp src/tile_map_variants.cpp src/tile_map_values.hpp src/tile_set_data.cpp src/tile_set_data.hpp src/tile_set_values.hpp src/tile_polygon_decomposition.hpp src/tile_polygon_contours.hpp src/tile_animation.hpp src/tile_neighbors.hpp src/tile_grid.hpp src/identity.cpp src/authored_schema.cpp src/authored_schema.hpp src/authored_component.cpp src/authored_component.hpp src/authored_generation.cpp src/authored_generation.hpp src/json_value_equal.hpp src/reflected_value.hpp src/reflected_string.hpp src/reconstructed_meta.hpp src/reflected_extensions.hpp src/reflected_value.cpp src/reflected_native.cpp src/reconstructed_meta.cpp src/reflected_extensions.cpp)
  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/${source}")
  file(SHA256 "${PROJECT_SOURCE_DIR}/${source}" hash)
  string(APPEND FORGE_SDK_CONTRACT_HASHES "${source}:${hash};")

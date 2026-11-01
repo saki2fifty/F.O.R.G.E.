@@ -70,6 +70,7 @@
 #include "model_imports.hpp"
 #include "model_viewer.hpp"
 #include "navigation_automation.hpp"
+#include "navigation_behavior_editor.hpp"
 #include "navigation_tools.hpp"
 #include "orientation.hpp"
 #include "particle_effect_editor.hpp"
@@ -1057,6 +1058,7 @@ int main(int argc, char** argv) {
         prefab_editor.tile_map_layer = component_inspector.tile_map_layer;
         forge::ui::ViewImageTask view_image; // Retires before its borrowed Timeline owner.
         forge::AnimationStatesEditor animation_states;
+        forge::NavigationBehaviorEditor navigation_behavior;
         forge::AnimationMaskEditor animation_mask;
         forge::ParticleEffectEditor particle_editor;
         std::unique_ptr<forge::ParticleEffectPreview> particle_preview;
@@ -1315,6 +1317,11 @@ int main(int argc, char** argv) {
                               [](auto& c, const auto& p, const auto&) {
                                   forge::prepare_animation_states_publication(c, p);
                               }});
+            routes.push_back({"forge.navigation.behavior", forge::desktop_texture_target(),
+                              forge::navigation_behavior_import_registry(),
+                              [](auto& c, const auto& p, const auto&) {
+                                  forge::prepare_navigation_behavior_publication(c, p);
+                              }});
             routes.push_back({"forge.animation.blend-space", forge::desktop_texture_target(),
                               forge::animation_blend_space_import_registry(),
                               [](auto& c, const auto& p, const auto&) {
@@ -1444,6 +1451,9 @@ int main(int argc, char** argv) {
             } else if (kind == "animation_states") {
                 if (open)
                     animation_states.open(files.document, path);
+            } else if (kind == "navigation_behavior") {
+                if (open)
+                    navigation_behavior.open(files.document, path);
             } else if (kind == "transform_animation") {
                 if (open)
                     animation_timeline.open(files.document, path);
@@ -1782,6 +1792,28 @@ int main(int argc, char** argv) {
             {"animation_mask", "Open animation mask", [&](const forge::AssetRecord& asset) {
                  animation_mask.open(files.document, asset.source);
              }});
+        documents.add({"navigation_behavior",
+                       "Navigation Behavior",
+                       "Navigation Behavior###Navigation Behavior",
+                       true,
+                       [&] { return navigation_behavior.is_open(); },
+                       [&] { return navigation_behavior.dirty(); },
+                       [&] {
+                           navigation_behavior.draw(files.document, scene,
+                                                    asset_document_locked || play.active());
+                       },
+                       [&] { navigation_behavior.request_save(); },
+                       [&] { navigation_behavior.undo(); },
+                       [&] { navigation_behavior.redo(); },
+                       [&] { navigation_behavior.request_close(); },
+                       [&] { return navigation_behavior.can_undo(); },
+                       [&] { return navigation_behavior.can_redo(); },
+                       {},
+                       [&] { return std::exchange(navigation_behavior.close_cancelled, false); }});
+        asset_editors.add({"navigation_behavior", "Open navigation behavior",
+                           [&](const forge::AssetRecord& asset) {
+                               navigation_behavior.open(files.document, asset.source);
+                           }});
         documents.add({"animation_states",
                        "Animation States",
                        "Animation States###Animation States",
@@ -2166,6 +2198,8 @@ int main(int argc, char** argv) {
             "tile_map", forge::AssetDocumentAutomation::bind(tile_map_editor, files.document));
         documents.bind_source("animation_states", forge::AssetDocumentAutomation::bind(
                                                       animation_states, files.document));
+        documents.bind_source("navigation_behavior", forge::AssetDocumentAutomation::bind(
+                                                         navigation_behavior, files.document));
         documents.bind_source("animation_blend_space", forge::AssetDocumentAutomation::bind(
                                                            animation_blend_space, files.document));
         documents.bind_source("animation_mask",
@@ -5326,6 +5360,14 @@ int main(int argc, char** argv) {
                     play.model_assets_changed();
                     content.refresh(files);
                 }
+                navigation_behavior.poll(files.document, message);
+                if (auto catalog = navigation_behavior.take_catalog()) {
+                    content_imports.catalog_changed(catalog);
+                    if (mesh_resources)
+                        mesh_resources->catalog(catalog);
+                    play.model_assets_changed();
+                    content.refresh(files);
+                }
                 animation_blend_space.poll(files.document, message);
                 if (auto catalog = animation_blend_space.take_catalog()) {
                     animation_preview.stop_preview();
@@ -6533,6 +6575,7 @@ int main(int argc, char** argv) {
                         tile_map_editor.content(files.document, edit_locked);
                         editable_mesh_editor.content(files.document, edit_locked);
                         animation_states.content(files.document, edit_locked);
+                        navigation_behavior.content(files.document, edit_locked);
                         animation_mask.content(files.document, edit_locked);
                         animation_blend_space.content(files.document, edit_locked);
                         animation_timeline.content(files.document, scene, edit_locked);

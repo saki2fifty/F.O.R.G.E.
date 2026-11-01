@@ -1,6 +1,7 @@
 #pragma once
 #include "source_document_automation.hpp"
 #include <forge/material_graph.hpp>
+#include <forge/navigation_behavior.hpp>
 
 namespace forge {
 inline std::vector<LiveAuthoringMethod>
@@ -33,6 +34,65 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
          {"flags", automation_integer(0, UINT32_MAX)}},
         {"layer", "x", "y"});
     std::vector<LiveAuthoringMethod> methods;
+    methods.push_back(automation_method(
+        "asset.behavior.catalog",
+        "Describe the bounded Navigation Behavior graph schema, actions, conditions, identity and "
+        "transition policy. Create/read/patch/publish with the navigation_behavior source editor; "
+        "configure its graph/target/anchor/enabled through the reflected Scene component.",
+        "asset.read", automation_object(), false, [](const Json&) {
+            Json actions = Json::array(), conditions = Json::array();
+            for (auto kind : {NavigationBehaviorAction::Wait, NavigationBehaviorAction::MoveToPoint,
+                              NavigationBehaviorAction::FollowTarget}) {
+                const auto name = navigation_behavior_action_name(kind);
+                Json row{{"kind", name}, {"example", {{"kind", name}}}};
+                if (kind == NavigationBehaviorAction::MoveToPoint) {
+                    row["example"]["point"] = Json::array({0, 0, 0});
+                    row["coordinates"] = "Three numbers in [-4096,4096]; world or Anchor-local. XY "
+                                         "navigation ignores point Z.";
+                }
+                actions.push_back(std::move(row));
+            }
+            for (auto kind :
+                 {NavigationBehaviorCondition::Elapsed, NavigationBehaviorCondition::Arrived,
+                  NavigationBehaviorCondition::TargetNear, NavigationBehaviorCondition::TargetFar,
+                  NavigationBehaviorCondition::TargetMissing}) {
+                const auto name = navigation_behavior_condition_name(kind);
+                Json row{{"kind", name}, {"example", {{"kind", name}}}};
+                if (kind == NavigationBehaviorCondition::Elapsed) {
+                    row["example"]["seconds"] = 1;
+                    row["maximum"] = 3600;
+                }
+                if (kind == NavigationBehaviorCondition::TargetNear ||
+                    kind == NavigationBehaviorCondition::TargetFar) {
+                    row["example"]["distance"] = 2;
+                    row["maximum"] = 8192;
+                }
+                conditions.push_back(std::move(row));
+            }
+            return Json{
+                {"format", "forge.navigation-behavior"},
+                {"version", 1},
+                {"editor", "navigation_behavior"},
+                {"component", "forge.navigation_behavior"},
+                {"actions", std::move(actions)},
+                {"conditions", std::move(conditions)},
+                {"transition_example",
+                 {{"id", 3}, {"to", 2}, {"condition", {{"kind", "elapsed"}, {"seconds", 1}}}}},
+                {"limits",
+                 {{"states", 32},
+                  {"transitions", 128},
+                  {"outgoing", 8},
+                  {"source_bytes", navigation_behavior_byte_limit}}},
+                {"identity", "Positive uint32 state and transition IDs share next_id; allocate "
+                             "then advance next_id. Undo never recycles IDs."},
+                {"evaluation",
+                 "Outgoing array order is priority; first match, at most one transition per "
+                 "positive fixed tick. Elapsed resets on entry. Missing target makes near/far "
+                 "false; test target_missing explicitly."},
+                {"prerequisites", "Navigation Agent and a published navigation asset. Target and "
+                                  "Anchor are ordinary typed EntityRefs. Cursor is runtime-only; "
+                                  "observe it through Play presentation."}};
+        }));
     methods.push_back(automation_method(
         "asset.graph.catalog",
         "List the existing material graph node schemas and help from the editor's native catalog.",

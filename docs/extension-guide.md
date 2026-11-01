@@ -266,6 +266,33 @@ Timeline guide in the combined editor manual. Rebuild modules with the matching 
 
 ## Cooked resources in gameplay
 
+### Navigation Behavior
+
+The installed value header `forge/navigation_behavior_components.hpp` declares
+NavigationBehavior (graph, target, anchor, enabled) and the runtime-only
+NavigationBehaviorCursor (state, last_transition, elapsed, transitions). Bind them
+to `forge.navigation_behavior` and `forge.runtime.navigation_behavior_cursor` in
+the shared Flecs world. Cursor progress does not inherit from templates and is
+not an authored Scene/Prefab field or a durable save-game payload.
+
+NavigationAgent remains the movement owner. A graph's actions only supply its
+destination intent. Native code may read the cursor or update ordinary behavior
+configuration at its declared fixed boundary. The engine-side graph parser is
+not installed as an SDK implementation library.
+
+Use `FORGE_SDK_RESOURCE_NAVIGATION_BEHAVIOR` (kind8) with the existing Resources
+request/inspect/release callbacks to retain a CPU graph subscription. Request the
+Navigation and Resources capabilities; inspect readiness and requested/retained
+revisions before claiming a replacement. Tokens are scoped to the module/world;
+they are not asset IDs or saved pointers. Releasing one token leaves other
+subscriptions and copied engine leases intact. The C host table layout is unchanged;
+rebuild against the exact matching SDK as usual. The installed
+`navigation_behavior_gameplay` example checks the public layouts, reads realized
+progress and observes a kind8 subscription through the checked host callbacks.
+
+Graph creation and editing are described in the FORGE user manual's Navigation
+Behavior chapter. Game modules do not need to reimplement graph evaluation.
+
 ### Tile Map cells (development)
 
 An authored `TileMapRenderer` realizes an independent runtime map instance. Use

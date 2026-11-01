@@ -136,6 +136,32 @@ void exercise(float scale, ImVec2 size) {
         for (const auto& name : progress)
             (void)visible_live_item(frame, name);
     }
+    (*entity)["components"] = Json::object();
+    entity->erase("navigation_debug");
+    for (const char* phase : {"Pending", "Running", "Disabled", "Failed"}) {
+        const bool failed = std::string_view(phase) == "Failed";
+        (*entity)["navigation_behavior_debug"] = {
+            {"phase", phase},
+            {"state", 2},
+            {"state_name", "Patrol"},
+            {"elapsed", .25},
+            {"transitions", 4},
+            {"last_transition", 7},
+            {"tick", 42},
+            {"diagnostic", failed ? "Anchor is unavailable" : ""},
+            {"retained_last_good", failed},
+            {"resource_diagnostic", "Replacement rejected"}};
+        check(ComponentInspector::has_runtime_inspection(effective, schema, actor),
+              "Behavior-only progress was hidden");
+        frame();
+        frame();
+        check(test::ui_targets.contains("navigation_behavior:phase") &&
+                  test::ui_targets.contains("navigation_behavior:state") &&
+                  test::ui_targets.contains("navigation_behavior:diagnostic") == failed &&
+                  test::ui_targets.contains("navigation_behavior:last_good") == failed,
+              "Behavior progress/diagnostic visibility is incorrect");
+        (void)visible_live_item(frame, "navigation_behavior:state");
+    }
     check(submissions == 0 && scene.document() == saved,
           "Readonly progress submitted/mutated authored values");
     ImGui::DestroyContext();
@@ -203,7 +229,8 @@ void exercise_agent_live(float scale, ImVec2 size) {
         inspector.draw_runtime(
             scene.effective_document(), schema, {}, actor,
             [&](const auto& type, const auto& property, const auto& value) {
-                check(type == "forge.navigation_agent", "Unexpected live agent type");
+                check(type == "forge.navigation_agent" || type == "forge.navigation_behavior",
+                      "Unexpected live navigation type");
                 navigation->tune(reference, type, property, value);
                 ++submissions;
                 return true;
@@ -227,6 +254,27 @@ void exercise_agent_live(float scale, ImVec2 size) {
               scene.entity(actor).get<NavigationAgent>().destination_x == -4.5 &&
               navigation->agent_state(reference)->tick == 0,
           "Actual live agent field did not tune without advancing simulation");
+    authoring_command(scene, "component.add",
+                      {{"entity", actor}, {"component", "forge.navigation_behavior"}});
+    frame();
+    frame();
+    for (const char* field : {"graph", "target", "anchor"})
+        check(!test::ui_targets.contains(std::string("runtime-field:forge.navigation_behavior:") +
+                                         field),
+              "Live behavior exposes reference/identity replacement");
+    const auto enabled =
+        visible_live_item(frame, "runtime-field:forge.navigation_behavior:enabled");
+    io.AddMousePosEvent(enabled.minimum.x + 8, (enabled.minimum.y + enabled.maximum.y) * .5f);
+    frame();
+    io.AddMouseButtonEvent(ImGuiMouseButton_Left, true);
+    frame();
+    io.AddMouseButtonEvent(ImGuiMouseButton_Left, false);
+    frame();
+    check(submissions == 3 && !scene.entity(actor).get<NavigationBehavior>().enabled,
+          "Actual live behavior checkbox did not use the navigation owner");
+    check(scene.undo() && !scene.entity(actor).has<NavigationBehavior>() &&
+              scene.entity(actor).has<NavigationAgent>(),
+          "Live behavior tuning created authored history");
     check(scene.undo() && !scene.entity(actor).has<NavigationAgent>(),
           "Live agent tuning created an authored history entry");
     test::observe_ui = false;

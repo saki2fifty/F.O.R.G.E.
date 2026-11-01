@@ -1,7 +1,7 @@
 #include "animation_states_authoring.hpp"
-#include "animation_states_layout.hpp"
 #include "animation_states_resource.hpp"
 #include "runtime_package.hpp"
+#include "state_graph_layout.hpp"
 #include <forge/runtime.hpp>
 #include <fstream>
 #include <iostream>

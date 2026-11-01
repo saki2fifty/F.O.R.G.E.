@@ -9,6 +9,7 @@ class NavigationRuntime final : public NavigationService {
     void bind(Scene*);  // RuntimeSimulation owns this bounded borrow.
     void synchronize(); // Capture geometry at a writable fixed-tick boundary.
     void tick(float dt, std::uint64_t tick);
+    bool prepare_assets(); // Unpublished-world readiness; never advances behavior clocks.
     NavResult project_point(AssetRef<NavMeshAsset>, Double3) override;
     NavResult find_path(AssetRef<NavMeshAsset>, Double3, Double3) override;
     std::optional<NavigationAgentObservation> agent_state(EntityRef) const override;
@@ -16,6 +17,9 @@ class NavigationRuntime final : public NavigationService {
     Json tune(EntityRef, const std::string& type, const std::string& property, const Json& value);
     Json tune_avoidance(EntityRef, const std::string& property, const Json& value);
     Json debug(flecs::entity_t) const;
+    Json debug_behavior(flecs::entity_t) const;
+    // Optional recovery is null while behavior resources are pending or retained
+    // from a superseded selection. Invalid configuration/boundaries still throw.
     Json checkpoint();
     // Restore only into an unpublished candidate world; discard that world on failure.
     void restore(const Json&);

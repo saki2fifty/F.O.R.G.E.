@@ -6,20 +6,23 @@
 #include <nlohmann/json.hpp>
 #include <set>
 #include <stdexcept>
+#include <string_view>
 namespace forge::asset_detail {
 // Optional source-owned editor metadata. State IDs remain the only node identity.
-inline bool has_state_graph_layout(const nlohmann::json& source) {
+inline bool has_state_graph_layout(const nlohmann::json& source,
+                                   std::string_view format = "forge.animation-state-layout") {
     const auto at = source.find("editor_layout");
     return at != source.end() && at->is_object() && at->contains("format") &&
-           at->at("format") == "forge.animation-state-layout";
+           at->at("format") == format;
 }
-inline void validate_state_graph_layout(const nlohmann::json& source) {
-    if (!has_state_graph_layout(source))
+inline void validate_state_graph_layout(const nlohmann::json& source,
+                                        std::string_view format = "forge.animation-state-layout") {
+    if (!has_state_graph_layout(source, format))
         return; // Preserve an unrecognized extension without interpreting it.
     const auto& layout = source.at("editor_layout");
     if (layout.at("version") != 1 || !layout.at("positions").is_array() ||
         layout.at("positions").size() > 32)
-        throw std::runtime_error("Unsupported animation state graph layout or too many positions");
+        throw std::runtime_error("Unsupported state graph layout or too many positions");
     std::set<std::uint32_t> states, positions;
     for (const auto& row : source.at("states"))
         states.insert(row.at("id").get<std::uint32_t>());
@@ -42,21 +45,23 @@ inline void validate_state_graph_layout(const nlohmann::json& source) {
         }
     }
 }
-inline std::array<double, 2> state_graph_position(const nlohmann::json& source, std::uint32_t state,
-                                                  std::size_t ordinal) {
-    if (has_state_graph_layout(source))
+inline std::array<double, 2>
+state_graph_position(const nlohmann::json& source, std::uint32_t state, std::size_t ordinal,
+                     std::string_view format = "forge.animation-state-layout") {
+    if (has_state_graph_layout(source, format))
         for (const auto& row : source.at("editor_layout").at("positions"))
             if (row.at("state") == state)
                 return {row.at("x").get<double>(), row.at("y").get<double>()};
     return {double(ordinal % 4) * 300, double(ordinal / 4) * 150};
 }
 inline void set_state_graph_position(nlohmann::json& source, std::uint32_t state,
-                                     std::array<double, 2> position) {
-    if (source.contains("editor_layout") && !has_state_graph_layout(source))
+                                     std::array<double, 2> position,
+                                     std::string_view format = "forge.animation-state-layout") {
+    if (source.contains("editor_layout") && !has_state_graph_layout(source, format))
         throw std::runtime_error(
             "Rename the opaque editor_layout extension before editing graph positions");
     if (!source.contains("editor_layout"))
-        source["editor_layout"] = {{"format", "forge.animation-state-layout"},
+        source["editor_layout"] = {{"format", std::string(format)},
                                    {"version", 1},
                                    {"positions", nlohmann::json::array()}};
     auto& rows = source["editor_layout"]["positions"];
@@ -68,8 +73,9 @@ inline void set_state_graph_position(nlohmann::json& source, std::uint32_t state
         }
     rows.push_back({{"state", state}, {"x", position[0]}, {"y", position[1]}});
 }
-inline void remove_state_graph_position(nlohmann::json& source, std::uint32_t state) {
-    if (has_state_graph_layout(source))
+inline void remove_state_graph_position(nlohmann::json& source, std::uint32_t state,
+                                        std::string_view format = "forge.animation-state-layout") {
+    if (has_state_graph_layout(source, format))
         std::erase_if(source["editor_layout"]["positions"].get_ref<nlohmann::json::array_t&>(),
                       [&](const auto& row) { return row.at("state") == state; });
 }

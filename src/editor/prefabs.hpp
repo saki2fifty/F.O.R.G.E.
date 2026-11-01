@@ -14,6 +14,8 @@ inline const char* prefab_component_label(const std::string& key) {
         return "Navigation Agent";
     if (key == "forge.navigation_obstacle")
         return "Navigation Obstacle";
+    if (key == "forge.navigation_behavior")
+        return "Navigation Behavior";
     if (key == "forge.navigation_avoidance")
         return "Navigation Avoidance";
     if (key == "forge.navigation_surface")

@@ -44,6 +44,38 @@ class ComponentInspector {
         if (!status.value("blend_clip", Json()).is_null())
             ImGui::Text("Clip mix: %.1f%%", status.value("blend_weight", 0.) * 100);
     }
+    void draw_navigation_behavior(const Json& status) {
+        if (!status.is_object())
+            return;
+        ui::heading("Navigation behavior", "Read-only behavior progress from the fixed simulation. "
+                                           "Navigation Agent owns movement.");
+        ImGui::TextWrapped("Behavior: %s", status.value("phase", std::string("Pending")).c_str());
+        FORGE_UI_PROBE("navigation_behavior:phase");
+        const auto state = status.value("state", std::uint32_t{});
+        if (state) {
+            ImGui::TextWrapped("State: %s (ID %u)",
+                               status.value("state_name", std::string{}).c_str(), state);
+            FORGE_UI_PROBE("navigation_behavior:state");
+            const auto elapsed = status.value("elapsed", Json{});
+            if (elapsed.is_number())
+                ImGui::Text("Elapsed: %.3f seconds", elapsed.get<double>());
+            ImGui::Text(
+                "Transitions: %llu | Last ID: %u",
+                static_cast<unsigned long long>(status.value("transitions", std::uint64_t{})),
+                status.value("last_transition", std::uint32_t{}));
+        }
+        if (const auto error = status.value("diagnostic", std::string{}); !error.empty()) {
+            ImGui::TextWrapped("Details: %s", error.c_str());
+            FORGE_UI_PROBE("navigation_behavior:diagnostic");
+        }
+        if (status.value("retained_last_good", false)) {
+            ImGui::TextWrapped("Using the last good graph: %s",
+                               status.value("resource_diagnostic", std::string{}).c_str());
+            FORGE_UI_PROBE("navigation_behavior:last_good");
+        }
+        ImGui::Text("Behavior tick: %llu",
+                    static_cast<unsigned long long>(status.value("tick", std::uint64_t{})));
+    }
     void draw_navigation_state(const Json& status) {
         if (!status.is_object())
             return;
@@ -211,7 +243,10 @@ class ComponentInspector {
             return false;
         for (const auto& row : effective.at("entities"))
             if (row.is_object() && row.value("id", "") == selected)
-                return row.contains("navigation_debug") && row.at("navigation_debug").is_object();
+                return (row.contains("navigation_debug") &&
+                        row.at("navigation_debug").is_object()) ||
+                       (row.contains("navigation_behavior_debug") &&
+                        row.at("navigation_behavior_debug").is_object());
         return false;
     }
     void edit_property(Scene& scene, const std::string& entity, const std::string& component,
@@ -265,7 +300,8 @@ class ComponentInspector {
         if (!entity || !entity->contains("components") ||
             (!has_runtime_fields(effective, schema, selected) &&
              !(show_playback && entity->contains("animation_playback")) &&
-             !entity->contains("navigation_debug") && !character_selected))
+             !entity->contains("navigation_debug") &&
+             !entity->contains("navigation_behavior_debug") && !character_selected))
             return;
         // Live fields coexist with the read-only authored Inspector below. Keep their
         // ImGui IDs distinct so activating one cannot collide with its authored peer.
@@ -288,6 +324,8 @@ class ComponentInspector {
             draw_animation_playback(entity->at("animation_playback"));
         if (entity->contains("navigation_debug"))
             draw_navigation_state(entity->at("navigation_debug"));
+        if (entity->contains("navigation_behavior_debug"))
+            draw_navigation_behavior(entity->at("navigation_behavior_debug"));
         if (character_selected)
             draw_character_state(physics.at("character_debug"));
         for (const auto& type : schema.at("components")) {

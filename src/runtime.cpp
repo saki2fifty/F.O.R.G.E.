@@ -524,6 +524,9 @@ Json RuntimeSimulation::presentation(double alpha) const {
             auto nav = navigation_->debug(entity);
             if (!nav.is_null())
                 item["navigation_debug"] = std::move(nav);
+            auto behavior = navigation_->debug_behavior(entity);
+            if (!behavior.is_null())
+                item["navigation_behavior_debug"] = std::move(behavior);
         }
         if (animation_) {
             const auto node = context_.world().entity(entity);

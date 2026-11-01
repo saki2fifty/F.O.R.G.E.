@@ -1,0 +1,323 @@
+{
+  "asset_id": "f0fa5e11-4161-4731-aeb4-a2a0e308d2e0",
+  "entities": [
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 1.0,
+          "z": 0.0
+        },
+        "forge.navigation_region_2d": {
+          "enabled": true,
+          "height": 14.0,
+          "obstacle": false,
+          "width": 20.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.tint": {
+          "b": 0.699999988079071,
+          "g": 0.6000000238418579,
+          "r": 0.20000000298023224
+        }
+      },
+      "id": "a28ce9ac-1a9f-4208-b56a-c25c94ce540a",
+      "name": "Walkable XY region",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.7071067690849304,
+          "x": 0.7071067690849304,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 20.0,
+          "y": 1.0,
+          "z": 14.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 2.0
+        },
+        "forge.primitive": {
+          "kind": 3
+        },
+        "forge.tint": {
+          "b": 0.14000000059604645,
+          "g": 0.09000000357627869,
+          "r": 0.05000000074505806
+        }
+      },
+      "id": "ad9874d6-8bf1-4fd1-b8e3-c3de4dcc8266",
+      "name": "XY floor visual",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -2.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.navigation_agent": {
+          "destination_x": 0.0,
+          "destination_y": 0.0,
+          "destination_z": 0.0,
+          "enabled": true,
+          "has_destination": false,
+          "navmesh": "7d438c7f-1766-4594-a9bd-9aae1a40b150",
+          "speed": 2.0,
+          "stopping_distance": 0.05999999865889549
+        },
+        "forge.navigation_behavior": {
+          "anchor": null,
+          "enabled": true,
+          "graph": "0e8bf32b-6dc3-4488-86d7-dff1ea149f68",
+          "target": {
+            "entity": "e693d3ec-19e4-43e4-aa29-54f5b8962dbb",
+            "scene": "f0fa5e11-4161-4731-aeb4-a2a0e308d2e0"
+          }
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.tint": {
+          "b": 0.699999988079071,
+          "g": 0.6000000238418579,
+          "r": 0.20000000298023224
+        }
+      },
+      "id": "30601c60-f101-4a24-950d-1fcf5c248e55",
+      "name": "Chaser - inspect behavior and target",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.699999988079071,
+          "y": 0.699999988079071,
+          "z": 0.699999988079071
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 1.0,
+          "g": 0.800000011920929,
+          "r": 0.07999999821186066
+        }
+      },
+      "id": "c5f52ace-ae72-4418-8f82-d7f975967507",
+      "name": "Agent visual",
+      "parent": "30601c60-f101-4a24-950d-1fcf5c248e55",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.699999988079071,
+          "y": 0.699999988079071,
+          "z": 0.699999988079071
+        },
+        "forge.local_translation": {
+          "x": 2.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 1
+        },
+        "forge.tint": {
+          "b": 0.07999999821186066,
+          "g": 0.3499999940395355,
+          "r": 1.0
+        },
+        "forge.transform_animator": {
+          "clip": "770fc599-e964-4352-89eb-7ac393e5a1a5",
+          "enabled": true,
+          "loop": true,
+          "play_on_start": true,
+          "playback_speed": 1.0,
+          "sequence": null,
+          "sequence_start_seconds": 0.0
+        }
+      },
+      "id": "e693d3ec-19e4-43e4-aa29-54f5b8962dbb",
+      "name": "Animated target - edit its clip",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 1.7777777777777777,
+          "background_a": 1.0,
+          "background_b": 0.029999999329447746,
+          "background_g": 0.02500000037252903,
+          "background_r": 0.019999999552965164,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 1000.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 17.0,
+          "orthographic_width": 0.0,
+          "projection": 1,
+          "vertical_fov": 1.0471975511965976,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": -20.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.tint": {
+          "b": 0.699999988079071,
+          "g": 0.6000000238418579,
+          "r": 0.20000000298023224
+        }
+      },
+      "id": "94c03b58-8760-456e-9dcd-822e0e3467a3",
+      "name": "Overview Camera",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.light": {
+          "basis": 0,
+          "cast_shadows": false,
+          "color_b": 1.0,
+          "color_g": 1.0,
+          "color_r": 1.0,
+          "emitter_height": 1.0,
+          "emitter_radius": 0.5,
+          "emitter_width": 1.0,
+          "enabled": true,
+          "image_height": 1.0,
+          "image_tiled": false,
+          "image_width": 1.0,
+          "inner_cone": 0.0,
+          "intensity": 1.0,
+          "kind": 0,
+          "layers": 4294967295,
+          "outer_cone": 0.7853981633974483,
+          "range": 0.0,
+          "shadow_angular_radius": 0.0,
+          "shadow_bias": 0.0010000000474974513,
+          "shadow_normal_bias": 0.019999999552965164,
+          "shadow_source_radius": 0.0,
+          "texture": null
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 1.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.tint": {
+          "b": 0.699999988079071,
+          "g": 0.6000000238418579,
+          "r": 0.20000000298023224
+        }
+      },
+      "id": "4fa36b9a-691f-4ec6-90af-204ccbdf1b91",
+      "name": "Sunlight",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    }
+  ],
+  "version": 3
+}

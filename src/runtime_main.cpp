@@ -36,6 +36,23 @@ void prepare_physics(forge::PhysicsRuntime& physics) {
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
 }
+void prepare_navigation(forge::RuntimeWorld& runtime) {
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(60);
+    const auto services = runtime.engine.services();
+    if (!services.available(forge::Capability::Navigation))
+        return;
+    const auto navigation =
+        std::static_pointer_cast<forge::NavigationRuntime>(services.navigation());
+    for (;;) {
+        if (services.available(forge::Capability::Resources))
+            services.resources()->synchronize();
+        if (navigation->prepare_assets())
+            return;
+        if (std::chrono::steady_clock::now() >= deadline)
+            throw std::runtime_error("Runtime navigation preparation timed out");
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+}
 void prepare_tile_maps(forge::RuntimeWorld& runtime, const forge::Json* checkpoint = nullptr) {
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(60);
     auto& context = runtime.engine.world();
@@ -292,6 +309,9 @@ int main(int argc, char** argv) {
             checkpoint["navigation"] = std::static_pointer_cast<forge::NavigationRuntime>(
                                            runtime->engine.world().services().navigation())
                                            ->checkpoint();
+            if (checkpoint["navigation"].is_null())
+                return forge::Json(); // Pending/current-revision admission forbids partial
+                                      // recovery.
             checkpoint["integrity"] = integrity(checkpoint);
             if (checkpoint.dump().size() > 8 * 1024 * 1024)
                 throw std::runtime_error("Recovery checkpoint exceeds 8 MiB");
@@ -458,6 +478,9 @@ int main(int argc, char** argv) {
                             prepare_physics(*candidate->physics());
                             candidate->physics()->synchronize(0);
                             replacement_phase("replace-physics-ready");
+                            replacement_phase("replace-navigation-begin");
+                            prepare_navigation(*candidate);
+                            replacement_phase("replace-navigation-ready");
                         }
                         candidate->simulation.restore_input_tick(recovered_tick);
                         candidate->simulation.reset_presentation();

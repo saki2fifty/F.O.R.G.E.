@@ -1133,3 +1133,26 @@ work based on fb0947d with dynamic-navigation implementation. SHA256:
 editor-owner fixture, not a launched Windows editor or physical display/GPU/DPI
 acceptance. CPU source-free Gallery tests verify routes and render submissions;
 this image does not claim graphical standalone execution.
+
+
+## Navigation behavior graph and Game captures
+
+Captured from local development based on f1c9ed2 with the bounded navigation
+behavior implementation. The canonical images are in manual/images; other guides
+link to those assets rather than maintaining edited copies.
+
+| Asset | Capture source | SHA-256 |
+| --- | --- | --- |
+| navigation-behavior-graph.png | navigation_behavior_editor_tests --capture; real document owner, original published Patrol graph and real edge selection, SDL software ImGui renderer,1180×1040 | 76aada2117303fb854edd441b1558b46e0bfcc47aaac136ea3d841e46a5909f3 |
+| navigation-behavior-patrol.png | navigation_behavior_gallery_vulkan_probe; Gallery131, actual Game frame at tick90,640×360 | 32c3a97d403e2f7b1ea9bc8e2d894e8b63cdb77e51ad85ed615de712ff6fac0c |
+| navigation-behavior-chase.png | same native consumer; Gallery132, actual Game frame at tick90,640×360 | e656555c4646897194b6211d6df3801ad502a672148b7073e81f38addc25a895 |
+
+The Game consumer uses Diligent/Vulkan on llvmpipe LLVM15.0.7/API1.3.255.
+It verifies actual movement and eight exact authored/source-free relocated display
+pairs, including portrait framing. PNG conversion preserves the original readback
+RGB pixels; controls and image contents are not retouched. The document and Game
+captures were personally inspected. This is software-backend evidence, not
+physical GPU, Windows, full editor or exported graphical EXE acceptance. Windows
+review remains queued. Exact input/capture evidence is retained in the local
+navigation-behavior batch record. Offline manual layout and package inclusion are
+qualified separately at the batch gate.

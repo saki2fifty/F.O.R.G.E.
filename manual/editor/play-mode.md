@@ -6,6 +6,10 @@ Play runs a copy of your scene in a separate runtime process. Your editor scene 
 
 Live gameplay fields affect the running copy. Use Keep values after Stop when you want to save selected changes.
 
+For a [Navigation Behavior](navigation-behavior.md), Live gameplay shows graph
+progress separately from the agent's route. Its **Enabled** checkbox holds or
+resumes the graph; Graph, Target and Anchor are edited after Stop.
+
 Play becomes available after the initial source scan and queued asset imports finish. If scene preparation rejects an incompatible mesh or animation revision, FORGE reports the error and keeps the previous active scene instead of waiting indefinitely.
 
 ## Play, Pause, Step, Resume, and Stop

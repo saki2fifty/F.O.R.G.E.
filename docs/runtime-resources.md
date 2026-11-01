@@ -232,7 +232,8 @@ validate the same selected model family; custom shader compatibility is not bypa
 
 ## Runtime SDK resource provider
 
-`forge.resources` composes the existing cooked Mesh/Material/Texture/Shader
+`forge.resources` composes the existing cooked Mesh/Material/Texture/Shader,
+Tile Set/Map and Navigation Behavior
 providers into a world-scoped CPU service. `RuntimeResourceService` is the internal
 source interface; the exact SDK receives copied statuses through checked host
 callbacks. Each subscription holds an actual typed strong lease, independently
@@ -240,10 +241,12 @@ of the current request ticket. Failed replacement therefore preserves the prior
 revision, and a newly admitted revision replaces that subscription's lease only
 at the owner synchronization boundary.
 
-The development provider uses six pools with one preparation worker,
+The development provider uses six ordinary pools with one preparation worker,
 64in-flight requests and256asset slots each. Mesh/Material/Texture/Shader each
-retain their128MiB CPU budget; Tile Set has16MiB and Tile Map64MiB, for592MiB
-aggregate retained CPU budgets. The latter bounds are deliberate: the Linux GCC12
+retain their128MiB CPU budget; Tile Set has16MiB and Tile Map64MiB. Navigation
+Behavior adds a lazy one-worker pool with eight requests/eight slots and1MiB;
+it starts no worker without graph demand. Aggregate retained CPU budgets are593MiB.
+The Tile bounds are deliberate: the Linux GCC12
 maximum-profile estimates are759440bytes per Set and16892104bytes for an explicitly
 fully dense Map. Normal Map subscriptions use complete sparse logical backing;
 unchanged chunks stay shared and runtime edits may add dense COW chunks. Both
@@ -253,6 +256,12 @@ process RSS or GPU budgets; preparation scratch remains separate. Collision
 resources remain owned by Physics. Subscriptions are bounded to
 256per world and64per exact SDK module. Releasing a subscription releases its
 pin; the ordinary pool cache can retain selected bytes until eviction or close.
+Navigation Behavior unloads its cache slot after the last matching subscription
+releases it; copied strong leases and other subscribers remain valid until provider
+shutdown. Its readonly typed getter follows the same retained-lease boundary as
+mesh(). See [Navigation behavior](navigation-behavior.md) for graph admission and
+refresh/reset semantics. Kind8 is exposed through the existing checked SDK resource
+request/inspect/release callbacks; the C host table layout is unchanged.
 CPU readiness does not represent GPU upload, dependency-complete material draws,
 or shader pipeline readiness. No Diligent object crosses this contract.
 Texture subscriptions retain an explicit optional color/data/normal/HDR variant;

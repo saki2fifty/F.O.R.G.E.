@@ -1,5 +1,5 @@
-#include "animation_states_layout.hpp"
 #include "bounded_json.hpp"
+#include "state_graph_layout.hpp"
 #include <algorithm>
 #include <cmath>
 #include <forge/animation_states.hpp>
@@ -178,7 +178,8 @@ AnimationStates AnimationStatesSource::compiled() const {
                                  {s.at("clip").get<AssetId>()},
                                  s.at("loop"),
                                  s.at("speed"),
-                                 s.at("transition_seconds")});
+                                 s.at("transition_seconds"),
+                                 {}});
         if (s.contains("markers"))
             for (const auto& marker : s.at("markers"))
                 result.states.back().markers.push_back({number(marker.at("id")), marker.at("name"),

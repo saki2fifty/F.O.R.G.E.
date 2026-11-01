@@ -5,6 +5,21 @@ The accepted local Windows package is **261024-000213**, source
 in the [README](../README.md#current-implementation). No new numbered Windows
 package accompanies the local source changes described here.
 
+Local source also provides bounded authored Navigation Behavior graphs for patrol,
+wait and target following. The editor, automation/MCP and ordinary Scene/prefab
+references share the existing source and component owners. Each controller keeps
+its own progress while Navigation Agent owns movement. Gallery131/132 include
+published graphs, baked navigation, an animated chase target and source-free export
+content. Public behavior/cursor PODs and resource kind8 require the matching SDK;
+the C host table and dependency pins remain unchanged. Runtime, editor, prefab,
+MCP, relocated SDK, software-Vulkan and manual/package checks pass. All 22 selected
+strict units and nine actual consumer links pass; all nine instrumented consumers
+exit cleanly with leak detection enabled and no suppressions. Remaining units,
+dependencies and separate workers are normal. Windows/full-editor/physical review
+remains pending. See
+[the technical contract](navigation-behavior.md) and
+[the usage guide](../manual/editor/navigation-behavior.md).
+
 Local source adds camera-driven decoded Tile chunk residency. Scene and Game
 supply their actual views to the shared resource owner; identical pages coalesce,
 unused demand releases at collection, and complete old Map/image selections remain

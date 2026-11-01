@@ -1,5 +1,12 @@
 # Explore the Feature Gallery
 
+**131-patrol-behavior** shows two agents sharing a patrol-and-wait graph with
+independent progress. One uses an Anchor to offset its route. **132-chase-behavior-xy**
+shows a cyan agent watching and following an animated orange target using near/far
+conditions. Open their `.behavior.json` assets in Content to edit the state graph;
+select an agent during Play to inspect its progress. Both examples are ready to
+export without a C++ module. See [Navigation behaviors](../editor/navigation-behavior.md).
+
 **129-moving-navigation-3d** and **130-moving-navigation-xy** show an orange
 animated obstacle and a cyan agent. Play to see the agent change its route as the
 obstacle leaves its way, then reach the yellow destination marker. Select the

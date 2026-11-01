@@ -95,6 +95,9 @@ bool RuntimeWorld::prepare_scene_resources() {
     if (!prepare_audio_sources())
         return false;
     const auto services = engine.services();
+    if (services.available(Capability::Navigation) &&
+        !std::static_pointer_cast<NavigationRuntime>(services.navigation())->prepare_assets())
+        return false;
     // Probe each enabled navigation dependency using the existing loader
     // and geometry-revision validation. Being off the mesh is not a load
     // failure. The Flecs iteration locks its table; capture the first

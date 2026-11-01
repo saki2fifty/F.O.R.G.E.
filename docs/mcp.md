@@ -266,7 +266,12 @@ and their suffixes. `template` exposes each existing owner's initial source shap
 `create` allocates the ordinary fresh asset identity, and `open` borrows that
 editor's current document. These tools never create a parallel draft or history.
 Material, material graph, collision, editable mesh, particle, terrain, Tile Set,
-Tile Map, Sprite atlas, animation states/blend space/mask and transform animation are bound.
+Tile Map, Sprite atlas, animation states/blend space/mask, transform animation and
+Navigation Behavior are bound. `forge_asset_behavior_catalog` describes the native
+behavior actions/conditions, finite limits, row shape, monotonic shared state/edge
+IDs and first-match transition policy. Use editor `navigation_behavior` and the
+ordinary template/create/read/patch/history/save/close tools. Its component's
+graph/target/anchor/enabled fields use the existing reflected Scene authoring tools.
 
 Material graph templates and creation accept `editor:"material.graph"` with
 `domain:"mesh"` (default) or `domain:"sprite"`. Both call the same native factories
@@ -561,6 +566,14 @@ reason. Honor phase/sampled/has_path before interpreting position,
 projected_destination and velocity; a live edit can return Pending before its
 next fixed tick. Read-only snapshots never create another navigation/error owner.
 
+`navigation_behavior_debug` is a separate copied observation: phase, graph,
+state/name, elapsed, last_transition/count, tick, diagnostics and requested/retained
+resource revisions. It does not expose a second mutable progress database.
+`forge_play_tune` accepts `forge.navigation_behavior.enabled` through the same
+navigation owner and grant/generation checks. Graph and EntityRef replacement
+require authored editing after Stop. Source graph editing uses the shared source
+session/revision/history/publication owner and remains locked while Play is active.
+
 Navigation Agent tuning uses `forge_play_tune` with component
 `forge.navigation_agent` and property enabled, has_destination, speed,
 stopping_distance or destination_x/y/z. Pause to submit several coordinate values
@@ -789,13 +802,15 @@ atlas template/create/patch/history/publication, maximum uint32 keys and retaine
 allocation highwater. It uses real editor and fixed worker owners with asset
 read/write grants; read-only discovery excludes mutations.
 
-`mcp_source_stdio` exercises all 13 real source editor owners, graph schema/port
+`mcp_source_stdio` exercises all 14 real source editor owners, graph schema/port
 discovery, document sessions/revisions, source Undo/Redo, failed identity edits,
 copy-on-write tile painting, saved-state dirtiness, native publication, typed
 import setting atomicity, source disk conflicts, prefab source publication and
 recoverable two-file Apply Undo/Redo through both MCP protocol envelopes. It
 publishes Material, Collision, Editable Mesh, Particle Effect, Terrain, Tile Set,
-Sprite atlas, transform-animation and image/WAV/FLAC/MP3 candidates through their real owners. Rig-dependent
+Sprite atlas, transform-animation, Navigation Behavior and image/WAV/FLAC/MP3 candidates through their real owners. Behavior checks include valid patrol rows,
+invalid destinations/conditions/identities, monotonic allocation through Undo and
+native publication. Rig-dependent
 animation sources are exercised for draft validation/history; graph shader
 compilation is not claimed by this fixture. It drives ImGui frames without a GPU
 window; graph shader compilation and native

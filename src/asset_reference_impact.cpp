@@ -1,10 +1,10 @@
 #include "asset_reference_impact.hpp"
-#include "animation_states_layout.hpp"
 #include "asset_bytes.hpp"
 #include "asset_storage.hpp"
 #include "bounded_json.hpp"
 #include "prefab_references.hpp"
 #include "sprite_atlas_recipe.hpp"
+#include "state_graph_layout.hpp"
 #include "tile_asset_types.hpp"
 #include "tile_map_source.hpp"
 #include "tile_set_source.hpp"
@@ -13,6 +13,7 @@
 #include <forge/animation_mask.hpp>
 #include <forge/animation_states.hpp>
 #include <forge/material_source.hpp>
+#include <forge/navigation_behavior.hpp>
 #include <forge/particle_effect_source.hpp>
 #include <forge/scene_render_settings.hpp>
 #include <forge/terrain_source.hpp>
@@ -323,6 +324,46 @@ struct Inspect {
                 if (key != "format" && key != "version" && key != "asset_id" && key != "skeleton" &&
                     key != "default_weight" && key != "entries")
                     unknown(key);
+            }
+        } else if (doc.value("format", std::string{}) == "forge.navigation-behavior") {
+            NavigationBehaviorSource{doc}.validate();
+            // Graph rows use numeric IDs. Scene target/anchor references belong to
+            // the reflected component, never to this asset's recognized fields.
+            opaque_fields(doc, {"format", "version", "asset_id", "entry", "next_id", "states",
+                                "editor_layout"});
+            for (const auto& s : doc.at("states")) {
+                const auto scope = "states." + std::to_string(s.at("id").get<std::uint32_t>());
+                opaque_fields(s, {"id", "name", "action", "transitions"}, scope);
+                const auto& action = s.at("action");
+                if (action.at("kind") == "move_to_point")
+                    opaque_fields(action, {"kind", "point"}, scope + ".action");
+                else
+                    opaque_fields(action, {"kind"}, scope + ".action");
+                for (const auto& e : s.at("transitions")) {
+                    const auto edge =
+                        scope + ".transitions." + std::to_string(e.at("id").get<std::uint32_t>());
+                    opaque_fields(e, {"id", "to", "condition"}, edge);
+                    const auto& condition = e.at("condition");
+                    if (condition.at("kind") == "elapsed")
+                        opaque_fields(condition, {"kind", "seconds"}, edge + ".condition");
+                    else if (condition.at("kind") == "target_near" ||
+                             condition.at("kind") == "target_far")
+                        opaque_fields(condition, {"kind", "distance"}, edge + ".condition");
+                    else
+                        opaque_fields(condition, {"kind"}, edge + ".condition");
+                }
+            }
+            if (doc.contains("editor_layout")) {
+                if (!asset_detail::has_state_graph_layout(doc, navigation_behavior_layout_format))
+                    unknown("editor_layout");
+                else {
+                    const auto& layout = doc.at("editor_layout");
+                    opaque_fields(layout, {"format", "version", "positions"}, "editor_layout");
+                    for (const auto& row : layout.at("positions"))
+                        opaque_fields(row, {"state", "x", "y"},
+                                      "editor_layout.positions." +
+                                          std::to_string(row.at("state").get<std::uint32_t>()));
+                }
             }
         } else if (doc.value("format", std::string{}) == "forge.animation-states") {
             AnimationStatesSource{doc}.validate();

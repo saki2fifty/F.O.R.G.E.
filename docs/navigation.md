@@ -65,8 +65,9 @@ remove old footprints and add new ones; the local query generation invalidates c
 agent routes even for paused agents whose settings/position did not change. Failed native
 updates retire the derivative; a later valid snapshot reconstructs it. Recovery rebuilds
 routes from current Scene poses and exact asset revisions, without persisting native tile
-references or cache state. The explicit live-tuning whitelist remains agent/avoidance
-only.
+references or cache state. Dynamic-obstacle geometry is excluded from live tuning.
+Agent/avoidance values and a Navigation Behavior's enabled flag use the explicit
+shared whitelist below.
 
 The finite profile uses 32 × 32-cell tiles, at most 64 heightfield layers, four per
 coordinate, eight enabled obstacles and eight touched layers per inflated obstacle.
@@ -275,12 +276,14 @@ MCP reads the same runtime snapshot/diagnostics through existing Play permission
 
 ## Live agent tuning
 
-NavigationRuntime::tune owns temporary NavigationAgent and NavigationAvoidance
+NavigationRuntime::tune owns temporary NavigationAgent, NavigationAvoidance and
+enabled-only NavigationBehavior
 edits; tune_avoidance remains a compatibility wrapper. RuntimePropertyTune provides
 one shared type/property predicate for the runtime, live Inspector and frozen
 keep-values review. Agent fields are enabled, has_destination, speed,
 stopping_distance and destination_x/y/z. The NavMesh AssetRef, bake sources and
-geometry are excluded. No source/asset/SDK header or checkpoint format changes.
+geometry are excluded. Behavior graph/target/anchor are excluded too. Live tuning
+does not change an asset or checkpoint format.
 
 Both ordinary and SDK Play hosts retain their generation/scene/entity/role/thread/
 writability checks and dispatch through that owner. A copied candidate uses the

@@ -5,65 +5,17 @@
 #include "document.hpp"
 #include "editor_state.hpp"
 #include "property_drawer.hpp"
+#include "source_document_panel.hpp"
 #include <forge/authoring.hpp>
 #include <functional>
 namespace forge {
-class AnimationStatesEditor {
+class AnimationStatesEditor : public SourceDocumentPanel<AnimationStatesDocumentTraits> {
     friend struct AssetDocumentAutomation;
 
   public:
-    bool close_cancelled = false;
-    bool is_open() const { return bool(document_) || open_error_; }
-    bool pending() const { return job_ != 0; }
-    bool dirty() const {
-        return document_ &&
-               (document_->dirty() || graph_.draft_dirty() || needs_publish_ || pending());
-    }
-    bool can_undo() const {
-        return document_ && !pending() && (graph_.draft_dirty() || document_->can_undo());
-    }
-    bool can_redo() const {
-        return document_ && !pending() && !graph_.draft_dirty() && document_->can_redo();
-    }
-    const AnimationStatesDocument* document() const { return document_.get(); }
-    std::shared_ptr<const AssetCatalog> take_catalog() { return std::exchange(published_, {}); }
-    void request_save() { save_ = true; }
-    void request_close() {
-        if (document_)
-            graph_.flush(graph_edit());
-        close_ = true;
-        if (!dirty())
-            finish_close();
-    }
-    void undo() {
-        if (graph_.draft_dirty()) {
-            graph_.cancel();
-            return;
-        }
-        if (can_undo()) {
-            document_->undo();
-            changed();
-        }
-    }
-    void redo() {
-        if (can_redo()) {
-            document_->redo();
-            changed();
-        }
-    }
-    void open(SceneDocument& project, const std::filesystem::path& source) {
-        if (dirty()) {
-            next_source_ = source;
-            request_close();
-            return;
-        }
-        try {
-            load(project, source);
-        } catch (const std::exception& e) {
-            error_ = e.what();
-            open_error_ = true;
-        }
-    }
+    AnimationStatesEditor()
+        : SourceDocumentPanel("Animation states", animation_states_import_registry,
+                              prepare_animation_states_publication, desktop_texture_target()) {}
     void content(SceneDocument& project, bool locked) {
         ImGui::BeginDisabled(locked || dirty());
         if (ui::button("New animation states...", "Create a named clip set controlled by C++."))
@@ -93,36 +45,6 @@ class AnimationStatesEditor {
             if (!error_.empty())
                 ui::field_error(error_);
             ImGui::EndPopup();
-        }
-    }
-    void poll(SceneDocument& project, std::string& message) {
-        if (document_ && document_->project() != project.project()) {
-            finish_close();
-            next_source_.reset();
-        }
-        if (service_)
-            for (auto& result : service_->poll()) {
-                if (result.job.id != job_)
-                    continue;
-                job_ = 0;
-                if (result.published) {
-                    published_ = std::make_shared<const AssetCatalog>(result.publication->catalog);
-                    catalog_ = published_;
-                    refresh_owner();
-                    needs_publish_ = false;
-                    error_.clear();
-                    message = "Animation states saved and published.";
-                } else {
-                    needs_publish_ = true;
-                    close_ = false;
-                    error_ = result.diagnostic;
-                }
-            }
-        if (close_ && !dirty())
-            finish_close();
-        if (!document_ && next_source_) {
-            auto source = std::exchange(next_source_, {});
-            open(project, *source);
         }
     }
     void draw(SceneDocument& project, Scene& scene, bool locked,
@@ -309,54 +231,28 @@ class AnimationStatesEditor {
     }
 
   private:
-    std::unique_ptr<AnimationStatesDocument> document_;
-    std::unique_ptr<AssetImportService> service_;
-    std::shared_ptr<const AssetCatalog> catalog_, published_;
     AnimationStateGraph graph_;
     std::optional<AssetId> owner_;
-    std::optional<std::filesystem::path> next_source_;
-    AssetJobId job_ = 0;
-    bool needs_publish_ = false, save_ = false, close_ = false, open_error_ = false;
     std::uint32_t selected_ = 0, marker_selected_ = 0;
     char marker_name_[65]{};
     Json new_clip_ = nullptr;
     char path_[256] = "Assets/Character.states.json", name_[65]{};
-    std::string error_;
-    void finish_close() {
+    bool gesture_dirty() const override { return graph_.draft_dirty(); }
+    void cancel_gesture() override { graph_.cancel(); }
+    bool flush_gesture() override { return graph_.flush(graph_edit()); }
+    void view_closed() override {
         graph_.reset();
-        document_.reset();
-        service_.reset();
-        catalog_.reset();
         owner_ = AssetId{};
         new_clip_ = nullptr;
-        job_ = 0;
         selected_ = marker_selected_ = 0;
-        needs_publish_ = save_ = close_ = open_error_ = false;
     }
-    void load(SceneDocument& project, const std::filesystem::path& source) {
-        auto doc = std::make_unique<AnimationStatesDocument>(project.writer_guard(), source);
-        auto catalog =
-            std::make_shared<const AssetCatalog>(AssetCatalog::open_project(project.project()));
-        auto service = std::make_unique<AssetImportService>(
-            project.writer_guard(), animation_states_import_registry(), desktop_texture_target());
-        const auto at = catalog->records().find(doc->source().asset());
-        const auto bytes = asset_detail::read_bytes(ProjectPaths(project.project()).resolve(source),
-                                                    animation_states_byte_limit);
-        const bool needs = at == catalog->records().end() ||
-                           !at->second.metadata.contains("forge.import") ||
-                           at->second.metadata.at("forge.import").at("source_digest") !=
-                               asset_detail::content_digest(bytes);
-        finish_close();
-        document_ = std::move(doc);
-        service_ = std::move(service);
-        catalog_ = std::move(catalog);
-        needs_publish_ = needs;
+    void source_opened() override {
         refresh_owner();
         if (!document_->source().document.at("states").empty())
             select(document_->source().document.at("states").front().at("id"));
-        error_.clear();
     }
-    void changed() {
+    void catalog_changed() override { refresh_owner(); }
+    void changed() override {
         needs_publish_ = true;
         refresh_owner();
         if (selected_)
@@ -376,17 +272,7 @@ class AnimationStatesEditor {
     AnimationStateGraph::Edit graph_edit() {
         return [this](std::uint64_t revision, std::string label,
                       const std::function<void(Json&)>& mutation) {
-            try {
-                if (!document_ || pending())
-                    return false;
-                document_->edit(revision, std::move(label), mutation);
-                changed();
-                error_.clear();
-                return true;
-            } catch (const std::exception& e) {
-                error_ = e.what();
-                return false;
-            }
+            return edit_source(revision, std::move(label), mutation);
         };
     }
     void select(std::uint32_t id) {
@@ -403,15 +289,7 @@ class AnimationStatesEditor {
         selected_ = 0;
     }
     template <class F> bool mutate(std::string label, F edit) {
-        try {
-            document_->edit(document_->revision(), std::move(label), edit);
-            changed();
-            error_.clear();
-            return true;
-        } catch (const std::exception& e) {
-            error_ = e.what();
-            return false;
-        }
+        return edit_source(document_->revision(), std::move(label), edit);
     }
     void draw_exit(const Json& draft, const Json& state) {
         const bool versioned = draft.at("version") == 2;
@@ -566,21 +444,6 @@ class AnimationStatesEditor {
                     FORGE_UI_PROBE("animation_states:remove_marker");
                     return;
                 }
-    }
-    void publish() {
-        try {
-            document_->save();
-            job_ = service_->submit(
-                service_->prepare(document_->locator(), {}, document_->source().asset()),
-                [](auto& c, const auto& p, const auto&) {
-                    prepare_animation_states_publication(c, p);
-                },
-                [](const auto&, const auto&) {});
-        } catch (const std::exception& e) {
-            needs_publish_ = true;
-            close_ = false;
-            error_ = e.what();
-        }
     }
     void attach(Scene& scene) {
         try {

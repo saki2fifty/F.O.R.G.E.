@@ -1,0 +1,35 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [],
+    "importer": "forge.navigation.behavior",
+    "importer_revision": "forge.navigation.behavior.v1",
+    "key_version": 1,
+    "output_format": "forge.navigation-behavior",
+    "output_version": 1,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {},
+    "settings_version": 1,
+    "source": "9c34e0b8168e0b2f55efa72f96146fecd9cb5e3b6ac813f5202c75fd5b2c8c1a",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.navigation-behavior.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "0e8bf32b-6dc3-4488-86d7-dff1ea149f68",
+    "source": "Assets/Navigation/Chase.behavior.json",
+    "source_digest": "9c34e0b8168e0b2f55efa72f96146fecd9cb5e3b6ac813f5202c75fd5b2c8c1a",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.navigation.behavior",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

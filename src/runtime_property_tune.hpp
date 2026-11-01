@@ -11,9 +11,12 @@ struct RuntimePropertyTune {
     EntityRef target;
     std::string type, property;
     static bool navigation_type(std::string_view type) {
-        return type == "forge.navigation_avoidance" || type == "forge.navigation_agent";
+        return type == "forge.navigation_avoidance" || type == "forge.navigation_agent" ||
+               type == "forge.navigation_behavior";
     }
     static bool navigation_property(std::string_view type, std::string_view property) {
+        if (type == "forge.navigation_behavior")
+            return property == "enabled";
         if (type == "forge.navigation_avoidance")
             return property == "enabled" || property == "horizon";
         if (type == "forge.navigation_agent")

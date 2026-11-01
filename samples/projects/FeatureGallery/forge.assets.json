@@ -763,6 +763,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "0c426876-43f2-466c-b9c9-1d1b2c5c0b7e",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/131-patrol-behavior.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "0cc18cd9-e1ed-41b6-8823-052a442b52a8",
       "metadata": {
         "forge.import": {
@@ -1052,6 +1062,41 @@
         "removed": false
       },
       "type": "material"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "0e8bf32b-6dc3-4488-86d7-dff1ea149f68",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "495df7d2de0fb22600f3522221ebb103126aeea7d601c18d78db453ecfd2c549",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 3,
+          "importer": "forge.navigation.behavior",
+          "importer_revision": "forge.navigation.behavior.v1",
+          "key": "aa19e9ebe449d06d326f3b16680ef2194f040ada96e93c925f021a3acf4ef6d3",
+          "output_format": "forge.navigation-behavior",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "60f724940ce4ad6f8349dfe66087d80a6acc2f0842ccfcc28bb556e4a0b8cb62",
+          "source_digest": "9c34e0b8168e0b2f55efa72f96146fecd9cb5e3b6ac813f5202c75fd5b2c8c1a",
+          "version": 1
+        },
+        "forge.navigation_behavior": {
+          "bytes": 530,
+          "file": "behavior.json",
+          "sha256": "c72759330b579c431a6e3946d6d8e5a8ba10dca9af097cf20b7d62da26439362",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Navigation/Chase.behavior.json",
+      "source_dependencies": [],
+      "type": "navigation_behavior"
     },
     {
       "dependencies": [],
@@ -6440,6 +6485,76 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "76244d2c-0da5-45bd-933f-278c7efcd6dc",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "4d22d1332158e9cf4b5b614694924e93d852e05feac515e399ffa293e382d3bb",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 3,
+          "importer": "forge.navigation.behavior",
+          "importer_revision": "forge.navigation.behavior.v1",
+          "key": "98883445fb77f779814bebc3b155d37b37007130edb5b0501f12580e1d189ffa",
+          "output_format": "forge.navigation-behavior",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "66e6f34d38b15247db90dfd5e83cd846f8bb28a12e3a734fff116654f5c3f166",
+          "source_digest": "a733624c6877e1c57043151c220a93e6a96679f41b40af6dfb6ff46c9bd3867c",
+          "version": 1
+        },
+        "forge.navigation_behavior": {
+          "bytes": 738,
+          "file": "behavior.json",
+          "sha256": "62b16ed5ca143f584d35077ded0373737caec86bd65710819c7a901016e1f033",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Navigation/Patrol.behavior.json",
+      "source_dependencies": [],
+      "type": "navigation_behavior"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "770fc599-e964-4352-89eb-7ac393e5a1a5",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "7a3ae65395bd687c32a02af0788e995945ad03e457bcdba49f892807285c4b64",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 3,
+          "importer": "forge.animation.transform",
+          "importer_revision": "forge.animation.transform.v12",
+          "key": "9e5913098bb956d55c65b350655d8ae05f03850253d3255feec374363b726a14",
+          "output_format": "forge.transform-clip",
+          "output_version": 9,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "59c937f40a86d11f28da58be819036ca9ade159be2366ac240c555d9451d99d4",
+          "source_digest": "91df1ce94012ccc94d1d79ceb0a854d386209ea863496c273e0a943120c817f5",
+          "version": 1
+        },
+        "forge.transform_animation": {
+          "bytes": 1013,
+          "file": "animation.clip",
+          "sha256": "e7d690c6c30b2f5d8fb493e8f5f5522358b457e48d425bb923ea4eb3868c5eb9",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Navigation/ChaseTarget.animation.json",
+      "source_dependencies": [],
+      "type": "transform_animation"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "77189ce5-4e0f-4537-af5d-eebe8e28df76",
       "metadata": {
         "forge.import": {
@@ -6729,6 +6844,65 @@
         "removed": false
       },
       "type": "model_node"
+    },
+    {
+      "dependencies": [
+        "f0fa5e11-4161-4731-aeb4-a2a0e308d2e0"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "build",
+          "revision": "d758d434206a40ff00ba5fa86dab120b3918028171f623940c9a72b7a87241cd",
+          "role": "navigation.scene",
+          "target": "f0fa5e11-4161-4731-aeb4-a2a0e308d2e0",
+          "type": "scene"
+        }
+      ],
+      "id": "7d438c7f-1766-4594-a9bd-9aae1a40b150",
+      "metadata": {
+        "asset_id": "7d438c7f-1766-4594-a9bd-9aae1a40b150",
+        "bounds": {
+          "cell_inverse": 5.0,
+          "climb": 0.4000000059604645,
+          "height": 2.0,
+          "maximum": [
+            10.0,
+            4.099999904632568,
+            8.0
+          ],
+          "minimum": [
+            -10.0,
+            -0.20000000298023224,
+            -6.0
+          ],
+          "radius": 0.4000000059604645
+        },
+        "geometry_sha256": "d758d434206a40ff00ba5fa86dab120b3918028171f623940c9a72b7a87241cd",
+        "geometry_version": 3,
+        "layout": "le-polyref32-detour7-static-single-v1",
+        "mesh_inputs": [],
+        "recast_revision": "6dc1667f580357e8a2154c28b7867bea7e8ad3a7",
+        "settings": {
+          "cell_height": 0.10000000149011612,
+          "cell_size": 0.20000000298023224,
+          "climb": 0.4000000059604645,
+          "height": 2.0,
+          "plane": 1,
+          "radius": 0.4000000059604645,
+          "slope": 45.0
+        },
+        "sha256": "a6b60c8b7d9a43613d12493a0b36454ca5b40347de9953bc04f1a84dfe3f0eb2",
+        "source_scene": "f0fa5e11-4161-4731-aeb4-a2a0e308d2e0",
+        "sources": [
+          "a28ce9ac-1a9f-4208-b56a-c25c94ce540a"
+        ],
+        "tile_sha256": "f0ea961d000e169c0c400ecfedcbfee204d7e502e74b95a8fa33bf42b0fe9600",
+        "version": 3
+      },
+      "schema_version": 3,
+      "source": "Assets/Navigation/Generated/7d438c7f-1766-4594-a9bd-9aae1a40b150/fb517773-67a5-469b-a4cd-d7a333492beb.fnav",
+      "source_dependencies": [],
+      "type": "navmesh"
     },
     {
       "dependencies": [
@@ -8383,6 +8557,64 @@
       },
       "schema_version": 4,
       "source": "Assets/Navigation/Generated/95f6a803-97d6-4be6-8b74-e46c6f4796d2/515ef79f-67bd-49bd-97d1-2bcc04c140c2.fnav",
+      "source_dependencies": [],
+      "type": "navmesh"
+    },
+    {
+      "dependencies": [
+        "0c426876-43f2-466c-b9c9-1d1b2c5c0b7e"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "build",
+          "revision": "b2cfd6bd0c3f66c010bbe28d29874d453c9ef8c122d9cea47394e364124909b8",
+          "role": "navigation.scene",
+          "target": "0c426876-43f2-466c-b9c9-1d1b2c5c0b7e",
+          "type": "scene"
+        }
+      ],
+      "id": "977c1c95-3165-462b-840a-972252e047cf",
+      "metadata": {
+        "asset_id": "977c1c95-3165-462b-840a-972252e047cf",
+        "bounds": {
+          "cell_inverse": 5.0,
+          "climb": 0.4000000059604645,
+          "height": 2.0,
+          "maximum": [
+            7.0,
+            5.099999904632568,
+            6.0
+          ],
+          "minimum": [
+            -7.0,
+            0.800000011920929,
+            -6.0
+          ],
+          "radius": 0.4000000059604645
+        },
+        "geometry_sha256": "b2cfd6bd0c3f66c010bbe28d29874d453c9ef8c122d9cea47394e364124909b8",
+        "geometry_version": 2,
+        "layout": "le-polyref32-detour7-static-single-v1",
+        "mesh_inputs": [],
+        "recast_revision": "6dc1667f580357e8a2154c28b7867bea7e8ad3a7",
+        "settings": {
+          "cell_height": 0.10000000149011612,
+          "cell_size": 0.20000000298023224,
+          "climb": 0.4000000059604645,
+          "height": 2.0,
+          "radius": 0.4000000059604645,
+          "slope": 45.0
+        },
+        "sha256": "cea10fe787430f530c18dd8d44407c1a383cdff5a6eecf0d2f4f8b0095466597",
+        "source_scene": "0c426876-43f2-466c-b9c9-1d1b2c5c0b7e",
+        "sources": [
+          "dc12949c-adc8-4528-b54b-b90c7f5d2aba"
+        ],
+        "tile_sha256": "ef32361a33ad89fb59f8d869171f99205d431653eaf95259b556b6f8e93b2830",
+        "version": 2
+      },
+      "schema_version": 2,
+      "source": "Assets/Navigation/Generated/977c1c95-3165-462b-840a-972252e047cf/7f21b4d5-cc3b-48db-97cd-0806efcc3e13.fnav",
       "source_dependencies": [],
       "type": "navmesh"
     },
@@ -11885,6 +12117,16 @@
       "metadata": {},
       "schema_version": 5,
       "source": "Scenes/82-tile-map-triggers.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "f0fa5e11-4161-4731-aeb4-a2a0e308d2e0",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/132-chase-behavior-xy.scene.json",
       "source_dependencies": [],
       "type": "scene"
     },

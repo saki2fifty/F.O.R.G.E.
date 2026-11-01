@@ -14,6 +14,7 @@ TOOLS, HOST, WORKER = map(str, map(Path, sys.argv[1:4]))
 COLLISION_ONLY = "--tile-collision-only" in sys.argv[5:]
 ATLAS_ONLY = "--atlas-only" in sys.argv[5:]
 SPRITE_GRAPH_ONLY = "--sprite-graph-only" in sys.argv[5:]
+NAVIGATION_BEHAVIOR_ONLY = "--navigation-behavior-only" in sys.argv[5:]
 
 
 @contextmanager
@@ -72,7 +73,11 @@ for legacy in (False, True):
                         document_session=state['session'])['value']
 
         kinds = read('forge_asset_document_types')['editors']
-        assert len(kinds) == 13 and all(not item['status']['open'] for item in kinds), kinds
+        assert len(kinds) == 14 and all(not item['status']['open'] for item in kinds), kinds
+        behavior_catalog = read('forge_asset_behavior_catalog')
+        assert behavior_catalog['editor'] == 'navigation_behavior'
+        assert {a['kind'] for a in behavior_catalog['actions']} == {'wait', 'move_to_point', 'follow_target'}
+        assert len(behavior_catalog['conditions']) == 5 and behavior_catalog['limits']['outgoing'] == 8
         graph_types = read('forge_asset_graph_catalog')['nodes']
         assert len(graph_types) > 10
         assert read('forge_asset_graph_node', schema='constant')['outputs']
@@ -102,8 +107,10 @@ for legacy in (False, True):
             kinds = [kind for kind in kinds if kind['editor'] == 'sprite_atlas']
         if SPRITE_GRAPH_ONLY:
             kinds = [kind for kind in kinds if kind['editor'] == 'material.graph']
+        if NAVIGATION_BEHAVIOR_ONLY:
+            kinds = [kind for kind in kinds if kind['editor'] == 'navigation_behavior']
         atlas_image = None
-        if not COLLISION_ONLY and not SPRITE_GRAPH_ONLY:
+        if not COLLISION_ONLY and not SPRITE_GRAPH_ONLY and not NAVIGATION_BEHAVIOR_ONLY:
             # Original owned raster, imported only through the advertised MCP
             # settings/publication workflow; no catalog fixture injection.
             header = bytearray(18)
@@ -365,6 +372,28 @@ for legacy in (False, True):
                 # Allocator high-water persists through Undo; no retired IDs are reused.
                 original['next_id'] = restored['next_id']
                 assert restored == original
+            if owner == 'navigation_behavior':
+                original = content(owner)
+                graph = json.loads(json.dumps(original))
+                graph['states'][0]['transitions'] = [dict(id=3, to=2, condition=dict(kind='elapsed', seconds=1))]
+                graph['states'].append(dict(id=2, name='Travel', action=dict(kind='move_to_point', point=[3, 0, -2]),
+                    transitions=[dict(id=4, to=1, condition=dict(kind='arrived'))]))
+                graph['next_id'] = 5
+                assert edit('forge_asset_document_patch', owner, patch=[dict(op='replace', path='', value=graph)])['ok']
+                selected = content(owner)
+                assert selected == graph
+                for pointer, bad in (('/states/0/transitions/0/to', 999),
+                                     ('/states/0/transitions/0/condition/seconds', -1),
+                                     ('/states/1/id', 3), ('/next_id', 2), ('/entry', 999)):
+                    revision = status(owner)['revision']
+                    assert not edit('forge_asset_document_patch', owner, patch=[dict(op='replace', path=pointer, value=bad)])['ok']
+                    assert content(owner) == selected and status(owner)['revision'] == revision
+                assert edit('forge_asset_document_undo', owner)['ok']
+                original['next_id'] = 5
+                assert content(owner) == original
+                assert not edit('forge_asset_document_patch', owner, patch=[
+                    dict(op='add', path='/states/-', value=dict(id=2, name='Retired', action=dict(kind='wait'), transitions=[]))])['ok']
+                assert edit('forge_asset_document_redo', owner)['ok'] and content(owner) == selected
             if owner == 'animation_timeline':
                 # Syntax/source ownership here; native target admission is covered by
                 # animation_component with the actual reflected C++ component.
@@ -492,7 +521,7 @@ for legacy in (False, True):
                             document_session=status(owner)['session'], cells=query)['cells'][0]['tile'] == 0
             # The fixture has no shader renderer/profile; graph compilation is not claimed.
             if owner in ('material', 'collision', 'editable_mesh', 'particle_effect', 'terrain',
-                         'tile_set', 'sprite_atlas', 'animation_timeline'):
+                         'tile_set', 'sprite_atlas', 'animation_timeline', 'navigation_behavior'):
                 result = edit('forge_asset_document_save', owner)
                 assert result['ok'], result
                 end = time.monotonic() + 35
@@ -550,7 +579,7 @@ for legacy in (False, True):
                 assert not status(owner)['dirty']  # Same saved-state semantics as interactive editing.
             assert edit('forge_asset_document_close', owner, discard=True)['ok']
 
-        if COLLISION_ONLY or ATLAS_ONLY or SPRITE_GRAPH_ONLY:
+        if COLLISION_ONLY or ATLAS_ONLY or SPRITE_GRAPH_ONLY or NAVIGATION_BEHAVIOR_ONLY:
             continue
 
         # Typed importer settings use the shared draft, schema and native worker.

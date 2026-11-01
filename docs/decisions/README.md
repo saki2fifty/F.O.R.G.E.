@@ -37,6 +37,7 @@ Phase9 authoring workflows are implemented and automatically accepted.
 | [025](025-mcp-authoring.md) | Native MCP tools use existing authoring owners and explicit capabilities |
 | [026](026-navigation-planes.md) | Explicit3D/XY profiles extend the existing navigation owner |
 | [027](027-navigation-obstacle-tiles.md) | Per-query obstacle tiles preserve immutable navigation assets |
+| [028](028-navigation-behaviors.md) | Navigation behavior graphs share existing ownership and agent intent |
 
 Record date: 2026-09-19. Dependency authority is the exact pin, per
 [dependency policy](../dependency-policy.md). Existing identity, prefab and TRS

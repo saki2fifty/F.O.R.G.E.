@@ -1,5 +1,7 @@
 #include "model_render_resource.hpp"
+#include "navigation_behavior_resource.hpp"
 #include "tile_asset_resources.hpp"
+#include <algorithm>
 #include <forge/engine_assets.hpp>
 #include <forge/runtime_content_access.hpp>
 #include <forge/runtime_resources.hpp>
@@ -11,7 +13,8 @@ namespace forge {
 namespace {
 using Lease = std::variant<ResourceLease<MeshAsset>, ResourceLease<MaterialAsset>,
                            ResourceLease<TextureAsset>, ResourceLease<ShaderAsset>,
-                           ResourceLease<TileSetAsset>, ResourceLease<TileMapAsset>>;
+                           ResourceLease<TileSetAsset>, ResourceLease<TileMapAsset>,
+                           ResourceLease<NavigationBehaviorAsset>>;
 struct Subscription {
     RuntimeResourceKind kind;
     AssetId asset;
@@ -28,7 +31,7 @@ class RuntimeResources final : public RuntimeResourceService {
     ServiceAccess services_;
     RuntimeContentAccess access_;
     std::shared_ptr<const AssetCatalog> catalog_;
-    // Aggregate retained CPU budget592MiB; one preparation worker per family.
+    // Aggregate retained CPU budget593MiB; one preparation worker per family.
     // Map/Set budgets include replacement and held leases. Map instances use
     // complete sparse logical backing; edited chunks may add dense COW arrays.
     ResourcePool<MeshAsset> meshes_{{1, 64, 256, 128ull * 1024 * 1024}};
@@ -37,6 +40,8 @@ class RuntimeResources final : public RuntimeResourceService {
     ResourcePool<ShaderAsset> shaders_{{1, 64, 256, 128ull * 1024 * 1024}};
     ResourcePool<TileSetAsset> tile_sets_{{1, 64, 256, 16ull * 1024 * 1024}};
     ResourcePool<TileMapAsset> tile_maps_{{1, 64, 256, 64ull * 1024 * 1024}};
+    // First graph request creates this family worker; unused worlds add no thread.
+    std::unique_ptr<ResourcePool<NavigationBehaviorAsset>> navigation_behaviors_;
     std::map<std::uint64_t, Subscription> subscriptions_;
     bool refresh_again_ = false, alive_ = true;
     // Last member: join file-only work before any owner state is destroyed.
@@ -70,6 +75,9 @@ class RuntimeResources final : public RuntimeResourceService {
             break;
         case RuntimeResourceKind::TileMap:
             expected = TileMapAsset::type;
+            break;
+        case RuntimeResourceKind::NavigationBehavior:
+            expected = NavigationBehaviorAsset::type;
             break;
         default:
             throw std::runtime_error("Unsupported runtime resource type");
@@ -120,6 +128,12 @@ class RuntimeResources final : public RuntimeResourceService {
             return request_tile_set(tile_sets_, project_, catalog_, {asset});
         case RuntimeResourceKind::TileMap:
             return request_tile_map_compact(tile_maps_, project_, catalog_, {asset});
+        case RuntimeResourceKind::NavigationBehavior:
+            if (!navigation_behaviors_)
+                navigation_behaviors_ = std::make_unique<ResourcePool<NavigationBehaviorAsset>>(
+                    ResourcePoolLimits{1, 8, 8, 1024 * 1024});
+            return request_navigation_behavior(*navigation_behaviors_, project_,
+                                               catalog_->records().at(asset));
         }
         throw std::runtime_error("Unsupported runtime resource type");
     }
@@ -161,6 +175,8 @@ class RuntimeResources final : public RuntimeResourceService {
         shaders_.close();
         tile_sets_.close();
         tile_maps_.close();
+        if (navigation_behaviors_)
+            navigation_behaviors_->close();
     }
     std::uint64_t request(RuntimeResourceKind kind, AssetId asset,
                           RuntimeTextureVariant variant) override {
@@ -243,6 +259,9 @@ class RuntimeResources final : public RuntimeResourceService {
     ResourceLease<TileMapAsset> tile_map(std::uint64_t token) const override {
         return lease<TileMapAsset>(token, RuntimeResourceKind::TileMap);
     }
+    ResourceLease<NavigationBehaviorAsset> navigation_behavior(std::uint64_t token) const override {
+        return lease<NavigationBehaviorAsset>(token, RuntimeResourceKind::NavigationBehavior);
+    }
     bool release(std::uint64_t token) override {
         check();
         // Release only this observer. Shared preparation/other leases remain valid.
@@ -251,7 +270,14 @@ class RuntimeResources final : public RuntimeResourceService {
             return false;
         if (found->second.physics)
             found->second.physics->release_collision_asset(found->second.collision_token);
+        const auto kind = found->second.kind;
+        const auto asset = found->second.asset;
         subscriptions_.erase(found);
+        if (kind == RuntimeResourceKind::NavigationBehavior && navigation_behaviors_ &&
+            std::none_of(subscriptions_.begin(), subscriptions_.end(), [&](const auto& value) {
+                return value.second.kind == kind && value.second.asset == asset;
+            }))
+            navigation_behaviors_->unload({asset});
         return true;
     }
     void refresh() override {
@@ -296,6 +322,8 @@ class RuntimeResources final : public RuntimeResourceService {
         shaders_.pump();
         tile_sets_.pump();
         tile_maps_.pump();
+        if (navigation_behaviors_)
+            navigation_behaviors_->pump();
         for (auto& [token, value] : subscriptions_) {
             (void)token;
             if (!value.selection_error.empty())
@@ -320,6 +348,9 @@ class RuntimeResources final : public RuntimeResourceService {
                 break;
             case RuntimeResourceKind::TileMap:
                 retain(tile_maps_, value);
+                break;
+            case RuntimeResourceKind::NavigationBehavior:
+                retain(*navigation_behaviors_, value);
                 break;
             }
         }

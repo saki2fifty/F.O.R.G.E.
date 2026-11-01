@@ -78,6 +78,11 @@ template <class T> Json encode(const T& p) {
                 {"height", p.height}};
     else if constexpr (std::is_same_v<T, NavigationObstacle>)
         return {{"enabled", p.enabled}, {"radius", p.radius}, {"height", p.height}};
+    else if constexpr (std::is_same_v<T, NavigationBehavior>)
+        return {{"graph", p.graph.id ? Json(p.graph.id) : Json()},
+                {"target", p.target.entity ? Json(p.target) : Json()},
+                {"anchor", p.anchor.entity ? Json(p.anchor) : Json()},
+                {"enabled", p.enabled}};
     else if constexpr (std::is_same_v<T, NavigationAvoidance>)
         return {{"enabled", p.enabled}, {"horizon", p.horizon}};
     else if constexpr (std::is_same_v<T, NavigationAgent>)
@@ -364,7 +369,17 @@ template <class T> Value decode(const Json& p) {
         return T{p.at("enabled"), p.at("obstacle"), p.at("width"), p.at("height")};
     else if constexpr (std::is_same_v<T, NavigationObstacle>)
         return T{p.at("enabled"), p.at("radius"), p.at("height")};
-    else if constexpr (std::is_same_v<T, NavigationAvoidance>)
+    else if constexpr (std::is_same_v<T, NavigationBehavior>) {
+        NavigationBehavior value;
+        if (!p.at("graph").is_null())
+            value.graph.id = p.at("graph").get<AssetId>();
+        if (!p.at("target").is_null())
+            value.target = p.at("target").get<EntityRef>();
+        if (!p.at("anchor").is_null())
+            value.anchor = p.at("anchor").get<EntityRef>();
+        value.enabled = p.at("enabled");
+        return value;
+    } else if constexpr (std::is_same_v<T, NavigationAvoidance>)
         return T{p.at("enabled"), p.at("horizon")};
     else if constexpr (std::is_same_v<T, NavigationAgent>) {
         NavigationAgent a;
@@ -1106,7 +1121,14 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
     else if constexpr (std::is_same_v<T, NavigationObstacle>)
         c.template member<bool>("enabled").template member<float>("radius").template member<float>(
             "height");
-    else if constexpr (std::is_same_v<T, NavigationAvoidance>)
+    else if constexpr (std::is_same_v<T, NavigationBehavior>) {
+        (void)authoring_value_adapters(w);
+        register_asset_ref<NavigationBehaviorAsset>(w, "forge.navigation_behavior_ref");
+        c.template member<AssetRef<NavigationBehaviorAsset>>("graph")
+            .template member<EntityRef>("target")
+            .template member<EntityRef>("anchor")
+            .template member<bool>("enabled");
+    } else if constexpr (std::is_same_v<T, NavigationAvoidance>)
         c.template member<bool>("enabled").template member<float>("horizon");
     else if constexpr (std::is_same_v<T, NavigationAgent>) {
         register_asset_ref<NavMeshAsset>(w, "forge.navmesh_ref");
@@ -1569,6 +1591,11 @@ const std::array<Builtin, builtin_count>& builtins() {
             "unitless", {}, {},
             [](flecs::world&
                    w) { return register_type<NavigationObstacle>(w, "forge.navigation_obstacle"); }),
+        descriptor<NavigationBehavior>(
+            "forge.navigation_behavior", "State graph choosing Navigation Agent destinations",
+            "unitless", {}, {},
+            [](flecs::world&
+                   w) { return register_type<NavigationBehavior>(w, "forge.navigation_behavior"); }),
         descriptor<NavigationAvoidance>(
             "forge.navigation_avoidance",
             "Predictive local steering between opted-in navigation agents", "unitless", {}, {},
@@ -1937,6 +1964,22 @@ Json registration_options(const Builtin& type, const std::string& field) {
     if (name == "forge.asset_collider" && field == "asset") {
         value["asset_type"] = CollisionAsset::type;
         value["nullable"] = true;
+    }
+    if (name == "forge.navigation_behavior") {
+        value.erase("minimum");
+        value.erase("maximum");
+        if (field == "graph") {
+            value["asset_type"] = NavigationBehaviorAsset::type;
+            value["nullable"] = true;
+            value["description"] = "Published navigation behavior graph; requires Navigation Agent";
+        } else if (field == "target") {
+            value["description"] = "Scene entity used by target conditions and Follow target";
+        } else if (field == "anchor") {
+            value["description"] = "Optional Scene frame for point actions; None uses world points";
+        } else {
+            value["description"] =
+                "Choose agent destinations while enabled; disabled holds graph progress";
+        }
     }
     if (name == "forge.navigation_obstacle") {
         if (field == "radius" || field == "height") {
@@ -3114,7 +3157,7 @@ Json register_builtins(flecs::world& world, unsigned family) {
         std::vector<ReflectedAdapter> references;
         if (name == "forge.physics_joint" || name == "forge.physics_joint_2d" ||
             name == "forge.transform_animator" || name == "forge.camera_shot" ||
-            name == "forge.audio_cue")
+            name == "forge.audio_cue" || name == "forge.navigation_behavior")
             references = authoring_value_adapters(world);
         // Native typed identity remains authoritative even when an earlier SDK
         // schema registered a reference before its builtin family used a label.
@@ -3139,6 +3182,7 @@ Json register_builtins(flecs::world& world, unsigned family) {
         add_reference.template operator()<AnimationBlendSpaceAsset>();
         add_reference.template operator()<TransformAnimationAsset>();
         add_reference.template operator()<NavMeshAsset>();
+        add_reference.template operator()<NavigationBehaviorAsset>();
         add_reference.template operator()<UiDocumentAsset>();
         if (name == "forge.mesh_renderer") {
             references.push_back({world.id<std::string>(), "string"});

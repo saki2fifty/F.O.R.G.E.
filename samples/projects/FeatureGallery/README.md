@@ -1,5 +1,24 @@
 # Feature Gallery
 
+## Navigation behavior graphs
+
+Open **Scenes/131-patrol-behavior.scene.json** and press Play. The cyan and violet
+agents share **Assets/Navigation/Patrol.behavior.json**, move between points and
+pause independently. The second uses a scene Anchor for a separate lane.
+
+Open **Scenes/132-chase-behavior-xy.scene.json** for an animated orange target and
+cyan chaser. Near/far transitions switch between watching and following; its
+Camera preserves the course framing in portrait windows too.
+
+Select the agent and read **Live gameplay → Navigation behavior** and
+**Navigation progress**. Its live **Enabled** checkbox holds/resumes progress.
+Stop before opening the graph from Content, changing actions or conditions, or
+editing **Assets/Navigation/ChaseTarget.animation.json**. Save / Publish sources
+and save the scene before export. These examples have complete cooked assets and
+need no project C++ module or runtime build worker. See
+[Navigation behavior](../../../manual/editor/navigation-behavior.md) for controls,
+reference assignment, priorities, saving and limits.
+
 ## Moving navigation obstacles
 
 Open **Scenes/129-moving-navigation-3d.scene.json** or

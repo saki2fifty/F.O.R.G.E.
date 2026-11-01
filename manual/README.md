@@ -71,6 +71,7 @@ content may differ; use **Window** to open a panel mentioned in a guide.
 - [Touch contacts, tap, hold, swipe, pan, pinch and rotation](editor/touch-input.md)
 - [Physics](editor/physics.md)
 - [Navigation, moving obstacles and destination editing](editor/navigation.md)
+- [Create patrol, wait and chase behavior graphs](editor/navigation-behavior.md)
 - [Audio: import, preview, filters, echo, mixing and music/UI pause](editor/audio.md)
 - [Runtime UI: HUDs, menus, transitions and keyframe animation](editor/runtime-ui.md)
 - [Flecs Script](editor/flecs-script.md)

@@ -1,7 +1,9 @@
 #include "builtins.hpp"
 #include "json_output_text.hpp"
 #include "navigation_asset.hpp"
+#include "navigation_behavior_runtime.hpp"
 #include "navigation_obstacle.hpp"
+#include "navigation_schema.hpp"
 #include "navigation_sources.hpp"
 #include "runtime_property_tune.hpp"
 #include <algorithm>
@@ -21,12 +23,6 @@ struct NavigationFailure : std::runtime_error {
     NavigationFailure(NavStatus s, std::string why)
         : std::runtime_error(std::move(why)), status(s) {}
 };
-const detail::Builtin& navigation_descriptor(std::string_view name) {
-    for (const auto& type : detail::builtins())
-        if (std::string_view(type.name) == name)
-            return type;
-    throw std::logic_error("Navigation schema is missing");
-}
 const detail::Builtin& agent_descriptor() {
     return navigation_descriptor("forge.navigation_agent");
 }
@@ -97,6 +93,7 @@ struct NavigationRuntime::Impl {
     flecs::query<const NavigationRegion2D> regions;
     flecs::query<const NavigationObstacle> obstacle_entities;
     flecs::query<const PersistentEntityId> source_entities;
+    NavigationBehaviorPlayback behaviors;
     Impl(WorldContext& c, std::filesystem::path p)
         : context(c), project(std::move(p)), surfaces(c.world().query<const NavigationSurface>()),
           regions(c.world().query<const NavigationRegion2D>()),
@@ -105,7 +102,8 @@ struct NavigationRuntime::Impl {
                               .query_builder<const PersistentEntityId>()
                               .cache_kind(flecs::QueryCacheNone)
                               .query_flags(EcsQueryMatchPrefab | EcsQueryMatchDisabled)
-                              .build()) {}
+                              .build()),
+          behaviors(c) {}
     void release_meshes() noexcept {
         if (auto resources = mesh_owner.lock())
             for (const auto& [id, token] : mesh_tokens)
@@ -320,6 +318,7 @@ NavigationRuntime::~NavigationRuntime() = default;
 void NavigationRuntime::shutdown() noexcept { impl_.reset(); }
 void NavigationRuntime::bind(Scene* scene) {
     if (impl_) {
+        impl_->behaviors.bind(scene);
         impl_->scene = scene;
         impl_->agents.clear();
         impl_->errors.clear();
@@ -328,6 +327,12 @@ void NavigationRuntime::bind(Scene* scene) {
         impl_->obstacle_error.clear();
         impl_->release_meshes();
     }
+}
+bool NavigationRuntime::prepare_assets() {
+    if (!impl_)
+        throw std::runtime_error("Navigation owner is unavailable");
+    impl_->check();
+    return impl_->behaviors.prepare(true);
 }
 void NavigationRuntime::synchronize() {
     if (!impl_)
@@ -486,6 +491,17 @@ void NavigationRuntime::tick(float dt, std::uint64_t tick) {
     auto profile = s.context.services().profile("navigation", "NavAgentUpdate", tick);
     s.context.evaluate_world_transforms();
     auto nodes = s.context.transform_nodes();
+    try {
+        auto behavior_profile =
+            s.context.services().profile("navigation", "NavBehaviorUpdate", tick);
+        s.behaviors.begin_tick(dt, tick,
+                               [&](auto asset) { return s.get(asset).data.mesh->space(); });
+    } catch (const std::exception& error) {
+        s.diagnostic(0, {}, error.what());
+        s.agents.clear();
+        s.agent_limit = true;
+        return;
+    }
     std::vector<flecs::entity_t> entities;
     s.context.world().each([&](flecs::entity e, const NavigationAgent&) {
         if (e.owns<PersistentEntityId>())
@@ -723,6 +739,11 @@ void NavigationRuntime::tick(float dt, std::uint64_t tick) {
                 s.diagnostic(id, a.navmesh.id, error.what());
         }
     }
+    {
+        auto behavior_profile =
+            s.context.services().profile("navigation", "NavBehaviorTransitions", tick);
+        s.behaviors.finish_tick(dt, [this](auto entity) { return agent_state(entity); });
+    }
 }
 std::optional<NavigationAgentObservation> NavigationRuntime::agent_state(EntityRef ref) const {
     if (!impl_ || !impl_->scene || !ref.scene || !ref.entity ||
@@ -778,6 +799,9 @@ Json NavigationRuntime::debug(flecs::entity_t entity) const {
             {"projected_destination", out->projected_destination},
             {"remaining_distance", out->remaining_distance}};
 }
+Json NavigationRuntime::debug_behavior(flecs::entity_t entity) const {
+    return impl_ ? impl_->behaviors.debug(entity) : Json();
+}
 Json NavigationRuntime::tune(EntityRef ref, const std::string& type, const std::string& property,
                              const Json& value) {
     if (!impl_ || impl_->context.role() != WorldRole::Runtime ||
@@ -794,7 +818,8 @@ Json NavigationRuntime::tune(EntityRef ref, const std::string& type, const std::
     if (impl_->scene->entity(ref.entity.str()) != e)
         throw std::runtime_error("Live navigation target belongs to another Scene instance");
     if (e.has(flecs::Prefab) || !e.has<NavigationAgent>() ||
-        (type == "forge.navigation_avoidance" && !e.has<NavigationAvoidance>()))
+        (type == "forge.navigation_avoidance" && !e.has<NavigationAvoidance>()) ||
+        (type == "forge.navigation_behavior" && !e.has<NavigationBehavior>()))
         throw std::runtime_error(
             "Live navigation tuning requires an existing navigation participant");
     const auto& codec = navigation_descriptor(type);
@@ -808,6 +833,10 @@ Json NavigationRuntime::tune(EntityRef ref, const std::string& type, const std::
         const auto& typed = std::get<NavigationAgent>(decoded);
         detail::validate_reflected_value(e, typed);
         e.set<NavigationAgent>(typed);
+    } else if (type == "forge.navigation_behavior") {
+        const auto& typed = std::get<NavigationBehavior>(decoded);
+        detail::validate_reflected_value(e, typed);
+        e.set<NavigationBehavior>(typed);
     } else {
         const auto& typed = std::get<NavigationAvoidance>(decoded);
         detail::validate_reflected_value(e, typed);
@@ -820,6 +849,9 @@ Json NavigationRuntime::tune_avoidance(EntityRef ref, const std::string& propert
     return tune(ref, "forge.navigation_avoidance", property, value);
 }
 Json NavigationRuntime::checkpoint() {
+    const auto behaviors = impl_ ? impl_->behaviors.checkpoint() : Json::array();
+    if (behaviors.is_null())
+        return Json();
     Json revisions = Json::array(), agents = Json::array();
     if (impl_) {
         impl_->check();
@@ -858,10 +890,14 @@ Json NavigationRuntime::checkpoint() {
                  {"translation_owned", !translation.is_null() && e.owns<LocalTranslation>()}});
         });
     }
-    return {{"version", 2}, {"assets", revisions}, {"agents", agents}};
+    Json result = {
+        {"version", behaviors.empty() ? 2 : 3}, {"assets", revisions}, {"agents", agents}};
+    if (!behaviors.empty())
+        result["behaviors"] = behaviors;
+    return result;
 }
 void NavigationRuntime::restore(const Json& data) {
-    if (!impl_ || (data.at("version") != 1 && data.at("version") != 2) ||
+    if (!impl_ || (data.at("version") != 1 && data.at("version") != 2 && data.at("version") != 3) ||
         !data.at("assets").is_array() || data.at("assets").size() > 8 ||
         !data.at("agents").is_array() || data.at("agents").size() > 64)
         throw std::runtime_error("Invalid navigation recovery metadata");
@@ -951,6 +987,7 @@ void NavigationRuntime::restore(const Json& data) {
     impl_->agents.clear();
     impl_->agent_limit = false;
     impl_->errors.clear();
+    impl_->behaviors.restore(data.at("version") == 3 ? data.at("behaviors") : Json::array());
 }
 EngineModule navigation_module(std::filesystem::path project) {
     auto m = navigation_schema_module();

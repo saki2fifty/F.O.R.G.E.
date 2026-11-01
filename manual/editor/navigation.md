@@ -1,5 +1,8 @@
 # Navigation
 
+For patrols, timed pauses and target following, add a
+[Navigation Behavior](navigation-behavior.md) to an agent after building its NavMesh.
+
 Navigation lets an object find a route across a floor and around static obstacles. Build a **NavMesh** from marked 3D shapes or 2D regions, then give an object a **Navigation Agent** and a destination. Choose the plane explicitly when building.
 
 Agents follow baked static geometry. Add **Navigation Avoidance** for local steering

@@ -14,6 +14,7 @@ def validate_guides(stage):
                 assert resolved.is_relative_to(stage/'sdk') and resolved.is_file(), f'Broken installed guide link: {target}'
 
 focused_targets = {
+    '--navigation-behavior-only': 'navigation_behavior_gameplay',
     '--decals-only': 'decal_gameplay',
     '--soft-shadows-only': 'soft_shadow_gameplay',
     '--reflection-probes-only': 'reflection_probe_gameplay',
@@ -56,6 +57,15 @@ if len(sys.argv) == 5 and sys.argv[4] in focused_targets:
         stage.rename(moved)
         env=os.environ.copy()
         if not windows:env['LD_LIBRARY_PATH']=str(moved/'bin')+':'+env.get('LD_LIBRARY_PATH','')
+        if sys.argv[4] == '--navigation-behavior-only':
+            assert (moved/'sdk/include/forge/navigation_behavior_components.hpp').is_file()
+            assert not (moved/'sdk/include/forge/navigation_behavior.hpp').exists()
+            subprocess.run([sys.executable, str(Path(__file__).with_name('navigation_behavior_process_test.py')),
+                            str(moved/'bin'/('forge_runtime'+exe)), str(module),
+                            str(Path(__file__).resolve().parents[1]/'samples/projects/FeatureGallery'), str(base/'behavior-process')],
+                           env=env, cwd=moved, check=True, timeout=120)
+            print('Installed-only behavior POD/cursor/resource-kind8, relocated SDK and both runtime hosts passed')
+            sys.exit(0)
         if sys.argv[4] == '--motion-only':
             subprocess.run([sys.executable, str(Path(__file__).with_name('gamepad_motion_process_test.py')),
                             str(moved/'bin'/('forge_runtime'+exe)), str(module),

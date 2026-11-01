@@ -1,0 +1,427 @@
+{
+  "asset_id": "0c426876-43f2-466c-b9c9-1d1b2c5c0b7e",
+  "entities": [
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 14.0,
+          "y": 1.0,
+          "z": 12.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 1.0,
+          "z": 0.0
+        },
+        "forge.navigation_surface": {
+          "enabled": true
+        },
+        "forge.primitive": {
+          "kind": 3
+        },
+        "forge.tint": {
+          "b": 0.14000000059604645,
+          "g": 0.09000000357627869,
+          "r": 0.05000000074505806
+        }
+      },
+      "id": "dc12949c-adc8-4528-b54b-b90c7f5d2aba",
+      "name": "Patrol floor",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -4.0,
+          "y": 0.10000000149011612,
+          "z": 0.0
+        },
+        "forge.navigation_agent": {
+          "destination_x": 0.0,
+          "destination_y": 0.0,
+          "destination_z": 0.0,
+          "enabled": true,
+          "has_destination": false,
+          "navmesh": "977c1c95-3165-462b-840a-972252e047cf",
+          "speed": 3.5,
+          "stopping_distance": 0.05999999865889549
+        },
+        "forge.navigation_behavior": {
+          "anchor": null,
+          "enabled": true,
+          "graph": "76244d2c-0da5-45bd-933f-278c7efcd6dc",
+          "target": null
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.tint": {
+          "b": 0.699999988079071,
+          "g": 0.6000000238418579,
+          "r": 0.20000000298023224
+        }
+      },
+      "id": "75fc9166-ac0b-465e-92a7-67b0e284302a",
+      "name": "Patrol agent - inspect behavior",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.699999988079071,
+          "y": 0.699999988079071,
+          "z": 0.699999988079071
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.4000000059604645,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 1.0,
+          "g": 0.800000011920929,
+          "r": 0.07999999821186066
+        }
+      },
+      "id": "34bc9c0c-7fc0-45bb-8c2f-76f8d1b3d4cc",
+      "name": "Agent visual",
+      "parent": "75fc9166-ac0b-465e-92a7-67b0e284302a",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 3.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.tint": {
+          "b": 0.699999988079071,
+          "g": 0.6000000238418579,
+          "r": 0.20000000298023224
+        }
+      },
+      "id": "9faee24e-e542-48fa-bd06-113a14c794be",
+      "name": "Second patrol anchor",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.10000000149011612,
+          "z": 3.0
+        },
+        "forge.navigation_agent": {
+          "destination_x": 0.0,
+          "destination_y": 0.0,
+          "destination_z": 0.0,
+          "enabled": true,
+          "has_destination": false,
+          "navmesh": "977c1c95-3165-462b-840a-972252e047cf",
+          "speed": 3.5,
+          "stopping_distance": 0.05999999865889549
+        },
+        "forge.navigation_behavior": {
+          "anchor": {
+            "entity": "9faee24e-e542-48fa-bd06-113a14c794be",
+            "scene": "0c426876-43f2-466c-b9c9-1d1b2c5c0b7e"
+          },
+          "enabled": true,
+          "graph": "76244d2c-0da5-45bd-933f-278c7efcd6dc",
+          "target": null
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.tint": {
+          "b": 0.699999988079071,
+          "g": 0.6000000238418579,
+          "r": 0.20000000298023224
+        }
+      },
+      "id": "07b19361-eccc-4da2-b4f9-cf315d03c66a",
+      "name": "Anchored patrol - shared graph, independent progress",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.699999988079071,
+          "y": 0.699999988079071,
+          "z": 0.699999988079071
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.4000000059604645,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 1.0,
+          "g": 0.25,
+          "r": 0.6499999761581421
+        }
+      },
+      "id": "1b10aab3-721d-4d15-a164-0821c74aa656",
+      "name": "Agent visual",
+      "parent": "07b19361-eccc-4da2-b4f9-cf315d03c66a",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.10000000149011612,
+          "z": 0.4000000059604645
+        },
+        "forge.local_translation": {
+          "x": -4.0,
+          "y": 0.07999999821186066,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 2
+        },
+        "forge.tint": {
+          "b": 0.10000000149011612,
+          "g": 0.699999988079071,
+          "r": 1.0
+        }
+      },
+      "id": "b3faa108-c7cd-4c28-89fd-e58c3305e5db",
+      "name": "Patrol destination marker",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 0.10000000149011612,
+          "z": 0.4000000059604645
+        },
+        "forge.local_translation": {
+          "x": 4.0,
+          "y": 0.07999999821186066,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 2
+        },
+        "forge.tint": {
+          "b": 0.10000000149011612,
+          "g": 0.699999988079071,
+          "r": 1.0
+        }
+      },
+      "id": "3dcf52d1-66c9-4169-90d9-c4782673621d",
+      "name": "Patrol destination marker",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 0.0,
+          "background_a": 1.0,
+          "background_b": 0.029999999329447746,
+          "background_g": 0.02500000037252903,
+          "background_r": 0.019999999552965164,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 1000.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 16.0,
+          "orthographic_width": 0.0,
+          "projection": 1,
+          "vertical_fov": 1.0471975511965976,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 0.9238795042037964,
+          "x": 0.3826834261417389,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 13.0,
+          "z": -16.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.tint": {
+          "b": 0.699999988079071,
+          "g": 0.6000000238418579,
+          "r": 0.20000000298023224
+        }
+      },
+      "id": "aaed2965-e678-46e6-9f58-c4d168436b0d",
+      "name": "Overview Camera",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.light": {
+          "basis": 0,
+          "cast_shadows": false,
+          "color_b": 1.0,
+          "color_g": 1.0,
+          "color_r": 1.0,
+          "emitter_height": 1.0,
+          "emitter_radius": 0.5,
+          "emitter_width": 1.0,
+          "enabled": true,
+          "image_height": 1.0,
+          "image_tiled": false,
+          "image_width": 1.0,
+          "inner_cone": 0.0,
+          "intensity": 1.0,
+          "kind": 0,
+          "layers": 4294967295,
+          "outer_cone": 0.7853981633974483,
+          "range": 0.0,
+          "shadow_angular_radius": 0.0,
+          "shadow_bias": 0.0010000000474974513,
+          "shadow_normal_bias": 0.019999999552965164,
+          "shadow_source_radius": 0.0,
+          "texture": null
+        },
+        "forge.local_rotation": {
+          "w": 0.9238795042037964,
+          "x": 0.3826834261417389,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 1.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.tint": {
+          "b": 0.699999988079071,
+          "g": 0.6000000238418579,
+          "r": 0.20000000298023224
+        }
+      },
+      "id": "48ee7bb4-d03d-401b-844b-b9bae802e077",
+      "name": "Sunlight",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    }
+  ],
+  "version": 3
+}

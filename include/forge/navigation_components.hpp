@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdint>
 #include <forge/asset_ref.hpp>
+#include <forge/navigation_behavior_components.hpp>
 namespace forge {
 enum class NavigationPlane : std::uint32_t { Spatial3D, PlanarXY };
 struct NavMeshAsset {

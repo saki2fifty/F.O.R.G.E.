@@ -1,0 +1,117 @@
+{
+  "asset_id": "770fc599-e964-4352-89eb-7ac393e5a1a5",
+  "channels": [
+    "forge.local_translation"
+  ],
+  "duration_us": 8000000,
+  "format": "forge.transform-animation",
+  "keys": [
+    {
+      "id": "c1025175-50a2-4da5-85d6-d931eaf008e6",
+      "interpolation": "linear",
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "time_us": 0,
+      "translation": [
+        2.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": "902ef28e-9ce4-41b2-b0db-7f937f995a02",
+      "interpolation": "linear",
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "time_us": 2000000,
+      "translation": [
+        8.0,
+        4.0,
+        0.0
+      ]
+    },
+    {
+      "id": "e4c49eb1-47a6-4caf-ac1e-ffe1ea04beb9",
+      "interpolation": "linear",
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "time_us": 4000000,
+      "translation": [
+        -8.0,
+        -4.0,
+        0.0
+      ]
+    },
+    {
+      "id": "eeab862e-2b73-42f2-81bb-4b0680323b9d",
+      "interpolation": "linear",
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "time_us": 6000000,
+      "translation": [
+        -2.0,
+        3.0,
+        0.0
+      ]
+    },
+    {
+      "id": "afb2a8ed-a106-4175-a42f-320e7f387bc8",
+      "interpolation": "linear",
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "time_us": 8000000,
+      "translation": [
+        2.0,
+        0.0,
+        0.0
+      ]
+    }
+  ],
+  "timebase": 1000000,
+  "version": 2
+}

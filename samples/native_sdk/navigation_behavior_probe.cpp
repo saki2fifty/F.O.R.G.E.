@@ -1,0 +1,97 @@
+#include <flecs.h>
+#include <forge/native_sdk.h>
+#include <forge/native_sdk_identity.h>
+#include <forge/navigation_behavior_components.hpp>
+#include <forge/navigation_components.hpp>
+#include <map>
+#include <memory>
+#include <string_view>
+namespace {
+template <class T> bool layout(flecs::world& world, const char* path) {
+    const auto component = world.component<T>(path);
+    const auto* info = ecs_get_type_info(world.c_ptr(), component.id());
+    return info && info->size == sizeof(T) && info->alignment == alignof(T);
+}
+int32_t FORGE_SDK_CALL schemas(const ForgeSdkWorldV1* host, char*, uint32_t) {
+    flecs::world world(host->world);
+    if (!layout<forge::NavigationBehavior>(world, "forge.navigation_behavior") ||
+        !layout<forge::NavigationBehaviorCursor>(world,
+                                                 "forge.runtime.navigation_behavior_cursor") ||
+        !layout<forge::NavigationAgent>(world, "forge.navigation_agent"))
+        return 0;
+    const forge::NavigationBehavior config{{}, {}, {}, false};
+    const forge::NavigationBehaviorCursor progress{2, 5, .125, 1};
+    auto value = world.entity()
+                     .add(flecs::Prefab)
+                     .set<forge::NavigationBehavior>(config)
+                     .set<forge::NavigationBehaviorCursor>(progress);
+    const bool matched = value.get<forge::NavigationBehavior>() == config &&
+                         value.get<forge::NavigationBehaviorCursor>() == progress;
+    value.destruct();
+    return matched ? 1 : 0;
+}
+int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char*, uint32_t) {
+    flecs::world world(host->world);
+    auto tokens = std::make_shared<std::map<forge::AssetId, uint64_t>>();
+    auto reported = std::make_shared<bool>(false);
+    world.system<const forge::NavigationBehavior, const forge::NavigationBehaviorCursor>()
+        .kind(host->post_physics_phase)
+        .each([host, tokens, reported](flecs::entity, const forge::NavigationBehavior& config,
+                                       const forge::NavigationBehaviorCursor& cursor) {
+            if (*reported || !config.enabled || !cursor.state)
+                return;
+            auto [slot, inserted] = tokens->try_emplace(config.graph.id, 0);
+            if (inserted) {
+                const auto id = config.graph.id.str();
+                slot->second = host->resource_request(
+                    host->context, FORGE_SDK_RESOURCE_NAVIGATION_BEHAVIOR, id.c_str(), 0);
+                if (!slot->second) {
+                    host->diagnostic(host->context, 3,
+                                     "Navigation behavior SDK resource request failed");
+                    *reported = true;
+                }
+                return; // The existing resource owner adopts the new subscription.
+            }
+            bool ready = true;
+            {
+                ForgeSdkResourceV1 status{};
+                status.size = sizeof(status);
+                if (!host->resource_inspect(host->context, slot->second, &status)) {
+                    host->diagnostic(host->context, 3,
+                                     "Navigation behavior SDK resource inspection failed");
+                    *reported = true;
+                    return;
+                }
+                ready &=
+                    std::string_view(status.state) == "ready" && status.retained_revision[0] != 0;
+            }
+            if (ready) {
+                *reported = true;
+                host->diagnostic(host->context, 1,
+                                 "Navigation behavior SDK progress/resource passed");
+            }
+        })
+        .add(host->fixed_tag);
+    return 1;
+}
+const char* dependencies[]{"forge.navigation", "forge.resources"};
+const ForgeNativeSdkV1 api{sizeof(api),
+                           FORGE_NATIVE_SDK_ABI,
+                           FORGE_NATIVE_SDK_FINGERPRINT,
+                           "project.navigation_behavior_probe",
+                           "1",
+                           dependencies,
+                           2,
+                           FORGE_SDK_RUNTIME,
+                           FORGE_SDK_RUNTIME,
+                           FORGE_SDK_NAVIGATION | FORGE_SDK_RESOURCES,
+                           FORGE_SDK_NAVIGATION | FORGE_SDK_RESOURCES | FORGE_SDK_DIAGNOSTICS,
+                           &ecs_init,
+                           &ecs_os_api,
+                           schemas,
+                           start,
+                           nullptr};
+} // namespace
+extern "C" FORGE_SDK_EXPORT const ForgeNativeSdkV1* FORGE_SDK_CALL forge_native_sdk_v1() {
+    return &api;
+}

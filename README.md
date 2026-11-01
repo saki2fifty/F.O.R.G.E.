@@ -201,7 +201,7 @@ See the [capability checklist and validation limits](docs/mcp.md).
 - Exact-version shared-Flecs C++ gameplay SDK, [Jolt physics](manual/editor/physics.md), and [Audio sources/listeners and WAV/FLAC/MP3 import](manual/editor/audio.md).
 
 - Model/texture/material/shader importing, cooked resources and dependency-aware, relocatable game export with a standalone SDL/Diligent/RmlUi executable.
-- [Navigation](manual/editor/navigation.md), [runtime UI](manual/editor/runtime-ui.md), and the [asset workflow](manual/editor/content-browser.md).
+- [Navigation](manual/editor/navigation.md), with local source for [patrol, wait and chase behavior graphs](manual/editor/navigation-behavior.md), shared editor/MCP authoring and ready Gallery131/132 examples; [runtime UI](manual/editor/runtime-ui.md) and the [asset workflow](manual/editor/content-browser.md).
 - [Phase8 runtime foundations](docs/game-foundation.md): resource-gated scene sessions, separate versioned player saves/settings, OS user-data storage, collision assets and a Jolt character controller.
 - [Gameplay services](docs/gameplay-services.md): input contexts, player rebinding, bounded gamepad vibration and queued session/save requests through the exact SDK. The [reference game](manual/reference-game.md) exercises menus, first-person movement, interaction, transitions and save/relaunch/load in the standalone host. Editor Play invokes project gameplay through its separate runtime session.
 

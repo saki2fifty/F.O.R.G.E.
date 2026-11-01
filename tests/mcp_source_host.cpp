@@ -10,6 +10,7 @@
 #include "import_document_automation.hpp"
 #include "material_editor.hpp"
 #include "material_graph_editor.hpp"
+#include "navigation_behavior_editor.hpp"
 #include "particle_effect_editor.hpp"
 #include "prefab_automation.hpp"
 #include "source_file_lifecycle_tests.hpp"
@@ -68,6 +69,7 @@ int main(int argc, char** argv) {
         forge::TileSetEditor tiles(worker);
         forge::TileMapEditor map(worker);
         forge::AnimationStatesEditor states;
+        forge::NavigationBehaviorEditor behavior;
         forge::AnimationBlendSpaceEditor blend;
         forge::AnimationMaskEditor mask;
         forge::AnimationTimelineEditor timeline;
@@ -90,6 +92,7 @@ int main(int argc, char** argv) {
         bind("sprite_atlas", atlas);
         bind("tile_map", map);
         bind("animation_states", states);
+        bind("navigation_behavior", behavior);
         bind("animation_blend_space", blend);
         bind("animation_mask", mask);
         bind("animation_timeline", timeline);
@@ -153,7 +156,9 @@ int main(int argc, char** argv) {
         permissions.assets = !read_only;
         workspace.start(scene, files, !read_only, !read_only, permissions);
         std::cout << workspace.connection().connection().dump() << std::endl;
-        const auto end = std::chrono::steady_clock::now() + std::chrono::seconds(175);
+        // The complete source suite exercises every real owner before the
+        // client closes it; keep this watchdog within the outer CTest budget.
+        const auto end = std::chrono::steady_clock::now() + std::chrono::minutes(5);
         while (workspace.active() && std::chrono::steady_clock::now() < end) {
             files.changed = false;
             workspace.pump(files.document, "");
@@ -172,6 +177,7 @@ int main(int argc, char** argv) {
             tiles.poll(files.document, files.status);
             map.poll(files.document, files.status);
             states.poll(files.document, files.status);
+            behavior.poll(files.document, files.status);
             blend.poll(files.document, files.status);
             mask.poll(files.document, files.status);
             timeline.poll(files.document, scene, false, 0, files.status);
@@ -194,6 +200,7 @@ int main(int argc, char** argv) {
             tiles.draw(files.document, false);
             map.draw(files.document, scene, false);
             states.draw(files.document, scene, false);
+            behavior.draw(files.document, scene, false);
             blend.draw(files.document, scene, false);
             mask.draw(files.document, scene, false);
             timeline.draw(files.document, scene, false);

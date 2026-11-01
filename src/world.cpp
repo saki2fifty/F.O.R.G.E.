@@ -83,6 +83,13 @@ struct NavigationRegistration {
     explicit NavigationRegistration(flecs::world& world) {
         world.module<NavigationRegistration>();
         RegistrationScope scope(world);
+        auto cursor =
+            world.component<NavigationBehaviorCursor>("forge.runtime.navigation_behavior_cursor");
+        cursor.add(flecs::OnInstantiate, flecs::DontInherit);
+        cursor.member<std::uint32_t>("state")
+            .member<std::uint32_t>("last_transition")
+            .member<double>("elapsed")
+            .member<std::uint64_t>("transitions");
         schema = detail::register_builtins(world, 4);
     }
 };

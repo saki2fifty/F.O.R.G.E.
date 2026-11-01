@@ -12,6 +12,7 @@
 #include "model_render_resource.hpp"
 #include "native_io_path.hpp"
 #include "navigation_asset.hpp"
+#include "navigation_behavior_admission.hpp"
 #include "particle_effect_resource.hpp"
 #include "publish_directory.hpp"
 #include "root_mesh_artifact.hpp"
@@ -188,7 +189,7 @@ AssetRecord runtime_record(AssetRecord record) {
           "forge.shader", "forge.audio", "forge.ui_source", "forge.collision",
           "forge.transform_animation", "forge.animation_states", "forge.animation_mask",
           "forge.animation_blend_space", "forge.particle_effect", "forge.tile_set",
-          "forge.tile_map"})
+          "forge.tile_map", "forge.navigation_behavior"})
         if (record.metadata.contains(name))
             metadata[name] = record.metadata.at(name);
     record.metadata = std::move(metadata);
@@ -272,6 +273,9 @@ void admit_bundle(const AssetRecord& root, const CachedArtifact& artifact) {
                         artifact.files.front().bytes.size(),
                 "Animation States selection differs from its cooked data");
         (void)decode_animation_states(artifact.files.front().bytes, root.id);
+    } else if (root.type == NavigationBehaviorAsset::type &&
+               format == "forge.navigation-behavior") {
+        (void)admit_navigation_behavior_artifact(root, artifact);
     } else if (root.type == TransformAnimationAsset::type && format == "forge.transform-clip") {
         require(root.metadata.at("forge.import").at("importer") == "forge.animation.transform" &&
                     root.metadata.at("forge.transform_animation").at("version") == 1 &&
