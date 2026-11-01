@@ -32,6 +32,9 @@ class PhysicsRuntime : public PhysicsService {
     // Host-only detached admission used by the existing Map instance owner.
     void validate_tile_map_candidate(EntityRef, const detail::RuntimeTileMapSnapshot&, bool edit);
     void synchronize(float dt);
+    // Owner boundary only: retire destroyed native entities and their queued
+    // commands without adopting unrelated configuration, poses or advancing time.
+    void retire_destroyed_entities();
     void step(float dt);
     void adopt();
     std::vector<std::uint64_t> take_discontinuities();
@@ -85,6 +88,9 @@ class PhysicsRuntime : public PhysicsService {
     void crouch_character_2d(EntityRef, bool) override;
     void place_character_2d(EntityRef, Double2, bool) override;
     Json checkpoint() const;
+    // False while native retirement/contact records await the next adopted tick.
+    // Readiness does not weaken checkpoint validation or advance simulation.
+    bool checkpoint_ready() const;
     // Fresh, unpublished world only. Scene/config reconstruction must precede this call.
     void restore(const Json&);
     Json status() const;

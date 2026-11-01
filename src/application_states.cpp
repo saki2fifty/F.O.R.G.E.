@@ -34,6 +34,7 @@ struct RuntimeStates {
 struct ApplicationStatesStorage {
     // Stable across native table moves caused by user observers.
     std::shared_ptr<RuntimeStates> runtime;
+    std::function<void()> retired;
 };
 const ApplicationStatesStorage* storage(const flecs::world& world) {
     const auto id =
@@ -150,6 +151,9 @@ void register_application_states(flecs::world& world) {
     world.component<ApplicationStateRequested>("forge.application.Requested")
         .add(flecs::Exclusive)
         .add(flecs::OnInstantiate, flecs::DontInherit);
+    world.component<ApplicationStateLifetime>("forge.application.Lifetime")
+        .add(flecs::Exclusive)
+        .add(flecs::OnInstantiate, flecs::DontInherit);
     world.component<ApplicationStateEntered>("forge.application.Entered");
     world.component<ApplicationStateExited>("forge.application.Exited");
     world.component<ApplicationStatesStorage>("forge.application.Storage");
@@ -193,7 +197,8 @@ void configure_application_states(flecs::world& world, const ApplicationStatesDe
     for (std::size_t i = 0; i < runtime->domains.size(); ++i)
         visit(i);
     runtime->advancing = true;
-    world.set<ApplicationStatesStorage>({runtime});
+    const auto retired = storage(world) ? storage(world)->retired : std::function<void()>{};
+    world.set<ApplicationStatesStorage>({runtime, retired});
     for (const auto& domain : runtime->domains)
         world.entity(domain.entity).add<ApplicationStateDomainTag>();
     runtime->advancing = false;
@@ -207,6 +212,62 @@ void request_application_state(flecs::world& world, std::string_view domain_key,
     const auto selected = select_request(world, runtime, domain_key, state_key, expected_revision);
     const auto& domain = runtime.domains[selected.domain];
     world.entity(domain.entity).add<ApplicationStateRequested>(domain.states[selected.state]);
+}
+void bind_application_state_lifetime(flecs::world& world, flecs::entity_t root,
+                                     std::string_view domain_key, std::string_view state_key,
+                                     std::optional<std::uint64_t> expected_revision) {
+    owner_boundary(world);
+    const auto* slot = storage(world);
+    require(slot && slot->runtime && slot->runtime->initialized,
+            "State lifetime requires an initialized application-state definition");
+    const auto& runtime = *slot->runtime;
+    const auto at = runtime.indices.find(domain_key);
+    require(at != runtime.indices.end(), "Unknown lifetime application-state domain");
+    const auto& domain = runtime.domains[at->second];
+    require(!expected_revision || *expected_revision == domain.revision,
+            "Stale application state revision; read the current domain first");
+    const auto state = domain.indices.find(state_key);
+    require(state != domain.indices.end(), "Unknown lifetime application state");
+    const auto target = domain.states[state->second];
+    require(world.entity(domain.entity).has<ApplicationStateMember>(target),
+            "State lifetime requires an active state or ancestor");
+    require(root && world.is_alive(root) && !world.entity(root).has(flecs::Prefab),
+            "State lifetime requires a live runtime root");
+    auto entity = world.entity(root);
+    const auto previous = entity.target<ApplicationStateLifetime>();
+    require(!previous || previous.id() == target,
+            "A runtime root's state lifetime cannot be rebound");
+    if (!previous)
+        entity.add<ApplicationStateLifetime>(target);
+}
+nlohmann::json application_state_lifetime(const flecs::world& world, flecs::entity_t root) {
+    if (!root || !world.is_alive(root))
+        return nullptr;
+    const auto* slot = storage(world);
+    if (!slot || !slot->runtime)
+        return nullptr;
+    const auto target = world.entity(root).target<ApplicationStateLifetime>();
+    if (!target)
+        return nullptr;
+    for (const auto& domain : slot->runtime->domains)
+        for (std::size_t i = 0; i < domain.states.size(); ++i)
+            if (domain.states[i] == target.id())
+                return {{"domain", domain.definition.key},
+                        {"state", domain.definition.states[i].key}};
+    throw std::runtime_error("State lifetime has an unknown semantic target");
+}
+std::function<void()> exchange_application_state_retirement_handler(flecs::world& world,
+                                                                    std::function<void()> handler) {
+    owner_boundary(world);
+    register_application_states(world);
+    const auto* slot = storage(world);
+    require(!slot || !slot->runtime || !slot->runtime->advancing,
+            "State retirement handler cannot change during a transition");
+    auto value = slot ? *slot : ApplicationStatesStorage{};
+    auto previous = std::move(value.retired);
+    value.retired = std::move(handler);
+    world.set<ApplicationStatesStorage>(value);
+    return previous;
 }
 nlohmann::json application_states_status(const flecs::world& world, bool choices) {
     const auto* slot = storage(world);
@@ -283,6 +344,7 @@ bool advance_application_states_impl(flecs::world& world,
                 .template has<ApplicationStateRequested>(flecs::Wildcard);
         }))
         return false;
+    const auto retirement_handler = slot->retired;
     struct Guard {
         bool& value;
         explicit Guard(bool& v) : value(v) { value = true; }
@@ -334,6 +396,33 @@ bool advance_application_states_impl(flecs::world& world,
         ++domain.revision;
     }
     runtime.initialized = true;
+    // Snapshot all retiring roots before native destruction invokes observers.
+    // The same Scene/Flecs structural cleanup handles children and Prefab groups.
+    std::vector<flecs::entity_t> retiring;
+    for (std::size_t i = 0; i < runtime.domains.size(); ++i) {
+        if (next[i] == previous[i])
+            continue;
+        const auto& domain = runtime.domains[i];
+        auto old_path = path(domain, previous[i]), new_path = path(domain, next[i]);
+        while (!old_path.empty() && !new_path.empty() && old_path.back() == new_path.back()) {
+            old_path.pop_back();
+            new_path.pop_back();
+        }
+        for (const auto state : old_path) {
+            auto query = world.query_builder()
+                             .with<ApplicationStateLifetime>(domain.states[state])
+                             .query_flags(EcsQueryMatchDisabled)
+                             .build();
+            query.each([&](flecs::entity entity) { retiring.push_back(entity.id()); });
+        }
+    }
+    std::sort(retiring.begin(), retiring.end());
+    retiring.erase(std::unique(retiring.begin(), retiring.end()), retiring.end());
+    for (const auto root : retiring)
+        if (world.is_alive(root))
+            world.entity(root).destruct();
+    if (!retiring.empty() && retirement_handler)
+        retirement_handler();
     for (std::size_t i = 0; i < runtime.domains.size(); ++i) {
         if (next[i] == previous[i])
             continue;

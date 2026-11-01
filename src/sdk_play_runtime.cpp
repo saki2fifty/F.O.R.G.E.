@@ -1289,9 +1289,8 @@ Json SdkPlayRuntime::handle_inner(const Json& request, RuntimeClock::Time now) {
         if (command == "application_state") {
             if (!s.game)
                 return s.build_error(id, "Application states require an active world");
-            (void)control_application_states(
-                s.game->active().engine.world().world(),
-                ApplicationStateAccess::request(request, s.active_generation));
+            (void)ApplicationStateAccess::control(s.game->active().engine.world(), request,
+                                                  s.active_generation);
             return s.snapshot_response(id);
         }
         if (command == "property_tune") {

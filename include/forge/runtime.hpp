@@ -124,6 +124,7 @@ class RuntimeSimulation {
     flecs::entity post_animation_phase_;
     std::shared_ptr<NavigationRuntime> navigation_;
     flecs::entity navigation_phase_, navigation_system_;
+    std::function<void()> previous_state_retirement_;
     std::exception_ptr stage_error_;
     template <class F> void stage(F&& f) noexcept {
         if (stage_error_)

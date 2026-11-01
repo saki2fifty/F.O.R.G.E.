@@ -3,6 +3,7 @@
 #include <forge/application_state_definition.hpp>
 #include <forge/application_state_ecs.hpp>
 #include <forge/identity.hpp>
+#include <functional>
 #include <nlohmann/json_fwd.hpp>
 #include <optional>
 #include <string>
@@ -27,6 +28,18 @@ void configure_application_states(flecs::world&, const ApplicationStatesDefiniti
 // native relationship only. Computed/inactive/unknown domains reject requests.
 void request_application_state(flecs::world&, std::string_view domain, std::string_view state,
                                std::optional<std::uint64_t> expected_revision = {});
+// Runtime creation owner only: bind an admitted root to an active state/ancestor.
+// Immutable once bound; same binding is idempotent. Does not advance state/time.
+void bind_application_state_lifetime(flecs::world&, flecs::entity_t root, std::string_view domain,
+                                     std::string_view state,
+                                     std::optional<std::uint64_t> expected_revision = {});
+// Copied semantic binding, or null. Never exports a native handle.
+nlohmann::json application_state_lifetime(const flecs::world&, flecs::entity_t root);
+// Host composition only. Called outside native event/defer after structural
+// retirement and before user lifecycle notifications. Returns the prior binding
+// so RuntimeSimulation follows its existing active-pipeline lifetime.
+std::function<void()> exchange_application_state_retirement_handler(flecs::world&,
+                                                                    std::function<void()>);
 // Copied host observations. Choices are optional to keep routine status small.
 nlohmann::json application_states_status(const flecs::world&, bool choices = false);
 // Owner-thread command, shared by host/Play/UI adapters. No clock advancement.

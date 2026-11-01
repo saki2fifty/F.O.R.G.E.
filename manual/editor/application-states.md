@@ -124,6 +124,38 @@ state requests require the Game service, available in shared-SDK Play and standa
 games. Legacy Play supports state queries and editor/UI controls but has no queued
 Game service.
 
+## Retire runtime objects when a state ends
+
+For objects created by C++ during Play, use the creation request's state lifetime:
+
+1. Create an entity or instantiate an admitted Prefab through the SDK client.
+2. Wait until `inspect_entity` reports `FORGE_SDK_ENTITY_READY`.
+3. Call `scope_runtime_entity(request, "app", "game")` while that state or ancestor is active. Inspect the returned Game request receipt for success.
+4. Release the creation request observation when it is no longer needed.
+
+The object and its structural children remain while `game` is active. Changing
+between children of `game` retains them. Leaving `game` destroys the group; entering
+it again does not recreate the objects. Spawn new objects explicitly when needed.
+Releasing a creation request alone does not destroy its object.
+
+Paused state changes also retire the object's native physics and source audio.
+Other objects keep their current poses and velocities. Detached one-shot sounds
+continue according to their own lifetime.
+
+Scopes accept runtime-created roots only. They cannot attach to saved Scene
+objects or Prefab templates. Choose the lifetime once; repeating the same choice
+is safe, but changing a bound object's scope is rejected. Pending/released creation
+requests, inactive states and stale revisions are rejected. Like queued state
+requests, this SDK helper requires the Game service. An agent can use
+`play.application_state.scope` with the current runtime root reference and domain
+revision. Ordinary Play recovery retains these lifetimes; they are not durable
+game saves or authored Scene changes.
+
+If a scoped object has 2D physics and exits while paused, use **Step** to complete
+pending contact-event processing before a new recovery checkpoint is available.
+The object is already removed; ordinary running play completes this on its next
+tick.
+
 ## Save, export and limits
 
 Save/Publish the definition and save the Scene before exporting. The export includes
@@ -133,8 +165,9 @@ Initial state; the current Play selection is not an exported save game.
 Definitions support up to 16 domains, 64 states per domain, 512 states total and 16 parent
 levels. Computed rules support up to 8 conditions each, 64 rules per domain and 256 rules
 total. An application-state definition controls logical modes. It does not
-automatically disable renderers, physics, audio or entities, and does not delete
-objects when a state ends.
+automatically disable renderers, physics, audio or entities. Runtime objects are
+deleted on state exit only when explicitly given a state lifetime as described
+above.
 
 If no state appears, check that the definition was published, assigned to the
 Scene's single controller, and that Play has finished loading. If a request is

@@ -15,6 +15,7 @@ constexpr const char* playing = "play_with_owned_storage";
 constexpr const char* parent = "game_with_owned_storage";
 struct Probe {
     std::uint64_t ticks = 0, conditional_ticks = 0, token = 0;
+    std::uint64_t creation = 0, lifetime = 0, scoped_root = 0;
 };
 struct Events {
     std::vector<forge::ApplicationStateEntered> entered;
@@ -91,6 +92,8 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char* error, uint32_t 
                     if (!client.available(forge::sdk::Capability::Game)) {
                         require(client.request_application_state(domain, playing) == 0,
                                 "Application state SDK fabricated an unavailable Game service");
+                        require(client.scope_runtime_entity(1, domain, parent) == 0,
+                                "State lifetime SDK fabricated an unavailable Game service");
                         if (probe.ticks == 1)
                             require(probe.conditional_ticks == 0 &&
                                         forge::application_state_current(current, domain) == menu,
@@ -146,15 +149,37 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char* error, uint32_t 
                                 "Application state SDK native conditioned system did not run");
                         probe.token =
                             client.request_application_state(domain, menu, 1); // Stale revision.
+                        probe.creation = client.request_entity("Scoped SDK root");
+                        require(probe.creation != 0, "State lifetime root request did not queue");
                     } else if (probe.ticks == 3) {
                         require(probe.conditional_ticks == 2 &&
                                     forge::application_state_current(current, domain) == playing,
                                 "Application state SDK stale request mutated active state");
                         probe.token =
                             client.request_application_state("hud", "hidden"); // Computed domain.
+                        ForgeSdkEntityV1 root{};
+                        require(client.inspect_entity(probe.creation, root) &&
+                                    root.state == FORGE_SDK_ENTITY_READY,
+                                "State lifetime root did not become Ready");
+                        probe.scoped_root = root.native_entity;
+                        probe.lifetime =
+                            client.scope_runtime_entity(probe.creation, domain, parent, 2);
+                        require(probe.lifetime != 0, "State lifetime SDK request did not queue");
                     } else if (probe.ticks == 4) {
                         require(probe.conditional_ticks == 3,
                                 "Application state SDK computed rejection changed condition");
+                        const auto size =
+                            host->game_inspect(host->context, probe.lifetime, nullptr, 0);
+                        require(size > 0 && size <= 65536, "State lifetime receipt unavailable");
+                        std::vector<char> bytes(size);
+                        require(host->game_inspect(host->context, probe.lifetime, bytes.data(),
+                                                   size) == size &&
+                                    nlohmann::json::parse(bytes.data()).at("state") == "succeeded",
+                                "State lifetime SDK request failed");
+                        require(host->game_release(host->context, probe.lifetime) == 1 &&
+                                    client.release_entity(probe.creation) &&
+                                    current.is_alive(probe.scoped_root),
+                                "State lifetime observation release destroyed root");
                         probe.token = client.request_application_state(domain, menu, 2);
                     } else {
                         require(probe.conditional_ticks == 3 &&
@@ -167,6 +192,8 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char* error, uint32_t 
                         require(retained && !events->exited.empty(),
                                 "Application state SDK owning event copies did not survive "
                                 "transitions");
+                        require(!current.is_alive(probe.scoped_root),
+                                "SDK scoped root survived ancestor exit");
                         host->diagnostic(host->context, 1,
                                          "Application state SDK conditions, owned events, queued "
                                          "receipts and rejection passed");

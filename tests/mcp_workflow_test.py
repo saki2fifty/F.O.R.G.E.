@@ -28,7 +28,8 @@ AUDIO_PAUSE_ONLY = sys.argv[7:] == ['--audio-pause-only']
 GAMEPADS_ONLY = sys.argv[7:] == ['--gamepads-only']
 UI_ANIMATION_ONLY = sys.argv[7:] == ['--ui-animation-only']
 UI_LOCALIZATION_ONLY = sys.argv[7:] == ['--ui-localization-only']
-APPLICATION_STATES_ONLY = sys.argv[7:] == ['--application-states-only']
+LIFETIMES_ONLY = len(sys.argv) == 9 and sys.argv[7] == '--state-lifetimes-only'
+APPLICATION_STATES_ONLY = sys.argv[7:] == ['--application-states-only'] or LIFETIMES_ONLY
 
 
 def state_project_template(root):
@@ -56,6 +57,13 @@ def state_project_template(root):
     settings = json.loads((gallery/'forge.project.json').read_text(encoding='utf-8'))
     scene = next(row for row in catalog['assets'] if row['type'] == 'scene')
     settings['startup_scene'] = dict(asset=scene['id'], source=scene['source'])
+    if LIFETIMES_ONLY:
+        module = Path(sys.argv[8]).resolve()
+        fingerprint = json.loads(subprocess.check_output([RUNTIME, '--sdk-info'], text=True))['fingerprint']
+        shutil.copy2(module, output/module.name)
+        settings['modules'] = [dict(id='project.runtime_lifetime_probe', implementation='1',
+                                   sdk='experimental-1', fingerprint=fingerprint,
+                                   library=module.name, dependencies=[])]
     (output/'forge.project.json').write_text(json.dumps(settings), encoding='utf-8')
     return output
 
@@ -71,7 +79,7 @@ def editor(mode='full'):
             command.append(str(state_project_template(root)))
         elif MAP_PROFILE_ONLY or AUDIO_PAUSE_ONLY or SPRITE_FRAMES_ONLY or UI_LOCALIZATION_ONLY:
             command.append(str(Path(__file__).resolve().parents[1]/'samples/projects/FeatureGallery'))
-        if AUDIO_PAUSE_ONLY:
+        if AUDIO_PAUSE_ONLY or LIFETIMES_ONLY:
             command.append('--sdk')
         process = subprocess.Popen(command,
                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE,
@@ -164,6 +172,7 @@ for legacy in (False, True):
         if APPLICATION_STATES_ONLY:
             assert 'forge_play_application_states' in names
             assert advertised['forge_play_application_state_request']['annotations']['openWorldHint']
+            assert advertised['forge_play_application_state_scope']['annotations']['openWorldHint']
             authored = read('forge_scene_read')
             ok('forge_play_start')
             control('forge_play_pause')
@@ -180,6 +189,32 @@ for legacy in (False, True):
             live = until(lambda: read('forge_play_application_states'),
                          lambda row: not row['application_state_pending'] and row['value']['domains'][0]['active'] == 'playing')
             assert live['value']['domains'][1]['active'] == 'visible'
+            if LIFETIMES_ONLY:
+                # Actual module creation crosses two fixed publication boundaries.
+                for _ in range(2):
+                    control('forge_play_step')
+                snapshot = until(lambda: read('forge_play_snapshot'),
+                                 lambda row: any(e['name'] == 'MCP scoped runtime root' for e in row['entities']))
+                actor = next(e for e in snapshot['entities'] if e['name'] == 'MCP scoped runtime root')
+                assert read('forge_play_physics')['value']['bodies_2d'] == 1
+                reference = dict(scene=snapshot['asset_id'], entity=actor['id'])
+                # An authored controller cannot receive the same runtime-only lifetime.
+                authored_entity = next(e for e in snapshot['entities'] if e['name'] == 'Modes')
+                control('forge_play_application_state_scope',
+                        entity=dict(scene=snapshot['asset_id'], entity=authored_entity['id']),
+                        domain='app', state='game', domain_revision=2)
+                until(lambda: read('forge_play_application_states'),
+                      lambda row: not row['application_state_pending'] and bool(row['application_state_error']))
+                control('forge_play_application_state_scope', entity=reference,
+                        domain='app', state='game', domain_revision=1)
+                until(lambda: read('forge_play_application_states'),
+                      lambda row: not row['application_state_pending'] and bool(row['application_state_error']))
+                control('forge_play_application_state_scope', entity=reference,
+                        domain='app', state='game', domain_revision=2)
+                live = until(lambda: read('forge_play_application_states'),
+                             lambda row: not row['application_state_pending'])
+                assert not live['application_state_error']
+                tick = live['timing']['tick']
             published = live['value']
             for domain, state, revision in [('app', 'menu', 1), ('hud', 'hidden', published['domains'][1]['revision']),
                                              ('app', 'missing', 2)]:
@@ -196,6 +231,12 @@ for legacy in (False, True):
             live = until(lambda: read('forge_play_application_states'),
                          lambda row: not row['application_state_pending'] and row['value']['domains'][0]['active'] == 'menu')
             assert not live['application_state_error'] and live['timing']['tick'] == tick
+            if LIFETIMES_ONLY:
+                snapshot = read('forge_play_snapshot')
+                assert all(e['id'] != reference['entity'] for e in snapshot['entities'])
+                assert any(e['name'] == 'Modes' for e in snapshot['entities'])
+                assert read('forge_play_physics')['value']['bodies_2d'] == 0
+                assert read('forge_scene_read') == authored
             control('forge_play_stop')
             assert read('forge_scene_read') == authored
             assert read('forge_play_application_states')['value'] is None
@@ -210,7 +251,10 @@ for legacy in (False, True):
                 readable = {tool['name'] for tool in readonly.request('tools/list')['result']['tools']}
                 assert 'forge_play_application_states' in readable
                 assert 'forge_play_application_state_request' not in readable
+                assert 'forge_play_application_state_scope' not in readable
                 denied = readonly.request('tools/call', dict(name='forge_play_application_state_request', arguments={}))
+                assert denied['error']['code'] == -32602, denied
+                denied = readonly.request('tools/call', dict(name='forge_play_application_state_scope', arguments={}))
                 assert denied['error']['code'] == -32602, denied
             ok('forge_document_open', path='Scenes/134-signal-lock.scene.json', discard=True)
             puzzle = read('forge_scene_read')

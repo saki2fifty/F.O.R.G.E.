@@ -303,8 +303,16 @@ RuntimeSimulation::RuntimeSimulation(WorldContext& context, Scene& scene)
     input_system_.add<FixedSimulation>();
     transforms_.add<FixedSimulation>();
     reset_presentation();
+    previous_state_retirement_ = exchange_application_state_retirement_handler(world, [this] {
+        if (physics_)
+            physics_->retire_destroyed_entities();
+        if (audio_)
+            audio_->refresh_sources();
+    });
 }
 RuntimeSimulation::~RuntimeSimulation() {
+    exchange_application_state_retirement_handler(context_.world(),
+                                                  std::move(previous_state_retirement_));
     context_.world().set_pipeline(previous_pipeline_);
     for (const char* name : {"flecs.timer.ProgressTimers", "flecs.timer.ProgressRateFilters",
                              "flecs.timer.ProgressTickSource"})

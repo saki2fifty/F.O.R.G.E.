@@ -47,15 +47,17 @@ class Client {
     // definition, computed/subordinate and optional revision validation.
     uint64_t request_application_state(std::string_view domain, std::string_view state,
                                        std::optional<uint64_t> expected_revision = {}) const {
-        if (!application_state_key(domain) || !application_state_key(state) ||
-            !callable(Capability::Game) || !host_->game_request)
-            return 0;
-        std::string command = "{\"operation\":\"application_state\",\"domain\":\"" +
-                              std::string(domain) + "\",\"state\":\"" + std::string(state) + "\"";
-        if (expected_revision)
-            command += ",\"expected_revision\":" + std::to_string(*expected_revision);
-        command += "}";
-        return host_->game_request(host_->context, command.c_str());
+        return request_state_command("application_state", domain, state, expected_revision);
+    }
+    // creation_request must be this module's Ready entity/prefab request. Inspect
+    // the returned Game token before releasing creation observation. Binding
+    // survives release and retires the structural root on state/ancestor exit.
+    uint64_t scope_runtime_entity(uint64_t creation_request, std::string_view domain,
+                                  std::string_view state,
+                                  std::optional<uint64_t> expected_revision = {}) const {
+        return creation_request ? request_state_command("entity_state_scope", domain, state,
+                                                        expected_revision, creation_request)
+                                : 0;
     }
     bool action(const char* id, ForgeSdkActionV1& out) const {
         out = {};
@@ -543,6 +545,21 @@ class Client {
     }
 
   private:
+    uint64_t request_state_command(std::string_view operation, std::string_view domain,
+                                   std::string_view state, std::optional<uint64_t> revision,
+                                   uint64_t creation_request = 0) const {
+        if (!application_state_key(domain) || !application_state_key(state) ||
+            !callable(Capability::Game) || !host_->game_request)
+            return 0;
+        std::string command = "{\"operation\":\"" + std::string(operation) + "\",\"domain\":\"" +
+                              std::string(domain) + "\",\"state\":\"" + std::string(state) + "\"";
+        if (revision)
+            command += ",\"expected_revision\":" + std::to_string(*revision);
+        if (creation_request)
+            command += ",\"request\":" + std::to_string(creation_request);
+        command += "}";
+        return host_->game_request(host_->context, command.c_str());
+    }
     template <class Out>
     static bool prepare_query_output(Out* out, uint32_t capacity, uint32_t limit) {
         if (!out || !capacity || capacity > limit)

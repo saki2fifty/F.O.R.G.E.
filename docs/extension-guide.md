@@ -877,3 +877,14 @@ queued service. Do not mutate active/membership pairs from project code.
 The installed `application_states_gameplay` sample demonstrates native ancestor
 conditions, owned lifecycle events, request receipts and fresh-World reset. See
 [Application states](application-states.md) for definition and boundary semantics.
+
+For a Ready entity/Prefab creation request, `client.scope_runtime_entity(token,
+domain, state, optional_revision)` queues an explicit state lifetime through Game.
+Inspect the returned Game receipt before releasing creation observation. The root
+and its structural children then retire when the selected active state or ancestor
+exits. Observation release alone retains them; a common ancestor survives sibling
+transitions. Scopes cannot be rebound, and Pending/foreign/released requests reject.
+The matching installed `application_states_probe.cpp` sample exercises creation,
+binding, receipt inspection, release and retirement. This requires the Game service;
+legacy Play reports it unavailable and the helper returns zero. The C host table
+layout remains unchanged.

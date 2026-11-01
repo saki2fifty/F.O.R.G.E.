@@ -316,6 +316,17 @@ The latter may describe a complete predecessor after failed presentation admissi
 These observations and controls share the core state owner rather than creating
 an agent-owned state machine. See [Application states](application-states.md).
 
+`forge_play_application_state_scope` binds a runtime-created root to an active
+state/ancestor. Supply its current EntityRef as `entity:{scene,entity}`, `domain`,
+`state`, `domain_revision` and the same launch/session/generation mutation scope.
+Read the root from `forge_play_snapshot` and the domain revision from
+`forge_play_application_states`. The operation uses the existing Play command
+slot and both transports. Pending controls, stale scope/revision, authored roots,
+inactive states and rebinding reject. Read `application_state_pending` and
+`application_state_error` for completion. Successful binding has no authored Undo;
+state exit retires the structural group. Runtime creation remains the existing
+C++ entity/Prefab API; this tool does not create entities or edit engine source.
+
 Material graph templates and creation accept `editor:"material.graph"` with
 `domain:"mesh"` (default) or `domain:"sprite"`. Both call the same native factories
 used by Content. A Sprite template contains image, Color, Multiply and Sprite

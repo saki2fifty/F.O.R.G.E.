@@ -2300,12 +2300,18 @@ std::uint64_t recovery_epoch(const char* name) {
     return result;
 }
 } // namespace
+bool Native2D::checkpoint_ready() const {
+    const auto& self = *impl_;
+    self.check();
+    return self.retired.empty() && !self.pending_end_bound &&
+           self.last_step_tick == self.last_event_tick;
+}
 Native2DImage Native2D::checkpoint(const Desired2D& desired, std::size_t remaining,
                                    const DesiredJoints2D& joints) const {
     const auto& self = *impl_;
     self.check();
     validate_step();
-    if (!self.retired.empty() || self.pending_end_bound || desired.size() != self.bodies.size())
+    if (!checkpoint_ready() || desired.size() != self.bodies.size())
         throw std::runtime_error("2D checkpoint requires adopted synchronized bodies");
     Native2DImage image;
     if (!realized()) {
@@ -2555,6 +2561,45 @@ void Native2D::restore(const Json& metadata, const std::string& bytes, const Des
     impl_.swap(candidate);
 }
 void Native2D::check() const { impl_->check(); }
+void Native2D::retire_destroyed(const flecs::world& world) {
+    auto& self = *impl_;
+    self.check();
+    Desired2D desired;
+    DesiredJoints2D joints;
+    for (const auto& [id, body] : self.bodies)
+        if (world.is_alive(id))
+            desired.emplace(id, body.admitted);
+    for (const auto& [id, joint] : self.joints)
+        if (world.is_alive(id) && desired.contains(joint.admitted.a) &&
+            desired.contains(joint.admitted.b))
+            joints.emplace(id, joint.admitted);
+    if (desired.size() == self.bodies.size() && joints.size() == self.joints.size())
+        return;
+    // Reuse native retirement/event preflight with admitted values only. This
+    // operation never adopts live edits or reapplies stored poses to survivors.
+    validate(desired, 0, {}, {}, joints);
+    try {
+        self.pending_end_bound += self.ending_joint_contacts(joints, desired);
+        self.retire_joints(joints, desired);
+        for (auto it = self.bodies.begin(); it != self.bodies.end();) {
+            if (!desired.contains(it->first)) {
+                self.retire(it->second);
+                it = self.bodies.erase(it);
+            } else
+                ++it;
+        }
+        for (auto& [id, body] : self.bodies) {
+            (void)id;
+            body.carry_start.reset();
+            body.preceding_start.reset();
+            body.mover_support_valid = false;
+        }
+        self.rebuild_mover_order();
+    } catch (...) {
+        self.fault = true;
+        throw;
+    }
+}
 std::size_t Native2D::size() const { return impl_->bodies.size(); }
 std::size_t Native2D::shape_size() const {
     return realized() ? std::size_t(b2World_GetCounters(impl_->world).shapeCount) : 0;

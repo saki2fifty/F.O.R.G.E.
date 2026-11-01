@@ -487,6 +487,32 @@ struct PlayAutomation {
                 return state(play);
             },
             true));
+        auto scope_properties = state_properties, scope_required = state_required;
+        scope_properties["entity"] = {
+            {"type", "object"},
+            {"properties", {{"scene", automation_uuid()}, {"entity", automation_uuid()}}},
+            {"required", {"scene", "entity"}},
+            {"additionalProperties", false}};
+        scope_required.push_back("entity");
+        methods.push_back(automation_method(
+            "play.application_state.scope",
+            "Bind a runtime-created entity or prefab root to a currently active state or "
+            "ancestor. Use its current Scene/entity reference from the Play snapshot and "
+            "domain_revision from play.application_states. Authored entities, unavailable "
+            "roots, inactive states, stale revisions and rebinding are rejected. The root's "
+            "structural children retire when that state exits. This transient binding has "
+            "no authored Undo and survives releasing the C++ creation request observation.",
+            "play.execute", automation_object(scope_properties, scope_required), true,
+            [&files, &play, providers](const Json& request) {
+                current(play, files, providers, request);
+                if (!play.submit_application_state_scope(request.at("entity").get<EntityRef>(),
+                                                         request.at("domain"), request.at("state"),
+                                                         request.at("domain_revision")))
+                    throw AuthoringError("play_busy",
+                                         "State lifetime control is unavailable or pending");
+                return state(play);
+            },
+            true));
         append_tuning_controls(methods, scene, files, play, tuning, providers);
         for (auto& method : methods)
             method.executes_native = method.capability == "play.execute";

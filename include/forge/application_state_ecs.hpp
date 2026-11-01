@@ -12,6 +12,9 @@ struct ApplicationStateDomainTag {};
 struct ApplicationStateActive {};    // Exclusive; runtime-owned active leaf.
 struct ApplicationStateMember {};    // Derived active leaf and its ancestors.
 struct ApplicationStateRequested {}; // Exclusive; last merged request wins.
+// Explicit lifetime of a runtime-created root; target is a semantic state entity.
+// The runtime creation owner validates bindings. Scene/Flecs own destruction.
+struct ApplicationStateLifetime {};
 struct ApplicationStateEntered {
     std::string domain, state, previous, current;
     std::uint64_t revision = 0;

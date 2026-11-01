@@ -6,6 +6,7 @@
 #include "cpu_profile_control.hpp"
 #include "flecs_system_trace.hpp"
 #include "json_document.hpp"
+#include "runtime_entity_creation.hpp"
 #include "runtime_io.hpp"
 #include "runtime_property_tune.hpp"
 #include "runtime_tile_map.hpp"
@@ -300,6 +301,8 @@ int main(int argc, char** argv) {
             return std::to_string(h);
         };
         auto capture = [&] {
+            if (!runtime->physics()->checkpoint_ready())
+                return forge::Json(); // Retain the last adopted boundary; no partial recovery.
             if (!forge::animation_runtime(runtime->engine.world())->checkpoint_ready())
                 return forge::Json(); // Incomplete or invalid bindings are not a checkpoint.
             auto tile_maps = forge::detail::checkpoint_runtime_tile_maps(runtime->engine.world());
@@ -314,6 +317,8 @@ int main(int argc, char** argv) {
             checkpoint["tile_maps"] = std::move(tile_maps);
             checkpoint["application_states"] =
                 forge::checkpoint_application_states(runtime->engine.world().world());
+            checkpoint["runtime_entity_lifetimes"] =
+                forge::detail::checkpoint_runtime_entity_lifetimes(runtime->engine.world());
             checkpoint["animation"] =
                 forge::animation_runtime(runtime->engine.world())->checkpoint();
             if (checkpoint["animation"].is_null())
@@ -463,6 +468,9 @@ int main(int argc, char** argv) {
                                                      ? &recovery.at("application_states")
                                                      : nullptr,
                                                  true);
+                            forge::detail::restore_runtime_entity_lifetimes(
+                                candidate->engine.world(),
+                                recovery.value("runtime_entity_lifetimes", forge::Json()));
                             forge::detail::restore_runtime_tile_maps(candidate->engine.world(),
                                                                      recovery.at("tile_maps"));
                             replacement_phase("replace-maps-ready");
@@ -557,9 +565,8 @@ int main(int argc, char** argv) {
                             request.at("source").get<forge::EntityRef>(), request);
                         runtime->simulation.sync_animation_pose();
                     } else if (command == "application_state") {
-                        (void)forge::control_application_states(
-                            runtime->engine.world().world(),
-                            forge::ApplicationStateAccess::request(request, ui_generation));
+                        (void)forge::ApplicationStateAccess::control(runtime->engine.world(),
+                                                                     request, ui_generation);
                     } else if (command == "property_tune") {
                         const auto target = forge::RuntimePropertyTune::parse(
                             request, ui_generation, runtime->scene.asset_id());

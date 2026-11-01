@@ -1,5 +1,8 @@
 #pragma once
+#include "runtime_entity_creation.hpp"
 #include <cstdint>
+#include <forge/application_states.hpp>
+#include <forge/world.hpp>
 #include <nlohmann/json.hpp>
 #include <stdexcept>
 
@@ -16,9 +19,19 @@ struct ApplicationStateAccess {
             !value.at("expected_revision").is_number_unsigned())
             throw std::runtime_error(
                 "Application state request requires the current domain revision");
-        return {{"domain", value.at("domain")},
-                {"state", value.at("state")},
-                {"expected_revision", value.at("expected_revision")}};
+        nlohmann::json result{{"domain", value.at("domain")},
+                              {"state", value.at("state")},
+                              {"expected_revision", value.at("expected_revision")}};
+        if (value.contains("entity"))
+            result["entity"] = value.at("entity");
+        return result;
+    }
+    static nlohmann::json control(WorldContext& context, const nlohmann::json& value,
+                                  std::uint64_t generation) {
+        auto command = request(value, generation);
+        if (command.contains("entity"))
+            return detail::control_runtime_entity_scope(context, command);
+        return control_application_states(context.world(), command);
     }
 };
 } // namespace forge

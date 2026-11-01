@@ -56,6 +56,44 @@ state; a missing field is compatible only when no definition is configured.
 Prepared SDK Play retains its existing recovery policy. This checkpoint is not an
 automatic durable save game; native IDs never cross a process boundary.
 
+## Explicit runtime root lifetimes
+
+An opt-in Exclusive `ApplicationStateLifetime` pair binds a root created by the
+existing runtime entity/Prefab queue to a currently active state or ancestor.
+The creation owner validates that the root is Ready, still belongs to the same
+World/Scene incarnation, and is runtime-created. An existing binding is immutable;
+repeating the same binding is idempotent. Authored entities and Prefab templates
+are ineligible. Releasing creation observation retains both root and binding.
+
+After publishing the complete next state configuration, the state owner snapshots
+roots bound to exited states and invokes ordinary native structural destruction
+before custom lifecycle notifications. Children and Prefab groups follow existing
+Scene/Flecs ownership. Common ancestors retain their roots across sibling changes;
+computed/subordinate exits use the same rule. World retirement remains silent.
+This is one-way lifetime retirement, not automatic activation or reconstruction.
+
+One host composition binding in the existing World state component connects this
+boundary to the active RuntimeSimulation and follows its existing pipeline lifetime.
+It runs outside native event/defer; consumer exceptions do not cross a native event
+callback. Physics owns immediate dead-body/constraint/character removal,
+its command cancellation and 2D retirement/contact bounds; it does not adopt
+unrelated edits or move surviving bodies. Audio refreshes its existing source
+owner. No fixed time advances, including during paused controls. Existing native
+consumer/observer faults are not a general rollback guarantee.
+
+Preserve ADR024's adopted native recovery boundary. 2D retired-shape/contact records
+remain pending until fixed event adoption; readiness prevents an incomplete private
+checkpoint from becoming a failed control reply. This does not discard events,
+advance time, or change private physics formats.
+
+The existing Game command queue accepts a module-owned Ready request token or a
+current runtime root EntityRef. SDK uses the owned token; Play automation uses the
+reference plus its normal generation/revision/permission gates. Private ordinary
+recovery captures created-root references and optional semantic bindings separately
+from request observations. It validates the whole list before restoring markers
+and bindings; process-local request tokens are never restored. Older checkpoints
+without this optional list remain compatible. SDK Play recovery stays unchanged.
+
 ## Scope and compatibility
 
 The backend uses the existing pinned Flecs relationship, query and custom-event

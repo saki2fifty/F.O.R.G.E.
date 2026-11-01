@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdint>
 #include <forge/identity.hpp>
+#include <nlohmann/json_fwd.hpp>
 #include <string>
 namespace forge {
 class WorldContext;
@@ -25,5 +26,12 @@ RuntimeEntityResult inspect_runtime_entity(WorldContext&, const std::string& mod
                                            std::uint64_t token);
 bool release_runtime_entity(WorldContext&, const std::string& module, std::uint64_t token);
 void publish_runtime_entities(WorldContext&);
+// Explicit opt-in lifetime of a published runtime-created root. Native pairs
+// retain the binding after observation release; authored rows are never eligible.
+nlohmann::json control_runtime_entity_scope(WorldContext&, const nlohmann::json&,
+                                            const std::string& module = {});
+// Private exact-build recovery of created-root markers and semantic lifetimes.
+nlohmann::json checkpoint_runtime_entity_lifetimes(WorldContext&);
+void restore_runtime_entity_lifetimes(WorldContext&, const nlohmann::json&);
 } // namespace detail
 } // namespace forge

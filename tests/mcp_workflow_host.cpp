@@ -17,6 +17,7 @@
 #include "ui_localization_authoring.hpp"
 #include "ui_test_renderer.hpp"
 #include <chrono>
+#include <fstream>
 #include <iostream>
 #include <memory>
 #include <thread>
@@ -69,8 +70,12 @@ int main(int argc, char** argv) {
                                   std::filesystem::copy_options::recursive);
         else
             forge::SceneDocument::create_project(root / "Game", "MCP game workflows");
-        if (mode == "application_states")
-            (void)forge::test::application_state_fixture(root / "Game");
+        if (mode == "application_states") {
+            std::ifstream input(root / "Game/forge.project.json");
+            const auto settings = forge::Json::parse(input);
+            (void)forge::test::application_state_fixture(
+                root / "Game", settings.value("modules", forge::Json::array()));
+        }
         std::filesystem::create_directory(root / "Output");
         forge::EngineContext engine;
         forge::Scene scene(engine.world());

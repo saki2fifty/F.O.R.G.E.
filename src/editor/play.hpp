@@ -231,6 +231,13 @@ class PlaySession {
         application_state_error_.clear();
         return true;
     }
+    bool submit_application_state_scope(const EntityRef& entity, const std::string& domain,
+                                        const std::string& state, std::uint64_t revision) {
+        if (!entity.scene || !entity.entity || !submit_application_state(domain, state, revision))
+            return false;
+        live_command_["entity"] = entity;
+        return true;
+    }
     const Json& property_tune_ack() const { return property_tune_ack_; }
     bool property_tune_pending() const {
         return !property_tune_command_.is_null() || (waiting_ && sent_command_ == "property_tune");

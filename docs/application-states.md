@@ -152,6 +152,46 @@ definition changes renew input scope and require complete candidate admission.
 The presenter reports observations from its displayed set, independently of an
 unpublished/failed replacement. UI controls work while paused without a fixed tick.
 
+## Explicit runtime entity lifetimes
+
+The existing runtime entity/Prefab queue can bind a published root to an active
+state or ancestor. Use `Client::scope_runtime_entity(creation_request, domain,
+state, optional_revision)` after `inspect_entity` reports Ready. It queues an
+`entity_state_scope` Game request; inspect its receipt before releasing creation
+observation. Pending, foreign, released or Gone tokens reject. The binding lives
+on the native root as an Exclusive `ApplicationStateLifetime` pair and survives
+observation release. A different binding rejects; repeating the same one succeeds.
+
+The same owner accepts a current EntityRef for Play automation. Only roots
+published by the runtime creation owner qualify; saved Scene entities, arbitrary
+native entities and Prefab templates do not. Domain/state existence, active
+ancestor membership and optional unsigned domain revision validate before writes.
+Computed and subordinate states are eligible when active. This does not advance
+time or change authored history.
+
+On transition, all new state pairs/revisions publish first. Roots bound to exited
+states are then snapshotted and retired using normal native structural destruction
+before custom exit/entry events. Descendants and Prefab members follow their root;
+common ancestors preserve roots across sibling transitions. Reentry does not
+recreate anything. Later runtime publication uses Scene's existing projection of
+live members and cannot resurrect the retired group. No entity registry or second
+hierarchy owns this lifetime.
+
+The runtime consumer boundary then retires destroyed native physics bodies,
+constraints and characters through the existing physics owner, and refreshes
+audio source voices. This also runs during paused controls, so physics recovery
+does not retain a ghost body. Only commands targeting destroyed entities are
+discarded; survivor commands, velocities and poses are not adopted or advanced.
+The 2D owner retains its existing bounded retirement/contact-generation records.
+Detached audio one-shots keep their independent lifetime. User exit/entry observers
+run after this synchronization. Native consumer/observer faults retain the normal
+runtime failure policy; they are not a general rollback transaction.
+
+`play.application_state.scope` takes a runtime root EntityRef and the same current
+Play scope/generation and `domain_revision` requirements as state requests. It
+uses the same live-command slot and both runtime transports. Native Game requests
+are available in shared-SDK Play and standalone; legacy Play has no Game service.
+
 ## Recovery and limits
 
 Ordinary Play's exact-build recovery2 stores an optional private state checkpoint1:
@@ -161,8 +201,23 @@ initialization and emits no lifecycle replay. A missing checkpoint is compatible
 only with an unconfigured World. SDK Play retains its existing `recovery:null`
 policy. These records are not a durable game-save schema.
 
+Ordinary recovery also carries optional `runtime_entity_lifetimes` version1 with
+at most 65,536 created-root EntityRefs and optional semantic scope objects. The
+runtime creation owner validates all references, duplicates, active scopes and
+fresh bindings before publication. Root markers restore even for unscoped roots;
+request tokens and arbitrary C++ state do not. A missing list means an older
+checkpoint has no recoverable root markers or lifetime bindings.
+
+The existing adopted-physics checkpoint contract remains intact. A 2D retirement
+retains native shape/End-event records until the next fixed adoption. During that
+window `PhysicsRuntime::checkpoint_ready()` is false and ordinary Play reports
+`recovery:null` while the valid control succeeds. Step or the next running tick
+completes adoption and permits a current checkpoint. No partial record is emitted,
+no transient event is discarded to manufacture readiness, and no time advances
+merely to create a checkpoint. Other checkpoint validation still applies.
+
 Stop/new Play restores initial states. Keep values does not author runtime state.
-Automatic physics/render/audio/entity gating, automatic state-scoped entity
-destruction, general event-driven transition scripting and durable state saves
+Automatic physics/render/audio/entity gating, automatic reconstruction of retired
+entities, general event-driven transition scripting and durable state saves
 are outside this bounded profile. Platform acceptance and current test evidence
 are recorded separately; this document does not assert physical Windows testing.

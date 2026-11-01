@@ -2,6 +2,7 @@
 import copy
 import json
 import pathlib
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -45,7 +46,18 @@ def main():
         assert imported.returncode == 0, (imported.stdout, imported.stderr)
         # The real runtime loader must use its selected cache, without editable data.
         (root / "Assets").rename(root / "Source offline")
-        worker = Runtime(runtime, ["--project", root])
+        lifetime_module = pathlib.Path(sys.argv[4]).resolve() if len(sys.argv) > 4 else None
+        if lifetime_module:
+            settings = json.loads((pathlib.Path(__file__).resolve().parents[1] /
+                                   'samples/projects/FeatureGallery/forge.project.json').read_text(encoding='utf-8'))
+            settings['startup_scene'] = None
+            fingerprint = json.loads(subprocess.check_output([runtime, '--sdk-info'], text=True))['fingerprint']
+            settings['modules'] = [dict(id='project.runtime_lifetime_probe', implementation='1',
+                                       sdk='experimental-1', fingerprint=fingerprint,
+                                       library=lifetime_module.name, dependencies=[])]
+            (root/'forge.project.json').write_text(json.dumps(settings), encoding='utf-8')
+            shutil.copy2(lifetime_module, root/lifetime_module.name)
+        worker = Runtime(runtime, ["--sdk-project" if lifetime_module else "--project", root])
         try:
             scene = {"version": 1, "entities": [
                 {"id": "modes", "name": "Modes", "components": {
@@ -53,11 +65,45 @@ def main():
             initial = worker.request("replace", scene=scene)
             assert app(initial)["active"] == "menu" and app(initial)["revision"] == 1
             generation = initial["world_generation"]
+            if lifetime_module:
+                worker.request('step')
+                initial = worker.request('step')
+                snapshot = initial['recovery']['scene']
+                actor = next(row for row in snapshot['entities'] if row['name'] == 'MCP scoped runtime root')
+                reference = dict(scene=snapshot['asset_id'], entity=actor['id'])
+                scoped = worker.request('application_state', generation=generation, entity=reference,
+                                        domain='app', state='menu', expected_revision=1)
+                roots = scoped['recovery']['runtime_entity_lifetimes']['roots']
+                assert len(roots) == 1 and roots[0]['scope'] == dict(domain='app', state='menu')
+                checkpoint = scoped['recovery']
+                bad = copy.deepcopy(checkpoint)
+                bad.pop('integrity')
+                bad['runtime_entity_lifetimes']['roots'].append(roots[0])
+                bad['integrity'] = integrity(bad)
+                try:
+                    worker.request('replace', scene=bad['scene'], recovery=bad,
+                                   recovery_session=bad['session'], recovery_tick=bad['tick'])
+                except RuntimeError as error:
+                    assert 'duplicate' in str(error), error
+                else:
+                    raise AssertionError('Duplicate lifetime recovery was accepted')
+                initial = worker.request('replace', scene=checkpoint['scene'], recovery=checkpoint,
+                                         recovery_session=checkpoint['session'], recovery_tick=checkpoint['tick'])
+                generation = initial['world_generation']
+                assert initial['recovery']['runtime_entity_lifetimes'] == checkpoint['runtime_entity_lifetimes']
             moved = worker.request("application_state", generation=generation, domain="app",
                                    state="playing", expected_revision=1)
+            if lifetime_module:
+                assert moved['recovery'] is None, 'Pending 2D retirement must not become a partial checkpoint'
+                assert moved['application_states']['domains'][0]['active'] == 'playing'
+                assert moved['physics']['bodies_2d'] == 0
+                assert moved['timing']['tick'] == initial['timing']['tick']
+                moved = worker.request('step')
             assert app(moved)["active"] == "playing" and app(moved)["revision"] == 2
-            assert moved["timing"]["tick"] == initial["timing"]["tick"]
+            assert moved["timing"]["tick"] == initial["timing"]["tick"] + bool(lifetime_module)
             assert moved["application_states"]["domains"][0]["states"][0]["key"] == "menu"
+            if lifetime_module:
+                assert all(row['id'] != reference['entity'] for row in moved['recovery']['scene']['entities'])
             for gen, revision in ((generation, 1), (generation + 1, 2)):
                 try:
                     worker.request("application_state", generation=gen, domain="app",

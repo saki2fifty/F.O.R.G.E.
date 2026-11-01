@@ -1,3 +1,4 @@
+#include "runtime_entity_creation.hpp"
 #include <algorithm>
 #include <exception>
 #include <forge/application_states.hpp>
@@ -119,6 +120,8 @@ std::optional<Json> GameHostControls::execute(std::uint64_t token, const Json& c
     const auto operation = command.at("operation").get<std::string>();
     if (operation == "application_state") {
         return control_application_states(game_.active().engine.world().world(), command);
+    } else if (operation == "entity_state_scope") {
+        return detail::control_runtime_entity_scope(game_.active().engine.world(), command, module);
     } else if (operation == "time_scale") {
         if (!command.contains("scale") || !command.at("scale").is_number())
             throw std::runtime_error("Simulation time scale requires a number");

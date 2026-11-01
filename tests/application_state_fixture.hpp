@@ -5,7 +5,8 @@
 #include <forge/scene.hpp>
 
 namespace forge::test {
-inline Json application_state_fixture(const std::filesystem::path& root) {
+inline Json application_state_fixture(const std::filesystem::path& root,
+                                      const Json& modules = Json::array()) {
     using namespace std::chrono_literals;
     const auto check = [](bool value, const std::string& message) {
         if (!value)
@@ -13,6 +14,7 @@ inline Json application_state_fixture(const std::filesystem::path& root) {
     };
     std::filesystem::create_directories(root / "Assets");
     auto settings = ProjectSettings::defaults("State controls");
+    settings["modules"] = modules;
     settings["game"] =
         default_game_settings("org.forge.states-" + AssetId::generate().str(), "States");
     atomic_write(root / "forge.project.json", settings.dump(2));

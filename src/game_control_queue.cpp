@@ -84,7 +84,8 @@ struct GameControlQueue::Endpoint final : GameControlService,
                                                       "rumble",
                                                       "gamepad_assign",
                                                       "gamepad_sensor",
-                                                      "application_state"};
+                                                      "application_state",
+                                                      "entity_state_scope"};
         if (!operations.contains(command.at("operation").get<std::string>()))
             throw std::runtime_error("Unknown game operation");
         if (requests.size() >= 128 || owner->outstanding() >= 256)

@@ -128,6 +128,7 @@ class Native2D {
     explicit Native2D(const PhysicsConfig&);
     ~Native2D();
     void check() const;
+    void retire_destroyed(const flecs::world&);
     void validate(const Desired2D&, float dt = 0, const std::set<std::uint64_t>& commanded = {},
                   const std::map<std::uint64_t, LocalTransform>& placements = {},
                   const DesiredJoints2D& joints = {}) const;
@@ -180,6 +181,7 @@ class Native2D {
     const Body2DDesired* admitted(std::uint64_t) const;
     Native2DImage checkpoint(const Desired2D&, std::size_t remaining_bytes,
                              const DesiredJoints2D& joints = {}) const;
+    bool checkpoint_ready() const;
     void restore(const Json&, const std::string&, const Desired2D&, std::uint64_t tick,
                  const DesiredJoints2D& joints = {});
 

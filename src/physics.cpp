@@ -1678,6 +1678,35 @@ void PhysicsRuntime::validate_tile_map_candidate(EntityRef target,
     if (s.native_2d)
         s.native_2d->validate(planar, 0, {}, {}, planar_joints);
 }
+void PhysicsRuntime::retire_destroyed_entities() {
+    auto& s = *impl_;
+    s.check();
+    const auto& world = s.context.world();
+    if (ecs_is_deferred(world) || ecs_stage_is_readonly(world))
+        throw std::runtime_error("Physics retirement requires the mutable owner boundary");
+    if (s.native_2d)
+        s.native_2d->retire_destroyed(world);
+    for (auto it = s.bodies.begin(); it != s.bodies.end();) {
+        if (!world.is_alive(it->first)) {
+            auto dead = it++;
+            s.erase(dead);
+        } else
+            ++it;
+    }
+    Impl::JointDesiredMap joints;
+    for (const auto& [id, joint] : s.joints)
+        if (world.is_alive(id) && world.is_alive(joint.desired.a) &&
+            world.is_alive(joint.desired.b))
+            joints.emplace(id, joint.desired);
+    s.retire_joints(joints);
+    std::erase_if(s.characters, [&](const auto& row) { return !world.is_alive(row.first); });
+    const auto gone = [&](EntityRef ref) {
+        return s.context.resolve(ref).state == WorldContext::ResolveState::Missing;
+    };
+    std::erase_if(s.commands, [&](const auto& command) { return gone(command.ref); });
+    std::erase_if(s.character_commands, [&](const auto& command) { return gone(command.ref); });
+    std::erase_if(s.snaps, [&](const auto id) { return !world.is_alive(id); });
+}
 void PhysicsRuntime::synchronize(float dt) {
     auto& s = *impl_;
     s.check();
@@ -2700,6 +2729,10 @@ Json PhysicsRuntime::status() const {
             {"tick", s.tick},
             {"gravity", s.config.gravity},
             {"layers", s.config.layers}};
+}
+bool PhysicsRuntime::checkpoint_ready() const {
+    impl_->check();
+    return !impl_->native_2d || impl_->native_2d->checkpoint_ready();
 }
 Json PhysicsRuntime::checkpoint() const {
     auto& s = *impl_;

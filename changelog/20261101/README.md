@@ -1,5 +1,20 @@
 # 2026-11-01
 
+## Runtime object state lifetimes
+
+Runtime-created entity and Prefab roots can opt into a state or ancestor lifetime
+through the SDK Game queue or current Play/MCP reference control. Releasing
+creation observation retains the binding. Exiting the state retires the group;
+common ancestors preserve it across sibling changes. Authored roots, stale or
+inactive scopes and rebinding reject. Ordinary private recovery retains root
+markers and semantic bindings without restoring process-local request tokens.
+
+Paused retirement synchronizes native 3D/2D bodies, constraints, characters and
+source audio through existing owners. Surviving poses and queued commands remain
+unchanged. Pending 2D contact retirement keeps recovery unavailable until Step or
+the next adopted tick, preserving its existing checkpoint contract. SDK C table
+and private physics formats remain unchanged; matching SDK rebuilds are required.
+
 ## Application states and Signal Lock
 
 One published definition configures direct, hierarchical, computed and subordinate

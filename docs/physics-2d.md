@@ -346,6 +346,13 @@ opt-out restores the ordinary pair policy; resulting End/Begin transitions use
 the existing bounded copied-event/adoption window. A checkpoint rejects pending,
 unadopted retirement events, including those caused by joint edits.
 
+Explicit application-state lifetimes can retire runtime-created groups while
+paused. The physics owner removes destroyed bodies and constraints immediately,
+without adopting unrelated poses or consuming survivor commands. Native retirement
+records remain until fixed event adoption. The host reads checkpoint readiness and
+keeps recovery unavailable during that window; Step or the next running tick
+completes it. This preserves the adopted-state and event-generation contract.
+
 The Inspector uses the existing typed property history and 2D-body reference
 picker. Relevant settings follow the selected kind. Scene guides derive frames
 from copied authored spatial data, with signed/flat ancestry and XY-only physical
