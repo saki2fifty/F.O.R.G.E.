@@ -12,6 +12,7 @@
 #include <forge/animation_blend_space.hpp>
 #include <forge/animation_mask.hpp>
 #include <forge/animation_states.hpp>
+#include <forge/application_state_source.hpp>
 #include <forge/material_source.hpp>
 #include <forge/navigation_behavior.hpp>
 #include <forge/particle_effect_source.hpp>
@@ -326,6 +327,36 @@ struct Inspect {
                     key != "default_weight" && key != "entries")
                     unknown(key);
             }
+        } else if (doc.value("format", std::string{}) == "forge.application-states") {
+            ApplicationStatesSource{doc}.validate();
+            opaque_fields(doc, {"format", "version", "asset_id", "domains"});
+            std::size_t domain_index = 0;
+            for (const auto& domain : doc.at("domains")) {
+                const auto scope = "domains." + std::to_string(domain_index++);
+                opaque_fields(
+                    domain,
+                    {"key", "label", "initial", "states", "computed", "enabled_when", "rules"},
+                    scope);
+                std::size_t state_index = 0;
+                for (const auto& state : domain.at("states"))
+                    opaque_fields(state, {"key", "label", "parent"},
+                                  scope + ".states." + std::to_string(state_index++));
+                if (domain.contains("enabled_when"))
+                    opaque_fields(domain.at("enabled_when"), {"domain", "state"},
+                                  scope + ".enabled_when");
+                if (domain.contains("rules")) {
+                    std::size_t rule_index = 0;
+                    for (const auto& rule : domain.at("rules")) {
+                        const auto rule_scope = scope + ".rules." + std::to_string(rule_index++);
+                        opaque_fields(rule, {"state", "all"}, rule_scope);
+                        std::size_t condition_index = 0;
+                        for (const auto& condition : rule.at("all"))
+                            opaque_fields(condition, {"domain", "state"},
+                                          rule_scope + ".all." + std::to_string(condition_index++));
+                    }
+                }
+            }
+            // Semantic domain/state names and labels never become asset references.
         } else if (doc.value("format", std::string{}) == "forge.ui-localization") {
             UiLocalizationSource{doc}.validate();
             opaque_fields(doc, {"format", "version", "asset_id", "default_locale", "locales"});

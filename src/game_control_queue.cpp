@@ -60,12 +60,31 @@ struct GameControlQueue::Endpoint final : GameControlService,
         if (module.empty() || module.size() > 128 || !command.is_object() ||
             command.dump().size() > 1024 * 1024)
             throw std::runtime_error("Invalid game request owner or payload");
-        static const std::set<std::string> operations{
-            "pause",        "resume",        "prepare",        "activate",       "cancel",
-            "unload",       "quit",          "save",           "load",           "slots",
-            "erase",        "settings",      "set_settings",   "input_contexts", "cursor",
-            "rebind_begin", "rebind_cancel", "rebind_commit",  "rebind_reset",   "ui_navigation",
-            "time_scale",   "rumble",        "gamepad_assign", "gamepad_sensor"};
+        static const std::set<std::string> operations{"pause",
+                                                      "resume",
+                                                      "prepare",
+                                                      "activate",
+                                                      "cancel",
+                                                      "unload",
+                                                      "quit",
+                                                      "save",
+                                                      "load",
+                                                      "slots",
+                                                      "erase",
+                                                      "settings",
+                                                      "set_settings",
+                                                      "input_contexts",
+                                                      "cursor",
+                                                      "rebind_begin",
+                                                      "rebind_cancel",
+                                                      "rebind_commit",
+                                                      "rebind_reset",
+                                                      "ui_navigation",
+                                                      "time_scale",
+                                                      "rumble",
+                                                      "gamepad_assign",
+                                                      "gamepad_sensor",
+                                                      "application_state"};
         if (!operations.contains(command.at("operation").get<std::string>()))
             throw std::runtime_error("Unknown game operation");
         if (requests.size() >= 128 || owner->outstanding() >= 256)

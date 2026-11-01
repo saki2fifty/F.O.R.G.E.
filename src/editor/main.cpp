@@ -27,6 +27,8 @@
 #include "animation_states_editor.hpp"
 #include "animation_timeline.hpp"
 #include "animation_tools.hpp"
+#include "application_state_controls.hpp"
+#include "application_states_editor.hpp"
 #include "asset_actions.hpp"
 #include "asset_automation.hpp"
 #include "audio_imports.hpp"
@@ -1061,6 +1063,7 @@ int main(int argc, char** argv) {
         forge::AnimationStatesEditor animation_states;
         forge::NavigationBehaviorEditor navigation_behavior;
         forge::UiLocalizationEditor ui_localization;
+        forge::ApplicationStatesEditor application_states;
         forge::AnimationMaskEditor animation_mask;
         forge::ParticleEffectEditor particle_editor;
         std::unique_ptr<forge::ParticleEffectPreview> particle_preview;
@@ -1329,6 +1332,11 @@ int main(int argc, char** argv) {
                               [](auto& c, const auto& p, const auto&) {
                                   forge::prepare_ui_localization_publication(c, p);
                               }});
+            routes.push_back({"forge.application.states", forge::desktop_texture_target(),
+                              forge::application_states_import_registry(),
+                              [](auto& c, const auto& p, const auto&) {
+                                  forge::prepare_application_states_publication(c, p);
+                              }});
             routes.push_back({"forge.animation.blend-space", forge::desktop_texture_target(),
                               forge::animation_blend_space_import_registry(),
                               [](auto& c, const auto& p, const auto&) {
@@ -1464,6 +1472,9 @@ int main(int argc, char** argv) {
             } else if (kind == "ui_localization") {
                 if (open)
                     ui_localization.open(files.document, path);
+            } else if (kind == "application_states") {
+                if (open)
+                    application_states.open(files.document, path);
             } else if (kind == "transform_animation") {
                 if (open)
                     animation_timeline.open(files.document, path);
@@ -1845,6 +1856,28 @@ int main(int argc, char** argv) {
         asset_editors.add(
             {"ui_localization", "Open UI localization", [&](const forge::AssetRecord& asset) {
                  ui_localization.open(files.document, asset.source);
+             }});
+        documents.add({"application_states",
+                       "Application States",
+                       "Application States###Application States",
+                       true,
+                       [&] { return application_states.is_open(); },
+                       [&] { return application_states.dirty(); },
+                       [&] {
+                           application_states.draw(files.document, scene,
+                                                   asset_document_locked || play.active());
+                       },
+                       [&] { application_states.request_save(); },
+                       [&] { application_states.undo(); },
+                       [&] { application_states.redo(); },
+                       [&] { application_states.request_close(); },
+                       [&] { return application_states.can_undo(); },
+                       [&] { return application_states.can_redo(); },
+                       {},
+                       [&] { return std::exchange(application_states.close_cancelled, false); }});
+        asset_editors.add(
+            {"application_states", "Open application states", [&](const forge::AssetRecord& asset) {
+                 application_states.open(files.document, asset.source);
              }});
         documents.add({"animation_states",
                        "Animation States",
@@ -2234,6 +2267,8 @@ int main(int argc, char** argv) {
                                                          navigation_behavior, files.document));
         documents.bind_source("ui_localization", forge::AssetDocumentAutomation::bind(
                                                      ui_localization, files.document));
+        documents.bind_source("application_states", forge::AssetDocumentAutomation::bind(
+                                                        application_states, files.document));
         documents.bind_source("animation_blend_space", forge::AssetDocumentAutomation::bind(
                                                            animation_blend_space, files.document));
         documents.bind_source("animation_mask",
@@ -2427,6 +2462,7 @@ int main(int argc, char** argv) {
                     throw forge::AuthoringError("ui_reload_failed", runtime_ui.diagnostic());
             };
             play_providers.ui_localization = [&] { return runtime_ui.localization_state(); };
+            play_providers.ui_application_states = [&] { return runtime_ui.application_states_state(); };
             auto runtime = forge::PlayAutomation::methods(scene, files, play, runtime_tuning_review,
                                                           std::move(play_providers), permissions);
             methods.insert(methods.end(), std::make_move_iterator(runtime.begin()),
@@ -5411,6 +5447,14 @@ int main(int argc, char** argv) {
                     play.model_assets_changed();
                     content.refresh(files);
                 }
+                application_states.poll(files.document, message);
+                if (auto catalog = application_states.take_catalog()) {
+                    content_imports.catalog_changed(catalog);
+                    if (mesh_resources)
+                        mesh_resources->catalog(catalog);
+                    play.model_assets_changed();
+                    content.refresh(files);
+                }
                 animation_blend_space.poll(files.document, message);
                 if (auto catalog = animation_blend_space.take_catalog()) {
                     animation_preview.stop_preview();
@@ -5956,6 +6000,12 @@ int main(int argc, char** argv) {
                     if (game_view && play.active()) {
                         game_input.controls(play);
                         runtime_ui.controls(play);
+                        if (const auto request = forge::ui::ApplicationStateControls::draw(
+                                play.application_states(), play.application_state_control_ready(),
+                                play.application_state_pending(), play.application_state_error());
+                            request && game_input.release_checked(play))
+                            play.submit_application_state(request->domain, request->state,
+                                                          request->revision);
                     }
                     if (game_view) {
                         ImGui::BeginDisabled(view_image.busy() || files.busy() ||
@@ -6620,6 +6670,7 @@ int main(int argc, char** argv) {
                         animation_states.content(files.document, edit_locked);
                         navigation_behavior.content(files.document, edit_locked);
                         ui_localization.content(files.document, edit_locked);
+                        application_states.content(files.document, edit_locked);
                         animation_mask.content(files.document, edit_locked);
                         animation_blend_space.content(files.document, edit_locked);
                         animation_timeline.content(files.document, scene, edit_locked);

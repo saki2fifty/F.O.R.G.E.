@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <exception>
+#include <forge/application_states.hpp>
 #include <forge/game_content.hpp>
 #include <forge/game_host_controls.hpp>
 #include <iostream>
@@ -116,7 +117,9 @@ std::optional<Json> GameHostControls::execute(std::uint64_t token, const Json& c
                                               const GameSaveSchema* schema,
                                               const std::string& module, RuntimeClock::Time now) {
     const auto operation = command.at("operation").get<std::string>();
-    if (operation == "time_scale") {
+    if (operation == "application_state") {
+        return control_application_states(game_.active().engine.world().world(), command);
+    } else if (operation == "time_scale") {
         if (!command.contains("scale") || !command.at("scale").is_number())
             throw std::runtime_error("Simulation time scale requires a number");
         game_.set_time_scale(command.at("scale").get<double>());
@@ -404,6 +407,8 @@ void GameHostControls::publish() {
     state["rebind"] = {{"listening", false}};
     if (state.at("state") == "running" || state.at("state") == "paused") {
         state["scene"] = game_.active().scene.asset_id();
+        state["application_states"] =
+            application_states_status(game_.active().engine.world().world());
         auto& input = game_.active().simulation.input();
         state["rebind"]["listening"] = input.rebinding();
         state["rebind"]["gamepad_slot"] = input.rebind_gamepad_slot();

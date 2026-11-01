@@ -16,6 +16,7 @@ ATLAS_ONLY = "--atlas-only" in sys.argv[5:]
 SPRITE_GRAPH_ONLY = "--sprite-graph-only" in sys.argv[5:]
 NAVIGATION_BEHAVIOR_ONLY = "--navigation-behavior-only" in sys.argv[5:]
 UI_LOCALIZATION_ONLY = "--ui-localization-only" in sys.argv[5:]
+APPLICATION_STATES_ONLY = "--application-states-only" in sys.argv[5:]
 
 
 @contextmanager
@@ -74,12 +75,16 @@ for legacy in (False, True):
                         document_session=state['session'])['value']
 
         kinds = read('forge_asset_document_types')['editors']
-        assert len(kinds) == 15 and all(not item['status']['open'] for item in kinds), kinds
+        assert len(kinds) == 16 and all(not item['status']['open'] for item in kinds), kinds
         localization_catalog = read('forge_asset_localization_catalog')
         assert localization_catalog['editor'] == 'ui_localization'
         assert localization_catalog['limits']['locales'] == 8
         assert localization_catalog['command'] == dict(name='forge.locale', value='fr')
         assert 'tr(forge_locale)' in localization_catalog['binding']
+        state_catalog = read('forge_asset_application_states_catalog')
+        assert state_catalog['editor'] == 'application_states'
+        assert state_catalog['component'] == 'forge.application_states'
+        assert state_catalog['limits']['domains'] == 16 and state_catalog['limits']['states'] == 512
         behavior_catalog = read('forge_asset_behavior_catalog')
         assert behavior_catalog['editor'] == 'navigation_behavior'
         assert {a['kind'] for a in behavior_catalog['actions']} == {'wait', 'move_to_point', 'follow_target'}
@@ -117,8 +122,10 @@ for legacy in (False, True):
             kinds = [kind for kind in kinds if kind['editor'] == 'navigation_behavior']
         if UI_LOCALIZATION_ONLY:
             kinds = [kind for kind in kinds if kind['editor'] == 'ui_localization']
+        if APPLICATION_STATES_ONLY:
+            kinds = [kind for kind in kinds if kind['editor'] == 'application_states']
         atlas_image = None
-        if not COLLISION_ONLY and not SPRITE_GRAPH_ONLY and not NAVIGATION_BEHAVIOR_ONLY and not UI_LOCALIZATION_ONLY:
+        if not COLLISION_ONLY and not SPRITE_GRAPH_ONLY and not NAVIGATION_BEHAVIOR_ONLY and not UI_LOCALIZATION_ONLY and not APPLICATION_STATES_ONLY:
             # Original owned raster, imported only through the advertised MCP
             # settings/publication workflow; no catalog fixture injection.
             header = bytearray(18)
@@ -380,6 +387,32 @@ for legacy in (False, True):
                 # Allocator high-water persists through Undo; no retired IDs are reused.
                 original['next_id'] = restored['next_id']
                 assert restored == original
+            if owner == 'application_states':
+                original = content(owner)
+                domains = [
+                    dict(key='app', initial='menu', states=[dict(key='menu'), dict(key='game'),
+                         dict(key='playing', parent='game'), dict(key='paused', parent='game')]),
+                    dict(key='level', initial='warmup', enabled_when=dict(domain='app', state='game'),
+                         states=[dict(key='warmup'), dict(key='round')]),
+                    dict(key='hud', computed=True, initial='hidden',
+                         states=[dict(key='hidden'), dict(key='visible'), dict(key='ready')],
+                         rules=[dict(state='ready', all=[dict(domain='app', state='playing'),
+                                                        dict(domain='level', state='round')]),
+                                dict(state='visible', all=[dict(domain='app', state='game')])])]
+                assert edit('forge_asset_document_patch', owner,
+                            patch=[dict(op='replace', path='/domains', value=domains)])['ok']
+                selected = content(owner)
+                for pointer, bad in (('/domains/0/initial', 'missing'),
+                                     ('/domains/0/states/1/parent', 'playing'),
+                                     ('/domains/1/enabled_when/state', 'missing'),
+                                     ('/domains/0/enabled_when', dict(domain='hud', state='ready')),
+                                     ('/domains/2/computed', 1)):
+                    revision = status(owner)['revision']
+                    assert not edit('forge_asset_document_patch', owner,
+                                    patch=[dict(op='add', path=pointer, value=bad)])['ok']
+                    assert content(owner) == selected and status(owner)['revision'] == revision
+                assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == original
+                assert edit('forge_asset_document_redo', owner)['ok'] and content(owner) == selected
             if owner == 'ui_localization':
                 original = content(owner)
                 assert edit('forge_asset_document_patch', owner, patch=[
@@ -546,7 +579,7 @@ for legacy in (False, True):
                             document_session=status(owner)['session'], cells=query)['cells'][0]['tile'] == 0
             # The fixture has no shader renderer/profile; graph compilation is not claimed.
             if owner in ('material', 'collision', 'editable_mesh', 'particle_effect', 'terrain',
-                         'tile_set', 'sprite_atlas', 'animation_timeline', 'navigation_behavior', 'ui_localization'):
+                         'tile_set', 'sprite_atlas', 'animation_timeline', 'navigation_behavior', 'ui_localization', 'application_states'):
                 result = edit('forge_asset_document_save', owner)
                 assert result['ok'], result
                 end = time.monotonic() + 35
@@ -604,7 +637,7 @@ for legacy in (False, True):
                 assert not status(owner)['dirty']  # Same saved-state semantics as interactive editing.
             assert edit('forge_asset_document_close', owner, discard=True)['ok']
 
-        if COLLISION_ONLY or ATLAS_ONLY or SPRITE_GRAPH_ONLY or NAVIGATION_BEHAVIOR_ONLY or UI_LOCALIZATION_ONLY:
+        if COLLISION_ONLY or ATLAS_ONLY or SPRITE_GRAPH_ONLY or NAVIGATION_BEHAVIOR_ONLY or UI_LOCALIZATION_ONLY or APPLICATION_STATES_ONLY:
             continue
 
         # Typed importer settings use the shared draft, schema and native worker.

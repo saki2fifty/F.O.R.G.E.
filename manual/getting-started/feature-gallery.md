@@ -1,5 +1,13 @@
 # Explore the Feature Gallery
 
+**134-signal-lock** is a playable signal-and-route puzzle. Capture gameplay input,
+choose **Play**, match the receiver's hint, then open the connection. **Return to
+menu** resets the choices. Its Application States definition includes parent
+modes, subordinate choices and a computed lock result. Controls also work while
+paused. Open **Assets/UI/SignalLock/SignalLock.appstates.json** to edit the modes;
+RML and RCSS are beside it. No project C++ module is required. See
+[Application States](../editor/application-states.md).
+
 **131-patrol-behavior** shows two agents sharing a patrol-and-wait graph with
 independent progress. One uses an Anchor to offset its route. **132-chase-behavior-xy**
 shows a cyan agent watching and following an animated orange target using near/far

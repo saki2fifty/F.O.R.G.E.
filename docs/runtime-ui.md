@@ -265,3 +265,22 @@ other legacy families. No automatic UI cook or live font invalidation is claimed
 Reload UI and restart-on-same-family-font-change behavior remain unchanged. Catalog
 metadata refresh is separate from scene Undo, UI replacement and native font caches.
 The end-user steps are in [Runtime UI](../manual/editor/runtime-ui.md).
+
+## Application state presentation and commands
+
+The [application-state contract](application-states.md) defines the optional copied
+state descriptor, readonly `forge_state_<domain>`/`forge_rev_<domain>` bindings and
+`state_is` ancestor transform. Runtime UI validates the current admitted controller
+and derives these observations from the core owner. The full editable definition
+and choices are not copied into the UI descriptor. Its limit is 16 domains/24 KiB,
+within the unchanged 64 KiB snapshot cap.
+
+A configured `forge.state` action takes `domain:state:revision` and shares native
+state validation and the existing UI session/generation/receipt/document gates.
+It adds one reserved action slot; a localized stateful UI can have 35 actions
+(29 custom, four clock controls, locale, state). The older 33/34-slot cases retain
+their limits. Custom action/model collisions reject only configured stateful UI;
+unconfigured projects retain their existing behavior. State changes preserve the
+native context/focus, while controller/definition/incarnation changes re-admit a
+complete set. `UiPresenter::application_states_state()` copies only the displayed
+set's observations. See the [user guide](../manual/editor/application-states.md).

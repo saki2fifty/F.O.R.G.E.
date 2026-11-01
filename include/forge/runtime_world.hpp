@@ -12,6 +12,10 @@ class RuntimeWorld {
     // Candidate CPU readiness before the first native realization. Map cells
     // stay owned by the existing Map/resource adapters; no gameplay time advances.
     bool prepare_physics_assets();
+    bool application_states_pending() const { return application_states_token_ != 0; }
+    // Configuration readiness, without simulation time. Recovery hosts pass false
+    // until they can restore the admitted definition without replaying entry actions.
+    bool prepare_application_states(bool initialize = true);
     // Runtime-only readiness extracted from the legacy presentation candidate.
     // Returns true once the candidate world is internally consistent for
     // gameplay tick 0. Physics collision assets must already be prepared by
@@ -27,5 +31,10 @@ class RuntimeWorld {
     EngineContext engine;
     Scene scene;
     RuntimeSimulation simulation;
+
+  private:
+    std::uint64_t application_states_token_ = 0;
+    AssetId application_states_asset_;
+    bool application_states_ready_ = false;
 };
 } // namespace forge

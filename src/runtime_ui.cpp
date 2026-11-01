@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <charconv>
+#include <forge/application_states.hpp>
 #include <forge/assets.hpp>
 #include <forge/runtime_ui.hpp>
 namespace forge {
@@ -31,6 +32,39 @@ std::optional<SceneLocalization> scene_localization(const Scene& scene, const Js
                                        value.at("catalog").get<std::string>()};
     }
     return result;
+}
+struct SceneStates {
+    Json descriptor;
+    std::string scope;
+};
+std::optional<SceneStates> scene_states(const Scene& scene, const Json& rows) {
+    auto descriptor = application_states_status(scene.world());
+    if (descriptor.is_null())
+        return std::nullopt;
+    std::string scope = descriptor.at("definition_digest").get<std::string>();
+    descriptor["controller"] = nullptr;
+    for (const auto& row : rows) {
+        if (row.value("prefab", false) ||
+            !row.at("components").contains("forge.application_states"))
+            continue;
+        const auto& definition =
+            row.at("components").at("forge.application_states").at("definition");
+        if (definition.is_null())
+            continue;
+        if (!descriptor.at("controller").is_null() || definition != descriptor.at("source_asset"))
+            throw std::runtime_error(
+                "UI application state controller differs from the admitted definition");
+        const auto entity = row.at("id").get<EntityId>();
+        const auto native = scene.entity(entity.str());
+        if (!native)
+            throw std::runtime_error("UI application state controller no longer exists");
+        descriptor["controller"] = entity;
+        scope += ":" + entity.str() + ":" + std::to_string(native.id());
+    }
+    if (!descriptor.at("source_asset").is_null() && descriptor.at("controller").is_null())
+        throw std::runtime_error("UI application state controller was removed; restart Play");
+    ui_protocol::validate_application_states(descriptor);
+    return SceneStates{std::move(descriptor), std::move(scope)};
 }
 } // namespace
 UiRuntime::UiRuntime(std::filesystem::path project, ServiceAccess services)
@@ -101,9 +135,13 @@ Json UiRuntime::snapshot(const Scene& scene, const std::string& session, std::ui
                !components.at("forge.ui_document").at("document").is_null();
     });
     const auto localization = demand ? scene_localization(scene, rows) : std::nullopt;
+    const auto states = demand ? scene_states(scene, rows) : std::nullopt;
     const auto scope = localization ? localization->scope : std::string{};
+    const auto state_scope = states ? states->scope : std::string{};
     if (localization && actions_.contains("forge.locale"))
         throw std::runtime_error("Localized UI conflicts with a custom forge.locale action");
+    if (states && actions_.contains("forge.state"))
+        throw std::runtime_error("Application state UI conflicts with a custom forge.state action");
     for (const auto& e : rows) {
         const auto entity = e.at("id").get<EntityId>();
         live.insert(entity);
@@ -139,18 +177,29 @@ Json UiRuntime::snapshot(const Scene& scene, const std::string& session, std::ui
         const auto handle = scene.entity(entity.str()).id();
         auto it = instances_.find(entity);
         if (it == instances_.end() || it->second.asset != asset || it->second.entity != handle ||
-            it->second.localization_scope != scope)
+            it->second.localization_scope != scope ||
+            it->second.application_state_scope != state_scope)
             instances_[entity] = {asset, handle,
-                                  entity.str() + ":" + std::to_string(++next_instance_), scope};
+                                  entity.str() + ":" + std::to_string(++next_instance_), scope,
+                                  state_scope};
         auto model = models_.contains(entity) ? models_.at(entity) : Json::object();
         if (localization &&
             (model.contains("forge_locale") || model.contains("forge_resolved_locale")))
             throw std::runtime_error("Localized UI reserves its locale presentation bindings");
+        if (states)
+            for (const auto& [key, value] : model.items()) {
+                (void)value;
+                if (key.starts_with("forge_state_") || key.starts_with("forge_rev_"))
+                    throw std::runtime_error(
+                        "Application state UI reserves its state presentation bindings");
+            }
         model["tick"] = tick;
         model["paused"] = paused;
         Json actions = {"Pause", "Resume", "Step", "TimeScale"};
         if (localization)
             actions.push_back("forge.locale");
+        if (states)
+            actions.push_back("forge.state");
         for (const auto& a : actions_)
             actions.push_back(a);
         docs.push_back({{"entity", entity},
@@ -169,6 +218,8 @@ Json UiRuntime::snapshot(const Scene& scene, const std::string& session, std::ui
                    {"documents", std::move(docs)},    {"errors", std::move(errors)}};
     if (localization)
         result["localization"] = localization->descriptor;
+    if (states)
+        result["application_states"] = states->descriptor;
     ui_protocol::validate_snapshot(result);
     return result;
 }
@@ -194,10 +245,24 @@ void UiRuntime::command(Scene& scene, const Json& request,
         throw std::runtime_error("UI document no longer accepts input");
     if (AssetCatalog::open_project(project_).resolve(d.document).state != AssetState::Available)
         throw std::runtime_error("UI document asset is unavailable");
-    const auto localization = scene_localization(scene, scene.ui_document_rows());
+    const auto rows = scene.ui_document_rows();
+    const auto localization = scene_localization(scene, rows);
+    const auto states = scene_states(scene, rows);
     if (known->second.localization_scope != (localization ? localization->scope : std::string{}))
         throw std::runtime_error("UI localization binding changed; wait for a fresh snapshot");
+    if (known->second.application_state_scope != (states ? states->scope : std::string{}))
+        throw std::runtime_error("UI application state binding changed; wait for a fresh snapshot");
     const auto name = request.at("command").get<std::string>();
+    if (name == "forge.state" && states) {
+        if (actions_.contains(name) || !request.contains("value") ||
+            !request.at("value").is_string())
+            throw std::runtime_error(
+                "forge.state requires an unambiguous domain:state:revision string");
+        control_application_states(scene.world(),
+                                   ui_protocol::application_state_request(
+                                       request.at("value").get_ref<const std::string&>()));
+        return;
+    }
     if (name == "forge.locale" && localization) {
         if (actions_.contains(name) || !request.contains("value") ||
             !request.at("value").is_string())

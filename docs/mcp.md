@@ -267,7 +267,7 @@ and their suffixes. `template` exposes each existing owner's initial source shap
 editor's current document. These tools never create a parallel draft or history.
 Material, material graph, collision, editable mesh, particle, terrain, Tile Set,
 Tile Map, Sprite atlas, animation states/blend space/mask, transform animation and
-Navigation Behavior and UI Localization are bound. `forge_asset_behavior_catalog` describes the native
+Navigation Behavior, UI Localization and Application States are bound. `forge_asset_behavior_catalog` describes the native
 behavior actions/conditions, finite limits, row shape, monotonic shared state/edge
 IDs and first-match transition policy. Use editor `navigation_behavior` and the
 ordinary template/create/read/patch/history/save/close tools. Its component's
@@ -290,6 +290,31 @@ reference changes remain Edit-only.
 The latter includes the displayed requested/selected/default locale and fallback
 message count. It may still describe the previous complete presentation after a
 failed replacement. It is read-only and creates no second locale authority.
+
+`forge_asset_application_states_catalog` describes direct/hierarchical/computed/
+subordinate source shapes, keys, limits, conditions and runtime bindings. Use source
+editor `application_states` and the same template/create/read/patch/history/save/
+close owners. Scene attachment uses the reflected `forge.application_states`
+component and its typed `definition` field; semantic keys and labels are not asset
+references. Key renames do not rewrite external RML/C++ strings.
+
+`forge_play_application_states` returns copied current choices, active/ancestor
+membership, pending requests and per-domain revisions. `forge_play_application_state_request`
+requires runtime execution permission, current launch/session/generation and the
+normal document revision/sequence envelope, plus `domain`, `state` and
+`domain_revision`. The latter is the domain's observed revision, independent of
+the envelope's `expected_revision`. Submission queues PlaySession's existing live
+command slot. Read status for `application_state_pending` and
+`application_state_error`; stale/computed/inactive/unknown state rejections leave
+Play alive. State transitions do not author a Scene edit or advance a paused tick.
+
+`forge_play_ui_command` can send `forge.state` with a bounded
+`domain:state:revision` string through the current visible document's existing
+command gate. `forge_play_ui.value.application_states` is the runtime observation;
+`presentation_application_states` is copied from the actual displayed native set.
+The latter may describe a complete predecessor after failed presentation admission.
+These observations and controls share the core state owner rather than creating
+an agent-owned state machine. See [Application states](application-states.md).
 
 Material graph templates and creation accept `editor:"material.graph"` with
 `domain:"mesh"` (default) or `domain:"sprite"`. Both call the same native factories
@@ -820,7 +845,7 @@ atlas template/create/patch/history/publication, maximum uint32 keys and retaine
 allocation highwater. It uses real editor and fixed worker owners with asset
 read/write grants; read-only discovery excludes mutations.
 
-`mcp_source_stdio` exercises all 15 real source editor owners, graph schema/port
+`mcp_source_stdio` exercises all 16 real source editor owners, graph schema/port
 discovery, document sessions/revisions, source Undo/Redo, failed identity edits,
 copy-on-write tile painting, saved-state dirtiness, native publication, typed
 import setting atomicity, source disk conflicts, prefab source publication and
@@ -1182,3 +1207,9 @@ identity, invalid values and unsupported texture replacement retain current valu
 Use normal source edits and saved assets for changes that must survive export.
 See [coordinates, resource admission and limits](light-images.md). No additional
 agent-only light or rendering operation is needed.
+
+`mcp_application_states_stdio` scopes source validation/history/publication to the
+new state owner. `mcp_application_states_play_stdio` exercises the real editor's
+state discovery, paused controls, computed/stale/launch/gesture rejection and
+runtime-only isolation through both MCP formats. Native SDK and software renderer
+fixtures provide separate evidence; these MCP checks do not assert Windows execution.

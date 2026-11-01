@@ -12,6 +12,9 @@ bool identifier(const std::string&);
 void validate_value(const Json&);
 void validate_model(const Json&);
 void validate_localization(const Json&);
+// Bounded copied runtime observations, without the editable definition/choices.
+void validate_application_states(const Json&);
+Json application_state_request(const std::string&);
 void validate_snapshot(const Json&);
 // A session is assigned by the runtime. Generation changes on successful world replacement.
 // The presentation host must explicitly reset trust on Play/replacement, never accept an

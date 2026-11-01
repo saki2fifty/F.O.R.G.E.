@@ -13,6 +13,7 @@
 #include <cmath>
 #include <cstdarg>
 #include <cstdio>
+#include <forge/application_state_key.hpp>
 #include <forge/audio_service.hpp>
 #include <forge/build.hpp>
 #include <forge/game_platform.hpp>
@@ -206,6 +207,30 @@ class PlaySession {
     const Json& input_status() const { return input_status_; }
     const Json& ui_snapshot() const { return ui_snapshot_; }
     const Json& ui_ack() const { return ui_ack_; }
+    const Json& application_states() const { return application_states_; }
+    const std::string& application_state_error() const { return application_state_error_; }
+    bool application_state_pending() const {
+        return (!live_command_.is_null() &&
+                live_command_.value("command", "") == "application_state") ||
+               (waiting_ && sent_command_ == "application_state");
+    }
+    bool application_state_control_ready() const {
+        return control_ready() && live_command_.is_null() && world_generation() &&
+               !application_states_.is_null();
+    }
+    bool submit_application_state(const std::string& domain, const std::string& state,
+                                  std::uint64_t expected_revision) {
+        if (!application_state_control_ready() || !application_state_key(domain) ||
+            !application_state_key(state))
+            return false;
+        live_command_ = {{"command", "application_state"},
+                         {"generation", world_generation()},
+                         {"domain", domain},
+                         {"state", state},
+                         {"expected_revision", expected_revision}};
+        application_state_error_.clear();
+        return true;
+    }
     const Json& property_tune_ack() const { return property_tune_ack_; }
     bool property_tune_pending() const {
         return !property_tune_command_.is_null() || (waiting_ && sent_command_ == "property_tune");
@@ -941,8 +966,11 @@ class PlaySession {
                     if (!response.value("ok", false)) {
                         const auto error = response.value("error", "Runtime rejected request");
                         if (sent_command_ == "audio_mix" || sent_command_ == "audio_source" ||
-                            sent_command_ == "animation_playback" || sent_command_ == "profiling") {
-                            if (sent_command_ == "profiling")
+                            sent_command_ == "animation_playback" || sent_command_ == "profiling" ||
+                            sent_command_ == "application_state") {
+                            if (sent_command_ == "application_state")
+                                application_state_error_ = error;
+                            else if (sent_command_ == "profiling")
                                 cpu_profile_error_ = error;
                             else if (sent_command_ == "audio_mix")
                                 audio_mix_error_ = error;
@@ -1178,6 +1206,7 @@ class PlaySession {
                         ui_command_ = ui_ack_ =
                             nullptr; // Old queued requests cannot cross replacement.
                     ui_snapshot_ = std::move(next_ui);
+                    application_states_ = response.value("application_states", Json());
                     if (response.contains("ui_ack"))
                         ui_ack_ = response.at("ui_ack");
                     ++snapshot_version_;
@@ -1453,6 +1482,8 @@ class PlaySession {
         control_.clear();
         session_.clear();
         ui_snapshot_ = ui_ack_ = ui_command_ = nullptr;
+        application_states_ = nullptr;
+        application_state_error_.clear();
         audio_status_ = Json::object();
         live_command_ = nullptr;
         audio_mix_error_.clear();
@@ -1733,6 +1764,8 @@ class PlaySession {
     Json physics_status_ = Json::object();
     Json input_map_ = InputMap{}.source(), input_status_ = Json::object();
     Json ui_snapshot_, ui_ack_, ui_command_;
+    Json application_states_;
+    std::string application_state_error_;
     bool model_assets_changed_ = false;
     std::vector<InputEvent> input_events_;
     std::uint64_t input_reset_serial_ = 0;

@@ -1,4 +1,5 @@
 #include <cmath>
+#include <forge/application_states.hpp>
 #include <forge/audio.hpp>
 #include <forge/game_session.hpp>
 #include <limits>
@@ -53,6 +54,7 @@ std::uint64_t GameSession::prepare(const Json& snapshot,
         if (restore_supported_state)
             restore_supported_state(next->scene);
         next->engine.world().modules().restore_state(module_state);
+        initialize_application_states(next->engine.world().world());
         const bool physics_ready = next->prepare_physics_assets();
         if (physics_ready) {
             next->physics()->synchronize(0); // No elapsed physics time.
@@ -77,7 +79,9 @@ std::uint64_t GameSession::prepare(const Json& snapshot,
         candidate_preparation_ = std::move(preparation);
         pending_ = ticket;
         progress_ = {physics_ready && audio_ready && !candidate_preparation_,
-                     !physics_ready           ? "collision"
+                     !physics_ready && candidate_->application_states_pending()
+                         ? "application_states"
+                     : !physics_ready         ? "collision"
                      : !audio_ready           ? "audio"
                      : candidate_preparation_ ? "resources"
                                               : "structural",
@@ -114,7 +118,10 @@ GamePreparationProgress GameSession::poll_candidate() {
                 progress_ = {!candidate_preparation_,
                              candidate_preparation_ ? "resources" : "structural", 0, 0};
             } else
-                progress_ = {false, "collision", 0, 1};
+                progress_ = {false,
+                             candidate_->application_states_pending() ? "application_states"
+                                                                      : "collision",
+                             0, 1};
         }
         if (candidate_initialized_ && !candidate_->prepare_audio_sources())
             progress_ = {false, "audio", 0, 1};
@@ -292,6 +299,7 @@ void GameSession::control_frame() {
             throw std::runtime_error("Control-frame sequence exhausted");
         const auto& input = active_->simulation.input().latch_controls(++control_frame_);
         active_->engine.world().modules().control_frame(input);
+        advance_application_states(active_->engine.world().world());
         if (active_->engine.services().available(Capability::Audio))
             std::static_pointer_cast<AudioRuntime>(active_->engine.services().audio())
                 ->poll_loading();

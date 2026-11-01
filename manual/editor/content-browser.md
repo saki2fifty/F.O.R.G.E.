@@ -130,7 +130,7 @@ Open **Create / Register**:
 - **Prefabs** contains Create from selection, Instantiate, Edit source and Duplicate asset.
 - The animation, navigation and Runtime UI sections expose their existing conversion, build and registration tools.
 
-See [Audio](audio.md), [Animation](animation.md), [Navigation](navigation.md), [Runtime UI](runtime-ui.md) and [Prefabs](prefabs.md). Stop Play to create/register assets; browsing remains available.
+See [Application States](application-states.md), [Audio](audio.md), [Animation](animation.md), [Navigation](navigation.md), [Runtime UI](runtime-ui.md) and [Prefabs](prefabs.md). Stop Play to create/register assets; browsing remains available.
 
 ## Current limits
 

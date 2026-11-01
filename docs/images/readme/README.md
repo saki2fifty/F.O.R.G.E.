@@ -1189,3 +1189,34 @@ These are actual source-owner and native Game UI captures. They do not establish
 full Windows editor, MSVC/D3D12, physical GPU/input/DPI or graphical EXE acceptance.
 The Windows review queue retains those unexecuted checks. Offline manual and
 package tests verify local navigation and unchanged image inclusion separately.
+
+## Application States source, controls and Signal Lock
+
+These captures use local application-state development based on0cabd47, with an
+unassigned build identity. Canonical image assets live only in manual/images.
+
+| Asset | Actual capture source | SHA-256 |
+| --- | --- | --- |
+| application-states-editor.png | Real ApplicationStatesEditor native gestures / SDL software, 1200x900 | 689091e18d277dffb3ef824cc7de34ce84840556e8f103bd482061f0db235c6c |
+| application-states-controls.png | Actual Game state selector owner / SDL software, 800x460 | 04dc5c362a3ccb46dc132645a89f297304a942e314c3a5905878db95a766e78e |
+| application-states-game.png | Native UiDiligentRenderer/RmlUi/FreeType software Vulkan/lvp Game UI, 1000x900; unchanged RGB format conversion | c69074e7e927b4b4fb8596b1d7927ca098af960bf1419270d18cdf879a0e1c8e |
+
+The source capture comes from `application_states_editor_tests --manual-capture`:
+native editing/history/publication/attachment gestures render through SDL software.
+Its displayed computed domain is a real edited definition. The Game-controls
+capture uses the exact selector owner called by Main, with copied core state; it
+is a focused owner fixture, not a full editor desktop screenshot. Separate pointer
+tests exercise all controls at100/150/200% scaling.
+
+The game image is `ui-states-1000-open-authored.ppm` from the native renderer fixture.
+The actual GameSession reads the selected typed definition; native pointer commands
+choose the signal/route while paused. Twelve desktop/portrait views match full
+Scene/state/RML/style exports after relocation and editable-source removal. PNG
+encoding preserves every readback RGB pixel. There is no crop, resize, inserted UI,
+retouch or generated screenshot content. Desktop/portrait game views and source/
+selector captures were personally reviewed. Exact inputs, format conversion hashes
+and pixel-pair receipts remain in the local application-state validation record.
+
+These prove the stated owners and software rendering only. Full Windows editor,
+MSVC/D3D12, physical input/DPI/GPU and relocated graphical EXE acceptance remain
+queued. Offline manual layout and package inclusion are validated separately.

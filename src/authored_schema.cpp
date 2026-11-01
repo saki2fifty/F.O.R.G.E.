@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <array>
 #include <forge/animation_components.hpp>
+#include <forge/application_state_components.hpp>
 #include <forge/audio_components.hpp>
 #include <forge/engine_module.hpp>
 #include <forge/model_asset.hpp>
@@ -137,6 +138,7 @@ std::vector<ReflectedAdapter> authoring_value_adapters(flecs::world& world) {
     FORGE_REF(NavigationBehaviorAsset);
     FORGE_REF(UiDocumentAsset);
     FORGE_REF(UiLocalizationAsset);
+    FORGE_REF(ApplicationStatesAsset);
     FORGE_REF(TileSetAsset);
     FORGE_REF(TileMapAsset);
 #undef FORGE_REF

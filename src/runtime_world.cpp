@@ -1,9 +1,11 @@
 #include "animation_playback_access.hpp"
+#include "application_state_resource.hpp"
 #include "particle_runtime.hpp"
 #include "runtime_property_tune.hpp"
 #include "runtime_tile_map.hpp"
 #include <exception>
 #include <forge/animation.hpp>
+#include <forge/application_states.hpp>
 #include <forge/audio.hpp>
 #include <forge/audio_components.hpp>
 #include <forge/navigation.hpp>
@@ -69,10 +71,74 @@ Json RuntimeWorld::tune_property(EntityRef target, const std::string& type,
 bool RuntimeWorld::prepare_physics_assets() {
     if (engine.services().available(Capability::Resources))
         engine.services().resources()->synchronize();
+    if (!prepare_application_states())
+        return false;
     detail::synchronize_runtime_tile_maps(engine.world());
     if (!detail::prepare_runtime_tile_maps(engine.world()))
         return false;
     return physics()->prepare_assets();
+}
+bool RuntimeWorld::prepare_application_states(bool initialize) {
+    AssetId selected;
+    unsigned count = 0;
+    engine.world().world().each([&](flecs::entity entity, const ApplicationStates& controller) {
+        if (entity.has(flecs::Prefab) || !controller.definition.id ||
+            !entity.has<SceneMember>(scene.membership()))
+            return;
+        ++count;
+        selected = controller.definition.id;
+    });
+    if (count > 1)
+        throw std::runtime_error(
+            "One runtime World supports one configured Application States controller");
+    if (application_states_ready_) {
+        if (selected != application_states_asset_)
+            throw std::runtime_error(
+                "Application States controller changed after candidate admission");
+        if (initialize)
+            initialize_application_states(engine.world().world());
+        return true;
+    }
+    const auto services = engine.services();
+    if (!selected) {
+        if (application_states_token_) {
+            services.resources()->release(application_states_token_);
+            application_states_token_ = 0;
+        }
+        if (initialize)
+            initialize_application_states(engine.world().world());
+        return true;
+    }
+    if (!services.available(Capability::Resources))
+        throw std::runtime_error(
+            "Application States requires the project's runtime resource owner");
+    auto resources = services.resources();
+    if (application_states_token_ && selected != application_states_asset_) {
+        resources->release(application_states_token_);
+        application_states_token_ = 0;
+    }
+    if (!application_states_token_) {
+        application_states_token_ =
+            resources->request(RuntimeResourceKind::ApplicationStates, selected);
+        application_states_asset_ = selected;
+    }
+    const auto status = resources->inspect(application_states_token_);
+    if (status.state == "failed" || status.state == "dependency failed" ||
+        status.state == "cancelled")
+        throw std::runtime_error("Application States preparation: " + status.diagnostic);
+    if (status.state != "ready" || status.requested_revision != status.retained_revision)
+        return false;
+    const auto lease = resources->application_states(application_states_token_);
+    if (!lease)
+        throw std::runtime_error(
+            "Application States ready subscription has no retained definition");
+    configure_application_states(engine.world().world(), lease.get(), selected);
+    if (initialize)
+        initialize_application_states(engine.world().world());
+    resources->release(application_states_token_);
+    application_states_token_ = 0;
+    application_states_ready_ = true;
+    return true;
 }
 bool RuntimeWorld::prepare_scene_resources() {
     // Runtime-only readiness extracted from the legacy presentation candidate.

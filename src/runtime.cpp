@@ -7,6 +7,7 @@
 #include "utf8_boundary.hpp"
 #include <algorithm>
 #include <cmath>
+#include <forge/application_states.hpp>
 #include <forge/render_components.hpp>
 #include <forge/runtime.hpp>
 #include <limits>
@@ -354,6 +355,10 @@ void RuntimeSimulation::tick(float dt) {
     detail::publish_runtime_tile_edits(context_);
     context_.modules().begin_tick(input_.snapshot());
     try {
+        {
+            auto profile = context_.services().profile("runtime", "ApplicationStates", input_tick_);
+            advance_application_states(context_.world());
+        }
         detail::NativeSystemTraceCapture native_traces(context_.services(), input_tick_);
         context_.world().progress(dt);
     } catch (...) {

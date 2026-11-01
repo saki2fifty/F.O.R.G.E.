@@ -18,6 +18,12 @@ Json localization_identity(const Json& descriptor) {
                ? Json()
                : Json{{"entity", descriptor.at("entity")}, {"asset", descriptor.at("asset")}};
 }
+Json application_state_identity(const Json& descriptor) {
+    return descriptor.is_null() ? Json()
+                                : Json{{"controller", descriptor.at("controller")},
+                                       {"source_asset", descriptor.at("source_asset")},
+                                       {"definition_digest", descriptor.at("definition_digest")}};
+}
 } // namespace
 struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
     struct Doc {
@@ -32,6 +38,7 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
         std::shared_ptr<UiResources> resources;
         UiAssetSnapshot assets;
         Json localization;
+        Json application_states;
         const UiLocalizationData* messages = nullptr;
         std::vector<std::unique_ptr<Doc>> docs;
         Rml::ElementDocument* frame_document = nullptr;
@@ -394,6 +401,7 @@ body { width:100%; height:100%; z-index:65536; }
         candidate->name = "ui" + std::to_string(++serial);
         candidate->resources = std::make_shared<UiResources>(project);
         candidate->localization = state.value("localization", Json());
+        candidate->application_states = state.value("application_states", Json());
         resources[candidate->name] = candidate->resources;
         error.clear();
         loading_prefix = candidate->name;
@@ -420,6 +428,51 @@ body { width:100%; height:100%; z-index:65536; }
                 if (!model)
                     throw std::runtime_error("UI data model creation failed");
                 auto* ptr = d.get();
+                if (!candidate->application_states.is_null()) {
+                    for (const auto& [key, value] : desc.at("model").items()) {
+                        (void)value;
+                        if (key.starts_with("forge_state_") || key.starts_with("forge_rev_"))
+                            throw std::runtime_error(
+                                "Application state UI reserves its state presentation bindings");
+                    }
+                    if (candidate->docs.empty())
+                        model.RegisterTransformFunc(
+                            "state_is", [set = candidate.get()](const Rml::VariantList& args) {
+                                if (args.size() != 3 || args[0].GetType() != Rml::Variant::STRING ||
+                                    args[1].GetType() != Rml::Variant::STRING ||
+                                    args[2].GetType() != Rml::Variant::STRING)
+                                    return Rml::Variant(false);
+                                const auto domain = args[1].Get<Rml::String>();
+                                const auto member = args[2].Get<Rml::String>();
+                                for (const auto& row : set->application_states.at("domains"))
+                                    if (row.at("key") == domain &&
+                                        row.at("active") == args[0].Get<Rml::String>()) {
+                                        const auto& membership = row.at("membership");
+                                        return Rml::Variant(std::find(membership.begin(),
+                                                                      membership.end(),
+                                                                      member) != membership.end());
+                                    }
+                                return Rml::Variant(false);
+                            });
+                    for (std::size_t index = 0;
+                         index < candidate->application_states.at("domains").size(); ++index) {
+                        const auto domain = candidate->application_states.at("domains")[index]
+                                                .at("key")
+                                                .get<std::string>();
+                        for (bool revision : {false, true}) {
+                            const auto name =
+                                std::string(revision ? "forge_rev_" : "forge_state_") + domain;
+                            if (!model.BindFunc(name, [set = candidate.get(), index,
+                                                       revision](Rml::Variant& out) {
+                                    const auto& row = set->application_states.at("domains")[index];
+                                    out = revision ? std::to_string(
+                                                         row.at("revision").get<std::uint64_t>())
+                                                   : row.at("active").get<std::string>();
+                                }))
+                                throw std::runtime_error("UI application state binding failed");
+                        }
+                    }
+                }
                 if (candidate->messages) {
                     if (candidate->docs.empty())
                         model.RegisterTransformFunc(
@@ -681,11 +734,14 @@ bool UiPresenter::accept(const Json& j) {
         return false;
     bool rebuild = !s.live;
     const auto localization = j.value("localization", Json());
+    const auto application_states = j.value("application_states", Json());
     const auto& docs = j.at("documents");
     if (s.live) {
         rebuild =
             s.live->docs.size() != docs.size() ||
-            localization_identity(localization) != localization_identity(s.live->localization);
+            localization_identity(localization) != localization_identity(s.live->localization) ||
+            application_state_identity(application_states) !=
+                application_state_identity(s.live->application_states);
         for (const auto& d : s.live->docs) {
             auto it = std::find_if(docs.begin(), docs.end(),
                                    [&](const auto& v) { return v.at("instance") == d->instance; });
@@ -718,7 +774,9 @@ bool UiPresenter::accept(const Json& j) {
             desc["model"] = std::move(keys);
         }
         const auto signature =
-            Json{{"documents", structure}, {"localization", localization_identity(localization)}}
+            Json{{"documents", structure},
+                 {"localization", localization_identity(localization)},
+                 {"application_states", application_state_identity(application_states)}}
                 .dump();
         if (signature == s.failed_structure)
             return false;
@@ -728,6 +786,7 @@ bool UiPresenter::accept(const Json& j) {
     }
     bool visibility_changed = false;
     const bool locale_changed = s.live->localization != localization;
+    const bool states_changed = s.live->application_states != application_states;
     for (const auto& d : s.live->docs)
         for (const auto& desc : docs)
             if (desc.at("instance") == d->instance &&
@@ -735,10 +794,11 @@ bool UiPresenter::accept(const Json& j) {
                 visibility_changed = true;
     if (visibility_changed)
         release_input();
-    if (visibility_changed || locale_changed) {
+    if (visibility_changed || locale_changed || states_changed) {
         ++s.presentation_revision;
     }
     s.live->localization = localization;
+    s.live->application_states = application_states;
     for (auto& d : s.live->docs) {
         auto it = std::find_if(docs.begin(), docs.end(),
                                [&](const auto& v) { return v.at("instance") == d->instance; });
@@ -966,5 +1026,10 @@ Json UiPresenter::localization_state() const {
             {"default_locale", table.default_locale},
             {"messages", total},
             {"fallback_messages", total - table.locales.at(selected).messages.size()}};
+}
+Json UiPresenter::application_states_state() const {
+    const auto& s = *impl_;
+    s.check();
+    return s.live ? s.live->application_states : Json();
 }
 } // namespace forge

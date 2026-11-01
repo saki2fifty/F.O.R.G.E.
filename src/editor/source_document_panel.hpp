@@ -2,6 +2,7 @@
 #include "../asset_import_service.hpp"
 #include "../asset_source_document.hpp"
 #include "document.hpp"
+#include "widgets.hpp"
 #include <utility>
 
 namespace forge {
@@ -116,6 +117,32 @@ template <class Traits> class SourceDocumentPanel {
     virtual void source_opened() {}
     virtual void catalog_changed() {}
     virtual void changed() { needs_publish_ = true; }
+    void draw_close_dialog(const char* name, bool locked) {
+        if (close_ && dirty())
+            ImGui::OpenPopup(name);
+        if (!ImGui::BeginPopupModal(name, nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+            return;
+        ImGui::TextWrapped("Save and publish, discard the draft, or keep editing?");
+        ImGui::BeginDisabled(locked || pending());
+        if (ui::button("Save", "Publish before closing.")) {
+            request_save();
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::SameLine();
+        if (ui::button("Discard", "Close without saving this draft.")) {
+            finish_close();
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndDisabled();
+        ImGui::SameLine();
+        if (ui::button("Keep editing", "Cancel closing.")) {
+            close_ = false;
+            next_source_.reset();
+            close_cancelled = true;
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
     bool edit_source(std::uint64_t revision, std::string label,
                      const std::function<void(Json&)>& mutation) {
         try {

@@ -1,0 +1,36 @@
+<rml><head>
+<link type="text/rcss" href="hud.rcss"/>
+</head><body><div id="panel">
+<p class="eyebrow">FORGE / SIGNAL PUZZLE</p><h1>Signal Lock</h1>
+<p class="intro">Find the matching signal and route to open the lock.</p>
+<div id="menu" data-if="forge_state_app == 'menu'">
+<div class="card"><h2>Two choices. One connection.</h2>
+<p>The receiver listens for a cool blue signal from the right-hand route.</p>
+<p>Choose Play, set both controls, then open the connection.</p></div>
+<button id="play" class="primary" data-event-click="command('forge.state', 'app:playing:' + forge_rev_app)">Play</button>
+</div>
+<div id="game-banner" class="banner" data-if="forge_state_app | state_is('app','game')">Game session active</div>
+<div id="game" data-if="forge_state_app == 'playing'">
+<div class="card"><p class="caption">1 / SIGNAL</p><h2 id="signal">{{forge_state_signal}}</h2>
+<button id="amber" data-class-selected="forge_state_signal == 'amber'" data-event-click="command('forge.state', 'signal:amber:' + forge_rev_signal)">Amber</button>
+<button id="cyan" data-class-selected="forge_state_signal == 'cyan'" data-event-click="command('forge.state', 'signal:cyan:' + forge_rev_signal)">Cyan</button>
+<button id="violet" data-class-selected="forge_state_signal == 'violet'" data-event-click="command('forge.state', 'signal:violet:' + forge_rev_signal)">Violet</button></div>
+<div class="card"><p class="caption">2 / ROUTE</p><h2 id="route">{{forge_state_route}}</h2>
+<button id="left" data-class-selected="forge_state_route == 'left'" data-event-click="command('forge.state', 'route:left:' + forge_rev_route)">Left</button>
+<button id="right" data-class-selected="forge_state_route == 'right'" data-event-click="command('forge.state', 'route:right:' + forge_rev_route)">Right</button></div>
+<div id="closed" class="result" data-if="forge_state_lock == 'closed'"><h2>Connection closed</h2><p>Try another signal or route.</p></div>
+<div id="open" class="result success" data-if="forge_state_lock == 'open'"><h2>Connection open</h2>
+<p>The receiver recognizes this combination.</p>
+<button id="finish" class="primary" data-event-click="command('forge.state', 'app:complete:' + forge_rev_app)">Open connection</button></div>
+</div>
+<div id="complete" class="card success" data-if="forge_state_app == 'complete'"><h2>Signal received!</h2>
+<p>You opened the connection. Return to the menu to reset the puzzle.</p></div>
+<button id="menu-button" data-if="forge_state_app != 'menu'" data-event-click="command('forge.state', 'app:menu:' + forge_rev_app)">Return to menu</button>
+<div class="rule"></div><p class="caption">STATE MONITOR</p>
+<p class="monitor">Mode: {{forge_state_app}} / Lock: {{forge_state_lock}}</p>
+<p class="monitor">Paused: {{paused}} / Tick: {{tick}}</p>
+<button id="pause" data-event-click="command('Pause')">Pause</button>
+<button id="resume" data-event-click="command('Resume')">Resume</button>
+<button id="step" data-event-click="command('Step')">Step</button>
+<p class="small">Choices still work while paused. Return to menu resets the choices; Stop and Play reset the entire session.</p>
+</div></body></rml>

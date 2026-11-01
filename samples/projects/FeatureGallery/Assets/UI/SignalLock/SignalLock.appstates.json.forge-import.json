@@ -1,0 +1,35 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [],
+    "importer": "forge.application.states",
+    "importer_revision": "forge.application.states.v1",
+    "key_version": 1,
+    "output_format": "forge.application-states",
+    "output_version": 1,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {},
+    "settings_version": 1,
+    "source": "73e4b95553927a0d8c792811732805ac1d51f4d332890a1d44e5429bd3abdf5a",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.application-states.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "09c0fd04-674b-4c66-af41-1ac6b4199232",
+    "source": "Assets/UI/SignalLock/SignalLock.appstates.json",
+    "source_digest": "73e4b95553927a0d8c792811732805ac1d51f4d332890a1d44e5429bd3abdf5a",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.application.states",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

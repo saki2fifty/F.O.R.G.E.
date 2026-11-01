@@ -177,6 +177,18 @@ This actual Windows D3D12 WARP Game capture demonstrates the original static cou
 
 Read the [FORGE User Manual](manual/README.md) for feature explanations and how-to guides. Windows packages include an offline edition under **Help → User Manual**. Technical implementation documents remain in `docs/`.
 
+## Game modes and playable menus
+
+[Application States](manual/editor/application-states.md) provides menus, playing
+modes, parent states, subordinate choices and computed results. Gallery134's
+**Signal Lock** puzzle uses the source editor, game UI and shared runtime controls
+without a project C++ module.
+
+[![Signal Lock puzzle with Cyan and Right selected and an open connection](manual/images/application-states-game.png)](manual/editor/application-states.md)
+
+Actual native Game UI on software Vulkan. Source-free relocated exports match the
+same views; physical Windows/full editor and graphical EXE review remains pending.
+
 ## Current implementation
 
 **Windows Build 213:** [native MCP authoring tools](manual/editor/mcp.md) connect AI
@@ -202,6 +214,7 @@ See the [capability checklist and validation limits](docs/mcp.md).
 
 - Model/texture/material/shader importing, cooked resources and dependency-aware, relocatable game export with a standalone SDL/Diligent/RmlUi executable.
 - [Navigation](manual/editor/navigation.md), with local source for [patrol, wait and chase behavior graphs](manual/editor/navigation-behavior.md), shared editor/MCP authoring and ready Gallery131/132 examples; [runtime UI](manual/editor/runtime-ui.md) and the [asset workflow](manual/editor/content-browser.md).
+- [Application States](manual/editor/application-states.md): authored direct/hierarchical/computed/subordinate modes, source and Scene history, runtime-only Game/UI controls, native conditions/events, matching SDK and MCP access, and playable Gallery134. Automatic subsystem gating and state-scoped entity destruction are unavailable.
 - [Localized game menus and HUDs](manual/editor/ui-localization.md): one Scene language controller, shared source/editor/MCP catalog authoring, literal UTF-8 text, deterministic fallback and paused language controls. Original Gallery133 includes English, French and Spanish. Full shaping and editor translation are separate unsupported capabilities.
 - [Phase8 runtime foundations](docs/game-foundation.md): resource-gated scene sessions, separate versioned player saves/settings, OS user-data storage, collision assets and a Jolt character controller.
 - [Gameplay services](docs/gameplay-services.md): input contexts, player rebinding, bounded gamepad vibration and queued session/save requests through the exact SDK. The [reference game](manual/reference-game.md) exercises menus, first-person movement, interaction, transitions and save/relaunch/load in the standalone host. Editor Play invokes project gameplay through its separate runtime session.

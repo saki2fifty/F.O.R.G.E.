@@ -1,5 +1,6 @@
 #include "sdk_play_runtime.hpp"
 #include "animation_playback_access.hpp"
+#include "application_state_access.hpp"
 #include "audio_mix.hpp"
 #include "audio_source_access.hpp"
 #include "cpu_profile_control.hpp"
@@ -20,6 +21,7 @@
 #include <deque>
 #include <exception>
 #include <forge/animation.hpp>
+#include <forge/application_states.hpp>
 #include <forge/build.hpp>
 #include <forge/game_control_queue.hpp>
 #include <forge/game_session.hpp>
@@ -597,11 +599,14 @@ struct SdkPlayRuntime::State {
                     active_tiles.capture(generation, world.scene.asset_id(), views);
             out.body["schema"] = world.scene.schema();
             out.body["input"] = world.simulation.input_status();
+            out.body["application_states"] =
+                application_states_status(world.engine.world().world(), true);
         } catch (const std::exception& e) {
             out.body["scene"] = nullptr;
             out.body["effective_scene"] = nullptr;
             out.body["schema"] = nullptr;
             out.body["input"] = nullptr;
+            out.body["application_states"] = nullptr;
             out.failure = std::string("Active scene unavailable: ") + e.what();
             out.failed = true;
             return out;
@@ -1279,6 +1284,14 @@ Json SdkPlayRuntime::handle_inner(const Json& request, RuntimeClock::Time now) {
                                                  s.game->active().engine.services().animation()),
                                              request.at("source").get<EntityRef>(), request);
             s.game->active().simulation.sync_animation_pose();
+            return s.snapshot_response(id);
+        }
+        if (command == "application_state") {
+            if (!s.game)
+                return s.build_error(id, "Application states require an active world");
+            (void)control_application_states(
+                s.game->active().engine.world().world(),
+                ApplicationStateAccess::request(request, s.active_generation));
             return s.snapshot_response(id);
         }
         if (command == "property_tune") {

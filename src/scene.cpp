@@ -1064,6 +1064,9 @@ Json Scene::serialize(bool effective, bool ui_only) const {
             if (item.at("components").contains("forge.ui_localization"))
                 components["forge.ui_localization"] =
                     item.at("components").at("forge.ui_localization");
+            if (item.at("components").contains("forge.application_states"))
+                components["forge.application_states"] =
+                    item.at("components").at("forge.application_states");
             output.push_back({{"id", item.at("id")},
                               {"prefab", item.value("prefab", false)},
                               {"components", std::move(components)}});
@@ -1103,7 +1106,8 @@ Json Scene::serialize(bool effective, bool ui_only) const {
         }
         for (const auto& type : detail::builtins()) {
             if (ui_only && std::string_view(type.name) != "forge.ui_document" &&
-                std::string_view(type.name) != "forge.ui_localization")
+                std::string_view(type.name) != "forge.ui_localization" &&
+                std::string_view(type.name) != "forge.application_states")
                 continue;
             const auto value = type.read(e, effective);
             if (value.is_null()) {

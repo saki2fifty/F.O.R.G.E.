@@ -14,6 +14,7 @@
 #include <windows.h>
 #include <wrl/client.h>
 #endif
+#include "application_state_render_tests.hpp"
 #include "ui_animation_render_tests.hpp"
 #include "ui_frame_statistics_render_tests.hpp"
 #include "ui_localization_render_tests.hpp"
@@ -76,7 +77,10 @@ void save(const Pixels& pixels, unsigned width, unsigned height,
 } // namespace
 int main(int argc, char** argv) {
     try {
-        require(argc == 3 || argc == 4, "Need image output, font and optional Gallery");
+        const bool states_only =
+            argc == 5 && std::string_view(argv[4]) == "--application-states-only";
+        require(argc == 3 || argc == 4 || states_only,
+                "Need image output, font, optional Gallery and --application-states-only");
         const std::filesystem::path images(argv[1]);
         std::filesystem::create_directories(images);
 #ifdef FORGE_UI_VULKAN_TEST
@@ -113,6 +117,14 @@ int main(int argc, char** argv) {
 #endif
 
         forge::UiDiligentRenderer renderer(device);
+        if (states_only) {
+            forge::test_state_gallery_pixels::exercise(device, context, renderer, images, argv[2],
+                                                       argv[3], readback, save);
+            context->WaitForIdle();
+            std::cout << "Native application state Game UI and relocated source-free pixel pairs "
+                         "passed\n";
+            return 0;
+        }
         auto& r = renderer.render_interface();
         TextureDesc desc;
         desc.Name = "UI fixture target";
@@ -389,6 +401,9 @@ img {position:absolute;width:64px;height:64px;top:16px;} #png {left:16px;} #jpg 
         if (argc == 4)
             forge::test_ui_localization_pixels::exercise(device, context, renderer, images, argv[2],
                                                          argv[3], readback, save);
+        if (argc == 4)
+            forge::test_state_gallery_pixels::exercise(device, context, renderer, images, argv[2],
+                                                       argv[3], readback, save);
         context->WaitForIdle();
         std::cout << "Runtime UI native geometry, clipping, transform, texture, blend, font "
                      "and resize passed\n";

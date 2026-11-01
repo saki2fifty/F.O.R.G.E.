@@ -3,8 +3,11 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <forge/application_state_key.hpp>
 #include <forge/native_sdk.h>
+#include <optional>
 #include <span>
+#include <string>
 namespace forge::sdk {
 enum class Capability : uint32_t {
     Diagnostics = FORGE_SDK_DIAGNOSTICS,
@@ -39,6 +42,21 @@ class Client {
     }
     bool available(Capability cap) const { return query(cap).available != 0; }
     bool callable(Capability cap) const { return query(cap).callable != 0; }
+    // Queued, world-scoped operation. Inspect the returned game request token;
+    // submission does not promise the state was applied. The exact host owns
+    // definition, computed/subordinate and optional revision validation.
+    uint64_t request_application_state(std::string_view domain, std::string_view state,
+                                       std::optional<uint64_t> expected_revision = {}) const {
+        if (!application_state_key(domain) || !application_state_key(state) ||
+            !callable(Capability::Game) || !host_->game_request)
+            return 0;
+        std::string command = "{\"operation\":\"application_state\",\"domain\":\"" +
+                              std::string(domain) + "\",\"state\":\"" + std::string(state) + "\"";
+        if (expected_revision)
+            command += ",\"expected_revision\":" + std::to_string(*expected_revision);
+        command += "}";
+        return host_->game_request(host_->context, command.c_str());
+    }
     bool action(const char* id, ForgeSdkActionV1& out) const {
         out = {};
         out.size = sizeof(out);

@@ -88,6 +88,9 @@ class RuntimeUiHost {
     Json localization_state() const {
         return presenter_ && !suspended_ ? presenter_->localization_state() : Json{};
     }
+    Json application_states_state() const {
+        return presenter_ && !suspended_ ? presenter_->application_states_state() : Json{};
+    }
     // Single source of truth for "has RmlUi Core been initialized by this
     // host yet?". Mirrors `set_game_input_observer`/`set_presenter_alive_observer`
     // in tests/editor_sdk_workflow.hpp: the workflow probes this before

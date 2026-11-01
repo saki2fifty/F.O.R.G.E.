@@ -8,6 +8,7 @@ struct MaterialAsset;
 struct TileSetAsset;
 struct TileMapAsset;
 struct NavigationBehaviorAsset;
+struct ApplicationStatesAsset;
 template <class T> class ResourceLease;
 // CPU admission only. Ready is not GPU/draw readiness. Tokens are process-local,
 // world-scoped subscriptions, never serialized asset identities or native pointers.
@@ -19,7 +20,8 @@ enum class RuntimeResourceKind : unsigned {
     Collision,
     TileSet,
     TileMap,
-    NavigationBehavior
+    NavigationBehavior,
+    ApplicationStates
 };
 enum class RuntimeTextureVariant : unsigned { Automatic, Color, Data, Normal, HdrColor };
 struct RuntimeResourceStatus {
@@ -43,5 +45,6 @@ class RuntimeResourceService {
     virtual ResourceLease<TileSetAsset> tile_set(std::uint64_t) const = 0;
     virtual ResourceLease<TileMapAsset> tile_map(std::uint64_t) const = 0;
     virtual ResourceLease<NavigationBehaviorAsset> navigation_behavior(std::uint64_t) const = 0;
+    virtual ResourceLease<ApplicationStatesAsset> application_states(std::uint64_t) const = 0;
 };
 } // namespace forge

@@ -27,6 +27,7 @@ struct PlayAutomationProviders {
         ui_command;
     std::function<void()> reload_ui;
     std::function<Json()> ui_localization;
+    std::function<Json()> ui_application_states;
 };
 struct PlayAutomation {
     static Json state(const PlaySession& play) {
@@ -43,7 +44,9 @@ struct PlayAutomation {
                 {"sdk", play.sdk_play()},
                 {"loading", play.sdk_loading()},
                 {"tune_pending", play.property_tune_pending()},
-                {"tune_ack", play.property_tune_ack()}};
+                {"tune_ack", play.property_tune_ack()},
+                {"application_state_pending", play.application_state_pending()},
+                {"application_state_error", play.application_state_error()}};
     }
     static void current(const PlaySession& play, EditorFiles& files,
                         const PlayAutomationProviders& providers, const Json& request) {
@@ -122,15 +125,16 @@ struct PlayAutomation {
                     result["entities"].push_back(entities[i]);
                 return result;
             }));
-        for (const auto* kind :
-             {"schema", "diagnostics", "physics", "input", "ui", "audio", "animation", "profile"})
+        for (const auto* kind : {"schema", "diagnostics", "physics", "input", "ui", "audio",
+                                 "animation", "profile", "application_states"})
             methods.push_back(automation_method(
                 std::string("play.") + kind,
                 std::string("Read cached ") + kind +
                     " observations published by the actual Play owner, correlated with its "
                     "launch/session/world. Watch-dependent values require an explicit watch.",
                 "play.read", automation_object(), false,
-                [&files, &play, kind, localization = providers.ui_localization](const Json&) {
+                [&files, &play, kind, localization = providers.ui_localization,
+                 states = providers.ui_application_states](const Json&) {
                     files.document.check_ownership();
                     auto result = state(play);
                     const auto key = std::string_view(kind);
@@ -142,11 +146,14 @@ struct PlayAutomation {
                         result["value"] = play.physics_status();
                     else if (key == "input")
                         result["value"] = play.input_status();
+                    else if (key == "application_states")
+                        result["value"] = play.application_states();
                     else if (key == "ui") {
                         result["value"] = play.ui_snapshot();
                         result["ack"] = play.ui_ack();
                         result["presentation_localization"] =
                             localization ? localization() : Json{};
+                        result["presentation_application_states"] = states ? states() : Json{};
                     } else if (key == "audio") {
                         result["value"] = play.audio_status();
                         result["source"] = play.audio_source_status();
@@ -452,6 +459,34 @@ struct PlayAutomation {
             },
             true));
         append_watch_controls(methods, files, play, providers);
+        auto state_properties = properties(), state_required = required();
+        for (const auto* key : {"domain", "state"}) {
+            state_properties[key] = {{"type", "string"},
+                                     {"minLength", 1},
+                                     {"maxLength", 48},
+                                     {"pattern", "^[a-z][a-z0-9_]*$"}};
+            state_required.push_back(key);
+        }
+        state_properties["domain_revision"] = automation_integer();
+        state_required.push_back("domain_revision");
+        methods.push_back(automation_method(
+            "play.application_state.request",
+            "Queue a runtime-only state transition through the current Play owner. Read "
+            "play.application_states first for domain choices and revision; pass the domain's "
+            "revision as domain_revision. Requests can run "
+            "while paused without advancing time. Computed, inactive, stale or unknown states "
+            "are rejected; read play.status for pending and error after the reply. Authored "
+            "scene and initial states are unchanged.",
+            "play.execute", automation_object(state_properties, state_required), true,
+            [&files, &play, providers](const Json& request) {
+                current(play, files, providers, request);
+                if (!play.submit_application_state(request.at("domain"), request.at("state"),
+                                                   request.at("domain_revision")))
+                    throw AuthoringError("play_busy",
+                                         "Application state control is unavailable or pending");
+                return state(play);
+            },
+            true));
         append_tuning_controls(methods, scene, files, play, tuning, providers);
         for (auto& method : methods)
             method.executes_native = method.capability == "play.execute";

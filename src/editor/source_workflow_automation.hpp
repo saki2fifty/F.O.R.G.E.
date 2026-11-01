@@ -1,5 +1,6 @@
 #pragma once
 #include "source_document_automation.hpp"
+#include <forge/application_state_source.hpp>
 #include <forge/material_graph.hpp>
 #include <forge/navigation_behavior.hpp>
 #include <forge/ui_localization.hpp>
@@ -35,6 +36,60 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
          {"flags", automation_integer(0, UINT32_MAX)}},
         {"layer", "x", "y"});
     std::vector<LiveAuthoringMethod> methods;
+    methods.push_back(automation_method(
+        "asset.application_states.catalog",
+        "Describe logical game-state domains, hierarchy, computed rules and subordinate "
+        "conditions. "
+        "Use the application_states source editor to create, read, patch and publish; assign its "
+        "published definition through the reflected Application States component.",
+        "asset.read", automation_object(), false, [](const Json&) {
+            return Json{
+                {"format", "forge.application-states"},
+                {"version", 1},
+                {"editor", "application_states"},
+                {"suffix", ".appstates.json"},
+                {"component", "forge.application_states"},
+                {"property", "definition"},
+                {"limits",
+                 {{"domains", 16},
+                  {"states_per_domain", 64},
+                  {"states", 512},
+                  {"rules_per_domain", 64},
+                  {"rules", 256},
+                  {"conditions_per_rule", 8},
+                  {"hierarchy_depth", 16},
+                  {"key_bytes", 48},
+                  {"label_bytes", 96},
+                  {"source_bytes", application_states_byte_limit}}},
+                {"keys",
+                 "Lowercase ASCII letter followed by lowercase letters, digits or underscores. "
+                 "Unique semantic keys per scope; preserve the asset UUID. Rename keys and all "
+                 "recognized references atomically; labels are literal UTF-8."},
+                {"domain",
+                 {{"key", "app"},
+                  {"label", "Game mode"},
+                  {"initial", "menu"},
+                  {"states", Json::array({{{"key", "menu"}}, {{"key", "playing"}}})}}},
+                {"hierarchy",
+                 "Optional state parent key in the same domain. Conditions include descendants. "
+                 "Any named node can be requested; there is no automatic child selection."},
+                {"computed",
+                 "Optional computed=true with ordered rules [{state,all:[{domain,state}]}]. "
+                 "First match wins; otherwise initial. Computed domains reject direct requests."},
+                {"subordinate",
+                 "Optional enabled_when={domain,state}. Inactive while false; reactivation "
+                 "starts at initial. Conditions form an acyclic dependency graph."},
+                {"runtime",
+                 "One configured non-Prefab controller per runtime World. State requests apply "
+                 "at owner boundaries; last merged request wins. State-conditioned C++ systems "
+                 "use native query terms; renderers, physics bodies and the engine clock are not "
+                 "automatically disabled by a logical state."},
+                {"persistence",
+                 "Active state is transient. Stop starts fresh; Keep values does not change "
+                 "authored initial states. Ordinary Play private recovery retains admitted "
+                 "semantic states and pending requests without replaying entry actions. "
+                 "This is not an automatic durable save-game format."}};
+        }));
     methods.push_back(automation_method(
         "asset.localization.catalog",
         "Describe game UI language/message catalogs, fallback, bounds and literal RML bindings. "

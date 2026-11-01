@@ -60,6 +60,10 @@ For translated menus, use a [UI Localization catalog](ui-localization.md) and
 project C++, including while paused. This catalog stores literal messages;
 editor translation, full shaping and parameter/plural formatting are unavailable.
 
+For menus and state-driven choices, use [Application States](application-states.md).
+Its read-only state bindings, ancestor conditions and revision-checked `forge.state`
+buttons work without a project C++ module, including while paused.
+
 ## Animate your HUD
 
 Open **Scenes/100-ui-animation.scene.json** in the Feature Gallery and press **Play**.

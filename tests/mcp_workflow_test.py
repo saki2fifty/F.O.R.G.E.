@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import shutil
 import sys
 import tempfile
 import time
@@ -27,14 +28,48 @@ AUDIO_PAUSE_ONLY = sys.argv[7:] == ['--audio-pause-only']
 GAMEPADS_ONLY = sys.argv[7:] == ['--gamepads-only']
 UI_ANIMATION_ONLY = sys.argv[7:] == ['--ui-animation-only']
 UI_LOCALIZATION_ONLY = sys.argv[7:] == ['--ui-localization-only']
+APPLICATION_STATES_ONLY = sys.argv[7:] == ['--application-states-only']
+
+
+def state_project_template(root):
+    """Keep actual Signal Lock assets/cache without unrelated conversion jobs."""
+    gallery = Path(__file__).resolve().parents[1]/'samples/projects/FeatureGallery'
+    output = root/'State template'
+    output.mkdir()
+    catalog = json.loads((gallery/'forge.assets.json').read_text(encoding='utf-8'))
+    catalog['assets'] = [row for row in catalog['assets'] if row['source'].startswith('Assets/UI/SignalLock/') or
+                         row['source'] == 'Scenes/134-signal-lock.scene.json']
+    assert len(catalog['assets']) == 4
+    for row in catalog['assets']:
+        relative = Path(row['source'])
+        target = output/relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(gallery/relative, target)
+        sidecar = Path(str(relative)+'.forge-import.json')
+        if (gallery/sidecar).exists():
+            shutil.copy2(gallery/sidecar, output/sidecar)
+        imported = row.get('metadata', {}).get('forge.import')
+        if imported:
+            cache = Path('.forge/cache/derived')/imported['key']
+            shutil.copytree(gallery/cache, output/cache)
+    (output/'forge.assets.json').write_text(json.dumps(catalog), encoding='utf-8')
+    settings = json.loads((gallery/'forge.project.json').read_text(encoding='utf-8'))
+    scene = next(row for row in catalog['assets'] if row['type'] == 'scene')
+    settings['startup_scene'] = dict(asset=scene['id'], source=scene['source'])
+    (output/'forge.project.json').write_text(json.dumps(settings), encoding='utf-8')
+    return output
 
 
 @contextmanager
 def editor(mode='full'):
     with tempfile.TemporaryDirectory(prefix='forge-mcp-workflows-') as temporary:
         root = Path(temporary)
-        command = [HOST, str(root), RUNTIME, KIT, NAV, mode]
-        if MAP_PROFILE_ONLY or AUDIO_PAUSE_ONLY or SPRITE_FRAMES_ONLY or UI_LOCALIZATION_ONLY:
+        # State-only checks need the real packaged font, but no Windows export kit.
+        host_resources = str(Path(__file__).resolve().parents[1]) if APPLICATION_STATES_ONLY else KIT
+        command = [HOST, str(root), RUNTIME, host_resources, NAV, mode]
+        if APPLICATION_STATES_ONLY:
+            command.append(str(state_project_template(root)))
+        elif MAP_PROFILE_ONLY or AUDIO_PAUSE_ONLY or SPRITE_FRAMES_ONLY or UI_LOCALIZATION_ONLY:
             command.append(str(Path(__file__).resolve().parents[1]/'samples/projects/FeatureGallery'))
         if AUDIO_PAUSE_ONLY:
             command.append('--sdk')
@@ -60,7 +95,7 @@ def until(fn, predicate, timeout=30):
 
 
 for legacy in (False, True):
-    with editor('ui_localization' if UI_LOCALIZATION_ONLY else 'gamepads' if GAMEPADS_ONLY else 'full') as (root, config), Client(config, legacy) as client:
+    with editor('application_states' if APPLICATION_STATES_ONLY else 'ui_localization' if UI_LOCALIZATION_ONLY else 'gamepads' if GAMEPADS_ONLY else 'full') as (root, config), Client(config, legacy) as client:
         def discovery():
             value = client.tool('forge_discover')
             assert value['ok'], value
@@ -126,6 +161,82 @@ for legacy in (False, True):
         assert {'forge_play_start', 'forge_play_ui_command', 'forge_export_start',
                 'forge_script_preview', 'forge_navigation_build', 'forge_navigation_overlay',
                 'forge_dependencies_save'} <= names
+        if APPLICATION_STATES_ONLY:
+            assert 'forge_play_application_states' in names
+            assert advertised['forge_play_application_state_request']['annotations']['openWorldHint']
+            authored = read('forge_scene_read')
+            ok('forge_play_start')
+            control('forge_play_pause')
+            live = until(lambda: read('forge_play_application_states'),
+                         lambda row: row['control_ready'] and row['value'] is not None)
+            tick = live['timing']['tick']
+            app, hud = live['value']['domains'][:2]
+            assert app['active'] == 'menu' and hud['active'] == 'hidden'
+            assert app['states'][0]['key'] == 'menu' and app['revision'] == 1
+            scope = {key: live[key] for key in ('launch', 'session', 'generation')}
+            failed(mutate('forge_play_application_state_request', **dict(scope, generation=scope['generation']+1),
+                          domain='app', state='playing', domain_revision=1), 'stale_play')
+            control('forge_play_application_state_request', domain='app', state='playing', domain_revision=1)
+            live = until(lambda: read('forge_play_application_states'),
+                         lambda row: not row['application_state_pending'] and row['value']['domains'][0]['active'] == 'playing')
+            assert live['value']['domains'][1]['active'] == 'visible'
+            published = live['value']
+            for domain, state, revision in [('app', 'menu', 1), ('hud', 'hidden', published['domains'][1]['revision']),
+                                             ('app', 'missing', 2)]:
+                control('forge_play_application_state_request', domain=domain, state=state, domain_revision=revision)
+                rejected = until(lambda: read('forge_play_application_states'),
+                                 lambda row: not row['application_state_pending'] and bool(row['application_state_error']))
+                assert rejected['active'] and rejected['value'] == published
+                assert rejected['timing']['tick'] == tick and rejected['paused']
+            (root/'gesture').touch()
+            failed(mutate('forge_play_application_state_request', **scope,
+                          domain='app', state='menu', domain_revision=2), 'play_busy')
+            (root/'gesture').unlink()
+            control('forge_play_application_state_request', domain='app', state='menu', domain_revision=2)
+            live = until(lambda: read('forge_play_application_states'),
+                         lambda row: not row['application_state_pending'] and row['value']['domains'][0]['active'] == 'menu')
+            assert not live['application_state_error'] and live['timing']['tick'] == tick
+            control('forge_play_stop')
+            assert read('forge_scene_read') == authored
+            assert read('forge_play_application_states')['value'] is None
+            ok('forge_play_start')
+            control('forge_play_pause')
+            live = read('forge_play_application_states')
+            assert live['value']['domains'][0]['revision'] == 1
+            failed(mutate('forge_play_application_state_request', **scope,
+                          domain='app', state='playing', domain_revision=1), 'stale_play')
+            control('forge_play_stop')
+            with editor('read') as (_, read_config), Client(read_config, legacy) as readonly:
+                readable = {tool['name'] for tool in readonly.request('tools/list')['result']['tools']}
+                assert 'forge_play_application_states' in readable
+                assert 'forge_play_application_state_request' not in readable
+                denied = readonly.request('tools/call', dict(name='forge_play_application_state_request', arguments={}))
+                assert denied['error']['code'] == -32602, denied
+            ok('forge_document_open', path='Scenes/134-signal-lock.scene.json', discard=True)
+            puzzle = read('forge_scene_read')
+            ok('forge_play_start')
+            control('forge_play_pause')
+            ui = until(lambda: read('forge_play_ui'), lambda row: row.get('presentation_application_states') is not None)
+            tick = ui['timing']['tick']
+            instance = ui['value']['documents'][0]['instance']
+            def domain(rows, key):
+                return next(row for row in rows if row['key'] == key)
+            for key, choice in [('app', 'playing'), ('route', 'right'), ('signal', 'cyan')]:
+                latest = read('forge_play_ui')
+                revision = domain(latest['presentation_application_states']['domains'], key)['revision']
+                control('forge_play_ui_command', instance=instance, command='forge.state', value=f'{key}:{choice}:{revision}')
+                ui = until(lambda: read('forge_play_ui'), lambda row: row['ack'] and row['ack']['ok'] and
+                           domain(row['presentation_application_states']['domains'], key)['active'] == choice)
+                assert ui['timing']['tick'] == tick and ui['paused']
+            assert domain(ui['presentation_application_states']['domains'], 'lock')['active'] == 'open'
+            current = ui['presentation_application_states']
+            control('forge_play_ui_command', instance=instance, command='forge.state', value='signal:amber:1')
+            ui = until(lambda: read('forge_play_ui'), lambda row: row['ack'] and not row['ack']['ok'])
+            assert ui['active'] and ui['presentation_application_states'] == current
+            control('forge_play_stop')
+            assert read('forge_scene_read') == puzzle
+            print(('legacy' if legacy else 'current') + ': actual Play state discovery, paused transitions, computed/stale rejection, scope and authored isolation passed')
+            continue
         if UI_LOCALIZATION_ONLY:
             ok('forge_document_open', path='Scenes/133-ui-localization.scene.json', discard=True)
             authored = read('forge_scene_read')

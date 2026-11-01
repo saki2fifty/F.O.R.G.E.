@@ -70,6 +70,8 @@ class UiPresenter {
     const UiAssetSnapshot* asset_snapshot() const;
     // Actual displayed catalog/locale and fallback coverage; null when unconfigured.
     nlohmann::json localization_state() const;
+    // Copied observations from the displayed set; null when unconfigured.
+    nlohmann::json application_states_state() const;
 
   private:
     struct Impl;

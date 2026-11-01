@@ -44,7 +44,9 @@ static_assert(unsigned(RuntimeResourceKind::Mesh) == FORGE_SDK_RESOURCE_MESH &&
               unsigned(RuntimeResourceKind::TileSet) == FORGE_SDK_RESOURCE_TILE_SET &&
               unsigned(RuntimeResourceKind::TileMap) == FORGE_SDK_RESOURCE_TILE_MAP &&
               unsigned(RuntimeResourceKind::NavigationBehavior) ==
-                  FORGE_SDK_RESOURCE_NAVIGATION_BEHAVIOR);
+                  FORGE_SDK_RESOURCE_NAVIGATION_BEHAVIOR &&
+              unsigned(RuntimeResourceKind::ApplicationStates) ==
+                  FORGE_SDK_RESOURCE_APPLICATION_STATES);
 static_assert(unsigned(AnimationControl::Play) == FORGE_SDK_ANIMATION_PLAY &&
               unsigned(AnimationControl::Pause) == FORGE_SDK_ANIMATION_PAUSE &&
               unsigned(AnimationControl::Restart) == FORGE_SDK_ANIMATION_RESTART);

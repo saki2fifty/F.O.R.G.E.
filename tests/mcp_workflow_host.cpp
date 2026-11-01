@@ -1,3 +1,4 @@
+#include "application_state_fixture.hpp"
 #include "asset_automation.hpp"
 #include "automation.hpp"
 #include "content.hpp"
@@ -68,6 +69,8 @@ int main(int argc, char** argv) {
                                   std::filesystem::copy_options::recursive);
         else
             forge::SceneDocument::create_project(root / "Game", "MCP game workflows");
+        if (mode == "application_states")
+            (void)forge::test::application_state_fixture(root / "Game");
         std::filesystem::create_directory(root / "Output");
         forge::EngineContext engine;
         forge::Scene scene(engine.world());
@@ -201,6 +204,9 @@ int main(int argc, char** argv) {
             controls.ui_localization = [&] {
                 return presenter ? presenter->localization_state() : forge::Json{};
             };
+            controls.ui_application_states = [&] {
+                return presenter ? presenter->application_states_state() : forge::Json{};
+            };
             controls.reload_ui = [&] {
                 if (!presenter)
                     throw forge::AuthoringError("ui_unavailable", "No live UI presenter");
@@ -226,10 +232,10 @@ int main(int argc, char** argv) {
         };
         forge::ui::AutomationPermissions permissions;
         permissions.assets = mode != "read";
-        permissions.execute =
-            mode == "full" || mode == "execute" || mode == "gamepads" || mode == "ui_localization";
-        permissions.export_game =
-            mode == "full" || mode == "output" || mode == "gamepads" || mode == "ui_localization";
+        permissions.execute = mode == "full" || mode == "execute" || mode == "gamepads" ||
+                              mode == "ui_localization" || mode == "application_states";
+        permissions.export_game = mode == "full" || mode == "output" || mode == "gamepads" ||
+                                  mode == "ui_localization" || mode == "application_states";
         if (permissions.export_game)
             permissions.export_root = root / "Output";
         workspace.start(scene, files, mode != "read", mode != "read", permissions);

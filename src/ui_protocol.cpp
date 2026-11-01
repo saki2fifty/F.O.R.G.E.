@@ -1,4 +1,7 @@
+#include <algorithm>
+#include <charconv>
 #include <cmath>
+#include <forge/application_state_key.hpp>
 #include <forge/identity.hpp>
 #include <forge/ui_localization.hpp>
 #include <forge/ui_protocol.hpp>
@@ -58,15 +61,87 @@ void validate_localization(const Json& value) {
     require(value.at("locale").is_string(), "UI locale must be a string");
     (void)canonical_ui_locale(value.at("locale").get_ref<const std::string&>());
 }
+void validate_application_states(const Json& value) {
+    require(value.is_object() && value.size() == 6 && value.at("version").is_number_integer() &&
+                value.at("version") == 1 && value.at("initialized").is_boolean() &&
+                value.at("initialized").get<bool>(),
+            "Invalid UI application state descriptor");
+    require(value.at("source_asset").is_null() == value.at("controller").is_null(),
+            "UI application state source/controller identities must agree");
+    for (const auto* key : {"source_asset", "controller"})
+        if (!value.at(key).is_null())
+            require(key == std::string_view("controller") ? bool(value.at(key).get<EntityId>())
+                                                          : bool(value.at(key).get<AssetId>()),
+                    "Invalid UI application state identity");
+    const auto digest = value.at("definition_digest").get<std::string>();
+    require(
+        digest.size() == 64 &&
+            std::all_of(digest.begin(), digest.end(),
+                        [](char c) { return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'); }),
+        "Invalid UI application state definition digest");
+    const auto& domains = value.at("domains");
+    require(domains.is_array() && !domains.empty() && domains.size() <= 16,
+            "UI application state domain limit exceeded");
+    std::set<std::string> keys;
+    for (const auto& domain : domains) {
+        require(domain.is_object() && domain.size() == 8, "Invalid UI state observation");
+        const auto key = domain.at("key").get<std::string>();
+        require(application_state_key(key) && keys.insert(key).second,
+                "Invalid or duplicate UI state domain");
+        for (const auto* field : {"active", "requested"}) {
+            const auto text = domain.at(field).get<std::string>();
+            require(text.empty() || application_state_key(text), "Invalid UI state key");
+        }
+        for (const auto* field : {"label", "active_label"}) {
+            validate_value(domain.at(field));
+            require(domain.at(field).get_ref<const std::string&>().size() <= 96,
+                    "UI application state label exceeds limit");
+        }
+        (void)natural(domain.at("revision"));
+        require(domain.at("computed").is_boolean(), "Invalid UI computed state flag");
+        const auto& membership = domain.at("membership");
+        require(membership.is_array() && membership.size() <= 16,
+                "UI application state hierarchy exceeds limit");
+        std::set<std::string> members;
+        for (const auto& member : membership) {
+            const auto name = member.get<std::string>();
+            require(application_state_key(name) && members.insert(name).second,
+                    "Invalid UI application state membership");
+        }
+        const auto active = domain.at("active").get<std::string>();
+        require(active.empty() ? members.empty() : members.contains(active),
+                "UI application state membership does not match its active state");
+    }
+    require(value.dump().size() <= 24 * 1024, "UI application state descriptor exceeds limit");
+}
+Json application_state_request(const std::string& text) {
+    require(text.size() <= 118, "UI state request exceeds limit");
+    const auto first = text.find(':'), last = text.rfind(':');
+    require(first != std::string::npos && last != first,
+            "Use domain:state:revision for forge.state");
+    const auto domain = text.substr(0, first), state = text.substr(first + 1, last - first - 1);
+    require(application_state_key(domain) && application_state_key(state),
+            "Invalid UI state request keys");
+    std::uint64_t revision = 0;
+    const auto parsed =
+        std::from_chars(text.data() + last + 1, text.data() + text.size(), revision);
+    require(parsed.ec == std::errc{} && parsed.ptr == text.data() + text.size(),
+            "UI state request needs an unsigned domain revision");
+    return {{"domain", domain}, {"state", state}, {"expected_revision", revision}};
+}
 void validate_snapshot(const Json& j) {
     scope(j);
     natural(j.at("revision"));
     const bool localized = j.contains("localization") && !j.at("localization").is_null();
     if (localized)
         validate_localization(j.at("localization"));
+    const bool states = j.contains("application_states") && !j.at("application_states").is_null();
+    if (states)
+        validate_application_states(j.at("application_states"));
     const auto& docs = j.at("documents");
     require(docs.is_array() && docs.size() <= max_documents, "UI document limit exceeded");
     require(!localized || !docs.empty(), "UI localization requires an active document");
+    require(!states || !docs.empty(), "UI application states require an active document");
     std::set<std::string> ids;
     for (const auto& d : docs) {
         const auto entity = d.at("entity").get<std::string>();
@@ -79,7 +154,7 @@ void validate_snapshot(const Json& j) {
                 "Invalid UI display options");
         validate_model(d.at("model"));
         const auto& cmds = d.at("commands");
-        require(cmds.is_array() && cmds.size() <= (localized ? 34 : 33),
+        require(cmds.is_array() && cmds.size() <= 33 + std::size_t(localized) + std::size_t(states),
                 "UI command capability limit exceeded");
         std::set<std::string> unique;
         for (const auto& c : cmds) {
@@ -87,8 +162,10 @@ void validate_snapshot(const Json& j) {
             require(identifier(name) && unique.insert(name).second,
                     "Invalid UI command capability");
         }
-        require(cmds.size() <= 33 || unique.contains("forge.locale"),
-                "The extra UI command slot belongs to locale control");
+        const auto reserved = std::size_t(localized && unique.contains("forge.locale")) +
+                              std::size_t(states && unique.contains("forge.state"));
+        require(cmds.size() <= 33 + reserved,
+                "Extra UI command slots belong to configured locale/state controls");
     }
     require(j.dump().size() <= 65536, "UI snapshot exceeds 64 KiB");
 }

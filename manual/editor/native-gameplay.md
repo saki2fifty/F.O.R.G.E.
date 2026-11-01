@@ -213,3 +213,17 @@ object to the editor's saved scene or its Undo history. The SDK guide includes t
 code, scene-selection rules, cancellation and lifetime details.
 
 The migration review stays within the available editor area at larger interface scales. **Rules (JSON)** appears above its text field so the label remains readable. Scroll the review when its contents need more space; opening it does not change the scene or prefab.
+
+## Run systems in a game mode
+
+[Application States](application-states.md) defines modes and their parent
+relationships in a published asset. Use the installed `forge/application_state_ecs.hpp`
+helpers to read current states and condition ordinary native queries on their
+membership. The `application_states_gameplay` SDK sample shows a constant domain
+source, enter/exit event copies, queued requests and receipt handling.
+
+Queued requests use the Game service. Check its capability before use: shared-SDK
+Play and standalone games provide it; legacy Play does not. A successful queue
+submission is not a completed transition. Inspect the returned receipt, handle a
+rejected request and release it when finished. State queries and editor/UI controls
+remain available in legacy Play. Runtime pairs are read-only for project code.

@@ -72,6 +72,8 @@ template <class T> Json encode(const T& p) {
                 {"layer", p.layer}};
     else if constexpr (std::is_same_v<T, UiLocalization>)
         return {{"catalog", p.catalog.id ? Json(p.catalog.id) : Json()}, {"locale", p.locale}};
+    else if constexpr (std::is_same_v<T, ApplicationStates>)
+        return {{"definition", p.definition.id ? Json(p.definition.id) : Json()}};
     else if constexpr (std::is_same_v<T, NavigationSurface>)
         return {{"enabled", p.enabled}};
     else if constexpr (std::is_same_v<T, NavigationRegion2D>)
@@ -372,6 +374,11 @@ template <class T> Value decode(const Json& p) {
             value.catalog.id = p.at("catalog").get<AssetId>();
         value.locale = p.at("locale").get<std::string>();
         (void)canonical_ui_locale(value.locale);
+        return value;
+    } else if constexpr (std::is_same_v<T, ApplicationStates>) {
+        ApplicationStates value;
+        if (!p.at("definition").is_null())
+            value.definition.id = p.at("definition").get<AssetId>();
         return value;
     } else if constexpr (std::is_same_v<T, NavigationSurface>)
         return T{p.at("enabled")};
@@ -1126,6 +1133,9 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
         w.component<std::string>("forge.authored_string").opaque(reflected_string);
         c.template member<AssetRef<UiLocalizationAsset>>("catalog").template member<std::string>(
             "locale");
+    } else if constexpr (std::is_same_v<T, ApplicationStates>) {
+        register_asset_ref<ApplicationStatesAsset>(w, "forge.application_states_ref");
+        c.template member<AssetRef<ApplicationStatesAsset>>("definition");
     } else if constexpr (std::is_same_v<T, NavigationSurface>)
         c.template member<bool>("enabled");
     else if constexpr (std::is_same_v<T, NavigationRegion2D>)
@@ -1625,6 +1635,11 @@ const std::array<Builtin, builtin_count>& builtins() {
             "unitless", {}, {},
             [](flecs::world&
                    w) { return register_type<UiLocalization>(w, "forge.ui_localization"); }),
+        descriptor<ApplicationStates>(
+            "forge.application_states", "Logical game-state domains and transition conditions",
+            "unitless", {}, {},
+            [](flecs::world&
+                   w) { return register_type<ApplicationStates>(w, "forge.application_states"); }),
         descriptor<MeshRenderer>(
             "forge.mesh_renderer", "Mesh and logical material slot assignments", "unitless", {}, {},
             [](flecs::world& w) { return register_type<MeshRenderer>(w, "forge.mesh_renderer"); }),
@@ -2720,6 +2735,15 @@ Json registration_options(const Builtin& type, const std::string& field) {
             value["description"] = field == "enabled" ? "Load this document during Play"
                                                       : "Show this document during Play";
     }
+    if (name == "forge.application_states") {
+        value.erase("minimum");
+        value.erase("maximum");
+        value["animatable"] = false;
+        value["asset_type"] = ApplicationStatesAsset::type;
+        value["nullable"] = true;
+        value["description"] =
+            "Published game-state definition; one configured controller per World";
+    }
     if (name == "forge.ui_localization") {
         value.erase("minimum");
         value.erase("maximum");
@@ -3218,6 +3242,7 @@ Json register_builtins(flecs::world& world, unsigned family) {
         add_reference.template operator()<NavigationBehaviorAsset>();
         add_reference.template operator()<UiDocumentAsset>();
         add_reference.template operator()<UiLocalizationAsset>();
+        add_reference.template operator()<ApplicationStatesAsset>();
         if (name == "forge.ui_localization")
             references.push_back({world.id<std::string>(), "string"});
         if (name == "forge.mesh_renderer") {
@@ -3239,7 +3264,8 @@ Json register_builtins(flecs::world& world, unsigned family) {
             {{"id", type.name},
              {"display_name", ecs_doc_get_name(world.c_ptr(), c.id())},
              {"description", ecs_doc_get_brief(world.c_ptr(), c.id())},
-             {"category", category == 0 && name != "forge.model_source" &&
+             {"category", name == "forge.application_states" ? "Gameplay"
+                          : category == 0 && name != "forge.model_source" &&
                                   name != "forge.local_translation" &&
                                   name != "forge.local_rotation" && name != "forge.local_scale" &&
                                   name != "forge.primitive" && name != "forge.tint"
@@ -3247,8 +3273,9 @@ Json register_builtins(flecs::world& world, unsigned family) {
                               : categories[category]},
              {"schema_version", 1},
              {"fields", fields},
-             {"optional", category != 0 || name == "forge.mesh_renderer" ||
-                              name == "forge.particle_emitter" || name == "forge.sprite_renderer" ||
+             {"optional", category != 0 || name == "forge.application_states" ||
+                              name == "forge.mesh_renderer" || name == "forge.particle_emitter" ||
+                              name == "forge.sprite_renderer" ||
                               name == "forge.tile_map_renderer" || name == "forge.camera" ||
                               name == "forge.light" || name == "forge.reflection_probe" ||
                               name == "forge.decal" || name == "forge.node_visibility" ||

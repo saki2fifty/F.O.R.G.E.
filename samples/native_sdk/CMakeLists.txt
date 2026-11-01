@@ -161,3 +161,7 @@ set_target_properties(component_animation_gameplay PROPERTIES PREFIX "" BUILD_RP
 add_library(ui_localization_gameplay MODULE ui_localization_probe.cpp)
 target_link_libraries(ui_localization_gameplay PRIVATE ForgeNativeSdk::Client)
 set_target_properties(ui_localization_gameplay PROPERTIES PREFIX "" BUILD_RPATH_USE_ORIGIN TRUE)
+
+add_library(application_states_gameplay MODULE application_states_probe.cpp)
+target_link_libraries(application_states_gameplay PRIVATE ForgeNativeSdk::Client)
+set_target_properties(application_states_gameplay PROPERTIES PREFIX "" BUILD_RPATH_USE_ORIGIN TRUE)

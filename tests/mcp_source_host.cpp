@@ -2,6 +2,7 @@
 #include "animation_mask_editor.hpp"
 #include "animation_states_editor.hpp"
 #include "animation_timeline.hpp"
+#include "application_states_editor.hpp"
 #include "audio_imports.hpp"
 #include "automation.hpp"
 #include "collision_editor.hpp"
@@ -72,6 +73,7 @@ int main(int argc, char** argv) {
         forge::AnimationStatesEditor states;
         forge::NavigationBehaviorEditor behavior;
         forge::UiLocalizationEditor localization;
+        forge::ApplicationStatesEditor application_states;
         forge::AnimationBlendSpaceEditor blend;
         forge::AnimationMaskEditor mask;
         forge::AnimationTimelineEditor timeline;
@@ -96,6 +98,7 @@ int main(int argc, char** argv) {
         bind("animation_states", states);
         bind("navigation_behavior", behavior);
         bind("ui_localization", localization);
+        bind("application_states", application_states);
         bind("animation_blend_space", blend);
         bind("animation_mask", mask);
         bind("animation_timeline", timeline);
@@ -182,6 +185,7 @@ int main(int argc, char** argv) {
             states.poll(files.document, files.status);
             behavior.poll(files.document, files.status);
             localization.poll(files.document, files.status);
+            application_states.poll(files.document, files.status);
             blend.poll(files.document, files.status);
             mask.poll(files.document, files.status);
             timeline.poll(files.document, scene, false, 0, files.status);
@@ -206,6 +210,7 @@ int main(int argc, char** argv) {
             states.draw(files.document, scene, false);
             behavior.draw(files.document, scene, false);
             localization.draw(files.document, scene, false);
+            application_states.draw(files.document, scene, false);
             blend.draw(files.document, scene, false);
             mask.draw(files.document, scene, false);
             timeline.draw(files.document, scene, false);

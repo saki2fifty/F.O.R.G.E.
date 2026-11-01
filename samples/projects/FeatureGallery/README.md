@@ -1,5 +1,19 @@
 # Feature Gallery
 
+## Signal Lock: application states
+
+Open **Scenes/134-signal-lock.scene.json** and press Play. Capture gameplay input,
+click the game's **Play** button and follow the receiver's hint: choose **Cyan**
+and **Right**, then **Open connection**. **Return to menu** resets the choices.
+The controls work while paused; Pause, Resume and Step use the normal game clock.
+
+**Assets/UI/SignalLock/SignalLock.appstates.json** defines a direct game mode,
+shared Game parent, subordinate signal/route choices and computed connection.
+RML and RCSS beside it provide the playable menu. No C++ module is required.
+Stop Play, open the definition in Content, edit and Save / Publish, then save the
+Scene before export. The Game panel's Application states selectors use the same
+runtime owner. See the [Application States guide](../../../../manual/editor/application-states.md).
+
 ## Localized menus and HUDs
 
 Open **Scenes/133-ui-localization.scene.json** and press Play. Capture gameplay

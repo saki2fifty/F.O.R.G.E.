@@ -106,31 +106,7 @@ class UiLocalizationEditor : public SourceDocumentPanel<UiLocalizationDocumentTr
                 ui::field_error(error_);
         }
         ImGui::End();
-        if (close_ && dirty())
-            ImGui::OpenPopup("Pending localization changes");
-        if (ImGui::BeginPopupModal("Pending localization changes", nullptr,
-                                   ImGuiWindowFlags_AlwaysAutoResize)) {
-            ImGui::TextWrapped("Save and publish, discard the draft, or keep editing?");
-            ImGui::BeginDisabled(locked || pending());
-            if (ui::button("Save", "Publish before closing.")) {
-                request_save();
-                ImGui::CloseCurrentPopup();
-            }
-            ImGui::SameLine();
-            if (ui::button("Discard", "Close without saving this draft.")) {
-                finish_close();
-                ImGui::CloseCurrentPopup();
-            }
-            ImGui::EndDisabled();
-            ImGui::SameLine();
-            if (ui::button("Keep editing", "Cancel closing.")) {
-                close_ = false;
-                next_source_.reset();
-                close_cancelled = true;
-                ImGui::CloseCurrentPopup();
-            }
-            ImGui::EndPopup();
-        }
+        draw_close_dialog("Pending localization changes", locked);
     }
 
   private:

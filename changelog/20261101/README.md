@@ -1,5 +1,27 @@
 # 2026-11-01
 
+## Application states and Signal Lock
+
+One published definition configures direct, hierarchical, computed and subordinate
+game modes in a runtime World. Native state membership conditions ordinary systems;
+explicit enter/exit notifications observe complete transitions. Host controls
+validate the full next configuration before touching pending intent. Fixed ticks,
+Pause, Step and ordinary exact-build recovery use the existing runtime owners.
+
+Content opens an Application States source document with semantic renames,
+conditions, Undo/Redo, Save / Publish and one-step Scene attachment. Game selectors,
+RML state/revision bindings, revision-checked buttons and automation/MCP share the
+same owner. Matching SDK helpers expose native conditions, owning lifecycle values
+and queued Game request receipts. Legacy Play has no queued Game service; its
+queries/events and host/UI controls remain available.
+
+Original Gallery134 Signal Lock is a playable signal-and-route puzzle, with menu,
+completion and reset. Its Scene/state/RML/style closure exports without editable
+state source. The manual includes the complete workflow, three authentic captures
+and offline/package integration. Automatic subsystem gating, state-scoped entity
+destruction and durable state saves are outside this bounded profile. Local source;
+physical Windows/full editor/graphical EXE review and numbered delivery remain pending.
+
 ## Navigation behavior graphs
 
 Navigation Behavior provides authored patrol, wait and target-following state

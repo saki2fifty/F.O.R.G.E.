@@ -1,3 +1,4 @@
+#include <forge/application_states.hpp>
 #include <forge/game_content.hpp>
 #include <forge/game_host_controls.hpp>
 #include <fstream>
@@ -59,6 +60,17 @@ void run(const std::filesystem::path& root) {
     module.scene_ready = [](ModuleContext& c) {
         check(!c.input && !c.controls, "Candidate initialization received gameplay input");
         c.world.entity("game.prepared").set<int>(1);
+        ApplicationStateDomainDefinition app;
+        app.key = "app";
+        app.initial = "menu";
+        app.states = {{"menu", "Menu", ""}, {"playing", "Playing", ""}};
+        ApplicationStateDomainDefinition hud;
+        hud.key = "hud";
+        hud.initial = "hidden";
+        hud.states = {{"hidden", "Hidden", ""}, {"visible", "Visible", ""}};
+        hud.computed = true;
+        hud.rules = {{"visible", {{"app", "playing"}}}};
+        configure_application_states(c.world, {{app, hud}});
     };
     unsigned control_frames = 0;
     bool restore_rate = false;
@@ -113,6 +125,36 @@ void run(const std::filesystem::path& root) {
         service->release("game.test", token);
         return result;
     };
+    const auto before_state_clock = game.status().at("clock").at("tick");
+    check(request({{"operation", "application_state"},
+                   {"domain", "app"},
+                   {"state", "playing"},
+                   {"expected_revision", std::uint64_t{1}}})
+                      .state == "succeeded" &&
+              application_state_is(game.active().engine.world().world(), "hud", "visible") &&
+              game.status().at("clock").at("tick") == before_state_clock,
+          "Queued application state control did not apply without ticking");
+    check(request({{"operation", "application_state"},
+                   {"domain", "app"},
+                   {"state", "menu"},
+                   {"expected_revision", std::uint64_t{1}}})
+                      .state == "failed" &&
+              application_state_current(game.active().engine.world().world(), "app") == "playing",
+          "Stale queued state request changed the active domain");
+    check(request({{"operation", "application_state"}, {"domain", "hud"}, {"state", "hidden"}})
+                  .state == "failed",
+          "Queued request mutated a computed state");
+    check(
+        request({{"operation", "application_state"}, {"domain", "app"}, {"state", "menu"}}).state ==
+            "succeeded",
+        "Native queued state request did not share the core owner");
+    check(game.active()
+                  .engine.services()
+                  .game()
+                  ->query()
+                  .at("application_states")
+                  .at("initialized") == true,
+          "Native game status omitted current state discovery");
     check(game.active().engine.services().game()->query().at("gamepad_rumble_host") == true,
           "Host feedback route missing from copied discovery");
     const Json pulse{{"operation", "rumble"}, {"low", .5}, {"high", .75}, {"duration_ms", 250}};

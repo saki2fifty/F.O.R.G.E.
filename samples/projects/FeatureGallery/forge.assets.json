@@ -221,6 +221,16 @@
       "type": "skeleton"
     },
     {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "05d415bb-4950-40d9-b991-9fbfffc92827",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/134-signal-lock.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
       "dependencies": [
         "6bf09156-e36a-49a9-963d-31a795d6cc4a"
       ],
@@ -537,6 +547,41 @@
         "removed": false
       },
       "type": "animation_clip"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "09c0fd04-674b-4c66-af41-1ac6b4199232",
+      "metadata": {
+        "forge.application_states": {
+          "bytes": 1006,
+          "file": "application-states.json",
+          "sha256": "00fd084d3d9bc6c28cb1b7782df899c9df03a9fc55d3f488a7343d5eaeb66600",
+          "version": 1
+        },
+        "forge.import": {
+          "artifact_digest": "046742c09eb6599056ec8cfbaaa5e0ec9c7b9de0547fc2343b0ee54af99ea937",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.application.states",
+          "importer_revision": "forge.application.states.v1",
+          "key": "aa741b5487d5d06e572cebde05259907b58a5879ed0f976cd53fc9e000a05879",
+          "output_format": "forge.application-states",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "e2549668794b723739edfa5728c31c8cc0ac1940bfe3800bf5346ee107c815ae",
+          "source_digest": "73e4b95553927a0d8c792811732805ac1d51f4d332890a1d44e5429bd3abdf5a",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/UI/SignalLock/SignalLock.appstates.json",
+      "source_dependencies": [],
+      "type": "application_states"
     },
     {
       "dependencies": [],
@@ -1187,6 +1232,43 @@
         "removed": false
       },
       "type": "material"
+    },
+    {
+      "dependencies": [
+        "c1786a6c-5c68-4573-baf8-e85d3968b383"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "",
+          "role": "ui.automatic",
+          "target": "c1786a6c-5c68-4573-baf8-e85d3968b383",
+          "type": "ui_stylesheet"
+        }
+      ],
+      "id": "11875743-0d49-4b53-a832-05c0afd3215a",
+      "metadata": {
+        "forge.ui_source": {
+          "bytes": 3121,
+          "digest": "b46f57e50b11adbe6a94ae992fc5e6a9e3744ee7229992d1c05c03523e3c442b",
+          "format": "rml"
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/UI/SignalLock/hud.rml",
+      "source_dependencies": [
+        {
+          "revision": "4bc41dbbc82c5a2c1d607a780550f9d6a9e2f01a62cf7cb51ddb0ddc313acb71",
+          "role": "ui.observed",
+          "source": "Assets/UI/SignalLock/hud.rcss"
+        },
+        {
+          "revision": "b46f57e50b11adbe6a94ae992fc5e6a9e3744ee7229992d1c05c03523e3c442b",
+          "role": "ui.source",
+          "source": "Assets/UI/SignalLock/hud.rml"
+        }
+      ],
+      "type": "ui_document"
     },
     {
       "dependencies": [],
@@ -10459,6 +10541,28 @@
       "source": "Scenes/124-dynamic-tile-map-bodies.scene.json",
       "source_dependencies": [],
       "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "c1786a6c-5c68-4573-baf8-e85d3968b383",
+      "metadata": {
+        "forge.ui_source": {
+          "bytes": 1387,
+          "digest": "4bc41dbbc82c5a2c1d607a780550f9d6a9e2f01a62cf7cb51ddb0ddc313acb71",
+          "format": "rcss"
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/UI/SignalLock/hud.rcss",
+      "source_dependencies": [
+        {
+          "revision": "4bc41dbbc82c5a2c1d607a780550f9d6a9e2f01a62cf7cb51ddb0ddc313acb71",
+          "role": "ui.source",
+          "source": "Assets/UI/SignalLock/hud.rcss"
+        }
+      ],
+      "type": "ui_stylesheet"
     },
     {
       "dependencies": [],

@@ -1,4 +1,5 @@
 #include "animation_playback_access.hpp"
+#include "application_state_access.hpp"
 #include "audio_mix.hpp"
 #include "audio_source_access.hpp"
 #include "authored_inspection.hpp"
@@ -13,6 +14,7 @@
 #include "tile_map_play_world.hpp"
 #include <cstdlib>
 #include <ctime>
+#include <forge/application_states.hpp>
 #include <forge/build.hpp>
 #include <forge/game_settings.hpp>
 #include <forge/native_sdk.hpp>
@@ -53,7 +55,8 @@ void prepare_navigation(forge::RuntimeWorld& runtime) {
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
 }
-void prepare_tile_maps(forge::RuntimeWorld& runtime, const forge::Json* checkpoint = nullptr) {
+void prepare_scene_assets(forge::RuntimeWorld& runtime, const forge::Json* checkpoint = nullptr,
+                          const forge::Json* state_checkpoint = nullptr, bool recovery = false) {
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(60);
     auto& context = runtime.engine.world();
     for (;;) {
@@ -61,6 +64,7 @@ void prepare_tile_maps(forge::RuntimeWorld& runtime, const forge::Json* checkpoi
             context.services().resources()->synchronize();
         forge::detail::synchronize_runtime_tile_maps(context);
         bool ready = forge::detail::prepare_runtime_tile_maps(context);
+        ready = runtime.prepare_application_states(false) && ready;
         if (checkpoint)
             for (const auto& row : checkpoint->at("entries")) {
                 const auto status = forge::detail::inspect_runtime_tile_map(
@@ -72,10 +76,16 @@ void prepare_tile_maps(forge::RuntimeWorld& runtime, const forge::Json* checkpoi
                     ready = false;
                 }
             }
-        if (ready)
+        if (ready) {
+            if (recovery)
+                forge::restore_application_states(
+                    context.world(), state_checkpoint ? *state_checkpoint : forge::Json());
+            else
+                forge::initialize_application_states(context.world());
             return;
+        }
         if (std::chrono::steady_clock::now() >= deadline)
-            throw std::runtime_error("Runtime Tile Map preparation timed out");
+            throw std::runtime_error("Runtime Scene asset preparation timed out");
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
 }
@@ -302,6 +312,8 @@ int main(int argc, char** argv) {
                                       {"scene", runtime->scene.snapshot()},
                                       {"physics", runtime->physics()->checkpoint()}};
             checkpoint["tile_maps"] = std::move(tile_maps);
+            checkpoint["application_states"] =
+                forge::checkpoint_application_states(runtime->engine.world().world());
             checkpoint["animation"] =
                 forge::animation_runtime(runtime->engine.world())->checkpoint();
             if (checkpoint["animation"].is_null())
@@ -446,7 +458,11 @@ int main(int argc, char** argv) {
                             candidate->engine.world().modules().scene_ready();
                             replacement_phase("replace-scene-ready");
                             replacement_phase("replace-maps-begin");
-                            prepare_tile_maps(*candidate, &recovery.at("tile_maps"));
+                            prepare_scene_assets(*candidate, &recovery.at("tile_maps"),
+                                                 recovery.contains("application_states")
+                                                     ? &recovery.at("application_states")
+                                                     : nullptr,
+                                                 true);
                             forge::detail::restore_runtime_tile_maps(candidate->engine.world(),
                                                                      recovery.at("tile_maps"));
                             replacement_phase("replace-maps-ready");
@@ -472,7 +488,7 @@ int main(int argc, char** argv) {
                             candidate->engine.world().modules().scene_ready();
                             replacement_phase("replace-scene-ready");
                             replacement_phase("replace-maps-begin");
-                            prepare_tile_maps(*candidate);
+                            prepare_scene_assets(*candidate);
                             replacement_phase("replace-maps-ready");
                             replacement_phase("replace-physics-begin");
                             prepare_physics(*candidate->physics());
@@ -540,6 +556,10 @@ int main(int argc, char** argv) {
                                 runtime->engine.services().animation()),
                             request.at("source").get<forge::EntityRef>(), request);
                         runtime->simulation.sync_animation_pose();
+                    } else if (command == "application_state") {
+                        (void)forge::control_application_states(
+                            runtime->engine.world().world(),
+                            forge::ApplicationStateAccess::request(request, ui_generation));
                     } else if (command == "property_tune") {
                         const auto target = forge::RuntimePropertyTune::parse(
                             request, ui_generation, runtime->scene.asset_id());
@@ -611,6 +631,8 @@ int main(int argc, char** argv) {
                     response["ok"] = true;
                     if (!forge::tile_map_play_command(command)) {
                         response["scene"] = runtime->scene.snapshot();
+                        response["application_states"] =
+                            forge::application_states_status(runtime->engine.world().world(), true);
                         if (!tick_failed)
                             response["recovery"] = capture();
                         replacement_phase("replace-state-ready");

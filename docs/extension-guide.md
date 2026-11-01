@@ -842,3 +842,38 @@ The C host table is unchanged. Rebuild the module when the SDK fingerprint
 changes. Ordinary runtime recovery preserves the runtime Scene locale; prepared
 SDK Play has no recovery checkpoint. Stop restores authored values unless a
 supported Keep values operation deliberately retains the change.
+
+## Application-state conditions
+
+The installed `forge/application_state_ecs.hpp` supplies runtime-owned relationship
+tags, schema-time semantic entity helpers, readonly current/membership queries and
+owning `ApplicationStateEntered`/`ApplicationStateExited` values. Use an ordinary
+Flecs query with a constant domain source to condition a native system:
+
+```cpp
+const auto domain = forge::application_state_domain(world, "app");
+const auto game = forge::application_state_entity(world, "app", "game");
+world.system<MyGameplayComponent>()
+    .kind(host->fixed_phase)
+    .with<forge::ApplicationStateMember>(game).src(domain)
+    .each([](MyGameplayComponent& value) { /* update this component */ })
+    .add(host->fixed_tag);
+```
+
+A published Application States definition owns the domain/states. Query helpers
+resolve existing native relationships without creating runtime registrations or
+using a module-local C++ type cache. They return owned strings/booleans and do not
+install a host ABI. Lifecycle notifications run after the complete configuration
+publishes; copy event values when retaining them beyond the observer callback.
+
+`forge::sdk::Client(host).request_application_state(domain,state,revision)` queues
+through the existing Game capability. It returns zero for invalid keys or an
+unavailable service, otherwise an ordinary request token. Inspect/release its
+receipt; stale/computed/inactive/unknown requests can fail after submission. The
+Game service is available in shared-SDK Play and the standalone GameSession host;
+legacy exact-SDK Play supports queries/events and host/UI controls but not this
+queued service. Do not mutate active/membership pairs from project code.
+
+The installed `application_states_gameplay` sample demonstrates native ancestor
+conditions, owned lifecycle events, request receipts and fresh-World reset. See
+[Application states](application-states.md) for definition and boundary semantics.
