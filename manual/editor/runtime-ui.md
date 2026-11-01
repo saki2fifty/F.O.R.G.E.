@@ -55,6 +55,11 @@ button:hover { background-color: #477da9; }
 
 FORGE supplies the data model automatically; omit `data-model` attributes. `tick` and `paused` reflect gameplay state. Registered gameplay commands and additional values require gameplay code; the included pause/step example works without it. Events request changes from gameplay. A text field's local contents are transient and do not automatically change game state.
 
+For translated menus, use a [UI Localization catalog](ui-localization.md) and
+`{{ 'message_key' | tr(forge_locale) }}`. Its language command works without
+project C++, including while paused. This catalog stores literal messages;
+editor translation, full shaping and parameter/plural formatting are unavailable.
+
 ## Animate your HUD
 
 Open **Scenes/100-ui-animation.scene.json** in the Feature Gallery and press **Play**.

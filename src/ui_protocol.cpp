@@ -1,5 +1,6 @@
 #include <cmath>
 #include <forge/identity.hpp>
+#include <forge/ui_localization.hpp>
 #include <forge/ui_protocol.hpp>
 #include <set>
 #include <stdexcept>
@@ -49,11 +50,23 @@ void validate_model(const Json& j) {
         validate_value(v);
     }
 }
+void validate_localization(const Json& value) {
+    require(value.is_object() && value.size() == 3, "Invalid UI localization descriptor");
+    require(bool(value.at("entity").get<EntityId>()),
+            "UI localization needs a controller identity");
+    require(bool(value.at("asset").get<AssetId>()), "UI localization needs a catalog identity");
+    require(value.at("locale").is_string(), "UI locale must be a string");
+    (void)canonical_ui_locale(value.at("locale").get_ref<const std::string&>());
+}
 void validate_snapshot(const Json& j) {
     scope(j);
     natural(j.at("revision"));
+    const bool localized = j.contains("localization") && !j.at("localization").is_null();
+    if (localized)
+        validate_localization(j.at("localization"));
     const auto& docs = j.at("documents");
     require(docs.is_array() && docs.size() <= max_documents, "UI document limit exceeded");
+    require(!localized || !docs.empty(), "UI localization requires an active document");
     std::set<std::string> ids;
     for (const auto& d : docs) {
         const auto entity = d.at("entity").get<std::string>();
@@ -66,13 +79,16 @@ void validate_snapshot(const Json& j) {
                 "Invalid UI display options");
         validate_model(d.at("model"));
         const auto& cmds = d.at("commands");
-        require(cmds.is_array() && cmds.size() <= 33, "UI command capability limit exceeded");
+        require(cmds.is_array() && cmds.size() <= (localized ? 34 : 33),
+                "UI command capability limit exceeded");
         std::set<std::string> unique;
         for (const auto& c : cmds) {
             auto name = c.get<std::string>();
             require(identifier(name) && unique.insert(name).second,
                     "Invalid UI command capability");
         }
+        require(cmds.size() <= 33 || unique.contains("forge.locale"),
+                "The extra UI command slot belongs to locale control");
     }
     require(j.dump().size() <= 65536, "UI snapshot exceeds 64 KiB");
 }

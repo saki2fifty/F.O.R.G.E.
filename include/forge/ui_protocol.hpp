@@ -11,6 +11,7 @@ inline constexpr std::size_t max_documents = 16, max_values = 32, max_string = 1
 bool identifier(const std::string&);
 void validate_value(const Json&);
 void validate_model(const Json&);
+void validate_localization(const Json&);
 void validate_snapshot(const Json&);
 // A session is assigned by the runtime. Generation changes on successful world replacement.
 // The presentation host must explicitly reset trust on Play/replacement, never accept an

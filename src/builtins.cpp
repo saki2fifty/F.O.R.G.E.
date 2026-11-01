@@ -15,6 +15,7 @@
 #include <cstring>
 #include <forge/primitive_catalog.hpp>
 #include <forge/render_view.hpp>
+#include <forge/ui_localization.hpp>
 #include <mutex>
 #include <numbers>
 #include <stdexcept>
@@ -69,6 +70,8 @@ template <class T> Json encode(const T& p) {
                 {"enabled", p.enabled},
                 {"visible", p.visible},
                 {"layer", p.layer}};
+    else if constexpr (std::is_same_v<T, UiLocalization>)
+        return {{"catalog", p.catalog.id ? Json(p.catalog.id) : Json()}, {"locale", p.locale}};
     else if constexpr (std::is_same_v<T, NavigationSurface>)
         return {{"enabled", p.enabled}};
     else if constexpr (std::is_same_v<T, NavigationRegion2D>)
@@ -363,6 +366,13 @@ template <class T> Value decode(const Json& p) {
         v.visible = p.at("visible");
         v.layer = p.at("layer");
         return v;
+    } else if constexpr (std::is_same_v<T, UiLocalization>) {
+        UiLocalization value;
+        if (!p.at("catalog").is_null())
+            value.catalog.id = p.at("catalog").get<AssetId>();
+        value.locale = p.at("locale").get<std::string>();
+        (void)canonical_ui_locale(value.locale);
+        return value;
     } else if constexpr (std::is_same_v<T, NavigationSurface>)
         return T{p.at("enabled")};
     else if constexpr (std::is_same_v<T, NavigationRegion2D>)
@@ -1111,6 +1121,11 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<bool>("enabled")
             .template member<bool>("visible")
             .template member<std::uint32_t>("layer");
+    } else if constexpr (std::is_same_v<T, UiLocalization>) {
+        register_asset_ref<UiLocalizationAsset>(w, "forge.ui_localization_ref");
+        w.component<std::string>("forge.authored_string").opaque(reflected_string);
+        c.template member<AssetRef<UiLocalizationAsset>>("catalog").template member<std::string>(
+            "locale");
     } else if constexpr (std::is_same_v<T, NavigationSurface>)
         c.template member<bool>("enabled");
     else if constexpr (std::is_same_v<T, NavigationRegion2D>)
@@ -1605,6 +1620,11 @@ const std::array<Builtin, builtin_count>& builtins() {
         descriptor<UiDocument>(
             "forge.ui_document", "Runtime UI document displayed during Play", "unitless", {}, {},
             [](flecs::world& w) { return register_type<UiDocument>(w, "forge.ui_document"); }),
+        descriptor<UiLocalization>(
+            "forge.ui_localization", "Scene language and published catalog for runtime UI",
+            "unitless", {}, {},
+            [](flecs::world&
+                   w) { return register_type<UiLocalization>(w, "forge.ui_localization"); }),
         descriptor<MeshRenderer>(
             "forge.mesh_renderer", "Mesh and logical material slot assignments", "unitless", {}, {},
             [](flecs::world& w) { return register_type<MeshRenderer>(w, "forge.mesh_renderer"); }),
@@ -2700,6 +2720,18 @@ Json registration_options(const Builtin& type, const std::string& field) {
             value["description"] = field == "enabled" ? "Load this document during Play"
                                                       : "Show this document during Play";
     }
+    if (name == "forge.ui_localization") {
+        value.erase("minimum");
+        value.erase("maximum");
+        value["animatable"] = false;
+        if (field == "catalog") {
+            value["asset_type"] = UiLocalizationAsset::type;
+            value["nullable"] = true;
+            value["description"] = "Published messages; one UI Localization controller per Scene";
+        } else {
+            value["description"] = "Requested language tag; exact, primary and default fallback";
+        }
+    }
     if ((name == "forge.sprite_renderer" || name == "forge.tile_map_renderer") &&
         field == "mip_filter") {
         value["display_name"] = "Mip filtering";
@@ -3077,10 +3109,11 @@ void annotate_type(flecs::world& world, flecs::entity component, const Builtin& 
             throw std::runtime_error("Native member metadata changed the typed component layout");
     }
     const std::string id = type.name;
-    auto display = id == "forge.ui_document"   ? std::string("UI Document")
-                   : id == "forge.two_bone_ik" ? std::string("Two Bone IK")
-                   : id == "forge.aim_ik"      ? std::string("Aim IK")
-                                               : friendly_name(id.substr(id.find('.') + 1));
+    auto display = id == "forge.ui_document"       ? std::string("UI Document")
+                   : id == "forge.ui_localization" ? std::string("UI Localization")
+                   : id == "forge.two_bone_ik"     ? std::string("Two Bone IK")
+                   : id == "forge.aim_ik"          ? std::string("Aim IK")
+                                                   : friendly_name(id.substr(id.find('.') + 1));
     if (id.ends_with("_2d"))
         display.replace(display.size() - 2, 2, "2D");
     component.set_doc_name(display.c_str()).set_doc_brief(type.description);
@@ -3122,8 +3155,8 @@ Json register_builtins(flecs::world& world, unsigned family) {
     for (const auto& type : builtins()) {
         const std::string name = type.name;
         const unsigned category =
-            name == "forge.ui_document"             ? 5u
-            : name.starts_with("forge.navigation_") ? 4u
+            (name == "forge.ui_document" || name == "forge.ui_localization") ? 5u
+            : name.starts_with("forge.navigation_")                          ? 4u
             : (name == "forge.animator" || name == "forge.transform_animator" ||
                name == "forge.animation_sequence" || name == "forge.camera_shot" ||
                name == "forge.audio_cue" || name == "forge.two_bone_ik" || name == "forge.aim_ik")
@@ -3184,6 +3217,9 @@ Json register_builtins(flecs::world& world, unsigned family) {
         add_reference.template operator()<NavMeshAsset>();
         add_reference.template operator()<NavigationBehaviorAsset>();
         add_reference.template operator()<UiDocumentAsset>();
+        add_reference.template operator()<UiLocalizationAsset>();
+        if (name == "forge.ui_localization")
+            references.push_back({world.id<std::string>(), "string"});
         if (name == "forge.mesh_renderer") {
             references.push_back({world.id<std::string>(), "string"});
             references.push_back({world.id<std::vector<MaterialSlotOverride>>(), "vector"});

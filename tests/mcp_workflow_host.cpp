@@ -13,6 +13,7 @@
 #include "script_automation.hpp"
 #include "texture_authoring.hpp"
 #include "tile_asset_reimport_routes.hpp"
+#include "ui_localization_authoring.hpp"
 #include "ui_test_renderer.hpp"
 #include <chrono>
 #include <iostream>
@@ -81,7 +82,14 @@ int main(int argc, char** argv) {
 #ifdef _WIN32
         asset_worker += ".exe";
 #endif
-        imports.routes = [asset_worker] {
+        imports.routes = [asset_worker, mode] {
+            if (mode == "ui_localization")
+                return std::vector<forge::AssetReimportRoute>{
+                    {"forge.ui.localization", forge::desktop_texture_target(),
+                     forge::ui_localization_import_registry(),
+                     [](auto& candidate, const auto& plan, const auto&) {
+                         forge::prepare_ui_localization_publication(candidate, plan);
+                     }}};
             return forge::tile_asset_reimport_routes(asset_worker, forge::desktop_texture_target());
         };
         forge::SourceImport source;
@@ -136,9 +144,21 @@ int main(int argc, char** argv) {
             append(forge::ScriptAutomation::methods(scripts, files, permissions, blocked));
             forge::PlayAutomationProviders controls;
             controls.start = [&] {
-                if (!blocked().empty() || settings.dirty() || !imports.ready_for_play())
+                if (!blocked().empty() || settings.dirty() || !imports.ready_for_play()) {
+                    forge::Json detail{{"owner", blocked()},
+                                       {"settings_dirty", settings.dirty()},
+                                       {"imports_ready", imports.ready_for_play()},
+                                       {"jobs", imports.jobs()}};
+                    if (const auto sources = imports.sources()) {
+                        detail["sources_complete"] = sources->complete;
+                        detail["source_errors"] = forge::Json::array();
+                        for (const auto& d : sources->diagnostics)
+                            if (d.error)
+                                detail["source_errors"].push_back(d.message);
+                    }
                     throw forge::AuthoringError("play_busy",
-                                                "Settle pending project work before Play");
+                                                "Settle pending project work: " + detail.dump());
+                }
                 play.configure(files.document.settings().simulation_hz(),
                                files.document.settings().input(),
                                files.document.settings().physics().gravity,
@@ -178,6 +198,9 @@ int main(int argc, char** argv) {
                                       const std::optional<std::string>& value) {
                 return presenter && presenter->command(instance, name, value);
             };
+            controls.ui_localization = [&] {
+                return presenter ? presenter->localization_state() : forge::Json{};
+            };
             controls.reload_ui = [&] {
                 if (!presenter)
                     throw forge::AuthoringError("ui_unavailable", "No live UI presenter");
@@ -203,8 +226,10 @@ int main(int argc, char** argv) {
         };
         forge::ui::AutomationPermissions permissions;
         permissions.assets = mode != "read";
-        permissions.execute = mode == "full" || mode == "execute" || mode == "gamepads";
-        permissions.export_game = mode == "full" || mode == "output" || mode == "gamepads";
+        permissions.execute =
+            mode == "full" || mode == "execute" || mode == "gamepads" || mode == "ui_localization";
+        permissions.export_game =
+            mode == "full" || mode == "output" || mode == "gamepads" || mode == "ui_localization";
         if (permissions.export_game)
             permissions.export_root = root / "Output";
         workspace.start(scene, files, mode != "read", mode != "read", permissions);

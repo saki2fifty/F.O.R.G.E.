@@ -70,8 +70,8 @@ class Runtime:
             self.process.stdout.close()
 
 
-def activate(worker, scene, sdk_play):
-    state = worker.request('replace', scene=scene)
+def activate(worker, scene, sdk_play, **replacement):
+    state = worker.request('replace', scene=scene, **replacement)
     if not sdk_play:
         return state
     deadline = time.monotonic() + 15

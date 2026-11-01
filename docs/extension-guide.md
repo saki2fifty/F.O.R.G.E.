@@ -823,3 +823,22 @@ Play and standalone compose this host profile; ordinary simulation without Game
 leaves the example neutral. The fixed sample maps X/Y at0.2/1 world units per SI
 unit and bounds display positions to the canvas. Source-free export keeps Scene
 and Sprite identities; native configuration is repeated in the new host.
+
+## Change the game's UI language
+
+The installed `forge/ui_components.hpp` supplies `UiLocalization`: a typed
+catalog reference and an owning `std::string locale`, defaulting to `en`.
+Use it on the Scene's single configured UI Localization controller. A fixed
+system can assign a valid language tag and mark that component modified; UI
+commands and live Inspector tuning write the same value. Do not publish a second
+language model. The installed `ui_localization_gameplay` sample demonstrates
+native access, exact layout and independent string copy/destruction.
+
+These are exact-SDK C++ values with matching compiler, runtime library and Flecs
+lifecycle hooks. Do not memcpy the component, borrow its string buffer across a
+mutation or World retirement, or treat this as a portable C string ABI. No RmlUi,
+DOM, catalog parser or resource manager is installed with the value declaration.
+The C host table is unchanged. Rebuild the module when the SDK fingerprint
+changes. Ordinary runtime recovery preserves the runtime Scene locale; prepared
+SDK Play has no recovery checkpoint. Stop restores authored values unless a
+supported Keep values operation deliberately retains the change.

@@ -34,6 +34,7 @@ These classifications describe supported ownership, not a promise of permanent C
 | NavigationSurface / NavigationRegion2D / NavigationAgent | A authored; B values | Explicit3D geometry or XY rectangles; typed navmesh, destination/speed/enabled. |
 | NavigationService / NavResult | C; B bounded query subset | Projection/path, explicit NavStatus, caller-owned output. Detour mesh/corridor/query objects D. |
 | UiDocument | A authored; B values | Document AssetId, enabled/visible/layer. DOM/focus/model queues are not authored state. |
+| UiLocalization | A authored; B exact C++ values | Typed catalog AssetRef and owning std::string locale; shared matching Flecs lifecycle/toolchain/CRT. Component is the Scene locale authority. No memcpy, borrowed mutable string buffer or stable C string ABI. |
 | UiService | C; B number/action subset | Runtime copied model and allowlisted commands. No RmlUi type or presentation pointer. |
 | UiPresenter / UiDiligentRenderer / SDL input adapter | C/D | Reusable presenter + explicit host adapters; no binary gameplay access. |
 | UI bridge / process protocol / recovery envelopes | D | Private independent versions and session/generation checks; not save-game/network/plugin protocols. |

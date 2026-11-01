@@ -776,7 +776,8 @@ void Scene::replace_prefab_sources(const PrefabSources& sources, const Json& sou
 }
 Json Scene::tune_runtime_property(const std::string& entity_id, const std::string& type_key,
                                   const std::string& property_key, const Json& value) {
-    if (context_.role() != WorldRole::Runtime || !context_.on_owner_thread())
+    if (context_.role() != WorldRole::Runtime || !context_.on_owner_thread() ||
+        context_.world().is_readonly())
         throw std::runtime_error("Live property tuning requires the runtime owner thread");
     const auto target = entity(entity_id);
     if (!target || !target.is_alive() || target.has(flecs::Prefab))
@@ -785,8 +786,12 @@ Json Scene::tune_runtime_property(const std::string& entity_id, const std::strin
                material = RuntimePropertyTune::material_type(type_key),
                probe = RuntimePropertyTune::probe_type(type_key),
                decal = RuntimePropertyTune::decal_type(type_key),
-               light = RuntimePropertyTune::light_type(type_key);
-    if (sprite || material || probe || light || decal) {
+               light = RuntimePropertyTune::light_type(type_key),
+               localization = RuntimePropertyTune::ui_localization_type(type_key);
+    if (sprite || material || probe || light || decal || localization) {
+        if (localization && (!RuntimePropertyTune::ui_localization_property(property_key) ||
+                             !target.has<UiLocalization>()))
+            throw std::runtime_error("Only an existing UI Localization locale can be tuned live");
         if (sprite &&
             (!RuntimePropertyTune::sprite_property(property_key) || !target.has<SpriteRenderer>()))
             throw std::runtime_error("Only existing sprite appearance values can be tuned live");
@@ -816,7 +821,7 @@ Json Scene::tune_runtime_property(const std::string& entity_id, const std::strin
             codec.apply(target, typed);
             return codec.read(target, true).at(property_key);
         }
-        throw std::runtime_error("Live rendering builtin is unavailable");
+        throw std::runtime_error("Live builtin is unavailable");
     }
     if (type_key == "forge.audio_source") {
         if (!target.has<AudioSource>())
@@ -1056,6 +1061,9 @@ Json Scene::serialize(bool effective, bool ui_only) const {
             auto components = Json::object();
             if (item.at("components").contains("forge.ui_document"))
                 components["forge.ui_document"] = item.at("components").at("forge.ui_document");
+            if (item.at("components").contains("forge.ui_localization"))
+                components["forge.ui_localization"] =
+                    item.at("components").at("forge.ui_localization");
             output.push_back({{"id", item.at("id")},
                               {"prefab", item.value("prefab", false)},
                               {"components", std::move(components)}});
@@ -1094,7 +1102,8 @@ Json Scene::serialize(bool effective, bool ui_only) const {
                 item[relation == flecs::ChildOf ? "parent" : "base"] = target.get<StableId>().value;
         }
         for (const auto& type : detail::builtins()) {
-            if (ui_only && std::string_view(type.name) != "forge.ui_document")
+            if (ui_only && std::string_view(type.name) != "forge.ui_document" &&
+                std::string_view(type.name) != "forge.ui_localization")
                 continue;
             const auto value = type.read(e, effective);
             if (value.is_null()) {

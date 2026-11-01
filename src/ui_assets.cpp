@@ -1,5 +1,6 @@
 #include "asset_bytes.hpp"
 #include "texture_decode.h"
+#include "ui_localization_admission.hpp"
 #include <algorithm>
 #include <cctype>
 #include <charconv>
@@ -337,7 +338,7 @@ const std::vector<std::byte>& UiResources::read(const std::string& name) {
     const auto key = path_utf8(locator);
     if (auto it = files_.find(key); it != files_.end())
         return it->second;
-    require(files_.size() < 32, "UI dependency count exceeds 32");
+    require(resource_count() < 32, "UI dependency count exceeds 32");
     const auto ext = lower(locator.extension().string());
     const bool text = ext == ".rml" || ext == ".rcss";
     require(text || ext == ".ttf" || ext == ".otf" || image_extension(ext),
@@ -370,6 +371,29 @@ std::string UiResources::document(AssetRef<UiDocumentAsset> ref) {
     (void)read(name);
     documents_[ref.id] = resolved.record->source;
     return name;
+}
+const UiLocalizationData& UiResources::localization(AssetRef<UiLocalizationAsset> ref) {
+    if (localization_) {
+        require(localization_->asset == ref.id, "One UI context supports one localization catalog");
+        return *localization_;
+    }
+    require(resource_count() < 32, "UI dependency count exceeds 32");
+    const auto catalog = AssetCatalog::open_project(paths_.root());
+    const auto found = catalog.records().find(ref.id);
+    require(found != catalog.records().end() && found->second.type == UiLocalizationAsset::type,
+            "UI localization asset missing or wrong type");
+    // A selected cooked asset does not require its editable source to exist.
+    const auto& record = found->second;
+    const auto key = record.metadata.at("forge.import").at("key").get<std::string>();
+    DerivedDataCache cache(paths_.root(),
+                           {ui_localization_byte_limit, ui_localization_byte_limit + 65536, 1});
+    const auto artifact = cache.load_selected(key, [](const auto&) {});
+    auto data = admit_ui_localization_artifact(record, artifact);
+    const auto retained = data.resident_bytes();
+    require(retained <= 32 * 1024 * 1024 - bytes_, "UI resource bytes exceed 32 MiB");
+    localization_.emplace(std::move(data));
+    bytes_ += retained;
+    return *localization_;
 }
 UiAssetSnapshot UiResources::snapshot() const {
     UiAssetSnapshot result{paths_.root(), documents_, {}, automatic_};

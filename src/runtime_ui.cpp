@@ -3,6 +3,36 @@
 #include <forge/assets.hpp>
 #include <forge/runtime_ui.hpp>
 namespace forge {
+namespace {
+struct SceneLocalization {
+    Json descriptor;
+    std::string scope;
+};
+std::optional<SceneLocalization> scene_localization(const Scene& scene, const Json& rows) {
+    std::optional<SceneLocalization> result;
+    for (const auto& row : rows) {
+        if (row.value("prefab", false) || !row.at("components").contains("forge.ui_localization"))
+            continue;
+        const auto& value = row.at("components").at("forge.ui_localization");
+        if (value.at("catalog").is_null())
+            continue; // An unassigned component has no UI resource demand.
+        if (result)
+            throw std::runtime_error(
+                "One Scene supports one configured UI Localization controller");
+        const auto entity = row.at("id").get<EntityId>();
+        const auto native = scene.entity(entity.str());
+        if (!native)
+            throw std::runtime_error("UI Localization controller no longer exists");
+        Json descriptor{
+            {"entity", entity}, {"asset", value.at("catalog")}, {"locale", value.at("locale")}};
+        ui_protocol::validate_localization(descriptor);
+        result = SceneLocalization{std::move(descriptor),
+                                   entity.str() + ":" + std::to_string(native.id()) + ":" +
+                                       value.at("catalog").get<std::string>()};
+    }
+    return result;
+}
+} // namespace
 UiRuntime::UiRuntime(std::filesystem::path project, ServiceAccess services)
     : services_(services), project_(std::move(project)) {}
 void UiRuntime::check() const {
@@ -63,7 +93,18 @@ Json UiRuntime::snapshot(const Scene& scene, const std::string& session, std::ui
     std::optional<AssetCatalog> catalog;
     bool catalog_requested = false;
     std::set<EntityId> live, documents;
-    for (const auto& e : scene.ui_document_rows()) {
+    const auto rows = scene.ui_document_rows();
+    const bool demand = std::any_of(rows.begin(), rows.end(), [](const auto& row) {
+        const auto& components = row.at("components");
+        return !row.value("prefab", false) && components.contains("forge.ui_document") &&
+               components.at("forge.ui_document").at("enabled").template get<bool>() &&
+               !components.at("forge.ui_document").at("document").is_null();
+    });
+    const auto localization = demand ? scene_localization(scene, rows) : std::nullopt;
+    const auto scope = localization ? localization->scope : std::string{};
+    if (localization && actions_.contains("forge.locale"))
+        throw std::runtime_error("Localized UI conflicts with a custom forge.locale action");
+    for (const auto& e : rows) {
         const auto entity = e.at("id").get<EntityId>();
         live.insert(entity);
         const auto& components = e.at("components");
@@ -97,13 +138,19 @@ Json UiRuntime::snapshot(const Scene& scene, const std::string& session, std::ui
         documents.insert(entity);
         const auto handle = scene.entity(entity.str()).id();
         auto it = instances_.find(entity);
-        if (it == instances_.end() || it->second.asset != asset || it->second.entity != handle)
+        if (it == instances_.end() || it->second.asset != asset || it->second.entity != handle ||
+            it->second.localization_scope != scope)
             instances_[entity] = {asset, handle,
-                                  entity.str() + ":" + std::to_string(++next_instance_)};
+                                  entity.str() + ":" + std::to_string(++next_instance_), scope};
         auto model = models_.contains(entity) ? models_.at(entity) : Json::object();
+        if (localization &&
+            (model.contains("forge_locale") || model.contains("forge_resolved_locale")))
+            throw std::runtime_error("Localized UI reserves its locale presentation bindings");
         model["tick"] = tick;
         model["paused"] = paused;
         Json actions = {"Pause", "Resume", "Step", "TimeScale"};
+        if (localization)
+            actions.push_back("forge.locale");
         for (const auto& a : actions_)
             actions.push_back(a);
         docs.push_back({{"entity", entity},
@@ -120,10 +167,12 @@ Json UiRuntime::snapshot(const Scene& scene, const std::string& session, std::ui
     Json result = {{"version", ui_protocol::version}, {"session", session},
                    {"generation", generation},        {"revision", ++revision_},
                    {"documents", std::move(docs)},    {"errors", std::move(errors)}};
+    if (localization)
+        result["localization"] = localization->descriptor;
     ui_protocol::validate_snapshot(result);
     return result;
 }
-void UiRuntime::command(const Scene& scene, const Json& request,
+void UiRuntime::command(Scene& scene, const Json& request,
                         const std::function<void(const std::string&)>& control,
                         const std::function<void(double)>& time_scale) {
     check();
@@ -145,7 +194,18 @@ void UiRuntime::command(const Scene& scene, const Json& request,
         throw std::runtime_error("UI document no longer accepts input");
     if (AssetCatalog::open_project(project_).resolve(d.document).state != AssetState::Available)
         throw std::runtime_error("UI document asset is unavailable");
+    const auto localization = scene_localization(scene, scene.ui_document_rows());
+    if (known->second.localization_scope != (localization ? localization->scope : std::string{}))
+        throw std::runtime_error("UI localization binding changed; wait for a fresh snapshot");
     const auto name = request.at("command").get<std::string>();
+    if (name == "forge.locale" && localization) {
+        if (actions_.contains(name) || !request.contains("value") ||
+            !request.at("value").is_string())
+            throw std::runtime_error("Localized forge.locale requires an unambiguous string value");
+        scene.tune_runtime_property(localization->descriptor.at("entity").get<std::string>(),
+                                    "forge.ui_localization", "locale", request.at("value"));
+        return;
+    }
     if (name == "TimeScale") {
         if (!time_scale || !request.contains("value") || !request.at("value").is_string())
             throw std::runtime_error("TimeScale requires a host clock and numeric string value");

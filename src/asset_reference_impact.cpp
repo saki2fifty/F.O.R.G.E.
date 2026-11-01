@@ -17,6 +17,7 @@
 #include <forge/particle_effect_source.hpp>
 #include <forge/scene_render_settings.hpp>
 #include <forge/terrain_source.hpp>
+#include <forge/ui_localization.hpp>
 #include <initializer_list>
 #include <string_view>
 namespace forge {
@@ -325,6 +326,13 @@ struct Inspect {
                     key != "default_weight" && key != "entries")
                     unknown(key);
             }
+        } else if (doc.value("format", std::string{}) == "forge.ui-localization") {
+            UiLocalizationSource{doc}.validate();
+            opaque_fields(doc, {"format", "version", "asset_id", "default_locale", "locales"});
+            for (const auto& [tag, locale] : doc.at("locales").items())
+                opaque_fields(locale, {"label", "messages"}, "locales." + tag);
+            // Recognized message strings are literal text, including UUID-looking
+            // values. They are not Scene or asset references.
         } else if (doc.value("format", std::string{}) == "forge.navigation-behavior") {
             NavigationBehaviorSource{doc}.validate();
             // Graph rows use numeric IDs. Scene target/anchor references belong to

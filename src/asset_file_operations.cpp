@@ -22,6 +22,7 @@
 #include <forge/shader_asset.hpp>
 #include <forge/terrain_source.hpp>
 #include <forge/transform_animation.hpp>
+#include <forge/ui_localization.hpp>
 namespace forge {
 namespace {
 using Json = nlohmann::json;
@@ -253,9 +254,9 @@ static std::string rewrite_authored_with_schema(const AssetRecord& record, std::
     if (record.type != "scene" && record.type != "prefab" && record.type != "material" &&
         record.type != "shader" && record.type != "collision" &&
         record.type != "transform_animation" && record.type != "animation_states" &&
-        record.type != NavigationBehaviorAsset::type && record.type != "animation_mask" &&
-        record.type != "animation_blend_space" && record.type != ParticleEffectAsset::type &&
-        !terrain)
+        record.type != NavigationBehaviorAsset::type && record.type != UiLocalizationAsset::type &&
+        record.type != "animation_mask" && record.type != "animation_blend_space" &&
+        record.type != ParticleEffectAsset::type && !terrain)
         throw std::runtime_error("No authored-document copy adapter for this source format");
     if (terrain && !path_utf8(destination).ends_with(".terrain.json"))
         throw std::runtime_error("Terrain files must retain the .terrain.json suffix");
@@ -267,6 +268,9 @@ static std::string rewrite_authored_with_schema(const AssetRecord& record, std::
     if (record.type == NavigationBehaviorAsset::type &&
         !path_utf8(destination).ends_with(".behavior.json"))
         throw std::runtime_error("Navigation Behavior files must retain the .behavior.json suffix");
+    if (record.type == UiLocalizationAsset::type &&
+        !path_utf8(destination).ends_with(".localization.json"))
+        throw std::runtime_error("UI Localization files must retain the .localization.json suffix");
     if (record.type == "animation_mask" && !path_utf8(destination).ends_with(".mask.json"))
         throw std::runtime_error("Animation Mask files must retain the .mask.json suffix");
     if (record.type == "animation_blend_space" &&
@@ -308,6 +312,8 @@ static std::string rewrite_authored_with_schema(const AssetRecord& record, std::
             AnimationStatesSource{value}.validate();
         else if (record.type == NavigationBehaviorAsset::type)
             NavigationBehaviorSource{value}.validate();
+        else if (record.type == UiLocalizationAsset::type)
+            UiLocalizationSource{value}.validate();
         else if (record.type == "animation_mask")
             AnimationMaskSource{value}.validate();
         else if (record.type == "animation_blend_space")

@@ -68,6 +68,8 @@ class UiPresenter {
     std::uint64_t presentation_revision() const;
     // Last successfully published set only; borrowed until replacement/reset.
     const UiAssetSnapshot* asset_snapshot() const;
+    // Actual displayed catalog/locale and fallback coverage; null when unconfigured.
+    nlohmann::json localization_state() const;
 
   private:
     struct Impl;

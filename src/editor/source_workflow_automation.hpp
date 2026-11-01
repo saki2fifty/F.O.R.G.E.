@@ -2,6 +2,7 @@
 #include "source_document_automation.hpp"
 #include <forge/material_graph.hpp>
 #include <forge/navigation_behavior.hpp>
+#include <forge/ui_localization.hpp>
 
 namespace forge {
 inline std::vector<LiveAuthoringMethod>
@@ -34,6 +35,41 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
          {"flags", automation_integer(0, UINT32_MAX)}},
         {"layer", "x", "y"});
     std::vector<LiveAuthoringMethod> methods;
+    methods.push_back(automation_method(
+        "asset.localization.catalog",
+        "Describe game UI language/message catalogs, fallback, bounds and literal RML bindings. "
+        "Create/read/patch/publish with the ui_localization source editor. Assign its catalog and "
+        "locale through the reflected UI Localization Scene component.",
+        "asset.read", automation_object(), false, [](const Json&) {
+            return Json{
+                {"format", "forge.ui-localization"},
+                {"version", 1},
+                {"editor", "ui_localization"},
+                {"suffix", ".localization.json"},
+                {"component", "forge.ui_localization"},
+                {"limits",
+                 {{"locales", 8},
+                  {"keys", 128},
+                  {"message_bytes", 1024},
+                  {"label_bytes", 64},
+                  {"key_bytes", 48},
+                  {"source_bytes", ui_localization_byte_limit}}},
+                {"locale_tags", "ASCII hyphenated tags, 2..35 bytes; primary 2..8 letters, "
+                                "subtags 1..8 letters or digits. Compared without case."},
+                {"keys", "ASCII letter or underscore followed by letters, digits or underscores; "
+                         "the default locale owns all keys. Other locales may omit translations. "
+                         "Rename keys in every language and update calling RML expressions."},
+                {"fallback", "Exact locale, primary language, then default locale. Missing "
+                             "translations use the default message; unknown keys show [[key]]."},
+                {"binding", "{{ 'menu_play' | tr(forge_locale) }}"},
+                {"command", {{"name", "forge.locale"}, {"value", "fr"}}},
+                {"runtime", "One configured non-Prefab controller per Scene UI context. Its "
+                            "locale is the sole authority, adjustable in Play or Pause. Stop "
+                            "restores authored values. No automatic player-preference store."},
+                {"text", "Literal UTF-8 only; messages cannot inject markup or expressions. "
+                         "No plural rules, parameters, full shaping or editor translation. "
+                         "Glyph coverage depends on the loaded fonts."}};
+        }));
     methods.push_back(automation_method(
         "asset.behavior.catalog",
         "Describe the bounded Navigation Behavior graph schema, actions, conditions, identity and "

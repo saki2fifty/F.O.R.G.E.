@@ -16,6 +16,7 @@
 #endif
 #include "ui_animation_render_tests.hpp"
 #include "ui_frame_statistics_render_tests.hpp"
+#include "ui_localization_render_tests.hpp"
 #include <RmlUi/Core.h>
 #include <cstring>
 #include <forge/ui_diligent.hpp>
@@ -385,6 +386,9 @@ img {position:absolute;width:64px;height:64px;top:16px;} #png {left:16px;} #jpg 
         if (argc == 4)
             forge::test_ui_animation::exercise(device, context, renderer, images, argv[2], argv[3],
                                                readback, save);
+        if (argc == 4)
+            forge::test_ui_localization_pixels::exercise(device, context, renderer, images, argv[2],
+                                                         argv[3], readback, save);
         context->WaitForIdle();
         std::cout << "Runtime UI native geometry, clipping, transform, texture, blend, font "
                      "and resize passed\n";

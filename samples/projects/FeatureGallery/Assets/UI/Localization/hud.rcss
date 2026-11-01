@@ -1,0 +1,14 @@
+body, div, h1, h2, p {display:block;}
+body {width:100%;height:100%;font-family:Lato;font-size:16px;color:#e9f2f4;pointer-events:none;}
+#panel {position:absolute;left:5%;top:4%;width:90%;max-width:740px;max-height:92%;box-sizing:border-box;padding:22px;background-color:#142a38;overflow:auto;pointer-events:auto;}
+#eyebrow {color:#65d6bb;font-size:13px;margin:0 0 10px;}
+h1 {font-size:30px;margin:0 0 10px;} h2 {font-size:24px;color:#65d6bb;margin:0 0 10px;}
+p {margin:10px 0;line-height:1.4;} #intro {color:#b9d1db;}
+button {display:inline-block;box-sizing:border-box;padding:10px 12px;margin:4px 6px 4px 0;background-color:#294b60;}
+button:hover,button:focus {background-color:#40728a;}
+#preview {padding:16px;background-color:#0c1c27;margin:14px 0;}
+#literal {color:#e9bf84;} #fallback {color:#b9d1db;}
+.rule {height:1px;background-color:#315060;margin:14px 0;}
+.small {font-size:14px;color:#b9d1db;}
+scrollbarvertical {width:10px;background-color:#0c1c27;}
+scrollbarvertical sliderbar {background-color:#40728a;}

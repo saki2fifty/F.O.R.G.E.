@@ -1,5 +1,23 @@
 # Feature Gallery
 
+## Localized menus and HUDs
+
+Open **Scenes/133-ui-localization.scene.json** and press Play. Capture gameplay
+input, then choose English, Français or Español. The catalog changes literal
+headings and messages immediately, including while paused. **fr-CA: primary
+fallback** selects French; **de: default fallback** selects English. A note has no
+French/Spanish translation and deliberately uses the default language. Accented
+messages keep `<b>` and `{{braces}}` as visible text.
+
+Select **Language controller - inspect Locale** to tune its live `locale` value.
+The Game controls report the language actually displayed and default-message
+coverage. Stop restores the authored value. No project C++ module is required.
+Edit **Assets/UI/Localization/Messages.localization.json** through Content's UI
+Localization document, Save / Publish, save the Scene and restart Play. RML and
+RCSS live beside it. The saved example exports its selected cooked catalog without
+editable table source. See the [localization guide](../../../../manual/editor/ui-localization.md)
+for language/key limits, fallback, font coverage and player-preference behavior.
+
 ## Navigation behavior graphs
 
 Open **Scenes/131-patrol-behavior.scene.json** and press Play. The cyan and violet

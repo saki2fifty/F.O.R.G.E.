@@ -1,0 +1,35 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [],
+    "importer": "forge.ui.localization",
+    "importer_revision": "forge.ui.localization.v1",
+    "key_version": 1,
+    "output_format": "forge.ui-localization",
+    "output_version": 1,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {},
+    "settings_version": 1,
+    "source": "1fc2f2793a041960b4ad68cf612af183fad6a01bc87b2831a2307a1b38f062fb",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.ui-localization.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "4173a9f5-a815-4c57-bccc-e1d50e45ed5a",
+    "source": "Assets/UI/Localization/Messages.localization.json",
+    "source_digest": "1fc2f2793a041960b4ad68cf612af183fad6a01bc87b2831a2307a1b38f062fb",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.ui.localization",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

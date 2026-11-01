@@ -3,7 +3,9 @@
 #include <forge/project_paths.hpp>
 #include <forge/runtime_content_access.hpp>
 #include <forge/ui_components.hpp>
+#include <forge/ui_localization.hpp>
 #include <map>
+#include <optional>
 #include <set>
 #include <span>
 namespace forge {
@@ -36,10 +38,14 @@ class UiResources {
   public:
     explicit UiResources(std::filesystem::path project) : paths_(project), access_(project) {}
     std::string document(AssetRef<UiDocumentAsset>);
+    // One selected immutable table per context. The reference lives with this
+    // resource owner; replacement uses the existing whole-context candidate.
+    const UiLocalizationData& localization(AssetRef<UiLocalizationAsset>);
     const std::vector<std::byte>& read(const std::string& locator);
     std::string join(const std::string& base, const std::string& resource) const;
     std::size_t bytes() const { return bytes_; }
     std::size_t source_count() const { return files_.size(); }
+    std::size_t resource_count() const { return files_.size() + (localization_ ? 1 : 0); }
     UiAssetSnapshot snapshot() const;
     void automatic(const std::string& locator);
 
@@ -49,6 +55,7 @@ class UiResources {
     std::set<std::filesystem::path> automatic_;
     std::map<std::string, std::vector<std::byte>> files_;
     std::map<AssetId, std::filesystem::path> documents_;
+    std::optional<UiLocalizationData> localization_;
     std::size_t bytes_ = 0;
 };
 AssetRecord create_ui_example(const std::filesystem::path& project);

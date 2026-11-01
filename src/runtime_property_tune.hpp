@@ -10,6 +10,10 @@ namespace forge {
 struct RuntimePropertyTune {
     EntityRef target;
     std::string type, property;
+    static bool ui_localization_type(std::string_view type) {
+        return type == "forge.ui_localization";
+    }
+    static bool ui_localization_property(std::string_view property) { return property == "locale"; }
     static bool navigation_type(std::string_view type) {
         return type == "forge.navigation_avoidance" || type == "forge.navigation_agent" ||
                type == "forge.navigation_behavior";

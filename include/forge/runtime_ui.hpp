@@ -18,7 +18,7 @@ class UiRuntime final : public UiService {
     Json snapshot(const Scene&, const std::string& session, std::uint64_t generation,
                   std::uint64_t tick, bool paused);
     // Validates against the current scene, not a stale presentation snapshot.
-    void command(const Scene&, const Json&, const std::function<void(const std::string&)>& control,
+    void command(Scene&, const Json&, const std::function<void(const std::string&)>& control,
                  const std::function<void(double)>& time_scale = {});
     void shutdown();
 
@@ -31,6 +31,7 @@ class UiRuntime final : public UiService {
         AssetId asset;
         flecs::entity_t entity;
         std::string identity;
+        std::string localization_scope;
     };
     std::map<EntityId, Instance> instances_;
     std::uint64_t next_instance_ = 0;

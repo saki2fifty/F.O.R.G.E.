@@ -1156,3 +1156,36 @@ physical GPU, Windows, full editor or exported graphical EXE acceptance. Windows
 review remains queued. Exact input/capture evidence is retained in the local
 navigation-behavior batch record. Offline manual layout and package inclusion are
 qualified separately at the batch gate.
+
+## Game UI localization catalog and native menu
+
+The canonical `manual/images/ui-localization-editor.png` captures the real
+UiLocalizationEditor/SourceDocumentPanel owner with the published original
+Gallery133 catalog. `forge_ui_localization_editor_tests --capture` renders actual
+ImGui draw data through SDL's software renderer at1180×1020. The complete source
+window, language/key controls, literal text, Save / Publish and Scene attachment
+are visible. No authored values or history are changed during capture.
+
+`manual/images/ui-localization-game.png` is the1000×800 French native Game UI
+readback from `ui_render_tests.cpp` and `ui_localization_render_tests.hpp` through
+UiDiligentRenderer, selected RmlUi6.3/FreeType and Linux software Vulkan/lvp. Real
+pointer commands select five requested locales in landscape and portrait while
+paused. The ten authored displays match their source-free relocated exports
+exactly. French/Spanish accents, literal markup/braces and default-message fallback
+use the packaged Lato font. The PNG encodes the readback's unchanged RGB pixels;
+there is no crop, resize, UI insertion, retouch or generated screenshot content.
+
+Capture source is local development based on7ca81bf with localization changes,
+unassigned build identity. Original artifacts are
+`ui-capture-final/ui-localization-editor.png` and
+`native-gallery-images/ui-localization-1000-french-authored.ppm` in the local
+localization validation record. Both canonical captures were personally reviewed.
+The same record retains exact source/artifact hashes and pixel-pair receipts.
+
+- `ui-localization-editor.png` SHA256: `cc4adb8497121cc881b32f50c8830e4a12f1bf0ca652f6c3c19d1645803e0762`.
+- `ui-localization-game.png` SHA256: `6aaeda25b2926ab2fd2b35b4af75826fc4e45fc797099347b54de19e1242d17c`.
+
+These are actual source-owner and native Game UI captures. They do not establish
+full Windows editor, MSVC/D3D12, physical GPU/input/DPI or graphical EXE acceptance.
+The Windows review queue retains those unexecuted checks. Offline manual and
+package tests verify local navigation and unchanged image inclusion separately.

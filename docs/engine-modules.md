@@ -97,7 +97,7 @@ Ozz stays private. See [Animation](animation.md).
 
 ## Runtime UI
 
-`forge.ui` registers UiDocument through the builtin schema module and supplies a runtime-only, world-scoped UiService when explicitly composed. It produces copied values and validates semantic commands. The separate reusable RmlUi presenter owns no WorldContext and does not load gameplay code. The actual experimental SDK consumer uses allow-action, numeric publication and fixed-tick action polling, without RmlUi types. This does not introduce another gameplay model. See [Runtime UI](runtime-ui.md).
+`forge.ui` registers UiDocument and the optional UiLocalization controller through the builtin schema module and supplies a runtime-only, world-scoped UiService when explicitly composed. The controller owns the Scene locale; its installed exact C++ value includes an owning string with matching Flecs lifecycle/toolchain/CRT requirements. It is not an STL value crossing the C host table. It produces copied values and validates semantic commands. The separate reusable RmlUi presenter owns no WorldContext and does not load gameplay code. The actual experimental SDK consumer uses allow-action, numeric publication and fixed-tick action polling, without RmlUi types. This does not introduce another gameplay model. See [Runtime UI](runtime-ui.md).
 
 ## Flecs capability registration
 

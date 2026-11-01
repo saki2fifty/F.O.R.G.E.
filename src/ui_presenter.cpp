@@ -13,6 +13,11 @@ namespace forge {
 namespace {
 bool presenter_active = false; // Single presentation owner/thread in this phase.
 using Json = nlohmann::json;
+Json localization_identity(const Json& descriptor) {
+    return descriptor.is_null()
+               ? Json()
+               : Json{{"entity", descriptor.at("entity")}, {"asset", descriptor.at("asset")}};
+}
 } // namespace
 struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
     struct Doc {
@@ -26,6 +31,8 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
         Rml::Context* context = nullptr;
         std::shared_ptr<UiResources> resources;
         UiAssetSnapshot assets;
+        Json localization;
+        const UiLocalizationData* messages = nullptr;
         std::vector<std::unique_ptr<Doc>> docs;
         Rml::ElementDocument* frame_document = nullptr;
         Rml::ElementText* frame_text = nullptr;
@@ -386,10 +393,14 @@ body { width:100%; height:100%; z-index:65536; }
         auto candidate = std::make_unique<Set>();
         candidate->name = "ui" + std::to_string(++serial);
         candidate->resources = std::make_shared<UiResources>(project);
+        candidate->localization = state.value("localization", Json());
         resources[candidate->name] = candidate->resources;
         error.clear();
         loading_prefix = candidate->name;
         try {
+            if (!candidate->localization.is_null())
+                candidate->messages = &candidate->resources->localization(
+                    {candidate->localization.at("asset").get<AssetId>()});
             Rml::Factory::ClearStyleSheetCache();
             Rml::Factory::ClearTemplateCache();
             candidate->context = Rml::CreateContext(candidate->name, {width, height}, &renderer);
@@ -409,6 +420,32 @@ body { width:100%; height:100%; z-index:65536; }
                 if (!model)
                     throw std::runtime_error("UI data model creation failed");
                 auto* ptr = d.get();
+                if (candidate->messages) {
+                    if (candidate->docs.empty())
+                        model.RegisterTransformFunc(
+                            "tr", [table = candidate->messages](const Rml::VariantList& args) {
+                                if (args.size() != 2 || args[0].GetType() != Rml::Variant::STRING ||
+                                    args[1].GetType() != Rml::Variant::STRING)
+                                    return Rml::Variant("[[invalid translation]]");
+                                const auto locale = args[1].Get<Rml::String>();
+                                if (!ui_locale_tag(locale))
+                                    return Rml::Variant("[[invalid locale]]");
+                                return Rml::Variant(
+                                    table->message(args[0].Get<Rml::String>(), locale).text);
+                            });
+                    for (const auto* key : {"forge_locale", "forge_resolved_locale"}) {
+                        if (desc.at("model").contains(key))
+                            throw std::runtime_error("Localized UI reserves " + std::string(key));
+                        const bool resolved = std::string_view(key) == "forge_resolved_locale";
+                        if (!model.BindFunc(
+                                key, [set = candidate.get(), resolved](Rml::Variant& out) {
+                                    const auto locale =
+                                        set->localization.at("locale").get<std::string>();
+                                    out = resolved ? set->messages->select_locale(locale) : locale;
+                                }))
+                            throw std::runtime_error("UI locale binding failed");
+                    }
+                }
                 for (const auto& [key, value] : loading_values.items()) {
                     (void)value;
                     if (desc.at("model").contains(key))
@@ -643,9 +680,12 @@ bool UiPresenter::accept(const Json& j) {
     if (!s.replica.accept(j))
         return false;
     bool rebuild = !s.live;
+    const auto localization = j.value("localization", Json());
     const auto& docs = j.at("documents");
     if (s.live) {
-        rebuild = s.live->docs.size() != docs.size();
+        rebuild =
+            s.live->docs.size() != docs.size() ||
+            localization_identity(localization) != localization_identity(s.live->localization);
         for (const auto& d : s.live->docs) {
             auto it = std::find_if(docs.begin(), docs.end(),
                                    [&](const auto& v) { return v.at("instance") == d->instance; });
@@ -677,7 +717,9 @@ bool UiPresenter::accept(const Json& j) {
             }
             desc["model"] = std::move(keys);
         }
-        const auto signature = structure.dump();
+        const auto signature =
+            Json{{"documents", structure}, {"localization", localization_identity(localization)}}
+                .dump();
         if (signature == s.failed_structure)
             return false;
         const bool ok = s.rebuild();
@@ -685,15 +727,18 @@ bool UiPresenter::accept(const Json& j) {
         return ok;
     }
     bool visibility_changed = false;
+    const bool locale_changed = s.live->localization != localization;
     for (const auto& d : s.live->docs)
         for (const auto& desc : docs)
             if (desc.at("instance") == d->instance &&
                 desc.at("visible") != d->descriptor.at("visible"))
                 visibility_changed = true;
-    if (visibility_changed) {
+    if (visibility_changed)
         release_input();
+    if (visibility_changed || locale_changed) {
         ++s.presentation_revision;
     }
+    s.live->localization = localization;
     for (auto& d : s.live->docs) {
         auto it = std::find_if(docs.begin(), docs.end(),
                                [&](const auto& v) { return v.at("instance") == d->instance; });
@@ -903,5 +948,23 @@ const std::string& UiPresenter::diagnostic() const { return impl_->error; }
 std::uint64_t UiPresenter::presentation_revision() const { return impl_->presentation_revision; }
 std::size_t UiPresenter::document_count() const {
     return impl_->live ? impl_->live->docs.size() : 0;
+}
+Json UiPresenter::localization_state() const {
+    const auto& s = *impl_;
+    s.check();
+    if (!s.live || !s.live->messages)
+        return Json();
+    const auto& table = *s.live->messages;
+    const auto requested = s.live->localization.at("locale").get<std::string>();
+    const auto selected = table.select_locale(requested);
+    const auto total = table.locales.at(table.default_locale).messages.size();
+    return {{"entity", s.live->localization.at("entity")},
+            {"asset", table.asset},
+            {"requested_locale", requested},
+            {"selected_locale", selected},
+            {"locale_fallback", canonical_ui_locale(requested) != selected},
+            {"default_locale", table.default_locale},
+            {"messages", total},
+            {"fallback_messages", total - table.locales.at(selected).messages.size()}};
 }
 } // namespace forge

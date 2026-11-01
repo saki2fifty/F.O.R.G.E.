@@ -21,6 +21,7 @@
 #include "texture_imports.hpp"
 #include "tile_map_editor.hpp"
 #include "tile_set_editor.hpp"
+#include "ui_localization_editor.hpp"
 #include <chrono>
 #include <iostream>
 #include <thread>
@@ -70,6 +71,7 @@ int main(int argc, char** argv) {
         forge::TileMapEditor map(worker);
         forge::AnimationStatesEditor states;
         forge::NavigationBehaviorEditor behavior;
+        forge::UiLocalizationEditor localization;
         forge::AnimationBlendSpaceEditor blend;
         forge::AnimationMaskEditor mask;
         forge::AnimationTimelineEditor timeline;
@@ -93,6 +95,7 @@ int main(int argc, char** argv) {
         bind("tile_map", map);
         bind("animation_states", states);
         bind("navigation_behavior", behavior);
+        bind("ui_localization", localization);
         bind("animation_blend_space", blend);
         bind("animation_mask", mask);
         bind("animation_timeline", timeline);
@@ -178,6 +181,7 @@ int main(int argc, char** argv) {
             map.poll(files.document, files.status);
             states.poll(files.document, files.status);
             behavior.poll(files.document, files.status);
+            localization.poll(files.document, files.status);
             blend.poll(files.document, files.status);
             mask.poll(files.document, files.status);
             timeline.poll(files.document, scene, false, 0, files.status);
@@ -201,6 +205,7 @@ int main(int argc, char** argv) {
             map.draw(files.document, scene, false);
             states.draw(files.document, scene, false);
             behavior.draw(files.document, scene, false);
+            localization.draw(files.document, scene, false);
             blend.draw(files.document, scene, false);
             mask.draw(files.document, scene, false);
             timeline.draw(files.document, scene, false);

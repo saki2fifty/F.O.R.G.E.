@@ -23,7 +23,7 @@ The standalone `forge_game` executable composes gameplay, Diligent and the same 
 
 `UiDocument` contains a typed `AssetRef<UiDocumentAsset>`, `enabled`, `visible`, and `layer` (0–255). One entity displays one document. Only these fields are authored. The builtin participates in reflected editing, structured prefab inheritance, explicit equal-value property overrides, Revert, scene Undo/Redo and save/reopen. No DOM, focus, GPU handle, hover, copied model or text layout is serialized.
 
-The catalog records a schema-1 `ui_document` asset with an AssetId and project-relative `.rml` locator. Renaming a catalog locator preserves references. Supporting RCSS, PNG/JPEG/TGA and font files remain contained source resources. Phase7 optionally registers them as logical Content assets for identity, inspection and dependency/referrer workflows; the presenter continues to use admitted file copies. Registration and the generated HUD example are UI-independent operations in `forge_ui_assets`. These asset writes are outside scene Undo. No generic importer, cooker, HTTP loader or Apply to Prefab is added.
+The catalog records a schema-1 `ui_document` asset with an AssetId and project-relative `.rml` locator. Renaming a catalog locator preserves references. Supporting RCSS, PNG/JPEG/TGA and font files remain contained source resources. Phase7 optionally registers them as logical Content assets for identity, inspection and dependency/referrer workflows; the presenter continues to use admitted file copies. Registration and the generated HUD example are UI-independent operations in `forge_ui_assets`. These asset writes are outside scene Undo. RML and supporting raw resources have no UI cooker or HTTP loader. Typed localization tables use the source/import/cook owner described below. Component edits retain ordinary Scene/Prefab history rules; resource registration remains separate from Scene Undo.
 
 ## Private copied-value protocol
 
@@ -44,11 +44,83 @@ serialization. This adds no stored UI model or alternative entity registry.
 
 The runtime publishes `tick` and `paused`. The experimental exact SDK's real `ui_probe.cpp` consumer registers `DecreaseHealth`, publishes a numeric `health`, and polls commands inside its fixed system. Health remains an ECS component, not a UI value authority. These private callbacks change the exact SDK fingerprint, not ABI1. The transient sample Health component is not a new general native-state recovery contract.
 
-Buttons use `data-event-click="command('Pause')"` (or another registered command). Actions take **no arguments** by default. An exact-SDK module may explicitly register an action that accepts one bounded string value; reserved Pause/Resume/Step remain argument-free. Host-reserved `command('TimeScale','0.5')` sets simulation speed through the existing clock, accepting a complete finite numeric string in0..4. Zero holds motion while controls remain responsive. The snapshot permits four host actions plus all29 custom actions. See [gameplay services](gameplay-services.md). Runtime validates the current document incarnation, visible/enabled configuration, typed asset availability and allowlisted command. Host controls execute at the control boundary. Gameplay actions queue for the module to poll in its fixed system or standalone control callback. Control callbacks can operate menus while paused or at zero rate without advancing simulation.
+Buttons use `data-event-click="command('Pause')"` (or another registered command). Actions take **no arguments** by default. An exact-SDK module may explicitly register an action that accepts one bounded string value; reserved Pause/Resume/Step remain argument-free. Host-reserved `command('TimeScale','0.5')` sets simulation speed through the existing clock, accepting a complete finite numeric string in0..4. Zero holds motion while controls remain responsive. An unlocalized snapshot permits four host actions plus all29 custom actions. A localized snapshot adds the reserved forge.locale action without removing a custom slot. See [gameplay services](gameplay-services.md). Runtime validates the current document incarnation, visible/enabled configuration, typed asset availability and allowlisted command. Host controls execute at the control boundary. Gameplay actions queue for the module to poll in its fixed system or standalone control callback. Control callbacks can operate menus while paused or at zero rate without advancing simulation.
 
 Commands have session/generation and sequential positive IDs. Acknowledgements correlate the same scope and ID. The runtime keeps 64 receipts: exact retries return the prior result, conflicting reuse and expired IDs reject, and sequence gaps reject. The editor sends one outstanding command over its reliable process pipe; it performs zero automatic retries and never replays uncertain commands after recovery. Queues cap at 128. Snapshot size caps at 64 KiB; requests at 4 KiB. Models allow 32 scalar values per document (including reserved values), 1 KiB UTF-8 strings, finite numbers and a 16 KiB aggregate custom-model budget. Lists, objects, pointers, DOM and draw commands do not cross this bridge.
 
 Successful runtime replacement/native reload increments the generation; recovery changes the process session. The host discards the old context and command state, then reconstructs current presentation. Disabling/removing/replacing a document creates a fresh incarnation on reactivation. UI hover, unsent interaction and text-field contents are transient.
+
+## Game UI localization
+
+[ADR029](decisions/029-runtime-ui-localization.md) defines the ownership boundary.
+The optional `UiLocalization { AssetRef<UiLocalizationAsset> catalog; std::string
+locale = "en"; }` component is the Scene's language authority. One configured
+non-Prefab controller serves its active UI context. No active UI Document means
+no localization resource demand. Independent Worlds retain independent values.
+Existing UI Documents and the C SDK host table retain their layout and meaning.
+Native users require the exact matching SDK, including this component's string
+construction/copy/destruction support. Ordinary runtime recovery uses the runtime
+Scene snapshot; prepared SDK Play continues to return no recovery checkpoint.
+
+The `.localization.json` source uses `format:"forge.ui-localization"`, version1,
+AssetId, `default_locale`, and `locales:{tag:{label,messages:{key:text}}}`.
+The existing AssetSourceDocument, ImportService and selected derived cache own
+history, publication and persistence. Importer `forge.ui.localization` publishes
+one canonical `localization.json`; shared admission verifies its identity,
+selection, manifest, recipe, hashes and metadata for runtime and export.
+Scene/Prefab references and ordinary content closure own dependencies. Duplicate
+changes the asset identity while preserving literal text and opaque extensions;
+UUID-looking message text is never an asset reference.
+
+Bounds: eight locales, 128 default keys, 256 KiB source, 1 KiB/message,
+64-byte labels and 48-byte ASCII identifier keys; JSON depth8/events12000.
+Locale tags are an ASCII hyphenated subset, 2..35 bytes, with a 2..8-letter
+primary segment and 1..8-alphanumeric subtags. Case-fold collisions reject.
+Selection tries exact tag, primary language, then default. Other locales may omit
+default keys; absent translations use the default message. Unknown keys show
+`[[key]]`. Invalid UTF-8, NUL, duplicate JSON fields and non-round-trippable values
+reject. There are no plural, parameter or arbitrary international-format rules.
+
+RML uses `{{ 'menu_play' | tr(forge_locale) }}`. The context-wide pure transform
+returns literal text through native expression DataViewText/SetText. It does not
+use the translation hook that can precede markup parsing. `forge_locale` and
+`forge_resolved_locale` are read-only native getters from copied component
+settings; custom model collisions reject for localized contexts. Locale-only
+updates dirty bindings without replacing the context, input ownership or focus.
+Controller/catalog/native-entity scope changes renew document incarnations and
+use the normal complete-candidate gate. Failed table admission retains the
+complete predecessor; it cannot mix new metadata with the old table.
+
+UiResources retains one immutable typed table under its existing combined
+32-resource/32-MiB candidate budgets. `source_count()` still counts raw UI files;
+`resource_count()` includes the table. The table is excluded from raw
+UiAssetSnapshot sources. No source read/import occurs while drawing or ticking.
+Reload UI admits new saved content through the same owner; font-family cache
+rules remain unchanged.
+
+Localized snapshots add an optional controller/asset/locale descriptor to private
+UI protocol1. Their `forge.locale` command accepts one valid locale tag and writes
+the same Scene runtime property owner as live Inspector tuning. It operates under
+Pause or zero simulation rate without advancing a tick, using normal correlation,
+visibility and incarnation checks. Localized documents alone admit the 34th
+command slot; legacy documents retain 33 and may still register a custom action
+named `forge.locale`. A localized configuration rejects that action collision.
+The component remains the sole authority; the command introduces no model override
+or durable player-preference store. Stop restores authored values unless the
+existing Keep values workflow deliberately retains a supported live change.
+
+`UiPresenter::localization_state()` reports the actual active table, requested and
+selected locale, locale fallback and default-message coverage. Editor Game controls
+and automation `play.ui.presentation_localization` borrow this observation; it is
+null without a live displayed presenter. Runtime settings remain separately visible
+in `play.ui.value.localization`. A retained last-good presentation can therefore
+be distinguished from a rejected new request.
+
+The source document, Content, CLI and automation/MCP share the existing authoring
+owners. See the [localization guide](../manual/editor/ui-localization.md).
+Gallery133 supplies original English/French/Spanish messages, regional/default
+fallback, literal accented text and paused controls. This is game UI localization;
+editor translation, full shaping and complete international input remain absent.
 
 ## Time, input and density
 

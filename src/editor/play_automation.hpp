@@ -26,6 +26,7 @@ struct PlayAutomationProviders {
     std::function<bool(const std::string&, const std::string&, const std::optional<std::string>&)>
         ui_command;
     std::function<void()> reload_ui;
+    std::function<Json()> ui_localization;
 };
 struct PlayAutomation {
     static Json state(const PlaySession& play) {
@@ -128,7 +129,8 @@ struct PlayAutomation {
                 std::string("Read cached ") + kind +
                     " observations published by the actual Play owner, correlated with its "
                     "launch/session/world. Watch-dependent values require an explicit watch.",
-                "play.read", automation_object(), false, [&files, &play, kind](const Json&) {
+                "play.read", automation_object(), false,
+                [&files, &play, kind, localization = providers.ui_localization](const Json&) {
                     files.document.check_ownership();
                     auto result = state(play);
                     const auto key = std::string_view(kind);
@@ -143,6 +145,8 @@ struct PlayAutomation {
                     else if (key == "ui") {
                         result["value"] = play.ui_snapshot();
                         result["ack"] = play.ui_ack();
+                        result["presentation_localization"] =
+                            localization ? localization() : Json{};
                     } else if (key == "audio") {
                         result["value"] = play.audio_status();
                         result["source"] = play.audio_source_status();

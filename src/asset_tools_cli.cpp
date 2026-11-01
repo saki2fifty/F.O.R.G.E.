@@ -26,6 +26,7 @@
 #include "tile_map_source.hpp"
 #include "tile_set_source.hpp"
 #include "transform_animation_authoring.hpp"
+#include "ui_localization_authoring.hpp"
 #endif
 #include <forge/asset_discovery.hpp>
 #include <forge/assets.hpp>
@@ -214,6 +215,7 @@ int asset_tools_cli(int argc, char** argv) {
             const bool material = path_utf8(source).ends_with(".material.json");
             const bool animation_states = path_utf8(source).ends_with(".states.json");
             const bool navigation_behavior = path_utf8(source).ends_with(".behavior.json");
+            const bool ui_localization = path_utf8(source).ends_with(".localization.json");
             const bool animation_mask = path_utf8(source).ends_with(".mask.json");
             const bool animation_blend_space = path_utf8(source).ends_with(".blendspace.json");
             const bool transform_animation = path_utf8(source).ends_with(".animation.json");
@@ -233,6 +235,7 @@ int asset_tools_cli(int argc, char** argv) {
                             : animation_mask        ? animation_mask_import_registry()
                             : animation_states      ? animation_states_import_registry()
                             : navigation_behavior   ? navigation_behavior_import_registry()
+                            : ui_localization       ? ui_localization_import_registry()
                             : transform_animation   ? transform_animation_import_registry()
                             : collision             ? collision_import_registry()
                             : material              ? material_import_registry()
@@ -304,6 +307,11 @@ int asset_tools_cli(int argc, char** argv) {
                                asset_detail::read_bytes(ProjectPaths(project).resolve(source),
                                                         navigation_behavior_byte_limit))
                                .asset();
+            else if (ui_localization)
+                identity = UiLocalizationSource::parse(
+                               asset_detail::read_bytes(ProjectPaths(project).resolve(source),
+                                                        ui_localization_byte_limit))
+                               .asset();
             else if (transform_animation)
                 identity = TransformAnimationSource::parse(
                                asset_detail::read_bytes(ProjectPaths(project).resolve(source),
@@ -346,8 +354,8 @@ int asset_tools_cli(int argc, char** argv) {
                 std::move(draft),
                 [decisions, collision, material, editable_mesh, particle_effect, terrain,
                  transform_animation, animation_states, animation_mask, animation_blend_space,
-                 tile_set, tile_map,
-                 navigation_behavior](auto& candidate, const auto& plan, const auto& catalog) {
+                 tile_set, tile_map, navigation_behavior,
+                 ui_localization](auto& candidate, const auto& plan, const auto& catalog) {
                     if (tile_set || tile_map) {
                         if (!decisions.empty())
                             throw std::runtime_error(
@@ -381,6 +389,11 @@ int asset_tools_cli(int argc, char** argv) {
                             throw std::runtime_error(
                                 "Navigation Behavior has no subasset correspondence decisions");
                         prepare_navigation_behavior_publication(candidate, plan);
+                    } else if (ui_localization) {
+                        if (!decisions.empty())
+                            throw std::runtime_error(
+                                "UI Localization has no subasset correspondence decisions");
+                        prepare_ui_localization_publication(candidate, plan);
                     } else if (transform_animation) {
                         if (!decisions.empty())
                             throw std::runtime_error(

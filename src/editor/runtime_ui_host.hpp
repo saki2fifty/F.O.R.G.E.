@@ -85,6 +85,9 @@ class RuntimeUiHost {
     const UiAssetSnapshot* asset_snapshot() const {
         return observed_assets_ ? &*observed_assets_ : nullptr;
     }
+    Json localization_state() const {
+        return presenter_ && !suspended_ ? presenter_->localization_state() : Json{};
+    }
     // Single source of truth for "has RmlUi Core been initialized by this
     // host yet?". Mirrors `set_game_input_observer`/`set_presenter_alive_observer`
     // in tests/editor_sdk_workflow.hpp: the workflow probes this before
@@ -296,6 +299,17 @@ class RuntimeUiHost {
             reload(play);
         }
         const auto& why = error_.empty() ? presenter_->diagnostic() : error_;
+        const auto localization = localization_state();
+        if (!localization.is_null()) {
+            ImGui::Text("UI language: %s (requested %s)",
+                        localization.at("selected_locale").get_ref<const std::string&>().c_str(),
+                        localization.at("requested_locale").get_ref<const std::string&>().c_str());
+            if (localization.at("locale_fallback").get<bool>())
+                ImGui::TextUnformatted("Requested language unavailable; showing a fallback.");
+            ImGui::Text("Default message fallbacks: %u / %u",
+                        localization.at("fallback_messages").get<unsigned>(),
+                        localization.at("messages").get<unsigned>());
+        }
         if (!why.empty()) {
             ImGui::TextWrapped("Runtime UI: %s", why.c_str());
             ui::help("Check the document and its project-relative resource paths, then use Reload "

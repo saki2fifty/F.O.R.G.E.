@@ -21,6 +21,7 @@
 #include "texture_bundle_validation.hpp"
 #include "tile_asset_resources.hpp"
 #include "ui_asset_catalog.hpp"
+#include "ui_localization_admission.hpp"
 #include <forge/animation_states.hpp>
 #include <forge/audio_components.hpp>
 #include <forge/engine_assets.hpp>
@@ -189,7 +190,7 @@ AssetRecord runtime_record(AssetRecord record) {
           "forge.shader", "forge.audio", "forge.ui_source", "forge.collision",
           "forge.transform_animation", "forge.animation_states", "forge.animation_mask",
           "forge.animation_blend_space", "forge.particle_effect", "forge.tile_set",
-          "forge.tile_map", "forge.navigation_behavior"})
+          "forge.tile_map", "forge.navigation_behavior", "forge.ui_localization"})
         if (record.metadata.contains(name))
             metadata[name] = record.metadata.at(name);
     record.metadata = std::move(metadata);
@@ -276,6 +277,8 @@ void admit_bundle(const AssetRecord& root, const CachedArtifact& artifact) {
     } else if (root.type == NavigationBehaviorAsset::type &&
                format == "forge.navigation-behavior") {
         (void)admit_navigation_behavior_artifact(root, artifact);
+    } else if (root.type == UiLocalizationAsset::type && format == "forge.ui-localization") {
+        (void)admit_ui_localization_artifact(root, artifact);
     } else if (root.type == TransformAnimationAsset::type && format == "forge.transform-clip") {
         require(root.metadata.at("forge.import").at("importer") == "forge.animation.transform" &&
                     root.metadata.at("forge.transform_animation").at("version") == 1 &&

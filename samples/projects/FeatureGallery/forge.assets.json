@@ -3984,6 +3984,78 @@
       "type": "prefab"
     },
     {
+      "dependencies": [
+        "5357f6c2-28da-4cb7-91ef-560859b4d5da"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "",
+          "role": "ui.automatic",
+          "target": "5357f6c2-28da-4cb7-91ef-560859b4d5da",
+          "type": "ui_stylesheet"
+        }
+      ],
+      "id": "402bb534-09fb-476d-a19c-cb535d1fe75a",
+      "metadata": {
+        "forge.ui_source": {
+          "bytes": 1334,
+          "digest": "2c5695a3640ad0fbfba0140d7f376ea72fc1ff5dbc80d81f075ab3d8e52dee94",
+          "format": "rml"
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/UI/Localization/hud.rml",
+      "source_dependencies": [
+        {
+          "revision": "dd00f39e2acc6c708c2d9ef4434b5db33d78ed66128601a0e8a8e08021188ed6",
+          "role": "ui.observed",
+          "source": "Assets/UI/Localization/hud.rcss"
+        },
+        {
+          "revision": "2c5695a3640ad0fbfba0140d7f376ea72fc1ff5dbc80d81f075ab3d8e52dee94",
+          "role": "ui.source",
+          "source": "Assets/UI/Localization/hud.rml"
+        }
+      ],
+      "type": "ui_document"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "4173a9f5-a815-4c57-bccc-e1d50e45ed5a",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "3621ecb7b6f66786fa7a7d4ba8067bfde2785cb2b58535ef72f16f40585910ae",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.ui.localization",
+          "importer_revision": "forge.ui.localization.v1",
+          "key": "21a52d9ede59371e05879aa223fb3cab1a04bb3c266236d5040633edcbc4edca",
+          "output_format": "forge.ui-localization",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "556ca0390289b2b1f2a8a0d5ac026097ce1b8f07c27e4eca73a08636256913c5",
+          "source_digest": "1fc2f2793a041960b4ad68cf612af183fad6a01bc87b2831a2307a1b38f062fb",
+          "version": 1
+        },
+        "forge.ui_localization": {
+          "bytes": 848,
+          "file": "localization.json",
+          "sha256": "16f23f8f6c3e72ad296fe9e5738c3d458d35e35517c2f678ca426ac39b651c41",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/UI/Localization/Messages.localization.json",
+      "source_dependencies": [],
+      "type": "ui_localization"
+    },
+    {
       "dependencies": [],
       "dependency_edges": [],
       "id": "41785133-5f53-4669-987e-ad39f7b4dfe3",
@@ -4784,6 +4856,28 @@
       "source": "Assets/AnimatedProperties/LightPulse.animation.json",
       "source_dependencies": [],
       "type": "transform_animation"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "5357f6c2-28da-4cb7-91ef-560859b4d5da",
+      "metadata": {
+        "forge.ui_source": {
+          "bytes": 1015,
+          "digest": "dd00f39e2acc6c708c2d9ef4434b5db33d78ed66128601a0e8a8e08021188ed6",
+          "format": "rcss"
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/UI/Localization/hud.rcss",
+      "source_dependencies": [
+        {
+          "revision": "dd00f39e2acc6c708c2d9ef4434b5db33d78ed66128601a0e8a8e08021188ed6",
+          "role": "ui.source",
+          "source": "Assets/UI/Localization/hud.rcss"
+        }
+      ],
+      "type": "ui_stylesheet"
     },
     {
       "dependencies": [],
@@ -6100,6 +6194,16 @@
       "metadata": {},
       "schema_version": 3,
       "source": "Scenes/80-xy-navigation.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "6c3a2109-6cc0-4f33-a320-2e1e6b7925c7",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/133-ui-localization.scene.json",
       "source_dependencies": [],
       "type": "scene"
     },

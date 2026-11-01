@@ -26,6 +26,7 @@ ANALOG_ONLY = sys.argv[7:] == ['--analog-only']
 AUDIO_PAUSE_ONLY = sys.argv[7:] == ['--audio-pause-only']
 GAMEPADS_ONLY = sys.argv[7:] == ['--gamepads-only']
 UI_ANIMATION_ONLY = sys.argv[7:] == ['--ui-animation-only']
+UI_LOCALIZATION_ONLY = sys.argv[7:] == ['--ui-localization-only']
 
 
 @contextmanager
@@ -33,7 +34,7 @@ def editor(mode='full'):
     with tempfile.TemporaryDirectory(prefix='forge-mcp-workflows-') as temporary:
         root = Path(temporary)
         command = [HOST, str(root), RUNTIME, KIT, NAV, mode]
-        if MAP_PROFILE_ONLY or AUDIO_PAUSE_ONLY or SPRITE_FRAMES_ONLY:
+        if MAP_PROFILE_ONLY or AUDIO_PAUSE_ONLY or SPRITE_FRAMES_ONLY or UI_LOCALIZATION_ONLY:
             command.append(str(Path(__file__).resolve().parents[1]/'samples/projects/FeatureGallery'))
         if AUDIO_PAUSE_ONLY:
             command.append('--sdk')
@@ -59,7 +60,7 @@ def until(fn, predicate, timeout=30):
 
 
 for legacy in (False, True):
-    with editor('gamepads' if GAMEPADS_ONLY else 'full') as (root, config), Client(config, legacy) as client:
+    with editor('ui_localization' if UI_LOCALIZATION_ONLY else 'gamepads' if GAMEPADS_ONLY else 'full') as (root, config), Client(config, legacy) as client:
         def discovery():
             value = client.tool('forge_discover')
             assert value['ok'], value
@@ -125,6 +126,51 @@ for legacy in (False, True):
         assert {'forge_play_start', 'forge_play_ui_command', 'forge_export_start',
                 'forge_script_preview', 'forge_navigation_build', 'forge_navigation_overlay',
                 'forge_dependencies_save'} <= names
+        if UI_LOCALIZATION_ONLY:
+            ok('forge_document_open', path='Scenes/133-ui-localization.scene.json', discard=True)
+            authored = read('forge_scene_read')
+            actor = next(e['id'] for e in authored['entities'] if 'forge.ui_localization' in e['components'])
+            ok('forge_play_start')
+            control('forge_play_pause')
+            live = until(lambda: read('forge_play_ui'),
+                         lambda row: (row.get('presentation_localization') or {}).get('selected_locale') == 'en')
+            assert live['value']['localization']['locale'] == 'en'
+            control('forge_play_watch', entity=actor)
+            instance = live['value']['documents'][0]['instance']
+            tick = read('forge_play_status')['timing']['tick']
+            control('forge_play_ui_command', instance=instance, command='forge.locale', value='fr-CA')
+            live = until(lambda: read('forge_play_ui'),
+                         lambda row: (row.get('presentation_localization') or {}).get('requested_locale') == 'fr-CA')
+            assert live['presentation_localization']['selected_locale'] == 'fr'
+            assert live['presentation_localization']['fallback_messages'] == 1
+            assert live['value']['documents'][0]['instance'] == instance
+            control('forge_play_tune', entity=actor, component='forge.ui_localization', property='locale', value='de')
+            live = until(lambda: read('forge_play_ui'),
+                         lambda row: (row.get('presentation_localization') or {}).get('requested_locale') == 'de')
+            assert live['presentation_localization']['selected_locale'] == 'en'
+            assert live['presentation_localization']['locale_fallback']
+            assert read('forge_play_status')['timing']['tick'] == tick
+            state = read('forge_play_status')
+            failed(mutate('forge_play_ui_command', launch=state['launch'], session=state['session'],
+                          generation=state['generation']+1, instance=instance,
+                          command='forge.locale', value='es'), 'stale_play')
+            control('forge_play_ui_command', instance=instance, command='forge.locale', value='x')
+            until(lambda: read('forge_play_ui'), lambda row: row['ack'] and not row['ack']['ok'])
+            assert read('forge_play_ui')['presentation_localization']['requested_locale'] == 'de'
+            current = next(e for e in read('forge_play_snapshot')['entities'] if e['id'] == actor)
+            assert current['components']['forge.ui_localization']['locale'] == 'de'
+            review = control('forge_play_tuning_capture', entity=actor)
+            assert len(review['fields']) == 1 and review['fields'][0]['component'] == 'forge.ui_localization'
+            assert review['fields'][0]['property'] == 'locale' and review['fields'][0]['after'] == 'de'
+            control('forge_play_stop')
+            assert read('forge_scene_read') == authored
+            assert read('forge_play_ui')['presentation_localization'] is None
+            review = read('forge_play_tuning_read')
+            ok('forge_play_tuning_apply', state=review['state'])
+            kept = next(e for e in read('forge_scene_read')['entities'] if e['id'] == actor)
+            assert kept['components']['forge.ui_localization']['locale'] == 'de'
+            assert ok('forge_history_undo')['changed'] and read('forge_scene_read') == authored
+            continue
         if UI_ANIMATION_ONLY:
             assert 'forge_play_ui_reload' in names
             hud = ok('forge_source_ui_example')
@@ -146,6 +192,7 @@ for legacy in (False, True):
             ok('forge_play_start')
             control('forge_play_pause')
             live = until(lambda: read('forge_play_ui'), lambda r: r['value'] and r['value'].get('documents'))
+            assert live['presentation_localization'] is None  # This legacy HUD has no catalog.
             instance = live['value']['documents'][0]['instance']
             before = read('forge_play_status')
             wrong = dict(launch=before['launch'], session=before['session'], generation=before['generation']+1)

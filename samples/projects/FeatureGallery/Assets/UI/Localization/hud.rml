@@ -1,0 +1,22 @@
+<rml><head>
+<link type="text/rcss" href="hud.rcss" />
+</head><body><div id="panel">
+<p id="eyebrow">FORGE / GAME UI</p>
+<h1 id="title">{{ 'title' | tr(forge_locale) }}</h1>
+<p id="intro">{{ 'intro' | tr(forge_locale) }}</p>
+<div class="languages">
+<button id="english" data-event-click="command('forge.locale', 'en')">English</button>
+<button id="french" data-event-click="command('forge.locale', 'fr')">Français</button>
+<button id="spanish" data-event-click="command('forge.locale', 'es')">Español</button>
+</div>
+<div id="preview"><h2 id="play-label">{{ 'menu_play' | tr(forge_locale) }}</h2>
+<p id="literal">{{ 'literal' | tr(forge_locale) }}</p>
+<p id="fallback">{{ 'fallback_note' | tr(forge_locale) }}</p></div>
+<p>Requested: {{forge_locale}} / Selected: {{forge_resolved_locale}}</p>
+<button id="regional" data-event-click="command('forge.locale', 'fr-CA')">fr-CA: primary fallback</button>
+<button id="unsupported" data-event-click="command('forge.locale', 'de')">de: default fallback</button>
+<div class="rule"></div><p>Paused: {{paused}} / Tick: {{tick}}</p>
+<button id="pause" data-event-click="command('Pause')">Pause</button>
+<button id="resume" data-event-click="command('Resume')">Resume</button>
+<p class="small">Language controls stay active while paused. Stop restores the authored Locale.</p>
+</div></body></rml>

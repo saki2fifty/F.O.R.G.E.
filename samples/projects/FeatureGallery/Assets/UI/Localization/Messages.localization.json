@@ -1,0 +1,36 @@
+{
+  "asset_id": "4173a9f5-a815-4c57-bccc-e1d50e45ed5a",
+  "default_locale": "en",
+  "format": "forge.ui-localization",
+  "locales": {
+    "en": {
+      "label": "English",
+      "messages": {
+        "fallback_note": "This note uses the default language when a translation is missing.",
+        "intro": "Choose a language. This menu updates without restarting.",
+        "literal": "Crème & café <b>literal</b> {{text}}",
+        "menu_play": "Start playing",
+        "title": "Language lab"
+      }
+    },
+    "es": {
+      "label": "Español",
+      "messages": {
+        "intro": "Elige un idioma. El menú cambia sin reiniciar.",
+        "literal": "Café & té <b>literal</b> {{texto}}",
+        "menu_play": "Empezar a jugar",
+        "title": "Laboratorio de idiomas"
+      }
+    },
+    "fr": {
+      "label": "Français",
+      "messages": {
+        "intro": "Choisissez une langue. Le menu change sans redémarrer.",
+        "literal": "Crème & café <b>texte</b> {{texte}}",
+        "menu_play": "Jouer maintenant",
+        "title": "Atelier des langues"
+      }
+    }
+  },
+  "version": 1
+}
