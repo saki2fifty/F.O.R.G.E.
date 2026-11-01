@@ -256,7 +256,18 @@ and their suffixes. `template` exposes each existing owner's initial source shap
 `create` allocates the ordinary fresh asset identity, and `open` borrows that
 editor's current document. These tools never create a parallel draft or history.
 Material, material graph, collision, editable mesh, particle, terrain, Tile Set,
-Tile Map, animation states/blend space/mask and transform animation are bound.
+Tile Map, Sprite atlas, animation states/blend space/mask and transform animation are bound.
+
+Sprite atlas documents use `editor:"sprite_atlas"` and `.atlas.json`. Templates
+and creation require `textures`, a1–512 UUID array of input Texture references.
+Other editors reject this option; `tile_set` remains exclusive to Tile Maps.
+Atlas rows have stable local uint32 IDs and an allocation highwater retained
+through source Undo. Shared patches replace/reorder input rows and change packing
+settings; owner validation rejects duplicate/missing IDs, backward counters and
+reuse of retired keys. Save invokes the same editor/importer/publisher used by
+interactive authoring. Removing a key requires repairing Sprite/Clip references.
+The cooked Texture uses required output profile 2 with its attached frame table;
+Sprites opt in through `texture_frames`. No additional atlas MCP draft exists.
 
 `status` returns a transient document session, revision, draft/publication state,
 Undo/Redo availability and diagnostics. `read` accepts a JSON Pointer and pages
@@ -744,13 +755,18 @@ imports, source revision conflicts, model/mesh placement and history, reviewed
 file operations, recovery, permissions and replay. Native Windows/GPU validation
 remains a separate gate.
 
-`mcp_source_stdio` exercises all12 real source editor owners, graph schema/port
+`mcp_sprite_atlas_stdio` scopes the actual modern/legacy transport to image import,
+atlas template/create/patch/history/publication, maximum uint32 keys and retained
+allocation highwater. It uses real editor and fixed worker owners with asset
+read/write grants; read-only discovery excludes mutations.
+
+`mcp_source_stdio` exercises all 13 real source editor owners, graph schema/port
 discovery, document sessions/revisions, source Undo/Redo, failed identity edits,
 copy-on-write tile painting, saved-state dirtiness, native publication, typed
 import setting atomicity, source disk conflicts, prefab source publication and
 recoverable two-file Apply Undo/Redo through both MCP protocol envelopes. It
 publishes Material, Collision, Editable Mesh, Particle Effect, Terrain, Tile Set,
-transform-animation and WAV/FLAC/MP3 candidates through their real owners. Rig-dependent
+Sprite atlas, transform-animation and image/WAV/FLAC/MP3 candidates through their real owners. Rig-dependent
 animation sources are exercised for draft validation/history; graph shader
 compilation is not claimed by this fixture. It drives ImGui frames without a GPU
 window; graph shader compilation and native

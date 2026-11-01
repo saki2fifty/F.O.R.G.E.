@@ -150,12 +150,17 @@ void validate_sprite_renderer(const SpriteRenderer& value) {
             throw std::invalid_argument("Sprite tint must be finite linear RGBA in [0,1]");
     if (!value.columns || !value.rows || value.columns > 16384 || value.rows > 16384 ||
         value.margin_x > 16384 || value.margin_y > 16384 || value.spacing_x > 16384 ||
-        value.spacing_y > 16384 || value.frame >= sprite_frame_count(value))
+        value.spacing_y > 16384 ||
+        (!value.texture_frames && value.frame >= sprite_frame_count(value)))
         throw std::invalid_argument("Sprite grid/frame is outside the supported integer range");
+    if (value.texture_frames &&
+        (value.columns != 1 || value.rows != 1 || value.margin_x || value.margin_y ||
+         value.spacing_x || value.spacing_y || value.region_enabled || value.region_x ||
+         value.region_y || value.region_width || value.region_height ||
+         !value.frame_regions.empty()))
+        throw std::invalid_argument("Texture frames require default grid, crop and frame regions");
     if (value.frame_regions.size() > sprite_frame_region_limit)
         throw std::invalid_argument("Sprite supports at most512 frame regions");
-    for (const auto& region : value.frame_regions)
-        (void)sprite_frame_canvas(region);
     for (const auto pixel :
          {value.region_x, value.region_y, value.region_width, value.region_height})
         if (pixel > 16384)
@@ -173,14 +178,16 @@ void validate_sprite_renderer(const SpriteRenderer& value) {
          {value.border_left, value.border_right, value.border_top, value.border_bottom})
         if (border > 16384)
             throw std::invalid_argument("Sprite borders must be whole pixels in [0,16384]");
-    if (value.image_mode == std::uint32_t(SpriteImageMode::Sliced))
-        for (const auto& region : value.frame_regions) {
-            const auto canvas = sprite_frame_canvas(region);
-            if (std::uint64_t(value.border_left) + value.border_right >= canvas.width ||
-                std::uint64_t(value.border_top) + value.border_bottom >= canvas.height)
-                throw std::invalid_argument(
-                    "Every Sliced frame region must leave a positive source center");
-        }
+    for (const auto& region : value.frame_regions)
+        validate_sprite_frame_shape(value, region);
+}
+void validate_sprite_frame_shape(const SpriteRenderer& value, const SpriteFrameRegion& region) {
+    const auto canvas = sprite_frame_canvas(region);
+    if (value.image_mode == std::uint32_t(SpriteImageMode::Sliced) &&
+        (std::uint64_t(value.border_left) + value.border_right >= canvas.width ||
+         std::uint64_t(value.border_top) + value.border_bottom >= canvas.height))
+        throw std::invalid_argument(
+            "Every Sliced frame region must leave a positive source center");
 }
 Json render_value(const SpriteRenderer& p) {
     validate_sprite_renderer(p);
@@ -221,7 +228,8 @@ Json render_value(const SpriteRenderer& p) {
             {"region_width", p.region_width},
             {"region_height", p.region_height},
             {"frame_regions", std::move(frames)},
-            {"mip_filter", p.mip_filter}};
+            {"mip_filter", p.mip_filter},
+            {"texture_frames", p.texture_frames}};
 }
 std::vector<SpriteFrameRegion> sprite_frame_regions_value(const Json& source) {
     if (!source.is_array() || source.size() > sprite_frame_region_limit)
@@ -234,6 +242,7 @@ std::vector<SpriteFrameRegion> sprite_frame_regions_value(const Json& source) {
 }
 SpriteRenderer sprite_renderer_value(const Json& p) {
     SpriteRenderer value;
+    value.texture_frames = p.value("texture_frames", false);
     value.mip_filter = sprite_mip_filter_value(p);
     if (!p.at("material").is_null())
         value.material.id = p.at("material").get<AssetId>();

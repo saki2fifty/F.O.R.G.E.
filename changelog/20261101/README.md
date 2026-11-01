@@ -1,5 +1,29 @@
 # 2026-11-01
 
+## Source-aware Sprite atlases
+
+An authored `.atlas.json` source now selects published images and packing settings
+through Content. Save / Publish and input-source updates reuse the existing import,
+dependency and isolated-worker pipeline. Each image keeps a stable local frame key
+when packing moves its rectangle. Removing a frame retires its key; Undo preserves
+the allocation sequence. Input failures retain the last working publication.
+
+The packed Texture stores its bounded frame mapping alongside pixels in the same
+immutable revision. Sprite **Texture frames** explicitly selects that mapping;
+the default raw grid, crop and frame-list workflows remain available. The picker,
+frame-local mip filtering and held frame animation use the selected revision.
+Missing keys retain an existing complete draw and report a diagnostic. Export
+contains the cooked atlas rather than its build-only image inputs.
+
+The recipe editor shares source-document history, revision/session checks and
+publication with automation and MCP. Reference inspection, Duplicate and Move
+preserve its identity rules. Gallery 127 includes an editable atlas, six Sprites
+and sparse-key animation; the manual includes authentic editor and Game captures.
+Texture bundle output profile 2 is required for this mapping. Public Sprite/Texture
+C++ layouts change, so native modules must rebuild against the matching SDK;
+the C host table and dependency pins are unchanged. Physical Windows review and
+a numbered Windows delivery remain pending.
+
 ## Tile Map decoded-chunk residency
 
 Scene and Game camera views drive background preparation and release of dense

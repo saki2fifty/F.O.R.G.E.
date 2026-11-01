@@ -5,11 +5,6 @@
 #include <forge/render_components.hpp>
 
 namespace forge::asset_detail {
-inline void validate_sprite_frame_selection(const PreparedModelDraw& draw,
-                                            const SpriteRenderer& sprite) {
-    const auto material_id = draw.selection.parts.at(0).at(0).id;
-    validate_sprite_frame_material(draw.materials.at(material_id)->values, sprite.frame_regions);
-}
 // Validate one complete immutable selection before native allocation. Its texture
 // extent is also the authority for per-object atlas rectangles; no second source
 // table, resource key or texture lifetime is introduced.
@@ -38,5 +33,15 @@ inline const ResourceLease<TextureAsset>& sprite_source_texture_lease(const Prep
 inline const TextureData& sprite_source_texture(const PreparedModelDraw& draw,
                                                 bool skinned = false) {
     return sprite_source_texture_lease(draw, skinned).get();
+}
+inline void validate_sprite_frame_selection(const PreparedModelDraw& draw,
+                                            const SpriteRenderer& sprite) {
+    const auto material_id = draw.selection.parts.at(0).at(0).id;
+    const auto& material = draw.materials.at(material_id)->values;
+    if (sprite.texture_frames) {
+        for (const auto& entry : sprite_source_texture(draw).sprite_frames)
+            validate_sprite_frame_material(material, std::span(&entry.region, 1));
+    } else
+        validate_sprite_frame_material(material, sprite.frame_regions);
 }
 } // namespace forge::asset_detail

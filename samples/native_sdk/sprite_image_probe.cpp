@@ -31,9 +31,21 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char*, uint32_t) {
         .write<forge::TileMapRenderer>()
         .each([](flecs::entity actor, SpriteImageProbe& probe) {
             ++probe.ticks;
-            if (probe.ticks > 5 || !actor.has<forge::SpriteRenderer>())
+            if (probe.ticks > 7 || !actor.has<forge::SpriteRenderer>())
                 return;
             auto image = actor.get<forge::SpriteRenderer>();
+            if (probe.ticks >= 6) {
+                // Switch the complete raw layout atomically before selecting stable keys.
+                image.columns = image.rows = 1;
+                image.margin_x = image.margin_y = image.spacing_x = image.spacing_y = 0;
+                image.region_enabled = false;
+                image.region_x = image.region_y = image.region_width = image.region_height = 0;
+                image.frame_regions.clear();
+                image.texture_frames = true;
+                image.frame = probe.ticks == 6 ? UINT32_MAX : 7;
+                actor.set(image);
+                return;
+            }
             const auto phase = probe.ticks % 3;
             if (actor.has<forge::TileMapRenderer>()) {
                 auto tiles = actor.get<forge::TileMapRenderer>();

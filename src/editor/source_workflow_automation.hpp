@@ -90,9 +90,12 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
     methods.push_back(automation_method(
         "asset.document.template",
         "Inspect a validated initial source shape. Its preview UUID is not reserved; creation "
-        "allocates its own identity. Tile Maps require tile_set.",
+        "allocates its own identity. Tile Maps require tile_set; Sprite atlases require textures.",
         "asset.read",
-        automation_object({{"editor", editor_schema}, {"tile_set", automation_uuid()}}, {"editor"}),
+        automation_object({{"editor", editor_schema},
+                           {"tile_set", automation_uuid()},
+                           {"textures", automation_array(automation_uuid(), 512, 1)}},
+                          {"editor"}),
         false, [invoke](const Json& request) { return invoke("template", request); }));
     methods.push_back(automation_method(
         "asset.document.status",
@@ -127,11 +130,13 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
             std::string("asset.document.") + action,
             std::string(action) + " a project source in its actual editor. Settle the prior draft "
                                   "first. Create supports a validated initial patch; Tile Maps "
-                                  "require tile_set. It does not publish until Save.",
+                                  "require tile_set; Sprite atlases require textures. It does not "
+                                  "publish until Save.",
             "asset.write",
             automation_object({{"editor", editor_schema},
                                {"path", automation_text(2047, 1)},
                                {"tile_set", automation_uuid()},
+                               {"textures", automation_array(automation_uuid(), 512, 1)},
                                {"patch", patch}},
                               {"editor", "path"}),
             true, [invoke, action](const Json& request) { return invoke(action, request); }));

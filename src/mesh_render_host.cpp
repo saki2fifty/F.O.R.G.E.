@@ -768,7 +768,7 @@ bool MeshSceneRenderer::update(const RenderScene& scene,
                     parameters_validated = true;
                     std::optional<SpriteDrawValues> sprite_values;
                     std::shared_ptr<SpriteMipBank> sprite_mips;
-                    std::uint32_t texture_width = 0, texture_height = 0;
+                    std::uint32_t texture_width = 0, texture_height = 0, frame_slot = 0;
                     auto draw_mesh = mesh;
                     if (input.sprite) {
                         const auto& source = asset_detail::sprite_source_texture(*candidate);
@@ -776,13 +776,12 @@ bool MeshSceneRenderer::update(const RenderScene& scene,
                                                                       entry.sprite->requested);
                         texture_width = source.width;
                         texture_height = source.height;
-                        sprite_values = sprite_draw_values(entry.sprite->requested, texture_width,
-                                                           texture_height);
+                        frame_slot = sprite_texture_frame_slot(entry.sprite->requested, source);
+                        sprite_values = sprite_draw_values(entry.sprite->requested, source);
                         sprite_mips = prepare_sprite_mips(entry, *candidate, mesh.entity,
                                                           input.scope, input.image);
                         if (sprite_mips) {
-                            const auto& key =
-                                sprite_mips->plan.frames.at(entry.sprite->requested.frame);
+                            const auto& key = sprite_mips->plan.frames.at(frame_slot);
                             sprite_values = sprite_canvas_draw_values(
                                 entry.sprite->requested, key.canvas_width, key.canvas_height);
                         }
@@ -817,6 +816,7 @@ bool MeshSceneRenderer::update(const RenderScene& scene,
                         entry.sprite->draw = *sprite_values;
                         entry.sprite->texture_width = texture_width;
                         entry.sprite->texture_height = texture_height;
+                        entry.sprite->frame_slot = frame_slot;
                         entry.sprite->ready = true;
                         entry.sprite->mips = std::move(sprite_mips);
                     }
@@ -872,17 +872,18 @@ bool MeshSceneRenderer::update(const RenderScene& scene,
                 std::shared_ptr<const MeshInstancePose> sprite_pose;
                 std::shared_ptr<SpriteMipBank> sprite_mips;
                 auto native = entry.ready;
+                std::uint32_t frame_slot = 0;
                 if (input.sprite) {
                     asset_detail::validate_sprite_frame_selection(entry.ready->prepared(),
                                                                   entry.sprite->requested);
-                    sprite_values =
-                        sprite_draw_values(entry.sprite->requested, entry.sprite->texture_width,
-                                           entry.sprite->texture_height);
+                    const auto& source =
+                        asset_detail::sprite_source_texture(entry.ready->prepared());
+                    frame_slot = sprite_texture_frame_slot(entry.sprite->requested, source);
+                    sprite_values = sprite_draw_values(entry.sprite->requested, source);
                     sprite_mips = prepare_sprite_mips(entry, entry.ready->prepared(), mesh.entity,
                                                       input.scope, input.image);
                     if (sprite_mips) {
-                        const auto& key =
-                            sprite_mips->plan.frames.at(entry.sprite->requested.frame);
+                        const auto& key = sprite_mips->plan.frames.at(frame_slot);
                         sprite_values = sprite_canvas_draw_values(
                             entry.sprite->requested, key.canvas_width, key.canvas_height);
                     }
@@ -910,6 +911,7 @@ bool MeshSceneRenderer::update(const RenderScene& scene,
                     changed |= entry.sprite->admitted != entry.sprite->requested ||
                                (sprite_pose && entry.pose != sprite_pose);
                     entry.sprite->admitted = entry.sprite->requested;
+                    entry.sprite->frame_slot = frame_slot;
                     entry.sprite->draw = *sprite_values;
                     entry.sprite->ready = true;
                     entry.sprite->mips = std::move(sprite_mips);
@@ -1181,7 +1183,7 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                 if (entry.sprite->mips) {
                     const auto& bank = *entry.sprite->mips;
                     object.mip =
-                        &bank.frames.at(bank.plan.frames.at(entry.sprite->admitted.frame)).image;
+                        &bank.frames.at(bank.plan.frames.at(entry.sprite->frame_slot)).image;
                 }
             }
             for (const auto& light : scene.lights)

@@ -1,4 +1,5 @@
 #include "cooked_envelope.hpp"
+#include "sprite_frame_json.hpp"
 #include <bit>
 #include <cmath>
 #include <forge/texture_asset.hpp>
@@ -75,6 +76,23 @@ void validate_header(const TextureData& t, TextureLimits l) {
         add(bytes, multiply(texture_layout(t, mip).bytes, surfaces(t)));
     require(bytes <= l.bytes, "Texture payload exceeds budget");
     validate_sampler(t.sampler);
+    require(t.sprite_frames.size() <= sprite_frame_region_limit,
+            "Texture supports at most 512 Sprite frames");
+    if (!t.sprite_frames.empty()) {
+        require(t.dimension == TextureDimension::D2 && t.layers == 1 && t.depth == 1 &&
+                    t.semantic == TextureSemantic::Color && t.format == TextureFormat::RGBA8Srgb &&
+                    (t.alpha == TextureAlpha::Opaque || t.alpha == TextureAlpha::Straight),
+                "Texture Sprite frames require a straight or opaque sRGB RGBA8 2D image");
+        bool first = true;
+        std::uint32_t previous = 0;
+        for (const auto& frame : t.sprite_frames) {
+            require(first || frame.id > previous,
+                    "Texture Sprite frame keys must be unique and sorted");
+            first = false;
+            previous = frame.id;
+            (void)sprite_frame_region(t.width, t.height, {}, 0, {}, std::span(&frame.region, 1));
+        }
+    }
 }
 } // namespace
 TextureFormatInfo texture_format_info(TextureFormat format) {
@@ -202,6 +220,7 @@ std::size_t TextureData::resident_bytes() const {
     add(n, multiply(subresources.capacity(), sizeof(subresources[0])));
     for (const auto& s : subresources)
         add(n, s.capacity());
+    add(n, multiply(sprite_frames.capacity(), sizeof(SpriteFrameEntry)));
     return n;
 }
 void validate_texture_metadata(const TextureData& t, TextureLimits l) { validate_header(t, l); }
@@ -239,6 +258,13 @@ std::vector<std::byte> encode_texture(const TextureData& t, TextureLimits l) {
                   {"layers", t.layers},
                   {"mips", t.mips},
                   {"sampler", t.sampler}};
+    if (!t.sprite_frames.empty()) {
+        auto frames = Json::array();
+        for (const auto& frame : t.sprite_frames)
+            frames.push_back(
+                {{"id", frame.id}, {"region", detail::sprite_frame_document(frame.region)}});
+        metadata["sprite_frames"] = {{"version", 1}, {"entries", std::move(frames)}};
+    }
     std::vector<std::byte> payload;
     payload.reserve(t.byte_size());
     for (const auto& bytes : t.subresources)
@@ -259,6 +285,21 @@ TextureData decode_texture(std::span<const std::byte> bytes, TextureLimits l) {
     t.layers = unsigned(number(j.at("layers"), l.layers));
     t.mips = unsigned(number(j.at("mips"), 32));
     t.sampler = j.at("sampler").get<SamplerState>();
+    if (const auto frames = j.find("sprite_frames"); frames != j.end()) {
+        require(frames->is_object() && frames->size() == 2 && number(frames->at("version"), 1) == 1,
+                "Unsupported texture Sprite frame metadata");
+        const auto& entries = frames->at("entries");
+        require(entries.is_array() && !entries.empty() &&
+                    entries.size() <= sprite_frame_region_limit,
+                "Texture Sprite frame metadata needs 1 to 512 entries");
+        t.sprite_frames.reserve(entries.size());
+        for (const auto& entry : entries) {
+            require(entry.is_object() && entry.size() == 2,
+                    "Texture Sprite frame entry has an unsupported shape");
+            t.sprite_frames.push_back({std::uint32_t(number(entry.at("id"), UINT32_MAX)),
+                                       detail::sprite_frame_value(entry.at("region"))});
+        }
+    }
     validate_header(t, l);
     std::size_t expected = 0;
     for (unsigned mip = 0; mip < t.mips; ++mip)

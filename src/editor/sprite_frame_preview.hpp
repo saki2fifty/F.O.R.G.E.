@@ -15,6 +15,7 @@ inline SpriteSheetImage sprite_sheet_image(SpriteSheetPreview& preview,
         image.width = data->width;
         image.height = data->height;
         image.revision = preview.identity();
+        image.sprite_frames = data->sprite_frames;
         image.render = [&preview](unsigned width, unsigned height, std::array<float, 4> region) {
             return reinterpret_cast<ImTextureID>(preview.render(width, height, region));
         };

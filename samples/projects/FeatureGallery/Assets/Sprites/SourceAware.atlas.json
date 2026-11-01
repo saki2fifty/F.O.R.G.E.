@@ -1,0 +1,28 @@
+{
+  "asset_id": "60cdbe0f-f465-4e40-a089-18bb1f648af9",
+  "format": "forge.sprite-atlas",
+  "frames": [
+    {
+      "id": 7,
+      "texture": "0c07b499-c865-4e5b-838d-8021bb7a99d3"
+    },
+    {
+      "id": 41,
+      "texture": "999ec7fe-b465-485a-b380-d1cd255109ad"
+    },
+    {
+      "id": 99,
+      "texture": "a2d9387a-fce3-4f4d-b617-77e05cfb3abf"
+    }
+  ],
+  "next_id": 100,
+  "settings": {
+    "allow_rotation": true,
+    "byte_limit": 67108864,
+    "extrude": true,
+    "max_size": 128,
+    "padding": 2,
+    "trim_transparent": true
+  },
+  "version": 1
+}

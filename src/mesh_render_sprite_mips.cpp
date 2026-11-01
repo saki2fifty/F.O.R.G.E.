@@ -8,7 +8,8 @@ bool same_layout(const SpriteRenderer& a, const SpriteRenderer& b) {
     const auto fields = [](const SpriteRenderer& value) {
         return std::tie(value.columns, value.rows, value.margin_x, value.margin_y, value.spacing_x,
                         value.spacing_y, value.region_enabled, value.region_x, value.region_y,
-                        value.region_width, value.region_height, value.frame_regions);
+                        value.region_width, value.region_height, value.frame_regions,
+                        value.texture_frames);
     };
     return fields(a) == fields(b);
 }

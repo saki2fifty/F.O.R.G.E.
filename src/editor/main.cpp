@@ -105,6 +105,7 @@
 #include "source_import.hpp"
 #include "source_workflow_automation.hpp"
 #include "spatial_helpers.hpp"
+#include "sprite_atlas_editor.hpp"
 #include "sprite_frame_preview.hpp"
 #include "status_bar.hpp"
 #include "terrain_editor.hpp"
@@ -1086,6 +1087,8 @@ int main(int argc, char** argv) {
             return terrain_preview->draw(source, revision, std::move(catalog), settings);
         };
         terrain_editor.release_preview = [&] { release_terrain_preview = true; };
+        forge::SpriteAtlasEditor sprite_atlas_editor(std::filesystem::path(base) /
+                                                     "forge_asset_build.exe");
         forge::TileSetEditor tile_set_editor(std::filesystem::path(base) / "forge_asset_build.exe");
         std::unique_ptr<forge::TileSetPreview> tile_set_preview;
         bool release_tile_set_preview = false;
@@ -1226,7 +1229,8 @@ int main(int argc, char** argv) {
                 texture_imports.pending() || audio_imports.pending() || model_imports.pending() ||
                 shader_imports.pending() || material_editor.pending() || graph_editor.pending() ||
                 collision_editor.pending() || particle_editor.pending() ||
-                terrain_editor.pending() || tile_set_editor.pending() || tile_map_editor.pending())
+                terrain_editor.pending() || sprite_atlas_editor.pending() ||
+                tile_set_editor.pending() || tile_map_editor.pending())
                 return "Finish the current file/import/build job before changing source files.";
             if (documents.source_drafts_dirty() || documents.source_publication_blocked(asset.id))
                 return "Finish active source edits or pending Save/close requests before reviewing "
@@ -1258,6 +1262,7 @@ int main(int argc, char** argv) {
             particle_editor.catalog_changed(catalog);
             terrain_editor.catalog_changed(catalog);
             tile_set_editor.catalog_changed(catalog);
+            sprite_atlas_editor.catalog_changed(catalog);
             tile_map_editor.catalog_changed(catalog);
             graph_editor.asset_catalog_changed(catalog);
             collision_editor.asset_catalog_changed(catalog);
@@ -1347,6 +1352,7 @@ int main(int argc, char** argv) {
             particle_editor.catalog_changed(catalog);
             terrain_editor.catalog_changed(catalog);
             tile_set_editor.catalog_changed(catalog);
+            sprite_atlas_editor.catalog_changed(catalog);
             tile_map_editor.catalog_changed(catalog);
             collision_editor.asset_catalog_changed(catalog);
             material_editor.asset_catalog_changed(catalog);
@@ -1441,6 +1447,9 @@ int main(int argc, char** argv) {
             } else if (kind == "transform_animation") {
                 if (open)
                     animation_timeline.open(files.document, path);
+            } else if (kind == "sprite_atlas") {
+                if (open)
+                    sprite_atlas_editor.open(files.document, path);
             } else if (kind == "tile_set") {
                 if (open)
                     tile_set_editor.open(files.document, path);
@@ -1676,7 +1685,9 @@ int main(int argc, char** argv) {
                        {},
                        [&] { texture_view_document.close(); }});
         asset_editors.add({"texture", "Open texture", [&](const forge::AssetRecord& asset) {
-                               if (asset.subasset)
+                               if (forge::path_utf8(asset.source).ends_with(".atlas.json"))
+                                   sprite_atlas_editor.open(files.document, asset.source);
+                               else if (asset.subasset)
                                    texture_view_document.open(files.document.project(), asset.id);
                                else
                                    texture_imports.open(files.document, asset.source);
@@ -1858,6 +1869,24 @@ int main(int argc, char** argv) {
                        [&] { return editable_mesh_editor.can_redo(); },
                        {},
                        [&] { return std::exchange(editable_mesh_editor.close_cancelled, false); }});
+        documents.add({"sprite_atlas",
+                       "Sprite atlas",
+                       "Sprite atlas###SpriteAtlas",
+                       true,
+                       [&] { return sprite_atlas_editor.is_open(); },
+                       [&] { return sprite_atlas_editor.dirty(); },
+                       [&] {
+                           sprite_atlas_editor.draw(files.document,
+                                                    asset_document_locked || play.active());
+                       },
+                       [&] { sprite_atlas_editor.request_save(); },
+                       [&] { sprite_atlas_editor.undo(); },
+                       [&] { sprite_atlas_editor.redo(); },
+                       [&] { sprite_atlas_editor.request_close(); },
+                       [&] { return sprite_atlas_editor.can_undo(); },
+                       [&] { return sprite_atlas_editor.can_redo(); },
+                       {},
+                       [&] { return std::exchange(sprite_atlas_editor.close_cancelled, false); }});
         documents.add(
             {"tile_set", "Tile Set", "Tile Set###TileSet", true,
              [&] { return tile_set_editor.is_open(); }, [&] { return tile_set_editor.dirty(); },
@@ -2129,6 +2158,8 @@ int main(int argc, char** argv) {
                                                      particle_editor, files.document));
         documents.bind_source("terrain",
                               forge::AssetDocumentAutomation::bind(terrain_editor, files.document));
+        documents.bind_source("sprite_atlas", forge::AssetDocumentAutomation::bind(
+                                                  sprite_atlas_editor, files.document));
         documents.bind_source(
             "tile_set", forge::AssetDocumentAutomation::bind(tile_set_editor, files.document));
         documents.bind_source(
@@ -5340,6 +5371,16 @@ int main(int argc, char** argv) {
                     play.model_assets_changed();
                     content.refresh(files);
                 }
+                sprite_atlas_editor.poll(files.document, message);
+                if (auto catalog = sprite_atlas_editor.take_catalog()) {
+                    tile_set_editor.catalog_changed(catalog);
+                    tile_map_editor.catalog_changed(catalog);
+                    content_imports.catalog_changed(catalog);
+                    if (mesh_resources)
+                        mesh_resources->catalog(catalog);
+                    play.model_assets_changed();
+                    content.refresh(files);
+                }
                 tile_set_editor.poll(files.document, message);
                 if (auto catalog = tile_set_editor.take_catalog()) {
                     tile_map_editor.catalog_changed(catalog);
@@ -5352,6 +5393,7 @@ int main(int argc, char** argv) {
                 tile_map_editor.poll(files.document, message);
                 if (auto catalog = tile_map_editor.take_catalog()) {
                     tile_set_editor.catalog_changed(catalog);
+                    sprite_atlas_editor.catalog_changed(catalog);
                     content_imports.catalog_changed(catalog);
                     if (mesh_resources)
                         mesh_resources->catalog(catalog);
@@ -6486,6 +6528,7 @@ int main(int argc, char** argv) {
                         material_editor.content(files.document, edit_locked);
                         particle_editor.content(files.document, edit_locked);
                         terrain_editor.content(files.document, edit_locked);
+                        sprite_atlas_editor.content(files.document, edit_locked);
                         tile_set_editor.content(files.document, edit_locked);
                         tile_map_editor.content(files.document, edit_locked);
                         editable_mesh_editor.content(files.document, edit_locked);
@@ -6524,10 +6567,10 @@ int main(int argc, char** argv) {
                 documents.source_drafts_dirty() || texture_imports.pending() ||
                 audio_imports.pending() || model_imports.pending() || shader_imports.pending() ||
                 material_editor.pending() || graph_editor.pending() || particle_editor.pending() ||
-                terrain_editor.pending() || tile_set_editor.pending() ||
-                tile_map_editor.pending() || source_import.busy() || animation_tools.pending() ||
-                navigation_tools.pending() || script_editor.pending() ||
-                authored_components.busy() || content_files.busy());
+                terrain_editor.pending() || sprite_atlas_editor.pending() ||
+                tile_set_editor.pending() || tile_map_editor.pending() || source_import.busy() ||
+                animation_tools.pending() || navigation_tools.pending() ||
+                script_editor.pending() || authored_components.busy() || content_files.busy());
             content_files.draw(content_imports);
             source_import.draw(play.active() || sdk_build->busy() || content_files.busy() ||
                                authored_components.busy() || scene_asset_drop.busy());

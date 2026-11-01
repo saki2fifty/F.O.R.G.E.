@@ -1,5 +1,6 @@
 #pragma once
 #include <forge/asset_ref.hpp>
+#include <forge/sprite_frames.hpp>
 #include <forge/texture_dimension.hpp>
 #include <span>
 #include <vector>
@@ -78,6 +79,9 @@ struct TextureData {
     // Float scalars are little endian. No GPU upload padding in cooked payloads.
     std::vector<std::vector<std::byte>> subresources;
     SamplerState sampler;
+    // Optional immutable frame placement, sorted by stable local key. Pixels and
+    // mapping belong to the same revision. Ordinary textures keep this empty.
+    std::vector<SpriteFrameEntry> sprite_frames;
     std::size_t byte_size() const;
     std::size_t resident_bytes() const;
 };

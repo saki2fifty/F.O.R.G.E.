@@ -1,4 +1,5 @@
 #pragma once
+#include "sprite_frame_selection.hpp"
 #include "sprite_material_profile.hpp"
 #include <algorithm>
 #include <compare>
@@ -18,7 +19,7 @@ struct SpriteFrameMipKey {
     auto operator<=>(const SpriteFrameMipKey&) const = default;
 };
 struct SpriteFrameMipPlan {
-    std::vector<SpriteFrameMipKey> frames; // Authored order, including duplicates.
+    std::vector<SpriteFrameMipKey> frames; // Resolved slot order, including duplicates.
     std::vector<SpriteFrameMipKey> unique; // Canonical physical resource order.
     std::uint64_t bytes = 0;               // Complete unique mip-chain payload, not peak RAM/VRAM.
 };
@@ -48,6 +49,9 @@ inline SpriteFrameMipPlan sprite_frame_mip_plan(const SpriteRenderer& sprite,
     byte_limit = std::min(byte_limit, sprite_frame_mip_payload_limit);
     validate_sprite_texture_profile(source);
     validate_texture(source);
+    if (sprite.texture_frames)
+        return sprite_frame_mip_plan(sprite_resolved_frame_bank(sprite, source), source,
+                                     byte_limit);
     const SpriteGridLayout grid{sprite.columns,  sprite.rows,      sprite.margin_x,
                                 sprite.margin_y, sprite.spacing_x, sprite.spacing_y};
     const auto count = sprite_frame_count(grid, sprite.frame_regions);

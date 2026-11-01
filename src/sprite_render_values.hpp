@@ -1,6 +1,7 @@
 #pragma once
 #include "render_values.hpp"
 #include "sprite_draw_values.hpp"
+#include "sprite_frame_selection.hpp"
 #include "sprite_material_profile.hpp"
 #include <forge/transform.hpp>
 
@@ -21,21 +22,11 @@ inline SpriteDrawValues sprite_canvas_draw_values(const SpriteRenderer& sprite, 
     validate_sprite_draw_values(result);
     return result;
 }
-inline SpriteDrawValues sprite_draw_values(const SpriteRenderer& sprite,
-                                           std::uint32_t texture_width,
-                                           std::uint32_t texture_height) {
-    detail::validate_sprite_renderer(sprite);
-    const SpriteGridLayout grid{sprite.columns,  sprite.rows,      sprite.margin_x,
-                                sprite.margin_y, sprite.spacing_x, sprite.spacing_y};
-    const auto crop =
-        sprite.region_enabled
-            ? std::optional<SpritePixelRegion>{{sprite.region_x, sprite.region_y,
-                                                sprite.region_width, sprite.region_height}}
-            : std::nullopt;
-    const auto region = sprite_frame_region(texture_width, texture_height, grid, sprite.frame, crop,
-                                            sprite.frame_regions);
-    const auto* frame =
-        sprite.frame_regions.empty() ? nullptr : &sprite.frame_regions.at(sprite.frame);
+inline SpriteDrawValues sprite_region_draw_values(const SpriteRenderer& sprite,
+                                                  std::uint32_t texture_width,
+                                                  std::uint32_t texture_height,
+                                                  SpritePixelRegion region,
+                                                  const SpriteFrameRegion* frame) {
     const bool rotated = frame && frame->rotated_clockwise;
     const auto canvas =
         frame ? sprite_frame_canvas(*frame)
@@ -56,9 +47,36 @@ inline SpriteDrawValues sprite_draw_values(const SpriteRenderer& sprite,
     return result;
 }
 inline SpriteDrawValues sprite_draw_values(const SpriteRenderer& sprite,
+                                           std::uint32_t texture_width,
+                                           std::uint32_t texture_height) {
+    detail::validate_sprite_renderer(sprite);
+    if (sprite.texture_frames)
+        throw std::invalid_argument("Texture frame drawing requires its selected Texture metadata");
+    const SpriteGridLayout grid{sprite.columns,  sprite.rows,      sprite.margin_x,
+                                sprite.margin_y, sprite.spacing_x, sprite.spacing_y};
+    const auto crop =
+        sprite.region_enabled
+            ? std::optional<SpritePixelRegion>{{sprite.region_x, sprite.region_y,
+                                                sprite.region_width, sprite.region_height}}
+            : std::nullopt;
+    const auto region = sprite_frame_region(texture_width, texture_height, grid, sprite.frame, crop,
+                                            sprite.frame_regions);
+    const auto* frame =
+        sprite.frame_regions.empty() ? nullptr : &sprite.frame_regions.at(sprite.frame);
+    return sprite_region_draw_values(sprite, texture_width, texture_height, region, frame);
+}
+inline SpriteDrawValues sprite_draw_values(const SpriteRenderer& sprite,
                                            const TextureData& source) {
     validate_sprite_texture_profile(source);
-    return sprite_draw_values(sprite, source.width, source.height);
+    if (!sprite.texture_frames)
+        return sprite_draw_values(sprite, source.width, source.height);
+    detail::validate_sprite_renderer(sprite);
+    for (const auto& entry : source.sprite_frames)
+        detail::validate_sprite_frame_shape(sprite, entry.region);
+    const auto& frame = source.sprite_frames.at(sprite_texture_frame_slot(sprite, source)).region;
+    const auto region =
+        sprite_frame_region(source.width, source.height, {}, 0, {}, std::span(&frame, 1));
+    return sprite_region_draw_values(sprite, source.width, source.height, region, &frame);
 }
 inline AffineTransform sprite_world_transform(const SpriteRenderer& sprite,
                                               const AffineTransform& world) {

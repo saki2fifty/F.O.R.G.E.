@@ -34,6 +34,28 @@ Primitive/Tint remains supported blockout authoring until explicit migration exi
 Mesh/Material/Texture/Shader/Model are durable logical assets; Diligent buffers,
 textures, bindings and pipeline objects are transient renderer resources.
 
+## Sprite atlas frame ownership — accepted additive extension
+
+An authored atlas recipe remains one ordinary logical Texture asset. Its cooked
+pixels may carry a bounded table of stable frame keys and current regions within
+the same immutable TextureData revision. Repacking changes placement, rather than
+frame identity. The existing asset pipeline owns input dependencies, rebuilding,
+validation, publication and last-good selection; no separate atlas registry or
+frame asset family is introduced.
+
+Sprite use of texture-owned frames is explicit and defaults off. Existing raw
+grid/crop/region values keep their current meaning. Frame resolution and image
+selection must be admitted together from the same strong Texture lease, including
+filtering and replacement failure. Raw rectangles must not be rewritten across
+Scenes or Prefabs when source pixels move. Material ownership remains unchanged.
+
+Ordinary texture encoding retains its previous representation when frame metadata
+is absent. Atlas publication uses an explicit supported output profile so older
+engines reject required frame semantics. Existing texture profiles remain readable.
+Public value-header changes require the matching SDK fingerprint; this decision
+does not change the C host table layout. Metadata/source/import/render integration
+is under implementation; this decision alone does not claim an available workflow.
+
 ## Current evidence and implementation boundary
 
 Current editor/viewport.cpp draws CPU blockout geometry and has no production

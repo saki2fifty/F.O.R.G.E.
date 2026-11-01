@@ -17,4 +17,11 @@ struct SpriteFrameRegion {
     std::uint32_t source_width = 0, source_height = 0, trim_x = 0, trim_y = 0;
     bool operator==(const SpriteFrameRegion&) const = default;
 };
+// An immutable Texture revision can own frame placement. The key is scoped to
+// that Texture; moving or repacking pixels does not change the selected frame.
+struct SpriteFrameEntry {
+    std::uint32_t id = 0;
+    SpriteFrameRegion region;
+    bool operator==(const SpriteFrameEntry&) const = default;
+};
 } // namespace forge

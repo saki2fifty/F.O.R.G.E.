@@ -22,6 +22,9 @@ inline nlohmann::json sprite_atlas_frame_values(std::string_view text, AssetId t
     if (regions.empty())
         throw std::invalid_argument("Atlas needs at least one frame rectangle");
     (void)sprite_frame_region(width, height, {}, 0, {}, regions);
-    return {{"frame_regions", value.at("frames")}, {"frame", 0}, {"region_enabled", false}};
+    return {{"frame_regions", value.at("frames")},
+            {"frame", 0},
+            {"region_enabled", false},
+            {"texture_frames", false}};
 }
 } // namespace forge::ui

@@ -1057,3 +1057,26 @@ generation. Local log: `gallery-camera-native-final-test.log` in the active batc
 evidence; its receipt and source/input hashes remain outside the product tree.
 
 PNG SHA256: `116b8247bc58e31d9253838bf77eb55ffa0f43cd936561eb1f8f59894b670f21`.
+
+## Maintained Sprite atlas source and Gallery
+
+`manual/images/source-aware-sprite-atlas.png` is the unmodified640×360 Game capture
+at tick75 of Gallery127, Scene `ed3c5415-1ee7-49c2-9b74-78b20e9fb6f7`. The actual
+FrameRenderer/Viewport regression checks four animation samples, all three mip
+modes, retained Scene redraw/picking/framing and eight exact authored/source-free
+relocated display pairs. This is software Vulkan rendering of original FORGE
+images. It is not physical Windows/GPU acceptance or a performance measurement.
+
+PNG SHA256: `ca97e93382b1451d303e8f47376bc36731bebbeba02a8ee834de3ce515cd7d1a`.
+
+`manual/images/sprite-atlas-source-editor.png` is an actual920×850 ImGui component
+capture through SDL's software renderer and the canonical Lato font. It opens the
+Gallery's real `.atlas.json` source with `SpriteAtlasEditor`; no synthetic controls
+or text are substituted. The source editor, source input hashes, capture commands
+and limitations are recorded in the local batch's `manual-capture-proof.json`.
+It demonstrates the recipe controls and does not establish Windows/DPI acceptance.
+
+PNG SHA256: `71cb85699675ca896a63b7e4c2cb064ea7d8c659ad6f48b17657123daf599c9c`.
+
+Both canonical images are shared by the README/manual where used. No retouching,
+image generation, duplicate image assets or hardware performance claim.

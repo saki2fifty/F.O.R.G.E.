@@ -69,7 +69,7 @@ AnimationPropertyLimits animation_property_limits(AnimationProperty property) {
     case AnimationProperty::ParticleSize:
         return {.01, 16};
     case AnimationProperty::SpriteFrame:
-        return {0, 16384. * 16384 - 1};
+        return {0, double(UINT32_MAX)};
     default:
         return {0, 1};
     }

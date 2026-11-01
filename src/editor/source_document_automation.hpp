@@ -1,4 +1,5 @@
 #pragma once
+#include "../sprite_atlas_recipe.hpp"
 #include "../tile_map_source.hpp"
 #include "../tile_set_source.hpp"
 #include "automation_permissions.hpp"
@@ -11,6 +12,15 @@ namespace forge {
 // Private adapters borrow the same editor instances registered in DocumentWorkspace.
 // They own neither source values, history, publication queues nor persistent IDs.
 struct AssetDocumentAutomation {
+    static std::vector<AssetId> atlas_images(const Json& request) {
+        if (!request.contains("textures") || !request.at("textures").is_array() ||
+            request.at("textures").empty() ||
+            request.at("textures").size() > sprite_frame_region_limit)
+            throw AuthoringError(
+                "textures_required",
+                "Sprite atlas creation/templates require 1 to 512 Texture UUIDs in textures");
+        return request.at("textures").get<std::vector<AssetId>>();
+    }
     template <class Editor> static bool transient(const Editor& editor) {
         bool active = false;
         if constexpr (requires { editor.has_unapplied_edits(); })
@@ -115,6 +125,7 @@ struct AssetDocumentAutomation {
         using Document = std::remove_cv_t<std::remove_pointer_t<decltype(editor.document())>>;
         using Source = std::remove_cvref_t<decltype(std::declval<Document>().source())>;
         constexpr bool tiles = std::is_same_v<Source, TileMapSource>;
+        constexpr bool atlas = std::is_same_v<Source, SpriteAtlasRecipe>;
         return {
             Document::source_suffix,
             [&editor, &project](std::string_view action, const Json& request) -> Json {
@@ -122,6 +133,14 @@ struct AssetDocumentAutomation {
                 if (action == "status")
                     return status(editor, project);
                 if (action == "template") {
+                    if constexpr (!atlas)
+                        if (request.contains("textures"))
+                            throw AuthoringError("invalid_argument",
+                                                 "textures applies to Sprite atlas templates only");
+                    if constexpr (!tiles)
+                        if (request.contains("tile_set"))
+                            throw AuthoringError("invalid_argument",
+                                                 "tile_set applies to Tile Map templates only");
                     const auto id =
                         AssetId::generate(); // Preview only; creation allocates its own identity.
                     if constexpr (tiles) {
@@ -130,7 +149,9 @@ struct AssetDocumentAutomation {
                                                  "Tile Map templates require a Tile Set UUID");
                         return TileMapValue::create(id, request.at("tile_set").get<AssetId>())
                             .metadata();
-                    } else
+                    } else if constexpr (atlas)
+                        return Source::create(id, atlas_images(request)).document;
+                    else
                         return Document::initial_source(id).document;
                 }
                 if (action == "open" || action == "create") {
@@ -147,10 +168,15 @@ struct AssetDocumentAutomation {
                     const auto path =
                         automation_relative_path(request.at("path").get<std::string>());
                     if (action == "open" &&
-                        (request.contains("patch") || request.contains("tile_set")))
+                        (request.contains("patch") || request.contains("tile_set") ||
+                         request.contains("textures")))
                         throw AuthoringError(
                             "invalid_argument",
-                            "Initial patch/tile_set options apply to creation only");
+                            "Initial patch/tile_set/textures options apply to creation only");
+                    if constexpr (!atlas)
+                        if (request.contains("textures"))
+                            throw AuthoringError("invalid_argument",
+                                                 "textures applies to Sprite atlas creation only");
                     if constexpr (!tiles)
                         if (request.contains("tile_set"))
                             throw AuthoringError("invalid_argument",
@@ -170,7 +196,12 @@ struct AssetDocumentAutomation {
                                             patch(source.document.metadata(), request.at("patch")));
                                     return source;
                                 } else {
-                                    auto source = Document::initial_source(id);
+                                    auto source = [&] {
+                                        if constexpr (atlas)
+                                            return Source::create(id, atlas_images(request));
+                                        else
+                                            return Document::initial_source(id);
+                                    }();
                                     if (request.contains("patch"))
                                         source.document =
                                             patch(std::move(source.document), request.at("patch"));

@@ -15,6 +15,7 @@ struct SpriteFrameContext {
     SpriteGridLayout grid;
     std::optional<SpritePixelRegion> crop;
     std::vector<SpriteFrameRegion> frame_regions;
+    bool texture_frames = false;
 };
 inline SpriteFrameContext sprite_frame_context(std::string_view owner,
                                                const SpriteRenderer& sprite) {
@@ -26,7 +27,8 @@ inline SpriteFrameContext sprite_frame_context(std::string_view owner,
                 ? std::optional<SpritePixelRegion>{{sprite.region_x, sprite.region_y,
                                                     sprite.region_width, sprite.region_height}}
                 : std::nullopt,
-            sprite.frame_regions};
+            sprite.frame_regions,
+            sprite.texture_frames};
 }
 inline SpriteFrameContext sprite_frame_context(std::string_view owner,
                                                const nlohmann::json& sprite) {
@@ -48,7 +50,8 @@ inline SpriteFrameContext sprite_frame_context(std::string_view owner,
             : std::nullopt,
         sprite.contains("frame_regions")
             ? forge::detail::sprite_frame_regions_value(sprite.at("frame_regions"))
-            : std::vector<SpriteFrameRegion>{}};
+            : std::vector<SpriteFrameRegion>{},
+        sprite.value("texture_frames", false)};
 }
 using SpriteFrameField = std::function<bool(const SpriteFrameContext&, std::uint32_t&)>;
 } // namespace forge::ui

@@ -87,6 +87,16 @@ Gallery122 includes a hole, a flipped L and animated connected interiors.
 This is the shared Game renderer on Linux software Vulkan. Inspector controls,
 saving, publishing and export are covered in the guide.
 
+## Maintained Sprite atlases
+
+Create an atlas recipe from published images, then use stable frame keys on
+Sprites. Input changes rebuild the packed Texture through the existing source
+pipeline. Gallery 127 includes editable sources and held frame animation; the
+[source workflow](manual/editor/sprites.md#maintain-an-atlas-from-its-source-images)
+uses the same editor and MCP document history.
+
+[![Gallery 127 showing original image selections and animated stable atlas keys](manual/images/source-aware-sprite-atlas.png)](manual/images/source-aware-sprite-atlas.png)
+
 ## Sprite image regions
 
 Sprite Renderer can select part of an existing image, animate frames inside it,

@@ -108,7 +108,7 @@ if len(sys.argv) == 5 and sys.argv[4] in focused_targets:
             subprocess.run([sys.executable, str(Path(__file__).with_name('sprite_image_process_test.py')),
                             str(moved/'bin'/('forge_runtime'+exe)), str(module), str(base/'run')],
                            env=env, cwd=moved, check=True, timeout=90)
-            print('Installed public Sprite frame-bank values, both hosts, live tuning and recovery passed')
+            print('Installed public Sprite frame-bank/Texture-key values, both hosts, live tuning and recovery passed')
             sys.exit(0)
         if tile_one_way_only:
             subprocess.run([sys.executable,str(Path(__file__).with_name('sdk_tile_physics_test.py')),

@@ -210,10 +210,7 @@ ResourceCandidate<TextureAsset> load_texture_selection(const std::filesystem::pa
         artifact = family.artifact;
     } else {
         const auto& metadata = catalog.records().at(texture.id).metadata.at("forge.import");
-        require(metadata.at("version") == 1 &&
-                    metadata.at("output_format") == "forge.texture-bundle" &&
-                    metadata.at("output_version") == 1,
-                "Unsupported selected texture artifact profile");
+        const auto output_version = texture_output_profile(metadata);
         if (limits.bytes > TextureLimits{}.bytes)
             throw std::runtime_error("Texture selection byte budget exceeds the supported profile");
         const auto cache_limit = limits.bytes + 4 * 1024 * 1024 + 24;
@@ -222,7 +219,7 @@ ResourceCandidate<TextureAsset> load_texture_selection(const std::filesystem::pa
                                 std::min<std::size_t>(512 * 1024 * 1024, cache_limit), 16});
         auto loaded = cache.load_selected(selected.revision, [&](const auto& candidate) {
             cancelled();
-            index = validate_texture_bundle(candidate.files, limits);
+            index = validate_texture_bundle(candidate.files, limits, output_version);
         });
         require(metadata.at("artifact_digest") == asset_build_digest(loaded.manifest.at("files")),
                 "Selected texture catalog and cooked revision disagree");
@@ -245,6 +242,8 @@ ResourceCandidate<TextureAsset> load_texture_selection(const std::filesystem::pa
         if (file.name != entry.file)
             continue;
         auto data = std::make_unique<TextureData>(decode_texture(file.bytes, limits));
+        require(!member || data->sprite_frames.empty(),
+                "Model texture members cannot contain Sprite atlas frame metadata");
         require(data->semantic == usage, "Selected texture semantic mismatch");
         cancelled();
         const auto bytes = data->resident_bytes();

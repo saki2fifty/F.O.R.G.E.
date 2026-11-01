@@ -51,6 +51,54 @@ def values(state):
     return row['components']
 
 
+def texture_keys(worker, *, cold_recovery=True):
+    def image(state):
+        row, = [r for r in state['effective_scene']['entities'] if r['id'] == actor]
+        return row['components']['forge.sprite_renderer']
+    state = worker.request('step')
+    selected = image(state)
+    assert selected['texture_frames'] is True and selected['frame'] == 0xffffffff, selected
+    assert selected['frame_regions'] == [] and not selected['region_enabled'], selected
+    assert selected['columns'] == selected['rows'] == 1, selected
+    assert all(selected[field] == 0 for field in (
+        'margin_x', 'margin_y', 'spacing_x', 'spacing_y',
+        'region_x', 'region_y', 'region_width', 'region_height')), selected
+    recovered = None
+    try:
+        if cold_recovery:
+            checkpoint = state['recovery']
+            assert checkpoint is not None
+            recovered = Worker(runtime, root)
+            replay = recovered.request('replace', scene=checkpoint['scene'], recovery=checkpoint,
+                                       recovery_session=checkpoint['session'], recovery_tick=checkpoint['tick'])
+            assert image(replay) == selected
+        for host in ([worker, recovered] if recovered is not None else [worker]):
+            updated = host.request('step')
+            assert image(updated)['texture_frames'] is True and image(updated)['frame'] == 7
+        host = recovered if recovered is not None else worker
+        generation = (updated['world_generation'] if 'world_generation' in updated
+                      else updated['activation']['generation'])
+        target = dict(generation=generation, scene_asset=updated['effective_scene']['asset_id'],
+                      entity=actor, type='forge.sprite_renderer')
+        host.request('property_tune', **target, property='frame', value=0xffffffff)
+        tuned = host.request('snapshot')
+        assert image(tuned)['frame'] == 0xffffffff and image(tuned)['texture_frames'] is True
+        for property, value in (('frame', 1 << 32), ('texture_frames', False),
+                                ('region_x', 1), ('frame_regions', [frame_value(0, 0, 1, 1)])):
+            try:
+                host.request('property_tune', **target, property=property, value=value)
+            except (AssertionError, RuntimeError):
+                pass
+            else:
+                raise AssertionError(('Invalid live Texture frame edit accepted', property, value))
+            unchanged = host.request('snapshot')
+            assert unchanged['effective_scene'] == tuned['effective_scene']
+            assert unchanged['timing']['tick'] == tuned['timing']['tick']
+    finally:
+        if recovered is not None:
+            recovered.close()
+
+
 def live_region(worker, state):
     generation = (state['world_generation'] if 'world_generation' in state
                   else state['activation']['generation'])
@@ -185,6 +233,7 @@ try:
             assert all(frame['source_width'] == 3 and frame['source_height'] == 3
                        for frame in image['frame_regions'])
     live_region(first, first.request('snapshot'))
+    texture_keys(first)
     assert scene == original and hashlib.sha256(source.read_bytes()).hexdigest() == digest
 finally:
     first.close()
@@ -213,7 +262,8 @@ try:
             assert all(frame['source_width'] == 3 and frame['source_height'] == 3
                        for frame in image['frame_regions'])
     live_region(play, state)
+    texture_keys(play, cold_recovery=False)
     assert scene == original and hashlib.sha256(source.read_bytes()).hexdigest() == digest
 finally:
     play.close()
-print('Installed C++ Sprite fields, both hosts, live regions, fixed writes, extensions, cold recovery and source isolation PASS')
+print('Installed C++ Sprite fields, stable Texture keys, both hosts, live values, cold recovery and source isolation PASS')

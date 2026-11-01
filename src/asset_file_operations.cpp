@@ -3,6 +3,7 @@
 #include "asset_storage.hpp"
 #include "bounded_json.hpp"
 #include "gltf_container.hpp"
+#include "sprite_atlas_recipe.hpp"
 #include "tile_asset_types.hpp"
 #include "tile_map_source.hpp"
 #include "tile_set_source.hpp"
@@ -205,6 +206,23 @@ static std::string rewrite_authored_with_schema(const AssetRecord& record, std::
                                                 const std::filesystem::path& destination,
                                                 const std::map<AssetId, AssetId>& identities,
                                                 const Json& schema) {
+    if (record.type == TextureAsset::type &&
+        lower(path_utf8(record.source)).ends_with(".atlas.json")) {
+        if (!lower(path_utf8(destination)).ends_with(".atlas.json"))
+            throw std::runtime_error("Sprite atlases must retain the .atlas.json source suffix");
+        auto source = SpriteAtlasRecipe::parse(std::as_bytes(std::span(bytes)));
+        if (source.asset() != record.id)
+            throw std::runtime_error("Sprite atlas source/catalog identity mismatch");
+        if (identities.empty())
+            return std::string(bytes);
+        source.document["asset_id"] = identities.at(record.id);
+        for (auto& row : source.document.at("frames"))
+            if (const auto found = identities.find(row.at("texture").get<AssetId>());
+                found != identities.end())
+                row["texture"] = found->second;
+        source.validate();
+        return source.document.dump();
+    }
     if (record.type == TileSetAsset::type || record.type == TileMapAsset::type) {
         const bool map = record.type == TileMapAsset::type;
         if (!lower(path_utf8(destination)).ends_with(map ? ".tilemap.json" : ".tileset.json"))
@@ -309,7 +327,9 @@ AssetSourceRewrite project_asset_file_rewriter(const std::filesystem::path& proj
         if (record.type == "model" || record.type == "animation_source")
             return gltf_detail::relocate_gltf_source(paths, record.source, destination,
                                                      std::as_bytes(std::span(bytes)));
-        if (record.type == "texture" || record.type == "audio_clip")
+        if ((record.type == "texture" &&
+             !lower(path_utf8(record.source)).ends_with(".atlas.json")) ||
+            record.type == "audio_clip")
             return std::string(bytes); // Catalog-owned identity; no UUID in pixels/WAV.
         return rewrite_authored_with_schema(record, bytes, destination, identities, schema);
     };

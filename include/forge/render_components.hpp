@@ -58,7 +58,7 @@ struct SpriteRenderer {
     bool enabled = true, visible = true, flip_x = false, flip_y = false;
     std::uint32_t layers = UINT32_MAX;
     std::uint32_t columns = 1, rows = 1, margin_x = 0, margin_y = 0, spacing_x = 0, spacing_y = 0;
-    std::uint32_t frame = 0; // Top-left, row-major integer frame; never a fractional index.
+    std::uint32_t frame = 0; // Grid/list index, or a stable local key when texture_frames is on.
     std::int32_t order = 0;  // Same-depth priority in the shared render queue; higher draws later.
     double width = 1, height = 1;      // Meters before the entity's world transform.
     double pivot_x = .5, pivot_y = .5; // Normalized from the image's top-left corner.
@@ -69,10 +69,13 @@ struct SpriteRenderer {
     // Optional image crop before grid subdivision. Zero extent reaches the image edge.
     bool region_enabled = false;
     std::uint32_t region_x = 0, region_y = 0, region_width = 0, region_height = 0;
-    // Empty uses the uniform grid. Otherwise frame indexes this ordered region list.
+    // Used with texture_frames off: empty selects the grid; frame indexes a nonempty list.
     std::vector<SpriteFrameRegion> frame_regions;
     // Off retains base-level sampling. Enabled modes filter independent frames.
     std::uint32_t mip_filter = std::uint32_t(SpriteMipFilter::Disabled);
+    // Explicit opt-in: frame is a stable local key in the selected Texture's
+    // immutable frame table. Raw grid/crop/frame_regions must stay at defaults.
+    bool texture_frames = false;
     bool operator==(const SpriteRenderer&) const = default;
 };
 // One sparse map asset in the ordinary hierarchy. Cell sizes/layers/definitions

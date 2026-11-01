@@ -162,7 +162,7 @@ Choose trimming and stored turns before preparing the import review.
 The packing review shows a layout of the Badge and Panel images. Rectangles retain
 the input frame order even when packing places a larger image first.
 
-Packing supports1–512 images, a64MiB decoded pixel budget and padding0–64 pixels.
+Packing supports1–512 images, a 64 MiB decoded pixel budget and padding0–64 pixels.
 Trimming removes only alpha-zero outer pixels; partially transparent pixels stay.
 Fully transparent images retain one transparent pixel and their original canvas.
 Input images may reach16384 pixels per side when trimming is enabled, within the
@@ -179,6 +179,58 @@ packed frames on the right. The bottom Sprite shows the complete generated PNG.
 No C++ compiler is needed for this scene. Save it, choose it as the startup scene
 and use the normal game export workflow to test its packed images independently.
 
+## Maintain an atlas from its source images
+
+Use an atlas recipe when the packed image should rebuild after its input images
+change. A recipe is a `.atlas.json` file containing the image choices and packing
+settings. It publishes one ordinary Texture. Each input has a **frame key** that
+stays with that image when packing moves its rectangle.
+
+1. Import and publish the input images as independent, uncompressed sRGB RGBA8 Color textures. Keep premultiplication off.
+2. Stop Play. Choose **Content → Create / Register → New Sprite atlas...**.
+3. Enter an unused `.atlas.json` path in an existing project folder, choose **First image**, then **Create**.
+4. In **Input images**, choose another texture in **Add image** and press **Add**. The editor shows the allocated key above each image. Use **Move up / Move down** to reorder inputs. Replace **Image** in an existing row to keep that row's key. **Remove image** retires its key; adding the image again allocates a new key.
+5. Set **Maximum side (pixels)** and **Padding (pixels)**; press Enter to apply numeric settings. Choose **Extrude edges**, **Trim transparent edges** and **Allow quarter turns** as needed.
+6. Choose **Save / Publish**. Wait for the build to finish. The recipe's Texture appears in Content; failed builds keep the last working publication.
+7. Create a Material with **Preset → Sprite / image** and select that Texture in **Image**. Trimmed images require alpha blending with depth writes disabled.
+8. Create a Sprite, assign the Material, and enable **Texture frames** under **Sheet frames**. Keep the default 1×1 grid, zero margins/spacing, no image crop and an empty **Frame regions** list. When converting an existing Sprite, clear retained crop offsets/extents before turning **Image region** off.
+9. Use **Choose frame...** to select the image. **Frame** now stores the key shown in the recipe, rather than a list position. Keys can have gaps. Save the Scene or prefab source.
+
+![Sprite atlas source editor with three image references, stable keys and packing controls](../images/sprite-atlas-source-editor.png)
+
+The recipe editor keeps image selection, ordering, keys and packing settings in
+one source document. Its edits use that document's Undo and Redo. **Save / Publish**
+saves the source and rebuilds its Texture; it does not edit a Scene.
+
+After an input image is successfully reimported, the atlas rebuilds through the
+normal source-update service. Save or discard an open dirty recipe before its
+automatic publication can proceed. Sprites using **Texture frames** keep their
+image choice as rectangles move. A missing input or failed build keeps the old
+published atlas. Removing a key requires choosing a replacement on Sprites and
+animation keys that use it; a missing key reports a rendering diagnostic and
+keeps an existing complete draw.
+
+The frame chooser shows stable keys for this mode. Arrow keys move through the
+available images; **Enter / Use frame** commits the chosen key. **Escape / Cancel**
+keeps the existing value. An image revision change closes an open chooser so it
+cannot apply an outdated mapping.
+
+![Gallery 127 with three source images above three Sprites cycling through stable atlas keys](../images/source-aware-sprite-atlas.png)
+
+Open **Scenes/127-source-aware-sprite-atlas.scene.json** in the Feature Gallery.
+The upper row shows keys 7, 41 and 99; the lower row cycles through them over three
+seconds. Columns use **Disabled**, **Nearest** and **Linear** mip filtering.
+Open **Assets/Sprites/SourceAware.atlas.json**, change its padding or input order,
+and save/publish to try rebuilding without changing the Scene's keys.
+
+Recipes support 1–512 distinct published image textures, a 64 MiB decoded input-pixel
+budget and a 4096-pixel output-side limit. Model-owned images, compressed textures,
+HDR and premultiplied pixels are outside this profile. Each input contributes its
+whole image. Raw grid/crop/frame-region Sprites and explicit Tile Set grids keep
+their authored coordinates; enable **Texture frames** on each Sprite that should
+follow recipe keys. Export uses the cooked Texture and Clip; the original input
+images and recipe are not needed to run the game.
+
 ## Resize borders or repeat an image
 
 Choose an **Image mode** under **Image fill**:
@@ -194,7 +246,7 @@ their normal behavior. Stop restores the authored fill settings.
 
 ## Select frames from a sheet
 
-Leave **Frame regions** empty, then use **Sheet frames** to set columns, rows,
+Leave **Texture frames** off and **Frame regions** empty, then use **Sheet frames** to set columns, rows,
 outer pixel margins and pixel spacing.
 The cells must divide the selected image into whole positive pixel rectangles.
 Frame zero is the top-left cell, then numbering continues across each row. A

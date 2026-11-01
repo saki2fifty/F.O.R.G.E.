@@ -68,9 +68,18 @@ The agent should inspect progress rather than treating a queued request as done.
 ## Edit reusable assets
 
 Project authoring also exposes the existing material, material graph, mesh,
-collision, terrain, tile, particle and animation source editors. The agent can
+collision, terrain, tile, Sprite atlas, particle and animation source editors. The agent can
 create or open a source, inspect its format, edit validated fields, and use that
 source document's Undo and Redo. You see the same draft in the editor.
+
+For a Sprite atlas, create or open its `.atlas.json` source with the
+**sprite_atlas** editor. Creation needs the published input Texture UUIDs in
+**textures**. Its source contains stable local frame keys and packing settings;
+the agent can replace or reorder images through a validated patch, use source
+Undo/Redo, and save/publish the same draft shown in the recipe editor. Removed
+keys are not allocated again. Set **Texture frames** on each Sprite using the
+atlas Material, then choose an existing key. See
+[Sprites and maintained atlases](sprites.md).
 
 For tile collision, the agent can choose full cells, decoration, a convex or
 concave polygon, or **Contours / holes** for separate solid regions and inner

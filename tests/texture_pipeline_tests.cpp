@@ -1,5 +1,6 @@
 #include "asset_bytes.hpp"
 #include "model_render_resource.hpp"
+#include "sprite_atlas_recipe.hpp"
 #include "sprite_atlas_source.hpp"
 #include "texture_bundle_validation.hpp"
 #include "texture_importer.hpp"
@@ -278,6 +279,47 @@ int main(int argc, char** argv) {
                         expected_atlas.texture.subresources[0],
                 "PNG atlas source did not retain exact sRGB/alpha/padding pixels through ordinary "
                 "texture import");
+        auto atlas_source =
+            SpriteAtlasRecipe::create(AssetId::generate(), std::array{request.asset}, packing);
+        atlas_source.document["frames"][0]["id"] = UINT32_MAX;
+        atlas_source.document["next_id"] = std::uint64_t(UINT32_MAX) + 1;
+        const auto source_text = atlas_source.document.dump();
+        const auto source_span = std::as_bytes(std::span(source_text));
+        ImportProcessRequest persistent{
+            {{"recipe", sprite_atlas_importer_id},
+             {"revision", sprite_atlas_source_revision()},
+             {"asset_id", atlas_source.asset()},
+             {"source_digest", content_digest(source_span)}},
+            {{"source.bin", {source_span.begin(), source_span.end()}}, atlas_request.inputs[0]}};
+        const auto persistent_files = execute_sprite_atlas_recipe(persistent);
+        const auto persistent_index = validate_texture_bundle(persistent_files, {}, 2);
+        const auto& persistent_name = persistent_index.find(TextureSemantic::Color).file;
+        const auto persistent_file =
+            std::find_if(persistent_files.begin(), persistent_files.end(),
+                         [&](const auto& f) { return f.name == persistent_name; });
+        const auto persistent_texture = decode_texture(persistent_file->bytes);
+        require(
+            persistent_texture.sprite_frames ==
+                    std::vector<SpriteFrameEntry>{{UINT32_MAX, expected_atlas.layout.frames[0]}} &&
+                persistent_texture.subresources == expected_atlas.texture.subresources,
+            "Persistent atlas worker changed sparse identity/layout/pixels");
+        rejects([&] { validate_texture_bundle(persistent_files); });
+        rejects([&] { validate_texture_bundle(decoded_atlas, {}, 2); });
+        auto bad_persistent = persistent;
+        bad_persistent.payload["asset_id"] = AssetId::generate();
+        rejects([&] { execute_sprite_atlas_recipe(bad_persistent); });
+        bad_persistent = persistent;
+        bad_persistent.payload["source_digest"] = std::string(64, '0');
+        rejects([&] { execute_sprite_atlas_recipe(bad_persistent); });
+        bad_persistent = persistent;
+        bad_persistent.inputs.pop_back();
+        rejects([&] { execute_sprite_atlas_recipe(bad_persistent); });
+        bad_persistent = persistent;
+        bad_persistent.inputs[1].name = "wrong.texture";
+        rejects([&] { execute_sprite_atlas_recipe(bad_persistent); });
+        std::stop_source atlas_cancel;
+        atlas_cancel.request_stop();
+        rejects([&] { execute_sprite_atlas_recipe(persistent, atlas_cancel.get_token()); });
         auto malformed_atlas = atlas_request;
         malformed_atlas.payload["revision"] = "wrong";
         rejects([&] { execute_sprite_atlas_source(malformed_atlas); });

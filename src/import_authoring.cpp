@@ -3,6 +3,7 @@
 #include "audio_importer.hpp"
 #include "model_authoring.hpp"
 #include "model_importer.hpp"
+#include "sprite_atlas_importer.hpp"
 #include "texture_authoring.hpp"
 #include "texture_importer.hpp"
 namespace forge {
@@ -12,6 +13,7 @@ asset_import_registry(const std::filesystem::path& worker,
     auto registry = std::make_shared<AssetImporterRegistry>();
     registry->add(asset_detail::texture_importer(worker, false));
     registry->add(asset_detail::texture_importer(worker, true));
+    registry->add(asset_detail::sprite_atlas_importer(worker));
     registry->add(asset_detail::model_importer(worker, animation_converter));
     for (const auto& profile : asset_detail::audio_source_profiles)
         registry->add(asset_detail::audio_importer(worker, profile));
@@ -24,7 +26,8 @@ void prepare_asset_publication(AssetPublicationCandidate& candidate, const Asset
     if (plan.input.importer == "forge.model.gltf")
         prepare_model_publication(candidate, plan, previous_catalog, decisions);
     else if (plan.input.importer == "forge.texture.image" ||
-             plan.input.importer == "forge.texture.container") {
+             plan.input.importer == "forge.texture.container" ||
+             plan.input.importer == asset_detail::sprite_atlas_importer_id) {
         if (!decisions.empty())
             throw std::runtime_error("Texture has no subasset correspondence decisions");
         prepare_texture_publication(candidate, plan);

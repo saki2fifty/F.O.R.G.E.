@@ -621,6 +621,8 @@ void capture(const std::filesystem::path& root) {
 } // namespace
 int main(int argc, char** argv) {
     try {
+        check(std::string_view(sprite_inspector_group("texture_frames")) == "Sheet frames",
+              "Texture frame mode is outside the Inspector's frame controls");
         if (argc == 3 && std::string_view(argv[2]) == "--capture") {
             capture(std::filesystem::absolute(argv[1]));
             return 0;

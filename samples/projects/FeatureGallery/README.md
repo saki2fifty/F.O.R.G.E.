@@ -1,5 +1,28 @@
 # Feature Gallery
 
+## Source-aware Sprite atlases
+
+Open **Scenes/127-source-aware-sprite-atlas.scene.json** and press Play. The top
+row selects stable frame keys 7, 41 and 99 from one packed Texture. The lower row
+cycles through those images over three seconds. Columns use Disabled, Nearest
+and Linear frame mip filtering.
+
+Open **Assets/Sprites/SourceAware.atlas.json**. The recipe reuses the original
+Badge, TrimArrow and TrimMarker images. Change padding or input order, then
+**Save / Publish**: frame keys keep the same image choices after repacking. Replace
+an image in its existing row to keep that key; removing a row retires it. Dirty
+recipe drafts block automatic publication until saved or discarded.
+
+Use **Texture frames** on a Sprite to follow recipe keys. Its raw grid, crop and
+frame-region fields must stay at defaults. The assigned **SourceAware** Material
+provides the atlas Texture and alpha settings. Edit
+**Assets/Sprites/SourceAwareFrames.animation.json** to change the held frame keys
+or their timing. Save the Scene and choose it as startup before exporting. The
+game uses its cooked atlas and Clip without the original source images.
+
+See [World sprites and image frames](../../../manual/editor/sprites.md).
+
+
 ## Camera-driven Tile chunk loading
 
 Open **Scenes/126-tile-chunk-residency.scene.json** and press Play. The camera

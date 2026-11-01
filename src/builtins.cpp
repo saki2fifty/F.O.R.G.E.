@@ -1014,7 +1014,8 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<std::uint32_t>("region_width")
             .template member<std::uint32_t>("region_height")
             .template member<std::vector<SpriteFrameRegion>>("frame_regions")
-            .template member<std::uint32_t>("mip_filter");
+            .template member<std::uint32_t>("mip_filter")
+            .template member<bool>("texture_frames");
         for (const auto& [field, offset] :
              {std::pair{"material", offsetof(SpriteRenderer, material)},
               std::pair{"enabled", offsetof(SpriteRenderer, enabled)},
@@ -1050,7 +1051,8 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
               std::pair{"region_width", offsetof(SpriteRenderer, region_width)},
               std::pair{"region_height", offsetof(SpriteRenderer, region_height)},
               std::pair{"frame_regions", offsetof(SpriteRenderer, frame_regions)},
-              std::pair{"mip_filter", offsetof(SpriteRenderer, mip_filter)}}) {
+              std::pair{"mip_filter", offsetof(SpriteRenderer, mip_filter)},
+              std::pair{"texture_frames", offsetof(SpriteRenderer, texture_frames)}}) {
             const auto* member = ecs_struct_get_member(w.c_ptr(), c.id(), field);
             if (!member || std::size_t(member->offset) != offset)
                 throw std::runtime_error("SpriteRenderer native Meta disagrees with typed layout");
@@ -2636,7 +2638,11 @@ Json registration_options(const Builtin& type, const std::string& field) {
             "Disabled keeps base pixels; Nearest or Linear filters independent frame mip levels";
     }
     if (name == "forge.sprite_renderer") {
-        if (field == "frame_regions") {
+        if (field == "texture_frames") {
+            value["display_name"] = "Texture frames";
+            value["description"] = "Use stable frame keys from the selected Sprite atlas Texture; "
+                                   "grid, crop and frame regions must stay at defaults";
+        } else if (field == "frame_regions") {
             value["display_name"] = "Frame regions";
             value["description"] =
                 "Optional ordered list of up to512 image rectangles in pixels, relative to the "
@@ -2694,8 +2700,9 @@ Json registration_options(const Builtin& type, const std::string& field) {
                     : "Symmetric outer margin or between-cell spacing in texture pixels";
         } else if (field == "frame") {
             value["minimum"] = 0;
-            value["maximum"] = 16384 * 16384 - 1;
-            value["description"] = "Zero-based index into Frame regions, or top-left row-major "
+            value["maximum"] = std::uint64_t(UINT32_MAX);
+            value["description"] = "Stable local key when Texture frames is enabled; otherwise "
+                                   "a zero-based index into Frame regions, or top-left row-major "
                                    "cells for an empty list";
         } else if (field == "order") {
             value["description"] =
@@ -3065,10 +3072,17 @@ Json register_builtins(flecs::world& world, unsigned family) {
             c.lookup("materials").set<ReflectedSequenceKey>({"slot"});
             c.lookup("material_parameters").set<ReflectedSequenceKey>({"slot", {"key"}});
         }
-        if (name == "forge.sprite_renderer")
+        if (name == "forge.sprite_renderer") {
             c.lookup("frame_regions")
                 .set<ReflectedSequenceLimit>(
                     {sprite_frame_region_limit, sprite_frame_value_byte_limit, 8192});
+            // annotate_type creates the native member entities. Add evolution
+            // metadata only after that existing registration owner has run.
+            const auto texture_frames = c.lookup("texture_frames");
+            if (!texture_frames)
+                throw std::runtime_error("Sprite Texture frames reflection member is missing");
+            texture_frames.set<ReflectedMemberDefault>({false});
+        }
         std::vector<ReflectedAdapter> references;
         if (name == "forge.physics_joint" || name == "forge.physics_joint_2d" ||
             name == "forge.transform_animator" || name == "forge.camera_shot" ||
@@ -3230,7 +3244,7 @@ Json admitted_builtin_source(const Builtin& type, const Json& source) {
         for (const auto* field :
              {"image_mode", "pixels_per_meter", "border_left", "border_right", "border_top",
               "border_bottom", "region_enabled", "region_x", "region_y", "region_width",
-              "region_height", "frame_regions", "mip_filter"})
+              "region_height", "frame_regions", "mip_filter", "texture_frames"})
             if (!current.contains(field))
                 current[field] = type.defaults.at(field);
     if (std::string_view(type.name) == "forge.tile_map_renderer" && !current.contains("mip_filter"))

@@ -24,7 +24,13 @@ inline std::uint64_t sprite_frame_count(const SpriteRenderer& value) noexcept {
     return value.frame_regions.empty() ? std::uint64_t(value.columns) * value.rows
                                        : value.frame_regions.size();
 }
+// Numeric key admission for animation only; never a frame enumeration count.
+// Sparse texture keys are resolved against the same admitted pixel lease later.
+inline std::uint64_t sprite_frame_key_limit(const SpriteRenderer& value) noexcept {
+    return value.texture_frames ? std::uint64_t(UINT32_MAX) + 1 : sprite_frame_count(value);
+}
 TileMapRenderer tile_map_renderer_value(const Json&);
 void validate_sprite_renderer(const SpriteRenderer&);
+void validate_sprite_frame_shape(const SpriteRenderer&, const SpriteFrameRegion&);
 void validate_tile_map_renderer(const TileMapRenderer&);
 } // namespace forge::detail

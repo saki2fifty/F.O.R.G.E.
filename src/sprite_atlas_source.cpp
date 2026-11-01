@@ -8,11 +8,11 @@
 #include <set>
 
 namespace forge::asset_detail {
-SpriteAtlasSource prepare_sprite_atlas_source(const std::filesystem::path& worker,
-                                              const std::filesystem::path& project,
-                                              std::span<const AssetId> textures,
-                                              SpriteAtlasPacking settings, std::stop_token stop) {
-    const auto options = sprite_atlas_settings(settings);
+SpriteAtlasCapture capture_sprite_atlas_images(const std::filesystem::path& project,
+                                               const AssetCatalog& catalog,
+                                               std::span<const AssetId> textures,
+                                               SpriteAtlasPacking settings, std::stop_token stop) {
+    (void)sprite_atlas_settings(settings);
     if (textures.empty() || textures.size() > sprite_frame_region_limit)
         throw std::invalid_argument("Select between1 and512 published image textures");
     const auto check_stop = [&] {
@@ -20,22 +20,9 @@ SpriteAtlasSource prepare_sprite_atlas_source(const std::filesystem::path& worke
             throw std::runtime_error("Atlas source generation cancelled");
     };
     check_stop();
-    const auto index = AssetCatalog::project_index(project);
-    asset_storage::ordinary(index);
-    auto bytes = read_bytes(index, max_asset_index_bytes);
-    SpriteAtlasSource result;
-    result.catalog_digest = content_digest(bytes);
-    AssetCatalog catalog(project);
-    catalog.restore(parse_bounded_json(bytes, max_asset_index_bytes));
-    bytes.clear();
-    bytes.shrink_to_fit();
     std::set<AssetId> seen;
     std::vector<SpriteFrameRegion> regions;
-    nlohmann::json sources = nlohmann::json::array();
-    ImportProcessRequest request;
-    request.payload = {{"recipe", sprite_atlas_source_recipe},
-                       {"revision", sprite_atlas_source_revision()},
-                       {"settings", options}};
+    SpriteAtlasCapture result;
     auto remaining = settings.byte_limit;
     for (const auto id : textures) {
         check_stop();
@@ -57,15 +44,54 @@ SpriteAtlasSource prepare_sprite_atlas_source(const std::filesystem::path& worke
             throw std::invalid_argument("Atlas PNG generation requires sRGB RGBA8 color images");
         remaining -= texture.byte_size();
         regions.push_back(sprite_atlas_image_region(texture, settings, stop));
-        sources.push_back({{"asset", id.str()}, {"source", path_utf8(found->second.source)}});
+        const auto revision =
+            found->second.metadata.at("forge.import").at("key").get<std::string>();
+        if (!valid_content_digest(revision))
+            throw std::invalid_argument("Atlas input has no immutable published revision");
+        result.dependencies.push_back({id, TextureAsset::type, AssetDependencyKind::Build,
+                                       "atlas.image." + id.str(), revision});
         // Only admitted base pixels are sent; ordinary source mips are not
         // interpreted as a valid packed atlas mip chain.
+        texture.sprite_frames.clear();
         texture.mips = 1;
         texture.subresources.resize(1);
-        request.inputs.push_back(
-            {sprite_atlas_input_name(request.inputs.size()), encode_texture(texture, limits)});
+        result.images.push_back(
+            {sprite_atlas_input_name(result.images.size()), encode_texture(texture, limits)});
     }
-    const auto expected = pack_sprite_atlas_regions(regions, settings, stop);
+    result.layout = pack_sprite_atlas_regions(regions, settings, stop);
+    return result;
+}
+SpriteAtlasSource prepare_sprite_atlas_source(const std::filesystem::path& worker,
+                                              const std::filesystem::path& project,
+                                              std::span<const AssetId> textures,
+                                              SpriteAtlasPacking settings, std::stop_token stop) {
+    const auto options = sprite_atlas_settings(settings);
+    if (textures.empty() || textures.size() > sprite_frame_region_limit)
+        throw std::invalid_argument("Select between1 and512 published image textures");
+    const auto check_stop = [&] {
+        if (stop.stop_requested())
+            throw std::runtime_error("Atlas source generation cancelled");
+    };
+    check_stop();
+    const auto index = AssetCatalog::project_index(project);
+    asset_storage::ordinary(index);
+    auto bytes = read_bytes(index, max_asset_index_bytes);
+    SpriteAtlasSource result;
+    result.catalog_digest = content_digest(bytes);
+    AssetCatalog catalog(project);
+    catalog.restore(parse_bounded_json(bytes, max_asset_index_bytes));
+    bytes.clear();
+    bytes.shrink_to_fit();
+    auto capture = capture_sprite_atlas_images(project, catalog, textures, settings, stop);
+    const auto& expected = capture.layout;
+    nlohmann::json sources = nlohmann::json::array();
+    for (const auto id : textures)
+        sources.push_back(
+            {{"asset", id.str()}, {"source", path_utf8(catalog.records().at(id).source)}});
+    ImportProcessRequest request{{{"recipe", sprite_atlas_source_recipe},
+                                  {"revision", sprite_atlas_source_revision()},
+                                  {"settings", options}},
+                                 std::move(capture.images)};
     auto files =
         run_import_process(worker, project, std::move(request), sprite_atlas_source_limits(), stop);
     check_stop();

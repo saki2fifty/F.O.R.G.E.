@@ -15,7 +15,9 @@
 #include "source_file_lifecycle_tests.hpp"
 #include "source_publication_tests.hpp"
 #include "source_workflow_automation.hpp"
+#include "sprite_atlas_editor.hpp"
 #include "terrain_editor.hpp"
+#include "texture_imports.hpp"
 #include "tile_map_editor.hpp"
 #include "tile_set_editor.hpp"
 #include <chrono>
@@ -54,6 +56,8 @@ int main(int argc, char** argv) {
         forge::ui::ContextScope scope(context);
         forge::PrefabEditor prefab;
         forge::AudioImportEditor audio(worker);
+        forge::TextureImportEditor textures(worker);
+        forge::SpriteAtlasEditor atlas(worker);
         forge::MaterialEditor material;
         forge::MaterialGraphEditor graph(
             worker, [] { return forge::asset_detail::ShaderCompilerProfile{}; });
@@ -83,6 +87,7 @@ int main(int argc, char** argv) {
         bind("particle_effect", particles);
         bind("terrain", terrain);
         bind("tile_set", tiles);
+        bind("sprite_atlas", atlas);
         bind("tile_map", map);
         bind("animation_states", states);
         bind("animation_blend_space", blend);
@@ -93,6 +98,11 @@ int main(int argc, char** argv) {
         audio_entry.dirty = [&] { return audio.dirty(); };
         audio_entry.importer = forge::ImportDocumentAutomation::bind(audio, files.document);
         documents.add(std::move(audio_entry));
+        forge::ui::WorkspaceDocument texture_entry;
+        texture_entry.id = texture_entry.title = "texture_import";
+        texture_entry.dirty = [&] { return textures.dirty(); };
+        texture_entry.importer = forge::ImportDocumentAutomation::bind(textures, files.document);
+        documents.add(std::move(texture_entry));
         if (publication) {
             test_source_publication(documents, files.document);
             test_import_publication(documents, files.document, audio);
@@ -148,6 +158,12 @@ int main(int argc, char** argv) {
             files.changed = false;
             workspace.pump(files.document, "");
             audio.poll(files.document, files.status);
+            textures.poll(files.document, files.status);
+            atlas.poll(files.document, files.status);
+            if (auto catalog = textures.take_catalog())
+                imports.catalog_changed(std::move(catalog));
+            if (auto catalog = atlas.take_catalog())
+                imports.catalog_changed(std::move(catalog));
             material.poll(files.document, files.status);
             collision.poll(files.document, files.status);
             mesh.poll(files.document, files.status);
@@ -168,6 +184,8 @@ int main(int argc, char** argv) {
             // graph compilation remains a separate platform acceptance boundary.
             ImGui::NewFrame();
             audio.draw(files.document, false);
+            textures.draw(files.document, false);
+            atlas.draw(files.document, false);
             material.draw(files.document, false);
             collision.draw(files.document, false);
             mesh.draw(files.document, false);

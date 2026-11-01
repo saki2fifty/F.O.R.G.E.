@@ -5,6 +5,6 @@ target_link_libraries(forge_texture_formats PUBLIC forge_texture Diligent-BuildS
 target_link_libraries(forge_texture_formats PRIVATE Diligent-GraphicsTools)
 if(BUILD_TESTING)
  add_executable(forge_sprite_mip_pixel_tests tests/sprite_mip_pixel_tests.cpp)
- target_link_libraries(forge_sprite_mip_pixel_tests PRIVATE forge_texture_formats forge_texture_resources)
+ target_link_libraries(forge_sprite_mip_pixel_tests PRIVATE forge_texture_formats forge_texture_resources forge_core)
  add_test(NAME sprite_mip_pixels COMMAND forge_sprite_mip_pixel_tests)
 endif()

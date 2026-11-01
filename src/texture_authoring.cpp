@@ -1,4 +1,5 @@
 #include "texture_authoring.hpp"
+#include "sprite_atlas_importer.hpp"
 #include "texture_importer.hpp"
 namespace forge {
 std::shared_ptr<const AssetImporterRegistry>
@@ -6,6 +7,7 @@ texture_import_registry(const std::filesystem::path& worker) {
     auto registry = std::make_shared<AssetImporterRegistry>();
     registry->add(asset_detail::texture_importer(worker, false));
     registry->add(asset_detail::texture_importer(worker, true));
+    registry->add(asset_detail::sprite_atlas_importer(worker));
     registry->seal();
     return registry;
 }
@@ -17,6 +19,10 @@ ImportTarget desktop_texture_target() {
 #endif
 }
 void prepare_texture_publication(AssetPublicationCandidate& c, const AssetImportPlan& plan) {
+    if (plan.input.importer == asset_detail::sprite_atlas_importer_id) {
+        prepare_sprite_atlas_publication(c, plan);
+        return;
+    }
     if (plan.input.output_format != "forge.texture-bundle" || !c.sidecar.identity.entries.empty())
         throw std::runtime_error("Texture publication cannot replace another asset family");
     auto& identity = c.sidecar.identity;

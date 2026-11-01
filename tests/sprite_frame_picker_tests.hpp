@@ -35,6 +35,7 @@ inline void exercise(float scale, ImVec2 display = {1920, 1200}) {
     revision.revision = std::string(64, 'a');
     bool ready = true, draw_field = true, disabled = false;
     std::array<float, 4> crop{};
+    std::vector<SpriteFrameEntry> texture_frames;
     static int texture_marker;
     const auto image = reinterpret_cast<ImTextureID>(&texture_marker);
     picker.image_source = [&](auto) {
@@ -47,6 +48,7 @@ inline void exercise(float scale, ImVec2 display = {1920, 1200}) {
         result.width = image_width;
         result.height = image_height;
         result.revision = revision;
+        result.sprite_frames = texture_frames;
         result.render = [&](unsigned w, unsigned h, std::array<float, 4> region) {
             check(w > 0 && h > 0 && w <= 2048 && h <= 2048, "Picker exceeded preview bounds");
             check(region[0] >= 0 && region[1] >= 0 && region[2] <= 1 && region[3] <= 1 &&
@@ -262,6 +264,35 @@ inline void exercise(float scale, ImVec2 display = {1920, 1200}) {
               value == 2,
           "Huge frame grid emitted a widget/rectangle for every cell");
     click("sprite:cancel-frame");
+    context.grid = {};
+    context.texture_frames = true;
+    image_width = 64;
+    image_height = 16;
+    texture_frames = {{7, {0, 0, 16, 16}}, {UINT32_MAX, {32, 0, 16, 16}}};
+    const auto before_texture_frames = changes;
+    value = 7;
+    click("sprite:choose-frame");
+    key(ImGuiKey_End);
+    check(value == 7, "Texture frame navigation published before confirmation");
+    key(ImGuiKey_Enter);
+    check(value == UINT32_MAX && changes == before_texture_frames + 1 && !picker.open(),
+          "Texture frame picker returned a physical slot instead of its stable key");
+    click("sprite:choose-frame");
+    key(ImGuiKey_LeftArrow);
+    key(ImGuiKey_Escape);
+    check(value == UINT32_MAX && changes == before_texture_frames + 1,
+          "Cancelling Texture frame selection changed the authored key");
+    value = 99;
+    click("sprite:choose-frame");
+    check(box("sprite:use-frame").enabled && value == 99,
+          "Missing frame key prevented explicit repair or was silently retargeted");
+    key(ImGuiKey_Enter);
+    check(value == 7 && changes == before_texture_frames + 2,
+          "Explicit missing-key repair did not publish the chosen stable key");
+    click("sprite:choose-frame");
+    revision.revision = std::string(64, 'f');
+    frame();
+    check(!picker.open() && value == 7, "Texture mapping revision changed under an open picker");
     test::observe_ui = false;
     test::ui_targets.clear();
     ImGui::DestroyContext();

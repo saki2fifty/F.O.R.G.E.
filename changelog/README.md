@@ -1,6 +1,6 @@
 # Changelog
 
-- [2026-11-01](20261101/README.md) — Bounded camera-driven Tile chunk residency, compact logical Maps, shared Scene/Game pages, Gallery126 and updated resource/loading guides. Local source; Windows verification and delivery pending.
+- [2026-11-01](20261101/README.md) — Source-aware Sprite atlases with stable frame keys/Gallery127 and camera-driven Tile chunk residency/Gallery126, shared editor/MCP workflows and illustrated guides. Local source; Windows verification and delivery pending.
 
 - [2026-10-31](20261031/README.md) — Light images/Gallery117, spatially selected shared projectors/Gallery116, compatible Shader transport and illustrated manual. Local source; Windows verification and delivery pending.
 

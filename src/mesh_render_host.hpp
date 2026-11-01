@@ -186,7 +186,7 @@ class MeshSceneRenderer {
         SpriteRenderer requested, admitted;
         SpriteDrawValues draw;
         // Derived only from the successfully admitted immutable selection.
-        std::uint32_t texture_width = 0, texture_height = 0;
+        std::uint32_t texture_width = 0, texture_height = 0, frame_slot = 0;
         bool checked = false, ready = false;
         bool mip_pending = false;
         std::shared_ptr<SpriteMipBank> mip_candidate, mips;

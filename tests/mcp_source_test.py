@@ -12,6 +12,7 @@ from mcp_test_client import CAPTURE, Client, failed, write_capture, finish_host
 
 TOOLS, HOST, WORKER = map(str, map(Path, sys.argv[1:4]))
 COLLISION_ONLY = "--tile-collision-only" in sys.argv[5:]
+ATLAS_ONLY = "--atlas-only" in sys.argv[5:]
 
 
 @contextmanager
@@ -70,7 +71,7 @@ for legacy in (False, True):
                         document_session=state['session'])['value']
 
         kinds = read('forge_asset_document_types')['editors']
-        assert len(kinds) == 12 and all(not item['status']['open'] for item in kinds), kinds
+        assert len(kinds) == 13 and all(not item['status']['open'] for item in kinds), kinds
         graph_types = read('forge_asset_graph_catalog')['nodes']
         assert len(graph_types) > 10
         assert read('forge_asset_graph_node', schema='constant')['outputs']
@@ -78,6 +79,29 @@ for legacy in (False, True):
         kinds.sort(key=lambda item: item['editor'] == 'tile_map')
         if COLLISION_ONLY:
             kinds = [kind for kind in kinds if kind['editor'] in ('tile_set', 'tile_map')]
+        if ATLAS_ONLY:
+            kinds = [kind for kind in kinds if kind['editor'] == 'sprite_atlas']
+        atlas_image = None
+        if not COLLISION_ONLY:
+            # Original owned raster, imported only through the advertised MCP
+            # settings/publication workflow; no catalog fixture injection.
+            header = bytearray(18)
+            header[2] = 2; header[12] = 2; header[14] = 2
+            header[16] = 24; header[17] = 32
+            (root / 'Game/Assets/AtlasInput.tga').write_bytes(header + bytes([23, 12, 211]) * 4)
+            assert mutate('forge_asset_settings_open', editor='texture_import', path='Assets/AtlasInput.tga')['ok']
+            selected = read('forge_asset_settings_status', editor='texture_import')
+            assert mutate('forge_asset_settings_publish', editor='texture_import', session=selected['session'], state=selected['state'])['ok']
+            deadline = time.monotonic() + 20
+            while True:
+                selected = read('forge_asset_settings_status', editor='texture_import')
+                if not selected['job']:
+                    break
+                assert time.monotonic() < deadline, selected
+                time.sleep(.02)
+            assert not selected['dirty'] and not selected['diagnostic'], selected
+            atlas_image = selected['asset']
+            assert mutate('forge_asset_settings_close', editor='texture_import', session=selected['session'], state=selected['state'])['ok']
         image_material = '00000000-0000-4000-8000-000000000021'
         def save_published(owner):
             result = edit('forge_asset_document_save', owner)
@@ -107,7 +131,7 @@ for legacy in (False, True):
         set_id = None
         for kind in kinds:
             owner = kind['editor']
-            extra = dict(tile_set=set_id) if owner == 'tile_map' else {}
+            extra = dict(tile_set=set_id) if owner == 'tile_map' else dict(textures=[atlas_image]) if owner == 'sprite_atlas' else {}
             template = read('forge_asset_document_template', editor=owner, **extra)
             assert isinstance(template, dict) and template['asset_id']
             path = 'Assets/MCP-' + owner.replace('.', '-') + kind['suffix']
@@ -144,6 +168,16 @@ for legacy in (False, True):
             assert not invalid['ok'], invalid
             assert content(owner) == snapshot and status(owner)['revision'] == current['revision']
             failed(edit('forge_asset_document_close', owner), 'unsaved_document')
+            if owner == 'sprite_atlas':
+                result = edit('forge_asset_document_patch', owner, patch=[
+                    dict(op='replace', path='/frames/0/id', value=2**32 - 1),
+                    dict(op='replace', path='/next_id', value=2**32)])
+                assert result['ok'], result
+                assert content(owner)['frames'][0]['id'] == 2**32 - 1
+                assert edit('forge_asset_document_undo', owner)['ok']
+                assert content(owner)['frames'][0]['id'] == 0 and content(owner)['next_id'] == 2**32
+                assert edit('forge_asset_document_redo', owner)['ok']
+                assert content(owner)['frames'][0]['id'] == 2**32 - 1
             if owner == 'tile_set':
                 original = content(owner)
                 tile = 2**64 - 2
@@ -421,7 +455,7 @@ for legacy in (False, True):
                             document_session=status(owner)['session'], cells=query)['cells'][0]['tile'] == 0
             # The fixture has no shader renderer/profile; graph compilation is not claimed.
             if owner in ('material', 'collision', 'editable_mesh', 'particle_effect', 'terrain',
-                         'tile_set', 'animation_timeline'):
+                         'tile_set', 'sprite_atlas', 'animation_timeline'):
                 result = edit('forge_asset_document_save', owner)
                 assert result['ok'], result
                 end = time.monotonic() + 35
@@ -466,7 +500,7 @@ for legacy in (False, True):
             assert status(owner)['session'] != initial['session']
             failed(mutate('forge_asset_document_patch', editor=owner,
                           document_session=initial['session'], document_revision=1, patch=patch), 'wrong_document')
-            if owner in ('particle_effect', 'terrain', 'tile_set'):
+            if owner in ('particle_effect', 'terrain', 'tile_set', 'sprite_atlas'):
                 assert not status(owner)['dirty']
                 assert edit('forge_asset_document_patch', owner, patch=[dict(op='replace', path='/' + key,
                             value=before.get(key, 'temporary'))])['ok']
@@ -475,7 +509,7 @@ for legacy in (False, True):
                 assert not status(owner)['dirty']  # Same saved-state semantics as interactive editing.
             assert edit('forge_asset_document_close', owner, discard=True)['ok']
 
-        if COLLISION_ONLY:
+        if COLLISION_ONLY or ATLAS_ONLY:
             continue
 
         # Typed importer settings use the shared draft, schema and native worker.

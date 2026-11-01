@@ -1,4 +1,5 @@
 #pragma once
+#include "../sprite_frame_selection.hpp"
 #include "sprite_atlas_frames.hpp"
 #include "sprite_frame_context.hpp"
 #include "sprite_sheet_layout.hpp"
@@ -15,6 +16,9 @@ struct SpriteSheetImage {
     std::string status;
     std::function<ImTextureID(unsigned, unsigned, std::array<float, 4>)> render;
     std::function<void()> retry;
+    // Borrowed from the same preview Texture lease as revision/render, for this
+    // UI submission only. The chooser never stores this span across frames.
+    std::span<const SpriteFrameEntry> sprite_frames;
     bool ready() const { return width && height && revision && bool(render); }
 };
 // One transient chooser. Call begin_frame/after_ui around its ordinary field
@@ -112,6 +116,8 @@ class SpriteFramePicker {
             grid_ = grid_key(context.grid);
             crop_ = context.crop;
             frame_regions_ = context.frame_regions;
+            texture_frames_ = context.texture_frames;
+            frame_slot_initialized_ = false;
             pending_ = value;
             view_ = {};
             image_revision_.reset();
@@ -145,7 +151,7 @@ class SpriteFramePicker {
         bool chosen = false;
         if (owner_ != context.owner || material_ != context.material ||
             grid_ != grid_key(context.grid) || crop_ != context.crop ||
-            frame_regions_ != context.frame_regions) {
+            frame_regions_ != context.frame_regions || texture_frames_ != context.texture_frames) {
 #ifdef FORGE_UI_FIXTURE
             close_reason_ = "owner, material, grid or region changed";
 #endif
@@ -222,7 +228,8 @@ class SpriteFramePicker {
                  float((std::uint64_t(selected.y) + selected.height - starts[1]) * scales[1])},
             IM_COL32(255, 190, 65, 255), 0, 0, 2 * interface_scale);
     }
-    bool contents(const SpriteFrameContext& context, std::uint32_t& value) {
+    bool contents(const SpriteFrameContext& requested, std::uint32_t& value) {
+        auto context = requested;
         SpriteSheetImage source;
         try {
             if (image_source)
@@ -249,6 +256,27 @@ class SpriteFramePicker {
             }
             image_revision_ = source.revision;
             try {
+                if (context.texture_frames) {
+                    if (source.sprite_frames.empty() ||
+                        source.sprite_frames.size() > sprite_frame_region_limit)
+                        throw std::invalid_argument("Texture frames need a published Sprite atlas");
+                    if (grid_key(context.grid) != grid_key(SpriteGridLayout{}) || context.crop ||
+                        !context.frame_regions.empty())
+                        throw std::invalid_argument(
+                            "Texture frames require default grid, crop and frame regions");
+                    if (!frame_slot_initialized_) {
+                        try {
+                            pending_ = sprite_frame_key_slot(source.sprite_frames, value);
+                        } catch (const std::invalid_argument&) {
+                            pending_ = 0;
+                            message_ =
+                                "The current frame key is missing. Choose a replacement or Cancel.";
+                        }
+                        frame_slot_initialized_ = true;
+                    }
+                    for (const auto& entry : source.sprite_frames)
+                        context.frame_regions.push_back(entry.region);
+                }
                 first = sprite_frame_region(source.width, source.height, context.grid, 0,
                                             context.crop, context.frame_regions);
                 last = std::min<std::uint64_t>(
@@ -264,9 +292,15 @@ class SpriteFramePicker {
                 const auto selected =
                     sprite_frame_region(source.width, source.height, context.grid, pending_,
                                         context.crop, context.frame_regions);
-                ImGui::TextDisabled("Image: %u x %u pixels | Frame %u: %u x %u pixels",
-                                    source.width, source.height, pending_, selected.width,
-                                    selected.height);
+                if (requested.texture_frames)
+                    ImGui::TextDisabled("Image: %u x %u pixels | Frame key %u: %u x %u pixels",
+                                        source.width, source.height,
+                                        source.sprite_frames[pending_].id, selected.width,
+                                        selected.height);
+                else
+                    ImGui::TextDisabled("Image: %u x %u pixels | Frame %u: %u x %u pixels",
+                                        source.width, source.height, pending_, selected.width,
+                                        selected.height);
                 const auto& frame = context.frame_regions.at(pending_);
                 const auto canvas = sprite_frame_canvas(frame);
                 if (canvas.trimmed() || frame.rotated_clockwise)
@@ -410,10 +444,14 @@ class SpriteFramePicker {
                 nullptr, size.x);
             draw->PopClipRect();
         }
-        ImGui::Text(
-            "Frame %u | Row %llu | Column %llu", pending_,
-            static_cast<unsigned long long>(pending_ / std::max(1u, context.grid.columns)) + 1,
-            static_cast<unsigned long long>(pending_ % std::max(1u, context.grid.columns)) + 1);
+        if (valid && requested.texture_frames)
+            ImGui::Text("Frame key %u | Entry %u of %zu", source.sprite_frames[pending_].id,
+                        pending_ + 1, source.sprite_frames.size());
+        else
+            ImGui::Text(
+                "Frame %u | Row %llu | Column %llu", pending_,
+                static_cast<unsigned long long>(pending_ / std::max(1u, context.grid.columns)) + 1,
+                static_cast<unsigned long long>(pending_ % std::max(1u, context.grid.columns)) + 1);
         ImGui::BeginDisabled(!valid);
         choose |= button("Use frame", "Choose the highlighted frame as one ordinary edit.");
         FORGE_UI_PROBE("sprite:use-frame");
@@ -435,8 +473,10 @@ class SpriteFramePicker {
             ImGui::CloseCurrentPopup();
         }
         if (choose) {
-            const bool changed = value != pending_;
-            value = pending_;
+            const auto selected =
+                requested.texture_frames ? source.sprite_frames[pending_].id : pending_;
+            const bool changed = value != selected;
+            value = selected;
             return changed;
         }
         return false;
@@ -453,6 +493,7 @@ class SpriteFramePicker {
     std::array<std::uint32_t, 6> grid_{};
     std::optional<SpritePixelRegion> crop_;
     std::vector<SpriteFrameRegion> frame_regions_;
+    bool texture_frames_ = false, frame_slot_initialized_ = false;
     std::string paste_owner_, paste_error_;
     SpriteSheetView view_;
     std::uint32_t pending_ = 0;

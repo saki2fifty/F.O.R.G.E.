@@ -291,7 +291,8 @@ void admit_bundle(const AssetRecord& root, const CachedArtifact& artifact) {
     } else if (root.type == MeshAsset::type && format == "forge.mesh-bundle") {
         (void)asset_detail::admit_root_mesh(artifact, root);
     } else if (root.type == TextureAsset::type && format == "forge.texture-bundle")
-        (void)validate_texture_bundle(artifact.files);
+        (void)validate_texture_bundle(artifact.files, {},
+                                      texture_output_profile(root.metadata.at("forge.import")));
     else if (root.type == MaterialAsset::type && format == "forge.material-bundle")
         (void)decode_material_bundle(artifact.files, root.id);
     else if (root.type == CollisionAsset::type && format == "forge.collision-bundle") {

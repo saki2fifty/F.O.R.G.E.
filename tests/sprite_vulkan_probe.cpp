@@ -2,6 +2,7 @@
 #include "distance_fog_render_tests.hpp"
 #include "distance_fog_surface_render_tests.hpp"
 #include "sprite_atlas_precision_tests.hpp"
+#include "sprite_atlas_rebuild_render_tests.hpp"
 #include "sprite_bundle_render_tests.hpp"
 #include "sprite_frame_metadata_render_tests.hpp"
 #include "sprite_frame_mip_render_tests.hpp"
@@ -29,6 +30,12 @@ int main(int argc, char** argv) {
         if (argc == 3 && std::string_view(argv[2]) == "--surface-only") {
             forge::test_fog_surface::exercise(presentation, context, read);
             context->WaitForIdle();
+            return 0;
+        }
+        if (argc == 3 && std::string_view(argv[2]) == "--atlas-rebuild-only") {
+            forge::test_sprite_atlas_rebuild_render::exercise(presentation, context, read, argv[1]);
+            context->WaitForIdle();
+            std::cout << "Sprite atlas key/revision pixels, mips and last-good drawing passed\n";
             return 0;
         }
         forge::test_distance_fog::exercise(presentation, context, read);

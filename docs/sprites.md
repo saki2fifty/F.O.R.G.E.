@@ -275,8 +275,9 @@ allocator RSS or physical VRAM; float working buffers add temporary memory.
 Derived frame views can split consecutive instance batches. Equal source/frame
 views can share a draw; distinct views use separate draws without changing alpha
 order. Material min/mag filtering, Simple/Sliced/Tiled fill, flips, tint and logical
-geometry continue through the shared Sprite draw owner. Source packing still
-produces one ordinary PNG; changing an original source requires explicit repacking.
+geometry continue through the shared Sprite draw owner. One-shot source packing
+produces a PNG that is repacked explicitly. Persistent `.atlas.json` recipes use
+the same packer and rebuild through the ordinary asset dependency owner.
 
 The appended public component fields change the installed SDK fingerprint and
 layout. Rebuild C++ modules against the matching SDK. Existing C ABI signatures
@@ -450,9 +451,9 @@ atomically under the existing writer lease/path rules. The review seals the PNG
 bytes, ordered frame/input metadata, settings, destination and captured catalog
 digest. Rechecks before staging and before final rename reject a changed input
 catalog. No Texture ID exists until normal PNG publication allocates it. Results
-return that actual ID. This is a one-shot normal PNG source, not a new atlas asset,
-source registry, repack recipe or automatic original-source invalidation system.
-Normal future PNG reimports preserve that PNG's existing identity.
+return that actual ID. This one-shot workflow publishes an ordinary PNG. Normal
+future PNG reimports preserve its existing identity. The persistent recipe workflow
+below keeps original-image dependencies separately from this generated-source review.
 
 The native review displays a wire layout and ordered source table, including
 logical canvas/offset/turn details for transformed entries. A bounded128KiB
@@ -470,3 +471,76 @@ Original Gallery94 contains the generated PNG, ordinary Sprite Material and
 five Sprite comparisons. No C++ compiler or new SDK/ABI value is needed. The
 installed SpriteRenderer/SpriteFrameRegion APIs already consume these values.
 Local source validation is separate from Windows/full Main/physical acceptance.
+
+## Persistent atlas recipes and stable Texture frame keys
+
+`SpriteAtlasRecipe` is the authored `.atlas.json` source for one ordinary Texture
+AssetId. Its version1 document owns `asset_id`, packing `settings`, ordered
+`frames` rows (`id`, `texture`) and `next_id`. Inputs are1–512 distinct published
+independent Color Texture references; model-owned members, compressed/HDR and
+premultiplied inputs are rejected. The shared original packing owner handles
+padding, extrusion, alpha-zero trimming and clockwise storage. Current limits are
+4096 output pixels per side and64MiB decoded input pixels, including admitted
+source mip payloads; only base pixels enter packing. Source JSON is bounded to
+2MiB,20000 nodes and depth16. Opaque root/frame metadata survives edits.
+
+Frame IDs are local uint32 keys scoped to that Texture. Allocation is monotonic;
+`next_id` can reach2^32 to represent exhaustion. Removal does not reuse a key,
+replacement keeps it, and reordering changes no key. Source document Undo/Redo
+preserves the allocation highwater. Publication is separate from source history.
+Duplicate allocates a fresh Texture UUID while preserving local keys and external
+image references; Move preserves the UUID and requires the full `.atlas.json`
+suffix. Reference inspection understands input Texture fields and reports opaque
+extension data without guessing references from UUID-shaped strings.
+
+The `forge.texture.atlas` importer captures the current selected Texture revisions
+and pure admitted pixels. Its Build edges use the existing dependency graph;
+`AssetReimportService` orders input publication before atlas rebuilding and applies
+the shared dirty-document guard. No additional watcher or source database exists.
+The fixed supervised worker reuses the original packer and returns a Texture
+bundle. Parent admission binds its dimensions and keyed regions to the captured
+recipe/layout, while publication rechecks source/catalog/dependency revisions.
+Stale work, cancellation, missing inputs and failed candidates keep the last
+complete publication. Nested frame metadata is cleared from detached input
+snapshots: an input contributes its whole image rather than another frame table.
+
+These publications require `forge.texture-bundle` output profile2. The bundle
+index retains its existing envelope; the cooked Texture carries optional bounded,
+sorted key/region metadata with its pixels. Ordinary profile1 textures retain no
+frame table and their existing encoding. Admission rejects frame metadata under
+profile1 and missing metadata under profile2. Both resource selection and runtime
+packaging validate this required profile. Build-only original inputs are excluded
+from the runtime package; the atlas is self-contained.
+
+`SpriteRenderer.texture_frames` is explicit and defaults to false, including
+legacy native/reflected Scene data. In this mode `frame` is a stable key; grid,
+crop and `frame_regions` must remain at defaults. The same immutable strong Texture
+lease supplies frame placement, dimensions, pixels and GPU selection. A binary
+key lookup derives a bounded physical slot for draw/mip use; authored keys are
+never replaced by slot numbers or interpreted as enumeration counts. Raw grid,
+crop, frame-region and explicit Tile Set workflows keep their existing semantics.
+
+Draw mapping reuses the shared trim/turn/fill and material admission owners.
+Frame-local mip planning resolves at most512 entries from the same source revision,
+shares the existing derived-resource pool, and admits pixels, placement, pose and
+bindings together. Missing keys or failed replacements diagnose and retain a
+previous complete draw. Discrete frame animation holds exact uint32 keys without
+interpolating across gaps. The picker uses the same selected Texture metadata,
+confirms a key through the caller's ordinary edit, and closes on image revision
+change. Inspector, prefab, live gameplay and copied runtime paths use the same
+component and owner validation. Updated public value layouts require rebuilding
+C++ modules with the matching exact SDK; C host-table signatures remain unchanged.
+
+Content exposes **New Sprite atlas...** and the recipe editor through the existing
+DocumentWorkspace. Source create/open/patch/history/save/close operations are
+available through shared automation and MCP; atlas templates/creation require
+`textures`. Session/revision, asset-write grants, source leases, Undo, busy/Play
+locks and baseline checks remain with their existing owners. No agent-only draft
+or alternative publication path is used.
+
+Gallery127 contains one recipe, one Material, a held Clip and six Sprites using
+keys7,41,99 and all three mip modes. Focused source/codec/pipeline, native UI and
+MCP checks cover the new path. The actual software Vulkan Scene/Game regression
+checks eight exact authored/relocated source-free display pairs, retained redraw,
+logical picking/framing and looping animation. Physical Windows/hardware review
+remains separate; these checks establish no hardware performance result.

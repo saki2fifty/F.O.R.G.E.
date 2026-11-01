@@ -71,6 +71,7 @@ std::string source_kind(const std::filesystem::path& path) {
              {".mesh.json", "editable_mesh"},
              {".terrain.json", "terrain"},
              {".tileset.json", "tile_set"},
+             {".atlas.json", "sprite_atlas"},
              {".tilemap.json", "tile_map"},
              {".animation.json", "transform_animation"},
              {".particles.json", "particle_effect"},

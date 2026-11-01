@@ -4,6 +4,7 @@
 #include "asset_storage.hpp"
 #include "bounded_json.hpp"
 #include "prefab_references.hpp"
+#include "sprite_atlas_recipe.hpp"
 #include "tile_asset_types.hpp"
 #include "tile_map_source.hpp"
 #include "tile_set_source.hpp"
@@ -223,6 +224,18 @@ struct Inspect {
                     key != "members" && key != "revision" && key != "root" && key != "legacy_ids" &&
                     key != "rendering" && !(prefab && key == "dependencies"))
                     unknown(key);
+            }
+        } else if (doc.value("format", std::string{}) == "forge.sprite-atlas") {
+            SpriteAtlasRecipe{doc}.validate();
+            opaque_fields(doc, {"format", "version", "asset_id", "next_id", "settings", "frames"});
+            // Packing settings contain no references; preserve/report extension
+            // values without interpreting UUID-shaped text as an asset link.
+            for (std::size_t i = 0; i < doc.at("frames").size(); ++i) {
+                const auto& row = doc.at("frames")[i];
+                const auto path = "frames." + std::to_string(i);
+                reference(row.at("texture"), path + ".texture", "Sprite atlas input image",
+                          TextureAsset::type);
+                opaque_fields(row, {"id", "texture"}, path);
             }
         } else if (doc.value("format", std::string{}) == "forge.tile-set") {
             TileSetSource{doc}.validate();
@@ -472,8 +485,9 @@ AssetReferenceImpact scan_asset_references(const std::filesystem::path& project,
                 asset_detail::parse_bounded_json(std::as_bytes(std::span(*data)), 64 * 1024 * 1024);
         } catch (const std::exception&) {
             if (file.source_kind == "tile_set" || file.source_kind == "tile_map" ||
-                file.source_kind == "scene" || file.source_kind == "prefab" ||
-                file.source_kind == "material" || path == "forge.project.json")
+                file.source_kind == "sprite_atlas" || file.source_kind == "scene" ||
+                file.source_kind == "prefab" || file.source_kind == "material" ||
+                path == "forge.project.json")
                 throw std::runtime_error("Authored reference source cannot be parsed: " +
                                          path_utf8(path));
             inspector.source = path;

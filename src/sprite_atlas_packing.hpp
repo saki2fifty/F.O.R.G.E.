@@ -18,7 +18,7 @@ struct SpriteAtlasPacking {
 };
 struct SpriteAtlasLayout {
     unsigned width = 0, height = 0;
-    // Input order defines frame numbers; packing order is independent.
+    // Regions follow input order; packing order is independent.
     std::vector<SpriteFrameRegion> frames;
     bool operator==(const SpriteAtlasLayout&) const = default;
 };

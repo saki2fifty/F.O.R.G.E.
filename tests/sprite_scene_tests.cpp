@@ -14,6 +14,87 @@ void check(bool value, const char* why) {
     if (!value)
         throw std::runtime_error(why);
 }
+void texture_frame_authoring(const std::filesystem::path& root) {
+    EngineContext engine;
+    Scene scene(engine.world());
+    const auto actor = authoring_command(scene, "entity.create", {{"recipe", "render.sprite"}})
+                           .at("selected")
+                           .get<std::string>();
+    const auto before = scene.document();
+    authoring_command(scene, "property.set_many",
+                      {{"entity", actor},
+                       {"component", "forge.sprite_renderer"},
+                       {"values", {{"texture_frames", true}, {"frame", UINT32_MAX}}}});
+    const auto authored = scene.document();
+    check(scene.entity(actor).get<SpriteRenderer>().texture_frames &&
+              scene.entity(actor).get<SpriteRenderer>().frame == UINT32_MAX && scene.undo() &&
+              scene.document() == before && scene.redo() && scene.document() == authored,
+          "Texture frame opt-in/key did not use atomic Scene history");
+    const auto path = root / "TextureFrames.scene.json";
+    scene.save(path);
+    Scene reopened(engine.world());
+    reopened.load(path);
+    check(reopened.document() == authored &&
+              reopened.entity(actor).get<SpriteRenderer>().texture_frames &&
+              reopened.entity(actor).get<SpriteRenderer>().frame == UINT32_MAX,
+          "Texture frame opt-in/maximum key did not survive Scene reopen");
+
+    const auto member = PrefabMemberId::generate();
+    const PrefabDocument prefab(
+        {{"format", "forge.prefab"},
+         {"version", 2},
+         {"asset_id", AssetId::generate()},
+         {"revision", 1u},
+         {"root", member},
+         {"members", Json::array({{{"id", member},
+                                   {"name", "Atlas Sprite"},
+                                   {"components", authored["entities"][0]["components"]}}})}});
+    Scene instance(engine.world());
+    instance.set_prefab_sources({{prefab.asset(), prefab.source}});
+    const auto instance_actor = instantiate_prefab(instance, prefab.asset());
+    const auto inherited = instance.document();
+    check(instance.entity(instance_actor).get<SpriteRenderer>().texture_frames &&
+              instance.entity(instance_actor).get<SpriteRenderer>().frame == UINT32_MAX,
+          "Prefab inheritance lost Texture frame mode or sparse maximum key");
+    authoring_command(instance, "property.set",
+                      {{"entity", instance_actor},
+                       {"component", "forge.sprite_renderer"},
+                       {"field", "frame"},
+                       {"value", 7}});
+    check(instance.entity(instance_actor).get<SpriteRenderer>().frame == 7 &&
+              instance.prefab_sources().at(prefab.asset()) == prefab.source && instance.undo() &&
+              instance.document() == inherited &&
+              instance.entity(instance_actor).get<SpriteRenderer>().frame == UINT32_MAX,
+          "Texture frame prefab override/Undo changed published source or inherited key");
+
+    EngineContext runtime_engine(WorldRole::Runtime);
+    Scene runtime(runtime_engine.world());
+    runtime.restore_snapshot(authored);
+    runtime.tune_runtime_property(actor, "forge.sprite_renderer", "frame", 7);
+    const auto live = runtime.entity(actor).get<SpriteRenderer>();
+    check(live.texture_frames && live.frame == 7 && scene.document() == authored && !runtime.undo(),
+          "Live stable frame key changed authored Scene or lost Texture mode");
+    for (const auto& [field, value] :
+         std::vector<std::pair<std::string, Json>>{{"texture_frames", false},
+                                                   {"frame", std::uint64_t(1) << 32},
+                                                   {"frame", -1},
+                                                   {"frame", .5},
+                                                   {"region_x", 1}}) {
+        bool rejected = false;
+        try {
+            runtime.tune_runtime_property(actor, "forge.sprite_renderer", field, value);
+        } catch (const std::exception&) {
+            rejected = true;
+        }
+        check(rejected && runtime.entity(actor).get<SpriteRenderer>() == live,
+              "Invalid live Texture frame edit partially changed runtime values");
+    }
+    runtime.restore_snapshot(authored);
+    check(runtime.entity(actor).get<SpriteRenderer>().frame == UINT32_MAX &&
+              runtime.entity(actor).get<SpriteRenderer>().texture_frames &&
+              scene.document() == authored,
+          "Fresh Play retained temporary Texture frame key");
+}
 void frame_draw_metadata() {
     SpriteRenderer sprite;
     sprite.width = 4;
@@ -275,6 +356,7 @@ int main(int argc, char** argv) {
         const std::filesystem::path root(argv[1]);
         std::filesystem::create_directories(root);
         test_sprite_frame_banks(root);
+        texture_frame_authoring(root);
         frame_draw_metadata();
         EngineContext engine;
         Scene scene(engine.world());

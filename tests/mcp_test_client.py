@@ -17,8 +17,11 @@ CAPTURE = []
 def write_capture(path):
     """Stream compact evidence; large schema catalogs need no uncompressed copy."""
     path = Path(path)
+    # Preserve every wire message; favor capture speed over maximum compression.
+    # Large source workflows can emit several GiB of repeated discovery JSON.
+    options = dict(compresslevel=1) if path.suffix == '.gz' else {}
     opener = gzip.open if path.suffix == '.gz' else open
-    with opener(path, 'wt', encoding='utf-8') as output:
+    with opener(path, 'wt', encoding='utf-8', **options) as output:
         json.dump(CAPTURE, output, separators=(',', ':'))
         output.write('\n')
 
