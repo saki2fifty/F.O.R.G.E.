@@ -353,7 +353,8 @@ AssetResolution AssetCatalog::resolve(AssetId id, const std::string& expected_ty
                         "Prefab identity/schema does not match metadata"};
         } else if (record.schema_version != 1 &&
                    !(record.type == NavMeshAsset::type &&
-                     (record.schema_version == 2 || record.schema_version == 3)) &&
+                     (record.schema_version == 2 || record.schema_version == 3 ||
+                      record.schema_version == 4)) &&
                    !(record.type == TileSetAsset::type && record.schema_version >= 2 &&
                      record.schema_version <= tile_set_source_version)) {
             return {AssetState::Incompatible, record, "Unsupported asset metadata schema"};

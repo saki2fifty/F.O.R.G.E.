@@ -1,5 +1,25 @@
 # 2026-11-01
 
+## Moving navigation obstacles
+
+Navigation Obstacle adds an authored cylinder in 3D or circle in XY. An explicit
+**Dynamic obstacles** bake profile lets agents reroute as objects move, disable
+or disappear. Each query owns its derived tiles; shared published geometry stays
+immutable. Existing static navigation assets and default bake settings retain
+their formats and identities. Rebuilding a profile retains its logical asset ID.
+
+Inspector, Scene/prefab persistence, history and automation/MCP use the existing
+component and navigation owners. Gallery 129 and 130 contain original animated
+examples, ready baked navigation and source-free export content. The manual
+includes the controls, steps and finite limits. Public C++ headers change, so
+modules must rebuild against the matching SDK; the C host table and dependency
+pins are unchanged.
+
+The profile supports eight enabled obstacles, eight touched layers per obstacle,
+64 layers total and circular upright transforms. It does not add collision or
+rebake moving source geometry. Windows, full editor and physical GPU acceptance
+remain pending; this local batch does not produce a numbered Windows package.
+
 ## Source-aware Sprite atlases
 
 An authored `.atlas.json` source now selects published images and packing settings

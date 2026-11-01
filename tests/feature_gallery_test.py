@@ -20,6 +20,8 @@ for row in assets:
 for source, cooked in (('Assets/Shape.mesh.json', 'mesh.bin'),
                        ('Assets/Physics2D/Solid.material.json', 'material.values'),
                        ('Assets/Physics2D/Platform.animation.json', 'animation.clip'),
+                       ('Assets/Navigation/MovingObstacle3D.animation.json', 'animation.clip'),
+                       ('Assets/Navigation/MovingObstacleXY.animation.json', 'animation.clip'),
                        ('Assets/Tiles/Directions.tileset.json', 'tileset.bin'),
                        ('Assets/Tiles/AnimatedDirections.tileset.json', 'tileset.bin'),
                        ('Assets/Tiles/AnimatedDirections.tilemap.json', 'tilemap.bin'),
@@ -110,6 +112,24 @@ assert len(residency_cameras) == 1
 assert residency_cameras[0]['forge.primitive']['kind'] == 4
 assert residency_cameras[0]['forge.transform_animator']['clip'] == \
     by_source['Assets/Tiles/ChunkResidencyCamera.animation.json']['id']
+
+for plane, source in enumerate(('Scenes/129-moving-navigation-3d.scene.json',
+                                'Scenes/130-moving-navigation-xy.scene.json')):
+    moving = json.loads((project_root / source).read_text(encoding='utf-8'))
+    assert moving['asset_id'] == by_source[source]['id']
+    blockers = [row['components'] for row in moving['entities']
+                if 'forge.navigation_obstacle' in row['components']]
+    agents = [row['components']['forge.navigation_agent'] for row in moving['entities']
+              if 'forge.navigation_agent' in row['components']]
+    assert len(blockers) == len(agents) == 1
+    assert blockers[0]['forge.navigation_obstacle'] == dict(enabled=True, radius=.5, height=1)
+    assert blockers[0]['forge.transform_animator']['enabled']
+    assert not {'forge.navigation_surface', 'forge.navigation_region_2d'} & set(blockers[0])
+    selected = next(row for row in assets if row['id'] == agents[0]['navmesh'])
+    assert selected['type'] == 'navmesh' and selected['schema_version'] == 4
+    assert selected['metadata']['geometry_version'] == (3 if plane else 2)
+    assert selected['metadata']['settings']['dynamic_obstacles'] is True
+    assert selected['metadata']['settings'].get('plane', 0) == plane
 
 glow_path = 'Scenes/128-sprite-tile-bloom.scene.json'
 glow_scene = json.loads((project_root / glow_path).read_text(encoding='utf-8'))

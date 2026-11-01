@@ -104,7 +104,8 @@ foreach(config DEBUG RELEASE MINSIZEREL RELWITHDEBINFO)
 endforeach()
 
 # Recast's documented source integration: generation, queries and velocity sampling.
-# Keep the full Crowd manager, TileCache, DebugUtils, SDL2 and demo out of FORGE.
+# Keep the full Crowd manager, DebugUtils, SDL2 and demo out of FORGE.
+# TileCache uses FORGE raw layers and an owned identity codec, with no demo codec.
 FetchContent_Declare(recast GIT_REPOSITORY https://github.com/recastnavigation/recastnavigation.git
  GIT_TAG 6dc1667f580357e8a2154c28b7867bea7e8ad3a7 SOURCE_SUBDIR forge-unused) # v1.6.0
 FetchContent_MakeAvailable(recast)
@@ -117,3 +118,9 @@ target_include_directories(forge_detour_avoidance PUBLIC "${recast_SOURCE_DIR}/D
 target_link_libraries(forge_detour_avoidance PUBLIC forge_detour)
 target_include_directories(forge_recast PUBLIC "${recast_SOURCE_DIR}/Recast/Include")
 target_include_directories(forge_detour PUBLIC "${recast_SOURCE_DIR}/Detour/Include")
+
+add_library(forge_detour_tile_cache STATIC
+ "${recast_SOURCE_DIR}/DetourTileCache/Source/DetourTileCache.cpp"
+ "${recast_SOURCE_DIR}/DetourTileCache/Source/DetourTileCacheBuilder.cpp")
+target_include_directories(forge_detour_tile_cache PUBLIC "${recast_SOURCE_DIR}/DetourTileCache/Include")
+target_link_libraries(forge_detour_tile_cache PUBLIC forge_detour)

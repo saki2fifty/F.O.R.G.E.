@@ -76,6 +76,8 @@ template <class T> Json encode(const T& p) {
                 {"obstacle", p.obstacle},
                 {"width", p.width},
                 {"height", p.height}};
+    else if constexpr (std::is_same_v<T, NavigationObstacle>)
+        return {{"enabled", p.enabled}, {"radius", p.radius}, {"height", p.height}};
     else if constexpr (std::is_same_v<T, NavigationAvoidance>)
         return {{"enabled", p.enabled}, {"horizon", p.horizon}};
     else if constexpr (std::is_same_v<T, NavigationAgent>)
@@ -360,6 +362,8 @@ template <class T> Value decode(const Json& p) {
         return T{p.at("enabled")};
     else if constexpr (std::is_same_v<T, NavigationRegion2D>)
         return T{p.at("enabled"), p.at("obstacle"), p.at("width"), p.at("height")};
+    else if constexpr (std::is_same_v<T, NavigationObstacle>)
+        return T{p.at("enabled"), p.at("radius"), p.at("height")};
     else if constexpr (std::is_same_v<T, NavigationAvoidance>)
         return T{p.at("enabled"), p.at("horizon")};
     else if constexpr (std::is_same_v<T, NavigationAgent>) {
@@ -1099,6 +1103,9 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<bool>("obstacle")
             .template member<float>("width")
             .template member<float>("height");
+    else if constexpr (std::is_same_v<T, NavigationObstacle>)
+        c.template member<bool>("enabled").template member<float>("radius").template member<float>(
+            "height");
     else if constexpr (std::is_same_v<T, NavigationAvoidance>)
         c.template member<bool>("enabled").template member<float>("horizon");
     else if constexpr (std::is_same_v<T, NavigationAgent>) {
@@ -1557,6 +1564,11 @@ const std::array<Builtin, builtin_count>& builtins() {
             "unitless", {}, {},
             [](flecs::world&
                    w) { return register_type<NavigationAgent>(w, "forge.navigation_agent"); }),
+        descriptor<NavigationObstacle>(
+            "forge.navigation_obstacle", "Moving cylinder carved into an explicitly tiled NavMesh",
+            "unitless", {}, {},
+            [](flecs::world&
+                   w) { return register_type<NavigationObstacle>(w, "forge.navigation_obstacle"); }),
         descriptor<NavigationAvoidance>(
             "forge.navigation_avoidance",
             "Predictive local steering between opted-in navigation agents", "unitless", {}, {},
@@ -1925,6 +1937,22 @@ Json registration_options(const Builtin& type, const std::string& field) {
     if (name == "forge.asset_collider" && field == "asset") {
         value["asset_type"] = CollisionAsset::type;
         value["nullable"] = true;
+    }
+    if (name == "forge.navigation_obstacle") {
+        if (field == "radius" || field == "height") {
+            value["minimum"] = double(field == "radius" ? .05f : .2f);
+            value["maximum"] = field == "radius" ? 5 : 10;
+            value["unit"] = "meters";
+            value["description"] =
+                field == "radius"
+                    ? "Local circular radius; carving adds the baked agent clearance"
+                    : "Centered upright cylinder height in3D; ignored by an XY profile";
+        } else {
+            value.erase("minimum");
+            value.erase("maximum");
+            value["description"] = "Carve the current resolved pose in a dynamic navigation "
+                                   "profile; no physics collision";
+        }
     }
     if (name == "forge.navigation_region_2d") {
         if (field == "width" || field == "height") {

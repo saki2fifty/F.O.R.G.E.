@@ -16,6 +16,12 @@ struct NavigationRegion2D {
     float width = 10, height = 10;
     bool operator==(const NavigationRegion2D&) const = default;
 };
+// Runtime-carved upright cylinder; an XY profile uses its circular footprint.
+struct NavigationObstacle {
+    bool enabled = true;
+    float radius = .5f, height = 2;
+    bool operator==(const NavigationObstacle&) const = default;
+};
 struct NavigationAgent {
     AssetRef<NavMeshAsset> navmesh;
     bool enabled = true, has_destination = false;

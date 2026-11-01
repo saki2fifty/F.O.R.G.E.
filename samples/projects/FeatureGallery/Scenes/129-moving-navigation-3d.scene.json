@@ -1,0 +1,301 @@
+{
+  "asset_id": "6ff8791b-7367-4663-9328-4142c90c379f",
+  "entities": [
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 20.0,
+          "y": 1.0,
+          "z": 20.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.navigation_surface": {
+          "enabled": true
+        },
+        "forge.primitive": {
+          "kind": 3
+        },
+        "forge.tint": {
+          "b": 0.1599999964237213,
+          "g": 0.10000000149011612,
+          "r": 0.05999999865889549
+        }
+      },
+      "id": "a3b51bc9-5ec5-42ec-bbe2-76267eead425",
+      "name": "Static navigation floor",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 2.0,
+          "y": 2.0,
+          "z": 2.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 1.0,
+          "z": 0.0
+        },
+        "forge.navigation_obstacle": {
+          "enabled": true,
+          "height": 1.0,
+          "radius": 0.5
+        },
+        "forge.primitive": {
+          "kind": 2
+        },
+        "forge.tint": {
+          "b": 0.054999999701976776,
+          "g": 0.23000000417232513,
+          "r": 1.0
+        },
+        "forge.transform_animator": {
+          "clip": "627b9309-fb30-4ace-93e8-322d6087493f",
+          "enabled": true,
+          "loop": true,
+          "play_on_start": true,
+          "playback_speed": 1.0,
+          "sequence": null,
+          "sequence_start_seconds": 0.0
+        }
+      },
+      "id": "dfac0dd5-4fe1-45a8-9442-5e37fd8a992d",
+      "name": "Animated obstacle - select Radius and Height",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -8.0,
+          "y": 0.1,
+          "z": 0.0
+        },
+        "forge.navigation_agent": {
+          "destination_x": 8.0,
+          "destination_y": 0.1,
+          "destination_z": 0.0,
+          "enabled": true,
+          "has_destination": true,
+          "navmesh": "95f6a803-97d6-4be6-8b74-e46c6f4796d2",
+          "speed": 1.7999999523162842,
+          "stopping_distance": 0.10000000149011612
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "84437266-560c-4f91-8d78-f1561c4ed09e",
+      "name": "Agent - inspect route changes during Play",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.6000000238418579,
+          "y": 0.6000000238418579,
+          "z": 0.6000000238418579
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.3,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 1
+        },
+        "forge.tint": {
+          "b": 1.0,
+          "g": 0.8500000238418579,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "2b288b8d-0008-4c8d-a0c6-8e6e7a4b5d94",
+      "name": "Agent visual",
+      "parent": "84437266-560c-4f91-8d78-f1561c4ed09e",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 0.0,
+          "background_a": 1.0,
+          "background_b": 0.029999999329447746,
+          "background_g": 0.02500000037252903,
+          "background_r": 0.019999999552965164,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 1000.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 10.0,
+          "orthographic_width": 0.0,
+          "projection": 0,
+          "vertical_fov": 1.221730476,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 0.9238795042037964,
+          "x": 0.3826834261417389,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 13.0,
+          "z": -16.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "1d1f8ce8-a7f0-4b9e-b75f-9e51305f434f",
+      "name": "Overview Camera",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.light": {
+          "basis": 0,
+          "cast_shadows": false,
+          "color_b": 1.0,
+          "color_g": 1.0,
+          "color_r": 1.0,
+          "emitter_height": 1.0,
+          "emitter_radius": 0.5,
+          "emitter_width": 1.0,
+          "enabled": true,
+          "image_height": 1.0,
+          "image_tiled": false,
+          "image_width": 1.0,
+          "inner_cone": 0.0,
+          "intensity": 1.0,
+          "kind": 0,
+          "layers": 4294967295,
+          "outer_cone": 0.7853981633974483,
+          "range": 0.0,
+          "shadow_angular_radius": 0.0,
+          "shadow_bias": 0.0010000000474974513,
+          "shadow_normal_bias": 0.019999999552965164,
+          "shadow_source_radius": 0.0,
+          "texture": null
+        },
+        "forge.local_rotation": {
+          "w": 0.9238795042037964,
+          "x": 0.3826834261417389,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 6.0,
+          "z": -5.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "b73e3b0e-a943-4ef0-af79-88104c0d102d",
+      "name": "Sunlight",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.15000000596046448,
+          "y": 0.15000000596046448,
+          "z": 0.15000000596046448
+        },
+        "forge.local_translation": {
+          "x": 8.0,
+          "y": 0.1,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 1
+        },
+        "forge.tint": {
+          "b": 0.10000000149011612,
+          "g": 0.800000011920929,
+          "r": 0.8999999761581421
+        }
+      },
+      "id": "e2ec0f32-9703-41f6-8de8-3461f165a25e",
+      "name": "Destination marker",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    }
+  ],
+  "version": 3
+}

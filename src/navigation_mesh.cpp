@@ -6,6 +6,7 @@
 #include <bit>
 #include <cmath>
 #include <cstring>
+#include <optional>
 #include <set>
 namespace forge {
 const char* nav_status_name(NavStatus status) {
@@ -188,36 +189,61 @@ nlohmann::json tile_properties(std::span<const std::byte> bytes) {
 }
 struct Mesh::Impl {
     std::unique_ptr<dtNavMesh, decltype(&dtFreeNavMesh)> mesh{dtAllocNavMesh(), dtFreeNavMesh};
+    std::optional<HeightfieldLayers> layers;
+    std::unique_ptr<TileCache> base_tiles;
     MeshSpace space = MeshSpace::Spatial3D;
     float altitude = 0; // Derived flat native Y; never a second authored position.
+    const dtNavMesh* native() const { return base_tiles ? base_tiles->mesh() : mesh.get(); }
 };
-Mesh::Mesh(std::span<const std::byte> bytes, MeshSpace space) {
-    validate_tile(bytes, space);
+Mesh::Mesh(std::span<const std::byte> bytes, MeshSpace space, bool dynamic) {
     impl_ = std::make_unique<Impl>();
     impl_->space = space;
-    require(bool(impl_->mesh), "Cannot allocate navmesh");
-    auto* data = static_cast<unsigned char*>(dtAlloc(bytes.size(), DT_ALLOC_PERM));
-    require(data, "Cannot allocate navmesh tile");
-    std::memcpy(data, bytes.data(), bytes.size());
-    const auto status = impl_->mesh->init(data, int(bytes.size()), DT_TILE_FREE_DATA);
-    if (dtStatusFailed(status)) {
-        dtFree(data);
-        throw std::runtime_error("Detour rejected admitted navmesh");
+    if (dynamic) {
+        impl_->layers = decode_layers(bytes);
+        require(impl_->layers->settings.plane == space, "Navigation layer/query plane mismatch");
+        impl_->base_tiles = std::make_unique<TileCache>(*impl_->layers);
+    } else {
+        validate_tile(bytes, space);
+        require(bool(impl_->mesh), "Cannot allocate navmesh");
+        auto* data = static_cast<unsigned char*>(dtAlloc(bytes.size(), DT_ALLOC_PERM));
+        require(data, "Cannot allocate navmesh tile");
+        std::memcpy(data, bytes.data(), bytes.size());
+        const auto status = impl_->mesh->init(data, int(bytes.size()), DT_TILE_FREE_DATA);
+        if (dtStatusFailed(status)) {
+            dtFree(data);
+            throw std::runtime_error("Detour rejected admitted navmesh");
+        }
     }
-    impl_->altitude = static_cast<const dtNavMesh*>(impl_->mesh.get())->getTile(0)->verts[1];
+    const auto* native = impl_->native();
+    bool occupied = false;
+    for (int i = 0; i < native->getMaxTiles(); ++i) {
+        const auto* tile = native->getTile(i);
+        if (tile->header && tile->header->vertCount) {
+            impl_->altitude = tile->verts[1];
+            occupied = true;
+            break;
+        }
+    }
+    require(occupied, "Navigation contains no walkable polygons");
 }
 Mesh::~Mesh() = default;
 MeshSpace Mesh::space() const { return impl_->space; }
+bool Mesh::dynamic_obstacles() const { return impl_->layers.has_value(); }
 std::vector<Double3> Mesh::triangles() const {
-    const auto* tile = static_cast<const dtNavMesh*>(impl_->mesh.get())->getTile(0);
     std::vector<Double3> out;
-    for (int i = 0; i < tile->header->polyCount; ++i) {
-        const auto& p = tile->polys[i];
-        for (unsigned j = 1; j + 1 < p.vertCount; ++j)
-            for (auto v : {p.verts[0], p.verts[j], p.verts[j + 1]}) {
-                auto* xyz = &tile->verts[v * 3];
-                out.push_back(world_coordinates(impl_->space, {xyz[0], xyz[1], xyz[2]}));
-            }
+    const auto* native = impl_->native();
+    for (int index = 0; index < native->getMaxTiles(); ++index) {
+        const auto* tile = native->getTile(index);
+        if (!tile->header)
+            continue;
+        for (int i = 0; i < tile->header->polyCount; ++i) {
+            const auto& p = tile->polys[i];
+            for (unsigned j = 1; j + 1 < p.vertCount; ++j)
+                for (auto v : {p.verts[0], p.verts[j], p.verts[j + 1]}) {
+                    auto* xyz = &tile->verts[v * 3];
+                    out.push_back(world_coordinates(impl_->space, {xyz[0], xyz[1], xyz[2]}));
+                }
+        }
     }
     return out;
 }
@@ -226,11 +252,17 @@ struct Query::Impl {
     std::unique_ptr<dtNavMeshQuery, decltype(&dtFreeNavMeshQuery)> query{dtAllocNavMeshQuery(),
                                                                          dtFreeNavMeshQuery};
     dtQueryFilter filter;
+    std::unique_ptr<TileCache> tiles;
+    std::uint64_t generation = 0;
     std::unique_ptr<dtObstacleAvoidanceQuery, decltype(&dtFreeObstacleAvoidanceQuery)> avoidance{
         nullptr, dtFreeObstacleAvoidanceQuery};
     explicit Impl(std::shared_ptr<const Mesh> value) : owner(std::move(value)) {
-        require(owner && query && dtStatusSucceed(query->init(owner->impl_->mesh.get(), 2048)),
-                "Cannot allocate nav query");
+        require(owner && query, "Cannot allocate nav query");
+        if (owner->impl_->layers)
+            tiles = std::make_unique<TileCache>(*owner->impl_->layers);
+        require(
+            dtStatusSucceed(query->init(tiles ? tiles->mesh() : owner->impl_->mesh.get(), 2048)),
+            "Cannot initialize nav query");
     }
     dtPolyRef nearest(Double3 p, float* projected) {
         p = native_coordinates(owner->space(), p);
@@ -244,7 +276,36 @@ struct Query::Impl {
 };
 Query::Query(std::shared_ptr<const Mesh> value) : impl_(std::make_unique<Impl>(std::move(value))) {}
 Query::~Query() = default;
+bool Query::obstacles(std::span<const CylinderObstacle> desired) {
+    auto& s = *impl_;
+    require(s.owner->dynamic_obstacles() || desired.empty(),
+            "Enabled navigation obstacles require an explicit dynamic-profile rebuild");
+    if (!s.owner->dynamic_obstacles())
+        return false;
+    try {
+        bool reconstructed = false;
+        if (!s.tiles) {
+            s.tiles = std::make_unique<TileCache>(*s.owner->impl_->layers);
+            require(dtStatusSucceed(s.query->init(s.tiles->mesh(), 2048)),
+                    "Cannot reconstruct navigation query");
+            reconstructed = true;
+        }
+        const bool changed = s.tiles->update(desired) || reconstructed;
+        if (changed)
+            ++s.generation;
+        return changed;
+    } catch (...) {
+        s.tiles.reset(); // A partial native derivative is never queryable.
+        throw;
+    }
+}
+std::uint64_t Query::generation() const { return impl_->generation; }
+std::uint64_t Query::tile_rebuilds() const {
+    return impl_->tiles ? impl_->tiles->rebuild_count() : 0;
+}
 NavResult Query::project(Double3 p) {
+    if (impl_->owner->dynamic_obstacles() && !impl_->tiles)
+        return result(NavStatus::Unavailable);
     if (!point(p))
         return result(NavStatus::Invalid);
     float pos[3];
@@ -255,6 +316,8 @@ NavResult Query::project(Double3 p) {
             {}};
 }
 NavResult Query::path(Double3 a, Double3 b) {
+    if (impl_->owner->dynamic_obstacles() && !impl_->tiles)
+        return result(NavStatus::Unavailable);
     if (!point(a) || !point(b))
         return result(NavStatus::Invalid);
     float start[3], end[3];
@@ -291,6 +354,8 @@ NavResult Query::path(Double3 a, Double3 b) {
     return out;
 }
 NavResult Query::move(Double3 a, Double3 b) {
+    if (impl_->owner->dynamic_obstacles() && !impl_->tiles)
+        return result(NavStatus::Unavailable);
     if (!point(a) || !point(b))
         return result(NavStatus::Invalid);
     auto native_target = native_coordinates(impl_->owner->space(), b);
@@ -323,6 +388,8 @@ NavResult Query::move(Double3 a, Double3 b) {
 NavResult Query::avoid_velocity(Double3 position, Double3 desired, Double3 previous, float speed,
                                 float radius, float horizon,
                                 std::span<const Neighbour> neighbours) {
+    if (impl_->owner->dynamic_obstacles() && !impl_->tiles)
+        return result(NavStatus::Unavailable);
     if (!point(position) || !std::isfinite(speed) || speed < 0 || speed > 20 ||
         !std::isfinite(radius) || radius < .05f || radius > 5 || !std::isfinite(horizon) ||
         horizon < .25f || horizon > 5)

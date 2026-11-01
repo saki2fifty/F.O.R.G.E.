@@ -1,5 +1,25 @@
 # Feature Gallery
 
+## Moving navigation obstacles
+
+Open **Scenes/129-moving-navigation-3d.scene.json** or
+**Scenes/130-moving-navigation-xy.scene.json** and press **Play**. The orange
+cylinder/circle moves out of the route, pauses, then crosses to the other side.
+The cyan agent updates its path and reaches the yellow destination marker.
+
+Select **Animated obstacle - select Radius and Height**. Outside Play, inspect
+**Navigation Obstacle → Enabled / Radius / Height** and the ordinary transform
+animation clip. Height affects the upright 3D cylinder; XY uses its circle and
+ignores visual depth. Entity scale changes the local dimensions. The saved
+**Navigation → Dynamic obstacles** profile includes agent-radius clearance.
+
+Enable **Scene → View → Navigation overlay** to inspect the current yellow route;
+its teal triangles are the saved base. Save/publish an edited animation clip and
+save the Scene before export. These examples contain ready navigation layers and
+selected cooked clips. No project C++ module or runtime navigation build worker
+is required. See [Navigation](../../../manual/editor/navigation.md) for shape and
+budget limits, editing, saving and exporting.
+
 ## Glow for Sprites and Tile Maps
 
 Open **Scenes/128-sprite-tile-bloom.scene.json**. The three large shapes are Sprites;
@@ -1051,7 +1071,7 @@ Open **52-navigation-avoidance** and press Play. The passing cube and sphere ste
 
 Open **51-static-mesh-navigation**. Press Play and select **Agent - inspect progress during Play** to see the route around the obstacle and its progress in Live gameplay. The floor uses the original editable **NavigationFloor.mesh.json** asset, rather than a built-in Plane. Its cooked Mesh and built NavMesh are saved with the Gallery.
 
-Stop Play before editing the floor. Rebuild the Mesh through Content, then rebuild its NavMesh through the Navigation controls. A changed selected Mesh makes the previous route stale. Static imported Model Mesh children use the same workflow; skinned/morphing characters, dynamic obstacles and crowd avoidance are unsupported. Export carries selected cooked data; it does not need the editable source or a runtime navigation build worker.
+Stop Play before editing the floor. Rebuild the Mesh through Content, then rebuild its NavMesh through the Navigation controls. A changed selected Mesh makes the previous route stale. Static imported Model Mesh children use the same workflow; skinned/morphing geometry cannot be baked. For moving footprints use129/130 and the Dynamic obstacles profile; for local agent steering use52-navigation-avoidance. Export carries selected cooked data; it does not need the editable source or a runtime navigation build worker.
 
 ## Navigation progress
 

@@ -1,5 +1,12 @@
 # Explore the Feature Gallery
 
+**129-moving-navigation-3d** and **130-moving-navigation-xy** show an orange
+animated obstacle and a cyan agent. Play to see the agent change its route as the
+obstacle leaves its way, then reach the yellow destination marker. Select the
+obstacle outside Play to inspect **Navigation Obstacle → Radius / Height** and its
+ordinary animation clip. Both Scenes have a ready **Dynamic obstacles** NavMesh
+and can be exported without a C++ module. See [Moving obstacles](../editor/navigation.md).
+
 **128-sprite-tile-bloom** shows three Sprites above a Tile Map pattern. Open
 **Tools > Scene lighting... > Bloom** and toggle **Enable bloom**. Its saved values
 are **Brightness threshold → 0.25**, **Intensity → 1.25** and **Spread → 3**.

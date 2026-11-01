@@ -219,7 +219,7 @@ this does not grant file commits, placement or imports.
 
 | Tool group | Existing owner and behavior |
 | --- | --- |
-| `forge_asset_search`, `forge_asset_read` | Borrow ContentImports' published AssetCatalog snapshot plus immutable engine assets; search pages contain at most128 records |
+| `forge_asset_search`, `forge_asset_read` | Borrow ContentImports' published AssetCatalog snapshot plus immutable engine assets; search pages contain at most 128 records |
 | `forge_asset_jobs` | Read actual reimport jobs and the current project-scoped source batch, placement and file-operation results |
 | `forge_asset_reimport` | Queue registered owners through dependency-aware AssetReimportService; blocked drafts and last-good publication rules remain intact |
 | `forge_asset_atlas_prepare` | Pack ordered published root sRGB Texture assets into a detached PNG/source review; no copy or publication yet. Reuses the import review/commit/cancel/close tools |
@@ -454,7 +454,7 @@ Discard, clears obsolete diagnostics and queued Save requests. Cancel retains th
 failed draft.
 
 `forge_document_recovery_read` reviews current/untitled snapshot availability and
-its exact content digest (bounded64MiB read). Restore/discard require that digest
+its exact content digest (bounded64 MiB read). Restore/discard require that digest
 plus the current scene target/revision/sequence. Restore retains native history /
 reset behavior and does not implicitly save the scene. These controls can bypass
 the general recovery-dialog busy state only after the file owner verifies its
@@ -475,7 +475,7 @@ response reports connection failure without adopting its result.
 On Windows, JSON stdio runs in binary mode so text translation cannot hide an
 input end marker. Both LF and CRLF input lines remain valid JSON framing.
 The existing editor caps request/response lines at1MiB/16MiB. The MCP response
-cap is34MiB because structured data is also included as text. Large scenes
+cap is34 MiB because structured data is also included as text. Large scenes
 should use paged entity queries. No large-scene latency guarantee is made.
 
 Each editor exchange has a12-second total deadline. Cancellation is processed
@@ -636,11 +636,19 @@ native disk baselines remain authoritative. Failed previews retain the prior
 successful result; they never write the Scene. This data/world-recipe facility
 is separate from C++ gameplay and has no advertised document/Scene Undo.
 
-`forge_navigation_status/build/cancel` uses NavigationTools and its bounded static
+`forge_navigation_status/build/cancel` uses NavigationTools and its bounded static/tiled
 bake worker. The native settings/profile and stale-geometry publication check
 remain authoritative. Publication is separate from Scene Undo. Settings add optional
 integer `plane`:0(default) uses3D NavigationSurface geometry;1 uses top-down XY
-NavigationRegion2D rectangles. The six numeric profile fields remain required.
+NavigationRegion2D rectangles. The six numeric profile fields remain required. Optional boolean
+`dynamic_obstacles` selects the version 4 tiled profile; omitted/false retains
+static baking. Its geometry provenance stays 2 (spatial) / 3 (XY). Create/edit
+`forge.navigation_obstacle` through the same component/property tools: enabled,
+radius(0.05–5) and height(0.2–10, 3D only). The component uses ordinary validation,
+revision-checked history, prefab/Scene persistence and saving. It has no separate
+agent-only shape store or live-tuning operation. Runtime routes observe resolved
+poses at the writable navigation boundary. See [Navigation](navigation.md) for
+upright/circular transform requirements and layer/obstacle limits.
 Create/edit regions with ordinary component/property tools, including validation,
 Undo/Redo and Scene Save. XY builds publish guarded schema3 through the same
 worker/job/status/cancel owner. One logical asset per Scene remains authoritative;
@@ -996,8 +1004,8 @@ With asset-write permission, call `forge_asset_atlas_prepare` with ordered
 `textures` (1–512 Texture UUIDs) and `destination` (a new directory below Assets).
 Optional `filename` defaults to `atlas.png`; `max_size` defaults4096 (at most4096),
 `padding` defaults1 (0–64), `extrude` defaults true, `trim_transparent` and
-`allow_rotation` default false, and `byte_limit` defaults64MiB
-(at most64MiB). Only independent published sRGB RGBA8 Color textures are supported;
+`allow_rotation` default false, and `byte_limit` defaults64 MiB
+(at most 64 MiB). Only independent published sRGB RGBA8 Color textures are supported;
 originals are not modified. No external import-root grant is required.
 
 Poll `forge_asset_import_review` until review or failure. `generated` includes

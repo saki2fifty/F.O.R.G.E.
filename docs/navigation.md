@@ -6,13 +6,13 @@ Phase 6E adds static navmesh generation and bounded headless path queries. Recas
 
 RecastNavigation **v1.6.0**, exact commit `6dc1667f580357e8a2154c28b7867bea7e8ad3a7`, is the latest official stable release reviewed on 2026-09-18. License: zlib. The [official release](https://github.com/recastnavigation/recastnavigation/releases/tag/v1.6.0), [documentation](https://recastnav.com/) and [pinned sources](https://github.com/recastnavigation/recastnavigation/tree/6dc1667f580357e8a2154c28b7867bea7e8ad3a7) govern integration. Current main was also reviewed; it does not supersede this tested stable pin.
 
-Recast, Detour and its obstacle-velocity sampling source are compiled. The upstream integration guide permits directly compiling their source directories; FORGE uses private CMake targets to avoid the demo's SDL2/OpenGL dependencies and old root-CMake policy requirements. DetourCrowd supplies steering/avoidance, DetourTileCache supports obstacle-driven tile updates, and tiled meshes support larger worlds. The full Crowd manager, TileCache and sample frameworks are not integrated here. The sample's native `MSET` serialization is not FORGE's asset format.
+Recast, Detour and its obstacle-velocity sampling source are compiled. The upstream integration guide permits directly compiling their source directories; FORGE uses private CMake targets to avoid the demo's SDL2/OpenGL dependencies and old root-CMake policy requirements. DetourCrowd supplies steering/avoidance, DetourTileCache supports obstacle-driven tile updates, and tiled meshes support larger worlds. The pinned TileCache module supplies the opt-in dynamic obstacle profile. The full Crowd manager and sample frameworks are not integrated here. The sample's native `MSET` serialization is not FORGE's asset format.
 
 ## Authored configuration
 
 `NavigationSurface { enabled }` marks static shapes and Mesh leaf entities for inclusion. `NavigationAgent` stores an optional typed NavMesh AssetRef, enabled/destination flags, speed, stopping distance and a world-space destination. Flecs owns both components, their reflection and component/property prefab inheritance. Scene version and persistent identity formats are unchanged. Routes, polygon references and query scratch are never scene or prefab state.
 
-An explicit plane and six numeric settings belong to a scene's generated navigation asset: radius, height, climb, slope, cell size and cell height. Plane defaults to Spatial3D; PlanarXY is opt-in. Successful publication preserves its AssetId and records the settings. There is one navigation asset/profile per scene in this foundation. Multiple profiles later require explicit selection; they do not require replacing AssetId.
+An explicit plane, optional `dynamic_obstacles` flag and six numeric settings belong to a scene's generated navigation asset: radius, height, climb, slope, cell size and cell height. Plane defaults to Spatial3D; PlanarXY is opt-in. Successful publication preserves its AssetId and records the settings. There is one navigation asset/profile per scene in this foundation. Multiple profiles later require explicit selection; they do not require replacing AssetId.
 
 The editor's regular navigation poll clears cached selection, settings, metadata
 and overlay triangles when the project root or Scene identity changes, even with
@@ -23,11 +23,76 @@ not rebuild or publish. Same-project, same-scene polling retains usable previews
 and unfinished settings. Background builds retain their separate captured project,
 scene and cancellation checks before publication.
 
+## Dynamic obstacle profile
+
+`NavigationObstacle { enabled=true, radius=.5, height=2 }` is ordinary reflected
+Navigation-family data. It marks a centered upright cylinder in 3D or a circle in XY,
+independent of visible geometry and physics. Radius is 0.05–5 local metres; height is
+0.2–10 local metres and is ignored in XY. Resolved scale determines world size. Spatial
+cylinders accept circular XZ scale and upright Y, including mirrors and yaw. XY accepts
+circular projected XY scale and ignores visual Z. Elliptical, sheared, collapsed or
+spatially tilted shapes fail explicitly. Carving adds the baked agent radius to the
+obstacle radius. Moving physics poses are sampled at navigation's existing fixed boundary;
+a later physics step is observed at the next boundary. This read does not add another
+physics or transform writer.
+
+Opt into `dynamic_obstacles:true` when baking. Default settings omit this field, retaining
+the old static profile. The existing candidate/worker/catalog owner publishes
+envelope/catalog 4 with geometry_version 2 (spatial) or 3 (XY); it preserves AssetId and
+prior immutable artifacts. Payload `le-cells32-tiled-v1` stores FORGE raw heightfield
+cells and bounded descriptors, never native mutable caches/links. Admission checks
+lengths, integer coordinates, finite anchored bounds, exact settings, areas, heights and
+safe reciprocal cell connections before native work. The producer covers emitted portal
+heights in each layer bound and reserves the original voxel span plus climb below 255 to
+prevent byte wrap. Old envelope/catalog 1/2/3 admission is unchanged. See
+[ADR027](decisions/027-navigation-obstacle-tiles.md).
+
+Static source capture and digests exclude dynamic obstacle components/poses. Moving,
+resizing, disabling or removing an obstacle updates only its per-query carved tiles.
+Obstacle entities cannot simultaneously be enabled navigation sources or agents.
+Bodies/moving ancestors are allowed: this consumer reads the resolved pose without writing
+a transform. A static asset with enabled obstacles requires an explicit dynamic-profile
+rebuild. Invalid snapshots prevent queries/movement rather than exposing an outdated
+route.
+
+Every Query owns a private native TileCache/NavMesh derived from its immutable Mesh
+layers. Updates finish at the writable owner boundary; read-only calls with an unapplied
+snapshot return unavailable. A requested cache entry is synchronized at the next writable
+boundary even without NavigationAgent, so a C++ controller can query while retaining sole
+transform ownership. Failed snapshots retain their error and retry at most once per
+boundary instead of once per agent. Unchanged snapshots perform no tile rebuilds. Changes
+remove old footprints and add new ones; the local query generation invalidates cached
+agent routes even for paused agents whose settings/position did not change. Failed native
+updates retire the derivative; a later valid snapshot reconstructs it. Recovery rebuilds
+routes from current Scene poses and exact asset revisions, without persisting native tile
+references or cache state. The explicit live-tuning whitelist remains agent/avoidance
+only.
+
+The finite profile uses 32 × 32-cell tiles, at most 64 heightfield layers, four per
+coordinate, eight enabled obstacles and eight touched layers per inflated obstacle.
+Preflight uses the pinned public tile query with capacity for all 64 admitted layers,
+matching registration's coordinate and boundary policy. Four layers per coordinate stay
+below its separate 32-entry lookup limit. Reject more than eight touched layers before
+native submission. Footprints may span at most 16 tile positions on each axis, bounding
+empty-coordinate scans independently of touched layers. FORGE drains one request before
+submitting another, remaining below its 64-request/64-update limits. Off-mesh shapes need
+no native slot: the pin does not retire zero-touched removal requests. A complete
+replacement costs at most 128 affected tile rebuilds at this boundary; this is a work
+bound, not a frame rate guarantee. The 4096-total-polygon, 4 MiB payload/derived tile-set
+and existing query/source/worker bounds still apply. Layer generation can reject a large
+grid before reaching 512×512 because the 64-layer bound also applies.
+
+This carves existing walkable heightfields. It does not build new floors, rebake moving
+geometry, push agents out of newly covered areas, sweep collisions or alter physics. An
+agent covered by an obstacle has no valid start until a valid route is available. Static
+overlay triangles show the saved base; runtime route lines show the current carved path.
+`NavObstacleUpdate` profiles changed snapshots only.
+
 ## Geometry and coordinates
 
 The geometry bridge uses actual FORGE CPU primitive triangles and evaluated Phase 3 WorldTransform values. Coordinates are world-anchored, +Y up, in metres; slope uses degrees. Source triangle winding is normalized using primitive normals in a navigation-only copy. Zero-area sphere-pole triangles are omitted. Renderer meshes are unchanged.
 
-Static editable Mesh assets and imported model Mesh leaf entities are accepted through the existing cooked Mesh resource path. The root Model/group is not itself triangle geometry. Moving navmeshes and runtime regeneration remain unsupported. Included geometry must be static and have supported resolved spatial transforms. Geometry changes make the navmesh stale and require an explicit rebuild. Unrelated names, colors and agent positions do not form part of the geometry digest.
+Static editable Mesh assets and imported model Mesh leaf entities are accepted through the existing cooked Mesh resource path. The root Model/group is not itself triangle geometry. Moving baked source geometry and general runtime geometry rebaking remain unsupported; dynamic obstacle carving uses the separate opt-in profile below. Included geometry must be static and have supported resolved spatial transforms. Geometry changes make the navmesh stale and require an explicit rebuild. Unrelated names, colors and agent positions do not form part of the geometry digest.
 
 Enabled CharacterController and CharacterController2D components also make a
 source or its resolved spatial ancestry ineligible for static baking, even before
@@ -107,7 +172,7 @@ navigation movement semantics are unchanged by these editor interactions.
 
 ### Static Mesh profile
 
-Bake uses LOD0, all its triangle parts, float3 POSITION and indexed or sequential vertices. Imported winding is preserved; a negative world-transform parity reverses triangle winding in a navigation-only copy. Collapsed/zero-area triangles are skipped. Built-in normal-based winding correction and old v1 hashing are unchanged. Entire Mesh admission observes the bounded profile before geometry extraction; decoded candidates share a64MiB job pool. Model-family/cook admission reuses existing immutable selection validation. An independent build job may use that same bounded ResourcePool loader; live-world runtime data belongs solely to RuntimeResources.
+Bake uses LOD0, all its triangle parts, float3 POSITION and indexed or sequential vertices. Imported winding is preserved; a negative world-transform parity reverses triangle winding in a navigation-only copy. Collapsed/zero-area triangles are skipped. Built-in normal-based winding correction and old v1 hashing are unchanged. Entire Mesh admission observes the bounded profile before geometry extraction; decoded candidates share a64 MiB job pool. Model-family/cook admission reuses existing immutable selection validation. An independent build job may use that same bounded ResourcePool loader; live-world runtime data belongs solely to RuntimeResources.
 
 Points/lines, joint/weight streams, prepared joint palettes, morph targets/names and Mesh model-node skin/morph bindings are rejected. This profile conservatively rejects a Mesh with deforming node bindings even if another instance currently appears static. Mark an undeformed static Mesh instead. No source JSON/glTF/FBX parser runs in NavigationRuntime. Scene/ancestor static-physics and spatial-resolution rules apply to every accepted source. An admitted selection has one30-second preparation deadline before the existing30-second native build-worker limit; cancellation is checked between resource waits.
 
@@ -150,7 +215,7 @@ The catalog also verifies the entire artifact digest. Checksums establish consis
 The worker request and envelope metadata must each contain one complete JSON
 record. Raw NUL bytes, trailing non-whitespace bytes and additional values are
 rejected before building or admitting a tile. Request and metadata limits remain
-4MiB and64KiB respectively, with nesting limited to16 levels. The metadata check
+4 MiB and64KiB respectively, with nesting limited to 16 levels. The metadata check
 covers only its declared range; binary tile bytes are validated separately.
 An invalid request leaves any existing worker output intact.
 
@@ -254,7 +319,8 @@ Pause performs no movement; Step advances one fixed tick. Presentation reads do 
 | Vertical voxel span | Less than 8,191 cells |
 | Polygons / vertices | 4,096 / 16,384 |
 | Native tile / metadata | 4 MiB / 64 KiB |
-| Active world cache | 8 assets, at most 32 MiB tile bytes |
+| Active world cache | 8 assets; each payload/base/derived tile set is bounded to4 MiB |
+| Dynamic profile |32-cell tiles;64 layers,4per coordinate;8obstacles,8touched layers each |
 | Authored agents | 64 |
 | Query nodes / corridor / waypoints | 2,048 / 128 / 64 |
 | Worker | 512 MiB, 30 seconds wall time, 32 MiB total staged files |
@@ -267,7 +333,7 @@ Exceeding these bounds returns a diagnostic rather than silently truncating a pa
 
 ## Deferred work
 
-Full crowd management, TileCache/dynamic rebaking, multiple profiles per Scene, arbitrary XY polygons/automatic collider or TileMap extraction, cost editing, off-mesh/platformer links, moving-platform routing and world streaming are deferred. Physics-character driving and general save-game formats remain separate work. Current cooked navigation/export uses the existing runtime package owner.
+Full crowd management, general runtime geometry rebaking, multiple profiles per Scene, arbitrary XY polygons/automatic collider or TileMap extraction, cost editing, off-mesh/platformer links, moving-platform routing and world streaming are deferred. Physics-character driving and general save-game formats remain separate work. Current cooked navigation/export uses the existing runtime package owner.
 
 See the [Navigation user guide](../manual/editor/navigation.md) for the no-code workflow.
 

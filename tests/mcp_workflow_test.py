@@ -975,6 +975,7 @@ for legacy in (False, True):
                 records = records.values()
             selected = next(record for record in records if record['id'] == asset)
             assert selected['schema_version'] == 3 and selected['metadata']['geometry_version'] == 3, selected
+            planar_geometry = selected['metadata']['geometry_sha256']
             preserved = index.read_bytes()
             for invalid in (-1, 2, .5, 'xy'):
                 rejected = mutate('forge_navigation_build', settings=dict(settings, plane=invalid))
@@ -984,7 +985,40 @@ for legacy in (False, True):
             rejected = until(lambda: read('forge_navigation_status'), lambda r: not r['busy'])
             assert 'enabled character controller' in rejected['error'] and index.read_bytes() == preserved, rejected
             ok('forge_component_revert', arguments=dict(entity=floor, component='forge.character_controller_2d'))
+            cylinder = ok('forge_entity_create', arguments=dict(name='Moving navigation obstacle'))['results'][0]['selected']
+            ok('forge_component_add', arguments=dict(entity=cylinder, component='forge.navigation_obstacle'))
+            component = next(c for c in discovery()['result']['schema']['components']
+                             if c['id'] == 'forge.navigation_obstacle')
+            assert {f['id'] for f in component['fields']} == {'enabled', 'radius', 'height'}, component
+            def cylinder_value():
+                return next(row for row in read('forge_scene_read')['entities'] if row['id'] == cylinder)['components']['forge.navigation_obstacle']
+            ok('forge_property_set_many', arguments=dict(entity=cylinder, component='forge.navigation_obstacle',
+                                                       values=dict(enabled=False, radius=1, height=3)))
+            assert cylinder_value()['radius'] == 1
+            ok('forge_history_undo')
+            assert cylinder_value()['radius'] == .5
+            ok('forge_history_redo')
+            assert cylinder_value()['radius'] == 1 and not cylinder_value()['enabled']
+            before = cylinder_value()
+            rejected = mutate('forge_property_set', arguments=dict(entity=cylinder,
+                              component='forge.navigation_obstacle', field='radius', value=0))
+            assert not rejected['ok'] and cylinder_value() == before, rejected
+            settings = dict(settings, dynamic_obstacles=True)
+            ok('forge_navigation_build', settings=settings)
+            tiled = until(lambda: read('forge_navigation_status'), lambda r: not r['busy'])
+            assert tiled['asset'] == asset and not tiled['error'] and tiled['settings']['dynamic_obstacles'], tiled
+            records = json.loads(index.read_text(encoding='utf-8'))['assets']
+            if isinstance(records, dict):
+                records = records.values()
+            selected = next(record for record in records if record['id'] == asset)
+            assert selected['schema_version'] == 4 and selected['metadata']['geometry_version'] == 3, selected
+            assert selected['metadata']['geometry_sha256'] == planar_geometry
+            tiled_index = index.read_bytes()
+            for invalid in (0, 1, 'yes', None):
+                rejected = mutate('forge_navigation_build', settings=dict(settings, dynamic_obstacles=invalid))
+                assert not rejected['ok'] and index.read_bytes() == tiled_index, rejected
             ok('forge_document_save')
+            assert cylinder_value() == before
             assert obstacle_width() == 3
             agent = ok('forge_entity_create', arguments=dict(name='Live XY agent'))['results'][0]['selected']
             ok('forge_component_add', arguments=dict(entity=agent, component='forge.navigation_agent'))

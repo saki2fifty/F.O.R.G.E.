@@ -3,8 +3,8 @@
 Navigation lets an object find a route across a floor and around static obstacles. Build a **NavMesh** from marked 3D shapes or 2D regions, then give an object a **Navigation Agent** and a destination. Choose the plane explicitly when building.
 
 Agents follow baked static geometry. Add **Navigation Avoidance** for local steering
-around other participating agents. Moving obstacles do not automatically change
-the NavMesh. Navigation Agents cannot also have a Physics Body, Physics Body 2D
+around other participating agents. For moving solid footprints, enable the
+**Dynamic obstacles** bake profile and add **Navigation Obstacle** components. Navigation Agents cannot also have a Physics Body, Physics Body 2D
 or an enabled Character Controller in either domain.
 
 In **Window → Profiler → Play runtime**, **NavSourceCapture** shows the CPU time
@@ -116,6 +116,45 @@ Enable **Scene → View → Navigation overlay** to see translucent teal triangl
 Changing scenes or projects clears the previous overlay. Open **Content → Create /
 Register → Navigation** to load the current scene's saved NavMesh. Loading it does
 not rebuild or change the asset.
+
+## Route around moving obstacles
+
+![Navigation Obstacle properties beside the ready Dynamic obstacles bake profile](../images/navigation-dynamic-controls.png)
+
+Set the obstacle's local dimensions in Inspector and choose the matching tiled
+profile in Navigation before rebuilding.
+
+Open **129-moving-navigation-3d** or **130-moving-navigation-xy** in Feature Gallery
+for a ready example. The orange obstacle follows an editable animation clip while
+the cyan agent recalculates its route. No project C++ module is required.
+
+1. Keep the floor's **Navigation Surface** or walkable **Navigation Region 2D**.
+2. On the moving object, remove its Navigation Surface/Region marker. Add **Navigation / Navigation Obstacle**. Leave **Enabled** on. Do not add a Navigation Agent to this same object.
+3. Set **Radius** for its local circular footprint. In 3D, set **Height** for a cylinder centered on its origin. The object can have separate visible art; the Navigation Obstacle does not create a renderer or physics collider.
+4. Open **Content → Create / Register → Navigation**. Select the plane, check **Dynamic obstacles**, then click **Build NavMesh**. Agents keep their existing NavMesh reference when the same Scene's asset is rebuilt.
+5. Save the Scene. During Play, move the obstacle through an ordinary transform animation or project C++. Agents recalculate their routes around its current footprint. Disabling/removing the component restores walkable tiles.
+6. Use **Live gameplay → Navigation progress** on an agent to inspect its route. Yellow overlay paths follow the current carved mesh; teal triangles show the saved base. Stop restores authored starting values. Save outside Play before exporting; the generated layers and obstacle components travel with the game.
+
+The 3D shape must stay upright, with equal X/Z scale and no shear; yaw and mirrored scale
+are allowed. XY uses equal projected X/Y scale and ignores visual Z and Height. Radius
+accepts 0.05–5 m and Height 0.2–10 m before entity scale. Agent-radius clearance is added
+automatically. An unsupported ellipse, tilt or collapsed shape gives a diagnostic and
+prevents stale-route movement.
+
+Use at most eight enabled obstacles. Each inflated footprint can overlap at most eight
+baked layers; reduce its size or change the tile resolution if that limit is exceeded. A
+tiled build supports at most 64 layers of 32 × 32 cells, with four layers at one tile
+coordinate. It may reach this limit before the general 512×512-cell grid limit. A
+footprint may span at most 16 tile positions along either axis, even when many positions
+are empty. Reduce a large footprint or rebuild with coarser cells. Keep larger stationary
+obstacles in the static bake.
+
+This updates blocked portions of the existing floor. It does not create new floors, rebake
+moving platforms, stop physics bodies or push an agent out of an obstacle. If an obstacle
+covers the agent's start, it cannot move. Inspect its failure diagnostic; navigation can
+resume when a valid start and route become available. Obstacle properties are authored in
+the regular Inspector outside Play; they are not part of the live agent-tuning controls.
+
 
 ## Let agents steer around each other
 
@@ -258,4 +297,4 @@ Create a prefab from an agent using the normal [prefab workflow](prefabs.md). In
 - **Physics ownership error:** remove the agent's Physics Body and any moving physics spatial ancestor, or use an independent World spatial binding.
 - **Build/query limit:** reduce the included area or geometry, or increase cell size. A single build supports at most 512 × 512 cells.
 
-Navigation supports static shapes/Meshes in 3D and rectangular regions in XY, within roughly four kilometres of the origin and 64 agents. There are no jump links, moving-platform routes, automatic physics-character movement or dynamic NavMesh rebuilding. Optional avoidance is local steering and does not guarantee collision prevention. See [Play mode](play-mode.md) and [Transforms](transforms.md) for related controls.
+Navigation supports static shapes/Meshes in 3D and rectangular regions in XY, within roughly four kilometres of the origin and 64 agents. There are no jump links, moving-platform routes, automatic physics-character movement or general runtime geometry rebaking. Moving cylinder/circle carving requires the Dynamic obstacles profile described above. Optional avoidance is local steering and does not guarantee collision prevention. See [Play mode](play-mode.md) and [Transforms](transforms.md) for related controls.

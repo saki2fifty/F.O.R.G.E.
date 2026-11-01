@@ -12,6 +12,8 @@ namespace forge {
 inline const char* prefab_component_label(const std::string& key) {
     if (key == "forge.navigation_agent")
         return "Navigation Agent";
+    if (key == "forge.navigation_obstacle")
+        return "Navigation Obstacle";
     if (key == "forge.navigation_avoidance")
         return "Navigation Avoidance";
     if (key == "forge.navigation_surface")

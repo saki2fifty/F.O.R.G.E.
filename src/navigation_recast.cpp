@@ -1,4 +1,5 @@
 #include "navigation_geometry.hpp"
+#include "navigation_layers.hpp"
 #include "navigation_mesh.hpp"
 #include <DetourAlloc.h>
 #include <DetourNavMeshBuilder.h>
@@ -13,8 +14,8 @@ void require(bool ok) {
         throw std::runtime_error(
             "Navigation build failed or exceeded supported grid/polygon/detail limits");
 }
-} // namespace
-std::vector<std::byte> build_tile(const Geometry& g, NavigationSettings settings) {
+using Compact = std::unique_ptr<rcCompactHeightfield, decltype(&rcFreeCompactHeightfield)>;
+void validate_geometry(const Geometry& g, NavigationSettings settings) {
     validate_navigation_settings(settings);
     const auto& verts = g.vertices;
     const auto& indices = g.indices;
@@ -42,8 +43,10 @@ std::vector<std::byte> build_tile(const Geometry& g, NavigationSettings settings
             }
         }
     }
-    rcContext ctx;
+}
+rcConfig configuration(const Geometry& g, NavigationSettings settings) {
     rcConfig cfg{};
+    const auto& verts = g.vertices;
     cfg.cs = settings.cell_size;
     cfg.ch = settings.cell_height;
     cfg.walkableSlopeAngle = settings.slope;
@@ -61,28 +64,44 @@ std::vector<std::byte> build_tile(const Geometry& g, NavigationSettings settings
     rcCalcGridSize(cfg.bmin, cfg.bmax, cfg.cs, &cfg.width, &cfg.height);
     require(cfg.width > 0 && cfg.height > 0 && cfg.width <= 512 && cfg.height <= 512);
     require((cfg.bmax[1] - cfg.bmin[1]) / cfg.ch < 8191);
+    return cfg;
+}
+Compact rasterize(rcContext& context, const Geometry& g, NavigationSettings settings,
+                  const rcConfig& cfg) {
+    const auto& verts = g.vertices;
+    const auto& indices = g.indices;
     std::unique_ptr<rcHeightfield, decltype(&rcFreeHeightField)> solid(rcAllocHeightfield(),
                                                                        rcFreeHeightField);
     require(bool(solid));
-    require(rcCreateHeightfield(&ctx, *solid, cfg.width, cfg.height, cfg.bmin, cfg.bmax, cfg.cs,
+    require(rcCreateHeightfield(&context, *solid, cfg.width, cfg.height, cfg.bmin, cfg.bmax, cfg.cs,
                                 cfg.ch));
     std::vector<unsigned char> areas(indices.size() / 3);
-    rcMarkWalkableTriangles(&ctx, settings.slope, verts.data(), int(verts.size() / 3),
+    rcMarkWalkableTriangles(&context, settings.slope, verts.data(), int(verts.size() / 3),
                             indices.data(), int(areas.size()), areas.data());
-    require(rcRasterizeTriangles(&ctx, verts.data(), int(verts.size() / 3), indices.data(),
+    require(rcRasterizeTriangles(&context, verts.data(), int(verts.size() / 3), indices.data(),
                                  areas.data(), int(areas.size()), *solid, cfg.walkableClimb));
-    rcFilterLowHangingWalkableObstacles(&ctx, cfg.walkableClimb, *solid);
-    rcFilterLedgeSpans(&ctx, cfg.walkableHeight, cfg.walkableClimb, *solid);
-    rcFilterWalkableLowHeightSpans(&ctx, cfg.walkableHeight, *solid);
+    rcFilterLowHangingWalkableObstacles(&context, cfg.walkableClimb, *solid);
+    rcFilterLedgeSpans(&context, cfg.walkableHeight, cfg.walkableClimb, *solid);
+    rcFilterWalkableLowHeightSpans(&context, cfg.walkableHeight, *solid);
     std::unique_ptr<rcCompactHeightfield, decltype(&rcFreeCompactHeightfield)> compact(
         rcAllocCompactHeightfield(), rcFreeCompactHeightfield);
     require(bool(compact));
-    require(
-        rcBuildCompactHeightfield(&ctx, cfg.walkableHeight, cfg.walkableClimb, *solid, *compact));
+    require(rcBuildCompactHeightfield(&context, cfg.walkableHeight, cfg.walkableClimb, *solid,
+                                      *compact));
     for (const auto& mask : g.obstacles)
-        rcMarkConvexPolyArea(&ctx, mask.data(), 4, cfg.bmin[1] - cfg.ch, cfg.bmax[1] + cfg.ch,
+        rcMarkConvexPolyArea(&context, mask.data(), 4, cfg.bmin[1] - cfg.ch, cfg.bmax[1] + cfg.ch,
                              RC_NULL_AREA, *compact);
-    require(rcErodeWalkableArea(&ctx, cfg.walkableRadius, *compact));
+    require(rcErodeWalkableArea(&context, cfg.walkableRadius, *compact));
+    return compact;
+}
+} // namespace
+std::vector<std::byte> build_tile(const Geometry& g, NavigationSettings settings) {
+    if (settings.dynamic_obstacles)
+        return encode_layers(build_layers(g, settings));
+    validate_geometry(g, settings);
+    rcContext ctx;
+    const auto cfg = configuration(g, settings);
+    auto compact = rasterize(ctx, g, settings, cfg);
     require(rcBuildDistanceField(&ctx, *compact));
     require(rcBuildRegions(&ctx, *compact, 0, 0, 0));
     std::unique_ptr<rcContourSet, decltype(&rcFreeContourSet)> contours(rcAllocContourSet(),
@@ -157,6 +176,70 @@ std::vector<std::byte> build_tile(const Geometry& g, NavigationSettings settings
     std::vector<std::byte> out(bytes);
     std::memcpy(out.data(), data, bytes);
     validate_tile(out, settings.plane);
+    return out;
+}
+HeightfieldLayers build_layers(const Geometry& g, NavigationSettings settings) {
+    validate_geometry(g, settings);
+    require(settings.dynamic_obstacles);
+    const auto whole = configuration(g, settings);
+    const auto nx = (unsigned(whole.width) + layer_width - 1) / layer_width;
+    const auto nz = (unsigned(whole.height) + layer_width - 1) / layer_width;
+    require(nx * nz <= max_layers);
+    HeightfieldLayers out;
+    out.settings = settings;
+    std::copy(whole.bmin, whole.bmin + 3, out.minimum.begin());
+    std::copy(whole.bmax, whole.bmax + 3, out.maximum.begin());
+    rcContext context;
+    for (unsigned z = 0; z < nz; ++z) {
+        for (unsigned x = 0; x < nx; ++x) {
+            auto cfg = whole;
+            cfg.borderSize = whole.walkableRadius + 3;
+            cfg.width = cfg.height = int(layer_width) + cfg.borderSize * 2;
+            cfg.bmin[0] += float(int(x * layer_width) - cfg.borderSize) * cfg.cs;
+            cfg.bmin[2] += float(int(z * layer_width) - cfg.borderSize) * cfg.cs;
+            cfg.bmax[0] = cfg.bmin[0] + cfg.width * cfg.cs;
+            cfg.bmax[2] = cfg.bmin[2] + cfg.height * cfg.cs;
+            auto compact = rasterize(context, g, settings, cfg);
+            std::unique_ptr<rcHeightfieldLayerSet, decltype(&rcFreeHeightfieldLayerSet)> layers(
+                rcAllocHeightfieldLayerSet(), rcFreeHeightfieldLayerSet);
+            require(bool(layers));
+            require(rcBuildHeightfieldLayers(&context, *compact, cfg.borderSize, cfg.walkableHeight,
+                                             *layers));
+            require(layers->nlayers <= 4);
+            for (int i = 0; i < layers->nlayers; ++i) {
+                require(out.layers.size() < max_layers);
+                const auto& source = layers->layers[i];
+                require(source.width == int(layer_width) && source.height == int(layer_width));
+                // Portal matching can raise an emitted height beyond the layer's
+                // original region maximum. Reserve the climb range before any
+                // byte can wrap, then publish bounds covering all emitted cells.
+                require(source.hmin >= 0 && source.hmax >= source.hmin &&
+                        source.hmax - source.hmin + cfg.walkableClimb < 255);
+                HeightfieldLayer layer;
+                layer.x = x;
+                layer.z = z;
+                layer.index = unsigned(i);
+                layer.hmin = unsigned(source.hmin);
+                layer.hmax = unsigned(source.hmax);
+                layer.minx = unsigned(source.minx);
+                layer.maxx = unsigned(source.maxx);
+                layer.minz = unsigned(source.miny);
+                layer.maxz = unsigned(source.maxy);
+                std::copy(source.bmin, source.bmin + 3, layer.minimum.begin());
+                std::copy(source.bmax, source.bmax + 3, layer.maximum.begin());
+                constexpr auto grid = layer_width * layer_width;
+                std::copy_n(source.heights, grid, layer.cells.begin());
+                std::copy_n(source.areas, grid, layer.cells.begin() + grid);
+                std::copy_n(source.cons, grid, layer.cells.begin() + grid * 2);
+                for (unsigned cell = 0; cell < grid; ++cell)
+                    if (source.heights[cell] != 255)
+                        layer.hmax = std::max(layer.hmax, layer.hmin + source.heights[cell]);
+                layer.maximum[1] = whole.bmin[1] + layer.hmax * cfg.ch;
+                out.layers.push_back(std::move(layer));
+            }
+        }
+    }
+    validate_layers(out);
     return out;
 }
 } // namespace forge::navigation_detail

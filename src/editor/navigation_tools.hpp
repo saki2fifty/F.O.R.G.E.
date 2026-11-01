@@ -187,6 +187,11 @@ class NavigationTools {
         }
         ui::help("One navigation asset/profile per Scene. Changing plane requires an explicit "
                  "rebuild and keeps the asset identity.");
+        ImGui::Checkbox("Dynamic obstacles", &settings_.dynamic_obstacles);
+        FORGE_UI_PROBE("navigation:setting:Dynamic obstacles");
+        ui::help("Bake bounded tiles for moving Navigation Obstacle cylinders (circles in XY). "
+                 "Eight enabled obstacles; each may touch at most eight layers. "
+                 "Changing this option requires a rebuild, keeping the asset identity.");
         auto field = [](const char* label, float& value, const char* help) {
             ImGui::InputFloat(label, &value, 0, 0, "%.3f");
             FORGE_UI_PROBE("navigation:setting:" + std::string(label));

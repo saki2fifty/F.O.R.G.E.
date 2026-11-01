@@ -47,6 +47,10 @@ struct NavigationAutomation {
         Json values;
         for (const auto* name : {"radius", "height", "climb", "slope", "cell_size", "cell_height"})
             values[name] = {{"type", "number"}};
+        values["dynamic_obstacles"] = {
+            {"type", "boolean"},
+            {"description",
+             "Opt into tiled navigation for moving Navigation Obstacle cylinders/circles."}};
         values["plane"] = {{"type", "integer"},
                            {"enum", {0, 1}},
                            {"description", "0: spatial 3D (default); 1: top-down XY regions."}};
@@ -55,7 +59,8 @@ struct NavigationAutomation {
             "Bake marked static 3D geometry or rectangular XY regions through the existing native "
             "worker "
             "and stale-geometry publication check. Settings use the native "
-            "agent/voxel profile; poll navigation.status and assign the asset "
+            "agent/voxel profile and optional dynamic obstacle tiles; poll navigation.status and "
+            "assign the asset "
             "with ordinary component/property tools.",
             "assets.write",
             automation_object(

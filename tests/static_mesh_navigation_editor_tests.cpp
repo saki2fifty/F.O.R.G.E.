@@ -1,3 +1,5 @@
+#include "component_inspector.hpp"
+#include "imgui_software_capture.hpp"
 #include "navigation_tools.hpp"
 #include <imgui_internal.h>
 #include <iostream>
@@ -58,6 +60,32 @@ void exercise(const std::filesystem::path& root, float scale, ImVec2 size) {
     check(scene.document() == saved && AssetCatalog::open_project(root).document() == catalog &&
               !scene.can_undo(),
           "Readonly navigation controls changed authored state or catalog");
+    const auto toggle_dynamic = [&] {
+        const auto box = test::ui_targets.at("navigation:setting:Dynamic obstacles");
+        check(box.minimum.y >= box.clip_minimum.y && box.maximum.y <= box.clip_maximum.y,
+              "Dynamic-profile checkbox clips at a supported UI scale");
+        io.AddMousePosEvent(box.minimum.x + 8, (box.minimum.y + box.maximum.y) * .5f);
+        frame(false);
+        io.AddMouseButtonEvent(ImGuiMouseButton_Left, true);
+        frame(false);
+        io.AddMouseButtonEvent(ImGuiMouseButton_Left, false);
+        frame(false);
+    };
+    check(!test::ui_targets.at("navigation:setting:Dynamic obstacles").enabled,
+          "Play lock allowed dynamic-profile changes");
+    frame(false);
+    toggle_dynamic();
+    check(test::ui_targets.contains("navigation:status:Navigation is stale — rebuild before Play"),
+          "Dynamic-profile choice did not require an explicit rebuild");
+    selection = std::make_shared<const AssetCatalog>(AssetCatalog::open_project(root));
+    frame(false);
+    check(test::ui_targets.contains("navigation:status:Navigation is stale — rebuild before Play"),
+          "Catalog refresh erased the dynamic-profile draft");
+    toggle_dynamic();
+    check(test::ui_targets.contains("navigation:status:NavMesh ready"),
+          "Reverting the dynamic-profile choice failed to restore static readiness");
+    check(scene.document() == saved && AssetCatalog::open_project(root).document() == catalog,
+          "Editing the bake profile changed Scene history or published assets");
     auto radius = [&](const char* text) {
         const auto box = test::ui_targets.at("navigation:setting:Agent radius");
         const auto x = box.minimum.x + 40;
@@ -130,16 +158,69 @@ void exercise(const std::filesystem::path& root, float scale, ImVec2 size) {
     test::observe_ui = false;
     ImGui::DestroyContext();
 }
+void capture_controls(const std::filesystem::path& root, const std::filesystem::path& output) {
+    EngineContext engine;
+    Scene scene(engine.world());
+    SceneDocument project(scene);
+    project.open_project(root);
+    project.open_scene("Scenes/129-moving-navigation-3d.scene.json");
+    std::string obstacle;
+    const auto effective = scene.effective_document();
+    for (const auto& row : effective.at("entities"))
+        if (row.at("components").contains("forge.navigation_obstacle"))
+            obstacle = row.at("id").get<std::string>();
+    check(!obstacle.empty(), "Missing authored obstacle capture participant");
+    const auto saved = scene.document();
+    const auto catalog = std::make_shared<const AssetCatalog>(AssetCatalog::open_project(root));
+    test::ImGuiSoftwareCapture capture(1180, 760);
+    ui::style(1);
+    ui::EditorUiContext ui_context;
+    ui::ContextScope context_scope(ui_context);
+    ComponentInspector inspector;
+    inspector.fixture_focus_component = "forge.navigation_obstacle";
+    NavigationTools tools(engine.world(), root / "unused-worker");
+    std::string message;
+    test::observe_ui = true;
+    for (unsigned frame = 0; frame < 6; ++frame) {
+        test::ui_targets.clear();
+        if (frame == 2 || frame == 3) {
+            // Collapse the unrelated animator through real input for a focused capture.
+            ImGui::GetIO().AddMousePosEvent(150, 115);
+            ImGui::GetIO().AddMouseButtonEvent(ImGuiMouseButton_Left, frame == 2);
+        }
+        capture.new_frame();
+        ImGui::SetNextWindowPos({10, 10});
+        ImGui::SetNextWindowSize({570, 740});
+        ImGui::Begin("Inspector", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+        inspector.draw(scene, project, obstacle);
+        ImGui::End();
+        ImGui::SetNextWindowPos({590, 10});
+        ImGui::SetNextWindowSize({580, 740});
+        ImGui::Begin("Navigation", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+        ImGui::SetNextItemOpen(true, ImGuiCond_Always);
+        tools.content(scene, project, false, message, catalog);
+        ImGui::End();
+        capture.render();
+    }
+    check(message.empty() && test::ui_targets.contains("navigation:status:NavMesh ready") &&
+              scene.document() == saved,
+          "Native navigation capture changed its authored fixture or was not ready");
+    capture.save(output / "navigation-dynamic-controls.png");
+    test::observe_ui = false;
+}
 } // namespace
 int main(int argc, char** argv) {
     try {
-        check(argc == 3, "Need Gallery and scratch root");
+        check(argc == 3 || (argc == 4 && std::string_view(argv[3]) == "--capture"),
+              "Need Gallery, scratch root and optional --capture");
         const auto root = std::filesystem::absolute(argv[2]) / AssetId::generate().str();
         std::filesystem::create_directories(root);
         std::filesystem::copy(argv[1], root, std::filesystem::copy_options::recursive);
         for (auto scale : {1.f, 1.5f, 2.f})
             for (auto size : {ImVec2{420, 640}, ImVec2{1200, 900}})
                 exercise(root, scale, size);
+        if (argc == 4)
+            capture_controls(root, std::filesystem::absolute(argv[2]));
         std::filesystem::remove_all(root);
         std::cout << "Static Mesh navigation actual UI ready/stale/Undo/Play-lock passed\n";
     } catch (const std::exception& e) {

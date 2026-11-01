@@ -66,6 +66,7 @@ struct Fixture {
 };
 #include "navigation_feedback_tests.hpp"
 #include "navigation_live_tests.hpp"
+#include "navigation_obstacle_runtime_tests.hpp"
 #include "navigation_planar_tests.hpp"
 int main(int argc, char** argv) {
     try {
@@ -113,8 +114,10 @@ int main(int argc, char** argv) {
             std::cout << std::filesystem::absolute(root).string() << '\n';
             return 0;
         }
-        if (argc == 3)
+        if (argc == 3) {
             planar_asset_tests(root, std::filesystem::absolute(argv[2]));
+            dynamic_obstacle_runtime_tests(root, std::filesystem::absolute(argv[2]));
+        }
         EngineContext author;
         Scene scene(author.world());
         scene.restore_snapshot(input());

@@ -1835,6 +1835,41 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "1f446c8a-5a01-4a7b-953f-151b3fa7f742",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "51cb4dca07e6a1ba170d9d1972359caa3e9c679d888cc34b400c0620f2f1be30",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 2,
+          "importer": "forge.animation.transform",
+          "importer_revision": "forge.animation.transform.v12",
+          "key": "60461e173f2034b3c4399b306d590d11d92941937ef720381759ffd3e71f73fa",
+          "output_format": "forge.transform-clip",
+          "output_version": 9,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "c904c1bf0d11a321f3116f4ccd1b71dfc3b56a0d97730dfa5ad21f64aa3165cc",
+          "source_digest": "f6f0520c271e80fe532cf0576076c304f6a2e8ee35a78a287ec383656ccd7ab1",
+          "version": 1
+        },
+        "forge.transform_animation": {
+          "bytes": 1282,
+          "file": "animation.clip",
+          "sha256": "0d93f3f61b79e389737c10bbc5aa99a709f20f1d48c255b61f80fab963060a58",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Navigation/MovingObstacleXY.animation.json",
+      "source_dependencies": [],
+      "type": "transform_animation"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "1f75e68f-4b9b-448a-a95d-d6f53dace02d",
       "metadata": {},
       "schema_version": 3,
@@ -5394,6 +5429,41 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "627b9309-fb30-4ace-93e8-322d6087493f",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "9a3bcff1cdf99010d97dd0967dea1671305e2fca2d7209c39fe9966097edfeda",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.animation.transform",
+          "importer_revision": "forge.animation.transform.v12",
+          "key": "67728234b7898b05551098f7f1e742864dd2301cd3c347c754a85c68af1878d8",
+          "output_format": "forge.transform-clip",
+          "output_version": 9,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "ce53a349e054a8da1f627df0090945c1cc773b75072abe317e3504537617560f",
+          "source_digest": "1fdc28b232c231ea0113fd4b0632b4895a78b093d09866a9694f652422f99162",
+          "version": 1
+        },
+        "forge.transform_animation": {
+          "bytes": 1282,
+          "file": "animation.clip",
+          "sha256": "dda96c4febf7ffd706a3572badc275bf7ae4dfe7d870472d10e76d12868a76c3",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Navigation/MovingObstacle3D.animation.json",
+      "source_dependencies": [],
+      "type": "transform_animation"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "62dc825c-4b9d-4041-96f0-b2a9b2a6d3de",
       "metadata": {
         "forge.ui_source": {
@@ -6174,6 +6244,16 @@
         "removed": false
       },
       "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "6ff8791b-7367-4663-9328-4142c90c379f",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/129-moving-navigation-3d.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
     },
     {
       "dependencies": [
@@ -8246,6 +8326,65 @@
       "source": "Assets/Tiles/CollisionProfiles.png",
       "source_dependencies": [],
       "type": "texture"
+    },
+    {
+      "dependencies": [
+        "6ff8791b-7367-4663-9328-4142c90c379f"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "build",
+          "revision": "30e2b81fbd8d066f776c2228077cf9f8582272df290ae36ed0686976e4c8ac58",
+          "role": "navigation.scene",
+          "target": "6ff8791b-7367-4663-9328-4142c90c379f",
+          "type": "scene"
+        }
+      ],
+      "id": "95f6a803-97d6-4be6-8b74-e46c6f4796d2",
+      "metadata": {
+        "asset_id": "95f6a803-97d6-4be6-8b74-e46c6f4796d2",
+        "bounds": {
+          "cell_inverse": 5.0,
+          "climb": 0.4000000059604645,
+          "height": 2.0,
+          "maximum": [
+            10.0,
+            2.0999999046325684,
+            10.0
+          ],
+          "minimum": [
+            -10.0,
+            -0.20000000298023224,
+            -10.0
+          ],
+          "radius": 0.4000000059604645
+        },
+        "geometry_sha256": "30e2b81fbd8d066f776c2228077cf9f8582272df290ae36ed0686976e4c8ac58",
+        "geometry_version": 2,
+        "layout": "le-cells32-tiled-v1",
+        "mesh_inputs": [],
+        "recast_revision": "6dc1667f580357e8a2154c28b7867bea7e8ad3a7",
+        "settings": {
+          "cell_height": 0.10000000149011612,
+          "cell_size": 0.20000000298023224,
+          "climb": 0.4000000059604645,
+          "dynamic_obstacles": true,
+          "height": 2.0,
+          "radius": 0.4000000059604645,
+          "slope": 45.0
+        },
+        "sha256": "8d9bb7b2380ddbb752aa7e3a1b1b226494707c59df170dd12fab41187fa3337f",
+        "source_scene": "6ff8791b-7367-4663-9328-4142c90c379f",
+        "sources": [
+          "a3b51bc9-5ec5-42ec-bbe2-76267eead425"
+        ],
+        "tile_sha256": "1834b9cdcac8d54100c41cb897d290d4e2067fb877ac4af1838dcbf4d19d7eb5",
+        "version": 4
+      },
+      "schema_version": 4,
+      "source": "Assets/Navigation/Generated/95f6a803-97d6-4be6-8b74-e46c6f4796d2/515ef79f-67bd-49bd-97d1-2bcc04c140c2.fnav",
+      "source_dependencies": [],
+      "type": "navmesh"
     },
     {
       "dependencies": [],
@@ -10474,6 +10613,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "d19dc91d-b3b6-4833-9bba-d554deabcb43",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/130-moving-navigation-xy.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "d26ec4ff-f4cb-47c6-bf5d-b99f6de97cb0",
       "metadata": {
         "forge.import": {
@@ -11511,6 +11660,66 @@
       "source": "Assets/NavigationFloor.mesh.json",
       "source_dependencies": [],
       "type": "mesh"
+    },
+    {
+      "dependencies": [
+        "d19dc91d-b3b6-4833-9bba-d554deabcb43"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "build",
+          "revision": "dff78ca91037b8b3f92d6e7b12cad9c4d7ca2d46c2d802104a36825940da2678",
+          "role": "navigation.scene",
+          "target": "d19dc91d-b3b6-4833-9bba-d554deabcb43",
+          "type": "scene"
+        }
+      ],
+      "id": "eca64d13-6268-4b9e-9c11-295c3207ea4b",
+      "metadata": {
+        "asset_id": "eca64d13-6268-4b9e-9c11-295c3207ea4b",
+        "bounds": {
+          "cell_inverse": 5.0,
+          "climb": 0.4000000059604645,
+          "height": 2.0,
+          "maximum": [
+            10.0,
+            2.0999999046325684,
+            7.0
+          ],
+          "minimum": [
+            -10.0,
+            -0.20000000298023224,
+            -7.0
+          ],
+          "radius": 0.4000000059604645
+        },
+        "geometry_sha256": "dff78ca91037b8b3f92d6e7b12cad9c4d7ca2d46c2d802104a36825940da2678",
+        "geometry_version": 3,
+        "layout": "le-cells32-tiled-v1",
+        "mesh_inputs": [],
+        "recast_revision": "6dc1667f580357e8a2154c28b7867bea7e8ad3a7",
+        "settings": {
+          "cell_height": 0.10000000149011612,
+          "cell_size": 0.20000000298023224,
+          "climb": 0.4000000059604645,
+          "dynamic_obstacles": true,
+          "height": 2.0,
+          "plane": 1,
+          "radius": 0.4000000059604645,
+          "slope": 45.0
+        },
+        "sha256": "e7d0b85459cc62ddf6269c5f93acdcbf3f2382b1c9ee4bc06712615f1555b978",
+        "source_scene": "d19dc91d-b3b6-4833-9bba-d554deabcb43",
+        "sources": [
+          "f48b8e7c-4f87-4d0e-816f-522b4d80ad8c"
+        ],
+        "tile_sha256": "129beffa09ea11590673ab725a944e09e783c9a93598338fb27d3d85824d594b",
+        "version": 4
+      },
+      "schema_version": 4,
+      "source": "Assets/Navigation/Generated/eca64d13-6268-4b9e-9c11-295c3207ea4b/72512f62-f1fe-4eb4-851b-14eba727ec45.fnav",
+      "source_dependencies": [],
+      "type": "navmesh"
     },
     {
       "dependencies": [],

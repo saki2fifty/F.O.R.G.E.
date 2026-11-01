@@ -1,3 +1,4 @@
+#include "asset_bytes.hpp"
 #include "navigation_asset.hpp"
 #include "navigation_geometry.hpp"
 #include <DetourNavMesh.h>
@@ -211,8 +212,10 @@ void planar_space_tests() {
     rejects([&] { Mesh invalid(raised_obstacle, MeshSpace::PlanarXY); });
     std::cout << "Explicit XY native query/move/avoidance/depth/flat-admission PASS\n";
 }
+#include "navigation_obstacle_mesh_tests.hpp"
 int main() {
     try {
+        obstacle_mesh_tests();
         static_mesh_geometry_tests();
         planar_space_tests();
         planar_region_tests();

@@ -8,6 +8,7 @@ namespace forge {
 struct NavigationSettings {
     float radius = .4f, height = 2, climb = .4f, slope = 45, cell_size = .2f, cell_height = .1f;
     NavigationPlane plane = NavigationPlane::Spatial3D;
+    bool dynamic_obstacles = false;
     bool operator==(const NavigationSettings&) const = default;
 };
 void to_json(nlohmann::json&, const NavigationSettings&);

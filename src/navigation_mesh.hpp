@@ -1,5 +1,6 @@
 #pragma once
 #include "navigation_space.hpp"
+#include "navigation_tile_cache.hpp"
 #include <forge/navigation_service.hpp>
 #include <memory>
 #include <span>
@@ -11,10 +12,12 @@ nlohmann::json tile_properties(std::span<const std::byte> bytes);
 void validate_tile(std::span<const std::byte> bytes, MeshSpace = MeshSpace::Spatial3D);
 class Mesh {
   public:
-    explicit Mesh(std::span<const std::byte> bytes, MeshSpace = MeshSpace::Spatial3D);
+    explicit Mesh(std::span<const std::byte> bytes, MeshSpace = MeshSpace::Spatial3D,
+                  bool dynamic_obstacles = false);
     ~Mesh();
     MeshSpace space() const;
     std::vector<Double3> triangles() const;
+    bool dynamic_obstacles() const;
 
   private:
     friend class Query;
@@ -28,6 +31,9 @@ class Query {
     };
     explicit Query(std::shared_ptr<const Mesh> mesh);
     ~Query();
+    bool obstacles(std::span<const CylinderObstacle>);
+    std::uint64_t generation() const;
+    std::uint64_t tile_rebuilds() const;
     NavResult project(Double3 point);
     NavResult path(Double3 start, Double3 end);
     NavResult move(Double3 start, Double3 target);

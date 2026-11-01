@@ -330,6 +330,35 @@ int main(int argc, char** argv) {
             runtime.journey(ref);
         }
 #endif
+        if (!std::filesystem::exists(root))
+            std::filesystem::rename(hidden, root);
+        std::filesystem::remove_all(moved);
+        scene.entity(wall).remove<NavigationSurface>();
+        scene.entity(wall).set<LocalScale>({1, 1, 1}).set<NavigationObstacle>({true, 2, 4});
+        NavigationSettings dynamic;
+        dynamic.dynamic_obstacles = true;
+        nav = prepare_navigation(root, scene.effective_document(), dynamic, worker)
+                  .publish(scene.effective_document());
+        check(nav.id == original_nav && nav.schema_version == 4 &&
+                  nav.metadata.at("geometry_version") == 2 &&
+                  nav.metadata.at("mesh_inputs").size() == 1,
+              "Dynamic Mesh profile lost its identity or selected Mesh provenance");
+        {
+            Fixture runtime(root, scene.snapshot());
+            runtime.ready(nav.id);
+            runtime.journey(ref);
+        }
+        atomic_write(root / scene_path, scene.document().dump());
+        (void)package_runtime_content(root, game, roots, {"windows", "d3d12"});
+        std::filesystem::rename(game, moved);
+        std::filesystem::rename(root, hidden);
+        const auto dynamic_game = open_runtime_content(moved, {"windows", "d3d12"});
+        {
+            Fixture runtime(moved, read(std::filesystem::path(moved) /
+                                        dynamic_game.records().at(scene.asset_id()).source));
+            runtime.ready(nav.id);
+            runtime.journey(ref);
+        }
         std::filesystem::remove_all(root);
         std::filesystem::remove_all(hidden);
         std::filesystem::remove_all(moved);

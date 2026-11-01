@@ -20,7 +20,7 @@ Official SDKs were reviewed; none is C++, and no SDK/reference code is included.
 | libwebp | 1.6.0 / `4fa21912338357f89e4fd51cf2368325b59e9bd9` | Private still-image decode and native demux | [Source](https://chromium.googlesource.com/webm/libwebp/+/4fa21912338357f89e4fd51cf2368325b59e9bd9/) |
 | RmlUi | 6.3 / `ba95ffe8bfb6370efb2cdcca927eaad4710c5413` | Screen-space game documents, bindings and input; private Diligent adapter | [Official release](https://github.com/mikke89/RmlUi/releases/tag/6.3) |
 | FreeType | 2.14.3 / `0a0221a1347e2f1e07c395263540026e9a0aa7c7` | Pinned RmlUi font backend, FTL license option | [Official source](https://github.com/freetype/freetype/tree/0a0221a1347e2f1e07c395263540026e9a0aa7c7) |
-| Recast Navigation | v1.6.0 / `6dc1667f580357e8a2154c28b7867bea7e8ad3a7` | Static single-tile generation, private Detour queries and local velocity sampling | [Official source](https://github.com/recastnavigation/recastnavigation/tree/v1.6.0) |
+| Recast Navigation | v1.6.0 / `6dc1667f580357e8a2154c28b7867bea7e8ad3a7` | Static/tiled generation, private Detour queries, obstacle tile updates and local velocity sampling | [Official source](https://github.com/recastnavigation/recastnavigation/tree/v1.6.0) |
 | Ozz Animation | v0.17.0 / `744eb9d99f606eda849acb0b1204f7a3dc20bca1` | Private skeletal sampling/local blending/local-to-model, validated runtime archives, official gltf2ozz conversion | [Official source](https://github.com/guillaumeblanc/ozz-animation/tree/744eb9d99f606eda849acb0b1204f7a3dc20bca1) |
 | miniaudio | v0.11.25 / `9634bedb5b5a2ca38c1ee7108a9358a4e233f14d` | WAV/FLAC/MP3 decoding, engine/group mixing, spatialization, WASAPI/PulseAudio/ALSA, offline tests | [Official source](https://github.com/mackron/miniaudio/tree/9634bedb5b5a2ca38c1ee7108a9358a4e233f14d) |
 | Jolt Physics | v5.6.0 / `e77f175595e64cb44218cc9d9d56fc365ad0e36a` | CPU rigid bodies, primitive shapes, queries, distance/hinge/point/fixed constraints, body loads, state recording | [Official source](https://github.com/jrouwe/JoltPhysics/tree/v5.6.0) |
@@ -56,7 +56,7 @@ Official release review found Flecs 4.1.6, SDL 3.4.16, ImGui 1.92.9b, JSON 3.12.
 GPU duration integration, 2026-10-17: the same pinned Core supplies optional
 `DurationQueries`, `QUERY_TYPE_DURATION`, `QueryDataDuration` and nonblocking
 `IQuery::GetData`. The editor requests optional support; FORGE's existing
-presentation owner creates at most64 lazy query objects after opt-in. Vulkan and
+presentation owner creates at most 64 lazy query objects after opt-in. Vulkan and
 D3D12 implementations fence-gate results and return duration/frequency; zero
 frequency is invalid. No native backend implementation is copied or replaced.
 FORGE adds view/pass labels and lifecycle admission in its existing collector.
@@ -125,7 +125,7 @@ format limits, ownership, conversion settings, compatibility and upgrade gates.
 
 ## Navigation adoption (Phase 6E)
 
-Recast and Detour use the zlib license. FORGE compiles their source libraries privately; the full Crowd manager, TileCache, DebugUtils and the SDL2/OpenGL demo are disabled. The unchanged DetourObstacleAvoidance source is compiled privately for opt-in local steering. Runtime links Detour and that sampler; Recast is authoring worker code. See [Navigation](navigation.md) for formats, ownership, bounds, source provenance and deferred features.
+Recast and Detour use the zlib license. FORGE compiles their source libraries privately; the full Crowd manager, DebugUtils and the SDL2/OpenGL demo are disabled. The pinned TileCache source is compiled for the bounded opt-in obstacle profile using FORGE raw layers and an identity codec, without a demo codec dependency. The unchanged DetourObstacleAvoidance source is compiled privately for opt-in local steering. Runtime links Detour and that sampler; Recast is authoring worker code. See [Navigation](navigation.md) for formats, ownership, bounds, source provenance and deferred features.
 
 ## Runtime UI adoption (Phase 6F)
 
@@ -159,7 +159,7 @@ integer path has been fixed upstream. KTX4.4.2 is selected below for the private
 container/Basis adapter. Texture/model recipes, typed resources and editor previews
 consume it with the supported formats documented in the [format matrix](asset-formats.md).
 
-## Phase7 KTX/Basis selection —2026-09-20
+## Phase7 KTX/Basis selection — 2026-09-20
 
 Official stable **KTX Software4.4.2**, immutable
 `4d6fc70eaf62ad0558e63e8d97eb9766118327a6`; official latest stable release rechecked
@@ -190,7 +190,7 @@ Bash (Git for Windows supplies it). It is not required to run a packaged editor.
 Archive builds set the official `KTX_GIT_VERSION_FULL=v4.4.2` override so generated
 metadata does not depend on a parent checkout's tags or an absent Git database.
 
-## Phase7 WebP selection —2026-09-20
+## Phase7 WebP selection — 2026-09-20
 
 Official stable libwebp1.6.0, released2025-06-30, exact peeled tag
 `4fa21912338357f89e4fd51cf2368325b59e9bd9`. Official tag listing was checked on
@@ -489,3 +489,23 @@ but produced a native ASan write crash on a different malformed comment packet.
 It also remains disabled. See [the known-issue record](dependency-known-issues.md)
 for the exact native configuration, failure and retained boundary. No native
 repair, upgrade or sanitizer exception was introduced.
+
+### Navigation obstacle tile integration — 2026-11-01
+
+The existing RecastNavigation 1.6.0 pin is unchanged. Compile only the two
+DetourTileCache source files alongside existing private Recast/Detour/sampler
+targets. Exact source confirms eight touched tiles per obstacle,32 layers per
+coordinate search,64 requests/64 pending updates, silent query/update truncation and
+zero-touched removal lifetime limits. FORGE preflights through the same native public query with capacity for all 64
+admitted layers, caps four per coordinate/eight touched per obstacle, bounds the
+query to 16 positions per axis, drains one request at a time and skips zero-result
+native registration. Recast's portal matching can raise emitted cell heights;
+FORGE publishes covering bounds and reserves the original span plus climb below 255
+before accepting raw layers. Strict structure validation is retained. A FORGE identity codec
+uses bounded standard copying; no sample/framework/extra codec is incorporated.
+
+Focused native tests cover raw admission, both bases, seam routes, moving/removing
+carves, isolated Queries/Worlds, unchanged snapshots, off-mesh slot stress, bounded
+failures, runtime rerouting/movement and recovery. Windows/physical acceptance is
+pending. See [Navigation](navigation.md) and [ADR027](decisions/027-navigation-obstacle-tiles.md)
+for format, ownership, SDK and finite profile limits.

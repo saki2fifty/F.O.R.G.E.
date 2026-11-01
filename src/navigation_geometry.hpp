@@ -1,4 +1,5 @@
 #pragma once
+#include "navigation_layers.hpp"
 #include "navigation_region.hpp"
 #include <forge/geometry.hpp>
 #include <forge/mesh_resource.hpp>
@@ -41,5 +42,6 @@ Geometry geometry(const nlohmann::json& effective_scene);
 Geometry geometry(const Sources&); // Original primitive-only v1 canonical bytes.
 Geometry geometry(const Sources&, const nlohmann::json& mesh_inputs,
                   const std::function<const MeshResourceData&(AssetId)>& mesh);
+HeightfieldLayers build_layers(const Geometry&, NavigationSettings);
 std::vector<std::byte> build_tile(const Geometry&, NavigationSettings);
 } // namespace forge::navigation_detail

@@ -85,10 +85,11 @@ NavigationCandidate prepare_navigation(const std::filesystem::path& project, con
             id = key;
             found = true;
         }
-    const unsigned version = settings.plane == NavigationPlane::PlanarXY ? 3 : 2;
+    const unsigned geometry_version = settings.plane == NavigationPlane::PlanarXY ? 3 : 2;
+    const unsigned version = settings.dynamic_obstacles ? 4 : geometry_version;
     Json meta = {{"asset_id", id},
                  {"version", version},
-                 {"geometry_version", version},
+                 {"geometry_version", geometry_version},
                  {"mesh_inputs", inputs},
                  {"source_scene", g.scene},
                  {"sources", g.sources},

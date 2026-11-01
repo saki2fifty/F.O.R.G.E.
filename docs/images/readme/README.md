@@ -1118,3 +1118,18 @@ release identity was assigned. Adapter: `llvmpipe (LLVM 15.0.7, 128 bits)`.
 Scene AssetId: `41785133-5f53-4669-987e-ad39f7b4dfe3`.
 Canonical PNG SHA256:
 `6ad949e3bc25b1b06430ba408305b58580c108d3c53f9e9fa935d2e74b5b79fd`.
+
+## Dynamic navigation controls
+
+`manual/images/navigation-dynamic-controls.png` is an unretouched 1180×760 capture
+of actual ComponentInspector and NavigationTools ImGui draw data, rendered through
+SDL's software backend. The ready Gallery129 Scene supplies the genuine obstacle,
+clip and v4 navigation selection. Actual mouse input collapses the unrelated
+Transform Animator to focus the task controls; no image/control was edited.
+Capture source: `tests/static_mesh_navigation_editor_tests.cpp --capture`, local
+work based on fb0947d with dynamic-navigation implementation. SHA256:
+`5d460ce1a622b3cb4f81d9c3544b48337ba5f2faba18ea5e43fe2a2f8b8de56f`. The capture was personally reviewed. The same fixture checks
+100/150/200% controls, stale/revert behavior and Play locks. It is an authentic
+editor-owner fixture, not a launched Windows editor or physical display/GPU/DPI
+acceptance. CPU source-free Gallery tests verify routes and render submissions;
+this image does not claim graphical standalone execution.
