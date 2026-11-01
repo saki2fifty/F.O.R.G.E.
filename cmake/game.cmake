@@ -30,6 +30,8 @@ if(BUILD_TESTING)
  set_tests_properties(game_frame_statistics PROPERTIES TIMEOUT 150)
  add_test(NAME standalone_package_workflow COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/standalone_package_test.py --build ${CMAKE_BINARY_DIR} --kit ${CMAKE_BINARY_DIR}/runtime-kit --evidence ${CMAKE_BINARY_DIR}/grid-test-images/game-package)
  set_tests_properties(standalone_package_workflow PROPERTIES TIMEOUT 300)
+ add_test(NAME standalone_sprite_material_package COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/standalone_package_test.py --build ${CMAKE_BINARY_DIR} --kit ${CMAKE_BINARY_DIR}/runtime-kit --evidence ${CMAKE_BINARY_DIR}/grid-test-images/sprite-material-package --sprite-graph)
+ set_tests_properties(standalone_sprite_material_package PROPERTIES TIMEOUT 300)
 endif()
 
 # Installation produces a source-independent runtime kit for the exporter.

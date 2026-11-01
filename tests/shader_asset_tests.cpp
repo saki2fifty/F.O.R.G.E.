@@ -511,6 +511,42 @@ int main() {
         rejected([&] { decode_shader(broken); });
         require(data.resident_bytes() >= bytes.size(),
                 "Shader resident estimate missed stored data");
+        // CPU artifact fixture: bytes never reach a graphics API. Domain/role
+        // association must reject a plausible Mesh/Sprite mix before realization.
+        auto sprite = data;
+        sprite.surface.emplace();
+        sprite.surface->uv_sets = {0};
+        sprite.surface->sprite_image = "image";
+        sprite.surface->textures["image"].semantic = TextureSemantic::Color;
+        sprite.surface_wrapper_version = 14;
+        sprite.stages.clear();
+        for (auto role :
+             {ShaderEntryRole::SurfaceSpriteColor, ShaderEntryRole::SurfaceSpriteMipColor})
+            sprite.stages.push_back(
+                {ShaderStage::Pixel,
+                 surface_shader_entry(role),
+                 {std::byte{42}},
+                 {{"stage", "pixel"}, {"threads", {0, 0, 0}}, {"resources", Json::array()}},
+                 role});
+        validate_shader(sprite);
+        const auto sprite_copy = decode_shader(encode_shader(sprite));
+        require(sprite_copy.surface == sprite.surface && sprite_copy.stages.size() == 2 &&
+                    sprite_copy.stages[1].role == ShaderEntryRole::SurfaceSpriteMipColor &&
+                    sprite_copy.surface_wrapper_version == 14,
+                "Sprite domain/image key or independent-mip role was lost in cooked metadata");
+        auto incompatible = sprite;
+        incompatible.surface_wrapper_version = 13;
+        rejected([&] { validate_shader(incompatible); });
+        incompatible = sprite;
+        incompatible.stages[0].role = ShaderEntryRole::SurfaceColor;
+        incompatible.stages[0].entry = surface_shader_entry(ShaderEntryRole::SurfaceColor);
+        rejected([&] { validate_shader(incompatible); });
+        incompatible = sprite;
+        incompatible.surface->sprite_image.reset();
+        rejected([&] { validate_shader(incompatible); });
+        incompatible = sprite;
+        incompatible.stages.pop_back();
+        rejected([&] { validate_shader(incompatible); });
         std::cout << "Shader source/permutation/reflection/artifact tests passed\n";
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

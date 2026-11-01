@@ -13,9 +13,48 @@
 
 namespace forge::test_sprite_draw {
 using Pixels = std::vector<std::array<std::uint8_t, 4>>;
+// Independent pixel expectations serve builtin and actual cooked Sprite programs.
+inline std::string image_key(const MaterialShaderSnapshot* surface) {
+    return surface ? surface->program.surface->sprite_image.value() : "baseColorTexture";
+}
+inline MaterialData image_material(const MaterialShaderSnapshot* surface) {
+    if (surface)
+        return surface_material_defaults(*surface->program.surface);
+    MaterialData material;
+    material.model = "forge.gltf.unlit.v1";
+    return material;
+}
 inline void check(bool value, const char* why) {
     if (!value)
         throw std::runtime_error(why);
+}
+struct ImageResources {
+    MeshDraw::Textures bindings;
+    Diligent::RefCntAutoPtr<Diligent::ITexture> white;
+};
+inline ImageResources image_resources(Diligent::IRenderDevice* device,
+                                      Diligent::ITextureView* primary,
+                                      const MaterialShaderSnapshot* surface) {
+    ImageResources resources;
+    if (primary)
+        resources.bindings[image_key(surface)] = primary;
+    if (surface)
+        for (const auto& [key, slot] : surface->program.surface->textures) {
+            if (key == image_key(surface))
+                continue;
+            check(slot.dimension == TextureDimension::D2 && slot.semantic == TextureSemantic::Color,
+                  "This Sprite pixel fixture uses ordinary auxiliary Color2D textures");
+            if (!resources.white) {
+                TextureData data;
+                data.width = data.height = 1;
+                data.alpha = TextureAlpha::Opaque;
+                data.subresources = {std::vector<std::byte>(4, std::byte{255})};
+                resources.white = upload_texture(device, data);
+            }
+            resources.bindings[key] =
+                resources.white->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
+        }
+    return resources;
 }
 inline std::array<float, 4> read_float4_pixel(Diligent::IRenderDevice* device,
                                               Diligent::IDeviceContext* context,
@@ -106,7 +145,8 @@ inline std::array<double, 4> filtered(unsigned frame, double u, double v, bool l
 }
 template <class Readback>
 void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* context,
-              Readback&& readback, const std::filesystem::path& images) {
+              Readback&& readback, const std::filesystem::path& images,
+              const MaterialShaderSnapshot* surface = nullptr) {
     using namespace Diligent;
     auto* device = presentation.device();
     std::filesystem::create_directories(images);
@@ -122,8 +162,9 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
             for (auto lane : texel(x / 4, x % 4, y))
                 source.subresources[0].push_back(std::byte(lane));
     const auto atlas = upload_texture(device, source);
-    MeshDraw::Textures textures;
-    textures["baseColorTexture"] = atlas->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+    const auto resources =
+        image_resources(device, atlas->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE), surface);
+    const auto& textures = resources.bindings;
     RefCntAutoPtr<ITexture> color, depth;
     TextureDesc desc;
     desc.Name = "FORGE Sprite direct profile proof";
@@ -146,8 +187,7 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
     unsigned cases = 0;
     for (bool linear : {false, true})
         for (auto alpha : {MaterialAlpha::Opaque, MaterialAlpha::Mask, MaterialAlpha::Blend}) {
-            MaterialData material;
-            material.model = "forge.gltf.unlit.v1";
+            auto material = image_material(surface);
             material.double_sided = true;
             material.depth_test = material.depth_write = false;
             material.alpha = alpha;
@@ -155,10 +195,10 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
             slot.semantic = TextureSemantic::Color;
             slot.sampler.min = slot.sampler.mag =
                 linear ? TextureFilter::Linear : TextureFilter::Nearest;
-            material.textures["baseColorTexture"] = slot;
+            material.textures[image_key(surface)] = slot;
             MeshDraw draw(presentation, context, gpu_mesh.lods[0].parts[0], material, textures,
                           TEX_FORMAT_RGBA8_UNORM, TEX_FORMAT_D32_FLOAT, true,
-                          SHADER_COMPILER_DEFAULT, SHADER_OPTIMIZATION_LEVEL_DEFAULT, nullptr,
+                          SHADER_COMPILER_DEFAULT, SHADER_OPTIMIZATION_LEVEL_DEFAULT, surface,
                           MeshDrawProfile::Sprite);
             const auto begin = [&](bool clear) {
                 presentation.begin_frame();
@@ -191,7 +231,7 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
                 ordinary->draw(context, {}, view, {});
                 return end();
             };
-            if (!linear && alpha == MaterialAlpha::Blend) {
+            if (!surface && !linear && alpha == MaterialAlpha::Blend) {
                 ordinary.emplace(presentation, context, gpu_mesh.lods[0].parts[0], material,
                                  textures, TEX_FORMAT_RGBA8_UNORM, TEX_FORMAT_D32_FLOAT);
                 ordinary_before = ordinary_pixels();

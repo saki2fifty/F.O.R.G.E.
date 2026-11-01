@@ -3,6 +3,9 @@
 #include "environment_probe.hpp"
 #include "indirect_lighting_shader.hpp"
 #include "material_shader.hpp"
+#include "mesh_shader_input.hpp"
+#include "sprite_image_shader.hpp"
+#include "sprite_material_profile.hpp"
 #include "temporal_motion_shader.hpp"
 #include <algorithm>
 #include <cmath>
@@ -86,13 +89,19 @@ MaterialData surface_material_defaults(const SurfaceShaderDefinition& d) {
     result.model = surface_material_model;
     result.parameters = d.parameters;
     result.textures = d.textures;
+    if (d.sprite_image) {
+        result.alpha = MaterialAlpha::Blend;
+        result.depth_write = false;
+        result.double_sided = true;
+    }
     return result;
 }
 void validate_surface_definition(const SurfaceShaderDefinition& d) {
     validate_material(surface_material_defaults(d));
     // Admission budgets, not universal hardware limits. Shader/PSO preparation
     // separately validates the actual enabled device/backend capabilities.
-    require(d.labels.empty() || d.physically_based, "Display labels require surface interface v2");
+    require(d.labels.empty() || d.physically_based || d.sprite_image,
+            "Display labels require a lit or Sprite surface interface");
     require(d.labels.size() <= d.parameters.size() + d.textures.size(), "Too many surface labels");
     for (const auto& [key, label] : d.labels)
         require((d.parameters.contains(key) || d.textures.contains(key)) && label.size() <= 512,
@@ -109,15 +118,29 @@ void validate_surface_definition(const SurfaceShaderDefinition& d) {
         identifier(name);
         uv_intent(slot, d);
     }
+    if (d.sprite_image) {
+        identifier(*d.sprite_image);
+        require(!d.physically_based && d.uv_sets == std::vector<unsigned>{0},
+                "Sprite surfaces require unlit color and UV0");
+        const auto image = d.textures.find(*d.sprite_image);
+        require(image != d.textures.end(), "Sprite primary image binding is undeclared");
+        validate_sprite_image_slot(image->second);
+    }
 }
 Json surface_definition_document(const SurfaceShaderDefinition& d) {
     validate_surface_definition(d);
     const auto values = material_values_document(surface_material_defaults(d));
-    Json result{{"version", d.physically_based ? 2 : 1},
+    Json result{{"version", d.sprite_image       ? 3
+                            : d.physically_based ? 2
+                                                 : 1},
                 {"uv_sets", d.uv_sets},
                 {"parameters", values.at("parameters")},
                 {"textures", values.at("textures")}};
-    if (d.physically_based) {
+    if (d.sprite_image) {
+        result["domain"] = "sprite";
+        result["image"] = *d.sprite_image;
+        result["labels"] = d.labels;
+    } else if (d.physically_based) {
         result["lighting"] = "metallic-roughness";
         result["labels"] = d.labels;
     }
@@ -125,12 +148,18 @@ Json surface_definition_document(const SurfaceShaderDefinition& d) {
 }
 SurfaceShaderDefinition surface_definition(const Json& j) {
     require(j.is_object() && j.size() <= 16 && j.at("version").is_number_integer() &&
-                (j.at("version") == 1 || j.at("version") == 2),
+                (j.at("version") == 1 || j.at("version") == 2 || j.at("version") == 3),
             "Unsupported surface interface version");
     require(j.at("uv_sets").is_array() && j.at("uv_sets").size() <= 32,
             "Surface UV declaration count exceeds admission budget");
     SurfaceShaderDefinition d;
-    if (j.at("version") == 2) {
+    if (j.at("version") == 3) {
+        require(j.at("domain") == "sprite" && !j.contains("lighting"),
+                "Unsupported Sprite surface domain");
+        d.sprite_image = j.at("image").get<std::string>();
+        if (j.contains("labels"))
+            d.labels = j.at("labels").get<std::map<std::string, std::string>>();
+    } else if (j.at("version") == 2) {
         require(j.at("lighting") == "metallic-roughness", "Unsupported surface lighting contract");
         d.physically_based = true;
         if (j.contains("labels"))
@@ -163,19 +192,33 @@ void validate_surface_material(const MaterialData& material, const SurfaceShader
         (void)name;
         uv_intent(t, d);
     }
+    if (d.sprite_image)
+        validate_sprite_image_slot(material.textures.at(*d.sprite_image));
 }
-std::string surface_shader_header(const SurfaceShaderDefinition& d, bool emulated, bool temporal) {
-    validate_surface_definition(d);
-    const auto uv_count = std::max<std::size_t>(1, d.uv_sets.size());
-    std::string s = "#ifndef FORGE_SURFACE_INTERFACE_V1\n#define FORGE_SURFACE_INTERFACE_V1\n"
-                    "struct ForgeSurfaceInput {float4 Position:SV_Position;float3 World:TEXCOORD0;"
-                    "float3 Normal:TEXCOORD1;float3 Tangent:TEXCOORD2;float3 Bitangent:TEXCOORD3;"
-                    "float4 Color:COLOR0;nointerpolation float4 LegacyTint:COLOR1;float2 UV[" +
-                    std::to_string(uv_count) + "]:TEXCOORD4;";
-    if (temporal)
-        s += "float4 PreviousClip:TEXCOORD" + std::to_string(8 + uv_count) + ";";
-    s += "bool FrontFace:SV_IsFrontFace;};\n"
-         "cbuffer ForgeSurfaceState {float4 g_ForgeSurfaceState;};\n";
+namespace {
+void validate_surface_function(std::string_view source, std::string_view function) {
+    identifier(function);
+    require(!source.empty() && source.size() <= 1024 &&
+                source.find_first_of("\"\r\n\\") == source.npos,
+            "Invalid surface function source path");
+    for (const unsigned char c : source)
+        require(c >= 32 && c != 127, "Control character in surface function source path");
+}
+std::string surface_value_source(std::string_view function, bool depth) {
+    std::string s = "float4 value=" + std::string(function) +
+                    "(input);\n"
+                    "bool valid=all(isfinite(value));\n"
+                    "if(!valid)value=float4(1,0,1,1);\n"
+                    "if(g_ForgeSurfaceState.x==1 && value.a<g_ForgeSurfaceState.y)discard;\n";
+    if (!depth)
+        s += "if(g_ForgeSurfaceState.x!=2)value.a=1;\n"
+             "return valid?ForgeApplyDistanceFog(value,input.World):value;\n";
+    return s;
+}
+std::string surface_resource_source(const SurfaceShaderDefinition& d, bool emulated,
+                                    bool frame_mips) {
+    const std::string input_type = d.sprite_image ? "ForgeSpriteInput" : "ForgeSurfaceInput";
+    std::string s;
     if (!d.parameters.empty()) {
         s += "cbuffer ForgeSurfaceMaterial {\n";
         for (const auto& [name, p] : d.parameters)
@@ -187,9 +230,19 @@ std::string surface_shader_header(const SurfaceShaderDefinition& d, bool emulate
                  (d.physically_based ? " ForgeGraphParameter_" : " ForgeParameter_") + name +
                  "(){return g_SurfaceParameter_" + name + ";}\n";
     }
-    for (std::size_t i = 0; i < d.uv_sets.size(); ++i)
-        s += "float2 ForgeUV" + std::to_string(d.uv_sets[i]) +
-             "(ForgeSurfaceInput input){return input.UV[" + std::to_string(i) + "];}\n";
+    if (d.sprite_image)
+        s += R"(
+float2 ForgeUV0(ForgeSpriteInput input) {
+    if(input.SpriteImage.x!=0)return input.UV[0];
+    float2 uv=(input.UV[0]-input.SpriteAtlas.xy)/input.SpriteAtlas.zw;
+    return input.SpriteImage.w!=0?uv.yx:uv;
+}
+)";
+    else {
+        for (std::size_t i = 0; i < d.uv_sets.size(); ++i)
+            s += "float2 ForgeUV" + std::to_string(d.uv_sets[i]) +
+                 "(ForgeSurfaceInput input){return input.UV[" + std::to_string(i) + "];}\n";
+    }
     if (!d.textures.empty()) {
         s += "cbuffer ForgeSurfaceUV {float4 g_SurfaceUvRows[" +
              std::to_string(d.textures.size() * 2) + "];};\n";
@@ -208,6 +261,29 @@ std::string surface_shader_header(const SurfaceShaderDefinition& d, bool emulate
         const auto width = slot.dimension == TextureDimension::D2          ? 2
                            : slot.dimension == TextureDimension::CubeArray ? 4
                                                                            : 3;
+        if (d.sprite_image && name == *d.sprite_image) {
+            s += "float4 ForgeSample_" + name + R"((ForgeSpriteInput input){
+    float2 dx,dy;
+    if(!ForgeSpriteImageCoordinates(input,dx,dy) || !all(isfinite(input.UV[0])) ||
+       !all(isfinite(dx)) || !all(isfinite(dy)))return 0;
+    float4 value=g_SurfaceTexture_)" +
+                 name +
+                 (frame_mips ? ".SampleGrad(" + sampler + ",input.UV[0],dx,dy);\n"
+                             : ".SampleLevel(" + sampler + ",input.UV[0],0);\n");
+            if (frame_mips)
+                s += "if(value.a>0)value.rgb/=value.a;else value.rgb=0;\n";
+            s += "return all(isfinite(value))?value:0;}\n";
+            s += "float4 ForgeSample_" + name + R"((ForgeSpriteInput input,float2 coordinate){
+    if(!all(isfinite(coordinate)))return 0;
+    if(input.SpriteImage.x==0) {
+        if(input.SpriteImage.w!=0)coordinate=coordinate.yx;
+        input.UV[0]=input.SpriteAtlas.xy+coordinate*input.SpriteAtlas.zw;
+    } else input.UV[0]=coordinate;
+    return ForgeSample_)" +
+                 name + "(input); }\n";
+            ++i;
+            continue;
+        }
         s += "float4 ForgeSample_" + name + "(" + float_type(width) + " coordinate){\n";
         if (planar(slot.dimension))
             s += "float3 u=g_SurfaceUvRows[" + std::to_string(i * 2) + "].xyz,v=g_SurfaceUvRows[" +
@@ -215,19 +291,53 @@ std::string surface_shader_header(const SurfaceShaderDefinition& d, bool emulate
                  "].xyz;coordinate.xy=float2(dot(u.xy,coordinate.xy)+u.z,dot(v.xy,coordinate.xy)+v."
                  "z);\n";
         s += "return g_SurfaceTexture_" + name + ".Sample(" + sampler + ",coordinate);}\n";
+        const auto uv = d.sprite_image
+                            ? "ForgeUV0(input)"
+                            : "input.UV[(uint)g_SurfaceUvRows[" + std::to_string(i * 2) + "].w]";
         if (slot.dimension == TextureDimension::D2)
-            s += "float4 ForgeSample_" + name + "(ForgeSurfaceInput input){return ForgeSample_" +
-                 name + "(input.UV[(uint)g_SurfaceUvRows[" + std::to_string(i * 2) + "].w]);}\n";
+            s += "float4 ForgeSample_" + name + "(" + input_type + " input){return ForgeSample_" +
+                 name + "(" + uv + ");}\n";
         if (slot.dimension == TextureDimension::D2Array)
-            s += "float4 ForgeSample_" + name +
-                 "(ForgeSurfaceInput input,float layer){return ForgeSample_" + name +
-                 "(float3(input.UV[(uint)g_SurfaceUvRows[" + std::to_string(i * 2) +
-                 "].w],layer));}\n";
+            s += "float4 ForgeSample_" + name + "(" + input_type +
+                 " input,float layer){return ForgeSample_" + name + "(float3(" + uv +
+                 ",layer));}\n";
         ++i;
     }
+    return s;
+}
+} // namespace
+std::string surface_shader_header(const SurfaceShaderDefinition& d, bool emulated, bool temporal) {
+    validate_surface_definition(d);
+    require(!d.sprite_image, "Sprite surfaces require their Sprite input wrapper");
+    const auto uv_count = std::max<std::size_t>(1, d.uv_sets.size());
+    std::string s = "#ifndef FORGE_SURFACE_INTERFACE_V1\n#define FORGE_SURFACE_INTERFACE_V1\n"
+                    "struct ForgeSurfaceInput {float4 Position:SV_Position;float3 World:TEXCOORD0;"
+                    "float3 Normal:TEXCOORD1;float3 Tangent:TEXCOORD2;float3 Bitangent:TEXCOORD3;"
+                    "float4 Color:COLOR0;nointerpolation float4 LegacyTint:COLOR1;float2 UV[" +
+                    std::to_string(uv_count) + "]:TEXCOORD4;";
+    if (temporal)
+        s += "float4 PreviousClip:TEXCOORD" + std::to_string(8 + uv_count) + ";";
+    s += "bool FrontFace:SV_IsFrontFace;};\n"
+         "cbuffer ForgeSurfaceState {float4 g_ForgeSurfaceState;};\n";
+    s += surface_resource_source(d, emulated, false);
     s += distance_fog_shader;
     s += "#endif\n";
     return s;
+}
+std::string sprite_surface_shader_header(const SurfaceShaderDefinition& d, bool frame_mips,
+                                         bool emulated) {
+    validate_surface_definition(d);
+    require(d.sprite_image.has_value(), "Sprite input requires a declared primary image");
+    MeshVertexFetch fetch;
+    fetch.uv_sets = {0};
+    std::string source = "#ifndef FORGE_SPRITE_SURFACE_INTERFACE_V1\n"
+                         "#define FORGE_SPRITE_SURFACE_INTERFACE_V1\n";
+    source += mesh_shader_varyings(fetch, true, "ForgeSpriteInput", true);
+    source += "cbuffer ForgeSurfaceState {float4 g_ForgeSurfaceState;};\n";
+    source += sprite_image_coordinate_function("ForgeSpriteInput", frame_mips);
+    source += surface_resource_source(d, emulated, frame_mips);
+    source += distance_fog_shader;
+    return source + "#endif\n";
 }
 std::string surface_shader_wrapper(std::string_view source, std::string_view function, bool depth,
                                    bool indirect_output, bool reflection_output,
@@ -236,12 +346,7 @@ std::string surface_shader_wrapper(std::string_view source, std::string_view fun
     require(!reflection_output || indirect_output, "Reflection surface requires indirect output");
     require(!normal_output || (indirect_output && !reflection_output),
             "Normal-only surface requires indirect output without reflection outputs");
-    identifier(function);
-    require(!source.empty() && source.size() <= 1024 &&
-                source.find_first_of("\"\r\n\\") == source.npos,
-            "Invalid surface function source path");
-    for (const unsigned char c : source)
-        require(c >= 32 && c != 127, "Control character in surface function source path");
+    validate_surface_function(source, function);
     std::string s =
         "#include \"engine/forge.surface.hlsli\"\n#include \"" + std::string(source) + "\"\n";
     if (reflection_output || normal_output)
@@ -258,15 +363,17 @@ std::string surface_shader_wrapper(std::string_view source, std::string_view fun
         s += "reflection=(ForgeReflectionSurfaceData)0;\n";
     else if (normal_output)
         s += "forgeNormalSurface=0;\n";
-    s += "float4 value=" + std::string(function) +
-         "(input);\n"
-         "bool valid=all(isfinite(value));\n"
-         "if(!valid)value=float4(1,0,1,1);\n"
-         "if(g_ForgeSurfaceState.x==1 && value.a<g_ForgeSurfaceState.y)discard;\n";
-    if (!depth)
-        s += "if(g_ForgeSurfaceState.x!=2)value.a=1;\n"
-             "return valid?ForgeApplyDistanceFog(value,input.World):value;\n";
-    return s + "}\n";
+    return s + surface_value_source(function, depth) + "}\n";
+}
+std::string sprite_surface_shader_wrapper(std::string_view source, std::string_view function,
+                                          bool frame_mips) {
+    validate_surface_function(source, function);
+    const auto* header =
+        frame_mips ? "engine/forge.surface.sprite-mips.hlsli" : "engine/forge.surface.hlsli";
+    const auto* entry = frame_mips ? surface_sprite_mip_entry : surface_sprite_color_entry;
+    return "#include \"" + std::string(header) + "\"\n#include \"" + std::string(source) +
+           "\"\nfloat4 " + entry + "(ForgeSpriteInput input):SV_Target0 {\n" +
+           surface_value_source(function, false) + "}\n";
 }
 std::string temporal_surface_wrapper(std::string color) {
     const std::string entry = "float4 ForgeSurfaceColor(ForgeSurfaceInput input):SV_Target0 {";
@@ -588,8 +695,14 @@ SurfaceBindingLayout surface_binding_layout(const SurfaceShaderDefinition& d,
                                             unsigned wrapper_version) {
     require(wrapper_version >= 1 && wrapper_version <= current_surface_wrapper_version &&
                 role >= ShaderEntryRole::SurfaceColor &&
-                role <= ShaderEntryRole::SurfaceAreaWeightedColor,
+                role <= ShaderEntryRole::SurfaceSpriteMipColor,
             "Unsupported surface binding capability or stage role");
+    require(sprite_surface_role(role) == d.sprite_image.has_value(),
+            "Surface binding role does not match its Mesh or Sprite domain");
+    if (sprite_surface_role(role)) {
+        require(wrapper_version >= 14, "Sprite bindings require their Sprite wrapper capability");
+        return binding_layout(d, reflection, false, 2);
+    }
     return binding_layout(d, reflection, area_surface_role(role),
                           role == ShaderEntryRole::SurfaceDepth ? 0u : wrapper_version);
 }

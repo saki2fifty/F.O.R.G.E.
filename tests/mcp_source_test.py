@@ -13,6 +13,7 @@ from mcp_test_client import CAPTURE, Client, failed, write_capture, finish_host
 TOOLS, HOST, WORKER = map(str, map(Path, sys.argv[1:4]))
 COLLISION_ONLY = "--tile-collision-only" in sys.argv[5:]
 ATLAS_ONLY = "--atlas-only" in sys.argv[5:]
+SPRITE_GRAPH_ONLY = "--sprite-graph-only" in sys.argv[5:]
 
 
 @contextmanager
@@ -75,14 +76,34 @@ for legacy in (False, True):
         graph_types = read('forge_asset_graph_catalog')['nodes']
         assert len(graph_types) > 10
         assert read('forge_asset_graph_node', schema='constant')['outputs']
+        sprite_output = read('forge_asset_graph_node', schema='sprite_output')
+        assert sprite_output['node']['data']['tint'] and not sprite_output['outputs']
+        assert sprite_output['inputs'][0]['key'] == 'color'
+        schemas = {tool['name']: tool['inputSchema']['properties'] for tool in declared_tools}
+        assert schemas['forge_asset_document_template']['domain']['enum'] == ['mesh', 'sprite']
+        assert schemas['forge_asset_document_create']['domain']['enum'] == ['mesh', 'sprite']
+        assert not {'domain', 'textures', 'tile_set', 'patch'} & schemas['forge_asset_document_open'].keys()
+        wrong_domain_owner = client.tool('forge_asset_document_template',
+                                        target=discovery()['result']['target'],
+                                        editor='material', domain='sprite')
+        assert not wrong_domain_owner['ok'], wrong_domain_owner
+        invalid_domain = client.tool('forge_asset_document_template',
+                                     target=discovery()['result']['target'],
+                                     editor='material.graph', domain='unknown')
+        assert not invalid_domain['ok'], invalid_domain
+        wrong_creation = mutate('forge_asset_document_create', editor='material',
+                                path='Assets/Rejected-domain.material.json', domain='sprite')
+        assert not wrong_creation['ok'] and not (root / 'Game/Assets/Rejected-domain.material.json').exists()
         # A Tile Set source can be authored before its dependent Tile Map.
         kinds.sort(key=lambda item: item['editor'] == 'tile_map')
         if COLLISION_ONLY:
             kinds = [kind for kind in kinds if kind['editor'] in ('tile_set', 'tile_map')]
         if ATLAS_ONLY:
             kinds = [kind for kind in kinds if kind['editor'] == 'sprite_atlas']
+        if SPRITE_GRAPH_ONLY:
+            kinds = [kind for kind in kinds if kind['editor'] == 'material.graph']
         atlas_image = None
-        if not COLLISION_ONLY:
+        if not COLLISION_ONLY and not SPRITE_GRAPH_ONLY:
             # Original owned raster, imported only through the advertised MCP
             # settings/publication workflow; no catalog fixture injection.
             header = bytearray(18)
@@ -132,6 +153,10 @@ for legacy in (False, True):
         for kind in kinds:
             owner = kind['editor']
             extra = dict(tile_set=set_id) if owner == 'tile_map' else dict(textures=[atlas_image]) if owner == 'sprite_atlas' else {}
+            if owner == 'material.graph':
+                mesh = read('forge_asset_document_template', editor=owner)
+                assert any(n['type'] == 'surface' for n in mesh['graph']['nodes'])
+                extra = dict(domain='sprite')
             template = read('forge_asset_document_template', editor=owner, **extra)
             assert isinstance(template, dict) and template['asset_id']
             path = 'Assets/MCP-' + owner.replace('.', '-') + kind['suffix']
@@ -142,6 +167,10 @@ for legacy in (False, True):
             if owner == 'tile_set':
                 set_id = initial['asset']
             before = content(owner)
+            if owner == 'material.graph':
+                output = next(n for n in before['graph']['nodes'] if n['type'] == 'sprite_output')
+                image = next(n for n in before['graph']['nodes'] if n['type'] == 'texture2d')
+                assert output['data']['image'] == image['data']['key'] and output['data']['tint']
             key, value = 'mcp_note', {'owner': owner, 'keep': [1, 2, 3]}
             if owner == 'particle_effect': key, value = 'spawn_rate', before['spawn_rate'] * .5
             if owner == 'terrain': key, value = 'tile_size', before['tile_size'] * 2
@@ -168,6 +197,14 @@ for legacy in (False, True):
             assert not invalid['ok'], invalid
             assert content(owner) == snapshot and status(owner)['revision'] == current['revision']
             failed(edit('forge_asset_document_close', owner), 'unsaved_document')
+            if owner == 'material.graph':
+                snapshot = content(owner)
+                index = next(i for i, n in enumerate(snapshot['graph']['nodes']) if n['type'] == 'sprite_output')
+                assert edit('forge_asset_document_patch', owner, patch=[dict(op='replace', path=f'/graph/nodes/{index}/data/tint', value=False)])['ok']
+                assert not content(owner)['graph']['nodes'][index]['data']['tint']
+                assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == snapshot
+                assert edit('forge_asset_document_redo', owner)['ok']
+                assert not content(owner)['graph']['nodes'][index]['data']['tint']
             if owner == 'sprite_atlas':
                 result = edit('forge_asset_document_patch', owner, patch=[
                     dict(op='replace', path='/frames/0/id', value=2**32 - 1),
@@ -495,6 +532,10 @@ for legacy in (False, True):
             else:
                 assert edit('forge_asset_document_close', owner, discard=True)['ok']
             assert not status(owner)['open']
+            if owner == 'material.graph':
+                failed_open = mutate('forge_asset_document_open', editor=owner,
+                                     path=path, domain='sprite')
+                assert not failed_open['ok'] and not status(owner)['open']
             opened = mutate('forge_asset_document_open', editor=owner, path=path)
             assert opened['ok'], opened
             assert status(owner)['session'] != initial['session']
@@ -509,7 +550,7 @@ for legacy in (False, True):
                 assert not status(owner)['dirty']  # Same saved-state semantics as interactive editing.
             assert edit('forge_asset_document_close', owner, discard=True)['ok']
 
-        if COLLISION_ONLY or ATLAS_ONLY:
+        if COLLISION_ONLY or ATLAS_ONLY or SPRITE_GRAPH_ONLY:
             continue
 
         # Typed importer settings use the shared draft, schema and native worker.

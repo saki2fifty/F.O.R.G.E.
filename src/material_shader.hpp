@@ -28,6 +28,9 @@ std::array<std::array<float, 4>, 2> material_texture_transform_rows(const Materi
 // One shared packing authority for built-in shader emission and object values.
 // Input is the admitted canonical PBR value set, including model defaults.
 std::vector<MaterialParameterUniform> material_parameter_uniforms(const MaterialData&);
+// Derived Sprite frames have independent mip chains, so their native sampler
+// clamps to that frame and admits the full chain regardless of source LOD caps.
+SamplerState sprite_frame_sampler(SamplerState, TextureFilter);
 // Engine-owned shader binding adapter. Parameter values and UV transforms are
 // uniforms, so changing a factor never creates a new shader permutation.
 // Texture resources use native color-space views and independent binding samplers.

@@ -1,16 +1,23 @@
 #pragma once
 #include "asset_import_service.hpp"
+#include "asset_storage.hpp"
 #include "material_authoring.hpp"
 #include "shader_authoring.hpp"
 #include "shader_diligent.hpp"
 #include "shader_pipeline.hpp"
+#include <forge/engine_assets.hpp>
+#include <forge/engine_texture_assets.hpp>
 #include <forge/material_graph.hpp>
+#include <forge/primitive_catalog.hpp>
+#include <forge/render_components.hpp>
+#include <forge/scene.hpp>
 namespace forge::test {
 inline void add_graph_game_material(const std::filesystem::path& project,
-                                    const std::filesystem::path& worker) {
+                                    const std::filesystem::path& worker, bool sprite = false) {
     std::filesystem::create_directories(project / "Assets");
-    auto source = MaterialGraphSource::create(AssetId::generate());
-    source.document["graph"]["nodes"][0]["data"]["value"] = {.07, .55, .2, 1.};
+    auto source = sprite ? MaterialGraphSource::create_sprite(AssetId::generate())
+                         : MaterialGraphSource::create(AssetId::generate());
+    source.document["graph"]["nodes"][sprite ? 1 : 0]["data"]["value"] = {.07, .55, .2, 1.};
     atomic_write(project / "Assets/Surface.shader.json", source.document.dump(2));
     auto catalog = AssetCatalog::open_project(project);
     catalog.add({source.asset(), "shader", "Assets/Surface.shader.json"});
@@ -40,6 +47,15 @@ inline void add_graph_game_material(const std::filesystem::path& project,
     material.document["version"] = 2;
     material.document["overrides"]["model"] = surface_material_model;
     material.document["overrides"]["shader"] = source.asset();
+    if (sprite) {
+        const auto definition = compile_material_graph(source.document.at("graph")).surface;
+        const auto& image = *definition.sprite_image;
+        material.document["overrides"]["textures"][image] = {
+            {"asset", engine_texture(EngineTexture::White)},
+            {"slot", material_values_document(surface_material_defaults(definition))
+                         .at("textures")
+                         .at(image)}};
+    }
     atomic_write(project / "Assets/Surface.material.json", material.document.dump(2));
     catalog = AssetCatalog::open_project(project);
     catalog.add({material.asset(), "material", "Assets/Surface.material.json"});
@@ -60,8 +76,16 @@ inline void add_graph_game_material(const std::filesystem::path& project,
     WorldContext world;
     Scene scene(world);
     scene.load(project / "main.scene.json");
-    scene.entity("cube").set<MeshRenderer>(
-        {engine_primitive(0), {{"surface", {material.asset()}}}});
+    if (sprite) {
+        SpriteRenderer values;
+        values.material = {material.asset()};
+        values.width = values.height = 1.4;
+        values.mip_filter = unsigned(SpriteMipFilter::Linear);
+        scene.entity("cube").remove<MeshRenderer>().set<SpriteRenderer>(values);
+        scene.entity("cube").set<Primitive>({no_primitive});
+    } else
+        scene.entity("cube").set<MeshRenderer>(
+            {engine_primitive(0), {{"surface", {material.asset()}}}});
     scene.save(project / "main.scene.json");
 }
 } // namespace forge::test

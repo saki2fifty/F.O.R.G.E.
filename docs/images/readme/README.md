@@ -1080,3 +1080,21 @@ PNG SHA256: `71cb85699675ca896a63b7e4c2cb064ea7d8c659ad6f48b17657123daf599c9c`.
 
 Both canonical images are shared by the README/manual where used. No retouching,
 image generation, duplicate image assets or hardware performance claim.
+
+## Sprite graph output controls
+
+`manual/images/sprite-material-graph.png` is an authentic 1180×820 capture of the
+actual MaterialGraphCanvas, rendered through the existing SDL/ImGui software
+capture backend by `material_graph_geometry_editor`. The fixture displays the
+complete default Sprite graph with Sprite Output selected. Its primary image
+chooser shows the human-readable label while retaining the stable binding key.
+The same fixture checks real controls, history, read-only state and save/reopen at
+100/150/200% scale. It is a control capture, with no GPU material preview; it does
+not establish actual Windows editor, shader cooking or physical GPU acceptance.
+
+Source base: `b25186ce8fe7260e786558da877fc62865a21e2b` plus the programmable Sprite
+material work in the current source tree. Capture: the `sprite-material-graph.png`
+output of `forge_material_graph_geometry_editor_tests`. Current capture was
+personally viewed at its original dimensions, with no image retouching.
+
+PNG SHA256: `5562d10cee54d53f12b2d100b55a20dba7771be7e134aa2cf447d2cf4841be45`.

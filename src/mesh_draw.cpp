@@ -184,7 +184,6 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
             "Rebuild this Shader and dependent Materials to use screen-space reflections");
     require(!normal_ || !surface || surface->program.surface_wrapper_version >= 6,
             "Rebuild this Shader and dependent Materials to use material-normal occlusion");
-    require(!sprite_ || !surface, "Sprite draw profile does not admit custom surfaces");
     require(!area_lights_ || !sprite_, "Area lighting requires a Mesh draw");
     sprite_trim_allowed_ = sprite_trim_material_compatible(source);
     device_ = presentation.device();
@@ -194,6 +193,8 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
         validate_shader(surface->program);
         require(surface->program.surface.has_value(), "Shader has no surface interface");
         validate_surface_material(source, *surface->program.surface);
+        require(sprite_ == surface->program.surface->sprite_image.has_value(),
+                "Surface Shader domain does not match this draw profile");
         if (surface->program.surface->physically_based) {
             MaterialData defaults;
             defaults.model = "forge.gltf.metallic-roughness.v1";
@@ -214,13 +215,13 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
                                      : MaterialSamplerBinding::Array;
     MeshDrawShader program;
     if (surface) {
-        const auto generated = mesh_geometry_shader(fetch);
+        const auto generated = mesh_geometry_shader(fetch, true, sprite_);
         program.vertex = generated.vertex;
         program.geometry = generated.geometry;
         program.instanced = generated.instanced;
         if (surface->program.surface->physically_based)
             program.material = material_shader(*profile, fetch.uv_sets, sampler_binding);
-        if (!shadow_pass_ && surface->program.surface_wrapper_version >= 8)
+        if (!sprite_ && !shadow_pass_ && surface->program.surface_wrapper_version >= 8)
             program.decal_capacity =
                 decal_shader_capacity(surface->program.surface->textures.size(),
                                       surface->program.surface->physically_based);
@@ -262,9 +263,11 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
     RefCntAutoPtr<IShader> pixel;
     SurfaceBindingLayout surface_layout;
     if (surface) {
-        const auto role = shadow_pass_ ? ShaderEntryRole::SurfaceDepth
-                                       : surface_color_role(temporal_, indirect_, reflection_,
-                                                            normal_, area_lights_, weighted_);
+        const auto role = sprite_        ? (sprite_mips_ ? ShaderEntryRole::SurfaceSpriteMipColor
+                                                         : ShaderEntryRole::SurfaceSpriteColor)
+                          : shadow_pass_ ? ShaderEntryRole::SurfaceDepth
+                                         : surface_color_role(temporal_, indirect_, reflection_,
+                                                              normal_, area_lights_, weighted_);
         auto native = realize_renderer_shader(presentation, surface->program);
         pixel = native.stages.at(ShaderStageKey{ShaderStage::Pixel, role});
         const auto stage = std::find_if(native.data.stages.begin(), native.data.stages.end(),
@@ -411,8 +414,15 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
     if (surface)
         for (const auto& [role, declaration] : surface->program.surface->textures) {
             (void)declaration;
-            sampler_states.push_back(source.textures.at(role).sampler);
+            auto state = source.textures.at(role).sampler;
+            if (sprite_mips_ && role == *surface->program.surface->sprite_image)
+                state = sprite_frame_sampler(state, *sprite_draw_mip_filter(draw_profile));
+            sampler_states.push_back(state);
         }
+    if (sprite_)
+        sprite_image_variable_ = surface
+                                     ? "g_SurfaceTexture_" + *surface->program.surface->sprite_image
+                                     : "g_MaterialTexture0";
     std::vector<RefCntAutoPtr<ISampler>> samplers;
     std::vector<IDeviceObject*> sampler_objects;
     for (const auto& state : sampler_states) {
@@ -427,10 +437,12 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
     std::vector<ShaderResourceVariableDesc> resource_variables{
         {SHADER_TYPE_VERTEX, "g_MeshVertices", SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE,
          SHADER_VARIABLE_FLAG_NO_DYNAMIC_BUFFERS}};
-    if (sprite_mips_)
-        for (const auto& slot : material.textures)
-            resource_variables.push_back({SHADER_TYPE_PIXEL, slot.texture_variable.c_str(),
-                                          SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC});
+    if (sprite_mips_ &&
+        (!surface ||
+         std::find(surface_layout.textures.begin(), surface_layout.textures.end(),
+                   *surface->program.surface->sprite_image) != surface_layout.textures.end()))
+        resource_variables.push_back({SHADER_TYPE_PIXEL, sprite_image_variable_.c_str(),
+                                      SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC});
     if (material_immutable_)
         resource_variables.push_back(
             {SHADER_TYPE_PIXEL, material_surface_ ? "ForgeSurfaceMaterial" : "ForgeMaterialValues",
@@ -674,6 +686,8 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
                 throw std::runtime_error("Unknown surface texture dimension");
             };
             for (const auto& role : surface_layout.textures) {
+                if (sprite_mips_ && role == *surface->program.surface->sprite_image)
+                    continue; // The complete derived frame is bound before drawing.
                 const auto found = textures.find(role);
                 require(found != textures.end() && found->second,
                         "surface texture unavailable: " + role);
@@ -703,9 +717,13 @@ void MeshDraw::bind_sprite_mip(ITextureView* view) {
     require(desc.Type == RESOURCE_DIM_TEX_2D && desc.Format == TEX_FORMAT_RGBA16_FLOAT,
             "Sprite mip draw requires its linear premultiplied frame texture");
     for (auto& binding : bindings_) {
-        auto* variable = binding->GetVariableByName(SHADER_TYPE_PIXEL, "g_MaterialTexture0");
-        require(variable, "Sprite mip color binding is unavailable");
-        variable->Set(view);
+        auto* variable =
+            binding->GetVariableByName(SHADER_TYPE_PIXEL, sprite_image_variable_.c_str());
+        // A custom final-color function may leave its declared image unused;
+        // reflection legitimately omits that optimized-out binding.
+        require(variable || material_surface_, "Sprite mip color binding is unavailable");
+        if (variable)
+            variable->Set(view);
     }
 }
 void MeshDraw::bind_environment(const GpuEnvironment* maps) {

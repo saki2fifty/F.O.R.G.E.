@@ -158,14 +158,21 @@ class MaterialGraphEditor {
                                    ImGuiWindowFlags_AlwaysAutoResize)) {
             ImGui::InputText("Graph file", path_, sizeof(path_));
             FORGE_UI_PROBE("graph:new-path");
+            ImGui::Combo("Domain", &new_domain_, "Mesh\0Sprite\0");
+            FORGE_UI_PROBE("graph:new-domain");
+            ui::help("Mesh graphs output a lit surface. Sprite graphs output final color and "
+                     "sample one primary image in logical frame UV0.");
             ui::help("A new .shader.json source inside an existing project folder. Material graphs "
                      "use the existing Shader asset and publication pipeline.");
             ImGui::BeginDisabled(locked || dirty() || preview_job_.valid());
             if (ui::button("Create graph", "Create the source and open its graph workspace; never "
                                            "overwrite existing files.")) {
                 try {
-                    auto created = MaterialGraphDocument::create(project.writer_guard(),
-                                                                 std::filesystem::u8path(path_));
+                    auto created = MaterialGraphDocument::create(
+                        project.writer_guard(), std::filesystem::u8path(path_), [this](AssetId id) {
+                            return new_domain_ == 1 ? MaterialGraphSource::create_sprite(id)
+                                                    : MaterialGraphSource::create(id);
+                        });
                     const auto source = created->locator();
                     created.reset();
                     open(project, source);
@@ -212,6 +219,8 @@ class MaterialGraphEditor {
                         values.alpha = preview_source_->values.alpha;
                         values.alpha_cutoff = preview_source_->values.alpha_cutoff;
                         values.double_sided = preview_source_->values.double_sided;
+                        values.depth_test = preview_source_->values.depth_test;
+                        values.depth_write = preview_source_->values.depth_write;
                     }
                     for (const auto& [key, ref] : preview_textures_)
                         if (values.textures.contains(key))
@@ -599,6 +608,7 @@ class MaterialGraphEditor {
     MaterialTextureBindings preview_textures_;
     std::optional<ResolvedMaterialSource> preview_source_, pending_preview_;
     char path_[512] = "Assets/SurfaceGraph.shader.json";
+    int new_domain_ = 0;
     MaterialGraphCanvas::Edit edit_callback() {
         return [this](std::string label, const std::function<void(Json&)>& f) {
             try {

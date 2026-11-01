@@ -9,10 +9,12 @@
 namespace forge::test_sprite_frame_mip_render {
 template <class Readback>
 void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* context,
-              Readback&& readback, const std::filesystem::path& directory) {
+              Readback&& readback, const std::filesystem::path& directory,
+              const MaterialShaderSnapshot* custom_surface = nullptr) {
     using namespace Diligent;
     using test_sprite_draw::check;
     auto* device = presentation.device();
+    const auto resources = test_sprite_draw::image_resources(device, nullptr, custom_surface);
     const auto source_mesh = asset_detail::engine_mesh_resource(engine_primitive(8));
     const auto mesh = upload_mesh(device, source_mesh.mesh);
     TextureDesc desc;
@@ -75,17 +77,17 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
         const auto plan = sprite_frame_mip_plan(sprite, atlas, 100000);
         const auto image = prepare_sprite_frame_mips(atlas, plan.frames[0], 100000);
         const auto gpu = upload_texture(device, image);
-        MaterialData material;
-        material.model = "forge.gltf.unlit.v1";
+        auto material = test_sprite_draw::image_material(custom_surface);
         material.alpha = pattern == 1 ? MaterialAlpha::Blend : MaterialAlpha::Opaque;
         material.double_sided = true;
         material.depth_test = material.depth_write = false;
-        material.textures["baseColorTexture"].semantic = TextureSemantic::Color;
+        material.textures[test_sprite_draw::image_key(custom_surface)].semantic =
+            TextureSemantic::Color;
         for (unsigned filter : {1u, 2u}) {
-            MeshDraw draw(presentation, context, mesh.lods[0].parts[0], material, {},
-                          TEX_FORMAT_RGBA8_UNORM, TEX_FORMAT_D32_FLOAT, false,
-                          SHADER_COMPILER_DEFAULT, SHADER_OPTIMIZATION_LEVEL_DEFAULT, nullptr,
-                          sprite_draw_profile(filter));
+            MeshDraw draw(presentation, context, mesh.lods[0].parts[0], material,
+                          resources.bindings, TEX_FORMAT_RGBA8_UNORM, TEX_FORMAT_D32_FLOAT, false,
+                          SHADER_COMPILER_DEFAULT, SHADER_OPTIMIZATION_LEVEL_DEFAULT,
+                          custom_surface, sprite_draw_profile(filter));
             for (bool flip_x : {false, true})
                 for (bool flip_y : {false, true}) {
                     sprite.flip_x = flip_x;
@@ -140,19 +142,19 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
           "Trimmed clockwise frame filtering differs from its full isolated image");
     const auto original_gpu = upload_texture(device, original_mips);
     const auto packed_gpu = upload_texture(device, packed_mips);
-    MaterialData translucent;
-    translucent.model = "forge.gltf.unlit.v1";
+    auto translucent = test_sprite_draw::image_material(custom_surface);
     translucent.alpha = MaterialAlpha::Blend;
     translucent.double_sided = true;
     translucent.depth_test = translucent.depth_write = false;
-    auto& base = translucent.textures["baseColorTexture"];
+    auto& base = translucent.textures[test_sprite_draw::image_key(custom_surface)];
     base.semantic = TextureSemantic::Color;
     base.sampler.min = base.sampler.mag = TextureFilter::Linear;
     std::size_t canvas_cases = 0;
     for (unsigned filter : {1u, 2u}) {
-        MeshDraw draw(presentation, context, mesh.lods[0].parts[0], translucent, {},
+        MeshDraw draw(presentation, context, mesh.lods[0].parts[0], translucent, resources.bindings,
                       TEX_FORMAT_RGBA8_UNORM, TEX_FORMAT_D32_FLOAT, false, SHADER_COMPILER_DEFAULT,
-                      SHADER_OPTIMIZATION_LEVEL_DEFAULT, nullptr, sprite_draw_profile(filter));
+                      SHADER_OPTIMIZATION_LEVEL_DEFAULT, custom_surface,
+                      sprite_draw_profile(filter));
         for (unsigned mode : {0u, 1u, 2u})
             for (bool flip_x : {false, true})
                 for (bool flip_y : {false, true}) {
@@ -182,6 +184,8 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
                 }
     }
     std::cout << "Filtered trimmed/clockwise canvas comparisons: " << canvas_cases << '\n';
+    if (custom_surface)
+        return; // Direct program checks above; publication has its own fixture.
 
     // Exercise the real asynchronous selection/adoption owner with more unique
     // frames than its shared worker queue can admit at once.

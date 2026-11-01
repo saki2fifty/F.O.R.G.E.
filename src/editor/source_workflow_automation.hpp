@@ -44,7 +44,11 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                                  {"category", schema.category},
                                  {"help", schema.help},
                                  {"version", schema.version}});
-            return Json{{"nodes", std::move(nodes)}};
+            return Json{{"nodes", std::move(nodes)},
+                        {"domains",
+                         {{"mesh", "Surface Output; lit Mesh material"},
+                          {"sprite", "Sprite Output; final color, logical UV0, primary image "
+                                     "stable key, optional Inspector Tint"}}}};
         }));
     methods.push_back(automation_method(
         "asset.graph.node",
@@ -90,10 +94,12 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
     methods.push_back(automation_method(
         "asset.document.template",
         "Inspect a validated initial source shape. Its preview UUID is not reserved; creation "
-        "allocates its own identity. Tile Maps require tile_set; Sprite atlases require textures.",
+        "allocates its own identity. Tile Maps require tile_set; Sprite atlases require textures. "
+        "Material graphs accept domain mesh (default) or sprite.",
         "asset.read",
         automation_object({{"editor", editor_schema},
                            {"tile_set", automation_uuid()},
+                           {"domain", {{"type", "string"}, {"enum", {"mesh", "sprite"}}}},
                            {"textures", automation_array(automation_uuid(), 512, 1)}},
                           {"editor"}),
         false, [invoke](const Json& request) { return invoke("template", request); }));
@@ -125,21 +131,25 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
         false, [invoke](const Json& request) { return invoke("cells", request); }));
     if (!permissions.assets)
         return methods;
-    for (const auto* action : {"open", "create"})
+    for (const auto* action : {"open", "create"}) {
+        Json properties{{"editor", editor_schema}, {"path", automation_text(2047, 1)}};
+        const bool create = std::string_view(action) == "create";
+        if (create) {
+            properties["tile_set"] = automation_uuid();
+            properties["textures"] = automation_array(automation_uuid(), 512, 1);
+            properties["domain"] = {{"type", "string"}, {"enum", {"mesh", "sprite"}}};
+            properties["patch"] = patch;
+        }
         methods.push_back(automation_method(
             std::string("asset.document.") + action,
             std::string(action) + " a project source in its actual editor. Settle the prior draft "
                                   "first. Create supports a validated initial patch; Tile Maps "
                                   "require tile_set; Sprite atlases require textures. It does not "
-                                  "publish until Save.",
-            "asset.write",
-            automation_object({{"editor", editor_schema},
-                               {"path", automation_text(2047, 1)},
-                               {"tile_set", automation_uuid()},
-                               {"textures", automation_array(automation_uuid(), 512, 1)},
-                               {"patch", patch}},
-                              {"editor", "path"}),
-            true, [invoke, action](const Json& request) { return invoke(action, request); }));
+                                  "publish until Save. Material graph creation accepts domain mesh "
+                                  "(default) or sprite.",
+            "asset.write", automation_object(std::move(properties), {"editor", "path"}), true,
+            [invoke, action](const Json& request) { return invoke(action, request); }));
+    }
     auto fields = Json{{"editor", editor_schema},
                        {"document_session", automation_integer(1)},
                        {"document_revision", automation_integer(1)}};

@@ -157,8 +157,9 @@ class MaterialGraphCanvas {
             for (const auto& schema : material_graph_node_schemas()) {
                 if (schema.key == "function" || schema.key == "function_input" ||
                     schema.key == "function_output" ||
-                    (function_scope && (schema.key == "surface" || schema.key == "parameter" ||
-                                        schema.key.starts_with("texture"))))
+                    (function_scope &&
+                     (schema.key == "surface" || schema.key == "sprite_output" ||
+                      schema.key == "parameter" || schema.key.starts_with("texture"))))
                     continue;
                 auto label = schema.category + " / " + schema.label;
                 if (!filter.empty() &&
@@ -653,9 +654,11 @@ class MaterialGraphCanvas {
                     if (!v.is_number() || !std::isfinite(v.get<float>()))
                         throw std::runtime_error("Invalid numeric value");
             }
-            for (auto key : {"label", "key", "semantic", "from", "type"})
+            for (auto key : {"label", "key", "semantic", "from", "type", "image"})
                 if (data.contains(key) && !data.at(key).is_string())
                     throw std::runtime_error("Invalid text property");
+            if (data.contains("tint") && !data.at("tint").is_boolean())
+                throw std::runtime_error("Invalid Tint setting");
             if (data.contains("uv_set") &&
                 (!data.at("uv_set").is_number_unsigned() &&
                  (!data.at("uv_set").is_number_integer() || data.at("uv_set").get<int64_t>() < 0)))
@@ -688,6 +691,50 @@ class MaterialGraphCanvas {
         };
         static constexpr const char* types[]{"scalar",  "vector2", "vector3",
                                              "vector4", "color3",  "color4"};
+        if (kind == "sprite_output") {
+            const auto image = data.value("image", std::string{});
+            std::string image_label = image.empty() ? "Choose image" : "Missing image";
+            for (const auto& node : graph.at("nodes"))
+                if (node.at("type") == "texture2d" && node.at("version") == 1 &&
+                    node.at("data").contains("key") && node.at("data").at("key").is_string() &&
+                    node.at("data").at("key") == image) {
+                    const auto& fields = node.at("data");
+                    image_label = fields.contains("label") && fields.at("label").is_string()
+                                      ? fields.at("label").get<std::string>()
+                                      : image;
+                }
+            if (ImGui::BeginCombo(control("Primary image").c_str(), image_label.c_str())) {
+                for (const auto& node : graph.at("nodes"))
+                    if (node.at("type") == "texture2d" && node.at("version") == 1 &&
+                        node.at("data").contains("key") && node.at("data").at("key").is_string()) {
+                        const auto key = node.at("data").at("key").get<std::string>();
+                        const auto& fields = node.at("data");
+                        const auto label =
+                            (fields.contains("label") && fields.at("label").is_string()
+                                 ? fields.at("label").get<std::string>()
+                                 : key) +
+                            "##" + key;
+                        if (ImGui::Selectable(label.c_str(), key == image)) {
+                            data["image"] = key;
+                            changed = true;
+                        }
+                        FORGE_UI_PROBE("graph:sprite-image:" + key);
+                    }
+                ImGui::EndCombo();
+            }
+            FORGE_UI_PROBE("graph:sprite-image");
+            ui::help(
+                "Stable Color Texture2D binding that owns Sprite frames, fills and frame mips. "
+                "All Sprite UV nodes use logical UV0.");
+            bool tint = data.value("tint", true);
+            if (ImGui::Checkbox("Apply Inspector Tint", &tint)) {
+                data["tint"] = tint;
+                changed = true;
+            }
+            FORGE_UI_PROBE("graph:sprite-tint");
+            ui::help("Multiply final color by the Sprite Tint once. Disable this if your graph "
+                     "already uses Vertex Color to apply that Tint.");
+        }
         if (kind == "constant" || kind == "parameter" || kind == "add" || kind == "subtract" ||
             kind == "multiply" || kind == "combine" || kind == "minimum" || kind == "maximum" ||
             kind == "divide" || kind == "cosine" || kind == "absolute" || kind == "fraction" ||

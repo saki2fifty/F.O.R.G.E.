@@ -58,7 +58,8 @@ inline std::array<double, 4> filtered(double px, double py, bool linear) {
 }
 template <class Readback>
 void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* context,
-              Readback&& readback, const std::filesystem::path& images) {
+              Readback&& readback, const std::filesystem::path& images,
+              const MaterialShaderSnapshot* surface = nullptr) {
     using namespace Diligent;
     using test_sprite_draw::check;
     auto* device = presentation.device();
@@ -79,8 +80,9 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
                 source.subresources[0].push_back(std::byte(lane));
         }
     const auto atlas = upload_texture(device, source);
-    MeshDraw::Textures textures;
-    textures["baseColorTexture"] = atlas->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+    const auto resources = test_sprite_draw::image_resources(
+        device, atlas->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE), surface);
+    const auto& textures = resources.bindings;
     RefCntAutoPtr<ITexture> color, depth;
     TextureDesc desc;
     desc.Name = "FORGE original sliced/repeated Sprite oracle";
@@ -122,18 +124,17 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
     std::uint64_t checked = 0, excluded = 0;
     for (bool linear : {false, true})
         for (auto alpha : {MaterialAlpha::Opaque, MaterialAlpha::Blend, MaterialAlpha::Mask}) {
-            MaterialData material;
-            material.model = "forge.gltf.unlit.v1";
+            auto material = test_sprite_draw::image_material(surface);
             material.double_sided = true;
             material.depth_test = material.depth_write = false;
             material.alpha = alpha;
-            auto& slot = material.textures["baseColorTexture"];
+            auto& slot = material.textures[test_sprite_draw::image_key(surface)];
             slot.semantic = TextureSemantic::Color;
             slot.sampler.min = slot.sampler.mag =
                 linear ? TextureFilter::Linear : TextureFilter::Nearest;
             MeshDraw draw(presentation, context, gpu_mesh.lods[0].parts[0], material, textures,
                           TEX_FORMAT_RGBA8_UNORM, TEX_FORMAT_D32_FLOAT, true,
-                          SHADER_COMPILER_DEFAULT, SHADER_OPTIMIZATION_LEVEL_DEFAULT, nullptr,
+                          SHADER_COMPILER_DEFAULT, SHADER_OPTIMIZATION_LEVEL_DEFAULT, surface,
                           MeshDrawProfile::Sprite);
             for (bool bank : {false, true})
                 for (unsigned mode = 0; mode < 3; ++mode)

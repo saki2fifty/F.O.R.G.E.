@@ -218,9 +218,9 @@ test image alpha, matching the existing Mesh picking contract. At equal picked
 depth, explicit priority ranks before the stable entity tie. Mesh and Sprite
 draw scopes on one entity remain independent.
 
-## Initial native material profile
+## Built-in and programmable material profiles
 
-The implemented private profile uses the immutable built-in Quad and an ordinary
+The built-in profile uses the immutable built-in Quad and an ordinary
 `forge.gltf.unlit.v1` material with exactly one `baseColorTexture`. It requires:
 
 - Color interpretation of a 2D RGBA8 or RGBA8 sRGB image with opaque/straight alpha.
@@ -229,9 +229,29 @@ The implemented private profile uses the immutable built-in Quad and an ordinary
 
 By default the shader maps full-frame UVs, clamps to base-level texel centers and
 samples LOD0. Minification may alias. Compressed blocks, HDR, premultiplied/custom/
-unknown alpha and custom shader surfaces reject in this initial profile. Sprite
+unknown primary-image alpha reject in this profile. Sprite
 bundles do not allocate shadow passes. Material culling/depth settings remain
 material-owned; a material intended to show both sides should be double-sided.
+
+Programmable materials opt into the explicit Sprite domain of the existing
+[surface interface](surface-shaders.md). Interface3 declares a primary-image stable
+binding key; the complete embedded Shader snapshot, material values and texture
+leases remain authoritative. That primary Color2D slot follows the same image,
+UV0, transform and sampler restrictions above. Other declared material parameters
+and textures retain ordinary material semantics. The primary image alone supplies
+frame rectangles/keys, original canvas size, the sheet preview and independent mip
+resources. A mip draw replaces only that binding and its sampler, retaining all
+auxiliary image bindings. Mesh-only and Sprite-only Shader domains cannot substitute
+for one another.
+
+The final-color HLSL function chooses how to use Sprite Color. Sprite Output graphs
+apply it once by default, with an explicit Tint toggle. Shared coordinate helpers
+serve both profiles, including Simple/Sliced/Tiled fill, flips, trim and stored
+quarter turns. Outside retained trim the custom image helper returns transparent;
+an authored function may generate color in the complete logical Quad. Existing
+trim alpha/depth restrictions, sorting, fog and alpha-mask wrappers still apply.
+Custom programs remain Windows/D3D12/FXC5.1; local source probes do not establish a
+product Vulkan cook adapter or Windows acceptance.
 
 The Sprite pipeline has its own transient draw-bundle key but shares existing mesh
 and texture resources. Its instance data includes RGBA and atlas values. Ordinary

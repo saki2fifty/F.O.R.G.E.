@@ -1,6 +1,7 @@
 #pragma once
 #include "sprite_region.hpp"
 #include <forge/material_asset.hpp>
+#include <forge/material_resource.hpp>
 #include <stdexcept>
 
 namespace forge {
@@ -15,14 +16,7 @@ inline void validate_sprite_frame_material(const MaterialData& material,
                 throw std::invalid_argument(
                     "Trimmed Sprites require alpha blending with depth writes disabled");
 }
-// Material-owned surface intent for the initial base-level Sprite profile.
-// Atlas rectangles and modulation remain detached per-object numeric values.
-inline void validate_sprite_material_profile(const MaterialData& material) {
-    if (material.model != "forge.gltf.unlit.v1" || material.textures.size() != 1 ||
-        !material.textures.contains("baseColorTexture"))
-        throw std::invalid_argument(
-            "Sprite requires an unlit material with one base-color texture");
-    const auto& slot = material.textures.at("baseColorTexture");
+inline void validate_sprite_image_slot(const MaterialTextureSlot& slot) {
     if (slot.semantic != TextureSemantic::Color || slot.dimension != TextureDimension::D2 ||
         slot.uv_set != 0 || slot.offset != std::array<float, 2>{0, 0} ||
         slot.scale != std::array<float, 2>{1, 1} || slot.rotation != 0 ||
@@ -32,6 +26,28 @@ inline void validate_sprite_material_profile(const MaterialData& material) {
         throw std::invalid_argument("Sprite material requires color UV0 with identity transform, "
                                     "matching min/mag filters, non-anisotropic sampling and "
                                     "unshifted base-level LOD");
+}
+// Material-owned surface intent for the initial base-level Sprite profile.
+// Atlas rectangles and modulation remain detached per-object numeric values.
+inline void validate_sprite_material_profile(const MaterialData& material) {
+    if (material.model != "forge.gltf.unlit.v1" || material.textures.size() != 1 ||
+        !material.textures.contains("baseColorTexture"))
+        throw std::invalid_argument(
+            "Sprite requires an unlit material with one base-color texture");
+    validate_sprite_image_slot(material.textures.at("baseColorTexture"));
+}
+// Resolve the one frame-coordinate authority from the complete immutable
+// Material publication. Display labels and parameter order never choose it.
+inline std::string_view sprite_material_image(const MaterialResourceData& material) {
+    validate_render_material(material);
+    if (material.surface) {
+        const auto& definition = *material.surface->program.surface;
+        if (!definition.sprite_image)
+            throw std::invalid_argument("Sprite requires a Sprite-domain surface Shader");
+        return *definition.sprite_image;
+    }
+    validate_sprite_material_profile(material.values);
+    return "baseColorTexture";
 }
 // Resource-pool admission already validates complete payloads. Check the narrower
 // Sprite interpretation before native allocation: compression can mix neighboring

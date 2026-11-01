@@ -1,8 +1,11 @@
 #pragma once
 #include <forge/material_asset.hpp>
+#include <optional>
 namespace forge {
 enum class ShaderEntryRole;
 inline constexpr const char* surface_material_model = "forge.surface.v1";
+inline constexpr const char* surface_sprite_color_entry = "ForgeSurfaceSpriteColor";
+inline constexpr const char* surface_sprite_mip_entry = "ForgeSurfaceSpriteMipColor";
 // Logical surface interface. No native stage registers, byte offsets or device
 // objects are authored. The selected compiler verifies the generated interface
 // against actual reflection before a material can consume its cooked program.
@@ -13,6 +16,9 @@ struct SurfaceShaderDefinition {
     bool physically_based = false;
     // Display metadata; binding names remain stable and independent of labels.
     std::map<std::string, std::string> labels;
+    // Explicit Sprite domain and its stable primary-image binding key.
+    // An absent value retains the existing Mesh surface contract.
+    std::optional<std::string> sprite_image = {};
     bool operator==(const SurfaceShaderDefinition&) const = default;
 };
 void validate_surface_definition(const SurfaceShaderDefinition&);
@@ -25,6 +31,10 @@ void validate_surface_material(const MaterialData&, const SurfaceShaderDefinitio
 // the authored function. The backend selects native/emulated bounded arrays.
 std::string surface_shader_header(const SurfaceShaderDefinition&, bool emulated_samplers = false,
                                   bool temporal = false);
+std::string sprite_surface_shader_header(const SurfaceShaderDefinition&, bool frame_mips,
+                                         bool emulated_samplers = false);
+std::string sprite_surface_shader_wrapper(std::string_view source, std::string_view function,
+                                          bool frame_mips);
 std::string surface_shader_wrapper(std::string_view source, std::string_view function,
                                    bool depth_only, bool indirect_output = false,
                                    bool reflection_output = false, bool normal_output = false);

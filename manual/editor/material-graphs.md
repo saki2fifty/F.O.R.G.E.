@@ -12,13 +12,43 @@ Connect values to Surface Output and check the result in the preview.
 
 1. In Content, open **Actions → Create / Register → New material graph...**.
 2. Enter a new `.shader.json` path inside an existing project folder.
-3. Choose **Create graph**. The Material Graph workspace opens with a Color parameter connected to Surface Output.
+3. Choose **Domain → Mesh**, then **Create graph**. The Material Graph workspace opens with a Color parameter connected to Surface Output.
 4. Select Color and change its Value. The independent preview updates after preparation finishes.
 5. Choose **Save & Compile**. Wait for publication to finish before assigning the graph to a material.
 
 The preview uses the same material renderer as the scene. Its geometry, camera and
 lighting do not change your scene. Widen the workspace for a split view; in a narrow
 workspace the preview stacks above the graph. Ctrl+Plus/Minus scales the interface.
+
+## Create a Sprite material graph
+
+Custom Sprite graphs use the Windows/D3D12 Shader compiler. A graph describes
+final color; it does not add Sprite lighting or change the Quad's shape.
+
+1. Choose **New material graph...**, enter a new `.shader.json` path, and set **Domain → Sprite**.
+2. Choose **Create graph**. Sprite image and Color connect through Multiply to Sprite Output.
+3. Choose an image in the graph preview's **Sprite image** picker. The preview uses a Sprite Quad. Preview image choices do not save a permanent material assignment.
+4. Select Sprite Output. **Primary image** chooses the Texture 2D node that supplies frames, image size and frame filtering. Changing that node's label keeps its material assignment attached.
+5. Leave **Apply Inspector Tint** enabled to multiply the result by the Sprite's Tint. Disable it if your graph already applies Tint through Vertex Color.
+6. Choose **Save & Compile**. Create a new material, select this graph in **Surface Shader**, assign its Sprite image texture, and save the material.
+7. Select your Sprite in Hierarchy and assign the material in its Inspector. Use its existing frame, flip, size, fill and mip controls.
+
+![Sprite material graph with image and Color nodes feeding Multiply and Sprite Output, with its primary image and Tint controls](../images/sprite-material-graph.png)
+
+Select Sprite Output to choose the frame image and control Inspector Tint.
+
+UV nodes use logical **UV0** within the selected frame. Connect UV calculations
+to the primary Texture 2D node to change where the image is sampled; Sprite frame,
+trim, stored rotation, flips and fill mapping still apply. Other texture nodes
+use ordinary material sampling. Sprite graphs cannot use World Normal, Normal Map
+or another UV set, including in disconnected nodes or unused functions. Cube
+samples need an explicit direction.
+
+The primary image must be an uncompressed RGBA8 Color texture with opaque or
+straight alpha. Keep its material UV transform at the default and use matching
+nearest or linear min/mag filtering. See [World sprites](sprites.md) for frame,
+trim, fill and filtering limits. Mesh graphs belong on Mesh renderers; Sprite
+graphs belong on Sprites or Tile Set image materials.
 
 ## Connect nodes
 
@@ -88,7 +118,7 @@ Constants describe values shared by the graph itself.
 1. Create or open a material in Content.
 2. Choose the compiled graph in **Surface Shader**.
 3. Edit its named parameters and texture slots, then save the material.
-4. Assign that material to a scene object's mesh slot in the Inspector.
+4. Assign the material to a Mesh slot or Sprite material field in the Inspector, according to the graph's domain.
 
 An imported model can have a grouping root and separate mesh children. Select the
 mesh child to assign its material. A flat mesh may disappear when viewed from its

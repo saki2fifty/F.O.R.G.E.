@@ -237,15 +237,23 @@ compile_diligent_shader(Diligent::IRenderDevice* device, const ShaderProgramSour
     const auto defines = select_shader_permutation(program, permutation);
     auto compiled_sources = sources;
     if (program.surface) {
-        require(compiled_sources
-                    .emplace("engine/forge.surface.hlsli", surface_shader_header(*program.surface))
-                    .second,
+        const auto sprite = program.surface->sprite_image.has_value();
+        const auto header = sprite ? sprite_surface_shader_header(*program.surface, false)
+                                   : surface_shader_header(*program.surface);
+        require(compiled_sources.emplace("engine/forge.surface.hlsli", header).second,
                 "Shader source attempts to replace the generated surface interface");
-        require(compiled_sources
-                    .emplace("engine/forge.surface.temporal.hlsli",
-                             surface_shader_header(*program.surface, false, true))
-                    .second,
-                "Shader source attempts to replace the generated temporal surface interface");
+        if (sprite)
+            require(compiled_sources
+                        .emplace("engine/forge.surface.sprite-mips.hlsli",
+                                 sprite_surface_shader_header(*program.surface, true))
+                        .second,
+                    "Shader source attempts to replace the generated Sprite mip interface");
+        else
+            require(compiled_sources
+                        .emplace("engine/forge.surface.temporal.hlsli",
+                                 surface_shader_header(*program.surface, false, true))
+                        .second,
+                    "Shader source attempts to replace the generated temporal surface interface");
     }
     validate_shader_sources(compiled_sources);
     std::vector<MemoryShaderSourceFileInfo> files;
@@ -274,27 +282,12 @@ compile_diligent_shader(Diligent::IRenderDevice* device, const ShaderProgramSour
     result.data.surface = program.surface;
     result.data.surface_wrapper_version = program.surface ? current_surface_wrapper_version : 1;
     for (const auto& entry : program.stages) {
-        const std::vector roles =
-            program.surface ? std::vector{ShaderEntryRole::SurfaceColor,
-                                          ShaderEntryRole::SurfaceDepth,
-                                          ShaderEntryRole::SurfaceTemporalColor,
-                                          ShaderEntryRole::SurfaceIndirectColor,
-                                          ShaderEntryRole::SurfaceTemporalIndirectColor,
-                                          ShaderEntryRole::SurfaceReflectionColor,
-                                          ShaderEntryRole::SurfaceTemporalReflectionColor,
-                                          ShaderEntryRole::SurfaceNormalColor,
-                                          ShaderEntryRole::SurfaceTemporalNormalColor,
-                                          ShaderEntryRole::SurfaceAreaColor,
-                                          ShaderEntryRole::SurfaceAreaTemporalColor,
-                                          ShaderEntryRole::SurfaceAreaIndirectColor,
-                                          ShaderEntryRole::SurfaceAreaTemporalIndirectColor,
-                                          ShaderEntryRole::SurfaceAreaReflectionColor,
-                                          ShaderEntryRole::SurfaceAreaTemporalReflectionColor,
-                                          ShaderEntryRole::SurfaceAreaNormalColor,
-                                          ShaderEntryRole::SurfaceAreaTemporalNormalColor,
-                                          ShaderEntryRole::SurfaceWeightedColor,
-                                          ShaderEntryRole::SurfaceAreaWeightedColor}
-                            : std::vector{ShaderEntryRole::Program};
+        std::vector<ShaderEntryRole> roles{ShaderEntryRole::Program};
+        if (program.surface) {
+            const auto expected =
+                surface_shader_roles(*program.surface, current_surface_wrapper_version);
+            roles.assign(expected.begin(), expected.end());
+        }
         for (const auto role : roles) {
             device_profile(device, entry.stage);
             ShaderCreateInfo ci;
@@ -307,14 +300,19 @@ compile_diligent_shader(Diligent::IRenderDevice* device, const ShaderProgramSour
                 const bool indirect = indirect_surface_role(role);
                 const bool reflection_output = reflection_surface_role(role);
                 const bool normal_output = normal_surface_role(role);
-                wrapper = program.surface->physically_based
-                              ? material_graph_shader_wrapper(
-                                    *program.surface, entry.source,
-                                    role == ShaderEntryRole::SurfaceDepth, indirect,
-                                    reflection_output, normal_output, area_surface_role(role), true)
-                              : surface_shader_wrapper(entry.source, entry.entry,
-                                                       role == ShaderEntryRole::SurfaceDepth,
-                                                       indirect, reflection_output, normal_output);
+                if (sprite_surface_role(role))
+                    wrapper = sprite_surface_shader_wrapper(
+                        entry.source, entry.entry, role == ShaderEntryRole::SurfaceSpriteMipColor);
+                else
+                    wrapper =
+                        program.surface->physically_based
+                            ? material_graph_shader_wrapper(
+                                  *program.surface, entry.source,
+                                  role == ShaderEntryRole::SurfaceDepth, indirect,
+                                  reflection_output, normal_output, area_surface_role(role), true)
+                            : surface_shader_wrapper(entry.source, entry.entry,
+                                                     role == ShaderEntryRole::SurfaceDepth,
+                                                     indirect, reflection_output, normal_output);
                 if (weighted_surface_role(role))
                     wrapper = weighted_color_wrapper(std::move(wrapper), true);
                 else if (indirect)

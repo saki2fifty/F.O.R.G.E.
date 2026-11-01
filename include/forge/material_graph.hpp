@@ -22,6 +22,7 @@ struct MaterialGraphNodeSchema {
 const std::vector<MaterialGraphNodeSchema>& material_graph_node_schemas();
 nlohmann::json create_material_graph_node(std::string_view schema, std::array<double, 2> position);
 nlohmann::json create_material_graph();
+nlohmann::json create_sprite_material_graph();
 void validate_material_graph_document(const nlohmann::json&);
 std::vector<MaterialGraphPort> material_graph_inputs(const nlohmann::json& node);
 std::vector<MaterialGraphPort> material_graph_outputs(const nlohmann::json& node);
@@ -57,6 +58,7 @@ struct MaterialGraphSource {
     MaterialGraphSource duplicate(AssetId) const;
     static MaterialGraphSource parse(std::span<const std::byte>);
     static MaterialGraphSource create(AssetId);
+    static MaterialGraphSource create_sprite(AssetId);
 };
 // Remap declared node/edge identities only. Preserve opaque extension payloads.
 nlohmann::json copy_material_graph_selection(const nlohmann::json&, const std::set<GraphNodeId>&);

@@ -2,6 +2,7 @@
 #include <array>
 #include <cstdint>
 #include <string>
+#include <string_view>
 #include <vector>
 namespace forge {
 struct MeshVertexFetch {
@@ -16,4 +17,7 @@ struct MeshVertexFetch {
     std::vector<std::array<std::uint32_t, 4>> morph_offsets;
     bool temporal = false;
 };
+// One semantic layout for generated geometry and its typed pixel inputs.
+std::string mesh_shader_varyings(const MeshVertexFetch&, bool sprite_profile,
+                                 std::string_view name = "ForgeVarying", bool front_face = false);
 } // namespace forge

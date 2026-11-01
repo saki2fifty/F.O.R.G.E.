@@ -4,6 +4,7 @@
 #include "shader_authoring.hpp"
 #include "shader_diligent.hpp"
 #include "shader_pipeline.hpp"
+#include <forge/material_graph.hpp>
 #include <forge/shader_resource.hpp>
 #include <fstream>
 #include <iostream>
@@ -165,6 +166,48 @@ float4 ps():SV_TARGET {return color();}
                 "Shader import rewrote authored document");
         require(std::filesystem::is_empty(root / ".forge/jobs"),
                 "Shader worker leaked per-job staging");
+        // Actual Sprite graph worker cook, publication, cached reuse and a
+        // source-free relocated Shader package. This executes only on Windows.
+        const auto sprite = MaterialGraphSource::create_sprite(AssetId::generate());
+        write(root / "sprite.shader.json", sprite.document.dump(2));
+        catalog.add({sprite.asset(), "shader", "sprite.shader.json", 1, {}});
+        catalog.save(AssetCatalog::project_index(root));
+        const auto no_live_consumers = [](const auto&, const auto&) {};
+        const auto submit_sprite = [&] {
+            service.submit(service.prepare("sprite.shader.json"), prepare, no_live_consumers);
+        };
+        submit_sprite();
+        const auto sprite_outcome = finish(service);
+        require(sprite_outcome.published && !sprite_outcome.cache_hit,
+                "Sprite graph worker compilation failed: " + sprite_outcome.diagnostic);
+        catalog = AssetCatalog::open_project(root);
+        const auto sprite_ticket = request_shader(resources, root, catalog, {sprite.asset()});
+        require(resources.wait(sprite_ticket, 5s), "Sprite graph Shader resource did not load");
+        const auto sprite_lease = resources.acquire(sprite_ticket);
+        require(sprite_lease && sprite_lease->surface && sprite_lease->surface->sprite_image &&
+                    sprite_lease->stages.size() == 2 && sprite_lease->surface_wrapper_version == 14,
+                "Sprite worker publication lost its typed domain or mip entry");
+        submit_sprite();
+        const auto sprite_cached = finish(service);
+        require(sprite_cached.published && sprite_cached.cache_hit,
+                "Sprite worker did not reuse its exact immutable source recipe");
+        const auto sprite_package =
+            root.parent_path() / ("sprite-content-" + AssetId::generate().str());
+        const std::array sprite_roots{sprite.asset()};
+        (void)package_runtime_content(root, sprite_package, sprite_roots, {"windows", "d3d12"});
+        const auto relocated_sprite = sprite_package.string() + "-relocated";
+        std::filesystem::rename(sprite_package, relocated_sprite);
+        const auto sprite_catalog = open_runtime_content(relocated_sprite, {"windows", "d3d12"});
+        ResourcePool<ShaderAsset> sprite_resources;
+        const auto packaged_sprite =
+            request_shader(sprite_resources, relocated_sprite, sprite_catalog, {sprite.asset()});
+        require(sprite_resources.wait(packaged_sprite, 5s) &&
+                    encode_shader(sprite_resources.acquire(packaged_sprite).get()) ==
+                        encode_shader(sprite_lease.get()) &&
+                    !std::filesystem::exists(std::filesystem::path(relocated_sprite) /
+                                             "sprite.shader.json"),
+                "Relocated Sprite Shader lost its exact cooked program or retained source");
+        std::filesystem::remove_all(relocated_sprite);
         const auto milliseconds = [](auto duration) {
             return std::chrono::duration<double, std::milli>(duration).count();
         };

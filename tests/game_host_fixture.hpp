@@ -16,6 +16,7 @@ struct GameHostFixture {
     std::filesystem::path output, project;
     unsigned stage = 0, frames = 0;
     bool frame_statistics = false;
+    bool sprite_graph = false;
     FrameStatisticsGameFixture frame_statistics_workflow;
     Movement2DGameFixture movement_2d_workflow;
     bool pause_seen = false, packaged = false, mixed = false, prepare_only = false,
@@ -66,6 +67,8 @@ struct GameHostFixture {
                                                          .dump(2));
     }
     explicit GameHostFixture(int argc, char** argv) {
+        sprite_graph = argc == 3 && (std::string_view(argv[1]) == "--prepare-sprite-graph" ||
+                                     std::string_view(argv[1]) == "--packaged-sprite-graph");
         frame_statistics =
             argc == 3 && (std::string_view(argv[1]) == "--frame-statistics" ||
                           std::string_view(argv[1]) == "--packaged-frame-statistics");
@@ -97,7 +100,10 @@ struct GameHostFixture {
                    distance_springs || animation_exits ||
                    (argc == 3 && (std::string_view(argv[1]) == "--packaged" ||
                                   std::string_view(argv[1]) == "--packaged-frame-statistics"));
-        prepare_only = argc == 3 && std::string_view(argv[1]) == "--prepare";
+        packaged =
+            packaged || (sprite_graph && std::string_view(argv[1]) == "--packaged-sprite-graph");
+        prepare_only = argc == 3 && (std::string_view(argv[1]) == "--prepare" ||
+                                     std::string_view(argv[1]) == "--prepare-sprite-graph");
         if (argc != 2 && !packaged && !prepare_only && !frame_statistics)
             throw std::runtime_error("Game fixture requires output directory");
         output = std::filesystem::absolute(argv[argc == 3 ? 2 : 1]);
@@ -105,8 +111,9 @@ struct GameHostFixture {
         if (packaged)
             return;
         project = make_game_host_project(output);
-        add_graph_game_material(project, std::filesystem::absolute(argv[0]).parent_path() /
-                                             "forge_shader_build.exe");
+        add_graph_game_material(
+            project, std::filesystem::absolute(argv[0]).parent_path() / "forge_shader_build.exe",
+            sprite_graph);
     }
     static void check(bool ok, const char* why) {
         if (!ok)
@@ -223,7 +230,9 @@ struct GameHostFixture {
             check(graph_pixels > 100,
                   "The authored green graph material is not visible in standalone rendering");
             atomic_write(output / "material-graph-result.json",
-                         Json{{"green_surface_pixels", graph_pixels}}.dump(2));
+                         Json{{"green_surface_pixels", graph_pixels},
+                              {"domain", sprite_graph ? "sprite" : "mesh"}}
+                             .dump(2));
         }
         if (mixed && std::string_view(name) == "standalone-running.ppm")
             check(imported_pixels > 100,

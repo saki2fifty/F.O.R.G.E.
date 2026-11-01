@@ -20,7 +20,10 @@ parser.add_argument('--evidence', type=Path, required=True)
 parser.add_argument('--module-kit', type=Path)
 parser.add_argument('--retain', type=Path)
 parser.add_argument('--source', type=Path)
+parser.add_argument('--sprite-graph', action='store_true')
 args = parser.parse_args()
+if args.sprite_graph and args.source:
+    parser.error('--sprite-graph and --source exercise separate package fixtures')
 build, kit, evidence = (p.resolve() for p in (args.build, args.kit, args.evidence))
 evidence.mkdir(parents=True, exist_ok=True)
 
@@ -37,7 +40,7 @@ def run(argv, evidence_log=None, **kwargs):
 
 with tempfile.TemporaryDirectory(prefix='FORGE standalone export ') as temporary:
     work = Path(temporary)
-    prepared = run([build/'forge_game_fixture.exe', '--prepare', work/'fixture'])
+    prepared = run([build/'forge_game_fixture.exe', '--prepare-sprite-graph' if args.sprite_graph else '--prepare', work/'fixture'])
     project = Path(prepared.stdout.strip().splitlines()[-1])
     if args.source:
         from standalone_content_fixture import complete_content
@@ -94,10 +97,11 @@ with tempfile.TemporaryDirectory(prefix='FORGE standalone export ') as temporary
     assert all(math.isfinite(value) and value > 0 for value in rate_values), fps_checked.stdout
     assert abs(rate_values[0] * rate_values[1] - 1000) < .1, fps_checked.stdout
     assert rate_values[2] >= rate_values[1], fps_checked.stdout
-    mode = '--packaged-mixed' if args.source else '--packaged'
+    mode = '--packaged-sprite-graph' if args.sprite_graph else '--packaged-mixed' if args.source else '--packaged'
     run([relocated/'forge_game_fixture.exe', mode, evidence], cwd=relocated, env=env,
         evidence_log=evidence/'capture-host.log')
     assert json.loads((evidence/'material-graph-result.json').read_text())['green_surface_pixels'] > 100
+    assert json.loads((evidence/'material-graph-result.json').read_text())['domain'] == ('sprite' if args.sprite_graph else 'mesh')
     storage_result = json.loads((evidence/'storage-result.json').read_text())
     assert not storage_result['reopened'], 'Fixture application ID unexpectedly reused'
     user_root = Path(storage_result['root'])
@@ -118,6 +122,7 @@ with tempfile.TemporaryDirectory(prefix='FORGE standalone export ') as temporary
     run([relocated/'forge_game_fixture.exe', mode, restarted], cwd=relocated, env=env,
         evidence_log=evidence/'restarted.log')
     assert json.loads((restarted/'material-graph-result.json').read_text())['green_surface_pixels'] > 100
+    assert json.loads((restarted/'material-graph-result.json').read_text())['domain'] == ('sprite' if args.sprite_graph else 'mesh')
     restored = json.loads((restarted/'storage-result.json').read_text())
     assert restored['reopened'] and restored['root'] == storage_result['root']
     assert restored['scene'] == storage_result['scene']
@@ -179,6 +184,7 @@ with tempfile.TemporaryDirectory(prefix='FORGE standalone export ') as temporary
         shutil.copytree(relocated, args.retain.resolve())
     (evidence/'relocation.json').write_text(json.dumps({
         'production_startup': True, 'source_removed': True, 'material_graph_rendered_after_relocation': True,
+        'sprite_material_graph_rendered_after_relocation': args.sprite_graph,
         'kit_removed': True, 'path_system_only': True,
         'profile': manifest['engine']['profile'],
         'engine': manifest['engine'], 'module_count': len(modules),

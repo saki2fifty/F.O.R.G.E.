@@ -6,12 +6,20 @@
 #include "automation_schema.hpp"
 #include "document.hpp"
 #include "document_workspace.hpp"
+#include <forge/material_graph.hpp>
 #include <type_traits>
 
 namespace forge {
 // Private adapters borrow the same editor instances registered in DocumentWorkspace.
 // They own neither source values, history, publication queues nor persistent IDs.
 struct AssetDocumentAutomation {
+    static MaterialGraphSource graph_source(AssetId id, const Json& request) {
+        const auto domain = request.value("domain", std::string("mesh"));
+        if (domain != "mesh" && domain != "sprite")
+            throw AuthoringError("invalid_argument", "Unknown material graph domain");
+        return domain == "sprite" ? MaterialGraphSource::create_sprite(id)
+                                  : MaterialGraphSource::create(id);
+    }
     static std::vector<AssetId> atlas_images(const Json& request) {
         if (!request.contains("textures") || !request.at("textures").is_array() ||
             request.at("textures").empty() ||
@@ -126,6 +134,7 @@ struct AssetDocumentAutomation {
         using Source = std::remove_cvref_t<decltype(std::declval<Document>().source())>;
         constexpr bool tiles = std::is_same_v<Source, TileMapSource>;
         constexpr bool atlas = std::is_same_v<Source, SpriteAtlasRecipe>;
+        constexpr bool graph = std::is_same_v<Source, MaterialGraphSource>;
         return {
             Document::source_suffix,
             [&editor, &project](std::string_view action, const Json& request) -> Json {
@@ -133,6 +142,10 @@ struct AssetDocumentAutomation {
                 if (action == "status")
                     return status(editor, project);
                 if (action == "template") {
+                    if constexpr (!graph)
+                        if (request.contains("domain"))
+                            throw AuthoringError("invalid_argument",
+                                                 "domain applies to material graph templates only");
                     if constexpr (!atlas)
                         if (request.contains("textures"))
                             throw AuthoringError("invalid_argument",
@@ -151,6 +164,8 @@ struct AssetDocumentAutomation {
                             .metadata();
                     } else if constexpr (atlas)
                         return Source::create(id, atlas_images(request)).document;
+                    else if constexpr (graph)
+                        return graph_source(id, request).document;
                     else
                         return Document::initial_source(id).document;
                 }
@@ -169,10 +184,14 @@ struct AssetDocumentAutomation {
                         automation_relative_path(request.at("path").get<std::string>());
                     if (action == "open" &&
                         (request.contains("patch") || request.contains("tile_set") ||
-                         request.contains("textures")))
-                        throw AuthoringError(
-                            "invalid_argument",
-                            "Initial patch/tile_set/textures options apply to creation only");
+                         request.contains("textures") || request.contains("domain")))
+                        throw AuthoringError("invalid_argument",
+                                             "Initial patch/tile_set/textures/domain options apply "
+                                             "to creation only");
+                    if constexpr (!graph)
+                        if (request.contains("domain"))
+                            throw AuthoringError("invalid_argument",
+                                                 "domain applies to material graph creation only");
                     if constexpr (!atlas)
                         if (request.contains("textures"))
                             throw AuthoringError("invalid_argument",
@@ -199,6 +218,8 @@ struct AssetDocumentAutomation {
                                     auto source = [&] {
                                         if constexpr (atlas)
                                             return Source::create(id, atlas_images(request));
+                                        else if constexpr (graph)
+                                            return graph_source(id, request);
                                         else
                                             return Document::initial_source(id);
                                     }();

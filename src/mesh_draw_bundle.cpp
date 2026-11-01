@@ -48,9 +48,19 @@ MeshDrawBundle::MeshDrawBundle(DiligentPresentation& presentation,
         }
     }
     mesh_ = meshes.acquire(prepared.mesh);
-    if (!sprite_draw_mip_filter(profile))
-        for (const auto& [key, texture] : prepared.textures)
-            textures_.emplace(key, textures.acquire(texture));
+    for (const auto& [id, material] : prepared.materials) {
+        (void)id;
+        const auto image = sprite_draw_mip_filter(profile) ? sprite_material_image(material.get())
+                                                           : std::string_view{};
+        for (const auto& [role, ref] : material->textures) {
+            if (role == image)
+                continue;
+            const auto semantic = material->values.textures.at(role).semantic;
+            const auto key = prepared.texture_asset({ref.id, semantic});
+            if (!textures_.contains(key))
+                textures_.emplace(key, textures.acquire(prepared.textures.at(key)));
+        }
+    }
     unresolved_ = prepared.selection.unresolved;
     std::map<std::uint32_t, std::size_t> bindings;
     for (std::size_t i = 0; i < prepared.selection.bindings.size(); ++i)
@@ -107,14 +117,16 @@ std::unique_ptr<MeshDraw> MeshDrawBundle::prepare_draw(Diligent::IDeviceContext*
         const auto& material = prepared_.materials.at(id).get();
         values = &material.values;
         surface = material.surface ? &*material.surface : nullptr;
-        if (!sprite_draw_mip_filter(profile))
-            for (const auto& [role, ref] : material.textures) {
-                const auto semantic = values->textures.at(role).semantic;
-                native_textures[role] =
-                    textures_.at(prepared_.texture_asset({ref.id, semantic}))
-                        .get()
-                        ->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
-            }
+        const auto image =
+            sprite_draw_mip_filter(profile) ? sprite_material_image(material) : std::string_view{};
+        for (const auto& [role, ref] : material.textures) {
+            if (role == image)
+                continue;
+            const auto semantic = values->textures.at(role).semantic;
+            native_textures[role] = textures_.at(prepared_.texture_asset({ref.id, semantic}))
+                                        .get()
+                                        ->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
+        }
     }
     return std::make_unique<MeshDraw>(
         presentation_, context, mesh_.get().lods.at(lod).parts.at(part), *values, native_textures,

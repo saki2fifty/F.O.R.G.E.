@@ -166,4 +166,32 @@ inline void test_material_source() {
     rejects([&] { resolve_material_source(custom_child, &custom_base, &surface); });
     // Clearing a custom model does not silently discard its inherited values.
     rejects([&] { resolve_material_source(custom_child, &custom_base); });
+    auto sprite_surface = surface;
+    sprite_surface.sprite_image = "image";
+    sprite_surface.uv_sets = {0};
+    sprite_surface.textures["image"].semantic = TextureSemantic::Color;
+    auto sprite = custom;
+    sprite.document["overrides"]["textures"]["image"] = {
+        {"asset", AssetId::generate()},
+        {"slot", material_values_document(surface_material_defaults(sprite_surface))
+                     .at("textures")
+                     .at("image")}};
+    const auto authored = sprite.document;
+    const auto default_sprite = resolve_material_source(sprite, nullptr, &sprite_surface);
+    check(default_sprite.values.alpha == MaterialAlpha::Blend &&
+          !default_sprite.values.depth_write && default_sprite.values.double_sided &&
+          sprite.document == authored);
+    sprite.document["overrides"]["alpha"] = unsigned(MaterialAlpha::Mask);
+    sprite.document["overrides"]["depth_write"] = true;
+    sprite.document["overrides"]["double_sided"] = false;
+    const auto explicit_sprite = resolve_material_source(sprite, nullptr, &sprite_surface);
+    check(explicit_sprite.values.alpha == MaterialAlpha::Mask &&
+          explicit_sprite.values.depth_write && !explicit_sprite.values.double_sided);
+    auto sprite_child = MaterialSource::create(AssetId::generate());
+    sprite_child.document["base"] = sprite.asset();
+    const auto inherited_sprite =
+        resolve_material_source(sprite_child, &explicit_sprite, &sprite_surface);
+    check(inherited_sprite.values == explicit_sprite.values &&
+          inherited_sprite.textures == explicit_sprite.textures &&
+          inherited_sprite.shader == shader);
 }

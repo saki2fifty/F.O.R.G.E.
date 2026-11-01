@@ -2,6 +2,7 @@
 #include "decal_shader.hpp"
 #include "distance_fog_shader.hpp"
 #include "indirect_lighting_shader.hpp"
+#include "sprite_image_shader.hpp"
 #include "sprite_material_profile.hpp"
 #include "temporal_motion_shader.hpp"
 #include <algorithm>
@@ -25,22 +26,11 @@ float4 ForgeProject(float3 p) {
 }
 )";
 } // namespace
-MeshGeometryShader mesh_geometry_shader(const MeshVertexFetch& fetch, bool allow_instances,
-                                        bool sprite_profile) {
-    const bool instanced = allow_instances && !fetch.skin && !fetch.morph_count;
-    if (sprite_profile)
-        require(!fetch.temporal && instanced && fetch.triangles &&
-                    fetch.uv_sets == std::vector<unsigned>{0},
-                "Sprite geometry requires a static triangle mesh with UV0");
+std::string mesh_shader_varyings(const MeshVertexFetch& fetch, bool sprite_profile,
+                                 std::string_view name, bool front_face) {
     const auto uv_count = std::max<std::size_t>(1, fetch.uv_sets.size());
-    const std::string skin = fetch.skin ? R"(
-// Common positive normalization avoids overflowing weighted linear matrices.
-// Translations are independently camera relative before upload.
-cbuffer ForgeSkin {float4 g_SkinInfo;float4 g_SkinRows[768];};
-)"
-                                        : "";
     std::string varyings =
-        "struct ForgeVarying {float4 Position:SV_Position;float3 World:TEXCOORD0;";
+        "struct " + std::string(name) + " {float4 Position:SV_Position;float3 World:TEXCOORD0;";
     if (sprite_profile)
         varyings += "nointerpolation float4 SpriteX:TEXCOORD1;"
                     "nointerpolation float4 SpriteY:TEXCOORD2;"
@@ -58,7 +48,26 @@ cbuffer ForgeSkin {float4 g_SkinInfo;float4 g_SkinRows[768];};
                     ";float3 SkinRows[3]:TEXCOORD" + std::to_string(5 + uv_count) + ";";
     if (fetch.temporal)
         varyings += "float4 PreviousClip:TEXCOORD" + std::to_string(8 + uv_count) + ";";
+    if (front_face)
+        varyings += "bool FrontFace:SV_IsFrontFace;";
     varyings += "};\n";
+    return varyings;
+}
+MeshGeometryShader mesh_geometry_shader(const MeshVertexFetch& fetch, bool allow_instances,
+                                        bool sprite_profile) {
+    const bool instanced = allow_instances && !fetch.skin && !fetch.morph_count;
+    if (sprite_profile)
+        require(!fetch.temporal && instanced && fetch.triangles &&
+                    fetch.uv_sets == std::vector<unsigned>{0},
+                "Sprite geometry requires a static triangle mesh with UV0");
+    const auto uv_count = std::max<std::size_t>(1, fetch.uv_sets.size());
+    const std::string skin = fetch.skin ? R"(
+// Common positive normalization avoids overflowing weighted linear matrices.
+// Translations are independently camera relative before upload.
+cbuffer ForgeSkin {float4 g_SkinInfo;float4 g_SkinRows[768];};
+)"
+                                        : "";
+    const auto varyings = mesh_shader_varyings(fetch, sprite_profile);
     std::string vs = std::string("#include \"ForgeSurface.fxh\"\n") + object_source + skin +
                      fetch.source + varyings;
     if (fetch.temporal) {
@@ -328,14 +337,7 @@ MeshDrawShader mesh_draw_shader(const MeshVertexFetch& fetch, const PbrMaterialP
         ps += "float4 g_AreaShapes[" + std::to_string(mesh_draw_light_limit * 3) + "];";
     ps += "};\n";
     if (sprite_profile)
-        ps += R"(
-float ForgeSpriteSlice(float u,float4 axis) {
-    if(axis.z>0 && u<=axis.z)return u*axis.x/axis.z;
-    if(axis.w>0 && u>=1-axis.w)return 1-(1-u)*axis.y/axis.w;
-    float center=1-axis.z-axis.w;
-    return center>0?axis.x+(u-axis.z)*(1-axis.x-axis.y)/center:axis.x;
-}
-)";
+        ps += sprite_image_coordinate_function("ForgeVarying", sprite_mips.has_value());
     ps += distance_fog_shader;
     if (reflection_output || normal_output)
         ps += reflection_surface_data;
@@ -349,58 +351,11 @@ float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
     float3 dpdx=ddx(input.World),dpdy=ddy(input.World);
     bool valid=true;
 )";
-    if (sprite_mips) {
+    if (sprite_mips)
         require(sprite_profile, "Sprite mip sampling requires the Sprite draw profile");
-        ps += R"(
-    // Derived images contain the complete logical canvas. Gradients must use
-    // continuous coordinates before tiled wrapping introduces discontinuities.
-    float2 spriteContinuous=input.UV[0];
-    if(input.SpriteImage.x!=0) {
-        float2 local=input.UV[0];
-        if(input.SpriteAtlas.z<0)local.x=1-local.x;
-        if(input.SpriteAtlas.w<0)local.y=1-local.y;
-        spriteContinuous=input.SpriteImage.x==1?
-            float2(ForgeSpriteSlice(local.x,input.SpriteX),ForgeSpriteSlice(local.y,input.SpriteY)):
-            local*input.SpriteImage.yz;
-    }
-    float2 spriteDx=ddx(spriteContinuous),spriteDy=ddy(spriteContinuous);
-    input.UV[0]=input.SpriteImage.x==2?frac(spriteContinuous):spriteContinuous;
-)";
-    } else if (sprite_profile)
-        ps += R"(
-    // Simple mode reuses the otherwise unused slice row for the retained quad
-    // rectangle. Identity frames take the original path without inverse math.
-    if(input.SpriteImage.x==0 && any(input.SpriteX!=float4(0,0,1,1))) {
-        float2 local=(input.UV[0]-input.SpriteAtlas.xy)/input.SpriteAtlas.zw;
-        if(input.SpriteImage.w!=0)local=local.yx;
-        if(any(local<input.SpriteX.xy) || any(local>input.SpriteX.xy+input.SpriteX.zw))discard;
-        local=(local-input.SpriteX.xy)/input.SpriteX.zw;
-        if(input.SpriteImage.w!=0)local=local.yx;
-        input.UV[0]=input.SpriteAtlas.xy+local*input.SpriteAtlas.zw;
-    }
-    if(input.SpriteImage.x!=0) {
-        float2 local=input.UV[0];
-        bool rotated=input.SpriteImage.w!=0;
-        bool flipX=rotated?input.SpriteAtlas.w<0:input.SpriteAtlas.z<0;
-        bool flipY=rotated?input.SpriteAtlas.z>0:input.SpriteAtlas.w<0;
-        if(flipX)local.x=1-local.x;
-        if(flipY)local.y=1-local.y;
-        float2 mapped=input.SpriteImage.x==1?
-            float2(ForgeSpriteSlice(local.x,input.SpriteX),ForgeSpriteSlice(local.y,input.SpriteY)):
-            frac(local*input.SpriteImage.yz);
-        // Fill uses the original logical canvas. The retained rectangle is
-        // supplied after logical flips; undo those flips for source-space trim.
-        float4 crop=input.SpriteCrop;
-        if(flipX)crop.x=1-crop.x-crop.z;
-        if(flipY)crop.y=1-crop.y-crop.w;
-        if(any(mapped<crop.xy) || any(mapped>crop.xy+crop.zw))discard;
-        mapped=(mapped-crop.xy)/crop.zw;
-        if(rotated)mapped=float2(1-mapped.y,mapped.x);
-        input.UV[0]=min(input.SpriteAtlas.xy,input.SpriteAtlas.xy+input.SpriteAtlas.zw)+
-                    mapped*abs(input.SpriteAtlas.zw);
-    }
-    input.UV[0]=clamp(input.UV[0],input.SpriteClamp.xy,input.SpriteClamp.zw);
-)";
+    if (sprite_profile)
+        ps += "float2 spriteDx,spriteDy;"
+              "if(!ForgeSpriteImageCoordinates(input,spriteDx,spriteDy))discard;\n";
     if (graph)
         ps += "ForgeGraphValues graph=ForgeGraphSurface(input);\n"
               "if(!all(isfinite(graph.BaseColor)) || !isfinite(graph.Metallic) || "

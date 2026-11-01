@@ -6,7 +6,7 @@ namespace forge {
 // Stages admitted by the initial D3D12 / FXC shader-model5.1 compiler profile.
 // Admission is not a claim that every renderer pass uses each stage.
 enum class ShaderStage { Vertex, Pixel, Compute, Geometry, Hull, Domain };
-inline constexpr unsigned current_surface_wrapper_version = 13;
+inline constexpr unsigned current_surface_wrapper_version = 14;
 enum class ShaderEntryRole {
     Program,
     SurfaceColor,
@@ -27,8 +27,14 @@ enum class ShaderEntryRole {
     SurfaceAreaNormalColor,
     SurfaceAreaTemporalNormalColor,
     SurfaceWeightedColor,
-    SurfaceAreaWeightedColor
+    SurfaceAreaWeightedColor,
+    SurfaceSpriteColor,
+    SurfaceSpriteMipColor
 };
+inline constexpr bool sprite_surface_role(ShaderEntryRole role) {
+    return role == ShaderEntryRole::SurfaceSpriteColor ||
+           role == ShaderEntryRole::SurfaceSpriteMipColor;
+}
 inline constexpr bool weighted_surface_role(ShaderEntryRole role) {
     return role == ShaderEntryRole::SurfaceWeightedColor ||
            role == ShaderEntryRole::SurfaceAreaWeightedColor;
@@ -120,6 +126,9 @@ inline constexpr ShaderEntryRole surface_color_role(bool temporal, bool indirect
 const char* shader_entry_role_name(ShaderEntryRole);
 ShaderEntryRole shader_entry_role(std::string_view);
 const char* surface_shader_entry(ShaderEntryRole);
+// Versioned immutable entry set; definition validation remains with its owner.
+std::span<const ShaderEntryRole> surface_shader_roles(const SurfaceShaderDefinition&,
+                                                      unsigned wrapper_version);
 struct ShaderStageKey {
     ShaderStage stage;
     ShaderEntryRole role;

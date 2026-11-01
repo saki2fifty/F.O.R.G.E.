@@ -19,6 +19,13 @@ std::vector<MaterialParameterUniform> material_parameter_uniforms(const Material
             {name, parameter.type, row++ * row_bytes, material_parameter_width(parameter.type)});
     return result;
 }
+SamplerState sprite_frame_sampler(SamplerState state, TextureFilter mip) {
+    state.u = state.v = state.w = TextureWrap::ClampEdge;
+    state.min_lod = 0;
+    state.max_lod = 1000;
+    state.mip = mip;
+    return state;
+}
 MaterialShader material_shader(const PbrMaterialProfile& material,
                                std::span<const unsigned> uv_sets, MaterialSamplerBinding binding,
                                bool sprite_profile, std::optional<TextureFilter> sprite_mips) {
@@ -58,12 +65,8 @@ MaterialShader material_shader(const PbrMaterialProfile& material,
         const auto index = result.textures.size();
         const auto texture = "g_MaterialTexture" + std::to_string(index);
         auto state = slot.sampler;
-        if (frame_mips) {
-            state.u = state.v = state.w = TextureWrap::ClampEdge;
-            state.min_lod = 0;
-            state.max_lod = 1000;
-            state.mip = *sprite_mips;
-        }
+        if (frame_mips)
+            state = sprite_frame_sampler(state, *sprite_mips);
         auto [selected, inserted] =
             samplers.try_emplace(state, static_cast<unsigned>(samplers.size()));
         const auto sampler_slot = selected->second;

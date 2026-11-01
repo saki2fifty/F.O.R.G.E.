@@ -163,7 +163,7 @@ External file changes are checked before overwriting the source. Reload and reso
 a conflict instead of assuming the editor can merge another writer's edits.
 
 The current editor exposes built-in material models and numeric/texture properties.
-Use [Material Graph](material-graphs.md) to author a typed PBR surface graph. An arbitrary Shader asset still cannot replace the mesh renderer's shader contract. See [Shader import](shaders.md) for that separate workflow.
+Use [Material Graph](material-graphs.md) to author a Mesh surface or a Sprite final-color graph. Assign the material to the matching renderer domain. An arbitrary Shader asset still cannot replace the renderer's material contract. See [Shader import](shaders.md) for that separate workflow.
 
 
 ### Preview framing and field ownership

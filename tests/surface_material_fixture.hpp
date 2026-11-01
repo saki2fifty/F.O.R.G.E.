@@ -6,6 +6,24 @@
 namespace forge::test {
 // Opaque CPU transport fixture. These marker bytes are NEVER submitted to a
 // graphics API; native fixtures compile actual source through Diligent instead.
+inline ShaderData surface_fixture_program(const SurfaceShaderDefinition& definition,
+                                          std::string build_key = std::string(64, 'a')) {
+    ShaderData data;
+    data.build_key = std::move(build_key);
+    data.compiler_digest = std::string(64, 'c');
+    data.surface = definition;
+    data.surface_wrapper_version = definition.sprite_image ? 14 : 1;
+    const nlohmann::json reflection{
+        {"stage", "pixel"}, {"threads", {0, 0, 0}}, {"resources", nlohmann::json::array()}};
+    unsigned marker = 1;
+    for (auto role : surface_shader_roles(definition, data.surface_wrapper_version))
+        data.stages.push_back({ShaderStage::Pixel,
+                               surface_shader_entry(role),
+                               {std::byte(marker++)},
+                               reflection,
+                               role});
+    return data;
+}
 inline ShaderData publish_surface_fixture(const std::filesystem::path& root, AssetCatalog& catalog,
                                           AssetId id, const SurfaceShaderDefinition& definition,
                                           unsigned generation = 1) {
@@ -21,26 +39,14 @@ inline ShaderData publish_surface_fixture(const std::filesystem::path& root, Ass
     input.platform = "windows-x64";
     input.backend = "d3d12";
     input.profile = "fxc-5.1";
-    ShaderData data;
-    data.build_key = input.key();
-    data.compiler_digest = std::string(64, 'c');
-    data.surface = definition;
-    const nlohmann::json reflection{
-        {"stage", "pixel"}, {"threads", {0, 0, 0}}, {"resources", nlohmann::json::array()}};
-    data.stages = {{ShaderStage::Pixel,
-                    "ForgeSurfaceColor",
-                    {std::byte{1}},
-                    reflection,
-                    ShaderEntryRole::SurfaceColor},
-                   {ShaderStage::Pixel,
-                    "ForgeSurfaceDepth",
-                    {std::byte{2}},
-                    reflection,
-                    ShaderEntryRole::SurfaceDepth}};
+    auto data = surface_fixture_program(definition, input.key());
     const auto artifact = DerivedDataCache(root).publish(
         input, {{"program.shader", encode_shader(data)}},
         [](const auto& a) { (void)decode_shader(a.files.at(0).bytes); });
-    AssetRecord record{id, "shader", "Assets/surface.shader.json"};
+    AssetRecord record;
+    record.id = id;
+    record.type = "shader";
+    record.source = "Assets/surface.shader.json";
     record.metadata = {{"forge.import",
                         {{"version", 1},
                          {"generation", std::uint64_t(generation)},

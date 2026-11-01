@@ -1,7 +1,8 @@
 #pragma once
 #include "runtime_package.hpp"
+#include "sprite_material_profile.hpp"
 #include "surface_material_fixture.hpp"
-inline void test_surface_material_pipeline(const std::filesystem::path& root) {
+inline void test_surface_material_pipeline(const std::filesystem::path& root, bool sprite = false) {
     using namespace forge;
     using namespace forge::asset_detail;
     using namespace std::chrono_literals;
@@ -9,6 +10,14 @@ inline void test_surface_material_pipeline(const std::filesystem::path& root) {
     AssetCatalog catalog(root);
     SurfaceShaderDefinition definition;
     definition.parameters["tint"] = {MaterialParameterType::LinearColor4, {.2f, .4f, .8f, 1}};
+    AssetId image;
+    if (sprite) {
+        definition.sprite_image = "image";
+        definition.uv_sets = {0};
+        definition.textures["image"].semantic = TextureSemantic::Color;
+        image = texture_fixture(root, catalog, TextureDimension::D2, TextureAlpha::Straight,
+                                {"windows", "d3d12", "desktop"});
+    }
     const auto shader = AssetId::generate();
     const auto initial_shader = test::publish_surface_fixture(root, catalog, shader, definition);
     auto source = MaterialSource::create(AssetId::generate());
@@ -16,6 +25,12 @@ inline void test_surface_material_pipeline(const std::filesystem::path& root) {
     source.document["overrides"]["shader"] = AssetRef<ShaderAsset>{shader};
     source.document["overrides"]["parameters"]["tint"] =
         material_values_document(surface_material_defaults(definition)).at("parameters").at("tint");
+    if (sprite)
+        source.document["overrides"]["textures"]["image"] = {
+            {"asset", image},
+            {"slot", material_values_document(surface_material_defaults(definition))
+                         .at("textures")
+                         .at("image")}};
     save(root / "Assets/surface.material.json", source.document);
     catalog.add({source.asset(), "material", "Assets/surface.material.json"});
     catalog.save(AssetCatalog::project_index(root));
@@ -30,6 +45,11 @@ inline void test_surface_material_pipeline(const std::filesystem::path& root) {
                 good.data.surface->program.layout_digest() == initial_shader.layout_digest() &&
                 good.data.values.parameters == definition.parameters,
             "Material publication lost its selected Shader interface/defaults");
+    if (sprite)
+        require(sprite_material_image(good.data) == "image" &&
+                    good.data.textures.at("image").id == image &&
+                    good.data.values.alpha == MaterialAlpha::Blend && !good.data.values.depth_write,
+                "Sprite publication lost its image binding or transparent defaults");
     require(catalog.dependency_graph().invalidated_by(shader) == std::vector{source.asset()},
             "Surface Shader has no material Build invalidation edge");
     auto inherited = MaterialSource::create(AssetId::generate());
@@ -79,11 +99,21 @@ inline void test_surface_material_pipeline(const std::filesystem::path& root) {
     const auto package = root.parent_path() / ("surface-package-" + AssetId::generate().str());
     const std::array roots{source.asset()};
     package_runtime_content(root, package, roots, {"windows", "d3d12"});
-    auto shipped = open_runtime_content(package, {"windows", "d3d12"});
-    require(!shipped.records().contains(shader) && shipped.records().size() == 1 &&
-                encode_shader(load_material_selection(package, shipped, {source.asset()})
+    const std::filesystem::path relocated = package.string() + "-relocated";
+    std::filesystem::rename(package, relocated);
+    auto shipped = open_runtime_content(relocated, {"windows", "d3d12"});
+    require(!shipped.records().contains(shader) && shipped.records().size() == (sprite ? 2u : 1u) &&
+                encode_shader(load_material_selection(relocated, shipped, {source.asset()})
                                   .data.surface->program) == encode_shader(initial_shader),
             "Cooked material package required current Shader/source or changed retained bytecode");
+    if (sprite) {
+        const auto packaged = load_material_selection(relocated, shipped, {source.asset()});
+        require(sprite_material_image(packaged.data) == "image" &&
+                    shipped.records().contains(image) &&
+                    !std::filesystem::exists(relocated / "Assets/surface.material.json") &&
+                    !std::filesystem::exists(relocated / "Assets/surface.shader.json"),
+                "Source-free Sprite Material package lost its image or retained authored sources");
+    }
     const auto compatible = test::publish_surface_fixture(root, catalog, shader, definition, 3);
     submit(service, "Assets/surface.material.json");
     outcome = finish(service);

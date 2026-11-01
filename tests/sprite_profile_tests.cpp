@@ -1,5 +1,6 @@
 #include "sprite_frame_mip_tests.hpp"
 #include "sprite_resource_fixture.hpp"
+#include "surface_material_fixture.hpp"
 #include <iostream>
 #include <limits>
 
@@ -54,6 +55,49 @@ int main() {
 
         const auto material = original.materials.begin()->second->values;
         validate_sprite_material_profile(material);
+        {
+            // CPU-only programs test selection/leases, never native realization.
+            SurfaceShaderDefinition definition;
+            definition.uv_sets = {0};
+            definition.sprite_image = "image";
+            definition.textures["image"] = material.textures.at("baseColorTexture");
+            definition.textures["detail"] = definition.textures.at("image");
+            definition.labels["image"] = "Atlas image";
+            MaterialResourceData custom;
+            custom.values = surface_material_defaults(definition);
+            custom.values.alpha = MaterialAlpha::Blend;
+            custom.values.depth_write = false;
+            const auto image_ref =
+                original.materials.begin()->second->textures.at("baseColorTexture");
+            custom.textures = {{"detail", image_ref}, {"image", image_ref}};
+            custom.surface = MaterialShaderSnapshot{{AssetId::generate()},
+                                                    std::string(64, 'b'),
+                                                    test::surface_fixture_program(definition)};
+            check(sprite_material_image(custom) == "image",
+                  "Sprite image was inferred from order or display label");
+            auto candidate = original;
+            const auto id = candidate.selection.parts[0][0].id;
+            ResourcePool<MaterialAsset> custom_materials;
+            candidate.materials[id] = test_sprite_resources::load(custom_materials, custom, id);
+            check(&sprite_source_texture(candidate) == &texture &&
+                      sprite_source_texture_lease(candidate).identity() ==
+                          sprite_source_texture_lease(original).identity(),
+                  "Custom Sprite image bypassed the exact existing Texture lease");
+            auto incompatible = custom;
+            incompatible.values.textures.at("image").offset[0] = .5f;
+            rejects([&] { sprite_material_image(incompatible); });
+            incompatible = custom;
+            auto mesh_definition = definition;
+            mesh_definition.sprite_image.reset();
+            mesh_definition.labels.clear();
+            incompatible.surface->program = test::surface_fixture_program(mesh_definition);
+            rejects([&] { sprite_material_image(incompatible); });
+            incompatible = custom;
+            incompatible.surface->program.stages.pop_back();
+            rejects([&] { sprite_material_image(incompatible); });
+            candidate.textures.clear();
+            rejects([&] { sprite_source_texture(candidate); });
+        }
         std::vector<SpriteFrameRegion> frame_bank{{0, 0, 2, 1}, {2, 0, 1, 2}};
         frame_bank.back().rotated_clockwise = true;
         // Storage orientation alone does not change alpha/depth admission.

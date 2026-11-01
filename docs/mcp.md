@@ -258,6 +258,17 @@ editor's current document. These tools never create a parallel draft or history.
 Material, material graph, collision, editable mesh, particle, terrain, Tile Set,
 Tile Map, Sprite atlas, animation states/blend space/mask and transform animation are bound.
 
+Material graph templates and creation accept `editor:"material.graph"` with
+`domain:"mesh"` (default) or `domain:"sprite"`. Both call the same native factories
+used by Content. A Sprite template contains image, Color, Multiply and Sprite
+Output; its output references the primary image by stable binding key. The graph
+catalog exposes the output schema and help, and node inspection exposes its
+Color4 input and `image`/`tint` configuration. Patch, history, sessions, revisions,
+Save and publication remain owned by the source editor. Unknown domains, `domain`
+on another editor and creation options on Open reject. A source template/edit is
+not evidence of native Shader compilation; custom Sprite programs require the
+Windows/D3D12 Shader worker.
+
 Sprite atlas documents use `editor:"sprite_atlas"` and `.atlas.json`. Templates
 and creation require `textures`, a1–512 UUID array of input Texture references.
 Other editors reject this option; `tile_set` remains exclusive to Tile Maps.

@@ -132,6 +132,7 @@ class MeshDraw {
     bool weighted_{};
     bool area_lights_{};
     bool sprite_{}, sprite_trim_allowed_{}, sprite_mips_{};
+    std::string sprite_image_variable_;
     bool lights_active_{};
     float volume_thickness_{};
     Diligent::RefCntAutoPtr<Diligent::IBuffer> morph_weights_, skin_, instances_;

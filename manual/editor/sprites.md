@@ -274,10 +274,28 @@ image revision closes the old chooser; open it again for the new selection.
 
 An incompatible grid or material shows a diagnostic and retains the last usable
 complete image, frame and size. Correct the values to retry. A retained image
-does not mean the current edit is valid. The first Sprite profile supports 2D
+does not mean the current edit is valid. The Sprite image profile supports 2D
 RGBA8/sRGB images with ordinary opaque or straight alpha. It rejects compressed,
-HDR, premultiplied-alpha and custom surface Shader images. Sheet sampling uses
+HDR, premultiplied-alpha and unknown-alpha primary images. Sheet sampling uses
 the base image level when **Mip filtering** is Disabled.
+
+## Use a programmable material
+
+Create a [Sprite material graph](material-graphs.md), compile it, and assign it
+through an ordinary Material asset. Its **Primary image** supplies the image used
+by frame selection, atlas keys, sheet preview, filling and frame mip filtering.
+The sheet chooser shows that source image; the material preview shows the graph's
+color result on a Sprite Quad.
+
+The default graph applies Inspector Tint once. If you apply Vertex Color inside
+your graph, turn off **Apply Inspector Tint** on Sprite Output. The Material
+continues to own blending, depth and two-sided settings. Trimmed frames still
+require blending and depth writes disabled. Additional graph textures are material
+inputs; they do not become separate Sprite frame sources.
+
+Custom Sprite shaders use Windows/D3D12. A Mesh surface graph cannot be used as a
+Sprite material. Save and compile the Shader, save its Material, then save the
+Scene before exporting. The exported game uses the cooked program and image data.
 
 ## Filter small or distant images
 

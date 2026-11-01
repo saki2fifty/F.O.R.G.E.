@@ -32,7 +32,8 @@ Json signature(const Json& f) {
     unsigned outputs = 0;
     for (const auto& n : f.at("graph").at("nodes")) {
         const auto k = n.at("type").template get<std::string>();
-        need(k != "surface" && k != "parameter" && !k.starts_with("texture"),
+        need(k != "surface" && k != "sprite_output" && k != "parameter" &&
+                 !k.starts_with("texture"),
              "Pure functions receive material parameters/textures through typed inputs");
         if (k == "function_input") {
             const auto& d = n.at("data");
@@ -244,7 +245,8 @@ GraphFunctionId extract_material_graph_function(Json& graph, const std::set<Grap
     std::vector<Json> incoming;
     for (const auto& n : graph.at("nodes"))
         if (selected.contains(n.at("id").template get<GraphNodeId>())) {
-            need(n.at("type") != "surface" && n.at("type") != "parameter" &&
+            need(n.at("type") != "surface" && n.at("type") != "sprite_output" &&
+                     n.at("type") != "parameter" &&
                      !n.at("type").template get<std::string>().starts_with("texture") &&
                      n.at("type") != "function_input" && n.at("type") != "function_output",
                  "Extract pure math/value nodes; leave bindings and interface nodes outside");

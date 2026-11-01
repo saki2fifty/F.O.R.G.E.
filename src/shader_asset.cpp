@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <forge/material_graph.hpp>
 #include <forge/shader_asset.hpp>
+#include <iterator>
 #include <tuple>
 namespace forge {
 namespace {
@@ -155,6 +156,10 @@ const char* shader_entry_role_name(ShaderEntryRole role) {
         return "surface_weighted_color";
     case ShaderEntryRole::SurfaceAreaWeightedColor:
         return "surface_area_weighted_color";
+    case ShaderEntryRole::SurfaceSpriteColor:
+        return "surface_sprite_color";
+    case ShaderEntryRole::SurfaceSpriteMipColor:
+        return "surface_sprite_mip_color";
     }
     throw std::runtime_error("Unsupported shader entry role");
 }
@@ -178,7 +183,9 @@ ShaderEntryRole shader_entry_role(std::string_view name) {
                       ShaderEntryRole::SurfaceAreaNormalColor,
                       ShaderEntryRole::SurfaceAreaTemporalNormalColor,
                       ShaderEntryRole::SurfaceWeightedColor,
-                      ShaderEntryRole::SurfaceAreaWeightedColor})
+                      ShaderEntryRole::SurfaceAreaWeightedColor,
+                      ShaderEntryRole::SurfaceSpriteColor,
+                      ShaderEntryRole::SurfaceSpriteMipColor})
         if (name == shader_entry_role_name(role))
             return role;
     throw std::runtime_error("Unsupported shader entry role");
@@ -223,6 +230,10 @@ const char* surface_shader_entry(ShaderEntryRole role) {
         return "ForgeSurfaceWeightedColor";
     case ShaderEntryRole::SurfaceAreaWeightedColor:
         return "ForgeSurfaceAreaWeightedColor";
+    case ShaderEntryRole::SurfaceSpriteColor:
+        return surface_sprite_color_entry;
+    case ShaderEntryRole::SurfaceSpriteMipColor:
+        return surface_sprite_mip_entry;
     default:
         throw std::runtime_error("Shader role has no engine surface entry");
     }
@@ -456,26 +467,63 @@ void validate_shader_reflection(const Json& reflection) {
     }
     require(reflection.dump().size() <= metadata_limit, "Shader reflection exceeds metadata limit");
 }
+std::span<const ShaderEntryRole> surface_shader_roles(const SurfaceShaderDefinition& definition,
+                                                      unsigned version) {
+    require(version >= 1 && version <= current_surface_wrapper_version,
+            "Unsupported surface entry capability");
+    static constexpr ShaderEntryRole sprite[]{ShaderEntryRole::SurfaceSpriteColor,
+                                              ShaderEntryRole::SurfaceSpriteMipColor};
+    if (definition.sprite_image) {
+        require(version >= 14, "Sprite surfaces require their Sprite wrapper capabilities");
+        return sprite;
+    }
+    static constexpr ShaderEntryRole mesh[]{ShaderEntryRole::SurfaceColor,
+                                            ShaderEntryRole::SurfaceDepth,
+                                            ShaderEntryRole::SurfaceTemporalColor,
+                                            ShaderEntryRole::SurfaceIndirectColor,
+                                            ShaderEntryRole::SurfaceTemporalIndirectColor,
+                                            ShaderEntryRole::SurfaceReflectionColor,
+                                            ShaderEntryRole::SurfaceTemporalReflectionColor,
+                                            ShaderEntryRole::SurfaceNormalColor,
+                                            ShaderEntryRole::SurfaceTemporalNormalColor,
+                                            ShaderEntryRole::SurfaceAreaColor,
+                                            ShaderEntryRole::SurfaceAreaTemporalColor,
+                                            ShaderEntryRole::SurfaceAreaIndirectColor,
+                                            ShaderEntryRole::SurfaceAreaTemporalIndirectColor,
+                                            ShaderEntryRole::SurfaceAreaReflectionColor,
+                                            ShaderEntryRole::SurfaceAreaTemporalReflectionColor,
+                                            ShaderEntryRole::SurfaceAreaNormalColor,
+                                            ShaderEntryRole::SurfaceAreaTemporalNormalColor,
+                                            ShaderEntryRole::SurfaceWeightedColor,
+                                            ShaderEntryRole::SurfaceAreaWeightedColor};
+    static_assert(std::size(mesh) == surface_stage_limit);
+    const auto count = version >= 9   ? surface_stage_limit
+                       : version >= 7 ? 17u
+                       : version >= 6 ? 9u
+                       : version >= 5 ? 7u
+                       : version >= 4 ? 5u
+                       : version >= 3 ? 3u
+                                      : 2u;
+    return std::span(mesh).first(count);
+}
 void validate_shader(const ShaderData& data) {
     require(data.surface_wrapper_version >= 1 &&
                 data.surface_wrapper_version <= current_surface_wrapper_version &&
                 (data.surface || data.surface_wrapper_version == 1),
             "Unsupported Shader surface wrapper version");
+    require(!data.surface || !data.surface->sprite_image || data.surface_wrapper_version >= 14,
+            "Sprite surfaces require their Sprite wrapper capabilities");
     require(valid_content_digest(data.build_key) && valid_content_digest(data.compiler_digest),
             "Shader artifact provenance is invalid");
     require(data.stages.size() <= (data.surface ? surface_stage_limit : 6u),
             "Shader artifact stage count exceeds profile");
     std::set<ShaderStage> stages;
     std::set<ShaderEntryRole> roles;
+    std::span<const ShaderEntryRole> expected_roles;
     if (data.surface) {
         validate_surface_definition(*data.surface);
-        require(data.stages.size() == (data.surface_wrapper_version >= 9   ? surface_stage_limit
-                                       : data.surface_wrapper_version >= 7 ? 17u
-                                       : data.surface_wrapper_version >= 6 ? 9u
-                                       : data.surface_wrapper_version >= 5 ? 7u
-                                       : data.surface_wrapper_version >= 4 ? 5u
-                                       : data.surface_wrapper_version >= 3 ? 3u
-                                                                           : 2u),
+        expected_roles = surface_shader_roles(*data.surface, data.surface_wrapper_version);
+        require(data.stages.size() == expected_roles.size(),
                 "Material surface entries differ from its declared wrapper capability");
     }
     std::size_t bytes = 0;
@@ -484,6 +532,9 @@ void validate_shader(const ShaderData& data) {
         identifier(stage.entry);
         (void)shader_entry_role_name(stage.role);
         if (data.surface) {
+            require(std::find(expected_roles.begin(), expected_roles.end(), stage.role) !=
+                        expected_roles.end(),
+                    "Shader entry role does not match its Mesh or Sprite surface domain");
             require(stage.stage == ShaderStage::Pixel && stage.role != ShaderEntryRole::Program &&
                         roles.insert(stage.role).second,
                     "Invalid/duplicate material surface entry role");

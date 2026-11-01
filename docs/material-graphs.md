@@ -70,7 +70,7 @@ All four nodes use the existing typed links, source history, copy and function
 expansion. Local source/editor and actual DXC probes cover their output; native
 Windows/FXC5.1 and physical GPU acceptance remain pending.
 
-Exactly one Surface Output defines base color/alpha, metallic, roughness, normal,
+Exactly one output chooses the domain. Surface Output defines base color/alpha, metallic, roughness, normal,
 emission and occlusion. Graph values feed the existing metallic/roughness PBR
 geometry/lighting helpers; this is not a copied BRDF or custom vertex deformation.
 Physical surface fields are bounded at their established shader boundary; output
@@ -81,9 +81,25 @@ do not create an artificial UV0 requirement. An unconnected Normal Map UV input
 explicitly requires UV0. Texture2D
 implicit sampling respects Material UV transforms and overrides.
 
+Sprite Output instead emits a final linear RGBA function over `ForgeSpriteInput`.
+Its `data.image` names a declared primary Color Texture2D binding by stable key;
+`data.tint` defaults true and multiplies the result by `input.Color` once. The
+default Sprite factory connects image and white Color through Multiply. Only
+logical UV0 is available. Primary explicit-coordinate sampling carries the Sprite
+input context through frame/fill/trim/turn/mip mapping; auxiliary texture helpers
+retain ordinary Material UV/sampler behavior. World Normal, Normal Map and nonzero
+UV sets reject across authored nodes and unused functions. Cube sampling requires
+an explicit direction. A graph cannot mix Mesh and Sprite outputs.
+
+Copying a texture declaration creates a new binding key. A copied Sprite Output
+remaps its primary-image reference only when that declaration was copied too;
+opaque fields remain unchanged. Whole Shader duplication retains the binding
+contract. Sprite previews use the shared renderer's Sprite Quad, with the original
+Mesh preview geometry choices retained for Mesh materials.
+
 Extract Function turns a selected pure calculation with one outward result into
 a reusable typed function inside the same Shader document. Parameters, textures
-and Surface Output stay outside functions. Calls share pure code, not mutable
+and either output stay outside functions. Calls share pure code, not mutable
 runtime state. Function inputs/output keep stable ports and cached signatures;
 unsupported signature changes reject compilation rather than silently reconnecting
 edges. The current editor supports extraction, call creation, interior editing and

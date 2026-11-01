@@ -32,7 +32,8 @@ inline nlohmann::json all_node_graph() {
     };
     Json sum;
     for (const auto& schema : material_graph_node_schemas()) {
-        if (schema.key == "surface" || schema.key.starts_with("function"))
+        if (schema.key == "surface" || schema.key == "sprite_output" ||
+            schema.key.starts_with("function"))
             continue;
         auto n = create_material_graph_node(schema.key, {0, 0});
         if (schema.key == "parameter" || schema.key == "constant") {

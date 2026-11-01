@@ -35,25 +35,40 @@ class MaterialPreview {
     SceneEnvironment environment;
     void catalog(std::shared_ptr<const AssetCatalog> value) { host_->catalog(std::move(value)); }
     void material(AssetRef<MaterialAsset> ref, MaterialResourceData data) {
+        const bool next_sprite = data.surface && data.surface->program.surface &&
+                                 data.surface->program.surface->sprite_image.has_value();
         host_->preview_material(ref, std::move(data));
         object_.renderer.materials = {{"surface", ref}};
+        sprite_object_.entity = object_.entity;
+        sprite_object_.renderer.material = ref;
+        if (sprite_ != next_sprite) {
+            camera.yaw = next_sprite ? 0 : -.5f;
+            camera.pitch = next_sprite ? 0 : -.25f;
+        }
+        sprite_ = next_sprite;
     }
     Diligent::ITextureView* render(unsigned width, unsigned height) {
-        if (shape != framed_shape_ ||
+        const auto geometry = sprite_ ? 8u : shape;
+        if (geometry != framed_shape_ ||
             (auto_frame_ && (width != framed_width_ || height != framed_height_))) {
             double radius = 0;
-            for (const auto& vertex : primitive_meshes().at(shape))
+            for (const auto& vertex : primitive_meshes().at(geometry))
                 radius = std::max(radius, double(std::hypot(vertex.position[0], vertex.position[1],
                                                             vertex.position[2])));
             if (!height || !camera.frame_sphere({0, 0, 0}, radius, float(width) / height))
                 throw std::runtime_error("Material preview framing dimensions are invalid");
-            framed_shape_ = shape;
+            framed_shape_ = geometry;
             framed_width_ = width;
             framed_height_ = height;
             auto_frame_ = true;
         }
         object_.renderer.mesh = engine_primitive(shape);
-        scene_.meshes = {object_};
+        scene_.meshes.clear();
+        scene_.sprites.clear();
+        if (sprite_)
+            scene_.sprites = {sprite_object_};
+        else
+            scene_.meshes = {object_};
         scene_.settings.environment = environment;
         Light light;
         light.intensity = light_intensity;
@@ -91,8 +106,12 @@ class MaterialPreview {
         int kind = shape == 0 ? 1 : shape == 3 ? 2 : 0;
         ui::property_label_row("Geometry",
                                "Select the geometry used only for this material preview.");
+        ImGui::BeginDisabled(sprite_);
         if (ImGui::Combo("##Geometry", &kind, "Sphere\0Cube\0Plane\0"))
             shape = kind == 0 ? 1 : kind == 1 ? 0 : 3;
+        ImGui::EndDisabled();
+        if (sprite_)
+            ImGui::TextUnformatted("Sprite Quad (logical UV0)");
         ui::help("Select engine preview geometry with the same UV/tangent streams used by authored "
                  "meshes.");
         ui::next_text_button("Frame view");
@@ -160,6 +179,8 @@ class MaterialPreview {
     FrameRenderer frame_;
     RenderScene scene_;
     RenderMesh object_;
+    RenderSprite sprite_object_;
+    bool sprite_ = false;
     EntityId camera_id_, light_id_;
     bool orbiting_ = false, auto_frame_ = true;
     unsigned framed_shape_ = no_primitive, framed_width_ = 0, framed_height_ = 0;

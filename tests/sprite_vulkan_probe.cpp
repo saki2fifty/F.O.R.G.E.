@@ -32,6 +32,13 @@ int main(int argc, char** argv) {
             context->WaitForIdle();
             return 0;
         }
+        if (argc == 3 && std::string_view(argv[2]) == "--sprite-surface-wrapper-only") {
+            // Supplemental generated-source pixels; production custom Shader
+            // artifacts still require the supported Windows/D3D12 adapter.
+            forge::test_fog_surface::exercise(presentation, context, read, true);
+            context->WaitForIdle();
+            return 0;
+        }
         if (argc == 3 && std::string_view(argv[2]) == "--atlas-rebuild-only") {
             forge::test_sprite_atlas_rebuild_render::exercise(presentation, context, read, argv[1]);
             context->WaitForIdle();

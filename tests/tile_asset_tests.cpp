@@ -11,6 +11,7 @@
 #include "physics_tile_polygon_tests.hpp"
 #include "runtime_package.hpp"
 #include "runtime_tile_map.hpp"
+#include "sprite_surface_tile_tests.hpp"
 #include "tile_animation_runtime_tests.hpp"
 #include "tile_asset_authoring.hpp"
 #include "tile_asset_fixture.hpp"
@@ -1078,6 +1079,13 @@ int main(int argc, char** argv) {
         require(argc == 3 || argc == 4,
                 "Expected native import worker, scratch root, optional matching module");
         const auto root = std::filesystem::absolute(argv[2]) / AssetId::generate().str();
+        if (argc == 4 && std::string_view(argv[3]) == "--sprite-surfaces") {
+            test_sprite_surface_tiles::exercise(root, std::filesystem::absolute(argv[1]));
+            std::filesystem::remove_all(root);
+            std::cout << "CPU Sprite surface Tile admission, primary image and retained snapshot "
+                         "passed\n";
+            return 0;
+        }
         collision_profile_publication(root / "collision profiles",
                                       std::filesystem::absolute(argv[1]));
         workflow(root / "project with spaces", std::filesystem::absolute(argv[1]),

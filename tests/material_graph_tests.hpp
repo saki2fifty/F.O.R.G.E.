@@ -1,6 +1,7 @@
 #pragma once
 #include "material_graph_compile_fixture.hpp"
 #include "material_graph_geometry_tests.hpp"
+#include "material_graph_sprite_tests.hpp"
 #include "material_graph_threshold_tests.hpp"
 #include "mesh_draw_shader.hpp"
 #include <forge/material_graph.hpp>
@@ -30,6 +31,7 @@ inline Json edge(const Json& from, std::string out, const Json& to, std::string 
             {"to", {{"node", to.at("id")}, {"port", in}}}};
 }
 inline void run() {
+    sprite_tests();
     threshold_tests();
     geometry_tests();
     (void)compile_material_graph(all_node_graph());

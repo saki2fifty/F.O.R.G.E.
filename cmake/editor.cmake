@@ -356,10 +356,11 @@ if(BUILD_TESTING)
  # volume-exit cases. Keep its assertions and individual case bounds; allow
  # headroom for the complete shader/readback workload on hosted WARP.
  set_tests_properties(editor_viewport_render PROPERTIES TIMEOUT 120)
- foreach(render_case IN ITEMS morph skin frame optics sequence-frames sprites tile-canvas tile-gallery physics-2d physics-tiles)
+ foreach(render_case IN ITEMS morph skin frame optics sequence-frames sprites sprite-surfaces tile-canvas tile-gallery physics-2d physics-tiles)
   add_test(NAME editor_render_${render_case} COMMAND forge_viewport_tests "${CMAKE_BINARY_DIR}/grid-test-images/${render_case}" ${render_case})
   set_tests_properties(editor_render_${render_case} PROPERTIES TIMEOUT 60)
  endforeach()
+ set_tests_properties(editor_render_sprite-surfaces PROPERTIES TIMEOUT 180)
  add_executable(forge_cpp_source_tests tests/cpp_source_tests.cpp)
  target_include_directories(forge_cpp_source_tests PRIVATE src/editor)
  target_link_libraries(forge_cpp_source_tests PRIVATE forge_cpp_text_editor forge_asset_files forge_asset_bytes SDL3::SDL3)

@@ -1,4 +1,5 @@
 #include "editor/material_graph_canvas.hpp"
+#include "imgui_software_capture.hpp"
 #include "material_graph_document.hpp"
 #include <imgui_internal.h>
 #include <iostream>
@@ -183,7 +184,81 @@ int main(int argc, char** argv) {
             check(reopened.source().document == final_source,
                   "Geometry source save/reopen differs");
             (void)compile_material_graph(reopened.source().document["graph"]);
+            document->edit(document->revision(), "Sprite graph", [](auto& source) {
+                source["graph"] = create_sprite_material_graph();
+                auto second = create_material_graph_node("texture2d", {0, 500});
+                second["data"]["label"] = "Second image";
+                source["graph"]["nodes"].push_back(second);
+            });
+            canvas.reset();
+            const auto sprite_graph = document->source().document.at("graph");
+            canvas.selection = {sprite_graph.at("nodes").at(3).at("id").get<GraphNodeId>()};
+            frame();
+            click("graph:sprite-tint");
+            canvas.flush(edit);
+            const auto without_tint = document->source().document;
+            check(!without_tint.at("graph").at("nodes").at(3).at("data").at("tint"),
+                  "Actual Sprite Tint control did not change the source");
+            document->undo();
+            canvas.reset();
+            check(document->source().document.at("graph") == sprite_graph,
+                  "Sprite Tint was not one source Undo");
+            document->redo();
+            canvas.reset();
+            canvas.selection = {sprite_graph.at("nodes").at(3).at("id").get<GraphNodeId>()};
+            frame();
+            const auto second_image =
+                sprite_graph.at("nodes").back().at("data").at("key").get<std::string>();
+            click("graph:sprite-image");
+            click("graph:sprite-image:" + second_image);
+            canvas.flush(edit);
+            const auto second_source = document->source().document;
+            check(compile_material_graph(second_source.at("graph")).surface.sprite_image ==
+                      second_image,
+                  "Actual image selector did not use the chosen stable binding key");
+            document->undo();
+            canvas.reset();
+            check(document->source().document == without_tint,
+                  "Sprite image selection was not one source Undo");
+            document->redo();
+            canvas.reset();
+            canvas.selection = {sprite_graph.at("nodes").at(3).at("id").get<GraphNodeId>()};
+            locked = true;
+            frame();
+            check(!test::ui_targets.at("graph:sprite-image").enabled &&
+                      !test::ui_targets.at("graph:sprite-tint").enabled,
+                  "Readonly Sprite controls remain writable");
+            locked = false;
+            frame();
+            check(document->source().document == second_source,
+                  "Readonly Sprite drawing changed the source");
+            document->save();
+            MaterialGraphDocument sprite_reopened(lease, "Assets/Geometry.shader.json");
+            check(sprite_reopened.source().document == second_source,
+                  "Sprite output settings changed across save/reopen");
             ImGui::DestroyContext();
+        }
+        {
+            test::ImGuiSoftwareCapture capture(1180, 820);
+            ui::style(1);
+            ui::EditorUiContext context;
+            ui::ContextScope scope(context);
+            MaterialGraphCanvas canvas;
+            auto source = create_sprite_material_graph();
+            canvas.selection = {source.at("nodes").at(3).at("id").get<GraphNodeId>()};
+            const MaterialGraphCanvas::Edit edit = [&](std::string, const auto& operation) {
+                operation(source);
+            };
+            for (unsigned frame = 0; frame < 4; ++frame) {
+                capture.new_frame();
+                ImGui::SetNextWindowPos({8, 8}, ImGuiCond_Always);
+                ImGui::SetNextWindowSize({1164, 804}, ImGuiCond_Always);
+                ImGui::Begin("Sprite material graph");
+                canvas.draw(source, 1, edit, false);
+                ImGui::End();
+                capture.render();
+            }
+            capture.save(std::filesystem::absolute(argv[1]) / "sprite-material-graph.png");
         }
         std::cout << "Actual material vector geometry "
                      "discovery/type/history/readonly/save100/150/200% passed\n";

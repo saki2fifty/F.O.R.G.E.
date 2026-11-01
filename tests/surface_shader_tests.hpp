@@ -1,5 +1,7 @@
 #pragma once
+#include "mesh_shader_input.hpp"
 #include <cstring>
+#include <forge/shader_asset.hpp>
 #include <forge/surface_shader.hpp>
 inline void check_surface_shader() {
     using namespace forge;
@@ -129,4 +131,109 @@ inline void check_surface_shader() {
     (void)surface_binding_layout(definition, reflection);
     reject([&] { surface_shader_wrapper("quoted\".hlsl", "Shade", false); });
     reject([&] { surface_shader_wrapper("surface.hlsl", "Shade()", false); });
+
+    // Sprite metadata is explicit; its image key owns the frame mapping while
+    // other material textures retain their ordinary sampling settings.
+    SurfaceShaderDefinition sprite;
+    sprite.uv_sets = {0};
+    sprite.sprite_image = "image";
+    sprite.textures["image"].semantic = TextureSemantic::Color;
+    sprite.textures["detail"].offset = {.5f, 0};
+    sprite.labels["image"] = "Main image";
+    const auto sprite_document = surface_definition_document(sprite);
+    check(sprite_document.at("version") == 3 && sprite_document.at("domain") == "sprite" &&
+              sprite_document.at("image") == "image" &&
+              surface_definition(sprite_document) == sprite && document.at("version") == 1 &&
+              !document.contains("domain"),
+          "Sprite image domain/key did not round trip or changed legacy metadata");
+    for (unsigned invalid = 0; invalid < 12; ++invalid) {
+        auto wrong = sprite;
+        auto& image = wrong.textures.at("image");
+        switch (invalid) {
+        case 0:
+            wrong.sprite_image = "missing";
+            break;
+        case 1:
+            wrong.sprite_image = "";
+            break;
+        case 2:
+            wrong.physically_based = true;
+            break;
+        case 3:
+            wrong.uv_sets = {17};
+            break;
+        case 4:
+            image.semantic = TextureSemantic::Data;
+            break;
+        case 5:
+            image.dimension = TextureDimension::Cube;
+            break;
+        case 6:
+            image.offset[0] = .25f;
+            break;
+        case 7:
+            image.sampler.min = TextureFilter::Nearest;
+            break;
+        case 8:
+            wrong.uv_sets = {0, 17};
+            break;
+        case 9:
+            image.sampler.lod_bias = 1;
+            break;
+        case 10:
+            image.rotation = 1;
+            break;
+        case 11:
+            wrong.labels["unknown"] = "Missing binding";
+            break;
+        }
+        reject([&] { validate_surface_definition(wrong); });
+    }
+    auto sprite_values = surface_material_defaults(sprite);
+    validate_surface_material(sprite_values, sprite);
+    sprite_values.textures.at("image").scale[0] = 2;
+    reject([&] { validate_surface_material(sprite_values, sprite); });
+    reject([&] { surface_shader_header(sprite); });
+    auto wrong_domain = sprite_document;
+    wrong_domain["domain"] = "mesh";
+    reject([&] { surface_definition(wrong_domain); });
+    wrong_domain = sprite_document;
+    wrong_domain["lighting"] = "metallic-roughness";
+    reject([&] { surface_definition(wrong_domain); });
+    sprite.parameters["tint"] = {MaterialParameterType::LinearColor4, {1, .5f, .25f, 1}};
+    MeshVertexFetch sprite_fetch;
+    sprite_fetch.uv_sets = {0};
+    for (bool mips : {false, true})
+        for (bool emulated : {false, true}) {
+            const auto header = sprite_surface_shader_header(sprite, mips, emulated);
+            check(header.find(mesh_shader_varyings(sprite_fetch, true, "ForgeSpriteInput", true)) !=
+                          header.npos &&
+                      header.find("float3 Normal:TEXCOORD") == header.npos &&
+                      header.find("float2 ForgeUV0(ForgeSpriteInput input)") != header.npos &&
+                      header.find("ForgeSample_image(ForgeSpriteInput input,float2 coordinate)") !=
+                          header.npos &&
+                      header.find(mips ? ".SampleGrad(" : ".SampleLevel(") != header.npos,
+                  "Sprite shader input/sampling lost its shared geometry or frame contract");
+            const auto wrapper = sprite_surface_shader_wrapper("surface.hlsl", "Shade", mips);
+            check(wrapper.find(mips ? surface_sprite_mip_entry : surface_sprite_color_entry) !=
+                          wrapper.npos &&
+                      wrapper.find("(ForgeSpriteInput input):SV_Target0") != wrapper.npos &&
+                      wrapper.find("ForgeApplyDistanceFog") != wrapper.npos &&
+                      wrapper.find("#include \\") == wrapper.npos,
+                  "Sprite color wrapper lost typed entry/fog or escaped its include path");
+        }
+    reject([&] { sprite_surface_shader_wrapper("bad\".hlsl", "Shade", false); });
+    reject([&] { sprite_surface_shader_wrapper("surface.hlsl", "Shade()", true); });
+    check(surface_shader_roles(sprite, 14).size() == 2,
+          "Sprite surface gained Mesh-only entry roles");
+    reject([&] { surface_shader_roles(sprite, 13); });
+    for (const auto& [version, entries] :
+         {std::pair{1u, 2u}, std::pair{2u, 2u}, std::pair{3u, 3u}, std::pair{4u, 5u},
+          std::pair{5u, 7u}, std::pair{6u, 9u}, std::pair{7u, 17u}, std::pair{8u, 17u},
+          std::pair{9u, 19u}, std::pair{13u, 19u}, std::pair{14u, 19u}}) {
+        const auto roles = surface_shader_roles(definition, version);
+        check(roles.size() == entries && roles[0] == ShaderEntryRole::SurfaceColor &&
+                  roles[1] == ShaderEntryRole::SurfaceDepth,
+              "Legacy Mesh surface entry capability changed");
+    }
 }

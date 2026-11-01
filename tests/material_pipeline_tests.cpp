@@ -37,12 +37,14 @@ void submit(AssetImportService& service, const char* path) {
         [](const auto&, const auto& artifact) { (void)decode_material_bundle(artifact.files); });
 }
 AssetId texture_fixture(const std::filesystem::path& root, AssetCatalog& catalog,
-                        TextureDimension dimension) {
+                        TextureDimension dimension, TextureAlpha alpha = TextureAlpha::Unknown,
+                        ImportTarget target = {"linux", "none", "cpu"}) {
     TextureData texture;
     texture.width = texture.height = 1;
     texture.dimension = dimension;
     texture.format = TextureFormat::RGBA8Srgb;
     texture.semantic = TextureSemantic::Color;
+    texture.alpha = alpha;
     texture.subresources.resize(dimension == TextureDimension::Cube ? 6 : 1,
                                 std::vector<std::byte>(4, std::byte{255}));
     const auto bytes = encode_texture(texture);
@@ -54,9 +56,9 @@ AssetId texture_fixture(const std::filesystem::path& root, AssetCatalog& catalog
     input.importer = "forge.texture.fixture";
     input.importer_revision = std::string(64, 'a');
     input.output_format = "forge.texture-bundle";
-    input.platform = "linux";
-    input.backend = "none";
-    input.profile = "cpu";
+    input.platform = target.platform;
+    input.backend = target.backend;
+    input.profile = target.profile;
     DerivedDataCache cache(root);
     auto artifact = cache.publish(
         input,
@@ -77,6 +79,9 @@ AssetId texture_fixture(const std::filesystem::path& root, AssetCatalog& catalog
                     {"importer_revision", input.importer_revision},
                     {"output_format", input.output_format},
                     {"output_version", 1},
+                    {"platform", input.platform},
+                    {"backend", input.backend},
+                    {"profile", input.profile},
                     {"artifact_digest", asset_build_digest(artifact.manifest.at("files"))}}}}});
     return id;
 }
@@ -305,8 +310,8 @@ int main(int argc, char** argv) {
             slots.model = "forge.gltf.metallic-roughness.v1";
             slots.textures["baseColorTexture"].semantic = TextureSemantic::Color;
             slots.textures["normalTexture"].semantic = TextureSemantic::Normal;
-            for (const auto [role, kind] : {std::pair{"baseColorTexture", EngineTexture::Checker},
-                                            std::pair{"normalTexture", EngineTexture::FlatNormal}})
+            for (const auto& [role, kind] : {std::pair{"baseColorTexture", EngineTexture::Checker},
+                                             std::pair{"normalTexture", EngineTexture::FlatNormal}})
                 builtin.document["overrides"]["textures"][role] = {
                     {"asset", engine_texture(kind).id},
                     {"slot", material_values_document(slots).at("textures").at(role)}};
@@ -353,6 +358,7 @@ int main(int argc, char** argv) {
         }
         test_material_watch(root / "watch-project");
         test_surface_material_pipeline(root / "surface-project");
+        test_surface_material_pipeline(root / "sprite-surface-project", true);
         std::cout << "Material source/publication/resource/last-good/ancestry checks passed\n";
         return 0;
     } catch (const std::exception& e) {

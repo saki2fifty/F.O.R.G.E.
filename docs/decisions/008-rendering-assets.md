@@ -53,8 +53,9 @@ Ordinary texture encoding retains its previous representation when frame metadat
 is absent. Atlas publication uses an explicit supported output profile so older
 engines reject required frame semantics. Existing texture profiles remain readable.
 Public value-header changes require the matching SDK fingerprint; this decision
-does not change the C host table layout. Metadata/source/import/render integration
-is under implementation; this decision alone does not claim an available workflow.
+does not change the C host table layout. The implemented recipe, editor, import,
+rendering and automation workflow is documented in the current
+[Sprite contract](../sprites.md).
 
 ## Current evidence and implementation boundary
 

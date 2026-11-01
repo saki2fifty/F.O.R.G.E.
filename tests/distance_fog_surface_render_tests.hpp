@@ -10,7 +10,7 @@
 namespace forge::test_fog_surface {
 template <class Readback>
 void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* context,
-              Readback&& readback) {
+              Readback&& readback, bool sprite = false) {
     using namespace Diligent;
     using test_sprite_draw::check;
     auto* device = presentation.device();
@@ -35,15 +35,15 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
     };
     MeshVertexFetch interface;
     interface.uv_sets = {0};
-    interface.temporal = true;
+    interface.temporal = !sprite;
     // Use the complete engine varying layout. Sparse test outputs do not share
     // the native backend's locations with the actual surface input structure.
     const auto vertex =
         compile(SHADER_TYPE_VERTEX,
-                mesh_geometry_shader(interface, false).varyings +
+                mesh_shader_varyings(interface, sprite) +
                     "ForgeVarying main(uint id:SV_VertexID){ForgeVarying o=(ForgeVarying)0;"
-                    "o.Position=float4(id==2?3:-1,id==1?3:-1,0,1);"
-                    "o.PreviousClip=o.Position+float4(-.125,.0625,.4,0);"
+                    "o.Position=float4(id==2?3:-1,id==1?3:-1,0,1);" +
+                    (sprite ? "" : "o.PreviousClip=o.Position+float4(-.125,.0625,.4,0);") +
                     "o.World=float3(0,0,2.5);return o;}",
                 "main");
     RefCntAutoPtr<ITexture> color;
@@ -84,6 +84,10 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
     }
     SurfaceShaderDefinition definition;
     definition.uv_sets = {0};
+    if (sprite) {
+        definition.sprite_image = "image";
+        definition.textures["image"].semantic = TextureSemantic::Color;
+    }
     struct Case {
         const char* expression;
         float alpha_mode, enabled;
@@ -96,11 +100,17 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
                     Case{"float4(.8,.2,.1,.25)", 2, 0, {.8f, .2f, .1f, .25f}},
                     Case{"float4(asfloat(0x7fc00000),0,0,.25)", 2, 1, {1, 0, 1, 1}},
                     Case{"float4(1,0,1,1)", 2, 1, {.55f, .2f, .85f, 1}}})
-        for (const bool temporal : {false, true})
+        for (const bool variant : {false, true})
             for (unsigned output = 0; output < 4; ++output) {
+                if (sprite && output != 0)
+                    continue;
+                const bool temporal = variant && !sprite;
+                const bool frame_mips = variant && sprite;
                 const bool indirect = output != 0, reflection = output == 2, normal = output == 3;
-                auto source = surface_shader_wrapper("function.hlsli", "surface", false, indirect,
-                                                     reflection, normal);
+                auto source =
+                    sprite ? sprite_surface_shader_wrapper("function.hlsli", "surface", frame_mips)
+                           : surface_shader_wrapper("function.hlsli", "surface", false, indirect,
+                                                    reflection, normal);
                 if (indirect)
                     source =
                         indirect_surface_wrapper(std::move(source), temporal, reflection, normal);
@@ -110,14 +120,22 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
                     insert(source, "#include \"engine/forge.surface.temporal.hlsli\"",
                            surface_shader_header(definition, false, true));
                 }
-                insert(source, "#include \"engine/forge.surface.hlsli\"",
-                       surface_shader_header(definition));
+                const auto include = frame_mips
+                                         ? "#include \"engine/forge.surface.sprite-mips.hlsli\""
+                                         : "#include \"engine/forge.surface.hlsli\"";
+                insert(source, include,
+                       sprite ? sprite_surface_shader_header(definition, frame_mips)
+                              : surface_shader_header(definition));
                 insert(source, "#include \"function.hlsli\"",
-                       std::string("float4 surface(ForgeSurfaceInput input){return ") +
+                       std::string(sprite ? "float4 surface(ForgeSpriteInput input){return "
+                                          : "float4 surface(ForgeSurfaceInput input){return ") +
                            item.expression + ";}");
-                const auto pixel = compile(SHADER_TYPE_PIXEL, source,
-                                           surface_shader_entry(surface_color_role(
-                                               temporal, indirect, reflection, normal)));
+                const auto pixel = compile(
+                    SHADER_TYPE_PIXEL, source,
+                    surface_shader_entry(
+                        sprite ? (frame_mips ? ShaderEntryRole::SurfaceSpriteMipColor
+                                             : ShaderEntryRole::SurfaceSpriteColor)
+                               : surface_color_role(temporal, indirect, reflection, normal)));
                 const auto fog = buffer({.1f, .4f, .7f, item.enabled, 1, 4, 0, 0});
                 const auto state = buffer({item.alpha_mode, .5f, 0, 0});
                 std::vector<float> temporal_values(13 * 4);
@@ -238,6 +256,11 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
                         }
                 }
             }
+    if (sprite) {
+        std::cout << "Generated Sprite raw/mip wrapper fog/alpha/diagnostic pixels PASS; "
+                     "source-only fixture, not a cooked Shader backend\n";
+        return;
+    }
     // Compile actual shared PBR graph color/depth wrappers. This is native
     // generated-source proof; it does not load D3D12 Shader cooks on Vulkan.
     const auto graph = compile_material_graph(create_material_graph());

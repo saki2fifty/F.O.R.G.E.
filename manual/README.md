@@ -41,7 +41,7 @@ content may differ; use **Window** to open a panel mentioned in a guide.
 - [Materials](editor/materials.md)
 - [Blend overlapping transparent Meshes](editor/transparency.md)
 - [Project color, normals and roughness onto a Mesh](editor/decals.md)
-- [Material Graph](editor/material-graphs.md)
+- [Material Graph for Meshes and Sprites](editor/material-graphs.md)
 - [Shader import](editor/shaders.md)
 - [Scene lighting, light images, rectangular and spherical emitters, contact-hardening shadows, reflection-map capture, local reflection probes, roughness-filtered screen-space reflections, ambient occlusion with material normals, motion blur, depth of field, edge smoothing, distance fog, exposure and color](editor/lighting.md)
 - [Mesh particle effects](editor/particles.md)

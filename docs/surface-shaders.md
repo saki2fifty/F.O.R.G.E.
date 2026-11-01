@@ -33,6 +33,41 @@ color. Shadow masks evaluate the same user function. Blended surfaces do not cas
 a single opaque shadow depth. Custom functions own their color calculation; the
 interface does not silently insert the built-in PBR lighting calculation.
 
+## Sprite final-color interface
+
+Required surface metadata version3 adds `domain:"sprite"` and `image`, a declared
+stable texture binding key. It requires unlit output and exactly logical UV0. Mesh
+interface1/2 retain their original meaning. Wrapper capability14 requires two pixel
+roles, `SurfaceSpriteColor` and `SurfaceSpriteMipColor`, with canonical entries
+`ForgeSurfaceSpriteColor` and `ForgeSurfaceSpriteMipColor`. A program cannot mix
+these roles with Mesh entries or use the Sprite metadata with an older capability.
+
+Project HLSL supplies `float4 Shade(ForgeSpriteInput input)`. The input exposes
+position, camera-relative world position, Color and front-face state; there is no
+Mesh normal/tangent/lighting promise. Internal interpolation fields are owned by
+the geometry adapter. `ForgeUV0(input)` returns logical frame coordinates.
+`ForgeSample_image(input)` samples the primary image with Sprite mapping, and
+`ForgeSample_image(input,uv)` applies authored UV calculations with that same
+frame/fill context. Sampling outside retained trim returns transparent. Raw
+functions own Color modulation; the default Sprite Output graph applies it once.
+The existing final-color wrapper still owns finite diagnostics, alpha/mask and fog.
+
+One shared coordinate owner serves the built-in and custom paths. The base-image
+variant clamps sampling to frame texel centers at LOD0. The mip variant uses the
+existing independent linear premultiplied frame resource, continuous gradients
+before tiled wrapping, and straight-color output. Its native sampler override is
+limited to the primary image. Other Material textures/parameters keep their normal
+binding and sampling semantics. A declared image optimized out by the compiler
+does not require an invented SRB binding.
+
+The Material embeds its exact Shader snapshot as before. Sprite and Mesh geometry
+profiles reject the other domain. Sprite source selection, sheet preview, Tile
+image consumption and mip planning resolve the image from the validated stable
+key, without a second Texture identity or renderer. Custom artifacts remain
+Windows/D3D12/FXC5.1; source-only DXC/SPIR-V diagnostics do not supply another product
+backend. Actual Windows worker and `editor_render_sprite-surfaces` fixtures are
+required platform evidence and remain unexecuted in the current local Linux work.
+
 ## Textures and backend mapping
 
 2D and2D-array helpers apply the material's signed/zero UV transform. Their

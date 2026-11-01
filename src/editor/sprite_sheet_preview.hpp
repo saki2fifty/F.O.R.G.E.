@@ -21,6 +21,7 @@ class SpriteSheetPreview {
         catalog_ = std::move(catalog);
         material_ = material;
         ready_material_ = {};
+        image_role_.clear();
         attempted_material_.reset();
         ticket_ = {};
         ready_ = false;
@@ -39,6 +40,7 @@ class SpriteSheetPreview {
             materials_.cancel(material_, ticket_.inspect().identity.variant);
         texture_.cancel();
         ready_material_ = {};
+        image_role_.clear();
         ticket_ = {};
         catalog_.reset();
         ready_ = false;
@@ -69,14 +71,10 @@ class SpriteSheetPreview {
                 if (attempted_material_ && *attempted_material_ == candidate.identity())
                     return;
                 attempted_material_ = candidate.identity();
-                if (candidate->surface)
-                    throw std::runtime_error(
-                        "Choose a Sprite image material without a custom surface.");
-                validate_render_material(candidate.get());
-                validate_sprite_material_profile(candidate->values);
+                image_role_ = sprite_material_image(candidate.get());
                 ready_material_ = std::move(candidate);
             }
-            texture_.select(catalog_, ready_material_->textures.at("baseColorTexture"),
+            texture_.select(catalog_, ready_material_->textures.at(image_role_),
                             TextureSemantic::Color);
             texture_.pump();
             if (!texture_.error().empty()) {
@@ -121,6 +119,7 @@ class SpriteSheetPreview {
     AssetRef<MaterialAsset> material_;
     ResourceTicket ticket_;
     ResourceLease<MaterialAsset> ready_material_;
+    std::string image_role_;
     std::optional<ResourceIdentity> attempted_material_;
     TextureAssetPreview texture_;
     bool ready_ = false;

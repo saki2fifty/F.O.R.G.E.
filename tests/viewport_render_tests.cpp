@@ -24,6 +24,7 @@
 #include "sprite_image_render_tests.hpp"
 #include "sprite_projection_render_tests.hpp"
 #include "sprite_scene_render_tests.hpp"
+#include "sprite_surface_render_tests.hpp"
 #include "tile_gallery_render_tests.hpp"
 #include "tile_map_canvas_tests.hpp"
 #include "tile_map_editor_render_tests.hpp"
@@ -272,7 +273,12 @@ int main(int argc, char** argv) {
             else if (selected == "sequence-frames")
                 forge::test_sequence_frame_render::exercise(isolated, context, FORGE_TEST_GALLERY,
                                                             images);
-            else if (selected == "sprites") {
+            else if (selected == "sprite-surfaces") {
+                const auto read = [&](ITexture* texture) {
+                    return forge::test_sprite_draw::read_pixels(device, context, texture);
+                };
+                forge::test_sprite_surface::exercise(isolated, context, read, images);
+            } else if (selected == "sprites") {
                 const auto read = [&](ITexture* texture) {
                     return forge::test_sprite_draw::read_pixels(device, context, texture);
                 };
