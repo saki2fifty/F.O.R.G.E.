@@ -47,7 +47,7 @@ class TileMapPreview {
         if (fit_) {
             std::optional<RenderBounds> bounds;
             const auto size = cells->cell_size();
-            cells->for_each_chunk([&](auto key, auto values, auto) {
+            cells->for_each_chunk_values([&](auto key, auto values, auto) {
                 for (std::uint32_t slot = 0; slot < tile_chunk_cells; ++slot) {
                     if (!values[slot].tile)
                         continue;

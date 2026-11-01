@@ -8,7 +8,7 @@
 using namespace Diligent;
 namespace forge {
 namespace {
-CameraView scene_camera(const EditorCamera& camera, unsigned width, unsigned height) {
+PreparedCamera scene_camera(const EditorCamera& camera, unsigned width, unsigned height) {
     Camera lens;
     lens.projection = std::uint32_t(camera.projection);
     lens.orthographic_height = camera.orthographic_height;
@@ -24,7 +24,7 @@ CameraView scene_camera(const EditorCamera& camera, unsigned width, unsigned hei
         world.m[axis * 4 + 2] = forward[axis];
         world.m[axis * 4 + 3] = eye[axis];
     }
-    return camera_view(lens, world, width, height);
+    return {{}, lens, camera_view(lens, world, width, height)};
 }
 } // namespace
 std::string Viewport::pick(const Json& source, const EditorCamera& camera, unsigned width,
@@ -32,12 +32,12 @@ std::string Viewport::pick(const Json& source, const EditorCamera& camera, unsig
     if (!meshes_)
         return pick_block(source, camera, float(x), float(y), float(width), float(height));
     const auto snapshot = extract_render_scene(source);
+    const auto prepared = scene_camera(camera, width, height);
     // Use current authored policy and the same complete retained resource/pose
     // candidate as drawing. A click never invents substitute cube geometry.
-    if (meshes_->update(snapshot))
+    if (meshes_->update(snapshot, std::span(&prepared, 1)))
         frame_.reset();
-    const auto id =
-        meshes_->pick(snapshot, scene_camera(camera, width, height), x, y, UINT32_MAX, radius);
+    const auto id = meshes_->pick(snapshot, prepared.view, x, y, UINT32_MAX, radius);
     return id ? id.str() : std::string{};
 }
 bool Viewport::frame(const Json& source, const std::string& selected, EditorCamera& camera,
@@ -63,7 +63,11 @@ bool Viewport::frame_selection(const Json& source, const std::vector<std::string
     if (!meshes_)
         return fallback();
     const auto snapshot = extract_render_scene(source);
-    if (meshes_->update(snapshot))
+    // Framing uses logical bounds, but must preserve the displayed view's chunk
+    // demand while refreshing resources. The next render supplies a resized view.
+    const auto prepared = scene_camera(camera, color_ ? color_->GetDesc().Width : 1,
+                                       color_ ? color_->GetDesc().Height : 1);
+    if (meshes_->update(snapshot, std::span(&prepared, 1)))
         frame_.reset();
     const auto eye = camera.eye();
     const auto bounds = meshes_->bounds(snapshot, selection, {eye[0], eye[1], eye[2]});
@@ -249,12 +253,13 @@ ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsig
                                std::uint64_t generation, bool live, GridSettings grid) {
     if (!camera.ray(float(width) / 2, float(height) / 2, float(width), float(height)))
         throw std::runtime_error("Invalid Scene viewport camera or extent");
+    const auto prepared = scene_camera(camera, width, height);
     if (meshes_) {
         if (!mesh_scene_ || live || mesh_generation_ != generation) {
             mesh_scene_ = extract_render_scene(scene);
             mesh_generation_ = generation;
         }
-        if (meshes_->update(*mesh_scene_))
+        if (meshes_->update(*mesh_scene_, std::span(&prepared, 1)))
             frame_.reset();
         sky_.select(meshes_->environment());
         live = live || meshes_->pending();
@@ -413,7 +418,7 @@ ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsig
         }
     }
     if (meshes_ && mesh_scene_) {
-        const auto view = scene_camera(camera, width, height);
+        const auto& view = prepared.view;
         // Borrow only the presentation lighting fields for this draw; restore even
         // on an exception. Retained extraction, resources and authored state stay intact.
         struct PreviewLighting {
@@ -560,7 +565,7 @@ ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsig
     }
     if (temporal_applied) {
         temporal_->complete();
-        temporal_camera_ = scene_camera(camera, width, height);
+        temporal_camera_ = prepared.view;
         temporal_settings_ = mesh_scene_->settings;
         temporal_scene_ = mesh_scene_->scene;
         temporal_epoch_ = meshes_->resource_epoch();

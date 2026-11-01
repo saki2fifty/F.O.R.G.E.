@@ -60,6 +60,13 @@ live Inspector controls, saving/export and the bounded color profile.
 
 ## Tile Maps
 
+Local source includes camera-driven loading of decoded Tile chunks through the
+shared Scene/Game resource owner. Gallery126 visits five regions of one complete
+sparse Map, retaining two visible pages per stopped view. See
+[loading and export](manual/editor/tile-maps.md).
+
+[![The cyan first region in the camera-driven Tile chunk Gallery](manual/images/tile-chunk-residency-gallery.png)](manual/editor/tile-maps.md)
+
 [Tile Set and Tile Map tools](manual/editor/tile-maps.md) provide palette selection,
 layered painting, stroke Undo/Redo and Inspector settings. These are the actual
 Windows document controls rendered by the native validation fixture:

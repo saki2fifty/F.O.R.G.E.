@@ -81,7 +81,8 @@ int main() {
         const auto patched =
             apply_tile_map_projection_page(maximum, defs, tile_map_projection_page(changed, delta));
         equal(patched, changed);
-        check(pointers(patched).at({1, {1, 0}}) == pointers(maximum).at({1, {1, 0}}),
+        check(storage_identities(patched).at({1, {1, 0}}) ==
+                  storage_identities(maximum).at({1, {1, 0}}),
               "Delta copied an unchanged chunk array");
         check(tile_map_projection_changes(changed.with_cells(edit, defs), &changed).empty(),
               "No-op edit generated changed chunks");
@@ -122,7 +123,7 @@ int main() {
         bad_header["map"]["cell_count"] = 0;
         rejects([&] { (void)decode_tile_map_projection_header(bad_header, id, set); });
         const auto good = tile_map_projection_page(changed, delta);
-        const auto baseline = pointers(maximum);
+        const auto baseline = storage_identities(maximum);
         std::vector<Json> malformed;
         auto bad = good;
         bad.push_back(bad[0]);
@@ -163,7 +164,8 @@ int main() {
         malformed.push_back(bad);
         for (const auto& page : malformed)
             rejects([&] { (void)apply_tile_map_projection_page(maximum, defs, page); });
-        check(pointers(maximum) == baseline, "Rejected packet changed the admitted baseline");
+        check(storage_identities(maximum) == baseline,
+              "Rejected packet changed the admitted baseline");
         TileMapPlaySource source;
         const auto actor = EntityId::generate();
         const auto scene = AssetId::generate();

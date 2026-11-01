@@ -1,5 +1,14 @@
 # Explore the Feature Gallery
 
+**126-tile-chunk-residency** visits five painted regions with a looping camera.
+Press Play, open Game and inspect **Tools > Loaded resources > Tile chunks**.
+The complete Map has 10 occupied chunks; each stopped camera view prepares two
+pages. Stop to edit **Assets/Tiles/ChunkResidency.tilemap.json** or the camera's
+**Assets/Tiles/ChunkResidencyCamera.animation.json** Clip. Save/publish changed
+assets and save the Scene. Choose this Scene as startup before export; the entire
+Map remains available after camera movement. See
+[Camera movement and loading](../editor/tile-maps.md).
+
 **125-custom-polygon-one-way** shows landing on a ring roof, a hole floor and an
 island while violet passes upward through the ring to a ceiling. Stop, select the
 course and toggle **Physics Body 2D → One-way collision** to compare response.

@@ -2,6 +2,7 @@
 #include "sprite_render_values.hpp"
 #include "tile_map_data.hpp"
 #include "tile_map_variants.hpp"
+#include "tile_map_view.hpp"
 #include <cmath>
 #include <forge/engine_assets.hpp>
 #include <set>
@@ -16,6 +17,72 @@ std::array<float, 4> tint(const TileMapRenderer& values) {
     return {values.tint_r, values.tint_g, values.tint_b, values.tint_a};
 }
 } // namespace
+void MeshResourceHost::pump_tile_chunks() {
+    for (auto it = tile_chunk_demands_.begin(); it != tile_chunk_demands_.end();) {
+        if (it->second.expired()) {
+            const auto& id = it->first;
+            if (tile_chunks_.inspect({id.asset}, id.variant).identity == id)
+                tile_chunks_.unload({id.asset}, id.variant);
+            it = tile_chunk_demands_.erase(it);
+        } else {
+            ++it;
+        }
+    }
+    tile_chunks_.pump();
+    for (const auto& [id, weak] : tile_chunk_demands_) {
+        (void)id;
+        if (auto demand = weak.lock(); demand && !demand->lease)
+            demand->lease = tile_chunks_.acquire(demand->ticket);
+    }
+    // Every live consumer binding acquired its ready page above. Idle collection
+    // cannot evict another viewport's newly completed but unobserved demand.
+    tile_chunks_.evict_idle(0);
+    std::erase_if(tile_chunk_inputs_, [](const auto& entry) { return entry.second.expired(); });
+}
+std::shared_ptr<MeshResourceHost::TileChunkDemand>
+MeshResourceHost::request_tile_chunk(const TileMapChunkInput& input) {
+    check_thread();
+    if (tile_chunks_.statistics().pending >= tile_chunk_limits_.requests)
+        return {};
+    std::erase_if(tile_chunk_inputs_, [](const auto& entry) { return entry.second.expired(); });
+    std::shared_ptr<const TileMapChunkInput> owned;
+    if (const auto found = tile_chunk_inputs_.find(input.identity());
+        found != tile_chunk_inputs_.end())
+        owned = found->second.lock();
+    if (!owned) {
+        constexpr std::uint64_t input_limit = 64ull * 1024 * 1024;
+        std::map<const void*, std::uint64_t> backing;
+        std::uint64_t retained = 0;
+        for (const auto& [token, weak] : tile_chunk_inputs_) {
+            (void)token;
+            if (const auto value = weak.lock()) {
+                retained += value->input_bytes();
+                backing[value->backing_identity()] = value->backing_bytes();
+            }
+        }
+        for (const auto& [token, bytes] : backing) {
+            (void)token;
+            retained += bytes;
+        }
+        const auto wanted =
+            input.input_bytes() +
+            (backing.contains(input.backing_identity()) ? 0 : input.backing_bytes());
+        if (retained > input_limit || wanted > input_limit - retained)
+            return {};
+        owned = std::make_shared<const TileMapChunkInput>(input);
+        tile_chunk_inputs_[input.identity()] = owned;
+    }
+    const auto ticket = request_tile_map_chunk_values(tile_chunks_, std::move(owned));
+    const auto identity = ticket.inspect().identity;
+    if (const auto found = tile_chunk_demands_.find(identity); found != tile_chunk_demands_.end())
+        if (auto current = found->second.lock())
+            return current;
+    auto demand = std::make_shared<TileChunkDemand>();
+    demand->ticket = ticket;
+    demand->lease = tile_chunks_.acquire(ticket);
+    tile_chunk_demands_[identity] = demand;
+    return demand;
+}
 void MeshResourceHost::preview_tile_set(AssetRef<TileSetAsset> ref,
                                         std::shared_ptr<const TileSetData> data) {
     check_thread();
@@ -65,8 +132,8 @@ RenderTileMap MeshSceneRenderer::resolve_tile_assets(TileDrawSource& source,
             if (preview != host_->tile_map_previews_.end())
                 load.cells = preview->second;
             else
-                load.map_ticket = request_tile_map(host_->tile_maps_, host_->project_,
-                                                   host_->catalog_, load.asset);
+                load.map_ticket = request_tile_map_compact(host_->tile_maps_, host_->project_,
+                                                           host_->catalog_, load.asset);
         } catch (const std::exception& error) {
             load.error = error.what();
         }
@@ -256,9 +323,9 @@ MeshSceneRenderer::prepare_tile_sources(const RenderScene& scene) {
                     }
                 };
                 if (source.requested_variants)
-                    source.requested_variants->for_each_chunk(inspect_chunk);
+                    source.requested_variants->for_each_chunk_values(inspect_chunk);
                 else
-                    map.cells->for_each_chunk(inspect_chunk);
+                    map.cells->for_each_chunk_values(inspect_chunk);
                 source.used_images.assign(images.begin(), images.end());
                 source.requested_bounds = std::move(bounds);
                 source.requested_visible_cells = visible_cells;
@@ -290,13 +357,141 @@ MeshSceneRenderer::prepare_tile_sources(const RenderScene& scene) {
     }
     return inputs;
 }
-void MeshSceneRenderer::adopt_tile_images() {
+bool MeshSceneRenderer::prepare_tile_chunks(std::span<const PreparedCamera> views) {
+    bool changed = false;
+    for (auto& [entity, source] : tile_sources_) {
+        const auto was_streamed = source.streamed;
+        const auto was_current = source.current_chunks_ready;
+        const auto was_requested = source.requested_chunks_ready;
+        source.streamed = !views.empty();
+        if (!source.streamed || !source.requested.renderer.enabled ||
+            !source.requested.renderer.map.id) {
+            source.current_chunks.clear();
+            source.requested_chunks.clear();
+            source.current_chunks_ready = source.requested_chunks_ready = true;
+        } else {
+            std::vector<CameraView> active;
+            if (source.requested.renderer.visible)
+                for (const auto& view : views)
+                    if (view.settings.layers & source.requested.renderer.layers)
+                        active.push_back(view.view);
+            const auto prepare = [&](auto& cache, const auto& fallback,
+                                     const std::shared_ptr<const TileMapData>& cells) {
+                if (!cells) {
+                    cache.clear();
+                    return false;
+                }
+                bool ready = true, pending = false;
+                std::decay_t<decltype(cache)> next;
+                try {
+                    visit_visible_tile_chunk_info(
+                        *cells, source.requested.world, active, [&](const auto& info) {
+                            const auto input = cells->chunk_input(info.key);
+                            TileDrawSource::ChunkBinding binding;
+                            binding.input = input.identity();
+                            binding.owner = cells;
+                            const auto reuse = [&](const auto& previous) {
+                                const auto found = previous.find(info.key);
+                                // Tokens are borrowed storage addresses. An expired
+                                // candidate cannot prove equality after address reuse.
+                                const auto owner =
+                                    found != previous.end() ? found->second.owner.lock() : nullptr;
+                                if (owner && found->second.input == binding.input)
+                                    binding.demand = found->second.demand;
+                            };
+                            reuse(cache);
+                            if (!binding.demand)
+                                reuse(fallback);
+                            if (binding.demand && !binding.demand->lease) {
+                                const auto status = binding.demand->ticket.inspect();
+                                const auto memory = host_->tile_chunks_.statistics().memory.total();
+                                if (resource_detail::terminal(status.state) &&
+                                    memory <=
+                                        host_->tile_chunk_limits_.bytes - sizeof(TileMapChunkData))
+                                    binding.demand.reset();
+                            }
+                            if (!binding.demand) {
+                                try {
+                                    binding.demand = host_->request_tile_chunk(input);
+                                } catch (const std::exception& error) {
+                                    // Keep earlier bindings when a later request
+                                    // reaches capacity. Discarding them retries
+                                    // the same work instead of settling failure.
+                                    ready = false;
+                                    report(entity,
+                                           "Tile Map chunk request failed: " +
+                                               std::string(error.what()),
+                                           DrawScope::TileMap);
+                                    next.emplace(info.key, std::move(binding));
+                                    return;
+                                }
+                            }
+                            if (!binding.demand) {
+                                ready = false;
+                                pending = true;
+                            } else if (!binding.demand->lease) {
+                                ready = false;
+                                const auto status = binding.demand->ticket.inspect();
+                                if (resource_detail::terminal(status.state))
+                                    report(entity,
+                                           "Tile Map chunk preparation failed: " +
+                                               status.diagnostic,
+                                           DrawScope::TileMap);
+                                else
+                                    pending = true;
+                            }
+                            next.emplace(info.key, std::move(binding));
+                        });
+                    cache = std::move(next);
+                } catch (const std::exception& error) {
+                    ready = false;
+                    report(entity, error.what(), DrawScope::TileMap);
+                }
+                source.pending |= pending;
+                return ready;
+            };
+            source.current_chunks_ready =
+                prepare(source.current_chunks, source.requested_chunks, source.cells);
+            if (source.cells == source.requested.cells) {
+                source.requested_chunks.clear();
+                source.requested_chunks_ready = source.current_chunks_ready;
+            } else {
+                source.requested_chunks_ready =
+                    prepare(source.requested_chunks, source.current_chunks, source.requested.cells);
+            }
+        }
+        changed |= was_streamed != source.streamed || was_current != source.current_chunks_ready ||
+                   was_requested != source.requested_chunks_ready;
+    }
+    return changed;
+}
+bool MeshSceneRenderer::adopt_tile_images() {
+    bool changed = false;
     for (auto& [entity, source] : tile_sources_) {
         const auto& request = source.requested;
         if (source.rejected || !request.cells || !request.definitions || !request.renderer.map.id ||
-            !request.renderer.enabled)
+            !request.renderer.enabled || (source.streamed && !source.requested_chunks_ready))
             continue;
         try {
+            const auto adopt_values = [&] {
+                changed |= source.cells != request.cells ||
+                           source.definitions != request.definitions ||
+                           source.variants != source.requested_variants;
+                if (source.cells != request.cells) {
+                    source.bounds = source.requested_bounds;
+                    if (source.streamed) {
+                        source.current_chunks = std::move(source.requested_chunks);
+                        source.current_chunks_ready = source.requested_chunks_ready;
+                    }
+                }
+                source.cells = request.cells;
+                source.definitions = request.definitions;
+                if (source.variants != source.requested_variants) {
+                    source.variants = source.requested_variants;
+                    tile_variant_bytes_.reset();
+                }
+                source.visible_cells = source.requested_visible_cells;
+            };
             // Cell edits preserve the definition rows and usually every image
             // selection. Reuse those complete groups without per-frame map nodes.
             const bool same_groups =
@@ -321,15 +516,7 @@ void MeshSceneRenderer::adopt_tile_images() {
                            current->second.sprite->texture_height == previous->second.height;
                 });
             if (same_groups) {
-                if (source.cells != request.cells)
-                    source.bounds = source.requested_bounds;
-                source.cells = request.cells;
-                source.definitions = request.definitions;
-                if (source.variants != source.requested_variants) {
-                    source.variants = source.requested_variants;
-                    tile_variant_bytes_.reset();
-                }
-                source.visible_cells = source.requested_visible_cells;
+                adopt_values();
                 continue;
             }
             std::map<std::uint64_t, TileImageDraw> images;
@@ -399,12 +586,8 @@ void MeshSceneRenderer::adopt_tile_images() {
                 }
                 source.values.clear();
             }
-            source.cells = request.cells;
-            source.definitions = request.definitions;
-            if (source.variants != source.requested_variants) {
-                source.variants = source.requested_variants;
-                tile_variant_bytes_.reset();
-            }
+            changed |= invalidate;
+            adopt_values();
             source.images = std::move(images);
             source.bounds = source.requested_bounds;
             source.visible_cells = source.requested_visible_cells;
@@ -414,5 +597,6 @@ void MeshSceneRenderer::adopt_tile_images() {
             report(entity, error.what(), DrawScope::TileMap);
         }
     }
+    return changed;
 }
 } // namespace forge

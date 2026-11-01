@@ -55,6 +55,7 @@ MeshResourceInspection MeshResourceHost::inspect() const {
     result.particles = particles_.statistics();
     result.tile_sets = tile_sets_.statistics();
     result.tile_maps = tile_maps_.statistics();
+    result.tile_chunks = tile_chunks_.statistics();
     result.gpu_meshes = gpu_meshes_.statistics();
     result.gpu_textures = gpu_textures_.statistics();
     result.environments = environments_.statistics();
@@ -70,6 +71,7 @@ MeshResourceInspection MeshResourceHost::inspect() const {
     append(particles_);
     append(tile_sets_);
     append(tile_maps_);
+    append(tile_chunks_);
     return result;
 }
 std::optional<RenderBounds> MeshSceneRenderer::bounds() const {
@@ -434,6 +436,7 @@ void MeshResourceHost::pump() {
     particles_.collect();
     tile_sets_.pump();
     tile_maps_.pump();
+    pump_tile_chunks();
     tile_sets_.collect();
     tile_maps_.collect();
     environments_.collect();
@@ -596,7 +599,8 @@ MeshSceneRenderer::prepare_bundle(const asset_detail::PreparedModelDraw& prepare
     bundles_[key] = next;
     return next;
 }
-bool MeshSceneRenderer::update(const RenderScene& scene) {
+bool MeshSceneRenderer::update(const RenderScene& scene,
+                               std::span<const PreparedCamera> tile_views) {
     host_->pump();
     bool changed = false;
     diagnostics_ = scene.diagnostics;
@@ -629,6 +633,7 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
     const ModelSceneIndex model_index(scene);
     auto particle_sources = prepare_particle_sources(scene);
     tile_images_ = prepare_tile_sources(scene);
+    changed |= prepare_tile_chunks(tile_views);
     sprites_.resize(scene.sprites.size());
     for (std::size_t i = 0; i < scene.sprites.size(); ++i)
         update_sprite_mesh(sprites_[i], scene.sprites[i]);
@@ -983,7 +988,7 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
     }
     std::erase_if(entries_, [&](const auto& pair) { return !used.contains(pair.first); });
     update_particle_instances(scene);
-    adopt_tile_images();
+    changed |= adopt_tile_images();
     return changed;
 }
 bool MeshSceneRenderer::pending() const {
@@ -1250,8 +1255,10 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
         append(mesh, DrawScope::Sprite);
     tile_worlds_.clear();
     const auto tile_visible = [&](const auto& source) {
-        if (!source.cells || !source.definitions || !source.requested.renderer.visible ||
-            !(source.requested.renderer.layers & layers) || !source.visible_cells)
+        if (!source.cells || !source.definitions ||
+            (source.streamed && !source.current_chunks_ready) ||
+            !source.requested.renderer.visible || !(source.requested.renderer.layers & layers) ||
+            !source.visible_cells)
             return false;
         try {
             for (const auto& layer : source.cells->layers())
@@ -1266,12 +1273,71 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
         }
         return false;
     };
+    const auto visit_tile_cells = [&](auto& source, const auto& visit) {
+        const auto visit_chunk = [&](const TileMapChunkView& chunk) {
+            const auto& available_layers = source.cells->layers();
+            const auto layer =
+                std::find_if(available_layers.begin(), available_layers.end(),
+                             [&](const auto& value) { return value.id == chunk.key.layer; });
+            if (layer == available_layers.end())
+                throw std::runtime_error("Tile draw chunk has no layer");
+            auto overrides = source.variants ? source.variants->overrides(chunk.key)
+                                             : std::span<const TileVariantOverride>{};
+            for (std::uint32_t slot = 0; slot < tile_chunk_cells; ++slot) {
+                const auto& cell = chunk.cells[slot];
+                if (!cell.tile)
+                    continue;
+                const auto selected_tile = !overrides.empty() && overrides.front().slot == slot
+                                               ? overrides.front().tile
+                                               : cell.tile;
+                if (!overrides.empty() && overrides.front().slot == slot)
+                    overrides = overrides.subspan(1);
+                const auto& definition = source.definitions->tile(selected_tile);
+                auto& image = source.images.at(definition.image);
+                const auto world =
+                    tile_cell_world(tile_cell_address({chunk.key.address, slot}),
+                                    source.cells->cell_size(), source.requested.world);
+                const auto& part = image.bundle->parts(0)[0];
+                const auto bounds = transform_bounds(part.bounds, world);
+                if (!bounds_visible(bounds, camera))
+                    continue;
+                visit(*layer, cell, selected_tile, definition, image, world, part, bounds);
+            }
+        };
+        if (source.streamed) {
+            visit_visible_tile_chunk_info(
+                *source.cells, source.requested.world, std::span(&camera, 1),
+                [&](const TileMapChunkBounds& chunk) {
+                    const auto found = source.current_chunks.find(chunk.key);
+                    if (found == source.current_chunks.end() || !found->second.demand ||
+                        !found->second.demand->lease)
+                        throw std::runtime_error("Tile draw view has no prepared chunk demand");
+                    const auto& page = found->second.demand->lease.get();
+                    if (page.key != chunk.key || page.occupied != chunk.occupied)
+                        throw std::runtime_error("Tile draw chunk does not match its logical map");
+                    visit_chunk({page.key, page.cells, chunk.world_bounds});
+                });
+        } else {
+            visit_visible_tile_chunk_values(*source.cells, source.requested.world,
+                                            std::span(&camera, 1), visit_chunk);
+        }
+    };
     std::size_t tile_capacity = 0;
     for (auto& [id, source] : tile_sources_) {
-        (void)id;
         source.visible_this_view = tile_visible(source);
-        if (source.visible_this_view)
-            tile_capacity = std::min(tile_map_cell_limit, tile_capacity + source.visible_cells);
+        if (!source.visible_this_view)
+            continue;
+        try {
+            std::size_t cells = 0;
+            // Use the same cell admission for counting and emission. Capacity
+            // is fixed before queued objects retain pointers into tile_worlds_.
+            visit_tile_cells(
+                source, [&](const auto&...) { cells = std::min(tile_map_cell_limit, cells + 1); });
+            tile_capacity = std::min(tile_map_cell_limit, tile_capacity + cells);
+        } catch (const std::exception& error) {
+            source.visible_this_view = false;
+            report(id, error.what(), DrawScope::TileMap);
+        }
     }
     bool tile_capacity_ready = true;
     try {
@@ -1294,116 +1360,87 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
             const auto world_start = tile_worlds_.size();
             try {
                 std::uint64_t ordinal = 0;
-                visit_visible_tile_chunks(
-                    *source.cells, map.world, std::span(&camera, 1),
-                    [&](const TileMapChunkView& chunk) {
-                        const auto& available_layers = source.cells->layers();
-                        const auto layer = std::find_if(
-                            available_layers.begin(), available_layers.end(),
-                            [&](const auto& value) { return value.id == chunk.key.layer; });
-                        if (layer == available_layers.end())
-                            throw std::runtime_error("Tile draw chunk has no layer");
-                        auto overrides = source.variants ? source.variants->overrides(chunk.key)
-                                                         : std::span<const TileVariantOverride>{};
-                        for (std::uint32_t slot = 0; slot < tile_chunk_cells; ++slot) {
-                            const auto& cell = chunk.cells[slot];
-                            if (!cell.tile)
-                                continue;
-                            const auto selected_tile =
-                                !overrides.empty() && overrides.front().slot == slot
-                                    ? overrides.front().tile
-                                    : cell.tile;
-                            if (!overrides.empty() && overrides.front().slot == slot)
-                                overrides = overrides.subspan(1);
-                            const auto& definition = source.definitions->tile(selected_tile);
-                            auto& image = source.images.at(definition.image);
-                            const auto world =
-                                tile_cell_world(tile_cell_address({chunk.key.address, slot}),
-                                                source.cells->cell_size(), map.world);
-                            const auto& part = image.bundle->parts(0)[0];
-                            const auto bounds = transform_bounds(part.bounds, world);
-                            if (!bounds_visible(bounds, camera))
-                                continue;
-                            if (tile_worlds_.size() == tile_map_cell_limit)
+                visit_tile_cells(source, [&](const auto& layer, const auto& cell,
+                                             auto selected_tile, const auto& definition,
+                                             auto& image, const auto& world, const auto& part,
+                                             const auto& bounds) {
+                    if (tile_worlds_.size() == tile_map_cell_limit)
+                        throw std::runtime_error(
+                            "Visible Tile Map cells exceed the 262144-instance profile");
+                    const auto key = std::pair{selected_tile, cell.flags};
+                    auto values = source.values.find(key);
+                    const bool missing = values == source.values.end();
+                    const bool animated = definition.animation && definition.animation->enabled;
+                    bool refresh = missing;
+                    auto selected =
+                        missing ? tile_detail::tile_frame_at(definition, source.animation_seconds)
+                                : values->second.frame;
+                    if (!missing && animated &&
+                        values->second.animation_sample != source.animation_seconds) {
+                        selected = tile_detail::tile_frame_at(definition, source.animation_seconds);
+                        refresh = selected != values->second.frame;
+                        if (!refresh)
+                            values->second.animation_sample = source.animation_seconds;
+                    }
+                    if (refresh) {
+                        if (missing) {
+                            const auto bytes =
+                                sizeof(typename decltype(source.values)::value_type) +
+                                4 * sizeof(void*);
+                            if (bytes > material_budget_ - material_payload_bytes())
                                 throw std::runtime_error(
-                                    "Visible Tile Map cells exceed the 262144-instance profile");
-                            const auto key = std::pair{selected_tile, cell.flags};
-                            auto values = source.values.find(key);
-                            const bool missing = values == source.values.end();
-                            const bool animated =
-                                definition.animation && definition.animation->enabled;
-                            bool refresh = missing;
-                            auto selected = missing ? tile_detail::tile_frame_at(
-                                                          definition, source.animation_seconds)
-                                                    : values->second.frame;
-                            if (!missing && animated &&
-                                values->second.animation_sample != source.animation_seconds) {
-                                selected = tile_detail::tile_frame_at(definition,
-                                                                      source.animation_seconds);
-                                refresh = selected != values->second.frame;
-                                if (!refresh)
-                                    values->second.animation_sample = source.animation_seconds;
-                            }
-                            if (refresh) {
-                                if (missing) {
-                                    const auto bytes = sizeof(decltype(source.values)::value_type) +
-                                                       4 * sizeof(void*);
-                                    if (bytes > material_budget_ - material_payload_bytes())
-                                        throw std::runtime_error(
-                                            "Tile image values exceed the scene payload budget");
-                                }
-                                auto numeric = tile_draw_frame_values(
-                                    *source.definitions, selected_tile, cell.flags, image.width,
-                                    image.height, selected, source.color);
-                                TileDrawSource::Values prepared{std::move(numeric.sprite)};
-                                prepared.frame = selected;
-                                prepared.animation_sample = source.animation_seconds;
-                                if (image.mips) {
-                                    const auto region = sprite_grid_region(
-                                        image.width, image.height,
-                                        source.definitions->image(definition.image).grid, selected);
-                                    const SpriteFrameMipKey frame{region.x,
-                                                                  region.y,
-                                                                  region.width,
-                                                                  region.height,
-                                                                  region.width,
-                                                                  region.height,
-                                                                  0,
-                                                                  0,
-                                                                  false};
-                                    prepared.mip = &image.mips->frames.at(frame).image;
-                                    prepared.sprite.region = sprite_region_mapping(
-                                        {0, 0, region.width, region.height}, region.width,
-                                        region.height, bool(cell.flags & 1), bool(cell.flags & 2));
-                                }
-                                if (missing)
-                                    values = source.values.emplace(key, std::move(prepared)).first;
-                                else
-                                    values->second = std::move(prepared);
-                            }
-                            tile_worlds_.push_back(
-                                world); // Capacity reserved before storing any pointers.
-                            image.mesh.renderer.layers = map.renderer.layers;
-                            Object object{&image.mesh, image.bundle.get(), nullptr, {}, 0, {}, {}};
-                            object.scope = DrawScope::TileMap;
-                            object.world = &tile_worlds_.back();
-                            object.sprite = &values->second.sprite;
-                            object.mip = values->second.mip;
-                            RenderSortKey sort{part.alpha,
-                                               transform_parity(world),
-                                               part.material,
-                                               image.bundle->mesh_identity().asset,
-                                               bounds_camera_depth(bounds, camera),
-                                               entity,
-                                               0};
-                            sort.sprite = true;
-                            sort.order = std::int64_t(map.renderer.order) + layer->order;
-                            sort.birth = ordinal++;
-                            validate_render_key(sort);
-                            queue.push_back({sort, objects.size(), false});
-                            objects.push_back(std::move(object));
+                                    "Tile image values exceed the scene payload budget");
                         }
-                    });
+                        auto numeric = tile_draw_frame_values(*source.definitions, selected_tile,
+                                                              cell.flags, image.width, image.height,
+                                                              selected, source.color);
+                        TileDrawSource::Values prepared{std::move(numeric.sprite)};
+                        prepared.frame = selected;
+                        prepared.animation_sample = source.animation_seconds;
+                        if (image.mips) {
+                            const auto region = sprite_grid_region(
+                                image.width, image.height,
+                                source.definitions->image(definition.image).grid, selected);
+                            const SpriteFrameMipKey frame{region.x,
+                                                          region.y,
+                                                          region.width,
+                                                          region.height,
+                                                          region.width,
+                                                          region.height,
+                                                          0,
+                                                          0,
+                                                          false};
+                            prepared.mip = &image.mips->frames.at(frame).image;
+                            prepared.sprite.region = sprite_region_mapping(
+                                {0, 0, region.width, region.height}, region.width, region.height,
+                                bool(cell.flags & 1), bool(cell.flags & 2));
+                        }
+                        if (missing)
+                            values = source.values.emplace(key, std::move(prepared)).first;
+                        else
+                            values->second = std::move(prepared);
+                    }
+                    tile_worlds_.push_back(world); // Capacity reserved before storing any pointers.
+                    image.mesh.renderer.layers = map.renderer.layers;
+                    Object object{&image.mesh, image.bundle.get(), nullptr, {}, 0, {}, {}};
+                    object.scope = DrawScope::TileMap;
+                    object.world = &tile_worlds_.back();
+                    object.sprite = &values->second.sprite;
+                    object.mip = values->second.mip;
+                    RenderSortKey sort{part.alpha,
+                                       transform_parity(world),
+                                       part.material,
+                                       image.bundle->mesh_identity().asset,
+                                       bounds_camera_depth(bounds, camera),
+                                       entity,
+                                       0};
+                    sort.sprite = true;
+                    sort.order = std::int64_t(map.renderer.order) + layer.order;
+                    sort.birth = ordinal++;
+                    validate_render_key(sort);
+                    queue.push_back({sort, objects.size(), false});
+                    objects.push_back(std::move(object));
+                });
             } catch (const std::exception& error) {
                 queue.resize(queue_start);
                 objects.resize(object_start);

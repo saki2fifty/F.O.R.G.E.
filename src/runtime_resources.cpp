@@ -29,8 +29,8 @@ class RuntimeResources final : public RuntimeResourceService {
     RuntimeContentAccess access_;
     std::shared_ptr<const AssetCatalog> catalog_;
     // Aggregate retained CPU budget592MiB; one preparation worker per family.
-    // Linux GCC12 maximum-profile estimates: Map16883912B / Set759440B;
-    // map/set budgets deliberately include room for replacement and held leases.
+    // Map/Set budgets include replacement and held leases. Map instances use
+    // complete sparse logical backing; edited chunks may add dense COW arrays.
     ResourcePool<MeshAsset> meshes_{{1, 64, 256, 128ull * 1024 * 1024}};
     ResourcePool<MaterialAsset> materials_{{1, 64, 256, 128ull * 1024 * 1024}};
     ResourcePool<TextureAsset> textures_{{1, 64, 256, 128ull * 1024 * 1024}};
@@ -119,7 +119,7 @@ class RuntimeResources final : public RuntimeResourceService {
         case RuntimeResourceKind::TileSet:
             return request_tile_set(tile_sets_, project_, catalog_, {asset});
         case RuntimeResourceKind::TileMap:
-            return request_tile_map(tile_maps_, project_, catalog_, {asset});
+            return request_tile_map_compact(tile_maps_, project_, catalog_, {asset});
         }
         throw std::runtime_error("Unsupported runtime resource type");
     }

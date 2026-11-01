@@ -9,10 +9,10 @@ void require(bool value, const char* message) {
     if (!value)
         throw std::invalid_argument(message);
 }
-using Storage = std::map<TileMapChunkKey, const TileMapCell*>;
+using Storage = std::map<TileMapChunkKey, const void*>;
 Storage storage(const TileMapData& map) {
     Storage result;
-    map.for_each_chunk([&](auto key, auto cells, auto) { result.emplace(key, cells.data()); });
+    map.for_each_chunk_info([&](auto key, auto, const void* token) { result.emplace(key, token); });
     return result;
 }
 } // namespace
@@ -29,7 +29,7 @@ void TileMapVariants::for_each_chunk(
     const std::function<void(TileMapChunkKey, std::span<const TileMapCell, tile_chunk_cells>,
                              std::size_t)>& visit) const {
     require(bool(visit), "Tile variant visitor is empty");
-    source_.for_each_chunk([&](auto key, auto cells, auto occupied) {
+    source_.for_each_chunk_values([&](auto key, auto cells, auto occupied) {
         const auto selected = overrides(key);
         if (selected.empty()) {
             visit(key, cells, occupied);
@@ -87,7 +87,7 @@ resolve_tile_variants(std::shared_ptr<const TileMapData> source,
         std::erase_if(result->chunks_,
                       [&](const auto& row) { return !current.contains(row.first); });
     }
-    source->for_each_chunk([&](auto key, auto cells, auto occupied) {
+    source->for_each_chunk_values([&](auto key, auto cells, auto occupied) {
         if (reuse && !dirty.contains(key))
             return;
         ++result->recomputed_chunks_;

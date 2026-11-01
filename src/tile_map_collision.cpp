@@ -16,7 +16,7 @@ std::vector<TileMapCollisionRectangle> rectangles(const Map& map, std::uint64_t 
                                [&](const auto& row) { return row.id == layer; }))
         throw std::invalid_argument("Tile Map collision selects an unavailable layer");
     std::vector<TileMapCollisionRectangle> result;
-    map.for_each_chunk([&](auto key, auto cells, auto) {
+    map.for_each_chunk_values([&](auto key, auto cells, auto) {
         if (key.layer != layer)
             return;
         using Run = std::pair<std::uint32_t, std::uint32_t>;
@@ -67,7 +67,7 @@ TileMapCollisionGeometry collision_geometry(const Map& map, const TileSetData& d
             return tile.collision.kind == TileCollisionKind::FullCell;
         });
     if (full) {
-        map.for_each_chunk([&](auto key, auto cells, auto) {
+        map.for_each_chunk_values([&](auto key, auto cells, auto) {
             if (key.layer == layer)
                 for (const auto& cell : cells)
                     if (cell.tile)
@@ -81,7 +81,7 @@ TileMapCollisionGeometry collision_geometry(const Map& map, const TileSetData& d
         return cell.tile &&
                definitions.tile(cell.tile).collision.kind == TileCollisionKind::FullCell;
     });
-    map.for_each_chunk([&](auto key, auto cells, auto) {
+    map.for_each_chunk_values([&](auto key, auto cells, auto) {
         if (key.layer != layer)
             return;
         for (std::uint32_t slot = 0; slot < cells.size(); ++slot) {

@@ -279,7 +279,7 @@ inline void test_tile_map_capture_expansion(const std::filesystem::path& root,
         snapshots.push_back(runtime_tile_map_snapshot(
             engine.world(), scene.reference(row.at("id").get<std::string>())));
         retained.push_back(&snapshots.back()->cells);
-        independent += snapshots.back()->cells.resident_bytes();
+        independent += snapshots.back()->cells.dense_reconstruction_bytes();
     }
     check(TileMapData::resident_bytes(retained) < 64 * 1024 * 1024 &&
               independent > 64 * 1024 * 1024,

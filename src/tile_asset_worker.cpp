@@ -1,5 +1,6 @@
 #include "tile_asset_worker.hpp"
 #include "asset_bytes.hpp"
+#include "tile_map_archive.hpp"
 #include "tile_map_cook.hpp"
 #include "tile_set_cook.hpp"
 #include <algorithm>
@@ -68,7 +69,7 @@ std::vector<ArtifactFile> execute_tile_recipe(const ImportProcessRequest& reques
                 (void)data.tile(cell.tile);
     });
     auto cooked = cook_tile_map(authored.document);
-    (void)decode_cooked_tile_map(cooked, expected);
+    (void)decode_tile_map_archive(cooked, expected);
     require(!stop.stop_requested(), "Tile Map cook cancelled before publication");
     return {{tile_map_artifact_file, std::move(cooked)}};
 }

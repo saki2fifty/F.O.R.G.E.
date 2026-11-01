@@ -21,5 +21,5 @@ std::vector<TileMapChunkKey> tile_map_projection_changes(const TileMapData&,
                                                          const TileMapData* previous = nullptr);
 nlohmann::json tile_map_projection_page(const TileMapData&, std::span<const TileMapChunkKey>);
 TileMapData apply_tile_map_projection_page(const TileMapData&, const TileSetData&,
-                                           const nlohmann::json&);
+                                           const nlohmann::json&, bool compact = false);
 } // namespace forge

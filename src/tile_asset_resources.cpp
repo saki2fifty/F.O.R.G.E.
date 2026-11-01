@@ -1,5 +1,6 @@
 #include "tile_asset_resources.hpp"
 #include "asset_bytes.hpp"
+#include "tile_map_chunk_codec.hpp"
 #include <algorithm>
 #include <forge/engine_assets.hpp>
 #include <optional>
@@ -120,7 +121,7 @@ void current_dependencies(const AssetCatalog& catalog, const AssetRecord& record
 template <class Tag, class Admit>
 ResourceTicket request(ResourcePool<Tag>& pool, const std::filesystem::path& project,
                        std::shared_ptr<const AssetCatalog> catalog, AssetRef<Tag> ref,
-                       Contract contract, Admit admit) {
+                       Contract contract, Admit admit, std::string variant = {}) {
     require(bool(catalog), "Tile asset needs a catalog selection");
     // AssetCatalog::resolve also checks authoring source files. Runtime requests
     // use the immutable selected record, as the existing cooked resource owners
@@ -148,7 +149,17 @@ ResourceTicket request(ResourcePool<Tag>& pool, const std::filesystem::path& pro
             const auto bytes = value->resident_bytes();
             return ResourceCandidate<Tag>{std::make_unique<Data>(std::move(*value)),
                                           {0, 0, 0, 0, bytes}};
-        });
+        },
+        {}, 0, std::move(variant));
+}
+template <class Decode>
+auto admit_map(const CachedArtifact& artifact, const AssetRecord& record, Decode decode) {
+    const auto& selected = file(artifact, record, map_contract());
+    auto data = decode(selected.bytes, record.id);
+    dependencies(
+        artifact.manifest.at("inputs").at("dependencies").get<std::vector<AssetDependency>>(),
+        {{"tile_map.tile_set", {data.tile_set(), TileSetAsset::type}}});
+    return data;
 }
 } // namespace
 TileSetData admit_tile_set_artifact(const CachedArtifact& artifact, const AssetRecord& record) {
@@ -166,12 +177,10 @@ TileSetData admit_tile_set_artifact(const CachedArtifact& artifact, const AssetR
     return data;
 }
 TileMapData admit_tile_map_artifact(const CachedArtifact& artifact, const AssetRecord& record) {
-    const auto& selected = file(artifact, record, map_contract());
-    auto data = decode_cooked_tile_map(selected.bytes, record.id);
-    dependencies(
-        artifact.manifest.at("inputs").at("dependencies").get<std::vector<AssetDependency>>(),
-        {{"tile_map.tile_set", {data.tile_set(), TileSetAsset::type}}});
-    return data;
+    return admit_map(artifact, record, decode_cooked_tile_map);
+}
+TileMapArchive admit_tile_map_archive(const CachedArtifact& artifact, const AssetRecord& record) {
+    return admit_map(artifact, record, decode_tile_map_archive);
 }
 ResourceTicket request_tile_set(ResourcePool<TileSetAsset>& pool,
                                 const std::filesystem::path& project,
@@ -184,5 +193,77 @@ ResourceTicket request_tile_map(ResourcePool<TileMapAsset>& pool,
                                 std::shared_ptr<const AssetCatalog> catalog,
                                 AssetRef<TileMapAsset> ref) {
     return request(pool, project, std::move(catalog), ref, map_contract(), admit_tile_map_artifact);
+}
+ResourceTicket request_tile_map_compact(ResourcePool<TileMapAsset>& pool,
+                                        const std::filesystem::path& project,
+                                        std::shared_ptr<const AssetCatalog> catalog,
+                                        AssetRef<TileMapAsset> ref) {
+    return request(
+        pool, project, std::move(catalog), ref, map_contract(),
+        [](const auto& artifact, const auto& record) {
+            return admit_tile_map_archive(artifact, record).compact();
+        },
+        "tile-map:compact");
+}
+ResourceTicket request_tile_map_archive(ResourcePool<TileMapArchiveResource>& pool,
+                                        const std::filesystem::path& project,
+                                        std::shared_ptr<const AssetCatalog> catalog,
+                                        AssetRef<TileMapAsset> ref) {
+    return request(pool, project, std::move(catalog), AssetRef<TileMapArchiveResource>{ref.id},
+                   map_contract(), admit_tile_map_archive, "tile-map:archive");
+}
+ResourceTicket request_tile_map_chunk(ResourcePool<TileMapChunkResource>& pool,
+                                      const ResourceLease<TileMapArchiveResource>& source,
+                                      TileMapChunkKey key) {
+    const auto& archive = source.get();
+    const auto& id = source.identity();
+    require(archive.asset() == id.asset, "Tile Map archive resource has a different root identity");
+    auto input = archive.chunk_input(key);
+    // Parent generations are monotonic only within their owner scope. Independent
+    // archive pools can select different revisions at the same numeric generation.
+    const auto source_scope = asset_build_digest({{"owner", id.owner}});
+    const auto variant = "tile-map:chunk:" + source_scope + ":" + std::to_string(key.layer) + ":" +
+                         std::to_string(key.address.x) + ":" + std::to_string(key.address.y);
+    const auto revision = asset_build_digest({{"recipe", "forge.tile-map-chunk.v1"},
+                                              {"source", id.revision},
+                                              {"key", {key.layer, key.address.x, key.address.y}}});
+    return pool.request(
+        {id.asset}, revision, id.generation,
+        [input = std::move(input)](std::stop_token stop) {
+            auto data = std::make_unique<TileMapChunkData>(input.decode(stop));
+            return ResourceCandidate<TileMapChunkResource>{
+                std::move(data), ResourceMemory{sizeof(TileMapChunkData)}};
+        },
+        {}, 0, variant);
+}
+ResourceTicket request_tile_map_chunk_values(ResourcePool<TileMapChunkResource>& pool,
+                                             std::shared_ptr<const TileMapChunkInput> input) {
+    require(bool(input), "Tile Map chunk values need an immutable input");
+    const auto asset = input->asset();
+    const auto key = input->key();
+    std::string digest;
+    if (const auto records = input->encoded_cell_records())
+        digest = asset_detail::content_digest(*records);
+    else {
+        const auto dense = input->decode();
+        std::vector<std::byte> dense_records;
+        dense_records.reserve(input->occupied() * 16);
+        tile_detail::append_chunk_cells(dense_records, dense.cells);
+        digest = asset_detail::content_digest(dense_records);
+    }
+    const auto variant = "tile-map:cells:" + std::to_string(key.layer) + ":" +
+                         std::to_string(key.address.x) + ":" + std::to_string(key.address.y) + ":" +
+                         digest;
+    const auto revision = asset_build_digest({{"recipe", "forge.tile-map-cell-values.v1"},
+                                              {"cells", digest},
+                                              {"key", {key.layer, key.address.x, key.address.y}}});
+    return pool.request(
+        {asset}, revision, 1,
+        [input = std::move(input)](std::stop_token stop) {
+            auto value = std::make_unique<TileMapChunkData>(input->decode(stop));
+            return ResourceCandidate<TileMapChunkResource>{
+                std::move(value), ResourceMemory{sizeof(TileMapChunkData)}};
+        },
+        {}, 0, variant);
 }
 } // namespace forge

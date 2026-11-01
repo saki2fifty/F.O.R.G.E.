@@ -1,122 +1,16 @@
 #include "tile_map_data.hpp"
-#include "cooked_envelope.hpp"
+#include "tile_map_chunk_codec.hpp"
 #include "tile_set_data.hpp"
 #include <algorithm>
-#include <bit>
-#include <optional>
 #include <set>
 
 namespace forge {
 namespace {
-using Json = nlohmann::json;
 void require(bool value, const char* why) {
     if (!value)
         throw std::runtime_error(why);
 }
-std::uint64_t natural(const Json& j, std::uint64_t maximum) {
-    require(j.is_number_unsigned() || (j.is_number_integer() && j.get<std::int64_t>() >= 0),
-            "Cooked Tile Map requires exact unsigned integers");
-    const auto value = j.get<std::uint64_t>();
-    require(value <= maximum, "Cooked Tile Map unsigned integer is outside its range");
-    return value;
-}
-std::uint64_t read64(std::span<const std::byte> bytes, std::size_t& at) {
-    const auto low = asset_detail::cooked_read32(bytes, at);
-    const auto high = asset_detail::cooked_read32(bytes, at);
-    return low | (std::uint64_t(high) << 32);
-}
-std::int32_t order(const Json& j) {
-    require(j.is_number_integer(), "Cooked Tile Map order must be an integer");
-    if (j.is_number_unsigned())
-        return std::int32_t(natural(j, INT32_MAX));
-    const auto value = j.get<std::int64_t>();
-    require(value >= INT32_MIN && value <= INT32_MAX, "Cooked Tile Map order outside int32");
-    return std::int32_t(value);
-}
 } // namespace
-TileMapData decode_cooked_tile_map(std::span<const std::byte> bytes, AssetId expected) {
-    const auto envelope =
-        asset_detail::decode_envelope(bytes, tile_map_cooked_magic, tile_map_cooked_metadata_limit,
-                                      tile_map_cooked_payload_limit);
-    const auto& root = envelope.metadata;
-    require(root.is_object() && root.size() == 6, "Invalid cooked Tile Map metadata fields");
-    TileMapData value;
-    value.asset_ = root.at("asset_id").get<AssetId>();
-    value.tile_set_ = root.at("tile_set").get<AssetId>();
-    require(bool(expected) && value.asset_ == expected && bool(value.tile_set_),
-            "Cooked Tile Map identity/reference mismatch");
-    const auto& size = root.at("cell_size");
-    require(size.is_array() && size.size() == 2, "Invalid cooked Tile Map cell size");
-    for (unsigned axis = 0; axis < 2; ++axis) {
-        require(size[axis].is_number(), "Cooked Tile Map cell size must be numeric");
-        const auto n = size[axis].get<double>();
-        require(std::isfinite(n) && n >= 1e-6 && n <= 1e6, "Invalid cooked Tile Map meter range");
-        value.cell_size_[axis] = n;
-    }
-    const auto& layers = root.at("layers");
-    require(layers.is_array() && !layers.empty() && layers.size() <= tile_map_layer_limit,
-            "Cooked Tile Map layer count exceeds its profile");
-    std::set<std::uint64_t> ids;
-    for (const auto& row : layers) {
-        require(row.is_object() && row.size() == 4, "Invalid cooked Tile Map layer fields");
-        TileMapLayer layer;
-        layer.id = natural(row.at("id"), UINT64_MAX - 1);
-        require(layer.id && ids.insert(layer.id).second, "Invalid/duplicate cooked map layer ID");
-        layer.name = row.at("name").get<std::string>();
-        require(!layer.name.empty() && layer.name.size() <= 128 &&
-                    std::none_of(layer.name.begin(), layer.name.end(),
-                                 [](unsigned char c) { return c < 32 || c == 127; }),
-                "Invalid cooked Tile Map layer name");
-        require(row.at("visible").is_boolean(), "Invalid cooked Tile Map layer visibility");
-        layer.visible = row.at("visible").get<bool>();
-        layer.order = order(row.at("order"));
-        value.layers_.push_back(std::move(layer));
-    }
-    const auto chunks = natural(root.at("chunk_count"), tile_map_chunk_limit);
-    const auto count = natural(root.at("cell_count"), tile_map_cell_limit);
-    require(count >= chunks && count <= chunks * tile_chunk_cells &&
-                envelope.payload.size() == chunks * 20 + count * 16,
-            "Cooked Tile Map counts/payload length disagree");
-    std::size_t at = 0;
-    std::optional<TileMapChunkKey> previous;
-    for (std::uint64_t i = 0; i < chunks; ++i) {
-        TileMapChunkKey key;
-        key.layer = read64(envelope.payload, at);
-        key.address.x =
-            std::bit_cast<std::int32_t>(asset_detail::cooked_read32(envelope.payload, at));
-        key.address.y =
-            std::bit_cast<std::int32_t>(asset_detail::cooked_read32(envelope.payload, at));
-        require(ids.contains(key.layer) && (!previous || *previous < key),
-                "Cooked Tile Map chunk layer/order/uniqueness mismatch");
-        previous = key;
-        (void)tile_cell_address({key.address, 0});
-        (void)tile_cell_address({key.address, tile_chunk_cells - 1});
-        const auto occupied = asset_detail::cooked_read32(envelope.payload, at);
-        require(occupied && occupied <= tile_chunk_cells && occupied <= count - value.occupied_,
-                "Cooked Tile Map chunk occupancy mismatch");
-        auto chunk = std::make_shared<TileMapData::Chunk>();
-        chunk->occupied = occupied;
-        std::optional<std::uint32_t> last_index;
-        for (std::uint32_t n = 0; n < occupied; ++n) {
-            const auto index = asset_detail::cooked_read32(envelope.payload, at);
-            require(index < tile_chunk_cells && (!last_index || *last_index < index),
-                    "Cooked Tile Map cell index/order/uniqueness mismatch");
-            last_index = index;
-            TileMapCell cell;
-            cell.tile = read64(envelope.payload, at);
-            cell.flags = asset_detail::cooked_read32(envelope.payload, at);
-            require(cell.tile && cell.flags <= 7, "Cooked Tile Map cell value is invalid");
-            chunk->cells[index] = cell;
-        }
-        value.occupied_ += occupied;
-        value.chunks_.emplace(key, std::move(chunk));
-    }
-    require(at == envelope.payload.size() && value.occupied_ == count,
-            "Cooked Tile Map cell total/trailing bytes mismatch");
-    value.admitted_ = true;
-    value.validate();
-    return value;
-}
 void TileMapData::validate() const {
     require(admitted_ && bool(asset_) && bool(tile_set_) && !layers_.empty() &&
                 layers_.size() <= tile_map_layer_limit && chunks_.size() <= tile_map_chunk_limit &&
@@ -152,12 +46,27 @@ bool TileMapData::has_layer(std::uint64_t layer) const {
     return std::any_of(layers_.begin(), layers_.end(),
                        [&](const auto& row) { return row.id == layer; });
 }
+std::size_t TileMapData::chunk_occupied(const ChunkStorage& value) {
+    return std::visit([](const auto& chunk) { return chunk->occupied; }, value);
+}
+TileMapCell TileMapData::chunk_cell(const ChunkStorage& value, std::size_t slot) {
+    if (const auto* dense = std::get_if<std::shared_ptr<const Chunk>>(&value))
+        return (*dense)->cells[slot];
+    const auto& encoded = *std::get<std::shared_ptr<const EncodedChunk>>(value);
+    return tile_detail::admitted_chunk_cell(encoded.records(), std::uint32_t(slot));
+}
+std::array<TileMapCell, tile_chunk_cells> TileMapData::chunk_cells(const ChunkStorage& value) {
+    if (const auto* dense = std::get_if<std::shared_ptr<const Chunk>>(&value))
+        return (*dense)->cells;
+    const auto& encoded = *std::get<std::shared_ptr<const EncodedChunk>>(value);
+    return tile_detail::decode_admitted_cells(encoded.records(), encoded.occupied);
+}
 TileMapCell TileMapData::cell(std::uint64_t layer, TileCellAddress cell) const {
     validate();
     require(has_layer(layer), "Cooked Tile Map query has no matching layer");
     const auto address = tile_chunk_cell(cell);
     const auto found = chunks_.find({layer, address.chunk});
-    return found == chunks_.end() ? TileMapCell{} : found->second->cells[address.index];
+    return found == chunks_.end() ? TileMapCell{} : chunk_cell(found->second, address.index);
 }
 TileMapData::CellChanges TileMapData::prepare_cells(std::span<const TileMapCellEdit> writes,
                                                     const TileSetData* definitions) const {
@@ -186,10 +95,10 @@ TileMapData::CellChanges TileMapData::prepare_cells(std::span<const TileMapCellE
     auto chunks = chunks_.size();
     for (auto& [key, patch] : patches) {
         const auto old = chunks_.find(key);
-        const auto count = old == chunks_.end() ? 0 : old->second->occupied;
+        const auto count = old == chunks_.end() ? 0 : chunk_occupied(old->second);
         patch.occupied = count;
         for (const auto& [index, cell] : patch.cells) {
-            if (old != chunks_.end() && old->second->cells[index].tile)
+            if (old != chunks_.end() && chunk_cell(old->second, index).tile)
                 --patch.occupied;
             if (cell.tile)
                 ++patch.occupied;
@@ -213,10 +122,14 @@ TileMapData TileMapData::with_cells(std::span<const TileMapCellEdit> writes,
                                     const TileSetData& definitions) const {
     return apply_cells(prepare_cells(writes, &definitions));
 }
+TileMapData TileMapData::with_compact_cells(std::span<const TileMapCellEdit> writes,
+                                            const TileSetData& definitions) const {
+    return apply_cells(prepare_cells(writes, &definitions), true);
+}
 TileMapData TileMapData::with_erased_cells(std::span<const TileMapCellEdit> writes) const {
     return apply_cells(prepare_cells(writes, nullptr));
 }
-TileMapData TileMapData::apply_cells(const CellChanges& changes) const {
+TileMapData TileMapData::apply_cells(const CellChanges& changes, bool compact) const {
     auto next = *this;
     for (const auto& [key, patch] : changes.chunks) {
         const auto old = chunks_.find(key);
@@ -226,15 +139,26 @@ TileMapData TileMapData::apply_cells(const CellChanges& changes) const {
         }
         if (old != chunks_.end() &&
             std::all_of(patch.cells.begin(), patch.cells.end(), [&](const auto& cell) {
-                return old->second->cells[cell.first] == cell.second;
+                return chunk_cell(old->second, cell.first) == cell.second;
             }))
             continue;
-        auto chunk = old == chunks_.end() ? std::make_shared<Chunk>()
-                                          : std::make_shared<Chunk>(*old->second);
+        auto chunk = std::make_shared<Chunk>();
+        if (old != chunks_.end())
+            chunk->cells = chunk_cells(old->second);
         for (const auto& [index, cell] : patch.cells)
             chunk->cells[index] = cell;
         chunk->occupied = patch.occupied;
-        next.chunks_[key] = std::move(chunk);
+        if (compact) {
+            std::vector<std::byte> records;
+            records.reserve(patch.occupied * 16);
+            tile_detail::append_chunk_cells(records, chunk->cells);
+            auto encoded = std::make_shared<EncodedChunk>();
+            encoded->bytes = std::make_shared<const std::vector<std::byte>>(std::move(records));
+            encoded->occupied = patch.occupied;
+            next.chunks_[key] = std::move(encoded);
+        } else {
+            next.chunks_[key] = std::move(chunk);
+        }
     }
     next.occupied_ = changes.occupied;
     next.validate();
@@ -245,32 +169,176 @@ void TileMapData::for_each_chunk(
                              std::size_t)>& visit) const {
     validate();
     require(bool(visit), "Cooked Tile Map chunk visitor is empty");
-    for (const auto& [key, chunk] : chunks_)
-        visit(key, chunk->cells, chunk->occupied);
+    // Preserve borrowed-span lifetime for the existing dense API. A compact
+    // value requires the explicit scoped visitor, rather than temporary pointers.
+    require(std::all_of(chunks_.begin(), chunks_.end(),
+                        [](const auto& row) {
+                            return std::holds_alternative<std::shared_ptr<const Chunk>>(row.second);
+                        }),
+            "Compact Tile Map requires a scoped chunk-value visitor");
+    for (const auto& [key, storage] : chunks_) {
+        const auto& chunk = *std::get<std::shared_ptr<const Chunk>>(storage);
+        visit(key, chunk.cells, chunk.occupied);
+    }
+}
+void TileMapData::for_each_chunk_values(
+    const std::function<void(TileMapChunkKey, std::span<const TileMapCell, tile_chunk_cells>,
+                             std::size_t)>& visit) const {
+    validate();
+    require(bool(visit), "Cooked Tile Map scoped chunk visitor is empty");
+    for (const auto& [key, storage] : chunks_)
+        visit_chunk_storage(storage,
+                            [&](auto cells, auto occupied) { visit(key, cells, occupied); });
+}
+void TileMapData::visit_chunk_storage(
+    const ChunkStorage& storage,
+    const std::function<void(std::span<const TileMapCell, tile_chunk_cells>, std::size_t)>& visit) {
+    if (const auto* dense = std::get_if<std::shared_ptr<const Chunk>>(&storage))
+        visit((*dense)->cells, (*dense)->occupied);
+    else {
+        const auto cells = chunk_cells(storage);
+        visit(cells, chunk_occupied(storage));
+    }
+}
+bool TileMapData::visit_chunk_values(
+    TileMapChunkKey key,
+    const std::function<void(std::span<const TileMapCell, tile_chunk_cells>, std::size_t)>& visit)
+    const {
+    validate();
+    require(bool(visit), "Cooked Tile Map scoped chunk visitor is empty");
+    require(has_layer(key.layer), "Cooked Tile Map chunk query has no matching layer");
+    (void)tile_cell_address({key.address, 0});
+    (void)tile_cell_address({key.address, tile_chunk_cells - 1});
+    const auto found = chunks_.find(key);
+    if (found == chunks_.end())
+        return false;
+    visit_chunk_storage(found->second, visit);
+    return true;
+}
+void TileMapData::for_each_chunk_info(
+    const std::function<void(TileMapChunkKey, std::size_t, const void*)>& visit) const {
+    validate();
+    require(bool(visit), "Cooked Tile Map chunk-info visitor is empty");
+    for (const auto& [key, storage] : chunks_)
+        std::visit([&](const auto& chunk) { visit(key, chunk->occupied, chunk.get()); }, storage);
 }
 std::size_t TileMapData::resident_bytes() const {
+    const std::array<const TileMapData*, 1> values{this};
+    return resident_bytes(values);
+}
+std::size_t TileMapData::dense_reconstruction_bytes() const {
     validate();
-    std::size_t bytes = sizeof(*this) + layers_.capacity() * sizeof(TileMapLayer);
+    std::size_t bytes =
+        sizeof(*this) + layers_.capacity() * sizeof(TileMapLayer) +
+        chunks_.size() * (sizeof(TileMapChunkKey) + sizeof(ChunkStorage) + sizeof(Chunk) + 64);
     for (const auto& layer : layers_)
         bytes += layer.name.capacity() + 1;
-    return bytes + chunks_.size() * (sizeof(Chunk) + sizeof(TileMapChunkKey) +
-                                     sizeof(std::shared_ptr<const Chunk>) + 64);
+    return bytes;
 }
 std::size_t TileMapData::resident_bytes(std::span<const TileMapData* const> views) {
     std::set<const TileMapData*> values;
-    std::set<const Chunk*> arrays;
+    std::set<const Chunk*> dense;
+    std::set<const EncodedChunk*> encoded;
+    std::set<const std::vector<std::byte>*> backing;
     std::size_t bytes = 0;
     for (const auto* value : views) {
         require(value, "Tile Map memory estimate received a null view");
         if (!values.insert(value).second)
             continue;
-        bytes += value->resident_bytes() - value->chunks_.size() * sizeof(Chunk);
-        for (const auto& [key, chunk] : value->chunks_) {
+        value->validate();
+        bytes += sizeof(*value) + value->layers_.capacity() * sizeof(TileMapLayer) +
+                 value->chunks_.size() * (sizeof(TileMapChunkKey) + sizeof(ChunkStorage) + 64);
+        for (const auto& layer : value->layers_)
+            bytes += layer.name.capacity() + 1;
+        for (const auto& [key, storage] : value->chunks_) {
             (void)key;
-            if (arrays.insert(chunk.get()).second)
-                bytes += sizeof(Chunk);
+            if (const auto* chunk = std::get_if<std::shared_ptr<const Chunk>>(&storage)) {
+                if (dense.insert(chunk->get()).second)
+                    bytes += sizeof(Chunk);
+            } else {
+                const auto* archived = std::get<std::shared_ptr<const EncodedChunk>>(storage).get();
+                if (encoded.insert(archived).second) {
+                    bytes += sizeof(EncodedChunk);
+                    if (backing.insert(archived->bytes.get()).second)
+                        bytes += sizeof(std::vector<std::byte>) + 64 + archived->bytes->capacity();
+                }
+            }
         }
     }
     return bytes;
+}
+TileMapChunkInput TileMapData::chunk_input(TileMapChunkKey key) const {
+    validate();
+    require(has_layer(key.layer), "Cooked Tile Map chunk input has no matching layer");
+    (void)tile_cell_address({key.address, 0});
+    (void)tile_cell_address({key.address, tile_chunk_cells - 1});
+    const auto found = chunks_.find(key);
+    require(found != chunks_.end(), "Tile Map has no requested chunk input");
+    TileMapChunkInput input;
+    input.asset_ = asset_;
+    input.key_ = key;
+    input.storage_ = found->second;
+    return input;
+}
+void TileMapChunkInput::validate() const {
+    require(bool(asset_) && std::visit([](const auto& value) { return bool(value); }, storage_),
+            "Tile Map chunk input is unavailable or was moved from");
+}
+AssetId TileMapChunkInput::asset() const {
+    validate();
+    return asset_;
+}
+TileMapChunkKey TileMapChunkInput::key() const {
+    validate();
+    return key_;
+}
+std::size_t TileMapChunkInput::occupied() const {
+    validate();
+    return TileMapData::chunk_occupied(storage_);
+}
+const void* TileMapChunkInput::identity() const {
+    validate();
+    return std::visit([](const auto& value) -> const void* { return value.get(); }, storage_);
+}
+const void* TileMapChunkInput::backing_identity() const {
+    validate();
+    if (const auto* dense = std::get_if<std::shared_ptr<const TileMapData::Chunk>>(&storage_))
+        return dense->get();
+    return std::get<std::shared_ptr<const TileMapData::EncodedChunk>>(storage_)->bytes.get();
+}
+std::size_t TileMapChunkInput::backing_bytes() const {
+    validate();
+    if (std::holds_alternative<std::shared_ptr<const TileMapData::Chunk>>(storage_))
+        return sizeof(TileMapData::Chunk) + 64;
+    const auto& bytes = std::get<std::shared_ptr<const TileMapData::EncodedChunk>>(storage_)->bytes;
+    return sizeof(std::vector<std::byte>) + 64 + bytes->capacity();
+}
+std::size_t TileMapChunkInput::input_bytes() const {
+    validate();
+    return sizeof(*this) + 64 +
+           (std::holds_alternative<std::shared_ptr<const TileMapData::EncodedChunk>>(storage_)
+                ? sizeof(TileMapData::EncodedChunk) + 64
+                : 0);
+}
+std::optional<std::span<const std::byte>> TileMapChunkInput::encoded_cell_records() const {
+    validate();
+    if (const auto* encoded =
+            std::get_if<std::shared_ptr<const TileMapData::EncodedChunk>>(&storage_))
+        return (*encoded)->records();
+    return {};
+}
+TileMapChunkData TileMapChunkInput::decode(std::stop_token stop) const {
+    validate();
+    require(!stop.stop_requested(), "Tile Map chunk decoding cancelled");
+    if (const auto* encoded =
+            std::get_if<std::shared_ptr<const TileMapData::EncodedChunk>>(&storage_))
+        return {
+            key_,
+            tile_detail::decode_admitted_cells((*encoded)->records(), (*encoded)->occupied, stop),
+            (*encoded)->occupied};
+    const auto& dense = *std::get<std::shared_ptr<const TileMapData::Chunk>>(storage_);
+    TileMapChunkData value{key_, dense.cells, dense.occupied};
+    require(!stop.stop_requested(), "Tile Map chunk decoding cancelled");
+    return value;
 }
 } // namespace forge

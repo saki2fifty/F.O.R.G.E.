@@ -5,6 +5,28 @@ The accepted local Windows package is **261024-000213**, source
 in the [README](../README.md#current-implementation). No new numbered Windows
 package accompanies the local source changes described here.
 
+Local source adds camera-driven decoded Tile chunk residency. Scene and Game
+supply their actual views to the shared resource owner; identical pages coalesce,
+unused demand releases at collection, and complete old Map/image selections remain
+while edited visible pages prepare. Logical sparse cells remain complete for
+queries, edits, neighbor rules, collision, copied Play, SDK access and export.
+The presentation page pool allows 64 MiB of pages, 64 outstanding requests and 4096 profiles; live pure
+input backing has a separate 64 MiB budget. This is bounded dense-page preparation over
+owned complete cooked bytes, not disk/unlimited-world or collision streaming.
+
+Gallery126 supplies five sparse regions and a 20 second looping camera. All 339 records
+preserve the prior 336 records and project settings. Current normal runtime/SDK/Play checks pass, as
+do pressure rejection/recovery and 12 exact shared Scene/Game source-free display
+pairs, including retained Scene redraw, sparse picking and full logical framing.
+The current manual/complete Gallery package fixture and six reviewed offline
+layouts pass. Thirty-three selected strict units feed 12 consumer links: 10 CPU/runtime consumers
+exit cleanly under unsuppressed ASan/UBSan/LSan. Both native consumers finish
+functionally with the exact known shutdown leak of 184 bytes in five allocations
+and are not clean. Windows/full-editor/physical/graphicalEXE acceptance
+remains queued. Source/cooked IDs, public SDK layouts and dependency pins remain.
+See [Tile residency](tilemap-foundation.md#camera-driven-decoded-residency) and
+[the loading guide](../manual/editor/tile-maps.md).
+
 Local source supports Static/Kinematic nonsensor custom polygon one-way Maps,
 including concavity, holes and islands. Original front-facing edge planes serve
 rigid contacts, CCD and controller physical queries; decomposition edges never

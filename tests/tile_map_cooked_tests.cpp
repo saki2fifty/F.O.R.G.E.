@@ -1,4 +1,5 @@
 #include "cooked_envelope.hpp"
+#include "tile_map_archive.hpp"
 #include "tile_map_cook.hpp"
 #include "tile_map_source_view.hpp"
 #include <iostream>
@@ -162,13 +163,22 @@ void maximum() {
                 envelope(bytes).payload.size() == tile_map_cooked_payload_limit &&
                 bytes.size() < 5 * 1024 * 1024 && data.resident_bytes() < 17 * 1024 * 1024,
             "Maximum-profile cooked bytes/resident estimate exceeds its measured envelope");
+    const auto archive = decode_tile_map_archive(bytes, source.asset());
+    require(archive.chunks().size() == 1024 && archive.occupied() == 262144 &&
+                archive.resident_bytes() < 5 * 1024 * 1024 &&
+                archive.resident_bytes() < data.resident_bytes() / 2,
+            "Maximum-profile sparse archive retained dense-map allocations");
     for (int x = -512; x < 512; ++x)
         require(data.cell(1, {x * 32, 0}) == TileMapCell{1, 0} &&
                     data.cell(1, {x * 32 + 31, 7}) == TileMapCell{256, 7} &&
-                    data.cell(1, {x * 32, 8}) == TileMapCell{},
+                    data.cell(1, {x * 32, 8}) == TileMapCell{} &&
+                    archive.cell(1, {x * 32, 0}) == TileMapCell{1, 0} &&
+                    archive.cell(1, {x * 32 + 31, 7}) == TileMapCell{256, 7} &&
+                    archive.cell(1, {x * 32, 8}) == TileMapCell{},
                 "Maximum-profile runtime cells differ from independent address/value oracle");
     std::cout << "maximum_cooked_bytes=" << bytes.size()
-              << " retained_estimate_bytes=" << data.resident_bytes() << '\n';
+              << " retained_estimate_bytes=" << data.resident_bytes()
+              << " archive_retained_estimate_bytes=" << archive.resident_bytes() << '\n';
 }
 } // namespace
 int main() {

@@ -82,13 +82,60 @@ void selected_recipe_integrity(const std::filesystem::path& root, const AssetCat
         const auto admit = [&] {
             if (id == set_id)
                 (void)admit_tile_set_artifact(artifact, record);
-            else
+            else {
                 (void)admit_tile_map_artifact(artifact, record);
+                (void)admit_tile_map_archive(artifact, record);
+            }
         };
         admit();
         record.metadata["forge.import"]["importer_revision"] = std::string(64, '0');
         reject(admit);
+        if (id == map_id)
+            reject([&] { (void)admit_tile_map_archive(artifact, record); });
     }
+}
+void selected_archive_chunks(const std::filesystem::path& root,
+                             std::shared_ptr<const AssetCatalog> catalog,
+                             const TileMapData& expected) {
+    ResourcePool<TileMapArchiveResource> archives({1, 4, 8, 8 * 1024 * 1024});
+    ResourcePool<TileMapChunkResource> chunks({1, 4, 8, 4 * sizeof(TileMapChunkData)});
+    const auto ticket = request_tile_map_archive(archives, root, catalog, {expected.asset()});
+    const auto repeated = request_tile_map_archive(archives, root, catalog, {expected.asset()});
+    require(ticket.inspect().identity == repeated.inspect().identity,
+            "Selected Map archive requests did not coalesce");
+    require(archives.wait(ticket, 10s), "Selected archive failed: " + ticket.inspect().diagnostic);
+    const auto archive = archives.acquire(ticket);
+    require(archive && archive->asset() == expected.asset() &&
+                archive->tile_set() == expected.tile_set() &&
+                archive->occupied() == expected.occupied() &&
+                archive->chunks().size() == expected.chunk_count(),
+            "Selected archive lost admitted Map metadata");
+    ResourcePool<TileMapAsset> compact_maps({1, 4, 8, 8 * 1024 * 1024});
+    const auto compact_ticket =
+        request_tile_map_compact(compact_maps, root, catalog, {expected.asset()});
+    require(compact_maps.wait(compact_ticket, 10s),
+            "Selected compact runtime Map failed: " + compact_ticket.inspect().diagnostic);
+    const auto compact = compact_maps.acquire(compact_ticket);
+    require(compact && compact->occupied() == expected.occupied() &&
+                compact->layers() == expected.layers(),
+            "Selected compact runtime Map lost logical metadata");
+    expected.for_each_chunk([&](auto key, auto cells, auto occupied) {
+        const auto request = request_tile_map_chunk(chunks, archive, key);
+        require(chunks.wait(request, 10s),
+                "Selected chunk failed: " + request.inspect().diagnostic);
+        const auto lease = chunks.acquire(request);
+        require(lease && lease->key == key && lease->occupied == occupied &&
+                    std::equal(cells.begin(), cells.end(), lease->cells.begin()),
+                "Selected archive's independently decoded chunk differs from full loading");
+        require(compact->visit_chunk_values(
+                    key,
+                    [&](auto values, auto count) {
+                        require(count == occupied &&
+                                    std::equal(cells.begin(), cells.end(), values.begin()),
+                                "Selected compact runtime chunk differs from full loading");
+                    }),
+                "Selected compact runtime Map lost an occupied logical chunk");
+    });
 }
 void recipe_guards(const TileSetSource& set, const TileMapSource& map) {
     const auto snapshot = [](std::string text) {
@@ -880,6 +927,7 @@ void workflow(const std::filesystem::path& root, const std::filesystem::path& wo
                 catalog->records().at(map_id).dependency_edges.size() == 2,
             "Published sparse map values or typed Tile Set dependency differ");
     selected_recipe_integrity(root, *catalog, set_id, map_id);
+    selected_archive_chunks(root, catalog, map_data);
     runtime_leases(root, set_id, map_id, true);
     runtime_instances(root, lease, worker, *map);
     catalog = std::make_shared<const AssetCatalog>(AssetCatalog::open_project(root));

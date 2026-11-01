@@ -186,7 +186,7 @@ ITextureView* FrameRenderer::render(IDeviceContext* context, const RenderScene& 
     diagnostics_.clear();
     omitted_ = 0;
     if (meshes_) {
-        meshes_->update(scene);
+        meshes_->update(scene, cameras);
         sky_.select(meshes_->environment());
     }
     const bool pending_resources = pending();

@@ -28,6 +28,11 @@ class TileMapVariants {
     void for_each_chunk(
         const std::function<void(TileMapChunkKey, std::span<const TileMapCell, tile_chunk_cells>,
                                  std::size_t occupied)>&) const;
+    void for_each_chunk_values(
+        const std::function<void(TileMapChunkKey, std::span<const TileMapCell, tile_chunk_cells>,
+                                 std::size_t occupied)>& visit) const {
+        for_each_chunk(visit);
+    }
     std::size_t recomputed_chunks() const { return recomputed_chunks_; }
     // Extra retained allocation estimate beyond the live original source values.
     // Distinct index copies count; shared source arrays/override vectors count once.

@@ -182,7 +182,7 @@ void adopt(WorldContext& context, Instance& state, bool reset, EntityRef target)
     // changes. A new revision of the same edited asset cannot silently do so.
     require(reset || !previous || !previous->edited || previous->cells.asset() != map->asset(),
             "Edited Tile Map retains its adopted revision; reset the instance to adopt new assets");
-    map->for_each_chunk([&](auto, auto cells, auto) {
+    map->for_each_chunk_values([&](auto, auto cells, auto) {
         for (const auto& cell : cells)
             if (cell.tile)
                 (void)definitions->tile(cell.tile);
@@ -540,7 +540,7 @@ Json checkpoint_runtime_tile_maps(WorldContext& context) {
         // Full edited projections reconstruct independent arrays. Live COW
         // sharing must not make an unrestorable checkpoint appear to fit.
         if (snapshot->edited) {
-            const auto count = snapshot->cells.resident_bytes();
+            const auto count = snapshot->cells.dense_reconstruction_bytes();
             require(count <= checkpoint_cell_limit - reconstructed,
                     "Tile Map checkpoint exceeds copied cell memory reconstruction profile");
             reconstructed += count;

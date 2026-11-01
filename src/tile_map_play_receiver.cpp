@@ -351,7 +351,7 @@ bool TileMapPlayReceiver::receive(const Json& payload) {
                             transfer.value.cells->with_erased_cells(erase));
                         erase.clear();
                     };
-                    storage->for_each_chunk([&](auto key, auto cells, auto) {
+                    storage->for_each_chunk_values([&](auto key, auto cells, auto) {
                         if (transfer.expected.contains(key))
                             return;
                         for (unsigned slot = 0; slot < tile_chunk_cells; ++slot)
@@ -407,8 +407,8 @@ bool TileMapPlayReceiver::receive(const Json& payload) {
                     transfer_.reset();
                     return true;
                 }
-                auto cells = apply_tile_map_projection_page(*transfer_->value.cells,
-                                                            *transfer_->value.definitions, data);
+                auto cells = apply_tile_map_projection_page(
+                    *transfer_->value.cells, *transfer_->value.definitions, data, true);
                 for (const auto& row : data) {
                     const TileMapChunkKey key{
                         row.at("layer").get<std::uint64_t>(),

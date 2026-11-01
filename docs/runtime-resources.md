@@ -244,8 +244,11 @@ The development provider uses six pools with one preparation worker,
 64in-flight requests and256asset slots each. Mesh/Material/Texture/Shader each
 retain their128MiB CPU budget; Tile Set has16MiB and Tile Map64MiB, for592MiB
 aggregate retained CPU budgets. The latter bounds are deliberate: the Linux GCC12
-maximum-profile estimates are759440bytes per Set and16883912bytes per Map, with
-room for replacement and held revisions. These are allocation estimates, not
+maximum-profile estimates are759440bytes per Set and16892104bytes for an explicitly
+fully dense Map. Normal Map subscriptions use complete sparse logical backing;
+unchanged chunks stay shared and runtime edits may add dense COW chunks. Both
+representations remain charged, with room for replacement and held revisions.
+These are allocation estimates, not
 process RSS or GPU budgets; preparation scratch remains separate. Collision
 resources remain owned by Physics. Subscriptions are bounded to
 256per world and64per exact SDK module. Releasing a subscription releases its
@@ -262,7 +265,9 @@ typed immutable leases; modules receive copied status, never raw cells or resour
 pointers through this facade. CPU map readiness alone does not establish an
 instance's complete Map/Tile Set selection, rendering or fixed-step mutation.
 The public header additions change the exact SDK fingerprint and require matching
-module rebuilds. A dedicated gameplay cell query/edit interface is still pending.
+module rebuilds. The dedicated checked gameplay cell query/edit interface is documented in
+[tilemap foundation](tilemap-foundation.md); resource subscription readiness alone
+does not grant cell-mutation access.
 
 Catalog refresh captures a new immutable selection on a file-only worker and
 reissues existing subscriptions on the owner. A selection failure reports an
@@ -279,6 +284,10 @@ Diligent GPU residency statistics twice per second while visible. Strong lease
 counts exclude the pool's own reference. Request tickets observe load status and
 do not pin payloads. Failed requests and retained previous-good revisions appear
 separately. Inspecting never loads, evicts, edits or acquires a payload lease.
+The shared presentation owner also reports decoded Tile chunks separately from
+logical Tile Maps; page demand follows the current Scene/Game cameras. Its64MiB
+page pool and64MiB aggregate worker-input backing cap are separate from runtime
+world subscriptions. See [Tile Map residency](tilemap-foundation.md#camera-driven-decoded-residency).
 CPU/GPU requested bytes exclude allocator/driver overhead, frame targets and
 independent preview/process owners. Diligent shader/PSO cache hit/miss counts are
 reported separately because the portable API does not expose allocation byte sizes.

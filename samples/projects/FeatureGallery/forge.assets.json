@@ -4482,6 +4482,58 @@
       "type": "animation_clip"
     },
     {
+      "dependencies": [
+        "cd8aad7c-0d7b-4092-a533-6d46fcf0bfd6"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "build",
+          "revision": "79508fb8909636330fb804ab0cdb9077fb11ac8c25ce21611ef4e44461c10ed0",
+          "role": "tile_map.tile_set",
+          "target": "cd8aad7c-0d7b-4092-a533-6d46fcf0bfd6",
+          "type": "tile_set"
+        },
+        {
+          "kind": "runtime",
+          "revision": "79508fb8909636330fb804ab0cdb9077fb11ac8c25ce21611ef4e44461c10ed0",
+          "role": "tile_map.tile_set",
+          "target": "cd8aad7c-0d7b-4092-a533-6d46fcf0bfd6",
+          "type": "tile_set"
+        }
+      ],
+      "id": "523dc6eb-b81d-4a1f-8d08-2d975fbc364e",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "f0e7f6a7e76264b5b87412a7f094c05cf039cb93392d421577ef7ae6f0d80480",
+          "backend": "d3d12",
+          "dependency_digest": "3b5081cb864ebad632278082332e01f3f2b68aaf77954d7f125a8d6e2c6eaf48",
+          "generation": 1,
+          "importer": "forge.tilemap",
+          "importer_revision": "798489a4a784da70bd1120ea80d3ae23c64db1aa7c29e6a71ff6d9c1a12a78bd",
+          "key": "68bf389032205cbcd3621d93a06327912b8188011f3cd6026d05cd6814b3ee27",
+          "output_format": "forge.tile-map-cooked",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "f6d9a4db78f8a18c56da74cdd0b9a82d733c91b097a3a00feac6e2f9c067123c",
+          "source_digest": "d9dc7ee3ae3d4f4e0659ae1fdc6e4e7c6133f7ec655866d55c36eeba8cb330d7",
+          "version": 1
+        },
+        "forge.tile_map": {
+          "bytes": 5595,
+          "file": "tilemap.bin",
+          "sha256": "5f03020c8633add278cbeccf7fb30b2a2dd6fd3149cf0168218789167a96506a",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Tiles/ChunkResidency.tilemap.json",
+      "source_dependencies": [],
+      "type": "tile_map"
+    },
+    {
       "dependencies": [],
       "dependency_edges": [],
       "id": "525f81e1-f82e-468e-965e-e9ed974b6d3b",
@@ -5776,6 +5828,41 @@
       },
       "schema_version": 1,
       "source": "Assets/BatchOriginal.animation.json",
+      "source_dependencies": [],
+      "type": "transform_animation"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "6d7b5ecf-3f97-4fb5-899c-f62c68767a4a",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "72c1cbb67f61b313936c768908afc52b28233b262e6b47a4c4ab5fc6e564de20",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.animation.transform",
+          "importer_revision": "forge.animation.transform.v12",
+          "key": "1f7a913fcfbdb0f8b7b863ae52e3b469ee46bfde21aa0f86997b335a71c47c60",
+          "output_format": "forge.transform-clip",
+          "output_version": 9,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "9f3d094101f568171e1cef4959aa0df36139ac65404548c982ce09375785d5fd",
+          "source_digest": "345ac35e8ce10a38f8ad679478892cbfab3c98640ecba9ff7d555780ee9ef191",
+          "version": 1
+        },
+        "forge.transform_animation": {
+          "bytes": 2131,
+          "file": "animation.clip",
+          "sha256": "28cef627a170851848dd09bd2255bcb23ab13c10fd1a23c0153ebf1ecc7f91ee",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Tiles/ChunkResidencyCamera.animation.json",
       "source_dependencies": [],
       "type": "transform_animation"
     },
@@ -9010,6 +9097,16 @@
         "removed": false
       },
       "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "b55bf0ba-496a-4cfe-8b5b-66cc6eb89a52",
+      "metadata": {},
+      "schema_version": 5,
+      "source": "Scenes/126-tile-chunk-residency.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
     },
     {
       "dependencies": [],

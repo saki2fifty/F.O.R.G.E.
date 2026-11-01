@@ -1,5 +1,25 @@
 # Feature Gallery
 
+## Camera-driven Tile chunk loading
+
+Open **Scenes/126-tile-chunk-residency.scene.json** and press Play. The camera
+visits five painted regions over a 20 second loop, then returns to the first.
+Open **Tools > Loaded resources** and watch **Tile chunks** as the view moves.
+The complete Map has 322 cells in 10 occupied chunks; each stopped camera view
+needs two decoded pages. Shared Scene and Game views can reuse identical pages.
+
+Stop, open **Assets/Tiles/ChunkResidency.tilemap.json** and paint a region. Save/
+publish the Map, then save the Scene. Edit
+**Assets/Tiles/ChunkResidencyCamera.animation.json** to change the camera route or
+its timing. Select the camera's **Transform Animator** to inspect its Clip and
+loop controls. Use the Scene camera to inspect other regions; background loading
+changes presentation residency while all logical cells remain available.
+
+Choose this Scene as startup before export. The exported game keeps the complete
+Map and its camera Clip. This is bounded decoded-page loading, with no unlimited
+disk-world or automatic collision-unload behavior. See
+[Tile Maps](../../../manual/editor/tile-maps.md).
+
 ## Custom polygon one-way collision
 
 Open **Scenes/125-custom-polygon-one-way.scene.json** and press Play. Amber lands

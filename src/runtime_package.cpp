@@ -222,7 +222,7 @@ void admit_bundle(const AssetRecord& root, const CachedArtifact& artifact) {
     if (root.type == TileSetAsset::type && format == tile_set_cooked_format)
         (void)admit_tile_set_artifact(artifact, root);
     else if (root.type == TileMapAsset::type && format == tile_map_cooked_format)
-        (void)admit_tile_map_artifact(artifact, root);
+        (void)admit_tile_map_archive(artifact, root);
     else if (root.type == ModelAsset::type && format == "forge.model-bundle")
         (void)validate_model_bundle(artifact.files);
     else if (root.type == AnimationBlendSpaceAsset::type &&

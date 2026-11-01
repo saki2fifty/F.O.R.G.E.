@@ -1,6 +1,7 @@
 #pragma once
 #include "../mesh_render_host.hpp"
 #include "asset_labels.hpp"
+#include "editor_state.hpp"
 #include "widgets.hpp"
 #include <forge/engine_assets.hpp>
 namespace forge::ui {
@@ -41,6 +42,7 @@ class ResourceInspector {
                 cpu("Textures", snapshot_.textures);
                 cpu("Tile Sets", snapshot_.tile_sets);
                 cpu("Tile Maps", snapshot_.tile_maps);
+                cpu("Tile chunks", snapshot_.tile_chunks);
                 auto gpu = [&](const char* name, const GpuResidencyStats& value) {
                     ImGui::TextWrapped("%s: %zu resident, %zu retiring | %.2f MiB", name,
                                        value.resident, value.retiring,

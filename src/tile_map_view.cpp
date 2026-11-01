@@ -22,4 +22,26 @@ void visit_visible_tile_chunks(const TileMapData& map, const AffineTransform& wo
                                const std::function<void(const TileMapChunkView&)>& visit) {
     tile_detail::visit_visible(map, world, cameras, visit);
 }
+void visit_visible_tile_chunk_info(const TileMapData& map, const AffineTransform& world,
+                                   std::span<const CameraView> cameras,
+                                   const std::function<void(const TileMapChunkBounds&)>& visit) {
+    map.validate();
+    if (!visit)
+        throw std::invalid_argument("Tile Map visible chunk-info visitor is empty");
+    map.for_each_chunk_info([&](auto key, auto occupied, const void*) {
+        if (const auto bounds = tile_detail::visible_chunk_bounds(key, occupied, map.layers(),
+                                                                  map.cell_size(), world, cameras))
+            visit({key, *bounds, occupied});
+    });
+}
+void visit_visible_tile_chunk_values(const TileMapData& map, const AffineTransform& world,
+                                     std::span<const CameraView> cameras,
+                                     const std::function<void(const TileMapChunkView&)>& visit) {
+    if (!visit)
+        throw std::invalid_argument("Tile Map visible scoped chunk visitor is empty");
+    visit_visible_tile_chunk_info(map, world, cameras, [&](const auto& info) {
+        map.visit_chunk_values(
+            info.key, [&](auto cells, auto) { visit({info.key, cells, info.world_bounds}); });
+    });
+}
 } // namespace forge

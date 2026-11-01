@@ -570,6 +570,13 @@ occupied bounds drive framing; explicit selection can frame hidden layers too.
 Renderer and layer order add in int64, preserving both signed int32 ranges.
 The current scene profile is at most 256 map actors and 262144 visible cell
 instances per camera, within the existing pose/material payload budgets.
+Pose preflight counts the actual cells admitted by the camera's chunk and cell
+bounds tests. Counting and queue emission use the same visitor, including neighbor
+selection and image bounds. Off-camera cells in a partly visible dense chunk do
+not consume transform capacity. Capacity is fixed before the queue retains world
+pointers; an oversized view reports the payload-budget error and can retry when
+the camera returns to a fitting view. Previously allocated capacity remains charged
+until the scene cache releases it.
 
 Sprite instance uploads use ordered default-buffer updates through the backend's
 paged upload owner. They do not retain a DISCARD allocation per cell batch in a
@@ -711,11 +718,81 @@ exact lengths/counts, positive tile keys, supported flag values and strict order
 Truncation, duplicate keys/slots, extra bytes and unsupported headers reject.
 The payload cap is `1024×20 + 262144×16 = 4214784` bytes.
 
-`TileMapData` retains typed immutable chunks and copied layer metadata. Its decoder
+`TileMapData` retains copied layer metadata and immutable dense chunks or references
+into a complete sparse archive. Its decoder
 and camera-view libraries have no dependency on the map source/cooker/document
 libraries. The source-side view is a separate adapter to the same culling helper.
 A runtime-only test links the cooked decoder/view and consumes a hand-authored
 binary fixture; symbol/link checks verify that map authoring code is absent.
+
+`TileMapArchive` is a second pure representation of the same admitted cooked1
+revision: complete immutable sparse bytes, copied layer metadata and a sorted
+chunk index. Copies share both the backing and index. Direct cell queries remain
+exact for off-camera cells, empty slots and absent chunks. A requested chunk can
+decode into a separate dense 32×32 value with cancellation; decoding installs no
+hidden mutable cache in the archive. Full `TileMapData` loading shares the strict
+admission pass and fills its ordinary dense arrays directly, without retaining
+an extra sparse copy or rereading cell records.
+
+Normal runtime Map requests and published-map presentation select the private
+compact profile. Exact cell lookup and the existing edit/erase validator work with
+both representations. Changed chunks become dense COW values; unchanged and no-op
+chunks keep their immutable storage. Complete logical cells remain available to
+physics, neighbor queries, copied Play, recovery and the SDK regardless of camera
+visibility. Explicit full loading remains available for dense tooling consumers.
+
+The existing borrowed chunk/span APIs require dense input and preserve their
+input-lifetime guarantees. Compact consumers use callback-scoped chunk values or
+metadata-only chunk information. `visit_visible_tile_chunk_info` culls metadata
+without decoding; `visit_visible_tile_chunk_values` decodes only admitted chunks
+and lends their cells for the callback. Both use the existing bounds owner.
+No scoped read installs an untracked dense cache in its immutable source.
+
+Private archive/chunk resource profiles use the Map root UUID/type with resource
+variants, not new catalog types or chunk AssetIds. Archive loading uses the same
+selected artifact, recipe, provenance and dependency checks as full loading.
+Chunk workers receive cheap immutable leaf/backing inputs rather than source
+leases or a retained root index; source-owner shutdown cannot invalidate them. The existing resource pool
+owns coalescing, revision checks, cancellation, adoption, budgets and retirement.
+Presentation bounds aggregate live preparation inputs separately from decoded
+page residency, counting shared backing once.
+Publication verification and package admission use the sparse representation when
+they do not need dense cells. Edited checkpoint projections charge their independent
+dense reconstruction, including compact values whose live arrays are smaller or
+shared. The archive and internal resource profiles alone do not establish
+camera-driven residency; the visual-host integration is described below.
+
+## Camera-driven decoded residency
+
+Scene and Game supply their actual current camera views to the existing resource
+host. Each enabled, visible Map requests the union of occupied chunks intersecting
+those views and their layer masks. Preparation runs through the ordinary typed
+ResourcePool; normal drawing consumes ready immutable chunk leases. Independent
+views/renderers can share identical root/key/content pages. Leaving a region
+releases its demand; the owner unloads unused pages and rejects stale completions.
+Exact offscreen cells, instance edits and full collision remain logical data.
+
+The shared presentation page pool allows64MiB decoded CPU payload,64outstanding
+requests and4096profiles. Live pure worker inputs have a separate64MiB aggregate
+backing budget. These limits exclude allocator metadata, logical Map snapshots,
+image banks, variants, GPU buffers and frame targets, which retain their existing
+owners and bounds. **Tools > Loaded resources** includes **Tile chunks** in its
+CPU totals and ordinary revision/request rows. The counters are payload estimates,
+not total RAM/VRAM or a physical-hardware performance measurement.
+
+A newly visited region can remain blank while its complete demanded set prepares.
+For edited/replaced Maps, keep the complete previous logical/image selection until
+the requested visible pages and image group are ready; do not mix partial revisions.
+Per-chunk request failure preserves earlier bindings, settles a bounded diagnostic
+and leaves unrelated consumers intact. Releasing demand permits ordinary retry.
+No-view internal tooling can use the explicit legacy scoped decoding path; visual
+hosts declare their views before drawing and do not synchronously substitute pages.
+
+This streams dense presentation pages over an owned complete sparse cooked file.
+It does not stream files from disk, unload collision, stream image banks or remove
+the262144-cell/1024-chunk/8-layer profile. Snapshot/image/neighbor preparation may
+still inspect complete logical content. Export includes the complete selected Map,
+so later camera movement and exact cell queries work independently of export view.
 
 The internal native `with_cells` operation creates a detached cooked-data
 candidate against an admitted matching Tile Set. It validates every written layer,
@@ -723,7 +800,7 @@ tile key and flag, accepts at most 4096 ordered writes, and uses the last write 
 an address. It checks the final cell/chunk counts before allocating chunk arrays,
 so a valid atomic move at capacity is allowed. Erasing the last cell removes the
 runtime chunk; unknown authoring payloads are absent from this cooked value.
-Unchanged and no-op chunks share their existing immutable arrays. Separate
+Unchanged and no-op chunks share their existing immutable storage. Separate
 candidates cannot change each other or the original asset snapshot.
 
 This operation validates written cells; selecting a compatible baseline/Tile Set
@@ -735,9 +812,12 @@ same bounded, structurally shared patches without a loadable Tile Set.
 
 The maximum-profile test uses all 1024 chunks and 262144 occupied cells. Its
 complete cooked artifact is 4215032 bytes. In the Linux GCC12 configuration its
-retained allocation estimate is 16883912 bytes. That estimate includes typed arrays, container capacity and
+full dense retained allocation estimate is 16892104 bytes. That estimate includes typed arrays, container capacity and
 conservative node/control storage; it is not a measured process RSS or performance
-guarantee. Cooking/publication and explicit-root content packaging
+guarantee. The same fixture's complete sparse archive estimate is 4248152 bytes,
+including shared backing and index metadata; decoding a chunk leaves that estimate
+unchanged. This is a representation comparison, not a claim of completed
+asynchronous streaming. Cooking/publication and explicit-root content packaging
 use the ordinary asset pipeline. The Windows production-game gate passes the
 ordinary export and relocated source-free startup paths.
 

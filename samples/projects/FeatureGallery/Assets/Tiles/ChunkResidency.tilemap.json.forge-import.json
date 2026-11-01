@@ -1,0 +1,50 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [
+      {
+        "kind": "build",
+        "revision": "79508fb8909636330fb804ab0cdb9077fb11ac8c25ce21611ef4e44461c10ed0",
+        "role": "tile_map.tile_set",
+        "target": "cd8aad7c-0d7b-4092-a533-6d46fcf0bfd6",
+        "type": "tile_set"
+      },
+      {
+        "kind": "runtime",
+        "revision": "79508fb8909636330fb804ab0cdb9077fb11ac8c25ce21611ef4e44461c10ed0",
+        "role": "tile_map.tile_set",
+        "target": "cd8aad7c-0d7b-4092-a533-6d46fcf0bfd6",
+        "type": "tile_set"
+      }
+    ],
+    "importer": "forge.tilemap",
+    "importer_revision": "798489a4a784da70bd1120ea80d3ae23c64db1aa7c29e6a71ff6d9c1a12a78bd",
+    "key_version": 1,
+    "output_format": "forge.tile-map-cooked",
+    "output_version": 1,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {},
+    "settings_version": 1,
+    "source": "d9dc7ee3ae3d4f4e0659ae1fdc6e4e7c6133f7ec655866d55c36eeba8cb330d7",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.tile-map.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "523dc6eb-b81d-4a1f-8d08-2d975fbc364e",
+    "source": "Assets/Tiles/ChunkResidency.tilemap.json",
+    "source_digest": "d9dc7ee3ae3d4f4e0659ae1fdc6e4e7c6133f7ec655866d55c36eeba8cb330d7",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.tilemap",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

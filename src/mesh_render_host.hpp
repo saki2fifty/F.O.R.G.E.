@@ -13,7 +13,7 @@
 #include <functional>
 namespace forge {
 struct MeshResourceInspection {
-    ResourceStatistics meshes, materials, textures, particles, tile_sets, tile_maps;
+    ResourceStatistics meshes, materials, textures, particles, tile_sets, tile_maps, tile_chunks;
     GpuResidencyStats gpu_meshes, gpu_textures, environments;
     std::vector<ResourceInfo> revisions, requests;
 };
@@ -73,6 +73,19 @@ class MeshResourceHost {
     std::map<AssetId, std::shared_ptr<const ParticleEffectData>> particle_previews_;
     ResourcePool<TileSetAsset> tile_sets_{{1, 64, 256, 16 * 1024 * 1024}};
     ResourcePool<TileMapAsset> tile_maps_{{1, 64, 256, 64 * 1024 * 1024}};
+    const ResourcePoolLimits tile_chunk_limits_{1, 64, 4096, 64 * 1024 * 1024};
+    ResourcePool<TileMapChunkResource> tile_chunks_{tile_chunk_limits_};
+    struct TileChunkDemand {
+        ResourceTicket ticket;
+        ResourceLease<TileMapChunkResource> lease;
+    };
+    // Weak consumer bindings are not another asset registry or request queue.
+    // Live bindings pin ready pages before idle collection; expired bindings
+    // cancel only their exact current request, never a newer generation.
+    std::map<ResourceIdentity, std::weak_ptr<TileChunkDemand>> tile_chunk_demands_;
+    std::map<const void*, std::weak_ptr<const TileMapChunkInput>> tile_chunk_inputs_;
+    std::shared_ptr<TileChunkDemand> request_tile_chunk(const TileMapChunkInput&);
+    void pump_tile_chunks();
     std::map<AssetId, std::shared_ptr<const TileSetData>> tile_set_previews_;
     std::map<AssetId, std::shared_ptr<const TileMapData>> tile_map_previews_;
     EnvironmentResidency environments_;
@@ -88,7 +101,7 @@ class MeshSceneRenderer {
                                std::uint64_t pose_budget = mesh_pose_payload_limit,
                                std::size_t draw_part_limit = 4096,
                                std::uint64_t material_budget = 16 * 1024 * 1024);
-    bool update(const RenderScene&);
+    bool update(const RenderScene&, std::span<const PreparedCamera> tile_views = {});
     // Capture the last completed rendered frame, after all its camera views.
     // Authored updates may occur between frames; they must not advance history.
     void commit_temporal_frame(bool enabled);
@@ -325,14 +338,22 @@ class MeshSceneRenderer {
         double animation_seconds = 0; // Last valid copied sample; never a separate clock.
         bool pending = false, visible_this_view = false;
         bool rejected = false;
+        struct ChunkBinding {
+            const void* input = nullptr;
+            std::weak_ptr<const TileMapData> owner;
+            std::shared_ptr<MeshResourceHost::TileChunkDemand> demand;
+        };
+        std::map<TileMapChunkKey, ChunkBinding> current_chunks, requested_chunks;
+        bool streamed = false, current_chunks_ready = true, requested_chunks_ready = true;
     };
     std::vector<TileImageInput> tile_images_;
     std::map<EntityId, TileDrawSource> tile_sources_;
     mutable std::optional<std::uint64_t> tile_variant_bytes_;
     std::vector<AffineTransform> tile_worlds_;
     std::vector<TileImageInput> prepare_tile_sources(const RenderScene&);
+    bool prepare_tile_chunks(std::span<const PreparedCamera>);
     RenderTileMap resolve_tile_assets(TileDrawSource&, const RenderTileMap&);
-    void adopt_tile_images();
+    bool adopt_tile_images();
     std::uint64_t tile_material_bytes() const;
     struct ParticleSource {
         AssetRef<ParticleEffectAsset> effect;

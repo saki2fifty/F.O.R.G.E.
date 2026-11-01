@@ -1,5 +1,6 @@
 #pragma once
 #include "cooked_envelope.hpp"
+#include "tile_map_archive.hpp"
 #include "tile_map_projection.hpp"
 #include <algorithm>
 #include <stdexcept>
@@ -64,7 +65,7 @@ inline TileSetData definitions(AssetId id, bool collision_profiles = false,
                                   id);
 }
 inline TileMapData profile(AssetId id, AssetId set, unsigned count, unsigned occupied,
-                           bool wide_keys = false, unsigned flags = 0) {
+                           bool wide_keys = false, unsigned flags = 0, bool compact = false) {
     std::vector<std::byte> payload;
     for (unsigned chunk = 0; chunk < count; ++chunk) {
         for (auto scalar : {1u, 0u, chunk, 0u, occupied})
@@ -83,14 +84,14 @@ inline TileMapData profile(AssetId id, AssetId set, unsigned count, unsigned occ
         {"cell_count", count * occupied},
         {"layers",
          {{{"id", 1}, {"name", "Projection fixture"}, {"visible", true}, {"order", -3}}}}};
-    return decode_cooked_tile_map(asset_detail::encode_envelope(root, payload,
-                                                                tile_map_cooked_magic,
-                                                                tile_map_cooked_metadata_limit),
-                                  id);
+    const auto bytes = asset_detail::encode_envelope(root, payload, tile_map_cooked_magic,
+                                                     tile_map_cooked_metadata_limit);
+    return compact ? decode_tile_map_archive(bytes, id).compact()
+                   : decode_cooked_tile_map(bytes, id);
 }
-inline auto pointers(const TileMapData& map) {
-    std::map<TileMapChunkKey, const TileMapCell*> out;
-    map.for_each_chunk([&](auto key, auto cells, auto) { out[key] = cells.data(); });
+inline auto storage_identities(const TileMapData& map) {
+    std::map<TileMapChunkKey, const void*> out;
+    map.for_each_chunk_info([&](auto key, auto, const void* token) { out[key] = token; });
     return out;
 }
 inline void equal(const TileMapData& actual, const TileMapData& expected) {
@@ -99,10 +100,15 @@ inline void equal(const TileMapData& actual, const TileMapData& expected) {
               actual.occupied() == expected.occupied() &&
               actual.chunk_count() == expected.chunk_count(),
           "Copied tile metadata/counts differ");
-    const auto other = pointers(expected);
-    actual.for_each_chunk([&](auto key, auto cells, auto) {
-        check(other.contains(key) && std::equal(cells.begin(), cells.end(), other.at(key)),
-              "Copied chunk contents differ");
+    actual.for_each_chunk_values([&](auto key, auto cells, auto count) {
+        check(expected.visit_chunk_values(key,
+                                          [&](auto other, auto occupied) {
+                                              check(count == occupied &&
+                                                        std::equal(cells.begin(), cells.end(),
+                                                                   other.begin()),
+                                                    "Copied chunk contents differ");
+                                          }),
+              "Copied chunk key is absent from the expected logical map");
     });
 }
 } // namespace forge::test_tile_projection

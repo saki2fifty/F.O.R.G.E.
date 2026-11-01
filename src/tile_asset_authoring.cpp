@@ -228,7 +228,7 @@ class TileImporter final : public AssetImporter {
                 "Tile candidate output version differs from its current recipe");
         const auto id = envelope.metadata.at("asset_id").get<AssetId>();
         if (map_)
-            (void)decode_cooked_tile_map(bytes, id);
+            (void)decode_tile_map_archive(bytes, id);
         else
             (void)decode_cooked_tile_set(bytes, id);
     }
@@ -253,7 +253,7 @@ void publish(AssetPublicationCandidate& candidate, const AssetImportPlan& plan, 
     const auto& file = candidate.files[0];
     std::map<std::string, std::pair<AssetId, std::string>> expected;
     if (map) {
-        const auto data = decode_cooked_tile_map(file.bytes, candidate.ticket.owner);
+        const auto data = decode_tile_map_archive(file.bytes, candidate.ticket.owner);
         expected.emplace("tile_map.tile_set",
                          std::pair{data.tile_set(), std::string(TileSetAsset::type)});
     } else {

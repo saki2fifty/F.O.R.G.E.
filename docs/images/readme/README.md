@@ -655,7 +655,6 @@ pixel and the full dimensions. No generated or retouched interface content is us
 | [physics-body](../../../manual/images/physics-body.png) | `grid-test-images/editor/editor-physics-body-motion-tuning.ppm` | `c4458f895264a2d7f43623bb197e3b81f6b13fcb7a29ea6f45fc0a7c7fe6a281` |
 | [shader-import](../../../manual/images/shader-import.png) | `grid-test-images/editor/editor-surface-shader-import.ppm` | `fd4fe2f7d75e71312f019f98921c3d79e63e029c55457ecb01c4bcd8b4a883a4` |
 | [flecs-script](../../../manual/images/flecs-script.png) | `grid-test-images/editor/editor-flecs-script.ppm` | `cb5f1a310771aad11263d032c42863b7a028621a13f76c47126292ec006186f7` |
-| [loaded-resources](../../../manual/images/loaded-resources.png) | `grid-test-images/editor/editor-loaded-resources.ppm` | `badc86ce95ab4ae2831d3c07814f378515b17fe2307160144aa3d24634b4f1ec` |
 | [problems](../../../manual/images/problems.png) | `grid-test-images/editor/editor-problems.ppm` | `94a26da0a1dc52e1f490d88225397afa3ca839241f82411cd5b52815a9966fa1` |
 | [command-palette](../../../manual/images/command-palette.png) | `grid-test-images/editor/editor-command-palette.ppm` | `7b54192728c94fa640b055db4b1a798d5cd0ee1520ed07549e2d1849ffd7788e` |
 | [timeline-curves](../../../manual/images/timeline-curves.png) | `grid-test-images/editor/editor-timeline-curves-view.ppm` | `6f8d5bfd45cb62a55319f11854e3a211c1267b277a0a7f05799ed4f2a6f48621` |
@@ -1019,3 +1018,42 @@ logs. The Gallery candidate's four authored/relocated display pairs match exactl
 with sources removed. These captures do not establish Windows/MSVC/FXC/cooked D3D12,
 physical GPU/input/DPI, full editor or exported graphical EXE acceptance. Software
 timings are not physical performance evidence.
+
+## Decoded Tile chunk resource pane
+
+[Loaded resources](../../../manual/images/loaded-resources.png) shows the current
+`ResourceInspector` component with a real `MeshResourceHost`, two shared decoded
+pages and ordinary Mesh/Material/Texture resources. Source is the bounded Tile
+view fixture: five visible cells plus16384offscreen cells, shared by two actual
+software-Vulkan renderers. The runtime snapshot supplies logical Map data outside
+the presentation Map pool, explaining its zero root-resource counter here.
+
+Capture uses the actual current ImGui component, FORGE style and packaged
+LatoLatin-Regular font. An operational rasterizer records its unmodified draw
+output at900×740; lossless PPM-to-PNG conversion preserves all pixels. This is a
+component layout illustration, not full editor interaction, native UI GPU, physical
+Windows/DPI or performance acceptance. No generated or retouched controls/text.
+Local capture source, commands, input hashes and limitations are recorded under
+`AgentFiles/build/phase205-tile-map-streaming/resource-capture-proof.json` outside
+the product tree. The screenshot updates the canonical image used by the manual.
+
+Raw PPM SHA256: `ee49bbfaba823e32e91bf380ef61c37f40e39ac54b0a38200625bc492b02ef43`.
+PNG SHA256: `c05a84f04b0aaea18562025492cfc00875bfd2020563181cb872c72973ee5581`.
+
+## Tile chunk residency Gallery
+
+`manual/images/tile-chunk-residency-gallery.png` is the unmodified640×360 Game
+capture at tick0 of Gallery126 from `tile_residency_gallery_vulkan`. The actual
+FrameRenderer/Scene Viewport check visits five regions and loops back, confirms
+Scene retained redraw/picking/full logical framing and two coalesced chunk pages
+per stopped view, and compares all12Game/Scene images exactly after relocation
+with source files offline. Current source Scene explicitly excludes the camera's
+legacy primitive; the published Map/Clip and all prior asset IDs remain unchanged.
+
+The canonical PNG is shared by README and manual. This is actual software Vulkan
+rendering of original FORGE content, not a full-editor interaction capture,
+physical Windows/GPU/DPI acceptance or performance result. No retouching or image
+generation. Local log: `gallery-camera-native-final-test.log` in the active batch
+evidence; its receipt and source/input hashes remain outside the product tree.
+
+PNG SHA256: `116b8247bc58e31d9253838bf77eb55ffa0f43cd936561eb1f8f59894b670f21`.

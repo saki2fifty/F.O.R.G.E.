@@ -34,6 +34,8 @@ for source, cooked in (('Assets/Shape.mesh.json', 'mesh.bin'),
                        ('Assets/Tiles/ContourTiles.tileset.json', 'tileset.bin'),
                        ('Assets/Tiles/ContourTiles.tilemap.json', 'tilemap.bin'),
                        ('Assets/Tiles/DynamicTiles.tilemap.json', 'tilemap.bin'),
+                       ('Assets/Tiles/ChunkResidency.tilemap.json', 'tilemap.bin'),
+                       ('Assets/Tiles/ChunkResidencyCamera.animation.json', 'animation.clip'),
                        ('Assets/Tiles/ArrowCourse.tilemap.json', 'tilemap.bin'),
                        ('Assets/Tiles/PaintedPlatforms.tilemap.json', 'tilemap.bin'),
                        ('Assets/Sprites/Badge.material.json', 'material.values'),
@@ -95,6 +97,17 @@ for source, cooked in (('Assets/Shape.mesh.json', 'mesh.bin'),
     assert json.loads((project_root / source).read_text(encoding="utf-8"))['asset_id'] == asset['id']
     assert (project_root / '.forge/cache/derived' /
             asset['metadata']['forge.import']['key'] / cooked).is_file()
+residency_source = 'Scenes/126-tile-chunk-residency.scene.json'
+residency_scene = json.loads((project_root / residency_source).read_text(encoding='utf-8'))
+assert residency_scene['asset_id'] == by_source[residency_source]['id']
+residency_cameras = [row['components'] for row in residency_scene['entities']
+                     if 'forge.camera' in row['components']]
+assert len(residency_cameras) == 1
+# An absent legacy primitive defaults to a cube, including on a Camera.
+assert residency_cameras[0]['forge.primitive']['kind'] == 4
+assert residency_cameras[0]['forge.transform_animator']['clip'] == \
+    by_source['Assets/Tiles/ChunkResidencyCamera.animation.json']['id']
+
 # The saved capture is an ordinary, stable Texture/Scene fixture. Its direct
 # camera masks keep the emissive source panels out of the game while the supplied
 # cube records them; the sphere receivers are excluded from capture mask1.

@@ -32,13 +32,13 @@ std::int32_t coordinate(const Json& value) {
     return std::int32_t(result);
 }
 struct Chunk {
-    const TileMapCell* cells;
+    const void* identity;
     std::size_t occupied;
 };
 auto chunks(const TileMapData& map) {
     std::map<TileMapChunkKey, Chunk> result;
-    map.for_each_chunk(
-        [&](auto key, auto cells, auto count) { result.emplace(key, Chunk{cells.data(), count}); });
+    map.for_each_chunk_info(
+        [&](auto key, auto count, const void* token) { result.emplace(key, Chunk{token, count}); });
     return result;
 }
 Json map_metadata(const TileMapData& map) {
@@ -128,7 +128,7 @@ std::vector<TileMapChunkKey> tile_map_projection_changes(const TileMapData& curr
         const auto at = now.find(key);
         if (at == now.end())
             changes.push_back({key, -std::int64_t(row.occupied)});
-        else if (at->second.cells != row.cells)
+        else if (at->second.identity != row.identity)
             changes.push_back(
                 {key, std::int64_t(at->second.occupied) - std::int64_t(row.occupied)});
     }
@@ -147,7 +147,6 @@ std::vector<TileMapChunkKey> tile_map_projection_changes(const TileMapData& curr
 Json tile_map_projection_page(const TileMapData& current, std::span<const TileMapChunkKey> keys) {
     require(keys.size() <= tile_projection_page_chunks,
             "Tile presentation page has too many chunks");
-    const auto values = chunks(current);
     std::set<TileMapChunkKey> seen;
     Json page = Json::array();
     for (const auto key : keys) {
@@ -158,13 +157,13 @@ Json tile_map_projection_page(const TileMapData& current, std::span<const TileMa
         (void)tile_cell_address({key.address, 0});
         (void)tile_cell_address({key.address, tile_chunk_cells - 1});
         Json cells = Json::array();
-        const auto found = values.find(key);
-        if (found != values.end())
+        current.visit_chunk_values(key, [&](auto values, auto) {
             for (unsigned slot = 0; slot < tile_chunk_cells; ++slot) {
-                const auto cell = found->second.cells[slot];
+                const auto cell = values[slot];
                 if (cell.tile)
                     cells.push_back({slot, cell.tile, cell.flags});
             }
+        });
         page.push_back({{"layer", key.layer},
                         {"x", key.address.x},
                         {"y", key.address.y},
@@ -175,7 +174,8 @@ Json tile_map_projection_page(const TileMapData& current, std::span<const TileMa
     return page;
 }
 TileMapData apply_tile_map_projection_page(const TileMapData& baseline,
-                                           const TileSetData& definitions, const Json& page) {
+                                           const TileSetData& definitions, const Json& page,
+                                           bool compact) {
     require(page.is_array() && page.size() <= tile_projection_page_chunks &&
                 page.dump().size() <= tile_projection_page_bytes,
             "Invalid Tile presentation page size");
@@ -204,6 +204,7 @@ TileMapData apply_tile_map_projection_page(const TileMapData& baseline,
         for (unsigned slot = 0; slot < tile_chunk_cells; ++slot)
             writes.push_back({key.layer, tile_cell_address({key.address, slot}), cells[slot]});
     }
-    return baseline.with_cells(writes, definitions);
+    return compact ? baseline.with_compact_cells(writes, definitions)
+                   : baseline.with_cells(writes, definitions);
 }
 } // namespace forge

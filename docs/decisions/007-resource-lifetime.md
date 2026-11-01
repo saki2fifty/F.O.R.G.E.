@@ -45,3 +45,18 @@ Implement the minimal typed pool/lease at the first Phase 7 loaded rendering
 resource. Preserve private subsystem ownership behind it; do not rewrite existing
 caches solely for interface uniformity. Streaming adds partial residency to a revision,
 not a new AssetId. Stale/cancelled completion cannot reactivate an unloaded request.
+
+## Tile Map decoded-chunk boundary
+
+Keep the complete validated sparse cooked revision in an immutable owned archive.
+Resource profiles may decode individual dense chunks through the existing pool's
+asset/variant and lease rules. Both profiles retain the Map root identity/type;
+local chunk coordinates are neither catalog entries nor durable AssetIds.
+Workers receive pure owned values, not resource leases or pointers that owner
+shutdown can revoke. Byte backing survives cache removal independently of paths.
+Bound preparation inputs separately from adopted dense-page memory.
+
+Logical cell lookup must remain exact regardless of decoded residency. Render
+visibility must not silently remove physical geometry, authored cells, runtime
+edits or neighbor-query evidence. Existing full-loading behavior remains supported.
+The archive/pool foundation does not itself establish a complete streaming workflow.

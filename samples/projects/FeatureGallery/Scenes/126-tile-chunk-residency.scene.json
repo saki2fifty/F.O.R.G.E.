@@ -1,0 +1,95 @@
+{
+  "asset_id": "b55bf0ba-496a-4cfe-8b5b-66cc6eb89a52",
+  "entities": [
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 0.0,
+          "background_a": 1.0,
+          "background_b": 0.06499999761581421,
+          "background_g": 0.03999999910593033,
+          "background_r": 0.02500000037252903,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 50.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 12.0,
+          "orthographic_width": 0.0,
+          "projection": 1,
+          "vertical_fov": 1.0471975511965976,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 7.5,
+          "y": 0.0,
+          "z": -12.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.transform_animator": {
+          "clip": "6d7b5ecf-3f97-4fb5-899c-f62c68767a4a",
+          "enabled": true,
+          "loop": true,
+          "play_on_start": true,
+          "playback_speed": 1.0,
+          "sequence": null,
+          "sequence_start_seconds": 0.0
+        }
+      },
+      "id": "ef58b796-9bc6-4c89-adca-8cf0bebdcb12",
+      "name": "Camera - five regions, 20 second loop",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.tile_map_renderer": {
+          "enabled": true,
+          "layers": 4294967295,
+          "map": "523dc6eb-b81d-4a1f-8d08-2d975fbc364e",
+          "mip_filter": 0,
+          "order": 0,
+          "tint_a": 1.0,
+          "tint_b": 1.0,
+          "tint_g": 1.0,
+          "tint_r": 1.0,
+          "visible": true
+        }
+      },
+      "id": "daa40733-d764-4b27-88b2-2daa97b6d2f4",
+      "name": "Five sparse regions - move cameras and inspect Tile chunks",
+      "spatial": {
+        "mode": "world"
+      }
+    }
+  ],
+  "version": 5
+}

@@ -4,16 +4,25 @@ Open **Tools > Loaded resources** when you need to understand what the Scene and
 Game views have loaded. This is an on-demand diagnostic window; it does not change
 your scene or unload objects.
 
-![Loaded Resources window listing prepared content](../images/loaded-resources.png)
+![Loaded Resources window showing two shared Tile chunks and their CPU payload](../images/loaded-resources.png)
 
 Inspect loaded resources when investigating missing content or memory use.
 
 ## Read the resource window
 
-The summary shows loaded, pending and retiring Mesh, Material and Texture resources,
-plus their CPU payload. GPU mesh buffers, textures and environment maps have separate
+The summary shows loaded, pending and retiring Mesh, Material, Texture, Tile Set,
+Tile Map and **Tile chunks** resources, plus their CPU payload. GPU mesh buffers, textures and environment maps have separate
 payload totals. These totals exclude driver overhead, render targets and independent
 asset previews. They are not total graphics-card memory usage.
+
+**Tile Maps** reports loaded logical Map resources. **Tile chunks** counts the
+decoded 32×32 pages needed by the current Scene and Game cameras. Move the cameras
+between painted regions to see demand change; shared views can reuse the same
+pages. The counts can differ when Game supplies a retained runtime snapshot.
+Leaving a region releases unused pages without erasing cells or collision.
+A newly visited region may appear after background preparation completes. An
+edited Map keeps its previous complete working selection while replacement pages
+prepare. Check **Requests and errors** if a view cannot fit the resource limits.
 
 Expand a resource row to see its AssetId, loaded revision, source, semantic variant
 and strong lease count. A strong lease means a consumer still needs that revision.

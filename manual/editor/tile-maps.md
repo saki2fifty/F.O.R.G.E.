@@ -134,6 +134,32 @@ then the affected map. A failed publication retains the last working result and
 reports the problem. The built-in profile supports up to 262144 occupied cells,
 1024 chunks and 8 layers per map; it does not stream an unlimited world.
 
+## Camera movement and loading
+
+Open **Scenes/126-tile-chunk-residency.scene.json** in the Feature Gallery to
+watch a looping camera visit five painted regions.
+
+![The cyan first region of a sparse Tile Map, drawn from two visible chunk pages](../images/tile-chunk-residency-gallery.png)
+
+The camera visits five regions and returns to the first during each loop.
+
+FORGE prepares decoded 32×32 Tile chunks for the current Scene and Game camera
+views in the background. A new region may remain blank briefly until its visible
+chunks are ready. Multiple cameras share identical pages; leaving a region releases
+unused decoded pages. Logical cells, offscreen edits and collision stay available.
+
+Open **Tools > Loaded resources** and inspect **Tile chunks** to check loaded,
+pending and retiring pages. The shared presentation pool allows 64 MiB of decoded
+pages; if a view exceeds the work/resource profile, check **Requests and errors**
+and reduce its visible region or the number of overlapping Maps. Releasing demand
+allows loading to recover. Edited Maps retain their complete previous working
+selection while replacement pages and images prepare.
+
+Save/publish the Map and save its Scene before export. Export includes the complete
+selected Map, so the exported game can move its cameras beyond the editor's current
+view. This remains a bounded Map profile; it does not stream an unlimited world
+from disk or unload physical collision as the camera moves.
+
 ## Make painted floors and walls
 
 Open **Scenes/77-painted-2d-collision.scene.json** in the Feature Gallery, press

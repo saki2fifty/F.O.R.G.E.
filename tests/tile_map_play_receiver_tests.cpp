@@ -302,7 +302,8 @@ int main() {
         const auto full = bound(receiver, scene, view).cells;
         equal(*full, *view.cells);
         check(!full->cell(1, {6 * 32, 0}).tile && full->cell(1, {-32, 0}).tile == wide &&
-                  pointers(*full).at({1, {1, 0}}) == pointers(*old_full).at({1, {1, 0}}),
+                  storage_identities(*full).at({1, {1, 0}}) ==
+                      storage_identities(*old_full).at({1, {1, 0}}),
               "Full fallback kept an absent chunk or copied an unchanged array");
         receiver.observe(source.capture(3, scene, {}));
         check(!receiver.pending() && receiver.retained_bytes() == 0 &&
@@ -340,20 +341,27 @@ int main() {
         {
             TileMapPlaySource large_source;
             TileMapPlayReceiver large_receiver;
-            std::vector<TileMapPlayView> large(4, view);
+            std::vector<TileMapPlayView> large(16, view);
             unsigned private_flags = 0;
             for (auto& value : large) {
                 value.entity = EntityId::generate();
+                value.requested = AssetId::generate();
                 value.map_revision = "large-private-base";
                 value.edited = true;
                 value.cells = std::make_shared<const TileMapData>(
-                    profile(id, set, 1024, 256, false, private_flags++));
+                    profile(value.requested, set, 1024, 256, false, private_flags++ % 8, true));
             }
             large_receiver.observe(large_source.capture(99, scene, large));
             bool capped = false;
-            for (unsigned operation = 0; operation < 2000 && !capped; ++operation) {
+            bool first_four_fit = false;
+            for (unsigned operation = 0; operation < 10000 && !capped; ++operation) {
                 try {
                     step(large_source, large_receiver);
+                    if (!first_four_fit)
+                        first_four_fit =
+                            std::all_of(large.begin(), large.begin() + 4, [&](const auto& value) {
+                                return bool(bound(large_receiver, scene, value).cells);
+                            });
                 } catch (const std::runtime_error& error) {
                     capped =
                         std::string(error.what()).find("cache exceeds 64 MiB") != std::string::npos;
@@ -361,7 +369,9 @@ int main() {
                         throw;
                 }
             }
-            check(capped, "Four distinct maximum private values bypassed the copied cache budget");
+            check(first_four_fit,
+                  "Compact copied Maps unexpectedly exhausted the budget before four values");
+            check(capped, "Maximum private values bypassed the copied cache budget");
             step(large_source,
                  large_receiver); // Cancel rejected candidate; retain admitted frames.
             check(large_receiver.retained_bytes() <= 64 * 1024 * 1024,
