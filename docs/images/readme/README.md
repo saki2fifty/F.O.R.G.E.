@@ -1098,3 +1098,23 @@ output of `forge_material_graph_geometry_editor_tests`. Current capture was
 personally viewed at its original dimensions, with no image retouching.
 
 PNG SHA256: `5562d10cee54d53f12b2d100b55a20dba7771be7e134aa2cf447d2cf4841be45`.
+
+
+### Sprite and Tile bloom
+
+`manual/images/sprite-tile-bloom.png` is an unretouched 640×360 FORGE Game display
+from the original Gallery 128 Scene. Captured with the actual FrameRenderer,
+MeshResourceHost, RuntimeWorld, ordinary Texture/Material/Tile resources and existing
+HdrBloom on local software Vulkan. The matching authored/source-free relocated
+captures are byte-identical. It is not an editor-window mockup, physical GPU
+measurement or Windows acceptance. Capture provenance and image hashes are retained
+in the local Sprite/Tile bloom validation evidence. The shared Scene controls are
+unchanged; the manual uses this one canonical Game image for the visual result.
+
+Capture source: `tests/sprite_bloom_gallery_render_tests.hpp`, exercised by
+`forge_sprite_bloom_gallery_vulkan_probe` / CTest `sprite_bloom_gallery_vulkan`.
+Renderer baseline: `482811d` plus the local shared bloom Gallery fixture; no numbered
+release identity was assigned. Adapter: `llvmpipe (LLVM 15.0.7, 128 bits)`.
+Scene AssetId: `41785133-5f53-4669-987e-ad39f7b4dfe3`.
+Canonical PNG SHA256:
+`6ad949e3bc25b1b06430ba408305b58580c108d3c53f9e9fa935d2e74b5b79fd`.

@@ -1,0 +1,43 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [
+      {
+        "kind": "runtime",
+        "revision": "cf5deae3b2a5f00c9d0c63be55c361558d6a6239ab523f6e71ebf17f4b6701d4",
+        "role": "material.texture:baseColorTexture",
+        "target": "cc242962-8007-41f3-a184-b9bf3a9f9cab",
+        "type": "texture"
+      }
+    ],
+    "importer": "forge.material.builtin",
+    "importer_revision": "6b058e8063bd3f0b8b187b75a3f9ba33f857c200b9eb87d1c636cb28d4aabd5c",
+    "key_version": 1,
+    "output_format": "forge.material-bundle",
+    "output_version": 2,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {},
+    "settings_version": 1,
+    "source": "1f487d727f5786f3d1dd9c28c00b6257d8c3cd5893620bfb62a0f457c3de4ac6",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.material.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "0c311988-d65d-457c-8756-ae6be0aeed15",
+    "source": "Assets/Sprites/GlowShapes.material.json",
+    "source_digest": "1f487d727f5786f3d1dd9c28c00b6257d8c3cd5893620bfb62a0f457c3de4ac6",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.material.builtin",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

@@ -1,5 +1,23 @@
 # Feature Gallery
 
+## Glow for Sprites and Tile Maps
+
+Open **Scenes/128-sprite-tile-bloom.scene.json**. The three large shapes are Sprites;
+the lower pattern is one Tile Map. They share the original **GlowShapes.png** image
+and an ordinary unlit image material. No custom shader compiler or C++ module is
+needed for this example.
+
+In **Tools > Scene lighting... > Bloom**, toggle **Enable bloom**. Try **Brightness
+threshold → 0.25**, **Intensity → 1.25** and **Spread → 3**, pressing Enter after each
+number. Compare Scene preview and Game. The scene's saved threshold acts on linear
+image brightness before display exposure; values below1 include ordinary image
+highlights. This applies to bright world content and does not create Sprite lighting
+or a selective per-object glow switch. Save the Scene before exporting; choose this
+Scene as startup in Project Settings and save settings.
+
+See [World sprites](../../../manual/editor/sprites.md)
+and [Scene lighting](../../../manual/editor/lighting.md).
+
 ## Source-aware Sprite atlases
 
 Open **Scenes/127-source-aware-sprite-atlas.scene.json** and press Play. The top

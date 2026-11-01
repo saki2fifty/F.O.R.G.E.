@@ -1,0 +1,49 @@
+{
+  "asset_id": "0c311988-d65d-457c-8756-ae6be0aeed15",
+  "kind": "forge.material",
+  "overrides": {
+    "alpha": 2,
+    "depth_write": false,
+    "double_sided": true,
+    "model": "forge.gltf.unlit.v1",
+    "textures": {
+      "baseColorTexture": {
+        "asset": "cc242962-8007-41f3-a184-b9bf3a9f9cab",
+        "slot": {
+          "dimension": 0,
+          "offset": [
+            0.0,
+            0.0
+          ],
+          "rotation": 0.0,
+          "sampler": {
+            "anisotropy": 1,
+            "border": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "compare": 0,
+            "lod_bias": 0.0,
+            "mag": 1,
+            "max_lod": 1000.0,
+            "min": 1,
+            "min_lod": 0.0,
+            "mip": 1,
+            "u": 2,
+            "v": 2,
+            "w": 0
+          },
+          "scale": [
+            1.0,
+            1.0
+          ],
+          "semantic": 0,
+          "uv_set": 0
+        }
+      }
+    }
+  },
+  "version": 1
+}

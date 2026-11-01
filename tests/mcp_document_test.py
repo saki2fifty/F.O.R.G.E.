@@ -153,6 +153,30 @@ for legacy in (False, True):
         assert not result['ok'] and discover()['revision'] == before['revision'], result
         assert mutate('forge_document_save')['ok']
         assert json.loads((project / 'Scenes/main.scene.json').read_text(encoding='utf-8'))['rendering']['weighted_transparency'] is True
+        # Sprite/Tile glow uses the existing Scene-owned bloom operation. Its
+        # source/MCP schemas, replay, history and saved values share one owner.
+        bloom_schema = exposure_command['input_schema']['properties']['bloom']
+        assert exposure_tool['inputSchema']['properties']['arguments']['properties']['bloom'] == bloom_schema
+        assert set(bloom_schema['properties']) == {'enabled', 'threshold', 'intensity', 'radius'}
+        assert bloom_schema['properties']['threshold']['maximum'] == 65504
+        assert bloom_schema['properties']['radius']['minimum'] == .5
+        bloom_arguments = arguments(arguments=dict(bloom=dict(
+            enabled=True, threshold=.25, intensity=1.25, radius=3)))
+        before_bloom = discover()
+        glow = client.tool('forge_scene_rendering_set', **bloom_arguments)
+        assert glow['ok'] and glow['revision'] != before_bloom['revision'], glow
+        assert client.tool('forge_scene_rendering_set', **bloom_arguments) == glow
+        assert mutate('forge_history_undo')['result']['changed']
+        assert mutate('forge_history_redo')['result']['changed']
+        for bad in (dict(enabled=1), dict(threshold=-1), dict(intensity=4.01),
+                    dict(radius=.49), dict(enabled=False, threshold=65505)):
+            before = discover()
+            result = mutate('forge_scene_rendering_set', arguments=dict(bloom=bad))
+            assert not result['ok'] and discover()['revision'] == before['revision'], result
+        assert mutate('forge_scene_rendering_set', arguments=dict(bloom=dict(intensity=1.5)))['ok']
+        assert mutate('forge_document_save')['ok']
+        saved_bloom = json.loads((project / 'Scenes/main.scene.json').read_text(encoding='utf-8'))['rendering']['bloom']
+        assert saved_bloom == dict(enabled=True, threshold=.25, intensity=1.5, radius=3)
         assert exposure_tool['inputSchema']['properties']['arguments']['properties']['auto_exposure'] == exposure_schema
         assert set(exposure_schema['properties']) == {
             'enabled', 'min_ev', 'max_ev', 'low_percentile', 'high_percentile',

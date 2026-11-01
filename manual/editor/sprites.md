@@ -297,6 +297,32 @@ Custom Sprite shaders use Windows/D3D12. A Mesh surface graph cannot be used as 
 Sprite material. Save and compile the Shader, save its Material, then save the
 Scene before exporting. The exported game uses the cooked program and image data.
 
+## Add glow to images and tiles
+
+Open **Scenes/128-sprite-tile-bloom.scene.json** in the Feature Gallery. Its top row
+contains three Sprites; the lower pattern is a Tile Map. They share an ordinary
+image material and the scene's glow settings.
+
+1. Open **Tools > Scene lighting...** and find **Bloom**.
+2. Select **Enable bloom**. Try **Brightness threshold → 0.25**, **Intensity → 1.25** and **Spread → 3**. Press Enter to commit each number.
+3. Toggle **Enable bloom** to compare the edges in Scene preview. Press Play and open Game to see the same saved effect through the game camera.
+4. Save the scene. To export this example, select it as the project's startup scene in Project Settings, save settings, then use Export Game.
+
+![Three glowing image shapes above a Tile Map pattern in the FORGE Game renderer](../images/sprite-tile-bloom.png)
+
+Sprites and Tile Maps use the same scene glow settings.
+
+Bloom uses linear image brightness before display exposure. Ordinary image colors
+usually need a threshold below **1**. Raising **Exposure** does not change which
+pixels cross that threshold. **Intensity → 0** bypasses glow; **Undo / Redo** reverses
+committed changes. Settings are read-only during Play.
+
+The effect applies to bright world content across the scene. It does not add Sprite
+lighting or select individual objects for glow. Separate camera rectangles keep
+the effect inside each view; runtime UI is composed afterward. See
+[Add glow to bright surfaces](lighting.md) for controls
+and overlapping-camera behavior.
+
 ## Filter small or distant images
 
 ![Sprite Inspector showing Linear mip filtering in the Image fill section](../images/sprite-mip-filtering-controls.png)

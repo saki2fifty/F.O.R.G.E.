@@ -559,7 +559,9 @@ Scene values in place; correct them and press Enter to continue.
 
 In **Tools > Scene lighting...**, scroll to **Bloom** and select **Enable bloom**.
 Try **48-hdr-bloom** in the Feature Gallery to compare warm/cool emissive cubes with
-an ordinary cube. Save the scene and export it through the usual Export Game window.
+an ordinary cube. Save the scene and export it through the usual Export Game window. For an
+image-only example, open **128-sprite-tile-bloom**; its Sprites and Tile Map use the
+same controls. See [glow for images and tiles](sprites.md).
 
 - **Brightness threshold** selects how bright a surface must be before it glows. Start at **1**; lower values include dimmer surfaces.
 - **Intensity** controls the added glow from **0** to **4**. **0** bypasses bloom.

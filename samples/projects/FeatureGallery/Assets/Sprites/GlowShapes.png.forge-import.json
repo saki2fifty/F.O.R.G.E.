@@ -1,0 +1,51 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [],
+    "importer": "forge.texture.image",
+    "importer_revision": "d7df0d01ab6475c034e782952f919bfd2286de61264b5bf491fc58b542326406",
+    "key_version": 1,
+    "output_format": "forge.texture-bundle",
+    "output_version": 1,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {
+      "additional_usages": [],
+      "anisotropy": 1,
+      "compression": "none",
+      "filter": "linear",
+      "flip_green": false,
+      "flip_vertical": false,
+      "max_size": 16384,
+      "mips": false,
+      "premultiply": false,
+      "semantic": "auto",
+      "transfer": "auto",
+      "wrap": "repeat"
+    },
+    "settings_version": 1,
+    "source": "e5342196eed89b111b8e3c3b816f9f9f44895ecb89a264c9fc4d00dc248c99c4",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.texture.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "cc242962-8007-41f3-a184-b9bf3a9f9cab",
+    "source": "Assets/Sprites/GlowShapes.png",
+    "source_digest": "e5342196eed89b111b8e3c3b816f9f9f44895ecb89a264c9fc4d00dc248c99c4",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.texture.image",
+    "overrides": {
+      "compression": "none",
+      "mips": false
+    },
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

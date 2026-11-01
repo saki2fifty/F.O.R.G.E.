@@ -100,6 +100,16 @@ history. Save through the existing document owner to retain settings for export.
 Read-only grants do not expose this mutation. These are authored Game settings,
 not a new live-Play control. See [automatic exposure](scene-auto-exposure.md).
 
+World Sprite and Tile glow uses that same Scene operation. Send
+`arguments: {"bloom":{"enabled":true,"threshold":0.25,"intensity":1.25,"radius":3}}`
+to `forge_scene_rendering_set` with the current discovered target, revision and
+sequence. Partial bloom fields retain the other values; invalid candidates do not
+change the Scene or revision. Replay, Undo/Redo and document Save use the existing
+owners. The threshold acts on linear world-image brightness before exposure, so
+ordinary image highlights generally need a value below 1. This is authored shared
+bloom, with no separate Sprite effect tool or live-Play mutation. See
+[HDR bloom](hdr-bloom.md) and Gallery example **128-sprite-tile-bloom**.
+
 `scene.rendering.set` / `forge_scene_rendering_set` accepts
 `{"temporal_anti_aliasing":{"enabled":true,"stability":0.85}}`.
 

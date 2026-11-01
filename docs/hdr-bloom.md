@@ -63,3 +63,21 @@ Gallery48 uses two original emissive Material sources/cooks, an ordinary cube, f
 camera and light, through existing publication, typed references and source-free
 export. See the [Gallery guide](../samples/projects/FeatureGallery/README.md) and
 [lighting walkthrough](../manual/editor/lighting.md).
+
+## World Sprite and Tile images
+
+The shared geometry image already contains world Sprites and Tile Maps before
+bloom. Their ordinary unlit Color images contribute through the same pass,
+including image transparency, frames and camera layer selection. No separate 2D
+bloom component, texture owner or effect settings exist. RGBA8 image colors have
+bounded linear brightness; a threshold below 1 includes highlights in these images.
+Display exposure runs afterward and does not alter highlight admission. Later UI
+composition is outside this pass.
+
+Gallery example 128 is an original editable Sprite/Tile glow example. Its ordinary PNG,
+Material, Tile Set, Tile Map and Scene are authored and cooked through the current
+owners. Scene/Game integration checks disable/zero/high-threshold behavior, glow
+outside the transparent image footprint, isolated Sprite/Tile camera layers and
+camera rectangle borders. The same checks compare exact displays after a source-free
+package moves and the authored project becomes unavailable. This is an integration
+of the existing algorithm, not a new renderer or selective per-object glow feature.

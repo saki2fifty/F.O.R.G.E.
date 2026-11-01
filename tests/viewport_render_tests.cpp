@@ -19,6 +19,7 @@
 #include "physics_2d_gallery_render_tests.hpp"
 #include "shader_diligent_tests.hpp"
 #include "sprite_atlas_precision_tests.hpp"
+#include "sprite_bloom_gallery_render_tests.hpp"
 #include "sprite_bundle_render_tests.hpp"
 #include "sprite_gallery_render_tests.hpp"
 #include "sprite_image_render_tests.hpp"
@@ -273,7 +274,11 @@ int main(int argc, char** argv) {
             else if (selected == "sequence-frames")
                 forge::test_sequence_frame_render::exercise(isolated, context, FORGE_TEST_GALLERY,
                                                             images);
-            else if (selected == "sprite-surfaces") {
+            else if (selected == "sprite-bloom") {
+                forge::test_sprite_bloom_gallery::exercise(
+                    isolated, context, FORGE_TEST_GALLERY, images,
+                    std::filesystem::absolute(argv[0]).parent_path() / "forge_asset_build.exe");
+            } else if (selected == "sprite-surfaces") {
                 const auto read = [&](ITexture* texture) {
                     return forge::test_sprite_draw::read_pixels(device, context, texture);
                 };

@@ -1,0 +1,59 @@
+{
+  "asset_id": "ce605af0-a6db-4ddb-ad8a-28600682170e",
+  "format": "forge.tile-set",
+  "images": [
+    {
+      "grid": {
+        "columns": 4,
+        "margin_x": 0,
+        "margin_y": 0,
+        "rows": 1,
+        "spacing_x": 0,
+        "spacing_y": 0
+      },
+      "id": 1,
+      "material": "0c311988-d65d-457c-8756-ae6be0aeed15",
+      "name": "Glow shapes"
+    }
+  ],
+  "next_id": 6,
+  "tiles": [
+    {
+      "collision": {
+        "kind": "none"
+      },
+      "frame": 0,
+      "id": 2,
+      "image": 1,
+      "name": "Glow shape 0"
+    },
+    {
+      "collision": {
+        "kind": "none"
+      },
+      "frame": 1,
+      "id": 3,
+      "image": 1,
+      "name": "Glow shape 1"
+    },
+    {
+      "collision": {
+        "kind": "none"
+      },
+      "frame": 2,
+      "id": 4,
+      "image": 1,
+      "name": "Glow shape 2"
+    },
+    {
+      "collision": {
+        "kind": "none"
+      },
+      "frame": 3,
+      "id": 5,
+      "image": 1,
+      "name": "Glow shape 3"
+    }
+  ],
+  "version": 2
+}

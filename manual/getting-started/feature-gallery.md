@@ -1,5 +1,19 @@
 # Explore the Feature Gallery
 
+**128-sprite-tile-bloom** shows three Sprites above a Tile Map pattern. Open
+**Tools > Scene lighting... > Bloom** and toggle **Enable bloom**. Its saved values
+are **Brightness threshold → 0.25**, **Intensity → 1.25** and **Spread → 3**.
+Compare Scene preview with Game, then save and choose this Scene as startup before
+exporting. No custom shader compiler or C++ module is needed. See
+[Glow for images and tiles](../editor/sprites.md).
+
+**127-source-aware-sprite-atlas** uses stable frame keys from one maintained atlas.
+Play to compare stationary and animated keys with three filtering modes. Open
+**Assets/Sprites/SourceAware.atlas.json**, change padding or input order, then
+**Save / Publish**. Existing keys keep their image choices after repacking. Save
+and choose this Scene as startup before exporting. See
+[Maintained Sprite atlases](../editor/sprites.md).
+
 **126-tile-chunk-residency** visits five painted regions with a looping camera.
 Press Play, open Game and inspect **Tools > Loaded resources > Tile chunks**.
 The complete Map has 10 occupied chunks; each stopped camera view prepares two

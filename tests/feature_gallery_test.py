@@ -41,6 +41,9 @@ for source, cooked in (('Assets/Shape.mesh.json', 'mesh.bin'),
                        ('Assets/Sprites/Badge.material.json', 'material.values'),
                        ('Assets/Sprites/SignalSheet.material.json', 'material.values'),
                        ('Assets/Sprites/Panel.material.json', 'material.values'),
+                       ('Assets/Sprites/GlowShapes.material.json', 'material.values'),
+                       ('Assets/Tiles/GlowShapes.tileset.json', 'tileset.bin'),
+                       ('Assets/Tiles/GlowShapes.tilemap.json', 'tilemap.bin'),
                        ('Assets/Sprites/PackedAtlas.material.json', 'material.values'),
                        ('Assets/Sprites/SignalFrames.animation.json', 'animation.clip'),
                        ('Assets/Terrain/LayeredHills.terrain.json', 'mesh.bin'),
@@ -107,6 +110,23 @@ assert len(residency_cameras) == 1
 assert residency_cameras[0]['forge.primitive']['kind'] == 4
 assert residency_cameras[0]['forge.transform_animator']['clip'] == \
     by_source['Assets/Tiles/ChunkResidencyCamera.animation.json']['id']
+
+glow_path = 'Scenes/128-sprite-tile-bloom.scene.json'
+glow_scene = json.loads((project_root / glow_path).read_text(encoding='utf-8'))
+assert glow_scene['asset_id'] == by_source[glow_path]['id']
+assert glow_scene['rendering']['bloom'] == dict(enabled=True, threshold=.25, intensity=1.25, radius=3)
+glow_sprites = [row['components']['forge.sprite_renderer'] for row in glow_scene['entities']
+                if 'forge.sprite_renderer' in row['components']]
+glow_maps = [row['components']['forge.tile_map_renderer'] for row in glow_scene['entities']
+             if 'forge.tile_map_renderer' in row['components']]
+assert len(glow_sprites) == 3 and len(glow_maps) == 1
+assert {row['frame'] for row in glow_sprites} == {0, 1, 2}
+assert all(row['columns'] == 4 and row['layers'] == 1 and
+           row['material'] == by_source['Assets/Sprites/GlowShapes.material.json']['id']
+           for row in glow_sprites)
+assert glow_maps[0]['layers'] == 2 and glow_maps[0]['map'] == \
+    by_source['Assets/Tiles/GlowShapes.tilemap.json']['id']
+assert (project_root / 'Assets/Sprites/GlowShapes.png').is_file()
 
 # The saved capture is an ordinary, stable Texture/Scene fixture. Its direct
 # camera masks keep the emissive source panels out of the game while the supplied
@@ -410,6 +430,7 @@ try:
             sprite = row['components'].get('forge.sprite_renderer')
             if sprite is not None:
                 sprite.setdefault('mip_filter', 0)
+                sprite.setdefault('texture_frames', False)
                 sprite.setdefault('image_mode', 0)
                 sprite.setdefault('pixels_per_meter', 100.)
                 for field in ('border_left', 'border_right', 'border_top', 'border_bottom'):
