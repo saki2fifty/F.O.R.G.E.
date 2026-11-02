@@ -268,8 +268,13 @@ editor's current document. These tools never create a parallel draft or history.
 Material, material graph, collision, editable mesh, particle, terrain, Tile Set,
 Tile Map, Sprite atlas, animation states/blend space/mask, transform animation and
 Navigation Behavior, UI Localization and Application States are bound. `forge_asset_behavior_catalog` describes the native
-behavior actions/conditions, finite limits, row shape, monotonic shared state/edge
-IDs and first-match transition policy. Use editor `navigation_behavior` and the
+behavior source versions1/2, state actions/conditions, tree node kinds and examples,
+finite limits, row shapes, monotonic IDs and execution policy. Use editor
+`navigation_behavior`; template/create accepts optional `behavior_profile` with
+`state_graph` (default) or `tree`. Open reads the existing saved profile and rejects
+that creation-only parameter. Tree children are ordered node IDs; source patches
+use the existing document revision/validation/history, including unfinished drafts
+and stricter connected-tree publication. Use the
 ordinary template/create/read/patch/history/save/close tools. Its component's
 graph/target/anchor/enabled fields use the existing reflected Scene authoring tools.
 

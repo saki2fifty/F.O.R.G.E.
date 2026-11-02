@@ -49,6 +49,13 @@ silently overwrite someone else's edits. File saves are not reversed by Scene Un
 
 ## Work with assets
 
+For navigation decisions, the agent can discover both state graphs and behavior
+trees through the behavior catalog. Ask it to create a Navigation Behavior with
+profile `tree`, connect ordered nodes, publish it and attach it to a Navigation
+Agent. Source edits share the open graph document's revision checks and Undo.
+A disconnected draft can be edited, but must become one connected tree before
+publication. See [Navigation behaviors](navigation-behavior.md).
+
 Choose **Start project authoring** for asset search, import/reimport, placement,
 and source-file move/duplicate/delete. To import files from outside the project,
 first enable the external source-folder option and choose that folder. The agent

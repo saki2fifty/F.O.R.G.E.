@@ -72,7 +72,7 @@ content may differ; use **Window** to open a panel mentioned in a guide.
 - [Touch contacts, tap, hold, swipe, pan, pinch and rotation](editor/touch-input.md)
 - [Physics](editor/physics.md)
 - [Navigation profiles, polygon regions, selected 2D collision sources, moving obstacles and destinations](editor/navigation.md)
-- [Create patrol, wait and chase behavior graphs](editor/navigation-behavior.md)
+- [Create patrol, wait and chase graphs and behavior trees](editor/navigation-behavior.md)
 - [Audio: import, preview, filters, echo, mixing and music/UI pause](editor/audio.md)
 - [Runtime UI: HUDs, menus, transitions and keyframe animation](editor/runtime-ui.md)
 - [Translate a game's menus and HUD](editor/ui-localization.md)

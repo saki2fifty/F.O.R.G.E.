@@ -113,6 +113,140 @@ Json initial() {
                         {"components", {{"forge.position", {{"x", 0}, {"y", 0}, {"z", 0}}}}}});
     return {{"version", 1}, {"entities", rows}};
 }
+void tree_exercise(const std::filesystem::path& root, const std::shared_ptr<ProjectLease>& lease,
+                   const Json& snapshot, bool xy) {
+    const auto tree = publish(lease, "Assets/TimedTree.behavior.json", [&](AssetId id) {
+        auto value = NavigationBehaviorSource::create_tree(id);
+        value.document["next_id"] = 5;
+        value.document["nodes"] = Json::array(
+            {{{"id", 1}, {"name", "Route"}, {"kind", "sequence"}, {"children", {2, 3, 4}}},
+             {{"id", 2}, {"name", "Start wait"}, {"kind", "wait"}, {"seconds", .1}},
+             {{"id", 3},
+              {"name", "Walk"},
+              {"kind", "move_to_point"},
+              {"point", {3, xy ? 0 : .1, 0}}},
+             {{"id", 4}, {"name", "End wait"}, {"kind", "wait"}, {"seconds", .1}}});
+        return value;
+    });
+    World world(root);
+    world.scene.restore_snapshot(snapshot);
+    const auto actor = world.scene.entity("agent");
+    actor.set<NavigationBehavior>({{tree}, {}, {}, true});
+    world.ready();
+    const auto initial = world.position();
+    for (unsigned i = 0; i < 20; ++i)
+        world.tick();
+    check(actor.get<NavigationBehaviorCursor>().state == 3 && world.position()[0] > initial[0],
+          "Actual tree wait/point movement did not execute");
+    const auto progress = actor.get<NavigationBehaviorCursor>();
+    const auto position = world.position();
+    for (unsigned i = 0; i < 20; ++i)
+        check(world.navigation->debug_behavior(actor).at("profile") == "tree",
+              "Tree observation omitted its actual profile");
+    check(actor.get<NavigationBehaviorCursor>() == progress && world.position() == position,
+          "Tree observation advanced time or movement");
+    const auto checkpoint = world.navigation->checkpoint();
+    check(!checkpoint.is_null() && checkpoint.at("behaviors")[0].at("cursor").contains("tree"),
+          "Tree recovery omitted its continuation");
+    const auto checkpoint_scene = world.scene.snapshot();
+    World recovered(root);
+    recovered.scene.restore_snapshot(checkpoint_scene);
+    recovered.navigation->restore(checkpoint);
+    for (unsigned i = 0; i < 160; ++i) {
+        world.tick();
+        recovered.tick();
+        check(actor.get<NavigationBehaviorCursor>() ==
+                  recovered.scene.entity("agent").get<NavigationBehaviorCursor>(),
+              "Recovered tree changed its action/timing continuation");
+        const auto a = world.position(), b = recovered.position();
+        check(std::hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]) < 1e-5,
+              "Recovered tree changed actual navigation movement");
+    }
+    check(world.position()[0] > 2.9 && (!xy || world.position()[2] == initial[2]),
+          "Tree did not reach its goal or preserve XY depth");
+    auto invalid = checkpoint;
+    invalid["behaviors"][0]["cursor"]["tree"]["active"] = 0;
+    {
+        World candidate(root);
+        candidate.scene.restore_snapshot(checkpoint_scene);
+        bool rejected = false;
+        try {
+            candidate.navigation->restore(invalid);
+        } catch (const std::exception&) {
+            rejected = true;
+        }
+        check(rejected, "Tree recovery accepted an inconsistent active path");
+    }
+    auto disabled = actor.get<NavigationBehavior>();
+    disabled.enabled = false;
+    actor.set<NavigationBehavior>(disabled);
+    const auto held = actor.get<NavigationBehaviorCursor>();
+    const auto stopped = world.position();
+    for (unsigned i = 0; i < 20; ++i)
+        world.tick();
+    check(actor.get<NavigationBehaviorCursor>() == held && world.position() == stopped,
+          "Disabled tree advanced its cursor or retained movement intent");
+    disabled.enabled = true;
+    actor.set<NavigationBehavior>(disabled);
+    world.tick();
+    check(actor.get<NavigationBehaviorCursor>().transitions > held.transitions,
+          "Reenabled tree did not resume its progress");
+
+    const auto reactive = publish(lease, "Assets/ReactiveTree.behavior.json", [](AssetId id) {
+        auto value = NavigationBehaviorSource::create_tree(id);
+        value.document["next_id"] = 7;
+        value.document["nodes"] = Json::array(
+            {{{"id", 1}, {"name", "Choose"}, {"kind", "selector"}, {"children", {2, 6}}},
+             {{"id", 2},
+              {"name", "Near chase"},
+              {"kind", "reactive_sequence"},
+              {"children", {3, 4}}},
+             {{"id", 3}, {"name", "Near"}, {"kind", "target_near"}, {"distance", 4}},
+             {{"id", 4}, {"name", "Follow"}, {"kind", "follow_target"}},
+             {{"id", 6}, {"name", "Idle"}, {"kind", "wait"}, {"seconds", 100}}});
+        return value;
+    });
+    World chase_world(root);
+    chase_world.scene.restore_snapshot(snapshot);
+    const auto chaser = chase_world.scene.entity("agent"),
+               target = chase_world.scene.entity("target");
+    chaser.set<NavigationBehavior>({{reactive}, chase_world.scene.reference("target"), {}, true});
+    chase_world.ready();
+    chase_world.tick();
+    check(chaser.get<NavigationBehaviorCursor>().state == 6,
+          "Distant target did not choose tree fallback");
+    target.set<LocalTranslation>({-2, xy ? 0.f : .1f, xy ? -19.f : 0.f});
+    for (unsigned i = 0; i < 5; ++i)
+        chase_world.tick();
+    check(chaser.get<NavigationBehaviorCursor>().state == 4 && chase_world.position()[0] > -4,
+          "Higher priority tree branch did not preempt idle and move");
+    target.set<LocalTranslation>({8, xy ? 0.f : .1f, xy ? -19.f : 0.f});
+    const auto before = chase_world.position();
+    chase_world.tick();
+    check(chaser.get<NavigationBehaviorCursor>().state == 6 && chase_world.position() == before &&
+              !chaser.get<NavigationAgent>().has_destination,
+          "Reactive condition did not release its old movement intent");
+
+    const auto failure = publish(lease, "Assets/FailureTree.behavior.json", [](AssetId id) {
+        auto value = NavigationBehaviorSource::create_tree(id);
+        value.document["next_id"] = 4;
+        value.document["nodes"] = Json::array(
+            {{{"id", 1}, {"name", "Choose"}, {"kind", "selector"}, {"children", {2, 3}}},
+             {{"id", 2}, {"name", "Outside"}, {"kind", "move_to_point"}, {"point", {100, 0, 0}}},
+             {{"id", 3}, {"name", "Wait"}, {"kind", "wait"}, {"seconds", 1}}});
+        return value;
+    });
+    World failed(root);
+    failed.scene.restore_snapshot(snapshot);
+    const auto failed_actor = failed.scene.entity("agent");
+    failed_actor.set<NavigationBehavior>({{failure}, {}, {}, true});
+    failed.ready();
+    failed.tick();
+    check(failed_actor.get<NavigationBehaviorCursor>().state == 3 &&
+              failed_actor.get<NavigationBehaviorCursor>().elapsed == 0 &&
+              !failed_actor.get<NavigationAgent>().has_destination,
+          "Actual failed route did not choose fallback without leaking time");
+}
 void exercise(const std::filesystem::path& parent, const std::filesystem::path& worker, bool xy) {
     const auto root = parent / AssetId::generate().str();
     std::filesystem::create_directories(root / "Assets");
@@ -141,6 +275,7 @@ void exercise(const std::filesystem::path& parent, const std::filesystem::path& 
     source.entity("agent").set<NavigationAgent>({{nav.id}, true, false, 4, .05f, 0, 0, 0});
     source.entity("agent").set<NavigationBehavior>({{patrol_id}, {}, {}, true});
     const auto snapshot = source.snapshot();
+    tree_exercise(root, lease, snapshot, xy);
     {
         const ApplicationStatesDefinition modes{
             {{"app", "", "menu", {{"menu", "", ""}, {"playing", "", ""}}, false, {}, {}}}};

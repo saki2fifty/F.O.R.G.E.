@@ -22,6 +22,89 @@ template <class F> void rejects(F run) {
     }
     check(failed, "Invalid behavior document edit was admitted");
 }
+void tree_pipeline(const std::filesystem::path& root,
+                   const std::shared_ptr<const ProjectLease>& lease, AssetImportService& imports) {
+    auto doc = NavigationBehaviorDocument::create(lease, "Assets/Tree.behavior.json",
+                                                  NavigationBehaviorSource::create_tree);
+    std::uint32_t parent = 0, move = 0;
+    doc->edit(doc->revision(), "Add tree root", [&](Json& d) {
+        parent = add_navigation_behavior_node(d, NavigationBehaviorTreeKind::Sequence);
+        d["entry"] = parent;
+        connect_navigation_behavior_nodes(d, parent, 1);
+    });
+    const auto before = doc->source().document;
+    doc->edit(doc->revision(), "Add tree movement", [&](Json& d) {
+        move = add_navigation_behavior_node(d, NavigationBehaviorTreeKind::MoveToPoint);
+        d["nodes"].back()["point"] = {2, 0, 3};
+        connect_navigation_behavior_nodes(d, parent, move);
+    });
+    const auto edited = doc->source().document;
+    doc->undo();
+    check(doc->source().document.at("nodes") == before.at("nodes") &&
+              doc->source().document.at("next_id") == edited.at("next_id"),
+          "Tree Undo lost node values or monotonic identity");
+    doc->redo();
+    check(doc->source().document == edited, "Tree Redo did not restore its nodes");
+    rejects([&] {
+        doc->edit(doc->revision(), "Illegal parent",
+                  [&](Json& d) { connect_navigation_behavior_nodes(d, parent, 1); });
+    });
+    check(doc->source().document == edited, "Rejected tree edit mutated source/history");
+    doc->edit(doc->revision(), "Remove tree action",
+              [&](Json& d) { remove_navigation_behavior_node(d, move); });
+    rejects([&] {
+        doc->edit(doc->revision(), "Reuse tree tombstone", [&](Json& d) {
+            d["nodes"].push_back(
+                {{"id", move}, {"name", "Reused"}, {"kind", "wait"}, {"seconds", 1}});
+        });
+    });
+    doc->undo();
+    doc->edit(doc->revision(), "Position tree root", [&](Json& d) {
+        asset_detail::set_state_graph_position(d, parent, {120, 70},
+                                               navigation_behavior_layout_format);
+    });
+    doc->save();
+    const auto id = doc->source().asset();
+    imports.submit(
+        imports.prepare(doc->locator(), {}, id),
+        [](auto& candidate, const auto& plan, const auto&) {
+            prepare_navigation_behavior_publication(candidate, plan);
+        },
+        [](const auto&, const auto&) {});
+    check(imports.wait_idle(10s), "Tree publication timed out");
+    const auto outcomes = imports.poll();
+    check(outcomes.size() == 1 && outcomes.front().published,
+          outcomes.empty() ? "Missing tree publication receipt" : outcomes.front().diagnostic);
+    const auto record = AssetCatalog::open_project(root).records().at(id);
+    ResourcePool<NavigationBehaviorAsset> pool;
+    const auto ticket = request_navigation_behavior(pool, root, record);
+    check(pool.wait(ticket, 10s), "Published tree did not load");
+    const auto graph = pool.acquire(ticket);
+    check(graph && graph->profile == NavigationBehaviorProfile::Tree && graph->nodes.size() == 3,
+          "Tree resource lost profile or nodes");
+    const auto copied_id = AssetId::generate();
+    const auto copied = Json::parse(rewrite_authored_asset(
+        record, doc->source().document.dump(), "Assets/TreeCopy.behavior.json", {{id, copied_id}}));
+    check(copied.at("asset_id").get<AssetId>() == copied_id &&
+              copied.at("nodes") == doc->source().document.at("nodes"),
+          "Tree duplication changed stable node identities");
+    const auto output = root / "TreeCooked";
+    const std::array roots{id};
+    (void)package_runtime_content(root, output, roots, {"windows", "d3d12"});
+    check(!std::filesystem::exists(output / doc->locator()),
+          "Tree export retained editable source");
+    std::filesystem::rename(root / doc->locator(), root / "Tree-source-offline");
+    const auto moved = root / "TreeRelocated";
+    std::filesystem::rename(output, moved);
+    const auto catalog = open_runtime_content(moved, {"windows", "d3d12"});
+    ResourcePool<NavigationBehaviorAsset> relocated;
+    const auto cooked = request_navigation_behavior(relocated, moved, catalog.records().at(id));
+    check(relocated.wait(cooked, 10s), "Relocated tree did not load without source");
+    const auto loaded = relocated.acquire(cooked);
+    check(loaded && loaded->profile == NavigationBehaviorProfile::Tree &&
+              select_navigation_behavior_tree(loaded.get(), {}, {}).leaf == 1,
+          "Source-free tree did not select its first action");
+}
 } // namespace
 int main(int argc, char** argv) {
     try {
@@ -182,6 +265,7 @@ int main(int argc, char** argv) {
         const auto cold_ticket = request_navigation_behavior(cold, root, second);
         check(cold.wait(cold_ticket, 10s) && bool(cold.acquire(cold_ticket)),
               "Cooked-only behavior load consulted its absent editable source");
+        tree_pipeline(root, lease, imports);
         std::cout << "Behavior source "
                      "history/identity/import/discovery/copy/references/last-good/relocated cooked "
                      "export PASS\n";

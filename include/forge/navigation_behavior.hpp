@@ -15,6 +15,28 @@ inline constexpr std::size_t navigation_behavior_cooked_byte_limit =
 inline constexpr const char* navigation_behavior_layout_format = "forge.navigation-behavior-layout";
 enum class NavigationBehaviorAction { Wait, MoveToPoint, FollowTarget };
 enum class NavigationBehaviorCondition { Elapsed, Arrived, TargetNear, TargetFar, TargetMissing };
+enum class NavigationBehaviorProfile { StateGraph, Tree };
+enum class NavigationBehaviorTreeKind {
+    Sequence,
+    ReactiveSequence,
+    Selector,
+    Wait,
+    MoveToPoint,
+    FollowTarget,
+    TargetNear,
+    TargetFar,
+    TargetMissing
+};
+const char* navigation_behavior_tree_kind_name(NavigationBehaviorTreeKind);
+const char* navigation_behavior_tree_status_name(NavigationBehaviorTreeStatus);
+struct NavigationBehaviorTreeNode {
+    std::uint32_t id = 0;
+    std::string name;
+    NavigationBehaviorTreeKind kind = NavigationBehaviorTreeKind::Wait;
+    double value = 0;
+    std::array<double, 3> point{};
+    std::vector<std::uint32_t> children;
+};
 const char* navigation_behavior_action_name(NavigationBehaviorAction);
 const char* navigation_behavior_condition_name(NavigationBehaviorCondition);
 struct NavigationBehaviorTransition {
@@ -34,12 +56,16 @@ struct NavigationBehaviorGraph {
     std::uint32_t entry = 0;
     std::vector<NavigationBehaviorState> states;
     std::string cooked_digest{}; // Verified immutable bytes; supplied by resource admission.
+    NavigationBehaviorProfile profile = NavigationBehaviorProfile::StateGraph;
+    std::vector<NavigationBehaviorTreeNode> nodes{};
     const NavigationBehaviorState& state(std::uint32_t) const;
+    const NavigationBehaviorTreeNode& node(std::uint32_t) const;
     std::size_t resident_bytes() const;
 };
 struct NavigationBehaviorSource {
     nlohmann::json document;
     static NavigationBehaviorSource create(AssetId);
+    static NavigationBehaviorSource create_tree(AssetId);
     static NavigationBehaviorSource parse(std::span<const std::byte>);
     static NavigationBehaviorSource parse_cooked(std::span<const std::byte>);
     AssetId asset() const;
@@ -51,6 +77,24 @@ struct NavigationBehaviorInputs {
     std::optional<double> target_distance;
     bool arrived = false; // Caller verifies this state's actual destination.
 };
+struct NavigationBehaviorTreeInputs {
+    std::optional<double> target_distance;
+    std::uint32_t sampled_leaf = 0;
+    bool arrived = false, action_failed = false;
+};
+struct NavigationBehaviorTreeSelection {
+    NavigationBehaviorCursor cursor;
+    std::uint32_t leaf = 0;
+};
+// Selection stages intent/continuation without advancing elapsed time or step count.
+NavigationBehaviorTreeSelection
+select_navigation_behavior_tree(const NavigationBehaviorGraph&, const NavigationBehaviorCursor&,
+                                const NavigationBehaviorTreeInputs&);
+// Consume only sampled_leaf's observation/time; failure preserves the input cursor.
+NavigationBehaviorTreeSelection
+advance_navigation_behavior_tree(const NavigationBehaviorGraph&,
+                                 const NavigationBehaviorTreeSelection&,
+                                 const NavigationBehaviorTreeInputs&, double fixed_dt);
 void validate_navigation_behavior_cursor(const NavigationBehaviorGraph&,
                                          const NavigationBehaviorCursor&);
 void to_json(nlohmann::json&, const NavigationBehaviorCursor&);

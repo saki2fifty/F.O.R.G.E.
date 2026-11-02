@@ -1,8 +1,10 @@
 #include "bounded_json.hpp"
+#include "navigation_behavior_tree.hpp"
 #include "state_graph_layout.hpp"
 #include <algorithm>
 #include <cmath>
 #include <forge/navigation_behavior.hpp>
+#include <functional>
 #include <limits>
 #include <set>
 
@@ -55,7 +57,123 @@ double condition_value(const Json& source, NavigationBehaviorCondition kind) {
         return bounded_number(source.at("distance"), 0, 8192);
     return 0;
 }
+NavigationBehaviorTreeKind tree_kind(const Json& value) {
+    require(value.is_string(), "Behavior tree kind must be a string");
+    for (const auto kind :
+         {NavigationBehaviorTreeKind::Sequence, NavigationBehaviorTreeKind::ReactiveSequence,
+          NavigationBehaviorTreeKind::Selector, NavigationBehaviorTreeKind::Wait,
+          NavigationBehaviorTreeKind::MoveToPoint, NavigationBehaviorTreeKind::FollowTarget,
+          NavigationBehaviorTreeKind::TargetNear, NavigationBehaviorTreeKind::TargetFar,
+          NavigationBehaviorTreeKind::TargetMissing})
+        if (value == navigation_behavior_tree_kind_name(kind))
+            return kind;
+    throw std::runtime_error("Unsupported behavior tree node kind");
+}
+NavigationBehaviorGraph tree_graph(const Json& source, bool publish) {
+    NavigationBehaviorGraph graph;
+    graph.asset = source.at("asset_id").get<AssetId>();
+    graph.entry = std::uint32_t(identifier(source.at("entry")));
+    graph.profile = NavigationBehaviorProfile::Tree;
+    const auto next = identifier(source.at("next_id"), std::uint64_t(UINT32_MAX) + 1);
+    const auto& rows = source.at("nodes");
+    require(rows.is_array() && rows.size() <= 32, "Behavior tree supports at most 32 nodes");
+    std::set<std::uint32_t> ids, children;
+    std::set<std::string> names;
+    for (const auto& row : rows) {
+        NavigationBehaviorTreeNode node;
+        const auto id = identifier(row.at("id"));
+        require(id && id < next && ids.insert(std::uint32_t(id)).second,
+                "Behavior tree node identity is unallocated or duplicated");
+        node.id = std::uint32_t(id);
+        node.name = row.at("name").get<std::string>();
+        require(!node.name.empty() && node.name.size() <= 64 && names.insert(node.name).second &&
+                    std::none_of(node.name.begin(), node.name.end(),
+                                 [](unsigned char c) { return c < 32 || c == 127; }),
+                "Behavior tree names must be unique and contain 1-64 printable bytes");
+        node.kind = tree_kind(row.at("kind"));
+        const bool composite = node.kind == NavigationBehaviorTreeKind::Sequence ||
+                               node.kind == NavigationBehaviorTreeKind::ReactiveSequence ||
+                               node.kind == NavigationBehaviorTreeKind::Selector;
+        if (composite) {
+            const auto& edges = row.at("children");
+            require(edges.is_array() && edges.size() <= 8 && (!publish || !edges.empty()),
+                    "Behavior tree composites need 1-8 children to publish");
+            for (const auto& child : edges) {
+                const auto to = std::uint32_t(identifier(child));
+                require(to && children.insert(to).second,
+                        "Behavior tree nodes may have only one parent");
+                node.children.push_back(to);
+            }
+        } else {
+            require(!row.contains("children") ||
+                        (row.at("children").is_array() && row.at("children").empty()),
+                    "Behavior tree action/condition nodes cannot have children");
+            if (node.kind == NavigationBehaviorTreeKind::Wait)
+                node.value = bounded_number(row.at("seconds"), 0, 3600);
+            if (node.kind == NavigationBehaviorTreeKind::TargetNear ||
+                node.kind == NavigationBehaviorTreeKind::TargetFar)
+                node.value = bounded_number(row.at("distance"), 0, 8192);
+            if (node.kind == NavigationBehaviorTreeKind::MoveToPoint) {
+                const auto& point = row.at("point");
+                require(point.is_array() && point.size() == 3,
+                        "Behavior tree point needs three coordinates");
+                for (std::size_t i = 0; i < 3; ++i)
+                    node.point[i] = bounded_number(point[i], -4096, 4096);
+            }
+        }
+        graph.nodes.push_back(std::move(node));
+    }
+    require(rows.empty() ? graph.entry == 0 : ids.contains(graph.entry),
+            "Behavior tree entry node is missing");
+    require(!children.contains(graph.entry), "Behavior tree entry cannot have a parent");
+    for (const auto id : children)
+        require(ids.contains(id), "Behavior tree child is missing");
+    std::set<std::uint32_t> active, visited;
+    const std::function<void(std::uint32_t, unsigned)> walk = [&](std::uint32_t id,
+                                                                  unsigned depth) {
+        require(depth <= 8 && active.insert(id).second,
+                "Behavior tree contains a cycle or exceeds depth eight");
+        visited.insert(id);
+        for (const auto child : graph.node(id).children)
+            walk(child, depth + 1);
+        active.erase(id);
+    };
+    if (graph.entry)
+        walk(graph.entry, 1);
+    if (publish)
+        require(graph.entry && visited.size() == graph.nodes.size(),
+                "Publish one connected behavior tree");
+    else
+        for (const auto& node : graph.nodes)
+            if (!visited.contains(node.id))
+                walk(node.id, 1);
+    asset_detail::validate_state_graph_layout(source, navigation_behavior_layout_format, "nodes");
+    return graph;
+}
 } // namespace
+const char* navigation_behavior_tree_kind_name(NavigationBehaviorTreeKind kind) {
+    switch (kind) {
+    case NavigationBehaviorTreeKind::Sequence:
+        return "sequence";
+    case NavigationBehaviorTreeKind::ReactiveSequence:
+        return "reactive_sequence";
+    case NavigationBehaviorTreeKind::Selector:
+        return "selector";
+    case NavigationBehaviorTreeKind::Wait:
+        return "wait";
+    case NavigationBehaviorTreeKind::MoveToPoint:
+        return "move_to_point";
+    case NavigationBehaviorTreeKind::FollowTarget:
+        return "follow_target";
+    case NavigationBehaviorTreeKind::TargetNear:
+        return "target_near";
+    case NavigationBehaviorTreeKind::TargetFar:
+        return "target_far";
+    case NavigationBehaviorTreeKind::TargetMissing:
+        return "target_missing";
+    }
+    throw std::runtime_error("Invalid behavior tree node kind");
+}
 const char* navigation_behavior_action_name(NavigationBehaviorAction kind) {
     switch (kind) {
     case NavigationBehaviorAction::Wait:
@@ -83,10 +201,19 @@ const char* navigation_behavior_condition_name(NavigationBehaviorCondition kind)
     throw std::runtime_error("Invalid navigation behavior condition");
 }
 const NavigationBehaviorState& NavigationBehaviorGraph::state(std::uint32_t id) const {
+    require(profile == NavigationBehaviorProfile::StateGraph,
+            "Behavior tree nodes are not state-graph states");
     const auto found = std::find_if(states.begin(), states.end(),
                                     [id](const auto& value) { return value.id == id; });
     require(found != states.end(), "Behavior state is missing or deleted");
     return *found;
+}
+const NavigationBehaviorTreeNode& NavigationBehaviorGraph::node(std::uint32_t id) const {
+    require(profile == NavigationBehaviorProfile::Tree, "Behavior graph is not a tree");
+    const auto at =
+        std::find_if(nodes.begin(), nodes.end(), [id](const auto& n) { return n.id == id; });
+    require(at != nodes.end(), "Behavior tree node is missing or deleted");
+    return *at;
 }
 std::size_t NavigationBehaviorGraph::resident_bytes() const {
     std::size_t bytes = sizeof(*this) + states.capacity() * sizeof(NavigationBehaviorState) +
@@ -94,6 +221,9 @@ std::size_t NavigationBehaviorGraph::resident_bytes() const {
     for (const auto& s : states)
         bytes +=
             s.name.capacity() + s.transitions.capacity() * sizeof(NavigationBehaviorTransition);
+    bytes += nodes.capacity() * sizeof(NavigationBehaviorTreeNode);
+    for (const auto& node : nodes)
+        bytes += node.name.capacity() + node.children.capacity() * sizeof(std::uint32_t);
     return bytes;
 }
 NavigationBehaviorSource NavigationBehaviorSource::create(AssetId id) {
@@ -107,6 +237,16 @@ NavigationBehaviorSource NavigationBehaviorSource::create(AssetId id) {
                                       {"name", "Wait"},
                                       {"action", {{"kind", "wait"}}},
                                       {"transitions", Json::array()}}})}}};
+}
+NavigationBehaviorSource NavigationBehaviorSource::create_tree(AssetId id) {
+    require(bool(id), "Behavior tree requires an asset identity");
+    return {{{"format", "forge.navigation-behavior"},
+             {"version", 2},
+             {"asset_id", id},
+             {"entry", 1},
+             {"next_id", 2},
+             {"nodes",
+              Json::array({{{"id", 1}, {"name", "Wait"}, {"kind", "wait"}, {"seconds", 1}}})}}};
 }
 NavigationBehaviorSource NavigationBehaviorSource::parse(std::span<const std::byte> bytes) {
     NavigationBehaviorSource source{
@@ -129,7 +269,8 @@ AssetId NavigationBehaviorSource::asset() const { return document.at("asset_id")
 void NavigationBehaviorSource::validate() const {
     const auto& d = document;
     require(d.is_object() && d.at("format") == "forge.navigation-behavior" &&
-                version_one(d.at("version")),
+                d.at("version").is_number_integer() &&
+                (d.at("version") == 1 || d.at("version") == 2),
             "Unsupported navigation behavior source format/version");
     const auto text = d.dump();
     const auto saved = asset_detail::parse_bounded_json(std::as_bytes(std::span(text)),
@@ -139,6 +280,13 @@ void NavigationBehaviorSource::validate() const {
     const auto next = identifier(d.at("next_id"), std::uint64_t(UINT32_MAX) + 1);
     require(next != 0, "Behavior identity sequence cannot be zero");
     const auto entry = identifier(d.at("entry"));
+    if (asset_detail::has_state_graph_layout(d, navigation_behavior_layout_format))
+        require(version_one(d.at("editor_layout").at("version")),
+                "Unsupported navigation behavior layout version");
+    if (d.at("version") == 2) {
+        (void)tree_graph(d, false);
+        return;
+    }
     const auto& rows = d.at("states");
     require(rows.is_array() && rows.size() <= 32, "Behavior supports at most 32 states");
     std::set<std::uint32_t> ids, states;
@@ -180,13 +328,12 @@ void NavigationBehaviorSource::validate() const {
         for (const auto& edge : s.at("transitions"))
             require(states.contains(std::uint32_t(identifier(edge.at("to")))),
                     "Behavior transition destination is missing");
-    if (asset_detail::has_state_graph_layout(d, navigation_behavior_layout_format))
-        require(version_one(d.at("editor_layout").at("version")),
-                "Unsupported navigation behavior layout version");
     asset_detail::validate_state_graph_layout(d, navigation_behavior_layout_format);
 }
 NavigationBehaviorGraph NavigationBehaviorSource::compiled() const {
     validate();
+    if (document.at("version") == 2)
+        return tree_graph(document, true);
     require(!document.at("states").empty(), "Publish at least one behavior state");
     NavigationBehaviorGraph graph{asset(), std::uint32_t(identifier(document.at("entry"))), {}};
     for (const auto& row : document.at("states")) {
@@ -228,20 +375,45 @@ void to_json(nlohmann::json& value, const NavigationBehaviorCursor& cursor) {
              {"last_transition", cursor.last_transition},
              {"elapsed", cursor.elapsed},
              {"transitions", cursor.transitions}};
+    if (navigation_behavior_detail::has_tree_progress(cursor)) {
+        require(unsigned(cursor.tree_status) <= unsigned(NavigationBehaviorTreeStatus::Failure) &&
+                    std::ranges::all_of(cursor.tree_children, [](auto child) { return child < 8; }),
+                "Behavior tree cursor fields are invalid");
+        value["tree"] = {{"status", unsigned(cursor.tree_status)},
+                         {"active", cursor.tree_active},
+                         {"children", cursor.tree_children}};
+    }
 }
 void from_json(const nlohmann::json& value, NavigationBehaviorCursor& cursor) {
-    require(value.is_object() && value.size() == 4, "Invalid behavior cursor fields");
+    require(value.is_object() && value.size() == (value.contains("tree") ? 5u : 4u),
+            "Invalid behavior cursor fields");
     NavigationBehaviorCursor next;
     next.state = std::uint32_t(identifier(value.at("state")));
     next.last_transition = std::uint32_t(identifier(value.at("last_transition")));
     next.elapsed = bounded_number(value.at("elapsed"), 0, 3600);
     next.transitions = identifier(value.at("transitions"), UINT64_MAX);
+    if (value.contains("tree")) {
+        const auto& tree = value.at("tree");
+        require(tree.is_object() && tree.size() == 3 && tree.at("children").is_array() &&
+                    tree.at("children").size() == next.tree_children.size(),
+                "Invalid behavior tree cursor fields");
+        next.tree_status = NavigationBehaviorTreeStatus(identifier(tree.at("status"), 3));
+        next.tree_active = std::uint32_t(identifier(tree.at("active")));
+        for (std::size_t i = 0; i < next.tree_children.size(); ++i)
+            next.tree_children[i] = std::uint8_t(identifier(tree.at("children")[i], 7));
+    }
     cursor = next;
 }
 void validate_navigation_behavior_cursor(const NavigationBehaviorGraph& graph,
                                          const NavigationBehaviorCursor& cursor) {
     require(std::isfinite(cursor.elapsed) && cursor.elapsed >= 0 && cursor.elapsed <= 3600,
             "Behavior elapsed time is invalid");
+    if (graph.profile == NavigationBehaviorProfile::Tree) {
+        navigation_behavior_detail::validate_tree_cursor(graph, cursor);
+        return;
+    }
+    require(!navigation_behavior_detail::has_tree_progress(cursor),
+            "State graph cursor contains behavior tree progress");
     if (!cursor.state) {
         require(!cursor.last_transition && !cursor.transitions && cursor.elapsed == 0,
                 "Uninitialized behavior cursor contains progress");

@@ -52,22 +52,26 @@ class StateGraphCanvas {
               const std::function<void(Json&, std::uint32_t, std::uint32_t)>& connect,
               const std::function<void(std::uint32_t)>& select_edge = {},
               std::uint32_t selected_edge = 0, const std::function<void()>& toolbar = {},
-              std::uint32_t active = 0) {
+              std::uint32_t active = 0, std::string_view rows = "states",
+              std::string_view noun = "states", std::string_view root_label = "Entry",
+              float logical_height = 250) {
         if ((dragging_ && revision_ != revision) || (linking_ && link_revision_ != revision) ||
             locked || ImGui::GetIO().AppFocusLost ||
             ((dragging_ || linking_) &&
              !ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows)) ||
             ImGui::IsKeyPressed(ImGuiKey_Escape))
             cancel();
-        if (ui::button("Frame states", "Fit cards without editing the source."))
+        const auto frame_label = "Frame " + std::string(noun);
+        if (ui::button(frame_label.c_str(), "Fit cards without editing the source."))
             frame_ = true;
         FORGE_UI_PROBE(options_.probe + ":frame");
         ImGui::SameLine();
         ImGui::BeginDisabled(locked);
-        if (ui::button("Arrange states", "Arrange every card as one source Undo step.")) {
+        const auto arrange_label = "Arrange " + std::string(noun);
+        if (ui::button(arrange_label.c_str(), "Arrange every card as one source Undo step.")) {
             edit(revision, options_.arrange, [&](Json& draft) {
                 std::size_t ordinal = 0;
-                for (const auto& row : source.at("states")) {
+                for (const auto& row : source.at(rows)) {
                     asset_detail::set_state_graph_position(
                         draft, row.at("id").get<std::uint32_t>(),
                         {double(ordinal % 4) * 300, double(ordinal / 4) * 150}, options_.layout);
@@ -84,7 +88,7 @@ class StateGraphCanvas {
         }
         ImGui::TextDisabled("Select a card to edit it. Connect Out to In. Drag cards; Escape "
                             "cancels. Wheel zooms; middle mouse pans.");
-        ImGui::BeginChild(options_.window.c_str(), {0, 250 * ui::interface_scale},
+        ImGui::BeginChild(options_.window.c_str(), {0, logical_height * ui::interface_scale},
                           ImGuiChildFlags_Borders,
                           ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
         const auto origin = ImGui::GetCursorScreenPos(), size = ImGui::GetContentRegionAvail();
@@ -93,7 +97,7 @@ class StateGraphCanvas {
         const float scale = ui::interface_scale;
         std::map<std::uint32_t, std::array<double, 2>> positions;
         std::size_t ordinal = 0;
-        for (const auto& row : source.at("states")) {
+        for (const auto& row : source.at(rows)) {
             const auto id = row.at("id").get<std::uint32_t>();
             positions[id] =
                 dragging_ && id == dragged_
@@ -173,7 +177,7 @@ class StateGraphCanvas {
                 ImGui::SetTooltip("%s", edge.label.c_str());
             ImGui::PopID();
         }
-        for (const auto& row : source.at("states")) {
+        for (const auto& row : source.at(rows)) {
             const auto id = row.at("id").get<std::uint32_t>();
             const auto p = screen(id);
             ImGui::PushID(int(id));
@@ -193,8 +197,8 @@ class StateGraphCanvas {
             draw->AddText(nullptr, ImGui::GetFontSize() * zoom_,
                           {p.x + 12 * factor, p.y + 10 * factor}, IM_COL32(225, 235, 240, 255),
                           title.c_str(), nullptr, 216 * factor, &title_clip);
-            const auto status = std::string(source.at("entry") == id ? "Entry | " : "") + "ID " +
-                                std::to_string(id);
+            const auto status = (source.at("entry") == id ? std::string(root_label) + " | " : "") +
+                                "ID " + std::to_string(id);
             draw->AddText(nullptr, ImGui::GetFontSize() * zoom_,
                           {p.x + 12 * factor, p.y + 38 * factor}, IM_COL32(140, 190, 210, 255),
                           status.c_str());

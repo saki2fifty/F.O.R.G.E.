@@ -1,5 +1,12 @@
 # Explore the Feature Gallery
 
+**139-behavior-tree** combines priority-based chasing with a timed patrol. The
+cyan agent follows an orange target within 3.5 m, otherwise waits and walks between
+green markers. Select the agent during Play to inspect **Node**, **Tree result**
+and **Steps**. Stop and open **Assets/Navigation/PatrolChaseTree.behavior.json**
+to edit its ordered Selector, Reactive sequence and Sequence branches. It exports
+without project C++. See [Behavior trees](../editor/navigation-behavior.md).
+
 **138-navigation-profiles** uses separate `default` and `Large` Nav assets on one
 floor. Play to watch a small cyan agent cross the narrow passage while a larger
 amber agent moves in the left room. Stop, open **Content → Create / Register →

@@ -13,23 +13,37 @@ class NavigationBehaviorGraphView {
               bool locked, const Edit& edit, const std::function<void(std::uint32_t)>& select,
               const std::function<void(std::uint32_t)>& select_edge) {
         std::vector<StateGraphConnection> edges;
-        for (const auto& s : source.at("states"))
-            for (const auto& e : s.at("transitions")) {
-                const auto& condition = e.at("condition");
-                auto label = condition.at("kind").get<std::string>();
-                if (label == "elapsed")
-                    label +=
-                        " " + std::to_string(condition.at("seconds").get<double>()) + " seconds";
-                else if (label == "target_near" || label == "target_far")
-                    label += " " + std::to_string(condition.at("distance").get<double>());
-                edges.push_back({e.at("id"), s.at("id"), e.at("to"), std::move(label)});
-            }
+        const bool tree = source.at("version") == 2;
+        if (tree) {
+            for (const auto& node : source.at("nodes"))
+                if (node.contains("children")) {
+                    unsigned order = 0;
+                    for (const auto& child : node.at("children"))
+                        edges.push_back(
+                            {child, node.at("id"), child, "Order " + std::to_string(++order)});
+                }
+        } else
+            for (const auto& s : source.at("states"))
+                for (const auto& e : s.at("transitions")) {
+                    const auto& condition = e.at("condition");
+                    auto label = condition.at("kind").get<std::string>();
+                    if (label == "elapsed")
+                        label += " " + std::to_string(condition.at("seconds").get<double>()) +
+                                 " seconds";
+                    else if (label == "target_near" || label == "target_far")
+                        label += " " + std::to_string(condition.at("distance").get<double>());
+                    edges.push_back({e.at("id"), s.at("id"), e.at("to"), std::move(label)});
+                }
         canvas_.draw(
             source, revision, state, locked, edit, select, edges,
-            [](Json& draft, std::uint32_t from, std::uint32_t to) {
-                (void)connect_navigation_behavior_states(draft, from, to);
+            [tree](Json& draft, std::uint32_t from, std::uint32_t to) {
+                if (tree)
+                    connect_navigation_behavior_nodes(draft, from, to);
+                else
+                    (void)connect_navigation_behavior_states(draft, from, to);
             },
-            select_edge, edge);
+            select_edge, edge, {}, 0, tree ? "nodes" : "states", tree ? "nodes" : "states",
+            tree ? "Root" : "Entry", tree ? 480 : 250);
     }
 
   private:

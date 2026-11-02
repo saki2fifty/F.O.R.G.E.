@@ -51,7 +51,8 @@ foreach(source
  src/application_state_resource.hpp src/single_source_admission.hpp
  include/forge/ui_localization.hpp src/ui_localization.cpp
  include/forge/runtime_resource_service.hpp include/forge/navigation_behavior.hpp
- src/navigation_behavior.cpp src/navigation_behavior_resource.hpp src/navigation_behavior_admission.hpp
+ src/navigation_behavior.cpp src/navigation_behavior_tree.cpp src/navigation_behavior_tree.hpp
+ src/navigation_behavior_resource.hpp src/navigation_behavior_admission.hpp
  cmake/box2d_snapshot_guards.cmake include/forge/animation_property.hpp src/native_sdk.cpp src/runtime_entity_creation.cpp src/runtime_entity_creation.hpp src/runtime_resources.cpp src/runtime_tile_map.cpp src/runtime_tile_map.hpp src/tile_map_data.cpp src/tile_map_data.hpp src/tile_map_variants.hpp src/tile_map_variants.cpp src/tile_map_values.hpp src/tile_set_data.cpp src/tile_set_data.hpp src/tile_set_values.hpp src/tile_polygon_decomposition.hpp src/tile_polygon_contours.hpp src/tile_animation.hpp src/tile_neighbors.hpp src/tile_grid.hpp src/identity.cpp src/authored_schema.cpp src/authored_schema.hpp src/authored_component.cpp src/authored_component.hpp src/authored_generation.cpp src/authored_generation.hpp src/json_value_equal.hpp src/reflected_value.hpp src/reflected_string.hpp src/reconstructed_meta.hpp src/reflected_extensions.hpp src/reflected_value.cpp src/reflected_native.cpp src/reconstructed_meta.cpp src/reflected_extensions.cpp)
  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/${source}")
  file(SHA256 "${PROJECT_SOURCE_DIR}/${source}" hash)

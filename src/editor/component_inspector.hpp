@@ -52,18 +52,28 @@ class ComponentInspector {
                                            "Navigation Agent owns movement.");
         ImGui::TextWrapped("Behavior: %s", status.value("phase", std::string("Pending")).c_str());
         FORGE_UI_PROBE("navigation_behavior:phase");
+        const bool tree = status.value("profile", std::string{}) == "tree";
+        if (tree) {
+            ImGui::TextWrapped("Tree result: %s",
+                               status.value("tree_status", std::string("Not started")).c_str());
+            FORGE_UI_PROBE("navigation_behavior:tree_result");
+        }
         const auto state = status.value("state", std::uint32_t{});
         if (state) {
-            ImGui::TextWrapped("State: %s (ID %u)",
+            ImGui::TextWrapped("%s: %s (ID %u)", tree ? "Node" : "State",
                                status.value("state_name", std::string{}).c_str(), state);
             FORGE_UI_PROBE("navigation_behavior:state");
             const auto elapsed = status.value("elapsed", Json{});
             if (elapsed.is_number())
                 ImGui::Text("Elapsed: %.3f seconds", elapsed.get<double>());
-            ImGui::Text(
-                "Transitions: %llu | Last ID: %u",
-                static_cast<unsigned long long>(status.value("transitions", std::uint64_t{})),
-                status.value("last_transition", std::uint32_t{}));
+            if (tree)
+                ImGui::Text("Steps: %llu", static_cast<unsigned long long>(
+                                               status.value("steps", std::uint64_t{})));
+            else
+                ImGui::Text(
+                    "Transitions: %llu | Last ID: %u",
+                    static_cast<unsigned long long>(status.value("transitions", std::uint64_t{})),
+                    status.value("last_transition", std::uint32_t{}));
         }
         if (const auto error = status.value("diagnostic", std::string{}); !error.empty()) {
             ImGui::TextWrapped("Details: %s", error.c_str());

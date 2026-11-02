@@ -12,6 +12,10 @@ std::uint32_t add_navigation_behavior_state(nlohmann::json&);
 std::uint32_t connect_navigation_behavior_states(nlohmann::json&, std::uint32_t from,
                                                  std::uint32_t to);
 void remove_navigation_behavior_state(nlohmann::json&, std::uint32_t);
+std::uint32_t add_navigation_behavior_node(nlohmann::json&, NavigationBehaviorTreeKind);
+void set_navigation_behavior_node_kind(nlohmann::json&, std::uint32_t, NavigationBehaviorTreeKind);
+void connect_navigation_behavior_nodes(nlohmann::json&, std::uint32_t parent, std::uint32_t child);
+void remove_navigation_behavior_node(nlohmann::json&, std::uint32_t);
 struct NavigationBehaviorDocumentTraits {
     using Source = NavigationBehaviorSource;
     static constexpr auto byte_limit = navigation_behavior_byte_limit;
@@ -20,10 +24,12 @@ struct NavigationBehaviorDocumentTraits {
     static Source create(AssetId id) { return Source::create(id); }
     static std::map<std::uint32_t, bool> identities(const Source& source) {
         std::map<std::uint32_t, bool> result;
-        for (const auto& state : source.document.at("states")) {
+        const bool tree = source.document.at("version") == 2;
+        for (const auto& state : source.document.at(tree ? "nodes" : "states")) {
             result.emplace(state.at("id").get<std::uint32_t>(), false);
-            for (const auto& edge : state.at("transitions"))
-                result.emplace(edge.at("id").get<std::uint32_t>(), true);
+            if (!tree)
+                for (const auto& edge : state.at("transitions"))
+                    result.emplace(edge.at("id").get<std::uint32_t>(), true);
         }
         return result;
     }

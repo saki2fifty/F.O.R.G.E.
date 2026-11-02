@@ -54,6 +54,40 @@ Editor and automation/MCP share source-document/component operations. Observatio
 extends runtime presentation while preserving path fields. The small public component/
 cursor header enters the matching SDK fingerprint; engine-side graph parsing/cooking
 is not an SDK binary API. No C host table, dependency pin, scheduler or movement
-service changes. This is a bounded navigation-state workflow, not behavior trees,
-generic application states or a complete AI suite. Completion and platform acceptance
+service changes. This first profile is a bounded navigation-state workflow;
+the tree profile below extends the same owners. It is not a complete AI suite. Completion and platform acceptance
 require actual consumers and evidence independently of this design decision.
+
+## Additive tree profile decision
+
+The accepted tree capability deliberately extends the state-only boundary above.
+It uses the existing behavior asset, source-document, resource, intent and Flecs
+progress owners. Source version 2 identifies tree nodes and ordered children;
+version 1 retains its state/transition syntax, semantics and exact cooked bytes.
+The unchanged cooked envelope version 1 can contain either admitted source version.
+New source-version inputs have distinct content keys; extending formerly rejected
+inputs does not replace any successful version-1 recipe output or asset identity.
+Future unknown versions still reject. No existing graph is migrated automatically.
+
+The finite tree profile has ordered memory Sequences, Reactive sequences, reactive Selectors, timed
+Wait, Move to point, Follow target and target-distance/absence conditions. Nodes
+have one parent, stable monotonic IDs, at most eight children and depth eight;
+publication requires a connected tree of at most 32 nodes. Source drafts can
+contain disconnected nodes and unfinished composites for ordinary canvas editing.
+Cycles and ambiguous parents reject before publication.
+
+Each positive fixed tick selects one running action before movement, then consumes
+only that action's matching arrival/failure observation after movement. Composites
+may examine at most 32 nodes at each boundary; a subsequent timed action receives
+no elapsed time from the preceding action's tick. Selectors reconsider earlier
+branches; Reactive sequences recheck their earlier conditions. A preempted branch
+loses its continuation. Root completion restarts at
+the next positive tick, without an in-tick repeat loop. Selection/presentation do
+not advance the sole cursor clock. Disable holds progress and releases only
+still-owned intent, following the existing lifecycle policy.
+
+Tree continuation and outcomes belong to the existing runtime-only Flecs cursor;
+no parallel playback clock or progress database is introduced. Its appended native
+fields require a matching exact SDK. Recovery must validate the selected graph,
+active path and continuation before adopting a candidate. This decision describes
+the tree integration contract; parser scaffolding alone is not a shipped workflow.

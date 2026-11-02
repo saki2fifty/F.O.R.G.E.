@@ -1,4 +1,5 @@
 #pragma once
+#include "../navigation_behavior_authoring.hpp"
 #include "../sprite_atlas_recipe.hpp"
 #include "../tile_map_source.hpp"
 #include "../tile_set_source.hpp"
@@ -13,6 +14,14 @@ namespace forge {
 // Private adapters borrow the same editor instances registered in DocumentWorkspace.
 // They own neither source values, history, publication queues nor persistent IDs.
 struct AssetDocumentAutomation {
+    static NavigationBehaviorSource behavior_source(AssetId id, const Json& request) {
+        const auto profile = request.value("behavior_profile", std::string("state_graph"));
+        if (profile == "state_graph")
+            return NavigationBehaviorSource::create(id);
+        if (profile == "tree")
+            return NavigationBehaviorSource::create_tree(id);
+        throw AuthoringError("invalid_argument", "Behavior profile must be state_graph or tree");
+    }
     static MaterialGraphSource graph_source(AssetId id, const Json& request) {
         const auto domain = request.value("domain", std::string("mesh"));
         if (domain != "mesh" && domain != "sprite")
@@ -135,6 +144,7 @@ struct AssetDocumentAutomation {
         constexpr bool tiles = std::is_same_v<Source, TileMapSource>;
         constexpr bool atlas = std::is_same_v<Source, SpriteAtlasRecipe>;
         constexpr bool graph = std::is_same_v<Source, MaterialGraphSource>;
+        constexpr bool behavior = std::is_same_v<Source, NavigationBehaviorSource>;
         return {
             Document::source_suffix,
             [&editor, &project](std::string_view action, const Json& request) -> Json {
@@ -142,6 +152,11 @@ struct AssetDocumentAutomation {
                 if (action == "status")
                     return status(editor, project);
                 if (action == "template") {
+                    if constexpr (!behavior)
+                        if (request.contains("behavior_profile"))
+                            throw AuthoringError(
+                                "invalid_argument",
+                                "behavior_profile applies to navigation_behavior templates only");
                     if constexpr (!graph)
                         if (request.contains("domain"))
                             throw AuthoringError("invalid_argument",
@@ -166,6 +181,8 @@ struct AssetDocumentAutomation {
                         return Source::create(id, atlas_images(request)).document;
                     else if constexpr (graph)
                         return graph_source(id, request).document;
+                    else if constexpr (behavior)
+                        return behavior_source(id, request).document;
                     else
                         return Document::initial_source(id).document;
                 }
@@ -184,10 +201,17 @@ struct AssetDocumentAutomation {
                         automation_relative_path(request.at("path").get<std::string>());
                     if (action == "open" &&
                         (request.contains("patch") || request.contains("tile_set") ||
-                         request.contains("textures") || request.contains("domain")))
-                        throw AuthoringError("invalid_argument",
-                                             "Initial patch/tile_set/textures/domain options apply "
-                                             "to creation only");
+                         request.contains("textures") || request.contains("domain") ||
+                         request.contains("behavior_profile")))
+                        throw AuthoringError(
+                            "invalid_argument",
+                            "Initial patch/tile_set/textures/domain/profile options apply "
+                            "to creation only");
+                    if constexpr (!behavior)
+                        if (request.contains("behavior_profile"))
+                            throw AuthoringError(
+                                "invalid_argument",
+                                "behavior_profile applies to navigation_behavior creation only");
                     if constexpr (!graph)
                         if (request.contains("domain"))
                             throw AuthoringError("invalid_argument",
@@ -220,6 +244,8 @@ struct AssetDocumentAutomation {
                                             return Source::create(id, atlas_images(request));
                                         else if constexpr (graph)
                                             return graph_source(id, request);
+                                        else if constexpr (behavior)
+                                            return behavior_source(id, request);
                                         else
                                             return Document::initial_source(id);
                                     }();

@@ -18,52 +18,68 @@ settings['modules'] = [dict(id='project.navigation_behavior_probe', implementati
     sdk='experimental-1', fingerprint=info['fingerprint'], library=module.name,
     dependencies=['forge.navigation', 'forge.resources'])]
 (root / 'forge.project.json').write_text(json.dumps(settings), encoding='utf-8')
-scene = json.loads((root / 'Scenes/131-patrol-behavior.scene.json').read_text(encoding='utf-8'))
-actor = next(e['id'] for e in scene['entities'] if e['name'] == 'Patrol agent - inspect behavior')
 
-def row(state):
-    return next(e for e in state['effective_scene']['entities'] if e['id'] == actor)
+def exercise(source, name, tree=False):
+    scene = json.loads((root / source).read_text(encoding='utf-8'))
+    actor = next(e['id'] for e in scene['entities'] if e['name'] == name)
+    def row(state):
+        return next(e for e in state['effective_scene']['entities'] if e['id'] == actor)
 
-poses = []
-for sdk in (False, True):
-    args = ['--sdk-project', root, '--user-data', root / ('sdk-users' if sdk else 'ordinary-users')]
-    if sdk:
-        args += ['--sdk-play', 'on']
-    host = Runtime(runtime, args)
-    try:
-        activate(host, scene, sdk)
-        positions = []
-        for _ in range(30):
+    poses = []
+    for sdk in (False, True):
+        args = ['--sdk-project', root, '--user-data', root / ('sdk-users' if sdk else 'ordinary-users')]
+        if sdk:
+            args += ['--sdk-play', 'on']
+        host = Runtime(runtime, args)
+        try:
+            activate(host, scene, sdk)
+            positions = []
+            leaves = set()
+            for _ in range(180 if tree else 30):
+                state = host.request('step')
+                value = row(state)
+                assert value['navigation_behavior_debug']['phase'] == 'Running', value
+                assert 'forge.runtime.navigation_behavior_cursor' not in value['components']
+                positions.append(value['components']['forge.local_translation'])
+                if tree:
+                    debug = value['navigation_behavior_debug']
+                    assert debug['profile'] == 'tree' and debug['tree_status'] in ('Running', 'Success'), debug
+                    leaves.add(debug['node'])
+            assert any('Navigation behavior SDK progress/resource passed' in e['text'] for e in state['diagnostics']), state['diagnostics']
+            assert not any(e['severity'].lower() in ('error', 'fatal') for e in state['diagnostics']), state['diagnostics']
+            if tree:
+                assert {4, 6, 7} <= leaves, leaves
+                assert any('Navigation behavior SDK tree progress passed' in e['text'] for e in state['diagnostics'])
+            observation = row(state)['navigation_behavior_debug']
+            generation = state['activation']['generation'] if sdk else state['world_generation']
+            target = dict(generation=generation, scene_asset=scene['asset_id'],
+                          entity=actor, type='forge.navigation_behavior')
+            tuned = host.request('property_tune', **target, property='enabled', value=False)
+            assert tuned['property_tune']['value'] is False
+            for _ in range(20):
+                state = host.request('step')
+                current = row(state)['navigation_behavior_debug']
+                assert current['phase'] == 'Disabled'
+                assert all(current[k] == observation[k] for k in ('state', 'elapsed', 'transitions'))
+            for field in ('graph', 'target', 'anchor'):
+                try:
+                    host.request('property_tune', **target, property=field, value=None)
+                except RuntimeError:
+                    pass
+                else:
+                    raise AssertionError('Live behavior reference/identity tuning was accepted')
+            host.request('property_tune', **target, property='enabled', value=True)
             state = host.request('step')
-            value = row(state)
-            assert value['navigation_behavior_debug']['phase'] == 'Running', value
-            assert 'forge.runtime.navigation_behavior_cursor' not in value['components']
-            positions.append(value['components']['forge.local_translation'])
-        assert any('Navigation behavior SDK progress/resource passed' in e['text'] for e in state['diagnostics']), state['diagnostics']
-        assert not any(e['severity'].lower() in ('error', 'fatal') for e in state['diagnostics']), state['diagnostics']
-        observation = row(state)['navigation_behavior_debug']
-        generation = state['activation']['generation'] if sdk else state['world_generation']
-        target = dict(generation=generation, scene_asset=scene['asset_id'],
-                      entity=actor, type='forge.navigation_behavior')
-        tuned = host.request('property_tune', **target, property='enabled', value=False)
-        assert tuned['property_tune']['value'] is False
-        for _ in range(20):
-            state = host.request('step')
-            current = row(state)['navigation_behavior_debug']
-            assert current['phase'] == 'Disabled'
-            assert all(current[k] == observation[k] for k in ('state', 'elapsed', 'transitions'))
-        for field in ('graph', 'target', 'anchor'):
-            try:
-                host.request('property_tune', **target, property=field, value=None)
-            except RuntimeError:
-                pass
-            else:
-                raise AssertionError('Live behavior reference/identity tuning was accepted')
-        host.request('property_tune', **target, property='enabled', value=True)
-        state = host.request('step')
-        assert row(state)['navigation_behavior_debug']['elapsed'] > observation['elapsed']
-        poses.append(positions)
-    finally:
-        host.close()
-assert poses[0] == poses[1], 'Ordinary and SDK Play behavior movement differs'
-print('Public behavior layout/progress/kind8 and live controls pass in both hosts; copied movement matches')
+            assert row(state)['navigation_behavior_debug']['elapsed'] > observation['elapsed'] or (
+                tree and row(state)['navigation_behavior_debug']['steps'] > observation['steps'])
+            poses.append(positions)
+            host.request('quit')
+            assert host.process.wait(timeout=10) == 0, 'Behavior runtime did not exit cleanly'
+        finally:
+            host.close()
+    differences = [(i + 1, a, b) for i, (a, b) in enumerate(zip(*poses)) if a != b]
+    assert not differences, ('Ordinary and SDK Play behavior movement differs', differences[:3])
+
+exercise('Scenes/131-patrol-behavior.scene.json', 'Patrol agent - inspect behavior')
+exercise('Scenes/139-behavior-tree.scene.json', 'Tree agent - inspect Node and Tree result', True)
+print('Public behavior state/tree layout, typed progress, kind8, live controls and both host movement passed')

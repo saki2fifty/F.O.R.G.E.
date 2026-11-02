@@ -132,6 +132,22 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
         "configure its graph/target/anchor/enabled through the reflected Scene component.",
         "asset.read", automation_object(), false, [](const Json&) {
             Json actions = Json::array(), conditions = Json::array();
+            Json tree_nodes = Json::array();
+            for (auto kind :
+                 {NavigationBehaviorTreeKind::Sequence,
+                  NavigationBehaviorTreeKind::ReactiveSequence,
+                  NavigationBehaviorTreeKind::Selector, NavigationBehaviorTreeKind::Wait,
+                  NavigationBehaviorTreeKind::MoveToPoint, NavigationBehaviorTreeKind::FollowTarget,
+                  NavigationBehaviorTreeKind::TargetNear, NavigationBehaviorTreeKind::TargetFar,
+                  NavigationBehaviorTreeKind::TargetMissing}) {
+                Json draft{{"version", 2}, {"entry", 0}, {"next_id", 1}, {"nodes", Json::array()}};
+                (void)add_navigation_behavior_node(draft, kind);
+                auto example = draft.at("nodes").back();
+                example.erase("id");
+                example.erase("name");
+                tree_nodes.push_back({{"kind", navigation_behavior_tree_kind_name(kind)},
+                                      {"example", std::move(example)}});
+            }
             for (auto kind : {NavigationBehaviorAction::Wait, NavigationBehaviorAction::MoveToPoint,
                               NavigationBehaviorAction::FollowTarget}) {
                 const auto name = navigation_behavior_action_name(kind);
@@ -165,6 +181,21 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                 {"version", 1},
                 {"editor", "navigation_behavior"},
                 {"component", "forge.navigation_behavior"},
+                {"source_versions", {1, 2}},
+                {"profiles", {"state_graph", "tree"}},
+                {"tree",
+                 {{"source_version", 2},
+                  {"nodes", std::move(tree_nodes)},
+                  {"limits", {{"nodes", 32}, {"children", 8}, {"depth", 8}}},
+                  {"identity", "Nodes allocate next_id monotonically. A connection is "
+                               "identified by its child, which has exactly one parent."},
+                  {"drafts", "Disconnected nodes and empty composites are editable; "
+                             "publish one connected tree with nonempty composites."},
+                  {"evaluation", "Sequences remember their running child. Reactive "
+                                 "sequences and Selectors reconsider earlier children. "
+                                 "One selected action consumes time/current arrival or "
+                                 "failure per positive fixed tick. Root completion "
+                                 "restarts on the next tick; selection never advances time."}}},
                 {"actions", std::move(actions)},
                 {"conditions", std::move(conditions)},
                 {"transition_example",
@@ -246,13 +277,16 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
         "asset.document.template",
         "Inspect a validated initial source shape. Its preview UUID is not reserved; creation "
         "allocates its own identity. Tile Maps require tile_set; Sprite atlases require textures. "
-        "Material graphs accept domain mesh (default) or sprite.",
+        "Material graphs accept domain mesh (default) or sprite. Navigation behaviors accept "
+        "behavior_profile state_graph (default) or tree.",
         "asset.read",
-        automation_object({{"editor", editor_schema},
-                           {"tile_set", automation_uuid()},
-                           {"domain", {{"type", "string"}, {"enum", {"mesh", "sprite"}}}},
-                           {"textures", automation_array(automation_uuid(), 512, 1)}},
-                          {"editor"}),
+        automation_object(
+            {{"editor", editor_schema},
+             {"tile_set", automation_uuid()},
+             {"domain", {{"type", "string"}, {"enum", {"mesh", "sprite"}}}},
+             {"behavior_profile", {{"type", "string"}, {"enum", {"state_graph", "tree"}}}},
+             {"textures", automation_array(automation_uuid(), 512, 1)}},
+            {"editor"}),
         false, [invoke](const Json& request) { return invoke("template", request); }));
     methods.push_back(automation_method(
         "asset.document.status",
@@ -289,15 +323,19 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
             properties["tile_set"] = automation_uuid();
             properties["textures"] = automation_array(automation_uuid(), 512, 1);
             properties["domain"] = {{"type", "string"}, {"enum", {"mesh", "sprite"}}};
+            properties["behavior_profile"] = {{"type", "string"},
+                                              {"enum", {"state_graph", "tree"}}};
             properties["patch"] = patch;
         }
         methods.push_back(automation_method(
             std::string("asset.document.") + action,
-            std::string(action) + " a project source in its actual editor. Settle the prior draft "
-                                  "first. Create supports a validated initial patch; Tile Maps "
-                                  "require tile_set; Sprite atlases require textures. It does not "
-                                  "publish until Save. Material graph creation accepts domain mesh "
-                                  "(default) or sprite.",
+            std::string(action) +
+                " a project source in its actual editor. Settle the prior draft "
+                "first. Create supports a validated initial patch; Tile Maps "
+                "require tile_set; Sprite atlases require textures. It does not "
+                "publish until Save. Material graph creation accepts domain mesh "
+                "(default) or sprite. Navigation behaviors accept behavior_profile "
+                "state_graph (default) or tree.",
             "asset.write", automation_object(std::move(properties), {"editor", "path"}), true,
             [invoke, action](const Json& request) { return invoke(action, request); }));
     }

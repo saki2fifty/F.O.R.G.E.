@@ -16,7 +16,8 @@ inline bool has_state_graph_layout(const nlohmann::json& source,
            at->at("format") == format;
 }
 inline void validate_state_graph_layout(const nlohmann::json& source,
-                                        std::string_view format = "forge.animation-state-layout") {
+                                        std::string_view format = "forge.animation-state-layout",
+                                        std::string_view rows = "states") {
     if (!has_state_graph_layout(source, format))
         return; // Preserve an unrecognized extension without interpreting it.
     const auto& layout = source.at("editor_layout");
@@ -24,7 +25,7 @@ inline void validate_state_graph_layout(const nlohmann::json& source,
         layout.at("positions").size() > 32)
         throw std::runtime_error("Unsupported state graph layout or too many positions");
     std::set<std::uint32_t> states, positions;
-    for (const auto& row : source.at("states"))
+    for (const auto& row : source.at(rows))
         states.insert(row.at("id").get<std::uint32_t>());
     for (const auto& row : layout.at("positions")) {
         const auto& value = row.at("state");

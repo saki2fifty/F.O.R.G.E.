@@ -1,5 +1,20 @@
 # Feature Gallery
 
+## Chase and patrol behavior tree
+
+Open **Scenes/139-behavior-tree.scene.json** and press Play. The cyan agent follows
+the moving orange target while it is within 3.5 m. Otherwise it pauses for half a
+second, then walks between the two green patrol markers. Select **Tree agent -
+inspect Node and Tree result** to read its current node, result and step count in
+**Live gameplay → Navigation behavior**.
+
+Stop, then open **Assets/Navigation/PatrolChaseTree.behavior.json** in Content.
+The Selector prioritizes a Reactive sequence for chasing over the patrol Sequence.
+Select Patrol to inspect its ordered children; use **Earlier**, **Later** or
+**Disconnect** to change that order. Publish a connected tree, save the Scene and
+export normally. The example reuses the original target animation and needs no
+project C++ module. See [Behavior trees](../../../manual/editor/navigation-behavior.md).
+
 ## Navigation build profiles
 
 Open **Scenes/138-navigation-profiles.scene.json** and press Play. Cyan uses the

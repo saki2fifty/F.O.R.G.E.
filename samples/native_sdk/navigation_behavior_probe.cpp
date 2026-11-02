@@ -20,7 +20,11 @@ int32_t FORGE_SDK_CALL schemas(const ForgeSdkWorldV1* host, char*, uint32_t) {
         !layout<forge::NavigationAgent>(world, "forge.navigation_agent"))
         return 0;
     const forge::NavigationBehavior config{{}, {}, {}, false};
-    const forge::NavigationBehaviorCursor progress{2, 5, .125, 1};
+    forge::NavigationBehaviorCursor progress{2, 5, .125, 1};
+    progress.tree_status = forge::NavigationBehaviorTreeStatus::Running;
+    progress.tree_active = (1u << 31) | 1;
+    progress.tree_children[0] = 1;
+    progress.tree_children[31] = 7;
     auto value = world.entity()
                      .add(flecs::Prefab)
                      .set<forge::NavigationBehavior>(config)
@@ -67,6 +71,16 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char*, uint32_t) {
             }
             if (ready) {
                 *reported = true;
+                if (cursor.tree_active) {
+                    if (cursor.tree_status != forge::NavigationBehaviorTreeStatus::Running ||
+                        !(cursor.tree_active & 1)) {
+                        host->diagnostic(host->context, 3,
+                                         "Navigation behavior SDK tree progress invalid");
+                        return;
+                    }
+                    host->diagnostic(host->context, 1,
+                                     "Navigation behavior SDK tree progress passed");
+                }
                 host->diagnostic(host->context, 1,
                                  "Navigation behavior SDK progress/resource passed");
             }

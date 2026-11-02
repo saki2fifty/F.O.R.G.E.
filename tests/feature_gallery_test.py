@@ -131,6 +131,28 @@ for plane, source in enumerate(('Scenes/129-moving-navigation-3d.scene.json',
     assert selected['metadata']['settings']['dynamic_obstacles'] is True
     assert selected['metadata']['settings'].get('plane', 0) == plane
 
+tree_source = 'Scenes/139-behavior-tree.scene.json'
+tree_scene = json.loads((project_root / tree_source).read_text(encoding='utf-8'))
+assert tree_scene['asset_id'] == by_source[tree_source]['id']
+tree_asset = by_source['Assets/Navigation/PatrolChaseTree.behavior.json']
+tree_graph = json.loads((project_root / tree_asset['source']).read_text(encoding='utf-8'))
+assert tree_graph['version'] == 2 and tree_graph['asset_id'] == tree_asset['id']
+tree_nodes = {node['id']: node for node in tree_graph['nodes']}
+assert tree_nodes[tree_graph['entry']]['kind'] == 'selector'
+assert tree_nodes[1]['children'] == [2, 5] and tree_nodes[2]['children'] == [3, 4]
+assert tree_nodes[5]['children'] == [6, 7, 8]
+assert {node['kind'] for node in tree_nodes.values()} == {
+    'selector', 'reactive_sequence', 'target_near', 'follow_target', 'sequence', 'wait', 'move_to_point'}
+tree_actor = next(row for row in tree_scene['entities'] if 'forge.navigation_behavior' in row['components'])
+assert tree_actor['components']['forge.navigation_behavior']['graph'] == tree_asset['id']
+tree_target = next(row for row in tree_scene['entities'] if 'forge.transform_animator' in row['components'])
+assert tree_target['components']['forge.transform_animator']['clip'] == \
+    by_source['Assets/Navigation/ChaseTarget.animation.json']['id']
+tree_nav = next(row for row in assets if row['id'] == tree_actor['components']['forge.navigation_agent']['navmesh'])
+assert tree_nav['metadata']['source_scene'] == tree_scene['asset_id']
+assert tree_nav['metadata']['settings']['plane'] == 1
+assert (project_root / '.forge/cache/derived' / tree_asset['metadata']['forge.import']['key'] / 'behavior.json').is_file()
+
 profile_source = 'Scenes/138-navigation-profiles.scene.json'
 profile_scene = json.loads((project_root / profile_source).read_text(encoding='utf-8'))
 assert profile_scene['asset_id'] == by_source[profile_source]['id']

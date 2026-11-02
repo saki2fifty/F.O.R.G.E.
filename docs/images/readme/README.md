@@ -1,5 +1,28 @@
 # README screenshots
 
+## Navigation behavior trees
+
+[Tree editor](../../../manual/images/navigation-behavior-tree.png) is the
+unretouched1180×1280 production NavigationBehaviorEditor in SDL/ImGui software
+rendering. Real pointer input selects Patrol in the published original Gallery139
+tree. All eight nodes, parent/child branches, Sequence type and ordered child
+controls are visible. Source and Scene values remain unchanged by capture.
+PNG SHA256: `049c35e7b3e5a6bf34573f4a1fddde0a6362439d15816af3791f654e7c1d0a19`.
+
+[Tree Game](../../../manual/images/navigation-behavior-tree-game.png) shows the
+unretouched640×360 production FrameRenderer after90fixedticks in Gallery139
+(`e363aa80-78a1-43c6-975a-6cbdc39dfc2b`). Cyan follows the tree's navigation intent;
+orange is the animated target and green marks the patrol destinations. Four
+visibly moving source/source-hidden relocated export display pairs match exactly
+on software Vulkan. PPM-to-PNG conversion preserves every RGB pixel.
+PNG SHA256: `df4a0c6719043a911f00e2d8bba605d1475b8a3d3efa99e024bd7d8762401e54`.
+
+Both images were personally reviewed. Local unassigned-source captures are based
+on8972d9b. Exact source/executable/image hashes and original paths are recorded in
+`AgentFiles/build/phase218-navigation-behavior-trees/tree-captures.json`.
+These captures do not establish full Main, Windows/MSVC/D3D12, physical input/DPI/GPU
+or graphical EXE acceptance.
+
 ## Named navigation build profiles
 
 [Profile Game](../../../manual/images/navigation-profile-gallery.png) shows the

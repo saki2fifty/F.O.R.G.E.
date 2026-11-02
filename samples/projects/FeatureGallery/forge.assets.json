@@ -1841,6 +1841,41 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "1989d19c-7713-447b-9f8f-aff6a08f50f5",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "923fb1bfc24318a4d4f23de6002ad856097a01a53bfc9bdabc3112a2476b0168",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 3,
+          "importer": "forge.navigation.behavior",
+          "importer_revision": "forge.navigation.behavior.v1",
+          "key": "1dfb294e96bf20e92ba0f2dcd52fdd33904021fd978296b31fe451b4afac0728",
+          "output_format": "forge.navigation-behavior",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "a6d4c7b95e57e7da7be2cd5b21f554e1682a58ae5a5db0f051d3295d50aac543",
+          "source_digest": "2d7c8e2230e830122da2047d0b24b569f8760afb4623b7df19a14e453e9e4fc2",
+          "version": 1
+        },
+        "forge.navigation_behavior": {
+          "bytes": 735,
+          "file": "behavior.json",
+          "sha256": "2fd6590216e1a3bcd834dd94283d306e183419ed349f3e4eb419f7ee889a3a20",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Navigation/PatrolChaseTree.behavior.json",
+      "source_dependencies": [],
+      "type": "navigation_behavior"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "19f69809-0eea-4a0b-a360-dd4b7c90f2be",
       "metadata": {},
       "schema_version": 3,
@@ -9346,6 +9381,65 @@
       "type": "tile_map"
     },
     {
+      "dependencies": [
+        "e363aa80-78a1-43c6-975a-6cbdc39dfc2b"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "build",
+          "revision": "dc1094de84251ddc301fdca9b06410040f6e1b888ce700ee561282e925ad6dfe",
+          "role": "navigation.scene",
+          "target": "e363aa80-78a1-43c6-975a-6cbdc39dfc2b",
+          "type": "scene"
+        }
+      ],
+      "id": "a1e28c64-5682-4d60-9aa0-6acc60d5a0f9",
+      "metadata": {
+        "asset_id": "a1e28c64-5682-4d60-9aa0-6acc60d5a0f9",
+        "bounds": {
+          "cell_inverse": 10.0,
+          "climb": 0.4000000059604645,
+          "height": 2.0,
+          "maximum": [
+            10.0,
+            4.099999904632568,
+            7.0
+          ],
+          "minimum": [
+            -10.0,
+            -0.20000000298023224,
+            -7.0
+          ],
+          "radius": 0.4000000059604645
+        },
+        "geometry_sha256": "dc1094de84251ddc301fdca9b06410040f6e1b888ce700ee561282e925ad6dfe",
+        "geometry_version": 3,
+        "layout": "le-polyref32-detour7-static-single-v1",
+        "mesh_inputs": [],
+        "recast_revision": "6dc1667f580357e8a2154c28b7867bea7e8ad3a7",
+        "settings": {
+          "cell_height": 0.10000000149011612,
+          "cell_size": 0.10000000149011612,
+          "climb": 0.4000000059604645,
+          "height": 2.0,
+          "plane": 1,
+          "radius": 0.4000000059604645,
+          "slope": 45.0
+        },
+        "sha256": "bc095c6e57460ea95c3772609c42dc649075cc3300eabe9e26e8ae65c7e67fc3",
+        "source_scene": "e363aa80-78a1-43c6-975a-6cbdc39dfc2b",
+        "sources": [
+          "88ee2f02-1bf7-4a0a-8de6-a2b9104a0632"
+        ],
+        "tile_sha256": "eb765bfd4fccc163a30f456122372abeefcf362e9a93f412f038da52231ad7e1",
+        "version": 3
+      },
+      "schema_version": 3,
+      "source": "Assets/Navigation/Generated/a1e28c64-5682-4d60-9aa0-6acc60d5a0f9/293bcb95-8816-4e9c-9451-ec538fc3137f.fnav",
+      "source_dependencies": [],
+      "type": "navmesh"
+    },
+    {
       "dependencies": [],
       "dependency_edges": [],
       "id": "a2d19777-70d1-4e00-b1c0-89e0f544fafb",
@@ -12059,6 +12153,16 @@
         "removed": false
       },
       "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "e363aa80-78a1-43c6-975a-6cbdc39dfc2b",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/139-behavior-tree.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
     },
     {
       "dependencies": [],

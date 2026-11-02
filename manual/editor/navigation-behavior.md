@@ -1,7 +1,7 @@
 # Create a navigation behavior
 
-A **Navigation Behavior** is a state graph that chooses where a **Navigation
-Agent** should go. Use it for patrols, pauses and following a target. The agent
+A **Navigation Behavior** is a state graph or behavior tree that chooses where a
+**Navigation Agent** should go. Use it for patrols, pauses and following a target. The agent
 handles routes and movement. No project C++ module is required.
 
 ![Patrol graph with the Pause right transition and its elapsed-time controls selected](../images/navigation-behavior-graph.png)
@@ -37,7 +37,7 @@ include cooked graphs, navigation and animation; they can be exported directly.
 ## Create and edit a graph
 
 1. In **Content → Create / Register**, choose **New navigation behavior...**.
-2. Enter a project file such as `Assets/Patrol.behavior.json` and click **Create**.
+2. Enter a project file such as `Assets/Patrol.behavior.json`, keep **Profile → State graph**, and click **Create**.
 3. The **Navigation Behavior** document opens with a **Wait** entry state.
 4. Click **Add state** to create another card. Select a card to edit its name and action below the canvas. Names must be unique.
 
@@ -91,6 +91,49 @@ state. Add `target_far` and `target_missing` transitions back to wait, then assi
 Target in Inspector. Different near/far distances avoid repeated switching at
 one distance boundary.
 
+## Build a behavior tree
+
+Choose **Profile → Behavior tree** in the New navigation behavior dialog to start
+a tree. Existing state graphs keep their profile. To try a finished example, open
+**Scenes/139-behavior-tree.scene.json**, press Play and watch the cyan agent chase
+the orange target or patrol between green markers.
+
+![Cyan tree-controlled agent on the XY patrol course with its animated orange target](../images/navigation-behavior-tree-game.png)
+
+The green markers identify the two patrol destinations. Stop returns to the saved starting poses.
+
+![Behavior tree with the Patrol Sequence and its ordered children selected](../images/navigation-behavior-tree.png)
+
+Stop and open **Assets/Navigation/PatrolChaseTree.behavior.json** in Content to
+inspect the example. A tree evaluates children in their listed order:
+
+- **Sequence** runs children in order. It remembers a running child, continues when that child succeeds, and fails when a child fails.
+- **Reactive sequence** checks its earlier conditions again each tick. A failed condition cancels its running branch.
+- **Selector** tries children until one runs or succeeds. Earlier branches have priority and are reconsidered each tick.
+- **Wait** runs until **Seconds** elapse, then succeeds. It releases the behavior's own movement destination.
+- **Move to point** and **Follow target** run until navigation reports arrival, or fail if their destination cannot be used. A missing Target fails Follow target.
+- **Target near**, **Target far** and **Target missing** succeed or fail immediately. Near includes the chosen **Distance (m)**; Far includes that distance and larger values. An unavailable Target matches neither Near nor Far.
+
+For a chase with a patrol fallback:
+
+1. Choose **Selector** for the root's **Node type**.
+2. Use **Add node...** to add a **Reactive sequence**, a **Target near** condition and **Follow target**. Connect the Selector's **Out** to the Reactive sequence's **In**, then connect that sequence to the condition and action in that order.
+3. Add a **Sequence** as the Selector's second child. Connect a **Wait** and two **Move to point** nodes to it. Set the wait's Seconds and each movement node's Point.
+4. Select each composite to review its children. **Earlier** and **Later** change execution priority. **Disconnect** keeps the child as an editable draft. Reconnect it before publication.
+5. Use **Make root** on a parentless node if you need a different root. **Remove node** detaches its children rather than deleting them. Each node can have one parent; loops are rejected.
+6. **Save / Publish**, attach the graph to the selected Navigation Agent, assign Target in Inspector and save the Scene.
+
+**Frame nodes**, **Arrange nodes**, zoom, pan, drag, Undo and Redo work as for state
+graphs. Switching a composite to a leaf disconnects its children. Disconnected
+nodes and empty composites can remain in a draft; publication requires one
+connected tree with at least one child per composite.
+
+A completed root starts again on the next positive fixed tick. A preempted branch
+starts fresh when chosen again. A new Wait does not receive time from the action
+that preceded it in the same tick. In Play, **Navigation behavior** shows **Node**,
+**Tree result**, elapsed time and **Steps**. Steps count completed positive fixed
+evaluations. Pause and observation do not advance progress.
+
 ## Test, tune and export
 
 Press **Play** and select the object. **Live gameplay → Navigation behavior**
@@ -120,6 +163,8 @@ selected cooked graph and NavMesh without their editable source files or build w
 Limits: 32 states, eight outgoing transitions per state, 128 transitions total,
 64 KiB source; 64 controllers and eight configured graph assets per scene.
 Point coordinates are within ±4096, elapsed conditions within 0–3600 seconds and
-target distances within 0–8192 world units. This tool does not provide behavior
-trees or arbitrary script actions. Runtime progress is not an authored scene
+target distances within 0–8192 world units. Trees have at most 32 nodes, eight
+children per composite and eight levels including the root; each evaluation
+boundary visits at most 32 nodes. Arbitrary script actions are unavailable.
+Runtime progress is not an authored scene
 property or a durable save-game payload.

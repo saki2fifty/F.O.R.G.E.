@@ -33,6 +33,8 @@ class NavigationBehaviorPlayback {
         std::optional<AffineTransform> anchor;
         bool anchor_required = false;
         NavigationBehaviorCursor cursor;
+        std::optional<NavigationBehaviorTreeSelection> tree;
+        bool action_failed = false;
     };
     struct Player {
         NavigationBehavior config;
@@ -54,7 +56,9 @@ class NavigationBehaviorPlayback {
     void clear_graphs() noexcept;
     void release_intent(flecs::entity, Player&);
     void stop(flecs::entity, Player&);
-    std::optional<Double3> goal(const NavigationBehaviorState&, const Frame&) const;
+    std::optional<double> target_distance(const Frame&) const;
+    std::optional<Double3> goal(NavigationBehaviorAction, const Double3&, const Frame&) const;
+    std::optional<Double3> goal(const NavigationBehaviorTreeNode&, const Frame&) const;
     void apply_intent(flecs::entity, Player&, const std::optional<Double3>&);
     void report(flecs::entity_t, Player&);
     flecs::entity resolve(EntityRef) const;

@@ -1,5 +1,27 @@
 # 2026-11-02
 
+## Navigation behavior trees
+
+Navigation Behavior source version2 adds ordered Sequence, Reactive sequence and
+Selector composites, timed Wait, point/follow actions and target conditions.
+Existing state graphs and their cooked bytes retain version1 semantics and IDs.
+The existing source document owns validation, stable node identity, Undo/Redo and
+publication; the same editor canvas and automation/MCP source tools expose both
+profiles. Draft forests remain editable; publication requires one connected tree.
+
+Navigation Agent retains movement authority. Flecs cursor continuation handles
+priority preemption, actual arrival/failure, fixed time, disable/resume and exact
+private recovery. Evaluation has finite node/child/depth/work bounds. The expanded
+runtime cursor and its value-support semantics require a matching exact SDK;
+native C callbacks and dependency pins remain unchanged.
+
+Both runtime hosts now use the shared unpublished-world resource preparation for
+fresh authored scenes, including their time-zero animation sample. This keeps
+animated-target decisions aligned before the first fixed tick. Recovery preserves
+its validated restore order. Gallery139 supplies a ready chase/patrol tree using
+the original target animation, ordinary source-free export and an illustrated
+current-use guide. Physical Windows/full editor/graphical EXE review remains pending.
+
 ## Named navigation build profiles
 
 A Scene can publish separately named Nav assets for different agent clearances.

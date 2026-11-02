@@ -1,0 +1,35 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [],
+    "importer": "forge.navigation.behavior",
+    "importer_revision": "forge.navigation.behavior.v1",
+    "key_version": 1,
+    "output_format": "forge.navigation-behavior",
+    "output_version": 1,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {},
+    "settings_version": 1,
+    "source": "2d7c8e2230e830122da2047d0b24b569f8760afb4623b7df19a14e453e9e4fc2",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.navigation-behavior.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "1989d19c-7713-447b-9f8f-aff6a08f50f5",
+    "source": "Assets/Navigation/PatrolChaseTree.behavior.json",
+    "source_digest": "2d7c8e2230e830122da2047d0b24b569f8760afb4623b7df19a14e453e9e4fc2",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.navigation.behavior",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

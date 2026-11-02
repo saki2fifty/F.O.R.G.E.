@@ -17,17 +17,23 @@ class NavigationBehaviorEditor : public SourceDocumentPanel<NavigationBehaviorDo
     void content(SceneDocument& project, bool locked) {
         ImGui::BeginDisabled(locked || dirty());
         if (ui::button("New navigation behavior...",
-                       "Create a patrol, wait or target-chase graph."))
+                       "Create a navigation state graph or behavior tree."))
             ImGui::OpenPopup("New navigation behavior");
         ImGui::EndDisabled();
         if (ImGui::BeginPopupModal("New navigation behavior", nullptr,
                                    ImGuiWindowFlags_AlwaysAutoResize)) {
             ImGui::InputText("Project file", path_, sizeof(path_));
+            const char* profiles[]{"State graph", "Behavior tree"};
+            ImGui::Combo("Profile", &new_profile_, profiles, 2);
+            FORGE_UI_PROBE("navigation_behavior:profile");
             ImGui::BeginDisabled(locked);
-            if (ui::button("Create", "Create an editable graph with one Wait state.")) {
+            if (ui::button("Create", new_profile_ == 1 ? "Create a tree with one Wait node."
+                                                       : "Create a graph with one Wait state.")) {
                 try {
                     auto created = NavigationBehaviorDocument::create(
-                        project.writer_guard(), std::filesystem::u8path(path_));
+                        project.writer_guard(), std::filesystem::u8path(path_),
+                        new_profile_ == 1 ? NavigationBehaviorSource::create_tree
+                                          : NavigationBehaviorSource::create);
                     const auto path = created->locator();
                     created.reset();
                     load(project, path);
@@ -71,9 +77,15 @@ class NavigationBehaviorEditor : public SourceDocumentPanel<NavigationBehaviorDo
             ui::editor_context->task.focus_document("navigation_behavior",
                                                     path_utf8(document_->locator()));
         if (expanded && document_) {
+            const bool tree = document_->source().document.at("version") == 2;
             ImGui::TextWrapped(
-                "States choose Navigation Agent destinations. The first matching outgoing "
-                "transition wins; at most one transition runs per fixed tick.");
+                tree
+                    ? "A tree chooses Navigation Agent intent. Sequences retain their running "
+                      "child; "
+                      "Reactive sequences and Selectors reconsider earlier children. Conditions do "
+                      "not move the object. Root completion restarts on the next fixed tick."
+                    : "States choose Navigation Agent destinations. The first matching outgoing "
+                      "transition wins; at most one transition runs per fixed tick.");
             ImGui::TextUnformatted(path_utf8(document_->locator()).c_str());
             ImGui::BeginDisabled(locked || pending());
             if (ui::button(
@@ -97,22 +109,26 @@ class NavigationBehaviorEditor : public SourceDocumentPanel<NavigationBehaviorDo
                 [&](std::uint32_t id) { select(id); }, [&](std::uint32_t id) { select_edge(id); });
             ImGui::BeginDisabled(locked || pending());
             source = document_->source().document;
-            ImGui::BeginDisabled(source.at("states").size() >= 32 ||
-                                 source.at("next_id").get<std::uint64_t>() > UINT32_MAX);
-            if (ui::button("Add state",
-                           "Allocate a stable state ID; deleted IDs are never reused.")) {
-                std::uint32_t id = 0;
-                if (mutate("Add behavior state",
-                           [&](Json& d) { id = add_navigation_behavior_state(d); }))
-                    select(id);
-            }
-            ImGui::EndDisabled();
-            source = document_->source().document;
-            for (const auto& row : source.at("states"))
-                if (row.at("id") == selected_) {
-                    draw_state(source, row);
-                    break;
+            if (tree)
+                draw_tree_controls(source);
+            else {
+                ImGui::BeginDisabled(source.at("states").size() >= 32 ||
+                                     source.at("next_id").get<std::uint64_t>() > UINT32_MAX);
+                if (ui::button("Add state",
+                               "Allocate a stable state ID; deleted IDs are never reused.")) {
+                    std::uint32_t id = 0;
+                    if (mutate("Add behavior state",
+                               [&](Json& d) { id = add_navigation_behavior_state(d); }))
+                        select(id);
                 }
+                ImGui::EndDisabled();
+                source = document_->source().document;
+                for (const auto& row : source.at("states"))
+                    if (row.at("id") == selected_) {
+                        draw_state(source, row);
+                        break;
+                    }
+            }
             ImGui::SeparatorText("Scene object");
             ImGui::TextWrapped(
                 "Add Navigation Agent to an object first. Assign Target for chase/distance tests "
@@ -160,6 +176,7 @@ class NavigationBehaviorEditor : public SourceDocumentPanel<NavigationBehaviorDo
 
   private:
     NavigationBehaviorGraphView graph_;
+    int new_profile_ = 0;
     std::uint32_t selected_ = 0, edge_ = 0;
     char path_[256] = "Assets/Patrol.behavior.json", name_[65]{};
     bool gesture_dirty() const override { return graph_.draft_dirty(); }
@@ -183,12 +200,148 @@ class NavigationBehaviorEditor : public SourceDocumentPanel<NavigationBehaviorDo
             return edit_source(revision, std::move(label), edit);
         };
     }
+    static constexpr std::pair<NavigationBehaviorTreeKind, const char*> tree_options_[]{
+        {NavigationBehaviorTreeKind::Sequence, "Sequence"},
+        {NavigationBehaviorTreeKind::ReactiveSequence, "Reactive sequence"},
+        {NavigationBehaviorTreeKind::Selector, "Selector"},
+        {NavigationBehaviorTreeKind::Wait, "Wait"},
+        {NavigationBehaviorTreeKind::MoveToPoint, "Move to point"},
+        {NavigationBehaviorTreeKind::FollowTarget, "Follow target"},
+        {NavigationBehaviorTreeKind::TargetNear, "Target near"},
+        {NavigationBehaviorTreeKind::TargetFar, "Target far"},
+        {NavigationBehaviorTreeKind::TargetMissing, "Target missing"}};
+    void draw_tree_controls(const Json& source) {
+        ImGui::BeginDisabled(source.at("nodes").size() >= 32 ||
+                             source.at("next_id").get<std::uint64_t>() > UINT32_MAX);
+        if (ui::button("Add node...", "Allocate a stable node ID; deleted IDs are never reused."))
+            ImGui::OpenPopup("Add behavior tree node");
+        FORGE_UI_PROBE("navigation_behavior:tree_add");
+        if (ImGui::BeginPopup("Add behavior tree node")) {
+            for (const auto& [kind, label] : tree_options_) {
+                if (ImGui::Selectable(label)) {
+                    std::uint32_t id = 0;
+                    if (mutate("Add behavior tree node",
+                               [&](Json& d) { id = add_navigation_behavior_node(d, kind); })) {
+                        graph_.reset();
+                        select(id);
+                    }
+                }
+                FORGE_UI_PROBE(std::string("navigation_behavior:tree_add:") +
+                               navigation_behavior_tree_kind_name(kind));
+            }
+            ImGui::EndPopup();
+        }
+        ImGui::EndDisabled();
+        ImGui::TextWrapped("Connect a composite's Out port to a child's In port. Each node has "
+                           "one parent. Publish one connected tree; disconnected nodes remain "
+                           "editable drafts.");
+        const auto current = document_->source().document;
+        for (const auto& node : current.at("nodes"))
+            if (node.at("id") == selected_) {
+                draw_tree_node(current, node);
+                return;
+            }
+    }
+    void draw_tree_node(const Json& source, const Json& node) {
+        ImGui::SeparatorText("Selected node");
+        ImGui::Text("Stable ID: %u", selected_);
+        ImGui::InputText("Name", name_, sizeof(name_));
+        FORGE_UI_PROBE("navigation_behavior:name");
+        if (ImGui::IsItemDeactivatedAfterEdit())
+            state_edit("Rename behavior tree node",
+                       [&](Json& row) { row["name"] = std::string(name_); });
+        const auto kind = node.at("kind").get<std::string>();
+        const char* preview = "Unknown";
+        for (const auto& [option, label] : tree_options_)
+            if (kind == navigation_behavior_tree_kind_name(option))
+                preview = label;
+        if (ImGui::BeginCombo("Node type", preview)) {
+            for (const auto& [option, label] : tree_options_)
+                if (ImGui::Selectable(label, kind == navigation_behavior_tree_kind_name(option)))
+                    mutate("Set behavior tree node type", [&](Json& d) {
+                        set_navigation_behavior_node_kind(d, selected_, option);
+                    });
+            ImGui::EndCombo();
+        }
+        FORGE_UI_PROBE("navigation_behavior:tree_kind");
+        if (kind == "wait" || kind == "target_near" || kind == "target_far") {
+            const bool seconds = kind == "wait";
+            const char* field = seconds ? "seconds" : "distance";
+            double value = node.at(field);
+            if (ImGui::InputDouble(seconds ? "Seconds" : "Distance (m)", &value, 0, 0, "%.3f",
+                                   ImGuiInputTextFlags_EnterReturnsTrue))
+                state_edit("Set behavior tree value", [&](Json& row) { row[field] = value; });
+            FORGE_UI_PROBE(seconds ? "navigation_behavior:tree_seconds"
+                                   : "navigation_behavior:tree_distance");
+        }
+        if (kind == "move_to_point") {
+            auto point = node.at("point").get<std::array<float, 3>>();
+            if (ImGui::InputFloat3("Point", point.data(), "%.3f",
+                                   ImGuiInputTextFlags_EnterReturnsTrue))
+                state_edit("Set behavior tree point", [&](Json& row) { row["point"] = point; });
+            FORGE_UI_PROBE("navigation_behavior:tree_point");
+            ImGui::TextWrapped("World coordinates without Anchor; local coordinates with Anchor. "
+                               "XY navigation ignores point Z.");
+        }
+        bool parented = false;
+        for (const auto& parent : source.at("nodes"))
+            if (parent.contains("children"))
+                for (const auto& child : parent.at("children"))
+                    parented |= child == selected_;
+        ImGui::BeginDisabled(parented);
+        if (ui::button("Make root", "Start at this node. Disconnect its parent first."))
+            mutate("Choose behavior tree root", [&](Json& d) { d["entry"] = selected_; });
+        FORGE_UI_PROBE("navigation_behavior:tree_root");
+        ImGui::EndDisabled();
+        ImGui::SameLine();
+        if (ui::button("Remove node", "Remove this node and its connections as one Undo step.")) {
+            mutate("Remove behavior tree node",
+                   [&](Json& d) { remove_navigation_behavior_node(d, selected_); });
+            return;
+        }
+        FORGE_UI_PROBE("navigation_behavior:tree_remove");
+        if (!node.contains("children") || node.at("children").empty())
+            return;
+        ImGui::SeparatorText("Children (evaluated in order)");
+        const auto& children = node.at("children");
+        for (std::size_t index = 0; index < children.size(); ++index) {
+            const auto child = children[index].get<std::uint32_t>();
+            ImGui::PushID(int(child));
+            const auto label = std::to_string(index + 1) + ". Node " + std::to_string(child);
+            if (ImGui::Selectable(label.c_str(), edge_ == child))
+                edge_ = child;
+            FORGE_UI_PROBE("navigation_behavior:tree_child:" + std::to_string(child));
+            ImGui::BeginDisabled(index == 0);
+            if (ui::button("Earlier", "Evaluate this child earlier."))
+                state_edit("Reorder behavior tree children", [&](Json& row) {
+                    std::swap(row["children"][index], row["children"][index - 1]);
+                });
+            FORGE_UI_PROBE("navigation_behavior:tree_earlier:" + std::to_string(child));
+            ImGui::EndDisabled();
+            ImGui::SameLine();
+            ImGui::BeginDisabled(index + 1 == children.size());
+            if (ui::button("Later", "Evaluate this child later."))
+                state_edit("Reorder behavior tree children", [&](Json& row) {
+                    std::swap(row["children"][index], row["children"][index + 1]);
+                });
+            FORGE_UI_PROBE("navigation_behavior:tree_later:" + std::to_string(child));
+            ImGui::EndDisabled();
+            ImGui::SameLine();
+            if (ui::button("Disconnect", "Keep the child as a disconnected draft node."))
+                state_edit("Disconnect behavior tree child", [&](Json& row) {
+                    row["children"].erase(row["children"].begin() + index);
+                });
+            FORGE_UI_PROBE("navigation_behavior:tree_disconnect:" + std::to_string(child));
+            ImGui::PopID();
+        }
+    }
     template <class F> bool mutate(std::string label, F edit) {
         return edit_source(document_->revision(), std::move(label), edit);
     }
     void select(std::uint32_t id) {
         selected_ = edge_ = 0;
-        for (const auto& s : document_->source().document.at("states"))
+        const auto& source = document_->source().document;
+        for (const auto& s : source.at(source.at("version") == 2 ? "nodes" : "states"))
             if (s.at("id") == id) {
                 selected_ = id;
                 const auto name = s.at("name").get<std::string>();
@@ -197,6 +350,18 @@ class NavigationBehaviorEditor : public SourceDocumentPanel<NavigationBehaviorDo
             }
     }
     void select_edge(std::uint32_t id) {
+        const auto& source = document_->source().document;
+        if (source.at("version") == 2) {
+            for (const auto& parent : source.at("nodes"))
+                if (parent.contains("children"))
+                    for (const auto& child : parent.at("children"))
+                        if (child == id) {
+                            select(parent.at("id"));
+                            edge_ = id;
+                            return;
+                        }
+            return;
+        }
         for (const auto& s : document_->source().document.at("states"))
             for (const auto& e : s.at("transitions"))
                 if (e.at("id") == id) {
@@ -207,7 +372,7 @@ class NavigationBehaviorEditor : public SourceDocumentPanel<NavigationBehaviorDo
     }
     template <class F> void state_edit(std::string label, F edit) {
         mutate(std::move(label), [&](Json& d) {
-            for (auto& s : d["states"])
+            for (auto& s : d.at(d.at("version") == 2 ? "nodes" : "states"))
                 if (s.at("id") == selected_) {
                     edit(s);
                     break;

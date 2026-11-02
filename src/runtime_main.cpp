@@ -39,20 +39,15 @@ void prepare_physics(forge::PhysicsRuntime& physics) {
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
 }
-void prepare_navigation(forge::RuntimeWorld& runtime) {
+void prepare_runtime_scene(forge::RuntimeWorld& runtime) {
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(60);
-    const auto services = runtime.engine.services();
-    if (!services.available(forge::Capability::Navigation))
-        return;
-    const auto navigation =
-        std::static_pointer_cast<forge::NavigationRuntime>(services.navigation());
     for (;;) {
-        if (services.available(forge::Capability::Resources))
-            services.resources()->synchronize();
-        if (navigation->prepare_assets())
+        // Use the same unpublished-world readiness as interactive Play. Animated
+        // targets must start at the same fixed boundary in both runtime hosts.
+        if (runtime.prepare_scene_resources())
             return;
         if (std::chrono::steady_clock::now() >= deadline)
-            throw std::runtime_error("Runtime navigation preparation timed out");
+            throw std::runtime_error("Runtime Scene resource preparation timed out");
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
 }
@@ -502,9 +497,9 @@ int main(int argc, char** argv) {
                             prepare_physics(*candidate->physics());
                             candidate->physics()->synchronize(0);
                             replacement_phase("replace-physics-ready");
-                            replacement_phase("replace-navigation-begin");
-                            prepare_navigation(*candidate);
-                            replacement_phase("replace-navigation-ready");
+                            replacement_phase("replace-resources-begin");
+                            prepare_runtime_scene(*candidate);
+                            replacement_phase("replace-resources-ready");
                         }
                         candidate->simulation.restore_input_tick(recovered_tick);
                         candidate->simulation.reset_presentation();

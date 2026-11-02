@@ -89,6 +89,12 @@ for legacy in (False, True):
         assert behavior_catalog['editor'] == 'navigation_behavior'
         assert {a['kind'] for a in behavior_catalog['actions']} == {'wait', 'move_to_point', 'follow_target'}
         assert len(behavior_catalog['conditions']) == 5 and behavior_catalog['limits']['outgoing'] == 8
+        assert behavior_catalog['source_versions'] == [1, 2]
+        assert set(behavior_catalog['profiles']) == {'state_graph', 'tree'}
+        assert behavior_catalog['tree']['limits'] == dict(nodes=32, children=8, depth=8)
+        assert {n['kind'] for n in behavior_catalog['tree']['nodes']} == {
+            'sequence', 'reactive_sequence', 'selector', 'wait', 'move_to_point',
+            'follow_target', 'target_near', 'target_far', 'target_missing'}
         graph_types = read('forge_asset_graph_catalog')['nodes']
         assert len(graph_types) > 10
         assert read('forge_asset_graph_node', schema='constant')['outputs']
@@ -635,6 +641,47 @@ for legacy in (False, True):
                 assert status(owner)['dirty']
                 assert edit('forge_asset_document_undo', owner)['ok']
                 assert not status(owner)['dirty']  # Same saved-state semantics as interactive editing.
+            assert edit('forge_asset_document_close', owner, discard=True)['ok']
+
+        if NAVIGATION_BEHAVIOR_ONLY:
+            owner = 'navigation_behavior'
+            template = read('forge_asset_document_template', editor=owner, behavior_profile='tree')
+            assert template['version'] == 2 and template['nodes'][0]['kind'] == 'wait'
+            wrong = client.tool('forge_asset_document_template', target=discovery()['result']['target'],
+                                editor='terrain', behavior_profile='tree')
+            failed(wrong, 'invalid_argument')
+            assert not mutate('forge_asset_document_create', editor=owner,
+                              path='Assets/InvalidTree.behavior.json', behavior_profile='unknown')['ok']
+            assert not (root/'Game/Assets/InvalidTree.behavior.json').exists()
+            created = mutate('forge_asset_document_create', editor=owner,
+                             path='Assets/McpTree.behavior.json', behavior_profile='tree')
+            assert created['ok'], created
+            original = content(owner)
+            assert original['version'] == 2 and original['asset_id'] != template['asset_id']
+            tree = json.loads(json.dumps(original))
+            tree['next_id'] = 4
+            tree['nodes'] = [dict(id=1, name='Route', kind='sequence', children=[2, 3]),
+                             dict(id=2, name='Wait', kind='wait', seconds=.25),
+                             dict(id=3, name='Walk', kind='move_to_point', point=[3, 0, 0])]
+            old = status(owner)
+            assert edit('forge_asset_document_patch', owner,
+                        patch=[dict(op='replace', path='', value=tree)])['ok']
+            selected = content(owner)
+            failed(mutate('forge_asset_document_patch', editor=owner, document_session=old['session'],
+                          document_revision=old['revision'], patch=[dict(op='replace', path='/entry', value=2)]),
+                   'stale_document')
+            for pointer, bad in (('/nodes/0/children', [2, 2]), ('/nodes/0/children', [1, 2]),
+                                 ('/nodes/1/seconds', -1), ('/nodes/2/id', 2), ('/next_id', 2)):
+                revision = status(owner)['revision']
+                assert not edit('forge_asset_document_patch', owner,
+                                patch=[dict(op='replace', path=pointer, value=bad)])['ok']
+                assert content(owner) == selected and status(owner)['revision'] == revision
+            assert edit('forge_asset_document_undo', owner)['ok']
+            original['next_id'] = 4
+            assert content(owner) == original
+            assert edit('forge_asset_document_redo', owner)['ok'] and content(owner) == selected
+            save_published(owner)
+            assert json.loads((root/'Game/Assets/McpTree.behavior.json').read_text())['nodes'] == tree['nodes']
             assert edit('forge_asset_document_close', owner, discard=True)['ok']
 
         if COLLISION_ONLY or ATLAS_ONLY or SPRITE_GRAPH_ONLY or NAVIGATION_BEHAVIOR_ONLY or UI_LOCALIZATION_ONLY or APPLICATION_STATES_ONLY:

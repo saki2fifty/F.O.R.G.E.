@@ -240,18 +240,27 @@ void NavigationBehaviorPlayback::report(flecs::entity_t id, Player& player) {
         value.context.entity = ref->entity;
     context_.services().emit(std::move(value));
 }
-std::optional<Double3> NavigationBehaviorPlayback::goal(const NavigationBehaviorState& state,
+std::optional<double> NavigationBehaviorPlayback::target_distance(const Frame& frame) const {
+    if (!frame.target)
+        return {};
+    const auto& p = *frame.target;
+    return frame.plane == NavigationPlane::PlanarXY
+               ? std::hypot(frame.actor[0] - p[0], frame.actor[1] - p[1])
+               : std::hypot(frame.actor[0] - p[0], frame.actor[1] - p[1], frame.actor[2] - p[2]);
+}
+std::optional<Double3> NavigationBehaviorPlayback::goal(NavigationBehaviorAction action,
+                                                        const Double3& coordinates,
                                                         const Frame& frame) const {
-    if (state.action == NavigationBehaviorAction::Wait)
+    if (action == NavigationBehaviorAction::Wait)
         return {};
     Double3 point;
-    if (state.action == NavigationBehaviorAction::FollowTarget) {
+    if (action == NavigationBehaviorAction::FollowTarget) {
         require(frame.target.has_value(), "Follow target requires a resolved Scene target");
         point = *frame.target;
     } else {
-        require(state.action == NavigationBehaviorAction::MoveToPoint,
+        require(action == NavigationBehaviorAction::MoveToPoint,
                 "Invalid navigation behavior action");
-        point = state.point;
+        point = coordinates;
         if (frame.plane == NavigationPlane::PlanarXY)
             point[2] = 0;
         if (frame.anchor_required) {
@@ -265,6 +274,19 @@ std::optional<Double3> NavigationBehaviorPlayback::goal(const NavigationBehavior
         require(std::isfinite(v) && std::abs(v) <= 4096,
                 "Behavior destination exceeds the navigation world bounds");
     return point;
+}
+std::optional<Double3> NavigationBehaviorPlayback::goal(const NavigationBehaviorTreeNode& node,
+                                                        const Frame& frame) const {
+    switch (node.kind) {
+    case NavigationBehaviorTreeKind::Wait:
+        return {};
+    case NavigationBehaviorTreeKind::MoveToPoint:
+        return goal(NavigationBehaviorAction::MoveToPoint, node.point, frame);
+    case NavigationBehaviorTreeKind::FollowTarget:
+        return goal(NavigationBehaviorAction::FollowTarget, {}, frame);
+    default:
+        throw std::runtime_error("Behavior tree intent does not select an action");
+    }
 }
 void NavigationBehaviorPlayback::apply_intent(flecs::entity e, Player& player,
                                               const std::optional<Double3>& destination) {
@@ -330,14 +352,27 @@ void NavigationBehaviorPlayback::begin_tick(double dt, std::uint64_t tick,
                 if (anchor && anchor.has<WorldTransform>() && anchor.get<WorldTransform>().resolved)
                     frame.anchor = anchor.get<WorldTransform>().affine;
             }
+            if (graph.profile == NavigationBehaviorProfile::Tree) {
+                NavigationBehaviorTreeInputs input;
+                input.target_distance = target_distance(frame);
+                frame.tree = select_navigation_behavior_tree(graph, frame.cursor, input);
+            }
             player.frame = frame;
-            const auto& state = graph.state(frame.cursor.state ? frame.cursor.state : graph.entry);
-            player.frame->goal = goal(state, frame);
+            if (frame.tree) {
+                if (frame.tree->leaf)
+                    player.frame->goal = goal(graph.node(frame.tree->leaf), frame);
+            } else {
+                const auto& state =
+                    graph.state(frame.cursor.state ? frame.cursor.state : graph.entry);
+                player.frame->goal = goal(state.action, state.point, frame);
+            }
             apply_intent(e, player, player.frame->goal);
             player.step_error.clear();
         } catch (const std::exception& error) {
             stop(e, player);
             player.step_error = error.what();
+            if (player.frame && player.frame->tree)
+                player.frame->action_failed = true;
             // A missing target/anchor action can still leave through a valid
             // transition at finish_tick. Invalid graph/cursor/pose has no frame.
             if (!player.frame)
@@ -362,25 +397,47 @@ void NavigationBehaviorPlayback::finish_tick(double dt, const AgentLookup& obser
         try {
             const auto& graph = graphs_.at(player.config.graph.id).lease.get();
             NavigationBehaviorInputs input;
-            if (frame.target) {
-                const auto& p = *frame.target;
-                input.target_distance =
-                    frame.plane == NavigationPlane::PlanarXY
-                        ? std::hypot(frame.actor[0] - p[0], frame.actor[1] - p[1])
-                        : std::hypot(frame.actor[0] - p[0], frame.actor[1] - p[1],
-                                     frame.actor[2] - p[2]);
-            }
+            input.target_distance = target_distance(frame);
             const auto ref = context_.reference(id);
             const auto current = ref ? observation(*ref) : std::nullopt;
             const auto agent = e.get<NavigationAgent>();
-            input.arrived =
-                frame.goal && agent.has_destination && current && current->sampled &&
-                current->tick == player.tick && current->phase == NavigationAgentPhase::Arrived &&
-                agent.destination_x == (*frame.goal)[0] &&
+            const bool matching_goal =
+                frame.goal && agent.has_destination && agent.destination_x == (*frame.goal)[0] &&
                 agent.destination_y == (*frame.goal)[1] && agent.destination_z == (*frame.goal)[2];
+            input.arrived = matching_goal && current && current->sampled &&
+                            current->tick == player.tick &&
+                            current->phase == NavigationAgentPhase::Arrived;
+            if (frame.tree) {
+                NavigationBehaviorTreeInputs tree_input;
+                tree_input.target_distance = input.target_distance;
+                tree_input.sampled_leaf = frame.tree->leaf;
+                tree_input.arrived = input.arrived;
+                // Failed movement has a current status/tick, deliberately no pose sample.
+                tree_input.action_failed =
+                    frame.action_failed ||
+                    (matching_goal && current && current->tick == player.tick &&
+                     current->phase == NavigationAgentPhase::Failed);
+                const auto next =
+                    advance_navigation_behavior_tree(graph, *frame.tree, tree_input, dt);
+                std::string next_error;
+                try {
+                    apply_intent(e, player,
+                                 next.leaf ? goal(graph.node(next.leaf), frame)
+                                           : std::optional<Double3>{});
+                } catch (const std::exception& error) {
+                    stop(e, player);
+                    next_error = error.what();
+                }
+                if (e.get<NavigationBehaviorCursor>() != next.cursor)
+                    e.set<NavigationBehaviorCursor>(next.cursor);
+                player.step_error = std::move(next_error);
+                player.sampled = true;
+                report(id, player);
+                continue;
+            }
             auto cursor = frame.cursor;
             const auto& state = advance_navigation_behavior(graph, cursor, input, dt);
-            const auto destination = goal(state, frame);
+            const auto destination = goal(state.action, state.point, frame);
             apply_intent(e, player, destination);
             if (e.get<NavigationBehaviorCursor>() != cursor)
                 e.set<NavigationBehaviorCursor>(cursor);
@@ -409,10 +466,18 @@ Json NavigationBehaviorPlayback::debug(flecs::entity_t id) const {
                                                           : NavigationBehaviorCursor{};
     const auto graph = graphs_.find(p.config.graph.id);
     std::string name;
-    if (cursor.state && graph != graphs_.end() && graph->second.lease)
-        for (const auto& state : graph->second.lease->states)
-            if (state.id == cursor.state)
-                name = state.name;
+    const bool tree = graph != graphs_.end() && graph->second.lease &&
+                      graph->second.lease->profile == NavigationBehaviorProfile::Tree;
+    if (cursor.state && graph != graphs_.end() && graph->second.lease) {
+        if (tree) {
+            for (const auto& node : graph->second.lease->nodes)
+                if (node.id == cursor.state)
+                    name = node.name;
+        } else
+            for (const auto& state : graph->second.lease->states)
+                if (state.id == cursor.state)
+                    name = state.name;
+    }
     const auto error = !global_error_.empty()        ? global_error_
                        : p.preparation_error.empty() ? p.step_error
                                                      : p.preparation_error;
@@ -441,6 +506,16 @@ Json NavigationBehaviorPlayback::debug(flecs::entity_t id) const {
         result["retained_last_good"] =
             bool(g.lease) && (g.status.state == "failed" ||
                               g.status.requested_revision != g.status.retained_revision);
+    }
+    if (tree) {
+        result["profile"] = "tree";
+        result["tree_status"] =
+            unsigned(cursor.tree_status) <= unsigned(NavigationBehaviorTreeStatus::Failure)
+                ? navigation_behavior_tree_status_name(cursor.tree_status)
+                : "Invalid";
+        result["node"] = cursor.state;
+        result["node_name"] = name;
+        result["steps"] = cursor.transitions;
     }
     return result;
 }

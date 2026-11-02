@@ -46,11 +46,19 @@ with tempfile.TemporaryDirectory(dir=runtime.parent, prefix="animated-audio-") a
     try:
         request("hello", simulation_hz=60)
         initial = request("replace", scene=source)
-        # This headless replacement preserves authored values until the first
-        # completed resource/animation tick; graphical Play prepares initial pose.
+        # Both hosts publish the admitted time-zero sample before any fixed tick.
+        # Derive the oracle from the original editable clip, not runtime output.
         authored = next(row for row in source["entities"] if row["id"] == emitter)["components"]
-        assert values(initial)["gain"] == authored["forge.audio_source"]["gain"]
-        assert values(initial)["pitch"] == authored["forge.audio_source"]["pitch"]
+        assets = json.loads((root / "forge.assets.json").read_text())["assets"]
+        clip = next(row for row in assets if row["id"] == authored["forge.transform_animator"]["clip"])
+        keys = json.loads((root / clip["source"]).read_text())["keys"]
+        initial_values = next(key["values"] for key in keys if key["time_us"] == 0)
+        for field in ("gain", "pitch"):
+            assert abs(values(initial)[field] - initial_values["forge.audio_source." + field]) < 1e-6
+        initial_entries = initial["recovery"]["animation"]["transform_entries"]
+        assert next(row["time_us"] for row in initial_entries if row["entity"]["entity"] == emitter) == 0
+        assert initial["timing"]["tick"] == 0
+        assert values(request("snapshot")) == values(initial)
         for _ in range(30):
             stepped = request("step")
         assert stepped["recovery"] is not None, "Animation did not become ready for recovery"

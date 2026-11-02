@@ -1,0 +1,391 @@
+{
+  "asset_id": "e363aa80-78a1-43c6-975a-6cbdc39dfc2b",
+  "entities": [
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.navigation_region_2d": {
+          "enabled": true,
+          "height": 14.0,
+          "obstacle": false,
+          "points": [],
+          "source": 0,
+          "width": 20.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.tint": {
+          "b": 0.699999988079071,
+          "g": 0.6000000238418579,
+          "r": 0.20000000298023224
+        }
+      },
+      "id": "88ee2f02-1bf7-4a0a-8de6-a2b9104a0632",
+      "name": "Walkable XY floor",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 20.0,
+          "y": 14.0,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 3.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.1599999964237213,
+          "g": 0.11999999731779099,
+          "r": 0.04500000178813934
+        }
+      },
+      "id": "b0bcf309-8b75-4fd4-8bc6-80975a4ea1fb",
+      "name": "Floor visual",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -6.0,
+          "y": 0.0,
+          "z": -1.0
+        },
+        "forge.navigation_agent": {
+          "destination_x": 0.0,
+          "destination_y": 0.0,
+          "destination_z": 0.0,
+          "enabled": true,
+          "has_destination": false,
+          "navmesh": "a1e28c64-5682-4d60-9aa0-6acc60d5a0f9",
+          "speed": 3.0,
+          "stopping_distance": 0.07999999821186066
+        },
+        "forge.navigation_behavior": {
+          "anchor": null,
+          "enabled": true,
+          "graph": "1989d19c-7713-447b-9f8f-aff6a08f50f5",
+          "target": {
+            "entity": "f90cc3a9-bf1d-4e7b-9dc4-d36024aa30c2",
+            "scene": "e363aa80-78a1-43c6-975a-6cbdc39dfc2b"
+          }
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.tint": {
+          "b": 0.699999988079071,
+          "g": 0.6000000238418579,
+          "r": 0.20000000298023224
+        }
+      },
+      "id": "b2048ff1-4995-4189-be6f-14335234ca55",
+      "name": "Tree agent - inspect Node and Tree result",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.800000011920929,
+          "y": 0.800000011920929,
+          "z": 0.800000011920929
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 1.0,
+          "g": 0.8199999928474426,
+          "r": 0.05999999865889549
+        }
+      },
+      "id": "ac70e39d-3c4e-4186-9a65-afa19a1aa083",
+      "name": "Cyan agent body",
+      "parent": "b2048ff1-4995-4189-be6f-14335234ca55",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.699999988079071,
+          "y": 0.699999988079071,
+          "z": 0.699999988079071
+        },
+        "forge.local_translation": {
+          "x": 2.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 1
+        },
+        "forge.tint": {
+          "b": 0.07999999821186066,
+          "g": 0.550000011920929,
+          "r": 1.0
+        },
+        "forge.transform_animator": {
+          "clip": "770fc599-e964-4352-89eb-7ac393e5a1a5",
+          "enabled": true,
+          "loop": true,
+          "play_on_start": true,
+          "playback_speed": 1.0,
+          "sequence": null,
+          "sequence_start_seconds": 0.0
+        }
+      },
+      "id": "f90cc3a9-bf1d-4e7b-9dc4-d36024aa30c2",
+      "name": "Animated target - shared original clip",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.25,
+          "y": 0.25,
+          "z": 0.25
+        },
+        "forge.local_translation": {
+          "x": -5.0,
+          "y": 0.0,
+          "z": -0.5
+        },
+        "forge.primitive": {
+          "kind": 1
+        },
+        "forge.tint": {
+          "b": 0.550000011920929,
+          "g": 0.800000011920929,
+          "r": 0.20000000298023224
+        }
+      },
+      "id": "d205a3ed-c80b-4bd9-884e-6d27ac179db9",
+      "name": "Left patrol marker",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.25,
+          "y": 0.25,
+          "z": 0.25
+        },
+        "forge.local_translation": {
+          "x": 5.0,
+          "y": 0.0,
+          "z": -0.5
+        },
+        "forge.primitive": {
+          "kind": 1
+        },
+        "forge.tint": {
+          "b": 0.550000011920929,
+          "g": 0.800000011920929,
+          "r": 0.20000000298023224
+        }
+      },
+      "id": "10e4a34b-194c-4d4f-83e7-0e7d563c20d6",
+      "name": "Right patrol marker",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 1.7777777777777777,
+          "background_a": 1.0,
+          "background_b": 0.029999999329447746,
+          "background_g": 0.02500000037252903,
+          "background_r": 0.019999999552965164,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 1000.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 17.0,
+          "orthographic_width": 0.0,
+          "projection": 1,
+          "vertical_fov": 1.0471975511965976,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": -25.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.tint": {
+          "b": 0.699999988079071,
+          "g": 0.6000000238418579,
+          "r": 0.20000000298023224
+        }
+      },
+      "id": "fcfe818d-8ef7-431d-9df7-1a60189ffd49",
+      "name": "Overview Camera",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.light": {
+          "basis": 0,
+          "cast_shadows": false,
+          "color_b": 1.0,
+          "color_g": 1.0,
+          "color_r": 1.0,
+          "emitter_height": 1.0,
+          "emitter_radius": 0.5,
+          "emitter_width": 1.0,
+          "enabled": true,
+          "image_height": 1.0,
+          "image_tiled": false,
+          "image_width": 1.0,
+          "inner_cone": 0.0,
+          "intensity": 1.0,
+          "kind": 0,
+          "layers": 4294967295,
+          "outer_cone": 0.7853981633974483,
+          "range": 0.0,
+          "shadow_angular_radius": 0.0,
+          "shadow_bias": 0.0010000000474974513,
+          "shadow_normal_bias": 0.019999999552965164,
+          "shadow_source_radius": 0.0,
+          "texture": null
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.tint": {
+          "b": 0.699999988079071,
+          "g": 0.6000000238418579,
+          "r": 0.20000000298023224
+        }
+      },
+      "id": "8984201a-7158-4bd9-94dc-15231fc9f72f",
+      "name": "Sunlight",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    }
+  ],
+  "version": 3
+}

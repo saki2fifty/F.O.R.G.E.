@@ -176,6 +176,13 @@ sets simulation delta. See [Runtime UI](runtime-ui.md).
 
 ### Pending model animation assets
 
+Fresh authored-world replacement waits for the same RuntimeWorld scene-resource
+preparation as Play, then publishes the time-zero animation sample without running
+gameplay. Animated targets therefore share the same first fixed boundary across
+the ordinary process and SDK Play hosts. A rejected or timed-out candidate leaves
+the active world intact. Recovery uses its existing checkpoint restore order and
+does not apply a fresh time-zero sample over restored progress.
+
 Cooked model skeleton/clip loading is asynchronous. Paused presentation may adopt
 ready CPU resources, but it never advances playback or simulation time. While an
 Animator binding is pending or invalid, runtime responses carry `recovery: null`;
