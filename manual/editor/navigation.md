@@ -54,9 +54,9 @@ To create your own:
 8. Save, press **Play** and open **Game**. The Sprite follows the opening around the obstacle. In Scene, the navigation overlay shows its route.
 
 Regions are independent navigation data. Sprite artwork, colliders and painted
-TileMaps are not included automatically. Overlapping walkable rectangles form a
-union; obstacle rectangles cut that union before agent-radius clearance is applied.
-An obstacle outside all walkable rectangles adds no walkable area. Add at least
+TileMaps are not included automatically. Overlapping walkable regions form a
+union; obstacle regions cut that union before agent-radius clearance is applied.
+An obstacle outside all walkable regions adds no walkable area. Add at least
 one walkable region. Keep sources and their spatial parents static and free of
 enabled Character Controllers, as in 3D.
 
@@ -70,6 +70,32 @@ an explicit rebuild and keeps that asset's identity. 3D Surface markers and 2D
 Region markers are selected independently. Save the Scene and choose it as startup
 before normal export; its built NavMesh is included in the game.
 
+## Create polygon regions
+
+Open Gallery **136-navigation-polygons** and press Play. The cyan agent follows
+an L-shaped floor; the amber agent goes around an L-shaped obstacle. Both routes
+use the saved NavMesh and can be exported without a project C++ module.
+
+![Concave polygon floor and obstacle with cyan and amber agents](../images/navigation-polygon-gallery.png)
+
+The two courses use separate visual meshes. Navigation Region outlines define the
+walkable geometry; visible art does not automatically become navigation data.
+
+1. Stop Play and select a **Navigation Region 2D**. Set Width/Height for its initial rectangle.
+2. Click **Create polygon** in the component. This copies its four local corners into **Points** as one Undo step.
+3. Expand **Points** and edit each point's **x** and **y** in metres. Use the collection controls to add, remove or reorder points. Each edit must leave a complete valid shape; an invalid candidate keeps the previous contour and reports the reason.
+4. Keep 3–64 points in counterclockwise order when viewed from +Z. Avoid repeated points, straight intermediate corners, crossings and touching edges. Local coordinates must stay within ±1000 m; resolved world XY must remain within ±4090 m.
+5. Leave **Obstacle** off for a walkable region, or enable it to cut a concave footprint out of another walkable region. Use a separate obstacle for a hole.
+6. Rebuild the NavMesh with **Plane → 2D (XY)**, save the Scene and test in Play. Save authored changes outside Play before exporting.
+
+![Navigation Region Inspector with polygon points and Use rectangle](../images/navigation-polygon-inspector.png)
+
+**Use rectangle** clears Points and restores Width/Height controls. Undo restores
+the previous polygon. Polygon regions use ordinary transforms for position,
+rotation and scale; the four rectangle extent handles are unavailable. Framing
+and outline selection still use the full contour. Prefab point overrides and
+Undo/Redo work through the regular Inspector.
+
 ## Select and resize 2D regions in Scene
 
 Enable **Scene → View → Navigation overlay** to show the region outlines. Click
@@ -82,8 +108,8 @@ Hover Scene and press **F** to frame the selected region's full XY footprint.
 When a selected region also has visible art, framing includes both. Outlines show
 the navigation plane at world Z0; visual Z remains separate.
 
-Press **W** over Scene to use Move. Four gold squares appear at the selected
-region's edge midpoints. Drag one to change **Width** or **Height** symmetrically
+For a rectangle with empty Points, press **W** over Scene to use Move. Four gold
+squares appear at the selected region's edge midpoints. Drag one to change **Width** or **Height** symmetrically
 around its center. The tooltip identifies the dimension. **Ctrl** rounds that
 local dimension to **View → Snap spacing**; entity scale still changes its world
 size. To move the whole region, use the ordinary transform handles. If an edge
@@ -292,7 +318,7 @@ Create a prefab from an agent using the normal [prefab workflow](prefabs.md). In
 
 ## Common messages
 
-- **No enabled geometry:** add enabled Navigation Surfaces for 3D, or Navigation Region 2D rectangles for XY. Check **Plane** and include a walkable region.
+- **No enabled geometry:** add enabled Navigation Surfaces for 3D, or walkable Navigation Region 2D shapes for XY. Check **Plane** and include a walkable region.
 - **Stale navmesh:** rebuild after changing included geometry.
 - **Point outside navmesh:** put the agent and destination over a teal walkable region. Projection searches nearby, not across the entire world.
 - **Partial / no path:** the destination is disconnected. Check gaps, clearance, slope and included obstacles.

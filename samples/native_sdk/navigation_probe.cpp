@@ -37,9 +37,19 @@ int32_t FORGE_SDK_CALL schemas(const ForgeSdkWorldV1* h, char*, uint32_t) {
     if (!region_info || region_info->size != sizeof(forge::NavigationRegion2D) ||
         region_info->alignment != alignof(forge::NavigationRegion2D))
         return 0;
-    auto planar = w.entity().add(flecs::Prefab).set<forge::NavigationRegion2D>({true, true, 2, 4});
-    const auto region_matched =
-        planar.get<forge::NavigationRegion2D>() == forge::NavigationRegion2D{true, true, 2, 4};
+    forge::NavigationRegion2D expected{true, true, 2, 4};
+    expected.points = {{-1, -2}, {1, -2}, {1, 0}, {0, 0}, {0, 2}, {-1, 2}};
+    auto planar = w.entity().add(flecs::Prefab).set<forge::NavigationRegion2D>(expected);
+    auto copied = w.entity()
+                      .add(flecs::Prefab)
+                      .set<forge::NavigationRegion2D>(planar.get<forge::NavigationRegion2D>());
+    expected.points[1].x = 2;
+    planar.set<forge::NavigationRegion2D>(expected);
+    bool region_matched = planar.get<forge::NavigationRegion2D>() == expected &&
+                          copied.get<forge::NavigationRegion2D>().points[1].x == 1;
+    planar.remove<forge::NavigationRegion2D>();
+    region_matched = region_matched && copied.get<forge::NavigationRegion2D>().points.size() == 6;
+    copied.destruct();
     planar.destruct();
     if (!region_matched)
         return 0;
@@ -90,6 +100,22 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* h, char*, uint32_t) {
                 client.navigation_agent(reference.scene_uuid, reference.entity_uuid, state) == 1;
             if (*first) {
                 *first = false;
+#ifdef FORGE_NAVIGATION_PLANAR
+                unsigned regions = 0;
+                bool polygon_values = true;
+                flecs::world current(h->world);
+                current.each([&](const forge::NavigationRegion2D& region) {
+                    ++regions;
+                    polygon_values =
+                        polygon_values && region.points.size() == (region.obstacle ? 6u : 4u);
+                });
+                if (regions != 2 || !polygon_values)
+                    valid = false;
+                h->diagnostic(h->context, polygon_values && regions == 2 ? 1 : 3,
+                              valid ? "navigation polygon native values passed"
+                                    : "navigation polygon native values failed");
+#endif
+
                 valid = valid && state.phase == FORGE_SDK_NAV_AGENT_PENDING && !state.sampled;
                 ForgeSdkNavigationAgentV1 bad{};
                 bad.size = 1;

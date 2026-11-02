@@ -26,8 +26,8 @@ class NavigationRegionGesture {
             if (row.at("id") == entity) {
                 const auto view = navigation_region_view(row);
                 const auto policy = policies.entities.find(row.at("id").get<EntityId>());
-                if (!view || policy == policies.entities.end() || !policy->second.valid ||
-                    !policy->second.visible || !policy->second.selectable)
+                if (!view || !view->region.points.empty() || policy == policies.entities.end() ||
+                    !policy->second.valid || !policy->second.visible || !policy->second.selectable)
                     return false;
                 original_ = *view;
                 dimension_ = dimension;

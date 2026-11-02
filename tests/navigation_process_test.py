@@ -40,6 +40,8 @@ try:
  assert agent(stepped)['phase']=='Moving' and agent(stepped)['tick']==1 and agent(stepped)['has_path']
  time.sleep(.03);still=a.request('snapshot');assert position(still)==position(stepped) and agent(still)==agent(stepped)
  for _ in range(6):stepped=a.request('step')
+ if sdk and planar:
+  assert any('navigation polygon native values passed' in d['text'] for d in stepped['diagnostics'])
  if sdk and not denied:
   for text in ('navigation SDK queries passed','navigation agent boundary passed','navigation agent PostPhysics sample passed'):
    assert any(text in d['text'] for d in stepped['diagnostics']),text

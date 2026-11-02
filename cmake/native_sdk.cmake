@@ -41,6 +41,7 @@ endforeach()
 # Exact bridge and value-support semantics are part of this private SDK contract.
 foreach(source
  include/forge/application_states.hpp include/forge/application_state_definition.hpp
+ src/simple_polygon.hpp src/navigation_region.hpp src/navigation_region_value.hpp
  include/forge/application_state_activation.hpp
  include/forge/application_state_source.hpp src/application_states.cpp
  src/application_state_definition.cpp src/application_state_source.cpp

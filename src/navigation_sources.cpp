@@ -1,4 +1,5 @@
 #include "navigation_sources.hpp"
+#include "navigation_region_value.hpp"
 #include <forge/application_state_activation.hpp>
 #include <forge/character_components.hpp>
 #include <forge/physics_components.hpp>
@@ -25,10 +26,8 @@ Json row(flecs::entity e, EntityId id, bool active) {
         c["forge.navigation_surface"] = {{"enabled", active && e.get<NavigationSurface>().enabled}};
     if (e.has<NavigationRegion2D>()) {
         const auto& region = e.get<NavigationRegion2D>();
-        c["forge.navigation_region_2d"] = {{"enabled", active && region.enabled},
-                                           {"obstacle", region.obstacle},
-                                           {"width", region.width},
-                                           {"height", region.height}};
+        c["forge.navigation_region_2d"] = region_value(region);
+        c["forge.navigation_region_2d"]["enabled"] = active && region.enabled;
     }
     if (e.has<Primitive>())
         c["forge.primitive"] = {{"kind", e.get<Primitive>().kind}};

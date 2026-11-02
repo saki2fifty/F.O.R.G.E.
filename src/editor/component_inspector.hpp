@@ -1,5 +1,6 @@
 #pragma once
 #include "../animation_playback_access.hpp"
+#include "../navigation_region_value.hpp"
 #include "../runtime_property_tune.hpp"
 #include "component_choices.hpp"
 #include "document.hpp"
@@ -654,8 +655,15 @@ class ComponentInspector {
                     ui::heading(group.data(),
                                 "Sprite values use the usual property Undo and prefab overrides.");
                 }
+                if (key == "forge.navigation_region_2d" && (name == "width" || name == "height") &&
+                    !values.at(key).at("points").empty())
+                    continue;
                 ui::IdScope field_scope(name.c_str());
                 auto value = values.at(key).at(name);
+                const bool region_points = key == "forge.navigation_region_2d" && name == "points";
+                const bool rectangle_region = region_points && value.empty();
+                if (rectangle_region)
+                    ImGui::TextDisabled("Rectangle (no polygon points)");
                 Json contextual;
                 const Json* display_field = &field;
                 if (key == "forge.physics_joint" && values.at(key).at("kind") == 5) {
@@ -673,7 +681,8 @@ class ComponentInspector {
                     }
                 }
                 bool changed =
-                    key == "forge.tile_map_collider_2d" && name == "layer" && tile_map_layer
+                    rectangle_region ? false
+                    : key == "forge.tile_map_collider_2d" && name == "layer" && tile_map_layer
                         ? tile_map_layer(values, value)
                     : key == "forge.mesh_renderer" && name == "materials" && material_slots
                         ? material_slots(values.at(key), value)
@@ -685,6 +694,29 @@ class ComponentInspector {
                 FORGE_UI_PROBE("component-field:" + key + ":" + name);
                 if (changed)
                     edit_property(scene, entity, key, name, value);
+                if (region_points) {
+                    ImGui::BeginDisabled(field.value("read_only", false));
+                    if (rectangle_region) {
+                        if (ui::button("Create polygon",
+                                       "Use the rectangle's four corners, then edit Points. "
+                                       "The conversion is one Undo step.")) {
+                            const auto region =
+                                navigation_detail::region_from_value(values.at(key));
+                            auto points = Json::array();
+                            for (const auto& point : navigation_detail::region_local_points(region))
+                                points.push_back({{"x", point[0]}, {"y", point[1]}});
+                            edit_property(scene, entity, key, name, points);
+                        }
+                        FORGE_UI_PROBE("navigation:region-create-polygon");
+                    } else {
+                        if (ui::button("Use rectangle",
+                                       "Clear Points and use the saved Width/Height extents. "
+                                       "Undo restores the polygon and its point values."))
+                            edit_property(scene, entity, key, name, Json::array());
+                        FORGE_UI_PROBE("navigation:region-use-rectangle");
+                    }
+                    ImGui::EndDisabled();
+                }
                 if (ImGui::BeginPopupContextItem("property-actions")) {
                     ImGui::BeginDisabled(field.value("read_only", false) ||
                                          !field.contains("default"));

@@ -35,8 +35,8 @@ struct Geometry {
     nlohmann::json sources = nlohmann::json::array();
     AssetId scene;
     std::string digest;
-    std::vector<std::array<float, 12>>
-        obstacles; // Convex native-XZ masks from world XY, four vertices.
+    // Convex native-XZ masks: original rectangle quads or decomposed polygon triangles.
+    std::vector<std::vector<float>> obstacles;
 };
 Geometry geometry(const nlohmann::json& effective_scene);
 Geometry geometry(const Sources&); // Original primitive-only v1 canonical bytes.

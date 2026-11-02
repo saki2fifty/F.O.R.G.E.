@@ -1240,6 +1240,34 @@ for legacy in (False, True):
             rejected = mutate('forge_property_set', arguments=dict(entity=obstacle,
                               component='forge.navigation_region_2d', field='width', value=0))
             assert not rejected['ok'] and obstacle_width() == 3, rejected
+            region_schema = next(c for c in discovery()['result']['schema']['components']
+                                 if c['id'] == 'forge.navigation_region_2d')
+            point_schema = next(f for f in region_schema['fields'] if f['id'] == 'points')
+            assert point_schema['type'] == 'vector' and point_schema['maximum_count'] == 64, point_schema
+            assert point_schema['default'] == [] and point_schema['element']['type'] == 'struct', point_schema
+            polygon = [dict(x=-3, y=-3), dict(x=3, y=-3), dict(x=3, y=-1),
+                       dict(x=-1, y=-1, note='preserve'), dict(x=-1, y=3), dict(x=-3, y=3)]
+            rectangle_scene = read('forge_scene_read')
+            ok('forge_property_set', arguments=dict(entity=obstacle, component='forge.navigation_region_2d',
+                                                   field='points', value=polygon))
+            polygon_scene = read('forge_scene_read')
+            polyrow = next(e for e in polygon_scene['entities'] if e['id'] == obstacle)
+            assert polyrow['components']['forge.navigation_region_2d']['points'] == polygon
+            ok('forge_history_undo')
+            assert read('forge_scene_read') == rectangle_scene
+            ok('forge_history_redo')
+            assert read('forge_scene_read') == polygon_scene
+            for bad_points in ([dict(x=0, y=0)], [dict(x=0, y=0)] * 65,
+                               [dict(x=0, y=0), dict(x=1, y=1), dict(x=0, y=1), dict(x=1, y=0)]):
+                invalid = mutate('forge_property_set', arguments=dict(entity=obstacle,
+                    component='forge.navigation_region_2d', field='points', value=bad_points))
+                assert not invalid['ok'] and read('forge_scene_read') == polygon_scene, invalid
+            ok('forge_property_set', arguments=dict(entity=obstacle, component='forge.navigation_region_2d',
+                                                   field='points', value=[]))
+            cleared = next(e for e in read('forge_scene_read')['entities'] if e['id'] == obstacle)
+            assert cleared['components']['forge.navigation_region_2d']['points'] == []
+            ok('forge_history_undo')
+            assert read('forge_scene_read') == polygon_scene
             settings = dict(radius=.4, height=2, climb=.4, slope=45,
                             cell_size=.2, cell_height=.1, plane=1)
             ok('forge_navigation_build', settings=settings)

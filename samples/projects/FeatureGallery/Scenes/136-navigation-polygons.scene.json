@@ -1,0 +1,678 @@
+{
+  "asset_id": "99ee18f7-3644-46f1-94ed-610f76e4583b",
+  "entities": [
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -12.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.navigation_region_2d": {
+          "enabled": true,
+          "height": 10.0,
+          "obstacle": false,
+          "points": [
+            {
+              "x": -8.0,
+              "y": -8.0
+            },
+            {
+              "x": 8.0,
+              "y": -8.0
+            },
+            {
+              "x": 8.0,
+              "y": -2.0
+            },
+            {
+              "x": -2.0,
+              "y": -2.0
+            },
+            {
+              "x": -2.0,
+              "y": 8.0
+            },
+            {
+              "x": -8.0,
+              "y": 8.0
+            }
+          ],
+          "width": 10.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.tint": {
+          "b": 0.699999988079071,
+          "g": 0.6000000238418579,
+          "r": 0.20000000298023224
+        }
+      },
+      "id": "e61aef09-5833-4c91-b368-bbda256c6383",
+      "name": "Walkable L - edit polygon Points",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 12.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.navigation_region_2d": {
+          "enabled": true,
+          "height": 20.0,
+          "obstacle": false,
+          "points": [],
+          "width": 20.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.tint": {
+          "b": 0.699999988079071,
+          "g": 0.6000000238418579,
+          "r": 0.20000000298023224
+        }
+      },
+      "id": "8da49e57-7b08-4582-82f4-45973e206a7d",
+      "name": "Right rectangle floor",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 12.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.navigation_region_2d": {
+          "enabled": true,
+          "height": 10.0,
+          "obstacle": true,
+          "points": [
+            {
+              "x": -3.0,
+              "y": -3.0
+            },
+            {
+              "x": 3.0,
+              "y": -3.0
+            },
+            {
+              "x": 3.0,
+              "y": -1.0
+            },
+            {
+              "x": -1.0,
+              "y": -1.0
+            },
+            {
+              "x": -1.0,
+              "y": 3.0
+            },
+            {
+              "x": -3.0,
+              "y": 3.0
+            }
+          ],
+          "width": 10.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.tint": {
+          "b": 0.699999988079071,
+          "g": 0.6000000238418579,
+          "r": 0.20000000298023224
+        }
+      },
+      "id": "479b9773-74f0-44ab-a12c-ce0cd54ce5bb",
+      "name": "Concave L obstacle - edit polygon Points",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 16.0,
+          "y": 6.0,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -12.0,
+          "y": -5.0,
+          "z": 2.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.1599999964237213,
+          "g": 0.11999999731779099,
+          "r": 0.04500000178813934
+        }
+      },
+      "id": "9385a0e9-4afa-444f-b952-f54809ea6788",
+      "name": "Left floor lower arm",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 6.0,
+          "y": 10.0,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": -17.0,
+          "y": 3.0,
+          "z": 2.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.1599999964237213,
+          "g": 0.11999999731779099,
+          "r": 0.04500000178813934
+        }
+      },
+      "id": "e3df5938-f8ab-49c5-b355-77f0fd359174",
+      "name": "Left floor upright arm",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 20.0,
+          "y": 20.0,
+          "z": 0.10000000149011612
+        },
+        "forge.local_translation": {
+          "x": 12.0,
+          "y": 0.0,
+          "z": 2.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.14000000059604645,
+          "g": 0.08500000089406967,
+          "r": 0.10999999940395355
+        }
+      },
+      "id": "56ca25c3-1c76-498c-a575-80164e4bf0dc",
+      "name": "Right floor visual",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 6.0,
+          "y": 2.0,
+          "z": 0.800000011920929
+        },
+        "forge.local_translation": {
+          "x": 12.0,
+          "y": -2.0,
+          "z": 0.6
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.11999999731779099,
+          "g": 0.18000000715255737,
+          "r": 0.550000011920929
+        }
+      },
+      "id": "d4252118-a420-419c-a52d-69dccd8d0023",
+      "name": "Obstacle lower arm",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 2.0,
+          "y": 4.0,
+          "z": 0.800000011920929
+        },
+        "forge.local_translation": {
+          "x": 10.0,
+          "y": 1.0,
+          "z": 0.6
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.11999999731779099,
+          "g": 0.18000000715255737,
+          "r": 0.550000011920929
+        }
+      },
+      "id": "64b4090f-6571-44a0-9c74-113379d6a2b8",
+      "name": "Obstacle upright arm",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -17.0,
+          "y": 5.0,
+          "z": 0.0
+        },
+        "forge.navigation_agent": {
+          "destination_x": -7.0,
+          "destination_y": -5.0,
+          "destination_z": -19.0,
+          "enabled": true,
+          "has_destination": true,
+          "navmesh": "f2f39093-b1a1-435e-8d2b-ee705983b324",
+          "speed": 3.0,
+          "stopping_distance": 0.05999999865889549
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.tint": {
+          "b": 0.699999988079071,
+          "g": 0.6000000238418579,
+          "r": 0.20000000298023224
+        }
+      },
+      "id": "8df2d5db-36cd-4e41-aee0-db4c94c4173d",
+      "name": "Cyan - concave floor route",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.800000011920929,
+          "y": 0.800000011920929,
+          "z": 0.800000011920929
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 1
+        },
+        "forge.tint": {
+          "b": 1.0,
+          "g": 0.8199999928474426,
+          "r": 0.05999999865889549
+        }
+      },
+      "id": "7ba2c192-8d1b-46f8-bfc2-31c1f8180488",
+      "name": "Cyan agent visual",
+      "parent": "8df2d5db-36cd-4e41-aee0-db4c94c4173d",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.44999998807907104,
+          "y": 0.44999998807907104,
+          "z": 0.44999998807907104
+        },
+        "forge.local_translation": {
+          "x": -7.0,
+          "y": -5.0,
+          "z": -0.2
+        },
+        "forge.primitive": {
+          "kind": 1
+        },
+        "forge.tint": {
+          "b": 1.0,
+          "g": 0.949999988079071,
+          "r": 0.3499999940395355
+        }
+      },
+      "id": "a2502668-2622-42cc-a6b1-96dc975aa3b7",
+      "name": "Cyan destination",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 5.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.navigation_agent": {
+          "destination_x": 19.0,
+          "destination_y": 0.0,
+          "destination_z": -19.0,
+          "enabled": true,
+          "has_destination": true,
+          "navmesh": "f2f39093-b1a1-435e-8d2b-ee705983b324",
+          "speed": 3.0,
+          "stopping_distance": 0.05999999865889549
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.tint": {
+          "b": 0.699999988079071,
+          "g": 0.6000000238418579,
+          "r": 0.20000000298023224
+        }
+      },
+      "id": "0f93c172-226e-45f6-a1ca-72ce0892ea29",
+      "name": "Amber - concave obstacle route",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.800000011920929,
+          "y": 0.800000011920929,
+          "z": 0.800000011920929
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 1
+        },
+        "forge.tint": {
+          "b": 0.07999999821186066,
+          "g": 0.6200000047683716,
+          "r": 1.0
+        }
+      },
+      "id": "d87605aa-c5de-44f7-ac73-69fa245a5ade",
+      "name": "Amber agent visual",
+      "parent": "0f93c172-226e-45f6-a1ca-72ce0892ea29",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.44999998807907104,
+          "y": 0.44999998807907104,
+          "z": 0.44999998807907104
+        },
+        "forge.local_translation": {
+          "x": 19.0,
+          "y": 0.0,
+          "z": -0.2
+        },
+        "forge.primitive": {
+          "kind": 1
+        },
+        "forge.tint": {
+          "b": 0.3499999940395355,
+          "g": 0.800000011920929,
+          "r": 1.0
+        }
+      },
+      "id": "bfa4d1c9-d0f4-4fa3-a2fb-d57c04ef2a8f",
+      "name": "Amber destination",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 1.7777777777777777,
+          "background_a": 1.0,
+          "background_b": 0.029999999329447746,
+          "background_g": 0.02500000037252903,
+          "background_r": 0.019999999552965164,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 1000.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 27.0,
+          "orthographic_width": 0.0,
+          "projection": 1,
+          "vertical_fov": 1.0471975511965976,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 1.0,
+          "y": 0.0,
+          "z": -40.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.tint": {
+          "b": 0.699999988079071,
+          "g": 0.6000000238418579,
+          "r": 0.20000000298023224
+        }
+      },
+      "id": "0c283eff-d77a-40c4-a7e3-28bf99e32fac",
+      "name": "Overview Camera",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.light": {
+          "basis": 0,
+          "cast_shadows": false,
+          "color_b": 1.0,
+          "color_g": 1.0,
+          "color_r": 1.0,
+          "emitter_height": 1.0,
+          "emitter_radius": 0.5,
+          "emitter_width": 1.0,
+          "enabled": true,
+          "image_height": 1.0,
+          "image_tiled": false,
+          "image_width": 1.0,
+          "inner_cone": 0.0,
+          "intensity": 1.0,
+          "kind": 0,
+          "layers": 4294967295,
+          "outer_cone": 0.7853981633974483,
+          "range": 0.0,
+          "shadow_angular_radius": 0.0,
+          "shadow_bias": 0.0010000000474974513,
+          "shadow_normal_bias": 0.019999999552965164,
+          "shadow_source_radius": 0.0,
+          "texture": null
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.tint": {
+          "b": 0.699999988079071,
+          "g": 0.6000000238418579,
+          "r": 0.20000000298023224
+        }
+      },
+      "id": "0c1d5395-f2cc-4ba6-8c71-f1b8e682d4e7",
+      "name": "Sunlight",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    }
+  ],
+  "version": 3
+}

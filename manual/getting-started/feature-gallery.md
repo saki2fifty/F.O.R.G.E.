@@ -1,5 +1,11 @@
 # Explore the Feature Gallery
 
+**136-navigation-polygons** contains an L-shaped walkable floor and a concave
+obstacle, each with an agent and destination. Press Play to see both routes.
+Outside Play, edit a region's **Points**, rebuild its **2D (XY)** NavMesh and save.
+The Scene includes ready navigation, camera, light and ordinary visual meshes;
+it exports without project C++. See [Polygon regions](../editor/navigation.md).
+
 **134-signal-lock** is a playable signal-and-route puzzle. Capture gameplay input,
 choose **Play**, match the receiver's hint, then open the connection. **Return to
 menu** resets the choices. Its Application States definition includes parent

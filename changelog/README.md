@@ -1,6 +1,6 @@
 # Changelog
 
-- [2026-11-02](20261102/README.md) — Explicit stock State Conditions, Activity Lab/Gallery135, shared Inspector/live/MCP access and illustrated offline guide. Local source; Windows verification and delivery pending.
+- [2026-11-02](20261102/README.md) — Polygon navigation regions/Gallery136, explicit stock State Conditions/Activity Lab/Gallery135, shared Inspector/MCP access and illustrated offline guides. Local source; Windows verification and delivery pending.
 
 - [2026-11-01](20261101/README.md) — Application states and playable Signal Lock/Gallery134, authored patrol/chase graphs and Gallery131/132, moving navigation obstacles/Gallery129/130, source-aware Sprite atlases/Gallery127 and camera-driven Tile residency/Gallery126, shared editor/MCP workflows and illustrated guides. Local source; Windows verification and delivery pending.
 

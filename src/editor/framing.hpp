@@ -57,7 +57,7 @@ inline RenderBounds include_selected_helper_positions(const Json& source,
             !row.value("spatial_resolved", true) || !row.contains("world_affine"))
             continue;
         if (const auto region = navigation_region_view(row)) {
-            for (const auto& point : region->quad)
+            for (const auto& point : region->outline)
                 for (unsigned axis = 0; axis < 3; ++axis) {
                     bounds.minimum[axis] = std::min(bounds.minimum[axis], point[axis]);
                     bounds.maximum[axis] = std::max(bounds.maximum[axis], point[axis]);

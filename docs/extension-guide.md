@@ -602,7 +602,12 @@ A Navigation Agent retains sole nonphysics movement authority. Character-control
 code can query routes without adding an active Navigation Agent writer.
 
 `NavigationRegion2D` is public reflected source data, separate from Sprite art and
-colliders. Bake static regions in the editor/MCP before Play. Runtime source changes
+colliders. Its owning `std::vector<NavigationRegionVertex>` uses the matching Flecs
+C++ lifecycle and CRT; copy values normally, never memcpy its storage. Empty points
+keeps the centered Width/Height rectangle; nonempty3–64point simple CCW contours
+select a polygon. Values, Meta offsets and deep-copy/removal are checked by the
+installed planar sample. Rebuild modules against the matching exact kit after this
+layout change; the C host callback table does not change. Bake static regions in the editor/MCP before Play. Runtime source changes
 invalidate that asset; they do not rebuild it. The installed sample target
 `planar_navigation_gameplay` exercises queries, region layout and copied progress
 through the matching shared SDK. Rebuild modules against that exact SDK; authored

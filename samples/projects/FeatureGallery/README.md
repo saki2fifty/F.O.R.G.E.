@@ -1,5 +1,21 @@
 # Feature Gallery
 
+## Polygon navigation regions
+
+Open **Scenes/136-navigation-polygons.scene.json** and press Play. The cyan agent
+turns around the concave floor's notch; the amber agent routes around a concave
+orange obstacle. No project C++ module is required. Select an agent to read
+**Live gameplay → Navigation progress**. Stop restores the starting poses.
+
+Outside Play, select **Walkable L - edit polygon Points** or **Concave L obstacle -
+edit polygon Points**. Edit **Navigation Region 2D → Points** in local metres.
+Contours need3–64simple counterclockwise points. **Use rectangle** clears the
+contour; **Create polygon** seeds a rectangle's four corners. Rebuild with
+**Content → Create / Register → Navigation → Plane → 2D (XY)** after shape edits,
+then save. Enable **Scene → View → Navigation overlay** for boundaries and routes.
+The saved NavMesh and ordinary visual meshes are included in a normal export.
+See [Navigation](../../../manual/editor/navigation.md).
+
 ## Activity Lab: State Conditions
 
 Open **Scenes/135-state-activity.scene.json**, press Play and capture gameplay

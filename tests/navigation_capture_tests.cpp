@@ -217,7 +217,8 @@ void planar_capture_tests() {
          {std::pair{"enabled", offsetof(NavigationRegion2D, enabled)},
           std::pair{"obstacle", offsetof(NavigationRegion2D, obstacle)},
           std::pair{"width", offsetof(NavigationRegion2D, width)},
-          std::pair{"height", offsetof(NavigationRegion2D, height)}}) {
+          std::pair{"height", offsetof(NavigationRegion2D, height)},
+          std::pair{"points", offsetof(NavigationRegion2D, points)}}) {
         const auto* member =
             ecs_struct_get_member(f.engine.world().world().c_ptr(), component.id(), name);
         check(member && std::size_t(member->offset) == offset,
@@ -247,6 +248,104 @@ void planar_capture_tests() {
     }
     check(rejected && f.scene.document() == before_invalid,
           "Invalid XY region dimensions changed the scene");
+    const auto rectangle_source = f.scene.document();
+    const Json polygon = Json::array({{{"x", -3}, {"y", -3}},
+                                      {{"x", 3}, {"y", -3}},
+                                      {{"x", 3}, {"y", -1}},
+                                      {{"x", -1}, {"y", -1}, {"note", "retain"}},
+                                      {{"x", -1}, {"y", 3}},
+                                      {{"x", -3}, {"y", 3}}});
+    const auto set_points = [&](const Json& points) {
+        authoring_command(f.scene, "property.set",
+                          {{"entity", selected},
+                           {"component", "forge.navigation_region_2d"},
+                           {"field", "points"},
+                           {"value", points}});
+    };
+    set_points(polygon);
+    check(f.scene.entity(selected).get<NavigationRegion2D>().points.size() == 6,
+          "Polygon authoring did not create the native owning vector");
+    const auto polygon_source = f.scene.document();
+    const auto polygon_row =
+        std::find_if(polygon_source.at("entities").begin(), polygon_source.at("entities").end(),
+                     [&](const auto& row) { return row.at("id") == selected; });
+    check(polygon_row != polygon_source.at("entities").end() &&
+              polygon_row->at("components")
+                      .at("forge.navigation_region_2d")
+                      .at("points")[3]
+                      .at("note") == "retain",
+          "Polygon editing erased point extension data");
+    compare();
+    check(f.scene.undo() && f.scene.document() == rectangle_source && f.scene.redo() &&
+              f.scene.document() == polygon_source,
+          "Polygon ownership/extension data was lost through Undo/Redo");
+    set_points(Json::array());
+    check(f.scene.entity(selected).get<NavigationRegion2D>().points.empty() && f.scene.undo() &&
+              f.scene.entity(selected).get<NavigationRegion2D>().points.size() == 6,
+          "Clearing polygon points lost owning-vector removal or Undo");
+    const auto stable_polygon = f.scene.document();
+    const auto revision = f.scene.revision();
+    for (const auto& points :
+         {Json::array({{{"x", 0}, {"y", 0}}}), Json::array({{{"x", 0}, {"y", 0}},
+                                                            {{"x", 1}, {"y", 1}},
+                                                            {{"x", 0}, {"y", 1}},
+                                                            {{"x", 1}, {"y", 0}}})}) {
+        bool refused = false;
+        try {
+            set_points(points);
+        } catch (const std::exception&) {
+            refused = true;
+        }
+        check(refused && f.scene.document() == stable_polygon && f.scene.revision() == revision,
+              "Invalid polygon edit changed source, history or native values");
+    }
+    compare();
+    auto source = create_prefab_source(f.scene, selected);
+    f.scene.set_prefab_sources({{source.asset(), source.source}});
+    const auto instance = instantiate_prefab(f.scene, source.asset());
+    check(!f.scene.entity(instance).owns<NavigationRegion2D>() &&
+              f.scene.entity(instance).get<NavigationRegion2D>().points ==
+                  f.scene.entity(selected).get<NavigationRegion2D>().points,
+          "Polygon prefab did not inherit the native owning vector");
+    compare();
+    authoring_command(f.scene, "property.set",
+                      {{"entity", instance},
+                       {"component", "forge.navigation_region_2d"},
+                       {"field", "enabled"},
+                       {"value", false}});
+    auto changed = source.source;
+    changed["revision"] = 2;
+    auto changed_points = polygon;
+    changed_points[1]["x"] = 4;
+    changed_points[2]["x"] = 4;
+    for (auto& member : changed["members"])
+        if (member["id"] == changed["root"])
+            member["components"]["forge.navigation_region_2d"]["points"] = changed_points;
+    f.scene.publish_prefab_sources({{source.asset(), changed}}, [] {});
+    check(!f.scene.entity(instance).get<NavigationRegion2D>().enabled &&
+              f.scene.entity(instance).get<NavigationRegion2D>().points[1].x == 4,
+          "Polygon publication lost inherited points under a partial override");
+    compare();
+    const auto inherited_source = f.scene.document();
+    authoring_command(f.scene, "property.set",
+                      {{"entity", instance},
+                       {"component", "forge.navigation_region_2d"},
+                       {"field", "points"},
+                       {"value", Json::array()}});
+    check(f.scene.entity(instance).get<NavigationRegion2D>().points.empty() &&
+              f.scene.entity(selected).get<NavigationRegion2D>().points.size() == 6,
+          "Clearing inherited polygon points changed its source vector");
+    compare();
+    check(f.scene.undo() && f.scene.document() == inherited_source && f.scene.redo() &&
+              f.scene.entity(instance).get<NavigationRegion2D>().points.empty(),
+          "Polygon prefab override did not replay its owning vector");
+    authoring_command(
+        f.scene, "property.revert",
+        {{"entity", instance}, {"component", "forge.navigation_region_2d"}, {"field", "points"}});
+    check(f.scene.entity(instance).get<NavigationRegion2D>().points[1].x == 4 &&
+              !f.scene.entity(instance).get<NavigationRegion2D>().enabled,
+          "Polygon revert lost inherited contour or a separate field override");
+    compare();
     f.equivalent("XY region is not an implicit3D navigation source", false);
     std::cout << "XY source native/schema/history/validation PASS\n";
 }

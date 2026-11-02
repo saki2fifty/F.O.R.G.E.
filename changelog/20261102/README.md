@@ -25,3 +25,17 @@ The SDK exports the value component, while the activation view remains host-only
 Matching SDK rebuilds are required; the C host table and dependency pins remain
 unchanged. Physical Windows/full editor/MSVC/D3D12/graphical EXE review and a
 numbered delivery remain pending. This is local development source.
+
+## Polygon navigation regions
+
+Navigation Region 2D accepts simple3–64point convex/concave local XY contours.
+Empty Points retains rectangles and their existing geometry identity/cooked bytes.
+Inspector construction and structured edits, prefab inheritance, full outline
+selection/framing, Undo/Redo and MCP discovery/property operations share current
+owners. Polygon mode hides rectangle dimensions/resize handles; world transforms
+remain available. Concave masks are applied before agent-radius clearance.
+
+Gallery136 provides two ready routes and a normal source-free navigation export.
+The guide covers Points, rectangle conversion, validation and rebuilding. Native
+point-vector layout/lifetime changes require a matching exact SDK; the C callback
+table and dependency pins are unchanged. Windows review remains pending.

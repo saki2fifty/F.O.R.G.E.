@@ -1,5 +1,29 @@
 # README screenshots
 
+## Polygon navigation regions
+
+[Polygon Game](../../../manual/images/navigation-polygon-gallery.png) is the
+unretouched640×360 production FrameRenderer Game after90fixed ticks in Gallery136
+(`99ee18f7-3644-46f1-94ed-610f76e4583b`). Cyan follows the concave floor and amber
+routes around the orange obstacle. `navigation_polygon_gallery_vulkan` verifies
+visible motion and four exact source/source-hidden relocated display pairs.
+Lossless PPM-to-PNG conversion preserves all RGB pixels. PNG SHA256:
+`cc6d0361a6696511c18074a2f9097c842cdb3b1d4ba68f87669a32de09625afe`.
+
+[Polygon Inspector](../../../manual/images/navigation-polygon-inspector.png) is
+the unretouched1000×900 production ComponentInspector at1x, with Points expanded
+through actual mouse input. Six entries and normal collection/conversion controls
+are visible. `forge_navigation_region_editor_tests <scratch> <captures>` also
+checks100/150/200% at420×640and1000×900. PNG SHA256:
+`d515f6c34ce11f0b0413a4581ba4b64c49a117d4a40f1072530d2330e993f99c`.
+
+Both use local unassigned source based on733a50f. Exact executable/input/image
+hashes and native receipt are in
+`AgentFiles/build/phase215-planar-navigation-polygons/captures.json`. Game uses
+software Vulkan and Inspector uses SDL/ImGui software. Both canonical images were
+visually reviewed. These captures do not establish full Main/editor, Windows,
+MSVC/D3D12, physical input/DPI/GPU, performance or graphical EXE acceptance.
+
 ## Custom polygon one-way boundaries
 
 [Custom one-way Game](../../../manual/images/custom-one-way-gallery.png) is the

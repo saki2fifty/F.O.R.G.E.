@@ -45,6 +45,7 @@ try:
         state = first.request('step')
         expected.append(observation(state)['position'])
     assert any('navigation SDK queries passed' in item['text'] for item in state['diagnostics']), state
+    assert any('navigation polygon native values passed' in item['text'] for item in state['diagnostics']), state
     assert state['recovery'] is None, 'SDK Play must not advertise unsupported native recovery'
     # Exercise the production host's shared live owner while the world is paused.
     generation = state['activation']['generation']

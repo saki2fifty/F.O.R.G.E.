@@ -1,7 +1,9 @@
 #pragma once
+#include <cstddef>
 #include <cstdint>
 #include <forge/asset_ref.hpp>
 #include <forge/navigation_behavior_components.hpp>
+#include <vector>
 namespace forge {
 enum class NavigationPlane : std::uint32_t { Spatial3D, PlanarXY };
 struct NavMeshAsset {
@@ -11,10 +13,17 @@ struct NavigationSurface {
     bool enabled = true;
     bool operator==(const NavigationSurface&) const = default;
 };
-// Independent, centered navigation geometry in world XY; not a physics collider.
+inline constexpr std::size_t navigation_region_vertex_limit = 64;
+struct NavigationRegionVertex {
+    float x = 0, y = 0;
+    bool operator==(const NavigationRegionVertex&) const = default;
+};
+// Independent navigation geometry in world XY; not a physics collider.
 struct NavigationRegion2D {
     bool enabled = true, obstacle = false;
     float width = 10, height = 10;
+    // Empty uses centered width/height. Otherwise,3..64 simple CCW local points.
+    std::vector<NavigationRegionVertex> points{};
     bool operator==(const NavigationRegion2D&) const = default;
 };
 // Runtime-carved upright cylinder; an XY profile uses its circular footprint.

@@ -98,10 +98,14 @@ int main(int argc, char** argv) {
             Scene prepared(engine.world());
             prepared.restore_snapshot(input());
             prepared.entity("floor").set<LocalScale>({1, 1, 0});
-            prepared.entity("floor").set<NavigationRegion2D>({true, false, 20, 20});
+            NavigationRegion2D floor_region{true, false, 20, 20};
+            floor_region.points = {{-10, -10}, {10, -10}, {10, 10}, {-10, 10}};
+            prepared.entity("floor").set<NavigationRegion2D>(floor_region);
             prepared.entity("obstacle").set<LocalScale>({1, 1, 0});
             prepared.entity("obstacle").set<LocalTranslation>({0, 0, 19});
-            prepared.entity("obstacle").set<NavigationRegion2D>({true, true, 2, 4});
+            NavigationRegion2D obstacle_region{true, true, 2, 4};
+            obstacle_region.points = {{-1, -2}, {1, -2}, {1, 0}, {0, 0}, {0, 2}, {-1, 2}};
+            prepared.entity("obstacle").set<NavigationRegion2D>(obstacle_region);
             NavigationSettings settings;
             settings.plane = NavigationPlane::PlanarXY;
             const auto record = prepare_navigation(root, prepared.effective_document(), settings,

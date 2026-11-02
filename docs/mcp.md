@@ -719,7 +719,7 @@ is separate from C++ gameplay and has no advertised document/Scene Undo.
 bake worker. The native settings/profile and stale-geometry publication check
 remain authoritative. Publication is separate from Scene Undo. Settings add optional
 integer `plane`:0(default) uses3D NavigationSurface geometry;1 uses top-down XY
-NavigationRegion2D rectangles. The six numeric profile fields remain required. Optional boolean
+NavigationRegion2D rectangles or simple convex/concave polygon regions. The six numeric profile fields remain required. Optional boolean
 `dynamic_obstacles` selects the version 4 tiled profile; omitted/false retains
 static baking. Its geometry provenance stays 2 (spatial) / 3 (XY). Create/edit
 `forge.navigation_obstacle` through the same component/property tools: enabled,
@@ -729,12 +729,18 @@ agent-only shape store or live-tuning operation. Runtime routes observe resolved
 poses at the writable navigation boundary. See [Navigation](navigation.md) for
 upright/circular transform requirements and layer/obstacle limits.
 Create/edit regions with ordinary component/property tools, including validation,
-Undo/Redo and Scene Save. XY builds publish guarded schema3 through the same
+Undo/Redo and Scene Save. Discovery exposes `points` as a vector with maximum64,
+default`[]` and structured finite local`x/y` coordinates. Empty points selects the
+width/height rectangle. To seed a polygon, set the complete field to four valid
+corners; then replace the complete3–64point CCW contour as needed. Invalid count,
+crossing/touching/collinear or out-of-bounds candidates leave Scene/revision intact.
+Point extension data, prefab overrides and Undo/Redo use existing reflected owners. XY builds publish guarded schema3 through the same
 worker/job/status/cancel owner. One logical asset per Scene remains authoritative;
 switching plane preserves its ID and requires rebuilding. No independent agent-only
 geometry, bake or persistence path exists. Scene outline
 selection/framing and centered resize handles are editor conveniences over the same
-qualified width/height fields. Agents continue to use ordinary property tools and
+qualified width/height fields in rectangle mode; polygon outlines/framing use the
+complete contour, with no rectangle resize handles. Agents continue to use ordinary property tools and
 history/Save; no new tool/schema or screen-coordinate authoring path is required.
 
 The asset-authoring grant also exposes `forge_navigation_overlay`, with a required

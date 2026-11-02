@@ -138,11 +138,15 @@ inline std::vector<SpatialMarker> spatial_markers(const Json& source, unsigned w
                     marker.enabled = region->region.enabled;
                     marker.obstacle = region->region.obstacle;
                     marker.offset = 0;
-                    for (unsigned i = 0; i < 4; ++i)
-                        line(region->quad[i], region->quad[(i + 1) % 4]);
+                    for (std::size_t i = 0; i < region->outline.size(); ++i)
+                        line(region->outline[i], region->outline[(i + 1) % region->outline.size()]);
                     marker.note = marker.obstacle ? "Obstacle" : "Walkable";
-                    marker.note += " | " + helper_number(region->region.width) + " x " +
-                                   helper_number(region->region.height) + " local m";
+                    if (region->region.points.empty())
+                        marker.note += " | " + helper_number(region->region.width) + " x " +
+                                       helper_number(region->region.height) + " local m";
+                    else
+                        marker.note +=
+                            " | " + std::to_string(region->outline.size()) + " polygon points";
                 } else if (is_camera) {
                     const auto settings = spatial_component_value<Camera>(c, "forge.camera");
                     marker.enabled = settings.enabled;

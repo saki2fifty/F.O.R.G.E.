@@ -10,9 +10,9 @@ navigation asset/profile per Scene. Changing plane is an explicit rebuild which
 preserves AssetId and prior immutable artifacts. No second navigation service,
 asset database, transform writer or agent-specific authoring implementation exists.
 
-`NavigationRegion2D` supplies centered rectangular walkable areas and obstacle
-masks. Its resolved affine contributes world XY; visual depth is independent.
-Sprite/collider/TileMap extraction and arbitrary polygons are separate capabilities.
+`NavigationRegion2D` supplies centered rectangles or bounded simple convex/concave
+polygon walkable areas and obstacle masks. Its resolved affine contributes world XY; visual depth is independent.
+Sprite/collider/TileMap extraction remains a separate capability.
 Use the pinned Recast public convex-area API before radius erosion. Shared source
 capture retains static/controller/spatial ancestry validation in either plane.
 
@@ -71,3 +71,19 @@ bake/view/framing/handles. SceneTools adds a transient centered extent gesture v
 ordinary preview/property/Undo, and projected-axis drag math is shared with rig
 targets. There is no new source format, SDK shape, navigation owner or agent-only
 workflow. Existing generic automation properties retain complete semantic access.
+
+## Polygon contour refinement
+
+An empty native owning point vector retains the exact rectangle geometry identity
+and cooked representation. A nonempty3–64point finite simple CCW local contour
+uses the same region/source/bake owners and envelope3 basis; dynamic layers retain
+envelope4. Deterministic walkable triangulation and convex obstacle decomposition
+reuse FORGE-owned pure polygon geometry, without changing tile-specific admission.
+Unused rectangle extents do not enter polygon identity. Visual-Z and static source
+rules are unchanged; no AssetId migration is required.
+
+Inspector seeds or clears a complete contour through existing property/history
+operations. Guides, picking and framing consume all outline edges; rectangle resize
+handles only apply to empty contours. Prefab and automation/MCP use ordinary
+reflected collection values. The new native vector changes the exact SDK
+fingerprint and requires a matching module rebuild; the C callback table is stable.

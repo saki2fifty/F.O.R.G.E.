@@ -2,6 +2,7 @@
 #include "authored_schema.hpp"
 #include "material_parameter_overrides.hpp"
 #include "material_slot.hpp"
+#include "navigation_region_value.hpp"
 #include "physics_joint_2d_value.hpp"
 #include "physics_joint_value.hpp"
 #include "reflected_extensions.hpp"
@@ -79,10 +80,7 @@ template <class T> Json encode(const T& p) {
     else if constexpr (std::is_same_v<T, NavigationSurface>)
         return {{"enabled", p.enabled}};
     else if constexpr (std::is_same_v<T, NavigationRegion2D>)
-        return {{"enabled", p.enabled},
-                {"obstacle", p.obstacle},
-                {"width", p.width},
-                {"height", p.height}};
+        return navigation_detail::region_value(p);
     else if constexpr (std::is_same_v<T, NavigationObstacle>)
         return {{"enabled", p.enabled}, {"radius", p.radius}, {"height", p.height}};
     else if constexpr (std::is_same_v<T, NavigationBehavior>)
@@ -390,7 +388,7 @@ template <class T> Value decode(const Json& p) {
     } else if constexpr (std::is_same_v<T, NavigationSurface>)
         return T{p.at("enabled")};
     else if constexpr (std::is_same_v<T, NavigationRegion2D>)
-        return T{p.at("enabled"), p.at("obstacle"), p.at("width"), p.at("height")};
+        return navigation_detail::region_from_value(p);
     else if constexpr (std::is_same_v<T, NavigationObstacle>)
         return T{p.at("enabled"), p.at("radius"), p.at("height")};
     else if constexpr (std::is_same_v<T, NavigationBehavior>) {
@@ -1150,12 +1148,42 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<std::string>("state");
     } else if constexpr (std::is_same_v<T, NavigationSurface>)
         c.template member<bool>("enabled");
-    else if constexpr (std::is_same_v<T, NavigationRegion2D>)
+    else if constexpr (std::is_same_v<T, NavigationRegion2D>) {
+        const auto vertex = w.component<NavigationRegionVertex>("forge.navigation_region_vertex");
+        ecs_struct_desc_t fields{};
+        fields.entity = vertex.id();
+        fields.create_member_entities = true;
+        unsigned index = 0;
+        for (const auto& [name, offset] : {std::pair{"x", offsetof(NavigationRegionVertex, x)},
+                                           std::pair{"y", offsetof(NavigationRegionVertex, y)}}) {
+            auto& field = fields.members[index++];
+            field.name = name;
+            field.type = w.id<float>();
+            field.offset = int32_t(offset);
+            field.use_offset = true;
+            field.range = {-1000, 1000};
+            field.error_range = field.range;
+        }
+        if (!ecs_struct_init(w.c_ptr(), &fields))
+            throw std::runtime_error("Navigation vertex Meta registration failed");
+        w.component<std::vector<NavigationRegionVertex>>("forge.navigation_region_points")
+            .opaque(reflected_vector<NavigationRegionVertex>);
         c.template member<bool>("enabled")
             .template member<bool>("obstacle")
             .template member<float>("width")
-            .template member<float>("height");
-    else if constexpr (std::is_same_v<T, NavigationObstacle>)
+            .template member<float>("height")
+            .template member<std::vector<NavigationRegionVertex>>("points");
+        for (const auto& [name, offset] :
+             {std::pair{"enabled", offsetof(NavigationRegion2D, enabled)},
+              std::pair{"obstacle", offsetof(NavigationRegion2D, obstacle)},
+              std::pair{"width", offsetof(NavigationRegion2D, width)},
+              std::pair{"height", offsetof(NavigationRegion2D, height)},
+              std::pair{"points", offsetof(NavigationRegion2D, points)}}) {
+            const auto* member = ecs_struct_get_member(w.c_ptr(), c.id(), name);
+            if (!member || std::size_t(member->offset) != offset)
+                throw std::runtime_error("Navigation Region2D Meta disagrees with typed layout");
+        }
+    } else if constexpr (std::is_same_v<T, NavigationObstacle>)
         c.template member<bool>("enabled").template member<float>("radius").template member<float>(
             "height");
     else if constexpr (std::is_same_v<T, NavigationBehavior>) {
@@ -1614,7 +1642,7 @@ const std::array<Builtin, builtin_count>& builtins() {
             }),
         descriptor<NavigationRegion2D>(
             "forge.navigation_region_2d",
-            "Centered rectangular XY walkable region or obstacle mask", "unitless", {}, {},
+            "Rectangle or simple polygon XY walkable region or obstacle mask", "unitless", {}, {},
             [](flecs::world& w) {
                 return register_type<NavigationRegion2D>(w, "forge.navigation_region_2d");
             }),
@@ -2056,14 +2084,21 @@ Json registration_options(const Builtin& type, const std::string& field) {
             value["maximum"] = 1000;
             value["unit"] = "meters";
             value["description"] =
-                "Local rectangle extent; resolved world XY is used by the navigation bake";
+                "Local rectangle extent when Points is empty; resolved world XY is baked";
         } else {
             value.erase("minimum");
             value.erase("maximum");
-            value["description"] = field == "enabled"
-                                       ? "Include this static region in XY navigation"
-                                       : "Subtract this rectangle from walkable XY navigation; no "
-                                         "physics collider is created";
+            value["description"] =
+                field == "points"
+                    ? "Empty uses the rectangle; otherwise3..64 local XY points in simple "
+                      "counterclockwise order. Coordinates are metres, without physics collision."
+                : field == "enabled" ? "Include this static region in XY navigation"
+                                     : "Subtract this region from walkable XY navigation; no "
+                                       "physics collider is created";
+            if (field == "points") {
+                value["display_name"] = "Points";
+                value["animatable"] = false;
+            }
         }
     }
     if (name == "forge.character_controller_2d") {
@@ -3243,6 +3278,11 @@ Json register_builtins(flecs::world& world, unsigned family) {
                 throw std::runtime_error("Sprite Texture frames reflection member is missing");
             texture_frames.set<ReflectedMemberDefault>({false});
         }
+        if (name == "forge.navigation_region_2d") {
+            c.lookup("points").set<ReflectedSequenceLimit>({navigation_region_vertex_limit});
+            world.component<ReflectedMemberDefault>(reflected_member_default_type);
+            c.lookup("points").set<ReflectedMemberDefault>({Json::array()});
+        }
         std::vector<ReflectedAdapter> references;
         if (name == "forge.physics_joint" || name == "forge.physics_joint_2d" ||
             name == "forge.transform_animator" || name == "forge.camera_shot" ||
@@ -3284,6 +3324,8 @@ Json register_builtins(flecs::world& world, unsigned family) {
         }
         if (name == "forge.sprite_renderer")
             references.push_back({world.id<std::vector<SpriteFrameRegion>>(), "vector"});
+        if (name == "forge.navigation_region_2d")
+            references.push_back({world.id<std::vector<NavigationRegionVertex>>(), "vector"});
         auto fields = reflected_type_schema(world, c.id(), references).at("fields");
         for (auto& field : fields) {
             const auto member = field.at("id").get<std::string>();

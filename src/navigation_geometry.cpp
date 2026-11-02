@@ -1,5 +1,6 @@
 #include "navigation_geometry.hpp"
 #include "asset_bytes.hpp"
+#include "navigation_region_value.hpp"
 #include "navigation_space.hpp"
 #include <algorithm>
 #include <forge/geometry.hpp>
@@ -88,9 +89,8 @@ Sources capture(const nlohmann::json& doc, NavigationPlane plane) {
         Surface source{id, transform};
         if (plane == NavigationPlane::PlanarXY) {
             const auto& data = c.at(marker);
-            source.region = NavigationRegion2D{data.at("enabled"), data.at("obstacle"),
-                                               data.at("width"), data.at("height")};
-            (void)region_quad(*source.region, transform);
+            source.region = region_from_value(data);
+            (void)region_outline(*source.region, transform);
         } else {
             source.primitive = primitive_kind(e);
         }
@@ -141,6 +141,11 @@ std::string source_digest(const Sources& source, const Json& inputs) {
                  {"width", region.width},
                  {"height", region.height},
                  {"obstacle", region.obstacle}});
+            if (!region.points.empty()) {
+                regions.back().erase("width");
+                regions.back().erase("height");
+                regions.back()["points"] = region_value(region).at("points");
+            }
         }
         const auto text =
             Json{{"bridge", 3}, {"plane", 1}, {"scene", source.scene}, {"regions", regions}}.dump();
@@ -168,6 +173,38 @@ Geometry planar_geometry(const Sources& source) {
     for (const auto& surface : source.surfaces) {
         if (!surface.region)
             throw std::runtime_error("XY navigation needs region geometry");
+        if (!surface.region->points.empty()) {
+            const auto outline = region_outline(*surface.region, surface.transform);
+            std::vector<std::array<float, 3>> native;
+            std::vector<geometry_detail::PolygonPoint> rounded;
+            for (const auto& value : outline) {
+                const auto point = native_coordinates(MeshSpace::PlanarXY, value);
+                native.push_back({float(point[0]), float(point[1]), float(point[2])});
+                rounded.push_back({native.back()[0], native.back()[2]});
+            }
+            // Decompose the actual float coordinates handed to the solver. A
+            // source contour must not silently collapse during native conversion.
+            const auto triangles = geometry_detail::polygon_triangles(rounded);
+            for (const auto& triangle : triangles) {
+                if (surface.region->obstacle) {
+                    if (result.obstacles.size() == 512)
+                        throw std::runtime_error("Navigation exceeds512 convex obstacle masks");
+                    std::vector<float> mask;
+                    for (auto corner : triangle)
+                        mask.insert(mask.end(), native[corner].begin(), native[corner].end());
+                    result.obstacles.push_back(std::move(mask));
+                } else {
+                    if (result.indices.size() / 3 == 16384)
+                        throw std::runtime_error("Navigation geometry exceeds16384 triangles");
+                    for (auto corner : {triangle[0], triangle[2], triangle[1]}) {
+                        result.indices.push_back(int(result.indices.size()));
+                        result.vertices.insert(result.vertices.end(), native[corner].begin(),
+                                               native[corner].end());
+                    }
+                }
+            }
+            continue;
+        }
         const auto quad = region_quad(*surface.region, surface.transform);
         std::array<float, 12> native{};
         for (unsigned i = 0; i < 4; ++i) {
@@ -176,9 +213,13 @@ Geometry planar_geometry(const Sources& source) {
                 native[i * 3 + axis] = float(point[axis]);
         }
         if (surface.region->obstacle) {
-            result.obstacles.push_back(native);
+            if (result.obstacles.size() == 512)
+                throw std::runtime_error("Navigation exceeds512 convex obstacle masks");
+            result.obstacles.emplace_back(native.begin(), native.end());
             continue;
         }
+        if (result.indices.size() / 3 > 16384 - 2)
+            throw std::runtime_error("Navigation geometry exceeds16384 triangles");
         // Positive world-XY winding maps to downward native Y. Reverse each
         // triangle so the existing slope classifier sees a walkable floor.
         for (unsigned corner : {0u, 2u, 1u, 0u, 3u, 2u}) {

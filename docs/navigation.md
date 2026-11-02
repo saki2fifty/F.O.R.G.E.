@@ -107,19 +107,30 @@ asset identity, envelope version, SDK or checkpoint format changes are needed.
 
 ### Explicit XY region profile
 
-`NavigationRegion2D { enabled=true, obstacle=false, width=10, height=10 }` is
-ordinary reflected Navigation-family data. Width/height are centered local metre
-extents, each0.01–1000. The shared `region_quad` projects the resolved affine onto
-world XY, normalizes mirrored winding and rejects degenerate/out-of-bounds
-footprints. Zero visual-depth scale is valid. Selected-region editor outlines use
-that same quad. Sprites/colliders/TileMaps are not automatic bake inputs.
+`NavigationRegion2D { enabled=true, obstacle=false, width=10, height=10, points={} }`
+is ordinary reflected Navigation-family data. Empty `points` selects a centered
+local rectangle; width/height remain0.01–1000metres. A nonempty vector selects a
+complete simple counterclockwise contour of3–64 `NavigationRegionVertex {x,y}`
+values. Local coordinates must be finite and within±1000metres. Repeated vertices,
+adjacent collinear edges, crossings and self-touching edges are rejected. Holes
+use separate obstacle regions. Each property operation validates its complete
+candidate before changing source, revision or history. Unknown per-point source
+metadata uses the existing reflected extension owner.
 
-Walkable rectangles contribute upward triangles in native XZ. Obstacle rectangles
-are convex null-area masks on the compact Recast heightfield, applied before radius
-erosion using the exact pinned `rcMarkConvexPolyArea` API. Overlapping walkable
-rectangles form a union. At least one walkable rectangle is required; all sources
-share the512-entity limit. Arbitrary polygons, per-tile extraction and platformer
-links are outside this profile.
+`navigation_region.hpp` owns the resolved world-XY outline. It admits signed XY
+scale and zero visual-depth scale, rejects collapsed/out-of-bounds contours, and
+normalizes mirrored winding only in a detached copy. Source capture, bake,
+Inspector validation and editor guides share this footprint. Sprites/colliders/
+TileMaps are not automatic inputs. The shared pure polygon predicates and ear
+clipping also serve the existing tile polygon owner; tile-specific8-point/unit-cell
+admission remains separate.
+
+Walkable contours contribute deterministic upward triangles in native XZ.
+Concave obstacle contours decompose into convex triangle masks; rectangles retain
+their original four-vertex mask. The pinned `rcMarkConvexPolyArea` applies masks to
+the compact heightfield before agent-radius erosion. Overlapping walkable regions
+form a union. At least one walkable region is required; all sources share the
+512-entity /16,384-triangle limits and at most512derived convex obstacle masks.
 
 One `navigation_space.hpp` boundary maps world XY to native XZ and native Y to an
 internal flat altitude derived from admitted tile vertices. Mesh/Query projection,
@@ -132,7 +143,10 @@ No second authored height, coordinate database or transform writer is introduced
 Native capture maintains independent derived validation state for each plane.
 Unselected 3D source errors cannot poison XY and vice versa. Only3D owns external
 Mesh resource subscriptions. XY hashes ordered scene/source IDs, the six affine
-coefficients contributing to world XY, rectangle dimensions and obstacle roles.
+coefficients contributing to world XY and obstacle roles. Empty contours retain
+exact legacy rectangle dimension hashing, triangles and cooked bytes. Nonempty
+contours hash the actual native float coordinates and exclude unused width/height;
+point edits invalidate the selected geometry through the existing staleness owner.
 Visual Z, materials and unrelated authored state are excluded. Both profiles retain
 static/body/controller/spatial ancestry rules; agents cannot also be enabled bake
 sources. XY avoidance filters by the selected NavMesh, without a visual-height test.
@@ -140,7 +154,7 @@ sources. XY avoidance filters by the selected NavMesh, without a visual-height t
 ### Region Scene interaction
 
 The pure region footprint lives in `navigation_region.hpp`; baking and detached
-editor consumers use the same unchanged calculation. NavigationRegionView reads
+editor consumers use the same calculation. NavigationRegionView reads
 one current effective/preview row and rejects invalid/unresolved geometry without
 inventing a substitute shape. SpatialHelpers owns cached region outlines alongside
 its existing Camera/Light/Audio helpers, using the same preview generation and
@@ -156,7 +170,7 @@ can frame a region without a rendered Mesh; a helper position is not substituted
 for its dimensions.
 
 SceneTools composes NavigationRegionGesture with Move/Rig/modal input ownership.
-Four edge-midpoint handles edit one centered local extent. Explicit gold squares
+Four edge-midpoint handles edit one centered local extent in rectangle mode only. Explicit gold squares
 draw and receive clicks above overlapping Move axes; existing active/rig/modal
 ownership is preserved. The projected-axis
 calculation is shared with rig targeting; Ctrl snap is in local metre dimensions.
@@ -166,8 +180,16 @@ written. Neutral/rejected/cancelled releases do not commit. Scene revision/selec
 edit locks, viewport changes and existing focus/project guards retire the gesture.
 Prefab property inheritance and Save/reopen retain the normal Scene owner.
 
-Automation/MCP already exposes the same width/height properties, validation and
-history operations; this viewport convenience adds no pixel-only game-creation
+Inspector **Create polygon** seeds four valid rectangle corners in one ordinary
+property/history operation. **Use rectangle** clears the contour; Undo restores its
+points and extension metadata. Structured point editing uses the existing
+collection drawer. Polygon mode hides unused width/height and disables rectangle
+extent handles; ordinary object transforms, outline selection and framing remain.
+Prefab inheritance, partial point overrides, source publication, revert and history
+retain the existing Scene owner and native owning-vector lifecycle.
+
+Automation/MCP exposes width/height and the bounded structured `points` property,
+including discovery/default/element schema, validation and history operations; this viewport convenience adds no pixel-only game-creation
 capability, separate commands or persistence. Bake/runtime/asset/SDK formats and
 navigation movement semantics are unchanged by these editor interactions.
 
@@ -314,7 +336,7 @@ Pause performs no movement; Step advances one fixed tick. Presentation reads do 
 | Resource | Initial bound |
 | --- | --- |
 | Included entities / triangles | 512 / 16,384 |
-| XY source shape | Centered rectangles; world XY projection; obstacle subtraction |
+| XY source shape | Rectangles or3–64point simple CCW contours; world XY; obstacle subtraction |
 | External Mesh inputs / retained CPU data | 32 / 64 MiB |
 | Per-Mesh bake profile | 32 MiB scalars, 65,536 vertices, 49,152 indices, 512 parts, 16 LODs |
 | Geometry coordinate magnitude | 4,090 metres; generated bounds within 4,096 |
@@ -332,11 +354,15 @@ Exceeding these bounds returns a diagnostic rather than silently truncating a pa
 
 ## Exact gameplay SDK
 
-`NavigationAgent` is available to exact-version direct-Flecs modules. `FORGE_SDK_NAVIGATION` exposes `navigation_query` for projection and path finding during an owner fixed tick. Results use a caller-owned buffer with capacity 1–64 and explicit status/count. An undersized buffer returns the limit status with no points. No Recast/Detour type crosses the boundary. SDK fingerprints include the new component/header contract; modules must be rebuilt together. The movement-only ABI1 path mentioned in the original phase record has since been retired. Generic AssetHandle remains deferred: the private AssetId cache is sufficient.
+`NavigationAgent`, `NavigationRegion2D` and its owning point vector are available
+to exact-version direct-Flecs modules. Region layout/Meta offsets and vector copy/
+removal are verified against the matching installed SDK. The planar sample reads
+both four-point floors and concave obstacle values through ordinary typed access.
+No callback-table field or independent authoring path is added. `FORGE_SDK_NAVIGATION` exposes `navigation_query` for projection and path finding during an owner fixed tick. Results use a caller-owned buffer with capacity 1–64 and explicit status/count. An undersized buffer returns the limit status with no points. No Recast/Detour type crosses the boundary. SDK fingerprints include the new component/header contract; modules must be rebuilt together. The movement-only ABI1 path mentioned in the original phase record has since been retired. Generic AssetHandle remains deferred: the private AssetId cache is sufficient.
 
 ## Deferred work
 
-Full crowd management, general runtime geometry rebaking, multiple profiles per Scene, arbitrary XY polygons/automatic collider or TileMap extraction, cost editing, off-mesh/platformer links, moving-platform routing and world streaming are deferred. Physics-character driving and general save-game formats remain separate work. Current cooked navigation/export uses the existing runtime package owner.
+Full crowd management, general runtime geometry rebaking, multiple profiles per Scene, automatic collider or TileMap extraction, cost editing, off-mesh/platformer links, moving-platform routing and world streaming are deferred. Physics-character driving and general save-game formats remain separate work. Current cooked navigation/export uses the existing runtime package owner.
 
 See the [Navigation user guide](../manual/editor/navigation.md) for the no-code workflow.
 

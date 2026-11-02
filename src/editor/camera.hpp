@@ -204,9 +204,9 @@ class EditorCamera {
             if (region) {
                 if (primitive_kind(e) == no_primitive) {
                     for (unsigned i = 0; i < 3; ++i)
-                        bounds.first[i] = bounds.second[i] = float(region->quad[0][i]);
+                        bounds.first[i] = bounds.second[i] = float(region->outline[0][i]);
                 }
-                for (const auto& point : region->quad)
+                for (const auto& point : region->outline)
                     for (unsigned i = 0; i < 3; ++i) {
                         bounds.first[i] = std::min(bounds.first[i], float(point[i]));
                         bounds.second[i] = std::max(bounds.second[i], float(point[i]));
