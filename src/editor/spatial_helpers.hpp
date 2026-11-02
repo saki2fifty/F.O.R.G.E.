@@ -1,11 +1,13 @@
 #pragma once
 #include "../builtins.hpp"
+#include "../navigation_geometry.hpp"
 #include "authoring.hpp"
 #include "decal_guide.hpp"
 #include "light_emitter_view.hpp"
 #include "navigation_region_view.hpp"
 #include "reflection_probe_view.hpp"
 #include "spatial_component_value.hpp"
+#include "tile_map_inspector.hpp"
 #include "ui_probe.hpp"
 #include "widgets.hpp"
 #include <forge/audio_components.hpp>
@@ -34,7 +36,8 @@ inline Double3 helper_add(Double3 a, Double3 b, double scale = 1) {
     return a;
 }
 inline std::vector<SpatialMarker> spatial_markers(const Json& source, unsigned width,
-                                                  unsigned height, double extent) {
+                                                  unsigned height, double extent,
+                                                  const NavigationTileContours& tiles = {}) {
     std::vector<SpatialMarker> result;
     const auto policies = extract_node_policies(source);
     for (const auto& row : source.at("entities")) {
@@ -131,22 +134,25 @@ inline std::vector<SpatialMarker> spatial_markers(const Json& source, unsigned w
                                   helper_number(settings.blend_distance) + " world m"
                             : "Assign a color cube or panorama in Inspector";
                 } else if (is_region) {
-                    const auto region = navigation_region_view(row);
+                    const auto region = navigation_region_view(row, tiles);
                     if (!region)
                         continue;
                     marker.position = region->center();
                     marker.enabled = region->region.enabled;
                     marker.obstacle = region->region.obstacle;
                     marker.offset = 0;
-                    for (std::size_t i = 0; i < region->outline.size(); ++i)
-                        line(region->outline[i], region->outline[(i + 1) % region->outline.size()]);
+                    for (const auto& contour : region->contours)
+                        for (std::size_t i = 0; i < contour.size(); ++i)
+                            line(contour[i], contour[(i + 1) % contour.size()]);
                     marker.note = marker.obstacle ? "Obstacle" : "Walkable";
-                    if (region->region.points.empty())
+                    if (region->region.source != 0)
+                        marker.note += " | Collider 2D footprint";
+                    else if (region->region.points.empty())
                         marker.note += " | " + helper_number(region->region.width) + " x " +
                                        helper_number(region->region.height) + " local m";
                     else
-                        marker.note +=
-                            " | " + std::to_string(region->outline.size()) + " polygon points";
+                        marker.note += " | " + std::to_string(region->contours.front().size()) +
+                                       " polygon points";
                 } else if (is_camera) {
                     const auto settings = spatial_component_value<Camera>(c, "forge.camera");
                     marker.enabled = settings.enabled;
@@ -346,10 +352,47 @@ class SpatialHelpers {
   public:
     bool visible = true;
     float size = 24, extent = 10;
-    void update(const Json& source, std::uint64_t generation, unsigned width, unsigned height) {
-        if (generation_ == generation && width_ == width && height_ == height && extent_ == extent)
+    void update(const Json& source, std::uint64_t generation, unsigned width, unsigned height,
+                const PublishedTileMapReader& read_tiles = {}) {
+        if (generation_ != generation) {
+            map_ids_.clear();
+            for (const auto& row : source.at("entities")) {
+                const auto& components = row.at("components");
+                if (!components.contains("forge.navigation_region_2d") ||
+                    components.at("forge.navigation_region_2d").value("source", 0u) != 1 ||
+                    !components.contains("forge.tile_map_renderer"))
+                    continue;
+                try {
+                    const auto id =
+                        components.at("forge.tile_map_renderer").at("map").get<AssetId>();
+                    if (map_ids_.size() < navigation_detail::max_tile_inputs)
+                        map_ids_.insert(id);
+                } catch (const std::exception&) {
+                    // Invalid authored values have no invented guide.
+                }
+            }
+        }
+        std::map<AssetId, PublishedTileMapView> maps;
+        std::string resources;
+        for (const auto id : map_ids_) {
+            const auto view = read_tiles ? read_tiles({id}) : PublishedTileMapView{};
+            resources += id.str() + ":" + view.revision + (view.current ? ":ready;" : ":waiting;");
+            maps.emplace(id, view);
+        }
+        if (generation_ == generation && width_ == width && height_ == height &&
+            extent_ == extent && resources_ == resources)
             return;
-        markers_ = spatial_markers(source, width, height, extent);
+        const NavigationTileContours tiles = [&](const auto& collider, const auto& transform,
+                                                 bool obstacle) {
+            const auto& map = maps.at(collider.map);
+            if (!map.current || !map.cells || !map.definitions)
+                throw std::runtime_error("Preparing current navigation Tile Map collision inputs");
+            return navigation_detail::tile_collider_outlines(*map.cells, *map.definitions,
+                                                             map.variants.get(), collider.layer,
+                                                             transform, obstacle);
+        };
+        markers_ = spatial_markers(source, width, height, extent, tiles);
+        resources_ = std::move(resources);
         generation_ = generation;
         width_ = width;
         height_ = height;
@@ -523,6 +566,8 @@ class SpatialHelpers {
     mutable std::string hovered_;
     mutable double hover_time_ = 0;
     std::vector<SpatialMarker> markers_;
+    std::set<AssetId> map_ids_;
+    std::string resources_;
     std::uint64_t generation_ = UINT64_MAX;
     unsigned width_ = 0, height_ = 0;
     float extent_ = 0;

@@ -53,8 +53,9 @@ To create your own:
 7. Add **Entity → Create → Rendering → Camera**. Set position to **0, 0, -20**, rotation to **0, 0, 0**, **Projection → Orthographic**, and **Orthographic Height = 17**. The Camera looks along +Z. An unlit Sprite image material needs no scene light.
 8. Save, press **Play** and open **Game**. The Sprite follows the opening around the obstacle. In Scene, the navigation overlay shows its route.
 
-Regions are independent navigation data. Sprite artwork, colliders and painted
-TileMaps are not included automatically. Overlapping walkable regions form a
+Regions explicitly select navigation data. Sprite artwork, colliders and painted
+Tile Maps are not included automatically; use **Shape source → Collider 2D** to
+include a configured collider as described below. Overlapping walkable regions form a
 union; obstacle regions cut that union before agent-radius clearance is applied.
 An obstacle outside all walkable regions adds no walkable area. Add at least
 one walkable region. Keep sources and their spatial parents static and free of
@@ -81,7 +82,7 @@ use the saved NavMesh and can be exported without a project C++ module.
 The two courses use separate visual meshes. Navigation Region outlines define the
 walkable geometry; visible art does not automatically become navigation data.
 
-1. Stop Play and select a **Navigation Region 2D**. Set Width/Height for its initial rectangle.
+1. Stop Play and select a **Navigation Region 2D**. Choose **Shape source → Rectangle / Points** and set Width/Height for its initial rectangle.
 2. Click **Create polygon** in the component. This copies its four local corners into **Points** as one Undo step.
 3. Expand **Points** and edit each point's **x** and **y** in metres. Use the collection controls to add, remove or reorder points. Each edit must leave a complete valid shape; an invalid candidate keeps the previous contour and reports the reason.
 4. Keep 3–64 points in counterclockwise order when viewed from +Z. Avoid repeated points, straight intermediate corners, crossings and touching edges. Local coordinates must stay within ±1000 m; resolved world XY must remain within ±4090 m.
@@ -96,6 +97,48 @@ rotation and scale; the four rectangle extent handles are unavailable. Framing
 and outline selection still use the full contour. Prefab point overrides and
 Undo/Redo work through the regular Inspector.
 
+## Use 2D collision shapes as navigation sources
+
+Open Gallery **137-navigation-collision-sources** and press Play. The cyan agent
+routes around a Circle and Capsule Collider on a Box Collider floor. The amber
+agent routes around one published Tile Map collision layer. Select an agent to
+inspect **Live gameplay → Navigation progress**.
+
+![Cyan and amber agents routing around configured collider and Tile Map footprints](../images/navigation-collision-gallery.png)
+
+The courses use ordinary visual meshes and the Map’s published image material.
+The marked collision footprints select their navigation geometry.
+
+1. Stop Play. Select a static entity with exactly one **Box Collider 2D**, **Circle Collider 2D**, **Capsule Collider 2D** or **Tile Map Collider 2D**.
+2. Add **Navigation / Navigation Region 2D**, then choose **Shape source → Collider 2D**. A Physics Body is not required for baking this configured footprint.
+3. Leave **Obstacle** off to add walkable area, or enable it to cut the collider's footprint from another walkable area. Width, Height and Points are retained but inactive in this mode. Switching back to **Rectangle / Points** restores those controls.
+4. For a Tile Map, assign a published Map to its **Tile Map Renderer** and choose **Tile Map Collider 2D → Collision layer**. Save and publish Map or Tile Set edits through their normal Content workflows before rebuilding navigation. Tiles with no collision contribute no footprint; cell flips, neighbor rules, concave profiles, islands and holes use the selected collision definitions. Hidden Map layers can supply collision.
+5. Enable **Scene → View → Navigation overlay** to inspect the selected footprints. Island boundaries stay separate. Pending or stale Map resources show no substitute region. Press **F** to frame the selected complete footprint.
+6. In **Content → Create / Register → Navigation**, choose **Plane → 2D (XY)** and **Build NavMesh**. Save the Scene, test Play, then export normally. The exported game includes the selected Map, Tile Set, visual dependencies and NavMesh.
+
+![Navigation Inspector selecting Collider 2D as its shape source](../images/navigation-collider-inspector.png)
+
+Change collider size through its collider component and position/rotation through
+its ordinary transform. Rectangle resize handles are unavailable for derived
+footprints. Circle and Capsule shapes require equal absolute X/Y scale; negative
+scale is allowed. Keep collider sources upright in XY, without shear or moving
+physics/controller ancestors. Navigation does not create a physics body or use
+collision-layer masks, sensors or one-way direction to decide walkability;
+**Enabled**, **Obstacle** and the explicitly selected collision geometry do that.
+
+Rounded footprints use a bounded conservative approximation: obstacle contours
+cover the configured shape and walkable contours fit inside it. Agent radius adds
+clearance afterward. At most 32 distinct Map inputs and 512 derived convex masks
+are supported within the overall source/triangle limits. A Map collision source
+supports up to 512 collision pieces; oversized or numerically collapsed geometry
+reports a build error and keeps the previous NavMesh.
+
+Changing an included collider or a selected Map revision makes the NavMesh stale.
+Stop Play and rebuild after such changes. Runtime cell edits to an included Map
+also stop baked-route movement; reset that instance to its published cells before
+resuming its existing route. Runtime editing does not rebake navigation. Use the
+separate **Navigation Obstacle** workflow below for moving blocked areas.
+
 ## Select and resize 2D regions in Scene
 
 Enable **Scene → View → Navigation overlay** to show the region outlines. Click
@@ -108,7 +151,7 @@ Hover Scene and press **F** to frame the selected region's full XY footprint.
 When a selected region also has visible art, framing includes both. Outlines show
 the navigation plane at world Z0; visual Z remains separate.
 
-For a rectangle with empty Points, press **W** over Scene to use Move. Four gold
+For **Shape source → Rectangle / Points** with empty Points, press **W** over Scene to use Move. Four gold
 squares appear at the selected region's edge midpoints. Drag one to change **Width** or **Height** symmetrically
 around its center. The tooltip identifies the dimension. **Ctrl** rounds that
 local dimension to **View → Snap spacing**; entity scale still changes its world
@@ -326,4 +369,4 @@ Create a prefab from an agent using the normal [prefab workflow](prefabs.md). In
 - **Physics ownership error:** remove the agent's Physics Body and any moving physics spatial ancestor, or use an independent World spatial binding.
 - **Build/query limit:** reduce the included area or geometry, or increase cell size. A single build supports at most 512 × 512 cells.
 
-Navigation supports static shapes/Meshes in 3D and rectangular regions in XY, within roughly four kilometres of the origin and 64 agents. There are no jump links, moving-platform routes, automatic physics-character movement or general runtime geometry rebaking. Moving cylinder/circle carving requires the Dynamic obstacles profile described above. Optional avoidance is local steering and does not guarantee collision prevention. See [Play mode](play-mode.md) and [Transforms](transforms.md) for related controls.
+Navigation supports static shapes/Meshes in 3D and rectangles, polygon regions and explicitly selected 2D collision footprints in XY, within roughly four kilometres of the origin and 64 agents. There are no jump links, moving-platform routes, automatic physics-character movement or general runtime geometry rebaking. Moving cylinder/circle carving requires the Dynamic obstacles profile described above. Optional avoidance is local steering and does not guarantee collision prevention. See [Play mode](play-mode.md) and [Transforms](transforms.md) for related controls.

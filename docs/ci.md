@@ -492,6 +492,15 @@ including cooked audio/navigation and UI source/images, is copied without an
 extension allowlist. A ZIP-writer regression checks every curated Gallery file's
 bytes and manifest digest, an unfamiliar extension, and link rejection retaining
 the previous archive. Other sample projects use the source-extension filter.
+The package command requires `--gallery-preparer` pointing to the matching built
+`forge_navigation_collision_gallery_tests.exe`. Before writing the archive it
+prepares a private Gallery copy with the adjacent asset/navigation workers: the
+collision course's Tile Set, then Map, then dependent navigation. This binds the
+selected inputs to the actual platform and exact compiler/source recipe without
+editing the checkout. Existing asset IDs and prior immutable artifacts remain;
+matching selections are retained. The private writer lease is released before its
+lock file is removed. The preparer is not shipped. Preparation failure leaves an
+existing archive intact, and the manifest hashes the prepared bytes.
 The same final-package test copies
 the extracted gallery into a writable project, exports its saved startup scene
 using the packaged static runtime kit, and runs the resulting standalone

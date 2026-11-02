@@ -1054,6 +1054,15 @@ int main(int argc, char** argv) {
             [&](forge::AssetRef<forge::TileMapAsset> asset) {
                 return published_tile_map.select(mesh_resources, asset);
             };
+        viewport.navigation_tiles = [&](const auto& collider, const auto& transform,
+                                        bool obstacle) {
+            const auto map = read_published_tile_map({collider.map});
+            if (!map.current || !map.cells || !map.definitions)
+                throw std::runtime_error("Preparing current navigation Tile Map collision inputs");
+            return forge::navigation_detail::tile_collider_outlines(
+                *map.cells, *map.definitions, map.variants.get(), collider.layer, transform,
+                obstacle);
+        };
         component_inspector.tile_map_layer = [&](const forge::Json& components,
                                                  forge::Json& layer) {
             return forge::ui::tile_map_layer_field(read_published_tile_map, components, layer);
@@ -2462,7 +2471,9 @@ int main(int argc, char** argv) {
                     throw forge::AuthoringError("ui_reload_failed", runtime_ui.diagnostic());
             };
             play_providers.ui_localization = [&] { return runtime_ui.localization_state(); };
-            play_providers.ui_application_states = [&] { return runtime_ui.application_states_state(); };
+            play_providers.ui_application_states = [&] {
+                return runtime_ui.application_states_state();
+            };
             auto runtime = forge::PlayAutomation::methods(scene, files, play, runtime_tuning_review,
                                                           std::move(play_providers), permissions);
             methods.insert(methods.end(), std::make_move_iterator(runtime.begin()),
@@ -6368,7 +6379,8 @@ int main(int argc, char** argv) {
                         if (!game_view) {
                             const auto& helper_snapshot = read_preview();
                             spatial_helpers.update(helper_snapshot, view_cache.generation(),
-                                                   guide_width, guide_height);
+                                                   guide_width, guide_height,
+                                                   read_published_tile_map);
                         }
                         const bool previous_move_tool = scene_tools.move_tool;
                         if (!game_view)
@@ -6393,7 +6405,7 @@ int main(int argc, char** argv) {
                         // SceneTools may have changed the preview during this frame.
                         if (!game_view)
                             spatial_helpers.update(rendered, view_cache.generation(), guide_width,
-                                                   guide_height);
+                                                   guide_height, read_published_tile_map);
                         const float render_scale =
                             std::min(1.0f, 4096.0f / std::max(size.x, size.y));
                         const auto scene_submit = forge::ui::Performance::Clock::now();

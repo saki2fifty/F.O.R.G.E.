@@ -34,20 +34,36 @@ bool digest(const std::string& s) {
 NavigationSettings provenance_settings(const nlohmann::json& meta) {
     const auto version = meta.at("version");
     require(version.is_number_integer() &&
-                (version == 1 || version == 2 || version == 3 || version == 4),
+                (version == 1 || version == 2 || version == 3 || version == 4 || version == 5),
             "Unsupported navigation envelope version");
     auto settings = meta.at("settings").get<NavigationSettings>();
     require((version == 4) == settings.dynamic_obstacles &&
-                (version == 4 || (version == 3) == (settings.plane == NavigationPlane::PlanarXY)),
+                (version == 4 ||
+                 (version == 3 || version == 5) == (settings.plane == NavigationPlane::PlanarXY)),
             "Navigation envelope version/profile/plane mismatch");
     if (version == 1) {
-        require(!meta.contains("geometry_version") && !meta.contains("mesh_inputs"),
+        require(!meta.contains("geometry_version") && !meta.contains("mesh_inputs") &&
+                    !meta.contains("tile_inputs"),
                 "Mesh provenance cannot be downgraded to navigation v1");
     } else {
-        require(meta.at("geometry_version").is_number_integer() &&
-                    meta.at("geometry_version") ==
-                        (settings.plane == NavigationPlane::PlanarXY ? 3 : 2),
+        const auto geometry = meta.at("geometry_version");
+        require(geometry.is_number_integer() &&
+                    (settings.plane == NavigationPlane::PlanarXY ? (geometry == 3 || geometry == 5)
+                                                                 : geometry == 2) &&
+                    (version != 3 || geometry == 3) && (version != 5 || geometry == 5),
                 "Unsupported navigation geometry version");
+        if (geometry == 5) {
+            const auto& tiles = meta.at("tile_inputs");
+            require(tiles.is_array() && tiles.size() <= 32, "Invalid navigation Tile Map inputs");
+            std::set<AssetId> maps;
+            for (const auto& input : tiles)
+                require(input.is_object() && input.size() == 2 &&
+                            maps.insert(input.at("asset_id").get<AssetId>()).second &&
+                            digest(input.at("revision").get<std::string>()),
+                        "Invalid or repeated navigation Tile Map provenance");
+        } else
+            require(!meta.contains("tile_inputs"),
+                    "Tile provenance requires collision-source geometry");
         const auto& inputs = meta.at("mesh_inputs");
         require(inputs.is_array() && inputs.size() <= 32 &&
                     (settings.plane != NavigationPlane::PlanarXY || inputs.empty()),
@@ -97,11 +113,11 @@ std::vector<std::byte> envelope(nlohmann::json meta, std::span<const std::byte> 
 Admitted admit(std::span<const std::byte> bytes) {
     require(bytes.size() >= 20 && bytes.size() <= max_nav_bytes + 65556,
             "Invalid navigation envelope size");
-    require(
-        std::equal(magic.begin(), magic.end(), bytes.begin(),
-                   [](char a, std::byte b) { return a == std::to_integer<char>(b); }) &&
-            (u32(bytes, 8) == 1 || u32(bytes, 8) == 2 || u32(bytes, 8) == 3 || u32(bytes, 8) == 4),
-        "Unsupported navigation envelope");
+    require(std::equal(magic.begin(), magic.end(), bytes.begin(),
+                       [](char a, std::byte b) { return a == std::to_integer<char>(b); }) &&
+                (u32(bytes, 8) == 1 || u32(bytes, 8) == 2 || u32(bytes, 8) == 3 ||
+                 u32(bytes, 8) == 4 || u32(bytes, 8) == 5),
+            "Unsupported navigation envelope");
     const auto n = u32(bytes, 12), t = u32(bytes, 16);
     require(n > 0 && n <= 65536 && t > 0 && t <= max_nav_bytes &&
                 std::size_t(n) + t == bytes.size() - 20,
@@ -152,7 +168,8 @@ Admitted admit(std::span<const std::byte> bytes) {
 Admitted load(const std::filesystem::path& root, const AssetRecord& record) {
     require(record.type == NavMeshAsset::type &&
                 (record.schema_version == 1 || record.schema_version == 2 ||
-                 record.schema_version == 3 || record.schema_version == 4),
+                 record.schema_version == 3 || record.schema_version == 4 ||
+                 record.schema_version == 5),
             "Wrong navigation asset type/version");
     auto bytes =
         asset_detail::read_bytes(ProjectPaths(root).resolve(record.source), max_nav_bytes + 65556);

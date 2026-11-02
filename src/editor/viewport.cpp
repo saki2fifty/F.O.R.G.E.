@@ -51,14 +51,14 @@ bool Viewport::frame_selection(const Json& source, const std::vector<std::string
     const auto selection = framing_entities(source, selected);
     auto fallback = [&] {
         if (selected.size() == 1)
-            return camera.frame(source, selected.front(), aspect);
+            return camera.frame(source, selected.front(), aspect, navigation_tiles);
         auto subset = source;
         if (!selected.empty())
             std::erase_if(subset["entities"].get_ref<Json::array_t&>(), [&](const auto& row) {
                 return !selection.contains(
                     EntityId::parse(row.at("id").template get<std::string>()));
             });
-        return camera.frame(subset, "", aspect);
+        return camera.frame(subset, "", aspect, navigation_tiles);
     };
     if (!meshes_)
         return fallback();
@@ -77,9 +77,9 @@ bool Viewport::frame_selection(const Json& source, const std::vector<std::string
             for (const auto& mesh : snapshot.meshes)
                 mesh_entities.insert(mesh.entity);
         const auto combined =
-            selected.empty()
-                ? *bounds
-                : include_selected_helper_positions(source, selection, mesh_entities, *bounds);
+            selected.empty() ? *bounds
+                             : include_selected_helper_positions(source, selection, mesh_entities,
+                                                                 *bounds, navigation_tiles);
         EditorCamera::Vec center;
         Double3 half;
         for (unsigned axis = 0; axis < 3; ++axis) {

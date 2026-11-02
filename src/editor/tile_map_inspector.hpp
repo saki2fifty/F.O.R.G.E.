@@ -1,5 +1,6 @@
 #pragma once
 #include "../tile_asset_resources.hpp"
+#include "../tile_map_variants.hpp"
 #include "editor_state.hpp"
 #include <algorithm>
 #include <functional>
@@ -10,6 +11,7 @@ struct PublishedTileMapView {
     std::string revision, status;
     bool current = false;
     std::shared_ptr<const TileSetData> definitions{};
+    std::shared_ptr<const TileMapVariants> variants{};
 };
 using PublishedTileMapReader = std::function<PublishedTileMapView(AssetRef<TileMapAsset>)>;
 inline bool tile_map_layer_field(const PublishedTileMapReader& read, const Json& components,

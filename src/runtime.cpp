@@ -359,10 +359,12 @@ void RuntimeSimulation::tick(float dt) {
             context_.services().profile("runtime", "ResourceSynchronization", input_tick_);
         context_.services().resources()->synchronize();
     }
-    if (navigation_)
-        navigation_->synchronize();
     detail::synchronize_runtime_tile_maps(context_);
     detail::publish_runtime_tile_edits(context_);
+    // Navigation observes the same admitted Map revision/cells used by this tick's
+    // physics and gameplay. Edited baked sources must stop before agent movement.
+    if (navigation_)
+        navigation_->synchronize();
     context_.modules().begin_tick(input_.snapshot());
     try {
         {

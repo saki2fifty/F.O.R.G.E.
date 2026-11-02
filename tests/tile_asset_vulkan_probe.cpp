@@ -1,6 +1,7 @@
 #include "Graphics/GraphicsEngineVulkan/interface/EngineFactoryVk.h"
 #include "asset_bytes.hpp"
 #include "editor/published_tile_map.hpp"
+#include "editor/viewport.hpp"
 #include "mesh_render_host.hpp"
 #include "runtime_tile_map.hpp"
 #include "sprite_draw_render_tests.hpp"
@@ -189,6 +190,81 @@ int main(int argc, char** argv) {
                   new_view.definitions->tile(2).collision.kind == TileCollisionKind::Convex &&
                   old_view.definitions->tile(2).collision.kind == TileCollisionKind::FullCell,
               "Editor collision definitions did not advance as one immutable published pair");
+        auto second_map =
+            TileMapDocument::create(lease, "Assets/Second.tilemap.json", [&](AssetId id) {
+                return TileMapSource{TileMapValue::create(id, set->source().asset())};
+            });
+        second_map->edit_source(second_map->revision(), "Second Map cells",
+                                [&](auto& value) { value.document = value.document.paint(black); });
+        second_map->save();
+        publish(second_map, true);
+        catalog();
+        ui::PublishedTileMapView first_selection, second_selection;
+        const auto selections_deadline =
+            std::chrono::steady_clock::now() + std::chrono::seconds(15);
+        do {
+            first_selection = inspection.select(host, actor.renderer.map);
+            second_selection = inspection.select(host, {second_map->source().asset()});
+            check(std::chrono::steady_clock::now() < selections_deadline,
+                  "Concurrent published Map selections did not become ready");
+            if (!first_selection.current || !second_selection.current)
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        } while (!first_selection.current || !second_selection.current);
+        for (unsigned sample = 0; sample < 4; ++sample) {
+            const auto first = inspection.select(host, actor.renderer.map);
+            const auto second = inspection.select(host, {second_map->source().asset()});
+            check(first.current && second.current && first.cells == first_selection.cells &&
+                      second.cells == second_selection.cells && first.cells != second.cells &&
+                      first.cells->cell(1, {0, 0}).tile == 2 &&
+                      second.cells->cell(1, {0, 0}).tile == 3,
+                  "Alternating Map guides discarded or confused published immutable selections");
+        }
+        {
+            EngineContext author;
+            Scene authored(author.world());
+            authored.restore_snapshot(
+                {{"version", 1},
+                 {"entities",
+                  Json::array({{{"id", "map"},
+                                {"name", "Navigation Map"},
+                                {"components",
+                                 {{"forge.position", {{"x", 100}, {"y", 20}, {"z", 91}}}}}}})}});
+            const auto source = authored.entity("map");
+            source.set<Primitive>({no_primitive});
+            source.set<TileMapRenderer>(actor.renderer);
+            source.set<TileMapCollider2D>({1});
+            NavigationRegion2D region;
+            region.source = 1;
+            source.set<NavigationRegion2D>(region);
+            const auto document = authored.effective_document();
+            forge::Viewport viewport(presentation);
+            viewport.navigation_tiles = [&](const auto& collider, const auto& transform,
+                                            bool mask) {
+                const auto selected = inspection.select(host, {collider.map});
+                check(selected.current, "Viewport used a pending published Map");
+                return navigation_detail::tile_collider_outlines(
+                    *selected.cells, *selected.definitions, selected.variants.get(), collider.layer,
+                    transform, mask);
+            };
+            EditorCamera framed;
+            framed.projection = CameraProjection::Orthographic;
+            const std::vector<std::string> selection{source.get<PersistentEntityId>().value.str()};
+            check(viewport.frame_selection(document, selection, framed, 1.25f) &&
+                      std::abs(framed.target[0] - 100.5f) < .001 &&
+                      std::abs(framed.target[1] - 20.5f) < .001 && framed.target[2] == 0,
+                  "Viewport fallback did not frame the current Map collision contour in XY");
+            viewport.resources(host);
+            const auto frame_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(15);
+            do {
+                viewport.frame_selection(document, selection, framed, 1.25f);
+                check(std::chrono::steady_clock::now() < frame_deadline,
+                      "Viewport did not combine Map artwork and navigation bounds");
+                if (framed.target[2] < 45)
+                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            } while (framed.target[2] < 45);
+            check(std::abs(framed.target[2] - 45.5f) < .001,
+                  "Viewport lost the Map's independent visual depth while framing");
+        }
         expect({255, 0, 255, 255});
         // Unsaved editor data is accepted only by an explicitly isolated host.
         const auto definitions = std::make_shared<const TileSetData>(

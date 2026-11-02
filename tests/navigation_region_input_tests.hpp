@@ -71,7 +71,7 @@ inline void check_region_resize_input(forge::Scene& scene, const std::string& id
     selected.clear();
     frame();
     const auto original_view = navigation_region_view(scene.effective_document(), id).value();
-    const auto corner = original_view.outline[0];
+    const auto corner = original_view.contours.front()[0];
     const auto outline =
         project_point(camera, {float(corner[0]), float(corner[1]), 0}, size.x, size.y);
     check(bool(outline), "Outline selection point was not projectable");

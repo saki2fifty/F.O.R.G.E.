@@ -1482,6 +1482,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "13e8001b-0b7c-4fcd-b8aa-c5dbc3dcf129",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/137-navigation-collision-sources.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "15100000-1510-4151-8151-151000000000",
       "metadata": {},
       "schema_version": 3,
@@ -3060,27 +3070,27 @@
       "id": "2b3e4578-e010-4503-96c6-7915d8523224",
       "metadata": {
         "forge.import": {
-          "artifact_digest": "4e22f597a5696e97ce5f67f1203806c1aef8b08e59ef99766a6ecbbbef7ecc3c",
+          "artifact_digest": "c30e8e922a79b13dbb92c11fc2541ef24e4fbce27da7a2356dd762cf602a8987",
           "backend": "d3d12",
           "dependency_digest": "b9c09e2a7baf370f6f319ee598067d05e0c94a058f6d4fa5e157aaedcae383d3",
-          "generation": 2,
+          "generation": 4,
           "importer": "forge.tileset",
-          "importer_revision": "84c47aae8b225ff75b062b6d54f59d8d0fe3fe941bb648afc49fc6157405a869",
-          "key": "caead606c336d1790752b40077f4e026e8d455ff3bddcbc96133ae1c97a3bbac",
+          "importer_revision": "f33ab2a3418cca7eb37b943a5031d1b70e99e4a25c7a0ad5f9e57b156e0dec6f",
+          "key": "842cc2e7f4a9790c0235da3cde6c482531e02fda7a76a43b284e8dde82339641",
           "output_format": "forge.tile-set-cooked",
-          "output_version": 2,
+          "output_version": 6,
           "platform": "windows",
           "profile": "desktop",
           "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
           "settings_version": 1,
-          "sidecar_digest": "cf3d16f47bfdd52ee4daaa633c77758d10cca53d9cfc48629c6eb400b207b584",
+          "sidecar_digest": "836cf9d9bff992fbd69f5225ea46a1f45e3995154f7d338f12a75b242c368960",
           "source_digest": "adabffd820b1616db850541bc3d1de29909889223c55055df4fc634d8298c833",
           "version": 1
         },
         "forge.tile_set": {
           "bytes": 579,
           "file": "tileset.bin",
-          "sha256": "05ae279e38f1bff39df2889305ff46c9ed7a96ea864b933502c9bf3d3a074f4d",
+          "sha256": "f82a11970e0695d2592c69c5f3467893f1317c3e8ed5e2b6f8295c09eed6177c",
           "version": 1
         }
       },
@@ -8497,14 +8507,14 @@
       "dependency_edges": [
         {
           "kind": "build",
-          "revision": "caead606c336d1790752b40077f4e026e8d455ff3bddcbc96133ae1c97a3bbac",
+          "revision": "842cc2e7f4a9790c0235da3cde6c482531e02fda7a76a43b284e8dde82339641",
           "role": "tile_map.tile_set",
           "target": "2b3e4578-e010-4503-96c6-7915d8523224",
           "type": "tile_set"
         },
         {
           "kind": "runtime",
-          "revision": "caead606c336d1790752b40077f4e026e8d455ff3bddcbc96133ae1c97a3bbac",
+          "revision": "842cc2e7f4a9790c0235da3cde6c482531e02fda7a76a43b284e8dde82339641",
           "role": "tile_map.tile_set",
           "target": "2b3e4578-e010-4503-96c6-7915d8523224",
           "type": "tile_set"
@@ -8515,18 +8525,18 @@
         "forge.import": {
           "artifact_digest": "b80d617e36d1b1d243f7031e81caca3183e12975b846d478916e82c519a414fd",
           "backend": "d3d12",
-          "dependency_digest": "91406b9375659f9088f03318dfdc723816990ccf86f96bcc53ca5a3c258c130c",
-          "generation": 2,
+          "dependency_digest": "3f9da3484cf71ec2bfc414f65f5aea68fa67a800583ba7c3cf1c591c95abb107",
+          "generation": 4,
           "importer": "forge.tilemap",
-          "importer_revision": "7d38463bc81a04dc4813edba9a8743b33e244a863b3d4bba43fb6207f340c88d",
-          "key": "7802428742c79b98985b974b425b9ed8d96931d6df2b5bba6344b6770e239437",
+          "importer_revision": "f88b79fd632fa98b2ed3b00dbf578a99b204f283d98d12032d69e8febed5476e",
+          "key": "00d0b37c4494e7d250a0fed39f361e679fa0b4297e7180b7a2831c41347927e3",
           "output_format": "forge.tile-map-cooked",
           "output_version": 1,
           "platform": "windows",
           "profile": "desktop",
           "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
           "settings_version": 1,
-          "sidecar_digest": "944e19f89dec0b5eb3b8d70c59a6d31484cd5fae0ce4d1e9306a6ed34d2e25f4",
+          "sidecar_digest": "b2ea25a0a639db0f983269c7f2ff1faab04aa7de6516125416aa7fc857324025",
           "source_digest": "4a4396499375b25813ba95d007523cc9b93e2f05f35d4fa957ade8cc1402fc85",
           "version": 1
         },
@@ -13212,6 +13222,83 @@
       "source": "Assets/ProcessingOriginal.wav",
       "source_dependencies": [],
       "type": "audio_clip"
+    },
+    {
+      "dependencies": [
+        "13e8001b-0b7c-4fcd-b8aa-c5dbc3dcf129",
+        "89ae9531-7579-47b4-aac9-1090716a2f66"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "build",
+          "revision": "e503bab71164beed2ba3a0714bcc667ace82cdc7934e7812912955b806592144",
+          "role": "navigation.scene",
+          "target": "13e8001b-0b7c-4fcd-b8aa-c5dbc3dcf129",
+          "type": "scene"
+        },
+        {
+          "kind": "build",
+          "revision": "00d0b37c4494e7d250a0fed39f361e679fa0b4297e7180b7a2831c41347927e3",
+          "role": "navigation.tile_map",
+          "target": "89ae9531-7579-47b4-aac9-1090716a2f66",
+          "type": "tile_map"
+        }
+      ],
+      "id": "fa72b103-25e0-4c31-9c5c-77f5bcc47a4e",
+      "metadata": {
+        "asset_id": "fa72b103-25e0-4c31-9c5c-77f5bcc47a4e",
+        "bounds": {
+          "cell_inverse": 10.0,
+          "climb": 0.4000000059604645,
+          "height": 2.0,
+          "maximum": [
+            22.0,
+            4.099999904632568,
+            9.0
+          ],
+          "minimum": [
+            -22.999984741210938,
+            -0.20000000298023224,
+            -9.0
+          ],
+          "radius": 0.20000000298023224
+        },
+        "geometry_sha256": "e503bab71164beed2ba3a0714bcc667ace82cdc7934e7812912955b806592144",
+        "geometry_version": 5,
+        "layout": "le-polyref32-detour7-static-single-v1",
+        "mesh_inputs": [],
+        "recast_revision": "6dc1667f580357e8a2154c28b7867bea7e8ad3a7",
+        "settings": {
+          "cell_height": 0.10000000149011612,
+          "cell_size": 0.10000000149011612,
+          "climb": 0.4000000059604645,
+          "height": 2.0,
+          "plane": 1,
+          "radius": 0.20000000298023224,
+          "slope": 45.0
+        },
+        "sha256": "9bcdb572be89dced05754d628123644ae3c8d4b0599606f2c9e6860f7b6fd54b",
+        "source_scene": "13e8001b-0b7c-4fcd-b8aa-c5dbc3dcf129",
+        "sources": [
+          "6de29288-662e-44cd-9793-f7b5908aa1bf",
+          "9d14ca15-08d8-4054-ac94-b98c52418923",
+          "af338d1c-0bcd-4628-8915-9e56a3c070a2",
+          "d0b063c4-48c4-49f6-a3e6-bf9d80863357",
+          "e355699d-101c-407d-8613-96b03ba78cbf"
+        ],
+        "tile_inputs": [
+          {
+            "asset_id": "89ae9531-7579-47b4-aac9-1090716a2f66",
+            "revision": "00d0b37c4494e7d250a0fed39f361e679fa0b4297e7180b7a2831c41347927e3"
+          }
+        ],
+        "tile_sha256": "7ce407a0eef0cc5f67cea3f8a22b5950396a22a9c2afd17052148b1c1096f125",
+        "version": 5
+      },
+      "schema_version": 5,
+      "source": "Assets/Navigation/Generated/fa72b103-25e0-4c31-9c5c-77f5bcc47a4e/2bbda596-7f7a-4348-977d-b5bebdcc0144.fnav",
+      "source_dependencies": [],
+      "type": "navmesh"
     },
     {
       "dependencies": [

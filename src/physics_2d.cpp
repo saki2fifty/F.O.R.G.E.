@@ -2,6 +2,8 @@
 #include "builtins.hpp"
 #include "physics_2d_joint_native.hpp"
 #include "physics_2d_transform.hpp"
+#include "physics_collider_2d.hpp"
+#include "physics_collider_2d_native.hpp"
 #include "physics_debug.hpp"
 #include "physics_joint_2d_value.hpp"
 #include "physics_query_filter.hpp"
@@ -50,12 +52,6 @@ void one_way_arrow(PhysicsDebugGeometry& result, float x, float face, float widt
 // Private native query traffic bypasses body collision masks while retaining
 // the existing 32 named project layers. No extra authored layer is introduced.
 constexpr std::uint64_t query_category = std::uint64_t{1} << 63;
-void planar_rotation(LocalRotation value) {
-    const auto q = normalized(value);
-    if (std::abs(q.x) > 1e-6f || std::abs(q.y) > 1e-6f)
-        throw std::runtime_error(
-            "2D physics requires pure Z rotation throughout its spatial ancestry");
-}
 void valid_xy(LocalTranslation value) {
     if (!std::isfinite(value.x) || !std::isfinite(value.y) || std::abs(value.x) > 1000000 ||
         std::abs(value.y) > 1000000)
@@ -78,7 +74,7 @@ LocalTransform planar_pose(std::uint64_t id, const std::map<std::uint64_t, Trans
     hint.scale = {1, 1, 1};
     for (auto node = id; node; node = nodes.at(node).parent) {
         const auto& local = nodes.at(node).local;
-        planar_rotation(local.rotation);
+        validate_planar_rotation_2d(local.rotation);
         hint.scale.x *= std::signbit(local.scale.x) ? -1.f : 1.f;
         hint.scale.y *= std::signbit(local.scale.y) ? -1.f : 1.f;
         hint.scale.z *= local.scale.z == 0 ? 0.f : (std::signbit(local.scale.z) ? -1.f : 1.f);
@@ -86,18 +82,9 @@ LocalTransform planar_pose(std::uint64_t id, const std::map<std::uint64_t, Trans
     const auto& affine = evaluated.at(id).affine;
     return checked_planar_pose_2d(affine, hint);
 }
-float dimension(double value, double minimum, double maximum) {
-    if (!std::isfinite(value) || value < minimum || value > maximum)
-        throw std::runtime_error("2D effective collider dimensions exceed the supported profile");
-    return float(value);
-}
 b2Rot native_rotation(LocalRotation value) {
-    const auto q = normalized(value);
-    const double length = std::hypot(double(q.z), double(q.w));
-    const double z = q.z / length, w = q.w / length;
-    // Convert the existing quaternion directly; do not introduce the native
-    // angle-to-trigonometry approximation at the FORGE transform boundary.
-    return {float(w * w - z * z), float(2 * w * z)};
+    const auto rotation = collider_rotation_2d(value);
+    return {rotation[0], rotation[1]};
 }
 LocalRotation copied_rotation(b2Rot value) {
     if (!std::isfinite(value.c) || !std::isfinite(value.s) ||
@@ -147,45 +134,10 @@ Geometry geometry(const Body2DConfiguration& config) {
     result.mass = admitted_mass(result.mass, config.body.mass);
     return result;
 }
-b2Polygon compound_box(const BoxPart2D& value) {
-    for (unsigned axis = 0; axis < 2; ++axis) {
-        (void)dimension(value.dimensions[axis], .01f, 1000);
-        if (!std::isfinite(value.center[axis]) ||
-            std::abs(double(value.center[axis])) + .5 * value.dimensions[axis] > 10000)
-            throw std::runtime_error("2D compound box exceeds supported local extent");
-    }
-    return b2MakeOffsetBox(value.dimensions[0] * .5f, value.dimensions[1] * .5f,
-                           {value.center[0], value.center[1]}, {1, 0});
-}
 std::size_t shape_count(const Body2DConfiguration& config) {
     return config.shape == 3 ? (config.parts ? config.parts->size() : 0) +
                                    (config.polygons ? config.polygons->size() : 0)
                              : 1;
-}
-b2Polygon compound_polygon(const PolygonPart2D& value) {
-    static_assert(tile_collision_vertex_limit == B2_MAX_POLYGON_VERTICES);
-    if (value.count < 3 || value.count > tile_collision_vertex_limit)
-        throw std::runtime_error("2D compound polygon requires3..8 vertices");
-    std::array<b2Vec2, tile_collision_vertex_limit> points{};
-    std::array<float, 2> low{10000, 10000}, high{-10000, -10000};
-    for (std::uint32_t i = 0; i < value.count; ++i) {
-        for (unsigned axis = 0; axis < 2; ++axis) {
-            const auto scalar = value.points[i][axis];
-            if (!std::isfinite(scalar) || std::abs(scalar) > 10000)
-                throw std::runtime_error("2D compound polygon exceeds supported local extent");
-            low[axis] = std::min(low[axis], scalar);
-            high[axis] = std::max(high[axis], scalar);
-        }
-        points[i] = {value.points[i][0], value.points[i][1]};
-    }
-    for (unsigned axis = 0; axis < 2; ++axis)
-        (void)dimension(double(high[axis]) - low[axis], .01f, 1000);
-    if (!tile_detail::tile_collision_winding<float>(std::span(value.points).first(value.count)))
-        throw std::runtime_error("2D compound polygon contour is not strictly convex");
-    const auto hull = b2ComputeHull(points.data(), int(value.count));
-    if (hull.count != int(value.count) || !b2ValidateHull(&hull))
-        throw std::runtime_error("2D compound polygon degenerates at its physical scale");
-    return b2MakePolygon(&hull, 0);
 }
 b2Polygon compound_part(const Body2DConfiguration& config, std::size_t index) {
     const auto boxes = config.parts ? config.parts->size() : 0;
@@ -291,8 +243,8 @@ void validate_geometry(const Body2DConfiguration& config) {
         if (!std::isfinite(profile.crouch_height) || profile.crouch_height < 0 ||
             profile.crouch_height > config.dimensions[1])
             throw std::runtime_error("2D mover crouch height must be0 or no greater than standing");
-        (void)dimension(config.dimensions[0], .02f, 500);
-        (void)dimension(config.dimensions[1], .01f, 1000);
+        (void)collider_dimension_2d(config.dimensions[0], .02f, 500);
+        (void)collider_dimension_2d(config.dimensions[1], .01f, 1000);
         if (double(config.dimensions[1]) + 2 * double(config.dimensions[0]) > 1000)
             throw std::runtime_error("2D mover total height exceeds1000m");
     }
@@ -405,11 +357,12 @@ b2ShapeProxy overlap_proxy(const PhysicsOverlap2D& query) {
     const auto rotation = native_rotation(q);
     const auto& d = query.dimensions;
     if (query.shape == PhysicsOverlap2D::Shape::Box) {
-        const float x = .5f * dimension(d[0], .01f, 1000), y = .5f * dimension(d[1], .01f, 1000);
+        const float x = .5f * collider_dimension_2d(d[0], .01f, 1000),
+                    y = .5f * collider_dimension_2d(d[1], .01f, 1000);
         const b2Vec2 points[] = {{-x, -y}, {x, -y}, {x, y}, {-x, y}};
         return b2MakeOffsetProxy(points, 4, 0, {0, 0}, rotation);
     }
-    const float radius = dimension(d[0], .005f, 500);
+    const float radius = collider_dimension_2d(d[0], .005f, 500);
     if (query.shape == PhysicsOverlap2D::Shape::Circle) {
         const b2Vec2 point{0, 0};
         if (d[1] != 0)
@@ -418,7 +371,7 @@ b2ShapeProxy overlap_proxy(const PhysicsOverlap2D& query) {
     }
     if (query.shape != PhysicsOverlap2D::Shape::Capsule)
         throw std::runtime_error("Unknown 2D overlap shape kind");
-    const float height = dimension(d[1], .01f, 1000);
+    const float height = collider_dimension_2d(d[1], .01f, 1000);
     if (double(height) + 2 * double(radius) > 1000)
         throw std::runtime_error("2D overlap capsule total height exceeds the profile");
     const b2Vec2 points[] = {{0, -.5f * height}, {0, .5f * height}};
@@ -440,11 +393,10 @@ b2QueryFilter query_filter(PhysicsQueryFilter value, std::uint64_t category = qu
 }
 } // namespace
 
-void validate_planar_rotation_2d(LocalRotation rotation) { planar_rotation(rotation); }
 LocalTransform checked_planar_pose_2d(const AffineTransform& affine, const LocalTransform& hint) {
     (void)PlanarMapping(affine);
     const auto result = decompose(affine, &hint);
-    planar_rotation(result.rotation);
+    validate_planar_rotation_2d(result.rotation);
     valid_xy(result.translation);
     return result;
 }
@@ -460,25 +412,8 @@ void validate_sweep_2d(const PhysicsSweep2D& query) { (void)sweep_proxy(query); 
 Body2DConfiguration inline_configuration_2d(PhysicsBody2D body, unsigned shape,
                                             std::array<float, 2> raw, LocalScale scale) {
     validate_one_way(body, shape);
-    if (!std::isfinite(scale.x) || !std::isfinite(scale.y) || !std::isfinite(scale.z))
-        throw std::runtime_error("2D collider scale must be finite");
     Body2DConfiguration config{body, shape};
-    const double x = std::abs(scale.x), y = std::abs(scale.y);
-    if (shape == 0)
-        config.dimensions = {dimension(raw[0] * x, .01f, 1000), dimension(raw[1] * y, .01f, 1000)};
-    else {
-        if (shape > 2)
-            throw std::runtime_error("Unknown 2D collider kind");
-        if (std::abs(x - y) > 1e-6 * std::max(x, y))
-            throw std::runtime_error("Circle/Capsule Collider 2D requires equal absolute XY scale");
-        config.dimensions[0] = dimension(raw[0] * x, .005f, 500);
-        if (shape == 2) {
-            config.dimensions[1] = dimension(raw[1] * y, .01f, 1000);
-            if (double(config.dimensions[1]) + 2 * double(config.dimensions[0]) > 1000)
-                throw std::runtime_error("2D capsule total height exceeds 1000 metres");
-        } else if (raw[1] != 0)
-            throw std::runtime_error("Circle Collider 2D has an unused height");
-    }
+    config.dimensions = collider_dimensions_2d(shape, raw, scale);
     (void)geometry(config);
     return config;
 }
@@ -500,7 +435,8 @@ Body2DConfiguration controller_configuration_2d(const CharacterController2D& val
         value.mode == 1 ? -1.f : float(std::cos(value.max_slope * std::numbers::pi / 180)),
         value.floor_probe,
         value.platform_carry,
-        value.crouch_height == 0 ? 0 : dimension(value.crouch_height * scale.y, .01f, 1000),
+        value.crouch_height == 0 ? 0
+                                 : collider_dimension_2d(value.crouch_height * scale.y, .01f, 1000),
         value.floor_stop_on_slope,
         value.slide_on_ceiling,
         value.step_height};
@@ -532,77 +468,17 @@ Body2DConfiguration tile_map_configuration_2d(PhysicsBody2D body, const TileMapD
                                                   tile_map_collision_rectangle_limit, variants)
                     : TileMapCollisionGeometry{tile_map_collision_rectangles(cells, layer), {}};
     validate_one_way(body, 3);
-    const auto& rectangles = geometry.rectangles;
-    const auto size = cells.cell_size();
-    std::vector<BoxPart2D> values;
-    values.reserve(rectangles.size());
-    for (const auto& rectangle : rectangles) {
-        const std::array<std::int32_t, 2> origin{rectangle.origin.x, rectangle.origin.y};
-        const std::array<std::uint32_t, 2> counts{rectangle.width, rectangle.height};
-        const std::array<float, 2> axes{scale.x, scale.y};
-        BoxPart2D box;
-        for (unsigned axis = 0; axis < 2; ++axis) {
-            const double full = double(counts[axis]) * size[axis] * std::abs(axes[axis]);
-            const double center =
-                (double(origin[axis]) + .5 * counts[axis]) * size[axis] * axes[axis];
-            box.dimensions[axis] = dimension(full, .01f, 1000);
-            if (!std::isfinite(center) || std::abs(center) + .5 * full > 10000)
-                throw std::runtime_error(
-                    "Tile Map collision exceeds supported scaled local extent");
-            box.center[axis] = float(center);
-        }
-        (void)compound_box(box);
-        values.push_back(box);
-    }
-    auto parts = std::make_shared<const std::vector<BoxPart2D>>(std::move(values));
+    auto projected = project_tile_collision_2d(geometry, cells.cell_size(), scale);
     Body2DConfiguration config{body, 3};
-    config.parts = std::move(parts);
-    if (!geometry.polygons.empty()) {
-        std::vector<PolygonPart2D> polygons;
-        polygons.reserve(geometry.polygons.size());
-        for (const auto& cell : geometry.polygons) {
-            PolygonPart2D polygon;
-            polygon.count = std::uint32_t(cell.count);
-            polygon.boundary_edges = cell.boundary_edges;
-            for (std::size_t i = 0; i < cell.count; ++i)
-                for (unsigned axis = 0; axis < 2; ++axis) {
-                    const double origin = axis == 0 ? cell.origin.x : cell.origin.y;
-                    const double point = (origin + cell.points[i][axis]) * size[axis] *
-                                         (axis == 0 ? scale.x : scale.y);
-                    if (!std::isfinite(point) || std::abs(point) > 10000)
-                        throw std::runtime_error(
-                            "Tile polygon exceeds supported scaled local extent");
-                    polygon.points[i][axis] = float(point);
-                }
-            (void)compound_polygon(polygon);
-            polygons.push_back(polygon);
-        }
-        config.polygons = std::make_shared<const std::vector<PolygonPart2D>>(std::move(polygons));
-    }
+    config.parts = std::make_shared<const std::vector<BoxPart2D>>(std::move(projected.boxes));
+    if (!projected.polygons.empty())
+        config.polygons =
+            std::make_shared<const std::vector<PolygonPart2D>>(std::move(projected.polygons));
     // Initial/replacement resource admission also uses this conversion, before
     // a Map snapshot is adopted or any native body is created.
     if (body.motion == 2 && shape_count(config))
         (void)compound_mass(config);
     return config;
-}
-LocalTransform debug_pose_2d(const AffineTransform& world) {
-    (void)PlanarMapping(world);
-    const double x = std::hypot(world.m[0], world.m[4]);
-    const double y = std::hypot(world.m[1], world.m[5]);
-    const double z = std::hypot(world.m[2], world.m[6], world.m[10]);
-    const double orientation =
-        (world.m[0] / x) * (world.m[5] / y) - (world.m[1] / y) * (world.m[4] / x);
-    const double half = .5 * std::atan2(world.m[4], world.m[0]);
-    LocalTransform hint;
-    // The X-axis direction determines pure-Z rotation; the determinant fixes
-    // the Y sign. Applying these axes to offset boxes also preserves the exact
-    // affine map beneath reflected or flat ancestors.
-    hint.scale = {float(x), float(std::copysign(y, orientation)),
-                  float(std::copysign(z, world.m[10]))};
-    hint.rotation = {0, 0, float(std::sin(half)), float(std::cos(half))};
-    const auto pose = decompose(world, &hint);
-    planar_rotation(pose.rotation);
-    return pose;
 }
 LocalTransform controller_debug_pose_2d(const AffineTransform& affine, const LocalTransform& hint) {
     auto pose = checked_planar_pose_2d(affine, hint);

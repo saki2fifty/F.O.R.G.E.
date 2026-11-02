@@ -14,6 +14,31 @@ bool finite(std::array<double, 2> value) {
     return std::isfinite(value[0]) && std::isfinite(value[1]);
 }
 } // namespace
+void validate_planar_rotation_2d(LocalRotation value) {
+    const auto q = normalized(value);
+    if (std::abs(q.x) > 1e-6f || std::abs(q.y) > 1e-6f)
+        throw std::runtime_error(
+            "2D physics requires pure Z rotation throughout its spatial ancestry");
+}
+LocalTransform debug_pose_2d(const AffineTransform& world) {
+    (void)PlanarMapping(world);
+    const double x = std::hypot(world.m[0], world.m[4]);
+    const double y = std::hypot(world.m[1], world.m[5]);
+    const double z = std::hypot(world.m[2], world.m[6], world.m[10]);
+    const double orientation =
+        (world.m[0] / x) * (world.m[5] / y) - (world.m[1] / y) * (world.m[4] / x);
+    const double half = .5 * std::atan2(world.m[4], world.m[0]);
+    LocalTransform hint;
+    // The X-axis direction determines pure-Z rotation; the determinant fixes
+    // the Y sign. Applying these axes to offset boxes also preserves the exact
+    // affine map beneath reflected or flat ancestors.
+    hint.scale = {float(x), float(std::copysign(y, orientation)),
+                  float(std::copysign(z, world.m[10]))};
+    hint.rotation = {0, 0, float(std::sin(half)), float(std::cos(half))};
+    const auto pose = decompose(world, &hint);
+    validate_planar_rotation_2d(pose.rotation);
+    return pose;
+}
 PlanarMapping::PlanarMapping(const AffineTransform& parent) {
     const auto& m = parent.m;
     for (double value : m)

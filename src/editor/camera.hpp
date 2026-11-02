@@ -188,7 +188,8 @@ class EditorCamera {
             orthographic_height = std::max(minimum_height, float(height));
         return true;
     }
-    bool frame(const Json& doc, const std::string& selected, float aspect) {
+    bool frame(const Json& doc, const std::string& selected, float aspect,
+               const NavigationTileContours& tiles = {}) {
         if (!std::isfinite(aspect) || aspect <= 0)
             return false;
         Vec lo, hi;
@@ -200,17 +201,19 @@ class EditorCamera {
                 !e.at("components").contains("forge.position"))
                 continue;
             auto bounds = object_bounds(e);
-            const auto region = navigation_region_view(e);
+            const auto region = navigation_region_view(e, tiles);
             if (region) {
                 if (primitive_kind(e) == no_primitive) {
                     for (unsigned i = 0; i < 3; ++i)
-                        bounds.first[i] = bounds.second[i] = float(region->outline[0][i]);
+                        bounds.first[i] = bounds.second[i] =
+                            float(region->contours.front().front()[i]);
                 }
-                for (const auto& point : region->outline)
-                    for (unsigned i = 0; i < 3; ++i) {
-                        bounds.first[i] = std::min(bounds.first[i], float(point[i]));
-                        bounds.second[i] = std::max(bounds.second[i], float(point[i]));
-                    }
+                for (const auto& contour : region->contours)
+                    for (const auto& point : contour)
+                        for (unsigned i = 0; i < 3; ++i) {
+                            bounds.first[i] = std::min(bounds.first[i], float(point[i]));
+                            bounds.second[i] = std::max(bounds.second[i], float(point[i]));
+                        }
             }
             const auto decal = ui::decal_guide(e);
             if (decal)

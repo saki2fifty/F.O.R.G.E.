@@ -50,18 +50,20 @@ inline std::set<EntityId> framing_entities(const Json& source, const std::string
 inline RenderBounds include_selected_helper_positions(const Json& source,
                                                       const std::set<EntityId>& selected,
                                                       const std::set<EntityId>& mesh_entities,
-                                                      RenderBounds bounds) {
+                                                      RenderBounds bounds,
+                                                      const NavigationTileContours& tiles = {}) {
     for (const auto& row : source.at("entities")) {
         const auto id = row.at("id").get<EntityId>();
         if (!selected.contains(id) || row.value("prefab", false) ||
             !row.value("spatial_resolved", true) || !row.contains("world_affine"))
             continue;
-        if (const auto region = navigation_region_view(row)) {
-            for (const auto& point : region->outline)
-                for (unsigned axis = 0; axis < 3; ++axis) {
-                    bounds.minimum[axis] = std::min(bounds.minimum[axis], point[axis]);
-                    bounds.maximum[axis] = std::max(bounds.maximum[axis], point[axis]);
-                }
+        if (const auto region = navigation_region_view(row, tiles)) {
+            for (const auto& contour : region->contours)
+                for (const auto& point : contour)
+                    for (unsigned axis = 0; axis < 3; ++axis) {
+                        bounds.minimum[axis] = std::min(bounds.minimum[axis], point[axis]);
+                        bounds.maximum[axis] = std::max(bounds.maximum[axis], point[axis]);
+                    }
             continue;
         }
         if (const auto decal = ui::decal_guide(row))

@@ -131,6 +131,24 @@ for plane, source in enumerate(('Scenes/129-moving-navigation-3d.scene.json',
     assert selected['metadata']['settings']['dynamic_obstacles'] is True
     assert selected['metadata']['settings'].get('plane', 0) == plane
 
+collision_source = 'Scenes/137-navigation-collision-sources.scene.json'
+collision_scene = json.loads((project_root / collision_source).read_text(encoding='utf-8'))
+assert collision_scene['asset_id'] == by_source[collision_source]['id']
+collision_regions = [row['components'] for row in collision_scene['entities']
+                     if 'forge.navigation_region_2d' in row['components']]
+assert len(collision_regions) == 5
+assert sum(row['forge.navigation_region_2d']['source'] == 1 for row in collision_regions) == 4
+assert {key for row in collision_regions for key in row if key.endswith('_collider_2d')} == {
+    'forge.box_collider_2d', 'forge.circle_collider_2d', 'forge.capsule_collider_2d',
+    'forge.tile_map_collider_2d'}
+collision_agents = [row['components']['forge.navigation_agent'] for row in collision_scene['entities']
+                    if 'forge.navigation_agent' in row['components']]
+assert len(collision_agents) == 2 and collision_agents[0]['navmesh'] == collision_agents[1]['navmesh']
+collision_nav = next(row for row in assets if row['id'] == collision_agents[0]['navmesh'])
+assert collision_nav['schema_version'] == collision_nav['metadata']['geometry_version'] == 5
+assert [row['asset_id'] for row in collision_nav['metadata']['tile_inputs']] == [
+    by_source['Assets/Tiles/CollisionProfiles.tilemap.json']['id']]
+
 glow_path = 'Scenes/128-sprite-tile-bloom.scene.json'
 glow_scene = json.loads((project_root / glow_path).read_text(encoding='utf-8'))
 assert glow_scene['asset_id'] == by_source[glow_path]['id']
@@ -447,6 +465,10 @@ try:
             renderer = row['components'].get('forge.mesh_renderer')
             if renderer is not None:
                 renderer.setdefault('material_parameters', [])
+            region = row['components'].get('forge.navigation_region_2d')
+            if region is not None:
+                region.setdefault('points', [])
+                region.setdefault('source', 0)
             sprite = row['components'].get('forge.sprite_renderer')
             if sprite is not None:
                 sprite.setdefault('mip_filter', 0)

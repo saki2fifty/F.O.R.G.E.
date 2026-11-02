@@ -32,6 +32,8 @@ template <> struct ResourceTraits<TileMapChunkResource> {
 TileSetData admit_tile_set_artifact(const CachedArtifact&, const AssetRecord&);
 TileMapData admit_tile_map_artifact(const CachedArtifact&, const AssetRecord&);
 TileMapArchive admit_tile_map_archive(const CachedArtifact&, const AssetRecord&);
+// Metadata-only selected Map revision, with the same type/dependency admission as loading.
+std::string selected_tile_map_revision(const AssetCatalog&, AssetRef<TileMapAsset>);
 ResourceTicket request_tile_set(ResourcePool<TileSetAsset>&, const std::filesystem::path&,
                                 std::shared_ptr<const AssetCatalog>, AssetRef<TileSetAsset>);
 ResourceTicket request_tile_map(ResourcePool<TileMapAsset>&, const std::filesystem::path&,

@@ -6,6 +6,7 @@ import re
 from pathlib import Path
 import shutil
 import struct
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -68,9 +69,55 @@ class GalleryPackageTest(unittest.TestCase):
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(data)
 
-    def package(self):
+    def package(self, gallery_preparer=None):
         with patch.object(package_windows, '__file__', str(self.source/'tools/package_windows.py')):
-            package_windows.package(self.build, self.dependencies, self.archive)
+            package_windows.package(self.build, self.dependencies, self.archive, gallery_preparer)
+
+    def test_native_preparation_uses_private_gallery_and_hashes_selected_bytes(self):
+        preparer = self.build/'forge_navigation_collision_gallery_tests.exe'
+        shutil.copyfile(self.build/'forge_nav_build.exe', preparer)
+        before = {p.relative_to(self.gallery): p.read_bytes()
+                  for p in self.gallery.rglob('*') if p.is_file()}
+        prepared = b'Matching native Tile selection and navigation\n'
+        def run(arguments, **options):
+            self.assertEqual(arguments[0:2], [str(preparer), '--prepare'])
+            staged = Path(arguments[2])
+            self.assertNotEqual(staged, self.gallery)
+            self.assertEqual(staged.parent.parent, self.build)
+            self.assertEqual(arguments[3], str(self.build/'forge_nav_build.exe'))
+            self.assertEqual(options, dict(check=True, timeout=180))
+            self.write(staged/'forge.assets.json', prepared)
+            self.write(staged/'Assets/native-only.fnav', prepared)
+            self.write(staged/'.forge/writer.lock', b'Released native fixture lease')
+            self.write(staged/'.forge/cache/derived/cache.lock', b'Released cache lock')
+        with patch.object(package_windows.subprocess, 'run', side_effect=run) as native:
+            self.package(preparer)
+        native.assert_called_once()
+        self.assertEqual(before, {p.relative_to(self.gallery): p.read_bytes()
+                                 for p in self.gallery.rglob('*') if p.is_file()})
+        self.assertFalse(list(self.build.glob('gallery-package-*')))
+        with zipfile.ZipFile(self.archive) as archive:
+            manifest = json.loads(archive.read('manifest.json'))['files']
+            for relative in ('forge.assets.json', 'Assets/native-only.fnav'):
+                name = 'Examples/FeatureGallery/'+relative
+                self.assertEqual(archive.read(name), prepared)
+                self.assertEqual(manifest[name], hashlib.sha256(prepared).hexdigest())
+            self.assertNotIn('Examples/FeatureGallery/.forge/writer.lock', manifest)
+            self.assertNotIn('Examples/FeatureGallery/.forge/cache/derived/cache.lock', manifest)
+            self.assertFalse(any(preparer.name in name for name in archive.namelist()))
+            self.assertIn('Examples/Other/main.scene.json', manifest)
+
+    def test_native_preparation_failure_retains_previous_archive(self):
+        self.package()
+        before = self.archive.read_bytes()
+        preparer = self.build/'forge_navigation_collision_gallery_tests.exe'
+        shutil.copyfile(self.build/'forge_nav_build.exe', preparer)
+        with patch.object(package_windows.subprocess, 'run',
+                          side_effect=subprocess.CalledProcessError(1, 'native-preparer')):
+            with self.assertRaises(subprocess.CalledProcessError):
+                self.package(preparer)
+        self.assertEqual(self.archive.read_bytes(), before)
+        self.assertFalse(list(self.build.glob('gallery-package-*')))
 
     def test_complete_gallery_bytes_and_manifest(self):
         self.package()
@@ -125,8 +172,10 @@ class GalleryPackageTest(unittest.TestCase):
         self.package()
         before = self.archive.read_bytes()
         link.symlink_to(self.gallery/'README.md')
-        with self.assertRaisesRegex(ValueError, 'Feature Gallery contains a link'):
-            self.package()
+        with patch.object(package_windows.subprocess, 'run') as native:
+            with self.assertRaisesRegex(ValueError, 'Feature Gallery contains a link'):
+                self.package(self.build/'unused-preparer.exe')
+            native.assert_not_called()
         self.assertEqual(self.archive.read_bytes(), before)
 
 

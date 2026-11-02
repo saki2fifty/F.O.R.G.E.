@@ -6,6 +6,7 @@
 #include "navigation_schema.hpp"
 #include "navigation_sources.hpp"
 #include "runtime_property_tune.hpp"
+#include "runtime_tile_map.hpp"
 #include <algorithm>
 #include <cmath>
 #include <forge/application_state_activation.hpp>
@@ -439,7 +440,42 @@ void NavigationRuntime::synchronize() {
                     throw std::runtime_error(
                         "Navigation Mesh inputs exceed 64 MiB retained CPU data");
                 }
-                state.digest = source_digest(source, inputs);
+                Json source_inputs = inputs;
+                if (plane == NavigationPlane::PlanarXY && !source.maps.empty()) {
+                    std::map<AssetId, std::string> revisions;
+                    for (const auto& surface : source.surfaces) {
+                        if (!surface.collider || !surface.collider->map)
+                            continue;
+                        const EntityRef ref{source.scene, surface.entity};
+                        const auto status = detail::inspect_runtime_tile_map(s.context, ref);
+                        const auto map = detail::runtime_tile_map_snapshot(s.context, ref);
+                        if (!status.ready || !status.current || !map ||
+                            status.requested != surface.collider->map ||
+                            status.adopted != surface.collider->map ||
+                            map->cells.asset() != surface.collider->map ||
+                            status.adopted_revision != status.requested_revision) {
+                            state.loading = true;
+                            state.status = NavStatus::Unavailable;
+                            throw std::runtime_error(
+                                status.diagnostic.empty()
+                                    ? "Waiting for current navigation Tile Map collision inputs"
+                                    : status.diagnostic);
+                        }
+                        if (map->edited)
+                            throw std::runtime_error(
+                                "Navigation source Tile Map has runtime edits; reset the instance "
+                                "before following its baked mesh");
+                        const auto revision = map->asset.identity().revision;
+                        const auto [entry, added] =
+                            revisions.emplace(surface.collider->map, revision);
+                        if (!added && entry->second != revision)
+                            throw std::runtime_error(
+                                "Navigation Tile Map instances have different revisions");
+                    }
+                    source_inputs =
+                        tile_inputs(source, [&](AssetId id) { return revisions.at(id); });
+                }
+                state.digest = source_digest(source, source_inputs);
                 if (plane == NavigationPlane::Spatial3D && source.meshes.empty())
                     state.legacy = !previous_legacy.empty() && previous_sources == state.digest
                                        ? previous_legacy

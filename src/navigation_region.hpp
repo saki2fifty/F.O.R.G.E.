@@ -9,6 +9,8 @@
 namespace forge::navigation_detail {
 static_assert(navigation_region_vertex_limit <= geometry_detail::simple_polygon_vertex_limit);
 inline void validate_region_dimensions(const NavigationRegion2D& region) {
+    if (region.source > 1)
+        throw std::runtime_error("Unsupported Navigation Region shape source");
     if (!std::isfinite(region.width) || !std::isfinite(region.height) || region.width < .01f ||
         region.width > 1000 || region.height < .01f || region.height > 1000)
         throw std::runtime_error("Navigation Region2D dimensions must be.01..1000m");
@@ -38,7 +40,7 @@ region_local_points(const NavigationRegion2D& region) {
 inline std::array<Double3, 4> region_quad(const NavigationRegion2D& region,
                                           const AffineTransform& transform) {
     validate_region_dimensions(region);
-    if (!region.points.empty())
+    if (region.source != 0 || !region.points.empty())
         throw std::runtime_error("Polygon navigation regions do not have rectangle extents");
     const double x = .5 * region.width, y = .5 * region.height;
     std::array<Double3, 4> points{{{-x, -y, 0}, {x, -y, 0}, {x, y, 0}, {-x, y, 0}}};
@@ -64,6 +66,8 @@ inline std::array<Double3, 4> region_quad(const NavigationRegion2D& region,
 // Resolved XY outline; visual Z does not contribute to navigation geometry.
 inline std::vector<Double3> region_outline(const NavigationRegion2D& region,
                                            const AffineTransform& transform) {
+    if (region.source != 0)
+        throw std::runtime_error("Collider navigation requires its selected physical footprint");
     if (region.points.empty()) {
         const auto quad = region_quad(region, transform);
         return {quad.begin(), quad.end()};

@@ -1172,13 +1172,15 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<bool>("obstacle")
             .template member<float>("width")
             .template member<float>("height")
-            .template member<std::vector<NavigationRegionVertex>>("points");
+            .template member<std::vector<NavigationRegionVertex>>("points")
+            .template member<std::uint32_t>("source");
         for (const auto& [name, offset] :
              {std::pair{"enabled", offsetof(NavigationRegion2D, enabled)},
               std::pair{"obstacle", offsetof(NavigationRegion2D, obstacle)},
               std::pair{"width", offsetof(NavigationRegion2D, width)},
               std::pair{"height", offsetof(NavigationRegion2D, height)},
-              std::pair{"points", offsetof(NavigationRegion2D, points)}}) {
+              std::pair{"points", offsetof(NavigationRegion2D, points)},
+              std::pair{"source", offsetof(NavigationRegion2D, source)}}) {
             const auto* member = ecs_struct_get_member(w.c_ptr(), c.id(), name);
             if (!member || std::size_t(member->offset) != offset)
                 throw std::runtime_error("Navigation Region2D Meta disagrees with typed layout");
@@ -2079,7 +2081,12 @@ Json registration_options(const Builtin& type, const std::string& field) {
         }
     }
     if (name == "forge.navigation_region_2d") {
-        if (field == "width" || field == "height") {
+        if (field == "source") {
+            value["display_name"] = "Shape source";
+            value["description"] =
+                "Use the rectangle/Points or this entity's static Collider 2D geometry";
+            value["animatable"] = false;
+        } else if (field == "width" || field == "height") {
             value["minimum"] = .01;
             value["maximum"] = 1000;
             value["unit"] = "meters";
@@ -3077,6 +3084,9 @@ ecs_entity_t builtin_enum(flecs::world& world, const std::string& component,
     if ((component == "forge.camera" || component == "forge.light") && field == "basis") {
         type = "forge.ViewBasis";
         names = {"ForgePositiveZ", "GltfNegativeZ"};
+    } else if (component == "forge.navigation_region_2d" && field == "source") {
+        type = "forge.NavigationRegionSource";
+        names = {"Region", "Collider2D"};
     } else if (component == "forge.camera" && field == "projection") {
         type = "forge.CameraProjection";
         names = {"Perspective", "Orthographic"};
@@ -3134,6 +3144,10 @@ ecs_entity_t builtin_enum(flecs::world& world, const std::string& component,
     }
     if (!ecs_enum_init(world, &desc))
         throw std::runtime_error("Builtin enum registration failed");
+    if (component == "forge.navigation_region_2d") {
+        world.entity(desc.entity).lookup("Region").set_doc_name("Rectangle / Points");
+        world.entity(desc.entity).lookup("Collider2D").set_doc_name("Collider 2D");
+    }
     return desc.entity;
 }
 void annotate_type(flecs::world& world, flecs::entity component, const Builtin& type) {
@@ -3282,6 +3296,7 @@ Json register_builtins(flecs::world& world, unsigned family) {
             c.lookup("points").set<ReflectedSequenceLimit>({navigation_region_vertex_limit});
             world.component<ReflectedMemberDefault>(reflected_member_default_type);
             c.lookup("points").set<ReflectedMemberDefault>({Json::array()});
+            c.lookup("source").set<ReflectedMemberDefault>({0u});
         }
         std::vector<ReflectedAdapter> references;
         if (name == "forge.physics_joint" || name == "forge.physics_joint_2d" ||
@@ -3556,7 +3571,7 @@ void validate_components(const Json& components) {
             known[key] = std::string_view(type.name) == "forge.mesh_renderer" &&
                                  key == "material_variant" && !data.contains(key)
                              ? Json(nullptr)
-                             : data.at(key);
+                             : reflected_member_value(field, data);
         }
         validate_reflected_json(schema, known);
         (void)type.decode(data); // Cross-member invariants remain FORGE-owned.

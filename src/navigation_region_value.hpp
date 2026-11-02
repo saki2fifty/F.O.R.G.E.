@@ -9,15 +9,20 @@ inline nlohmann::json region_value(const NavigationRegion2D& region) {
     auto points = nlohmann::json::array();
     for (const auto& point : region.points)
         points.push_back({{"x", point.x}, {"y", point.y}});
-    return {{"enabled", region.enabled},
-            {"obstacle", region.obstacle},
-            {"width", region.width},
-            {"height", region.height},
-            {"points", points}};
+    return {{"enabled", region.enabled}, {"obstacle", region.obstacle},
+            {"width", region.width},     {"height", region.height},
+            {"points", points},          {"source", region.source}};
 }
 inline NavigationRegion2D region_from_value(const nlohmann::json& value) {
     NavigationRegion2D region{value.at("enabled"), value.at("obstacle"), value.at("width"),
                               value.at("height")};
+    if (value.contains("source")) {
+        const auto& source = value.at("source");
+        if (!source.is_number_integer() || source < 0 || source > 1)
+            throw std::runtime_error(
+                "Navigation Region shape source must be Rectangle/Points or Collider 2D");
+        region.source = source.get<std::uint32_t>();
+    }
     if (value.contains("points")) {
         const auto& points = value.at("points");
         if (!points.is_array() || points.size() > navigation_region_vertex_limit)

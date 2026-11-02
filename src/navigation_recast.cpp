@@ -31,11 +31,17 @@ void validate_geometry(const Geometry& g, NavigationSettings settings) {
         for (std::size_t i = 1; i < verts.size(); i += 3)
             require(verts[i] == 0);
         for (const auto& mask : g.obstacles) {
-            require(mask.size() == 9 || mask.size() == 12);
+            require(mask.size() >= 9 && mask.size() % 3 == 0 &&
+                    mask.size() / 3 <= navigation_region_vertex_limit);
             const auto corners = mask.size() / 3;
+            std::vector<geometry_detail::PolygonPoint> points;
+            points.reserve(corners);
             for (std::size_t i = 0; i < mask.size(); ++i)
                 require(std::isfinite(mask[i]) && std::abs(mask[i]) <= 4090 &&
                         (i % 3 != 1 || mask[i] == 0));
+            for (std::size_t i = 0; i < corners; ++i)
+                points.push_back({mask[i * 3], mask[i * 3 + 2]});
+            (void)geometry_detail::validate_polygon(points);
             for (std::size_t i = 0; i < corners; ++i) {
                 const auto a = i * 3, b = ((i + 1) % corners) * 3, c = ((i + 2) % corners) * 3;
                 const double turn =

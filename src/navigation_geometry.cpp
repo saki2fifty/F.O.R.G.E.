@@ -48,6 +48,12 @@ Sources capture(const nlohmann::json& doc, NavigationPlane plane) {
             if (!ancestry.insert(node_id).second)
                 throw std::runtime_error("Navigation source spatial cycle");
             const auto& components = node->at("components");
+            if (plane == NavigationPlane::PlanarXY && c.at(marker).value("source", 0u) == 1 &&
+                components.contains("forge.local_rotation")) {
+                const auto& q = components.at("forge.local_rotation");
+                physics_detail::validate_planar_rotation_2d(
+                    {q.at("x"), q.at("y"), q.at("z"), q.at("w")});
+            }
             for (const char* body : {"forge.physics_body", "forge.physics_body_2d"})
                 if (components.contains(body) &&
                     components.at(body).at("motion").get<unsigned>() != 0)
@@ -90,7 +96,16 @@ Sources capture(const nlohmann::json& doc, NavigationPlane plane) {
         if (plane == NavigationPlane::PlanarXY) {
             const auto& data = c.at(marker);
             source.region = region_from_value(data);
-            (void)region_outline(*source.region, transform);
+            if (source.region->source == 0)
+                (void)region_outline(*source.region, transform);
+            else {
+                source.collider = collider_source(c, transform);
+                if (source.collider->map) {
+                    g.maps.insert(source.collider->map);
+                    if (g.maps.size() > max_tile_inputs)
+                        throw std::runtime_error("Navigation exceeds32 Tile Map inputs");
+                }
+            }
         } else {
             source.primitive = primitive_kind(e);
         }
@@ -125,9 +140,18 @@ nlohmann::json mesh_inputs(const Sources& source,
         result.push_back({{"asset_id", id}, {"revision", revision(id)}});
     return result;
 }
+Json tile_inputs(const Sources& source, const std::function<std::string(AssetId)>& revision) {
+    Json values = Json::array();
+    if (source.maps.size() > max_tile_inputs ||
+        (source.plane != NavigationPlane::PlanarXY && !source.maps.empty()))
+        throw std::runtime_error("Invalid navigation Tile Map input profile");
+    for (auto id : source.maps)
+        values.push_back({{"asset_id", id}, {"revision", revision(id)}});
+    return values;
+}
 std::string source_digest(const Sources& source, const Json& inputs) {
     if (source.plane == NavigationPlane::PlanarXY) {
-        if (!inputs.is_array() || !inputs.empty())
+        if (!inputs.is_array() || (!collider_sources(source) && !inputs.empty()))
             throw std::runtime_error("XY regions do not use external Mesh provenance");
         Json regions = Json::array();
         for (const auto& surface : source.surfaces) {
@@ -141,14 +165,23 @@ std::string source_digest(const Sources& source, const Json& inputs) {
                  {"width", region.width},
                  {"height", region.height},
                  {"obstacle", region.obstacle}});
-            if (!region.points.empty()) {
+            if (surface.collider) {
+                regions.back().erase("width");
+                regions.back().erase("height");
+                regions.back()["collider"] = collider_source_value(*surface.collider);
+            } else if (!region.points.empty()) {
                 regions.back().erase("width");
                 regions.back().erase("height");
                 regions.back()["points"] = region_value(region).at("points");
             }
         }
-        const auto text =
-            Json{{"bridge", 3}, {"plane", 1}, {"scene", source.scene}, {"regions", regions}}.dump();
+        auto value = Json{{"bridge", collider_sources(source) ? 5 : 3},
+                          {"plane", 1},
+                          {"scene", source.scene},
+                          {"regions", regions}};
+        if (collider_sources(source))
+            value["tiles"] = inputs;
+        const auto text = value.dump();
         return asset_detail::content_digest(std::as_bytes(std::span(text)));
     }
     Json surfaces = Json::array();
@@ -166,13 +199,50 @@ std::string source_digest(const Sources& source, const Json& inputs) {
     return asset_detail::content_digest(std::as_bytes(std::span(text)));
 }
 namespace {
-Geometry planar_geometry(const Sources& source) {
+Geometry planar_geometry(const Sources& source, const Json& inputs = Json::array(),
+                         const std::function<RegionContours(const Surface&)>& maps = {}) {
     Geometry result;
     result.scene = source.scene;
     result.sources = source.identities;
     for (const auto& surface : source.surfaces) {
         if (!surface.region)
             throw std::runtime_error("XY navigation needs region geometry");
+        if (surface.collider) {
+            RegionContours outlines;
+            if (surface.collider->kind == 3) {
+                if (!maps)
+                    throw std::runtime_error(
+                        "Navigation Tile Map collision geometry is not prepared");
+                outlines = maps(surface);
+            } else
+                outlines.push_back(
+                    collider_outline_2d(surface.collider->kind, surface.collider->dimensions,
+                                        surface.transform, surface.region->obstacle));
+            for (const auto& outline : outlines) {
+                std::vector<geometry_detail::PolygonPoint> xy;
+                for (const auto& point : outline)
+                    xy.push_back({point[0], point[1]});
+                if (surface.region->obstacle) {
+                    if (result.obstacles.size() >= 512)
+                        throw std::runtime_error("Navigation exceeds512 convex obstacle masks");
+                    std::vector<float> mask;
+                    for (const auto& point : xy)
+                        mask.insert(mask.end(), {float(point[0]), 0, float(point[1])});
+                    result.obstacles.push_back(std::move(mask));
+                } else {
+                    for (const auto& triangle : geometry_detail::polygon_triangles(xy)) {
+                        if (result.indices.size() / 3 >= 16384)
+                            throw std::runtime_error("Navigation geometry exceeds16384 triangles");
+                        for (auto corner : {triangle[0], triangle[2], triangle[1]}) {
+                            result.indices.push_back(int(result.indices.size()));
+                            result.vertices.insert(result.vertices.end(),
+                                                   {float(xy[corner][0]), 0, float(xy[corner][1])});
+                        }
+                    }
+                }
+            }
+            continue;
+        }
         if (!surface.region->points.empty()) {
             const auto outline = region_outline(*surface.region, surface.transform);
             std::vector<std::array<float, 3>> native;
@@ -230,7 +300,7 @@ Geometry planar_geometry(const Sources& source) {
     }
     if (result.vertices.empty())
         throw std::runtime_error("XY navigation needs at least one walkable region");
-    result.digest = source_digest(source, Json::array());
+    result.digest = source_digest(source, inputs);
     return result;
 }
 } // namespace
@@ -333,11 +403,12 @@ Geometry geometry(const Sources& source) {
     return g;
 }
 Geometry geometry(const Sources& source, const Json& inputs,
-                  const std::function<const MeshResourceData&(AssetId)>& mesh) {
+                  const std::function<const MeshResourceData&(AssetId)>& mesh,
+                  const std::function<RegionContours(const Surface&)>& maps) {
     if (source.plane == NavigationPlane::PlanarXY) {
-        if (!inputs.is_array() || !inputs.empty())
+        if (!inputs.is_array() || (!collider_sources(source) && !inputs.empty()))
             throw std::runtime_error("XY regions do not use external Mesh provenance");
-        return planar_geometry(source);
+        return planar_geometry(source, inputs, maps);
     }
     auto g = triangles(source, mesh);
     g.digest = source_digest(source, inputs);

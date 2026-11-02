@@ -107,7 +107,7 @@ asset identity, envelope version, SDK or checkpoint format changes are needed.
 
 ### Explicit XY region profile
 
-`NavigationRegion2D { enabled=true, obstacle=false, width=10, height=10, points={} }`
+`NavigationRegion2D { enabled=true, obstacle=false, width=10, height=10, points={}, source=0 }`
 is ordinary reflected Navigation-family data. Empty `points` selects a centered
 local rectangle; width/height remain0.01–1000metres. A nonempty vector selects a
 complete simple counterclockwise contour of3–64 `NavigationRegionVertex {x,y}`
@@ -121,7 +121,7 @@ metadata uses the existing reflected extension owner.
 scale and zero visual-depth scale, rejects collapsed/out-of-bounds contours, and
 normalizes mirrored winding only in a detached copy. Source capture, bake,
 Inspector validation and editor guides share this footprint. Sprites/colliders/
-TileMaps are not automatic inputs. The shared pure polygon predicates and ear
+Tile Maps are not automatic inputs; explicit collision-source input is described below. The shared pure polygon predicates and ear
 clipping also serve the existing tile polygon owner; tile-specific8-point/unit-cell
 admission remains separate.
 
@@ -151,14 +151,57 @@ Visual Z, materials and unrelated authored state are excluded. Both profiles ret
 static/body/controller/spatial ancestry rules; agents cannot also be enabled bake
 sources. XY avoidance filters by the selected NavMesh, without a visual-height test.
 
+### Opt-in static Collider 2D sources
+
+Source0 preserves rectangle/Points geometry and legacy identity. Source1 selects
+exactly one Box, Circle, Capsule or Tile Map Collider2D on the marked entity.
+Unused rectangle dimensions/Points remain authored but do not enter its geometry
+digest. Existing static, controller, enabled-agent and spatial-ancestry checks
+apply; each local rotation in a collider source chain must stay in XY. Physical
+TRS admission rejects shear/tilt/collapse. VisualZ and zero visual-depth scale
+remain independent. Physics body enable/sensor/filter/one-way configuration does
+not decide the explicitly authored walkable/obstacle role.
+
+Shared pure physical values own scaled dimensions, direct quaternion rotation,
+native float box/hull admission and Map collision projection. Bake creates no
+native physics world. Bounded convex inline contours prove actual float-rounded
+containment: walkable contours are subsets of the physical shape; masks contain
+it. A deterministic conservative roundoff margin covers coordinate conversion.
+Rounded contours use at most64points; unsupported numerical collapse or true
+physical bounds outside±4090m reject instead of inventing geometry.
+
+Map preparation requests selected compact Map/Set values through existing Tile
+resource pools and resolves existing neighbor variants. `tile_map_collision_geometry`
+supplies merged rectangles and convex pieces for the selected stable layer key,
+including mirrored cells, custom concavity, islands, holes and no-collision cells.
+At most32distinct Map roots and64MiB of conservatively estimated retained inputs
+are admitted; each Map source admits512pieces and the existing total triangle/mask
+limits remain. No partial geometry is silently truncated.
+
+Geometry5/static envelope5 (or dynamic envelope4/geometry5) separates `tile_inputs`
+from external `mesh_inputs`. Each canonical selected Map revision is recorded in
+metadata and a `navigation.tile_map` Build edge. Root Map selection already binds
+Tile Set revisions through its ordinary dependency records. Metadata-only status
+uses that same selected-revision owner; mismatched/stale dependencies reject.
+Versions1–4 and default geometry3 remain readable, without identity migration.
+
+Runtime uses current `RuntimeTileMapSnapshot` bindings and status. Navigation-only
+Map sources participate in ordinary candidate readiness even when their renderer
+is disabled. Loading/current-revision mismatch prevents movement. Runtime-edited
+selected instances invalidate the baked route until Reset restores published
+cells. There is no per-tick cell hashing/triangulation, separate Map subscription
+or runtime rebake. Existing exact-revision recovery and SDK restart policy apply.
+
 ### Region Scene interaction
 
 The pure region footprint lives in `navigation_region.hpp`; baking and detached
 editor consumers use the same calculation. NavigationRegionView reads
-one current effective/preview row and rejects invalid/unresolved geometry without
+one current effective/preview row with separate contours and rejects invalid/unresolved geometry without
 inventing a substitute shape. SpatialHelpers owns cached region outlines alongside
 its existing Camera/Light/Audio helpers, using the same preview generation and
-hierarchy policies. Navigation overlay shows all visible region edges; selection
+hierarchy policies, plus selected Map revision/readiness. Readonly Map selections
+share existing render-host CPU pools and are bounded to32LRU entries. Island
+contours have no bridge edges. Navigation overlay shows all visible region edges; selection
 keeps that region's guide available independently. Only edges participate in
 region picking, with scaled tolerance and deterministic distance/depth/identity
 ties. Camera/light/audio icon routing remains ahead of region-outline picking.

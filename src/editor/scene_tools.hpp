@@ -360,7 +360,7 @@ struct SceneTools {
                                                         const NavigationRegionView& view,
                                                         ImVec2 size) const {
         std::array<std::optional<ImVec2>, 4> points;
-        if (!view.region.points.empty())
+        if (view.region.source != 0 || !view.region.points.empty())
             return points;
         const auto center = project_debug_point(camera, view.center(), size);
         if (!center)

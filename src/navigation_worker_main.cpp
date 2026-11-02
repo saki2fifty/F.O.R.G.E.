@@ -34,8 +34,9 @@ int main(int argc, char** argv) {
             if (!masks.is_array() || masks.size() > 512)
                 throw std::runtime_error("Navigation obstacle count limit");
             for (const auto& mask : masks) {
-                if (!mask.is_array() || (mask.size() != 9 && mask.size() != 12))
-                    throw std::runtime_error("Navigation obstacle requires three or four vertices");
+                if (!mask.is_array() || mask.size() < 9 || mask.size() % 3 != 0 ||
+                    mask.size() / 3 > navigation_region_vertex_limit)
+                    throw std::runtime_error("Navigation obstacle requires 3..64 vertices");
                 g.obstacles.push_back(mask.get<std::vector<float>>());
             }
         } else if (input.contains("obstacles")) {

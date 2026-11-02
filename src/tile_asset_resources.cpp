@@ -118,6 +118,15 @@ void current_dependencies(const AssetCatalog& catalog, const AssetRecord& record
                 "Tile asset dependency changed; recook against the selected revision");
     }
 }
+const AssetRecord& current_record(const AssetCatalog& catalog, AssetId id,
+                                  const Contract& contract) {
+    const auto found = catalog.records().find(id);
+    require(found != catalog.records().end() && found->second.type == contract.type,
+            "Tile asset is missing, removed or has wrong type");
+    (void)selection(found->second, contract);
+    current_dependencies(catalog, found->second);
+    return found->second;
+}
 template <class Tag, class Admit>
 ResourceTicket request(ResourcePool<Tag>& pool, const std::filesystem::path& project,
                        std::shared_ptr<const AssetCatalog> catalog, AssetRef<Tag> ref,
@@ -126,12 +135,8 @@ ResourceTicket request(ResourcePool<Tag>& pool, const std::filesystem::path& pro
     // AssetCatalog::resolve also checks authoring source files. Runtime requests
     // use the immutable selected record, as the existing cooked resource owners
     // do, so offline sources and relocated packages remain loadable.
-    const auto found = catalog->records().find(ref.id);
-    require(found != catalog->records().end() && found->second.type == contract.type,
-            "Tile asset is missing, removed or has wrong type");
-    auto record = found->second;
-    const Json& selected = selection(record, contract);
-    current_dependencies(*catalog, record);
+    auto record = current_record(*catalog, ref.id, contract);
+    const Json& selected = record.metadata.at("forge.import");
     const auto revision = selected.at("key").get<std::string>();
     const auto generation = selected.at("generation").get<std::uint64_t>();
     return pool.request(
@@ -181,6 +186,12 @@ TileMapData admit_tile_map_artifact(const CachedArtifact& artifact, const AssetR
 }
 TileMapArchive admit_tile_map_archive(const CachedArtifact& artifact, const AssetRecord& record) {
     return admit_map(artifact, record, decode_tile_map_archive);
+}
+std::string selected_tile_map_revision(const AssetCatalog& catalog, AssetRef<TileMapAsset> ref) {
+    return current_record(catalog, ref.id, map_contract())
+        .metadata.at("forge.import")
+        .at("key")
+        .get<std::string>();
 }
 ResourceTicket request_tile_set(ResourcePool<TileSetAsset>& pool,
                                 const std::filesystem::path& project,

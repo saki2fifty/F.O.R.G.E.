@@ -9,6 +9,9 @@ void check(bool value, const char* why) {
     if (!value)
         throw std::runtime_error(why);
 }
+} // namespace
+#include "navigation_tile_view_tests.hpp"
+namespace {
 void exercise(const std::filesystem::path& root, float scale, ImVec2 size,
               const std::filesystem::path& images) {
     SceneDocument::create_project(root, "Polygon navigation");
@@ -43,11 +46,28 @@ void exercise(const std::filesystem::path& root, float scale, ImVec2 size,
         capture.render();
     };
     const auto visible = [&](const std::string& key) {
-        for (unsigned attempt = 0; attempt < 30; ++attempt) {
+        for (unsigned attempt = 0; attempt < 60; ++attempt) {
             frame();
+            if (!test::ui_targets.contains(key)) {
+                // Offscreen fields may be omitted from native item observation.
+                // Search with ordinary wheel input after an expanded collection
+                // changes the retained window scroll position.
+                auto& io = ImGui::GetIO();
+                io.AddMousePosEvent(size.x * .5f, size.y * .5f);
+                io.AddMouseWheelEvent(0, attempt < 12 ? 3 : -3);
+                continue;
+            }
             const auto box = test::ui_targets.at(key);
-            check(box.minimum.x >= box.clip_minimum.x && box.maximum.x <= box.clip_maximum.x,
-                  "Polygon conversion control clips horizontally");
+            if (box.minimum.x < box.clip_minimum.x || box.maximum.x > box.clip_maximum.x) {
+                if (key.starts_with("property:choice:") && attempt < 3)
+                    continue; // A newly opened native popup settles its measured size/position.
+                capture.save(root / "control-clipped.png");
+                throw std::runtime_error(
+                    "Navigation control clips horizontally: " + key + " at scale " +
+                    std::to_string(scale) + " bounds " + std::to_string(box.minimum.x) + "," +
+                    std::to_string(box.maximum.x) + " clip " + std::to_string(box.clip_minimum.x) +
+                    "," + std::to_string(box.clip_maximum.x));
+            }
             if (box.minimum.y >= box.clip_minimum.y && box.maximum.y <= box.clip_maximum.y)
                 return box;
             auto& io = ImGui::GetIO();
@@ -55,14 +75,21 @@ void exercise(const std::filesystem::path& root, float scale, ImVec2 size,
                                 (box.clip_minimum.y + box.clip_maximum.y) * .5f);
             io.AddMouseWheelEvent(0, box.minimum.y < box.clip_minimum.y ? 2 : -2);
         }
-        throw std::runtime_error("Polygon conversion control cannot be reached by scrolling");
+        throw std::runtime_error("Navigation control cannot be reached by scrolling: " + key);
     };
     const auto click = [&](const std::string& key) {
-        const auto box = visible(key);
+        auto box = visible(key);
         auto& io = ImGui::GetIO();
+        // Native scrolling/popup auto-position can settle after the item was
+        // observed. Align the pointer with the current bounds before pressing.
+        for (unsigned settle = 0; settle < 2; ++settle) {
+            io.AddMousePosEvent((box.minimum.x + box.maximum.x) * .5f,
+                                (box.minimum.y + box.maximum.y) * .5f);
+            frame();
+            box = visible(key);
+        }
         io.AddMousePosEvent((box.minimum.x + box.maximum.x) * .5f,
                             (box.minimum.y + box.maximum.y) * .5f);
-        frame();
         io.AddMouseButtonEvent(ImGuiMouseButton_Left, true);
         frame();
         io.AddMouseButtonEvent(ImGuiMouseButton_Left, false);
@@ -111,7 +138,8 @@ void exercise(const std::filesystem::path& root, float scale, ImVec2 size,
     }
     auto source = scene.effective_document();
     const auto view = navigation_region_view(source, actor);
-    check(view && view->outline.size() == 6, "Polygon view did not retain its concave boundary");
+    check(view && view->contours.front().size() == 6,
+          "Polygon view did not retain its concave boundary");
     ui::SpatialHelpers helpers;
     helpers.update(source, 1, 1000, 800);
     check(helpers.markers().size() == 1 && helpers.markers()[0].lines.size() == 6 &&
@@ -134,6 +162,28 @@ void exercise(const std::filesystem::path& root, float scale, ImVec2 size,
               scene.document() == polygon && scene.redo() &&
               scene.entity(actor).get<NavigationRegion2D>().points.empty(),
           "Use rectangle did not preserve the polygon through history");
+    authoring_command(scene, "component.add",
+                      {{"entity", actor}, {"component", "forge.circle_collider_2d"}});
+    const auto before_source = scene.document();
+    click("component-field:forge.navigation_region_2d:source");
+    click("property:choice:source:1");
+    check(scene.entity(actor).get<NavigationRegion2D>().source == 1,
+          "Shape source control did not select the native Collider 2D mode");
+    const auto collision_source = scene.document();
+    check(scene.undo() && scene.document() == before_source && scene.redo() &&
+              scene.document() == collision_source,
+          "Shape source selection did not use ordinary Undo/Redo");
+    frame();
+    check(!test::ui_targets.contains("component-field:forge.navigation_region_2d:width") &&
+              !test::ui_targets.contains("component-field:forge.navigation_region_2d:points") &&
+              !test::ui_targets.contains("navigation:region-create-polygon"),
+          "Collider source Inspector displayed unused rectangle/polygon controls");
+    if (!images.empty())
+        capture.save(images / ("collider-inspector-" + std::to_string(unsigned(scale * 100)) + "-" +
+                               std::to_string(unsigned(size.x)) + ".png"));
+    authoring_command(scene, "component.revert",
+                      {{"entity", actor}, {"component", "forge.circle_collider_2d"}});
+    check_tile_navigation_views(scene, actor, scale);
     test::observe_ui = false;
 }
 } // namespace

@@ -1,5 +1,28 @@
 # 2026-11-02
 
+## Selected collision navigation sources
+
+**Navigation Region 2D → Shape source → Collider 2D** selects a configured Box,
+Circle, Capsule or published Tile Map collision layer. Static source/transform
+rules, ordinary properties/history/prefabs and the existing navigation build owner
+remain authoritative. Source0 retains rectangle/polygon geometry and identity.
+Role-conservative native-rounded contours and separate Map islands feed bake,
+guides, picking and framing. No physics world or body is created for baking.
+
+Selected Map/Set/neighbor-rule inputs use existing resource owners. Geometry5 and
+catalog5 record separate selected Tile revisions/dependency edges; dynamic layers
+retain envelope4. Old navigation assets remain readable and rebuilds preserve
+logical IDs/prior artifacts. Runtime-edited selected Map instances stop baked-route
+movement until Reset. There is no per-tick cell triangulation or general rebake.
+
+Gallery137 provides editable collider and Map courses, with ready navigation and
+ordinary export. Inspector pointer/history, actual GameSession movement/reset /
+fresh recovery, source-hidden relocated content, both MCP message formats and
+software Vulkan displays are covered. The manual includes authentic Inspector /
+Game captures. The appended public value field requires a matching C++ SDK/module
+rebuild; the C host table and pinned dependencies are unchanged. Full Windows /
+MSVC/D3D12/editor/physical/graphical EXE acceptance and delivery remain pending.
+
 ## State conditions and Activity Lab
 
 An optional **State Condition** connects stock object activity to a configured

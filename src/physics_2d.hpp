@@ -1,5 +1,7 @@
 #pragma once
 #include "physics_2d_joint.hpp"
+#include "physics_2d_transform.hpp"
+#include "physics_collider_2d.hpp"
 #include "physics_command.hpp"
 #include "tile_set_values.hpp"
 #include <forge/character_components.hpp>
@@ -21,16 +23,6 @@ namespace forge::detail {
 struct RuntimeTileMapSnapshot;
 }
 namespace forge::physics_detail {
-struct BoxPart2D {
-    std::array<float, 2> center{}, dimensions{}; // Scaled body-local metres; full dimensions.
-    bool operator==(const BoxPart2D&) const = default;
-};
-struct PolygonPart2D {
-    std::array<std::array<float, 2>, tile_collision_vertex_limit> points{};
-    std::uint32_t count = 0;
-    std::uint8_t boundary_edges = 0xff; // Original edges in the input point order.
-    bool operator==(const PolygonPart2D&) const = default;
-};
 struct MoverProfile2D {
     float minimum_floor_y = -1, floor_probe = .1f;
     bool platform_carry = false;
@@ -80,7 +72,6 @@ Body2DConfiguration tile_map_configuration_2d(PhysicsBody2D, const TileMapData&,
 PhysicsDebugGeometry prepare_debug_2d(const Json&, LocalScale, std::size_t line_limit,
                                       const TileMapData* = nullptr, bool crouched = false,
                                       const TileSetData* = nullptr);
-LocalTransform debug_pose_2d(const AffineTransform&);
 LocalTransform controller_debug_pose_2d(const AffineTransform&, const LocalTransform& hint);
 struct Native2DImage {
     Json metadata;

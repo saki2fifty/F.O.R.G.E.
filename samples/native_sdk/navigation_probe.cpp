@@ -39,14 +39,17 @@ int32_t FORGE_SDK_CALL schemas(const ForgeSdkWorldV1* h, char*, uint32_t) {
         return 0;
     forge::NavigationRegion2D expected{true, true, 2, 4};
     expected.points = {{-1, -2}, {1, -2}, {1, 0}, {0, 0}, {0, 2}, {-1, 2}};
+    expected.source = 1;
     auto planar = w.entity().add(flecs::Prefab).set<forge::NavigationRegion2D>(expected);
     auto copied = w.entity()
                       .add(flecs::Prefab)
                       .set<forge::NavigationRegion2D>(planar.get<forge::NavigationRegion2D>());
     expected.points[1].x = 2;
+    expected.source = 0;
     planar.set<forge::NavigationRegion2D>(expected);
     bool region_matched = planar.get<forge::NavigationRegion2D>() == expected &&
-                          copied.get<forge::NavigationRegion2D>().points[1].x == 1;
+                          copied.get<forge::NavigationRegion2D>().points[1].x == 1 &&
+                          copied.get<forge::NavigationRegion2D>().source == 1;
     planar.remove<forge::NavigationRegion2D>();
     region_matched = region_matched && copied.get<forge::NavigationRegion2D>().points.size() == 6;
     copied.destruct();

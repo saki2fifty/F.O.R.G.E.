@@ -1,5 +1,32 @@
 # README screenshots
 
+## Selected collision navigation sources
+
+[Collision-source Game](../../../manual/images/navigation-collision-gallery.png)
+is the unretouched 640×360 production FrameRenderer after 90 fixed ticks in
+Gallery137 (`13e8001b-0b7c-4fcd-b8aa-c5dbc3dcf129`). Cyan routes around configured
+Circle/Capsule footprints on the left; amber routes around the selected Map layer
+on the right. `navigation_collision_gallery_vulkan` checks visible motion and four
+exact source/source-hidden relocated display pairs. Lossless PPM-to-PNG conversion
+preserves all RGB pixels. PNG SHA256:
+`a582497f4c9b9db948e4586b8b466e446e5f7940eee62c85a1bb8df741fcb5b3`.
+
+[Collider Inspector](../../../manual/images/navigation-collider-inspector.png)
+is the unretouched 1000×900 production ComponentInspector at 1x after actual mouse
+selection of **Shape source → Collider 2D**. Unused rectangle/Points controls are
+hidden. PNG SHA256:
+`b387f4274e1f64032d7cd9ebc39043149ead1041f5137c33376d43e4d645d47d`.
+The same SDL/ImGui fixture checks conversion, source selection/history, outlines,
+Map islands, picking/framing and source isolation at 100/150/200% and two sizes.
+
+These current unassigned-source captures are based on 2d5a37f. Exact executable,
+image, Scene and original-frame receipts are in
+`AgentFiles/build/phase216-navigation-collision-sources/game-capture.json` and
+`inspector-capture.json`. Both canonical images were personally reviewed. Game
+uses software Vulkan; Inspector uses SDL/ImGui software. This does not establish
+full Main/editor, Windows/MSVC/D3D12, physical input/DPI/GPU, performance or a
+relocated graphical EXE acceptance.
+
 ## Polygon navigation regions
 
 [Polygon Game](../../../manual/images/navigation-polygon-gallery.png) is the
@@ -15,14 +42,13 @@ the unretouched1000×900 production ComponentInspector at1x, with Points expande
 through actual mouse input. Six entries and normal collection/conversion controls
 are visible. `forge_navigation_region_editor_tests <scratch> <captures>` also
 checks100/150/200% at420×640and1000×900. PNG SHA256:
-`d515f6c34ce11f0b0413a4581ba4b64c49a117d4a40f1072530d2330e993f99c`.
+`9a7ac9d2e0d764a8277dcbe9b3323f4ce5f1386128615e4a8d7b6e8dcc03fddd`.
 
-Both use local unassigned source based on733a50f. Exact executable/input/image
-hashes and native receipt are in
-`AgentFiles/build/phase215-planar-navigation-polygons/captures.json`. Game uses
-software Vulkan and Inspector uses SDL/ImGui software. Both canonical images were
-visually reviewed. These captures do not establish full Main/editor, Windows,
-MSVC/D3D12, physical input/DPI/GPU, performance or graphical EXE acceptance.
+The Game image reuses unchanged attributable source based on 733a50f, with its
+original receipt in `AgentFiles/build/phase215-planar-navigation-polygons/captures.json`.
+The Inspector image was recaptured from current source based on 2d5a37f to show
+the Shape source field; its receipt is the current `inspector-capture.json` above.
+Both use the software paths and acceptance limits described above.
 
 ## Custom polygon one-way boundaries
 

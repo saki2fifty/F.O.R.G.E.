@@ -721,7 +721,7 @@ remain authoritative. Publication is separate from Scene Undo. Settings add opti
 integer `plane`:0(default) uses3D NavigationSurface geometry;1 uses top-down XY
 NavigationRegion2D rectangles or simple convex/concave polygon regions. The six numeric profile fields remain required. Optional boolean
 `dynamic_obstacles` selects the version 4 tiled profile; omitted/false retains
-static baking. Its geometry provenance stays 2 (spatial) / 3 (XY). Create/edit
+static baking. Geometry provenance is2(spatial),3(authored XY regions) or5(explicit XY collision sources). Create/edit
 `forge.navigation_obstacle` through the same component/property tools: enabled,
 radius(0.05–5) and height(0.2–10, 3D only). The component uses ordinary validation,
 revision-checked history, prefab/Scene persistence and saving. It has no separate
@@ -734,7 +734,14 @@ default`[]` and structured finite local`x/y` coordinates. Empty points selects t
 width/height rectangle. To seed a polygon, set the complete field to four valid
 corners; then replace the complete3–64point CCW contour as needed. Invalid count,
 crossing/touching/collinear or out-of-bounds candidates leave Scene/revision intact.
-Point extension data, prefab overrides and Undo/Redo use existing reflected owners. XY builds publish guarded schema3 through the same
+Point extension data, prefab overrides and Undo/Redo use existing reflected owners.
+Discovery exposes `source` as0 **Rectangle / Points** (default) or1 **Collider 2D**,
+with ordinary property validation/history. Source1 selects exactly one configured
+Box/Circle/Capsule or published Tile Map Collider on the marked static entity. For
+a Map, assign its Renderer Map and stable Collider layer through the existing
+properties. XY collision builds publish geometry5/catalog5 (dynamic envelope4)
+with separate selected `tile_inputs` and dependency edges. Other XY builds retain
+guarded schema3. Both use the same
 worker/job/status/cancel owner. One logical asset per Scene remains authoritative;
 switching plane preserves its ID and requires rebuilding. No independent agent-only
 geometry, bake or persistence path exists. Scene outline

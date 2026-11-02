@@ -655,6 +655,10 @@ class ComponentInspector {
                     ui::heading(group.data(),
                                 "Sprite values use the usual property Undo and prefab overrides.");
                 }
+                if (key == "forge.navigation_region_2d" &&
+                    values.at(key).value("source", 0u) == 1 &&
+                    (name == "width" || name == "height" || name == "points"))
+                    continue;
                 if (key == "forge.navigation_region_2d" && (name == "width" || name == "height") &&
                     !values.at(key).at("points").empty())
                     continue;

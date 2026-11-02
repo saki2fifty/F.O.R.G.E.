@@ -1,5 +1,19 @@
 # Feature Gallery
 
+## Selected 2D collision navigation sources
+
+Open **Scenes/137-navigation-collision-sources.scene.json** and press Play. The
+cyan agent avoids Circle and Capsule Collider footprints on a Box Collider floor;
+the amber agent avoids the published CollisionProfiles Tile Map layer. No project
+C++ module is required. Select an agent for **Live gameplay → Navigation progress**.
+
+Outside Play, select a marked source and inspect **Navigation Region 2D → Shape
+source → Collider 2D**. Edit its collider dimensions or the selected Map collision
+layer, then rebuild with **Content → Create / Register → Navigation → Plane →
+2D (XY)** and save. Map and Tile Set edits must be saved/published first. The
+Scene, NavMesh and existing selected tile/visual assets export through the ordinary
+workflow. See [Collision navigation sources](../../../manual/editor/navigation.md).
+
 ## Polygon navigation regions
 
 Open **Scenes/136-navigation-polygons.scene.json** and press Play. The cyan agent

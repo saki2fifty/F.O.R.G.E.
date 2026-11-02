@@ -5,7 +5,9 @@ import json
 from pathlib import Path
 import os
 import re
+import shutil
 import struct
+import subprocess
 import tempfile
 import zipfile
 from build_identity import validate_build_id
@@ -25,7 +27,37 @@ def check_pe64(path):
             raise ValueError(f'Not a Windows x64 PE image: {path}')
 
 
-def package(build, dependencies, output):
+def gallery_files(root):
+    files = sorted(p for p in root.rglob('*') if p.is_file() or p.is_symlink())
+    if root.is_symlink() or any(p.is_symlink() for p in files):
+        raise ValueError('Feature Gallery contains a link')
+    if not {root/'README.md', root/'forge.project.json'}.issubset(files) or not list((root/'Scenes').glob('*.scene.json')):
+        raise ValueError('Feature Gallery project or scenes missing from Windows package source')
+    return files
+
+
+def package(build, dependencies, output, gallery_preparer=None):
+    source_gallery = Path(__file__).resolve().parents[1]/'samples/projects/FeatureGallery'
+    gallery_files(source_gallery)
+    if gallery_preparer is None:
+        return _package(build, dependencies, output, source_gallery)
+    build = Path(build).resolve()
+    preparer = Path(gallery_preparer).resolve()
+    worker = build/'forge_nav_build.exe'
+    for image in (preparer, worker, build/'forge_asset_build.exe'):
+        check_pe64(image)
+    with tempfile.TemporaryDirectory(prefix='gallery-package-', dir=build) as temporary:
+        staged = Path(temporary)/'FeatureGallery'
+        shutil.copytree(source_gallery, staged)
+        subprocess.run([str(preparer), '--prepare', str(staged), str(worker)],
+                       check=True, timeout=180)
+        # The native process has released this private copy's project/cache locks.
+        for lock in ('.forge/writer.lock', '.forge/cache/derived/cache.lock'):
+            (staged/lock).unlink(missing_ok=True)
+        _package(build, dependencies, output, staged)
+
+
+def _package(build, dependencies, output, gallery_root):
     build, dependencies, output = map(Path, (build, dependencies, output))
     metadata = json.loads((build/'build.json').read_text())
     build_id = validate_build_id(metadata['build_id'])
@@ -85,7 +117,6 @@ def package(build, dependencies, output):
         manifest['files']['resources/ui/'+resource.name] = hashlib.sha256(resource.read_bytes()).hexdigest()
     manual_output = build/'manual'
     # Render from current sources; stale removed pages cannot leak from a cached build.
-    import shutil
     shutil.rmtree(manual_output, ignore_errors=True)
     build_manual(source/'manual', manual_output, build_id)
     manual_files = sorted(p for p in manual_output.rglob('*') if p.is_file())
@@ -93,29 +124,24 @@ def package(build, dependencies, output):
         manifest['files']['manual/'+page.relative_to(manual_output).as_posix()] = hashlib.sha256(page.read_bytes()).hexdigest()
     manifest['files']['build.json'] = hashlib.sha256((build/'build.json').read_bytes()).hexdigest()
     example_root = source/'samples/projects'
-    example_files = sorted(p for p in example_root.rglob('*') if p.is_file() and p.suffix in ('.json', '.wav', '.gltf', '.glb', '.png', '.md', '.txt', '.bin', '.values', '.clip', '.ozz', '.fmesh', '.fmat', '.cpp', '.hpp', '.cmake'))
-    gallery_root = example_root/'FeatureGallery'
-    gallery_files = sorted(p for p in gallery_root.rglob('*') if p.is_file() or p.is_symlink())
-    required_gallery = {gallery_root/'README.md', gallery_root/'forge.project.json'}
-    gallery_scenes = list((gallery_root/'Scenes').glob('*.scene.json'))
-    if not required_gallery.issubset(gallery_files) or not gallery_scenes:
-        raise ValueError('Feature Gallery project or scenes missing from Windows package source')
-    linked_gallery = [p for p in gallery_files if p.is_symlink()]
-    if linked_gallery:
-        raise ValueError('Feature Gallery contains a link: ' +
-                         ', '.join(str(p.relative_to(example_root)) for p in linked_gallery))
     # Ship the complete editable Gallery, including selected cooked data and new
-    # resource formats. Other examples retain their source-file filter.
-    example_files = sorted(set(example_files).union(gallery_files))
+    # resource formats prepared on the matching platform. Keep source-relative ZIP
+    # names even when the selected Gallery lives in a private staging directory.
+    example_files = {p.relative_to(example_root).as_posix(): p
+                     for p in example_root.rglob('*')
+                     if p.is_file() and 'FeatureGallery' != p.relative_to(example_root).parts[0]
+                     and p.suffix in ('.json', '.wav', '.gltf', '.glb', '.png', '.md', '.txt', '.bin', '.values', '.clip', '.ozz', '.fmesh', '.fmat', '.cpp', '.hpp', '.cmake')}
+    example_files.update({'FeatureGallery/'+p.relative_to(gallery_root).as_posix(): p
+                          for p in gallery_files(gallery_root)})
     # Source Markdown links follow the repository layout; the distributed manual
     # is HTML beside Examples. Hash the same derived README bytes that we write.
     gallery_readme = gallery_root/'README.md'
     example_overrides = {gallery_readme: re.sub(
         r'\]\(\.\./\.\./\.\./manual/([^()#]+)\.md\)',
         r'](../../manual/\1.html)', gallery_readme.read_text(encoding='utf-8')).encode('utf-8')}
-    for example in example_files:
+    for relative, example in sorted(example_files.items()):
         content = example_overrides[example] if example in example_overrides else example.read_bytes()
-        manifest['files']['Examples/'+example.relative_to(example_root).as_posix()] = hashlib.sha256(content).hexdigest()
+        manifest['files']['Examples/'+relative] = hashlib.sha256(content).hexdigest()
     animation_source = source/'samples/animation/two-joints.gltf'
     manifest['files']['Examples/Animation/two-joints.gltf'] = hashlib.sha256(animation_source.read_bytes()).hexdigest()
     automation_sources = sorted((source/'samples/automation').glob('*.py'))
@@ -139,8 +165,8 @@ def package(build, dependencies, output):
                 archive.write(file, "runtime-kit/"+file.relative_to(kit).as_posix())
             for notice, name in notices:
                 archive.write(notice, name)
-            for example in example_files:
-                name = 'Examples/'+example.relative_to(example_root).as_posix()
+            for relative, example in sorted(example_files.items()):
+                name = 'Examples/'+relative
                 if example in example_overrides:
                     archive.writestr(name, example_overrides[example])
                 else:
@@ -183,5 +209,7 @@ if __name__ == '__main__':
     parser.add_argument('--build', type=Path, required=True)
     parser.add_argument('--dependencies', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--gallery-preparer', type=Path, required=True,
+                        help='Matching native Gallery preparation executable (not shipped)')
     args = parser.parse_args()
-    package(args.build, args.dependencies, args.output)
+    package(args.build, args.dependencies, args.output, args.gallery_preparer)

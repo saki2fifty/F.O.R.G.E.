@@ -6,6 +6,8 @@ namespace forge::physics_detail {
 // Shared checked rigid-pose projection for native admission and copied Scene
 // guides. The caller derives sign preferences from the existing spatial ancestry.
 void validate_planar_rotation_2d(LocalRotation);
+// Checked detached pose with signs derived from the resolved XY frame.
+LocalTransform debug_pose_2d(const AffineTransform&);
 LocalTransform checked_planar_pose_2d(const AffineTransform&, const LocalTransform& hint);
 // A derived XY conversion, never an ECS transform or a general 3D inverse.
 // Zero Z scale is allowed; XY must be planar and sufficiently well conditioned.

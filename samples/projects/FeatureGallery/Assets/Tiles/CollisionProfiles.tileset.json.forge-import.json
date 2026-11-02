@@ -18,10 +18,10 @@
       }
     ],
     "importer": "forge.tileset",
-    "importer_revision": "84c47aae8b225ff75b062b6d54f59d8d0fe3fe941bb648afc49fc6157405a869",
+    "importer_revision": "f33ab2a3418cca7eb37b943a5031d1b70e99e4a25c7a0ad5f9e57b156e0dec6f",
     "key_version": 1,
     "output_format": "forge.tile-set-cooked",
-    "output_version": 2,
+    "output_version": 6,
     "platform": "windows",
     "profile": "desktop",
     "settings": {},

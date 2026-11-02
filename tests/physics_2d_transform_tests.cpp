@@ -1,9 +1,12 @@
+#include "physics_2d.hpp"
 #include "physics_2d_transform.hpp"
+#include "physics_collider_2d.hpp"
 #include <algorithm>
 #include <cmath>
 #include <iostream>
 #include <limits>
 #include <stdexcept>
+#include <tuple>
 
 using namespace forge;
 using physics_detail::PlanarMapping;
@@ -25,6 +28,37 @@ void close(std::array<double, 2> actual, std::array<double, 2> expected, double 
     for (unsigned i = 0; i < 2; ++i)
         require(std::isfinite(actual[i]) && std::abs(actual[i] - expected[i]) <= tolerance,
                 "XY conversion disagrees with the existing forward transform");
+}
+void shared_collider_dimensions() {
+    using namespace physics_detail;
+    for (float sx : {-2.f, 2.f})
+        for (float sy : {-2.f, 2.f})
+            for (float sz : {-1.f, 0.f, 1.f}) {
+                const LocalScale scale{sx, sy, sz};
+                for (const auto& [kind, raw, expected] :
+                     {std::tuple{0u, std::array{2.f, 3.f}, std::array{4.f, 6.f}},
+                      std::tuple{1u, std::array{.5f, 0.f}, std::array{1.f, 0.f}},
+                      std::tuple{2u, std::array{.5f, 1.f}, std::array{1.f, 2.f}}}) {
+                    require(collider_dimensions_2d(kind, raw, scale) == expected,
+                            "Detached collider values lost signed/zero-depth scale policy");
+                    require(inline_configuration_2d({}, kind, raw, scale).dimensions == expected,
+                            "Native physical admission disagrees with shared collider values");
+                }
+            }
+    for (double degrees : {-180., -90., 0., 37., 180.}) {
+        const auto frame = collider_rotation_2d(rotation_about_axis({0, 0, 1}, degrees));
+        const auto expected = affine_transform({{}, rotation_about_axis({0, 0, 1}, degrees), {}});
+        require(std::abs(frame[0] - expected.m[0]) < 1e-6 &&
+                    std::abs(frame[1] - expected.m[4]) < 1e-6,
+                "Shared physical rotation disagrees with the transform owner's XY frame");
+    }
+    for (const LocalScale scale : {LocalScale{0, 1, 0}, LocalScale{1, 2, 0},
+                                   LocalScale{1, 1, std::numeric_limits<float>::infinity()}})
+        rejects([&] { (void)collider_dimensions_2d(1, {.5f, 0}, scale); });
+    rejects([&] { (void)collider_dimensions_2d(3, {1, 1}, {1, 1, 0}); });
+    rejects([&] { (void)collider_dimensions_2d(1, {.5f, 1}, {1, 1, 0}); });
+    rejects([&] { (void)collider_dimensions_2d(2, {500, 1}, {1, 1, 0}); });
+    rejects([&] { (void)collider_dimensions_2d(0, {.001f, 1}, {1, 1, 0}); });
 }
 void forward_cases() {
     unsigned checked = 0;
@@ -125,6 +159,7 @@ void operation_boundaries() {
 } // namespace
 int main() {
     try {
+        shared_collider_dimensions();
         forward_cases();
         operation_boundaries();
         std::cout << "Private XY mapping checks passed; body/shape admission remains separate\n";

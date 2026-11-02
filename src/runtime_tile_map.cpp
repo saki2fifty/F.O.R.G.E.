@@ -229,7 +229,10 @@ std::vector<EntityRef> assigned_maps(WorldContext& context) {
 bool active_map(flecs::entity entity) {
     return entity.get<TileMapRenderer>().enabled ||
            (entity.has<TileMapCollider2D>() && entity.has<PhysicsBody2D>() &&
-            entity.get<PhysicsBody2D>().enabled);
+            entity.get<PhysicsBody2D>().enabled) ||
+           (entity.has<TileMapCollider2D>() && entity.has<NavigationRegion2D>() &&
+            entity.get<NavigationRegion2D>().enabled &&
+            entity.get<NavigationRegion2D>().source == 1);
 }
 std::uint64_t checkpoint_integer(const Json& value) {
     require(value.is_number_unsigned() ||

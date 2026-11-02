@@ -23,8 +23,9 @@ inline void check_region_helpers(forge::Scene& scene, const std::string& region,
         check(bool(projected), "Region test point was outside the view");
         return ImVec2{(*projected)[0], (*projected)[1]};
     };
-    const auto edge = point({(view->outline[0][0] + view->outline[1][0]) * .5,
-                             (view->outline[0][1] + view->outline[1][1]) * .5, 0});
+    const auto edge =
+        point({(view->contours.front()[0][0] + view->contours.front()[1][0]) * .5,
+               (view->contours.front()[0][1] + view->contours.front()[1][1]) * .5, 0});
     ui::SpatialHelpers helpers;
     helpers.visible = false; // The separate camera/light toggle does not hide navigation.
     std::uint64_t generation = 1;
@@ -82,8 +83,9 @@ inline void check_region_helpers(forge::Scene& scene, const std::string& region,
     for (const auto& type : detail::builtins())
         if (std::string_view(type.name) == "forge.camera")
             icon["components"][type.name] = type.defaults;
-    const auto edge_world = Double3{(view->outline[0][0] + view->outline[1][0]) * .5,
-                                    (view->outline[0][1] + view->outline[1][1]) * .5, 0};
+    const auto edge_world =
+        Double3{(view->contours.front()[0][0] + view->contours.front()[1][0]) * .5,
+                (view->contours.front()[0][1] + view->contours.front()[1][1]) * .5, 0};
     icon["world_affine"] = affine_transform({{edge_world[0], edge_world[1], 0}, {}, {1, 1, 1}}).m;
     overlapping["entities"].push_back(icon);
     helpers.visible = true;

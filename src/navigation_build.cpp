@@ -3,6 +3,9 @@
 #include "model_render_resource.hpp"
 #include "navigation_asset.hpp"
 #include "navigation_sources.hpp"
+#include "navigation_tile_geometry.hpp"
+#include "tile_asset_resources.hpp"
+#include "tile_map_variants.hpp"
 #include "worker_staging.hpp"
 #include <forge/assets.hpp>
 #include <forge/project_paths.hpp>
@@ -71,8 +74,74 @@ NavigationCandidate prepare_navigation(const std::filesystem::path& project, con
             throw std::runtime_error("Navigation Mesh admission timed out");
         selected.emplace(id, std::move(lease));
     }
-    auto g = geometry(source, inputs,
-                      [&](AssetId id) -> const MeshResourceData& { return selected.at(id).get(); });
+    const auto tiles =
+        tile_inputs(source, [&](AssetId id) { return selected_tile_map_revision(*catalog, {id}); });
+    std::unique_ptr<ResourcePool<TileMapAsset>> maps;
+    std::unique_ptr<ResourcePool<TileSetAsset>> definitions;
+    if (!source.maps.empty()) {
+        const ResourcePoolLimits limits{1, max_tile_inputs, max_tile_inputs, mesh_bytes};
+        maps = std::make_unique<ResourcePool<TileMapAsset>>(limits);
+        definitions = std::make_unique<ResourcePool<TileSetAsset>>(limits);
+    }
+    struct SelectedMap {
+        ResourceLease<TileMapAsset> map;
+        ResourceLease<TileSetAsset> definition;
+        std::shared_ptr<const TileMapData> cells;
+        std::shared_ptr<const TileSetData> values;
+        std::shared_ptr<const TileMapVariants> variants;
+    };
+    std::map<AssetId, SelectedMap> selected_maps;
+    std::map<AssetId, ResourceLease<TileSetAsset>> selected_definitions;
+    std::uint64_t retained = 0;
+    const auto acquire = [&](auto& pool, const auto& ticket) {
+        while (!cancel.stop_requested() && std::chrono::steady_clock::now() < deadline) {
+            if (pool.wait(ticket, std::chrono::milliseconds(10)))
+                break;
+            if (ticket.inspect().state == ResourceState::Failed)
+                throw std::runtime_error(ticket.inspect().diagnostic);
+        }
+        if (cancel.stop_requested())
+            throw std::runtime_error("Navigation build cancelled");
+        auto lease = pool.acquire(ticket);
+        if (!lease)
+            throw std::runtime_error("Navigation Tile Map admission timed out");
+        return lease;
+    };
+    for (auto id : source.maps) {
+        auto map = acquire(*maps, request_tile_map_compact(*maps, c->root, catalog, {id}));
+        auto cells = std::make_shared<const TileMapData>(map.get());
+        const auto set_id = cells->tile_set();
+        if (!selected_definitions.contains(set_id)) {
+            auto definition =
+                acquire(*definitions, request_tile_set(*definitions, c->root, catalog, {set_id}));
+            retained += definition->resident_bytes();
+            selected_definitions.emplace(set_id, std::move(definition));
+        }
+        const TileMapData* copies[]{&map.get(), cells.get()};
+        retained += TileMapData::resident_bytes(copies);
+        if (retained > mesh_bytes)
+            throw std::runtime_error("Navigation Tile Map inputs exceed64MiB retained data");
+        auto definition = selected_definitions.at(set_id);
+        auto values = std::make_shared<const TileSetData>(definition.get());
+        auto variants = resolve_tile_variants(cells, values);
+        if (const TileMapVariants* variant = variants.get())
+            retained += TileMapVariants::resident_bytes({&variant, 1});
+        if (retained > mesh_bytes)
+            throw std::runtime_error("Navigation Tile Map variants exceed64MiB retained data");
+        selected_maps.emplace(id,
+                              SelectedMap{std::move(map), std::move(definition), std::move(cells),
+                                          std::move(values), std::move(variants)});
+    }
+    const auto& resources = settings.plane == NavigationPlane::PlanarXY ? tiles : inputs;
+    auto g = geometry(
+        source, resources,
+        [&](AssetId id) -> const MeshResourceData& { return selected.at(id).get(); },
+        [&](const Surface& surface) {
+            const auto& value = selected_maps.at(surface.collider->map);
+            return tile_collider_outlines(*value.cells, *value.values, value.variants.get(),
+                                          surface.collider->layer, surface.transform,
+                                          surface.region->obstacle);
+        });
     c->geometry_digest = g.digest;
     auto id = AssetId::generate();
     bool found = false;
@@ -85,7 +154,8 @@ NavigationCandidate prepare_navigation(const std::filesystem::path& project, con
             id = key;
             found = true;
         }
-    const unsigned geometry_version = settings.plane == NavigationPlane::PlanarXY ? 3 : 2;
+    const unsigned geometry_version =
+        settings.plane == NavigationPlane::PlanarXY ? (collider_sources(source) ? 5 : 3) : 2;
     const unsigned version = settings.dynamic_obstacles ? 4 : geometry_version;
     Json meta = {{"asset_id", id},
                  {"version", version},
@@ -95,6 +165,8 @@ NavigationCandidate prepare_navigation(const std::filesystem::path& project, con
                  {"sources", g.sources},
                  {"geometry_sha256", g.digest},
                  {"settings", settings}};
+    if (geometry_version == 5)
+        meta["tile_inputs"] = tiles;
     Json input = {{"metadata", meta}, {"vertices", g.vertices}};
     if (settings.plane == NavigationPlane::PlanarXY)
         input["obstacles"] = g.obstacles;
@@ -141,6 +213,12 @@ NavigationCandidate prepare_navigation(const std::filesystem::path& project, con
         c->record.dependencies.push_back(mesh);
         c->record.dependency_edges.push_back({mesh, MeshAsset::type, AssetDependencyKind::Build,
                                               "navigation.mesh", input.at("revision")});
+    }
+    for (const auto& input : tiles) {
+        const auto map = input.at("asset_id").get<AssetId>();
+        c->record.dependencies.push_back(map);
+        c->record.dependency_edges.push_back({map, TileMapAsset::type, AssetDependencyKind::Build,
+                                              "navigation.tile_map", input.at("revision")});
     }
     if (cancel.stop_requested())
         throw std::runtime_error("Navigation build cancelled");
@@ -194,15 +272,19 @@ bool mesh_provenance(const Json& meta, const Sources& source) {
 } // namespace
 std::string navigation_detail::selected_geometry_digest(const std::filesystem::path& project,
                                                         const Sources& source, const Json& meta) {
-    if (!mesh_provenance(meta, source))
-        return geometry(source).digest;
+    if (!mesh_provenance(meta, source) && source.maps.empty())
+        return collider_sources(source) ? source_digest(source, Json::array())
+                                        : geometry(source).digest;
     auto catalog = AssetCatalog::open_project(project);
     return selected_geometry_digest(catalog, source, meta);
 }
 std::string navigation_detail::selected_geometry_digest(const AssetCatalog& catalog,
                                                         const Sources& source, const Json& meta) {
-    if (!mesh_provenance(meta, source))
-        return geometry(source).digest;
+    if (!mesh_provenance(meta, source)) {
+        const auto tiles = tile_inputs(
+            source, [&](AssetId id) { return selected_tile_map_revision(catalog, {id}); });
+        return collider_sources(source) ? source_digest(source, tiles) : geometry(source).digest;
+    }
     auto inputs = mesh_inputs(
         source, [&](AssetId id) { return asset_detail::selected_mesh_revision(catalog, {id}); });
     return source_digest(source, inputs);

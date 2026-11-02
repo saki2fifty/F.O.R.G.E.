@@ -29,6 +29,24 @@ Json row(flecs::entity e, EntityId id, bool active) {
         c["forge.navigation_region_2d"] = region_value(region);
         c["forge.navigation_region_2d"]["enabled"] = active && region.enabled;
     }
+    if (e.has<LocalRotation>()) {
+        const auto& q = e.get<LocalRotation>();
+        c["forge.local_rotation"] = {{"x", q.x}, {"y", q.y}, {"z", q.z}, {"w", q.w}};
+    }
+    if (e.has<BoxCollider2D>()) {
+        const auto& v = e.get<BoxCollider2D>();
+        c["forge.box_collider_2d"] = {{"x", v.x}, {"y", v.y}};
+    }
+    if (e.has<CircleCollider2D>())
+        c["forge.circle_collider_2d"] = {{"radius", e.get<CircleCollider2D>().radius}};
+    if (e.has<CapsuleCollider2D>()) {
+        const auto& v = e.get<CapsuleCollider2D>();
+        c["forge.capsule_collider_2d"] = {{"radius", v.radius}, {"height", v.height}};
+    }
+    if (e.has<TileMapCollider2D>())
+        c["forge.tile_map_collider_2d"] = {{"layer", e.get<TileMapCollider2D>().layer}};
+    if (e.has<TileMapRenderer>())
+        c["forge.tile_map_renderer"] = {{"map", e.get<TileMapRenderer>().map}};
     if (e.has<Primitive>())
         c["forge.primitive"] = {{"kind", e.get<Primitive>().kind}};
     if (e.has<MeshRenderer>()) {

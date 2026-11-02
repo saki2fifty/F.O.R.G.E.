@@ -17,6 +17,7 @@ namespace forge {
 class Viewport {
   public:
     std::uint64_t redraws = 0, retained = 0;
+    NavigationTileContours navigation_tiles;
     explicit Viewport(DiligentPresentation& presentation, bool hdr = false);
     void preview_lighting(bool enabled) {
         if (preview_lighting_ != enabled) {

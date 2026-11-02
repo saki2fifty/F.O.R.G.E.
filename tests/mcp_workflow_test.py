@@ -71,6 +71,44 @@ def state_project_template(root):
     return output
 
 
+def map_profile_project_template(root):
+    """Keep the two authored Maps and their selected dependency closure."""
+    gallery = Path(__file__).resolve().parents[1]/'samples/projects/FeatureGallery'
+    output = root/'Map template'
+    output.mkdir()
+    catalog = json.loads((gallery/'forge.assets.json').read_text(encoding='utf-8'))
+    records = {row['id']: row for row in catalog['assets']}
+    pending = [row['id'] for row in records.values() if row['source'] in (
+        'Assets/Tiles/PaintedPlatforms.tilemap.json', 'Assets/Tiles/ContourTiles.tilemap.json')]
+    selected = set()
+    while pending:
+        asset = pending.pop()
+        if asset in selected or asset not in records:
+            continue
+        selected.add(asset)
+        pending.extend(records[asset]['dependencies'])
+    catalog['assets'] = [row for row in catalog['assets'] if row['id'] in selected]
+    settings = json.loads((gallery/'forge.project.json').read_text(encoding='utf-8'))
+    paths = {settings['startup_scene']['source']}
+    for row in catalog['assets']:
+        paths.add(row['source'])
+        paths.update(edge['source'] for edge in row.get('source_dependencies', []))
+        sidecar = row['source']+'.forge-import.json'
+        if (gallery/sidecar).exists():
+            paths.add(sidecar)
+        imported = row.get('metadata', {}).get('forge.import')
+        if imported:
+            cache = Path('.forge/cache/derived')/imported['key']
+            shutil.copytree(gallery/cache, output/cache, dirs_exist_ok=True)
+    for relative in paths:
+        target = output/relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(gallery/relative, target)
+    (output/'forge.assets.json').write_text(json.dumps(catalog), encoding='utf-8')
+    (output/'forge.project.json').write_text(json.dumps(settings), encoding='utf-8')
+    return output
+
+
 @contextmanager
 def editor(mode='full'):
     with tempfile.TemporaryDirectory(prefix='forge-mcp-workflows-') as temporary:
@@ -80,7 +118,9 @@ def editor(mode='full'):
         command = [HOST, str(root), RUNTIME, host_resources, NAV, mode]
         if APPLICATION_STATES_ONLY:
             command.append(str(state_project_template(root)))
-        elif MAP_PROFILE_ONLY or AUDIO_PAUSE_ONLY or SPRITE_FRAMES_ONLY or UI_LOCALIZATION_ONLY:
+        elif MAP_PROFILE_ONLY:
+            command.append(str(map_profile_project_template(root)))
+        elif AUDIO_PAUSE_ONLY or SPRITE_FRAMES_ONLY or UI_LOCALIZATION_ONLY:
             command.append(str(Path(__file__).resolve().parents[1]/'samples/projects/FeatureGallery'))
         if AUDIO_PAUSE_ONLY or LIFETIMES_ONLY or CONDITIONS_SDK:
             command.append('--sdk')
@@ -1177,6 +1217,35 @@ for legacy in (False, True):
                 control('forge_play_stop')
                 assert read('forge_scene_read') == dynamic
                 previous = dynamic
+            # The same ordinary component/property/bake owners select painted collision.
+            ok('forge_property_set_many', arguments=dict(entity=actor, component='forge.physics_body_2d',
+                                                        values=dict(motion=0, one_way=False)))
+            ok('forge_component_add', arguments=dict(entity=actor, component='forge.navigation_region_2d'))
+            ok('forge_property_set_many', arguments=dict(entity=actor, component='forge.navigation_region_2d',
+                                                        values=dict(source=1, obstacle=True)))
+            floor = ok('forge_entity_create', arguments=dict(name='Map navigation floor'))['results'][0]['selected']
+            ok('forge_component_add', arguments=dict(entity=floor, component='forge.navigation_region_2d'))
+            ok('forge_property_set_many', arguments=dict(entity=floor, component='forge.navigation_region_2d',
+                                                        values=dict(width=40, height=30)))
+            nav_settings = dict(radius=.1, height=2, climb=.4, slope=45,
+                                cell_size=.2, cell_height=.1, plane=1)
+            ok('forge_navigation_build', settings=nav_settings)
+            navigation = until(lambda: read('forge_navigation_status'), lambda value: not value['busy'])
+            assert navigation['asset'] and not navigation['error'], navigation
+            index = root/'Game/forge.assets.json'
+            selected = next(row for row in json.loads(index.read_text())['assets']
+                            if row['id'] == navigation['asset'])
+            assert selected['schema_version'] == 5 and selected['metadata']['geometry_version'] == 5, selected
+            assert [row['asset_id'] for row in selected['metadata']['tile_inputs']] == [tile_map], selected
+            assert any(edge['target'] == tile_map and edge['role'] == 'navigation.tile_map'
+                       for edge in selected['dependency_edges']), selected
+            preserved = index.read_bytes()
+            ok('forge_property_set', arguments=dict(entity=actor, component='forge.tile_map_collider_2d',
+                                                    field='layer', value=0))
+            ok('forge_navigation_build', settings=nav_settings)
+            rejected = until(lambda: read('forge_navigation_status'), lambda value: not value['busy'])
+            assert rejected['error'] and rejected['asset'] == navigation['asset'] and index.read_bytes() == preserved, rejected
+            ok('forge_history_undo')
             print(('legacy' if legacy else 'current') + ': native Map placement, Kinematic/sensor, one-way and World-bound Dynamic solid/sensor, history/revision, Save and Play passed')
             continue
         overlay_source = read('forge_scene_read')
@@ -1245,6 +1314,34 @@ for legacy in (False, True):
             point_schema = next(f for f in region_schema['fields'] if f['id'] == 'points')
             assert point_schema['type'] == 'vector' and point_schema['maximum_count'] == 64, point_schema
             assert point_schema['default'] == [] and point_schema['element']['type'] == 'struct', point_schema
+            source_schema = next(f for f in region_schema['fields'] if f['id'] == 'source')
+            assert source_schema['default'] == 0 and source_schema['animatable'] is False, source_schema
+            assert [(c['value'], c['label']) for c in source_schema['choices']] == [
+                (0, 'Rectangle / Points'), (1, 'Collider 2D')], source_schema
+            original_region_scene = read('forge_scene_read')
+            for invalid_source in (-1, 2, .5, 'collider'):
+                invalid = mutate('forge_property_set', arguments=dict(entity=obstacle,
+                    component='forge.navigation_region_2d', field='source', value=invalid_source))
+                assert not invalid['ok'] and read('forge_scene_read') == original_region_scene, invalid
+            ok('forge_component_add', arguments=dict(entity=obstacle, component='forge.circle_collider_2d'))
+            original_region_scene = read('forge_scene_read')
+            ok('forge_property_set', arguments=dict(entity=obstacle,
+                component='forge.navigation_region_2d', field='source', value=1))
+            collider_scene = read('forge_scene_read')
+            ok('forge_history_undo')
+            assert read('forge_scene_read') == original_region_scene
+            ok('forge_history_redo')
+            assert read('forge_scene_read') == collider_scene
+            ok('forge_navigation_build', settings=dict(radius=.4, height=2, climb=.4, slope=45,
+                                                       cell_size=.2, cell_height=.1, plane=1))
+            collision = until(lambda: read('forge_navigation_status'), lambda r: not r['busy'])
+            assert collision['asset'] == asset and not collision['error'], collision
+            selected = next(row for row in json.loads(index.read_text(encoding='utf-8'))['assets']
+                            if row['id'] == asset)
+            assert selected['schema_version'] == 5 and selected['metadata']['tile_inputs'] == [], selected
+            ok('forge_property_set', arguments=dict(entity=obstacle,
+                component='forge.navigation_region_2d', field='source', value=0))
+            ok('forge_component_revert', arguments=dict(entity=obstacle, component='forge.circle_collider_2d'))
             polygon = [dict(x=-3, y=-3), dict(x=3, y=-3), dict(x=3, y=-1),
                        dict(x=-1, y=-1, note='preserve'), dict(x=-1, y=3), dict(x=-3, y=3)]
             rectangle_scene = read('forge_scene_read')

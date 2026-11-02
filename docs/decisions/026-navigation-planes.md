@@ -12,7 +12,7 @@ asset database, transform writer or agent-specific authoring implementation exis
 
 `NavigationRegion2D` supplies centered rectangles or bounded simple convex/concave
 polygon walkable areas and obstacle masks. Its resolved affine contributes world XY; visual depth is independent.
-Sprite/collider/TileMap extraction remains a separate capability.
+Sprite artwork remains independent. Explicit Collider 2D input is described in the additive refinement below.
 Use the pinned Recast public convex-area API before radius erosion. Shared source
 capture retains static/controller/spatial ancestry validation in either plane.
 
@@ -58,7 +58,7 @@ selection/readiness/Play locking at100/150/200%; both MCP protocols exercise the
 native owner. The installed SDK sample compiles against installed headers and runs
 from a relocated kit. These checks do not establish native Windows/GPU acceptance.
 
-The finite profile excludes automatic art/collision extraction, platformer/off-mesh
+The finite profile excludes automatic art/collision inclusion, platformer/off-mesh
 links, dynamic rebaking, multiple profiles per Scene, cost editing and streaming.
 It does not imply parity with another engine or claim a measured performance gain.
 See [Navigation](../navigation.md) for the current contract and bounds.
@@ -87,3 +87,38 @@ operations. Guides, picking and framing consume all outline edges; rectangle res
 handles only apply to empty contours. Prefab and automation/MCP use ordinary
 reflected collection values. The new native vector changes the exact SDK
 fingerprint and requires a matching module rebuild; the C callback table is stable.
+
+## Explicit collision-source refinement
+
+`NavigationRegion2D.source` is appended after Points: 0 retains the exact old
+rectangle/polygon behavior; 1 selects exactly one configured Collider 2D on that
+entity. It uses the existing source/candidate/asset/history/runtime ownership.
+Physics dimensions, quaternion projection, compound shape admission and Tile
+collision projection are shared pure FORGE values; baking creates no physics world.
+Box/Circle/Capsule inputs use physical native rounding and role-conservative
+contours. Selected Tile Map collision pieces use the existing published Map/Set /
+neighbor-rule owners, including cell reflection, concavity, islands and holes.
+No sprite artwork is inferred and no global collider scan is introduced.
+
+This opt-in XY source profile uses geometry5 and static envelope/catalog5;
+dynamic obstacle layers retain envelope4 with geometry5. Separate `tile_inputs`
+bind selected Map root revisions and Build edges; their existing Tile Set
+revision dependencies stay authoritative. Default geometry3 digests/artifacts and
+logical AssetIds remain unchanged. A rebuild preserves previous immutable artifacts.
+Old source fields default through existing native/reflected metadata; the appended
+component value changes the exact SDK fingerprint and requires matching modules,
+without a C callback-table or dependency-version change.
+
+Runtime reads current Map snapshot revision/readiness and edited status through
+the existing Tile owner. It does not triangulate, hash cells or rebake each tick.
+An edited selected Map invalidates the static route until its published cells are
+reset. Candidate readiness includes navigation-only Map instances. Existing
+recovery revision rules apply; unsupported stale source geometry must be repaired
+or restarted before its baked route can be followed.
+
+Detached editor views carry separate contours. Existing SpatialHelpers and
+Viewport framing consume them; no bridge edges join islands. Published Map views
+share the render host's CPU pools, with at most32 readonly LRU selections and
+revision/readiness invalidation. Invalid/loading/stale inputs supply no invented
+footprint. Ordinary reflected properties provide Inspector/prefab/history and
+agent access. Rectangle handles remain exclusive to source0 with empty Points.

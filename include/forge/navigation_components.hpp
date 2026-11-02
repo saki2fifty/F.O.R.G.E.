@@ -18,12 +18,14 @@ struct NavigationRegionVertex {
     float x = 0, y = 0;
     bool operator==(const NavigationRegionVertex&) const = default;
 };
-// Independent navigation geometry in world XY; not a physics collider.
+// Explicit static navigation geometry in world XY. Source selects authored
+// rectangle/Points or this entity's configured Collider 2D; no body is created.
 struct NavigationRegion2D {
     bool enabled = true, obstacle = false;
     float width = 10, height = 10;
     // Empty uses centered width/height. Otherwise,3..64 simple CCW local points.
     std::vector<NavigationRegionVertex> points{};
+    std::uint32_t source = 0; // Rectangle/Points, or this entity's Collider 2D.
     bool operator==(const NavigationRegion2D&) const = default;
 };
 // Runtime-carved upright cylinder; an XY profile uses its circular footprint.

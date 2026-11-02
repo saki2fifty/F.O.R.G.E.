@@ -1,5 +1,12 @@
 # Explore the Feature Gallery
 
+**137-navigation-collision-sources** has two ready routes: Circle/Capsule Collider
+obstacles on a Box Collider floor, and a selected Tile Map collision layer. Press
+Play, then inspect an agent’s **Live gameplay → Navigation progress**. Outside
+Play, select a source to inspect **Shape source → Collider 2D**, edit its collider,
+rebuild the **2D (XY)** NavMesh and save. It exports without project C++. See
+[Collision navigation sources](../editor/navigation.md).
+
 **136-navigation-polygons** contains an L-shaped walkable floor and a concave
 obstacle, each with an agent and destination. Press Play to see both routes.
 Outside Play, edit a region's **Points**, rebuild its **2D (XY)** NavMesh and save.
