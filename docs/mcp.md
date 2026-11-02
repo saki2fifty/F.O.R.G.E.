@@ -723,7 +723,15 @@ is separate from C++ gameplay and has no advertised document/Scene Undo.
 `forge_navigation_status/build/cancel` and `forge_navigation_select_profile` use NavigationTools and its bounded static/tiled
 bake worker. The native settings/profile and stale-geometry publication check
 remain authoritative. Publication is separate from Scene Undo. Status includes a
-Scene-scoped `profiles` mapping from names to ordinary Nav asset IDs. Optional
+Scene-scoped `profiles` mapping from names to ordinary Nav asset IDs. It also reports
+`link_count` for the selected published asset. Author `forge.navigation_link`
+through the existing component/property operations. Discovery exposes eleven
+fields, named numeric Plane choices and static (nonanimatable) source policy.
+Set local endpoints, radius, direction and exact profile with normal revision /
+sequence/Undo semantics; build includes only enabled links in the matching plane
+and profile. There is no separate agent-only link implementation. Runtime Play
+snapshots include `navigation_debug.link` as null or `{source, entry, exit}`,
+including held crossings. See [navigation](navigation.md#authored-links). Optional
 settings string `profile` chooses the build identity; omission means `default`
 and preserves legacy IDs. Names are case-sensitive 1–64 ASCII tokens matching
 `[A-Za-z][A-Za-z0-9_-]*`. Rebuilding replaces only that profile's revision.

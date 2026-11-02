@@ -2,6 +2,7 @@
 #include "authored_schema.hpp"
 #include "material_parameter_overrides.hpp"
 #include "material_slot.hpp"
+#include "navigation_link_value.hpp"
 #include "navigation_region_value.hpp"
 #include "physics_joint_2d_value.hpp"
 #include "physics_joint_value.hpp"
@@ -79,6 +80,8 @@ template <class T> Json encode(const T& p) {
         return {{"enabled", p.enabled}, {"domain", p.domain}, {"state", p.state}};
     else if constexpr (std::is_same_v<T, NavigationSurface>)
         return {{"enabled", p.enabled}};
+    else if constexpr (std::is_same_v<T, NavigationLink>)
+        return navigation_detail::link_value(p);
     else if constexpr (std::is_same_v<T, NavigationRegion2D>)
         return navigation_detail::region_value(p);
     else if constexpr (std::is_same_v<T, NavigationObstacle>)
@@ -387,6 +390,8 @@ template <class T> Value decode(const Json& p) {
         return value;
     } else if constexpr (std::is_same_v<T, NavigationSurface>)
         return T{p.at("enabled")};
+    else if constexpr (std::is_same_v<T, NavigationLink>)
+        return navigation_detail::link_from_value(p);
     else if constexpr (std::is_same_v<T, NavigationRegion2D>)
         return navigation_detail::region_from_value(p);
     else if constexpr (std::is_same_v<T, NavigationObstacle>)
@@ -1148,7 +1153,20 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<std::string>("state");
     } else if constexpr (std::is_same_v<T, NavigationSurface>)
         c.template member<bool>("enabled");
-    else if constexpr (std::is_same_v<T, NavigationRegion2D>) {
+    else if constexpr (std::is_same_v<T, NavigationLink>) {
+        w.component<std::string>("forge.authored_string").opaque(reflected_string);
+        c.template member<bool>("enabled")
+            .template member<bool>("bidirectional")
+            .template member<std::uint32_t>("plane")
+            .template member<std::string>("profile")
+            .template member<float>("start_x")
+            .template member<float>("start_y")
+            .template member<float>("start_z")
+            .template member<float>("end_x")
+            .template member<float>("end_y")
+            .template member<float>("end_z")
+            .template member<float>("radius");
+    } else if constexpr (std::is_same_v<T, NavigationRegion2D>) {
         const auto vertex = w.component<NavigationRegionVertex>("forge.navigation_region_vertex");
         ecs_struct_desc_t fields{};
         fields.entity = vertex.id();
@@ -1644,6 +1662,11 @@ const std::array<Builtin, builtin_count>& builtins() {
             [](flecs::world& w) {
                 return register_type<NavigationSurface>(w, "forge.navigation_surface");
             }),
+        descriptor<NavigationLink>(
+            "forge.navigation_link", "Directed static connection for one navigation plane/profile",
+            "unitless", {}, {},
+            [](flecs::world&
+                   w) { return register_type<NavigationLink>(w, "forge.navigation_link"); }),
         descriptor<NavigationRegion2D>(
             "forge.navigation_region_2d",
             "Rectangle or simple polygon XY walkable region or obstacle mask", "unitless", {}, {},
@@ -1661,10 +1684,11 @@ const std::array<Builtin, builtin_count>& builtins() {
             [](flecs::world&
                    w) { return register_type<NavigationObstacle>(w, "forge.navigation_obstacle"); }),
         descriptor<NavigationBehavior>(
-            "forge.navigation_behavior", "State graph choosing Navigation Agent destinations",
-            "unitless", {}, {},
-            [](flecs::world&
-                   w) { return register_type<NavigationBehavior>(w, "forge.navigation_behavior"); }),
+            "forge.navigation_behavior",
+            "State graph or tree choosing Navigation Agent destinations", "unitless", {}, {},
+            [](flecs::world& w) {
+                return register_type<NavigationBehavior>(w, "forge.navigation_behavior");
+            }),
         descriptor<NavigationAvoidance>(
             "forge.navigation_avoidance",
             "Predictive local steering between opted-in navigation agents", "unitless", {}, {},
@@ -2080,6 +2104,35 @@ Json registration_options(const Builtin& type, const std::string& field) {
             value.erase("maximum");
             value["description"] = "Carve the current resolved pose in a dynamic navigation "
                                    "profile; no physics collision";
+        }
+    }
+    if (name == "forge.navigation_link") {
+        value["animatable"] = false;
+        value.erase("minimum");
+        value.erase("maximum");
+        if (field == "plane") {
+            value["minimum"] = 0;
+            value["maximum"] = 1;
+            value["description"] =
+                "Choose 3D or 2D (XY) to match the build profile; rebuild after editing";
+        } else if (field == "profile") {
+            value["display_name"] = "Build profile";
+            value["description"] = "Case-sensitive Scene build profile, 1-64 ASCII name characters";
+        } else if (field == "radius") {
+            value["minimum"] = .05;
+            value["maximum"] = 5;
+            value["unit"] = "meters";
+            value["display_name"] = "Endpoint radius";
+            value["description"] = "World-space ground attachment radius; rebuild after editing";
+        } else if (field.starts_with("start_") || field.starts_with("end_")) {
+            value["minimum"] = -4090;
+            value["maximum"] = 4090;
+            value["unit"] = "meters";
+            value["description"] = "Local endpoint coordinate; XY requires zero local Z";
+        } else {
+            value["description"] =
+                field == "enabled" ? "Include this static link when baking its plane and profile"
+                                   : "Allow travel in both directions; otherwise Start to End only";
         }
     }
     if (name == "forge.navigation_region_2d") {
@@ -3097,6 +3150,9 @@ ecs_entity_t builtin_enum(flecs::world& world, const std::string& component,
     } else if (component == "forge.navigation_region_2d" && field == "source") {
         type = "forge.NavigationRegionSource";
         names = {"Region", "Collider2D"};
+    } else if (component == "forge.navigation_link" && field == "plane") {
+        type = "forge.NavigationPlane";
+        names = {"Spatial3D", "PlanarXY"};
     } else if (component == "forge.camera" && field == "projection") {
         type = "forge.CameraProjection";
         names = {"Perspective", "Orthographic"};
@@ -3157,6 +3213,9 @@ ecs_entity_t builtin_enum(flecs::world& world, const std::string& component,
     if (component == "forge.navigation_region_2d") {
         world.entity(desc.entity).lookup("Region").set_doc_name("Rectangle / Points");
         world.entity(desc.entity).lookup("Collider2D").set_doc_name("Collider 2D");
+    } else if (component == "forge.navigation_link") {
+        world.entity(desc.entity).lookup("Spatial3D").set_doc_name("3D");
+        world.entity(desc.entity).lookup("PlanarXY").set_doc_name("2D (XY)");
     }
     return desc.entity;
 }
@@ -3266,6 +3325,7 @@ Json register_builtins(flecs::world& world, unsigned family) {
     world.import<flecs::units>();
     world.component<ReflectedSequenceKey>(reflected_sequence_key_type);
     world.component<ReflectedSequenceLimit>(reflected_sequence_limit_type);
+    world.component<ReflectedNoAnimation>(reflected_no_animation_type);
     Json components = Json::array();
     for (const auto& type : builtins()) {
         const std::string name = type.name;
@@ -3287,6 +3347,9 @@ Json register_builtins(flecs::world& world, unsigned family) {
             continue;
         const auto c = type.register_type(world);
         annotate_type(world, c, type);
+        if (name == "forge.navigation_link")
+            for (const auto& [member, value] : type.defaults.items())
+                c.lookup(member.c_str()).add<ReflectedNoAnimation>();
         if (name == "forge.mesh_renderer") {
             c.lookup("materials").set<ReflectedSequenceKey>({"slot"});
             c.lookup("material_parameters").set<ReflectedSequenceKey>({"slot", {"key"}});
@@ -3344,7 +3407,8 @@ Json register_builtins(flecs::world& world, unsigned family) {
         add_reference.template operator()<UiDocumentAsset>();
         add_reference.template operator()<UiLocalizationAsset>();
         add_reference.template operator()<ApplicationStatesAsset>();
-        if (name == "forge.ui_localization" || name == "forge.application_state_gate")
+        if (name == "forge.ui_localization" || name == "forge.application_state_gate" ||
+            name == "forge.navigation_link")
             references.push_back({world.id<std::string>(), "string"});
         if (name == "forge.mesh_renderer") {
             references.push_back({world.id<std::string>(), "string"});

@@ -948,7 +948,7 @@ void Scene::restore_child_order(const Json& document) {
                             static_cast<int32_t>(children.size()));
     }
 }
-Json Scene::unresolved_navigation_sources(NavigationPlane plane) const {
+Json Scene::unresolved_navigation_sources(NavigationPlane plane, std::string_view profile) const {
     if (plane != NavigationPlane::Spatial3D && plane != NavigationPlane::PlanarXY)
         throw std::runtime_error("Unsupported navigation source plane");
     const auto* marker = plane == NavigationPlane::PlanarXY ? "forge.navigation_region_2d"
@@ -958,19 +958,32 @@ Json Scene::unresolved_navigation_sources(NavigationPlane plane) const {
         if (!item.contains("prefab_member"))
             continue;
         const auto& components = item.at("components");
-        if (!components.contains(marker) || !components.at(marker).at("enabled").get<bool>() ||
-            entity(item.at("id")))
+        const bool surface =
+            components.contains(marker) && components.at(marker).at("enabled").get<bool>();
+        const bool link = !profile.empty() && components.contains("forge.navigation_link") &&
+                          components.at("forge.navigation_link").at("plane") == unsigned(plane) &&
+                          components.at("forge.navigation_link").at("profile") == profile &&
+                          components.at("forge.navigation_link").at("enabled").get<bool>();
+        if ((!surface && !link) || entity(item.at("id")))
             continue;
         Json row = {{"id", item.at("id")},
                     {"prefab", item.value("prefab", false)},
                     {"components", Json::object()}};
-        auto& intent = row["components"][marker];
-        intent = {{"enabled", true}};
-        if (plane == NavigationPlane::PlanarXY)
-            for (const auto* field : {"obstacle", "width", "height"})
-                if (components.at(marker).contains(field))
-                    intent[field] = components.at(marker).at(field);
         auto& out = row["components"];
+        if (surface) {
+            auto& intent = out[marker];
+            intent = {{"enabled", true}};
+            if (plane == NavigationPlane::PlanarXY)
+                for (const auto* field : {"obstacle", "width", "height"})
+                    if (components.at(marker).contains(field))
+                        intent[field] = components.at(marker).at(field);
+        }
+        if (link) {
+            auto& intent = out["forge.navigation_link"];
+            for (const char* field : {"enabled", "bidirectional", "plane", "profile", "start_x",
+                                      "start_y", "start_z", "end_x", "end_y", "end_z", "radius"})
+                intent[field] = components.at("forge.navigation_link").at(field);
+        }
         if (components.contains("forge.primitive"))
             out["forge.primitive"] = {{"kind", components.at("forge.primitive").at("kind")}};
         if (components.contains("forge.mesh_renderer")) {

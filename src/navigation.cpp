@@ -44,7 +44,29 @@ struct AgentState {
     Double3 last{};
     NavigationAgentObservation observation;
     std::uint64_t query_generation = 0;
+    std::vector<Query::RouteLink> links;
+    std::optional<std::size_t> crossing;
+    bool replan_after_link = false;
 };
+const Query::RouteLink* crossing(const AgentState& state) {
+    return state.crossing && *state.crossing < state.links.size() ? &state.links[*state.crossing]
+                                                                  : nullptr;
+}
+bool begin_crossing(AgentState& state, Double3 position) {
+    if (state.crossing)
+        return true;
+    for (std::size_t i = 0; i < state.links.size(); ++i) {
+        const auto& link = state.links[i];
+        if (link.exit == state.next && link.entry < state.path.size() &&
+            std::hypot(position[0] - state.path[link.entry][0],
+                       position[1] - state.path[link.entry][1],
+                       position[2] - state.path[link.entry][2]) < .001) {
+            state.crossing = i;
+            return true;
+        }
+    }
+    return false;
+}
 double distance(Double3 a, Double3 b) { return std::hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]); }
 double route_distance(Double3 position, const AgentState& state) {
     if (state.path.empty())
@@ -86,20 +108,46 @@ struct NavigationRuntime::Impl {
         std::string legacy, digest, error;
         NavStatus status = NavStatus::Stale;
         bool loading = false;
+        std::uint64_t captured = 0;
     };
+    using ProfileKey = std::pair<NavigationPlane, std::string>;
     std::array<GeometryState, 2> geometry;
-    GeometryState& profile_for(NavigationPlane plane) { return geometry.at(unsigned(plane)); }
+    std::set<ProfileKey> linked_profiles;
+    std::map<ProfileKey, GeometryState> linked_geometry;
+    GeometryState& profile_for(const Cached& asset) {
+        const auto plane = asset.data.mesh->space();
+        const auto name =
+            asset.data.metadata.at("settings").value("profile", std::string("default"));
+        const ProfileKey key{plane, name};
+        const auto& floor = geometry.at(unsigned(plane));
+        if (!linked_profiles.contains(key) || (!floor.error.empty() && floor.digest.empty()))
+            return geometry.at(unsigned(plane));
+        auto& state = linked_geometry[key];
+        if (state.captured != synchronization) {
+            if (context.world().is_readonly())
+                throw NavigationFailure(NavStatus::Unavailable,
+                                        "Waiting for navigation link source synchronization");
+            capture_geometry(state, plane, name);
+        }
+        return state;
+    }
     std::weak_ptr<RuntimeResourceService> mesh_owner;
     std::map<AssetId, std::uint64_t> mesh_tokens;
     flecs::query<const NavigationSurface> surfaces;
     flecs::query<const NavigationRegion2D> regions;
     flecs::query<const NavigationObstacle> obstacle_entities;
+    flecs::query<const NavigationLink> link_entities;
     flecs::query<const PersistentEntityId> source_entities;
     NavigationBehaviorPlayback behaviors;
     Impl(WorldContext& c, std::filesystem::path p)
         : context(c), project(std::move(p)), surfaces(c.world().query<const NavigationSurface>()),
           regions(c.world().query<const NavigationRegion2D>()),
           obstacle_entities(c.world().query<const NavigationObstacle>()),
+          link_entities(c.world()
+                            .query_builder<const NavigationLink>()
+                            .cache_kind(flecs::QueryCacheNone)
+                            .query_flags(EcsQueryMatchPrefab | EcsQueryMatchDisabled)
+                            .build()),
           source_entities(c.world()
                               .query_builder<const PersistentEntityId>()
                               .cache_kind(flecs::QueryCacheNone)
@@ -141,6 +189,112 @@ struct NavigationRuntime::Impl {
         dc.source = "NavMeshAsset";
         services.emit({Severity::Warning, "navigation", text, dc});
     }
+    void capture_geometry(GeometryState& state, NavigationPlane plane, std::string_view name) {
+        auto capture_profile = context.services().profile("navigation", "NavSourceCapture", tick);
+        const auto previous_legacy = std::move(state.legacy);
+        const auto previous_sources = std::move(state.digest);
+        state = {};
+        state.captured = synchronization;
+        try {
+            const auto source = capture_native(context, *scene, source_entities, plane, name);
+            std::shared_ptr<RuntimeResourceService> resources;
+            if (plane == NavigationPlane::Spatial3D) {
+                if (!source.meshes.empty()) {
+                    if (!context.services().available(Capability::Resources)) {
+                        release_meshes();
+                        state.status = NavStatus::Unavailable;
+                        throw std::runtime_error(
+                            "Static Mesh navigation requires runtime CPU Resources");
+                    }
+                    resources = context.services().resources();
+                    if (mesh_owner.lock() != resources) {
+                        release_meshes();
+                        mesh_owner = resources;
+                    }
+                }
+                for (auto it = mesh_tokens.begin(); it != mesh_tokens.end();) {
+                    if (!source.meshes.contains(it->first)) {
+                        if (auto owner = mesh_owner.lock())
+                            owner->release(it->second);
+                        it = mesh_tokens.erase(it);
+                    } else
+                        ++it;
+                }
+                for (auto id : source.meshes)
+                    if (!mesh_tokens.contains(id))
+                        mesh_tokens.emplace(id, resources->request(RuntimeResourceKind::Mesh, id));
+            }
+            bool ready = true;
+            std::uint64_t retained_bytes = 0;
+            const auto inputs = mesh_inputs(source, [&](AssetId id) {
+                const auto token = mesh_tokens.at(id);
+                const auto status = resources->inspect(token);
+                if (status.requested_revision.empty())
+                    throw std::runtime_error(status.diagnostic);
+                const auto lease = resources->mesh(token);
+                if (status.state == "failed")
+                    throw std::runtime_error("Navigation Mesh admission failed: " +
+                                             status.diagnostic);
+                ready &= status.state == "ready" && lease &&
+                         status.retained_revision == status.requested_revision;
+                if (lease)
+                    retained_bytes += lease->resident_bytes();
+                return status.requested_revision;
+            });
+            if (retained_bytes > mesh_bytes) {
+                state.status = NavStatus::Limit;
+                throw std::runtime_error("Navigation Mesh inputs exceed 64 MiB retained CPU data");
+            }
+            Json source_inputs = inputs;
+            if (plane == NavigationPlane::PlanarXY && !source.maps.empty()) {
+                std::map<AssetId, std::string> revisions;
+                for (const auto& surface : source.surfaces) {
+                    if (!surface.collider || !surface.collider->map)
+                        continue;
+                    const EntityRef ref{source.scene, surface.entity};
+                    const auto status = detail::inspect_runtime_tile_map(context, ref);
+                    const auto map = detail::runtime_tile_map_snapshot(context, ref);
+                    if (!status.ready || !status.current || !map ||
+                        status.requested != surface.collider->map ||
+                        status.adopted != surface.collider->map ||
+                        map->cells.asset() != surface.collider->map ||
+                        status.adopted_revision != status.requested_revision) {
+                        state.loading = true;
+                        state.status = NavStatus::Unavailable;
+                        throw std::runtime_error(
+                            status.diagnostic.empty()
+                                ? "Waiting for current navigation Tile Map collision inputs"
+                                : status.diagnostic);
+                    }
+                    if (map->edited)
+                        throw std::runtime_error(
+                            "Navigation source Tile Map has runtime edits; reset the instance "
+                            "before following its baked mesh");
+                    const auto revision = map->asset.identity().revision;
+                    const auto [entry, added] = revisions.emplace(surface.collider->map, revision);
+                    if (!added && entry->second != revision)
+                        throw std::runtime_error(
+                            "Navigation Tile Map instances have different revisions");
+                }
+                source_inputs = tile_inputs(source, [&](AssetId id) { return revisions.at(id); });
+            }
+            state.digest = source_digest(source, source_inputs);
+            if (plane == NavigationPlane::Spatial3D && source.meshes.empty())
+                state.legacy = !previous_legacy.empty() && previous_sources == state.digest
+                                   ? previous_legacy
+                                   : navigation_detail::geometry(source).digest;
+            if (!ready) {
+                state.loading = true;
+                state.status = NavStatus::Unavailable;
+                throw std::runtime_error("Waiting for selected navigation Mesh resources");
+            }
+        } catch (const std::exception& e) {
+            state.legacy.clear();
+            state.error = e.what();
+        }
+        if (!state.error.empty() && name.empty() && plane == NavigationPlane::Spatial3D)
+            release_meshes();
+    }
     Cached& get(AssetRef<NavMeshAsset> ref) {
         check();
         if (!ref.id)
@@ -166,7 +320,7 @@ struct NavigationRuntime::Impl {
         if (value.data.metadata.at("source_scene").get<AssetId>() != scene->asset_id())
             throw NavigationFailure(NavStatus::Invalid,
                                     "NavMesh was built for another scene asset");
-        const auto& source = profile_for(value.data.mesh->space());
+        const auto& source = profile_for(value);
         const auto& digest = value.data.metadata.at("version") == 1 ? source.legacy : source.digest;
         if (!digest.empty() &&
             digest != value.data.metadata.at("geometry_sha256").get<std::string>())
@@ -341,6 +495,9 @@ void NavigationRuntime::bind(Scene* scene) {
         impl_->obstacle_sources.clear();
         impl_->obstacle_error.clear();
         impl_->release_meshes();
+        impl_->geometry = {};
+        impl_->linked_geometry.clear();
+        impl_->linked_profiles.clear();
     }
 }
 bool NavigationRuntime::prepare_assets() {
@@ -354,141 +511,46 @@ void NavigationRuntime::synchronize() {
         return;
     auto& s = *impl_;
     s.check();
-    ApplicationStateActivation conditions(s.context);
     if (s.context.world().is_readonly())
         throw std::logic_error("Navigation synchronization requires a writable boundary");
     ++s.synchronization;
-    {
-        // Capture each explicit profile independently. Invalid unselected sources
-        // must not poison another plane. These are derived hashes, not asset authority.
-        auto capture_profile =
-            s.context.services().profile("navigation", "NavSourceCapture", s.tick);
-        s.capture_obstacles();
-        const auto has_source = [&](auto& query) {
-            std::vector<flecs::entity_t> enabled;
-            query.each([&](flecs::entity e, const auto& source) {
-                if (source.enabled && e.owns<PersistentEntityId>())
-                    if (s.scene->entity(e.get<PersistentEntityId>().value.str()) == e)
-                        enabled.push_back(e.id());
-            });
-            return std::any_of(enabled.begin(), enabled.end(),
-                               [&](auto id) { return conditions.active(id); });
-        };
-        const std::array<bool, 2> present{has_source(s.surfaces), has_source(s.regions)};
-        for (const auto plane : {NavigationPlane::Spatial3D, NavigationPlane::PlanarXY}) {
-            auto& state = s.profile_for(plane);
-            const auto previous_legacy = std::move(state.legacy);
-            const auto previous_sources = std::move(state.digest);
+    s.capture_obstacles();
+    ApplicationStateActivation conditions(s.context);
+    s.linked_profiles.clear();
+    s.link_entities.each([&](flecs::entity e, const NavigationLink& link) {
+        if (e.owns<PersistentEntityId>() &&
+            s.scene->entity(e.get<PersistentEntityId>().value.str()) == e &&
+            conditions.active(e.id()) && link.enabled &&
+            link.plane <= unsigned(NavigationPlane::PlanarXY))
+            s.linked_profiles.emplace(NavigationPlane(link.plane), link.profile);
+    });
+    std::erase_if(s.linked_geometry,
+                  [&](const auto& entry) { return !s.linked_profiles.contains(entry.first); });
+    const auto has_source = [&](auto& query) {
+        std::vector<flecs::entity_t> enabled;
+        query.each([&](flecs::entity e, const auto& source) {
+            if (source.enabled && e.owns<PersistentEntityId>())
+                if (s.scene->entity(e.get<PersistentEntityId>().value.str()) == e)
+                    enabled.push_back(e.id());
+        });
+        return std::any_of(enabled.begin(), enabled.end(),
+                           [&](auto id) { return conditions.active(id); });
+    };
+    const std::array<bool, 2> present{has_source(s.surfaces), has_source(s.regions)};
+    // Preserve the existing absent-geometry fast path and the shared floor-only
+    // capture. Only selected linked profiles need another derived source view.
+    for (const auto plane : {NavigationPlane::Spatial3D, NavigationPlane::PlanarXY}) {
+        auto& state = s.geometry.at(unsigned(plane));
+        if (present[unsigned(plane)]) {
+            s.capture_geometry(state, plane, {});
+        } else {
             state = {};
-            if (!present[unsigned(plane)]) {
-                if (plane == NavigationPlane::Spatial3D)
-                    s.release_meshes();
-                state.error = plane == NavigationPlane::Spatial3D
-                                  ? "No enabled NavigationSurface geometry"
-                                  : "No enabled NavigationRegion2D geometry";
-                continue;
-            }
-            try {
-                const auto source = capture_native(s.context, *s.scene, s.source_entities, plane);
-                std::shared_ptr<RuntimeResourceService> resources;
-                if (plane == NavigationPlane::Spatial3D) {
-                    if (!source.meshes.empty()) {
-                        if (!s.context.services().available(Capability::Resources)) {
-                            s.release_meshes();
-                            state.status = NavStatus::Unavailable;
-                            throw std::runtime_error(
-                                "Static Mesh navigation requires runtime CPU Resources");
-                        }
-                        resources = s.context.services().resources();
-                        if (s.mesh_owner.lock() != resources) {
-                            s.release_meshes();
-                            s.mesh_owner = resources;
-                        }
-                    }
-                    for (auto it = s.mesh_tokens.begin(); it != s.mesh_tokens.end();) {
-                        if (!source.meshes.contains(it->first)) {
-                            if (auto owner = s.mesh_owner.lock())
-                                owner->release(it->second);
-                            it = s.mesh_tokens.erase(it);
-                        } else
-                            ++it;
-                    }
-                    for (auto id : source.meshes)
-                        if (!s.mesh_tokens.contains(id))
-                            s.mesh_tokens.emplace(
-                                id, resources->request(RuntimeResourceKind::Mesh, id));
-                }
-                bool ready = true;
-                std::uint64_t retained_bytes = 0;
-                const auto inputs = mesh_inputs(source, [&](AssetId id) {
-                    const auto token = s.mesh_tokens.at(id);
-                    const auto status = resources->inspect(token);
-                    if (status.requested_revision.empty())
-                        throw std::runtime_error(status.diagnostic);
-                    const auto lease = resources->mesh(token);
-                    if (status.state == "failed")
-                        throw std::runtime_error("Navigation Mesh admission failed: " +
-                                                 status.diagnostic);
-                    ready &= status.state == "ready" && lease &&
-                             status.retained_revision == status.requested_revision;
-                    if (lease)
-                        retained_bytes += lease->resident_bytes();
-                    return status.requested_revision;
-                });
-                if (retained_bytes > mesh_bytes) {
-                    state.status = NavStatus::Limit;
-                    throw std::runtime_error(
-                        "Navigation Mesh inputs exceed 64 MiB retained CPU data");
-                }
-                Json source_inputs = inputs;
-                if (plane == NavigationPlane::PlanarXY && !source.maps.empty()) {
-                    std::map<AssetId, std::string> revisions;
-                    for (const auto& surface : source.surfaces) {
-                        if (!surface.collider || !surface.collider->map)
-                            continue;
-                        const EntityRef ref{source.scene, surface.entity};
-                        const auto status = detail::inspect_runtime_tile_map(s.context, ref);
-                        const auto map = detail::runtime_tile_map_snapshot(s.context, ref);
-                        if (!status.ready || !status.current || !map ||
-                            status.requested != surface.collider->map ||
-                            status.adopted != surface.collider->map ||
-                            map->cells.asset() != surface.collider->map ||
-                            status.adopted_revision != status.requested_revision) {
-                            state.loading = true;
-                            state.status = NavStatus::Unavailable;
-                            throw std::runtime_error(
-                                status.diagnostic.empty()
-                                    ? "Waiting for current navigation Tile Map collision inputs"
-                                    : status.diagnostic);
-                        }
-                        if (map->edited)
-                            throw std::runtime_error(
-                                "Navigation source Tile Map has runtime edits; reset the instance "
-                                "before following its baked mesh");
-                        const auto revision = map->asset.identity().revision;
-                        const auto [entry, added] =
-                            revisions.emplace(surface.collider->map, revision);
-                        if (!added && entry->second != revision)
-                            throw std::runtime_error(
-                                "Navigation Tile Map instances have different revisions");
-                    }
-                    source_inputs =
-                        tile_inputs(source, [&](AssetId id) { return revisions.at(id); });
-                }
-                state.digest = source_digest(source, source_inputs);
-                if (plane == NavigationPlane::Spatial3D && source.meshes.empty())
-                    state.legacy = !previous_legacy.empty() && previous_sources == state.digest
-                                       ? previous_legacy
-                                       : geometry(source).digest;
-                if (!ready) {
-                    state.loading = true;
-                    state.status = NavStatus::Unavailable;
-                    throw std::runtime_error("Waiting for selected navigation Mesh resources");
-                }
-            } catch (const std::exception& e) {
-                state.legacy.clear();
-                state.error = e.what();
-            }
+            state.captured = s.synchronization;
+            state.error = plane == NavigationPlane::Spatial3D
+                              ? "No enabled NavigationSurface geometry"
+                              : "No enabled NavigationRegion2D geometry";
+            if (plane == NavigationPlane::Spatial3D)
+                s.release_meshes();
         }
     }
     // Read-only C++ controllers may request queries without NavigationAgent.
@@ -601,6 +663,9 @@ void NavigationRuntime::tick(float dt, std::uint64_t tick) {
         try {
             s.valid_agent(e, a, nodes, conditions);
             s.valid_avoidance(e, nodes, conditions);
+            if (const auto previous = s.agents.find(id);
+                previous != s.agents.end() && crossing(previous->second))
+                continue; // Linear traversal is not a ground-plane avoidance participant.
             auto& asset = s.get(a.navmesh);
             const auto position = e.get<WorldTransform>().affine.point({0, 0, 0});
             if (asset.query->project(position).status != NavStatus::Success)
@@ -627,7 +692,14 @@ void NavigationRuntime::tick(float dt, std::uint64_t tick) {
         auto e = s.context.world().entity(id);
         auto a = e.get<NavigationAgent>();
         if (!a.enabled || !a.has_destination) {
-            s.agents.erase(id);
+            const auto previous = s.agents.find(id);
+            if (previous != s.agents.end() && crossing(previous->second) &&
+                previous->second.config.navmesh == a.navmesh) {
+                previous->second.config = a;
+                previous->second.replan_after_link = true;
+            } else {
+                s.agents.erase(id);
+            }
             s.errors.erase(id);
             continue;
         }
@@ -642,29 +714,55 @@ void NavigationRuntime::tick(float dt, std::uint64_t tick) {
             auto position = e.get<WorldTransform>().affine.point({0, 0, 0});
             Double3 destination{a.destination_x, a.destination_y, a.destination_z};
             auto& state = s.agents[id];
-            if (avoiding || state.config != a || state.path.empty() ||
-                state.query_generation != asset.query->generation() ||
-                distance(state.last, position) > .001) {
-                auto route = asset.query->path(position, destination);
+            if (crossing(state) && state.config.navmesh == a.navmesh &&
+                distance(state.last, position) <= .001) {
+                state.replan_after_link |= state.config.has_destination != a.has_destination ||
+                                           state.config.destination_x != a.destination_x ||
+                                           state.config.destination_y != a.destination_y ||
+                                           state.config.destination_z != a.destination_z;
+                state.config = a;
+                if (state.query_generation != asset.query->generation()) {
+                    const auto* link = crossing(state);
+                    if (!asset.query->link_available(link->source, state.path.at(link->entry),
+                                                     state.path.at(link->exit)))
+                        throw NavigationFailure(NavStatus::NoPath,
+                                                "Navigation link exit is blocked; traversal held");
+                    state.query_generation = asset.query->generation();
+                    state.replan_after_link = true;
+                }
+            } else if (avoiding || state.config != a || state.path.empty() ||
+                       state.replan_after_link ||
+                       state.query_generation != asset.query->generation() ||
+                       distance(state.last, position) > .001) {
+                auto route = asset.query->route(position, destination);
                 const auto previous = state.observation;
-                state = {a, std::move(route.points), 1, position, {}, asset.query->generation()};
+                state = {};
+                state.config = a;
+                state.path = std::move(route.path.points);
+                state.links = std::move(route.links);
+                state.next = 1;
+                state.last = position;
+                state.query_generation = asset.query->generation();
                 if (avoiding)
                     state.observation = previous;
-                if (route.status != NavStatus::Success)
-                    throw NavigationFailure(route.status, route.diagnostic);
+                if (route.path.status != NavStatus::Success)
+                    throw NavigationFailure(route.path.status, route.path.diagnostic);
             }
             if (state.path.empty())
                 continue;
             double remaining = double(a.speed) * dt;
             const auto original = position;
-            if (avoiding && remaining > 0 &&
+            if (remaining > 0 &&
+                route_distance(position, state) > a.stopping_distance + arrival_tolerance)
+                begin_crossing(state, position);
+            if (avoiding && !crossing(state) && remaining > 0 &&
                 route_distance(position, state) > a.stopping_distance + arrival_tolerance) {
                 auto avoidance_profile =
                     s.context.services().profile("navigation", "NavAvoidance", tick);
                 while (state.next < state.path.size() &&
                        distance(position, state.path[state.next]) < .001)
                     ++state.next;
-                if (state.next < state.path.size()) {
+                if (state.next < state.path.size() && !begin_crossing(state, position)) {
                     const auto waypoint = state.path[state.next];
                     const auto length = distance(position, waypoint);
                     const auto speed =
@@ -726,35 +824,52 @@ void NavigationRuntime::tick(float dt, std::uint64_t tick) {
                         ++state.next;
                 }
             }
-            if (avoiding)
+            if (avoiding && !crossing(state))
                 remaining = 0;
             while (remaining > 0 && state.next < state.path.size()) {
                 const auto distance_left = route_distance(position, state);
-                if (distance_left <= a.stopping_distance + arrival_tolerance)
+                if (!crossing(state) && distance_left <= a.stopping_distance + arrival_tolerance)
                     break;
+                begin_crossing(state, position);
                 auto waypoint = state.path[state.next];
                 double d = distance(position, waypoint);
                 if (d < 1e-6) {
                     ++state.next;
+                    if (state.crossing) {
+                        state.crossing.reset();
+                        if (state.replan_after_link || avoiding)
+                            break;
+                    }
                     continue;
                 }
                 const auto advance =
-                    std::min({remaining, d, std::max(0., distance_left - a.stopping_distance)});
+                    crossing(state) ? std::min(remaining, d)
+                                    : std::min({remaining, d,
+                                                std::max(0., distance_left - a.stopping_distance)});
                 if (advance < 1e-8)
                     break;
                 Double3 desired;
                 for (unsigned j = 0; j < 3; ++j)
                     desired[j] = position[j] + (waypoint[j] - position[j]) * (advance / d);
-                auto moved = asset.query->move(position, desired);
-                if (moved.status != NavStatus::Success)
-                    throw NavigationFailure(moved.status, moved.diagnostic);
-                auto next = moved.points.front();
+                auto next = desired;
+                if (!crossing(state)) {
+                    auto moved = asset.query->move(position, desired);
+                    if (moved.status != NavStatus::Success)
+                        throw NavigationFailure(moved.status, moved.diagnostic);
+                    next = moved.points.front();
+                }
                 if (distance(next, position) < 1e-8)
                     break;
                 position = next;
                 remaining -= advance;
-                if (distance(position, waypoint) < .001)
+                if (distance(position, waypoint) < .001) {
                     ++state.next;
+                    if (state.crossing) {
+                        state.crossing.reset();
+                        if (state.replan_after_link || avoiding)
+                            break;
+                    }
+                }
             }
             if (distance(position, original) > 1e-8) {
                 auto local = position;
@@ -780,7 +895,8 @@ void NavigationRuntime::tick(float dt, std::uint64_t tick) {
             out.remaining_distance = route_distance(position, state);
             for (unsigned j = 0; j < 3; ++j)
                 out.velocity[j] = (position[j] - original[j]) / dt;
-            out.phase = out.remaining_distance <= a.stopping_distance + arrival_tolerance
+            out.phase = !crossing(state) && !state.replan_after_link &&
+                                out.remaining_distance <= a.stopping_distance + arrival_tolerance
                             ? NavigationAgentPhase::Arrived
                         : a.speed == 0                        ? NavigationAgentPhase::Paused
                         : distance(position, original) > 1e-8 ? NavigationAgentPhase::Moving
@@ -788,14 +904,22 @@ void NavigationRuntime::tick(float dt, std::uint64_t tick) {
             s.errors.erase(id);
         } catch (const std::exception& error) {
             auto& state = s.agents[id];
-            state = {};
+            const bool held =
+                crossing(state) && state.config.navmesh == a.navmesh && e.has<WorldTransform>() &&
+                distance(state.last, e.get<WorldTransform>().affine.point({0, 0, 0})) <= .001;
+            if (!held)
+                state = {};
+            else
+                state.observation = {};
             state.config = a;
             const auto* failure = dynamic_cast<const NavigationFailure*>(&error);
             const bool pending = failure && failure->status == NavStatus::Unavailable &&
                                  s.cache.contains(a.navmesh.id) &&
-                                 s.profile_for(s.cache.at(a.navmesh.id).data.mesh->space()).loading;
-            state.observation.phase =
-                pending ? NavigationAgentPhase::Pending : NavigationAgentPhase::Failed;
+                                 s.profile_for(s.cache.at(a.navmesh.id)).loading;
+            state.observation.phase = pending ? NavigationAgentPhase::Pending
+                                      : held && failure && failure->status == NavStatus::NoPath
+                                          ? NavigationAgentPhase::Blocked
+                                          : NavigationAgentPhase::Failed;
             state.observation.status = failure ? failure->status : NavStatus::Invalid;
             state.observation.tick = pending ? 0 : tick;
             // A failed movement tick has no valid path/pose/velocity sample.
@@ -846,6 +970,12 @@ Json NavigationRuntime::debug(flecs::entity_t entity) const {
     Json path = Json::array();
     if (out->has_path)
         path = impl_->agents.at(entity).path;
+    Json link = nullptr;
+    if (const auto state = impl_->agents.find(entity); state != impl_->agents.end())
+        if (const auto* current = crossing(state->second))
+            link = {{"source", current->source},
+                    {"entry", state->second.path.at(current->entry)},
+                    {"exit", state->second.path.at(current->exit)}};
     Json diagnostic = "";
     if (out->phase == NavigationAgentPhase::Failed) {
         const auto error = impl_->errors.find(impl_->agent_limit ? 0 : entity);
@@ -853,6 +983,7 @@ Json NavigationRuntime::debug(flecs::entity_t entity) const {
             diagnostic = detail::json_output_text(error->second.substr(0, 2048));
     }
     return {{"path", path},
+            {"link", link},
             {"diagnostic", std::move(diagnostic)},
             {"status", nav_status_name(out->status)},
             {"phase", navigation_agent_phase_name(out->phase)},
@@ -918,6 +1049,7 @@ Json NavigationRuntime::checkpoint() {
     if (behaviors.is_null())
         return Json();
     Json revisions = Json::array(), agents = Json::array();
+    bool has_crossing = false;
     if (impl_) {
         impl_->check();
         ApplicationStateActivation conditions(impl_->context);
@@ -954,16 +1086,32 @@ Json NavigationRuntime::checkpoint() {
                  {"avoidance", avoidance},
                  {"translation", translation},
                  {"translation_owned", !translation.is_null() && e.owns<LocalTranslation>()}});
+            if (const auto state = impl_->agents.find(e.id()); state != impl_->agents.end())
+                if (const auto* link = crossing(state->second);
+                    link && !translation.is_null() &&
+                    state->second.config.navmesh == e.get<NavigationAgent>().navmesh &&
+                    distance(state->second.last, e.get<WorldTransform>().affine.point({0, 0, 0})) <=
+                        .001) {
+                    agents.back()["link"] = {{"source", link->source},
+                                             {"entry", state->second.path.at(link->entry)},
+                                             {"exit", state->second.path.at(link->exit)}};
+                    has_crossing = true;
+                }
         });
     }
-    Json result = {
-        {"version", behaviors.empty() ? 2 : 3}, {"assets", revisions}, {"agents", agents}};
-    if (!behaviors.empty())
+    Json result = {{"version", has_crossing        ? 4
+                               : behaviors.empty() ? 2
+                                                   : 3},
+                   {"assets", revisions},
+                   {"agents", agents}};
+    if (has_crossing || !behaviors.empty())
         result["behaviors"] = behaviors;
     return result;
 }
 void NavigationRuntime::restore(const Json& data) {
-    if (!impl_ || (data.at("version") != 1 && data.at("version") != 2 && data.at("version") != 3) ||
+    if (!impl_ ||
+        (data.at("version") != 1 && data.at("version") != 2 && data.at("version") != 3 &&
+         data.at("version") != 4) ||
         !data.at("assets").is_array() || data.at("assets").size() > 8 ||
         !data.at("agents").is_array() || data.at("agents").size() > 64)
         throw std::runtime_error("Invalid navigation recovery metadata");
@@ -975,6 +1123,7 @@ void NavigationRuntime::restore(const Json& data) {
         std::optional<NavigationAvoidance> avoidance;
         std::optional<LocalTranslation> translation;
         bool owned, translation_owned, avoidance_owned;
+        Json link;
     };
     std::vector<Pending> pending;
     std::set<flecs::entity_t> expected, seen_entities;
@@ -1028,8 +1177,26 @@ void NavigationRuntime::restore(const Json& data) {
             impl_->context.evaluate_world_transforms();
             impl_->valid_agent(e, config, impl_->context.transform_nodes(), conditions);
         }
-        pending.push_back(
-            {e, config, avoidance, translation, owned, translation_owned, avoidance_owned});
+        Json link = nullptr;
+        if (entry.contains("link")) {
+            if (data.at("version") != 4 || !translation)
+                throw std::runtime_error(
+                    "Navigation traversal recovery requires version 4 and a valid pose");
+            link = entry.at("link");
+            if (!link.is_object() || link.size() != 3 || !link.at("source").get<EntityId>())
+                throw std::runtime_error("Invalid navigation traversal recovery identity");
+            for (const auto* field : {"entry", "exit"}) {
+                const auto& endpoint = link.at(field);
+                if (!endpoint.is_array() || endpoint.size() != 3)
+                    throw std::runtime_error(
+                        "Navigation traversal recovery endpoint requires three coordinates");
+                for (const auto value : endpoint.get<Double3>())
+                    if (!std::isfinite(value))
+                        throw std::runtime_error("Invalid navigation traversal recovery endpoint");
+            }
+        }
+        pending.push_back({e, config, avoidance, translation, owned, translation_owned,
+                           avoidance_owned, std::move(link)});
     }
     if (expected != seen_entities)
         throw std::runtime_error("Navigation recovery agent set differs");
@@ -1054,7 +1221,50 @@ void NavigationRuntime::restore(const Json& data) {
     impl_->agents.clear();
     impl_->agent_limit = false;
     impl_->errors.clear();
-    impl_->behaviors.restore(data.at("version") == 3 ? data.at("behaviors") : Json::array());
+    bool has_crossing = false;
+    impl_->context.evaluate_world_transforms();
+    for (const auto& p : pending) {
+        if (p.link.is_null())
+            continue;
+        if (!seen.contains(p.agent.navmesh.id))
+            throw std::runtime_error(
+                "Navigation traversal recovery requires its exact asset revision");
+        auto& asset = impl_->get(p.agent.navmesh);
+        const auto source = p.link.at("source").get<EntityId>();
+        const auto entry = p.link.at("entry").get<Double3>(),
+                   exit = p.link.at("exit").get<Double3>();
+        if (!asset.query->link_available(source, entry, exit))
+            throw std::runtime_error(
+                "Navigation traversal recovery differs from the admitted oriented link");
+        const auto position = p.entity.get<WorldTransform>().affine.point({0, 0, 0});
+        double length_squared = 0, projection = 0;
+        for (unsigned i = 0; i < 3; ++i) {
+            length_squared += (exit[i] - entry[i]) * (exit[i] - entry[i]);
+            projection += (position[i] - entry[i]) * (exit[i] - entry[i]);
+        }
+        if (length_squared < .000001 || projection < -.000001 ||
+            projection > length_squared + .000001)
+            throw std::runtime_error("Navigation traversal recovery pose is outside its span");
+        Double3 closest;
+        for (unsigned i = 0; i < 3; ++i)
+            closest[i] = entry[i] + (exit[i] - entry[i]) * projection / length_squared;
+        if (distance(position, closest) > .001)
+            throw std::runtime_error("Navigation traversal recovery pose is off its span");
+        AgentState state;
+        state.config = p.agent;
+        state.path = {entry, exit};
+        state.links = {{source, 0, 1}};
+        state.crossing = 0;
+        state.last = position;
+        state.query_generation = asset.query->generation();
+        state.replan_after_link = true;
+        impl_->agents.emplace(p.entity.id(), std::move(state));
+        has_crossing = true;
+    }
+    if (data.at("version") == 4 && !has_crossing)
+        throw std::runtime_error("Navigation recovery version 4 requires an active traversal");
+    impl_->behaviors.restore(
+        data.at("version") == 3 || data.at("version") == 4 ? data.at("behaviors") : Json::array());
 }
 EngineModule navigation_module(std::filesystem::path project) {
     auto m = navigation_schema_module();

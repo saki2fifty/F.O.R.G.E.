@@ -39,6 +39,8 @@ Phase9 authoring workflows are implemented and automatically accepted.
 | [027](027-navigation-obstacle-tiles.md) | Per-query obstacle tiles preserve immutable navigation assets |
 | [028](028-navigation-behaviors.md) | Navigation behavior graphs share existing ownership and agent intent |
 | [029](029-runtime-ui-localization.md) | Runtime UI catalogs and locale reuse Scene, source and presentation owners |
+| [030](030-application-states.md) | Application state definitions and conditions share runtime and authoring owners |
+| [031](031-navigation-links.md) | Authored links extend the existing navigation build, query and Agent owners |
 
 Record date: 2026-09-19. Dependency authority is the exact pin, per
 [dependency policy](../dependency-policy.md). Existing identity, prefab and TRS

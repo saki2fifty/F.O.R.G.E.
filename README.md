@@ -20,7 +20,7 @@ Native ECS game editor under development. Windows/D3D12 is the first editor targ
 | Game interface and fonts | RmlUi and FreeType | Runtime HUD documents, input, text and bundled-font rendering. |
 | Physics | Jolt Physics and Box2D | Jolt supplies 3D bodies, queries, constraints and character movement; private Box2D supplies XY bodies, colliders, joints, sensors, queries, painted Tile Map collision and native 2D character movement. |
 | Skeletal animation | Ozz Animation | Animation sampling, blending and glTF animation conversion. |
-| Navigation | Recast and Detour | Static navigation mesh generation, path queries and local steering. |
+| Navigation | Recast and Detour | Navigation mesh generation, dynamic obstacle updates, authored links, path queries and local steering. |
 | Audio | miniaudio | WAV/FLAC/MP3 decoding, playback, spatial sound and mixing. |
 | Serialization | nlohmann/json | Authored JSON documents and process messages. |
 | Mesh processing | meshoptimizer and Draco | Geometry processing and glTF compression decoding. |
@@ -222,7 +222,7 @@ See the [capability checklist and validation limits](docs/mcp.md).
 - Exact-version shared-Flecs C++ gameplay SDK, [Jolt physics](manual/editor/physics.md), and [Audio sources/listeners and WAV/FLAC/MP3 import](manual/editor/audio.md).
 
 - Model/texture/material/shader importing, cooked resources and dependency-aware, relocatable game export with a standalone SDL/Diligent/RmlUi executable.
-- [Navigation](manual/editor/navigation.md), with local source for [patrol, wait, chase graphs and behavior trees](manual/editor/navigation-behavior.md), shared editor/MCP authoring and ready Gallery131/132/139 examples; [runtime UI](manual/editor/runtime-ui.md) and the [asset workflow](manual/editor/content-browser.md).
+- [Navigation](manual/editor/navigation.md), with authored directional links and local source for [patrol, wait, chase graphs and behavior trees](manual/editor/navigation-behavior.md), shared editor/MCP authoring and ready Gallery131/132/139/140 examples; [runtime UI](manual/editor/runtime-ui.md) and the [asset workflow](manual/editor/content-browser.md).
 - [Application States](manual/editor/application-states.md): authored direct/hierarchical/computed/subordinate modes, source and Scene history, runtime-only Game/UI controls, native conditions/events, matching SDK and MCP access, explicit stock activity conditions, runtime-created root lifetimes, and playable Gallery134/135.
 - [Localized game menus and HUDs](manual/editor/ui-localization.md): one Scene language controller, shared source/editor/MCP catalog authoring, literal UTF-8 text, deterministic fallback and paused language controls. Original Gallery133 includes English, French and Spanish. Full shaping and editor translation are separate unsupported capabilities.
 - [Phase8 runtime foundations](docs/game-foundation.md): resource-gated scene sessions, separate versioned player saves/settings, OS user-data storage, collision assets and a Jolt character controller.

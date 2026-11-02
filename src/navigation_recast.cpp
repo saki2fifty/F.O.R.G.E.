@@ -17,6 +17,7 @@ void require(bool ok) {
 using Compact = std::unique_ptr<rcCompactHeightfield, decltype(&rcFreeCompactHeightfield)>;
 void validate_geometry(const Geometry& g, NavigationSettings settings) {
     validate_navigation_settings(settings);
+    validate_navigation_links(g.connections, settings.plane);
     const auto& verts = g.vertices;
     const auto& indices = g.indices;
     require(!indices.empty() && indices.size() % 3 == 0 && indices.size() <= 16384 * 3 &&
@@ -176,6 +177,9 @@ std::vector<std::byte> build_tile(const Geometry& g, NavigationSettings settings
     p.buildBvTree = false;
     std::copy(polys->bmin, polys->bmin + 3, p.bmin);
     std::copy(polys->bmax, polys->bmax + 3, p.bmax);
+    const auto altitude = p.bmin[1] + p.verts[1] * p.ch;
+    NativeNavigationLinks connections(g.connections, settings.plane, altitude);
+    connections.apply(p);
     unsigned char* data = nullptr;
     int bytes = 0;
     require(dtCreateNavMeshData(&p, &data, &bytes));
@@ -183,7 +187,7 @@ std::vector<std::byte> build_tile(const Geometry& g, NavigationSettings settings
     require(bytes > 0 && bytes <= int(max_nav_bytes));
     std::vector<std::byte> out(bytes);
     std::memcpy(out.data(), data, bytes);
-    validate_tile(out, settings.plane);
+    validate_tile(out, settings.plane, g.connections);
     return out;
 }
 HeightfieldLayers build_layers(const Geometry& g, NavigationSettings settings) {

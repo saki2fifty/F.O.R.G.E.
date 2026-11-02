@@ -28,6 +28,10 @@ struct ReflectedMemberDefault {
     nlohmann::json value;
 };
 inline constexpr const char* reflected_member_default_type = "forge.meta.member_default";
+// Static authored inputs can narrow the common numeric animation eligibility.
+// Presence belongs to the native member; copied schemas only project this policy.
+struct ReflectedNoAnimation {};
+inline constexpr const char* reflected_no_animation_type = "forge.meta.no_animation";
 struct ReflectedValueLimits {
     std::size_t bytes = 65536, elements = 4096;
 };

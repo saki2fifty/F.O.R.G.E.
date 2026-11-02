@@ -33,14 +33,20 @@ bool digest(const std::string& s) {
 } // namespace
 NavigationSettings provenance_settings(const nlohmann::json& meta) {
     const auto version = meta.at("version");
-    require(version.is_number_integer() &&
-                (version == 1 || version == 2 || version == 3 || version == 4 || version == 5),
+    require(version.is_number_integer() && (version == 1 || version == 2 || version == 3 ||
+                                            version == 4 || version == 5 || version == 6),
             "Unsupported navigation envelope version");
     auto settings = meta.at("settings").get<NavigationSettings>();
-    require((version == 4) == settings.dynamic_obstacles &&
-                (version == 4 ||
+    require((version == 4 || (version == 6 && settings.dynamic_obstacles)) ==
+                    settings.dynamic_obstacles &&
+                (version == 4 || version == 6 ||
                  (version == 3 || version == 5) == (settings.plane == NavigationPlane::PlanarXY)),
             "Navigation envelope version/profile/plane mismatch");
+    if (version == 6)
+        require(!read_navigation_links(meta.at("links"), settings.plane).empty(),
+                "Navigation version 6 requires authored links");
+    else
+        require(!meta.contains("links"), "Authored links require navigation version 6");
     if (version == 1) {
         require(!meta.contains("geometry_version") && !meta.contains("mesh_inputs") &&
                     !meta.contains("tile_inputs"),
@@ -83,19 +89,23 @@ std::vector<std::byte> envelope(nlohmann::json meta, std::span<const std::byte> 
     if (!meta.contains("version"))
         meta["version"] = 1;
     const auto settings = provenance_settings(meta);
+    const auto connections = meta.contains("links")
+                                 ? read_navigation_links(meta.at("links"), settings.plane)
+                                 : std::vector<NavigationLinkData>{};
     if (settings.dynamic_obstacles) {
         const auto layers = decode_layers(tile);
         require(layers.settings == settings, "Navigation layer/settings mismatch");
         meta["bounds"] = layer_properties(layers);
     } else {
-        validate_tile(tile, settings.plane);
-        meta["bounds"] = tile_properties(tile);
+        meta["bounds"] = tile_properties(tile, settings.plane, connections);
     }
     const unsigned version = meta.value("version", 1u);
     meta["version"] = version;
     meta["recast_revision"] = recast_revision;
-    meta["layout"] = settings.dynamic_obstacles ? "le-cells32-tiled-v1"
-                                                : "le-polyref32-detour7-static-single-v1";
+    meta["layout"] = settings.dynamic_obstacles
+                         ? (version == 6 ? "le-cells32-tiled-links-v1" : "le-cells32-tiled-v1")
+                         : (version == 6 ? "le-polyref32-detour7-links-single-v1"
+                                         : "le-polyref32-detour7-static-single-v1");
     meta["tile_sha256"] = asset_detail::content_digest(tile);
     auto text = meta.dump();
     require(text.size() <= 65536, "Navigation metadata exceeds 64 KiB");
@@ -116,7 +126,7 @@ Admitted admit(std::span<const std::byte> bytes) {
     require(std::equal(magic.begin(), magic.end(), bytes.begin(),
                        [](char a, std::byte b) { return a == std::to_integer<char>(b); }) &&
                 (u32(bytes, 8) == 1 || u32(bytes, 8) == 2 || u32(bytes, 8) == 3 ||
-                 u32(bytes, 8) == 4 || u32(bytes, 8) == 5),
+                 u32(bytes, 8) == 4 || u32(bytes, 8) == 5 || u32(bytes, 8) == 6),
             "Unsupported navigation envelope");
     const auto n = u32(bytes, 12), t = u32(bytes, 16);
     require(n > 0 && n <= 65536 && t > 0 && t <= max_nav_bytes &&
@@ -130,28 +140,39 @@ Admitted admit(std::span<const std::byte> bytes) {
             return true;
         });
     require(meta.is_object() && meta.at("version") == u32(bytes, 8) &&
-                meta.at("recast_revision") == recast_revision &&
-                meta.at("layout") == (u32(bytes, 8) == 4 ? "le-cells32-tiled-v1"
-                                                         : "le-polyref32-detour7-static-single-v1"),
+                meta.at("recast_revision") == recast_revision,
             "Incompatible navigation build provenance");
     (void)meta.at("asset_id").get<AssetId>();
     (void)meta.at("source_scene").get<AssetId>();
     require(digest(meta.at("geometry_sha256").get<std::string>()),
             "Invalid navigation geometry digest");
     const auto settings = provenance_settings(meta);
+    const auto connections = meta.contains("links")
+                                 ? read_navigation_links(meta.at("links"), settings.plane)
+                                 : std::vector<NavigationLinkData>{};
+    const auto version = u32(bytes, 8);
+    const auto expected_layout =
+        settings.dynamic_obstacles
+            ? (version == 6 ? "le-cells32-tiled-links-v1" : "le-cells32-tiled-v1")
+            : (version == 6 ? "le-polyref32-detour7-links-single-v1"
+                            : "le-polyref32-detour7-static-single-v1");
+    require(meta.at("layout") == expected_layout, "Incompatible navigation layout/profile");
     const auto& ids = meta.at("sources");
     require(ids.is_array() && !ids.empty() && ids.size() <= 512,
             "Invalid navigation source identities");
     std::set<EntityId> unique;
     for (const auto& id : ids)
         require(unique.insert(id.get<EntityId>()).second, "Repeated navigation source identity");
+    for (const auto& connection : connections)
+        require(unique.contains(connection.entity),
+                "Navigation link source identity is not declared");
     auto tile = bytes.subspan(20 + n, t);
     require(meta.at("tile_sha256").get<std::string>() == asset_detail::content_digest(tile),
             "Navigation tile digest mismatch");
     // Structural validation precedes all Detour runtime calls, even if checksums match.
     const auto properties = [&] {
         if (!settings.dynamic_obstacles)
-            return tile_properties(tile);
+            return tile_properties(tile, settings.plane, connections);
         const auto layers = decode_layers(tile);
         require(layers.settings == settings, "Navigation layer/settings mismatch");
         return layer_properties(layers);
@@ -162,14 +183,15 @@ Admitted admit(std::span<const std::byte> bytes) {
             properties.at("climb") == settings.climb &&
             std::abs(properties.at("cell_inverse").get<float>() - 1 / settings.cell_size) < .0001f,
         "Navmesh agent settings mismatch");
-    auto mesh = std::make_shared<Mesh>(tile, settings.plane, settings.dynamic_obstacles);
+    auto mesh =
+        std::make_shared<Mesh>(tile, settings.plane, settings.dynamic_obstacles, connections);
     return {std::move(meta), std::move(mesh)};
 }
 Admitted load(const std::filesystem::path& root, const AssetRecord& record) {
     require(record.type == NavMeshAsset::type &&
                 (record.schema_version == 1 || record.schema_version == 2 ||
                  record.schema_version == 3 || record.schema_version == 4 ||
-                 record.schema_version == 5),
+                 record.schema_version == 5 || record.schema_version == 6),
             "Wrong navigation asset type/version");
     auto bytes =
         asset_detail::read_bytes(ProjectPaths(root).resolve(record.source), max_nav_bytes + 65556);

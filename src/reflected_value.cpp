@@ -179,6 +179,10 @@ struct Projection {
                 field["read_only"] = false;
                 field["animatable"] =
                     field.at("type") == "float32" || field.at("type") == "float64";
+                const auto no_animation =
+                    ecs_lookup_path_w_sep(world, 0, reflected_no_animation_type, "::", "::", false);
+                if (no_animation && m.member && ecs_has_id(world, m.member, no_animation))
+                    field["animatable"] = false;
                 field["unit"] = "unitless";
                 const auto key_type =
                     ecs_lookup_path_w_sep(world, 0, reflected_sequence_key_type, "::", "::", false);

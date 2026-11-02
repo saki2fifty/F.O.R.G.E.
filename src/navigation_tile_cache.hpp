@@ -1,5 +1,6 @@
 #pragma once
 #include "navigation_layers.hpp"
+#include "navigation_links.hpp"
 #include <forge/identity.hpp>
 #include <memory>
 
@@ -14,7 +15,7 @@ struct CylinderObstacle {
 // A private query derivative, never shared between Worlds or persisted.
 class TileCache {
   public:
-    explicit TileCache(const HeightfieldLayers&);
+    explicit TileCache(const HeightfieldLayers&, std::span<const NavigationLinkData> = {});
     ~TileCache();
     dtNavMesh* mesh() const;
     bool update(std::span<const CylinderObstacle>);

@@ -1340,3 +1340,32 @@ SHA-256: `b48bc88ea039aec053fcc2bd907964ecfb27b74d38383a3df55c06482e2d487f`.
 The local State Condition validation record retains exact source/artifact inputs
 and pixel-pair receipts. Physical Windows/MSVC/D3D12, input/DPI/GPU and graphical
 EXE acceptance remain queued; offline manual/package checks are separate.
+
+
+## Authored navigation links
+
+`manual/images/navigation-link-inspector.png` is the real ComponentInspector for
+Gallery140's upper two-way source. It was captured from local
+`forge/authored-navigation-links` work based on6462f3e, with unassigned build
+identity, using the packaged font, ImGui and SDL software renderer. The fixture's
+`--capture` route opens a copied ordinary project/Scene, renders the actual
+controls, checks essential controls are visible and verifies no authored change.
+The original860x560 PNG is preserved; no cropping, scaling or retouching was used.
+Canonical SHA-256: `7863d809007f687f0af885bff3308946e893ad00224cfef46be1e10947b6730e`.
+
+`manual/images/navigation-links-game.png` is actual Gallery140 Game output after
+90fixed ticks on software Vulkan/lvp. Cyan and orange are in their first straight
+crossings. The existing Game/FrameRenderer fixture verifies four byte-exact moving
+source/source-hidden relocated-export display pairs, including portrait output.
+The original `authored/90-640.ppm` RGB pixels were losslessly encoded as640x360 PNG,
+without cropping, scaling or inserting controls. Canonical SHA-256:
+`828baa2d3dad876db010ca3b62a0b4d661aa270ec8f1982182592f5ffabf1993`.
+
+Scene `0c9cd880-2808-4310-bf1d-9eb426ad5400` source SHA-256:
+`cf01ce5e80540e86ba84e1a57976fb6f8bd8494b13184527fd0e91d576e9336c`. It reuses the existing original Patrol behavior with
+separate dynamic Loop/two-way and static OneWay navigation assets. Local capture
+receipts retain executable/source provenance, exact inputs, environment and
+source/export image comparisons. These captures establish neither a full editor
+desktop nor Windows/MSVC/D3D12, physical GPU/DPI, graphical EXE or external-agent
+acceptance. Those reviews remain queued separately; offline manual/package
+inclusion is verified by the normal documentation gate.

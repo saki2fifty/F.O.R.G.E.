@@ -11,6 +11,7 @@
 #include <memory>
 #include <nlohmann/json.hpp>
 #include <string>
+#include <string_view>
 #include <vector>
 namespace forge {
 using Json = nlohmann::json;
@@ -36,7 +37,8 @@ class Scene {
     Json ui_document_rows() const;
     // Narrow copied intent for removed prefab members that still own an enabled
     // NavigationSurface. Native-only capture must not silently omit these errors.
-    Json unresolved_navigation_sources(NavigationPlane plane = NavigationPlane::Spatial3D) const;
+    Json unresolved_navigation_sources(NavigationPlane plane = NavigationPlane::Spatial3D,
+                                       std::string_view profile = "default") const;
     // Detached command/gesture projection; never a mutable live representation.
     Json preview_document(const Json& intended) const;
     static void validate_document(const Json& document);

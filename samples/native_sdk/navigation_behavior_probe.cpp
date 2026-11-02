@@ -5,6 +5,7 @@
 #include <forge/navigation_components.hpp>
 #include <map>
 #include <memory>
+#include <string>
 #include <string_view>
 namespace {
 template <class T> bool layout(flecs::world& world, const char* path) {
@@ -17,7 +18,8 @@ int32_t FORGE_SDK_CALL schemas(const ForgeSdkWorldV1* host, char*, uint32_t) {
     if (!layout<forge::NavigationBehavior>(world, "forge.navigation_behavior") ||
         !layout<forge::NavigationBehaviorCursor>(world,
                                                  "forge.runtime.navigation_behavior_cursor") ||
-        !layout<forge::NavigationAgent>(world, "forge.navigation_agent"))
+        !layout<forge::NavigationAgent>(world, "forge.navigation_agent") ||
+        !layout<forge::NavigationLink>(world, "forge.navigation_link"))
         return 0;
     const forge::NavigationBehavior config{{}, {}, {}, false};
     forge::NavigationBehaviorCursor progress{2, 5, .125, 1};
@@ -25,19 +27,54 @@ int32_t FORGE_SDK_CALL schemas(const ForgeSdkWorldV1* host, char*, uint32_t) {
     progress.tree_active = (1u << 31) | 1;
     progress.tree_children[0] = 1;
     progress.tree_children[31] = 7;
+    forge::NavigationLink link;
+    link.enabled = false;
+    link.bidirectional = false;
+    link.plane = 1;
+    link.profile = std::string(64, 'P');
+    link.start_x = -2.25f;
+    link.start_y = -.5f;
+    link.end_x = 1.75f;
+    link.end_y = 3.5f;
+    link.radius = .75f;
+    const auto expected_link = link;
     auto value = world.entity()
                      .add(flecs::Prefab)
                      .set<forge::NavigationBehavior>(config)
-                     .set<forge::NavigationBehaviorCursor>(progress);
+                     .set<forge::NavigationBehaviorCursor>(progress)
+                     .set<forge::NavigationLink>(link);
+    link.profile[0] = 'Q';
+    auto copied = world.entity()
+                      .add(flecs::Prefab)
+                      .set<forge::NavigationLink>(value.get<forge::NavigationLink>());
     const bool matched = value.get<forge::NavigationBehavior>() == config &&
-                         value.get<forge::NavigationBehaviorCursor>() == progress;
+                         value.get<forge::NavigationBehaviorCursor>() == progress &&
+                         value.get<forge::NavigationLink>() == expected_link;
     value.destruct();
-    return matched ? 1 : 0;
+    const bool retained = copied.get<forge::NavigationLink>() == expected_link;
+    copied.destruct();
+    return matched && retained ? 1 : 0;
 }
 int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char*, uint32_t) {
     flecs::world world(host->world);
     auto tokens = std::make_shared<std::map<forge::AssetId, uint64_t>>();
     auto reported = std::make_shared<bool>(false);
+    auto link_reported = std::make_shared<bool>(false);
+    world.system<const forge::NavigationLink>()
+        .kind(host->post_physics_phase)
+        .each([host, link_reported](flecs::entity, const forge::NavigationLink& link) {
+            if (*link_reported || !link.enabled ||
+                (link.profile != "Loop" && link.profile != "OneWay"))
+                return;
+            *link_reported = true;
+            const bool valid =
+                link.plane == 1 && (link.profile == "Loop" || link.profile == "OneWay") &&
+                link.start_x == -2 && link.end_x == 2 && link.start_z == 0 && link.end_z == 0;
+            host->diagnostic(host->context, valid ? 1 : 3,
+                             valid ? "Navigation link SDK authored source passed"
+                                   : "Navigation link SDK authored source mismatch");
+        })
+        .add(host->fixed_tag);
     world.system<const forge::NavigationBehavior, const forge::NavigationBehaviorCursor>()
         .kind(host->post_physics_phase)
         .each([host, tokens, reported](flecs::entity, const forge::NavigationBehavior& config,

@@ -2,6 +2,7 @@
 #include "authoring.hpp"
 #include "document.hpp"
 #include "navigation_destination_view.hpp"
+#include "navigation_link_value.hpp"
 #include "navigation_sources.hpp"
 #include "property_drawer.hpp"
 #include "spatial_component_value.hpp"
@@ -344,7 +345,8 @@ class NavigationTools {
                             *catalog,
                             navigation_detail::capture_native(
                                 context_, scene, source_entities_,
-                                metadata_.at("settings").get<NavigationSettings>().plane),
+                                metadata_.at("settings").get<NavigationSettings>().plane,
+                                metadata_.at("settings").get<NavigationSettings>().profile),
                             metadata_) != metadata_.at("geometry_sha256").get<std::string>() ||
                         Json(settings_) != metadata_.at("settings"))
                         validation_state_ = "Navigation is stale — rebuild before Play";
@@ -356,10 +358,13 @@ class NavigationTools {
         // and fixed runtime validation always recheck their exact captured inputs.
         ImGui::TextWrapped("%s", validation_state_.c_str());
         FORGE_UI_PROBE("navigation:status:" + validation_state_);
-        ui::help("Changes to included geometry or these settings require an explicit rebuild. "
-                 "3D includes shapes/static Mesh leaves; XY includes selected region sources. "
-                 "Dynamic rebaking and platformer links are unavailable. Navigation Avoidance "
-                 "provides optional local steering for nonphysics agents.");
+        ui::help(
+            "Changes to included geometry or these settings require an explicit rebuild. "
+            "3D includes shapes/static Mesh leaves; XY includes selected region sources. "
+            "Navigation Link connects static walkable parts in the matching plane/profile. "
+            "It uses straight Agent travel; physics jumping and moving platforms are unavailable. "
+            "Dynamic rebaking is unavailable. Navigation Avoidance "
+            "provides optional local steering for nonphysics agents.");
     }
     template <class View>
     void draw(const Json& doc, const View& camera, ImVec2 origin, ImVec2 size,
@@ -389,6 +394,54 @@ class NavigationTools {
             if (a && b && c) {
                 draw->AddTriangleFilled(*a, *b, *c, IM_COL32(45, 180, 175, 45));
                 draw->AddTriangle(*a, *b, *c, IM_COL32(80, 205, 190, 100));
+            }
+        }
+        std::size_t drawn_links = 0;
+        for (const auto& entity : doc.at("entities")) {
+            const auto& components = entity.at("components");
+            if (drawn_links >= navigation_detail::navigation_link_limit ||
+                !components.contains("forge.navigation_link") ||
+                !entity.value("spatial_resolved", false) || !entity.contains("world_affine"))
+                continue;
+            const auto& data = components.at("forge.navigation_link");
+            if (!data.at("enabled").get<bool>() || data.at("plane") != unsigned(overlay_plane) ||
+                data.at("profile") != settings_.profile)
+                continue;
+            try {
+                const auto link = navigation_detail::derive_link(
+                    entity.at("id").get<EntityId>(), navigation_detail::link_from_value(data),
+                    AffineTransform{entity.at("world_affine").get<std::array<double, 12>>()});
+                const auto a = overlay({link.start[0], link.start[1], link.start[2]});
+                const auto b = overlay({link.end[0], link.end[1], link.end[2]});
+                if (!a || !b)
+                    continue;
+                ++drawn_links;
+                const auto color = IM_COL32(210, 150, 255, 255);
+                const auto scale = ui::interface_scale;
+                draw->AddLine(*a, *b, color, 2 * scale);
+                draw->AddCircle(*a, 5 * scale, color, 12, 1.5f * scale);
+                draw->AddCircle(*b, 5 * scale, color, 12, 1.5f * scale);
+                const auto arrow = [&](ImVec2 from, ImVec2 to) {
+                    const float length = std::hypot(to.x - from.x, to.y - from.y);
+                    if (length < 12 * scale)
+                        return;
+                    const float x = (to.x - from.x) / length, y = (to.y - from.y) / length;
+                    const ImVec2 tip{from.x + (to.x - from.x) * .7f,
+                                     from.y + (to.y - from.y) * .7f};
+                    draw->AddTriangleFilled(
+                        tip, {tip.x - (x * 8 + y * 4) * scale, tip.y - (y * 8 - x * 4) * scale},
+                        {tip.x - (x * 8 - y * 4) * scale, tip.y - (y * 8 + x * 4) * scale}, color);
+                };
+                arrow(*a, *b);
+                if (link.bidirectional)
+                    arrow(*b, *a);
+                FORGE_UI_RECT_PROBE(
+                    ("navigation:link:" + link.entity.str()).c_str(),
+                    (ImVec2{std::min(a->x, b->x) - 5 * scale, std::min(a->y, b->y) - 5 * scale}),
+                    (ImVec2{std::max(a->x, b->x) + 5 * scale, std::max(a->y, b->y) + 5 * scale}),
+                    true);
+            } catch (const std::exception&) {
+                // Invalid source intent is reported by the shared bake/status validator.
             }
         }
         // This same copied view supplies the Scene target tool; no parallel

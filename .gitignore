@@ -6,3 +6,7 @@
 
 __pycache__/
 *.pyc
+
+# Runtime project/cache locks are not authored content.
+**/.forge/writer.lock
+**/.forge/cache/derived/cache.lock

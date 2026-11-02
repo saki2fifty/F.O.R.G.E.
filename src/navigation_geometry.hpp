@@ -1,6 +1,7 @@
 #pragma once
 #include "navigation_collision_source.hpp"
 #include "navigation_layers.hpp"
+#include "navigation_links.hpp"
 #include "navigation_region.hpp"
 #include "navigation_tile_geometry.hpp"
 #include <forge/geometry.hpp>
@@ -9,6 +10,7 @@
 #include <functional>
 #include <optional>
 #include <set>
+#include <string_view>
 namespace forge::navigation_detail {
 inline constexpr std::size_t max_mesh_inputs = 32, max_tile_inputs = 32;
 inline constexpr std::uint64_t mesh_bytes = 64 * 1024 * 1024;
@@ -27,13 +29,14 @@ struct Sources {
     std::vector<Surface> surfaces;
     std::set<AssetId> meshes, maps;
     NavigationPlane plane = NavigationPlane::Spatial3D;
+    std::vector<NavigationLinkData> connections;
 };
 inline bool collider_sources(const Sources& value) {
     return std::any_of(value.surfaces.begin(), value.surfaces.end(),
                        [](const auto& surface) { return bool(surface.collider); });
 }
-Sources capture(const nlohmann::json& effective_scene,
-                NavigationPlane = NavigationPlane::Spatial3D);
+Sources capture(const nlohmann::json& effective_scene, NavigationPlane = NavigationPlane::Spatial3D,
+                std::string_view profile = "default");
 nlohmann::json mesh_inputs(const Sources&, const std::function<std::string(AssetId)>& revision);
 nlohmann::json tile_inputs(const Sources&, const std::function<std::string(AssetId)>& revision);
 std::string source_digest(const Sources&, const nlohmann::json& mesh_inputs);
@@ -45,6 +48,7 @@ struct Geometry {
     std::string digest;
     // Bounded convex native-XZ masks; original rectangles retain their four vertices.
     std::vector<std::vector<float>> obstacles;
+    std::vector<NavigationLinkData> connections;
 };
 Geometry geometry(const nlohmann::json& effective_scene);
 Geometry geometry(const Sources&); // Original primitive-only v1 canonical bytes.

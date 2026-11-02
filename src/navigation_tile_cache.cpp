@@ -8,6 +8,7 @@
 #include <cmath>
 #include <cstring>
 #include <map>
+#include <optional>
 
 namespace forge::navigation_detail {
 namespace {
@@ -35,7 +36,15 @@ class IdentityCodec final : public dtTileCacheCompressor {
     }
 };
 class WalkablePolygons final : public dtTileCacheMeshProcess {
+    std::vector<NavigationLinkData> connections_;
+    MeshSpace space_;
+    std::optional<NativeNavigationLinks> native_;
+
   public:
+    WalkablePolygons(std::span<const NavigationLinkData> connections, MeshSpace space)
+        : connections_(connections.begin(), connections.end()), space_(space) {
+        validate_navigation_links(connections_, space_);
+    }
     void process(dtNavMeshCreateParams* params, unsigned char* areas,
                  unsigned short* flags) override {
         require(params->polyCount >= 0 && params->polyCount <= int(max_polygons) &&
@@ -45,10 +54,18 @@ class WalkablePolygons final : public dtTileCacheMeshProcess {
             areas[i] = 0;
             flags[i] = 1;
         }
+        if (!connections_.empty()) {
+            const float altitude =
+                params->vertCount ? params->bmin[1] + params->verts[1] * params->ch : 0;
+            native_.emplace(connections_, space_, altitude);
+            native_->apply(*params);
+        }
     }
 };
 } // namespace
 struct TileCache::Impl {
+    Impl(std::span<const NavigationLinkData> connections, MeshSpace space)
+        : process(connections, space) {}
     // Callbacks outlive the native cache and all its destruction work.
     dtTileCacheAlloc allocator;
     IdentityCodec codec;
@@ -126,8 +143,23 @@ struct TileCache::Impl {
         } while (!complete);
     }
 };
-TileCache::TileCache(const HeightfieldLayers& data) : impl_(std::make_unique<Impl>()) {
+TileCache::TileCache(const HeightfieldLayers& data, std::span<const NavigationLinkData> connections)
+    : impl_(std::make_unique<Impl>(connections, data.settings.plane)) {
     validate_layers(data);
+    const double tile_width = layer_width * double(data.settings.cell_size);
+    for (const auto& connection : connections) {
+        const auto start = native_coordinates(
+            data.settings.plane, {connection.start[0], connection.start[1], connection.start[2]});
+        const auto end = native_coordinates(
+            data.settings.plane, {connection.end[0], connection.end[1], connection.end[2]});
+        for (unsigned axis : {0u, 2u}) {
+            const auto first = int(std::floor((start[axis] - data.minimum[axis]) / tile_width));
+            const auto last = int(std::floor((end[axis] - data.minimum[axis]) / tile_width));
+            require(std::abs(last - first) <= 1,
+                    "Dynamic navigation link endpoints must be in the same or adjoining "
+                    "32-cell tiles; shorten the link or use a coarser cell size");
+        }
+    }
     auto& s = *impl_;
     require(s.cache && s.nav, "Cannot allocate tiled navigation");
     dtTileCacheParams params{};

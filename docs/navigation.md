@@ -305,7 +305,7 @@ rejected before building or admitting a tile. Request and metadata limits remain
 covers only its declared range; binary tile bytes are validated separately.
 An invalid request leaves any existing worker output intact.
 
-Detour's native loader trusts section counts and offsets. FORGE checks sizes, full consumption, finite bounds, counts, vertex/detail indices, convex clockwise polygons, reciprocal neighbors, detail ranges and boundary edges before initializing Detour. Only little-endian, 32-bit polygon references, one static tile, one walkable flag/area, no BV tree, no off-mesh data and fresh zeroed link storage are supported. Arbitrary Detour/sample binaries are rejected. The admitted bytes are copied into Detour-owned memory; assets shared by agents remain immutable.
+Detour's native loader trusts section counts and offsets. FORGE checks sizes, full consumption, finite bounds, counts, vertex/detail indices, convex clockwise polygons, reciprocal neighbors, detail ranges and boundary edges before initializing Detour. The legacy static profile admits little-endian, 32-bit polygon references, one tile, one walkable flag/area, no BV tree, no off-mesh sections and fresh zeroed runtime link storage. Version6 adds only the explicitly described and structurally validated authored off-mesh sections; it retains those other bounds. Arbitrary Detour/sample binaries are rejected. The admitted bytes are copied into Detour-owned memory; assets shared by agents remain immutable.
 
 ## Read-only runtime feedback
 
@@ -425,7 +425,7 @@ No callback-table field or independent authoring path is added. `FORGE_SDK_NAVIG
 
 ## Deferred work
 
-Full crowd management, general runtime geometry rebaking, automatic inclusion of unmarked colliders or Tile Maps, cost editing, off-mesh/platformer links, moving-platform routing and world streaming are deferred. Named profiles and explicitly selected 2D collision sources use the existing build owner. Physics-character driving and general save-game formats remain separate work. Current cooked navigation/export uses the existing runtime package owner.
+Full crowd management, general runtime geometry rebaking, automatic inclusion of unmarked colliders or Tile Maps, cost editing, simulated jumping, moving-platform routing and world streaming are deferred. Named profiles and explicitly selected 2D collision sources use the existing build owner. Physics-character driving and general save-game formats remain separate work. Current cooked navigation/export uses the existing runtime package owner.
 
 See the [Navigation user guide](../manual/editor/navigation.md) for the no-code workflow.
 
@@ -500,8 +500,9 @@ bound Scene. With none, synchronization clears the previous digest without captu
 unrelated data. Re-enabling one returns through complete source validation; a cached
 NavMesh cannot be reused against a removed or disabled source.
 
-`NavSourceCapture` records inclusive CPU synchronization cost through the existing
-Profiling service. Disabled profiling collects no samples. A stable transform epoch
+`NavSourceCapture` records inclusive CPU cost of the source-capture calls through
+the existing Profiling service. Additional selected linked-profile views use the
+same label; native obstacle tile updates remain outside this scope. Disabled profiling collects no samples. A stable transform epoch
 avoids reevaluation; when transforms change, their owner's existing scene-wide
 evaluation is still required. Capture benchmarks do not establish game FPS, GPU
 cost or Windows acceptance.
@@ -584,3 +585,87 @@ MCP operations. It is not animatable or live-tunable. Missing fields default to0
 through existing reflected-member evolution; old files need no ID/format migration.
 The appended native component member changes the exact SDK fingerprint; rebuild
 modules against the matching kit. C callbacks and pinned dependencies are unchanged.
+
+
+## Authored links
+
+[ADR031](decisions/031-navigation-links.md) extends the existing Scene/build/Nav /
+Query/Agent owners. `NavigationLink` is a static reflected component with enabled /
+bidirectional flags, explicit plane, case-sensitive named profile, local Start/End
+float3 and world attachment radius. The shared local/world shape validator admits
+0.05..5 m radius, endpoints within4090 m and at least0.01 m separation. XY requires
+local Z0, derives canonical world Z0 and preserves the querying actor's visual Z.
+Selected source identities remain sorted; a link may share an existing floor ID.
+At most32 links belong to one plane/profile. Source/ancestry and prefab rules are
+those of static geometry; no second identity or transform owner is created.
+
+Link coordinate/direction/radius fields are not animation channels. The existing
+native Meta projection reads `forge.meta.no_animation` on these member entities;
+detached schema/discovery projects that policy instead of inferring eligibility
+from float storage alone. The annotation is applied only to this new component;
+existing numeric component animation behavior is unchanged.
+
+The capture/digest owners add `links` only for a nonempty selected list. No-link
+source hashes/settings and positive older cooked formats remain unchanged. A
+selected link changing on an already-included floor still changes the digest,
+even though the sorted source-ID set is unchanged. Disabling a link or moving it
+to another profile changes the corresponding selection; other profiles are not
+poisoned by unrelated link data. Editor status passes both plane and profile to
+the same native capture. Runtime validity reuses the plane's floor-only state and
+adds a derived state only for selected linked profiles, bounded by the existing
+8-asset cache. New writable selections capture on demand; a first read-only linked
+selection waits for the next writable boundary.
+
+Nonempty links use envelope6, with base `geometry_version`2/3/5 unchanged. One
+metadata `links` list owns source EntityId, start/end float3, radius and direction.
+The binary envelope header, catalog and runtime-package admissions accept6.
+Static layout `le-polyref32-detour7-links-single-v1` admits matching off-mesh
+polygon/vertex/section counts, endpoint/radius/direction/ordinal data and zero
+runtime adjacency before native initialization. Both native endpoints must attach
+to ground. Legacy callers without descriptors still reject off-mesh bytes.
+Dynamic layout `le-cells32-tiled-links-v1` retains the existing raw-cell encoding;
+the existing TileCache callback reconstructs descriptors with call-lifetime owned
+builder buffers. Ordinals1..32 address the immutable sorted list; source EntityId
+remains authoritative. The pinned library connects dynamic endpoints only in the
+same/adjoining32-cell tile coordinates. Preflight rejects longer spans with an
+explicit reposition/shorten/coarser-cell diagnostic. No dependency patch, alternate
+graph or implicit format downgrade circumvents this limit.
+
+Query's existing path owner now retains oriented link source and adjacent entry /
+exit indices. Ordinary path queries delegate to it. A native straight path starting
+exactly at an entry can omit its off-mesh flag; the first matching native corridor
+connection recovers that boundary using admitted native endpoints. The existing
+64-waypoint cap includes inserted exits. Native pointers/references do not escape.
+
+Agent state retains the active span and applies linear movement through the same
+fixed-tick world-distance speed budget and sole LocalTranslation writer. Avoidance
+runs on ground; active crossers are excluded from its ground-plane participant
+sampling. Speed0, disabled and no-destination hold an active crossing. Retargeting
+finishes the span before replanning; stopping distance does not strand an active
+span or signal arrival before that replan. A dynamic query revision revalidates the
+oriented connection identity and current ground attachments directly, independently
+of which parallel connection a shortest-path search might choose; disconnected endpoints hold it as Blocked until usable.
+Stale source/admission failure prevents movement and retains a matching held span.
+Changing Nav asset, directly repositioning or removing the Agent cancels its old
+continuation. These links do not simulate physics jumps or moving platforms.
+
+Read-only debug adds `link`: null or `{source, entry, exit}`, also for held spans.
+Public Agent observation and experimental C-table layout are unchanged. The added
+public component header changes the exact SDK fingerprint; native modules rebuild
+with the matching SDK. Scene/prefab formats remain additive.
+
+Ephemeral navigation recovery4 is emitted only for active crossings. It retains
+source identity and oriented endpoints alongside the existing semantic pose /
+configuration/ownership and exact asset revisions. Restore validates the admitted
+oriented span, revision and finite in-span world pose, then continues to the exit
+and replans. Downgrades, mismatched identities/directions/endpoints/revisions and
+off-span poses reject the unpublished candidate. No-link recovery2/3 behavior is
+unchanged. This remains private exact-runtime recovery, not a save-game format;
+SDK Play's authored restart policy remains unchanged.
+
+Gallery140 uses an existing Patrol behavior on a dynamic two-way profile and a
+separate static one-way profile. Normal Scene publication/resource preparation,
+actual1200-tick movement and source-hidden relocated content export use the same
+owners. Manual captures, matching SDK and platform acceptance have separate
+provenance; portable logic/export tests do not establish Windows or physical GPU
+acceptance.

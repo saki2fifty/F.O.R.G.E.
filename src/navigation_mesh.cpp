@@ -1,5 +1,6 @@
 #include "navigation_mesh.hpp"
 #include <DetourNavMesh.h>
+#include <DetourNavMeshBuilder.h>
 #include <DetourNavMeshQuery.h>
 #include <DetourObstacleAvoidance.h>
 #include <algorithm>
@@ -26,11 +27,40 @@ const char* nav_status_name(NavStatus status) {
 namespace navigation_detail {
 static_assert(std::endian::native == std::endian::little);
 static_assert(sizeof(dtPolyRef) == 4 && sizeof(dtMeshHeader) == 100 && sizeof(dtPoly) == 32 &&
-              sizeof(dtLink) == 12 && sizeof(dtPolyDetail) == 12);
+              sizeof(dtLink) == 12 && sizeof(dtPolyDetail) == 12 &&
+              sizeof(dtOffMeshConnection) == 36);
 namespace {
 void require(bool value, const char* why) {
     if (!value)
         throw std::runtime_error(why);
+}
+bool near(Double3 left, Double3 right) {
+    for (unsigned axis = 0; axis < 3; ++axis)
+        if (std::abs(left[axis] - right[axis]) > .00001)
+            return false;
+    return true;
+}
+std::array<dtPolyRef, 2> ground_endpoints(const dtNavMesh& mesh, const dtMeshTile& tile,
+                                          const dtOffMeshConnection& connection) {
+    require(tile.header && connection.poly < tile.header->polyCount,
+            "Invalid native navigation link polygon");
+    std::array<dtPolyRef, 2> endpoints{};
+    auto index = tile.polys[connection.poly].firstLink;
+    unsigned visits = 0;
+    while (index != DT_NULL_LINK) {
+        require(index < unsigned(tile.header->maxLinkCount) &&
+                    ++visits <= unsigned(tile.header->maxLinkCount),
+                "Native navigation link adjacency exceeds bounds");
+        const auto& edge = tile.links[index];
+        const dtMeshTile* neighbour_tile = nullptr;
+        const dtPoly* neighbour = nullptr;
+        if (edge.edge < 2 && edge.ref &&
+            dtStatusSucceed(mesh.getTileAndPolyByRef(edge.ref, &neighbour_tile, &neighbour)) &&
+            neighbour->getType() == DT_POLYTYPE_GROUND)
+            endpoints[edge.edge] = edge.ref;
+        index = edge.next;
+    }
+    return endpoints;
 }
 class Reader {
     std::span<const std::byte> bytes_;
@@ -57,7 +87,9 @@ bool point(Double3 v) {
 }
 NavResult result(NavStatus s) { return {s, {}, nav_status_name(s)}; }
 } // namespace
-void validate_tile(std::span<const std::byte> bytes, MeshSpace space) {
+void validate_tile(std::span<const std::byte> bytes, MeshSpace space,
+                   std::span<const NavigationLinkData> connections) {
+    validate_navigation_links(connections, space);
     require(space == MeshSpace::Spatial3D || space == MeshSpace::PlanarXY,
             "Unsupported navigation coordinate space");
     Reader r(bytes);
@@ -70,13 +102,14 @@ void validate_tile(std::span<const std::byte> bytes, MeshSpace space) {
                 h.vertCount <= 16384,
             "Navmesh polygon/vertex limit");
     require(h.maxLinkCount >= 3 && h.maxLinkCount <= h.polyCount * 6 &&
-                h.detailMeshCount == h.polyCount,
+                h.offMeshConCount == int(connections.size()) && h.offMeshBase > 0 &&
+                h.offMeshBase == h.polyCount - h.offMeshConCount &&
+                h.detailMeshCount == h.offMeshBase && h.vertCount >= 3 + h.offMeshConCount * 2,
             "Invalid navmesh link/detail count");
     require(h.detailVertCount >= 0 && h.detailVertCount <= 65536 &&
-                h.detailTriCount >= h.polyCount && h.detailTriCount <= 65536,
+                h.detailTriCount >= h.offMeshBase && h.detailTriCount <= 65536,
             "Navmesh detail limit");
-    require(h.bvNodeCount == 0 && h.offMeshConCount == 0 && h.offMeshBase == h.polyCount,
-            "Unsupported BV tree or off-mesh data");
+    require(h.bvNodeCount == 0, "Unsupported navmesh BV tree");
     require(std::isfinite(h.walkableHeight) && h.walkableHeight >= .2f && h.walkableHeight <= 10 &&
                 std::isfinite(h.walkableRadius) && h.walkableRadius >= .05f &&
                 h.walkableRadius <= 5 && std::isfinite(h.walkableClimb) && h.walkableClimb >= 0 &&
@@ -94,6 +127,7 @@ void validate_tile(std::span<const std::byte> bytes, MeshSpace space) {
     auto details = r.array<dtPolyDetail>(h.detailMeshCount);
     auto detailVerts = r.array<float>(std::size_t(h.detailVertCount) * 3);
     auto tris = r.array<unsigned char>(std::size_t(h.detailTriCount) * 4);
+    auto off_mesh = r.array<dtOffMeshConnection>(std::size_t(h.offMeshConCount));
     r.end();
     auto checkVerts = [&](const auto& data) {
         for (std::size_t i = 0; i < data.size(); ++i)
@@ -113,7 +147,8 @@ void validate_tile(std::span<const std::byte> bytes, MeshSpace space) {
         flat(detailVerts);
     }
     unsigned edges = 0, nextVert = 0, nextTri = 0;
-    for (int i = 0; i < h.polyCount; ++i) {
+    const auto ground_vertices = unsigned(h.vertCount - h.offMeshConCount * 2);
+    for (int i = 0; i < h.offMeshBase; ++i) {
         const auto& p = polys[i];
         require(p.vertCount >= 3 && p.vertCount <= 6 && p.firstLink == 0 && p.flags == 1 &&
                     p.areaAndtype == 0,
@@ -122,9 +157,9 @@ void validate_tile(std::span<const std::byte> bytes, MeshSpace space) {
         std::set<unsigned> unique;
         double sign = 0, area = 0;
         for (unsigned j = 0; j < p.vertCount; ++j) {
-            require(p.verts[j] < h.vertCount && unique.insert(p.verts[j]).second,
+            require(p.verts[j] < ground_vertices && unique.insert(p.verts[j]).second,
                     "Invalid/repeated polygon vertex index");
-            require(p.neis[j] <= h.polyCount && p.neis[j] != i + 1, "Invalid polygon neighbour");
+            require(p.neis[j] <= h.offMeshBase && p.neis[j] != i + 1, "Invalid polygon neighbour");
         }
         for (unsigned j = 0; j < p.vertCount; ++j) {
             const auto *a = &verts[p.verts[j] * 3], *b = &verts[p.verts[(j + 1) % p.vertCount] * 3],
@@ -172,12 +207,37 @@ void validate_tile(std::span<const std::byte> bytes, MeshSpace space) {
         nextVert += d.vertCount;
         nextTri += d.triCount;
     }
-    require(edges == unsigned(h.maxLinkCount) && nextVert == unsigned(h.detailVertCount) &&
-                nextTri == unsigned(h.detailTriCount),
+    NativeNavigationLinks expected(connections, space, verts[1]);
+    dtNavMeshCreateParams parameters{};
+    expected.apply(parameters);
+    for (std::size_t i = 0; i < connections.size(); ++i) {
+        const auto& connection = off_mesh[i];
+        const auto& polygon = polys[std::size_t(h.offMeshBase) + i];
+        require(connection.poly == unsigned(h.offMeshBase) + i && connection.side == 0xff &&
+                    connection.flags == parameters.offMeshConDir[i] &&
+                    connection.userId == parameters.offMeshConUserID[i] &&
+                    connection.rad == parameters.offMeshConRad[i],
+                "Navigation link identity, direction, radius or tile side mismatch");
+        require(polygon.vertCount == 2 && polygon.firstLink == 0 && polygon.flags == 1 &&
+                    polygon.areaAndtype == (DT_POLYTYPE_OFFMESH_CONNECTION << 6) &&
+                    polygon.verts[0] == ground_vertices + i * 2 &&
+                    polygon.verts[1] == ground_vertices + i * 2 + 1,
+                "Invalid navigation link polygon");
+        for (unsigned j = 0; j < 6; ++j) {
+            require(polygon.neis[j] == 0 && (j < 2 || polygon.verts[j] == 0),
+                    "Navigation link contains unexpected polygon adjacency");
+            require(connection.pos[j] == parameters.offMeshConVerts[i * 6 + j] &&
+                        connection.pos[j] == verts[(ground_vertices + i * 2) * 3 + j],
+                    "Navigation link endpoint metadata/native mismatch");
+        }
+    }
+    require(edges + unsigned(connections.size()) * 4 == unsigned(h.maxLinkCount) &&
+                nextVert == unsigned(h.detailVertCount) && nextTri == unsigned(h.detailTriCount),
             "Navmesh section counts do not agree");
 }
-nlohmann::json tile_properties(std::span<const std::byte> bytes) {
-    validate_tile(bytes);
+nlohmann::json tile_properties(std::span<const std::byte> bytes, MeshSpace space,
+                               std::span<const NavigationLinkData> connections) {
+    validate_tile(bytes, space, connections);
     dtMeshHeader h;
     std::memcpy(&h, bytes.data(), sizeof h);
     return {{"minimum", {h.bmin[0], h.bmin[1], h.bmin[2]}},
@@ -191,19 +251,23 @@ struct Mesh::Impl {
     std::unique_ptr<dtNavMesh, decltype(&dtFreeNavMesh)> mesh{dtAllocNavMesh(), dtFreeNavMesh};
     std::optional<HeightfieldLayers> layers;
     std::unique_ptr<TileCache> base_tiles;
+    std::vector<NavigationLinkData> connections;
     MeshSpace space = MeshSpace::Spatial3D;
     float altitude = 0; // Derived flat native Y; never a second authored position.
     const dtNavMesh* native() const { return base_tiles ? base_tiles->mesh() : mesh.get(); }
 };
-Mesh::Mesh(std::span<const std::byte> bytes, MeshSpace space, bool dynamic) {
+Mesh::Mesh(std::span<const std::byte> bytes, MeshSpace space, bool dynamic,
+           std::span<const NavigationLinkData> connections) {
+    validate_navigation_links(connections, space);
     impl_ = std::make_unique<Impl>();
     impl_->space = space;
+    impl_->connections.assign(connections.begin(), connections.end());
     if (dynamic) {
         impl_->layers = decode_layers(bytes);
         require(impl_->layers->settings.plane == space, "Navigation layer/query plane mismatch");
-        impl_->base_tiles = std::make_unique<TileCache>(*impl_->layers);
+        impl_->base_tiles = std::make_unique<TileCache>(*impl_->layers, connections);
     } else {
-        validate_tile(bytes, space);
+        validate_tile(bytes, space, connections);
         require(bool(impl_->mesh), "Cannot allocate navmesh");
         auto* data = static_cast<unsigned char*>(dtAlloc(bytes.size(), DT_ALLOC_PERM));
         require(data, "Cannot allocate navmesh tile");
@@ -225,6 +289,22 @@ Mesh::Mesh(std::span<const std::byte> bytes, MeshSpace space, bool dynamic) {
         }
     }
     require(occupied, "Navigation contains no walkable polygons");
+    std::vector<bool> connected(connections.size());
+    for (int i = 0; i < native->getMaxTiles() && !connections.empty(); ++i) {
+        const auto* tile = native->getTile(i);
+        if (!tile->header)
+            continue;
+        for (int j = 0; j < tile->header->offMeshConCount; ++j) {
+            const auto& link = tile->offMeshCons[j];
+            require(link.userId > 0 && link.userId <= connections.size(),
+                    "Native navigation link has no admitted source identity");
+            const auto endpoints = ground_endpoints(*native, *tile, link);
+            connected[link.userId - 1] =
+                connected[link.userId - 1] || (endpoints[0] && endpoints[1]);
+        }
+    }
+    require(std::ranges::all_of(connected, [](bool value) { return value; }),
+            "Navigation link endpoints must both attach to walkable ground");
 }
 Mesh::~Mesh() = default;
 MeshSpace Mesh::space() const { return impl_->space; }
@@ -259,7 +339,7 @@ struct Query::Impl {
     explicit Impl(std::shared_ptr<const Mesh> value) : owner(std::move(value)) {
         require(owner && query, "Cannot allocate nav query");
         if (owner->impl_->layers)
-            tiles = std::make_unique<TileCache>(*owner->impl_->layers);
+            tiles = std::make_unique<TileCache>(*owner->impl_->layers, owner->impl_->connections);
         require(
             dtStatusSucceed(query->init(tiles ? tiles->mesh() : owner->impl_->mesh.get(), 2048)),
             "Cannot initialize nav query");
@@ -285,7 +365,8 @@ bool Query::obstacles(std::span<const CylinderObstacle> desired) {
     try {
         bool reconstructed = false;
         if (!s.tiles) {
-            s.tiles = std::make_unique<TileCache>(*s.owner->impl_->layers);
+            s.tiles =
+                std::make_unique<TileCache>(*s.owner->impl_->layers, s.owner->impl_->connections);
             require(dtStatusSucceed(s.query->init(s.tiles->mesh(), 2048)),
                     "Cannot reconstruct navigation query");
             reconstructed = true;
@@ -315,43 +396,137 @@ NavResult Query::project(Double3 p) {
             {world_coordinates(impl_->owner->space(), {pos[0], pos[1], pos[2]}, p[2])},
             {}};
 }
-NavResult Query::path(Double3 a, Double3 b) {
+NavResult Query::path(Double3 a, Double3 b) { return route(a, b).path; }
+Query::Route Query::route(Double3 a, Double3 b) {
+    const auto failure = [](NavStatus status) { return Route{result(status), {}}; };
     if (impl_->owner->dynamic_obstacles() && !impl_->tiles)
-        return result(NavStatus::Unavailable);
+        return failure(NavStatus::Unavailable);
     if (!point(a) || !point(b))
-        return result(NavStatus::Invalid);
+        return failure(NavStatus::Invalid);
     float start[3], end[3];
     auto ra = impl_->nearest(a, start), rb = impl_->nearest(b, end);
     if (!ra)
-        return result(NavStatus::StartOutside);
+        return failure(NavStatus::StartOutside);
     if (!rb)
-        return result(NavStatus::EndOutside);
+        return failure(NavStatus::EndOutside);
     dtPolyRef polys[128]{};
     int count = 0;
     auto status = impl_->query->findPath(ra, rb, start, end, &impl_->filter, polys, &count, 128);
     if (status & (DT_OUT_OF_NODES | DT_BUFFER_TOO_SMALL))
-        return result(NavStatus::Limit);
+        return failure(NavStatus::Limit);
     if (dtStatusFailed(status) || count == 0)
-        return result(NavStatus::NoPath);
+        return failure(NavStatus::NoPath);
     if ((status & DT_PARTIAL_RESULT) || polys[count - 1] != rb)
-        return result(NavStatus::Partial);
+        return failure(NavStatus::Partial);
     float points[max_waypoints * 3]{};
+    unsigned char flags[max_waypoints]{};
+    dtPolyRef references[max_waypoints]{};
     int n = 0;
-    status = impl_->query->findStraightPath(start, end, polys, count, points, nullptr, nullptr, &n,
+    status = impl_->query->findStraightPath(start, end, polys, count, points, flags, references, &n,
                                             max_waypoints);
     if (status & (DT_OUT_OF_NODES | DT_BUFFER_TOO_SMALL))
-        return result(NavStatus::Limit);
+        return failure(NavStatus::Limit);
     if (dtStatusFailed(status))
-        return result(NavStatus::NoPath);
-    NavResult out;
-    out.status = NavStatus::Success;
+        return failure(NavStatus::NoPath);
+    Route out;
+    out.path.status = NavStatus::Success;
+    const auto append = [&](Double3 value) {
+        if (out.path.points.size() >= max_waypoints)
+            return false;
+        out.path.points.push_back(value);
+        return true;
+    };
     for (int i = 0; i < n; ++i) {
-        Double3 p{points[i * 3], points[i * 3 + 1], points[i * 3 + 2]};
-        if (!point(p))
-            return result(NavStatus::Invalid);
-        out.points.push_back(world_coordinates(impl_->owner->space(), p, a[2]));
+        Double3 native_point{points[i * 3], points[i * 3 + 1], points[i * 3 + 2]};
+        if (!point(native_point))
+            return failure(NavStatus::Invalid);
+        const auto value = world_coordinates(impl_->owner->space(), native_point, a[2]);
+        const bool existing_exit = !out.links.empty() &&
+                                   out.links.back().exit + 1 == out.path.points.size() &&
+                                   near(value, out.path.points.back());
+        if (!existing_exit && !append(value))
+            return failure(NavStatus::Limit);
+        const auto* native_mesh = impl_->query->getAttachedNavMesh();
+        dtPolyRef link_reference =
+            flags[i] & DT_STRAIGHTPATH_OFFMESH_CONNECTION ? references[i] : 0;
+        // A route beginning exactly at an entry can retain the native START flag
+        // without an off-mesh corner. The same admitted corridor still owns its
+        // first connection; recover that boundary rather than losing traversal.
+        if (i == 0 && !link_reference) {
+            for (int corridor = 1; corridor < count; ++corridor) {
+                if (!native_mesh->getOffMeshConnectionByRef(polys[corridor]))
+                    continue;
+                float entry[3]{}, exit[3]{};
+                if (dtStatusFailed(native_mesh->getOffMeshConnectionPolyEndPoints(
+                        polys[corridor - 1], polys[corridor], entry, exit)))
+                    return failure(NavStatus::Invalid);
+                if (near(native_point, {entry[0], entry[1], entry[2]}))
+                    link_reference = polys[corridor];
+                break;
+            }
+        }
+        if (!link_reference)
+            continue;
+        const auto* connection = native_mesh->getOffMeshConnectionByRef(link_reference);
+        if (!connection || !connection->userId ||
+            connection->userId > impl_->owner->impl_->connections.size())
+            return failure(NavStatus::Invalid);
+        const auto at = std::find(polys, polys + count, link_reference);
+        if (at == polys || at == polys + count)
+            return failure(NavStatus::Invalid);
+        float entry[3]{}, exit[3]{};
+        if (dtStatusFailed(
+                native_mesh->getOffMeshConnectionPolyEndPoints(at[-1], *at, entry, exit)))
+            return failure(NavStatus::Invalid);
+        const Double3 native_entry{entry[0], entry[1], entry[2]},
+            native_exit{exit[0], exit[1], exit[2]};
+        if (!point(native_entry) || !point(native_exit) || !near(native_point, native_entry))
+            return failure(NavStatus::Invalid);
+        const auto begin = out.path.points.size() - 1;
+        if (!append(world_coordinates(impl_->owner->space(), native_exit, a[2])))
+            return failure(NavStatus::Limit);
+        out.links.push_back({impl_->owner->impl_->connections[connection->userId - 1].entity, begin,
+                             out.path.points.size() - 1});
     }
     return out;
+}
+bool Query::link_available(EntityId source, Double3 entry, Double3 exit) const {
+    if (!point(entry) || !point(exit) || (impl_->owner->dynamic_obstacles() && !impl_->tiles))
+        return false;
+    const auto& admitted = impl_->owner->impl_->connections;
+    const auto selected = std::find_if(admitted.begin(), admitted.end(),
+                                       [&](const auto& link) { return link.entity == source; });
+    if (selected == admitted.end())
+        return false;
+    const auto ordinal = unsigned(selected - admitted.begin()) + 1;
+    const auto* native = impl_->query->getAttachedNavMesh();
+    const auto space = impl_->owner->space();
+    for (int i = 0; i < native->getMaxTiles(); ++i) {
+        const auto* tile = native->getTile(i);
+        if (!tile->header)
+            continue;
+        for (int j = 0; j < tile->header->offMeshConCount; ++j) {
+            const auto& link = tile->offMeshCons[j];
+            if (link.userId != ordinal)
+                continue;
+            const auto endpoints = ground_endpoints(*native, *tile, link);
+            if (!endpoints[0] || !endpoints[1])
+                continue;
+            float from[3]{}, to[3]{};
+            const auto ref = native->getPolyRefBase(tile) | dtPolyRef(link.poly);
+            if (dtStatusFailed(
+                    native->getOffMeshConnectionPolyEndPoints(endpoints[0], ref, from, to)))
+                continue;
+            const auto a = world_coordinates(space, {from[0], from[1], from[2]}, entry[2]);
+            const auto b = world_coordinates(space, {to[0], to[1], to[2]}, entry[2]);
+            if (near(entry, a) && near(exit, b))
+                return true;
+            if (selected->bidirectional && (link.flags & DT_OFFMESH_CON_BIDIR) && near(entry, b) &&
+                near(exit, a))
+                return true;
+        }
+    }
+    return false;
 }
 NavResult Query::move(Double3 a, Double3 b) {
     if (impl_->owner->dynamic_obstacles() && !impl_->tiles)

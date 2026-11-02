@@ -21,6 +21,9 @@ struct NavigationAutomation {
                 {"settings", owner.settings_},
                 {"profiles", profiles},
                 {"asset", owner.selected_ ? Json(owner.selected_) : Json()},
+                {"link_count", owner.metadata_.is_object()
+                                   ? owner.metadata_.value("links", Json::array()).size()
+                                   : 0},
                 {"status", owner.status_},
                 {"overlay_visible", owner.overlay_visible()},
                 {"error", owner.error_}};
@@ -63,7 +66,8 @@ struct NavigationAutomation {
         result.push_back(automation_method(
             "navigation.overlay",
             "Show or hide the existing navigation overlay, including saved mesh triangles, "
-            "runtime paths and the selected agent's requested destination. This changes only "
+            "authored link direction guides, runtime paths and the selected agent's requested "
+            "destination. This changes only "
             "the current editor view, without Scene history, asset publication or file writes.",
             "assets.write", automation_object({{"visible", {{"type", "boolean"}}}}, {"visible"}),
             true, [&owner, &scene, &files](const Json& request) {
@@ -93,7 +97,9 @@ struct NavigationAutomation {
             "native "
             "worker "
             "and stale-geometry publication check. Settings use the native "
-            "agent/voxel settings, optional named profile and dynamic obstacle tiles; poll "
+            "agent/voxel settings, optional named profile and dynamic obstacle tiles. Enabled "
+            "Navigation Link components contribute their local Start/End and direction only to "
+            "the matching plane/profile; Agents traverse admitted spans at their speed. Poll "
             "navigation.status and "
             "assign the asset "
             "with ordinary component/property tools.",

@@ -1,5 +1,6 @@
 #include "navigation_geometry.hpp"
 #include "asset_bytes.hpp"
+#include "navigation_link_value.hpp"
 #include "navigation_region_value.hpp"
 #include "navigation_space.hpp"
 #include <algorithm>
@@ -7,11 +8,23 @@
 #include <set>
 namespace forge {
 namespace navigation_detail {
-Sources capture(const nlohmann::json& doc, NavigationPlane plane) {
+Sources capture(const nlohmann::json& doc, NavigationPlane plane, std::string_view profile) {
+    if (!profile.empty())
+        validate_profile_name(profile);
     if (plane != NavigationPlane::Spatial3D && plane != NavigationPlane::PlanarXY)
         throw std::runtime_error("Unsupported navigation source plane");
     const auto* marker = plane == NavigationPlane::PlanarXY ? "forge.navigation_region_2d"
                                                             : "forge.navigation_surface";
+    const auto has_surface = [&](const Json& components) {
+        return components.contains(marker) && components.at(marker).at("enabled").get<bool>();
+    };
+    const auto has_link = [&](const Json& components) {
+        if (profile.empty() || !components.contains("forge.navigation_link"))
+            return false;
+        const auto& value = components.at("forge.navigation_link");
+        return value.at("plane") == unsigned(plane) && value.at("profile") == profile &&
+               value.at("enabled").get<bool>();
+    };
     Sources g;
     g.plane = plane;
     g.scene = doc.at("asset_id").get<AssetId>();
@@ -21,8 +34,7 @@ Sources capture(const nlohmann::json& doc, NavigationPlane plane) {
         entities.emplace(e.at("id").get<std::string>(), &e);
     for (const auto& e : doc.at("entities")) {
         const auto& c = e.at("components");
-        if (e.value("prefab", false) || !c.contains(marker) ||
-            !c.at(marker).at("enabled").get<bool>())
+        if (e.value("prefab", false) || (!has_surface(c) && !has_link(c)))
             continue;
         if (included.size() >= 512)
             throw std::runtime_error("Navigation geometry exceeds 512 entities");
@@ -32,8 +44,8 @@ Sources capture(const nlohmann::json& doc, NavigationPlane plane) {
     for (const auto& [id, ep] : included) {
         const auto& e = *ep;
         const auto& c = e.at("components");
-        if (plane == NavigationPlane::Spatial3D && !c.contains("forge.primitive") &&
-            !c.contains("forge.mesh_renderer"))
+        if (has_surface(c) && plane == NavigationPlane::Spatial3D &&
+            !c.contains("forge.primitive") && !c.contains("forge.mesh_renderer"))
             throw std::runtime_error("NavigationSurface requires mesh geometry, not a group: " +
                                      id.str());
         for (const char* body : {"forge.physics_body", "forge.physics_body_2d"})
@@ -48,7 +60,8 @@ Sources capture(const nlohmann::json& doc, NavigationPlane plane) {
             if (!ancestry.insert(node_id).second)
                 throw std::runtime_error("Navigation source spatial cycle");
             const auto& components = node->at("components");
-            if (plane == NavigationPlane::PlanarXY && c.at(marker).value("source", 0u) == 1 &&
+            if (has_surface(c) && plane == NavigationPlane::PlanarXY &&
+                c.at(marker).value("source", 0u) == 1 &&
                 components.contains("forge.local_rotation")) {
                 const auto& q = components.at("forge.local_rotation");
                 physics_detail::validate_planar_rotation_2d(
@@ -92,6 +105,15 @@ Sources capture(const nlohmann::json& doc, NavigationPlane plane) {
         // Keep TRS representability validation; signed/zero visual scales are valid.
         // Forward geometry handles their winding and skips collapsed triangles.
         (void)decompose(transform);
+        g.identities.push_back(id);
+        if (has_link(c)) {
+            const auto value = link_from_value(c.at("forge.navigation_link"));
+            g.connections.push_back(derive_link(id, value, transform));
+            if (g.connections.size() > navigation_link_limit)
+                throw std::runtime_error("Navigation exceeds 32 authored links in this profile");
+        }
+        if (!has_surface(c))
+            continue;
         Surface source{id, transform};
         if (plane == NavigationPlane::PlanarXY) {
             const auto& data = c.at(marker);
@@ -124,9 +146,9 @@ Sources capture(const nlohmann::json& doc, NavigationPlane plane) {
         } else if (plane == NavigationPlane::Spatial3D &&
                    source.primitive >= primitive_meshes().size())
             throw std::runtime_error("Unsupported navigation primitive");
-        g.identities.push_back(id);
         g.surfaces.push_back(source);
     }
+    validate_navigation_links(g.connections, plane);
     if (g.surfaces.empty())
         throw std::runtime_error(plane == NavigationPlane::PlanarXY
                                      ? "No enabled NavigationRegion2D geometry"
@@ -181,6 +203,8 @@ std::string source_digest(const Sources& source, const Json& inputs) {
                           {"regions", regions}};
         if (collider_sources(source))
             value["tiles"] = inputs;
+        if (!source.connections.empty())
+            value["links"] = navigation_link_values(source.connections, source.plane);
         const auto text = value.dump();
         return asset_detail::content_digest(std::as_bytes(std::span(text)));
     }
@@ -193,9 +217,11 @@ std::string source_digest(const Sources& source, const Json& inputs) {
             value["primitive"] = s.primitive;
         surfaces.push_back(std::move(value));
     }
-    auto text =
-        Json{{"bridge", 2}, {"scene", source.scene}, {"surfaces", surfaces}, {"meshes", inputs}}
-            .dump();
+    auto value =
+        Json{{"bridge", 2}, {"scene", source.scene}, {"surfaces", surfaces}, {"meshes", inputs}};
+    if (!source.connections.empty())
+        value["links"] = navigation_link_values(source.connections, source.plane);
+    const auto text = value.dump();
     return asset_detail::content_digest(std::as_bytes(std::span(text)));
 }
 namespace {
@@ -204,6 +230,7 @@ Geometry planar_geometry(const Sources& source, const Json& inputs = Json::array
     Geometry result;
     result.scene = source.scene;
     result.sources = source.identities;
+    result.connections = source.connections;
     for (const auto& surface : source.surfaces) {
         if (!surface.region)
             throw std::runtime_error("XY navigation needs region geometry");
@@ -334,6 +361,7 @@ Geometry triangles(const Sources& source,
     Geometry g;
     g.scene = source.scene;
     g.sources = source.identities;
+    g.connections = source.connections;
     for (const auto& s : source.surfaces) {
         const auto transform = s.transform;
         if (s.mesh) {
@@ -398,6 +426,8 @@ Geometry geometry(const Sources& source) {
     auto g = triangles(source, {});
     Json canonical = {
         {"bridge", 1}, {"scene", g.scene}, {"sources", g.sources}, {"vertices", g.vertices}};
+    if (!source.connections.empty())
+        canonical["links"] = navigation_link_values(source.connections, source.plane);
     auto text = canonical.dump();
     g.digest = asset_detail::content_digest(std::as_bytes(std::span(text)));
     return g;

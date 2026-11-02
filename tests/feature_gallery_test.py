@@ -131,6 +131,23 @@ for plane, source in enumerate(('Scenes/129-moving-navigation-3d.scene.json',
     assert selected['metadata']['settings']['dynamic_obstacles'] is True
     assert selected['metadata']['settings'].get('plane', 0) == plane
 
+link_source = 'Scenes/140-navigation-links.scene.json'
+link_scene = json.loads((project_root / link_source).read_text(encoding='utf-8'))
+assert link_scene['asset_id'] == by_source[link_source]['id']
+links = [row for row in link_scene['entities'] if 'forge.navigation_link' in row['components']]
+assert len(links) == 2
+for row in links:
+    link = row['components']['forge.navigation_link']
+    assert link['plane'] == 1 and link['enabled'] and link['start_z'] == link['end_z'] == 0
+    nav = next(asset for asset in assets if asset['type'] == 'navmesh' and
+               asset['metadata']['source_scene'] == link_scene['asset_id'] and
+               asset['metadata']['settings'].get('profile') == link['profile'])
+    assert nav['schema_version'] == nav['metadata']['version'] == 6
+    assert nav['metadata']['geometry_version'] == 3
+    assert len(nav['metadata']['links']) == 1 and nav['metadata']['links'][0]['entity'] == row['id']
+    assert nav['metadata']['settings'].get('dynamic_obstacles', False) is (link['profile'] == 'Loop')
+    assert link['bidirectional'] is (link['profile'] == 'Loop')
+
 tree_source = 'Scenes/139-behavior-tree.scene.json'
 tree_scene = json.loads((project_root / tree_source).read_text(encoding='utf-8'))
 assert tree_scene['asset_id'] == by_source[tree_source]['id']

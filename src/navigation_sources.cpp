@@ -1,4 +1,5 @@
 #include "navigation_sources.hpp"
+#include "navigation_link_value.hpp"
 #include "navigation_region_value.hpp"
 #include <forge/application_state_activation.hpp>
 #include <forge/character_components.hpp>
@@ -17,7 +18,8 @@ bool declared_prefab(flecs::entity e) {
             return false;
     return true;
 }
-Json row(flecs::entity e, EntityId id, bool active) {
+Json row(flecs::entity e, EntityId id, bool active, NavigationPlane plane,
+         std::string_view profile) {
     Json out = {{"id", id}, {"components", Json::object()}};
     auto& c = out["components"];
     if (declared_prefab(e))
@@ -28,6 +30,13 @@ Json row(flecs::entity e, EntityId id, bool active) {
         const auto& region = e.get<NavigationRegion2D>();
         c["forge.navigation_region_2d"] = region_value(region);
         c["forge.navigation_region_2d"]["enabled"] = active && region.enabled;
+    }
+    if (!profile.empty() && e.has<NavigationLink>()) {
+        const auto& link = e.get<NavigationLink>();
+        if (active && link.enabled && link.plane == unsigned(plane) && link.profile == profile) {
+            c["forge.navigation_link"] = link_value(link);
+            c["forge.navigation_link"]["enabled"] = active && link.enabled;
+        }
     }
     if (e.has<LocalRotation>()) {
         const auto& q = e.get<LocalRotation>();
@@ -85,7 +94,7 @@ Json row(flecs::entity e, EntityId id, bool active) {
 } // namespace
 Sources capture_native(WorldContext& context, const Scene& scene,
                        const flecs::query<const PersistentEntityId>& candidates,
-                       NavigationPlane plane) {
+                       NavigationPlane plane, std::string_view profile) {
     if (context.world().c_ptr() != scene.world().c_ptr())
         throw std::logic_error("Navigation capture requires the Scene's owning world");
     context.evaluate_world_transforms();
@@ -96,7 +105,7 @@ Sources capture_native(WorldContext& context, const Scene& scene,
         // Scene's existing identity lookup owns that membership decision.
         if (!e || scene.entity(id.str()) != e)
             return false;
-        return rows.try_emplace(id, row(e, id, conditions.active(e.id()))).second;
+        return rows.try_emplace(id, row(e, id, conditions.active(e.id()), plane, profile)).second;
     };
     std::vector<std::pair<flecs::entity, EntityId>> selected;
     candidates.each([&](flecs::entity e, const PersistentEntityId& id) {
@@ -104,7 +113,11 @@ Sources capture_native(WorldContext& context, const Scene& scene,
             plane == NavigationPlane::PlanarXY
                 ? e.has<NavigationRegion2D>() && e.get<NavigationRegion2D>().enabled
                 : e.has<NavigationSurface>() && e.get<NavigationSurface>().enabled;
-        if (enabled && !declared_prefab(e))
+        const bool link = !profile.empty() && e.has<NavigationLink>() &&
+                          e.get<NavigationLink>().enabled &&
+                          e.get<NavigationLink>().plane == unsigned(plane) &&
+                          e.get<NavigationLink>().profile == profile;
+        if ((enabled || link) && !declared_prefab(e))
             selected.emplace_back(e, id.value);
     });
     for (const auto& [entity, id] : selected)
@@ -143,8 +156,8 @@ Sources capture_native(WorldContext& context, const Scene& scene,
     Json doc = {{"asset_id", scene.asset_id()}, {"entities", Json::array()}};
     for (auto& [id, value] : rows)
         doc["entities"].push_back(std::move(value));
-    for (auto& value : scene.unresolved_navigation_sources(plane))
+    for (auto& value : scene.unresolved_navigation_sources(plane, profile))
         doc["entities"].push_back(std::move(value));
-    return capture(doc, plane);
+    return capture(doc, plane, profile);
 }
 } // namespace forge::navigation_detail

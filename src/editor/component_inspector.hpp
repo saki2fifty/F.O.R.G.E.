@@ -95,6 +95,15 @@ class ComponentInspector {
         const auto phase = status.value("phase", std::string("Pending"));
         ImGui::TextWrapped("Agent: %s", phase.c_str());
         FORGE_UI_PROBE("navigation_agent:phase");
+        if (status.contains("link") && !status.at("link").is_null()) {
+            ImGui::TextWrapped("Link traversal: %s",
+                               status.at("link").at("source").get<std::string>().c_str());
+            FORGE_UI_PROBE("navigation_agent:link");
+            ui::help(
+                "Uses the Agent speed along this admitted straight span. Disable, clear the "
+                "destination "
+                "or set speed to zero to hold; retargeting finishes the span before replanning.");
+        }
         if (phase == "Failed") {
             ImGui::TextWrapped("Reason: %s", status.value("status", std::string()).c_str());
             FORGE_UI_PROBE("navigation_agent:failure");

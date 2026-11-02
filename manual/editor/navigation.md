@@ -189,6 +189,79 @@ Changing scenes or projects clears the previous overlay. Open **Content → Crea
 Register → Navigation** to load the current scene's saved NavMesh. Loading it does
 not rebuild or change the asset.
 
+## Connect separated walkable parts
+
+Use **Navigation Link** to connect two static walkable parts. The Agent moves in a
+straight line between the admitted endpoints at its current Speed. This is useful
+for a deliberate crossing that ordinary ground routing cannot follow. It does not
+simulate a jump or drive a physics character.
+
+Open **Scenes/140-navigation-links.scene.json** in Feature Gallery. The cyan
+agent patrols across the upper gap in both directions through the `Loop` profile.
+The orange agent crosses the lower gap once, from Start to End, through `OneWay`.
+The upper profile uses Dynamic obstacles; the lower profile uses a static NavMesh.
+Both use the ordinary Navigation Agent. The cyan patrol reuses the Gallery's Patrol
+behavior; no project C++ module is required.
+
+![Cyan and orange agents crossing separate gaps between the Gallery islands](../images/navigation-links-game.png)
+
+The cyan upper route permits return travel; the orange lower route permits Start
+to End only. The image shows both agents during their first crossing.
+
+To add a connection:
+
+1. Stop Play. Create an empty entity, then use **+ Add Component → Navigation → Navigation Link**. You can also attach the link to an existing static source entity.
+2. Choose **Plane → 3D** or **2D (XY)** to match the navigation build. Set **Build profile** to its exact case-sensitive name, such as `default` or `Loop`.
+3. Set **Start X/Y/Z** and **End X/Y/Z** on the corresponding walkable parts. These coordinates are local to the link entity; its transform places them in the world. XY requires both local Z coordinates to be zero and ignores the source's visual depth.
+4. Set **Endpoint radius** for ground attachment, between **0.05 m** and **5 m** in world units. The endpoints must attach to walkable ground. Keep the link and its followed spatial parents static, without an enabled Agent, Character Controller or moving Physics Body.
+5. Leave **Bidirectional** enabled for return travel. Clear it for **Start → End** only. Leave **Enabled** checked to include the connection in its selected profile.
+6. In **Content → Create / Register → Navigation**, choose the same **Build profile** and **Plane**, then **Build NavMesh**. Assign that profile's NavMesh to the Agent, save the Scene and Play.
+
+![Navigation Link Inspector with the Loop profile, XY Plane, local endpoints and bidirectional travel](../images/navigation-link-inspector.png)
+
+Select the upper two-way connection to inspect its profile, local Start/End and
+world Endpoint radius. Clear Bidirectional for Start to End travel, then rebuild.
+
+Enable **Scene → View → Navigation overlay** to see purple endpoint circles and
+direction arrows for the selected profile. These guides show authored intent;
+build status still determines whether the geometry and endpoints are valid. Saved
+walkable triangles and runtime route lines use their usual overlay colors.
+
+During Play, **Live gameplay → Navigation progress** identifies the active link.
+Setting Speed to zero, disabling the Agent or clearing its destination holds an
+active crossing. Re-enable it and restore a destination to continue. A new
+destination waits until the Agent finishes the current span, then replans from the
+exit. Stopping distance cannot stop an already active crossing midway. Ground
+avoidance resumes after the crossing; it does not steer sideways across the gap.
+
+If a dynamic obstacle disconnects an endpoint, the Agent holds its current span
+until the connection is usable again. Endpoint, direction, radius and transform edits make the selected profile stale.
+Stop Play and rebuild after editing. Changing Plane or Build profile removes the
+link from the old selection and adds it to the new one; rebuild both affected
+assets. Gameplay code that changes an Agent's NavMesh cancels its old crossing; place it on
+valid ground before requesting a new route. Code that directly repositions the
+Agent also discards the old crossing and starts a fresh route.
+
+A profile supports at most **32 links**. Endpoints must be at least **0.01 m** apart
+both locally and after transformation. With **Dynamic obstacles**, the endpoints
+must lie in the same or adjacent tile coordinates. Tiles are 32 cells wide; at the
+default 0.2 m Cell size this is 6.4 m. If the build reports a tile-span limit,
+shorten/reposition the link or choose a coarser Cell size and rebuild. Moving
+platform attachments and simulated jumps are unavailable.
+
+Links use normal component/property Undo, prefab inheritance and Scene saving.
+An exported game carries the built connections and needs no navigation builder,
+editor or compiler to run them. Choose this Scene as startup and save before export.
+
+For an agent using MCP, add `forge.navigation_link` with `forge_component_add` and
+set its fields through `forge_property_set_many`. Use one property transaction when
+changing several endpoint coordinates. `forge_discover` provides the field schema
+and Plane choices. `forge_navigation_build` uses the same named-profile owner;
+poll `forge_navigation_status` for completion and `link_count`. Scene edits require
+an editable connection, baking requires asset-write access, and Play requires the
+execution grant. These operations preserve the usual revision, sequence and Undo
+checks; direct source-file edits are unnecessary.
+
 ## Use different agent sizes
 
 Open Gallery **138-navigation-profiles** for two agents sharing one floor. The
@@ -410,9 +483,9 @@ Create a prefab from an agent using the normal [prefab workflow](prefabs.md). In
 - **No enabled geometry:** add enabled Navigation Surfaces for 3D, or walkable Navigation Region 2D shapes for XY. Check **Plane** and include a walkable region.
 - **Stale navmesh:** rebuild after changing included geometry.
 - **Point outside navmesh:** put the agent and destination over a teal walkable region. Projection searches nearby, not across the entire world.
-- **Partial / no path:** the destination is disconnected. Check gaps, clearance, slope and included obstacles.
+- **Partial / no path:** the destination is disconnected. Check gaps, clearance, slope and included obstacles. For a link, check its Plane, Build profile, direction and endpoint attachment, then rebuild the matching profile.
 - **Missing or incompatible asset:** choose a valid NavMesh built for this scene, or rebuild it.
 - **Physics ownership error:** remove the agent's Physics Body and any moving physics spatial ancestor, or use an independent World spatial binding.
 - **Build/query limit:** reduce the included area or geometry, or increase cell size. A single build supports at most 512 × 512 cells.
 
-Navigation supports static shapes/Meshes in 3D and rectangles, polygon regions and explicitly selected 2D collision footprints in XY, within roughly four kilometres of the origin and 64 agents. There are no jump links, moving-platform routes, automatic physics-character movement or general runtime geometry rebaking. Moving cylinder/circle carving requires the Dynamic obstacles profile described above. Optional avoidance is local steering and does not guarantee collision prevention. See [Play mode](play-mode.md) and [Transforms](transforms.md) for related controls.
+Navigation supports static shapes/Meshes in 3D and rectangles, polygon regions and explicitly selected 2D collision footprints in XY, within roughly four kilometres of the origin and 64 agents. Authored straight links connect static walkable parts; simulated jumps, moving-platform routes, automatic physics-character movement and general runtime geometry rebaking are unavailable. Moving cylinder/circle carving requires the Dynamic obstacles profile described above. Optional avoidance is local steering and does not guarantee collision prevention. See [Play mode](play-mode.md) and [Transforms](transforms.md) for related controls.

@@ -1,5 +1,13 @@
 # Explore the Feature Gallery
 
+**140-navigation-links** connects separated islands with authored Navigation Links.
+The cyan agent patrols in both directions through the dynamic `Loop` profile. The
+orange agent crosses once through the static `OneWay` profile. Select a link to edit
+its local endpoints, Plane, Build profile, Endpoint radius and Bidirectional setting,
+then rebuild that same profile. During Play, Navigation progress identifies the
+active span. Save, select this Scene as startup and export to run it without project
+C++. See [Connect separated walkable parts](../editor/navigation.md).
+
 **139-behavior-tree** combines priority-based chasing with a timed patrol. The
 cyan agent follows an orange target within 3.5 m, otherwise waits and walks between
 green markers. Select the agent during Play to inspect **Node**, **Tree result**

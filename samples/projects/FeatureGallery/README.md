@@ -1,5 +1,19 @@
 # Feature Gallery
 
+## Authored navigation links
+
+Open **Scenes/140-navigation-links.scene.json** and press Play. The cyan agent
+patrols across the upper gap in both directions using the dynamic `Loop` profile.
+The orange agent crosses the lower gap once using the one-way `OneWay` profile.
+
+Stop Play and select a link to inspect **Navigation Link**. Change its local
+endpoints, attachment radius or **Bidirectional** setting, then rebuild the
+matching navigation profile and save the Scene. The example uses ready navigation
+assets and the existing patrol behavior; no project C++ module is required.
+Export includes the selected built navigation data. These links provide straight
+agent traversal; they do not simulate a physical jump. See
+[Navigation links](../../../manual/editor/navigation.md).
+
 ## Chase and patrol behavior tree
 
 Open **Scenes/139-behavior-tree.scene.json** and press Play. The cyan agent follows

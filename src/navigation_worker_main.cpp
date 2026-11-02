@@ -29,6 +29,8 @@ int main(int argc, char** argv) {
         std::iota(g.indices.begin(), g.indices.end(), 0);
         auto meta = input.at("metadata");
         const auto settings = provenance_settings(meta);
+        if (meta.contains("links"))
+            g.connections = read_navigation_links(meta.at("links"), settings.plane);
         if (settings.plane == NavigationPlane::PlanarXY) {
             const auto& masks = input.at("obstacles");
             if (!masks.is_array() || masks.size() > 512)

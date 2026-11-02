@@ -13,6 +13,7 @@ from mcp_test_client import CAPTURE, Client, failed, test_symlink, finish_host
 
 TOOLS, HOST, RUNTIME, KIT, NAV = sys.argv[1:6]
 NAVIGATION_ONLY = sys.argv[7:] == ['--navigation-only']
+NAVIGATION_LINKS_ONLY = sys.argv[7:] == ['--navigation-links-only']
 SCOPE_TRACE_ONLY = sys.argv[7:] == ['--scope-trace-only']
 MAP_PROFILE_ONLY = sys.argv[7:] == ['--map-profile-only']
 SPRITE_FRAMES_ONLY = sys.argv[7:] == ['--sprite-frames-only']
@@ -212,6 +213,75 @@ for legacy in (False, True):
         assert {'forge_play_start', 'forge_play_ui_command', 'forge_export_start',
                 'forge_script_preview', 'forge_navigation_build', 'forge_navigation_overlay',
                 'forge_dependencies_save'} <= names
+        if NAVIGATION_LINKS_ONLY:
+            link_schema = next(c for c in discovery()['result']['schema']['components']
+                               if c['id'] == 'forge.navigation_link')
+            fields = {f['id']: f for f in link_schema['fields']}
+            assert set(fields) == {'enabled', 'bidirectional', 'plane', 'profile', 'start_x',
+                                   'start_y', 'start_z', 'end_x', 'end_y', 'end_z', 'radius'}, fields
+            assert [(c['value'], c['label']) for c in fields['plane']['choices']] == [(0, '3D'), (1, '2D (XY)')]
+            assert not any(f['animatable'] for f in fields.values())
+            assert 'Navigation Link' in advertised['forge_navigation_build']['description']
+            for x in (-3, 3):
+                floor = ok('forge_entity_create', arguments=dict(kind=4, name='Linked island'))['results'][0]['selected']
+                ok('forge_property_set_many', arguments=dict(entity=floor, component='forge.local_translation', values=dict(x=x, y=0, z=0)))
+                ok('forge_component_add', arguments=dict(entity=floor, component='forge.navigation_region_2d'))
+                ok('forge_property_set_many', arguments=dict(entity=floor, component='forge.navigation_region_2d', values=dict(width=4, height=6)))
+            link = ok('forge_entity_create', arguments=dict(kind=4, name='Authored connection'))['results'][0]['selected']
+            ok('forge_component_add', arguments=dict(entity=link, component='forge.navigation_link'))
+            before = read('forge_scene_read')
+            old_request = arguments(arguments=dict(entity=link, component='forge.navigation_link', field='radius', value=.6))
+            ok('forge_property_set_many', arguments=dict(entity=link, component='forge.navigation_link',
+                values=dict(plane=1, profile='Bridge', start_x=-2, end_x=2, bidirectional=False)))
+            authored_link = read('forge_scene_read')
+            assert ok('forge_history_undo')['changed'] and read('forge_scene_read') == before
+            assert ok('forge_history_redo')['changed'] and read('forge_scene_read') == authored_link
+            stale_request = arguments(arguments=old_request['arguments'])
+            stale_request['expected_revision'] = old_request['expected_revision']
+            stale = client.tool('forge_property_set', **stale_request)
+            assert not stale['ok'] and read('forge_scene_read') == authored_link, stale
+            for field, value in [('plane', 2), ('radius', 0), ('profile', '../Bridge'), ('end_x', -2), ('start_z', 1)]:
+                rejected = mutate('forge_property_set', arguments=dict(entity=link, component='forge.navigation_link', field=field, value=value))
+                assert not rejected['ok'] and read('forge_scene_read') == authored_link, rejected
+            settings = dict(radius=.4, height=2, climb=.4, slope=45, cell_size=.2, cell_height=.1,
+                            plane=1, dynamic_obstacles=True, profile='Other')
+            ok('forge_navigation_build', settings=settings)
+            other = until(lambda: read('forge_navigation_status'), lambda r: not r['busy'])
+            assert other['asset'] and not other['error'] and other['link_count'] == 0, other
+            ok('forge_navigation_build', settings=dict(settings, profile='Bridge'))
+            linked = until(lambda: read('forge_navigation_status'), lambda r: not r['busy'])
+            assert linked['asset'] != other['asset'] and not linked['error'] and linked['link_count'] == 1, linked
+            actor = ok('forge_entity_create', arguments=dict(kind=4, name='MCP link traveler'))['results'][0]['selected']
+            ok('forge_property_set_many', arguments=dict(entity=actor, component='forge.local_translation', values=dict(x=-2, y=0, z=7)))
+            ok('forge_component_add', arguments=dict(entity=actor, component='forge.navigation_agent'))
+            ok('forge_property_set_many', arguments=dict(entity=actor, component='forge.navigation_agent',
+                values=dict(navmesh=linked['asset'], has_destination=True, speed=.2, stopping_distance=.05,
+                            destination_x=3, destination_y=0, destination_z=0)))
+            edit_settings('forge_project_settings_game_defaults')
+            edit_settings('forge_project_settings_save')
+            ok('forge_document_save')
+            saved = read('forge_scene_read')
+            ok('forge_play_start')
+            until(lambda: read('forge_play_status'), lambda r: r['ready'] and r['control_ready'])
+            def traveler():
+                return next(row for row in read('forge_play_snapshot')['entities'] if row['id'] == actor)
+            until(traveler, lambda row: row.get('navigation_debug', {}).get('link') is not None)
+            control('forge_play_pause')
+            paused = until(lambda: read('forge_play_status'), lambda r: r['paused'] and r['control_ready'])
+            before = traveler()
+            assert before['navigation_debug']['link']['source'] == link, before
+            control('forge_play_step')
+            stepped = until(lambda: read('forge_play_status'), lambda r: r['timing']['tick'] == paused['timing']['tick'] + 1 and r['control_ready'])
+            after = traveler()
+            assert after['world_affine'][3] > before['world_affine'][3] and after['world_affine'][11] == 7, after
+            control('forge_play_tune', entity=actor, component='forge.navigation_agent', property='speed', value=4)
+            until(lambda: read('forge_play_status'), lambda r: not r['tune_pending'] and r['tune_ack'] is not None)
+            control('forge_play_resume')
+            arrived = until(traveler, lambda row: row.get('navigation_debug', {}).get('phase') == 'Arrived')
+            assert arrived['navigation_debug']['link'] is None and arrived['world_affine'][3] > 2.8, arrived
+            control('forge_play_stop')
+            assert read('forge_scene_read') == saved
+            continue
         if CONDITIONS_ONLY:
             assert 'State Condition' in advertised['forge_play_tune']['description']
             actor = ok('forge_entity_create', arguments=dict(kind=0, name='MCP conditional body'))['results'][0]['selected']
@@ -1712,7 +1782,8 @@ for legacy in (False, True):
 
 with gzip.open(sys.argv[6], 'wt', encoding='utf-8') as output:
     json.dump(CAPTURE, output, separators=(',', ':'))
-print('Both MCP protocols: Decal Projector live tuning, validation, scope, paused clock and authored isolation verified' if DECALS_ONLY else
+print('Both MCP protocols: authored navigation link discovery/history/revisions/validation, named-profile bake and actual Play traversal verified' if NAVIGATION_LINKS_ONLY else
+      'Both MCP protocols: Decal Projector live tuning, validation, scope, paused clock and authored isolation verified' if DECALS_ONLY else
       'Both MCP protocols: current Light source live tuning, validation, scope, paused clock and authored isolation verified' if SOFT_SHADOWS_ONLY else
       'Both MCP protocols: animated UI source/reload, current Play guards and execution grant verified; Windows execution pending' if UI_ANIMATION_ONLY else
       'Both MCP protocols: navigation ownership, XY authoring and live controls verified; no export or Windows execution' if NAVIGATION_ONLY else

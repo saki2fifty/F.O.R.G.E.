@@ -68,7 +68,7 @@ NavigationCandidate prepare_navigation(const std::filesystem::path& project, con
                                        std::stop_token cancel) {
     validate_navigation_settings(settings);
     auto c = std::make_unique<NavigationCandidate::Impl>(project);
-    const auto source = capture(doc, settings.plane);
+    const auto source = capture(doc, settings.plane, settings.profile);
     const auto profiles = navigation_profiles(c->catalog, source.scene);
     const auto previous = profiles.find(settings.profile);
     const auto id = previous == profiles.end() ? AssetId::generate() : previous->second;
@@ -164,7 +164,8 @@ NavigationCandidate prepare_navigation(const std::filesystem::path& project, con
     c->geometry_digest = g.digest;
     const unsigned geometry_version =
         settings.plane == NavigationPlane::PlanarXY ? (collider_sources(source) ? 5 : 3) : 2;
-    const unsigned version = settings.dynamic_obstacles ? 4 : geometry_version;
+    const unsigned version =
+        !g.connections.empty() ? 6 : (settings.dynamic_obstacles ? 4 : geometry_version);
     Json meta = {{"asset_id", id},
                  {"version", version},
                  {"geometry_version", geometry_version},
@@ -173,6 +174,8 @@ NavigationCandidate prepare_navigation(const std::filesystem::path& project, con
                  {"sources", g.sources},
                  {"geometry_sha256", g.digest},
                  {"settings", settings}};
+    if (!g.connections.empty())
+        meta["links"] = navigation_link_values(g.connections, settings.plane);
     if (geometry_version == 5)
         meta["tile_inputs"] = tiles;
     Json input = {{"metadata", meta}, {"vertices", g.vertices}};
@@ -299,8 +302,11 @@ std::string navigation_detail::selected_geometry_digest(const AssetCatalog& cata
 }
 std::string navigation_geometry_digest(const std::filesystem::path& project, const Json& doc,
                                        const Json& meta) {
-    if (meta.at("version") == 1)
-        return navigation_geometry_digest(doc);
-    return selected_geometry_digest(project, capture(doc, provenance_settings(meta).plane), meta);
+    if (meta.at("version") == 1) {
+        const auto settings = provenance_settings(meta);
+        return geometry(capture(doc, settings.plane, settings.profile)).digest;
+    }
+    const auto settings = provenance_settings(meta);
+    return selected_geometry_digest(project, capture(doc, settings.plane, settings.profile), meta);
 }
 } // namespace forge
