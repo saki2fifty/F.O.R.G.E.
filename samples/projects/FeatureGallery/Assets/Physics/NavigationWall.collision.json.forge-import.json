@@ -1,0 +1,35 @@
+{
+  "build_inputs": {
+    "backend": "none",
+    "dependencies": [],
+    "importer": "forge.collision.builtin",
+    "importer_revision": "57e801075b16bd9b1c51131a5714721d59c2354986dfedc9a7d15036b9cda422",
+    "key_version": 1,
+    "output_format": "forge.collision-bundle",
+    "output_version": 1,
+    "platform": "windows",
+    "profile": "cpu",
+    "settings": {},
+    "settings_version": 1,
+    "source": "e027f35ecd40189e451ec1bb9335fc6a4060a550c1e3391d9e6888aebdc308e4",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.collision.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "736c4225-b1fe-4bb8-9d59-86bb015b5bc8",
+    "source": "Assets/Physics/NavigationWall.collision.json",
+    "source_digest": "e027f35ecd40189e451ec1bb9335fc6a4060a550c1e3391d9e6888aebdc308e4",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.collision.builtin",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

@@ -289,6 +289,17 @@ class NavigationTools {
         ui::help("Bake bounded tiles for moving Navigation Obstacle cylinders (circles in XY). "
                  "Eight enabled obstacles; each may touch at most eight layers. "
                  "Changing this option requires a rebuild, keeping the asset identity.");
+        ImGui::Checkbox("Collect static colliders", &settings_.collect_static_colliders);
+        FORGE_UI_PROBE("navigation:setting:Collect static colliders");
+        ui::help("Include enabled Static solid Physics Bodies on selected layers. In 3D use "
+                 "their physical shapes; in XY add their collision footprints as obstacles to "
+                 "walkable Navigation Regions. Explicit navigation markers take precedence, "
+                 "including disabled markers as exclusions. Rebuild after changing this option.");
+        ImGui::BeginDisabled(!settings_.collect_static_colliders);
+        ui::property_label_row("Collision layers", "Match Physics Body layer slots.");
+        physics_layer_picker(project.project(), "##navigation_collision_layers",
+                             settings_.collision_layers, true);
+        ImGui::EndDisabled();
         auto field = [](const char* label, float& value, const char* help) {
             ImGui::InputFloat(label, &value, 0, 0, "%.3f");
             FORGE_UI_PROBE("navigation:setting:" + std::string(label));
@@ -345,8 +356,7 @@ class NavigationTools {
                             *catalog,
                             navigation_detail::capture_native(
                                 context_, scene, source_entities_,
-                                metadata_.at("settings").get<NavigationSettings>().plane,
-                                metadata_.at("settings").get<NavigationSettings>().profile),
+                                metadata_.at("settings").get<NavigationSettings>()),
                             metadata_) != metadata_.at("geometry_sha256").get<std::string>() ||
                         Json(settings_) != metadata_.at("settings"))
                         validation_state_ = "Navigation is stale — rebuild before Play";

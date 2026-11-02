@@ -14,6 +14,7 @@ from mcp_test_client import CAPTURE, Client, failed, test_symlink, finish_host
 TOOLS, HOST, RUNTIME, KIT, NAV = sys.argv[1:6]
 NAVIGATION_ONLY = sys.argv[7:] == ['--navigation-only']
 NAVIGATION_LINKS_ONLY = sys.argv[7:] == ['--navigation-links-only']
+NAVIGATION_COLLECTION_ONLY = sys.argv[7:] == ['--navigation-collection-only']
 SCOPE_TRACE_ONLY = sys.argv[7:] == ['--scope-trace-only']
 MAP_PROFILE_ONLY = sys.argv[7:] == ['--map-profile-only']
 SPRITE_FRAMES_ONLY = sys.argv[7:] == ['--sprite-frames-only']
@@ -213,6 +214,95 @@ for legacy in (False, True):
         assert {'forge_play_start', 'forge_play_ui_command', 'forge_export_start',
                 'forge_script_preview', 'forge_navigation_build', 'forge_navigation_overlay',
                 'forge_dependencies_save'} <= names
+        if NAVIGATION_COLLECTION_ONLY:
+            build_schema = advertised['forge_navigation_build']['inputSchema']['properties']['settings']['properties']
+            assert build_schema['collect_static_colliders']['type'] == 'boolean', build_schema
+            assert build_schema['collision_layers']['minimum'] == 0 and build_schema['collision_layers']['maximum'] == 4294967295, build_schema
+            assert 'collect_static_colliders' in advertised['forge_navigation_build']['description']
+            floor = ok('forge_entity_create', arguments=dict(kind=4, name='Walkable XY area'))['results'][0]['selected']
+            body = ok('forge_entity_create', arguments=dict(kind=4, name='Unmarked physical obstacle'))['results'][0]['selected']
+            for entity in (floor, body):
+                ok('forge_property_set_many', arguments=dict(entity=entity, component='forge.local_translation', values=dict(x=0, y=0, z=0)))
+            ok('forge_component_add', arguments=dict(entity=floor, component='forge.navigation_region_2d'))
+            ok('forge_property_set_many', arguments=dict(entity=floor, component='forge.navigation_region_2d', values=dict(width=20, height=12)))
+            ok('forge_component_add', arguments=dict(entity=body, component='forge.physics_body_2d'))
+            ok('forge_component_add', arguments=dict(entity=body, component='forge.box_collider_2d'))
+            ok('forge_property_set_many', arguments=dict(entity=body, component='forge.box_collider_2d', values=dict(x=2, y=4)))
+            before = read('forge_scene_read')
+            old = arguments(arguments=dict(entity=body, component='forge.box_collider_2d', field='x', value=3))
+            ok('forge_property_set', arguments=old['arguments'])
+            edited = read('forge_scene_read')
+            assert ok('forge_history_undo')['changed'] and read('forge_scene_read') == before
+            assert ok('forge_history_redo')['changed'] and read('forge_scene_read') == edited
+            assert ok('forge_history_undo')['changed'] and read('forge_scene_read') == before
+            stale = arguments(arguments=old['arguments'])
+            stale['expected_revision'] = old['expected_revision']
+            rejected = client.tool('forge_property_set', **stale)
+            assert not rejected['ok'] and read('forge_scene_read') == before, rejected
+            settings = dict(radius=.2, height=2, climb=.4, slope=45, cell_size=.2, cell_height=.1,
+                            plane=1, dynamic_obstacles=True, profile='Collected',
+                            collect_static_colliders=True, collision_layers=1)
+            for field, value in [('collect_static_colliders', 1), ('collision_layers', -1),
+                                 ('collision_layers', 4294967296), ('collision_layers', .5)]:
+                invalid = dict(settings)
+                invalid[field] = value
+                result = mutate('forge_navigation_build', settings=invalid)
+                assert not result['ok'] and not read('forge_navigation_status')['busy'], result
+                assert read('forge_scene_read') == before
+            manual_settings = dict(settings, profile='Marked', collect_static_colliders=False)
+            ok('forge_navigation_build', settings=manual_settings)
+            marked = until(lambda: read('forge_navigation_status'), lambda row: not row['busy'])
+            assert marked['asset'] and not marked['error'], marked
+            ok('forge_navigation_build', settings=settings)
+            collected = until(lambda: read('forge_navigation_status'), lambda row: not row['busy'])
+            assert collected['asset'] != marked['asset'] and not collected['error'], collected
+            assert collected['settings']['collect_static_colliders'] and collected['settings']['collision_layers'] == 1, collected
+            ok('forge_navigation_select_profile', profile='Marked')
+            assert read('forge_navigation_status')['asset'] == marked['asset']
+            ok('forge_navigation_select_profile', profile='Collected')
+            actor = ok('forge_entity_create', arguments=dict(kind=4, name='Physical-route follower'))['results'][0]['selected']
+            ok('forge_property_set_many', arguments=dict(entity=actor, component='forge.local_translation', values=dict(x=-6, y=0, z=23)))
+            ok('forge_component_add', arguments=dict(entity=actor, component='forge.navigation_agent'))
+            ok('forge_property_set_many', arguments=dict(entity=actor, component='forge.navigation_agent', values=dict(navmesh=collected['asset'], has_destination=True,
+                speed=0, stopping_distance=.05, destination_x=6, destination_y=0, destination_z=0)))
+            edit_settings('forge_project_settings_game_defaults')
+            edit_settings('forge_project_settings_save')
+            ok('forge_document_save')
+            saved = read('forge_scene_read')
+            ok('forge_play_start')
+            until(lambda: read('forge_play_status'), lambda row: row['ready'] and row['control_ready'])
+            def follower():
+                return next(row for row in read('forge_play_snapshot')['entities'] if row['id'] == actor)
+            # A slow transport must not let the actor arrive before pause/Step.
+            # Begin held, then observe the native route and one controlled tick.
+            control('forge_play_pause')
+            paused = until(lambda: read('forge_play_status'), lambda row: row['paused'] and row['control_ready'])
+            control('forge_play_tune', entity=actor, component='forge.navigation_agent', property='speed', value=4)
+            until(lambda: read('forge_play_status'), lambda row: not row['tune_pending'] and row['tune_ack'] is not None)
+            first = follower()
+            assert first['world_affine'][3] == -6 and first['world_affine'][7] == 0 and first['world_affine'][11] == 23, first
+            control('forge_play_step')
+            until(lambda: read('forge_play_status'), lambda row: row['timing']['tick'] == paused['timing']['tick'] + 1 and row['control_ready'])
+            second = follower()
+            distance = sum((second['world_affine'][index] - first['world_affine'][index]) ** 2 for index in (3, 7, 11)) ** .5
+            assert 0 < distance <= 4 / 60 + .00001 and second['world_affine'][11] == 23, (first, second)
+            path = second['navigation_debug']['path']
+            assert any(abs(point[1]) > 2 for point in path) and all(point[2] == 23 for point in path), path
+            control('forge_play_tune', entity=actor, component='forge.navigation_agent', property='speed', value=6)
+            until(lambda: read('forge_play_status'), lambda row: not row['tune_pending'] and row['tune_ack'] is not None)
+            control('forge_play_resume')
+            arrived = until(follower, lambda row: row.get('navigation_debug', {}).get('phase') == 'Arrived')
+            assert arrived['world_affine'][3] > 5.8 and arrived['world_affine'][11] == 23, arrived
+            control('forge_play_stop')
+            assert read('forge_scene_read') == saved
+            with editor('read') as (_, restricted_config), Client(restricted_config, legacy) as restricted:
+                restricted_names = {tool['name'] for tool in restricted.request('tools/list')['result']['tools']}
+                assert 'forge_navigation_status' in restricted_names and 'forge_navigation_build' not in restricted_names
+                access = restricted.tool('forge_discover')
+                denied = restricted.request('tools/call', dict(name='forge_navigation_build', arguments=dict(target=access['result']['target'],
+                    expected_revision=access['revision'], sequence=access['next_sequence'], settings=settings)))
+                assert 'error' in denied or denied.get('result', {}).get('isError'), denied
+            continue
         if NAVIGATION_LINKS_ONLY:
             link_schema = next(c for c in discovery()['result']['schema']['components']
                                if c['id'] == 'forge.navigation_link')
@@ -1782,7 +1872,8 @@ for legacy in (False, True):
 
 with gzip.open(sys.argv[6], 'wt', encoding='utf-8') as output:
     json.dump(CAPTURE, output, separators=(',', ':'))
-print('Both MCP protocols: authored navigation link discovery/history/revisions/validation, named-profile bake and actual Play traversal verified' if NAVIGATION_LINKS_ONLY else
+print('Both MCP protocols: collision collection discovery/validation/history/revisions/permissions, named profiles and actual Play route/step/live tuning verified' if NAVIGATION_COLLECTION_ONLY else
+      'Both MCP protocols: authored navigation link discovery/history/revisions/validation, named-profile bake and actual Play traversal verified' if NAVIGATION_LINKS_ONLY else
       'Both MCP protocols: Decal Projector live tuning, validation, scope, paused clock and authored isolation verified' if DECALS_ONLY else
       'Both MCP protocols: current Light source live tuning, validation, scope, paused clock and authored isolation verified' if SOFT_SHADOWS_ONLY else
       'Both MCP protocols: animated UI source/reload, current Play guards and execution grant verified; Windows execution pending' if UI_ANIMATION_ONLY else

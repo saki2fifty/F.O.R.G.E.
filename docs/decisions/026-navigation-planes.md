@@ -59,8 +59,11 @@ selection/readiness/Play locking at100/150/200%; both MCP protocols exercise the
 native owner. The installed SDK sample compiles against installed headers and runs
 from a relocated kit. These checks do not establish native Windows/GPU acceptance.
 
-The finite profile excludes automatic art/collision inclusion, platformer/off-mesh
-links, dynamic rebaking, cost editing and streaming.
+The original finite profile excludes automatic art/collision inclusion, platformer/off-mesh
+links, dynamic rebaking, cost editing and streaming. [ADR031](031-navigation-links.md)
+adds bounded authored links; [ADR032](032-navigation-collision-collection.md) refines
+the collision exclusion with explicit profile-scoped collection. Artwork inference,
+general dynamic rebaking, cost editing and streaming remain excluded.
 It does not imply parity with another engine or claim a measured performance gain.
 See [Navigation](../navigation.md) for the current contract and bounds.
 

@@ -13,6 +13,8 @@ import zipfile
 from build_identity import validate_build_id
 from build_manual import build_manual
 
+GALLERY_RUNTIME_LOCKS = frozenset(('.forge/writer.lock', '.forge/cache/derived/cache.lock'))
+
 
 def check_pe64(path):
     with path.open('rb') as stream:
@@ -33,7 +35,7 @@ def gallery_files(root):
         raise ValueError('Feature Gallery contains a link')
     if not {root/'README.md', root/'forge.project.json'}.issubset(files) or not list((root/'Scenes').glob('*.scene.json')):
         raise ValueError('Feature Gallery project or scenes missing from Windows package source')
-    return files
+    return [p for p in files if p.relative_to(root).as_posix() not in GALLERY_RUNTIME_LOCKS]
 
 
 def package(build, dependencies, output, gallery_preparer=None):
@@ -42,18 +44,19 @@ def package(build, dependencies, output, gallery_preparer=None):
     if gallery_preparer is None:
         return _package(build, dependencies, output, source_gallery)
     build = Path(build).resolve()
-    preparer = Path(gallery_preparer).resolve()
+    preparers = [gallery_preparer] if isinstance(gallery_preparer, (str, Path)) else list(gallery_preparer)
+    if not preparers:
+        raise ValueError('At least one native Gallery preparer is required')
+    preparers = [Path(p).resolve() for p in preparers]
     worker = build/'forge_nav_build.exe'
-    for image in (preparer, worker, build/'forge_asset_build.exe'):
+    for image in (*preparers, worker, build/'forge_asset_build.exe'):
         check_pe64(image)
     with tempfile.TemporaryDirectory(prefix='gallery-package-', dir=build) as temporary:
         staged = Path(temporary)/'FeatureGallery'
         shutil.copytree(source_gallery, staged)
-        subprocess.run([str(preparer), '--prepare', str(staged), str(worker)],
-                       check=True, timeout=180)
-        # The native process has released this private copy's project/cache locks.
-        for lock in ('.forge/writer.lock', '.forge/cache/derived/cache.lock'):
-            (staged/lock).unlink(missing_ok=True)
+        for preparer in preparers:
+            subprocess.run([str(preparer), '--prepare', str(staged), str(worker)],
+                           check=True, timeout=180)
         _package(build, dependencies, output, staged)
 
 
@@ -209,7 +212,7 @@ if __name__ == '__main__':
     parser.add_argument('--build', type=Path, required=True)
     parser.add_argument('--dependencies', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
-    parser.add_argument('--gallery-preparer', type=Path, required=True,
-                        help='Matching native Gallery preparation executable (not shipped)')
+    parser.add_argument('--gallery-preparer', type=Path, action='append', required=True,
+                        help='Matching native Gallery preparation executable; repeat for each workflow (not shipped)')
     args = parser.parse_args()
     package(args.build, args.dependencies, args.output, args.gallery_preparer)

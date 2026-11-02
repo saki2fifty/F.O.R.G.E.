@@ -15,6 +15,7 @@
 #include <vector>
 namespace forge {
 using Json = nlohmann::json;
+struct NavigationSettings;
 class Scene {
   public:
     explicit Scene(WorldContext& context);
@@ -35,10 +36,11 @@ class Scene {
     // Copied IDs, Prefab flags and effective UI components in normal Scene order.
     // Includes unresolved Prefab rows; not an authored Scene document.
     Json ui_document_rows() const;
-    // Narrow copied intent for removed prefab members that still own an enabled
-    // NavigationSurface. Native-only capture must not silently omit these errors.
+    // Narrow selected intent for removed prefab members. Native-only capture
+    // retains the shared unresolved-source diagnostic without inventing an entity.
     Json unresolved_navigation_sources(NavigationPlane plane = NavigationPlane::Spatial3D,
                                        std::string_view profile = "default") const;
+    Json unresolved_navigation_sources(const NavigationSettings&) const;
     // Detached command/gesture projection; never a mutable live representation.
     Json preview_document(const Json& intended) const;
     static void validate_document(const Json& document);

@@ -8,6 +8,8 @@ namespace forge::navigation_detail {
 Sources capture_native(WorldContext&, const Scene&, const flecs::query<const PersistentEntityId>&,
                        NavigationPlane = NavigationPlane::Spatial3D,
                        std::string_view profile = "default");
+Sources capture_native(WorldContext&, const Scene&, const flecs::query<const PersistentEntityId>&,
+                       const NavigationSettings&);
 // Selected catalog provenance only; never loads Mesh bytes or changes selection.
 std::string selected_geometry_digest(const std::filesystem::path&, const Sources&,
                                      const nlohmann::json& baked_metadata);

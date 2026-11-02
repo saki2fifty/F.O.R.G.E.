@@ -114,8 +114,8 @@ void runtime(const std::filesystem::path& root, const Json& saved, AssetId nav_i
           "Map route failed to arrive: " +
               std::static_pointer_cast<NavigationRuntime>(navigation)->debug(entity.id()).dump());
 }
-void exercise(const std::filesystem::path& root, const std::filesystem::path& worker,
-              bool obstacle) {
+void exercise(const std::filesystem::path& root, const std::filesystem::path& worker, bool obstacle,
+              bool collect = false, bool dynamic = false) {
     auto catalog = AssetCatalog::open_project(root);
     AssetId map;
     for (const auto& [id, row] : catalog.records())
@@ -146,29 +146,33 @@ void exercise(const std::filesystem::path& root, const std::filesystem::path& wo
     NavigationRegion2D region;
     region.source = 1;
     region.obstacle = obstacle;
-    source.set<NavigationRegion2D>(region);
-    const auto copied = capture(scene.effective_document(), NavigationPlane::PlanarXY);
+    NavigationSettings settings;
+    settings.plane = NavigationPlane::PlanarXY;
+    settings.radius = .05f;
+    settings.cell_size = .1f;
+    settings.collect_static_colliders = collect;
+    settings.dynamic_obstacles = dynamic;
+    if (collect)
+        source.set<PhysicsBody2D>({});
+    else
+        source.set<NavigationRegion2D>(region);
+    const auto copied = capture(scene.effective_document(), settings);
     const auto candidates = engine.world()
                                 .world()
                                 .query_builder<const PersistentEntityId>()
                                 .cache_kind(flecs::QueryCacheNone)
                                 .query_flags(EcsQueryMatchPrefab | EcsQueryMatchDisabled)
                                 .build();
-    const auto native =
-        capture_native(engine.world(), scene, candidates, NavigationPlane::PlanarXY);
+    const auto native = capture_native(engine.world(), scene, candidates, settings);
     const auto inputs =
         tile_inputs(copied, [&](AssetId id) { return selected_tile_map_revision(catalog, {id}); });
     check(copied.maps == native.maps && copied.maps.size() == 1 &&
               source_digest(copied, inputs) == source_digest(native, inputs),
           "Native Map/selected-layer source capture differs from authored values");
-    NavigationSettings settings;
-    settings.plane = NavigationPlane::PlanarXY;
-    settings.radius = .05f;
-    settings.cell_size = .1f;
     const auto record = prepare_navigation(root, scene.effective_document(), settings, worker)
                             .publish(scene.effective_document());
-    check(record.schema_version == 5 && record.metadata.at("tile_inputs") == inputs &&
-              record.dependency_edges.size() == 2,
+    check(record.schema_version == (collect ? 7u : 5u) &&
+              record.metadata.at("tile_inputs") == inputs && record.dependency_edges.size() == 2,
           "Map source publication lost explicit selected resource provenance");
     const auto admitted = load(root, record);
     Query query(admitted.mesh);
@@ -192,9 +196,11 @@ void exercise(const std::filesystem::path& root, const std::filesystem::path& wo
                                          : LocalTranslation{-6.5, -3.5, 7});
     actor.set<NavigationAgent>(
         {{record.id}, true, true, 3, .05f, obstacle ? 0.0 : 6.5, obstacle ? 8.0 : -3.5, -19});
-    const auto path =
-        std::filesystem::path("Scenes") /
-        (obstacle ? "map-mask-navigation.scene.json" : "map-floor-navigation.scene.json");
+    const auto path = std::filesystem::path("Scenes") /
+                      (collect ? (dynamic ? "map-collected-dynamic.scene.json"
+                                          : "map-collected-navigation.scene.json")
+                               : (obstacle ? "map-mask-navigation.scene.json"
+                                           : "map-floor-navigation.scene.json"));
     scene.save(root / path);
     const auto saved = scene.document();
     const auto source_ref = scene.reference(source.get<PersistentEntityId>().value.str());
@@ -252,6 +258,8 @@ int main(int argc, char** argv) {
         std::filesystem::copy(argv[1], root, std::filesystem::copy_options::recursive);
         exercise(root, std::filesystem::absolute(argv[3]), false);
         exercise(root, std::filesystem::absolute(argv[3]), true);
+        exercise(root, std::filesystem::absolute(argv[3]), true, true);
+        exercise(root, std::filesystem::absolute(argv[3]), true, true, true);
         std::filesystem::remove_all(root);
         std::cout << "Map source resources/native capture, floor/mask routes, provenance and "
                      "last-good PASS\n";

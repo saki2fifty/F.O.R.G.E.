@@ -1866,3 +1866,41 @@ and manual/package checks at the coherent batch gate. These checks do not establ
 Windows/MSVC/FXC/cooked D3D12, full desktop input/DPI, physical GPU performance or
 actual graphical exported-EXE acceptance. Functional native completion is separate
 from the existing unresolved unsuppressed sanitizer shutdown condition.
+
+## Navigation collision collection regression gate
+
+`navigation_collection_values` checks strict opt-in/layer values and preserved
+default settings. `navigation_collection_sources` checks both source paths, layer31,
+motion/sensor/disabled/marker filtering, unresolved prefab physical intent, physical
+inline/prepared-shape bounds and truncated-input rejection. Curved native shapes
+are checked against independent scaled physical extents.
+
+`navigation_collection_pipeline` exercises actual worker publication/admission for
+both planes and static/dynamic profiles, malformed version7 metadata, stale-candidate
+retention, Agent distance budgets, layer-change holds and exact recovery. Directional
+links compose with collected sources while another named profile remains isolated.
+`navigation_collection_resources` replaces a selected Collision revision through
+normal publication/physics refresh and checks that stale-route movement holds.
+`navigation_tile_sources` retains marked cases and adds collected Map sources,
+runtime cell invalidation/reset, recovery and source-hidden content relocation.
+
+`navigation_link_editor` also checks collection/layer controls at100/150/200percent
+through actual input, without changing Scene history. Its `--capture-collection`
+mode records the saved Gallery141 profile's real controls. `mcp_navigation_collection_stdio`
+covers both protocol envelopes, discovery/schema, invalid rollback, revisions,
+Undo/Redo, actual Play/step routes, live values and read-only denial. The current
+and installed/relocated `native_sdk_navigation_behavior` process checks include
+Gallery141 through ordinary and SDK Play hosts.
+
+`navigation_collection_gallery` runs repeated original Patrol behavior around the
+physical wall, then hides sources and reopens relocated exported content. The
+existing `forge_navigation_polygon_gallery_vulkan_probe` accepts Scene141 for four
+exact moving source/export Game display pairs. Manual provenance lives with the
+canonical screenshot record. Native Windows packaging invokes both
+`forge_navigation_collision_gallery_tests` and `forge_navigation_collection_gallery_tests`
+as repeated `--gallery-preparer` arguments against one private stage. Real ZIP
+fixtures verify composed bytes/hashes, failure retention and exact runtime-lock
+exclusion. The supported cross-target CPU Collision recipe in portable fixtures
+does not establish Windows/MSVC/native package, full editor, physical GPU/input/DPI
+or graphical exported-executable acceptance. Run those separate acceptance owners
+before making those claims.

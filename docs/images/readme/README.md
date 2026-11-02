@@ -1369,3 +1369,32 @@ source/export image comparisons. These captures establish neither a full editor
 desktop nor Windows/MSVC/D3D12, physical GPU/DPI, graphical EXE or external-agent
 acceptance. Those reviews remain queued separately; offline manual/package
 inclusion is verified by the normal documentation gate.
+
+## Static navigation collision collection
+
+`manual/images/navigation-collection-controls.png` records actual NavigationTools
+controls for Gallery141's saved Physical profile. The fixture opens a private
+ordinary Gallery copy, selects that profile, renders the real Content controls
+through ImGui/SDL software rendering and checks visible enabled collection/layer
+controls, ready status and unchanged authored Scene. The860x600PNG is preserved
+without resizing, cropping or retouching. Capture command uses
+`forge_navigation_link_editor_tests --capture-collection <Gallery> <output>`.
+PNG SHA256: `746032e6c122cc0455a87f674d429704daa43060aa49e5a821f774ce24cce4d9`.
+
+`manual/images/navigation-collection-game.png` is production Game/FrameRenderer
+output after60fixed ticks on software Vulkan/lvp. The cyan patrol approaches the
+physical wall between green destination markers. Four moving source/source-hidden
+relocated-export display pairs match exactly, including portrait output. The
+640x360RGB pixels from `authored/60-640.ppm` were losslessly encoded as PNG;
+no visual element was added or retouched. PNG SHA256:
+`2de78ed45379e2a386c5466e2ea86344e6d45d4ac2cd8df302f578ca2e07f13e`.
+
+Both captures use local `forge/navigation-collision-collection` work based on
+cc6b813 with unassigned build identity. Scene
+`a4c29e00-c3d6-4534-83c2-87146bcc5fbb` source SHA256:
+`063e5085eb4e6fd3143bb9629c3449166faac109b0d8cd3d642cec6223769c94`.
+Local receipts bind the source/executables, rendering environment and exact image
+pairs. Both original images were personally reviewed. These are actual control /
+Game fixtures, not full editor desktop, Windows/MSVC/D3D12, physical GPU/input/DPI
+or graphical exported-executable acceptance. Offline manual/package inclusion
+remains the documentation gate's responsibility.

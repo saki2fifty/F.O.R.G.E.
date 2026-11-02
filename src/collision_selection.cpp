@@ -2,22 +2,33 @@
 #include "collision_bundle.hpp"
 
 namespace forge {
+namespace {
+const nlohmann::json& collision_selection(const AssetCatalog& catalog,
+                                          AssetRef<CollisionAsset> ref) {
+    const auto at = catalog.records().find(ref.id);
+    if (at == catalog.records().end() || at->second.type != CollisionAsset::type ||
+        at->second.subasset)
+        throw std::runtime_error("Collision asset is missing or has the wrong type");
+    const auto& selected = at->second.metadata.at("forge.import");
+    const auto& generation = selected.at("generation");
+    if (selected.at("version") != 1 || selected.at("output_format") != "forge.collision-bundle" ||
+        selected.at("output_version") != 1 || !generation.is_number_unsigned() || generation == 0)
+        throw std::runtime_error("Unsupported collision selection profile/generation");
+    return selected;
+}
+} // namespace
+std::string selected_collision_revision(const AssetCatalog& catalog, AssetRef<CollisionAsset> ref) {
+    return collision_selection(catalog, ref).at("key").get<std::string>();
+}
 ResourceTicket request_collision(ResourcePool<CollisionAsset>& pool, std::filesystem::path project,
                                  std::shared_ptr<const AssetCatalog> catalog,
                                  AssetRef<CollisionAsset> ref) {
     if (!catalog)
         throw std::runtime_error("Collision resource requires a catalog snapshot");
-    const auto at = catalog->records().find(ref.id);
-    if (at == catalog->records().end() || at->second.type != CollisionAsset::type ||
-        at->second.subasset)
-        throw std::runtime_error("Collision asset is missing or has the wrong type");
-    const auto selected = at->second.metadata.at("forge.import");
+    const auto selected = collision_selection(*catalog, ref);
     const auto generation = selected.at("generation");
-    if (selected.at("version") != 1 || selected.at("output_format") != "forge.collision-bundle" ||
-        selected.at("output_version") != 1 || !generation.is_number_unsigned() || generation == 0)
-        throw std::runtime_error("Unsupported collision selection profile/generation");
     const auto revision = selected.at("key").get<std::string>();
-    const auto metadata = at->second.metadata.at("forge.collision");
+    const auto metadata = catalog->records().at(ref.id).metadata.at("forge.collision");
     return pool.request(
         ref, revision, generation.get<std::uint64_t>(),
         [project = std::move(project), ref, revision, selected, metadata](std::stop_token stop) {

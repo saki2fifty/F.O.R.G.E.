@@ -1,4 +1,5 @@
 #pragma once
+#include "navigation_collision_mesh.hpp"
 #include "navigation_collision_source.hpp"
 #include "navigation_layers.hpp"
 #include "navigation_links.hpp"
@@ -22,12 +23,14 @@ struct Surface {
     AssetId mesh;
     std::optional<NavigationRegion2D> region;
     std::optional<NavigationColliderSource> collider;
+    // Canonical physical shape components only; never render geometry or native handles.
+    nlohmann::json collision;
 };
 struct Sources {
     AssetId scene;
     nlohmann::json identities = nlohmann::json::array();
     std::vector<Surface> surfaces;
-    std::set<AssetId> meshes, maps;
+    std::set<AssetId> meshes, maps, collisions;
     NavigationPlane plane = NavigationPlane::Spatial3D;
     std::vector<NavigationLinkData> connections;
 };
@@ -37,9 +40,13 @@ inline bool collider_sources(const Sources& value) {
 }
 Sources capture(const nlohmann::json& effective_scene, NavigationPlane = NavigationPlane::Spatial3D,
                 std::string_view profile = "default");
+Sources capture(const nlohmann::json& effective_scene, const NavigationSettings&);
 nlohmann::json mesh_inputs(const Sources&, const std::function<std::string(AssetId)>& revision);
 nlohmann::json tile_inputs(const Sources&, const std::function<std::string(AssetId)>& revision);
-std::string source_digest(const Sources&, const nlohmann::json& mesh_inputs);
+nlohmann::json collision_inputs(const Sources&,
+                                const std::function<std::string(AssetId)>& revision);
+std::string source_digest(const Sources&, const nlohmann::json& mesh_inputs,
+                          const nlohmann::json& collision_inputs = nlohmann::json::array());
 struct Geometry {
     std::vector<float> vertices;
     std::vector<int> indices;
@@ -54,7 +61,9 @@ Geometry geometry(const nlohmann::json& effective_scene);
 Geometry geometry(const Sources&); // Original primitive-only v1 canonical bytes.
 Geometry geometry(const Sources&, const nlohmann::json& resource_inputs,
                   const std::function<const MeshResourceData&(AssetId)>& mesh,
-                  const std::function<RegionContours(const Surface&)>& maps = {});
+                  const std::function<RegionContours(const Surface&)>& maps = {},
+                  const std::function<PhysicsDebugCollision(AssetId)>& collisions = {},
+                  const nlohmann::json& collision_inputs = nlohmann::json::array());
 HeightfieldLayers build_layers(const Geometry&, NavigationSettings);
 std::vector<std::byte> build_tile(const Geometry&, NavigationSettings);
 } // namespace forge::navigation_detail

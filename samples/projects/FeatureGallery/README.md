@@ -1,5 +1,24 @@
 # Feature Gallery
 
+## Collect static collision geometry
+
+Open **Scenes/141-navigation-collision-collection.scene.json** and press **Play**.
+The cyan agent patrols between the green markers around the orange wall. The
+floor uses a Static Box Collider; the wall uses the editable
+**Assets/Physics/NavigationWall.collision.json** asset. Neither has a Navigation
+Surface marker. Camera, light, Patrol behavior and built NavMesh are included;
+no project C++ module is needed.
+
+Stop Play and open **Content → Create / Register → Navigation**. Choose
+**Build profile → Physical** to see **Collect static colliders** and **Collision
+layers**. Collection selects enabled Static nonsensor bodies by their Layer.
+Moving/disabled/sensor bodies are skipped; an explicit disabled navigation marker
+excludes an object. Rebuild after changing included physical geometry, its selected
+Collision revision or the build filters. Save the Scene, select it as startup and
+export normally. The exported patrol uses the selected cooked Collision/behavior
+and NavMesh without a navigation worker. See
+[Static collision collection](../../../manual/editor/navigation.md).
+
 ## Authored navigation links
 
 Open **Scenes/140-navigation-links.scene.json** and press Play. The cyan agent

@@ -7,6 +7,7 @@
 #include <forge/assets.hpp>
 #include <forge/project_paths.hpp>
 #include <set>
+#include <string_view>
 namespace forge::navigation_detail {
 namespace {
 constexpr std::string_view magic = "FORGENAV";
@@ -30,23 +31,48 @@ bool digest(const std::string& s) {
                return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f');
            });
 }
+const char* layout(bool dynamic, bool links) {
+    return dynamic ? (links ? "le-cells32-tiled-links-v1" : "le-cells32-tiled-v1")
+                   : (links ? "le-polyref32-detour7-links-single-v1"
+                            : "le-polyref32-detour7-static-single-v1");
+}
+void resource_inputs(const nlohmann::json& inputs, std::string_view kind) {
+    const auto invalid = "Invalid navigation " + std::string(kind) + " inputs";
+    require(inputs.is_array() && inputs.size() <= 32, invalid.c_str());
+    std::set<AssetId> identities;
+    const auto repeated = "Invalid or repeated navigation " + std::string(kind) + " provenance";
+    for (const auto& input : inputs)
+        require(input.is_object() && input.size() == 2 &&
+                    identities.insert(input.at("asset_id").get<AssetId>()).second &&
+                    digest(input.at("revision").get<std::string>()),
+                repeated.c_str());
+}
 } // namespace
 NavigationSettings provenance_settings(const nlohmann::json& meta) {
     const auto version = meta.at("version");
-    require(version.is_number_integer() && (version == 1 || version == 2 || version == 3 ||
-                                            version == 4 || version == 5 || version == 6),
+    require(version.is_number_integer() &&
+                (version == 1 || version == 2 || version == 3 || version == 4 || version == 5 ||
+                 version == 6 || version == 7),
             "Unsupported navigation envelope version");
     auto settings = meta.at("settings").get<NavigationSettings>();
-    require((version == 4 || (version == 6 && settings.dynamic_obstacles)) ==
-                    settings.dynamic_obstacles &&
-                (version == 4 || version == 6 ||
-                 (version == 3 || version == 5) == (settings.plane == NavigationPlane::PlanarXY)),
+    require((version == 7) == settings.collect_static_colliders,
+            "Static collision collection requires navigation version 7");
+    require(version == 7 ||
+                ((version == 4 || (version == 6 && settings.dynamic_obstacles)) ==
+                     settings.dynamic_obstacles &&
+                 (version == 4 || version == 6 ||
+                  (version == 3 || version == 5) == (settings.plane == NavigationPlane::PlanarXY))),
             "Navigation envelope version/profile/plane mismatch");
-    if (version == 6)
+    if (version == 6 || (version == 7 && meta.contains("links")))
         require(!read_navigation_links(meta.at("links"), settings.plane).empty(),
-                "Navigation version 6 requires authored links");
+                "Navigation link metadata requires at least one authored link");
     else
-        require(!meta.contains("links"), "Authored links require navigation version 6");
+        require(!meta.contains("links"), "Authored links require navigation version 6 or 7");
+    if (version == 7 && settings.plane == NavigationPlane::Spatial3D)
+        resource_inputs(meta.at("collision_inputs"), "Collision");
+    else
+        require(!meta.contains("collision_inputs"),
+                "Collision provenance requires the spatial collection profile");
     if (version == 1) {
         require(!meta.contains("geometry_version") && !meta.contains("mesh_inputs") &&
                     !meta.contains("tile_inputs"),
@@ -59,14 +85,7 @@ NavigationSettings provenance_settings(const nlohmann::json& meta) {
                     (version != 3 || geometry == 3) && (version != 5 || geometry == 5),
                 "Unsupported navigation geometry version");
         if (geometry == 5) {
-            const auto& tiles = meta.at("tile_inputs");
-            require(tiles.is_array() && tiles.size() <= 32, "Invalid navigation Tile Map inputs");
-            std::set<AssetId> maps;
-            for (const auto& input : tiles)
-                require(input.is_object() && input.size() == 2 &&
-                            maps.insert(input.at("asset_id").get<AssetId>()).second &&
-                            digest(input.at("revision").get<std::string>()),
-                        "Invalid or repeated navigation Tile Map provenance");
+            resource_inputs(meta.at("tile_inputs"), "Tile Map");
         } else
             require(!meta.contains("tile_inputs"),
                     "Tile provenance requires collision-source geometry");
@@ -74,13 +93,7 @@ NavigationSettings provenance_settings(const nlohmann::json& meta) {
         require(inputs.is_array() && inputs.size() <= 32 &&
                     (settings.plane != NavigationPlane::PlanarXY || inputs.empty()),
                 "Invalid navigation Mesh inputs for this plane");
-        std::set<AssetId> meshes;
-        for (const auto& input : inputs) {
-            require(input.is_object() && input.size() == 2 &&
-                        meshes.insert(input.at("asset_id").get<AssetId>()).second &&
-                        digest(input.at("revision").get<std::string>()),
-                    "Invalid or repeated navigation Mesh provenance");
-        }
+        resource_inputs(inputs, "Mesh");
     }
     return settings;
 }
@@ -102,10 +115,7 @@ std::vector<std::byte> envelope(nlohmann::json meta, std::span<const std::byte> 
     const unsigned version = meta.value("version", 1u);
     meta["version"] = version;
     meta["recast_revision"] = recast_revision;
-    meta["layout"] = settings.dynamic_obstacles
-                         ? (version == 6 ? "le-cells32-tiled-links-v1" : "le-cells32-tiled-v1")
-                         : (version == 6 ? "le-polyref32-detour7-links-single-v1"
-                                         : "le-polyref32-detour7-static-single-v1");
+    meta["layout"] = layout(settings.dynamic_obstacles, !connections.empty());
     meta["tile_sha256"] = asset_detail::content_digest(tile);
     auto text = meta.dump();
     require(text.size() <= 65536, "Navigation metadata exceeds 64 KiB");
@@ -126,7 +136,8 @@ Admitted admit(std::span<const std::byte> bytes) {
     require(std::equal(magic.begin(), magic.end(), bytes.begin(),
                        [](char a, std::byte b) { return a == std::to_integer<char>(b); }) &&
                 (u32(bytes, 8) == 1 || u32(bytes, 8) == 2 || u32(bytes, 8) == 3 ||
-                 u32(bytes, 8) == 4 || u32(bytes, 8) == 5 || u32(bytes, 8) == 6),
+                 u32(bytes, 8) == 4 || u32(bytes, 8) == 5 || u32(bytes, 8) == 6 ||
+                 u32(bytes, 8) == 7),
             "Unsupported navigation envelope");
     const auto n = u32(bytes, 12), t = u32(bytes, 16);
     require(n > 0 && n <= 65536 && t > 0 && t <= max_nav_bytes &&
@@ -150,12 +161,7 @@ Admitted admit(std::span<const std::byte> bytes) {
     const auto connections = meta.contains("links")
                                  ? read_navigation_links(meta.at("links"), settings.plane)
                                  : std::vector<NavigationLinkData>{};
-    const auto version = u32(bytes, 8);
-    const auto expected_layout =
-        settings.dynamic_obstacles
-            ? (version == 6 ? "le-cells32-tiled-links-v1" : "le-cells32-tiled-v1")
-            : (version == 6 ? "le-polyref32-detour7-links-single-v1"
-                            : "le-polyref32-detour7-static-single-v1");
+    const auto expected_layout = layout(settings.dynamic_obstacles, !connections.empty());
     require(meta.at("layout") == expected_layout, "Incompatible navigation layout/profile");
     const auto& ids = meta.at("sources");
     require(ids.is_array() && !ids.empty() && ids.size() <= 512,
@@ -191,7 +197,8 @@ Admitted load(const std::filesystem::path& root, const AssetRecord& record) {
     require(record.type == NavMeshAsset::type &&
                 (record.schema_version == 1 || record.schema_version == 2 ||
                  record.schema_version == 3 || record.schema_version == 4 ||
-                 record.schema_version == 5 || record.schema_version == 6),
+                 record.schema_version == 5 || record.schema_version == 6 ||
+                 record.schema_version == 7),
             "Wrong navigation asset type/version");
     auto bytes =
         asset_detail::read_bytes(ProjectPaths(root).resolve(record.source), max_nav_bytes + 65556);

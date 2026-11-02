@@ -119,10 +119,53 @@ class GalleryPackageTest(unittest.TestCase):
         self.assertEqual(self.archive.read_bytes(), before)
         self.assertFalse(list(self.build.glob('gallery-package-*')))
 
+    def test_multiple_preparers_share_one_private_gallery(self):
+        preparers = [self.build/name for name in ('tile-preparer.exe', 'physical-preparer.exe')]
+        for preparer in preparers:
+            shutil.copyfile(self.build/'forge_nav_build.exe', preparer)
+        stages = []
+        def run(arguments, **options):
+            index = len(stages)
+            self.assertEqual(arguments[0], str(preparers[index]))
+            staged = Path(arguments[2])
+            stages.append(staged)
+            if index:
+                self.assertEqual((staged/'Assets/first.fnav').read_bytes(), b'First preparation')
+            self.write(staged/('Assets/first.fnav' if not index else 'Assets/second.fnav'),
+                       b'First preparation' if not index else b'Second preparation')
+        with patch.object(package_windows.subprocess, 'run', side_effect=run) as native:
+            self.package(preparers)
+        self.assertEqual(native.call_count, 2)
+        self.assertEqual(stages[0], stages[1])
+        self.assertFalse(stages[0].exists())
+        self.assertFalse((self.gallery/'Assets/first.fnav').exists())
+        self.assertFalse((self.gallery/'Assets/second.fnav').exists())
+        with zipfile.ZipFile(self.archive) as archive:
+            manifest = json.loads(archive.read('manifest.json'))['files']
+            for name, content in (('first', b'First preparation'), ('second', b'Second preparation')):
+                path = 'Examples/FeatureGallery/Assets/'+name+'.fnav'
+                self.assertEqual(archive.read(path), content)
+                self.assertEqual(manifest[path], hashlib.sha256(content).hexdigest())
+
+    def test_later_preparation_failure_retains_previous_archive(self):
+        self.package()
+        before = self.archive.read_bytes()
+        preparers = [self.build/name for name in ('first-preparer.exe', 'failed-preparer.exe')]
+        for preparer in preparers:
+            shutil.copyfile(self.build/'forge_nav_build.exe', preparer)
+        with patch.object(package_windows.subprocess, 'run',
+                          side_effect=[None, subprocess.CalledProcessError(1, 'second-preparer')]) as native:
+            with self.assertRaises(subprocess.CalledProcessError):
+                self.package(preparers)
+        self.assertEqual(native.call_count, 2)
+        self.assertEqual(self.archive.read_bytes(), before)
+        self.assertFalse(list(self.build.glob('gallery-package-*')))
+
     def test_complete_gallery_bytes_and_manifest(self):
         self.package()
         expected = {p.relative_to(self.gallery).as_posix(): p.read_bytes()
-                    for p in self.gallery.rglob('*') if p.is_file()}
+                    for p in self.gallery.rglob('*') if p.is_file()
+                    and p.relative_to(self.gallery).as_posix() not in package_windows.GALLERY_RUNTIME_LOCKS}
         with zipfile.ZipFile(self.archive) as archive:
             self.assertIsNone(archive.testzip())
             manifest = json.loads(archive.read('manifest.json'))['files']
@@ -151,6 +194,22 @@ class GalleryPackageTest(unittest.TestCase):
             self.assertEqual(archive.read(image), self.manual_image)
             self.assertEqual(manifest[image], hashlib.sha256(self.manual_image).hexdigest())
             self.assertIn(b'src="images/scene-editor.png"', archive.read('manual/index.html'))
+
+    def test_default_packaging_excludes_runtime_locks_and_keeps_source_files(self):
+        locks = ('.forge/writer.lock', '.forge/cache/derived/cache.lock')
+        for relative in locks:
+            self.write(self.gallery/relative, b'Released local runtime lock')
+        self.write(self.gallery/'Assets/cache.lock', b'Authored resource with a similar name')
+        self.package()
+        with zipfile.ZipFile(self.archive) as archive:
+            manifest = json.loads(archive.read('manifest.json'))['files']
+            for relative in locks:
+                self.assertTrue((self.gallery/relative).is_file())
+                self.assertNotIn('Examples/FeatureGallery/'+relative, archive.namelist())
+                self.assertNotIn('Examples/FeatureGallery/'+relative, manifest)
+            name = 'Examples/FeatureGallery/Assets/cache.lock'
+            self.assertEqual(archive.read(name), b'Authored resource with a similar name')
+            self.assertIn(name, manifest)
 
     def test_missing_backend_notice_retains_previous_archive(self):
         self.package()

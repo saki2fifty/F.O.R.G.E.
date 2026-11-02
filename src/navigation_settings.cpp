@@ -24,6 +24,10 @@ void to_json(nlohmann::json& j, const NavigationSettings& s) {
         j["dynamic_obstacles"] = true;
     if (s.profile != "default")
         j["profile"] = s.profile;
+    if (s.collect_static_colliders)
+        j["collect_static_colliders"] = true;
+    if (s.collision_layers != UINT32_MAX)
+        j["collision_layers"] = s.collision_layers;
 }
 void from_json(const nlohmann::json& j, NavigationSettings& s) {
     s = {j.at("radius"), j.at("height"),    j.at("climb"),
@@ -41,6 +45,17 @@ void from_json(const nlohmann::json& j, NavigationSettings& s) {
     }
     if (j.contains("profile"))
         s.profile = j.at("profile").get<std::string>();
+    if (j.contains("collect_static_colliders")) {
+        if (!j.at("collect_static_colliders").is_boolean())
+            throw std::runtime_error("Collect static colliders setting must be boolean");
+        s.collect_static_colliders = j.at("collect_static_colliders").get<bool>();
+    }
+    if (j.contains("collision_layers")) {
+        const auto& layers = j.at("collision_layers");
+        if (!layers.is_number_integer() || layers < 0 || layers > UINT32_MAX)
+            throw std::runtime_error("Navigation collision layers require a 32-bit unsigned mask");
+        s.collision_layers = layers.get<std::uint32_t>();
+    }
     validate_navigation_settings(s);
 }
 } // namespace forge

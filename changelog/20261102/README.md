@@ -1,5 +1,28 @@
 # 2026-11-02
 
+## Static navigation collision collection
+
+Navigation build profiles can opt into enabled Static nonsensor bodies by physics
+layer. Explicit markers retain precedence, including disabled exclusions. XY adds
+configured physical obstacles to explicit walkable regions;3D uses actual inline
+or selected Collision geometry. Existing physical adapters/resource owners serve
+both source capture and baking. Contact filtering and render artwork do not
+determine collection geometry, and no physics world is created for the bake.
+
+Collection uses envelope7 with selected Collision/Map provenance, existing
+publication and profile identity, dynamic layers and directional links. Source
+or revision changes invalidate the affected runtime profile; no running-game
+rebake is added. Content's collection/filter controls and automation/MCP share
+the same build owner. Ordinary property validation, revisions and Undo remain.
+
+Gallery141 supplies an original physical-wall patrol with editable Collision source,
+camera/light, ready behavior and NavMesh. The manual includes actual controls and
+software-rendered Game output. Windows packaging runs both native Gallery preparers
+against one private copy and excludes exact temporary lock paths. Portable/native
+CPU, source-hidden content and software GPU checks remain separate from Windows,
+physical desktop and exported graphical executable acceptance. Local source;
+numbered delivery remains pending.
+
 ## Navigation behavior trees
 
 Navigation Behavior source version2 adds ordered Sequence, Reactive sequence and

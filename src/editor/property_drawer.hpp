@@ -490,6 +490,45 @@ inline bool property_collection(const std::filesystem::path& root, const Json& f
     }
     return changed;
 }
+inline bool physics_layer_picker(const std::filesystem::path& root, const char* label,
+                                 std::uint32_t& selected, bool mask) {
+    bool changed = false;
+    try {
+        const auto config = ProjectSettings(root).physics();
+        const auto preview = mask ? std::string("Choose layers")
+                             : selected < config.layers.size() && !config.layers[selected].empty()
+                                 ? config.layers[selected]
+                                 : std::string("Missing layer");
+        const bool opened = ImGui::BeginCombo(label, preview.c_str());
+        FORGE_UI_PROBE("physics-layer-picker:" + std::string(label));
+        if (opened) {
+            if (mask && ImGui::Selectable("All layers", selected == UINT32_MAX)) {
+                selected = UINT32_MAX;
+                changed = true;
+            }
+            if (mask && ImGui::Selectable("No layers", selected == 0)) {
+                selected = 0;
+                changed = true;
+            }
+            for (std::uint32_t i = 0; i < config.layers.size(); ++i) {
+                if (config.layers[i].empty())
+                    continue;
+                const bool active = mask ? bool(selected & (std::uint32_t{1} << i)) : selected == i;
+                if (ImGui::Selectable(config.layers[i].c_str(), active,
+                                      mask ? ImGuiSelectableFlags_DontClosePopups : 0)) {
+                    selected = mask ? selected ^ (std::uint32_t{1} << i) : i;
+                    changed = true;
+                }
+            }
+            ImGui::EndCombo();
+        }
+        ui::help("Named layers are defined in Project Settings / Physics. Renaming preserves "
+                 "their stable slots.");
+    } catch (const std::exception& error) {
+        ui::field_error(error.what());
+    }
+    return changed;
+}
 inline bool property_field_body(const std::filesystem::path& root, const Json& field, Json& value,
                                 bool commit_on_enter, std::optional<AssetId> owner) {
     auto visible_label = property_label(field);
@@ -540,38 +579,9 @@ inline bool property_field_body(const std::filesystem::path& root, const Json& f
         property == "forge.character_controller_2d.layer" ||
         property == "forge.character_controller_2d.mask") {
         try {
-            const auto config = ProjectSettings(root).physics();
             auto selected = value.get<std::uint32_t>();
             const bool mask = property.ends_with(".mask");
-            const auto preview =
-                mask ? std::string("Choose layers")
-                : selected < config.layers.size() && !config.layers[selected].empty()
-                    ? config.layers[selected]
-                    : std::string("Missing layer");
-            if (ImGui::BeginCombo(label.c_str(), preview.c_str())) {
-                if (mask && ImGui::Selectable("All layers", selected == UINT32_MAX)) {
-                    selected = UINT32_MAX;
-                    changed = true;
-                }
-                if (mask && ImGui::Selectable("No layers", selected == 0)) {
-                    selected = 0;
-                    changed = true;
-                }
-                for (std::uint32_t i = 0; i < config.layers.size(); ++i) {
-                    if (config.layers[i].empty())
-                        continue;
-                    const bool active =
-                        mask ? bool(selected & (std::uint32_t{1} << i)) : selected == i;
-                    if (ImGui::Selectable(config.layers[i].c_str(), active,
-                                          mask ? ImGuiSelectableFlags_DontClosePopups : 0)) {
-                        selected = mask ? selected ^ (std::uint32_t{1} << i) : i;
-                        changed = true;
-                    }
-                }
-                ImGui::EndCombo();
-            }
-            ui::help("Named layers are defined in Project Settings / Physics. Renaming preserves "
-                     "their stable slots.");
+            changed = physics_layer_picker(root, label.c_str(), selected, mask);
             if (changed)
                 value = selected;
         } catch (const std::exception& e) {

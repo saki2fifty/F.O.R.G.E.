@@ -1,5 +1,7 @@
 #include "navigation_geometry.hpp"
 #include "asset_bytes.hpp"
+#include "builtins.hpp"
+#include "navigation_collision_collection.hpp"
 #include "navigation_link_value.hpp"
 #include "navigation_region_value.hpp"
 #include "navigation_space.hpp"
@@ -9,6 +11,14 @@
 namespace forge {
 namespace navigation_detail {
 Sources capture(const nlohmann::json& doc, NavigationPlane plane, std::string_view profile) {
+    NavigationSettings settings;
+    settings.plane = plane;
+    settings.profile = profile;
+    return capture(doc, settings);
+}
+Sources capture(const nlohmann::json& doc, const NavigationSettings& settings) {
+    const auto plane = settings.plane;
+    const std::string_view profile = settings.profile;
     if (!profile.empty())
         validate_profile_name(profile);
     if (plane != NavigationPlane::Spatial3D && plane != NavigationPlane::PlanarXY)
@@ -34,7 +44,8 @@ Sources capture(const nlohmann::json& doc, NavigationPlane plane, std::string_vi
         entities.emplace(e.at("id").get<std::string>(), &e);
     for (const auto& e : doc.at("entities")) {
         const auto& c = e.at("components");
-        if (e.value("prefab", false) || (!has_surface(c) && !has_link(c)))
+        if (e.value("prefab", false) ||
+            (!has_surface(c) && !has_link(c) && !collect_static_collider(c, settings)))
             continue;
         if (included.size() >= 512)
             throw std::runtime_error("Navigation geometry exceeds 512 entities");
@@ -44,6 +55,7 @@ Sources capture(const nlohmann::json& doc, NavigationPlane plane, std::string_vi
     for (const auto& [id, ep] : included) {
         const auto& e = *ep;
         const auto& c = e.at("components");
+        const bool automatic = collect_static_collider(c, settings);
         if (has_surface(c) && plane == NavigationPlane::Spatial3D &&
             !c.contains("forge.primitive") && !c.contains("forge.mesh_renderer"))
             throw std::runtime_error("NavigationSurface requires mesh geometry, not a group: " +
@@ -60,8 +72,8 @@ Sources capture(const nlohmann::json& doc, NavigationPlane plane, std::string_vi
             if (!ancestry.insert(node_id).second)
                 throw std::runtime_error("Navigation source spatial cycle");
             const auto& components = node->at("components");
-            if (has_surface(c) && plane == NavigationPlane::PlanarXY &&
-                c.at(marker).value("source", 0u) == 1 &&
+            if (plane == NavigationPlane::PlanarXY &&
+                (automatic || (has_surface(c) && c.at(marker).value("source", 0u) == 1)) &&
                 components.contains("forge.local_rotation")) {
                 const auto& q = components.at("forge.local_rotation");
                 physics_detail::validate_planar_rotation_2d(
@@ -112,12 +124,16 @@ Sources capture(const nlohmann::json& doc, NavigationPlane plane, std::string_vi
             if (g.connections.size() > navigation_link_limit)
                 throw std::runtime_error("Navigation exceeds 32 authored links in this profile");
         }
-        if (!has_surface(c))
+        if (!has_surface(c) && !automatic)
             continue;
         Surface source{id, transform};
         if (plane == NavigationPlane::PlanarXY) {
-            const auto& data = c.at(marker);
-            source.region = region_from_value(data);
+            if (automatic) {
+                source.region = NavigationRegion2D{};
+                source.region->source = 1;
+                source.region->obstacle = true;
+            } else
+                source.region = region_from_value(c.at(marker));
             if (source.region->source == 0)
                 (void)region_outline(*source.region, transform);
             else {
@@ -128,10 +144,36 @@ Sources capture(const nlohmann::json& doc, NavigationPlane plane, std::string_vi
                         throw std::runtime_error("Navigation exceeds32 Tile Map inputs");
                 }
             }
+        } else if (automatic) {
+            constexpr const char* shapes[]{"forge.box_collider", "forge.sphere_collider",
+                                           "forge.capsule_collider", "forge.cylinder_collider",
+                                           "forge.asset_collider"};
+            source.collision = Json::object();
+            for (const auto* shape : shapes)
+                if (c.contains(shape))
+                    for (const auto& type : detail::builtins())
+                        if (std::string_view(type.name) == shape)
+                            source.collision[shape] =
+                                detail::canonical_builtin_value(type, c.at(shape));
+            if (source.collision.size() != 1)
+                throw std::runtime_error(
+                    "Collected navigation body requires exactly one Collider 3D: " + id.str());
+            if (source.collision.contains("forge.asset_collider")) {
+                const auto asset = source.collision.at("forge.asset_collider")
+                                       .at("asset")
+                                       .get<AssetRef<CollisionAsset>>();
+                if (!asset.id)
+                    throw std::runtime_error("Collected navigation body needs a Collision asset");
+                g.collisions.insert(asset.id);
+                if (g.collisions.size() > max_mesh_inputs)
+                    throw std::runtime_error("Navigation exceeds32 selected Collision inputs");
+            }
         } else {
             source.primitive = primitive_kind(e);
         }
-        if (plane == NavigationPlane::Spatial3D && source.primitive == no_primitive) {
+        if (plane == NavigationPlane::Spatial3D && !source.collision.is_null()) {
+            // Physical geometry is prepared by the existing shape/resource adapter.
+        } else if (plane == NavigationPlane::Spatial3D && source.primitive == no_primitive) {
             if (!c.contains("forge.mesh_renderer") ||
                 !c.at("forge.mesh_renderer").value("enabled", true) ||
                 c.at("forge.mesh_renderer").at("mesh").is_null())
@@ -171,7 +213,18 @@ Json tile_inputs(const Sources& source, const std::function<std::string(AssetId)
         values.push_back({{"asset_id", id}, {"revision", revision(id)}});
     return values;
 }
-std::string source_digest(const Sources& source, const Json& inputs) {
+Json collision_inputs(const Sources& source, const std::function<std::string(AssetId)>& revision) {
+    if (source.collisions.size() > max_mesh_inputs ||
+        (source.plane != NavigationPlane::Spatial3D && !source.collisions.empty()))
+        throw std::runtime_error("Invalid navigation Collision input profile");
+    Json values = Json::array();
+    for (auto id : source.collisions)
+        values.push_back({{"asset_id", id}, {"revision", revision(id)}});
+    return values;
+}
+std::string source_digest(const Sources& source, const Json& inputs, const Json& collisions) {
+    if (!collisions.is_array() || collisions.size() != source.collisions.size())
+        throw std::runtime_error("Navigation requires selected Collision input provenance");
     if (source.plane == NavigationPlane::PlanarXY) {
         if (!inputs.is_array() || (!collider_sources(source) && !inputs.empty()))
             throw std::runtime_error("XY regions do not use external Mesh provenance");
@@ -211,7 +264,9 @@ std::string source_digest(const Sources& source, const Json& inputs) {
     Json surfaces = Json::array();
     for (const auto& s : source.surfaces) {
         Json value = {{"entity", s.entity}, {"affine", s.transform.m}};
-        if (s.mesh)
+        if (!s.collision.is_null())
+            value["collision"] = s.collision;
+        else if (s.mesh)
             value["mesh"] = s.mesh;
         else
             value["primitive"] = s.primitive;
@@ -219,6 +274,8 @@ std::string source_digest(const Sources& source, const Json& inputs) {
     }
     auto value =
         Json{{"bridge", 2}, {"scene", source.scene}, {"surfaces", surfaces}, {"meshes", inputs}};
+    if (!collisions.empty())
+        value["collisions"] = collisions;
     if (!source.connections.empty())
         value["links"] = navigation_link_values(source.connections, source.plane);
     const auto text = value.dump();
@@ -357,13 +414,33 @@ void triangle(Geometry& g, AffineTransform transform, Float3 a, Float3 b, Float3
     }
 }
 Geometry triangles(const Sources& source,
-                   const std::function<const MeshResourceData&(AssetId)>& resolve) {
+                   const std::function<const MeshResourceData&(AssetId)>& resolve,
+                   const std::function<PhysicsDebugCollision(AssetId)>& collisions = {}) {
     Geometry g;
     g.scene = source.scene;
     g.sources = source.identities;
     g.connections = source.connections;
     for (const auto& s : source.surfaces) {
         const auto transform = s.transform;
+        if (!s.collision.is_null()) {
+            PhysicsDebugCollision selected;
+            if (s.collision.contains("forge.asset_collider")) {
+                if (!collisions)
+                    throw std::runtime_error("Navigation Collision asset is not prepared");
+                const auto asset = s.collision.at("forge.asset_collider")
+                                       .at("asset")
+                                       .get<AssetRef<CollisionAsset>>();
+                selected = collisions(asset.id);
+            }
+            const auto remaining = 16384 - g.indices.size() / 3;
+            if (!remaining)
+                throw std::runtime_error("Navigation geometry exceeds 16384 triangles");
+            const auto physical =
+                collision_geometry(s.collision, transform, std::move(selected), remaining);
+            for (const auto& points : physical.shape.triangles)
+                triangle(g, physical.rigid, points[0], points[1], points[2]);
+            continue;
+        }
         if (s.mesh) {
             if (!resolve)
                 throw std::runtime_error("Legacy navigation requires built-in mesh geometry: " +
@@ -434,14 +511,16 @@ Geometry geometry(const Sources& source) {
 }
 Geometry geometry(const Sources& source, const Json& inputs,
                   const std::function<const MeshResourceData&(AssetId)>& mesh,
-                  const std::function<RegionContours(const Surface&)>& maps) {
+                  const std::function<RegionContours(const Surface&)>& maps,
+                  const std::function<PhysicsDebugCollision(AssetId)>& collisions,
+                  const Json& collision_provenance) {
     if (source.plane == NavigationPlane::PlanarXY) {
         if (!inputs.is_array() || (!collider_sources(source) && !inputs.empty()))
             throw std::runtime_error("XY regions do not use external Mesh provenance");
         return planar_geometry(source, inputs, maps);
     }
-    auto g = triangles(source, mesh);
-    g.digest = source_digest(source, inputs);
+    auto g = triangles(source, mesh, collisions);
+    g.digest = source_digest(source, inputs, collision_provenance);
     return g;
 }
 } // namespace navigation_detail

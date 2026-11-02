@@ -82,6 +82,18 @@ struct NavigationAutomation {
             {"type", "boolean"},
             {"description",
              "Opt into tiled navigation for moving Navigation Obstacle cylinders/circles."}};
+        values["collect_static_colliders"] = {
+            {"type", "boolean"},
+            {"description", "Opt into enabled Static solid Physics Body collection in this "
+                            "plane. Explicit navigation markers override collection, including "
+                            "disabled markers as exclusions. In XY, collected footprints are "
+                            "obstacles inside explicitly authored walkable regions."}};
+        values["collision_layers"] = {
+            {"type", "integer"},
+            {"minimum", 0},
+            {"maximum", UINT32_MAX},
+            {"description", "Physics Body layer-slot bitmask for collection; omitted means "
+                            "all 32 layers. This tests body layer, not its contact mask."}};
         values["plane"] = {{"type", "integer"},
                            {"enum", {0, 1}},
                            {"description", "0: spatial 3D (default); 1: top-down XY regions."}};
@@ -98,6 +110,8 @@ struct NavigationAutomation {
             "worker "
             "and stale-geometry publication check. Settings use the native "
             "agent/voxel settings, optional named profile and dynamic obstacle tiles. Enabled "
+            "collect_static_colliders includes enabled Static nonsensor physical sources on "
+            "collision_layers without adding per-entity navigation markers. "
             "Navigation Link components contribute their local Start/End and direction only to "
             "the matching plane/profile; Agents traverse admitted spans at their speed. Poll "
             "navigation.status and "

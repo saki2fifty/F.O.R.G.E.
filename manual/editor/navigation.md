@@ -3,7 +3,7 @@
 For patrols, timed pauses and target following, add a
 [Navigation Behavior](navigation-behavior.md) to an agent after building its NavMesh.
 
-Navigation lets an object find a route across a floor and around static obstacles. Build a **NavMesh** from marked 3D shapes or 2D regions, then give an object a **Navigation Agent** and a destination. Choose the plane explicitly when building.
+Navigation lets an object find a route across a floor and around static obstacles. Build a **NavMesh** from marked 3D shapes, 2D regions or selected static colliders, then give an object a **Navigation Agent** and a destination. Choose the plane explicitly when building.
 
 Agents follow baked static geometry. Add **Navigation Avoidance** for local steering
 around other participating agents. For moving solid footprints, enable the
@@ -11,8 +11,8 @@ around other participating agents. For moving solid footprints, enable the
 or an enabled Character Controller in either domain.
 
 In **Window → Profiler → Play runtime**, **NavSourceCapture** shows the CPU time
-spent checking marked surfaces during Play. Rebuild the NavMesh after changing
-marked geometry.
+spent checking included sources during Play. Rebuild the NavMesh after changing
+included geometry.
 
 ## Build a 3D floor and obstacles
 
@@ -22,7 +22,7 @@ marked geometry.
 4. You can add a second obstacle elsewhere on the floor. Mark every static shape that should affect the route.
 5. Save the scene.
 
-Marked built-in shapes, editable Mesh assets, and static imported Mesh entities contribute. For an imported Model, select its child entity that has a **Mesh Renderer**, then add **Navigation Surface**. Marking only its group/root does not include its children automatically. Unmarked objects are invisible to the build. Keep marked geometry static.
+Marked built-in shapes, editable Mesh assets, and static imported Mesh entities contribute. For an imported Model, select its child entity that has a **Mesh Renderer**, then add **Navigation Surface**. Marking only its group/root does not include its children automatically. Unmarked objects require the **Collect static colliders** option and eligible physical components described below. Keep included geometry static.
 
 Marked sources and their spatial parents must have no enabled **Character
 Controller** or **Character Controller 2D**. Disable the controller or use another
@@ -53,9 +53,10 @@ To create your own:
 7. Add **Entity → Create → Rendering → Camera**. Set position to **0, 0, -20**, rotation to **0, 0, 0**, **Projection → Orthographic**, and **Orthographic Height = 17**. The Camera looks along +Z. An unlit Sprite image material needs no scene light.
 8. Save, press **Play** and open **Game**. The Sprite follows the opening around the obstacle. In Scene, the navigation overlay shows its route.
 
-Regions explicitly select navigation data. Sprite artwork, colliders and painted
-Tile Maps are not included automatically; use **Shape source → Collider 2D** to
-include a configured collider as described below. Overlapping walkable regions form a
+Regions explicitly select navigation data. Sprite artwork does not supply navigation.
+Use **Shape source → Collider 2D** to select a configured collider, or enable
+**Collect static colliders** to include eligible physical obstacles as described below.
+Overlapping walkable regions form a
 union; obstacle regions cut that union before agent-radius clearance is applied.
 An obstacle outside all walkable regions adds no walkable area. Add at least
 one walkable region. Keep sources and their spatial parents static and free of
@@ -66,8 +67,8 @@ XY destinations and movement use world X/Y. The agent keeps its starting world Z
 participants on the same NavMesh even when their visual Z differs. This is
 top-down routing; it does not plan platformer jumps, falls or moving platforms.
 
-A Scene has one generated navigation asset/profile. Switching **Plane** requires
-an explicit rebuild and keeps that asset's identity. 3D Surface markers and 2D
+A Scene can have several named navigation profiles. Switching **Plane** requires
+an explicit rebuild and keeps that profile's asset identity. 3D Surface markers and 2D
 Region markers are selected independently. Save the Scene and choose it as startup
 before normal export; its built NavMesh is included in the game.
 
@@ -139,6 +140,44 @@ also stop baked-route movement; reset that instance to its published cells befor
 resuming its existing route. Runtime editing does not rebake navigation. Use the
 separate **Navigation Obstacle** workflow below for moving blocked areas.
 
+## Collect static collision geometry
+
+Open Gallery **141-navigation-collision-collection** and press **Play**. The cyan
+agent patrols between the green markers around the orange wall. The floor uses a
+Box Collider; the wall uses an editable Collision asset. Neither needs a Navigation
+Surface marker. The scene includes its Camera, light, behavior and built NavMesh,
+and runs without a project C++ module.
+
+![Cyan patrol routing around a wall on a floor collected from physical colliders](../images/navigation-collection-game.png)
+
+1. Stop Play. For a 3D floor or obstacle, add **Physics Body** and exactly one **Box Collider**, **Sphere Collider**, **Capsule Collider**, **Cylinder Collider** or **Asset Collider**. Set **Motion → Static**, enable the body and turn **Sensor** off. For an Asset Collider, assign a published Collision asset through the normal Content workflow.
+2. For XY, author at least one walkable **Navigation Region 2D**. Add **Physics Body 2D** and exactly one supported Collider 2D to each physical obstacle. Keep its body enabled, Static and nonsensor. Box, Circle, Capsule and a selected Tile Map collision layer are supported.
+3. Save the Scene. Open **Content → Create / Register → Navigation**, choose **Build profile** and **Plane**, then enable **Collect static colliders**.
+4. Open **Collision layers** and select the bodies' physics layers. The mask selects each body's **Layer**; its contact **Mask** does not select build inputs. The layer picker becomes available when collection is enabled.
+5. Adjust clearance/build settings and click **Build NavMesh**. The profile combines marked geometry with eligible physical sources. In XY, automatically collected shapes are obstacles; they add no walkable floor. In 3D, actual physical triangles supply floors and obstacles according to their shape and slope.
+6. Assign that NavMesh to your Navigation Agent. Save, test Play and inspect **Live gameplay → Navigation progress**. Stop and save authored changes, select the Scene as startup, then export normally. Export includes the selected Collision/Map inputs and built navigation; it needs no navigation build worker at runtime.
+
+![Navigation build controls with Physical profile, Collect static colliders and Collision layers](../images/navigation-collection-controls.png)
+
+An explicit **Navigation Surface** or **Navigation Region 2D** takes precedence on
+that object. Disable the marker to exclude it from collection. An enabled marker
+keeps its explicit geometry/role, including a Collider 2D deliberately used as a
+walkable region. Markers in the other plane do not affect collection.
+
+Disabled bodies, sensors, moving bodies and excluded physics layers are skipped.
+Included sources and followed spatial parents must satisfy the ordinary static
+transform/controller rules. Collider scale restrictions still apply; ambiguous,
+unresolved or unsupported selected geometry reports a build error and retains the
+previous NavMesh. Visual artwork is independent of a collected physical shape.
+
+Changing an included body's shape, transform, layer or eligibility makes the
+profile stale. Replacing its selected Collision or Map revision also requires a
+rebuild. Runtime movement holds while the sources do not match; collection does
+not rebake a running game. Each named profile retains its own collection settings,
+and collection can be combined with **Dynamic obstacles** and authored links.
+Changing these build options publishes no Scene Undo step; ordinary component
+edits retain their normal Undo/Redo history.
+
 ## Select and resize 2D regions in Scene
 
 Enable **Scene → View → Navigation overlay** to show the region outlines. Click
@@ -181,7 +220,7 @@ Open **Content → Create / Register → Navigation**. Select **Plane → 3D (XZ
 
 Click **Build NavMesh**. The editor stays responsive while the worker builds and validates the candidate. **Cancel navigation build** discards the candidate. A failed build keeps the previous usable navmesh.
 
-The ready/stale message checks marked objects and the editor's current asset selection. Changing an included object or a build setting updates it immediately. Refreshing assets keeps your unfinished navigation settings. **NavigationStatus** in the editor CPU profiler shows the time spent checking this message.
+The ready/stale message checks included objects and the editor's current asset selection. Changing an included object or a build setting updates it immediately. Refreshing assets keeps your unfinished navigation settings. **NavigationStatus** in the editor CPU profiler shows the time spent checking this message.
 
 Enable **Scene → View → Navigation overlay** to see translucent teal triangles. There should be an opening around the obstacle, with clearance determined by the agent radius. Yellow lines show runtime routes; dots mark their start and end.
 
@@ -273,7 +312,7 @@ their different profiles. Both Nav assets are included when you export the saved
 
 ![Small cyan and large amber agents using separate navigation assets on one floor](../images/navigation-profile-gallery.png)
 
-The floor and marked obstacles are shared. Each build profile has its own radius,
+The floor and explicitly marked obstacles are shared. Each build profile has its own collection filters, radius,
 settings and NavMesh asset.
 
 1. Stop Play. Open **Content → Create / Register → Navigation** and choose a saved name under **Build profile**. `default` is the original profile.
@@ -470,7 +509,7 @@ editor, compiler or navigation build worker to run.
 
 Save the scene after choosing the navmesh and destination. Reopening restores those authored settings; generated navigation remains a project asset.
 
-Moving or resizing marked geometry makes navigation stale. Stop Play and rebuild. Changing the build settings also requires rebuilding. The status under the build controls identifies stale navigation. Runtime agents refuse to move on stale geometry.
+Moving or resizing included geometry makes navigation stale. Stop Play and rebuild. Changing the build settings also requires rebuilding. The status under the build controls identifies stale navigation. Runtime agents refuse to move on stale geometry.
 
 A NavMesh belongs to the scene that produced it. A duplicated scene needs its own build and agent references to that new asset.
 
@@ -480,7 +519,7 @@ Create a prefab from an agent using the normal [prefab workflow](prefabs.md). In
 
 ## Common messages
 
-- **No enabled geometry:** add enabled Navigation Surfaces for 3D, or walkable Navigation Region 2D shapes for XY. Check **Plane** and include a walkable region.
+- **No enabled geometry:** add enabled Navigation Surfaces or eligible collected static colliders for 3D, or walkable Navigation Region 2D shapes for XY. Check **Plane**, **Collect static colliders** and **Collision layers**. XY still needs an explicit walkable region.
 - **Stale navmesh:** rebuild after changing included geometry.
 - **Point outside navmesh:** put the agent and destination over a teal walkable region. Projection searches nearby, not across the entire world.
 - **Partial / no path:** the destination is disconnected. Check gaps, clearance, slope and included obstacles. For a link, check its Plane, Build profile, direction and endpoint attachment, then rebuild the matching profile.
@@ -488,4 +527,4 @@ Create a prefab from an agent using the normal [prefab workflow](prefabs.md). In
 - **Physics ownership error:** remove the agent's Physics Body and any moving physics spatial ancestor, or use an independent World spatial binding.
 - **Build/query limit:** reduce the included area or geometry, or increase cell size. A single build supports at most 512 × 512 cells.
 
-Navigation supports static shapes/Meshes in 3D and rectangles, polygon regions and explicitly selected 2D collision footprints in XY, within roughly four kilometres of the origin and 64 agents. Authored straight links connect static walkable parts; simulated jumps, moving-platform routes, automatic physics-character movement and general runtime geometry rebaking are unavailable. Moving cylinder/circle carving requires the Dynamic obstacles profile described above. Optional avoidance is local steering and does not guarantee collision prevention. See [Play mode](play-mode.md) and [Transforms](transforms.md) for related controls.
+Navigation supports static shapes/Meshes and collected physical geometry in 3D, and rectangles, polygon regions and selected or collected 2D collision footprints in XY, within roughly four kilometres of the origin and 64 agents. Authored straight links connect static walkable parts; simulated jumps, moving-platform routes, automatic physics-character movement and general runtime geometry rebaking are unavailable. Moving cylinder/circle carving requires the Dynamic obstacles profile described above. Optional avoidance is local steering and does not guarantee collision prevention. See [Play mode](play-mode.md) and [Transforms](transforms.md) for related controls.

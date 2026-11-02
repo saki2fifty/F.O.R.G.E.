@@ -1,0 +1,367 @@
+{
+  "asset_id": "a4c29e00-c3d6-4534-83c2-87146bcc5fbb",
+  "entities": [
+    {
+      "components": {
+        "forge.box_collider": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 16.0,
+          "y": 1.0,
+          "z": 12.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": -0.5,
+          "z": 0.0
+        },
+        "forge.physics_body": {
+          "allow_sleeping": true,
+          "angular_damping": 0.05000000074505806,
+          "continuous_collision": false,
+          "density": 1000.0,
+          "enabled": true,
+          "friction": 0.5,
+          "gravity_factor": 1.0,
+          "layer": 0,
+          "linear_damping": 0.05000000074505806,
+          "mask": 4294967295,
+          "mass": 0.0,
+          "max_angular_velocity": 2700.0,
+          "max_linear_velocity": 500.0,
+          "motion": 0,
+          "restitution": 0.0,
+          "sensor": false
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.1899999976158142,
+          "g": 0.15000000596046448,
+          "r": 0.07000000029802322
+        }
+      },
+      "id": "b7eb8a05-0269-4961-b9d1-89b96e7de821",
+      "name": "Physical floor - Static Box, no navigation marker",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.asset_collider": {
+          "asset": "736c4225-b1fe-4bb8-9d59-86bb015b5bc8"
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 2.0,
+          "y": 2.0,
+          "z": 8.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 1.0,
+          "z": 0.0
+        },
+        "forge.physics_body": {
+          "allow_sleeping": true,
+          "angular_damping": 0.05000000074505806,
+          "continuous_collision": false,
+          "density": 1000.0,
+          "enabled": true,
+          "friction": 0.5,
+          "gravity_factor": 1.0,
+          "layer": 0,
+          "linear_damping": 0.05000000074505806,
+          "mask": 4294967295,
+          "mass": 0.0,
+          "max_angular_velocity": 2700.0,
+          "max_linear_velocity": 500.0,
+          "motion": 0,
+          "restitution": 0.0,
+          "sensor": false
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.07000000029802322,
+          "g": 0.3400000035762787,
+          "r": 0.800000011920929
+        }
+      },
+      "id": "30919133-7871-47ee-bebd-cdde5c436e83",
+      "name": "Physical wall - Collision asset, no navigation marker",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.800000011920929,
+          "y": 0.07999999821186066,
+          "z": 0.800000011920929
+        },
+        "forge.local_translation": {
+          "x": -4.0,
+          "y": 0.04,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.4000000059604645,
+          "g": 0.8999999761581421,
+          "r": 0.11999999731779099
+        }
+      },
+      "id": "e950a992-aab5-43f1-82d5-ac01a97ce111",
+      "name": "Patrol destination marker",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.800000011920929,
+          "y": 0.07999999821186066,
+          "z": 0.800000011920929
+        },
+        "forge.local_translation": {
+          "x": 4.0,
+          "y": 0.04,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.4000000059604645,
+          "g": 0.8999999761581421,
+          "r": 0.11999999731779099
+        }
+      },
+      "id": "7fbabc95-26fb-4ba1-a24c-4471e8543dc0",
+      "name": "Patrol destination marker",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -4.0,
+          "y": 0.1,
+          "z": 0.0
+        },
+        "forge.navigation_agent": {
+          "destination_x": 4.0,
+          "destination_y": 0.0,
+          "destination_z": 0.0,
+          "enabled": true,
+          "has_destination": false,
+          "navmesh": "24dd2437-7184-41c8-8029-cc4cc39441bb",
+          "speed": 3.0,
+          "stopping_distance": 0.07999999821186066
+        },
+        "forge.navigation_behavior": {
+          "anchor": null,
+          "enabled": true,
+          "graph": "76244d2c-0da5-45bd-933f-278c7efcd6dc",
+          "target": null
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "3749a479-9d5e-42b7-9d63-1a0da0a01aea",
+      "name": "Cyan patrol - collected physical geometry",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.6000000238418579,
+          "y": 0.6000000238418579,
+          "z": 0.6000000238418579
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.2,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 1.0,
+          "g": 0.800000011920929,
+          "r": 0.03999999910593033
+        }
+      },
+      "id": "9f4b960d-bdde-4b6a-8db5-e959cc053ac6",
+      "name": "Cyan visible body",
+      "parent": "3749a479-9d5e-42b7-9d63-1a0da0a01aea",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 1.7777777777777777,
+          "background_a": 1.0,
+          "background_b": 0.029999999329447746,
+          "background_g": 0.02500000037252903,
+          "background_r": 0.019999999552965164,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 1000.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 18.0,
+          "orthographic_width": 0.0,
+          "projection": 1,
+          "vertical_fov": 1.0471975511965976,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 0.9051616787910461,
+          "x": 0.2621174156665802,
+          "y": -0.32142379879951477,
+          "z": 0.09307815134525299
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 13.0,
+          "y": 13.0,
+          "z": -16.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "369831df-201e-4f30-8a68-748b546a97b5",
+      "name": "Overview Camera",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.light": {
+          "basis": 0,
+          "cast_shadows": true,
+          "color_b": 1.0,
+          "color_g": 1.0,
+          "color_r": 1.0,
+          "emitter_height": 1.0,
+          "emitter_radius": 0.5,
+          "emitter_width": 1.0,
+          "enabled": true,
+          "image_height": 1.0,
+          "image_tiled": false,
+          "image_width": 1.0,
+          "inner_cone": 0.0,
+          "intensity": 1.0,
+          "kind": 0,
+          "layers": 4294967295,
+          "outer_cone": 0.7853981633974483,
+          "range": 0.0,
+          "shadow_angular_radius": 0.0,
+          "shadow_bias": 0.0010000000474974513,
+          "shadow_normal_bias": 0.019999999552965164,
+          "shadow_source_radius": 0.0,
+          "texture": null
+        },
+        "forge.local_rotation": {
+          "w": 0.8659851551055908,
+          "x": 0.45080333948135376,
+          "y": -0.19198428094387054,
+          "z": 0.0999406948685646
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "c19fad48-2a50-453c-b7e9-06238e719c5c",
+      "name": "Sunlight",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    }
+  ],
+  "version": 3
+}

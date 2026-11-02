@@ -355,7 +355,7 @@ AssetResolution AssetCatalog::resolve(AssetId id, const std::string& expected_ty
                    !(record.type == NavMeshAsset::type &&
                      (record.schema_version == 2 || record.schema_version == 3 ||
                       record.schema_version == 4 || record.schema_version == 5 ||
-                      record.schema_version == 6)) &&
+                      record.schema_version == 6 || record.schema_version == 7)) &&
                    !(record.type == TileSetAsset::type && record.schema_version >= 2 &&
                      record.schema_version <= tile_set_source_version)) {
             return {AssetState::Incompatible, record, "Unsupported asset metadata schema"};

@@ -12,6 +12,9 @@ struct NavigationSettings {
     bool dynamic_obstacles = false;
     // Case-sensitive build identity within the source Scene. Legacy assets use default.
     std::string profile = "default";
+    // Opt-in source collection; explicit navigation markers override automatic inclusion.
+    bool collect_static_colliders = false;
+    std::uint32_t collision_layers = UINT32_MAX;
     bool operator==(const NavigationSettings&) const = default;
 };
 void to_json(nlohmann::json&, const NavigationSettings&);

@@ -749,7 +749,17 @@ Settings add optional
 integer `plane`:0(default) uses3D NavigationSurface geometry;1 uses top-down XY
 NavigationRegion2D rectangles or simple convex/concave polygon regions. The six numeric profile fields remain required. Optional boolean
 `dynamic_obstacles` selects the version 4 tiled profile; omitted/false retains
-static baking. Geometry provenance is2(spatial),3(authored XY regions) or5(explicit XY collision sources). Create/edit
+static baking. Optional boolean `collect_static_colliders` defaults false and
+`collision_layers` defaults4294967295, admitting integers0–4294967295. Collection
+selects enabled Static nonsensor bodies in the chosen plane by their Layer. An
+explicit marker in that plane overrides collection, including disabled exclusions.
+XY still requires explicit walkable regions and collects physical obstacles;3D
+uses actual physical shapes. Create/edit bodies and colliders through ordinary
+component/property operations, with the same validation, revision, Undo and prefab
+rules as Inspector. Publish referenced Collision/Map inputs before baking. Collection
+uses envelope7, composing with dynamic layers and optional authored links; it adds
+no separate MCP workflow or runtime rebake. Geometry provenance is2(spatial),
+3(authored XY regions) or5(XY collision sources). Create/edit
 `forge.navigation_obstacle` through the same component/property tools: enabled,
 radius(0.05–5) and height(0.2–10, 3D only). The component uses ordinary validation,
 revision-checked history, prefab/Scene persistence and saving. It has no separate

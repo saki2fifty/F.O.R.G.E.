@@ -1,4 +1,6 @@
 #include "navigation_sources.hpp"
+#include "builtins.hpp"
+#include "navigation_collision_collection.hpp"
 #include "navigation_link_value.hpp"
 #include "navigation_region_value.hpp"
 #include <forge/application_state_activation.hpp>
@@ -8,6 +10,12 @@
 
 namespace forge::navigation_detail {
 namespace {
+template <class T> Json body_selection(const T& body, bool active = true) {
+    return {{"enabled", active && body.enabled},
+            {"sensor", body.sensor},
+            {"motion", body.motion},
+            {"layer", body.layer}};
+}
 bool declared_prefab(flecs::entity e) {
     if (!e.has(flecs::Prefab))
         return false;
@@ -62,10 +70,26 @@ Json row(flecs::entity e, EntityId id, bool active, NavigationPlane plane,
         const auto& mesh = e.get<MeshRenderer>();
         c["forge.mesh_renderer"] = {{"mesh", mesh.mesh}, {"enabled", mesh.enabled}};
     }
-    if (e.has<PhysicsBody>())
-        c["forge.physics_body"] = {{"motion", active ? e.get<PhysicsBody>().motion : 0}};
-    if (e.has<PhysicsBody2D>())
-        c["forge.physics_body_2d"] = {{"motion", active ? e.get<PhysicsBody2D>().motion : 0}};
+    if (e.has<PhysicsBody>()) {
+        c["forge.physics_body"] = body_selection(e.get<PhysicsBody>(), active);
+        if (!active)
+            c["forge.physics_body"]["motion"] = 0;
+    }
+    if (e.has<PhysicsBody2D>()) {
+        c["forge.physics_body_2d"] = body_selection(e.get<PhysicsBody2D>(), active);
+        if (!active)
+            c["forge.physics_body_2d"]["motion"] = 0;
+    }
+    if (e.has<BoxCollider>())
+        c["forge.box_collider"] = detail::encode_builtin_value(e.get<BoxCollider>());
+    if (e.has<SphereCollider>())
+        c["forge.sphere_collider"] = detail::encode_builtin_value(e.get<SphereCollider>());
+    if (e.has<CapsuleCollider>())
+        c["forge.capsule_collider"] = detail::encode_builtin_value(e.get<CapsuleCollider>());
+    if (e.has<CylinderCollider>())
+        c["forge.cylinder_collider"] = detail::encode_builtin_value(e.get<CylinderCollider>());
+    if (e.has<AssetCollider>())
+        c["forge.asset_collider"] = detail::encode_builtin_value(e.get<AssetCollider>());
     if (e.has<CharacterController>())
         c["forge.character_controller"] = {
             {"enabled", active && e.get<CharacterController>().enabled}};
@@ -95,6 +119,16 @@ Json row(flecs::entity e, EntityId id, bool active, NavigationPlane plane,
 Sources capture_native(WorldContext& context, const Scene& scene,
                        const flecs::query<const PersistentEntityId>& candidates,
                        NavigationPlane plane, std::string_view profile) {
+    NavigationSettings settings;
+    settings.plane = plane;
+    settings.profile = profile;
+    return capture_native(context, scene, candidates, settings);
+}
+Sources capture_native(WorldContext& context, const Scene& scene,
+                       const flecs::query<const PersistentEntityId>& candidates,
+                       const NavigationSettings& settings) {
+    const auto plane = settings.plane;
+    const std::string_view profile = settings.profile;
     if (context.world().c_ptr() != scene.world().c_ptr())
         throw std::logic_error("Navigation capture requires the Scene's owning world");
     context.evaluate_world_transforms();
@@ -117,7 +151,18 @@ Sources capture_native(WorldContext& context, const Scene& scene,
                           e.get<NavigationLink>().enabled &&
                           e.get<NavigationLink>().plane == unsigned(plane) &&
                           e.get<NavigationLink>().profile == profile;
-        if ((enabled || link) && !declared_prefab(e))
+        bool automatic = false;
+        if (settings.collect_static_colliders &&
+            !(plane == NavigationPlane::PlanarXY ? e.has<NavigationRegion2D>()
+                                                 : e.has<NavigationSurface>())) {
+            Json components = Json::object();
+            if (plane == NavigationPlane::PlanarXY && e.has<PhysicsBody2D>())
+                components["forge.physics_body_2d"] = body_selection(e.get<PhysicsBody2D>());
+            else if (plane == NavigationPlane::Spatial3D && e.has<PhysicsBody>())
+                components["forge.physics_body"] = body_selection(e.get<PhysicsBody>());
+            automatic = collect_static_collider(components, settings);
+        }
+        if ((enabled || link || automatic) && !declared_prefab(e))
             selected.emplace_back(e, id.value);
     });
     for (const auto& [entity, id] : selected)
@@ -156,8 +201,8 @@ Sources capture_native(WorldContext& context, const Scene& scene,
     Json doc = {{"asset_id", scene.asset_id()}, {"entities", Json::array()}};
     for (auto& [id, value] : rows)
         doc["entities"].push_back(std::move(value));
-    for (auto& value : scene.unresolved_navigation_sources(plane, profile))
+    for (auto& value : scene.unresolved_navigation_sources(settings))
         doc["entities"].push_back(std::move(value));
-    return capture(doc, plane, profile);
+    return capture(doc, settings);
 }
 } // namespace forge::navigation_detail

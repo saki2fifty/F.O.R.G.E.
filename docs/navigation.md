@@ -12,7 +12,7 @@ Recast, Detour and its obstacle-velocity sampling source are compiled. The upstr
 
 `NavigationSurface { enabled }` marks static shapes and Mesh leaf entities for inclusion. `NavigationAgent` stores an optional typed NavMesh AssetRef, enabled/destination flags, speed, stopping distance and a world-space destination. Flecs owns both components, their reflection and component/property prefab inheritance. Scene version and persistent identity formats are unchanged. Routes, polygon references and query scratch are never scene or prefab state.
 
-An explicit plane, optional `dynamic_obstacles` flag, build profile name and six numeric settings belong to a Scene's generated navigation asset: radius, height, climb, slope, cell size and cell height. Plane defaults to Spatial3D; PlanarXY is opt-in. Successful publication preserves the selected profile's AssetId and records its settings.
+An explicit plane, optional dynamic-obstacle/collection flags, collection layer mask, build profile name and six numeric settings belong to a Scene's generated navigation asset: radius, height, climb, slope, cell size and cell height. Plane defaults to Spatial3D; PlanarXY is opt-in. Successful publication preserves the selected profile's AssetId and records its settings.
 
 `NavigationSettings.profile` defaults to `default`, which is omitted from JSON to
 retain legacy settings and cooked representations. Names are case-sensitive
@@ -141,7 +141,8 @@ metadata uses the existing reflected extension owner.
 scale and zero visual-depth scale, rejects collapsed/out-of-bounds contours, and
 normalizes mirrored winding only in a detached copy. Source capture, bake,
 Inspector validation and editor guides share this footprint. Sprites/colliders/
-Tile Maps are not automatic inputs; explicit collision-source input is described below. The shared pure polygon predicates and ear
+Tile Maps are not inputs under the default marked-source policy; explicit collision
+sources and profile-scoped collection are described below. The shared pure polygon predicates and ear
 clipping also serve the existing tile polygon owner; tile-specific8-point/unit-cell
 admission remains separate.
 
@@ -425,7 +426,7 @@ No callback-table field or independent authoring path is added. `FORGE_SDK_NAVIG
 
 ## Deferred work
 
-Full crowd management, general runtime geometry rebaking, automatic inclusion of unmarked colliders or Tile Maps, cost editing, simulated jumping, moving-platform routing and world streaming are deferred. Named profiles and explicitly selected 2D collision sources use the existing build owner. Physics-character driving and general save-game formats remain separate work. Current cooked navigation/export uses the existing runtime package owner.
+Full crowd management, general runtime geometry rebaking, cost editing, simulated jumping, moving-platform routing and world streaming are deferred. Named profiles, explicitly selected 2D collision sources and opt-in static collision collection use the existing build owner. Physics-character driving and general save-game formats remain separate work. Current cooked navigation/export uses the existing runtime package owner.
 
 See the [Navigation user guide](../manual/editor/navigation.md) for the no-code workflow.
 
@@ -479,18 +480,18 @@ Navigation captures source geometry at the writable start of a fixed tick and re
 
 ## Runtime source capture
 
-Runtime synchronization copies marked surfaces and the spatial ancestors needed by
+Runtime synchronization copies marked and selected physical sources and the spatial ancestors needed by
 the existing geometry validator directly from native Flecs values. Scene's identity
 lookup restricts those values to the bound instance, including when another instance
 has the same Scene AssetId. Partial prefab masks remain effective native values.
 The transform owner evaluates its existing dirty epoch; navigation never authors
 matrices or replaces hierarchy ownership. No full effective Scene, unrelated opaque
-extensions, custom components or unmarked geometry are serialized for this capture.
+extensions, custom components or unselected geometry are serialized for this capture.
 
 The retained persistent-ID query includes disabled entities and implicit prefab
 children so capture matches the existing source-document validator. Scene supplies
 only the relevant owned intent for removed prefab members: an unresolved enabled
-NavigationSurface still fails the same group/static/transform checks. This narrow
+NavigationSurface or selected physical body still fails the same group/static/transform checks. This narrow
 projection copies no unrelated member extensions. These temporary descriptors use
 the same validator and canonical v1/v2 digest paths as baking. Existing selected
 Mesh leases/revisions, resource readiness and stale-generation policy are unchanged.
@@ -669,3 +670,69 @@ actual1200-tick movement and source-hidden relocated content export use the same
 owners. Manual captures, matching SDK and platform acceptance have separate
 provenance; portable logic/export tests do not establish Windows or physical GPU
 acceptance.
+
+## Profile-scoped static collision collection
+
+`NavigationSettings.collect_static_colliders`, default false, enables collection;
+`collision_layers`, default `UINT32_MAX`, selects physical body layers. Both default
+values are omitted from JSON, preserving the original six-field representation.
+The flag admits only a boolean and the mask an unsigned32-bit integer. Each named
+profile persists its own settings through normal navigation publication.
+
+`navigation_collision_collection.hpp` owns selection for effective Scene JSON,
+native capture and unresolved prefab-member intent. The selected plane requires an
+enabled Static nonsensor `PhysicsBody` or `PhysicsBody2D` with a layer in the mask.
+Dynamic/Kinematic, disabled, sensor and masked bodies are skipped. An explicit
+navigation marker in that plane overrides collection, including `enabled=false`
+as an exclusion. Marked-source behavior is otherwise unchanged. Existing active
+state, Scene/prefab membership, resolved transforms, static followed ancestry,
+controller and agent restrictions remain authoritative. Selected unresolved intent
+fails through ordinary source validation rather than disappearing from native
+capture.
+
+XY collection reuses ephemeral collider-source obstacle descriptors and the
+existing physical Box/Circle/Capsule/Tile Map contour adapters. It requires explicit
+walkable regions. Spatial3D captures exactly one Box/Sphere/Capsule/Cylinder/Asset
+Collider and hashes its canonical physical values instead of render geometry.
+`navigation_collision_mesh` reuses `physics_debug_pose` and `prepare_physics_debug`
+for native shape triangles, with a canonical Static body: mass, damping, contact
+material and contact mask do not determine bake geometry. Scale is baked into local
+triangles once; only the resolved rigid pose is applied afterward. No physics world
+is created. Empty or truncated geometry fails the candidate.
+
+The existing Collision resource provider admits and pins selected immutable shapes.
+Build retains at most32 distinct Collision roots and a combined64MiB of Mesh/Collision
+source leases, within the shared512-source/16,384-triangle bounds. Collision metadata
+uses `collision_inputs` and typed `navigation.collision` Build edges. Metadata-only
+staleness reads the selected revision through the same selection owner; resource
+readiness uses the ordinary runtime Collision bridge. No native shape triangulation
+occurs during writable synchronization. Old subscriptions are released on source
+removal, profile change, Scene bind and destruction.
+
+Envelope/catalog version7 identifies collection. Spatial7 requires a canonical
+`collision_inputs` array, empty for inline-only geometry; XY7 prohibits it and retains
+its existing Map provenance. Each input has a unique valid AssetId and64lowercase
+hex revision. Optional authored links and static/dynamic layouts use the existing
+native builders and query paths. Versions1–6 remain readable and cannot claim the
+collection flag. Collection settings, physical sources and selected revisions enter
+the existing digest; old explicit-only positive representations remain unchanged.
+Changing included geometry/eligibility or a selected revision invalidates the
+profile and holds movement until matching sources are restored or rebuilt. Recovery
+retains the existing route/checkpoint owner.
+
+Content exposes **Collect static colliders** and the shared named **Collision layers**
+picker. Status uses the selected saved settings and preserves unpublished drafts.
+`navigation.build` discovery/schema and MCP projection use the same fields and build
+owner; no independent agent implementation exists. Component edits retain normal
+validation, revision and history behavior. Build settings/publication add no Scene
+Undo entry. Gallery141 contains an inline floor, editable Collision wall and Patrol
+behavior with a ready NavMesh; ordinary export follows the selected resource closure.
+The curated Gallery uses the supported Windows CPU Collision recipe. Its native
+preparer checks the current recipe key and actual resource admission before reuse;
+Windows packaging runs both Tile/collision and physical-collection preparers in one
+private stage. Temporary project/cache locks are validated for links but excluded
+from packaged files. CPU cross-target/export fixtures do not establish native
+Windows or graphical executable acceptance.
+
+See [ADR032](decisions/032-navigation-collision-collection.md) and the
+[collection workflow](../manual/editor/navigation.md#collect-static-collision-geometry).

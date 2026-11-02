@@ -105,6 +105,17 @@ void exercise(const std::filesystem::path& root, float scale) {
             navigation.content(scene, project, false, message, shared_catalog);
         });
     };
+    controls();
+    controls();
+    check(!test::ui_targets.at("physics-layer-picker:##navigation_collision_layers").enabled,
+          "Collision layer filter is enabled before opting into collection");
+    click(controls, "navigation:setting:Collect static colliders");
+    check(test::ui_targets.at("physics-layer-picker:##navigation_collision_layers").enabled,
+          "Real collision collection checkbox did not enable its shared layer picker");
+    check(scene.document() == saved, "Navigation build settings changed authored Scene history");
+    click(controls, "navigation:setting:Collect static colliders");
+    check(!test::ui_targets.at("physics-layer-picker:##navigation_collision_layers").enabled,
+          "Disabling collision collection did not disable its layer filter");
     click(controls, "navigation:setting:Plane");
     click(controls, "navigation:plane:1");
     EditorCamera camera;
@@ -252,11 +263,60 @@ void capture_gallery(const std::filesystem::path& gallery, const std::filesystem
     capture.save(output / "navigation-link-inspector.png");
     test::observe_ui = false;
 }
+void capture_collection(const std::filesystem::path& gallery, const std::filesystem::path& output) {
+    const auto root = output / "Gallery";
+    std::filesystem::create_directories(root);
+    std::filesystem::copy(gallery, root, std::filesystem::copy_options::recursive);
+    EngineContext engine;
+    Scene scene(engine.world());
+    SceneDocument project(scene);
+    project.open_project(root);
+    project.open_scene(root / "Scenes/141-navigation-collision-collection.scene.json");
+    const auto document = scene.document();
+    const auto catalog = std::make_shared<const AssetCatalog>(AssetCatalog::open_project(root));
+    NavigationTools navigation(engine.world(), {});
+    navigation.select_profile(scene, project, *catalog, "Physical");
+    test::ImGuiSoftwareCapture capture(860, 600);
+    ui::style(1);
+    test::observe_ui = true;
+    std::string message;
+    for (unsigned frame = 0; frame != 3; ++frame) {
+        test::ui_targets.clear();
+        capture.new_frame();
+        ImGui::SetNextWindowPos({0, 0}, ImGuiCond_Always);
+        ImGui::SetNextWindowSize({860, 600}, ImGuiCond_Always);
+        ImGui::Begin("Content - Navigation", nullptr,
+                     ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+        ImGui::SetNextItemOpen(true, ImGuiCond_Always);
+        navigation.content(scene, project, false, message, catalog);
+        ImGui::End();
+        capture.render();
+    }
+    for (const auto* key :
+         {"navigation:profile-selected:Physical", "navigation:setting:Collect static colliders",
+          "physics-layer-picker:##navigation_collision_layers",
+          "navigation:status:NavMesh ready"}) {
+        const auto& box = test::ui_targets.at(key);
+        check(box.enabled && box.minimum.y >= box.clip_minimum.y &&
+                  box.maximum.y <= box.clip_maximum.y && box.minimum.x >= box.clip_minimum.x &&
+                  box.maximum.x <= box.clip_maximum.x,
+              "Gallery capture hides or disables a collection control");
+    }
+    check(message.empty() && scene.document() == document && !project.dirty(),
+          "Collection control capture changed the saved Gallery or reported an error");
+    capture.save(output / "navigation-collection-controls.png");
+    test::observe_ui = false;
+}
 } // namespace
 int main(int argc, char** argv) {
     try {
         if (argc == 4 && std::string_view(argv[1]) == "--capture") {
             capture_gallery(std::filesystem::absolute(argv[2]), std::filesystem::absolute(argv[3]));
+            return 0;
+        }
+        if (argc == 4 && std::string_view(argv[1]) == "--capture-collection") {
+            capture_collection(std::filesystem::absolute(argv[2]),
+                               std::filesystem::absolute(argv[3]));
             return 0;
         }
         check(argc == 3, "Need scratch root and matching navigation worker");

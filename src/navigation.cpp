@@ -109,30 +109,33 @@ struct NavigationRuntime::Impl {
         NavStatus status = NavStatus::Stale;
         bool loading = false;
         std::uint64_t captured = 0;
+        std::optional<NavigationSettings> selection;
+        std::set<AssetId> collisions;
     };
     using ProfileKey = std::pair<NavigationPlane, std::string>;
     std::array<GeometryState, 2> geometry;
     std::set<ProfileKey> linked_profiles;
-    std::map<ProfileKey, GeometryState> linked_geometry;
+    std::map<ProfileKey, GeometryState> profile_geometry;
     GeometryState& profile_for(const Cached& asset) {
         const auto plane = asset.data.mesh->space();
-        const auto name =
-            asset.data.metadata.at("settings").value("profile", std::string("default"));
-        const ProfileKey key{plane, name};
+        const auto settings = asset.data.metadata.at("settings").get<NavigationSettings>();
+        const ProfileKey key{plane, settings.profile};
         const auto& floor = geometry.at(unsigned(plane));
-        if (!linked_profiles.contains(key) || (!floor.error.empty() && floor.digest.empty()))
+        if (!settings.collect_static_colliders &&
+            (!linked_profiles.contains(key) || (!floor.error.empty() && floor.digest.empty())))
             return geometry.at(unsigned(plane));
-        auto& state = linked_geometry[key];
-        if (state.captured != synchronization) {
+        auto& state = profile_geometry[key];
+        if (state.captured != synchronization || state.selection != settings) {
             if (context.world().is_readonly())
                 throw NavigationFailure(NavStatus::Unavailable,
-                                        "Waiting for navigation link source synchronization");
-            capture_geometry(state, plane, name);
+                                        "Waiting for navigation profile source synchronization");
+            capture_geometry(state, settings);
         }
         return state;
     }
-    std::weak_ptr<RuntimeResourceService> mesh_owner;
-    std::map<AssetId, std::uint64_t> mesh_tokens;
+    std::weak_ptr<RuntimeResourceService> source_owner;
+    using SourceTokens = std::map<AssetId, std::uint64_t>;
+    SourceTokens mesh_tokens, collision_tokens;
     flecs::query<const NavigationSurface> surfaces;
     flecs::query<const NavigationRegion2D> regions;
     flecs::query<const NavigationObstacle> obstacle_entities;
@@ -154,17 +157,23 @@ struct NavigationRuntime::Impl {
                               .query_flags(EcsQueryMatchPrefab | EcsQueryMatchDisabled)
                               .build()),
           behaviors(c) {}
-    void release_meshes() noexcept {
-        if (auto resources = mesh_owner.lock())
-            for (const auto& [id, token] : mesh_tokens)
+    void release_tokens(SourceTokens& tokens) noexcept {
+        if (auto resources = source_owner.lock())
+            for (const auto& [id, token] : tokens)
                 try {
                     resources->release(token);
                 } catch (...) { /* provider may already be retired */
                 }
-        mesh_tokens.clear();
-        mesh_owner.reset();
+        tokens.clear();
+        if (mesh_tokens.empty() && collision_tokens.empty())
+            source_owner.reset();
     }
-    ~Impl() { release_meshes(); }
+    void release_meshes() noexcept { release_tokens(mesh_tokens); }
+    void release_resources() noexcept {
+        release_tokens(mesh_tokens);
+        release_tokens(collision_tokens);
+    }
+    ~Impl() { release_resources(); }
     void check() const {
         if (owner != std::this_thread::get_id() || !scene)
             throw NavigationFailure(NavStatus::Unavailable,
@@ -189,32 +198,36 @@ struct NavigationRuntime::Impl {
         dc.source = "NavMeshAsset";
         services.emit({Severity::Warning, "navigation", text, dc});
     }
-    void capture_geometry(GeometryState& state, NavigationPlane plane, std::string_view name) {
+    void capture_geometry(GeometryState& state, const NavigationSettings& settings) {
+        const auto plane = settings.plane;
+        const std::string_view name = settings.profile;
         auto capture_profile = context.services().profile("navigation", "NavSourceCapture", tick);
         const auto previous_legacy = std::move(state.legacy);
         const auto previous_sources = std::move(state.digest);
         state = {};
         state.captured = synchronization;
+        state.selection = settings;
         try {
-            const auto source = capture_native(context, *scene, source_entities, plane, name);
+            const auto source = capture_native(context, *scene, source_entities, settings);
+            state.collisions = source.collisions;
             std::shared_ptr<RuntimeResourceService> resources;
             if (plane == NavigationPlane::Spatial3D) {
-                if (!source.meshes.empty()) {
+                if (!source.meshes.empty() || !source.collisions.empty()) {
                     if (!context.services().available(Capability::Resources)) {
-                        release_meshes();
+                        release_resources();
                         state.status = NavStatus::Unavailable;
                         throw std::runtime_error(
-                            "Static Mesh navigation requires runtime CPU Resources");
+                            "Static Mesh/Collision navigation requires runtime CPU Resources");
                     }
                     resources = context.services().resources();
-                    if (mesh_owner.lock() != resources) {
-                        release_meshes();
-                        mesh_owner = resources;
+                    if (source_owner.lock() != resources) {
+                        release_resources();
+                        source_owner = resources;
                     }
                 }
                 for (auto it = mesh_tokens.begin(); it != mesh_tokens.end();) {
                     if (!source.meshes.contains(it->first)) {
-                        if (auto owner = mesh_owner.lock())
+                        if (auto owner = source_owner.lock())
                             owner->release(it->second);
                         it = mesh_tokens.erase(it);
                     } else
@@ -223,6 +236,10 @@ struct NavigationRuntime::Impl {
                 for (auto id : source.meshes)
                     if (!mesh_tokens.contains(id))
                         mesh_tokens.emplace(id, resources->request(RuntimeResourceKind::Mesh, id));
+                for (auto id : source.collisions)
+                    if (!collision_tokens.contains(id))
+                        collision_tokens.emplace(
+                            id, resources->request(RuntimeResourceKind::Collision, id));
             }
             bool ready = true;
             std::uint64_t retained_bytes = 0;
@@ -239,6 +256,17 @@ struct NavigationRuntime::Impl {
                          status.retained_revision == status.requested_revision;
                 if (lease)
                     retained_bytes += lease->resident_bytes();
+                return status.requested_revision;
+            });
+            const auto collisions = collision_inputs(source, [&](AssetId id) {
+                const auto status = resources->inspect(collision_tokens.at(id));
+                if (status.requested_revision.empty())
+                    throw std::runtime_error(status.diagnostic);
+                if (status.state == "failed")
+                    throw std::runtime_error("Navigation Collision admission failed: " +
+                                             status.diagnostic);
+                ready &= status.state == "ready" &&
+                         status.retained_revision == status.requested_revision;
                 return status.requested_revision;
             });
             if (retained_bytes > mesh_bytes) {
@@ -278,15 +306,17 @@ struct NavigationRuntime::Impl {
                 }
                 source_inputs = tile_inputs(source, [&](AssetId id) { return revisions.at(id); });
             }
-            state.digest = source_digest(source, source_inputs);
-            if (plane == NavigationPlane::Spatial3D && source.meshes.empty())
+            state.digest = source_digest(source, source_inputs, collisions);
+            if (plane == NavigationPlane::Spatial3D && source.meshes.empty() &&
+                !settings.collect_static_colliders)
                 state.legacy = !previous_legacy.empty() && previous_sources == state.digest
                                    ? previous_legacy
                                    : navigation_detail::geometry(source).digest;
             if (!ready) {
                 state.loading = true;
                 state.status = NavStatus::Unavailable;
-                throw std::runtime_error("Waiting for selected navigation Mesh resources");
+                throw std::runtime_error(
+                    "Waiting for selected navigation Mesh/Collision resources");
             }
         } catch (const std::exception& e) {
             state.legacy.clear();
@@ -494,9 +524,9 @@ void NavigationRuntime::bind(Scene* scene) {
         impl_->agent_limit = false;
         impl_->obstacle_sources.clear();
         impl_->obstacle_error.clear();
-        impl_->release_meshes();
+        impl_->release_resources();
         impl_->geometry = {};
-        impl_->linked_geometry.clear();
+        impl_->profile_geometry.clear();
         impl_->linked_profiles.clear();
     }
 }
@@ -524,8 +554,16 @@ void NavigationRuntime::synchronize() {
             link.plane <= unsigned(NavigationPlane::PlanarXY))
             s.linked_profiles.emplace(NavigationPlane(link.plane), link.profile);
     });
-    std::erase_if(s.linked_geometry,
-                  [&](const auto& entry) { return !s.linked_profiles.contains(entry.first); });
+    std::set<Impl::ProfileKey> collected_profiles;
+    for (const auto& [asset, cached] : s.cache) {
+        const auto settings = cached.data.metadata.at("settings").get<NavigationSettings>();
+        if (settings.collect_static_colliders)
+            collected_profiles.emplace(settings.plane, settings.profile);
+    }
+    std::erase_if(s.profile_geometry, [&](const auto& entry) {
+        return !s.linked_profiles.contains(entry.first) &&
+               !collected_profiles.contains(entry.first);
+    });
     const auto has_source = [&](auto& query) {
         std::vector<flecs::entity_t> enabled;
         query.each([&](flecs::entity e, const auto& source) {
@@ -538,11 +576,14 @@ void NavigationRuntime::synchronize() {
     };
     const std::array<bool, 2> present{has_source(s.surfaces), has_source(s.regions)};
     // Preserve the existing absent-geometry fast path and the shared floor-only
-    // capture. Only selected linked profiles need another derived source view.
+    // capture. Selected link/collection profiles use another bounded derived view.
     for (const auto plane : {NavigationPlane::Spatial3D, NavigationPlane::PlanarXY}) {
         auto& state = s.geometry.at(unsigned(plane));
         if (present[unsigned(plane)]) {
-            s.capture_geometry(state, plane, {});
+            NavigationSettings settings;
+            settings.plane = plane;
+            settings.profile.clear();
+            s.capture_geometry(state, settings);
         } else {
             state = {};
             state.captured = s.synchronization;
@@ -563,6 +604,19 @@ void NavigationRuntime::synchronize() {
             // get() retains the exact source/update error for the next consumer.
         }
     }
+    // Subscriptions pin current copied profile inputs only. In particular, the
+    // floor-only capture must not release/re-request a collector's shape each tick.
+    const auto resources = s.source_owner.lock();
+    std::erase_if(s.collision_tokens, [&](const auto& token) {
+        const bool selected = std::any_of(
+            s.profile_geometry.begin(), s.profile_geometry.end(), [&](const auto& profile) {
+                return profile.second.captured == s.synchronization &&
+                       profile.second.collisions.contains(token.first);
+            });
+        if (!selected && resources)
+            resources->release(token.second);
+        return !selected;
+    });
 }
 NavResult NavigationRuntime::project_point(AssetRef<NavMeshAsset> ref, Double3 p) {
     if (!impl_)

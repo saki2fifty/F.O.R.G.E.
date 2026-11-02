@@ -1,5 +1,6 @@
 #include "asset_bytes.hpp"
 #include "asset_worker.hpp"
+#include "collision_selection.hpp"
 #include "model_render_resource.hpp"
 #include "navigation_asset.hpp"
 #include "navigation_sources.hpp"
@@ -68,7 +69,7 @@ NavigationCandidate prepare_navigation(const std::filesystem::path& project, con
                                        std::stop_token cancel) {
     validate_navigation_settings(settings);
     auto c = std::make_unique<NavigationCandidate::Impl>(project);
-    const auto source = capture(doc, settings.plane, settings.profile);
+    const auto source = capture(doc, settings);
     const auto profiles = navigation_profiles(c->catalog, source.scene);
     const auto previous = profiles.find(settings.profile);
     const auto id = previous == profiles.end() ? AssetId::generate() : previous->second;
@@ -78,20 +79,40 @@ NavigationCandidate prepare_navigation(const std::filesystem::path& project, con
     ResourcePool<MeshAsset> meshes({1, max_mesh_inputs, max_mesh_inputs, mesh_bytes});
     std::map<AssetId, ResourceLease<MeshAsset>> selected;
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
-    for (auto id : source.meshes) {
-        auto ticket = asset_detail::request_model_mesh(meshes, c->root, catalog, {id}, mesh_limits);
+    const auto acquire = [&](auto& pool, const auto& ticket) {
         while (!cancel.stop_requested() && std::chrono::steady_clock::now() < deadline) {
-            if (meshes.wait(ticket, std::chrono::milliseconds(10)))
+            if (pool.wait(ticket, std::chrono::milliseconds(10)))
                 break;
             if (ticket.inspect().state == ResourceState::Failed)
                 throw std::runtime_error(ticket.inspect().diagnostic);
         }
         if (cancel.stop_requested())
             throw std::runtime_error("Navigation build cancelled");
-        auto lease = meshes.acquire(ticket);
+        auto lease = pool.acquire(ticket);
         if (!lease)
-            throw std::runtime_error("Navigation Mesh admission timed out");
+            throw std::runtime_error("Navigation source resource admission timed out");
+        return lease;
+    };
+    std::uint64_t geometry_retained = 0;
+    for (auto id : source.meshes) {
+        auto lease = acquire(
+            meshes, asset_detail::request_model_mesh(meshes, c->root, catalog, {id}, mesh_limits));
+        geometry_retained += lease->resident_bytes();
         selected.emplace(id, std::move(lease));
+    }
+    const auto collision_provenance = collision_inputs(
+        source, [&](AssetId id) { return selected_collision_revision(*catalog, {id}); });
+    std::unique_ptr<ResourcePool<CollisionAsset>> collisions;
+    std::map<AssetId, ResourceLease<CollisionAsset>> selected_collisions;
+    if (!source.collisions.empty())
+        collisions = std::make_unique<ResourcePool<CollisionAsset>>(
+            ResourcePoolLimits{1, max_mesh_inputs, max_mesh_inputs, mesh_bytes});
+    for (auto id : source.collisions) {
+        auto lease = acquire(*collisions, request_collision(*collisions, c->root, catalog, {id}));
+        geometry_retained += lease->resident_bytes;
+        if (geometry_retained > mesh_bytes)
+            throw std::runtime_error("Navigation Mesh/Collision inputs exceed64MiB retained data");
+        selected_collisions.emplace(id, std::move(lease));
     }
     const auto tiles =
         tile_inputs(source, [&](AssetId id) { return selected_tile_map_revision(*catalog, {id}); });
@@ -112,20 +133,6 @@ NavigationCandidate prepare_navigation(const std::filesystem::path& project, con
     std::map<AssetId, SelectedMap> selected_maps;
     std::map<AssetId, ResourceLease<TileSetAsset>> selected_definitions;
     std::uint64_t retained = 0;
-    const auto acquire = [&](auto& pool, const auto& ticket) {
-        while (!cancel.stop_requested() && std::chrono::steady_clock::now() < deadline) {
-            if (pool.wait(ticket, std::chrono::milliseconds(10)))
-                break;
-            if (ticket.inspect().state == ResourceState::Failed)
-                throw std::runtime_error(ticket.inspect().diagnostic);
-        }
-        if (cancel.stop_requested())
-            throw std::runtime_error("Navigation build cancelled");
-        auto lease = pool.acquire(ticket);
-        if (!lease)
-            throw std::runtime_error("Navigation Tile Map admission timed out");
-        return lease;
-    };
     for (auto id : source.maps) {
         auto map = acquire(*maps, request_tile_map_compact(*maps, c->root, catalog, {id}));
         auto cells = std::make_shared<const TileMapData>(map.get());
@@ -160,12 +167,16 @@ NavigationCandidate prepare_navigation(const std::filesystem::path& project, con
             return tile_collider_outlines(*value.cells, *value.values, value.variants.get(),
                                           surface.collider->layer, surface.transform,
                                           surface.region->obstacle);
-        });
+        },
+        [&](AssetId id) { return snapshot_physics_debug_collision(selected_collisions.at(id)); },
+        collision_provenance);
     c->geometry_digest = g.digest;
     const unsigned geometry_version =
         settings.plane == NavigationPlane::PlanarXY ? (collider_sources(source) ? 5 : 3) : 2;
-    const unsigned version =
-        !g.connections.empty() ? 6 : (settings.dynamic_obstacles ? 4 : geometry_version);
+    const unsigned version = settings.collect_static_colliders ? 7
+                             : !g.connections.empty()
+                                 ? 6
+                                 : (settings.dynamic_obstacles ? 4 : geometry_version);
     Json meta = {{"asset_id", id},
                  {"version", version},
                  {"geometry_version", geometry_version},
@@ -178,6 +189,8 @@ NavigationCandidate prepare_navigation(const std::filesystem::path& project, con
         meta["links"] = navigation_link_values(g.connections, settings.plane);
     if (geometry_version == 5)
         meta["tile_inputs"] = tiles;
+    if (settings.collect_static_colliders && settings.plane == NavigationPlane::Spatial3D)
+        meta["collision_inputs"] = collision_provenance;
     Json input = {{"metadata", meta}, {"vertices", g.vertices}};
     if (settings.plane == NavigationPlane::PlanarXY)
         input["obstacles"] = g.obstacles;
@@ -230,6 +243,13 @@ NavigationCandidate prepare_navigation(const std::filesystem::path& project, con
         c->record.dependencies.push_back(map);
         c->record.dependency_edges.push_back({map, TileMapAsset::type, AssetDependencyKind::Build,
                                               "navigation.tile_map", input.at("revision")});
+    }
+    for (const auto& input : collision_provenance) {
+        const auto collision = input.at("asset_id").get<AssetId>();
+        c->record.dependencies.push_back(collision);
+        c->record.dependency_edges.push_back({collision, CollisionAsset::type,
+                                              AssetDependencyKind::Build, "navigation.collision",
+                                              input.at("revision")});
     }
     if (cancel.stop_requested())
         throw std::runtime_error("Navigation build cancelled");
@@ -298,7 +318,9 @@ std::string navigation_detail::selected_geometry_digest(const AssetCatalog& cata
     }
     auto inputs = mesh_inputs(
         source, [&](AssetId id) { return asset_detail::selected_mesh_revision(catalog, {id}); });
-    return source_digest(source, inputs);
+    const auto collisions = collision_inputs(
+        source, [&](AssetId id) { return selected_collision_revision(catalog, {id}); });
+    return source_digest(source, inputs, collisions);
 }
 std::string navigation_geometry_digest(const std::filesystem::path& project, const Json& doc,
                                        const Json& meta) {
@@ -307,6 +329,6 @@ std::string navigation_geometry_digest(const std::filesystem::path& project, con
         return geometry(capture(doc, settings.plane, settings.profile)).digest;
     }
     const auto settings = provenance_settings(meta);
-    return selected_geometry_digest(project, capture(doc, settings.plane, settings.profile), meta);
+    return selected_geometry_digest(project, capture(doc, settings), meta);
 }
 } // namespace forge

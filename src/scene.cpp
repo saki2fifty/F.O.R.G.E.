@@ -4,6 +4,7 @@
 #include "builtins.hpp"
 #include "json_row_index.hpp"
 #include "json_value_equal.hpp"
+#include "navigation_collision_collection.hpp"
 #include "prefab_references.hpp"
 #include "reflected_extensions.hpp"
 #include "reflected_references.hpp"
@@ -949,6 +950,14 @@ void Scene::restore_child_order(const Json& document) {
     }
 }
 Json Scene::unresolved_navigation_sources(NavigationPlane plane, std::string_view profile) const {
+    NavigationSettings settings;
+    settings.plane = plane;
+    settings.profile = profile;
+    return unresolved_navigation_sources(settings);
+}
+Json Scene::unresolved_navigation_sources(const NavigationSettings& settings) const {
+    const auto plane = settings.plane;
+    const std::string_view profile = settings.profile;
     if (plane != NavigationPlane::Spatial3D && plane != NavigationPlane::PlanarXY)
         throw std::runtime_error("Unsupported navigation source plane");
     const auto* marker = plane == NavigationPlane::PlanarXY ? "forge.navigation_region_2d"
@@ -964,7 +973,8 @@ Json Scene::unresolved_navigation_sources(NavigationPlane plane, std::string_vie
                           components.at("forge.navigation_link").at("plane") == unsigned(plane) &&
                           components.at("forge.navigation_link").at("profile") == profile &&
                           components.at("forge.navigation_link").at("enabled").get<bool>();
-        if ((!surface && !link) || entity(item.at("id")))
+        const bool automatic = navigation_detail::collect_static_collider(components, settings);
+        if ((!surface && !link && !automatic) || entity(item.at("id")))
             continue;
         Json row = {{"id", item.at("id")},
                     {"prefab", item.value("prefab", false)},
@@ -991,12 +1001,14 @@ Json Scene::unresolved_navigation_sources(NavigationPlane plane, std::string_vie
             out["forge.mesh_renderer"] = {{"mesh", mesh.at("mesh")},
                                           {"enabled", mesh.value("enabled", true)}};
         }
-        if (components.contains("forge.physics_body"))
-            out["forge.physics_body"] = {
-                {"motion", components.at("forge.physics_body").at("motion")}};
-        if (components.contains("forge.physics_body_2d"))
-            out["forge.physics_body_2d"] = {
-                {"motion", components.at("forge.physics_body_2d").at("motion")}};
+        for (const char* body : {"forge.physics_body", "forge.physics_body_2d"})
+            if (components.contains(body)) {
+                const auto& value = components.at(body);
+                out[body] = {{"motion", value.value("motion", Json(0))},
+                             {"enabled", value.value("enabled", Json(true))},
+                             {"sensor", value.value("sensor", Json(false))},
+                             {"layer", value.value("layer", Json(0))}};
+            }
         // There is no native entity/matrix. The shared geometry validator retains
         // its existing group/static/unresolved diagnostic, without copying opaque
         // extensions, unrelated components or an entire effective Scene.
