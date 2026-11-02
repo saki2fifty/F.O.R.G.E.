@@ -31,6 +31,10 @@ EngineModule copied_authoring_module(nlohmann::json copied_types,
                                                       role_mask(WorldRole::Validation));
 void validate_custom_values(const nlohmann::json& editor_schema, const nlohmann::json& components);
 void validate_runtime_custom_values(const WorldContext&, const nlohmann::json& components);
+// Compose admitted masks without interpreting their reference domain. The caller
+// validates the complete result after source/native reference normalization.
+void merge_custom_prefab_intent(nlohmann::json& values, const nlohmann::json& instance,
+                                const nlohmann::json& editor_schema);
 void project_custom_prefab_intent(nlohmann::json& values, const nlohmann::json& instance,
                                   const nlohmann::json& editor_schema);
 } // namespace forge::detail

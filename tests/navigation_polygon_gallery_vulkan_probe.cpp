@@ -19,8 +19,7 @@ int main(int argc, char** argv) {
         RefCntAutoPtr<IRenderDevice> device;
         RefCntAutoPtr<IDeviceContext> context;
         GetEngineFactoryVk()->CreateDeviceAndContextsVk(create, &device, &context);
-        test_gallery_capture::check(device && context,
-                                    "Navigation Gallery Vulkan device unavailable");
+        test_gallery_capture::check(device && context, "Gallery Vulkan device unavailable");
         DiligentPresentation presentation(device);
         Json source;
         std::ifstream(root / source_path) >> source;
@@ -35,21 +34,19 @@ int main(int argc, char** argv) {
         std::filesystem::rename(root, hidden);
         const auto exported = test_gallery_capture::render(presentation, context, moved, id,
                                                            scratch / "relocated", 6);
-        test_gallery_capture::check(authored == exported,
-                                    "Source-free navigation Game displays changed");
+        test_gallery_capture::check(authored == exported, "Source-free Game displays changed");
         std::ofstream receipt(scratch / "receipt.json");
         receipt << Json{{"scene", id},
                         {"exact_display_pairs", 4},
                         {"source", source_path},
-                        {"scope", "Actual moving navigation Game frames on software Vulkan; no "
+                        {"scope", "Actual moving Game frames on software Vulkan; no "
                                   "Windows, physical GPU or graphical EXE acceptance"}}
                        .dump(2)
                 << '\n';
-        test_gallery_capture::check(bool(receipt), "Navigation Game receipt write failed");
+        test_gallery_capture::check(bool(receipt), "Gallery Game receipt write failed");
         context->WaitForIdle();
-        std::cout
-            << "Navigation Gallery: four exact animated source-free relocated Game pairs passed: "
-            << scratch << '\n';
+        std::cout << "Gallery: four exact animated source-free relocated Game pairs passed: "
+                  << scratch << '\n';
     } catch (const std::exception& e) {
         std::cerr << e.what() << '\n';
         return 1;

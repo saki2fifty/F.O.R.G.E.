@@ -149,11 +149,11 @@ void publish_runtime_entities(WorldContext& context) {
                                                  : "Runtime scene is not loaded");
             std::size_t rows = 1;
             if (intended.prefab) {
-                const auto source = selected->prefab_sources().find(intended.prefab);
-                if (source == selected->prefab_sources().end())
+                const auto* source = selected->prefab_definition(intended.prefab);
+                if (!source)
                     throw std::runtime_error(
                         "Runtime prefab is not admitted; review Runtime Dependencies");
-                rows = source->second.at("members").size();
+                rows = source->at("members").size();
             }
             if (rows > remaining_rows)
                 break; // Preserve order and bound one fixed boundary's work.

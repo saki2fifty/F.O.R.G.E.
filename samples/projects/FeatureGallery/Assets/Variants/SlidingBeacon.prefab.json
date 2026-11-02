@@ -1,0 +1,90 @@
+{
+  "asset_id": "1e8d8ca3-6baa-4c06-9fa6-59296d52db65",
+  "format": "forge.prefab",
+  "members": [
+    {
+      "components": {
+        "forge.animation_sequence": {
+          "duration": 2.0,
+          "enabled": true,
+          "loop": true,
+          "play_on_start": true,
+          "playback_speed": 1.0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 1.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "1041674b-7c7c-4d72-bffc-d0cad68f5524",
+      "name": "Base beacon - sequence 1x",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.800000011920929,
+          "y": 0.800000011920929,
+          "z": 0.800000011920929
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 1.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 1.0,
+          "g": 0.800000011920929,
+          "r": 0.07999999821186066
+        },
+        "forge.transform_animator": {
+          "clip": "a5fa9266-52e5-48da-9771-86cb37294118",
+          "enabled": true,
+          "loop": true,
+          "play_on_start": true,
+          "playback_speed": 1.0,
+          "sequence": {
+            "member": "1041674b-7c7c-4d72-bffc-d0cad68f5524",
+            "prefab": "1e8d8ca3-6baa-4c06-9fa6-59296d52db65"
+          },
+          "sequence_start_seconds": 0.0
+        }
+      },
+      "id": "460807c6-7195-495b-9fba-e09e1425697f",
+      "name": "Sliding beacon body",
+      "parent": "1041674b-7c7c-4d72-bffc-d0cad68f5524",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    }
+  ],
+  "revision": 1,
+  "root": "1041674b-7c7c-4d72-bffc-d0cad68f5524",
+  "version": 3
+}

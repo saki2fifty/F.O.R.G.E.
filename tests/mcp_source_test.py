@@ -9,8 +9,14 @@ import tempfile
 import time
 import wave
 from mcp_test_client import CAPTURE, Client, failed, write_capture, finish_host
+from mcp_prefab_workflow import check_prefab_workflow
 
 TOOLS, HOST, WORKER = map(str, map(Path, sys.argv[1:4]))
+PREFAB_ONLY = "--prefab-only" in sys.argv[5:]
+# Instrumented native admission can exceed the unchanged production bridge
+# deadline for the multi-MiB boundary fixture. Normal CTest always includes it.
+SKIP_LARGE_PREFAB_READ = "--skip-large-prefab-read" in sys.argv[5:]
+assert not SKIP_LARGE_PREFAB_READ or PREFAB_ONLY
 COLLISION_ONLY = "--tile-collision-only" in sys.argv[5:]
 ATLAS_ONLY = "--atlas-only" in sys.argv[5:]
 SPRITE_GRAPH_ONLY = "--sprite-graph-only" in sys.argv[5:]
@@ -37,6 +43,8 @@ for legacy in (False, True):
     with editor('read') as (root, process, config), Client(config, legacy) as client:
         names = {tool['name'] for tool in client.request('tools/list')['result']['tools']}
         assert 'forge_asset_document_types' in names
+        assert 'forge_prefab_source_read' in names
+        assert not {'forge_prefab_variant_create', 'forge_prefab_duplicate', 'forge_prefab_source_rebase', 'forge_prefab_source_revert'} & names
         assert not any('forge_asset_document_' + name in names for name in ('create', 'patch', 'save', 'paint', 'close', 'tile_collision', 'tile_animation', 'tile_autotile'))
 
     with editor() as (root, process, config), Client(config, legacy) as client:
@@ -51,8 +59,11 @@ for legacy in (False, True):
             assert result['ok'], result
             return result
 
-        def read(tool, **extra):
+        def read(tool, _expected_error=None, **extra):
             result = client.tool(tool, target=discovery()['result']['target'], **extra)
+            if _expected_error is not None:
+                failed(result, _expected_error)
+                return result
             assert result['ok'], result
             return result['result']
 
@@ -60,6 +71,11 @@ for legacy in (False, True):
             state = discovery()
             return client.tool(tool, target=state['result']['target'],
                                expected_revision=state['revision'], sequence=state['next_sequence'], **extra)
+
+        if PREFAB_ONLY:
+            check_prefab_workflow(read, mutate, failed, root,
+                                  large_read_budget=not SKIP_LARGE_PREFAB_READ)
+            continue
 
         def status(editor):
             return read('forge_asset_document_status', editor=editor)
@@ -737,37 +753,7 @@ for legacy in (False, True):
             assert imported['effective']['force_mono']
             assert import_edit('forge_asset_settings_close')['ok']
 
-        # Prefab publication and durable Apply reuse the source editor/library/SceneDocument.
-        created = mutate('forge_entity_create', arguments=dict(kind=0, name='Prefab original'))
-        assert created['ok'], created
-        entity = created['result']['results'][0]['selected']
-        captured = mutate('forge_prefab_create', entity=entity, path='Assets/Agent.prefab.json')
-        assert captured['ok'], captured
-        asset = captured['result']['asset']
-        assert any(item['asset'] == asset for item in read('forge_prefab_list')['prefabs'])
-        assert mutate('forge_prefab_source_open', asset=asset)['ok']
-        draft = read('forge_prefab_source_read')
-        root_index = next(i for i, member in enumerate(draft['source']['members']) if member['id'] == draft['source']['root'])
-        assert mutate('forge_prefab_source_patch', state=draft['state'], patch=[dict(op='replace',
-                      path=f'/members/{root_index}/name', value='Published prefab')])['ok']
-        failed(mutate('forge_prefab_source_publish', state=draft['state']), 'stale_document')
-        assert mutate('forge_prefab_source_publish', state=read('forge_prefab_source_read')['state'])['ok']
-        assert mutate('forge_prefab_source_close', state=read('forge_prefab_source_read')['state'])['ok']
-        instance = mutate('forge_prefab_instantiate', arguments=dict(asset=asset))
-        assert instance['ok'], instance
-        instance_id = instance['result']['results'][0]['selected']
-        assert mutate('forge_document_save')['ok']
-        assert mutate('forge_entity_rename', arguments=dict(entity=instance_id, name='Applied name'))['ok']
-        reviewed = mutate('forge_prefab_apply_review', entity=instance_id)
-        assert reviewed['ok'] and reviewed['result']['overrides'] >= 1, reviewed
-        committed = mutate('forge_prefab_apply_commit', review=reviewed['result']['review'], acknowledge_scene_save=True)
-        assert committed['ok'], committed
-        saved_prefab = json.loads((root / 'Game/Assets/Agent.prefab.json').read_text())
-        assert saved_prefab['members'][root_index]['name'] == 'Applied name'
-        assert mutate('forge_history_undo')['ok']
-        assert json.loads((root / 'Game/Assets/Agent.prefab.json').read_text())['members'][root_index]['name'] == 'Published prefab'
-        assert mutate('forge_history_redo')['ok']
-        assert json.loads((root / 'Game/Assets/Agent.prefab.json').read_text())['members'][root_index]['name'] == 'Applied name'
+        check_prefab_workflow(read, mutate, failed, root)
 
         # External valid source edits remain protected by the same disk baseline.
         assert mutate('forge_asset_document_open', editor='material', path='Assets/MCP-material.material.json')['ok']

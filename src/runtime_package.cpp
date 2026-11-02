@@ -339,17 +339,22 @@ void validate_object_material_values(const std::filesystem::path& root,
                                      ResourcePool<MaterialAsset>& materials, std::stop_token stop) {
     const auto contains_values = [](const Json& rows) {
         return std::any_of(rows.begin(), rows.end(), [](const auto& row) {
-            const auto components = row.find("components");
-            if (components == row.end())
-                return false;
-            const auto renderer = components->find("forge.mesh_renderer");
-            return renderer != components->end() &&
-                   !renderer->value("material_parameters", Json::array()).empty();
+            for (const auto* channel : {"components", "property_overrides"}) {
+                const auto components = row.find(channel);
+                if (components == row.end())
+                    continue;
+                const auto renderer = components->find("forge.mesh_renderer");
+                if (renderer != components->end() &&
+                    !renderer->value("material_parameters", Json::array()).empty())
+                    return true;
+            }
+            return false;
         });
     };
     bool needed = contains_values(snapshot.at("entities"));
     for (const auto& prefab : snapshot.value("_prefab_sources", Json::array()))
-        needed |= contains_values(prefab.at("members"));
+        needed |= contains_values(prefab.at(
+            prefab.at("version") == 4 && prefab.contains("base") ? "overrides" : "members"));
     if (!needed)
         return;
     // Reuse the actual Scene/Prefab projection. This detached validation world

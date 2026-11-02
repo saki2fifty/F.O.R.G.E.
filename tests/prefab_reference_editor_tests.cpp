@@ -46,7 +46,7 @@ void exercise(const std::filesystem::path& scratch, float scale, ImVec2 display)
     ui::ContextScope context_scope(context);
     context.scene = &scene;
     PrefabEditor editor;
-    editor.edit_source(project, asset);
+    editor.edit_source(scene, project, asset);
     bool locked = false;
     bool collection_mode = false;
     auto collection_source = definition.source;

@@ -11,11 +11,34 @@
 namespace forge {
 namespace {
 Json read_prefab(const std::filesystem::path& path) {
-    if (std::filesystem::file_size(path) > 8 * 1024 * 1024)
+    if (std::filesystem::file_size(path) > PrefabLibrary::max_source_bytes)
         throw std::runtime_error("Prefab source exceeds 8 MiB");
     std::ifstream input(path, std::ios::binary);
     auto source = detail::parse_json_document(input);
     return PrefabDocument(std::move(source)).source;
+}
+AssetRecord prefab_record(const PrefabDocument& document, const std::filesystem::path& path) {
+    AssetRecord record{document.asset(), PrefabAsset::type, path,
+                       document.source.at("version").get<unsigned>(), document.dependencies()};
+    for (const auto id : record.dependencies) {
+        const bool base =
+            document.source.at("version") == 4 && document.source.value("base", Json()) == Json(id);
+        record.dependency_edges.push_back({id,
+                                           PrefabAsset::type,
+                                           AssetDependencyKind::Runtime,
+                                           base ? "document:base" : "document:dependencies",
+                                           {}});
+    }
+    return record;
+}
+void check_base_sources(const PrefabSources& current, const PrefabSources& expected) {
+    if (current.size() == expected.size() &&
+        std::all_of(current.begin(), current.end(), [&](const auto& item) {
+            const auto found = expected.find(item.first);
+            return found != expected.end() && detail::json_value_equal(item.second, found->second);
+        }))
+        return;
+    throw std::runtime_error("Prefab base changed; review its source again before publishing");
 }
 } // namespace
 PrefabDocument create_prefab_source(const Scene& scene, const std::string& selected) {
@@ -126,9 +149,7 @@ PrefabSources PrefabLibrary::scan(AssetCatalog& candidate,
             throw std::runtime_error("Prefab scan exceeds 64 MiB");
         auto source = read_prefab(it->path());
         const PrefabDocument p(source);
-        AssetRecord record{p.asset(), PrefabAsset::type, it->path().lexically_relative(project_),
-                           source.at("version").get<unsigned>(),
-                           source.value("dependencies", std::vector<AssetId>{})};
+        auto record = prefab_record(p, it->path().lexically_relative(project_));
         candidate.add(record);
         records.emplace(p.asset(), record);
         sources.emplace(p.asset(), std::move(source));
@@ -171,6 +192,21 @@ Json PrefabLibrary::source(AssetId asset) const {
         throw std::runtime_error(resolved.diagnostic);
     return read_prefab(locate(resolved.record->source));
 }
+PrefabSources PrefabLibrary::base_sources(const Scene& scene, const Json& document) const {
+    PrefabSources result;
+    const Json* selected = &document;
+    while (selected->at("version") == 4 && selected->contains("base")) {
+        const auto base = selected->at("base").get<AssetRef<PrefabAsset>>().id;
+        if (result.size() >= 16 || result.contains(base))
+            throw std::runtime_error("Invalid prefab base chain; refresh sources");
+        const auto loaded = scene.prefab_sources().find(base);
+        if (loaded == scene.prefab_sources().end() ||
+            !detail::json_value_equal(source(base), loaded->second))
+            throw std::runtime_error("Prefab base changed on disk; refresh sources before editing");
+        selected = &result.emplace(base, loaded->second).first->second;
+    }
+    return result;
+}
 AssetId PrefabLibrary::create(Scene& scene, PrefabDocument document,
                               const std::filesystem::path& relative) {
     const auto path = locate(relative);
@@ -179,56 +215,83 @@ AssetId PrefabLibrary::create(Scene& scene, PrefabDocument document,
             "Choose a new prefab filename; existing assets are never overwritten by Create");
     if (document.revision() != 1)
         throw std::runtime_error("New prefab assets start at revision 1");
+    const auto bytes = document.source.dump(2);
+    if (bytes.size() > max_source_bytes)
+        throw std::runtime_error("Prefab source exceeds 8 MiB");
     auto candidate = catalog_;
     auto records = records_;
-    AssetRecord record{document.asset(), PrefabAsset::type, relative,
-                       document.source.at("version").get<unsigned>(),
-                       document.source.value("dependencies", std::vector<AssetId>{})};
+    auto record = prefab_record(document, relative);
     candidate.add(record);
     records.emplace(record.id, record);
     auto sources = scene.prefab_sources();
     if (!sources.emplace(document.asset(), document.source).second)
         throw std::runtime_error("Prefab AssetId already loaded");
+    const auto bases = base_sources(scene, document.source);
     scene.publish_prefab_sources(sources, [&] {
+        check_base_sources(base_sources(scene, document.source), bases);
         if (std::filesystem::exists(path))
             throw std::runtime_error("Prefab destination appeared during creation");
-        atomic_write(path, document.source.dump(2));
+        atomic_write(path, bytes);
     });
     catalog_ = std::move(candidate);
     records_.swap(records);
     return document.asset();
 }
+AssetId PrefabLibrary::create_variant(Scene& scene, AssetId base,
+                                      const std::filesystem::path& relative) {
+    const auto loaded = scene.prefab_sources().find(base);
+    if (loaded == scene.prefab_sources().end() ||
+        !detail::json_value_equal(source(base), loaded->second))
+        throw std::runtime_error("Prefab base changed; refresh sources before creating a variant");
+    return create(scene,
+                  PrefabDocument({{"format", "forge.prefab"},
+                                  {"version", 4},
+                                  {"asset_id", AssetId::generate()},
+                                  {"revision", 1},
+                                  {"root", loaded->second.at("root")},
+                                  {"base", base},
+                                  {"overrides", Json::array()}}),
+                  relative);
+}
 AssetId PrefabLibrary::duplicate(Scene& scene, AssetId asset,
                                  const std::filesystem::path& relative) {
     return create(scene, PrefabDocument(source(asset)).duplicate(scene.schema()), relative);
 }
-void PrefabLibrary::publish(Scene& scene, const Json& expected, Json candidate) {
+void PrefabLibrary::publish(Scene& scene, const Json& expected, Json candidate,
+                            const PrefabSources& expected_bases) {
     const PrefabDocument old(expected);
     if (candidate.at("asset_id").get<AssetId>() != old.asset() ||
         candidate.at("root") != expected.at("root"))
         throw std::runtime_error("Editing cannot replace a prefab's AssetId/root identity");
+    if ((candidate.at("version") == 4 || expected.at("version") == 4) &&
+        candidate.value("base", Json()) != expected.value("base", Json()))
+        throw std::runtime_error("Editing cannot replace a prefab's base identity");
     if (old.revision() == UINT64_MAX)
         throw std::runtime_error("Prefab revision exhausted");
     candidate["revision"] = old.revision() + 1;
     const PrefabDocument parsed(candidate);
     candidate = parsed.source;
+    const auto bytes = candidate.dump(2);
+    if (bytes.size() > max_source_bytes)
+        throw std::runtime_error("Prefab source exceeds 8 MiB");
     const auto path = locate(records_.at(old.asset()).source);
     if (!detail::json_value_equal(source(old.asset()), expected))
         throw std::runtime_error("Prefab changed on disk; reopen its source before publishing");
+    check_base_sources(base_sources(scene, expected), expected_bases);
     auto sources = scene.prefab_sources();
     sources[old.asset()] = candidate;
     auto records = records_;
-    records.at(old.asset()).schema_version = candidate.at("version").get<unsigned>();
-    records.at(old.asset()).dependencies = candidate.value("dependencies", std::vector<AssetId>{});
+    records.at(old.asset()) = prefab_record(parsed, records.at(old.asset()).source);
     AssetCatalog catalog(project_);
     for (const auto& [id, record] : records) {
         (void)id;
         catalog.add(record);
     }
     scene.publish_prefab_sources(sources, [&] {
+        check_base_sources(base_sources(scene, expected), expected_bases);
         if (!detail::json_value_equal(read_prefab(path), expected))
             throw std::runtime_error("Prefab changed while preparing the candidate");
-        atomic_write(path, candidate.dump(2));
+        atomic_write(path, bytes);
     });
     catalog_ = std::move(catalog);
     records_.swap(records);
@@ -253,6 +316,7 @@ PrefabApplyCandidate PrefabLibrary::prepare_apply(const Scene& scene,
     if (!scene.prefab_sources().contains(asset) ||
         scene.prefab_sources().at(asset) != result.expected)
         throw std::runtime_error("Prefab changed; refresh sources before reviewing Apply");
+    result.expected_bases = base_sources(scene, result.expected);
     result.source = result.expected;
     std::map<std::string, Json> shown;
     for (const auto& row : effective.at("entities"))
@@ -263,9 +327,23 @@ PrefabApplyCandidate PrefabLibrary::prepare_apply(const Scene& scene,
         types[type.at("id")] = type;
     const auto root_id = root->at("id").get<std::string>();
     const auto mapping = root->at("prefab_instance").at("members");
+    const bool variant = result.source.at("version") == 4 && result.source.contains("base");
+    const bool addressed_references = result.source.at("version") == 4;
+    const auto* definition = scene.prefab_definition(asset);
+    if (!definition)
+        throw std::runtime_error("Refresh prefab sources before reviewing Apply");
+    std::map<std::string, std::string> inverse;
+    for (const auto& [member, entity] : mapping.items())
+        inverse.emplace(entity.get<std::string>(), member);
+    auto transfer_reference = [&](const Json& value) {
+        return addressed_references
+                   ? detail::capture_prefab_reference(value, scene.asset_id(), asset, inverse)
+                   : value;
+    };
     bool portable_references = false;
-    for (auto& member : result.source["members"]) {
-        const auto key = member.at("id").get<std::string>();
+    auto& authored = result.source[variant ? "overrides" : "members"];
+    for (const auto& inherited : definition->at("members")) {
+        const auto key = inherited.at("id").get<std::string>();
         if (!mapping.contains(key))
             continue;
         const auto entity = mapping.at(key).get<std::string>();
@@ -276,6 +354,15 @@ PrefabApplyCandidate PrefabLibrary::prepare_apply(const Scene& scene,
         if (entity != root_id &&
             row->value("prefab_member", Json::object()).value("root", "") != root_id)
             throw std::runtime_error("Prefab member mapping changed during Apply review");
+        auto destination = std::find_if(authored.begin(), authored.end(),
+                                        [&](const Json& value) { return value.at("id") == key; });
+        if (destination == authored.end()) {
+            if (!variant)
+                throw std::runtime_error("Prefab definition changed during Apply review");
+            authored.push_back({{"id", key}, {"components", Json::object()}});
+            destination = std::prev(authored.end());
+        }
+        auto& member = *destination;
         if (row->value("name_override", false)) {
             member["name"] = row->at("name");
             row->erase("name_override");
@@ -292,11 +379,12 @@ PrefabApplyCandidate PrefabLibrary::prepare_apply(const Scene& scene,
                 continue; // Unadmitted/opaque authored values remain exactly where they are.
             }
             auto transferred = Json{{it.key(), it.value()}};
-            portable_references |=
-                !detail::transform_prefab_component_references(
-                     transferred, schema, [](const Json& value) { return value; })
-                     .empty();
-            member["components"][it.key()] = it.value();
+            portable_references |= !detail::transform_prefab_component_references(
+                                        transferred, schema, transfer_reference)
+                                        .empty();
+            member["components"][it.key()] = transferred.at(it.key());
+            if (variant && member.contains("property_overrides"))
+                member["property_overrides"].erase(it.key());
             it = components.erase(it);
             ++result.overrides;
         }
@@ -310,7 +398,7 @@ PrefabApplyCandidate PrefabLibrary::prepare_apply(const Scene& scene,
                 continue;
             }
             const auto& value = shown.at(entity).at("components").at(it.key());
-            if (!member["components"].contains(it.key()))
+            if (!variant && !member["components"].contains(it.key()))
                 member["components"][it.key()] = value;
             for (auto field = it.value().begin(); field != it.value().end();) {
                 const auto known =
@@ -322,10 +410,16 @@ PrefabApplyCandidate PrefabLibrary::prepare_apply(const Scene& scene,
                 }
                 auto transferred = value.at(field.key());
                 bool reference = false;
-                detail::transform_prefab_reference_field(
-                    *known, transferred, [](const Json& input) { return input; }, reference);
+                detail::transform_prefab_reference_field(*known, transferred, transfer_reference,
+                                                         reference);
                 portable_references |= reference;
-                member["components"][it.key()][field.key()] = value.at(field.key());
+                if (variant && !member["components"].contains(it.key())) {
+                    auto& intent = member["property_overrides"][it.key()];
+                    if (it.value().contains("$forge"))
+                        intent["$forge"] = it.value().at("$forge");
+                    intent[field.key()] = std::move(transferred);
+                } else
+                    member["components"][it.key()][field.key()] = std::move(transferred);
                 field = it.value().erase(field);
                 ++result.overrides;
             }
@@ -343,10 +437,18 @@ PrefabApplyCandidate PrefabLibrary::prepare_apply(const Scene& scene,
     }
     if (!result.overrides)
         throw std::runtime_error("This instance has no admitted overrides to Apply");
-    std::map<std::string, std::string> inverse;
-    for (const auto& [member, entity] : mapping.items())
-        inverse.emplace(entity.get<std::string>(), member);
-    if (portable_references) {
+    if (variant) {
+        for (auto& member : authored)
+            if (member.contains("property_overrides") && member.at("property_overrides").empty())
+                member.erase("property_overrides");
+        authored.erase(std::remove_if(authored.begin(), authored.end(),
+                                      [](const Json& member) {
+                                          return member.size() == 2 && member.contains("id") &&
+                                                 member.at("components").empty();
+                                      }),
+                       authored.end());
+    }
+    if (portable_references && !addressed_references) {
         // Only an explicitly transferred non-null reference activates migration.
         // Unrelated edits retain legacy absolute Scene references and source version.
         for (auto& member : result.source["members"])
@@ -365,6 +467,8 @@ PrefabApplyCandidate PrefabLibrary::prepare_apply(const Scene& scene,
         throw std::runtime_error("Prefab revision exhausted");
     result.source["revision"] = PrefabDocument(result.expected).revision() + 1;
     result.source = PrefabDocument(result.source).source;
+    if (result.source.dump(2).size() > max_source_bytes)
+        throw std::runtime_error("Prefab source exceeds 8 MiB");
     auto sources = scene.prefab_sources();
     sources[asset] = result.source;
     result.scene = reconcile_prefab_intent(result.scene, sources, schema);
@@ -374,23 +478,28 @@ void PrefabLibrary::publish_apply(Scene& scene, const PrefabApplyCandidate& chan
                                   const std::function<void()>& writer,
                                   std::shared_ptr<Scene::PrefabReplay> replay) {
     const PrefabDocument old(change.expected), next(change.source);
+    if (next.source.dump(2).size() > max_source_bytes)
+        throw std::runtime_error("Prefab source exceeds 8 MiB");
     if (old.asset() != next.asset() || old.root() != next.root() ||
         next.revision() != old.revision() + 1)
         throw std::runtime_error("Invalid Apply revision/identity");
     if (source(old.asset()) != change.expected)
         throw std::runtime_error("Prefab changed after Apply review; source was not overwritten");
+    if ((change.source.at("version") == 4 || change.expected.at("version") == 4) &&
+        change.source.value("base", Json()) != change.expected.value("base", Json()))
+        throw std::runtime_error("Apply cannot replace a prefab's base identity");
+    check_base_sources(base_sources(scene, change.expected), change.expected_bases);
     auto sources = scene.prefab_sources();
     sources[old.asset()] = next.source;
     auto records = records_;
-    records.at(old.asset()).schema_version = next.source.at("version").get<unsigned>();
-    records.at(old.asset()).dependencies =
-        next.source.value("dependencies", std::vector<AssetId>{});
+    records.at(old.asset()) = prefab_record(next, records.at(old.asset()).source);
     AssetCatalog catalog(project_);
     for (const auto& [id, record] : records) {
         (void)id;
         catalog.add(record);
     }
     auto durable = [&] {
+        check_base_sources(base_sources(scene, change.expected), change.expected_bases);
         if (source(old.asset()) != change.expected)
             throw std::runtime_error("Prefab changed during Apply preparation");
         writer();

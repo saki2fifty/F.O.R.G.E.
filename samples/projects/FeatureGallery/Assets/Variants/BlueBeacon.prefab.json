@@ -1,0 +1,31 @@
+{
+  "asset_id": "d2468295-ded5-40e8-91fd-46926593991b",
+  "base": "1e8d8ca3-6baa-4c06-9fa6-59296d52db65",
+  "format": "forge.prefab",
+  "overrides": [
+    {
+      "components": {},
+      "id": "1041674b-7c7c-4d72-bffc-d0cad68f5524",
+      "name": "Blue variant - sequence 0.5x",
+      "property_overrides": {
+        "forge.animation_sequence": {
+          "playback_speed": 0.5
+        }
+      }
+    },
+    {
+      "components": {},
+      "id": "460807c6-7195-495b-9fba-e09e1425697f",
+      "property_overrides": {
+        "forge.tint": {
+          "b": 1.0,
+          "g": 0.3499999940395355,
+          "r": 0.15000000596046448
+        }
+      }
+    }
+  ],
+  "revision": 2,
+  "root": "1041674b-7c7c-4d72-bffc-d0cad68f5524",
+  "version": 4
+}

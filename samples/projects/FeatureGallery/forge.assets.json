@@ -2079,6 +2079,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "1e8d8ca3-6baa-4c06-9fa6-59296d52db65",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Assets/Variants/SlidingBeacon.prefab.json",
+      "source_dependencies": [],
+      "type": "prefab"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "1ecc7bbd-1254-4628-bb8a-008337ae0b18",
       "metadata": {},
       "schema_version": 2,
@@ -9531,6 +9541,46 @@
     },
     {
       "dependencies": [
+        "1e8d8ca3-6baa-4c06-9fa6-59296d52db65"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "",
+          "role": "document:base",
+          "target": "1e8d8ca3-6baa-4c06-9fa6-59296d52db65",
+          "type": "prefab"
+        }
+      ],
+      "id": "a07e5854-0e67-4800-87e7-670df8f85891",
+      "metadata": {},
+      "schema_version": 4,
+      "source": "Assets/Variants/AmberBeacon.prefab.json",
+      "source_dependencies": [],
+      "type": "prefab"
+    },
+    {
+      "dependencies": [
+        "a07e5854-0e67-4800-87e7-670df8f85891"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "",
+          "role": "document:base",
+          "target": "a07e5854-0e67-4800-87e7-670df8f85891",
+          "type": "prefab"
+        }
+      ],
+      "id": "a08211f0-0638-4ff4-a72a-b5534c228375",
+      "metadata": {},
+      "schema_version": 4,
+      "source": "Assets/Variants/PinkBeacon.prefab.json",
+      "source_dependencies": [],
+      "type": "prefab"
+    },
+    {
+      "dependencies": [
         "39a3c132-e3ce-4567-9b23-c6f9339158a6"
       ],
       "dependency_edges": [
@@ -11226,6 +11276,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "c4f4453c-7464-431a-a5d3-f6938a96ffe6",
+      "metadata": {},
+      "schema_version": 4,
+      "source": "Scenes/142-prefab-variants.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "c5d0c60d-0c72-4a15-b6e8-be442f617a17",
       "metadata": {
         "forge.import": {
@@ -11740,6 +11800,26 @@
       "source": "Scenes/130-moving-navigation-xy.scene.json",
       "source_dependencies": [],
       "type": "scene"
+    },
+    {
+      "dependencies": [
+        "1e8d8ca3-6baa-4c06-9fa6-59296d52db65"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "",
+          "role": "document:base",
+          "target": "1e8d8ca3-6baa-4c06-9fa6-59296d52db65",
+          "type": "prefab"
+        }
+      ],
+      "id": "d2468295-ded5-40e8-91fd-46926593991b",
+      "metadata": {},
+      "schema_version": 4,
+      "source": "Assets/Variants/BlueBeacon.prefab.json",
+      "source_dependencies": [],
+      "type": "prefab"
     },
     {
       "dependencies": [],

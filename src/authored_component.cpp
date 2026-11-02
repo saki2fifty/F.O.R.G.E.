@@ -185,7 +185,7 @@ void validate_runtime_custom_values(const WorldContext& context, const Json& com
                 " requires its matching authored schema; preserved data was not loaded");
     }
 }
-void project_custom_prefab_intent(Json& values, const Json& instance, const Json& schema) {
+void merge_custom_prefab_intent(Json& values, const Json& instance, const Json& schema) {
     const auto intent = instance.value("property_overrides", Json::object());
     const auto components_schema = schema.find("components");
     if (components_schema == schema.end())
@@ -215,6 +215,9 @@ void project_custom_prefab_intent(Json& values, const Json& instance, const Json
                 values[key][name] = fields.at(name);
         }
     }
+}
+void project_custom_prefab_intent(Json& values, const Json& instance, const Json& schema) {
+    merge_custom_prefab_intent(values, instance, schema);
     validate_custom_values(schema, values);
 }
 } // namespace forge::detail

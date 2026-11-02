@@ -1,5 +1,11 @@
 # Explore the Feature Gallery
 
+**142-prefab-variants** compares an animated base with amber, blue and chained pink
+variants. Press Play to see independent sequence controllers and different speeds.
+Stop and open **Assets/Variants/AmberBeacon.prefab.json** to inspect inherited
+values, change explicit overrides and use Revert. Camera and light are included;
+the Scene exports without project C++. See [Prefabs and variants](../editor/prefabs.md).
+
 **140-navigation-links** connects separated islands with authored Navigation Links.
 The cyan agent patrols in both directions through the dynamic `Loop` profile. The
 orange agent crosses once through the static `OneWay` profile. Select a link to edit

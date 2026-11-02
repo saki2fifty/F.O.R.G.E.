@@ -1670,7 +1670,7 @@ int main(int argc, char** argv) {
                                               {}});
                            }});
         asset_editors.add({"prefab", "Edit prefab source", [&](const forge::AssetRecord& a) {
-                               prefab_editor.edit_source(files.document, a.id);
+                               prefab_editor.edit_source(scene, files.document, a.id);
                            }});
         documents.add({"audio_import",
                        "Audio clip",
@@ -3539,7 +3539,7 @@ int main(int argc, char** argv) {
                     ImGui::SetWindowFocus("Problems###Problems");
                     break;
                 case 4:
-                    prefab_editor.edit_source(files.document, fixture.prefab);
+                    prefab_editor.edit_source(scene, files.document, fixture.prefab);
                     prefab_editor.rename_member("Draft name");
                     break;
                 case 5:
@@ -5822,7 +5822,7 @@ int main(int argc, char** argv) {
                                             "draft, not an authored scene instance.");
                         }
                         content.inspect(files, editor.selection, [&](forge::AssetId asset) {
-                            prefab_editor.edit_source(files.document, asset);
+                            prefab_editor.edit_source(scene, files.document, asset);
                         });
                     } else if (selected.empty()) {
                         ImGui::TextWrapped(

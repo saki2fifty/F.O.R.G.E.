@@ -238,7 +238,7 @@ void Scene::replace(const Json& source) {
     };
     // All parsing/type conversion/opaque copies happen before the first world write.
     auto opaque = doc;
-    auto reconciled = reconcile_prefab_intent(doc, prefab_sources_, schema());
+    auto reconciled = reconcile_prefab_intent(doc, prefab_templates_, schema());
     if (reconciled.at("entities").size() != doc.at("entities").size())
         throw std::runtime_error(
             "Instance member rows cannot be removed independently; edit the prefab source");
@@ -255,10 +255,10 @@ void Scene::replace(const Json& source) {
                     throw std::runtime_error(
                         "Edit structured member names/hierarchy/bindings in the prefab source");
         }
-    const auto projected = project_prefab_intent(doc, prefab_sources_, schema());
+    const auto projected = project_prefab_intent(doc, prefab_templates_, schema());
     const auto projected_rows = detail::index_json_rows(projected.at("entities"));
     const auto reference_materializations =
-        detail::prefab_native_materializations(doc, prefab_sources_, schema());
+        detail::prefab_native_materializations(doc, prefab_templates_, schema());
     detail::validate_spatial(projected);
     std::map<std::string, flecs::entity> structured_bases;
     std::set<std::string> inactive_members;
@@ -570,6 +570,10 @@ void Scene::replace(const Json& source) {
     opaque_ = std::move(opaque);
     committed();
 }
+const Json* Scene::prefab_definition(AssetId asset) const {
+    const auto found = prefab_templates_.find(asset);
+    return found == prefab_templates_.end() ? nullptr : &found->second->document.source;
+}
 void Scene::set_prefab_sources(const PrefabSources& sources) {
     publish_prefab_sources(sources, [] {});
 }
@@ -611,9 +615,9 @@ void Scene::replace_prefab_sources(const PrefabSources& sources, const Json& sou
             throw std::runtime_error("Cyclic prefab dependencies");
         if (!sources.contains(asset))
             throw std::runtime_error("Missing prefab dependency: " + asset.str());
-        PrefabDocument::validate(sources.at(asset));
-        for (const auto& dependency : sources.at(asset).value("dependencies", Json::array()))
-            dependencies(dependency.get<AssetId>());
+        const PrefabDocument source(sources.at(asset));
+        for (const auto& dependency : source.dependencies())
+            dependencies(dependency);
         visiting.erase(asset);
         done.insert(asset);
     };
@@ -621,28 +625,30 @@ void Scene::replace_prefab_sources(const PrefabSources& sources, const Json& sou
         (void)source;
         dependencies(asset);
     }
+    const auto definitions = resolve_prefab_sources(sources, schema());
     PrefabTemplates candidate;
-    for (const auto& [asset, source] : sources) {
+    for (const auto& [asset, source] : definitions) {
         PrefabDocument parsed(source);
         if (parsed.asset() != asset)
             throw std::runtime_error("Prefab source AssetId mismatch");
         const auto old = prefab_templates_.find(asset);
+        const auto prior = prefab_sources_.find(asset);
+        if (prior != prefab_sources_.end() &&
+            !detail::json_value_equal(prior->second, sources.at(asset)) &&
+            parsed.revision() <= PrefabDocument(prior->second).revision())
+            throw std::runtime_error(
+                "Prefab revisions must advance; an existing revision is immutable");
         if (!refresh_native_types && old != prefab_templates_.end() &&
             detail::json_value_equal(old->second->document.source, source))
             candidate[asset] = old->second;
         else {
-            if (old != prefab_templates_.end() &&
-                !detail::json_value_equal(old->second->document.source, source) &&
-                parsed.revision() <= old->second->document.revision())
-                throw std::runtime_error(
-                    "Prefab revisions must advance; an existing revision is immutable");
             candidate[asset] = std::make_shared<CompiledPrefab>(context_, std::move(parsed));
         }
     }
     const auto before = refresh_native_types ? source_document : document();
-    const auto intended = reconcile_prefab_intent(source_document, sources, schema());
+    const auto intended = reconcile_prefab_intent(source_document, candidate, schema());
     validate(intended);
-    detail::validate_spatial(project_prefab_intent(intended, sources, schema()));
+    detail::validate_spatial(project_prefab_intent(intended, candidate, schema()));
     // Temporary candidate content in the existing WorldContext. It is never
     // advanced, presented, notified or exposed as an authored scene. No new world.
     Scene staged(context_);
@@ -654,9 +660,10 @@ void Scene::replace_prefab_sources(const PrefabSources& sources, const Json& sou
     for (const auto& item : intended.at("entities"))
         if (item.contains("prefab_instance")) {
             const auto asset = item.at("prefab_instance").at("asset").get<AssetId>();
-            if (prefab_sources_.contains(asset) != sources.contains(asset) ||
-                (prefab_sources_.contains(asset) && sources.contains(asset) &&
-                 !detail::json_value_equal(prefab_sources_.at(asset), sources.at(asset))))
+            if (prefab_templates_.contains(asset) != candidate.contains(asset) ||
+                (prefab_templates_.contains(asset) && candidate.contains(asset) &&
+                 !detail::json_value_equal(prefab_templates_.at(asset)->document.source,
+                                           candidate.at(asset)->document.source)))
                 roots.insert(item.at("id"));
         }
     auto collect = [&](const Json& doc) {
@@ -894,8 +901,7 @@ Json Scene::snapshot() const {
         if (!result.contains("_prefab_sources"))
             result["_prefab_sources"] = Json::array();
         result["_prefab_sources"].push_back(source);
-        for (const auto& dependency : source.value("dependencies", Json::array())) {
-            const auto target = dependency.get<AssetId>();
+        for (const auto& target : PrefabDocument(source).dependencies()) {
             if (referenced.insert(target).second)
                 append(target);
         }
@@ -916,7 +922,7 @@ void Scene::restore_snapshot(const Json& source) {
     doc.erase("_prefab_sources");
     validate(doc);
     if (same_prefab_sources(definitions, prefab_sources_))
-        replace(reconcile_prefab_intent(doc, definitions, schema()));
+        replace(reconcile_prefab_intent(doc, prefab_templates_, schema()));
     else
         replace_prefab_sources(definitions, doc, [] {}, true);
 }
@@ -1080,11 +1086,11 @@ Json Scene::serialize(bool effective, bool ui_only) const {
             }
         }
     }
-    auto doc = effective ? project_prefab_intent(*input, prefab_sources_, schema()) : *input;
+    auto doc = effective ? project_prefab_intent(*input, prefab_templates_, schema()) : *input;
     std::map<std::string, Json> reference_baselines;
     const auto reference_materializations =
         effective ? std::map<std::string, std::set<std::string>>()
-                  : detail::prefab_native_materializations(*input, prefab_sources_, schema(),
+                  : detail::prefab_native_materializations(*input, prefab_templates_, schema(),
                                                            &reference_baselines);
     auto output = Json::array();
     auto append = [&](Json item) {
@@ -1372,7 +1378,17 @@ void Scene::publish_component_schemas(const Json& copied,
     context_.authored_generation_ = std::move(candidate);
 }
 detail::SceneDraft::SceneDraft(const Scene& source)
-    : document_(source.document()), schema_(source.schema()), prefabs_(source.prefab_sources()) {}
+    : document_(source.document()), schema_(source.schema()) {
+    // A detached transaction owns copied admitted values, never native handles.
+    // The live Scene already resolved source graphs at publication.
+    for (const auto& [asset, raw] : source.prefab_sources()) {
+        (void)raw;
+        const auto* definition = source.prefab_definition(asset);
+        if (!definition)
+            throw std::logic_error("Scene prefab source has no admitted definition");
+        prefabs_.emplace(asset, *definition);
+    }
+}
 void detail::SceneDraft::edit(const Json& document) {
     Scene::validate_document(document);
     auto normalized = document;

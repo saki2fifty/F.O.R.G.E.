@@ -8,9 +8,11 @@ import subprocess
 import sys
 import tempfile
 import time
+import uuid
 from physics_velocity_example_test import Worker
 
 runtime, gallery, module = (Path(arg).resolve() for arg in sys.argv[1:4])
+variant = '--variant' in sys.argv[4:]
 scene_id = 'fab9f548-3f22-4fbc-a5e0-bd0a2cffd9a1'
 prefab_id = '3f95b972-aa2a-4fab-999a-8857a5a35e11'
 scene_path = Path('Scenes/64-runtime-prefab-creation.scene.json')
@@ -34,6 +36,8 @@ def check(state, tick):
         assert len(members) == 2 and not ids.intersection(members), roots
         ids.update(members)
         pose = values[row['id']]
+        if variant:
+            assert abs(pose['forge.tint']['g'] - .65) < 1e-5, pose
         assert pose['forge.local_translation'] == dict(x=(-4 if index == 0 else 4 if index == 1 else 0),
                                                        y=1.3, z=(-3 if index == 2 else 0)), pose
         count = tick - (1 if index < 2 else 120)
@@ -53,6 +57,24 @@ with tempfile.TemporaryDirectory(prefix='forge-prefab-sdk-', dir=runtime.parent)
     catalog = json.loads((gallery/'forge.assets.json').read_text())
     catalog['assets'] = [r for r in catalog['assets'] if r['id'] in (scene_id, prefab_id)]
     assert len(catalog['assets']) == 2
+    if variant:
+        base = json.loads((root/prefab_path).read_bytes())
+        # This original fixture has only transform/render values, with no
+        # component member links requiring typed conversion into a new owner.
+        assert all(set(member['components']) <= {'forge.local_translation', 'forge.local_rotation',
+                   'forge.local_scale', 'forge.mesh_renderer', 'forge.tint'} for member in base['members'])
+        base_id = str(uuid.uuid4())
+        base['asset_id'] = base_id
+        (root/'Assets/RuntimeRobotBase.prefab.json').write_text(json.dumps(base))
+        selected = dict(format='forge.prefab', version=4, asset_id=prefab_id, revision=1,
+                        root=base['root'], base=base_id, overrides=[dict(id=base['root'],
+                            components={}, property_overrides={'forge.tint': dict(g=.65)})])
+        (root/prefab_path).write_text(json.dumps(selected))
+        record = next(row for row in catalog['assets'] if row['id'] == prefab_id)
+        record.update(schema_version=4, dependencies=[base_id], dependency_edges=[dict(
+            target=base_id, type='prefab', kind='runtime', role='document:base', revision='')])
+        catalog['assets'].append(dict(id=base_id, type='prefab', source='Assets/RuntimeRobotBase.prefab.json',
+                                     schema_version=3, dependencies=[], metadata={}))
     (root/'forge.assets.json').write_text(json.dumps(catalog))
     fingerprint = json.loads(subprocess.check_output([runtime, '--sdk-info'], text=True))['fingerprint']
     game = json.loads((gallery/'forge.project.json').read_text())['game']
@@ -66,6 +88,8 @@ with tempfile.TemporaryDirectory(prefix='forge-prefab-sdk-', dir=runtime.parent)
     original = (root/scene_path).read_bytes()
     source = json.loads(original)
     source['_prefab_sources'] = [json.loads((root/prefab_path).read_bytes())]
+    if variant:
+        source['_prefab_sources'].append(base)
     direct = Worker(runtime, root)
     try:
         state = direct.request('replace', scene=source)

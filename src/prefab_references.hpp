@@ -2,6 +2,7 @@
 #include "builtins.hpp"
 #include "json_row_index.hpp"
 #include <algorithm>
+#include <forge/prefab.hpp>
 #include <functional>
 #include <set>
 
@@ -81,14 +82,27 @@ inline PrefabMemberRef checked_prefab_reference(const Json& value, AssetId asset
         throw std::runtime_error("Prefab member reference belongs to another source");
     return reference;
 }
+// Source4 retains explicitly addressed legacy Scene values alongside portable
+// member values. Only an admitted entity_ref field reaches this discriminator.
+inline std::optional<PrefabMemberRef> source_member_reference(const Json& value, unsigned version,
+                                                              AssetId asset) {
+    if (version >= 4 && !value.contains("prefab") && !value.contains("member")) {
+        (void)value.get<EntityRef>();
+        return {};
+    }
+    return checked_prefab_reference(value, asset);
+}
 inline Json normalize_prefab_components(
     const Json& source, const Json& member, const Json& schema,
     const std::function<Json(PrefabMemberRef)>& resolve = [](PrefabMemberRef) { return Json(); }) {
     auto values = member.at("components");
-    if (source.at("version") == 3) {
+    if (source.at("version").get<unsigned>() >= 3) {
         const auto asset = source.at("asset_id").get<AssetId>();
         transform_prefab_component_references(values, schema, [&](const Json& value) {
-            auto result = resolve(checked_prefab_reference(value, asset));
+            const auto member = source_member_reference(value, source.at("version"), asset);
+            if (!member)
+                return value;
+            auto result = resolve(*member);
             if (!result.is_null())
                 for (const auto& [key, extension] : value.items())
                     if (key != "prefab" && key != "member")
@@ -116,9 +130,13 @@ inline Json capture_prefab_reference(const Json& value, AssetId scene, AssetId p
     result["member"] = members.at(reference.entity.str());
     return result;
 }
+inline const Json& prefab_definition_source(const Json& source) { return source; }
+inline const Json& prefab_definition_source(const std::shared_ptr<CompiledPrefab>& source) {
+    return source->document.source;
+}
+template <class Sources>
 inline std::map<std::string, std::set<std::string>>
-prefab_native_materializations(const Json& scene, const std::map<AssetId, Json>& sources,
-                               const Json& schema,
+prefab_native_materializations(const Json& scene, const Sources& sources, const Json& schema,
                                std::map<std::string, Json>* baselines = nullptr) {
     if (sources.empty())
         return {};
@@ -144,15 +162,18 @@ prefab_native_materializations(const Json& scene, const std::map<AssetId, Json>&
         const auto source = sources.find(root->at("prefab_instance").at("asset").get<AssetId>());
         if (source == sources.end())
             continue;
-        const bool portable = source->second.at("version") == 3;
+        const Json& selected = prefab_definition_source(source->second);
+        if (selected.at("version") == 4 && selected.contains("base"))
+            throw std::runtime_error("Resolve prefab variants before native materialization");
+        const bool portable = selected.at("version").get<unsigned>() >= 3;
         const auto masks = row.find("property_overrides");
         if (!portable && (masks == row.end() || masks->empty()))
             continue;
         if (member.empty())
-            member = source->second.at("root");
+            member = selected.at("root");
         auto [index, inserted] = member_rows.try_emplace(source->first);
         if (inserted)
-            index->second = index_json_rows(source->second.at("members"));
+            index->second = index_json_rows(selected.at("members"));
         const auto found = index->second.find(member);
         if (found != index->second.end()) {
             const auto& definition = *found->second;
@@ -215,7 +236,7 @@ prefab_native_materializations(const Json& scene, const std::map<AssetId, Json>&
                     auto normalized =
                         portable
                             ? normalize_prefab_components(
-                                  source->second, definition, schema,
+                                  selected, definition, schema,
                                   [&](PrefabMemberRef reference) {
                                       return Json(EntityRef{scene.at("asset_id").get<AssetId>(),
                                                             root->at("prefab_instance")

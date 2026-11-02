@@ -1,5 +1,18 @@
 # Feature Gallery
 
+## Prefab variants
+
+Open **Scenes/142-prefab-variants.scene.json** and press **Play**. Five sliding
+beacons use one base, amber and blue variants, and a pink variant derived from
+amber. Each instance's track resolves its own sequence controller. Sequence
+speeds are 1×, 1.5×, 0.5× and 2×; the second blue instance repeats the 0.5× variant.
+
+Stop Play and open **Assets/Variants/AmberBeacon.prefab.json**. The root owns its
+name and sequence speed; its body overrides color. Other values and all member
+structure follow the base. Revert an override to follow the base again, or use
+**Rebase draft** to review changed base values without discarding draft intent.
+Save the Scene and export it to run the same example without project C++.
+
 ## Collect static collision geometry
 
 Open **Scenes/141-navigation-collision-collection.scene.json** and press **Play**.

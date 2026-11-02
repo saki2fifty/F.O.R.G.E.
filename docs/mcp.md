@@ -496,9 +496,23 @@ omitting `previous` explicitly selects a new logical asset. Importer settings
 and publication retain their existing semantics and are separate from Scene Undo.
 
 Prefab tools borrow PrefabEditor, PrefabLibrary and SceneDocument: list/capture,
-source open/read/patch/publish/close, refresh, and reviewed instance Apply.
+duplicate, `forge_prefab_variant_create`, source open/read/patch/publish/close,
+refresh, and reviewed instance Apply. Source reads default to raw intent and
+compact reviewed-base AssetId/revision/SHA summaries. `view: effective` selects the
+inherited definition; `pointer` selects a JSON pointer within either view, and
+`offset`/`limit` page a selected array (maximum128 rows). Selected values are
+bounded to8MiB; use a narrower pointer/page when requested. The draft digest stays
+the same across read views and changes after Rebase reviews different bases.
+The effective view is the composed source definition; omitted supported built-in
+fields use their discovered schema defaults, without adding authored intent.
+`forge_prefab_source_revert` removes a selected
+member's name intent, component intent, or one field (component required).
+`forge_prefab_source_rebase` refreshes published sources and reviews updated bases
+while retaining draft intent; a successful refresh may clear Scene history.
 Source edits require the exact draft digest and preserve identity/publication
-revision. Apply review captures the existing owner's candidate; commit requires
+revision. Publication checks both the source baseline and reviewed base chain
+against loaded values and disk. A variant Apply writes only its own intent;
+its base remains unchanged. Apply review captures the existing owner's candidate; commit requires
 its digest plus acknowledgment that all current scene changes will be saved.
 The existing recoverable prefab/scene transaction and Scene Undo/Redo own replay.
 

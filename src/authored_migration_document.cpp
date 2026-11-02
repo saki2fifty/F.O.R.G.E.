@@ -17,9 +17,9 @@ AuthoredMigrationDocument::AuthoredMigrationDocument(Json document, Json source,
     if (before_.contains("entities") && !before_.contains("members")) {
         Scene::validate_document(before_);
         rows_ = "entities";
-    } else if (before_.contains("members") && !before_.contains("entities")) {
+    } else if (before_.value("format", "") == "forge.prefab" && !before_.contains("entities")) {
         PrefabDocument::validate(before_);
-        rows_ = "members";
+        rows_ = before_.contains("base") && before_.at("version") == 4 ? "overrides" : "members";
     } else {
         throw std::runtime_error("Migration requires one authored scene or prefab document");
     }

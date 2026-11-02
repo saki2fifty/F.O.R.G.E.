@@ -1,5 +1,32 @@
 # 2026-11-02
 
+## Single-base Prefab variants
+
+Prefab variants inherit structure and values from a typed base while retaining
+explicit name, component and property overrides. Equal values remain intent;
+Revert follows the base again. Base changes invalidate dependent templates without
+changing variant identity. Missing-member intent is retained for that identity to
+return. Nested/structural variant composition and inherited-component suppression
+remain outside this profile.
+
+The source editor shows inherited values and override states. Reviewed base changes
+can be rebased while retaining draft intent; stale source/base publication rejects.
+Apply transfers instance intent into the selected variant through the existing
+source/Scene transaction and Undo/Redo, leaving its base unchanged. Automation/MCP
+share creation, duplication, source editing, Revert, Rebase and reviewed Apply.
+Source reads support bounded inherited views, JSON pointers and array pages.
+
+Explicit source4 preserves older formats, mixed absolute/member reference meaning
+and opaque data. Runtime dependency closure carries bases through Play, runtime-only
+creation, recovery and source-hidden export. Material preflight checks variant
+property intent. The public source accessor changes the exact SDK fingerprint; rebuild
+C++ modules with the matching kit. Native callback tables and reference value
+shapes retain their contracts. Gallery142 demonstrates five independently animated base/variant
+instances, including chained inheritance. The manual includes source controls and
+an actual software-rendered Game capture. Native Windows and physical acceptance
+remain pending; this is local source work, with no new numbered delivery.
+
+
 ## Static navigation collision collection
 
 Navigation build profiles can opt into enabled Static nonsensor bodies by physics

@@ -151,7 +151,8 @@ class SceneDocument {
         const auto lifetime = std::weak_ptr<int>(history_lifetime_);
         const auto generation = generation_;
         auto replay = std::make_shared<Scene::PrefabReplay>(
-            [this, lifetime, generation, state](Scene& scene, const Json& target, bool redo) {
+            [this, lifetime, generation, state,
+             bases = reviewed.expected_bases](Scene& scene, const Json& target, bool redo) {
                 if (!lifetime.lock() || generation_ != generation)
                     throw std::runtime_error("Apply history belongs to another document session");
                 auto source = redo ? state->after : state->before;
@@ -164,6 +165,7 @@ class SceneDocument {
                 sources[source.at("asset_id").get<AssetId>()] = source;
                 auto intended = reconcile_prefab_intent(target, sources, scene.schema());
                 PrefabApplyCandidate candidate{state->expected, source, intended, 0};
+                candidate.expected_bases = bases;
                 auto next_expected = source;
                 publish_prefab_pair(candidate, {});
                 state->expected.swap(next_expected);

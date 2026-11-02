@@ -1398,3 +1398,31 @@ pairs. Both original images were personally reviewed. These are actual control /
 Game fixtures, not full editor desktop, Windows/MSVC/D3D12, physical GPU/input/DPI
 or graphical exported-executable acceptance. Offline manual/package inclusion
 remains the documentation gate's responsibility.
+
+
+## Single-base Prefab variants
+
+`manual/images/prefab-variant-source.png` is the complete1180×1520 capture of the
+production PrefabEditor for Gallery142's published AmberBeacon source. It shows
+the reviewed base, name intent, inherited transform channels and partial Animation
+Sequence override at Playback Speed1.5. The normal source window is rendered via
+ImGui/SDL software/dummy; `forge_prefab_variant_editor_tests --gallery-capture
+<Gallery> <scratch> <PNG>` uses a private Gallery copy. Six additional actual-input
+layouts cover100/150/200percent scale, narrow/wide panels, equal-value ownership
+and Revert. PNG SHA256: `17d422f18823e95d6441f2e7795fd14401b522accc0fd75b3adf1d8ee126d374`.
+
+`manual/images/prefab-variants-game.png` is actual640×360 production FrameRenderer
+output after90fixed ticks on software Vulkan/lvp. Five independently animated
+beacons show the base, amber, blue, chained pink and repeated blue instance. Four
+moving source/source-hidden relocated-export display pairs match exactly. The
+complete `authored/90-640.ppm` RGB pixels were losslessly encoded as PNG with no
+resizing, crop, annotation, compositing or retouch. PNG SHA256:
+`4565ca2848cff3c8c5ec81e35ccb3c96aa187c12464902b8bd0d2cd3d6d61743`.
+
+Both canonical images use local `forge/prefab-variants` work based onada326d with
+unassigned build identity. Scene source SHA256:
+`55e7e74570c81d4293b5cc5627dfb04bf079d3affbd1dec1b74bf08183a10652`. Local receipts bind source, executables, pixel proof and
+rendering environment. Both images were personally reviewed. These are control /
+Game fixtures; full Main, Windows/MSVC/D3D12, physical input/DPI/GPU and graphical
+exported-EXE acceptance remain separate pending reviews. Offline manual/browser
+rendering and package inclusion are checked independently.

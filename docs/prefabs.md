@@ -131,5 +131,52 @@ not external Scene dependencies.
 Spatial and physics ownership is unchanged. Dynamic bodies still require World
 space; their initial world poses are authored explicitly rather than driven by a
 structural parent. Gallery63 demonstrates two portable sequence/joint instances
-with independent clocks, body links and initial placements. Nested prefabs and
-variants are outside this change.
+with independent clocks, body links and initial placements. Source3 remains the
+ordinary member-reference format. The additive variant contract is described below.
+
+## Single-base variants
+
+[ADR033](decisions/033-prefab-variants.md) defines explicit source4. Variant form
+stores `base: AssetRef<PrefabAsset>` and `overrides`, with its own AssetId/revision
+and the base root's member identity. It has no `members` array. Complete source4
+definitions store `members` without `base`/`overrides`. A variant reuses inherited
+member IDs in its own AssetId namespace; nested instances and structural variant
+composition are not supported. Bound4096 override rows,16 base links and64MiB
+resolved source4 values; old source caller budgets and versions1–3 stay unchanged.
+
+`resolve_prefab_sources` composes detached values through existing whole-component /
+property intent codecs. Known member references retag only their Prefab AssetId;
+absolute `{scene,entity}` and portable `{prefab,member}` values have disjoint explicit
+addresses in source4. Mixed identities reject. Source3 stays member-only, and
+unknown JSON is never scanned. Base1/2→3 upgrades require no variant file rewrite.
+Apply to complete4 or variant4 converts explicitly transferred links and preserves
+untouched absolute values; legacy source1/2 reference migration retains its rules.
+
+Raw sources remain authoritative. CompiledPrefab's immutable document stores
+effective values and derived base revision/hash evidence for cache invalidation.
+Live projection borrows it rather than resolving graphs every tick. Raw-source
+immutability and effective-definition changes are separate checks: a base update
+can invalidate variants with unchanged own revisions. Scene member maps and
+missing-member tombstones retain identity. Overrides for removed base members stay
+in raw intent and apply only when the same member identity returns.
+
+PrefabEditor owns raw drafts and detached inherited views. PrefabLibrary captures
+reviewed base chains and checks loaded/disk sources before preparation and durable
+publication. Rebase explicitly refreshes source graphs while preserving draft
+intent; a changed variant file requires reopening. Apply writes only the selected
+variant through the existing two-file journal, preserving base evidence during
+Scene Undo/Redo. Failed edits/publication retain previous files/native/history.
+
+The ordinary reflected dependency adapter emits typed Runtime `document:base`
+edges. Game content, private snapshots, runtime-only spawning and export carry the
+base closure without runtime source scans or catalog writes. Material preflight
+inspects whole and property channels in complete/variant rows before reusing native
+projection. Editor/automation/MCP use the same source operations and permissions.
+Gallery142 includes independent animated base/variant/chained instances; focused
+tests cover source-hidden relocated Windows-target data on Linux. Windows native
+execution and physical rendering/input acceptance require separate verification.
+
+The shared native SDK fingerprint changes with the public borrowed-definition
+accessor. C callback tables and runtime reference value shapes retain their
+contracts; modules must use the kit matching the editor/runtime fingerprint.
+Current and installed/relocated SDK tests exercise actual variant creation.

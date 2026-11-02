@@ -1,0 +1,311 @@
+{
+  "asset_id": "c4f4453c-7464-431a-a5d3-f6938a96ffe6",
+  "entities": [
+    {
+      "components": {
+        "forge.local_translation": {
+          "x": -10.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "id": "af6bc200-1b69-4cbc-a141-181921bfb410",
+      "name": "Base beacon - sequence 1x",
+      "prefab_instance": {
+        "asset": "1e8d8ca3-6baa-4c06-9fa6-59296d52db65",
+        "members": {
+          "1041674b-7c7c-4d72-bffc-d0cad68f5524": "af6bc200-1b69-4cbc-a141-181921bfb410",
+          "460807c6-7195-495b-9fba-e09e1425697f": "13f0aa06-1b71-460f-8175-e0aa9b8f6862"
+        },
+        "revision": 1,
+        "status": "current"
+      }
+    },
+    {
+      "components": {},
+      "id": "13f0aa06-1b71-460f-8175-e0aa9b8f6862",
+      "name": "Sliding beacon body",
+      "parent": "af6bc200-1b69-4cbc-a141-181921bfb410",
+      "prefab_member": {
+        "member": "460807c6-7195-495b-9fba-e09e1425697f",
+        "root": "af6bc200-1b69-4cbc-a141-181921bfb410"
+      },
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_translation": {
+          "x": -5.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "id": "c94e582d-6794-4ecd-9407-9271bf0ce85b",
+      "name": "Amber variant - sequence 1.5x",
+      "prefab_instance": {
+        "asset": "a07e5854-0e67-4800-87e7-670df8f85891",
+        "members": {
+          "1041674b-7c7c-4d72-bffc-d0cad68f5524": "c94e582d-6794-4ecd-9407-9271bf0ce85b",
+          "460807c6-7195-495b-9fba-e09e1425697f": "02fedafe-c7de-497c-8d42-03a60a80f191"
+        },
+        "revision": 2,
+        "status": "current"
+      }
+    },
+    {
+      "components": {},
+      "id": "02fedafe-c7de-497c-8d42-03a60a80f191",
+      "name": "Sliding beacon body",
+      "parent": "c94e582d-6794-4ecd-9407-9271bf0ce85b",
+      "prefab_member": {
+        "member": "460807c6-7195-495b-9fba-e09e1425697f",
+        "root": "c94e582d-6794-4ecd-9407-9271bf0ce85b"
+      },
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "id": "747bf59e-4c1a-4891-a9b3-ad514ba768bc",
+      "name": "Blue variant - sequence 0.5x",
+      "prefab_instance": {
+        "asset": "d2468295-ded5-40e8-91fd-46926593991b",
+        "members": {
+          "1041674b-7c7c-4d72-bffc-d0cad68f5524": "747bf59e-4c1a-4891-a9b3-ad514ba768bc",
+          "460807c6-7195-495b-9fba-e09e1425697f": "ce739b4f-99de-40cb-817e-a68f06726509"
+        },
+        "revision": 2,
+        "status": "current"
+      }
+    },
+    {
+      "components": {},
+      "id": "ce739b4f-99de-40cb-817e-a68f06726509",
+      "name": "Sliding beacon body",
+      "parent": "747bf59e-4c1a-4891-a9b3-ad514ba768bc",
+      "prefab_member": {
+        "member": "460807c6-7195-495b-9fba-e09e1425697f",
+        "root": "747bf59e-4c1a-4891-a9b3-ad514ba768bc"
+      },
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_translation": {
+          "x": 5.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "id": "0cef9c34-b6ab-441e-bc8d-09570ce2c789",
+      "name": "Pink chained variant - sequence 2x",
+      "prefab_instance": {
+        "asset": "a08211f0-0638-4ff4-a72a-b5534c228375",
+        "members": {
+          "1041674b-7c7c-4d72-bffc-d0cad68f5524": "0cef9c34-b6ab-441e-bc8d-09570ce2c789",
+          "460807c6-7195-495b-9fba-e09e1425697f": "c2a1f878-226f-4cfc-9615-a2bb058ae38a"
+        },
+        "revision": 2,
+        "status": "current"
+      }
+    },
+    {
+      "components": {},
+      "id": "c2a1f878-226f-4cfc-9615-a2bb058ae38a",
+      "name": "Sliding beacon body",
+      "parent": "0cef9c34-b6ab-441e-bc8d-09570ce2c789",
+      "prefab_member": {
+        "member": "460807c6-7195-495b-9fba-e09e1425697f",
+        "root": "0cef9c34-b6ab-441e-bc8d-09570ce2c789"
+      },
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_translation": {
+          "x": 10.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "id": "b56a3564-1247-42b7-9bf4-30a312c71cfa",
+      "name": "Blue variant - sequence 0.5x",
+      "prefab_instance": {
+        "asset": "d2468295-ded5-40e8-91fd-46926593991b",
+        "members": {
+          "1041674b-7c7c-4d72-bffc-d0cad68f5524": "b56a3564-1247-42b7-9bf4-30a312c71cfa",
+          "460807c6-7195-495b-9fba-e09e1425697f": "4bd8b2c3-3a72-478d-bb73-f34f87e935ed"
+        },
+        "revision": 2,
+        "status": "current"
+      }
+    },
+    {
+      "components": {},
+      "id": "4bd8b2c3-3a72-478d-bb73-f34f87e935ed",
+      "name": "Sliding beacon body",
+      "parent": "b56a3564-1247-42b7-9bf4-30a312c71cfa",
+      "prefab_member": {
+        "member": "460807c6-7195-495b-9fba-e09e1425697f",
+        "root": "b56a3564-1247-42b7-9bf4-30a312c71cfa"
+      },
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 28.0,
+          "y": 0.20000000298023224,
+          "z": 6.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": -0.2,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.10999999940395355,
+          "g": 0.07999999821186066,
+          "r": 0.04500000178813934
+        }
+      },
+      "id": "ac50f315-7b0f-46ab-9e0c-e92de703d5c6",
+      "name": "Stage",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 1.7777777777777777,
+          "background_a": 1.0,
+          "background_b": 0.029999999329447746,
+          "background_g": 0.02500000037252903,
+          "background_r": 0.019999999552965164,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 1000.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 18.0,
+          "orthographic_width": 0.0,
+          "projection": 1,
+          "vertical_fov": 1.0471975511965976,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 0.9848077297210693,
+          "x": 0.1736481785774231,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 10.0,
+          "z": -24.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "a2c8429b-a52b-4568-b20e-93b513661dcb",
+      "name": "Overview Camera",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.light": {
+          "basis": 0,
+          "cast_shadows": true,
+          "color_b": 1.0,
+          "color_g": 1.0,
+          "color_r": 1.0,
+          "emitter_height": 1.0,
+          "emitter_radius": 0.5,
+          "emitter_width": 1.0,
+          "enabled": true,
+          "image_height": 1.0,
+          "image_tiled": false,
+          "image_width": 1.0,
+          "inner_cone": 0.0,
+          "intensity": 1.0,
+          "kind": 0,
+          "layers": 4294967295,
+          "outer_cone": 0.7853981633974483,
+          "range": 0.0,
+          "shadow_angular_radius": 0.0,
+          "shadow_bias": 0.0010000000474974513,
+          "shadow_normal_bias": 0.019999999552965164,
+          "shadow_source_radius": 0.0,
+          "texture": null
+        },
+        "forge.local_rotation": {
+          "w": 0.8659851551055908,
+          "x": 0.45080333948135376,
+          "y": -0.19198428094387054,
+          "z": 0.0999406948685646
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 1.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "e3212e5f-3903-46eb-a1cd-3275e95a9892",
+      "name": "Sunlight",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    }
+  ],
+  "version": 4
+}

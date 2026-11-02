@@ -34,6 +34,7 @@ struct Inspect {
     std::string owner;
     bool all = false;
     AssetId prefab_reference_owner{};
+    unsigned prefab_reference_version = 0;
     void budget(unsigned depth = 0) {
         if (++visits > 1048576 || depth > 32)
             throw std::runtime_error("Reference inspection exceeds its node/depth budget");
@@ -87,8 +88,9 @@ struct Inspect {
         if (type == "asset_ref")
             reference(value, path, "AssetRef", field.at("asset_type").get<std::string>());
         else if (type == "entity_ref") {
-            if (!value.is_null() && prefab_reference_owner) {
-                (void)detail::checked_prefab_reference(value, prefab_reference_owner);
+            if (!value.is_null() && prefab_reference_owner &&
+                detail::source_member_reference(value, prefab_reference_version,
+                                                prefab_reference_owner)) {
                 // Internal member links are not external asset dependencies.
             } else if (!value.is_null())
                 reference(value.at("scene"), path, "EntityRef scene", SceneAsset::type);
@@ -111,6 +113,7 @@ struct Inspect {
         owner.clear();
         const auto& doc = input.document;
         prefab_reference_owner = {};
+        prefab_reference_version = 0;
         if (!doc.is_object()) {
             unknown("untyped JSON document");
             return;
@@ -119,9 +122,12 @@ struct Inspect {
             doc.contains("version") && doc.contains("entities") && doc.at("entities").is_array();
         const bool prefab = doc.contains("format") && doc.at("format").is_string() &&
                             doc.at("format").get<std::string>() == "forge.prefab";
-        if (prefab && doc.at("version") == 3)
+        if (prefab && doc.at("version").get<unsigned>() >= 3) {
             prefab_reference_owner = doc.at("asset_id").get<AssetId>();
-        const auto rows = scene ? "entities" : prefab ? "members" : nullptr;
+            prefab_reference_version = doc.at("version");
+        }
+        const bool variant = prefab && doc.at("version") == 4 && doc.contains("base");
+        const auto rows = scene ? "entities" : variant ? "overrides" : prefab ? "members" : nullptr;
         if (rows) {
             for (const auto& row : doc.at(rows)) {
                 budget();
@@ -221,11 +227,14 @@ struct Inspect {
             if (prefab)
                 for (const auto& dependency : doc.value("dependencies", Json::array()))
                     reference(dependency, "dependencies", "Prefab dependency", PrefabAsset::type);
+            if (variant)
+                reference(doc.at("base"), "base", "Prefab base", PrefabAsset::type);
             for (const auto& [key, unused] : doc.items()) {
                 (void)unused;
                 if (key != "format" && key != "version" && key != "asset_id" && key != "entities" &&
                     key != "members" && key != "revision" && key != "root" && key != "legacy_ids" &&
-                    key != "rendering" && !(prefab && key == "dependencies"))
+                    key != "rendering" && !(prefab && key == "dependencies") &&
+                    !(variant && (key == "base" || key == "overrides")))
                     unknown(key);
             }
         } else if (doc.value("format", std::string{}) == "forge.sprite-atlas") {

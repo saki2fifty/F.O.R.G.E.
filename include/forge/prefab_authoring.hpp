@@ -9,17 +9,23 @@ std::string instantiate_prefab(Scene& scene, AssetId asset);
 struct PrefabApplyCandidate {
     Json expected, source, scene;
     std::size_t overrides = 0;
+    PrefabSources expected_bases;
 };
 class PrefabLibrary {
   public:
+    static constexpr std::size_t max_source_bytes = 8 * 1024 * 1024;
     explicit PrefabLibrary(std::filesystem::path project);
     void refresh(Scene& scene);
     void load_scene(Scene& scene, const Json& document);
     const std::map<AssetId, AssetRecord>& records() const { return records_; }
     Json source(AssetId asset) const;
+    // Review the loaded base chain against disk; retain this with the source draft.
+    PrefabSources base_sources(const Scene&, const Json& source) const;
     AssetId create(Scene& scene, PrefabDocument document, const std::filesystem::path& relative);
+    AssetId create_variant(Scene&, AssetId base, const std::filesystem::path& relative);
     AssetId duplicate(Scene& scene, AssetId asset, const std::filesystem::path& relative);
-    void publish(Scene& scene, const Json& expected, Json candidate);
+    void publish(Scene& scene, const Json& expected, Json candidate,
+                 const PrefabSources& expected_bases = {});
     PrefabApplyCandidate prepare_apply(const Scene&, const std::string& instance) const;
     std::filesystem::path source_path(AssetId) const;
     // Candidate publication reuses Scene's reconciliation and history authority.

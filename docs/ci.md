@@ -12,6 +12,21 @@ Reserve the build identifier with the release coordinator before dispatch; the e
 
 ## Test profiles
 
+Single-base Prefab variant coverage includes source1–4 compatibility, typed base
+closure, explicit equal-value intent, reviewed stale bases, Rebase, variant-only
+Apply/history, missing-member identity, custom scalar/reference masks and migration.
+Actual editor input covers six narrow/wide100/150/200percent layouts. Runtime-only
+creation, a4096-member atomic request boundary, animation checkpoint continuation,
+current/installed relocated SDK, both MCP envelopes and bounded inherited reads
+exercise the shared owners. Gallery142 exports with editable sources hidden;
+four moving software Vulkan source/export display pairs must match. Selected
+changed FORGE units and actual consumer links run strict sanitizer exits with
+unsuppressed leaks; other units, dependencies, unchanged workers and SDK modules
+remain normal. The multi-MiB MCP boundary fixture runs on normal native consumers;
+its instrumented admission exceeds the unchanged production bridge deadline.
+Instrumented MCP still covers the ordinary variant workflow over both framings.
+Full Windows Main/physical and graphical EXE acceptance are separate.
+
 The packaged Feature Gallery README rewrites its repository manual links to the
 included offline HTML manual. Its manifest hashes the derived bytes; authored
 Scene, asset and cooked-resource bytes remain unchanged.

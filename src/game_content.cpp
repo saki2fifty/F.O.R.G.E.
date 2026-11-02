@@ -23,7 +23,7 @@ Json prepare_scene(const std::filesystem::path& root, AssetRef<SceneAsset> ref,
             throw std::runtime_error("game.content: Missing or incompatible " + std::string(type) +
                                      " " + id.str());
         const auto version = found->second.schema_version;
-        if (type == SceneAsset::type ? version < 3 || version > 5 : version < 1 || version > 3)
+        if (type == SceneAsset::type ? version < 3 || version > 5 : version < 1 || version > 4)
             throw std::runtime_error("game.content: Unsupported catalog schema version");
         auto data = access.read(found->second.source, 64 * 1024 * 1024);
         if (data.size() > 256 * 1024 * 1024 - bytes)
@@ -97,10 +97,11 @@ Json prepare_scene(const std::filesystem::path& root, AssetRef<SceneAsset> ref,
         if (selected.size() > 16384)
             throw std::runtime_error("game.content: Too many prefab sources");
         auto source = provided.contains(id) ? provided.at(id) : read(id, PrefabAsset::type);
-        PrefabDocument::validate(source);
-        collect(source.at("members"));
-        for (const auto& dependency : source.value("dependencies", Json::array()))
-            queue.push_back(dependency.get<AssetId>());
+        const PrefabDocument definition(source);
+        if (source.contains("members"))
+            collect(source.at("members"));
+        for (const auto dependency : definition.dependencies())
+            queue.push_back(dependency);
         prefabs.push_back(std::move(source));
     }
     scene["_prefab_sources"] = std::move(prefabs);

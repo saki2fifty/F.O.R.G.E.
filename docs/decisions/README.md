@@ -42,6 +42,7 @@ Phase9 authoring workflows are implemented and automatically accepted.
 | [030](030-application-states.md) | Application state definitions and conditions share runtime and authoring owners |
 | [031](031-navigation-links.md) | Authored links extend the existing navigation build, query and Agent owners |
 | [032](032-navigation-collision-collection.md) | Profile-scoped static collision collection reuses physical geometry and navigation owners |
+| [033](033-prefab-variants.md) | Single-base Prefab variants retain source intent, member identity and existing publication owners |
 
 Record date: 2026-09-19. Dependency authority is the exact pin, per
 [dependency policy](../dependency-policy.md). Existing identity, prefab and TRS

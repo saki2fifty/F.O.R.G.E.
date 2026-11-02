@@ -57,6 +57,9 @@ class Scene {
     void publish_component_schemas(const Json& copied,
                                    const std::function<void()>& durable_write = {});
     const PrefabSources& prefab_sources() const { return prefab_sources_; }
+    // Borrowed admitted values; valid until the next source publication or Scene
+    // destruction. Native template handles and authored source ownership stay private.
+    const Json* prefab_definition(AssetId asset) const;
     void set_prefab_sources(const PrefabSources& sources);
     // Owner-thread, single-asset publication. Durable write runs only after the
     // replacement hierarchy has been realized and validated. A throwing writer

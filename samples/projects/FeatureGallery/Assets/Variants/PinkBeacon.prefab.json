@@ -1,0 +1,31 @@
+{
+  "asset_id": "a08211f0-0638-4ff4-a72a-b5534c228375",
+  "base": "a07e5854-0e67-4800-87e7-670df8f85891",
+  "format": "forge.prefab",
+  "overrides": [
+    {
+      "components": {},
+      "id": "1041674b-7c7c-4d72-bffc-d0cad68f5524",
+      "name": "Pink chained variant - sequence 2x",
+      "property_overrides": {
+        "forge.animation_sequence": {
+          "playback_speed": 2.0
+        }
+      }
+    },
+    {
+      "components": {},
+      "id": "460807c6-7195-495b-9fba-e09e1425697f",
+      "property_overrides": {
+        "forge.tint": {
+          "b": 0.6499999761581421,
+          "g": 0.20000000298023224,
+          "r": 1.0
+        }
+      }
+    }
+  ],
+  "revision": 2,
+  "root": "1041674b-7c7c-4d72-bffc-d0cad68f5524",
+  "version": 4
+}

@@ -69,6 +69,15 @@ class PrefabEditor {
     std::function<bool(const Json& components, Json& layer)> tile_map_layer;
     bool dirty() const { return open_ && !detail::json_value_equal(draft_, baseline_); }
     bool is_open() const { return open_; }
+    bool variant() const { return draft_.at("version") == 4 && draft_.contains("base"); }
+    Json source_view(const Json& schema = Json::object()) const {
+        if (!variant())
+            return draft_;
+        auto sources = baseline_bases_;
+        const auto asset = draft_.at("asset_id").get<AssetId>();
+        sources[asset] = draft_;
+        return resolve_prefab_sources(sources, schema).at(asset);
+    }
     Json migration_document() const {
         if (!open_)
             throw std::runtime_error("Open a prefab source before preparing its migration");
@@ -89,12 +98,20 @@ class PrefabEditor {
         if (!open_)
             throw std::runtime_error("Open a prefab source before editing its draft");
         PrefabDocument::validate(candidate);
+        if (candidate.dump(2).size() > PrefabLibrary::max_source_bytes)
+            throw std::runtime_error("Prefab source exceeds 8 MiB");
         if (candidate.at("asset_id") != draft_.at("asset_id") ||
-            candidate.at("revision") != draft_.at("revision"))
+            candidate.at("revision") != draft_.at("revision") ||
+            ((candidate.at("version") == 4 || draft_.at("version") == 4) &&
+             candidate.value("base", Json()) != draft_.value("base", Json())))
             throw std::runtime_error(
-                "Edits cannot change prefab source identity or publication revision");
+                "Edits cannot change prefab source/base identity or publication revision");
+        auto sources = baseline_bases_;
+        const auto asset = candidate.at("asset_id").get<AssetId>();
+        sources[asset] = candidate;
+        const auto view = resolve_prefab_sources(sources).at(asset);
         draft_ = candidate;
-        if (std::none_of(draft_.at("members").begin(), draft_.at("members").end(),
+        if (std::none_of(view.at("members").begin(), view.at("members").end(),
                          [&](const Json& member) { return member.at("id") == member_; })) {
             member_ = draft_.at("root").get<std::string>();
             if (ui::editor_context &&
@@ -112,15 +129,69 @@ class PrefabEditor {
             finish_close();
     }
     void request_save() { save_requested_ = true; }
-    void rename_member(const std::string& name) {
-        for (auto& member : draft_["members"])
-            if (member.at("id") == member_)
-                member["name"] = name;
-    }
+    void rename_member(const std::string& name) { selected_intent()["name"] = name; }
     void set_property(const std::string& component, const std::string& field, const Json& value) {
-        for (auto& member : draft_["members"])
-            if (member.at("id") == member_)
-                member.at("components").at(component).at(field) = value;
+        if (!variant() || selected_intent().at("components").contains(component))
+            selected_intent().at("components").at(component)[field] = value;
+        else if (component.starts_with("forge.local_")) {
+            const auto view = source_view();
+            for (const auto& row : view.at("members"))
+                if (row.at("id") == member_) {
+                    auto channel = row.at("components").at(component);
+                    channel[field] = value;
+                    set_component(component, channel);
+                    return;
+                }
+        } else {
+            const auto view = source_view();
+            const auto& intent = selected_intent();
+            const bool existing = intent.contains("property_overrides") &&
+                                  intent.at("property_overrides").contains(component);
+            auto& mask = selected_intent()["property_overrides"][component];
+            for (const auto& row : view.at("members"))
+                if (row.at("id") == member_ && row.at("components").contains(component) &&
+                    row.at("components").at(component).contains("$forge")) {
+                    if (existing &&
+                        (!mask.is_object() || mask.value("$forge", Json()) !=
+                                                  row.at("components").at(component).at("$forge")))
+                        throw std::runtime_error("Variant override schema is unavailable; migrate "
+                                                 "before editing its properties");
+                    mask["$forge"] = row.at("components").at(component).at("$forge");
+                }
+            mask[field] = value;
+        }
+    }
+    void set_component(const std::string& component, const Json& value) {
+        auto& row = selected_intent();
+        row["components"][component] = value;
+        if (row.contains("property_overrides"))
+            row["property_overrides"].erase(component);
+        prune_intent();
+    }
+    void revert_name() {
+        if (variant()) {
+            selected_intent().erase("name");
+            prune_intent();
+        }
+    }
+    void revert_component(const std::string& component) {
+        auto& row = selected_intent();
+        row["components"].erase(component);
+        if (variant() && row.contains("property_overrides"))
+            row["property_overrides"].erase(component);
+        prune_intent();
+    }
+    void revert_property(const std::string& component, const std::string& field) {
+        if (!variant())
+            throw std::runtime_error("Only variant properties inherit from a base source");
+        auto& row = selected_intent();
+        if (row.contains("property_overrides") && row["property_overrides"].contains(component)) {
+            auto& mask = row["property_overrides"][component];
+            mask.erase(field);
+            if (mask.empty() || (mask.size() == 1 && mask.contains("$forge")))
+                row["property_overrides"].erase(component);
+        }
+        prune_intent();
     }
     bool resolve_close(ui::DraftResolution choice, Scene& scene, SceneDocument& project) {
         if (choice == ui::DraftResolution::Cancel) {
@@ -139,9 +210,10 @@ class PrefabEditor {
     bool publish(Scene& scene, SceneDocument& project) {
         try {
             project.check_ownership();
-            project.prefabs().publish(scene, baseline_, draft_);
+            project.prefabs().publish(scene, baseline_, draft_, baseline_bases_);
             baseline_ = project.prefabs().source(baseline_.at("asset_id").get<AssetId>());
             draft_ = baseline_;
+            baseline_bases_ = project.prefabs().base_sources(scene, baseline_);
             error_.clear();
             return true;
         } catch (const std::exception& e) {
@@ -149,7 +221,7 @@ class PrefabEditor {
             return false;
         }
     }
-    void edit_source(SceneDocument& project, AssetId asset) {
+    void edit_source(Scene& scene, SceneDocument& project, AssetId asset) {
         if (open_ && project_ == project.project() && baseline_.at("asset_id") == Json(asset)) {
             focus_requested_ = true;
             if (ui::editor_context)
@@ -162,8 +234,10 @@ class PrefabEditor {
             return;
         }
         auto source = project.prefabs().source(asset);
+        auto bases = project.prefabs().base_sources(scene, source);
         baseline_ = source;
         draft_ = std::move(source);
+        baseline_bases_ = std::move(bases);
         member_ = draft_.at("root");
         selected_ = asset;
         ++source_session_;
@@ -174,6 +248,22 @@ class PrefabEditor {
         error_.clear();
         if (ui::editor_context)
             ui::editor_context->selection.select_member(asset, member_);
+    }
+    void rebase_draft(Scene& scene, SceneDocument& project) {
+        project.check_ownership();
+        if (!open_ || project_ != project.project() || !variant())
+            throw std::runtime_error("Open this project's variant source before reviewing bases");
+        if (!detail::json_value_equal(
+                project.prefabs().source(baseline_.at("asset_id").get<AssetId>()), baseline_))
+            throw std::runtime_error("Variant source changed on disk; reopen it before rebasing");
+        project.prefabs().refresh(scene);
+        auto bases = project.prefabs().base_sources(scene, draft_);
+        auto sources = bases;
+        const auto asset = draft_.at("asset_id").get<AssetId>();
+        sources[asset] = draft_;
+        (void)resolve_prefab_sources(sources, scene.schema());
+        baseline_bases_.swap(bases);
+        error_.clear();
     }
     void content(Scene& scene, SceneDocument& project, std::string& selection, bool locked) {
         if (content_project_ != project.project()) {
@@ -234,12 +324,21 @@ class PrefabEditor {
         ImGui::SameLine();
         if (ui::button("Edit source", "Open the reusable prefab definition. Published edits affect "
                                       "all instances without overriding their explicit edits."))
-            run([&] { edit_source(project, selected_); });
+            run([&] { edit_source(scene, project, selected_); });
         if (ui::button("Duplicate asset", "Create an independent prefab at the destination path "
-                                          "with new asset and member identities."))
+                                          "with a new asset identity. Variant copies retain their "
+                                          "base and inherited member identities."))
             run([&] {
                 selected_ =
                     project.prefabs().duplicate(scene, selected_, std::filesystem::u8path(path_));
+                if (ui::editor_context)
+                    ui::editor_context->selection.select_asset(selected_);
+            });
+        if (ui::button("Create variant", "Create a new Prefab inheriting this asset's structure "
+                                         "and values. Explicit overrides belong to the variant."))
+            run([&] {
+                selected_ = project.prefabs().create_variant(scene, selected_,
+                                                             std::filesystem::u8path(path_));
                 if (ui::editor_context)
                     ui::editor_context->selection.select_asset(selected_);
             });
@@ -280,7 +379,7 @@ class PrefabEditor {
                 "Open prefab source",
                 "Edit this shared asset. Scene Undo does not undo published source changes.")) {
             try {
-                edit_source(project, p.at("asset").get<AssetId>());
+                edit_source(scene, project, p.at("asset").get<AssetId>());
             } catch (const std::exception& e) {
                 error_ = e.what();
             }
@@ -442,7 +541,24 @@ class PrefabEditor {
             ui::help("Closing an unsaved draft asks to Publish, Discard or Cancel.");
             ImGui::BeginDisabled(locked);
             try {
-                for (const auto& m : draft_.at("members")) {
+                const bool inherited = variant();
+                auto resolved = inherited ? source_view(scene.schema()) : Json();
+                auto& view = inherited ? resolved : draft_;
+                if (inherited) {
+                    const auto base = draft_.at("base").get<AssetId>();
+                    const auto found = project.prefabs().records().find(base);
+                    const auto label = found == project.prefabs().records().end()
+                                           ? base.str()
+                                           : path_text(found->second.source);
+                    ImGui::TextWrapped("Variant base: %s | Structure follows the base.",
+                                       label.c_str());
+                    if (ui::button("Rebase draft",
+                                   "Refresh published sources and review the new base values while "
+                                   "retaining this draft’s explicit overrides. Successful source "
+                                   "refresh clears Scene history."))
+                        rebase_draft(scene, project);
+                }
+                for (const auto& m : view.at("members")) {
                     const std::string id = m.at("id");
                     ImGui::PushID(id.c_str());
                     if (ImGui::Selectable(m.at("name").get_ref<const std::string&>().c_str(),
@@ -460,11 +576,12 @@ class PrefabEditor {
                 }
                 std::vector<std::string> siblings;
                 std::string parent;
-                for (const auto& m : draft_.at("members"))
+                for (const auto& m : view.at("members"))
                     if (m.at("id") == member_)
                         parent = m.value("parent", "");
+                ImGui::BeginDisabled(inherited);
                 if (!parent.empty()) {
-                    for (const auto& m : draft_.at("members"))
+                    for (const auto& m : view.at("members"))
                         if (m.value("parent", "") == parent)
                             siblings.push_back(m.at("id"));
                     const auto found = std::find(siblings.begin(), siblings.end(), member_);
@@ -488,23 +605,39 @@ class PrefabEditor {
                                      .source;
                     ImGui::EndDisabled();
                 }
+                ImGui::EndDisabled();
                 ImGui::Separator();
-                for (auto& m : draft_["members"])
+                for (auto& m : view["members"])
                     if (m.at("id") == member_) {
                         char name[1024]{};
                         SDL_strlcpy(name, m.at("name").get<std::string>().c_str(), sizeof(name));
                         ui::property_label_row("Member name");
                         if (ImGui::InputText("##Member name", name, sizeof(name)))
                             rename_member(name);
+                        if (inherited) {
+                            const auto* intent = selected_override();
+                            ImGui::TextUnformatted(intent && intent->contains("name")
+                                                       ? "Name overridden"
+                                                       : "Name inherited");
+                            if (intent && intent->contains("name") &&
+                                ui::button("Revert name", "Follow this member's base name again."))
+                                revert_name();
+                            else if ((!intent || !intent->contains("name")) &&
+                                     ui::button("Override name",
+                                                "Keep this name as explicit variant intent, even "
+                                                "when it equals the base."))
+                                rename_member(m.at("name"));
+                        }
                         ui::help(
                             "Rename this member in every instance. Its durable member identity is "
                             "unchanged.");
+                        ImGui::BeginDisabled(inherited);
                         if (member_ != draft_.at("root").get_ref<const std::string&>()) {
                             ui::property_label_row("Parent member");
                             if (ImGui::BeginCombo(
                                     "##Parent member",
-                                    prefab_member_label(draft_, m.at("parent")).c_str())) {
-                                for (const auto& target : draft_.at("members"))
+                                    prefab_member_label(view, m.at("parent")).c_str())) {
+                                for (const auto& target : view.at("members"))
                                     if (target.at("id") != member_) {
                                         ImGui::PushID(
                                             target.at("id").get_ref<const std::string&>().c_str());
@@ -556,9 +689,8 @@ class PrefabEditor {
                                 ui::property_label_row("Spatial target");
                                 if (ImGui::BeginCombo(
                                         "##Spatial target",
-                                        prefab_member_label(draft_, binding.at("member"))
-                                            .c_str())) {
-                                    for (const auto& target : draft_.at("members"))
+                                        prefab_member_label(view, binding.at("member")).c_str())) {
+                                    for (const auto& target : view.at("members"))
                                         if (target.at("id") != member_) {
                                             ImGui::PushID(target.at("id")
                                                               .get_ref<const std::string&>()
@@ -577,6 +709,7 @@ class PrefabEditor {
                                          "stable member mapping.");
                             }
                         }
+                        ImGui::EndDisabled();
                         const auto schema = scene.schema();
                         if (ui::button("+ Add Component",
                                        "Add a registered component to this source member. Publish "
@@ -590,11 +723,13 @@ class PrefabEditor {
                             ui::component_choices(
                                 schema, m["components"], component_filter_, [&](const Json& type) {
                                     const std::string key = type.at("id");
+                                    Json defaults = Json::object();
                                     for (const auto& field : type.at("fields"))
-                                        m["components"][key][field.at("id").get<std::string>()] =
+                                        defaults[field.at("id").get<std::string>()] =
                                             field.at("default");
                                     if (type.value("custom", false))
-                                        m["components"][key]["$forge"] = type.at("admission");
+                                        defaults["$forge"] = type.at("admission");
+                                    set_component(key, defaults);
                                 });
                             ImGui::EndPopup();
                         }
@@ -623,19 +758,52 @@ class PrefabEditor {
                                          "or discard this component's unknown values.");
                                 continue;
                             }
-                            if (component.value("optional", false)) {
-                                if (ui::button("Remove component",
-                                               "Remove this component from the draft. Publish "
-                                               "validates affected instances; Discard restores the "
-                                               "draft baseline.")) {
-                                    m["components"].erase(key);
+                            const auto* intent = inherited ? selected_override() : nullptr;
+                            const bool whole = intent && intent->at("components").contains(key);
+                            const auto masks =
+                                intent ? intent->value("property_overrides", Json::object())
+                                       : Json::object();
+                            if (component.value("custom", false) && masks.contains(key) &&
+                                (!masks.at(key).is_object() ||
+                                 masks.at(key).value("$forge", Json()) !=
+                                     component.at("admission"))) {
+                                ImGui::TextWrapped(
+                                    "Override schema is unavailable. Its intent is preserved and "
+                                    "read only until explicitly migrated.");
+                                continue;
+                            }
+                            if (inherited)
+                                ImGui::TextUnformatted(whole ? "Component overridden"
+                                                       : masks.contains(key)
+                                                           ? "Properties overridden"
+                                                           : "Component inherited");
+                            if (inherited && !whole && !masks.contains(key)) {
+                                if (ui::button("Override component",
+                                               "Keep this complete component as explicit variant "
+                                               "intent, including equal values."))
+                                    set_component(key, m.at("components").at(key));
+                                FORGE_UI_PROBE("prefab-component-override:" + key);
+                                ImGui::SameLine();
+                            }
+                            if (inherited || component.value("optional", false)) {
+                                ImGui::BeginDisabled(inherited && !whole && !masks.contains(key));
+                                const bool remove = ui::button(
+                                    inherited ? "Revert component" : "Remove component",
+                                    "Remove this component from the draft. Publish "
+                                    "validates affected instances; Discard restores the "
+                                    "draft baseline. For a variant, restore inheritance.");
+                                FORGE_UI_PROBE("prefab-component-revert:" + key);
+                                ImGui::EndDisabled();
+                                if (remove) {
+                                    revert_component(key);
                                     continue;
                                 }
                             }
                             if (key == "forge.local_rotation") {
                                 const auto& q = m["components"][key];
                                 const auto angles =
-                                    rotation_to_euler({q.at("x"), q.at("y"), q.at("z"), q.at("w")});
+                                    rotation_to_euler({q.value("x", 0.f), q.value("y", 0.f),
+                                                       q.value("z", 0.f), q.value("w", 1.f)});
                                 float degrees[3] = {float(angles[0]), float(angles[1]),
                                                     float(angles[2])};
                                 if (ui::xyz_input("Rotation (degrees)", degrees,
@@ -647,10 +815,12 @@ class PrefabEditor {
                                     std::abs(degrees[2]) <= 360000) {
                                     const auto rotation =
                                         rotation_from_euler({degrees[0], degrees[1], degrees[2]});
-                                    m["components"][key].update({{"x", rotation.x},
-                                                                 {"y", rotation.y},
-                                                                 {"z", rotation.z},
-                                                                 {"w", rotation.w}});
+                                    auto value = m["components"][key];
+                                    value.update({{"x", rotation.x},
+                                                  {"y", rotation.y},
+                                                  {"z", rotation.z},
+                                                  {"w", rotation.w}});
+                                    set_component(key, value);
                                 }
                                 ui::help("Local Euler angles in degrees, stored as one normalized "
                                          "quaternion channel.");
@@ -658,6 +828,7 @@ class PrefabEditor {
                             }
                             for (const auto& field : component.at("fields")) {
                                 const std::string f = field.at("id");
+                                ui::IdScope field_scope(f.c_str());
                                 if (key == "forge.sprite_renderer" && f == "frame_regions" &&
                                     atlas_frames) {
                                     const auto owner =
@@ -668,13 +839,31 @@ class PrefabEditor {
                                         for (const auto& [name, next] : patch->items())
                                             set_property(key, name, next);
                                 }
-                                auto value = m["components"][key][f];
-                                PrefabPropertyScope prefab_properties(draft_);
+                                auto value = m["components"][key].value(f, field.at("default"));
+                                PrefabPropertyScope prefab_properties(view);
                                 bool changed =
                                     key == "forge.tile_map_collider_2d" && f == "layer" &&
                                             tile_map_layer
                                         ? tile_map_layer(m["components"], value)
                                         : property_field(project.project(), field, value, false);
+                                FORGE_UI_PROBE("prefab-source-field:" + key + ":" + f);
+                                if (inherited && !key.starts_with("forge.local_") &&
+                                    ImGui::BeginPopupContextItem("Prefab field actions")) {
+                                    ImGui::BeginDisabled(field.value("read_only", false));
+                                    if (whole) {
+                                        if (ImGui::MenuItem("Revert component"))
+                                            revert_component(key);
+                                    } else if (masks.contains(key) && masks.at(key).contains(f)) {
+                                        if (ImGui::MenuItem("Revert field"))
+                                            revert_property(key, f);
+                                    } else {
+                                        if (ImGui::MenuItem("Override field"))
+                                            set_property(key, f, value);
+                                        FORGE_UI_PROBE("prefab-field-override:" + key + ":" + f);
+                                    }
+                                    ImGui::EndDisabled();
+                                    ImGui::EndPopup();
+                                }
                                 if (key == "forge.sprite_renderer" && f == "frame" &&
                                     sprite_frames) {
                                     const auto owner =
@@ -695,12 +884,24 @@ class PrefabEditor {
                                             if (reference.contains("prefab")) {
                                                 (void)detail::checked_prefab_reference(reference,
                                                                                        edited);
-                                                draft_["version"] = 3;
+                                                if (draft_.at("version").get<unsigned>() < 3)
+                                                    draft_["version"] = 3;
                                             }
                                             return reference;
                                         },
                                         found_reference);
                                     set_property(key, f, value);
+                                }
+                                if (inherited && !whole && masks.contains(key)) {
+                                    const bool field_owned =
+                                        masks.contains(key) && masks.at(key).contains(f);
+                                    ImGui::TextUnformatted(field_owned ? "Overridden"
+                                                                       : "Inherited");
+                                    if (field_owned &&
+                                        ui::button("Revert field",
+                                                   "Remove this field's explicit intent and follow "
+                                                   "the base value."))
+                                        revert_property(key, f);
                                 }
                             }
                         }
@@ -723,6 +924,7 @@ class PrefabEditor {
                             }
                         }
                     }
+                ImGui::BeginDisabled(inherited);
                 if (ui::button("Add child", "Add a new member under the selected source member. It "
                                             "receives a fresh member identity.")) {
                     const auto id = PrefabMemberId::generate().str();
@@ -734,10 +936,10 @@ class PrefabEditor {
                                 components[type.at("id").get<std::string>()]
                                           [field.at("id").get<std::string>()] = field.at("default");
                     components["forge.local_translation"]["y"] = 1;
-                    draft_["members"].push_back({{"id", id},
-                                                 {"name", "Child"},
-                                                 {"parent", member_},
-                                                 {"components", components}});
+                    view["members"].push_back({{"id", id},
+                                               {"name", "Child"},
+                                               {"parent", member_},
+                                               {"components", components}});
                     member_ = id;
                 }
                 ImGui::SameLine();
@@ -749,17 +951,18 @@ class PrefabEditor {
                     bool changed;
                     do {
                         changed = false;
-                        for (const auto& m : draft_["members"])
+                        for (const auto& m : view["members"])
                             if (removed.contains(m.value("parent", "")))
                                 changed |= removed.insert(m.at("id")).second;
                     } while (changed);
                     auto kept = Json::array();
-                    for (const auto& m : draft_["members"])
+                    for (const auto& m : view["members"])
                         if (!removed.contains(m.at("id")))
                             kept.push_back(m);
-                    draft_["members"] = kept;
+                    view["members"] = kept;
                     member_ = draft_.at("root");
                 }
+                ImGui::EndDisabled();
                 ImGui::EndDisabled();
                 if (ui::button(
                         "Publish source",
@@ -817,7 +1020,7 @@ class PrefabEditor {
                 if (pending_asset_) {
                     auto next = pending_asset_;
                     pending_asset_ = {};
-                    edit_source(project, next);
+                    edit_source(scene, project, next);
                 }
             }
             ImGui::EndPopup();
@@ -825,6 +1028,36 @@ class PrefabEditor {
     }
 
   private:
+    const Json* selected_override() const {
+        if (variant())
+            for (const auto& row : draft_.at("overrides"))
+                if (row.at("id") == member_)
+                    return &row;
+        return nullptr;
+    }
+    Json& selected_intent() {
+        auto& rows = draft_[variant() ? "overrides" : "members"];
+        for (auto& row : rows)
+            if (row.at("id") == member_)
+                return row;
+        if (!variant())
+            throw std::runtime_error("Choose an existing prefab source member");
+        rows.push_back({{"id", member_}, {"components", Json::object()}});
+        return rows.back();
+    }
+    void prune_intent() {
+        if (!variant())
+            return;
+        auto& row = selected_intent();
+        if (row.contains("property_overrides") && row.at("property_overrides").empty())
+            row.erase("property_overrides");
+        auto& rows = draft_["overrides"];
+        rows.erase(std::remove_if(rows.begin(), rows.end(),
+                                  [](const Json& item) {
+                                      return item.size() == 2 && item.at("components").empty();
+                                  }),
+                   rows.end());
+    }
     void finish_close() {
         open_ = false;
         if (ui::editor_context &&
@@ -840,6 +1073,7 @@ class PrefabEditor {
     AssetId pending_asset_;
     AssetId selected_;
     Json baseline_, draft_;
+    PrefabSources baseline_bases_;
     std::string member_, error_;
     std::filesystem::path project_, content_project_;
     bool open_ = false;

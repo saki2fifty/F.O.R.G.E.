@@ -216,7 +216,7 @@ See the [capability checklist and validation limits](docs/mcp.md).
 - Restart-bound plugin package validation/staging library. Native editor-plugin loading is not implemented.
 - Windows editor source with SDL3, Dear ImGui docking, persistent workspace/tooltips, Hierarchy/Inspector/Content/Scene panels, CPU performance diagnostics, and shared Diligent Scene/Game rendering with imported models, PBR materials, cameras, lights, skins and morphs. Windows compilation is validated in GitHub Actions; the initial editor and subsequent UI controls have been exercised on a Windows desktop.
 
-- Structured prefab assets with stable member identities, candidate publication and independent property overrides/Revert.
+- Structured prefab assets and single-base variants with stable member identities, candidate publication, independent property overrides/Revert and reviewed base changes.
 - [Skeletal animation](manual/editor/animation.md): validated glTF conversion, Animator playback, fixed-clock recovery and debug bones.
 - [World sprites and image sheets](manual/editor/sprites.md): ordinary image Materials, sheet frames, size/pivot/flip/tint controls, geometric picking and step-valued Timeline animation. Original Gallery scenes71/72 demonstrate still images and animated signals.
 - Exact-version shared-Flecs C++ gameplay SDK, [Jolt physics](manual/editor/physics.md), and [Audio sources/listeners and WAV/FLAC/MP3 import](manual/editor/audio.md).

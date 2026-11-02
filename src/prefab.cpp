@@ -1,3 +1,4 @@
+#include "asset_bytes.hpp"
 #include "authored_component.hpp"
 #include "builtins.hpp"
 #include "json_row_index.hpp"
@@ -6,11 +7,50 @@
 #include "spatial_document.hpp"
 #include <algorithm>
 #include <cmath>
+#include <forge/asset_ref.hpp>
 #include <forge/prefab.hpp>
 #include <functional>
 #include <set>
 namespace forge {
 namespace {
+constexpr const char* variant_stamp = "$forge.variant";
+void validate_variant(const Json& source) {
+    const auto asset = source.at("asset_id").get<AssetId>();
+    const auto base = source.at("base").get<AssetRef<PrefabAsset>>();
+    if (!base.id || base.id == asset)
+        throw std::runtime_error("Prefab variant requires a different base Prefab asset");
+    (void)source.at("root").get<PrefabMemberId>();
+    const auto& revision = source.at("revision");
+    if (!revision.is_number_integer() || revision.get<double>() < 1)
+        throw std::runtime_error("Prefab revision must be a positive unsigned integer");
+    if (source.contains("members") || source.contains(variant_stamp) ||
+        source.contains("reference_profile"))
+        throw std::runtime_error(
+            "Prefab variants author overrides, not resolved member definitions");
+    const auto& overrides = source.at("overrides");
+    if (!overrides.is_array() || overrides.size() > 4096)
+        throw std::runtime_error("Prefab variant supports at most 4096 member overrides");
+    const Json reference_source{{"asset_id", asset}, {"version", 4}};
+    std::set<PrefabMemberId> members;
+    for (const auto& row : overrides) {
+        if (!members.insert(row.at("id").get<PrefabMemberId>()).second)
+            throw std::runtime_error("Duplicate prefab variant override identity");
+        if (!row.at("components").is_object() ||
+            (row.contains("name") && !row.at("name").is_string()) ||
+            (row.contains("property_overrides") && !row.at("property_overrides").is_object()))
+            throw std::runtime_error("Invalid prefab variant member intent");
+        for (const auto* key : {"parent", "spatial", "base", "prefab_instance", "prefab_member",
+                                "world_affine", "prefab", "missing_member", "name_override"})
+            if (row.contains(key))
+                throw std::runtime_error("Prefab variant structure follows its base");
+        if (row.at("components").contains("forge.world_transform"))
+            throw std::runtime_error("WorldTransform cannot be authored in a prefab variant");
+        detail::validate_components(
+            detail::normalize_prefab_components(reference_source, row, Json::object()));
+    }
+    for (const auto& dependency : source.value("dependencies", Json::array()))
+        (void)dependency.get<AssetId>();
+}
 const Json& member(const Json& source, const std::string& id) {
     for (const auto& item : source.at("members"))
         if (item.at("id") == id)
@@ -26,13 +66,21 @@ void remap_member_fields(Json& item, const std::map<std::string, std::string>& i
 } // namespace
 PrefabDocument::PrefabDocument(Json value) : source(std::move(value)) {
     validate(source);
-    detail::promote_scale_format(source, "members", 2);
+    if (source.at("version") != 4 || !source.contains("base"))
+        detail::promote_scale_format(source, "members", 2);
 }
 void PrefabDocument::validate(const Json& doc) {
     if (!doc.is_object() || doc.value("format", "") != "forge.prefab" ||
         !doc.at("version").is_number_integer() ||
-        (doc.at("version") != 1 && doc.at("version") != 2 && doc.at("version") != 3))
-        throw std::runtime_error("Expected FORGE prefab schema 1, 2 or 3");
+        (doc.at("version") != 1 && doc.at("version") != 2 && doc.at("version") != 3 &&
+         doc.at("version") != 4))
+        throw std::runtime_error("Expected FORGE prefab schema 1, 2, 3 or 4");
+    if (doc.at("version") == 4 && doc.contains("base")) {
+        validate_variant(doc);
+        return;
+    }
+    if (doc.at("version") == 4 && (doc.contains("overrides") || doc.contains("reference_profile")))
+        throw std::runtime_error("Prefab variant intent requires a base asset");
     (void)doc.at("asset_id").get<AssetId>();
     const auto& revision = doc.at("revision");
     if (!revision.is_number_integer() || revision.get<double>() < 1)
@@ -54,7 +102,7 @@ void PrefabDocument::validate(const Json& doc) {
         if (item.contains("world_affine") || item["components"].contains("forge.world_transform"))
             throw std::runtime_error(
                 "WorldTransform is derived and cannot be authored in a prefab");
-        if (doc.at("version") == 3)
+        if (doc.at("version").get<unsigned>() >= 3)
             detail::validate_components(
                 detail::normalize_prefab_components(doc, item, Json::object()));
         else
@@ -104,10 +152,33 @@ void PrefabDocument::validate(const Json& doc) {
     for (const auto& id : doc.value("dependencies", Json::array()))
         (void)id.get<AssetId>();
 }
+std::vector<AssetId> PrefabDocument::dependencies() const {
+    auto result = source.value("dependencies", std::vector<AssetId>{});
+    if (source.at("version") == 4 && source.contains("base")) {
+        const auto base = source.at("base").get<AssetRef<PrefabAsset>>().id;
+        if (std::find(result.begin(), result.end(), base) == result.end())
+            result.push_back(base);
+    }
+    return result;
+}
 PrefabDocument PrefabDocument::duplicate(const Json& schema) const {
     auto copy = source;
     copy["asset_id"] = AssetId::generate();
     copy["revision"] = std::uint64_t{1};
+    if (source.at("version") == 4 && source.contains("base")) {
+        for (auto& row : copy["overrides"])
+            for (const auto* key : {"components", "property_overrides"})
+                if (row.contains(key))
+                    detail::transform_prefab_component_references(
+                        row[key], schema, [&](const Json& value) {
+                            if (!detail::source_member_reference(value, 4, asset()))
+                                return value;
+                            auto result = value;
+                            result["prefab"] = copy.at("asset_id");
+                            return result;
+                        });
+        return PrefabDocument(std::move(copy));
+    }
     std::map<std::string, std::string> ids;
     for (const auto& item : copy["members"])
         ids[item.at("id")] = PrefabMemberId::generate().str();
@@ -115,22 +186,27 @@ PrefabDocument PrefabDocument::duplicate(const Json& schema) const {
     for (auto& item : copy["members"]) {
         item["id"] = ids.at(item.at("id"));
         remap_member_fields(item, ids);
-        if (source.at("version") == 3)
+        if (source.at("version").get<unsigned>() >= 3)
             detail::transform_prefab_component_references(
                 item["components"], schema, [&](const Json& value) {
-                    const auto ref = detail::checked_prefab_reference(value, asset());
+                    const auto ref =
+                        detail::source_member_reference(value, source.at("version"), asset());
+                    if (!ref)
+                        return value;
                     // Removed target identities remain missing in the independent source.
-                    if (!ids.contains(ref.member.str()))
-                        ids[ref.member.str()] = PrefabMemberId::generate().str();
+                    if (!ids.contains(ref->member.str()))
+                        ids[ref->member.str()] = PrefabMemberId::generate().str();
                     auto result = value;
                     result["prefab"] = copy.at("asset_id");
-                    result["member"] = ids.at(ref.member.str());
+                    result["member"] = ids.at(ref->member.str());
                     return result;
                 });
     }
     return PrefabDocument(std::move(copy));
 }
 PrefabDocument PrefabDocument::reorder_member(PrefabMemberId id, PrefabMemberId before) const {
+    if (source.at("version") == 4 && source.contains("base"))
+        throw std::runtime_error("Prefab variant structure follows its base; reorder that source");
     if (id == before)
         return *this;
     const auto& moved = member(source, id.str());
@@ -150,6 +226,8 @@ PrefabDocument PrefabDocument::reorder_member(PrefabMemberId id, PrefabMemberId 
 }
 CompiledPrefab::CompiledPrefab(WorldContext& context, PrefabDocument source)
     : document(std::move(source)), context_(context) {
+    if (document.source.at("version") == 4 && document.source.contains("base"))
+        throw std::runtime_error("Resolve prefab variants before compiling native templates");
     auto& world = context.world();
     const auto member_rows = detail::index_json_rows(document.source.at("members"));
     try {
@@ -162,7 +240,7 @@ CompiledPrefab::CompiledPrefab(WorldContext& context, PrefabDocument source)
                 throw std::runtime_error("Missing prefab member: " + id);
             const auto& item = *found->second;
             Json normalized;
-            const auto& components = document.source.at("version") == 3
+            const auto& components = document.source.at("version").get<unsigned>() >= 3
                                          ? (normalized = detail::normalize_prefab_components(
                                                 document.source, item, context_.schema()))
                                          : item.at("components");
@@ -206,7 +284,8 @@ CompiledPrefab::~CompiledPrefab() {
             e.destruct();
     }
 }
-Json prefab_override_value(const Json& definition, const Json& instance, const Json& schema) {
+namespace {
+Json prefab_builtin_override_intent(const Json& definition, const Json& instance) {
     auto values = definition.at("components");
     for (const auto& [key, value] : instance.at("components").items())
         values[key] = value;
@@ -230,9 +309,95 @@ Json prefab_override_value(const Json& definition, const Json& instance, const J
             values[component][key] = value;
         }
     }
+    return values;
+}
+} // namespace
+Json prefab_override_value(const Json& definition, const Json& instance, const Json& schema) {
+    auto values = prefab_builtin_override_intent(definition, instance);
     detail::validate_components(values);
     detail::project_custom_prefab_intent(values, instance, schema);
     return values;
+}
+PrefabSources resolve_prefab_sources(const PrefabSources& sources, const Json& schema) {
+    PrefabSources resolved;
+    std::map<AssetId, unsigned> depths;
+    std::set<AssetId> visiting;
+    std::uint64_t retained = 0;
+    std::function<void(AssetId)> resolve = [&](AssetId asset) {
+        if (resolved.contains(asset))
+            return;
+        if (!visiting.insert(asset).second)
+            throw std::runtime_error("Cyclic prefab variant bases");
+        if (visiting.size() > 17)
+            throw std::runtime_error("Prefab variant derivation exceeds 16 base links");
+        const auto at = sources.find(asset);
+        if (at == sources.end())
+            throw std::runtime_error("Missing prefab variant base: " + asset.str());
+        const PrefabDocument parsed(at->second);
+        if (parsed.asset() != asset)
+            throw std::runtime_error("Prefab source AssetId mismatch");
+        auto definition = parsed.source;
+        unsigned depth = 0;
+        if (definition.at("version") == 4 && definition.contains("base")) {
+            const auto base = definition.at("base").get<AssetRef<PrefabAsset>>().id;
+            resolve(base);
+            depth = depths.at(base) + 1;
+            if (depth > 16)
+                throw std::runtime_error("Prefab variant derivation exceeds 16 base links");
+            const auto& inherited = resolved.at(base);
+            if (definition.at("root") != inherited.at("root"))
+                throw std::runtime_error("Prefab variant base root identity changed incompatibly");
+            const auto intent = detail::index_json_rows(definition.at("overrides"));
+            definition["version"] = 4;
+            definition["members"] = inherited.at("members");
+            for (auto& row : definition["members"]) {
+                if (inherited.at("version").get<unsigned>() >= 3)
+                    detail::transform_prefab_component_references(
+                        row["components"], schema, [&](const Json& value) {
+                            if (!detail::source_member_reference(value, inherited.at("version"),
+                                                                 base))
+                                return value;
+                            auto reference = value;
+                            reference["prefab"] = asset;
+                            return reference;
+                        });
+                const auto override = intent.find(row.at("id").get<std::string>());
+                if (override == intent.end())
+                    continue;
+                const auto& value = *override->second;
+                auto components = prefab_builtin_override_intent(row, value);
+                detail::merge_custom_prefab_intent(components, value, schema);
+                row["components"] = std::move(components);
+                if (value.contains("name"))
+                    row["name"] = value.at("name");
+            }
+            // Revision/cache evidence only; no logical identity derives from it.
+            const auto bytes = inherited.dump();
+            definition[variant_stamp] = {
+                {"base", base},
+                {"revision", inherited.at("revision")},
+                {"sha256", asset_detail::content_digest(std::as_bytes(std::span(bytes)))}};
+            definition.erase("base");
+            definition.erase("overrides");
+            definition = PrefabDocument(std::move(definition)).source;
+        }
+        for (const auto& row : definition.at("members"))
+            detail::validate_custom_values(
+                schema, detail::normalize_prefab_components(definition, row, schema));
+        if (definition.at("version") == 4) {
+            retained += definition.dump().size();
+            if (retained > 64 * 1024 * 1024)
+                throw std::runtime_error("Resolved source4 prefab definitions exceed 64 MiB");
+        }
+        resolved.emplace(asset, std::move(definition));
+        depths.emplace(asset, depth);
+        visiting.erase(asset);
+    };
+    for (const auto& [asset, source] : sources) {
+        (void)source;
+        resolve(asset);
+    }
+    return resolved;
 }
 void validate_prefab_instances(const Json& scene) {
     std::map<std::string, const Json*> rows;
@@ -295,7 +460,22 @@ void validate_prefab_instances(const Json& scene) {
                 throw std::runtime_error("Structured member cannot redefine inheritance");
         }
 }
-Json reconcile_prefab_intent(const Json& source, const PrefabSources& sources, const Json& schema) {
+namespace {
+using DefinitionLookup = std::function<const Json*(AssetId)>;
+DefinitionLookup borrowed_definitions(const PrefabSources& sources) {
+    return [&sources](AssetId asset) -> const Json* {
+        const auto found = sources.find(asset);
+        return found == sources.end() ? nullptr : &found->second;
+    };
+}
+DefinitionLookup borrowed_definitions(const PrefabTemplates& templates) {
+    return [&templates](AssetId asset) -> const Json* {
+        const auto found = templates.find(asset);
+        return found == templates.end() ? nullptr : &found->second->document.source;
+    };
+}
+Json reconcile_prefab_definitions(const Json& source, const DefinitionLookup& definitions,
+                                  const Json& schema) {
     auto doc = source;
     std::map<std::string, Json> rows;
     for (const auto& e : source.at("entities"))
@@ -306,27 +486,28 @@ Json reconcile_prefab_intent(const Json& source, const PrefabSources& sources, c
             auto& root = rows.at(root_id);
             auto& p = root["prefab_instance"];
             const auto asset = p.at("asset").get<AssetId>();
-            if (!sources.contains(asset)) {
+            const auto* definition = definitions(asset);
+            if (!definition) {
                 p["status"] = "missing asset";
                 continue;
             }
-            const PrefabDocument prefab(sources.at(asset));
-            p["revision"] = prefab.revision();
+            const auto& prefab = *definition;
+            p["revision"] = prefab.at("revision");
             p["status"] = "current";
             auto& mapping = p["members"];
-            const auto root_member = prefab.root().str();
+            const auto root_member = prefab.at("root").get<std::string>();
             if (mapping.contains(root_member) && mapping.at(root_member) != root_id)
                 throw std::runtime_error("Prefab root identity changed incompatibly");
             mapping[root_member] = root_id;
             std::set<std::string> alive;
-            for (const auto& item : prefab.source.at("members")) {
+            for (const auto& item : prefab.at("members")) {
                 const std::string m = item.at("id");
                 alive.insert(m);
                 if (!mapping.contains(m))
                     mapping[m] = EntityId::generate();
-                if (prefab.source.at("version") == 3)
+                if (prefab.at("version").get<unsigned>() >= 3)
                     (void)detail::normalize_prefab_components(
-                        prefab.source, item, schema, [&](PrefabMemberRef reference) {
+                        prefab, item, schema, [&](PrefabMemberRef reference) {
                             const auto target = reference.member.str();
                             if (!mapping.contains(target))
                                 mapping[target] = EntityId::generate();
@@ -337,7 +518,7 @@ Json reconcile_prefab_intent(const Json& source, const PrefabSources& sources, c
                                                   mapping.at(target).get<EntityId>()});
                         });
             }
-            for (const auto& item : prefab.source.at("members")) {
+            for (const auto& item : prefab.at("members")) {
                 const std::string m = item.at("id"), id = mapping.at(m);
                 if (!rows.contains(id))
                     rows[id] = {{"id", id}, {"components", Json::object()}};
@@ -357,10 +538,10 @@ Json reconcile_prefab_intent(const Json& source, const PrefabSources& sources, c
                                                              mapping.at(target).get<EntityId>()};
                     }
                 }
-                if (prefab.source.at("version") == 3) {
+                if (prefab.at("version").get<unsigned>() >= 3) {
                     auto normalized = item;
                     normalized["components"] =
-                        detail::normalize_prefab_components(prefab.source, item, schema);
+                        detail::normalize_prefab_components(prefab, item, schema);
                     (void)prefab_override_value(normalized, row, schema);
                 } else
                     (void)prefab_override_value(item, row, schema);
@@ -385,10 +566,11 @@ Json reconcile_prefab_intent(const Json& source, const PrefabSources& sources, c
             continue;
         const auto& instance = root.at("prefab_instance");
         const auto asset = instance.at("asset").get<AssetId>();
-        if (!sources.contains(asset))
+        const auto* definition = definitions(asset);
+        if (!definition)
             continue;
         std::map<std::string, std::vector<Json>> siblings;
-        for (const auto& m : sources.at(asset).at("members")) {
+        for (const auto& m : definition->at("members")) {
             if (!m.contains("parent"))
                 continue;
             const auto id =
@@ -409,7 +591,8 @@ Json reconcile_prefab_intent(const Json& source, const PrefabSources& sources, c
     validate_prefab_instances(doc);
     return doc;
 }
-Json project_prefab_intent(const Json& scene, const PrefabSources& sources, const Json& schema) {
+Json project_prefab_definitions(const Json& scene, const DefinitionLookup& definitions,
+                                const Json& schema) {
     auto doc = scene;
     std::map<AssetId, detail::JsonRowIndex> member_rows;
     std::map<std::string, const Json*> roots;
@@ -428,12 +611,13 @@ Json project_prefab_intent(const Json& scene, const PrefabSources& sources, cons
         if (!root)
             continue;
         const auto asset = root->at("prefab_instance").at("asset").get<AssetId>();
-        if (!sources.contains(asset) || row.value("missing_member", false)) {
+        const auto* selected = definitions(asset);
+        if (!selected || row.value("missing_member", false)) {
             if (row.contains("prefab_member"))
                 row["missing_member"] = true;
             continue;
         }
-        const auto& definition = sources.at(asset);
+        const auto& definition = *selected;
         if (m.empty())
             m = definition.at("root");
         auto [index, inserted] = member_rows.try_emplace(asset);
@@ -443,7 +627,7 @@ Json project_prefab_intent(const Json& scene, const PrefabSources& sources, cons
         if (found == index->second.end())
             throw std::runtime_error("Missing prefab member: " + m);
         const auto& source_member = *found->second;
-        if (definition.at("version") != 3) {
+        if (definition.at("version").get<unsigned>() < 3) {
             row["components"] = prefab_override_value(source_member, row, schema);
             continue;
         }
@@ -460,6 +644,23 @@ Json project_prefab_intent(const Json& scene, const PrefabSources& sources, cons
         row["components"] = prefab_override_value(normalized, row, schema);
     }
     return doc;
+}
+} // namespace
+Json reconcile_prefab_intent(const Json& scene, const PrefabSources& sources, const Json& schema) {
+    const auto definitions = resolve_prefab_sources(sources, schema);
+    return reconcile_prefab_definitions(scene, borrowed_definitions(definitions), schema);
+}
+Json reconcile_prefab_intent(const Json& scene, const PrefabTemplates& templates,
+                             const Json& schema) {
+    return reconcile_prefab_definitions(scene, borrowed_definitions(templates), schema);
+}
+Json project_prefab_intent(const Json& scene, const PrefabSources& sources, const Json& schema) {
+    const auto definitions = resolve_prefab_sources(sources, schema);
+    return project_prefab_definitions(scene, borrowed_definitions(definitions), schema);
+}
+Json project_prefab_intent(const Json& scene, const PrefabTemplates& templates,
+                           const Json& schema) {
+    return project_prefab_definitions(scene, borrowed_definitions(templates), schema);
 }
 std::optional<EntityRef> prefab_member_reference(const Json& scene, EntityId instance,
                                                  PrefabMemberRef reference) {

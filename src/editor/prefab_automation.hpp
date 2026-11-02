@@ -13,13 +13,19 @@ struct PrefabAutomation {
         project.check_ownership();
         if (!editor.open_ || editor.project_ != project.project())
             return {{"open", false}};
-        return {
-            {"open", true},
-            {"session", editor.source_session_},
-            {"dirty", editor.dirty()},
-            {"state", hash(Json{{"session", editor.source_session_}, {"draft", editor.draft_}})},
-            {"source", editor.draft_},
-            {"diagnostic", editor.error_}};
+        Json bases = Json::array();
+        for (const auto& [asset, source] : editor.baseline_bases_)
+            bases.push_back(
+                {{"asset", asset}, {"revision", source.at("revision")}, {"sha256", hash(source)}});
+        return {{"open", true},
+                {"session", editor.source_session_},
+                {"dirty", editor.dirty()},
+                {"state", hash(Json{{"session", editor.source_session_},
+                                    {"draft", editor.draft_},
+                                    {"bases", bases}})},
+                {"source", editor.draft_},
+                {"reviewed_bases", std::move(bases)},
+                {"diagnostic", editor.error_}};
     }
     static void check(PrefabEditor& editor, SceneDocument& project, const Json& request) {
         const auto current = state(editor, project);
@@ -54,12 +60,49 @@ struct PrefabAutomation {
                 return Json{{"prefabs", std::move(records)},
                             {"total", project.prefabs().records().size()}};
             }));
-        result.push_back(
-            automation_method("prefab.source.read",
-                              "Read the actual prefab editor draft, session and content digest. "
-                              "Prefab source publication is separate from Scene Undo.",
-                              "asset.read", automation_object(), false,
-                              [&editor, &project](const Json&) { return state(editor, project); }));
+        result.push_back(automation_method(
+            "prefab.source.read",
+            "Read the shared prefab draft/session/digest and reviewed base summaries. "
+            "Select authored or effective source, an optional JSON pointer and array page. "
+            "Narrow requests to stay within 8 MiB; publication is separate from Scene Undo.",
+            "asset.read",
+            automation_object({{"view", {{"type", "string"}, {"enum", {"authored", "effective"}}}},
+                               {"pointer", automation_text(2048)},
+                               {"offset", automation_integer()},
+                               {"limit", automation_integer(1, 128)}}),
+            false, [&editor, &scene, &project](const Json& request) {
+                auto result = state(editor, project);
+                if (!result.at("open").get<bool>())
+                    return result;
+                const auto view = request.value("view", std::string("authored"));
+                auto source = view == "effective" ? editor.source_view(scene.schema())
+                                                  : std::move(result.at("source"));
+                const auto pointer = request.value("pointer", std::string{});
+                if (!pointer.empty())
+                    source = source.at(Json::json_pointer(pointer));
+                if (request.contains("offset") || request.contains("limit")) {
+                    if (!source.is_array())
+                        throw AuthoringError("invalid_argument",
+                                             "Array paging requires an array JSON pointer");
+                    const auto total = source.size();
+                    const auto offset = request.value("offset", std::size_t{});
+                    const auto count = request.value("limit", std::size_t{128});
+                    auto rows = Json::array();
+                    for (auto i = std::min(offset, total); i < total && rows.size() < count; ++i)
+                        rows.push_back(std::move(source[i]));
+                    source = std::move(rows);
+                    result["total"] = total;
+                    result["offset"] = offset;
+                }
+                if (source.dump().size() > 8 * 1024 * 1024)
+                    throw AuthoringError(
+                        "response_too_large",
+                        "Read a narrower JSON pointer or array page (8 MiB maximum)");
+                result["source"] = std::move(source);
+                result["view"] = view;
+                result["pointer"] = pointer;
+                return result;
+            }));
         if (!permissions.assets)
             return result;
         result.push_back(automation_method(
@@ -77,6 +120,34 @@ struct PrefabAutomation {
                 return Json{{"asset", id}};
             }));
         result.push_back(automation_method(
+            "prefab.variant.create",
+            "Create a single-base Prefab variant at a new project path. "
+            "Structure follows the base; only explicit variant overrides are saved.",
+            "asset.write",
+            automation_object({{"base", automation_uuid()}, {"path", automation_text(1024, 1)}},
+                              {"base", "path"}),
+            true, [&scene, &project](const Json& request) {
+                project.check_ownership();
+                return Json{{"asset",
+                             project.prefabs().create_variant(
+                                 scene, request.at("base").get<AssetId>(),
+                                 automation_relative_path(request.at("path").get<std::string>()))}};
+            }));
+        result.push_back(automation_method(
+            "prefab.duplicate",
+            "Duplicate a Prefab at a new project path. Variant copies retain "
+            "their base and inherited member IDs while receiving a fresh AssetId.",
+            "asset.write",
+            automation_object({{"asset", automation_uuid()}, {"path", automation_text(1024, 1)}},
+                              {"asset", "path"}),
+            true, [&scene, &project](const Json& request) {
+                project.check_ownership();
+                return Json{{"asset",
+                             project.prefabs().duplicate(
+                                 scene, request.at("asset").get<AssetId>(),
+                                 automation_relative_path(request.at("path").get<std::string>()))}};
+            }));
+        result.push_back(automation_method(
             "prefab.refresh",
             "Validate external prefab changes and reconcile instances through the existing "
             "library. Successful source changes may clear Scene history.",
@@ -92,14 +163,45 @@ struct PrefabAutomation {
             "prefab.source.open",
             "Open a published prefab in the actual prefab editor; settle its prior draft first.",
             "asset.write", automation_object({{"asset", automation_uuid()}}, {"asset"}), true,
-            [&editor, &project](const Json& request) {
+            [&editor, &scene, &project](const Json& request) {
                 project.check_ownership();
                 if (editor.dirty() || editor.close_requested_ || editor.save_requested_)
                     throw AuthoringError("document_busy", "Settle the current prefab draft");
-                editor.edit_source(project, request.at("asset").get<AssetId>());
+                editor.edit_source(scene, project, request.at("asset").get<AssetId>());
                 return state(editor, project);
             }));
-        for (const auto* action : {"patch", "publish", "close"}) {
+        result.push_back(automation_method(
+            "prefab.source.revert",
+            "Remove explicit variant name, component or property intent. "
+            "Inherited values remain visible; publish saves the draft.",
+            "asset.write",
+            automation_object({{"state", automation_digest()},
+                               {"member", automation_uuid()},
+                               {"component", automation_text(256, 1)},
+                               {"field", automation_text(256, 1)}},
+                              {"state", "member"}),
+            true, [&editor, &scene, &project](const Json& request) {
+                check(editor, project, request);
+                if (!editor.variant())
+                    throw AuthoringError("not_variant",
+                                         "Only variants have inherited source intent");
+                const auto view = editor.source_view(scene.schema());
+                const auto member = request.at("member").get<std::string>();
+                if (std::none_of(view.at("members").begin(), view.at("members").end(),
+                                 [&](const auto& row) { return row.at("id") == member; }))
+                    throw AuthoringError("missing_member", "Select a current variant member");
+                if (request.contains("field") && !request.contains("component"))
+                    throw AuthoringError("invalid_argument", "A field requires its component");
+                editor.member_ = member;
+                if (!request.contains("component"))
+                    editor.revert_name();
+                else if (request.contains("field"))
+                    editor.revert_property(request.at("component"), request.at("field"));
+                else
+                    editor.revert_component(request.at("component"));
+                return state(editor, project);
+            }));
+        for (const auto* action : {"patch", "publish", "rebase", "close"}) {
             Json properties{{"state", automation_digest()}};
             Json required{"state"};
             if (std::string_view(action) == "patch") {
@@ -128,7 +230,9 @@ struct PrefabAutomation {
                     else if (std::string_view(action) == "publish") {
                         if (!editor.publish(scene, project))
                             throw AuthoringError("publication_failed", editor.error_);
-                    } else {
+                    } else if (std::string_view(action) == "rebase")
+                        editor.rebase_draft(scene, project);
+                    else {
                         if (editor.dirty() && !request.value("discard", false))
                             throw AuthoringError("unsaved_document",
                                                  "Publish or explicitly discard the prefab draft");

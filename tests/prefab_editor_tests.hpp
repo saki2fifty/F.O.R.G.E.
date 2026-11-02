@@ -78,7 +78,7 @@ inline void test_prefab_editor_documents() {
     int w, h;
     io.Fonts->GetTexDataAsRGBA32(&pixels, &w, &h);
     forge::PrefabEditor editor;
-    editor.edit_source(document, asset);
+    editor.edit_source(scene, document, asset);
     for (int frame = 0; frame < 3; ++frame) {
         if (frame == 1)
             forge::atomic_write(project / "forge.assets.json", "malformed");

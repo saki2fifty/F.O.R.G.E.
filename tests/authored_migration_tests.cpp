@@ -209,6 +209,58 @@ int main() {
                                     .get<std::uint64_t>() == UINT64_MAX;
             check(wrote && inherited && !scene.can_undo(),
                   "Single-prefab migration failed propagation or claimed scene Undo ownership");
+            const auto variant_id = AssetId::generate();
+            const auto missing = PrefabMemberId::generate();
+            Json variant{
+                {"format", "forge.prefab"},
+                {"version", 4},
+                {"asset_id", variant_id},
+                {"revision", 1},
+                {"root", prefab.root()},
+                {"base", prefab.asset()},
+                {"overrides", Json::array({{{"id", prefab.root()},
+                                            {"components", {{"project.counter", before}}}},
+                                           {{"id", missing},
+                                            {"components", Json::object()},
+                                            {"property_overrides",
+                                             {{"project.counter",
+                                               {{"$forge", AuthoredCodec{0, source, {}}.stamp()},
+                                                {"count", UINT64_MAX},
+                                                {"unavailable_extension", true}}}}}}})}};
+            AuthoredMigrationDocument variant_draft(variant, source, target);
+            converted = Json::array();
+            for (const auto& value : variant_draft.values()) {
+                const bool partial = value.at("property_intent");
+                converted.push_back({{"value", migration.migrate(value.at("value"), partial)},
+                                     {"property_intent", partial}});
+            }
+            const auto migrated_variant = variant_draft.candidate(converted);
+            check(
+                migrated_variant.at("base") == variant.at("base") &&
+                    migrated_variant.at("asset_id") == variant.at("asset_id") &&
+                    !migrated_variant.contains("members") &&
+                    migrated_variant.at("overrides")[1].at("components").empty() &&
+                    migrated_variant.at("overrides")[1]
+                            .at("property_overrides")
+                            .at("project.counter")
+                            .at("total")
+                            .get<std::uint64_t>() == UINT64_MAX &&
+                    migrated_variant.at("overrides")[1]
+                            .at("property_overrides")
+                            .at("project.counter")
+                            .at("unavailable_extension") == true,
+                "Variant migration lost base identity, missing-member intent or partial ownership");
+            scene.set_prefab_sources(
+                {{prefab.asset(), revised_prefab}, {variant_id, migrated_variant}});
+            const auto migrated_instance = instantiate_prefab(scene, variant_id);
+            const auto variant_projection = scene.effective_document();
+            for (const auto& row : variant_projection.at("entities"))
+                if (row.at("id") == migrated_instance)
+                    check(row.at("components")
+                                  .at("project.counter")
+                                  .at("total")
+                                  .get<std::uint64_t>() == UINT64_MAX,
+                          "Migrated custom variant did not reach native projection");
         }
         {
             const auto root =

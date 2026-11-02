@@ -304,7 +304,7 @@ void many_member_overrides(unsigned version) {
               "Many-member recovery changed values or inheritance");
     check(scene.prefab_sources().at(asset) == source, "Runtime append mutated Prefab source");
 }
-void publication_budget() {
+void publication_budget(bool variant = false) {
     const auto start = std::chrono::steady_clock::now();
     auto mark = [&](const char* phase) {
         std::cerr << "4096-member creation " << phase << ": "
@@ -330,9 +330,22 @@ void publication_budget() {
                                 {"revision", 1u},
                                 {"root", root},
                                 {"members", members}}}});
+    auto selected = asset;
+    if (variant) {
+        selected = AssetId::generate();
+        auto sources = scene.prefab_sources();
+        sources[selected] = {{"format", "forge.prefab"},
+                             {"version", 4},
+                             {"asset_id", selected},
+                             {"revision", 1},
+                             {"root", root},
+                             {"base", asset},
+                             {"overrides", Json::array()}};
+        scene.set_prefab_sources(sources);
+    }
     mark("templates admitted");
-    const auto group = detail::request_runtime_prefab(engine.world(), "project.budget", {}, asset,
-                                                      "Maximum group");
+    const auto group = detail::request_runtime_prefab(engine.world(), "project.budget", {},
+                                                      selected, "Maximum group");
     const auto empty =
         detail::request_runtime_entity(engine.world(), "project.budget", {}, "Later entity");
     detail::publish_runtime_entities(engine.world());
@@ -353,26 +366,47 @@ void publication_budget() {
 } // namespace
 int main(int argc, char** argv) {
     try {
-        check(argc == 2 || (argc == 3 && std::string_view(argv[2]) == "--budget"),
-              "Need runtime Prefab scratch directory and optional --budget");
-        if (argc == 3) {
-            publication_budget();
+        check(argc == 2 || (argc == 3 && (std::string_view(argv[2]) == "--budget" ||
+                                          std::string_view(argv[2]) == "--variant" ||
+                                          std::string_view(argv[2]) == "--variant-budget")),
+              "Need runtime Prefab scratch directory and optional "
+              "--budget/--variant/--variant-budget");
+        if (argc == 3 && (std::string_view(argv[2]) == "--budget" ||
+                          std::string_view(argv[2]) == "--variant-budget")) {
+            publication_budget(std::string_view(argv[2]) == "--variant-budget");
             std::cout << "4096-member atomic group and next-boundary budget passed\n";
             return 0;
         }
-        for (const auto version : {1u, 2u, 3u})
-            many_member_overrides(version);
+        const bool variant = argc == 3;
+        if (!variant)
+            for (const auto version : {1u, 2u, 3u, 4u})
+                many_member_overrides(version);
         Fixture fixture;
+        auto source = fixture.source();
+        const auto base_id = fixture.prefab;
+        if (variant) {
+            fixture.prefab = AssetId::generate();
+            source = {{"format", "forge.prefab"},   {"version", 4},
+                      {"asset_id", fixture.prefab}, {"revision", 1},
+                      {"root", fixture.root},       {"base", base_id},
+                      {"overrides", Json::array()}};
+        }
         const auto scratch = std::filesystem::absolute(argv[1]) / AssetId::generate().str();
         const auto root = scratch / "source";
         std::filesystem::create_directories(root);
         WorldContext authoring;
         Scene authored(authoring);
         authored.save(root / "spawn.scene.json");
-        atomic_write(root / "rig.prefab.json", fixture.source().dump(2));
+        atomic_write(root / "rig.prefab.json", source.dump(2));
         AssetCatalog catalog(root);
         const auto scene_record = catalog.add_scene("spawn.scene.json");
-        catalog.add({fixture.prefab, PrefabAsset::type, "rig.prefab.json", 3});
+        catalog.add({fixture.prefab, PrefabAsset::type, "rig.prefab.json", variant ? 4u : 3u});
+        if (variant) {
+            Fixture base = fixture;
+            base.prefab = base_id;
+            atomic_write(root / "base.prefab.json", base.source().dump(2));
+            catalog.add({base_id, PrefabAsset::type, "base.prefab.json", 3});
+        }
         catalog.save(AssetCatalog::project_index(root));
         check(load_game_scene(root, {scene_record.id}).at("_prefab_sources").empty(),
               "Undeclared unused Prefab was discovered by filesystem scan");
@@ -392,14 +426,16 @@ int main(int argc, char** argv) {
         const auto prepared = detail::runtime_scene_content(root, edited);
         check(prepared.at("note") == edited.at("note") &&
                   prepared.at("entities") == edited.at("entities") &&
-                  prepared.at("_prefab_sources").size() == 1,
+                  prepared.at("_prefab_sources").size() == (variant ? 2u : 1u),
               "Play preparation replaced caller scene edits or lost declarations");
         auto supplied = edited;
-        auto explicit_source = fixture.source();
+        auto explicit_source = source;
         explicit_source["revision"] = 2;
         supplied["_prefab_sources"] = Json::array({explicit_source});
-        check(detail::runtime_scene_content(root, supplied).at("_prefab_sources")[0] ==
-                  explicit_source,
+        const auto explicit_prepared = detail::runtime_scene_content(root, supplied);
+        check(std::any_of(explicit_prepared.at("_prefab_sources").begin(),
+                          explicit_prepared.at("_prefab_sources").end(),
+                          [&](const auto& selected) { return selected == explicit_source; }),
               "Play preparation replaced an explicit caller definition");
         supplied["_prefab_sources"].push_back(explicit_source);
         rejects([&] { detail::runtime_scene_content(root, supplied); });
@@ -410,7 +446,9 @@ int main(int argc, char** argv) {
         std::filesystem::rename(output, relocated);
         std::filesystem::rename(root, scratch / "source-offline");
         const auto shipped = open_runtime_content(relocated, {"windows", "d3d12"});
-        check(shipped.records().size() == 2 && shipped.records().contains(fixture.prefab),
+        check(shipped.records().size() == (variant ? 3u : 2u) &&
+                  shipped.records().contains(fixture.prefab) &&
+                  (!variant || shipped.records().contains(base_id)),
               "Runtime-only declared Prefab missing from export");
         exercise(load_game_scene(relocated, {scene_record.id}), fixture);
         std::cout << "Runtime Prefab queue, native consumers, recovery and relocated "

@@ -1,6 +1,7 @@
 #pragma once
 #include <forge/world.hpp>
 #include <memory>
+#include <vector>
 namespace forge {
 struct PrefabDocument {
     Json source;
@@ -8,6 +9,7 @@ struct PrefabDocument {
     AssetId asset() const { return source.at("asset_id").get<AssetId>(); }
     std::uint64_t revision() const { return source.at("revision").get<std::uint64_t>(); }
     PrefabMemberId root() const { return source.at("root").get<PrefabMemberId>(); }
+    std::vector<AssetId> dependencies() const;
     static void validate(const Json& document);
     PrefabDocument duplicate(const Json& schema = Json::object()) const;
     PrefabDocument reorder_member(PrefabMemberId member, PrefabMemberId before) const;
@@ -29,10 +31,17 @@ class CompiledPrefab {
 };
 using PrefabSources = std::map<AssetId, Json>;
 using PrefabTemplates = std::map<AssetId, std::shared_ptr<CompiledPrefab>>;
+// Detached source preparation. Raw documents retain authority; variant values
+// are admitted before the existing immutable template compiler consumes them.
+PrefabSources resolve_prefab_sources(const PrefabSources&, const Json& schema = Json::object());
 // Detached authoring preparation only. Live effective values remain in Flecs.
 Json reconcile_prefab_intent(const Json& scene, const PrefabSources& sources,
                              const Json& schema = Json::object());
+Json reconcile_prefab_intent(const Json& scene, const PrefabTemplates& templates,
+                             const Json& schema = Json::object());
 Json project_prefab_intent(const Json& scene, const PrefabSources& sources,
+                           const Json& schema = Json::object());
+Json project_prefab_intent(const Json& scene, const PrefabTemplates& templates,
                            const Json& schema = Json::object());
 void validate_prefab_instances(const Json& scene);
 // Resolve a known typed definition reference through one explicit instance.

@@ -405,6 +405,48 @@ int main(int argc, char** argv) {
             package_runtime_content(authored, scratch / "invalid-prefab-values", scene_roots,
                                     target);
         });
+        // No whole renderer contains these values: only the variant property
+        // intent can activate object-material admission in the export consumer.
+        auto empty_base = prefab;
+        empty_base["revision"] = 2;
+        empty_base["members"][0]["components"]["forge.mesh_renderer"]["material_parameters"] =
+            Json::array();
+        text(authored / "part.prefab.json", empty_base.dump());
+        const auto variant_id = AssetId::generate();
+        Json variant{
+            {"format", "forge.prefab"},
+            {"version", 4},
+            {"asset_id", variant_id},
+            {"revision", 1},
+            {"root", member_id},
+            {"base", prefab_id},
+            {"overrides",
+             Json::array(
+                 {{{"id", member_id},
+                   {"components", Json::object()},
+                   {"property_overrides",
+                    {{"forge.mesh_renderer", {{"material_parameters", partial_values}}}}}}})}};
+        text(authored / "variant.prefab.json", variant.dump());
+        scene_catalog.add({variant_id, PrefabAsset::type, "variant.prefab.json", 4});
+        scene_catalog.save(AssetCatalog::project_index(authored));
+        auto variant_instance = instance;
+        variant_instance["entities"][0]["prefab_instance"]["asset"] = variant_id;
+        text(authored / "level.scene.json", variant_instance.dump());
+        const auto variant_output = scratch / "variant-object-values-output";
+        (void)package_runtime_content(authored, variant_output, scene_roots, target);
+        scene.restore_snapshot(load_game_scene(variant_output, {scene_record.id}));
+        check(scene.entity(entity.str())
+                      .get<MeshRenderer>()
+                      .material_parameters[0]
+                      .parameter.value[2] == .8f,
+              "Export lost variant material property intent");
+        variant["overrides"][0]["property_overrides"]["forge.mesh_renderer"]["material_parameters"]
+               [0]["key"] = "removedParameter";
+        text(authored / "variant.prefab.json", variant.dump());
+        rejects([&] {
+            package_runtime_content(authored, scratch / "invalid-variant-values", scene_roots,
+                                    target);
+        });
         text(authored / "level.scene.json", instance.dump());
         std::filesystem::rename(authored / "part.prefab.json",
                                 authored / "unavailable.prefab.json");

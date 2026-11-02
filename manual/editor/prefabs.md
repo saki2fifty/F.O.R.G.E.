@@ -59,7 +59,63 @@ Prefab authoring is disabled while Play, native builds, file dialogs or transfor
 
 Use the normal **Duplicate subtree** action on an instance root to make another linked instance with fresh object identities and copied override intent.
 
-For an independent source, select the prefab in Content, enter a new destination filename and click **Duplicate asset**. The copy has a new asset identity and new member identities. Editing it does not edit the original prefab.
+Select the prefab in Content, enter a new destination filename and click **Duplicate asset**. An ordinary source copy receives new asset and member identities. A variant copy receives a new asset identity and keeps its base and inherited member identities; its own overrides can be edited separately.
+
+## Create a variant
+
+A variant follows another prefab's structure and values. Store the common setup in
+the base, then override the names, components or individual properties that differ.
+Changes to the base flow through fields that the variant still inherits. Scene
+instances can add their own overrides on top of the selected variant.
+
+1. Select the base prefab in **Content**.
+2. Expand **Create / Register → Prefabs** and enter a new filename, such as `Assets/AmberBeacon.prefab.json`.
+3. Click **Create variant**, then **Edit source**.
+4. Select an inherited member and edit its name or component fields.
+5. Click **Publish source**, then instantiate the variant in your scene.
+
+The source window identifies the **Variant base** and shows inherited values.
+**Component inherited** means all its values follow the base. **Properties
+overridden** marks a partial override; its individual fields show **Inherited** or
+**Overridden**. **Component overridden** means the whole component is owned by the
+variant. Choosing a value equal to the base still records an explicit override.
+Use **Override name** or **Override component** to retain the current value
+explicitly. Right-click an editable property and choose **Override field** to
+retain only that field, including a value equal to the base or a schema default.
+The same context menu offers Revert for an owned field or component.
+
+![Variant source showing its base, explicit name and inherited component values](../images/prefab-variant-source.png)
+
+Inspect the base relationship and override labels before publishing a variant.
+
+Use **Revert name**, **Revert field** or **Revert component** to follow the base
+again. Translation, rotation and scale use complete channels. A variant can add a
+component or override an inherited component; it cannot suppress an inherited
+component. Its parent, spatial attachments, member order and member structure
+follow the base, so those structural controls are disabled.
+
+If the base changes while a draft is open, publication rejects the stale review.
+Choose **Rebase draft** to refresh published sources and review the new inherited
+values while retaining your explicit draft overrides. A successful source refresh
+can clear Scene history. If the variant's own file changed externally, close and
+reopen it to review that file before publishing. Failed validation keeps the draft.
+
+A variant can use another variant as its base, up to 16 base links. Missing bases
+and cycles reject. If the base removes a member, its variant overrides are retained
+for that same member identity to return; names do not retarget them. Nested prefab
+instances inside a source, structural variant edits and multiple bases are not
+available.
+
+Open **Scenes/142-prefab-variants.scene.json** in the Feature Gallery and press
+**Play**. The base, amber, blue and chained pink variants run the same sliding
+animation at different speeds. The repeated blue instance has its own controller.
+Stop Play and open **Assets/Variants/AmberBeacon.prefab.json** to edit the sequence
+speed or select its body to change color. Save the scene before exporting; no
+project C++ module is required for this example.
+
+![Five animated base and variant beacons with independent placements](../images/prefab-variants-game.png)
+
+Compare the shared motion with each variant’s color and sequence speed.
 
 ## Missing assets and removed members
 
@@ -71,7 +127,7 @@ After editing source files outside FORGE, increase the source revision and use *
 
 ## Current boundaries
 
-The source window edits the current built-in components. Unknown plugin data is preserved without interpreting it. Nested prefabs, per-instance interior hierarchy changes and Unpack remain deferred. Apply is available for admitted instance overrides as described below. Existing scene-local prefabs remain supported in their original form; opening them does not create asset files or automatically convert them.
+The source window edits admitted built-in and project components. Unavailable plugin data is preserved without interpreting it. Nested prefabs, per-instance interior hierarchy changes, structural variant edits and Unpack are unavailable. Apply supports admitted instance overrides as described below. Existing scene-local prefabs remain supported in their original form; opening them does not create asset files or automatically convert them.
 
 See also [Transforms](transforms.md), [Undo and redo](undo-redo.md), [Saving and recovery](saving-recovery.md) and [Play mode](play-mode.md).
 
@@ -119,9 +175,10 @@ two copies. The doors run at different sequence speeds, and each pendulum uses i
 own bodies. Dynamic bodies use World space: moving their structural parent leaves
 them in place. Set each body's initial world position when arranging such a rig.
 
-Member links use prefab source version3. Existing source versions remain readable;
+Ordinary sources with member links use prefab source version3; variants use
+version4. Existing source versions retain their meaning and remain readable;
 an older editor cannot open the new source version. C++ runtime reference values
-and the installed SDK remain unchanged by this feature. Applying an unrelated
+retain their shape; build modules with the SDK matching your editor and runtime. Applying an unrelated
 value to an older prefab keeps its existing format and links.
 
 ## Apply instance overrides
@@ -134,6 +191,8 @@ Apply transfers admitted component, supported property and name overrides across
 that instance to its existing prefab members. The selected instance then inherits
 those values again. Other instances follow them unless they have their own overrides.
 Equal-value overrides transfer too. Translation, rotation and scale stay independent.
+For a variant instance, Apply writes the selected variant's explicit intent and
+leaves its base file unchanged. Unmodified fields continue to inherit from the base.
 Unknown/unadmitted component payloads stay on the instance. Structural attachments,
 spatial binding and new/removed members are not inferred or copied to the source.
 

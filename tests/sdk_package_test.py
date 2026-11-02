@@ -14,6 +14,7 @@ def validate_guides(stage):
                 assert resolved.is_relative_to(stage/'sdk') and resolved.is_file(), f'Broken installed guide link: {target}'
 
 focused_targets = {
+    '--prefab-only': 'prefab_gameplay',
     '--ui-localization-only': 'ui_localization_gameplay',
     '--navigation-behavior-only': 'navigation_behavior_gameplay',
     '--decals-only': 'decal_gameplay',
@@ -58,6 +59,14 @@ if len(sys.argv) == 5 and sys.argv[4] in focused_targets:
         stage.rename(moved)
         env=os.environ.copy()
         if not windows:env['LD_LIBRARY_PATH']=str(moved/'bin')+':'+env.get('LD_LIBRARY_PATH','')
+        if sys.argv[4] == '--prefab-only':
+            assert not (moved/'sdk/include/forge/prefab.hpp').exists()
+            subprocess.run([sys.executable, str(Path(__file__).with_name('prefab_spawn_process_test.py')),
+                            str(moved/'bin'/('forge_runtime'+exe)),
+                            str(Path(__file__).resolve().parents[1]/'samples/projects/FeatureGallery'),
+                            str(module), '--variant'], env=env, cwd=moved, check=True, timeout=120)
+            print('Installed-only Prefab variant creation, relocated SDK and both runtime hosts passed')
+            sys.exit(0)
         if sys.argv[4] == '--ui-localization-only':
             assert (moved/'sdk/include/forge/ui_components.hpp').is_file()
             assert not (moved/'sdk/include/forge/ui_localization.hpp').exists()

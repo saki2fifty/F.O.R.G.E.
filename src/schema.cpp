@@ -49,9 +49,10 @@ SchemaRegistry core_document_schemas() {
                   Scene::validate_document,
                   [](const Json& j) { return migrate_scene(j); }});
     registry.add({"prefab",
-                  2,
-                  {1, 2},
-                  "Version2 admits signed/zero/tiny scale; immutable source candidate validation.",
+                  4,
+                  {1, 2, 3, 4},
+                  "Explicit versions preserve scale, portable member links and variant intent; "
+                  "no implicit conversion of inheritance or reference ownership.",
                   PrefabDocument::validate,
                   [](const Json& j) { return PrefabDocument(j).source; }});
     registry.add({"input",
