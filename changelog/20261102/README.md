@@ -1,5 +1,23 @@
 # 2026-11-02
 
+## Named navigation build profiles
+
+A Scene can publish separately named Nav assets for different agent clearances.
+Build profile selects saved settings/overlays; New profile starts an unpublished
+draft. Agents retain ordinary typed Nav references. Content/pickers show profile
+names first, and runtime overlay paths match the selected asset's plane.
+
+A shared derived catalog lookup replaces first-Scene-record selection. The default
+keeps legacy IDs/settings/cooked representation; rebuilding or switching plane
+replaces only that profile's revision. Names validate before publication and
+ambiguous duplicates reject. Automation/MCP status, select and build use the same
+owner and permissions. Runtime query-cache, envelope and pinned dependencies remain unchanged.
+Optional Shared group preserves default asset isolation and shares same-plane
+avoidance between profiles using each peer's baked radius. The appended value
+requires matching SDK/module rebuilds; C callbacks and legacy defaults remain. Gallery138 and current-use illustrated
+manual instructions exercise distinct small/large clearance and ordinary export.
+Physical Windows/full editor/graphical EXE review remains pending.
+
 ## Selected collision navigation sources
 
 **Navigation Region 2D → Shape source → Collider 2D** selects a configured Box,

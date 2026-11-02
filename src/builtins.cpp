@@ -89,7 +89,7 @@ template <class T> Json encode(const T& p) {
                 {"anchor", p.anchor.entity ? Json(p.anchor) : Json()},
                 {"enabled", p.enabled}};
     else if constexpr (std::is_same_v<T, NavigationAvoidance>)
-        return {{"enabled", p.enabled}, {"horizon", p.horizon}};
+        return {{"enabled", p.enabled}, {"horizon", p.horizon}, {"shared_group", p.shared_group}};
     else if constexpr (std::is_same_v<T, NavigationAgent>)
         return {{"navmesh", p.navmesh.id ? Json(p.navmesh.id) : Json()},
                 {"enabled", p.enabled},
@@ -402,7 +402,7 @@ template <class T> Value decode(const Json& p) {
         value.enabled = p.at("enabled");
         return value;
     } else if constexpr (std::is_same_v<T, NavigationAvoidance>)
-        return T{p.at("enabled"), p.at("horizon")};
+        return T{p.at("enabled"), p.at("horizon"), p.value("shared_group", 0u)};
     else if constexpr (std::is_same_v<T, NavigationAgent>) {
         NavigationAgent a;
         if (!p.at("navmesh").is_null())
@@ -1196,7 +1196,9 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<EntityRef>("anchor")
             .template member<bool>("enabled");
     } else if constexpr (std::is_same_v<T, NavigationAvoidance>)
-        c.template member<bool>("enabled").template member<float>("horizon");
+        c.template member<bool>("enabled")
+            .template member<float>("horizon")
+            .template member<std::uint32_t>("shared_group");
     else if constexpr (std::is_same_v<T, NavigationAgent>) {
         register_asset_ref<NavMeshAsset>(w, "forge.navmesh_ref");
         c.template member<AssetRef<NavMeshAsset>>("navmesh")
@@ -2943,7 +2945,15 @@ Json registration_options(const Builtin& type, const std::string& field) {
             value["description"] = "Show particle meshes without stopping emission time";
     }
     if (name == "forge.navigation_avoidance") {
-        if (field == "horizon") {
+        if (field == "shared_group") {
+            value["display_name"] = "Shared group";
+            value["minimum"] = 0;
+            value["maximum"] = 32;
+            value["animatable"] = false;
+            value["description"] = "Zero keeps separate Nav assets isolated. Equal nonzero "
+                                   "groups also avoid peers on other profiles in the same plane. "
+                                   "Same-asset participants still interact.";
+        } else if (field == "horizon") {
             value["minimum"] = .25;
             value["maximum"] = 5;
             value["unit"] = "seconds";
@@ -3297,6 +3307,10 @@ Json register_builtins(flecs::world& world, unsigned family) {
             world.component<ReflectedMemberDefault>(reflected_member_default_type);
             c.lookup("points").set<ReflectedMemberDefault>({Json::array()});
             c.lookup("source").set<ReflectedMemberDefault>({0u});
+        }
+        if (name == "forge.navigation_avoidance") {
+            world.component<ReflectedMemberDefault>(reflected_member_default_type);
+            c.lookup("shared_group").set<ReflectedMemberDefault>({0u});
         }
         std::vector<ReflectedAdapter> references;
         if (name == "forge.physics_joint" || name == "forge.physics_joint_2d" ||

@@ -5,8 +5,9 @@ Date:2026-10-26. Local implementation; native Windows acceptance is pending.
 ## Decision
 
 Extend NavigationRuntime, NavigationCandidate, NavigationTools, AssetCatalog and
-Mesh/Query with an explicit Spatial3D/default or PlanarXY profile. Keep one logical
-navigation asset/profile per Scene. Changing plane is an explicit rebuild which
+Mesh/Query with an explicit Spatial3D/default or PlanarXY profile. Retain the legacy
+default navigation asset and admit explicit named build profiles as refined below.
+Changing plane is an explicit rebuild within the selected profile which
 preserves AssetId and prior immutable artifacts. No second navigation service,
 asset database, transform writer or agent-specific authoring implementation exists.
 
@@ -59,7 +60,7 @@ native owner. The installed SDK sample compiles against installed headers and ru
 from a relocated kit. These checks do not establish native Windows/GPU acceptance.
 
 The finite profile excludes automatic art/collision inclusion, platformer/off-mesh
-links, dynamic rebaking, multiple profiles per Scene, cost editing and streaming.
+links, dynamic rebaking, cost editing and streaming.
 It does not imply parity with another engine or claim a measured performance gain.
 See [Navigation](../navigation.md) for the current contract and bounds.
 
@@ -122,3 +123,40 @@ share the render host's CPU pools, with at most32 readonly LRU selections and
 revision/readiness invalidation. Invalid/loading/stale inputs supply no invented
 footprint. Ordinary reflected properties provide Inspector/prefab/history and
 agent access. Rectangle handles remain exclusive to source0 with empty Points.
+
+## Named build profile refinement
+
+Explicit named build profiles extend the original one-asset-per-Scene restriction.
+The runtime already owns independent queries and immutable Mesh selections by
+NavMeshAsset ID. The builder and editor now use the same derived catalog lookup
+keyed by source Scene and `NavigationSettings.profile`; no profile database,
+runtime service or alternative agent reference is added. Duplicate names in a
+Scene reject before asset selection or publication. Names are case-sensitive
+ASCII tokens of 1–64 characters, beginning with a letter, then letters/digits/`_`/`-`.
+
+`default` is the legacy key and is omitted from settings JSON. Old asset IDs,
+six-field settings and default cooked data need no migration. A rebuild, including
+a plane change, replaces only the selected profile's ordinary Nav revision and
+preserves its ID/prior artifacts. A new name publishes another ordinary asset;
+it is not a rename. Agents, prefabs, history, recovery and export retain typed
+NavMeshAsset references. Envelope versions, geometry provenance and runtime
+eight-asset/32MiB query-cache bounds do not change.
+
+NavigationTools owns selection and unpublished settings drafts. Profile selection
+loads saved settings/triangles before changing the current view; actual publication
+still requires Build NavMesh. Content/pickers identify the profile name. Runtime
+overlay paths are filtered by the selected asset so different planes are not
+projected through one view's basis. Automation/MCP status, select and build use
+the same owner, permissions, project checks and Play lock. This deliberately
+supersedes only the earlier single-profile limit, as required by the accepted
+multiple-profile capability; the other explicit-source/runtime limits remain.
+
+Shared avoidance is an explicit opt-in refinement, preserving the original
+per-NavMesh default. NavigationAvoidance.shared_group0 keeps different assets
+isolated; equal nonzero values1–32 also admit same-plane peers across profiles.
+Existing same-asset peers still interact. Each copied neighbour carries its own
+admitted baked radius. Incompatible planes remain separate, and the existing
+64-agent/63-neighbour bounds and query ownership remain. The optional appended
+member defaults to0 for legacy data, changes the exact native SDK fingerprint,
+and requires matching module rebuilds without changing C callbacks or scene/Nav
+formats. Existing asset-isolation tests remain authoritative for default0.

@@ -121,7 +121,7 @@ double passing(const std::filesystem::path& root, const Json& snapshot, bool avo
 void lifecycle(const std::filesystem::path& root, const Json& snapshot) {
     Running run(root, snapshot);
     auto a = run.scene.entity("a");
-    a.set<NavigationAvoidance>({});
+    a.set<NavigationAvoidance>({true, 2, 7});
     auto b = run.scene.entity("b");
     auto disabled = b.get<NavigationAgent>();
     disabled.enabled = false;
@@ -134,6 +134,7 @@ void lifecycle(const std::filesystem::path& root, const Json& snapshot) {
           "Live avoidance edit advanced navigation");
     reject([&] { run.navigation->tune_avoidance(reference, "horizon", 0); });
     reject([&] { run.navigation->tune_avoidance(reference, "speed", 2); });
+    reject([&] { run.navigation->tune_avoidance(reference, "shared_group", 1); });
     ecs_readonly_begin(run.engine.world().world().c_ptr(), false);
     reject([&] { run.navigation->tune_avoidance(reference, "horizon", 1); });
     ecs_readonly_end(run.engine.world().world().c_ptr());
@@ -166,9 +167,10 @@ void lifecycle(const std::filesystem::path& root, const Json& snapshot) {
     }
     check(run.navigation->checkpoint() == captured, "Readonly queries changed avoidance recovery");
     Running resumed(root, run.scene.snapshot());
-    resumed.scene.entity("a").set<NavigationAvoidance>({true, 3});
+    resumed.scene.entity("a").set<NavigationAvoidance>({true, 3, 2});
     resumed.navigation->restore(captured);
     check(resumed.scene.entity("a").get<NavigationAvoidance>().horizon == .75f &&
+              resumed.scene.entity("a").get<NavigationAvoidance>().shared_group == 7 &&
               resumed.position("a") == run.position("a"),
           "Avoidance semantic recovery failed");
     auto legacy = captured;
@@ -192,7 +194,7 @@ void lifecycle(const std::filesystem::path& root, const Json& snapshot) {
     check(run.state("a").phase == NavigationAgentPhase::Failed &&
               run.state("a").status == NavStatus::Invalid && run.position("a") == before_pause,
           "Invalid live avoidance configuration moved");
-    a.set<NavigationAvoidance>({});
+    a.set<NavigationAvoidance>({true, 2, 7});
     run.tick();
     run.scene.entity("floor").set<LocalTranslation>({1, -.5, 0});
     const auto before_stale = run.position("a");
@@ -401,6 +403,31 @@ void authoring(const std::filesystem::path& root, const Json& snapshot) {
                            {"value", 0}});
     });
     check(run.scene.snapshot() == changed, "Rejected avoidance edit changed authored state");
+    authoring_command(run.scene, "property.set",
+                      {{"entity", id},
+                       {"component", "forge.navigation_avoidance"},
+                       {"field", "shared_group"},
+                       {"value", 32}});
+    const auto shared = run.scene.snapshot();
+    check(run.scene.entity("a").get<NavigationAvoidance>().shared_group == 32 && run.scene.undo() &&
+              run.scene.snapshot() == changed && run.scene.redo() && run.scene.snapshot() == shared,
+          "Shared avoidance group did not use ordinary history");
+    for (const Json& invalid : {Json(-1), Json(33), Json(.5), Json("group")})
+        reject([&] {
+            authoring_command(run.scene, "property.set",
+                              {{"entity", id},
+                               {"component", "forge.navigation_avoidance"},
+                               {"field", "shared_group"},
+                               {"value", invalid}});
+        });
+    check(run.scene.snapshot() == shared, "Invalid shared group changed authored state");
+    auto old_fields = shared;
+    for (auto& row : old_fields["entities"])
+        if (row["components"].contains("forge.navigation_avoidance"))
+            row["components"]["forge.navigation_avoidance"].erase("shared_group");
+    Running old_reopened(root, old_fields);
+    check(old_reopened.scene.entity("a").get<NavigationAvoidance>().shared_group == 0,
+          "Legacy avoidance without Shared group did not retain asset isolation");
     Running reopened(root, changed);
     check(reopened.scene.entity("a").get<NavigationAvoidance>().horizon == 1.25f,
           "Avoidance reopen lost authored value");
@@ -521,7 +548,7 @@ int main(int argc, char** argv) {
         isolation(root, snapshot, record, std::filesystem::absolute(argv[2]));
         auto admitted = navigation_detail::load(root, record);
         navigation_detail::Query query(admitted.mesh);
-        std::vector<navigation_detail::Query::Neighbour> too_many(64, {{0, .1, 0}, {}});
+        std::vector<navigation_detail::Query::Neighbour> too_many(64, {{0, .1, 0}, {}, .4f});
         check(query.avoid_velocity({-4, .1, 0}, {2, 0, 0}, {}, 2, .4f, 2, too_many).status ==
                   NavStatus::Limit,
               "Upstream silent neighbour truncation was not rejected");

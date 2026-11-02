@@ -1,7 +1,17 @@
 #pragma once
 #include <forge/assets.hpp>
+#include <forge/navigation_components.hpp>
 namespace forge {
 inline std::string content_member_name(const AssetRecord& record) {
+    if (record.type == NavMeshAsset::type) {
+        const auto settings = record.metadata.find("settings");
+        if (settings != record.metadata.end() && settings->is_object()) {
+            const auto profile = settings->find("profile");
+            if (profile != settings->end() && profile->is_string())
+                return "Navigation / " + profile->get<std::string>();
+        }
+        return "Navigation / default";
+    }
     const auto model = record.metadata.find("forge.model");
     if (model != record.metadata.end() && model->is_object()) {
         const auto name = model->find("name");

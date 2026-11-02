@@ -188,8 +188,16 @@ void planar_space_tests() {
                       NavStatus::Invalid,
               "XY projection bypassed world coordinate validation");
         const auto free = xy.avoid_velocity({-3, 0, 7}, {2, 0, 0}, {}, 2, .4f, 2, {});
-        const std::array<Query::Neighbour, 1> neighbours{{{{-1, 0, -19}, {-2, 0, 0}}}};
+        const std::array<Query::Neighbour, 1> neighbours{{{{-1, 0, -19}, {-2, 0, 0}, .4f}}};
         const auto avoiding = xy.avoid_velocity({-3, 0, 7}, {2, 0, 0}, {}, 2, .4f, 2, neighbours);
+        for (const auto invalid : {0.f, 5.01f, std::numeric_limits<float>::infinity(),
+                                   std::numeric_limits<float>::quiet_NaN()}) {
+            auto rejected = neighbours;
+            rejected[0].radius = invalid;
+            check(xy.avoid_velocity({-3, 0, 7}, {2, 0, 0}, {}, 2, .4f, 2, rejected).status ==
+                      NavStatus::Invalid,
+                  "Invalid peer profile radius reached avoidance sampling");
+        }
         check(free.status == NavStatus::Success && avoiding.status == NavStatus::Success &&
                   free.points[0][2] == 0 && avoiding.points[0][2] == 0 &&
                   std::hypot(avoiding.points[0][0], avoiding.points[0][1]) <= 2.00001 &&

@@ -43,9 +43,28 @@ void planar_editor(const std::filesystem::path& root, const std::filesystem::pat
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
     }
     check(message.find("failed") == std::string::npos, "Planar editor bake failed");
+    auto wide = settings;
+    wide.profile = "Wide_agent";
+    wide.radius = .8f;
+    tools.build(scene, project, wide);
+    const auto wide_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(20);
+    while (tools.pending()) {
+        tools.poll(scene, project, false, message);
+        check(std::chrono::steady_clock::now() < wide_deadline, "Named profile bake timed out");
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+    check(message.find("failed") == std::string::npos, "Named profile bake failed");
     const auto saved = scene.document();
     const bool had_undo = scene.can_undo();
     const auto catalog = std::make_shared<const AssetCatalog>(AssetCatalog::open_project(root));
+    check(navigation_profiles(*catalog, scene.asset_id()).size() == 2,
+          "Editor build replaced the default profile");
+    for (const auto& [name, id] : navigation_profiles(*catalog, scene.asset_id()))
+        check(
+            content_member_name(catalog->records().at(id)) == "Navigation / " + name &&
+                asset_display(catalog->records().at(id)).starts_with("Navigation / " + name + " ("),
+            "Content and NavMesh picker labels omit the profile name");
+    tools.select_profile(scene, project, *catalog, "default");
     for (const float scale : {1.f, 1.5f, 2.f}) {
         ImGui::CreateContext();
         auto& io = ImGui::GetIO();
@@ -97,6 +116,58 @@ void planar_editor(const std::filesystem::path& root, const std::filesystem::pat
             io.AddMouseButtonEvent(ImGuiMouseButton_Left, false);
             frame();
         };
+        click("navigation:profile");
+        frame();
+        click("navigation:profile:Wide_agent");
+        frame();
+        check(test::ui_targets.contains("navigation:profile-selected:Wide_agent") &&
+                  test::ui_targets.contains("navigation:status:NavMesh ready"),
+              "Actual profile selection did not load the saved named settings and asset");
+        click("navigation:setting:Agent radius");
+        io.AddKeyEvent(ImGuiMod_Ctrl, true);
+        frame();
+        io.AddKeyEvent(ImGuiKey_A, true);
+        frame();
+        io.AddKeyEvent(ImGuiKey_A, false);
+        frame();
+        io.AddKeyEvent(ImGuiMod_Ctrl, false);
+        frame();
+        io.AddInputCharactersUTF8("999");
+        frame();
+        io.AddKeyEvent(ImGuiKey_Enter, true);
+        frame();
+        io.AddKeyEvent(ImGuiKey_Enter, false);
+        frame();
+        check(test::ui_targets.contains(
+                  "navigation:status:Navigation is stale — rebuild before Play"),
+              "Actual invalid numeric input did not modify the profile draft");
+        click("navigation:profile");
+        frame();
+        click("navigation:profile:default");
+        frame();
+        check(test::ui_targets.contains("navigation:profile-selected:default") &&
+                  test::ui_targets.contains("navigation:status:NavMesh ready"),
+              "Default profile selection did not restore saved readiness");
+        if (scale == 1) {
+            click("navigation:profile");
+            frame();
+            click("navigation:profile-new");
+            frame();
+            frame();
+            click("navigation:new-profile");
+            io.AddInputCharactersUTF8("LocalTest");
+            frame();
+            click("button:Use new profile");
+            frame();
+            check(test::ui_targets.contains("navigation:profile-selected:LocalTest") &&
+                      test::ui_targets.contains(
+                          "navigation:status:No NavMesh built for this profile"),
+                  "Actual new profile input did not create an unpublished settings draft");
+            click("navigation:profile");
+            frame();
+            click("navigation:profile:default");
+            frame();
+        }
         click("navigation:setting:Plane");
         frame();
         check(test::ui_targets.contains("navigation:plane:0"), "Plane selector did not open");
@@ -114,7 +185,8 @@ void planar_editor(const std::filesystem::path& root, const std::filesystem::pat
                   !test::ui_targets.contains("navigation:setting:Agent height"),
               "Selecting XY again did not restore saved readiness");
         frame(true);
-        check(!test::ui_targets.at("navigation:setting:Plane").enabled &&
+        check(!test::ui_targets.at("navigation:profile").enabled &&
+                  !test::ui_targets.at("navigation:setting:Plane").enabled &&
                   !test::ui_targets.at("button:Build NavMesh").enabled,
               "Play lock allowed changing or building the navigation profile");
         check(scene.document() == saved && scene.can_undo() == had_undo &&

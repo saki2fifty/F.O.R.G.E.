@@ -19,11 +19,14 @@ def ring(count, step=1):
                                2 * math.sin(2 * math.pi * i * step / count))]
 with tempfile.TemporaryDirectory(prefix='convex-mask-', dir=scratch) as temporary:
     root = Path(temporary)
-    def run(mask, valid):
+    def run(mask, valid, profile_patch=None):
         for name in ('navigation.fnav', 'error.txt'):
             (root / name).unlink(missing_ok=True)
         # This fixture tests native input admission, not the builder's source digest.
-        (root / 'source.json').write_text(json.dumps(dict(metadata=copy.deepcopy(metadata),
+        selected = copy.deepcopy(metadata)
+        if profile_patch is not None:
+            selected['settings'].update(profile_patch)
+        (root / 'source.json').write_text(json.dumps(dict(metadata=selected,
             vertices=vertices, obstacles=[mask])), encoding='utf-8')
         result = subprocess.run([worker, '--build-navigation'], cwd=root, capture_output=True,
                                 text=True, timeout=30)
@@ -39,4 +42,8 @@ with tempfile.TemporaryDirectory(prefix='convex-mask-', dir=scratch) as temporar
                 [0, 0, 0, 1, 0, 0, 2, 0, 0], [0, 1, 0, 1, 0, 0, 0, 0, 1],
                 [0, 0, 0, 1e100, 0, 0, 0, 0, 1]):
         run(bad, False)
-print('Native worker: 3..64 convex vertices; limits/star/repetition/collapse/plane/overflow rejected')
+    for profile in ('Worker_profile-2', 'A' * 64):
+        run(ring(4), True, dict(profile=profile))
+    for profile in ('', '../x', 'two words', '1x', 'A' * 65, 'caf\u00e9', 'A\0x', 7, None):
+        run(ring(4), False, dict(profile=profile))
+print('Native worker: 7 valid geometry/profile inputs; 17 malformed geometry/profile inputs rejected')

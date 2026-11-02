@@ -44,6 +44,8 @@ struct NavigationAgent {
 struct NavigationAvoidance {
     bool enabled = true;
     float horizon = 2;
+    // Zero retains per-asset isolation; equal nonzero values also share between profiles.
+    std::uint32_t shared_group = 0;
     bool operator==(const NavigationAvoidance&) const = default;
 };
 } // namespace forge

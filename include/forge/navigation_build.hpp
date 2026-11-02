@@ -4,16 +4,21 @@
 #include <forge/transform.hpp>
 #include <memory>
 #include <stop_token>
+#include <string>
 namespace forge {
 struct NavigationSettings {
     float radius = .4f, height = 2, climb = .4f, slope = 45, cell_size = .2f, cell_height = .1f;
     NavigationPlane plane = NavigationPlane::Spatial3D;
     bool dynamic_obstacles = false;
+    // Case-sensitive build identity within the source Scene. Legacy assets use default.
+    std::string profile = "default";
     bool operator==(const NavigationSettings&) const = default;
 };
 void to_json(nlohmann::json&, const NavigationSettings&);
 void from_json(const nlohmann::json&, NavigationSettings&);
 void validate_navigation_settings(const NavigationSettings&);
+// Derived catalog view; duplicate names reject before selecting or replacing an asset.
+std::map<std::string, AssetId> navigation_profiles(const AssetCatalog&, AssetId scene);
 // Legacy spatial3D evaluated snapshot digest. Authored components remain authoritative.
 std::string navigation_geometry_digest(const nlohmann::json& effective_scene);
 // Version/plane-aware digest; v2 reads Mesh selection metadata only, never mesh bytes.

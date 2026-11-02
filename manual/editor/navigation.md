@@ -7,7 +7,7 @@ Navigation lets an object find a route across a floor and around static obstacle
 
 Agents follow baked static geometry. Add **Navigation Avoidance** for local steering
 around other participating agents. For moving solid footprints, enable the
-**Dynamic obstacles** bake profile and add **Navigation Obstacle** components. Navigation Agents cannot also have a Physics Body, Physics Body 2D
+**Dynamic obstacles** when building and add **Navigation Obstacle** components. Navigation Agents cannot also have a Physics Body, Physics Body 2D
 or an enabled Character Controller in either domain.
 
 In **Window → Profiler → Play runtime**, **NavSourceCapture** shows the CPU time
@@ -189,12 +189,49 @@ Changing scenes or projects clears the previous overlay. Open **Content → Crea
 Register → Navigation** to load the current scene's saved NavMesh. Loading it does
 not rebuild or change the asset.
 
+## Use different agent sizes
+
+Open Gallery **138-navigation-profiles** for two agents sharing one floor. The
+small cyan agent uses the `default` profile with radius **0.2 m** and crosses the
+three-metre passage. The large amber agent uses `Large` with radius **1.8 m** and
+moves within the left room; its baked clearance cannot pass through that opening.
+Both agents use **Navigation Avoidance → Shared group = 1** to participate across
+their different profiles. Both Nav assets are included when you export the saved Scene.
+
+![Small cyan and large amber agents using separate navigation assets on one floor](../images/navigation-profile-gallery.png)
+
+The floor and marked obstacles are shared. Each build profile has its own radius,
+settings and NavMesh asset.
+
+1. Stop Play. Open **Content → Create / Register → Navigation** and choose a saved name under **Build profile**. `default` is the original profile.
+2. To add another, choose **Build profile → New profile...**, enter a name and click **Use new profile**. This starts an unfinished draft using the current settings.
+3. Set **Plane**, **Agent radius** and the other settings, then **Build NavMesh**. Building publishes the new asset; selecting a name alone does not build it.
+4. Select each agent. In **Navigation Agent → NavMesh**, choose the matching **Navigation / default** or **Navigation / Large** asset. The picker also shows the asset path so you can distinguish different Scenes.
+5. Save the Scene, then Play. Each agent uses its assigned profile's clearance.
+
+![Large navigation profile selected beside an agent assigned to its named Nav asset](../images/navigation-profile-controls.png)
+
+Choose the same profile in the build controls and the agent's NavMesh field.
+The saved Large profile has radius 1.8 m; the agent keeps its own destination.
+
+Names are case-sensitive and contain 1–64 ASCII letters, digits, `_` or `-`,
+beginning with a letter. A different name creates another asset. Switching a saved
+profile loads its settings and overlay. It does not reassign agents or change
+Scene Undo history. The overlay shows paths and destination guides for the
+selected profile; select the agent's profile before editing its destination in
+the Scene view.
+
+Rebuilding or changing Plane keeps that profile's asset ID. Other profiles remain
+available. After changing shared marked geometry, rebuild every affected profile
+before Play. A running world can load at most eight Nav assets within its existing
+32MiB tile-data budget. Profile controls are locked during Play.
+
 ## Route around moving obstacles
 
 ![Navigation Obstacle properties beside the ready Dynamic obstacles bake profile](../images/navigation-dynamic-controls.png)
 
-Set the obstacle's local dimensions in Inspector and choose the matching tiled
-profile in Navigation before rebuilding.
+Set the obstacle's local dimensions in Inspector and enable **Dynamic obstacles** in the desired
+build profile before rebuilding.
 
 Open **129-moving-navigation-3d** or **130-moving-navigation-xy** in Feature Gallery
 for a ready example. The orange obstacle follows an editable animation clip while
@@ -234,7 +271,16 @@ Open Gallery scene **52-navigation-avoidance** and press **Play**. Two agents pa
 
 Add **Navigation Avoidance** to each Navigation Agent that should participate. Enable it and set **Horizon** to the number of seconds to look ahead (default 2). The baked radius defines clearance. In 3D, height also filters vertically separated participants; XY ignores visual depth. Idle and paused participants stay in the way; disabled agents or agents without this component do not participate.
 
+**Shared group** defaults to **0**, which keeps different Nav assets isolated.
+To let agents on different profiles steer around each other, stop Play and give
+them the same value from **1–32**. Their profiles must use the same Plane. Each
+agent contributes its own baked radius. Agents on the same Nav asset still
+interact regardless of this setting. Save the Scene before exporting.
+
 During Play, select an agent and adjust **Enabled** or **Horizon** in **Live gameplay**. These changes affect the running world; Stop restores the authored scene. Edit the regular Inspector outside Play to save the settings.
+
+Shared group is an authored setting and cannot be changed in Live gameplay or
+animated. C++ projects must build their modules with the matching installed SDK.
 
 Keep movement anchors aligned with the navmesh and use stationary parents. This is local steering, so tight or crowded spaces can still jam. It does not add physics collision response or moving obstacle carving.
 
@@ -256,7 +302,7 @@ For a 3D NavMesh, destinations use world X/Z across the floor and Y upward. For 
 ## See the requested destination
 
 1. Build the NavMesh, or expand **Content → Navigation** to load its saved overlay.
-2. Select the agent and confirm its **NavMesh** matches that Scene's saved asset.
+2. Select the agent, choose its **Build profile** under Navigation and confirm its **NavMesh** matches that profile's asset.
 3. Enable **Has destination** and turn on **Navigation overlay** in the Scene tools.
 
 A cyan diamond labeled **Requested destination** shows the selected agent's

@@ -39,6 +39,8 @@ inline std::string asset_display(const AssetRecord& record) {
         return std::string("Engine / ") + builtin->name;
     auto name = path_utf8(record.source);
     const auto member = content_member_name(record);
+    if (record.type == NavMeshAsset::type)
+        return member + " (" + name + ")";
     if (!member.empty())
         name += " / " + member;
     return name;

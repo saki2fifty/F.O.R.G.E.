@@ -28,6 +28,7 @@ class Query {
   public:
     struct Neighbour {
         Double3 position, velocity;
+        float radius;
     };
     explicit Query(std::shared_ptr<const Mesh> mesh);
     ~Query();

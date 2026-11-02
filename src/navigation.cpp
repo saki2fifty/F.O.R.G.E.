@@ -587,6 +587,8 @@ void NavigationRuntime::tick(float dt, std::uint64_t tick) {
                      [&](auto a, auto b) { return depth(a) < depth(b); });
     struct Participant {
         AssetId asset;
+        MeshSpace space;
+        std::uint32_t shared_group;
         Query::Neighbour neighbour;
         float height;
     };
@@ -609,10 +611,13 @@ void NavigationRuntime::tick(float dt, std::uint64_t tick) {
                 previous->second.observation.sampled &&
                 distance(previous->second.last, position) < .001)
                 velocity = previous->second.observation.velocity;
+            const auto& settings = asset.data.metadata.at("settings");
             participants.emplace(
                 id, Participant{a.navmesh.id,
-                                {position, velocity},
-                                asset.data.metadata.at("settings").at("height").get<float>()});
+                                asset.data.mesh->space(),
+                                e.get<NavigationAvoidance>().shared_group,
+                                {position, velocity, settings.at("radius").get<float>()},
+                                settings.at("height").get<float>()});
         } catch (const std::exception&) {
             // Invalid or unavailable agents are not predictive obstacles. Active
             // movement below supplies the existing diagnostic/observation policy.
@@ -673,7 +678,11 @@ void NavigationRuntime::tick(float dt, std::uint64_t tick) {
                     const auto settings =
                         asset.data.metadata.at("settings").get<NavigationSettings>();
                     for (const auto& [other, participant] : participants)
-                        if (other != id && participant.asset == a.navmesh.id &&
+                        if (other != id && participant.space == asset.data.mesh->space() &&
+                            (participant.asset == a.navmesh.id ||
+                             (e.get<NavigationAvoidance>().shared_group != 0 &&
+                              participant.shared_group ==
+                                  e.get<NavigationAvoidance>().shared_group)) &&
                             (settings.plane == NavigationPlane::PlanarXY ||
                              std::abs(participant.neighbour.position[1] - position[1]) <
                                  std::max(settings.height, participant.height)))

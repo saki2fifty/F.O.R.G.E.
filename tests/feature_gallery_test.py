@@ -131,6 +131,24 @@ for plane, source in enumerate(('Scenes/129-moving-navigation-3d.scene.json',
     assert selected['metadata']['settings']['dynamic_obstacles'] is True
     assert selected['metadata']['settings'].get('plane', 0) == plane
 
+profile_source = 'Scenes/138-navigation-profiles.scene.json'
+profile_scene = json.loads((project_root / profile_source).read_text(encoding='utf-8'))
+assert profile_scene['asset_id'] == by_source[profile_source]['id']
+profile_agents = [row['components']['forge.navigation_agent'] for row in profile_scene['entities']
+                  if 'forge.navigation_agent' in row['components']]
+assert len(profile_agents) == 2 and len({row['navmesh'] for row in profile_agents}) == 2
+assert all(row['components']['forge.navigation_avoidance']['shared_group'] == 1
+           for row in profile_scene['entities'] if 'forge.navigation_agent' in row['components'])
+profile_records = [row for row in assets if row['id'] in {agent['navmesh'] for agent in profile_agents}]
+profile_settings = {row['metadata']['settings'].get('profile', 'default'): row['metadata']['settings']
+                    for row in profile_records}
+assert set(profile_settings) == {'default', 'Large'}
+assert all(row['metadata']['source_scene'] == profile_scene['asset_id'] for row in profile_records)
+assert all(row['schema_version'] == row['metadata']['geometry_version'] == 3 for row in profile_records)
+assert math.isclose(profile_settings['default']['radius'], .2, abs_tol=1e-6)
+assert math.isclose(profile_settings['Large']['radius'], 1.8, abs_tol=1e-6)
+assert 'profile' not in profile_settings['default']
+
 collision_source = 'Scenes/137-navigation-collision-sources.scene.json'
 collision_scene = json.loads((project_root / collision_source).read_text(encoding='utf-8'))
 assert collision_scene['asset_id'] == by_source[collision_source]['id']
@@ -469,6 +487,9 @@ try:
             if region is not None:
                 region.setdefault('points', [])
                 region.setdefault('source', 0)
+            avoidance = row['components'].get('forge.navigation_avoidance')
+            if avoidance is not None:
+                avoidance.setdefault('shared_group', 0)
             sprite = row['components'].get('forge.sprite_renderer')
             if sprite is not None:
                 sprite.setdefault('mip_filter', 0)

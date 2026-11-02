@@ -46,6 +46,22 @@ NavigationCandidate::NavigationCandidate(std::unique_ptr<Impl> p) : impl_(std::m
 NavigationCandidate::NavigationCandidate(NavigationCandidate&&) noexcept = default;
 NavigationCandidate& NavigationCandidate::operator=(NavigationCandidate&&) noexcept = default;
 NavigationCandidate::~NavigationCandidate() = default;
+std::map<std::string, AssetId> navigation_profiles(const AssetCatalog& catalog, AssetId scene) {
+    std::map<std::string, AssetId> profiles;
+    for (const auto& [id, record] : catalog.records())
+        if (record.type == NavMeshAsset::type &&
+            record.metadata.value("source_scene", std::string{}) == scene.str()) {
+            // Identity selection validates only the name. A valid rebuild must
+            // still be able to repair damaged numeric settings on this asset.
+            NavigationSettings settings;
+            settings.profile = record.metadata.at("settings").value("profile", settings.profile);
+            validate_navigation_settings(settings);
+            if (!profiles.emplace(settings.profile, id).second)
+                throw std::runtime_error("Multiple navigation assets use profile '" +
+                                         settings.profile + "' in this Scene");
+        }
+    return profiles;
+}
 NavigationCandidate prepare_navigation(const std::filesystem::path& project, const Json& doc,
                                        NavigationSettings settings,
                                        const std::filesystem::path& worker,
@@ -53,6 +69,9 @@ NavigationCandidate prepare_navigation(const std::filesystem::path& project, con
     validate_navigation_settings(settings);
     auto c = std::make_unique<NavigationCandidate::Impl>(project);
     const auto source = capture(doc, settings.plane);
+    const auto profiles = navigation_profiles(c->catalog, source.scene);
+    const auto previous = profiles.find(settings.profile);
+    const auto id = previous == profiles.end() ? AssetId::generate() : previous->second;
     const auto catalog = std::make_shared<const AssetCatalog>(c->catalog);
     const auto inputs = mesh_inputs(
         source, [&](AssetId id) { return asset_detail::selected_mesh_revision(*catalog, {id}); });
@@ -143,17 +162,6 @@ NavigationCandidate prepare_navigation(const std::filesystem::path& project, con
                                           surface.region->obstacle);
         });
     c->geometry_digest = g.digest;
-    auto id = AssetId::generate();
-    bool found = false;
-    for (const auto& [key, record] : c->catalog.records())
-        if (record.type == NavMeshAsset::type &&
-            record.metadata.value("source_scene", std::string{}) == g.scene.str()) {
-            if (found)
-                throw std::runtime_error(
-                    "Multiple navigation assets for this scene require explicit selection");
-            id = key;
-            found = true;
-        }
     const unsigned geometry_version =
         settings.plane == NavigationPlane::PlanarXY ? (collider_sources(source) ? 5 : 3) : 2;
     const unsigned version = settings.dynamic_obstacles ? 4 : geometry_version;

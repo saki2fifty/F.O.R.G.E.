@@ -12,7 +12,27 @@ Recast, Detour and its obstacle-velocity sampling source are compiled. The upstr
 
 `NavigationSurface { enabled }` marks static shapes and Mesh leaf entities for inclusion. `NavigationAgent` stores an optional typed NavMesh AssetRef, enabled/destination flags, speed, stopping distance and a world-space destination. Flecs owns both components, their reflection and component/property prefab inheritance. Scene version and persistent identity formats are unchanged. Routes, polygon references and query scratch are never scene or prefab state.
 
-An explicit plane, optional `dynamic_obstacles` flag and six numeric settings belong to a scene's generated navigation asset: radius, height, climb, slope, cell size and cell height. Plane defaults to Spatial3D; PlanarXY is opt-in. Successful publication preserves its AssetId and records the settings. There is one navigation asset/profile per scene in this foundation. Multiple profiles later require explicit selection; they do not require replacing AssetId.
+An explicit plane, optional `dynamic_obstacles` flag, build profile name and six numeric settings belong to a Scene's generated navigation asset: radius, height, climb, slope, cell size and cell height. Plane defaults to Spatial3D; PlanarXY is opt-in. Successful publication preserves the selected profile's AssetId and records its settings.
+
+`NavigationSettings.profile` defaults to `default`, which is omitted from JSON to
+retain legacy settings and cooked representations. Names are case-sensitive
+ASCII tokens of 1–64 characters, beginning with a letter and continuing with
+letters, digits, `_` or `-`. The existing catalog derives the Scene/name→NavAsset
+selection. Duplicate names reject before resource loading or publication. New
+names publish separate ordinary Nav assets; rebuilding or changing plane replaces
+only the selected profile's revision, retaining its ID and prior artifacts.
+Agents continue to select typed NavMeshAsset references; source validity, query
+state, recovery and exported content remain with their existing owners. A runtime
+world retains its existing eight-asset/32MiB tile-data cache limit.
+
+NavigationTools selects saved profiles or starts an unpublished named settings
+draft. Selection loads saved settings/triangles before replacing its current view;
+failed selection preserves the prior view. Content and NavMesh pickers identify
+names, with the name first in a narrow picker field. Runtime overlay paths use the
+selected asset's plane; other profile paths are filtered. Profile selection and
+unfinished settings do not mutate Scene history or publish assets. Automation/MCP
+status, select and build share this owner, permission and Play-lock behavior.
+
 
 The editor's regular navigation poll clears cached selection, settings, metadata
 and overlay triangles when the project root or Scene identity changes, even with
@@ -149,7 +169,7 @@ contours hash the actual native float coordinates and exclude unused width/heigh
 point edits invalidate the selected geometry through the existing staleness owner.
 Visual Z, materials and unrelated authored state are excluded. Both profiles retain
 static/body/controller/spatial ancestry rules; agents cannot also be enabled bake
-sources. XY avoidance filters by the selected NavMesh, without a visual-height test.
+sources. XY avoidance uses its NavMesh selection or an explicitly shared group in the same plane, without a visual-height test.
 
 ### Opt-in static Collider 2D sources
 
@@ -405,7 +425,7 @@ No callback-table field or independent authoring path is added. `FORGE_SDK_NAVIG
 
 ## Deferred work
 
-Full crowd management, general runtime geometry rebaking, multiple profiles per Scene, automatic collider or TileMap extraction, cost editing, off-mesh/platformer links, moving-platform routing and world streaming are deferred. Physics-character driving and general save-game formats remain separate work. Current cooked navigation/export uses the existing runtime package owner.
+Full crowd management, general runtime geometry rebaking, automatic inclusion of unmarked colliders or Tile Maps, cost editing, off-mesh/platformer links, moving-platform routing and world streaming are deferred. Named profiles and explicitly selected 2D collision sources use the existing build owner. Physics-character driving and general save-game formats remain separate work. Current cooked navigation/export uses the existing runtime package owner.
 
 See the [Navigation user guide](../manual/editor/navigation.md) for the no-code workflow.
 
@@ -504,7 +524,7 @@ that a pending build will publish successfully.
 
 ## Opt-in local avoidance
 
-`NavigationAvoidance { enabled, horizon }` joins an existing NavigationAgent to
+`NavigationAvoidance { enabled, horizon, shared_group }` joins an existing NavigationAgent to
 predictive local steering. It is optional and absent/disabled retains legacy path
 following. Horizon is 0.25–5 seconds (default 2). Radius and height come from the
 selected baked navigation profile; this does not add a competing runtime footprint.
@@ -515,7 +535,11 @@ is introduced. Only the unchanged, attributed DetourObstacleAvoidance.cpp from t
 same Recast1.6.0 pin supplies velocity sampling.
 
 All enabled participants use one copied tick-start pose/previous-velocity set.
-Only participants on the same NavMesh selection influence each other. Spatial3D
+Default Shared group0 retains per-asset isolation: only participants on the same
+NavMesh selection influence each other. Equal nonzero shared_group1–32 additionally
+joins peers on other assets in the same admitted navigation plane. Same-asset peers
+still interact regardless of this value. Each neighbour contributes its own baked
+radius; no separate footprint/configuration owner is introduced. Spatial3D
 also requires overlapping vertical height; XY ignores visual Z. Idle, paused and arrived participants remain neighbours;
 disabled, deleted, invalid and unavailable participants are excluded. An agent
 without NavigationAvoidance does not become a predictive obstacle. Geometry/stale
@@ -536,8 +560,9 @@ cached query and retired with that query/world. NavAvoidance exposes the steerin
 CPU scope through existing profiling; it does not advance during presentation reads.
 
 This is predictive local avoidance, not physical collision response or a guarantee
-against overlap/jams in dense or blocked configurations. Dynamic obstacle carving,
-multiple footprint profiles and physics character integration remain deferred.
+against overlap/jams in dense or blocked configurations. Physics character
+integration remains deferred. Named build profiles supply their
+own baked footprints through the existing Nav asset references.
 
 The Live gameplay Inspector tunes enabled/horizon through the existing private
 property_tune transport, with owner-thread, scene/entity and world-generation checks.
@@ -553,3 +578,9 @@ not a save-game format. The installed navigation_components.hpp changes the SDK
 fingerprint; rebuild native modules with the matching SDK. Existing NavigationAgent
 layout and the experimental 1 C table remain unchanged. Scene/prefab versions remain
 unchanged; older engines retain this unknown component but do not execute avoidance.
+
+Shared group is authored through ordinary Inspector/property/history/prefab and
+MCP operations. It is not animatable or live-tunable. Missing fields default to0
+through existing reflected-member evolution; old files need no ID/format migration.
+The appended native component member changes the exact SDK fingerprint; rebuild
+modules against the matching kit. C callbacks and pinned dependencies are unchanged.

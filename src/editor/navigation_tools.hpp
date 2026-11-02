@@ -50,18 +50,67 @@ class NavigationTools {
                                .build()),
           worker_(std::move(worker)) {}
     ~NavigationTools() { cancel_.request_stop(); }
+    void select_profile(Scene& scene, SceneDocument& project, const AssetCatalog& catalog,
+                        const std::string& profile) {
+        project.check_ownership();
+        if (pending())
+            throw std::runtime_error("Wait for the current navigation build");
+        if (catalog.project_root() != project.project())
+            throw std::runtime_error("Navigation profiles belong to another project");
+        auto settings = loaded_project_ == project.project() && loaded_scene_ == scene.asset_id()
+                            ? settings_
+                            : NavigationSettings{};
+        settings.profile = profile;
+        auto profiles = navigation_profiles(catalog, scene.asset_id());
+        AssetId selected;
+        Json metadata;
+        std::vector<Double3> triangles;
+        if (const auto found = profiles.find(profile); found != profiles.end()) {
+            selected = found->second;
+            metadata = catalog.records().at(selected).metadata;
+            settings = metadata.at("settings").get<NavigationSettings>();
+            triangles = navigation_triangles(project.project(), {selected});
+        }
+        validate_navigation_settings(settings);
+        // Load/validate before replacing the current view or unfinished settings.
+        loaded_project_ = project.project();
+        loaded_scene_ = scene.asset_id();
+        settings_ = std::move(settings);
+        profiles_ = std::move(profiles);
+        selected_ = selected;
+        metadata_ = std::move(metadata);
+        triangles_ = std::move(triangles);
+        validation_at_ = {};
+        error_.clear();
+        status_ = selected_ ? "Navigation profile selected" : "New navigation profile draft";
+    }
     void build(Scene& scene, SceneDocument& project, NavigationSettings settings) {
         project.check_ownership();
         if (pending())
             throw std::runtime_error("Wait for the current navigation build");
         validate_navigation_settings(settings);
+        const auto catalog = AssetCatalog::open_project(project.project());
+        auto profiles = navigation_profiles(catalog, scene.asset_id());
         const auto operation = AssetId::generate().str();
         auto doc = scene.effective_document();
-        if (loaded_project_ != project.project() || loaded_scene_ != scene.asset_id()) {
+        if (loaded_project_ != project.project() || loaded_scene_ != scene.asset_id() ||
+            settings_.profile != settings.profile) {
             selected_ = {};
             metadata_ = nullptr;
             triangles_.clear();
+            if (const auto found = profiles.find(settings.profile); found != profiles.end()) {
+                selected_ = found->second;
+                metadata_ = catalog.records().at(selected_).metadata;
+                // Rebuilding can repair an unavailable artifact; its failed view
+                // load must not prevent the ordinary worker/publication path.
+                try {
+                    triangles_ = navigation_triangles(project.project(), {selected_});
+                } catch (const std::exception&) {
+                    triangles_.clear();
+                }
+            }
         }
+        profiles_ = std::move(profiles);
         job_project_ = loaded_project_ = project.project();
         job_scene_ = loaded_scene_ = scene.asset_id();
         settings_ = settings;
@@ -86,6 +135,7 @@ class NavigationTools {
             metadata_ = nullptr;
             triangles_.clear();
             settings_ = {};
+            profiles_.clear();
             validation_at_ = {};
             validation_state_.clear();
             status_.clear();
@@ -154,18 +204,16 @@ class NavigationTools {
                 metadata_ = nullptr;
                 validation_at_ = {};
                 selected_ = {};
-                for (const auto& [id, record] : catalog->records())
-                    if (record.type == NavMeshAsset::type &&
-                        record.metadata.value("source_scene", std::string{}) ==
-                            loaded_scene_.str()) {
-                        selected_ = id;
-                        metadata_ = record.metadata;
-                        if (scene_changed || settings_followed_saved)
-                            settings_ = metadata_.at("settings").get<NavigationSettings>();
-                        if (scene_changed || selected_ != old_selected || old_metadata != metadata_)
-                            triangles_ = navigation_triangles(project.project(), {id});
-                        break;
-                    }
+                profiles_ = navigation_profiles(*catalog, loaded_scene_);
+                if (const auto found = profiles_.find(settings_.profile);
+                    found != profiles_.end()) {
+                    selected_ = found->second;
+                    metadata_ = catalog->records().at(selected_).metadata;
+                    if (scene_changed || settings_followed_saved)
+                        settings_ = metadata_.at("settings").get<NavigationSettings>();
+                    if (scene_changed || selected_ != old_selected || old_metadata != metadata_)
+                        triangles_ = navigation_triangles(project.project(), {selected_});
+                }
                 if (!selected_)
                     triangles_.clear();
             }
@@ -174,6 +222,54 @@ class NavigationTools {
             ui::report_error("navigation_tools.hpp", message);
         }
         ImGui::BeginDisabled(locked || job_.valid());
+        bool new_profile = false;
+        const bool choose_profile = ImGui::BeginCombo("Build profile", settings_.profile.c_str());
+        FORGE_UI_PROBE("navigation:profile");
+        FORGE_UI_PROBE("navigation:profile-selected:" + settings_.profile);
+        if (choose_profile) {
+            auto names = profiles_;
+            names.try_emplace("default", AssetId{});
+            names.try_emplace(settings_.profile, AssetId{});
+            for (const auto& [name, id] : names) {
+                (void)id;
+                if (ImGui::Selectable(name.c_str(), settings_.profile == name))
+                    try {
+                        select_profile(scene, project, *catalog, name);
+                    } catch (const std::exception& e) {
+                        message = e.what();
+                        ui::report_error("navigation_tools.hpp", message);
+                    }
+                FORGE_UI_PROBE("navigation:profile:" + name);
+            }
+            if (ImGui::Selectable("New profile..."))
+                new_profile = true;
+            FORGE_UI_PROBE("navigation:profile-new");
+            ImGui::EndCombo();
+        }
+        if (new_profile)
+            ImGui::OpenPopup("New navigation profile");
+        if (ImGui::BeginPopup("New navigation profile")) {
+            ImGui::InputText("New profile name", profile_name_.data(), profile_name_.size());
+            FORGE_UI_PROBE("navigation:new-profile");
+            if (ui::button("Use new profile",
+                           "Start a named settings draft. Build NavMesh "
+                           "publishes it; existing profiles remain available.")) {
+                try {
+                    if (profiles_.contains(profile_name_.data()))
+                        throw std::runtime_error("Profile already exists; select it above");
+                    select_profile(scene, project, *catalog, profile_name_.data());
+                    ImGui::CloseCurrentPopup();
+                } catch (const std::exception& e) {
+                    message = e.what();
+                    ui::report_error("navigation_tools.hpp", message);
+                }
+            }
+            ImGui::TextWrapped("Names use 1-64 ASCII letters, digits, '_' or '-', beginning with "
+                               "a letter. Names are case-sensitive.");
+            ImGui::EndPopup();
+        }
+        ui::help("Choose saved settings and navigation by name, or New profile... to start an "
+                 "unpublished draft. The default profile retains existing asset identities.");
         constexpr const char* planes[]{"3D (XZ ground)", "2D (XY)"};
         const bool choose_plane = ImGui::BeginCombo("Plane", planes[unsigned(settings_.plane)]);
         FORGE_UI_PROBE("navigation:setting:Plane");
@@ -185,8 +281,8 @@ class NavigationTools {
             }
             ImGui::EndCombo();
         }
-        ui::help("One navigation asset/profile per Scene. Changing plane requires an explicit "
-                 "rebuild and keeps the asset identity.");
+        ui::help("Each build profile owns a separate navigation asset. Changing its plane requires "
+                 "an explicit rebuild and keeps that profile's asset identity.");
         ImGui::Checkbox("Dynamic obstacles", &settings_.dynamic_obstacles);
         FORGE_UI_PROBE("navigation:setting:Dynamic obstacles");
         ui::help("Bake bounded tiles for moving Navigation Obstacle cylinders (circles in XY). "
@@ -212,9 +308,10 @@ class NavigationTools {
                 "Cell height", settings_.cell_height,
                 "Vertical voxel size, .025 to .5 metre; at least two cells of standing clearance.");
         else
-            ImGui::TextWrapped("Use Navigation Region 2D rectangles for walkable areas; enable "
-                               "Obstacle to cut out blocked areas. Visual Z is preserved. "
-                               "Sprites, colliders and TileMaps are not extracted automatically.");
+            ImGui::TextWrapped(
+                "Use Navigation Region 2D rectangles, Points or explicit Collider 2D "
+                "sources; enable Obstacle to cut out blocked areas. Visual Z is "
+                "preserved. Sprite artwork is independent.");
         if (ui::button("Build NavMesh", "Build in a bounded worker, validate and prove queries, "
                                         "then publish one immutable asset revision.")) {
             try {
@@ -240,7 +337,7 @@ class NavigationTools {
             validation_at_ = std::chrono::steady_clock::now();
             validated_scene_revision_ = scene.revision();
             validated_settings_ = settings_;
-            validation_state_ = selected_ ? "NavMesh ready" : "No NavMesh built for this scene";
+            validation_state_ = selected_ ? "NavMesh ready" : "No NavMesh built for this profile";
             if (selected_)
                 try {
                     if (navigation_detail::selected_geometry_digest(
@@ -260,7 +357,7 @@ class NavigationTools {
         ImGui::TextWrapped("%s", validation_state_.c_str());
         FORGE_UI_PROBE("navigation:status:" + validation_state_);
         ui::help("Changes to included geometry or these settings require an explicit rebuild. "
-                 "3D includes shapes/static Mesh leaves; XY includes rectangular regions. "
+                 "3D includes shapes/static Mesh leaves; XY includes selected region sources. "
                  "Dynamic rebaking and platformer links are unavailable. Navigation Avoidance "
                  "provides optional local steering for nonphysics agents.");
     }
@@ -332,6 +429,10 @@ class NavigationTools {
         }
         for (const auto& e : doc.at("entities"))
             if (e.contains("navigation_debug")) {
+                const auto& components = e.at("components");
+                if (!selected_ || !components.contains("forge.navigation_agent") ||
+                    components.at("forge.navigation_agent").at("navmesh") != Json(selected_))
+                    continue;
                 const auto& path = e.at("navigation_debug").at("path");
                 std::optional<ImVec2> previous;
                 for (const auto& p : path) {
@@ -359,6 +460,8 @@ class NavigationTools {
     std::filesystem::path worker_, job_project_, loaded_project_;
     AssetId job_scene_, loaded_scene_, selected_;
     NavigationSettings settings_;
+    std::map<std::string, AssetId> profiles_;
+    std::array<char, 65> profile_name_{};
     Json metadata_;
     std::vector<Double3> triangles_;
     bool show_ = false;

@@ -715,9 +715,24 @@ native disk baselines remain authoritative. Failed previews retain the prior
 successful result; they never write the Scene. This data/world-recipe facility
 is separate from C++ gameplay and has no advertised document/Scene Undo.
 
-`forge_navigation_status/build/cancel` uses NavigationTools and its bounded static/tiled
+`forge_navigation_status/build/cancel` and `forge_navigation_select_profile` use NavigationTools and its bounded static/tiled
 bake worker. The native settings/profile and stale-geometry publication check
-remain authoritative. Publication is separate from Scene Undo. Settings add optional
+remain authoritative. Publication is separate from Scene Undo. Status includes a
+Scene-scoped `profiles` mapping from names to ordinary Nav asset IDs. Optional
+settings string `profile` chooses the build identity; omission means `default`
+and preserves legacy IDs. Names are case-sensitive 1–64 ASCII tokens matching
+`[A-Za-z][A-Za-z0-9_-]*`. Rebuilding replaces only that profile's revision.
+`forge_navigation_select_profile` takes `profile` and loads the saved view/settings
+or creates an unpublished draft. It does not publish or change Scene history.
+Select/build use the same assets permission, revision handling and Play lock.
+For optional cross-profile steering, add `forge.navigation_avoidance` through the
+ordinary component/property tools. `shared_group` defaults to0 (asset isolation),
+accepts integers0–32 and uses normal revision-checked Undo/prefab persistence.
+Equal nonzero groups also share peers across same-plane profiles, using each
+peer's baked radius. This authored field is not live-tunable or animatable.
+Its appended native value requires a matching SDK/module rebuild; C callbacks
+remain unchanged.
+Settings add optional
 integer `plane`:0(default) uses3D NavigationSurface geometry;1 uses top-down XY
 NavigationRegion2D rectangles or simple convex/concave polygon regions. The six numeric profile fields remain required. Optional boolean
 `dynamic_obstacles` selects the version 4 tiled profile; omitted/false retains

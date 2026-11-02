@@ -23,11 +23,12 @@ int32_t FORGE_SDK_CALL schemas(const ForgeSdkWorldV1* h, char*, uint32_t) {
         return 0;
     const auto avoidance = w.component<forge::NavigationAvoidance>("forge.navigation_avoidance");
     const auto* info = ecs_get_type_info(w.c_ptr(), avoidance.id());
-    if (!info || info->size != sizeof(forge::NavigationAvoidance))
+    if (!info || info->size != sizeof(forge::NavigationAvoidance) ||
+        info->alignment != alignof(forge::NavigationAvoidance))
         return 0;
-    auto probe = w.entity().add(flecs::Prefab).set<forge::NavigationAvoidance>({false, .75f});
+    auto probe = w.entity().add(flecs::Prefab).set<forge::NavigationAvoidance>({false, .75f, 7});
     const auto matched =
-        probe.get<forge::NavigationAvoidance>() == forge::NavigationAvoidance{false, .75f};
+        probe.get<forge::NavigationAvoidance>() == forge::NavigationAvoidance{false, .75f, 7};
     probe.destruct();
     if (!matched)
         return 0;

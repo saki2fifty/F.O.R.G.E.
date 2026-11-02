@@ -1,5 +1,20 @@
 # Feature Gallery
 
+## Navigation build profiles
+
+Open **Scenes/138-navigation-profiles.scene.json** and press Play. Cyan uses the
+`default` Nav asset (radius 0.2 m) and crosses the 3 m passage. Amber uses `Large`
+(radius 1.8 m) and moves within the left room. Its clearance cannot cross the gap.
+Both agents use **Navigation Avoidance → Shared group = 1**, allowing participants
+on these different profiles to steer around each other using their own baked radii.
+No project C++ module is required; ordinary export includes both navigation assets.
+
+Outside Play, open **Content → Create / Register → Navigation → Build profile**
+to select saved settings and overlays, or choose **New profile...** and build
+another. Each agent's **Navigation Agent → NavMesh** keeps its own named asset
+reference. Rebuild every affected profile after editing the marked floor/walls,
+then save. See [Navigation profiles](../../../manual/editor/navigation.md).
+
 ## Selected 2D collision navigation sources
 
 Open **Scenes/137-navigation-collision-sources.scene.json** and press Play. The

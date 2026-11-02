@@ -403,7 +403,8 @@ NavResult Query::avoid_velocity(Double3 position, Double3 desired, Double3 previ
     if (!velocity_valid(desired) || !velocity_valid(previous))
         return result(NavStatus::Invalid);
     for (const auto& neighbour : neighbours)
-        if (!point(neighbour.position) || !velocity_valid(neighbour.velocity))
+        if (!point(neighbour.position) || !velocity_valid(neighbour.velocity) ||
+            !std::isfinite(neighbour.radius) || neighbour.radius < .05f || neighbour.radius > 5)
             return result(NavStatus::Invalid);
     if (speed == 0)
         return {NavStatus::Success, {Double3{}}, {}};
@@ -428,7 +429,7 @@ NavResult Query::avoid_velocity(Double3 position, Double3 desired, Double3 previ
         const auto velocity = native_coordinates(impl_->owner->space(), neighbour.velocity);
         float p[3]{float(position[0]), float(position[1]), float(position[2])};
         float v[3]{float(velocity[0]), 0, float(velocity[2])};
-        solver.addCircle(p, radius, v, v);
+        solver.addCircle(p, neighbour.radius, v, v);
     }
     dtPolyRef nearby[max_nearby]{};
     int count = 0;

@@ -1,8 +1,16 @@
+#include <algorithm>
 #include <cmath>
 #include <forge/navigation_build.hpp>
 
 namespace forge {
 void validate_navigation_settings(const NavigationSettings& s) {
+    const auto letter = [](char c) { return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'); };
+    if (s.profile.empty() || s.profile.size() > 64 || !letter(s.profile.front()) ||
+        !std::all_of(s.profile.begin(), s.profile.end(), [&](char c) {
+            return letter(c) || (c >= '0' && c <= '9') || c == '_' || c == '-';
+        }))
+        throw std::runtime_error("Navigation profile must be 1-64 ASCII letters, digits, '_' or "
+                                 "'-', beginning with a letter; names are case-sensitive");
     auto range = [](float v, float lo, float hi) { return std::isfinite(v) && v >= lo && v <= hi; };
     if (!range(s.radius, .05f, 5) || !range(s.height, .2f, 10) || !range(s.climb, 0, 2) ||
         !range(s.slope, 0, 60) || !range(s.cell_size, .05f, 1) ||
@@ -19,6 +27,8 @@ void to_json(nlohmann::json& j, const NavigationSettings& s) {
         j["plane"] = unsigned(s.plane);
     if (s.dynamic_obstacles)
         j["dynamic_obstacles"] = true;
+    if (s.profile != "default")
+        j["profile"] = s.profile;
 }
 void from_json(const nlohmann::json& j, NavigationSettings& s) {
     s = {j.at("radius"), j.at("height"),    j.at("climb"),
@@ -34,6 +44,8 @@ void from_json(const nlohmann::json& j, NavigationSettings& s) {
             throw std::runtime_error("Dynamic obstacles setting must be boolean");
         s.dynamic_obstacles = j.at("dynamic_obstacles").get<bool>();
     }
+    if (j.contains("profile"))
+        s.profile = j.at("profile").get<std::string>();
     validate_navigation_settings(s);
 }
 } // namespace forge

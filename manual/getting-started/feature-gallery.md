@@ -1,5 +1,12 @@
 # Explore the Feature Gallery
 
+**138-navigation-profiles** uses separate `default` and `Large` Nav assets on one
+floor. Play to watch a small cyan agent cross the narrow passage while a larger
+amber agent moves in the left room. Stop, open **Content → Create / Register →
+Navigation → Build profile**, and switch the saved settings/overlay. Assign the
+matching named Nav asset in each agent's Inspector, then save/export normally.
+See [Navigation profiles](../editor/navigation.md).
+
 **137-navigation-collision-sources** has two ready routes: Circle/Capsule Collider
 obstacles on a Box Collider floor, and a selected Tile Map collision layer. Press
 Play, then inspect an agent’s **Live gameplay → Navigation progress**. Outside

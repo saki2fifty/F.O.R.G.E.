@@ -1,5 +1,27 @@
 # README screenshots
 
+## Named navigation build profiles
+
+[Profile Game](../../../manual/images/navigation-profile-gallery.png) shows the
+unretouched640×360 production FrameRenderer after90fixedticks in Gallery138
+(`9105eaa8-0920-4e64-bf3d-9bd2bf8f7392`). The small cyan agent uses default clearance;
+the large amber agent uses its independent Large asset. Four exact moving
+source-hidden/relocated export displays pass. Lossless PPM-to-PNG conversion
+preserves RGB pixels. PNG SHA256:
+`618fa17c898e242e65edffb920dc5e747bdb2c0686f7118025c0651f2d693572`.
+
+[Profile controls](../../../manual/images/navigation-profile-controls.png) is the
+unretouched1180×760 production ComponentInspector and NavigationTools in SDL/ImGui
+software rendering. Actual mouse input selects Large; its saved radius1.8m and the
+agent's named NavMesh and Shared group1 are visible. Scene/catalog bytes remain unchanged. PNG SHA256:
+`c24405a82bbec654a0b8d4e9770a154f7cdf48fad82dac25a604b0cad256db3a`.
+
+Both images were personally reviewed. Local capture source is based onbae089e
+with unassigned build identity. Exact source/executable/frame receipts are in
+`AgentFiles/build/phase217-navigation-build-profiles/game-capture.json` and
+`controls-capture.json`. These software captures do not establish full Main,
+Windows/MSVC/D3D12, physical input/DPI/GPU or graphical EXE acceptance.
+
 ## Selected collision navigation sources
 
 [Collision-source Game](../../../manual/images/navigation-collision-gallery.png)
@@ -1176,9 +1198,11 @@ of actual ComponentInspector and NavigationTools ImGui draw data, rendered throu
 SDL's software backend. The ready Gallery129 Scene supplies the genuine obstacle,
 clip and v4 navigation selection. Actual mouse input collapses the unrelated
 Transform Animator to focus the task controls; no image/control was edited.
-Capture source: `tests/static_mesh_navigation_editor_tests.cpp --capture`, local
-work based on fb0947d with dynamic-navigation implementation. SHA256:
-`5d460ce1a622b3cb4f81d9c3544b48337ba5f2faba18ea5e43fe2a2f8b8de56f`. The capture was personally reviewed. The same fixture checks
+Capture source: `tests/static_mesh_navigation_editor_tests.cpp --capture-all`,
+local work based onbae089e with named profiles. The current default Build profile
+selector is visible. Exact receipt:
+`AgentFiles/build/phase217-navigation-build-profiles/dynamic-controls-capture.json`.
+SHA256: `335d773f14b91441c659d802204934385a5bd4b7f1077cf7f5e84eecfbada670`. The capture was personally reviewed. The same fixture checks
 100/150/200% controls, stale/revert behavior and Play locks. It is an authentic
 editor-owner fixture, not a launched Windows editor or physical display/GPU/DPI
 acceptance. CPU source-free Gallery tests verify routes and render submissions;

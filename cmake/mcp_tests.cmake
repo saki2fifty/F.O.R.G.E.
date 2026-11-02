@@ -360,7 +360,7 @@ if(BUILD_TESTING AND (FORGE_BUILD_EDITOR OR FORGE_BUILD_MCP_EDITOR_TESTS))
   endif()
   add_test(NAME mcp_audio_pause_stdio COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/mcp_workflow_test.py $<TARGET_FILE:forge_tools> $<TARGET_FILE:forge_mcp_workflow_host> $<TARGET_FILE:forge_runtime> "-" $<TARGET_FILE:forge_nav_build> "${CMAKE_CURRENT_BINARY_DIR}/mcp-audio-pause-protocol-capture.json.gz" --audio-pause-only)
   set_tests_properties(mcp_audio_pause_stdio PROPERTIES TIMEOUT 120)
-  set_tests_properties(mcp_navigation_stdio PROPERTIES TIMEOUT 120)
+  set_tests_properties(mcp_navigation_stdio PROPERTIES TIMEOUT 180)
   add_test(NAME mcp_map_profile_stdio COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/mcp_workflow_test.py $<TARGET_FILE:forge_tools> $<TARGET_FILE:forge_mcp_workflow_host> $<TARGET_FILE:forge_runtime> "-" $<TARGET_FILE:forge_nav_build> "${CMAKE_CURRENT_BINARY_DIR}/mcp-map-profile-capture.json.gz" --map-profile-only)
   # Ten actual Play launches across both protocol envelopes include import/readiness and Stop.
   set_tests_properties(mcp_map_profile_stdio PROPERTIES TIMEOUT 240)

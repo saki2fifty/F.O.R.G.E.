@@ -7,14 +7,19 @@ namespace forge {
 struct NavigationAutomation {
     static Json state(NavigationTools& owner, Scene& scene, EditorFiles& files) {
         files.document.check_ownership();
+        const auto profiles = navigation_profiles(
+            AssetCatalog::open_project(files.document.project()), scene.asset_id());
         if (owner.loaded_project_ != files.document.project() ||
             owner.loaded_scene_ != scene.asset_id())
-            return {
-                {"busy", false}, {"started", false}, {"overlay_visible", owner.overlay_visible()}};
+            return {{"busy", false},
+                    {"started", false},
+                    {"profiles", profiles},
+                    {"overlay_visible", owner.overlay_visible()}};
         return {{"started", true},
                 {"busy", owner.pending()},
                 {"operation", owner.operation_},
                 {"settings", owner.settings_},
+                {"profiles", profiles},
                 {"asset", owner.selected_ ? Json(owner.selected_) : Json()},
                 {"status", owner.status_},
                 {"overlay_visible", owner.overlay_visible()},
@@ -33,6 +38,28 @@ struct NavigationAutomation {
             [&owner, &scene, &files](const Json&) { return state(owner, scene, files); }));
         if (!permissions.assets)
             return result;
+        result.push_back(automation_method(
+            "navigation.select_profile",
+            "Select an existing named navigation asset/settings view or begin a new profile "
+            "draft. This does not bake, publish or change Scene history. Names are "
+            "case-sensitive ASCII tokens; default preserves legacy asset identity.",
+            "assets.write",
+            automation_object({{"profile",
+                                {{"type", "string"},
+                                 {"minLength", 1},
+                                 {"maxLength", 64},
+                                 {"pattern", "^[A-Za-z][A-Za-z0-9_-]*$"}}}},
+                              {"profile"}),
+            true, [&owner, &scene, &files, unavailable](const Json& request) {
+                files.document.check_ownership();
+                const auto reason = unavailable ? unavailable() : "";
+                if (!reason.empty())
+                    throw AuthoringError("navigation_busy", reason);
+                owner.select_profile(scene, files.document,
+                                     AssetCatalog::open_project(files.document.project()),
+                                     request.at("profile").get<std::string>());
+                return state(owner, scene, files);
+            }));
         result.push_back(automation_method(
             "navigation.overlay",
             "Show or hide the existing navigation overlay, including saved mesh triangles, "
@@ -54,12 +81,20 @@ struct NavigationAutomation {
         values["plane"] = {{"type", "integer"},
                            {"enum", {0, 1}},
                            {"description", "0: spatial 3D (default); 1: top-down XY regions."}};
+        values["profile"] = {{"type", "string"},
+                             {"minLength", 1},
+                             {"maxLength", 64},
+                             {"pattern", "^[A-Za-z][A-Za-z0-9_-]*$"},
+                             {"description", "Case-sensitive Scene-local build name; omitted "
+                                             "means default and retains the existing asset ID."}};
         result.push_back(automation_method(
             "navigation.build",
-            "Bake marked static 3D geometry or rectangular XY regions through the existing native "
+            "Bake marked static 3D geometry or selected XY region sources through the existing "
+            "native "
             "worker "
             "and stale-geometry publication check. Settings use the native "
-            "agent/voxel profile and optional dynamic obstacle tiles; poll navigation.status and "
+            "agent/voxel settings, optional named profile and dynamic obstacle tiles; poll "
+            "navigation.status and "
             "assign the asset "
             "with ordinary component/property tools.",
             "assets.write",

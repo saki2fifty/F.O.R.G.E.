@@ -1377,6 +1377,32 @@ for legacy in (False, True):
             selected = next(record for record in records if record['id'] == asset)
             assert selected['schema_version'] == 3 and selected['metadata']['geometry_version'] == 3, selected
             planar_geometry = selected['metadata']['geometry_sha256']
+            # A named build is a separate ordinary asset; default remains untouched.
+            profile_snapshot = dict(selected)
+            profile_settings = dict(settings, profile='Wide_agent', radius=.9)
+            ok('forge_navigation_build', settings=profile_settings)
+            wide = until(lambda: read('forge_navigation_status'), lambda r: not r['busy'])
+            assert not wide['error'] and wide['asset'] != asset, wide
+            assert wide['profiles']['default'] == asset and wide['profiles']['Wide_agent'] == wide['asset'], wide
+            rows = json.loads(index.read_text(encoding='utf-8'))['assets']
+            assert next(row for row in rows if row['id'] == asset) == profile_snapshot
+            unchanged = index.read_bytes()
+            authored = read('forge_scene_read')
+            ok('forge_navigation_select_profile', profile='default')
+            original_profile = read('forge_navigation_status')
+            assert original_profile['asset'] == asset and original_profile['settings'] == planar['settings']
+            ok('forge_navigation_select_profile', profile='Unbuilt')
+            draft = read('forge_navigation_status')
+            assert draft['asset'] is None and draft['settings']['profile'] == 'Unbuilt', draft
+            assert 'Unbuilt' not in draft['profiles'] and index.read_bytes() == unchanged
+            for invalid in ('', '../wide', 'two words', '1wide', 'x' * 65, 7):
+                rejected = mutate('forge_navigation_build', settings=dict(settings, profile=invalid))
+                assert not rejected['ok'] and index.read_bytes() == unchanged, rejected
+                rejected = mutate('forge_navigation_select_profile', profile=invalid)
+                assert not rejected['ok'] and index.read_bytes() == unchanged, rejected
+                assert read('forge_navigation_status') == draft
+            ok('forge_navigation_select_profile', profile='default')
+            assert read('forge_scene_read') == authored and index.read_bytes() == unchanged
             preserved = index.read_bytes()
             for invalid in (-1, 2, .5, 'xy'):
                 rejected = mutate('forge_navigation_build', settings=dict(settings, plane=invalid))
@@ -1421,6 +1447,24 @@ for legacy in (False, True):
             ok('forge_document_save')
             assert cylinder_value() == before
             assert obstacle_width() == 3
+            shared_schema = next(c for c in discovery()['result']['schema']['components']
+                                 if c['id'] == 'forge.navigation_avoidance')
+            shared_field = next(f for f in shared_schema['fields'] if f['id'] == 'shared_group')
+            assert shared_field['default'] == 0 and shared_field['maximum'] == 32 and not shared_field['animatable']
+            shared_holder = ok('forge_entity_create', arguments=dict(name='Shared group authoring sample'))['results'][0]['selected']
+            ok('forge_component_add', arguments=dict(entity=shared_holder, component='forge.navigation_avoidance'))
+            before_shared = read('forge_scene_read')
+            ok('forge_property_set', arguments=dict(entity=shared_holder,
+                component='forge.navigation_avoidance', field='shared_group', value=7))
+            with_shared = read('forge_scene_read')
+            ok('forge_history_undo')
+            assert read('forge_scene_read') == before_shared
+            ok('forge_history_redo')
+            assert read('forge_scene_read') == with_shared
+            for invalid in (-1, 33, .5, 'group'):
+                rejected = mutate('forge_property_set', arguments=dict(entity=shared_holder,
+                    component='forge.navigation_avoidance', field='shared_group', value=invalid))
+                assert not rejected['ok'] and read('forge_scene_read') == with_shared, rejected
             agent = ok('forge_entity_create', arguments=dict(name='Live XY agent'))['results'][0]['selected']
             ok('forge_component_add', arguments=dict(entity=agent, component='forge.navigation_agent'))
             original_goal = read('forge_scene_read')
@@ -1446,6 +1490,9 @@ for legacy in (False, True):
             until(lambda: read('forge_play_status'), lambda r: r['ready'] and r['control_ready'])
             control('forge_play_pause')
             paused = until(lambda: read('forge_play_status'), lambda r: r['paused'] and r['control_ready'])
+            before_profile = read('forge_navigation_status')
+            rejected_profile = mutate('forge_navigation_select_profile', profile='Wide_agent')
+            assert not rejected_profile['ok'] and read('forge_navigation_status') == before_profile
             def runtime_agent():
                 return next(row for row in read('forge_play_snapshot')['entities'] if row['id'] == agent)
             position = runtime_agent()['world_affine']
@@ -1491,6 +1538,7 @@ for legacy in (False, True):
             with editor('read') as (_, read_config), Client(read_config, legacy) as restricted:
                 denied_names = {tool['name'] for tool in restricted.request('tools/list')['result']['tools']}
                 assert 'forge_play_tune' not in denied_names and 'forge_navigation_overlay' not in denied_names
+                assert 'forge_navigation_select_profile' not in denied_names
                 denied = restricted.request('tools/call', dict(name='forge_navigation_overlay', arguments=dict(visible=True)))
                 assert 'error' in denied or denied['result']['isError'], denied
             print(('legacy' if legacy else 'current') + ': navigation ownership, XY profile, live agent validation, keep-values/history and execution grant verified')
