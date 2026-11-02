@@ -127,12 +127,14 @@ Json UiRuntime::snapshot(const Scene& scene, const std::string& session, std::ui
     std::optional<AssetCatalog> catalog;
     bool catalog_requested = false;
     std::set<EntityId> live, documents;
+    auto conditions = scene.state_conditions();
     const auto rows = scene.ui_document_rows();
-    const bool demand = std::any_of(rows.begin(), rows.end(), [](const auto& row) {
+    const bool demand = std::any_of(rows.begin(), rows.end(), [&](const auto& row) {
         const auto& components = row.at("components");
         return !row.value("prefab", false) && components.contains("forge.ui_document") &&
                components.at("forge.ui_document").at("enabled").template get<bool>() &&
-               !components.at("forge.ui_document").at("document").is_null();
+               !components.at("forge.ui_document").at("document").is_null() &&
+               conditions.active(scene.entity(row.at("id").template get<std::string>()).id());
     });
     const auto localization = demand ? scene_localization(scene, rows) : std::nullopt;
     const auto states = demand ? scene_states(scene, rows) : std::nullopt;
@@ -149,7 +151,8 @@ Json UiRuntime::snapshot(const Scene& scene, const std::string& session, std::ui
         if (e.value("prefab", false) || !components.contains("forge.ui_document"))
             continue;
         const auto& c = components.at("forge.ui_document");
-        if (!c.at("enabled").get<bool>() || c.at("document").is_null())
+        if (!c.at("enabled").get<bool>() || c.at("document").is_null() ||
+            !conditions.active(scene.entity(entity.str()).id()))
             continue;
         if (!catalog_requested) {
             catalog_requested = true;
@@ -241,7 +244,8 @@ void UiRuntime::command(Scene& scene, const Json& request,
         !e.has<UiDocument>())
         throw std::runtime_error("UI document no longer exists");
     const auto& d = e.get<UiDocument>();
-    if (!d.enabled || !d.visible || d.document.id != asset)
+    auto conditions = scene.state_conditions();
+    if (!d.enabled || !d.visible || d.document.id != asset || !conditions.active(e.id()))
         throw std::runtime_error("UI document no longer accepts input");
     if (AssetCatalog::open_project(project_).resolve(d.document).state != AssetState::Available)
         throw std::runtime_error("UI document asset is unavailable");

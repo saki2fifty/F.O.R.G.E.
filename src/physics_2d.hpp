@@ -15,6 +15,7 @@ struct PhysicsDebugGeometry;
 class TileMapData;
 class TileSetData;
 class TileMapVariants;
+class ApplicationStateActivation;
 } // namespace forge
 namespace forge::detail {
 struct RuntimeTileMapSnapshot;
@@ -128,7 +129,7 @@ class Native2D {
     explicit Native2D(const PhysicsConfig&);
     ~Native2D();
     void check() const;
-    void retire_destroyed(const flecs::world&);
+    void retire_destroyed(const flecs::world&, ApplicationStateActivation* = nullptr);
     void validate(const Desired2D&, float dt = 0, const std::set<std::uint64_t>& commanded = {},
                   const std::map<std::uint64_t, LocalTransform>& placements = {},
                   const DesiredJoints2D& joints = {}) const;

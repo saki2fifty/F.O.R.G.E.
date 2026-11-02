@@ -1,21 +1,24 @@
 #include "physics_2d_joint.hpp"
 #include "physics_2d.hpp"
 #include "physics_joint_2d_value.hpp"
+#include <forge/application_state_activation.hpp>
 #include <forge/physics.hpp>
 #include <vector>
 
 namespace forge::physics_detail {
 DesiredJoints2D desired_joints_2d(WorldContext& context, const Desired2D& bodies,
                                   std::uint64_t tick) {
+    ApplicationStateActivation conditions(context);
     std::vector<std::pair<std::uint64_t, PhysicsJoint2D>> candidates;
     context.world().query<const PhysicsJoint2D>().each(
         [&](flecs::entity entity, const PhysicsJoint2D& joint) {
             if (joint.enabled) {
-                if (candidates.size() == 4096)
-                    throw std::runtime_error("Combined physics joint capacity4096 exceeded");
                 candidates.emplace_back(entity.id(), joint);
             }
         });
+    std::erase_if(candidates, [&](const auto& row) { return !conditions.active(row.first); });
+    if (candidates.size() > 4096)
+        throw std::runtime_error("Combined physics joint capacity4096 exceeded");
     DesiredJoints2D result;
     for (const auto& [id, value] : candidates) {
         const auto ref = context.reference(id);
@@ -25,6 +28,10 @@ DesiredJoints2D desired_joints_2d(WorldContext& context, const Desired2D& bodies
             if (!ref || context.resolve(*ref).state != WorldContext::ResolveState::Available)
                 throw std::runtime_error("2D joint requires unambiguous authored scene membership");
             const auto a = context.resolve(value.body_a), b = context.resolve(value.body_b);
+            if ((a.state == WorldContext::ResolveState::Available &&
+                 !conditions.active(a.entity)) ||
+                (b.state == WorldContext::ResolveState::Available && !conditions.active(b.entity)))
+                continue;
             if (a.state != WorldContext::ResolveState::Available || !bodies.contains(a.entity))
                 throw std::runtime_error(
                     "2D joint Body A must be an enabled 2D body in a loaded scene");

@@ -1220,3 +1220,26 @@ and pixel-pair receipts remain in the local application-state validation record.
 These prove the stated owners and software rendering only. Full Windows editor,
 MSVC/D3D12, physical input/DPI/GPU and relocated graphical EXE acceptance remain
 queued. Offline manual layout and package inclusion are validated separately.
+
+## State Conditions and Activity Lab controls
+
+`manual/images/state-conditions-game.png` is the actual native Activity Lab UI at
+420x720 with Playing selected. Source is local State Condition development based
+on bb8f5e8, with an unassigned build identity. The original artifact is
+`ui-state-conditions-420-playing-authored.ppm` from
+`application_state_conditions_ui_vulkan`. It uses UiDiligentRenderer, RmlUi,
+FreeType, the packaged Lato font and software Vulkan/lvp.
+
+The fixture runs the real GameSession and state/UI owners. Native pointer controls
+choose Run, Rest, Hide all and Step; each state control leaves the clock unchanged,
+while Step advances it once. Ten desktop/portrait views match a relocated full
+Scene export with editable sources offline. The 1000x900 and 420x720 controls and
+badge, including the scrolled clock controls, were personally reviewed.
+
+The screenshot shows the UI texture and its background. It is not a capture of
+the 3D world or full editor desktop. Unchanged RGB pixels were encoded as PNG
+without cropping, resizing, inserting controls or retouching. Canonical PNG
+SHA-256: `b48bc88ea039aec053fcc2bd907964ecfb27b74d38383a3df55c06482e2d487f`.
+The local State Condition validation record retains exact source/artifact inputs
+and pixel-pair receipts. Physical Windows/MSVC/D3D12, input/DPI/GPU and graphical
+EXE acceptance remain queued; offline manual/package checks are separate.

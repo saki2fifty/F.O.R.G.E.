@@ -112,6 +112,24 @@ void audio_cue_tests(const std::filesystem::path& root) {
     const auto zero = cue("Entry", a, 0);
     cue("Quarter", b, .25);
     const auto end = cue("End", c, 1);
+    for (const auto& target : {controller, zero, source_a}) {
+        Runtime gated(root, scene.snapshot());
+        const auto recorder = std::make_shared<CueRecorder>();
+        gated.engine.services().publish_audio(recorder);
+        configure_application_states(gated.scene.world(), condition_modes());
+        gated.scene.entity(target).set<ApplicationStateGate>({true, "app", "playing"});
+        initialize_application_states(gated.scene.world());
+        gated.simulation.tick(.25f);
+        check(recorder->calls ==
+                  (target == controller ? std::vector<EntityRef>{} : std::vector<EntityRef>{b}),
+              "Inactive sequence, cue or source emitted sound");
+        control_application_states(gated.scene.world(), {{"domain", "app"}, {"state", "playing"}});
+        gated.simulation.tick(.25f);
+        gated.simulation.tick(.75f);
+        check(recorder->calls == (target == controller ? std::vector<EntityRef>{a, b, c}
+                                                       : std::vector<EntityRef>{b, c}),
+              "Cue reactivation replayed a past event or lost future crossings");
+    }
     const auto before = scene.document();
     rejects([&] {
         authoring_command(scene, "property.set",

@@ -8,6 +8,7 @@
 #include <atomic>
 #include <cctype>
 #include <cmath>
+#include <forge/application_state_activation.hpp>
 #include <forge/assets.hpp>
 #include <forge/audio.hpp>
 #include <forge/project_paths.hpp>
@@ -648,6 +649,7 @@ struct AudioRuntime::Impl {
                                                "recover; restart Play if sound does not return.");
         auto scope = world.services().profile("audio", "AudioSync", tick);
         // Read on owner thread only; audio callback sees exclusively miniaudio-owned node state.
+        ApplicationStateActivation conditions(world);
         world.evaluate_world_transforms();
         std::vector<flecs::entity> sources, listeners;
         world.world().each<AudioSource>([&](flecs::entity e, AudioSource&) {
@@ -658,6 +660,8 @@ struct AudioRuntime::Impl {
             if (l.enabled && world.reference(e.id()))
                 listeners.push_back(e);
         });
+        std::erase_if(sources, [&](auto entity) { return !conditions.active(entity.id()); });
+        std::erase_if(listeners, [&](auto entity) { return !conditions.active(entity.id()); });
         std::sort(sources.begin(), sources.end(), [](auto a, auto b) { return a.id() < b.id(); });
         std::sort(listeners.begin(), listeners.end(),
                   [](auto a, auto b) { return a.id() < b.id(); });

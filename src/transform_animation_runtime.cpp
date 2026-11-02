@@ -7,6 +7,7 @@
 #include "bounded_json.hpp"
 #include <algorithm>
 #include <cmath>
+#include <forge/application_state_activation.hpp>
 #include <forge/assets.hpp>
 #include <forge/character_components.hpp>
 #include <forge/derived_cache.hpp>
@@ -102,6 +103,7 @@ void TransformAnimationPlayback::error(flecs::entity_t id, const std::string& te
     context_.services().emit(std::move(diagnostic));
 }
 void TransformAnimationPlayback::synchronize() {
+    ApplicationStateActivation conditions(context_);
     pool_.pump();
     synchronize_sequences();
     pending_ = false;
@@ -109,7 +111,8 @@ void TransformAnimationPlayback::synchronize() {
     std::set<AssetId> used;
     players_.each([&](flecs::entity entity, const TransformAnimator& config) {
         const auto reference = context_.reference(entity.id());
-        if (entity.has(flecs::Prefab) || !reference || !config.enabled || !config.clip.id)
+        if (entity.has(flecs::Prefab) || !reference || !config.enabled || !config.clip.id ||
+            !conditions.active(entity.id()))
             return;
         alive.insert(entity.id());
         if (alive.size() > 256) {
@@ -137,7 +140,8 @@ void TransformAnimationPlayback::synchronize() {
                 if (resolved.state != WorldContext::ResolveState::Available ||
                     !context_.world().entity(resolved.entity).has<AnimationSequence>())
                     throw std::runtime_error("Sequence controller is unavailable in this scene");
-                if (!context_.world().entity(resolved.entity).get<AnimationSequence>().enabled) {
+                if (!context_.world().entity(resolved.entity).get<AnimationSequence>().enabled ||
+                    !conditions.active(resolved.entity)) {
                     alive.erase(entity.id());
                     return;
                 }

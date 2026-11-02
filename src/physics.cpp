@@ -43,6 +43,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <forge/application_state_activation.hpp>
 #include <forge/build.hpp>
 #include <forge/native_sdk_identity.h>
 #include <forge/physics.hpp>
@@ -685,6 +686,7 @@ struct PhysicsRuntime::Impl {
         std::map<std::uint64_t, std::pair<CharacterController, LocalTransform>>;
     CharacterDesired
     desired_characters(const std::map<std::uint64_t, TransformNode>* planned = nullptr) {
+        ApplicationStateActivation conditions(context);
         const auto captured =
             planned ? std::map<std::uint64_t, TransformNode>{} : context.transform_nodes();
         const auto& nodes = planned ? *planned : captured;
@@ -695,6 +697,7 @@ struct PhysicsRuntime::Impl {
             if (c.enabled)
                 candidates.push_back(e.id());
         });
+        std::erase_if(candidates, [&](auto id) { return !conditions.active(id); });
         if (candidates.size() > 1024)
             throw std::runtime_error("Character capacity 1024 exceeded");
         CharacterDesired result;
@@ -939,6 +942,8 @@ struct PhysicsRuntime::Impl {
     std::vector<std::uint64_t> snaps;
     std::vector<PhysicsContact> events;
     std::uint64_t tick = 0;
+    // Adoption receipt only; condition truth remains in native state membership.
+    bool state_activation_pending = false;
     std::filesystem::path project;
     std::shared_ptr<const AssetCatalog> catalog;
     std::unique_ptr<ResourcePool<CollisionAsset>> collision_pool;
@@ -1182,6 +1187,7 @@ struct PhysicsRuntime::Impl {
     }
     using Desired3D = std::map<std::uint64_t, std::pair<Configuration, LocalTransform>>;
     Desired3D desired(const std::map<std::uint64_t, TransformNode>* planned = nullptr) {
+        ApplicationStateActivation conditions(context);
         const auto captured =
             planned ? std::map<std::uint64_t, TransformNode>{} : context.transform_nodes();
         const auto& nodes = planned ? *planned : captured;
@@ -1195,6 +1201,8 @@ struct PhysicsRuntime::Impl {
         });
         // Validation may throw. Do it after the Flecs iterator releases table locks.
         for (auto id : candidates) {
+            if (!conditions.active(id))
+                continue;
             auto e = context.world().entity(id);
             const auto body = e.get<PhysicsBody>();
             if (e.has<CharacterController2D>() && e.get<CharacterController2D>().enabled)
@@ -1215,6 +1223,8 @@ struct PhysicsRuntime::Impl {
                 // Phase 3 already resolves FollowStructure, Explicit, and World boundaries.
                 // Traverse that same graph, including entities without physics components.
                 for (auto parent = nodes.at(id).parent; parent; parent = nodes.at(parent).parent) {
+                    if (!conditions.active(parent))
+                        continue;
                     auto ancestor = context.world().entity(parent);
                     const bool character_ancestor = (ancestor.has<CharacterController>() &&
                                                      ancestor.get<CharacterController>().enabled) ||
@@ -1271,6 +1281,7 @@ struct PhysicsRuntime::Impl {
     }
     using Desired = std::map<std::uint64_t, std::pair<Configuration, LocalTransform>>;
     JointDesiredMap desired_joints(const Desired& desired) {
+        ApplicationStateActivation conditions(context);
         JointDesiredMap result;
         std::vector<std::pair<std::uint64_t, PhysicsJoint>> candidates;
         auto query = context.world().query<const PhysicsJoint>();
@@ -1278,6 +1289,7 @@ struct PhysicsRuntime::Impl {
             if (v.enabled)
                 candidates.emplace_back(e.id(), v);
         });
+        std::erase_if(candidates, [&](const auto& row) { return !conditions.active(row.first); });
         if (candidates.size() > 4096)
             throw std::runtime_error("Physics joint capacity4096 exceeded");
         for (const auto& [id, v] : candidates) {
@@ -1288,6 +1300,11 @@ struct PhysicsRuntime::Impl {
                     throw std::runtime_error(
                         "Joint requires unambiguous authored scene membership");
                 const auto a = context.resolve(v.body_a), b = context.resolve(v.body_b);
+                if ((a.state == WorldContext::ResolveState::Available &&
+                     !conditions.active(a.entity)) ||
+                    (b.state == WorldContext::ResolveState::Available &&
+                     !conditions.active(b.entity)))
+                    continue;
                 if (a.state != WorldContext::ResolveState::Available ||
                     b.state != WorldContext::ResolveState::Available || a.entity == b.entity ||
                     !desired.contains(a.entity) || !desired.contains(b.entity))
@@ -1678,16 +1695,22 @@ void PhysicsRuntime::validate_tile_map_candidate(EntityRef target,
     if (s.native_2d)
         s.native_2d->validate(planar, 0, {}, {}, planar_joints);
 }
-void PhysicsRuntime::retire_destroyed_entities() {
+void PhysicsRuntime::retire_destroyed_entities(bool state_conditions) {
     auto& s = *impl_;
     s.check();
     const auto& world = s.context.world();
     if (ecs_is_deferred(world) || ecs_stage_is_readonly(world))
         throw std::runtime_error("Physics retirement requires the mutable owner boundary");
+    std::optional<ApplicationStateActivation> conditions;
+    if (state_conditions)
+        conditions.emplace(s.context);
+    const auto active = [&](auto id) {
+        return world.is_alive(id) && (!conditions || conditions->active(id));
+    };
     if (s.native_2d)
-        s.native_2d->retire_destroyed(world);
+        s.native_2d->retire_destroyed(world, conditions ? &*conditions : nullptr);
     for (auto it = s.bodies.begin(); it != s.bodies.end();) {
-        if (!world.is_alive(it->first)) {
+        if (!active(it->first)) {
             auto dead = it++;
             s.erase(dead);
         } else
@@ -1695,17 +1718,64 @@ void PhysicsRuntime::retire_destroyed_entities() {
     }
     Impl::JointDesiredMap joints;
     for (const auto& [id, joint] : s.joints)
-        if (world.is_alive(id) && world.is_alive(joint.desired.a) &&
-            world.is_alive(joint.desired.b))
+        if (active(id) && active(joint.desired.a) && active(joint.desired.b))
             joints.emplace(id, joint.desired);
     s.retire_joints(joints);
-    std::erase_if(s.characters, [&](const auto& row) { return !world.is_alive(row.first); });
+    std::erase_if(s.characters, [&](const auto& row) { return !active(row.first); });
     const auto gone = [&](EntityRef ref) {
-        return s.context.resolve(ref).state == WorldContext::ResolveState::Missing;
+        const auto found = s.context.resolve(ref);
+        return found.state == WorldContext::ResolveState::Missing ||
+               (found.state == WorldContext::ResolveState::Available && !active(found.entity));
     };
     std::erase_if(s.commands, [&](const auto& command) { return gone(command.ref); });
     std::erase_if(s.character_commands, [&](const auto& command) { return gone(command.ref); });
     std::erase_if(s.snaps, [&](const auto id) { return !world.is_alive(id); });
+    if (conditions) {
+        // Readiness needs only eligibility/cardinality, not shape construction or
+        // pose adoption. Newly eligible consumers are realized by normal Physics
+        // synchronization; a paused state command must not consume survivor intent.
+        std::vector<std::pair<flecs::entity_t, unsigned>> candidates;
+        const auto collect = [&]<class T>(unsigned kind) {
+            s.context.world().query<const T>().each([&](flecs::entity entity, const T& value) {
+                if (value.enabled)
+                    candidates.emplace_back(entity.id(), kind);
+            });
+        };
+        collect.template operator()<PhysicsBody>(0);
+        collect.template operator()<PhysicsBody2D>(1);
+        collect.template operator()<CharacterController>(2);
+        collect.template operator()<CharacterController2D>(1);
+        struct JointCandidate {
+            flecs::entity_t entity;
+            EntityRef a, b;
+            unsigned kind;
+        };
+        std::vector<JointCandidate> constraints;
+        const auto collect_joints = [&]<class T>(unsigned kind) {
+            s.context.world().query<const T>().each([&](flecs::entity entity, const T& value) {
+                if (value.enabled)
+                    constraints.push_back({entity.id(), value.body_a, value.body_b, kind});
+            });
+        };
+        collect_joints.template operator()<PhysicsJoint>(3);
+        collect_joints.template operator()<PhysicsJoint2D>(4);
+        std::array<std::size_t, 5> eligible{};
+        for (const auto& [id, kind] : candidates)
+            if (active(id))
+                ++eligible[kind];
+        const auto endpoint_active = [&](EntityRef ref) {
+            const auto found = s.context.resolve(ref);
+            return found.state == WorldContext::ResolveState::Available && active(found.entity);
+        };
+        for (const auto& joint : constraints)
+            if (active(joint.entity) && endpoint_active(joint.a) && endpoint_active(joint.b))
+                ++eligible[joint.kind];
+        s.state_activation_pending =
+            eligible != std::array<std::size_t, 5>{s.bodies.size(),
+                                                   s.native_2d ? s.native_2d->size() : 0,
+                                                   s.characters.size(), s.joints.size(),
+                                                   s.native_2d ? s.native_2d->joint_size() : 0};
+    }
 }
 void PhysicsRuntime::synchronize(float dt) {
     auto& s = *impl_;
@@ -1976,6 +2046,7 @@ void PhysicsRuntime::synchronize(float dt) {
     s.realize_joints(desired_joints);
     s.adopt_joint_collision_pairs(std::move(excluded_pairs));
     s.synchronize_characters();
+    s.state_activation_pending = false;
 }
 void PhysicsRuntime::step(float dt) {
     auto& s = *impl_;
@@ -2732,11 +2803,15 @@ Json PhysicsRuntime::status() const {
 }
 bool PhysicsRuntime::checkpoint_ready() const {
     impl_->check();
-    return !impl_->native_2d || impl_->native_2d->checkpoint_ready();
+    return !impl_->state_activation_pending &&
+           (!impl_->native_2d || impl_->native_2d->checkpoint_ready());
 }
 Json PhysicsRuntime::checkpoint() const {
     auto& s = *impl_;
     s.check();
+    if (!checkpoint_ready())
+        throw std::runtime_error(
+            "Physics checkpoint requires adopted state activity and completed events");
     const auto desired = s.desired();
     if (desired.size() != s.bodies.size())
         throw std::runtime_error("Physics checkpoint requires synchronized content; write body "
@@ -3120,6 +3195,7 @@ void PhysicsRuntime::restore(const Json& payload) {
         s.snaps.push_back(entity);
     for (const auto& [entity, b] : desired_2d)
         s.snaps.push_back(entity);
+    s.state_activation_pending = false;
 }
 EngineModule physics_module(PhysicsConfig config, std::filesystem::path root) {
     config.validate();

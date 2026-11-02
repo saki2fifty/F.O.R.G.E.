@@ -148,7 +148,7 @@ RenderScene extract_render_scene(const Json& source) {
         const auto id = row.at("id").get<EntityId>();
         require(identities.insert(id).second, "Presentation contains duplicate entity identities");
         rows.emplace(id, &row);
-        if (row.value("prefab", false))
+        if (row.value("prefab", false) || !row.value("state_active", true))
             continue;
         const auto state = policy.entities.at(id);
         const auto& values = row.at("components");

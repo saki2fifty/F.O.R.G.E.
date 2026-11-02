@@ -22,8 +22,11 @@ void animation_sprite_frame_tests(const std::filesystem::path& scratch) {
         near(sampled[index], time < 1000000 ? 0 : time < 2000000 ? 3 : 1);
     }
     near(clip.sample_properties(500000)[unsigned(AnimationProperty::CameraHeight)], 4);
-    for (const auto value : {-1., .5, 268435456., std::numeric_limits<double>::infinity(),
-                             std::numeric_limits<double>::quiet_NaN()})
+    validate_animation_property(frame, 268435456.);
+    validate_animation_property(frame, double(UINT32_MAX));
+    for (const auto value :
+         {-1., .5, double(UINT32_MAX) + 1., std::numeric_limits<double>::infinity(),
+          std::numeric_limits<double>::quiet_NaN()})
         rejects([&] { validate_animation_property(frame, value); });
     rejects([&] { source.set_property_curve(first, frame, {}); });
     rejects([&] {

@@ -186,6 +186,15 @@ without a project C++ module.
 
 [![Signal Lock puzzle with Cyan and Right selected and an open connection](manual/images/application-states-game.png)](manual/editor/application-states.md)
 
+**State Condition** connects an object's stock activity to current state
+membership and structural parent conditions. Gallery135 **Activity Lab** combines
+animation, physics, particles, source audio and a computed UI badge, with controls
+that also work while paused. Existing enable fields stay authored; each subsystem
+retains its normal disable/re-enable lifecycle. Project C++ systems use explicit
+execution conditions.
+
+[![Activity Lab native controls and computed state badge in a narrow game view](manual/images/state-conditions-game.png)](manual/editor/application-states.md)
+
 Actual native Game UI on software Vulkan. Source-free relocated exports match the
 same views; physical Windows/full editor and graphical EXE review remains pending.
 
@@ -214,7 +223,7 @@ See the [capability checklist and validation limits](docs/mcp.md).
 
 - Model/texture/material/shader importing, cooked resources and dependency-aware, relocatable game export with a standalone SDL/Diligent/RmlUi executable.
 - [Navigation](manual/editor/navigation.md), with local source for [patrol, wait and chase behavior graphs](manual/editor/navigation-behavior.md), shared editor/MCP authoring and ready Gallery131/132 examples; [runtime UI](manual/editor/runtime-ui.md) and the [asset workflow](manual/editor/content-browser.md).
-- [Application States](manual/editor/application-states.md): authored direct/hierarchical/computed/subordinate modes, source and Scene history, runtime-only Game/UI controls, native conditions/events, matching SDK and MCP access, explicit state lifetimes for runtime-created roots, and playable Gallery134. Automatic subsystem gating remains unavailable.
+- [Application States](manual/editor/application-states.md): authored direct/hierarchical/computed/subordinate modes, source and Scene history, runtime-only Game/UI controls, native conditions/events, matching SDK and MCP access, explicit stock activity conditions, runtime-created root lifetimes, and playable Gallery134/135.
 - [Localized game menus and HUDs](manual/editor/ui-localization.md): one Scene language controller, shared source/editor/MCP catalog authoring, literal UTF-8 text, deterministic fallback and paused language controls. Original Gallery133 includes English, French and Spanish. Full shaping and editor translation are separate unsupported capabilities.
 - [Phase8 runtime foundations](docs/game-foundation.md): resource-gated scene sessions, separate versioned player saves/settings, OS user-data storage, collision assets and a Jolt character controller.
 - [Gameplay services](docs/gameplay-services.md): input contexts, player rebinding, bounded gamepad vibration and queued session/save requests through the exact SDK. The [reference game](manual/reference-game.md) exercises menus, first-person movement, interaction, transitions and save/relaunch/load in the standalone host. Editor Play invokes project gameplay through its separate runtime session.

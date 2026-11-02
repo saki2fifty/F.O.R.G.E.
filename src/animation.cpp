@@ -15,6 +15,7 @@
 #include <algorithm>
 #include <cmath>
 #include <forge/animation.hpp>
+#include <forge/application_state_activation.hpp>
 #include <forge/assets.hpp>
 #include <forge/navigation_components.hpp>
 #include <forge/project_paths.hpp>
@@ -28,6 +29,11 @@ namespace forge {
 namespace {
 using namespace animation_detail;
 using namespace asset_detail;
+Animator runtime_animator(flecs::entity entity, ApplicationStateActivation& conditions) {
+    auto value = entity.get<Animator>();
+    value.enabled = value.enabled && conditions.active(entity.id());
+    return value;
+}
 struct AnimationBridge {
     std::weak_ptr<AnimationRuntime> runtime;
 };
@@ -1535,6 +1541,7 @@ struct AnimationRuntime::Impl {
         }
     }
     void synchronize(float fixed_dt = 0, bool preview_command = false) {
+        ApplicationStateActivation conditions(context);
         bool needs_catalog = transforms.has_players();
         if (!model_catalog && !initial_catalog_requested)
             context.world().each([&](const Animator& c) {
@@ -1568,9 +1575,20 @@ struct AnimationRuntime::Impl {
                 used_clips.insert(config.blend_clip.id);
             }
         };
-        context.world().each([&](flecs::entity e, const Animator& config) {
+        context.world().each([&](flecs::entity e, const Animator&) {
             if (e.has(flecs::Prefab) || !context.reference(e.id()))
                 return;
+            auto config = runtime_animator(e, conditions);
+            // A paused resource refresh may retain a previous good selection.
+            // Its cached enable must still stop execution immediately on exit.
+            if (!config.enabled)
+                if (auto old = states.find(e.id());
+                    old != states.end() && old->second.config.enabled) {
+                    old->second.config.enabled = false;
+                    old->second.requested.enabled = false;
+                    old->second.discontinuous = true;
+                    old->second.model_pose_applied = false;
+                }
             alive.insert(e.id());
             if (auto old = states.find(e.id()); old != states.end()) {
                 retain(old->second.config);
@@ -2389,10 +2407,11 @@ bool AnimationRuntime::checkpoint_ready() const {
     if (!impl_->pending.empty() || !impl_->errors.empty() || !impl_->binding_errors.empty() ||
         !impl_->transforms.checkpoint_ready())
         return false;
+    ApplicationStateActivation conditions(impl_->context);
     for (const auto& [id, p] : impl_->states) {
         auto e = impl_->context.world().entity(id);
         if (!e.has<Animator>() ||
-            e.get<Animator>() != ((p.definition || p.space) ? p.requested : p.config))
+            runtime_animator(e, conditions) != ((p.definition || p.space) ? p.requested : p.config))
             return false;
     }
     return true;
@@ -2407,14 +2426,17 @@ Json AnimationRuntime::checkpoint() const {
     if (impl_ && !impl_->binding_errors.empty())
         throw ArchiveError("Cannot checkpoint an Animator with invalid model instance binding");
     auto entries = Json::array();
+    std::optional<ApplicationStateActivation> conditions;
+    if (impl_)
+        conditions.emplace(impl_->context);
     if (impl_)
         for (const auto& [id, p] : impl_->states) {
             if (impl_->errors.contains(id))
                 throw ArchiveError(
                     "Cannot checkpoint an Animator with invalid asset configuration");
             auto actor = impl_->context.world().entity(id);
-            if (!actor.has<Animator>() ||
-                actor.get<Animator>() != ((p.definition || p.space) ? p.requested : p.config))
+            if (!actor.has<Animator>() || runtime_animator(actor, *conditions) !=
+                                              ((p.definition || p.space) ? p.requested : p.config))
                 return nullptr;
             entries.push_back(
                 {{"entity", p.reference},

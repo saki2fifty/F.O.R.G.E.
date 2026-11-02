@@ -10,6 +10,12 @@ namespace forge {
 struct RuntimePropertyTune {
     EntityRef target;
     std::string type, property;
+    static bool state_condition_type(std::string_view type) {
+        return type == "forge.application_state_gate";
+    }
+    static bool state_condition_property(std::string_view property) {
+        return property == "enabled" || property == "domain" || property == "state";
+    }
     static bool ui_localization_type(std::string_view type) {
         return type == "forge.ui_localization";
     }

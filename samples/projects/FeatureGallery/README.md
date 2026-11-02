@@ -1,5 +1,25 @@
 # Feature Gallery
 
+## Activity Lab: State Conditions
+
+Open **Scenes/135-state-activity.scene.json**, press Play and capture gameplay
+input. **Run** activates a spinning cube, falling physics body, particles, a quiet
+tone and a computed UI badge. **Rest** keeps the structural group's marker and
+disables its nested activity. **Hide all** disables the whole group. Controls and
+the camera stay available. State buttons work while paused; **Step** admits newly
+eligible physics bodies without resuming the clock.
+
+Select **Activity group - structural condition** or a child to inspect **State
+Condition**. The falling body's World spatial binding still follows its parent's
+structural condition. Existing enable fields stay authored. The badge uses the
+computed `badge:visible` state; the other nested activity uses `app:playing`.
+The `app:game` ancestor keeps the marker visible during both Run and Rest.
+
+No project C++ module is needed. State definition, rotation clip and UI source
+are in **Assets/UI/StateActivity/**. Stop Play before editing and publishing them,
+save the Scene, then export. Future-active dependencies remain in the exported
+game. See the [State Conditions guide](../../../manual/editor/application-states.md).
+
 ## Signal Lock: application states
 
 Open **Scenes/134-signal-lock.scene.json** and press Play. Capture gameplay input,
@@ -12,7 +32,7 @@ shared Game parent, subordinate signal/route choices and computed connection.
 RML and RCSS beside it provide the playable menu. No C++ module is required.
 Stop Play, open the definition in Content, edit and Save / Publish, then save the
 Scene before export. The Game panel's Application states selectors use the same
-runtime owner. See the [Application States guide](../../../../manual/editor/application-states.md).
+runtime owner. See the [Application States guide](../../../manual/editor/application-states.md).
 
 ## Localized menus and HUDs
 
@@ -29,7 +49,7 @@ coverage. Stop restores the authored value. No project C++ module is required.
 Edit **Assets/UI/Localization/Messages.localization.json** through Content's UI
 Localization document, Save / Publish, save the Scene and restart Play. RML and
 RCSS live beside it. The saved example exports its selected cooked catalog without
-editable table source. See the [localization guide](../../../../manual/editor/ui-localization.md)
+editable table source. See the [localization guide](../../../manual/editor/ui-localization.md)
 for language/key limits, fallback, font coverage and player-preference behavior.
 
 ## Navigation behavior graphs

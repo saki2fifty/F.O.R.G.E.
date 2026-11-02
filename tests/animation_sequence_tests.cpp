@@ -4,6 +4,8 @@
 #include <chrono>
 #include <cmath>
 #include <forge/animation.hpp>
+#include <forge/application_state_components.hpp>
+#include <forge/application_states.hpp>
 #include <forge/authoring.hpp>
 #include <forge/prefab_authoring.hpp>
 #include <forge/render_scene.hpp>
@@ -14,6 +16,9 @@
 #include <thread>
 using namespace forge;
 namespace {
+ApplicationStatesDefinition condition_modes() {
+    return {{{"app", "", "menu", {{"menu", "", ""}, {"playing", "", ""}}, false, {}, {}}}};
+}
 void check(bool value, const char* message) {
     if (!value)
         throw std::runtime_error(message);
@@ -367,6 +372,17 @@ void camera_shots(const std::filesystem::path& root) {
               "Camera selection wrote native/authored enabled values");
         return render.cameras.front().entity.str();
     };
+    for (const auto& target : {controller, first}) {
+        Runtime gated(root, source);
+        configure_application_states(gated.scene.world(), condition_modes());
+        gated.scene.entity(target).set<ApplicationStateGate>({true, "app", "playing"});
+        initialize_application_states(gated.scene.world());
+        check(shown(gated) == fallback, "Inactive sequence or shot retained its camera override");
+        control_application_states(gated.scene.world(), {{"domain", "app"}, {"state", "playing"}});
+        check(shown(gated) == a, "Camera shot did not activate at the existing sequence boundary");
+        control_application_states(gated.scene.world(), {{"domain", "app"}, {"state", "menu"}});
+        check(shown(gated) == fallback, "Camera override survived condition exit");
+    }
     check(shown(live) == a, "Initial camera shot is incorrect");
     live.simulation.tick(.75f);
     live.simulation.tick(.5f);
@@ -583,6 +599,28 @@ int main(int argc, char** argv) {
             }
         clock_policy(root, source, controller, moving);
         held_boundary(root, source, moving, held);
+        {
+            Runtime gated(root, source);
+            configure_application_states(gated.scene.world(), condition_modes());
+            gated.scene.entity(controller).set<ApplicationStateGate>({true, "app", "playing"});
+            initialize_application_states(gated.scene.world());
+            gated.simulation.tick(.25f);
+            near(gated.scene.entity(moving).get<LocalTranslation>().x, 0);
+            near(gated.scene.entity(lighting).get<Light>().intensity, 1);
+            control_application_states(gated.scene.world(),
+                                       {{"domain", "app"}, {"state", "playing"}});
+            for (unsigned i = 0; i < 5; ++i)
+                gated.simulation.tick(.25f);
+            near(gated.scene.entity(moving).get<LocalTranslation>().x, 3);
+            control_application_states(gated.scene.world(), {{"domain", "app"}, {"state", "menu"}});
+            const auto held = gated.scene.entity(moving).get<LocalTranslation>();
+            gated.simulation.tick(.25f);
+            check(gated.scene.entity(moving).get<LocalTranslation>() == held &&
+                      gated.scene.entity(controller).get<AnimationSequence>().enabled &&
+                      gated.animation->checkpoint_ready(),
+                  "Inactive sequence advanced bound tracks, changed enable, or lost recovery "
+                  "admission");
+        }
         Runtime runtime(root, source);
         check(AnimationPlaybackAccess::status(*runtime.animation, ref)
                   .value("sequence_controller", false),

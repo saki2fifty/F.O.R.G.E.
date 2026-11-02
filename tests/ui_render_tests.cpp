@@ -79,8 +79,10 @@ int main(int argc, char** argv) {
     try {
         const bool states_only =
             argc == 5 && std::string_view(argv[4]) == "--application-states-only";
-        require(argc == 3 || argc == 4 || states_only,
-                "Need image output, font, optional Gallery and --application-states-only");
+        const bool conditions_only =
+            argc == 5 && std::string_view(argv[4]) == "--state-conditions-only";
+        require(argc == 3 || argc == 4 || states_only || conditions_only,
+                "Need image output, font, optional Gallery and application-state profile");
         const std::filesystem::path images(argv[1]);
         std::filesystem::create_directories(images);
 #ifdef FORGE_UI_VULKAN_TEST
@@ -117,9 +119,9 @@ int main(int argc, char** argv) {
 #endif
 
         forge::UiDiligentRenderer renderer(device);
-        if (states_only) {
+        if (states_only || conditions_only) {
             forge::test_state_gallery_pixels::exercise(device, context, renderer, images, argv[2],
-                                                       argv[3], readback, save);
+                                                       argv[3], readback, save, conditions_only);
             context->WaitForIdle();
             std::cout << "Native application state Game UI and relocated source-free pixel pairs "
                          "passed\n";

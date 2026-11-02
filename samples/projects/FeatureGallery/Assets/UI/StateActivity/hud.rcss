@@ -1,0 +1,12 @@
+body,div,p,h1,h2 { display: block; }
+body { width: 100%; height: 100%; margin: 0; font-family: Lato; font-size: 17px; color: #e7f0f4; pointer-events: none; }
+#panel { position: absolute; top: 22px; left: 22px; width: 88%; max-width: 330px; max-height: 60%; box-sizing: border-box; overflow: auto; padding: 20px; background-color: #122a35ec; border-radius: 12px; pointer-events: auto; }
+h1 { font-size: 34px; margin: 5px 0 12px; color: #ffffff; } h2 { font-size: 23px; margin: 7px 0; }
+p { margin: 10px 0; line-height: 1.35; } .eyebrow { color: #78d9df; font-size: 12px; letter-spacing: 1px; }
+.mode { color: #9ef0c3; font-size: 20px; } .small { font-size: 14px; color: #b5c9d3; }
+button { color: #ffffff; background-color: #285366; padding: 9px 12px; margin: 3px 3px 3px 0; border-radius: 5px; }
+button:hover { background-color: #35798c; } #run { background-color: #247759; }
+.rule { height: 1px; background-color: #46707d; margin: 14px 0; }
+#activity-badge { position: absolute; bottom: 22px; right: 22px; width: 80%; max-width: 276px; box-sizing: border-box; padding: 18px; background-color: #174c46ee; border-radius: 10px; }
+scrollbarvertical { width: 12px; background-color: #17333f; }
+scrollbarvertical sliderbar { background-color: #4b7d89; }

@@ -223,6 +223,41 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "0545bffd-1bc1-4c09-a525-a815d6c6e3bc",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "b1e86f88d710ff75184f02f9681986b18c3672c2b4e04b7ace53ebe15e2dd1f6",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.animation.transform",
+          "importer_revision": "forge.animation.transform.v12",
+          "key": "32ee37611e72b1e2e89d980c5c6360ece49dd010957adcc758171ae6221e60be",
+          "output_format": "forge.transform-clip",
+          "output_version": 9,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "a7c7a2c2625c7328111bd2e70fbae91c9038ae3b17332dbc0bbf3c010768cd53",
+          "source_digest": "e7fa97b4560cbc99e8e40b441ab8c992a009458a7bf782eab5cf185ebebd4ccf",
+          "version": 1
+        },
+        "forge.transform_animation": {
+          "bytes": 759,
+          "file": "animation.clip",
+          "sha256": "dfa9c96a245d3a9d68ab2cab4c7df549788522a96205198f1b5bf2136ae1b3a1",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/UI/StateActivity/Spin.animation.json",
+      "source_dependencies": [],
+      "type": "transform_animation"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "05d415bb-4950-40d9-b991-9fbfffc92827",
       "metadata": {},
       "schema_version": 3,
@@ -1328,6 +1363,43 @@
         "removed": false
       },
       "type": "model_node"
+    },
+    {
+      "dependencies": [
+        "cf8130ea-5707-491c-90e9-a371c5ed9039"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "",
+          "role": "ui.automatic",
+          "target": "cf8130ea-5707-491c-90e9-a371c5ed9039",
+          "type": "ui_stylesheet"
+        }
+      ],
+      "id": "133ba3f8-c40d-4935-ab35-3a8943a4de55",
+      "metadata": {
+        "forge.ui_source": {
+          "bytes": 227,
+          "digest": "922d7bada16635b860010f25a5f03887b3725136e6fffd64c51e2bbb565daccb",
+          "format": "rml"
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/UI/StateActivity/badge.rml",
+      "source_dependencies": [
+        {
+          "revision": "922d7bada16635b860010f25a5f03887b3725136e6fffd64c51e2bbb565daccb",
+          "role": "ui.source",
+          "source": "Assets/UI/StateActivity/badge.rml"
+        },
+        {
+          "revision": "957c8eee5ec7c802746325f763fb102b38ae35082f45998d8cde91fe2d8f0386",
+          "role": "ui.observed",
+          "source": "Assets/UI/StateActivity/hud.rcss"
+        }
+      ],
+      "type": "ui_document"
     },
     {
       "dependencies": [],
@@ -2751,6 +2823,43 @@
         "removed": false
       },
       "type": "animation_clip"
+    },
+    {
+      "dependencies": [
+        "cf8130ea-5707-491c-90e9-a371c5ed9039"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "",
+          "role": "ui.automatic",
+          "target": "cf8130ea-5707-491c-90e9-a371c5ed9039",
+          "type": "ui_stylesheet"
+        }
+      ],
+      "id": "29266647-b6f2-4297-b193-2b65b1044738",
+      "metadata": {
+        "forge.ui_source": {
+          "bytes": 1193,
+          "digest": "245f160e008729eba1248a24af0d40fcc2944b260dcf105c22664409568e578d",
+          "format": "rml"
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/UI/StateActivity/hud.rml",
+      "source_dependencies": [
+        {
+          "revision": "957c8eee5ec7c802746325f763fb102b38ae35082f45998d8cde91fe2d8f0386",
+          "role": "ui.observed",
+          "source": "Assets/UI/StateActivity/hud.rcss"
+        },
+        {
+          "revision": "245f160e008729eba1248a24af0d40fcc2944b260dcf105c22664409568e578d",
+          "role": "ui.source",
+          "source": "Assets/UI/StateActivity/hud.rml"
+        }
+      ],
+      "type": "ui_document"
     },
     {
       "dependencies": [],
@@ -10732,6 +10841,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "c8c1b823-1c68-47a9-9728-fa85367efca9",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/135-state-activity.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "c94f7ad7-c2cf-4e7e-89f7-d32e20294036",
       "metadata": {},
       "schema_version": 5,
@@ -10959,6 +11078,28 @@
       "source": "Assets/Tiles/GlowShapes.tileset.json",
       "source_dependencies": [],
       "type": "tile_set"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "cf8130ea-5707-491c-90e9-a371c5ed9039",
+      "metadata": {
+        "forge.ui_source": {
+          "bytes": 1249,
+          "digest": "957c8eee5ec7c802746325f763fb102b38ae35082f45998d8cde91fe2d8f0386",
+          "format": "rcss"
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/UI/StateActivity/hud.rcss",
+      "source_dependencies": [
+        {
+          "revision": "957c8eee5ec7c802746325f763fb102b38ae35082f45998d8cde91fe2d8f0386",
+          "role": "ui.source",
+          "source": "Assets/UI/StateActivity/hud.rcss"
+        }
+      ],
+      "type": "ui_stylesheet"
     },
     {
       "dependencies": [],
@@ -11632,6 +11773,41 @@
         }
       ],
       "type": "ui_document"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "de0bbbad-1e4f-46e7-84e8-8faf8daa10c0",
+      "metadata": {
+        "forge.application_states": {
+          "bytes": 544,
+          "file": "application-states.json",
+          "sha256": "e48e0111d280ee239712ea725479f1def9e54f00a7e9279be26b4b2009f69998",
+          "version": 1
+        },
+        "forge.import": {
+          "artifact_digest": "78c8b39941f0ba35341fce668ba7ff570f238adbd33a6d59f08fb4bbf7a6e291",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.application.states",
+          "importer_revision": "forge.application.states.v1",
+          "key": "5566f7481f4b768e9df76dcb33395213fb730c94790fe4379a83c0ad520d7ecf",
+          "output_format": "forge.application-states",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "411e4d0df82560c72b92027b71df4295a3886a99343754f548a2fb76f5a1467a",
+          "source_digest": "97556e2c914b16410c42f7499a658bb0fc1f161776f44bde436f9a4afbdd7a78",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/UI/StateActivity/Activity.appstates.json",
+      "source_dependencies": [],
+      "type": "application_states"
     },
     {
       "dependencies": [],

@@ -2,16 +2,18 @@
 #include "transform_animation_runtime.hpp"
 #include <algorithm>
 #include <cmath>
+#include <forge/application_state_activation.hpp>
 #include <forge/audio_components.hpp>
 #include <forge/render_components.hpp>
 #include <stdexcept>
 #include <tuple>
 namespace forge {
 void TransformAnimationPlayback::synchronize_sequences() {
+    ApplicationStateActivation conditions(context_);
     std::set<flecs::entity_t> alive;
     sequences_.each([&](flecs::entity entity, const AnimationSequence& config) {
         const auto ref = context_.reference(entity.id());
-        if (entity.has(flecs::Prefab) || !ref || !config.enabled)
+        if (entity.has(flecs::Prefab) || !ref || !config.enabled || !conditions.active(entity.id()))
             return;
         alive.insert(entity.id());
         try {
@@ -193,6 +195,7 @@ flecs::entity_t scene_membership(flecs::entity entity) {
 }
 } // namespace
 void TransformAnimationPlayback::synchronize_camera_shots() {
+    ApplicationStateActivation conditions(context_);
     const auto previous_errors = std::move(shot_errors_);
     shot_errors_.clear();
     std::map<flecs::entity_t, std::vector<Shot>> candidate;
@@ -200,7 +203,8 @@ void TransformAnimationPlayback::synchronize_camera_shots() {
     std::size_t count = 0;
     camera_shots_.each([&](flecs::entity entity, const CameraShot& config) {
         const auto ref = context_.reference(entity.id());
-        if (entity.has(flecs::Prefab) || !ref || !config.enabled || !config.sequence.entity)
+        if (entity.has(flecs::Prefab) || !ref || !config.enabled || !config.sequence.entity ||
+            !conditions.active(entity.id()))
             return;
         const auto membership = scene_membership(entity);
         try {
@@ -211,7 +215,7 @@ void TransformAnimationPlayback::synchronize_camera_shots() {
                 !context_.world().entity(resolved.entity).has<AnimationSequence>())
                 throw std::runtime_error("Camera Shot sequence is unavailable in this Scene");
             const auto controller = context_.world().entity(resolved.entity);
-            if (!controller.get<AnimationSequence>().enabled)
+            if (!controller.get<AnimationSequence>().enabled || !conditions.active(controller.id()))
                 return;
             if (!sequence_states_.contains(resolved.entity) ||
                 sequence_errors_.contains(resolved.entity))
@@ -317,6 +321,7 @@ void TransformAnimationPlayback::cue_error(Cue& cue, const std::string& text, bo
     context_.services().emit(std::move(diagnostic));
 }
 void TransformAnimationPlayback::synchronize_audio_cues() {
+    ApplicationStateActivation conditions(context_);
     // This is a total component budget, including unbound/disabled authored cues.
     if (audio_cues_.count() > 256) {
         cue_states_.clear();
@@ -333,7 +338,7 @@ void TransformAnimationPlayback::synchronize_audio_cues() {
     std::set<flecs::entity_t> alive;
     audio_cues_.each([&](flecs::entity entity, const AudioCue& config) {
         const auto reference = context_.reference(entity.id());
-        if (entity.has(flecs::Prefab) || !reference)
+        if (entity.has(flecs::Prefab) || !reference || !conditions.active(entity.id()))
             return;
         alive.insert(entity.id());
         auto& cue = cue_states_[entity.id()];
@@ -376,6 +381,8 @@ void TransformAnimationPlayback::synchronize_audio_cues() {
             if (!controller.has<AnimationSequence>() || !actor.has<AudioSource>())
                 throw std::runtime_error(
                     "Audio Cue requires an Animation Sequence and an Audio Source");
+            if (!conditions.active(controller.id()) || !conditions.active(actor.id()))
+                return;
             if (!sequence_states_.contains(controller.id()) ||
                 sequence_errors_.contains(controller.id())) {
                 if (cue.binding_error)

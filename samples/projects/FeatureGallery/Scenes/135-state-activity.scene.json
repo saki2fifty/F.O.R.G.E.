@@ -1,0 +1,597 @@
+{
+  "asset_id": "c8c1b823-1c68-47a9-9728-fa85367efca9",
+  "entities": [
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 1.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.tint": {
+          "b": 0.699999988079071,
+          "g": 0.6000000238418579,
+          "r": 0.20000000298023224
+        },
+        "forge.ui_document": {
+          "document": "29266647-b6f2-4297-b193-2b65b1044738",
+          "enabled": true,
+          "layer": 0,
+          "visible": true
+        }
+      },
+      "id": "59d1f646-ae83-46ac-96be-bde487d55616",
+      "name": "Activity controls - always available",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.application_states": {
+          "definition": "de0bbbad-1e4f-46e7-84e8-8faf8daa10c0"
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 1.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.tint": {
+          "b": 0.699999988079071,
+          "g": 0.6000000238418579,
+          "r": 0.20000000298023224
+        }
+      },
+      "id": "ad2244d0-73e3-4a50-89e1-293418ea606c",
+      "name": "Activity modes - inspect Application States",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 0.0,
+          "background_a": 1.0,
+          "background_b": 0.029999999329447746,
+          "background_g": 0.02500000037252903,
+          "background_r": 0.019999999552965164,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 1000.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 10.0,
+          "orthographic_width": 0.0,
+          "projection": 0,
+          "vertical_fov": 1.0471975511965976,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 0.9914448857307434,
+          "x": 0.13052618503570557,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 5.0,
+          "z": -14.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.tint": {
+          "b": 0.699999988079071,
+          "g": 0.6000000238418579,
+          "r": 0.20000000298023224
+        }
+      },
+      "id": "c71e9599-2f02-46df-ac68-13f22fbed709",
+      "name": "Game camera",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.light": {
+          "basis": 0,
+          "cast_shadows": false,
+          "color_b": 1.0,
+          "color_g": 1.0,
+          "color_r": 1.0,
+          "emitter_height": 1.0,
+          "emitter_radius": 0.5,
+          "emitter_width": 1.0,
+          "enabled": true,
+          "image_height": 1.0,
+          "image_tiled": false,
+          "image_width": 1.0,
+          "inner_cone": 0.0,
+          "intensity": 1.0,
+          "kind": 0,
+          "layers": 4294967295,
+          "outer_cone": 0.7853981633974483,
+          "range": 0.0,
+          "shadow_angular_radius": 0.0,
+          "shadow_bias": 0.0010000000474974513,
+          "shadow_normal_bias": 0.019999999552965164,
+          "shadow_source_radius": 0.0,
+          "texture": null
+        },
+        "forge.local_rotation": {
+          "w": 0.901979923248291,
+          "x": 0.37361231446266174,
+          "y": -0.19996413588523865,
+          "z": 0.0828278511762619
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 1.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.tint": {
+          "b": 0.699999988079071,
+          "g": 0.6000000238418579,
+          "r": 0.20000000298023224
+        }
+      },
+      "id": "0993fa01-c737-476f-9659-deabac2ab844",
+      "name": "Sun",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.box_collider": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 14.0,
+          "y": 0.5,
+          "z": 8.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": -0.25,
+          "z": 0.0
+        },
+        "forge.physics_body": {
+          "allow_sleeping": true,
+          "angular_damping": 0.05000000074505806,
+          "continuous_collision": false,
+          "density": 1000.0,
+          "enabled": true,
+          "friction": 0.5,
+          "gravity_factor": 1.0,
+          "layer": 0,
+          "linear_damping": 0.05000000074505806,
+          "mask": 4294967295,
+          "mass": 0.0,
+          "max_angular_velocity": 2700.0,
+          "max_linear_velocity": 500.0,
+          "motion": 0,
+          "restitution": 0.0,
+          "sensor": false
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.28999999165534973,
+          "g": 0.23000000417232513,
+          "r": 0.1599999964237213
+        }
+      },
+      "id": "8f762418-07bc-4492-b70f-46cd2ee79d70",
+      "name": "Floor",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.application_state_gate": {
+          "domain": "app",
+          "enabled": true,
+          "state": "game"
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.tint": {
+          "b": 0.699999988079071,
+          "g": 0.6000000238418579,
+          "r": 0.20000000298023224
+        }
+      },
+      "id": "abd81166-e144-4d8b-b05a-8f9116419dce",
+      "name": "Activity group - structural condition",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 5.0,
+          "y": 0.30000001192092896,
+          "z": 2.0
+        },
+        "forge.local_translation": {
+          "x": 2.0,
+          "y": 0.15000000596046448,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.6399999856948853,
+          "g": 0.6499999761581421,
+          "r": 0.15000000596046448
+        }
+      },
+      "id": "241ef01f-2fc2-4a17-8da3-9ec866f8c23c",
+      "name": "Group marker - visible during Rest",
+      "parent": "abd81166-e144-4d8b-b05a-8f9116419dce",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.application_state_gate": {
+          "domain": "app",
+          "enabled": true,
+          "state": "playing"
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 1.0,
+          "y": 1.5,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 1.0,
+          "g": 0.6499999761581421,
+          "r": 0.20000000298023224
+        },
+        "forge.transform_animator": {
+          "clip": "0545bffd-1bc1-4c09-a525-a815d6c6e3bc",
+          "enabled": true,
+          "loop": true,
+          "play_on_start": true,
+          "playback_speed": 1.0,
+          "sequence": null,
+          "sequence_start_seconds": 0.0
+        }
+      },
+      "id": "ac431f75-e53f-4c0c-a3c9-b9c787190ade",
+      "name": "Spinning cube - inspect State Condition",
+      "parent": "abd81166-e144-4d8b-b05a-8f9116419dce",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.application_state_gate": {
+          "domain": "app",
+          "enabled": true,
+          "state": "playing"
+        },
+        "forge.box_collider": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 3.5,
+          "y": 4.0,
+          "z": 0.0
+        },
+        "forge.physics_body": {
+          "allow_sleeping": true,
+          "angular_damping": 0.05000000074505806,
+          "continuous_collision": false,
+          "density": 1000.0,
+          "enabled": true,
+          "friction": 0.5,
+          "gravity_factor": 1.0,
+          "layer": 0,
+          "linear_damping": 0.05000000074505806,
+          "mask": 4294967295,
+          "mass": 0.0,
+          "max_angular_velocity": 2700.0,
+          "max_linear_velocity": 500.0,
+          "motion": 2,
+          "restitution": 0.6499999761581421,
+          "sensor": false
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.18000000715255737,
+          "g": 0.5,
+          "r": 1.0
+        }
+      },
+      "id": "4d333696-c971-4961-9d77-cd39e9445763",
+      "name": "Falling body - World space follows structural condition",
+      "parent": "abd81166-e144-4d8b-b05a-8f9116419dce",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.application_state_gate": {
+          "domain": "app",
+          "enabled": true,
+          "state": "playing"
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 5.0,
+          "y": 0.3499999940395355,
+          "z": 0.0
+        },
+        "forge.particle_emitter": {
+          "effect": "ee1e6b13-61f0-4ccf-90e9-5bf7facf5cfe",
+          "enabled": true,
+          "layers": 4294967295,
+          "playback_speed": 1.0,
+          "seed": 1,
+          "size_multiplier": 1.0,
+          "tint_b": 1.0,
+          "tint_g": 1.0,
+          "tint_r": 1.0,
+          "visible": true
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.tint": {
+          "b": 0.699999988079071,
+          "g": 0.6000000238418579,
+          "r": 0.20000000298023224
+        }
+      },
+      "id": "69bb1de2-66d0-4a83-91c2-a85563d14c71",
+      "name": "Fountain - starts again on activation",
+      "parent": "abd81166-e144-4d8b-b05a-8f9116419dce",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.application_state_gate": {
+          "domain": "app",
+          "enabled": true,
+          "state": "playing"
+        },
+        "forge.audio_source": {
+          "attenuation": 0,
+          "bus": 0,
+          "clip": "327101c1-e496-4293-b830-4c25b978607a",
+          "cone_enabled": false,
+          "doppler": 0.0,
+          "echo_enabled": false,
+          "echo_feedback": 0.3499999940395355,
+          "echo_seconds": 0.25,
+          "gain": 0.07999999821186066,
+          "high_pass_enabled": false,
+          "high_pass_hz": 20.0,
+          "inner_angle": 60.0,
+          "loop": true,
+          "low_pass_enabled": false,
+          "low_pass_hz": 20000.0,
+          "maximum_distance": 100.0,
+          "minimum_distance": 1.0,
+          "outer_angle": 120.0,
+          "outer_gain": 0.25,
+          "pause_with_game": true,
+          "pitch": 1.0,
+          "play_on_start": true,
+          "rolloff": 1.0,
+          "spatialized": false
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 1.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.tint": {
+          "b": 0.699999988079071,
+          "g": 0.6000000238418579,
+          "r": 0.20000000298023224
+        }
+      },
+      "id": "fce46e82-8b38-4821-9352-c1637bfb7d8f",
+      "name": "Activity tone",
+      "parent": "abd81166-e144-4d8b-b05a-8f9116419dce",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.application_state_gate": {
+          "domain": "badge",
+          "enabled": true,
+          "state": "visible"
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 1.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.tint": {
+          "b": 0.699999988079071,
+          "g": 0.6000000238418579,
+          "r": 0.20000000298023224
+        },
+        "forge.ui_document": {
+          "document": "133ba3f8-c40d-4935-ab35-3a8943a4de55",
+          "enabled": true,
+          "layer": 1,
+          "visible": true
+        }
+      },
+      "id": "49159ef1-f0a4-4cc3-970b-bbcb85e84699",
+      "name": "Computed activity badge",
+      "parent": "abd81166-e144-4d8b-b05a-8f9116419dce",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    }
+  ],
+  "version": 3
+}

@@ -35,6 +35,7 @@ These classifications describe supported ownership, not a promise of permanent C
 | NavigationService / NavResult | C; B bounded query subset | Projection/path, explicit NavStatus, caller-owned output. Detour mesh/corridor/query objects D. |
 | UiDocument | A authored; B values | Document AssetId, enabled/visible/layer. DOM/focus/model queues are not authored state. |
 | ApplicationStates | A authored; B exact C++ value/ECS helpers | Typed definition AssetRef. Runtime-owned Exclusive active and pending pairs; derived membership, owning lifecycle values and registration-free native reads. Queue requests through available Game capability; no new C table layout. |
+| ApplicationStateGate | A authored; B exact C++ value | Optional enable/domain/state value with owning strings; same matching lifecycle/toolchain/CRT boundary. Stock eligibility composes native state membership and structural ancestry. Host-only ApplicationStateActivation is C, not an exported SDK service or persisted active database. |
 | UiLocalization | A authored; B exact C++ values | Typed catalog AssetRef and owning std::string locale; shared matching Flecs lifecycle/toolchain/CRT. Component is the Scene locale authority. No memcpy, borrowed mutable string buffer or stable C string ABI. |
 | UiService | C; B number/action subset | Runtime copied model and allowlisted commands. No RmlUi type or presentation pointer. |
 | UiPresenter / UiDiligentRenderer / SDL input adapter | C/D | Reusable presenter + explicit host adapters; no binary gameplay access. |

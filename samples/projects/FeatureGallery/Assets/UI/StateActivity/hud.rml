@@ -1,0 +1,15 @@
+<rml><head><link type="text/rcss" href="hud.rcss"/></head><body>
+<div id="panel"><p class="eyebrow">FORGE / STATE CONDITIONS</p><h1>Activity Lab</h1>
+<p>One structural group. Independent runtime systems.</p>
+<p class="mode">Mode: {{forge_state_app}}</p>
+<button id="run" data-event-click="command('forge.state', 'app:playing:' + forge_rev_app)">Run</button>
+<button id="rest" data-event-click="command('forge.state', 'app:rest:' + forge_rev_app)">Rest</button>
+<button id="hide" data-event-click="command('forge.state', 'app:menu:' + forge_rev_app)">Hide all</button>
+<div class="rule"></div><p><b>Run</b> activates the spinning cube, falling body, particles, sound and badge.</p>
+<p><b>Rest</b> keeps the group marker. <b>Hide all</b> disables the complete group.</p>
+<p class="small">Select an object in the editor to inspect its State Condition. The authored enable fields stay unchanged.</p>
+<p class="small">Game paused: {{paused}} / Fixed tick: {{tick}}</p>
+<button id="pause" data-event-click="command('Pause')">Pause</button>
+<button id="resume" data-event-click="command('Resume')">Resume</button>
+<button id="step" data-event-click="command('Step')">Step</button>
+</div></body></rml>

@@ -1,0 +1,35 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [],
+    "importer": "forge.application.states",
+    "importer_revision": "forge.application.states.v1",
+    "key_version": 1,
+    "output_format": "forge.application-states",
+    "output_version": 1,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {},
+    "settings_version": 1,
+    "source": "97556e2c914b16410c42f7499a658bb0fc1f161776f44bde436f9a4afbdd7a78",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.application-states.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "de0bbbad-1e4f-46e7-84e8-8faf8daa10c0",
+    "source": "Assets/UI/StateActivity/Activity.appstates.json",
+    "source_digest": "97556e2c914b16410c42f7499a658bb0fc1f161776f44bde436f9a4afbdd7a78",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.application.states",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

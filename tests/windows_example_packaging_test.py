@@ -2,6 +2,7 @@
 import errno
 import hashlib
 import json
+import re
 from pathlib import Path
 import shutil
 import struct
@@ -51,6 +52,13 @@ class GalleryPackageTest(unittest.TestCase):
                    b'# Package test\n\n![Editor](images/scene-editor.png)\n')
         self.manual_image = (SOURCE/'manual/images/scene-editor.png').read_bytes()
         self.write(self.source/'manual/images/scene-editor.png', self.manual_image)
+        self.manual_links = re.findall(r'\]\((\.\./\.\./\.\./manual/[^)]+\.md)\)',
+                                       (self.gallery/'README.md').read_text(encoding='utf-8'))
+        self.assertTrue(self.manual_links)
+        for link in self.manual_links:
+            relative = link.removeprefix('../../../manual/')
+            self.assertTrue((SOURCE/'manual'/relative).is_file(), link)
+            self.write(self.source/'manual'/relative, ('# '+Path(relative).stem+'\n').encode())
         self.write(self.source/'samples/animation/two-joints.gltf', b'{}\n')
         self.write(self.source/'samples/projects/Other/main.scene.json', b'{}\n')
         self.write(self.source/'samples/projects/Other/build/local.obj', b'Not example content')
@@ -76,8 +84,17 @@ class GalleryPackageTest(unittest.TestCase):
             self.assertEqual(actual, set(expected))
             for relative, content in expected.items():
                 name = 'Examples/FeatureGallery/'+relative
+                if relative == 'README.md':
+                    for link in self.manual_links:
+                        target = '../../manual/'+link.removeprefix('../../../manual/')[:-3]+'.html'
+                        content = content.replace((']('+link+')').encode(), (']('+target+')').encode())
                 self.assertEqual(archive.read(name), content, name)
                 self.assertEqual(manifest[name], hashlib.sha256(content).hexdigest(), name)
+            for link in self.manual_links:
+                target = 'manual/'+link.removeprefix('../../../manual/')[:-3]+'.html'
+                self.assertIn(('](../../'+target+')').encode(),
+                              archive.read('Examples/FeatureGallery/README.md'))
+                self.assertIn(target, manifest)
             self.assertIn('Examples/Other/main.scene.json', manifest)
             self.assertNotIn('Examples/Other/build/local.obj', manifest)
             notice = 'licenses/box2d-src/LICENSE.txt'

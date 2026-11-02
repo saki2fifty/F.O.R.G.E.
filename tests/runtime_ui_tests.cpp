@@ -1,4 +1,6 @@
 #include <algorithm>
+#include <forge/application_state_components.hpp>
+#include <forge/application_states.hpp>
 #include <forge/assets.hpp>
 #include <forge/authoring.hpp>
 #include <forge/prefab_authoring.hpp>
@@ -411,6 +413,28 @@ int main(int argc, char** argv) {
               "Document incarnation renewed");
         reject([&] { service->command(scene, command, [](const auto&) {}); });
         reject([&] { service->publish(entity, "forge_loading_state", "fake ready"); });
+        {
+            configure_application_states(
+                scene.world(),
+                {{{"app", "", "menu", {{"menu", "", ""}, {"playing", "", ""}}, false, {}, {}}}});
+            initialize_application_states(scene.world());
+            auto target = scene.entity(entity.str());
+            target.set<ApplicationStateGate>({true, "app", "playing"});
+            const auto old_instance = newer.at("documents")[0].at("instance");
+            auto old_command = command;
+            old_command["instance"] = old_instance;
+            // Input must reject immediately, even before the next display snapshot.
+            reject([&] { service->command(scene, old_command, [](const auto&) {}); });
+            check(service->snapshot(scene, "session", 1, 0, true).at("documents").empty(),
+                  "Inactive UI remained displayed");
+            control_application_states(scene.world(), {{"domain", "app"}, {"state", "playing"}});
+            const auto reactivated = service->snapshot(scene, "session", 1, 0, true);
+            check(reactivated.at("documents").size() == 1 &&
+                      reactivated.at("documents")[0].at("instance") != old_instance &&
+                      target.get<UiDocument>().enabled,
+                  "UI reactivation retained an old incarnation or changed authored enable");
+            reject([&] { service->command(scene, old_command, [](const auto&) {}); });
+        }
         service->shutdown();
         reject([&] { service->publish(entity, "health", 5); });
         reject([&] { service->snapshot(scene, "stopped", 1, 0, true); });

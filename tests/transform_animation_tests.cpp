@@ -3,12 +3,15 @@
 #include "transform_animation_preview.hpp"
 #include <chrono>
 #include <forge/animation.hpp>
+#include <forge/application_state_components.hpp>
+#include <forge/application_states.hpp>
 #include <forge/authoring.hpp>
 #include <forge/character_components.hpp>
 #include <forge/physics_components.hpp>
 #include <forge/runtime.hpp>
 #include <iostream>
 #include <numbers>
+#include <source_location>
 #include <thread>
 using namespace forge;
 using namespace std::chrono_literals;
@@ -21,14 +24,17 @@ void near(double a, double b) {
     require(std::abs(a - b) < .00005,
             "Animation numeric mismatch: " + std::to_string(a) + " vs " + std::to_string(b));
 }
-template <class F> void rejects(F fn) {
+template <class F>
+void rejects(F fn, std::source_location location = std::source_location::current()) {
     bool rejected = false;
     try {
         fn();
     } catch (const std::exception&) {
         rejected = true;
     }
-    require(rejected, "Invalid animation operation accepted");
+    require(rejected, "Invalid animation operation accepted at " +
+                          std::string(location.file_name()) + ":" +
+                          std::to_string(location.line()));
 }
 AssetImportOutcome publish(AssetImportService& service, const std::filesystem::path& source,
                            AssetId id) {
@@ -194,6 +200,38 @@ int main(int argc, char** argv) {
         for (const auto& e : preview["entities"])
             if (e["id"] == actor)
                 near(e["components"]["forge.local_translation"]["x"].get<double>(), 2);
+        {
+            Fixture gated(root);
+            gated.load(source);
+            configure_application_states(
+                gated.scene.world(),
+                {{{"app", "", "menu", {{"menu", "", ""}, {"playing", "", ""}}, false, {}, {}}}});
+            gated.scene.entity(actor).set<ApplicationStateGate>({true, "app", "playing"});
+            initialize_application_states(gated.scene.world());
+            gated.ready();
+            const auto initial = gated.scene.entity(actor).get<LocalTranslation>();
+            gated.simulation.tick(.25f);
+            require(gated.scene.entity(actor).get<LocalTranslation>() == initial,
+                    "Inactive transform player advanced");
+            control_application_states(gated.scene.world(),
+                                       {{"domain", "app"}, {"state", "playing"}});
+            gated.ready();
+            gated.simulation.tick(.25f);
+            near(gated.scene.entity(actor).get<LocalTranslation>().x, 1);
+            control_application_states(gated.scene.world(), {{"domain", "app"}, {"state", "menu"}});
+            gated.simulation.presentation(1);
+            const auto held = gated.scene.entity(actor).get<LocalTranslation>();
+            gated.simulation.tick(.25f);
+            require(gated.scene.entity(actor).get<LocalTranslation>() == held &&
+                        gated.scene.entity(actor).get<TransformAnimator>().enabled &&
+                        gated.animation->checkpoint().at("transform_entries").empty(),
+                    "Condition exit advanced transforms, changed enable, or retained player");
+            control_application_states(gated.scene.world(),
+                                       {{"domain", "app"}, {"state", "playing"}});
+            gated.ready();
+            gated.simulation.tick(.25f);
+            near(gated.scene.entity(actor).get<LocalTranslation>().x, 1);
+        }
         Fixture live(root);
         live.load(source);
         live.ready();

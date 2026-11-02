@@ -8,6 +8,7 @@
 #include "runtime_property_tune.hpp"
 #include <algorithm>
 #include <cmath>
+#include <forge/application_state_activation.hpp>
 #include <forge/assets.hpp>
 #include <forge/character_components.hpp>
 #include <forge/navigation.hpp>
@@ -211,17 +212,24 @@ struct NavigationRuntime::Impl {
         return value;
     }
     void capture_obstacles() {
+        ApplicationStateActivation conditions(context);
         obstacle_sources.clear();
         obstacle_error.clear();
         obstacle_status = NavStatus::Invalid;
         try {
             context.evaluate_world_transforms();
+            std::vector<std::pair<flecs::entity, NavigationObstacle>> candidates;
             obstacle_entities.each([&](flecs::entity e, const NavigationObstacle& obstacle) {
+                candidates.emplace_back(e, obstacle);
+            });
+            for (const auto& [e, obstacle] : candidates) {
                 if (!obstacle.enabled || !e.owns<PersistentEntityId>() || e.has(flecs::Prefab))
-                    return;
+                    continue;
+                if (!conditions.active(e.id()))
+                    continue;
                 const auto id = e.get<PersistentEntityId>().value;
                 if (scene->entity(id.str()) != e)
-                    return;
+                    continue;
                 if (obstacle_sources.size() >= max_obstacles) {
                     obstacle_status = NavStatus::Limit;
                     throw std::runtime_error("Navigation exceeds eight enabled Scene obstacles");
@@ -237,7 +245,7 @@ struct NavigationRuntime::Impl {
                     throw std::runtime_error(
                         "Navigation obstacle cannot also be an enabled baked source or agent");
                 obstacle_sources.push_back({id, obstacle, e.get<WorldTransform>().affine});
-            });
+            }
             std::sort(obstacle_sources.begin(), obstacle_sources.end(),
                       [](const auto& a, const auto& b) { return a.id < b.id; });
         } catch (const std::exception& error) {
@@ -246,7 +254,8 @@ struct NavigationRuntime::Impl {
         }
     }
     void valid_agent(flecs::entity e, const NavigationAgent& a,
-                     const std::map<std::uint64_t, TransformNode>& nodes) {
+                     const std::map<std::uint64_t, TransformNode>& nodes,
+                     ApplicationStateActivation& conditions) {
         try {
             detail::validate_reflected_value(e, a);
         } catch (const std::exception& error) {
@@ -274,6 +283,10 @@ struct NavigationRuntime::Impl {
                 throw NavigationFailure(NavStatus::Invalid,
                                         "Unresolved navigation spatial ancestry");
             auto ancestor = context.world().entity(current);
+            if (!conditions.active(current)) {
+                current = nodes.at(current).parent;
+                continue;
+            }
             if ((ancestor.has<PhysicsBody>() && ancestor.get<PhysicsBody>().motion != 0) ||
                 (ancestor.has<PhysicsBody2D>() && ancestor.get<PhysicsBody2D>().motion != 0) ||
                 (ancestor.has<CharacterController>() &&
@@ -296,12 +309,13 @@ struct NavigationRuntime::Impl {
             current = nodes.at(current).parent;
         }
     }
-    void valid_avoidance(flecs::entity e, const std::map<std::uint64_t, TransformNode>& nodes) {
+    void valid_avoidance(flecs::entity e, const std::map<std::uint64_t, TransformNode>& nodes,
+                         ApplicationStateActivation& conditions) {
         detail::validate_reflected_value(e, e.get<NavigationAvoidance>());
         auto parent = nodes.at(e.id()).parent;
         while (parent) {
             auto ancestor = context.world().entity(parent);
-            if (ancestor.has<NavigationAgent>()) {
+            if (conditions.active(parent) && ancestor.has<NavigationAgent>()) {
                 const auto& a = ancestor.get<NavigationAgent>();
                 if (a.enabled && a.has_destination && a.speed > 0)
                     throw NavigationFailure(
@@ -339,6 +353,7 @@ void NavigationRuntime::synchronize() {
         return;
     auto& s = *impl_;
     s.check();
+    ApplicationStateActivation conditions(s.context);
     if (s.context.world().is_readonly())
         throw std::logic_error("Navigation synchronization requires a writable boundary");
     ++s.synchronization;
@@ -349,12 +364,14 @@ void NavigationRuntime::synchronize() {
             s.context.services().profile("navigation", "NavSourceCapture", s.tick);
         s.capture_obstacles();
         const auto has_source = [&](auto& query) {
-            bool enabled = false;
+            std::vector<flecs::entity_t> enabled;
             query.each([&](flecs::entity e, const auto& source) {
                 if (source.enabled && e.owns<PersistentEntityId>())
-                    enabled |= s.scene->entity(e.get<PersistentEntityId>().value.str()) == e;
+                    if (s.scene->entity(e.get<PersistentEntityId>().value.str()) == e)
+                        enabled.push_back(e.id());
             });
-            return enabled;
+            return std::any_of(enabled.begin(), enabled.end(),
+                               [&](auto id) { return conditions.active(id); });
         };
         const std::array<bool, 2> present{has_source(s.surfaces), has_source(s.regions)};
         for (const auto plane : {NavigationPlane::Spatial3D, NavigationPlane::PlanarXY}) {
@@ -484,6 +501,7 @@ void NavigationRuntime::tick(float dt, std::uint64_t tick) {
         return;
     auto& s = *impl_;
     s.check();
+    ApplicationStateActivation conditions(s.context);
     s.tick = tick;
     synchronize();
     if (!std::isfinite(dt) || dt <= 0 || dt > 1)
@@ -507,6 +525,7 @@ void NavigationRuntime::tick(float dt, std::uint64_t tick) {
         if (e.owns<PersistentEntityId>())
             entities.push_back(e.id());
     });
+    std::erase_if(entities, [&](auto id) { return !conditions.active(id); });
     std::set<flecs::entity_t> alive(entities.begin(), entities.end());
     std::erase_if(s.agents, [&](const auto& p) { return !alive.contains(p.first); });
     std::erase_if(s.errors, [&](const auto& p) { return p.first && !alive.contains(p.first); });
@@ -542,8 +561,8 @@ void NavigationRuntime::tick(float dt, std::uint64_t tick) {
         if (!a.enabled || !e.has<NavigationAvoidance>() || !e.get<NavigationAvoidance>().enabled)
             continue;
         try {
-            s.valid_agent(e, a, nodes);
-            s.valid_avoidance(e, nodes);
+            s.valid_agent(e, a, nodes, conditions);
+            s.valid_avoidance(e, nodes, conditions);
             auto& asset = s.get(a.navmesh);
             const auto position = e.get<WorldTransform>().affine.point({0, 0, 0});
             if (asset.query->project(position).status != NavStatus::Success)
@@ -573,11 +592,11 @@ void NavigationRuntime::tick(float dt, std::uint64_t tick) {
         }
         try {
             s.context.evaluate_world_transforms();
-            s.valid_agent(e, a, nodes);
+            s.valid_agent(e, a, nodes, conditions);
             const bool avoiding =
                 e.has<NavigationAvoidance>() && e.get<NavigationAvoidance>().enabled;
             if (avoiding)
-                s.valid_avoidance(e, nodes);
+                s.valid_avoidance(e, nodes, conditions);
             auto& asset = s.get(a.navmesh);
             auto position = e.get<WorldTransform>().affine.point({0, 0, 0});
             Double3 destination{a.destination_x, a.destination_y, a.destination_z};
@@ -758,7 +777,8 @@ std::optional<NavigationAgentObservation> NavigationRuntime::agent_state(EntityR
         return {};
     const auto& config = entity.get<NavigationAgent>();
     NavigationAgentObservation out;
-    if (!config.enabled)
+    ApplicationStateActivation conditions(s.context);
+    if (!config.enabled || !conditions.active(entity.id()))
         out.phase = NavigationAgentPhase::Disabled;
     else if (!config.has_destination)
         out.phase = NavigationAgentPhase::Idle;
@@ -855,6 +875,7 @@ Json NavigationRuntime::checkpoint() {
     Json revisions = Json::array(), agents = Json::array();
     if (impl_) {
         impl_->check();
+        ApplicationStateActivation conditions(impl_->context);
         impl_->context.evaluate_world_transforms();
         const auto nodes = impl_->context.transform_nodes();
         for (const auto& [id, c] : impl_->cache)
@@ -875,7 +896,7 @@ Json NavigationRuntime::checkpoint() {
             }
             Json translation = nullptr;
             try {
-                impl_->valid_agent(e, e.get<NavigationAgent>(), nodes);
+                impl_->valid_agent(e, e.get<NavigationAgent>(), nodes, conditions);
                 auto t = e.get<LocalTranslation>();
                 translation = {t.x, t.y, t.z};
             } catch (const NavigationFailure&) { /* Unsupported physics/spatial configurations are
@@ -902,6 +923,7 @@ void NavigationRuntime::restore(const Json& data) {
         !data.at("agents").is_array() || data.at("agents").size() > 64)
         throw std::runtime_error("Invalid navigation recovery metadata");
     impl_->check();
+    ApplicationStateActivation conditions(impl_->context);
     struct Pending {
         flecs::entity entity;
         NavigationAgent agent;
@@ -959,7 +981,7 @@ void NavigationRuntime::restore(const Json& data) {
             throw std::runtime_error("Navigation recovery component ownership/inheritance differs");
         if (translation) {
             impl_->context.evaluate_world_transforms();
-            impl_->valid_agent(e, config, impl_->context.transform_nodes());
+            impl_->valid_agent(e, config, impl_->context.transform_nodes(), conditions);
         }
         pending.push_back(
             {e, config, avoidance, translation, owned, translation_owned, avoidance_owned});

@@ -12,6 +12,10 @@ Reserve the build identifier with the release coordinator before dispatch; the e
 
 ## Test profiles
 
+The packaged Feature Gallery README rewrites its repository manual links to the
+included offline HTML manual. Its manifest hashes the derived bytes; authored
+Scene, asset and cooked-resource bytes remain unchanged.
+
 Physics preflight reuse is checked through actual 3D/2D bodies, controllers,
 joints/loads/pose commands, rejected configuration, recovery, both SDK hosts,
 relocated installed SDK and MCP Play consumers. The load-only regression changes

@@ -12,8 +12,9 @@ The exclusive `ApplicationStateActive` relationship on a world-local domain enti
 is the active-state authority. Ancestor membership relationships are derived from
 that pair. Project systems use ordinary Flecs query terms with a constant domain
 source to condition their execution. No second scheduler or generic `run_if` API
-is introduced. State conditions do not automatically disable physics bodies,
-renderers, audio, entities or other engine subsystems.
+is introduced. Membership alone does not disable stock subsystems. An explicit
+optional State Condition composes their existing eligibility rules as described
+below; it does not condition arbitrary project systems.
 
 Direct domains accept deferred requests. Computed domains choose the first matching
 ordered rule, otherwise their initial state; they reject direct requests. A domain
@@ -55,6 +56,35 @@ lifecycle actions. Ordinary Play's exact-build checkpoint carries this optional
 state; a missing field is compatible only when no definition is configured.
 Prepared SDK Play retains its existing recovery policy. This checkpoint is not an
 automatic durable save game; native IDs never cross a process boundary.
+
+## Explicit authored activity conditions
+
+`ApplicationStateGate` is an optional reflected value, disabled by default, with
+semantic domain/state keys. Native membership remains authority. A host-only
+ephemeral `ApplicationStateActivation` view validates references before subsystem
+iteration and memoizes structural ancestor AND results for that preflight only.
+There is no persisted active flag, second hierarchy or new scheduler. Effective
+component inheritance is native IsA; structural ChildOf applies independently of
+World/Explicit spatial binding. Authoring and validation previews remain editable.
+
+Stock owners compose eligibility without overwriting authored enable fields.
+Their existing disable/re-enable lifecycles remain distinct from Pause. Resources
+and package closure retain future-active dependencies. Global state/localization
+configuration does not depend on its controller object's condition. Arbitrary
+project systems and external target writers retain explicit execution ownership.
+
+The existing state retirement composition boundary also runs on changed state
+configuration. Physics removes ineligible admitted consumers/targeted commands
+without adopting unrelated edits or consuming survivor intent. Source audio
+refreshes through its owner. New eligible physics realizes on normal
+synchronization, not a fabricated tick. A private adoption receipt prevents
+checkpoint capture in that interval; existing 2D event-adoption readiness still
+applies. No condition truth or receipt is serialized as another state authority.
+
+Scene live tuning validates a complete copied condition before applying it;
+RuntimeWorld requests the same narrow retirement. Presentation adds only a
+derived `state_active:false` marker to inactive runtime rows, preserving all
+transform and structural rows. Both Play hosts and MCP read that same projection.
 
 ## Explicit runtime root lifetimes
 

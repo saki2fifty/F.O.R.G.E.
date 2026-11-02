@@ -1,0 +1,57 @@
+{
+  "asset_id": "de0bbbad-1e4f-46e7-84e8-8faf8daa10c0",
+  "domains": [
+    {
+      "initial": "menu",
+      "key": "app",
+      "label": "Activity mode",
+      "states": [
+        {
+          "key": "menu",
+          "label": "Hidden"
+        },
+        {
+          "key": "game",
+          "label": "Group visible"
+        },
+        {
+          "key": "playing",
+          "label": "Running",
+          "parent": "game"
+        },
+        {
+          "key": "rest",
+          "label": "Resting",
+          "parent": "game"
+        }
+      ]
+    },
+    {
+      "computed": true,
+      "initial": "hidden",
+      "key": "badge",
+      "label": "Activity badge",
+      "rules": [
+        {
+          "all": [
+            {
+              "domain": "app",
+              "state": "playing"
+            }
+          ],
+          "state": "visible"
+        }
+      ],
+      "states": [
+        {
+          "key": "hidden"
+        },
+        {
+          "key": "visible"
+        }
+      ]
+    }
+  ],
+  "format": "forge.application-states",
+  "version": 1
+}

@@ -64,6 +64,8 @@ Json RuntimeWorld::tune_property(EntityRef target, const std::string& type,
     if (type == "forge.audio_source" && !engine.services().available(Capability::Audio))
         throw std::runtime_error("Live audio tuning requires enabled audio");
     auto applied = scene.tune_runtime_property(target.entity.str(), type, property, value);
+    if (RuntimePropertyTune::state_condition_type(type))
+        simulation.reconcile_state_conditions();
     if (type == "forge.audio_source")
         std::static_pointer_cast<AudioRuntime>(engine.services().audio())->refresh_sources();
     return applied;

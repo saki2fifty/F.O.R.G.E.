@@ -878,6 +878,35 @@ The installed `application_states_gameplay` sample demonstrates native ancestor
 conditions, owned lifecycle events, request receipts and fresh-World reset. See
 [Application states](application-states.md) for definition and boundary semantics.
 
+### Stock object activity
+
+The installed `forge/application_state_components.hpp` also provides
+`forge::ApplicationStateGate`. Bind its existing builtin during schema setup:
+
+```cpp
+world.component<forge::ApplicationStateGate>("forge.application_state_gate");
+```
+
+An admitted Ready runtime entity can receive the value through its Flecs stage:
+
+```cpp
+world.entity(ready.native_entity)
+    .set<forge::ApplicationStateGate>({true, "app", "playing"});
+```
+
+The configured definition must contain those keys. The optional component is
+disabled by default. A true condition uses current leaf/ancestor membership and
+combines with structural parent conditions, including for World-space children.
+Stock subsystems compose it with their existing enable/availability rules; their
+normal disable/re-enable lifecycle applies. No authored enable field is overwritten.
+An ordinary project query still sees the component on an inactive object, so
+project systems need explicit query conditions of their own. Do not call the
+host-only activation view from an SDK module or mutate runtime membership pairs.
+The owning string values require the same exact SDK/Flecs/toolchain/CRT boundary
+as other installed owning-string values.
+
+### Runtime root lifetimes
+
 For a Ready entity/Prefab creation request, `client.scope_runtime_entity(token,
 domain, state, optional_revision)` queues an explicit state lifetime through Game.
 Inspect the returned Game receipt before releasing creation observation. The root

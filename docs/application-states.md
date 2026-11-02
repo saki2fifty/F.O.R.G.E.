@@ -103,6 +103,64 @@ without creating entities or depending on a module-local C++ registration cache.
 Ordinary fixed-query terms can use a constant domain source and a Member target to
 condition systems. These queries do not disable other engine subsystems.
 
+## Stock activity conditions
+
+The optional `forge.application_state_gate` builtin (`ApplicationStateGate`) has
+`enabled:false`, `domain:"app"`, `state:"playing"` defaults. Inspector labels are
+**State Condition**, **Use condition**, **Domain key**, **State key**. Key syntax is
+always validated. An enabled runtime value also requires the configured domain
+and state; a disabled value does not require semantic membership or a controller.
+Computed and subordinate domains use the same existing Member relationships.
+
+The host-only `ApplicationStateActivation` captures effective conditions, including
+native Disabled rows, validates after releasing its native iterator, and resolves
+ChildOf ancestry iteratively with AND. It supports native IsA inheritance and
+owned overrides. It is an ephemeral owner-thread view, consumed before relevant
+world mutation and discarded; membership pairs remain the authority. There are
+at most 10,000 effective values and 10,001 structural traversal nodes. Authoring and
+validation roles bypass runtime eligibility. There is no generic C++ system filter.
+
+| Owner | Inactive condition behavior |
+| --- | --- |
+| Presentation | Preserve all effective Scene/transform rows, mark inactive runtime rows `state_active:false`, omit their render components, cameras and lights. Plain authoring projections stay editable. |
+| Physics | Exclude bodies/controllers/joints from desired admission. Joints also require active endpoints. Tickless retirement removes ineligible admitted objects and their targeted commands while retaining survivor poses/commands and pending2D contact events. New eligible consumers realize on normal synchronization; solver velocity is not retained across removal. |
+| Audio | Filter copied sources/listeners through the same view. Existing source retirement/recreation applies; detached one-shots remain independent. |
+| UI | Compose snapshot admission and current input validation. Deactivation retires document incarnations; reactivation creates a fresh one. Global state/localization configuration is not gated by its controller entity. |
+| Animation | Use existing effective enable semantics in skeletal playback and its recovery comparisons. Transform players, sequence clocks and dependent tracks use their existing disable/restart paths. Camera shots and cue admission also require eligible controllers/targets. Past cues are not buffered for reactivation. |
+| Particles | Filter copied emitter candidates before active capacity checks; existing removal/restart behavior applies. |
+| Navigation | Filter source geometry, obstacles, agents and behavior execution. Keep inactive spatial ancestor transforms while suppressing their movement authority. Existing behavior intent release and recovery rules apply. This does not rebake a NavMesh. |
+
+Tile rendering follows the same admission; its animation retains the existing
+global visual clock. Asset preparation/package closure retains future-active
+dependencies. The condition does not intercept arbitrary project C++ code,
+external animation targets, explicit cross-object writes, resource ownership or
+the global simulation clock.
+
+The existing host state-retirement callback runs on changed state configuration,
+outside native event/defer and before lifecycle notifications. It composes narrow
+physics retirement with audio source refresh. Physics keeps only an adoption
+receipt when eligibility exceeds the admitted realization; ordinary recovery
+returns null until normal synchronization completes. This does not serialize
+condition truth or advance time to manufacture a checkpoint. Existing pending2D
+event readiness still applies. Other stock consumers reconcile at their normal
+capture/synchronization boundary.
+
+`Scene::tune_runtime_property` validates a detached complete condition, including
+enabled references, before native apply. `RuntimeWorld` then uses the same
+tickless retirement. Both Play hosts, Inspector and `play.tune`/MCP use those
+owners. Discovery exposes the reflected builtin, so component add/property edits,
+history, save and Prefab overrides use normal authoring operations. Definition key
+renames do not silently migrate strings stored in Scene/Prefab conditions.
+The installed SDK exports the value header; the activation view is host-only.
+Matching fingerprint rebuild is required; no C service-table field is added.
+
+Gallery135 Activity Lab exercises direct/ancestor/computed conditions with stock
+animation, physics, particles, audio and native UI, including tickless state
+changes. Its test reruns a relocated export after the original sources are hidden.
+This is local native execution, not physical Windows or full-editor acceptance.
+
+## SDK state requests
+
 `forge::sdk::Client::request_application_state(domain,state,optional_revision)`
 queues the existing Game request operation and returns its receipt token, or0
 when unavailable/invalid. Inspect/release the receipt through existing Game APIs;
@@ -217,7 +275,7 @@ no transient event is discarded to manufacture readiness, and no time advances
 merely to create a checkpoint. Other checkpoint validation still applies.
 
 Stop/new Play restores initial states. Keep values does not author runtime state.
-Automatic physics/render/audio/entity gating, automatic reconstruction of retired
+Implicit membership-based disabling, automatic reconstruction of retired
 entities, general event-driven transition scripting and durable state saves
 are outside this bounded profile. Platform acceptance and current test evidence
 are recorded separately; this document does not assert physical Windows testing.

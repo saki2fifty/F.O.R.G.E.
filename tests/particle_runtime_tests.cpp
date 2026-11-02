@@ -2,6 +2,8 @@
 #include "particle_effect_authoring.hpp"
 #include "particle_render_instances.hpp"
 #include "particle_runtime.hpp"
+#include <forge/application_state_components.hpp>
+#include <forge/application_states.hpp>
 #include <forge/authoring.hpp>
 #include <forge/prefab_authoring.hpp>
 #include <forge/render_scene.hpp>
@@ -337,6 +339,29 @@ int main(int argc, char** argv) {
                         8,
                 "Restored particle prefab failed playback or emitted its template as a third "
                 "object");
+        }
+        {
+            Fixture gated(root, source);
+            configure_application_states(
+                gated.scene.world(),
+                {{{"app", "", "menu", {{"menu", "", ""}, {"playing", "", ""}}, false, {}, {}}}});
+            initialize_application_states(gated.scene.world());
+            const auto emitter = gated.scene.entity(actor);
+            emitter.set<ApplicationStateGate>({true, "app", "playing"});
+            gated.ready();
+            gated.simulation.tick(.25f);
+            require(gated.particles->presentation(emitter.id(), 1).is_null() &&
+                        extract_render_scene(gated.simulation.presentation(1)).particles.empty(),
+                    "Inactive emitter retained playback or rendered particles");
+            control_application_states(gated.scene.world(),
+                                       {{"domain", "app"}, {"state", "playing"}});
+            gated.ready();
+            require(gated.particles->presentation(emitter.id(), 1).at("time") == 0 &&
+                        emitter.get<ParticleEmitter>().enabled,
+                    "Emitter reactivation failed to use its existing restart semantics");
+            gated.simulation.tick(.25f);
+            require(gated.particles->sample(emitter.id(), 1).size() == 8,
+                    "Reactivated emitter did not emit");
         }
         Fixture live(root, source);
         live.ready();

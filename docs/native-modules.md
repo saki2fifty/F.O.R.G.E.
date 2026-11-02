@@ -182,6 +182,13 @@ new build and fresh Play. No arbitrary native-object checkpoint or hot reload is
 claimed. Runtime crashes cannot mutate the editor's authored scene; game Save
 Game/Continue persists only the game-defined save schema.
 
+An existing **State Condition** can also be tuned through the same Scene owner.
+It validates complete enabled domain/state references before native apply, then
+uses RuntimeSimulation's tickless physics retirement and source-audio refresh.
+Authored enable fields remain unchanged. Newly eligible physics awaits normal
+synchronization, with recovery unavailable in the interim; no tick or survivor
+command is consumed to manufacture readiness. See [stock activity conditions](application-states.md#stock-activity-conditions).
+
 ## Editor plugins
 
 Native editor plugins are trusted, validated and restart-bound. Staging and

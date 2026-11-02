@@ -2,6 +2,7 @@
 #include "builtins.hpp"
 #include "runtime_property_tune.hpp"
 #include <cmath>
+#include <forge/application_state_activation.hpp>
 #include <set>
 namespace forge {
 namespace {
@@ -26,6 +27,7 @@ void ParticleRuntime::check() const {
 }
 void ParticleRuntime::synchronize() {
     check();
+    ApplicationStateActivation conditions(world_);
     // Collect native values under Flecs' iteration lock, then validate/request on
     // the owner after it returns. No exception escapes a table-locked callback.
     std::vector<std::pair<flecs::entity_t, ParticleEmitter>> sources;
@@ -33,13 +35,16 @@ void ParticleRuntime::synchronize() {
     world_.world().each([&](flecs::entity entity, const ParticleEmitter& value) {
         if (entity.has(flecs::Prefab) || !value.enabled)
             return;
-        if (sources.size() == particle_emitter_limit) {
+        if (sources.size() == 10000) {
             overflow = true;
             return;
         }
         sources.emplace_back(entity.id(), value);
     });
-    require(!overflow, "Particle scene exceeds the 64 enabled-emitter budget");
+    require(!overflow, "Particle source capture exceeds the 10000-entity profile");
+    std::erase_if(sources, [&](const auto& source) { return !conditions.active(source.first); });
+    require(sources.size() <= particle_emitter_limit,
+            "Particle scene exceeds the 64 enabled-emitter budget");
     // Worlds without emitters do not require a project/catalog (for example a
     // C++ module's isolated bootstrap). Admit asset ownership when first used.
     if (!sources.empty() && !catalog_) {

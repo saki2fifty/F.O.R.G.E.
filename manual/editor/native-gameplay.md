@@ -227,3 +227,10 @@ Play and standalone games provide it; legacy Play does not. A successful queue
 submission is not a completed transition. Inspect the returned receipt, handle a
 rejected request and release it when finished. State queries and editor/UI controls
 remain available in legacy Play. Runtime pairs are read-only for project code.
+
+Use [State Condition](application-states.md)
+on an object to control its stock rendering, physics, audio and other supported
+runtime activity. This leaves its enable fields and structural identity intact.
+It does not filter your C++ systems; keep their execution conditions explicit.
+The matching SDK value is `forge::ApplicationStateGate` in
+`forge/application_state_components.hpp`.

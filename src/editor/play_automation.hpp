@@ -392,7 +392,9 @@ struct PlayAutomation {
             "remain Edit-only), "
             "Sprite appearance/ordered frame regions and Navigation Agent "
             "flags, speed, stopping distance and destination "
-            "coordinates (not its NavMesh asset). Poll play.status.tune_ack for runtime "
+            "coordinates (not its NavMesh asset), and an existing State Condition's enabled, "
+            "domain and state fields with runtime semantic validation. Poll play.status.tune_ack "
+            "for runtime "
             "validation. This never "
             "changes source, component schemas or authored values.",
             "play.execute", automation_object(tune_properties, tune_required), true,

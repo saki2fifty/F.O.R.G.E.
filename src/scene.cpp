@@ -787,8 +787,12 @@ Json Scene::tune_runtime_property(const std::string& entity_id, const std::strin
                probe = RuntimePropertyTune::probe_type(type_key),
                decal = RuntimePropertyTune::decal_type(type_key),
                light = RuntimePropertyTune::light_type(type_key),
-               localization = RuntimePropertyTune::ui_localization_type(type_key);
-    if (sprite || material || probe || light || decal || localization) {
+               localization = RuntimePropertyTune::ui_localization_type(type_key),
+               condition = RuntimePropertyTune::state_condition_type(type_key);
+    if (sprite || material || probe || light || decal || localization || condition) {
+        if (condition && (!RuntimePropertyTune::state_condition_property(property_key) ||
+                          !target.has<ApplicationStateGate>()))
+            throw std::runtime_error("Only an existing State Condition can be tuned live");
         if (localization && (!RuntimePropertyTune::ui_localization_property(property_key) ||
                              !target.has<UiLocalization>()))
             throw std::runtime_error("Only an existing UI Localization locale can be tuned live");
@@ -816,6 +820,8 @@ Json Scene::tune_runtime_property(const std::string& entity_id, const std::strin
             candidate[property_key] = value;
             detail::validate_components({{type_key, candidate}});
             const auto typed = codec.decode(candidate);
+            if (condition)
+                validate_application_state_gate(context_, std::get<ApplicationStateGate>(typed));
             std::visit([&](const auto& item) { detail::validate_reflected_value(target, item); },
                        typed);
             codec.apply(target, typed);
@@ -1078,6 +1084,10 @@ Json Scene::serialize(bool effective, bool ui_only) const {
     for (const auto& item : opaque_.at("entities"))
         fragments[item.at("id")] = &item;
     for (auto item : doc.at("entities")) {
+        // Runtime activity is derived by RuntimeSimulation, never by an opaque
+        // source extension copied into an authoring/presentation projection.
+        if (effective)
+            item.erase("state_active");
         auto e = entity(item.at("id"));
         if (!e || !e.is_alive()) {
             if (item.contains("prefab_member")) {

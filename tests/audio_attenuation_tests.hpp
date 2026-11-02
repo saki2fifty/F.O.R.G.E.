@@ -81,7 +81,7 @@ void attenuation_tests(const std::filesystem::path& root, AssetId clip) {
           "Zero falloff strength lost positional stereo panning");
 
     const auto authored = f.scene.snapshot();
-    for (const Json value : {Json(-1), Json(3), Json(.5), Json("Linear")}) {
+    for (const Json& value : {Json(-1), Json(3), Json(.5), Json("Linear")}) {
         reject([&] {
             authoring_command(f.scene, "property.set",
                               {{"entity", "speaker"},
@@ -91,7 +91,7 @@ void attenuation_tests(const std::filesystem::path& root, AssetId clip) {
         });
         check(f.scene.snapshot() == authored, "Invalid falloff edit changed authored sound");
     }
-    for (const Json value : {Json(-.1), Json(10.1), Json("1")}) {
+    for (const Json& value : {Json(-.1), Json(10.1), Json("1")}) {
         reject([&] {
             authoring_command(f.scene, "property.set",
                               {{"entity", "speaker"},

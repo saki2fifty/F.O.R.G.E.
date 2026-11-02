@@ -36,7 +36,9 @@ void bind_application_state_lifetime(flecs::world&, flecs::entity_t root, std::s
 // Copied semantic binding, or null. Never exports a native handle.
 nlohmann::json application_state_lifetime(const flecs::world&, flecs::entity_t root);
 // Host composition only. Called outside native event/defer after structural
-// retirement and before user lifecycle notifications. Returns the prior binding
+// retirement on changed state configuration and before user lifecycle notifications.
+// The owner may retire now-ineligible stock consumers without advancing time.
+// Returns the prior binding
 // so RuntimeSimulation follows its existing active-pipeline lifetime.
 std::function<void()> exchange_application_state_retirement_handler(flecs::world&,
                                                                     std::function<void()>);

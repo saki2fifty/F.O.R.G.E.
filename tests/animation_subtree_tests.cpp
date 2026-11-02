@@ -6,6 +6,8 @@
 #include "model_placement.hpp"
 #include <chrono>
 #include <cmath>
+#include <forge/application_state_components.hpp>
+#include <forge/application_states.hpp>
 #include <forge/authoring.hpp>
 #include <forge/runtime.hpp>
 #include <fstream>
@@ -131,6 +133,46 @@ int main(int argc, char** argv) {
         require(scene.undo() && scene.document() == before, "Subtree Undo failed");
         require(scene.redo() && scene.document() == source, "Subtree Redo failed");
         // Four joints expose a descendant and a sibling independently of the visible skin.
+        {
+            const ApplicationStatesDefinition modes{
+                {{"app", "", "menu", {{"menu", "", ""}, {"playing", "", ""}}, false, {}, {}}}};
+            World gated(project, source, actor);
+            configure_application_states(gated.scene.world(), modes);
+            gated.entity().set<ApplicationStateGate>({true, "app", "playing"});
+            initialize_application_states(gated.scene.world());
+            gated.simulation.tick(.25f);
+            auto playback = gated.animation->playback(gated.ref());
+            require(playback && !playback->enabled && playback->time == 0 && gated.pose().is_null(),
+                    "Inactive skeletal player advanced or presented a pose");
+            control_application_states(gated.scene.world(),
+                                       {{"domain", "app"}, {"state", "playing"}});
+            gated.simulation.tick(.25f);
+            playback = gated.animation->playback(gated.ref());
+            require(playback && playback->enabled && playback->time == .25 &&
+                        !gated.pose().is_null(),
+                    "Activated skeletal player did not play");
+            control_application_states(gated.scene.world(), {{"domain", "app"}, {"state", "menu"}});
+            gated.simulation.tick(.25f);
+            const auto checkpoint = gated.animation->checkpoint();
+            playback = gated.animation->playback(gated.ref());
+            require(playback && !playback->enabled && playback->time == .25 &&
+                        gated.entity().get<Animator>().enabled && !checkpoint.is_null() &&
+                        gated.animation->checkpoint_ready(),
+                    "Skeletal condition exit lost clock, authored enable or recovery admission");
+            World restored(project, source, actor);
+            configure_application_states(restored.scene.world(), modes);
+            restored.entity().set<ApplicationStateGate>({true, "app", "playing"});
+            initialize_application_states(restored.scene.world());
+            restored.animation->restore(checkpoint);
+            playback = restored.animation->playback(restored.ref());
+            require(playback && !playback->enabled && playback->time == .25,
+                    "Inactive skeletal recovery lost effective disable or retained time");
+            control_application_states(restored.scene.world(),
+                                       {{"domain", "app"}, {"state", "playing"}});
+            restored.simulation.tick(.25f);
+            require(restored.animation->playback(restored.ref())->time == .5,
+                    "Recovered skeletal reactivation did not retain its existing enable semantics");
+        }
         World base(project, with_mask(source, actor, {}, 0), actor),
             full(project, with_mask(source, actor, {}), actor), masked(project, source, actor),
             root(project, with_mask(source, actor, rig), actor);

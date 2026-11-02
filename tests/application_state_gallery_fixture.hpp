@@ -22,16 +22,19 @@ class Game {
     GameSession session_;
     std::shared_ptr<UiRuntime> ui_;
     std::uint64_t ticket_;
-    static GameSessionConfig config(const std::filesystem::path& root) {
+    static GameSessionConfig config(const std::filesystem::path& root, bool audio = false) {
         GameSessionConfig value;
         value.content_root = root;
         value.ui = true;
+        if (audio)
+            value.audio = AudioConfig{root, AudioOutput::Offline, true};
         return value;
     }
 
   public:
     explicit Game(const std::filesystem::path& root) : Game(root, read(root / scene_path)) {}
-    Game(const std::filesystem::path& root, const Json& source) : session_(config(root)) {
+    Game(const std::filesystem::path& root, const Json& source, bool audio = false)
+        : session_(config(root, audio)) {
         ticket_ = session_.prepare(source);
         const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
         while (!session_.poll_preparation(ticket_).ready) {

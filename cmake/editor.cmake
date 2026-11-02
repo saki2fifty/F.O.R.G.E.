@@ -415,6 +415,8 @@ if(BUILD_TESTING)
  add_test(NAME runtime_ui_render COMMAND forge_ui_render_tests "${CMAKE_BINARY_DIR}/ui-test-images" "${PROJECT_SOURCE_DIR}/resources/ui/LatoLatin-Regular.ttf" "${PROJECT_SOURCE_DIR}/samples/projects/FeatureGallery")
  add_test(NAME application_states_ui_render COMMAND forge_ui_render_tests "${CMAKE_BINARY_DIR}/application-states-ui-images" "${PROJECT_SOURCE_DIR}/resources/ui/LatoLatin-Regular.ttf" "${PROJECT_SOURCE_DIR}/samples/projects/FeatureGallery" --application-states-only)
  set_tests_properties(application_states_ui_render PROPERTIES TIMEOUT 120)
+ add_test(NAME application_state_conditions_ui_render COMMAND forge_ui_render_tests "${CMAKE_BINARY_DIR}/application-state-conditions-ui-images" "${PROJECT_SOURCE_DIR}/resources/ui/LatoLatin-Regular.ttf" "${PROJECT_SOURCE_DIR}/samples/projects/FeatureGallery" --state-conditions-only)
+ set_tests_properties(application_state_conditions_ui_render PROPERTIES TIMEOUT 120)
 endif()
 if(BUILD_TESTING)
  # Regression for the Windows79 SDK fixture init-order crash: the

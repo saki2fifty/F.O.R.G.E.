@@ -81,6 +81,8 @@ class RuntimeSimulation {
     void activate_audio(bool game_paused);
     void suspend_audio();
     void sync_audio();
+    // Tickless retirement; preserves surviving solver poses and queued commands.
+    void reconcile_state_conditions();
     // Publish privately edited animation joints without changing other interpolation.
     void sync_animation_pose() const;
     RuntimeInput& input() { return input_; }

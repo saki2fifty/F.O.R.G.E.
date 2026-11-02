@@ -1,6 +1,7 @@
 #include "navigation_behavior_runtime.hpp"
 #include "navigation_schema.hpp"
 #include <chrono>
+#include <forge/application_state_activation.hpp>
 #include <set>
 #include <thread>
 
@@ -74,6 +75,7 @@ Json NavigationBehaviorPlayback::checkpoint() {
 }
 void NavigationBehaviorPlayback::restore(const Json& rows) {
     check();
+    ApplicationStateActivation conditions(context_);
     for (const auto& [id, player] : players_) {
         (void)id;
         require(!player.frame, "Behavior restore requires an unpublished completed boundary");
@@ -108,8 +110,9 @@ void NavigationBehaviorPlayback::restore(const Json& rows) {
         p.config = std::get<NavigationBehavior>(descriptor.decode(row.at("config")));
         p.owned = row.at("owned").get<bool>();
         p.present = row.at("progress_present").get<bool>();
-        require(!p.config.enabled || p.present, "Active behavior recovery needs cursor progress");
-        require(p.config.enabled || row.at("issued").is_null(),
+        const bool enabled = p.config.enabled && conditions.active(e.id());
+        require(!enabled || p.present, "Active behavior recovery needs cursor progress");
+        require(enabled || row.at("issued").is_null(),
                 "Disabled behavior recovery cannot own an issued destination");
         require(p.owned == e.owns<NavigationBehavior>() &&
                     (p.owned || p.config == e.get<NavigationBehavior>()),
@@ -118,7 +121,7 @@ void NavigationBehaviorPlayback::restore(const Json& rows) {
             p.cursor = row.at("cursor").get<NavigationBehaviorCursor>();
         else
             require(row.at("cursor").is_null(), "Absent behavior cursor contains progress");
-        p.pinned = p.config.enabled || progress(p.cursor);
+        p.pinned = enabled || progress(p.cursor);
         if (p.pinned) {
             require(bool(p.config.graph.id), "Behavior recovery progress requires a graph");
             p.revision = row.at("revision").get<std::string>();
@@ -168,6 +171,7 @@ void NavigationBehaviorPlayback::restore(const Json& rows) {
             p.entity.remove<NavigationBehaviorCursor>();
         auto& player = players_.at(p.entity.id());
         player.config = p.config;
+        player.config.enabled = player.config.enabled && conditions.active(p.entity.id());
         player.issued = p.issued;
         player.cooked_digest = p.digest;
         player.revision = p.revision;

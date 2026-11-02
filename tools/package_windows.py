@@ -4,6 +4,7 @@ import hashlib
 import json
 from pathlib import Path
 import os
+import re
 import struct
 import tempfile
 import zipfile
@@ -106,8 +107,15 @@ def package(build, dependencies, output):
     # Ship the complete editable Gallery, including selected cooked data and new
     # resource formats. Other examples retain their source-file filter.
     example_files = sorted(set(example_files).union(gallery_files))
+    # Source Markdown links follow the repository layout; the distributed manual
+    # is HTML beside Examples. Hash the same derived README bytes that we write.
+    gallery_readme = gallery_root/'README.md'
+    example_overrides = {gallery_readme: re.sub(
+        r'\]\(\.\./\.\./\.\./manual/([^()#]+)\.md\)',
+        r'](../../manual/\1.html)', gallery_readme.read_text(encoding='utf-8')).encode('utf-8')}
     for example in example_files:
-        manifest['files']['Examples/'+example.relative_to(example_root).as_posix()] = hashlib.sha256(example.read_bytes()).hexdigest()
+        content = example_overrides[example] if example in example_overrides else example.read_bytes()
+        manifest['files']['Examples/'+example.relative_to(example_root).as_posix()] = hashlib.sha256(content).hexdigest()
     animation_source = source/'samples/animation/two-joints.gltf'
     manifest['files']['Examples/Animation/two-joints.gltf'] = hashlib.sha256(animation_source.read_bytes()).hexdigest()
     automation_sources = sorted((source/'samples/automation').glob('*.py'))
@@ -132,7 +140,11 @@ def package(build, dependencies, output):
             for notice, name in notices:
                 archive.write(notice, name)
             for example in example_files:
-                archive.write(example, 'Examples/'+example.relative_to(example_root).as_posix())
+                name = 'Examples/'+example.relative_to(example_root).as_posix()
+                if example in example_overrides:
+                    archive.writestr(name, example_overrides[example])
+                else:
+                    archive.write(example, name)
             for automation_source in automation_sources:
                 archive.write(automation_source, 'Examples/Automation/'+automation_source.name)
             archive.write(build/'build.json', 'build.json')

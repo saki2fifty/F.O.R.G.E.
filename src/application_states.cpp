@@ -1,12 +1,17 @@
 #include "asset_bytes.hpp"
 #include "bounded_json.hpp"
 #include <algorithm>
+#include <forge/application_state_activation.hpp>
+#include <forge/application_state_components.hpp>
 #include <forge/application_states.hpp>
+#include <forge/world.hpp>
 #include <functional>
 #include <limits>
 #include <map>
 #include <memory>
 #include <stdexcept>
+#include <unordered_map>
+#include <utility>
 
 namespace forge {
 namespace {
@@ -40,6 +45,22 @@ const ApplicationStatesStorage* storage(const flecs::world& world) {
     const auto id =
         ecs_lookup_path_w_sep(world, 0, "::forge.application.Storage", "::", "::", false);
     return id ? static_cast<const ApplicationStatesStorage*>(ecs_get_id(world, id, id)) : nullptr;
+}
+bool condition_active(const flecs::world& world, const ApplicationStateGate& value) {
+    value.validate();
+    if (!value.enabled)
+        return true;
+    const auto* slot = storage(world);
+    require(slot && slot->runtime,
+            "Enabled State Condition requires configured Application States");
+    const auto& runtime = *slot->runtime;
+    const auto at = runtime.indices.find(value.domain);
+    require(at != runtime.indices.end(), "State Condition has an unknown domain key");
+    const auto& domain = runtime.domains[at->second];
+    const auto state = domain.indices.find(value.state);
+    require(state != domain.indices.end(), "State Condition has an unknown state key");
+    return runtime.initialized &&
+           world.entity(domain.entity).has<ApplicationStateMember>(domain.states[state->second]);
 }
 void owner_boundary(const flecs::world& world) {
     require(ecs_get_world(world) == world.c_ptr() && !ecs_stage_is_readonly(world) &&
@@ -132,6 +153,93 @@ StateRequest select_request(const flecs::world& world, const RuntimeStates& runt
 }
 bool advance_application_states_impl(flecs::world&, std::optional<StateRequest>);
 } // namespace
+
+struct ApplicationStateActivation::Impl {
+    std::unordered_map<flecs::entity_t, bool> conditions, resolved;
+    std::vector<flecs::entity_t> path;
+};
+void validate_application_state_gate(WorldContext& context, const ApplicationStateGate& value) {
+    require(context.on_owner_thread(),
+            "State Condition validation requires the world owner thread");
+    if (context.role() == WorldRole::Runtime)
+        (void)condition_active(context.world(), value);
+    else
+        value.validate();
+}
+ApplicationStateActivation::ApplicationStateActivation(WorldContext& context) : context_(&context) {
+    require(context.on_owner_thread(), "State Condition capture requires the world owner thread");
+    if (context.role() != WorldRole::Runtime)
+        return;
+    auto& world = context.world();
+    const auto type =
+        ecs_lookup_path_w_sep(world, 0, "::forge.application_state_gate", "::", "::", false);
+    if (!type || !ecs_count_id(world, type))
+        return;
+    std::vector<std::pair<flecs::entity_t, ApplicationStateGate>> values;
+    bool overflow = false;
+    auto query = world.query_builder<const ApplicationStateGate>()
+                     .query_flags(EcsQueryMatchDisabled)
+                     .build();
+    query.each([&](flecs::entity entity, const ApplicationStateGate& value) {
+        if (values.size() == 10000) {
+            overflow = true;
+            return;
+        }
+        values.emplace_back(entity.id(), value);
+    });
+    require(!overflow, "State Condition capture exceeds 10000 entities");
+    auto result = std::make_unique<Impl>();
+    for (const auto& [entity, value] : values) {
+        const auto active = condition_active(world, value);
+        if (!value.enabled)
+            continue;
+        result->conditions.emplace(entity, active);
+    }
+    if (!result->conditions.empty())
+        impl_ = std::move(result);
+}
+ApplicationStateActivation::~ApplicationStateActivation() = default;
+ApplicationStateActivation::ApplicationStateActivation(ApplicationStateActivation&& other) noexcept
+    : context_(std::exchange(other.context_, nullptr)), impl_(std::move(other.impl_)) {}
+ApplicationStateActivation&
+ApplicationStateActivation::operator=(ApplicationStateActivation&& other) noexcept {
+    if (this != &other) {
+        context_ = std::exchange(other.context_, nullptr);
+        impl_ = std::move(other.impl_);
+    }
+    return *this;
+}
+bool ApplicationStateActivation::active(flecs::entity_t entity) {
+    if (!context_)
+        return false;
+    require(context_->on_owner_thread(), "State Condition read requires the world owner thread");
+    auto& world = context_->world();
+    if (!entity || !world.is_alive(entity))
+        return false;
+    if (!impl_)
+        return true;
+    auto& value = *impl_;
+    value.path.clear();
+    bool active = true;
+    for (auto current = entity; current; current = ecs_get_target(world, current, EcsChildOf, 0)) {
+        const auto known = value.resolved.find(current);
+        if (known != value.resolved.end()) {
+            active = known->second;
+            break;
+        }
+        if (value.path.size() == 10001) {
+            active = false;
+            break;
+        }
+        value.path.push_back(current);
+    }
+    for (auto at = value.path.rbegin(); at != value.path.rend(); ++at) {
+        const auto own = value.conditions.find(*at);
+        active = active && (own == value.conditions.end() || own->second);
+        value.resolved.emplace(*at, active);
+    }
+    return active;
+}
 
 void register_application_states(flecs::world& world) {
     owner_boundary(world);
@@ -421,7 +529,7 @@ bool advance_application_states_impl(flecs::world& world,
     for (const auto root : retiring)
         if (world.is_alive(root))
             world.entity(root).destruct();
-    if (!retiring.empty() && retirement_handler)
+    if (changed && retirement_handler)
         retirement_handler();
     for (std::size_t i = 0; i < runtime.domains.size(); ++i) {
         if (next[i] == previous[i])

@@ -188,6 +188,8 @@ for directory in (bad,client):
 result=subprocess.run([cmake,'-S',str(stage/'sdk/sample'),'-B',str(bad),'-G','Ninja',compiler_arg,'-DCMAKE_BUILD_TYPE=Release','-DCMAKE_MAKE_PROGRAM='+ninja,'-DFORGE_NATIVE_SDK='+str(stage),'-DCMAKE_CXX_FLAGS_RELEASE=-DNDEBUG -DFORGE_SDK_TEST_MISMATCH=1'],capture_output=True,text=True)
 assert result.returncode!=0 and 'compiler flags mismatch' in result.stdout+result.stderr,result.stdout+result.stderr
 assert not (stage/'sdk/include/forge/assets.hpp').exists(), 'Private AssetCatalog leaked into installed SDK'
+assert (stage/'sdk/include/forge/application_state_components.hpp').is_file()
+assert not (stage/'sdk/include/forge/application_state_activation.hpp').exists(), 'Host-only state activation leaked into installed SDK'
 assert (stage/'sdk/docs/extension-guide.md').exists()
 # All installed guides must remain usable without the source checkout.
 for relative in ('docs/physics-2d.md', 'docs/decisions/024-2d-physics.md'):

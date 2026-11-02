@@ -34,7 +34,8 @@ class PhysicsRuntime : public PhysicsService {
     void synchronize(float dt);
     // Owner boundary only: retire destroyed native entities and their queued
     // commands without adopting unrelated configuration, poses or advancing time.
-    void retire_destroyed_entities();
+    // Opt-in state reconciliation also retires living ineligible entities.
+    void retire_destroyed_entities(bool state_conditions = false);
     void step(float dt);
     void adopt();
     std::vector<std::uint64_t> take_discontinuities();

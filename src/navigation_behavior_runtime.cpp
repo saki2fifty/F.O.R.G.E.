@@ -3,6 +3,7 @@
 #include "json_output_text.hpp"
 #include <algorithm>
 #include <cmath>
+#include <forge/application_state_activation.hpp>
 #include <set>
 
 namespace forge {
@@ -93,6 +94,7 @@ void NavigationBehaviorPlayback::stop(flecs::entity e, Player& player) {
 bool NavigationBehaviorPlayback::prepare(bool fail_on_error,
                                          std::span<const AssetId> extra_graphs) {
     check();
+    ApplicationStateActivation conditions(context_);
     const auto entities = controllers();
     const std::set<flecs::entity_t> alive(entities.begin(), entities.end());
     std::set<AssetId> configured, needed;
@@ -137,7 +139,8 @@ bool NavigationBehaviorPlayback::prepare(bool fail_on_error,
     for (auto id : entities) {
         auto e = context_.world().entity(id);
         auto& player = players_[id];
-        const auto config = e.get<NavigationBehavior>();
+        auto config = e.get<NavigationBehavior>();
+        config.enabled = config.enabled && conditions.active(id);
         if (player.config.graph.id != config.graph.id) {
             release_intent(e, player);
             e.remove<NavigationBehaviorCursor>();

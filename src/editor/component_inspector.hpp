@@ -169,6 +169,7 @@ class ComponentInspector {
         if (!components.contains(key) || !components.at(key).is_object())
             return false;
         return AnimationPlaybackAccess::rig_type(key) ||
+               RuntimePropertyTune::state_condition_type(key) ||
                RuntimePropertyTune::ui_localization_type(key) ||
                RuntimePropertyTune::navigation_type(key) ||
                RuntimePropertyTune::particle_type(key) || RuntimePropertyTune::material_type(key) ||
@@ -198,6 +199,8 @@ class ComponentInspector {
                                         const Json& components) {
         const auto name = field.at("id").get<std::string>();
         return components.at(key).contains(name) &&
+               (!RuntimePropertyTune::state_condition_type(key) ||
+                RuntimePropertyTune::state_condition_property(name)) &&
                (!RuntimePropertyTune::ui_localization_type(key) ||
                 RuntimePropertyTune::ui_localization_property(name)) &&
                (!RuntimePropertyTune::navigation_type(key) ||
@@ -304,7 +307,8 @@ class ComponentInspector {
             (!has_runtime_fields(effective, schema, selected) &&
              !(show_playback && entity->contains("animation_playback")) &&
              !entity->contains("navigation_debug") &&
-             !entity->contains("navigation_behavior_debug") && !character_selected))
+             !entity->contains("navigation_behavior_debug") && !character_selected &&
+             entity->value("state_active", true)))
             return;
         // Live fields coexist with the read-only authored Inspector below. Keep their
         // ImGui IDs distinct so activating one cannot collide with its authored peer.
@@ -316,6 +320,9 @@ class ComponentInspector {
         ui::heading("Live gameplay", "Transient runtime values. Stop restores the authored "
                                      "scene and prefab state.");
         ImGui::TextColored({0.61f, 0.93f, 0.89f, 1.0f}, "PLAY — temporary values");
+        if (!entity->value("state_active", true))
+            ImGui::TextWrapped("State condition inactive: stock runtime activity is disabled for "
+                               "this object or a structural parent.");
         ImGui::BeginDisabled(!keep_values);
         if (ui::button("Keep values after Stop...",
                        "Review a frozen snapshot of changed tunable values for this authored "

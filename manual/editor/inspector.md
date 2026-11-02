@@ -21,6 +21,11 @@ Stop...** freezes changed values for review; after Stop, **Run → Review runtim
 tuning...** lets you choose fields and apply one Scene Undo step. This never saves
 automatically or copies runtime-created entities. See [Play mode](play-mode.md).
 
+An inactive [State Condition](application-states.md)
+is explained in Live gameplay, including a condition on a structural parent.
+The object remains available for editing. An existing condition's fields can be
+tuned temporarily; authored enable fields stay unchanged.
+
 ## Add and find components
 
 Click **+ Add Component** and search a component name or category. The list comes from FORGE's registered schema. Results have category headings. Already attached components are marked **Added**, including inherited components.

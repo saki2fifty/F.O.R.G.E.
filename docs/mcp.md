@@ -316,6 +316,18 @@ The latter may describe a complete predecessor after failed presentation admissi
 These observations and controls share the core state owner rather than creating
 an agent-owned state machine. See [Application states](application-states.md).
 
+Optional **State Condition** uses the normal reflected
+`forge.application_state_gate` component. Discover its fields, add it with
+`forge_component_add`, and edit `enabled`, `domain` and `state` through normal
+property operations and Scene history. During Play, `forge_play_snapshot` retains
+the object and reports `state_active:false` when it or a structural ancestor is
+ineligible. `forge_play_tune` accepts an existing condition's fields, validates
+enabled references through the runtime owner and preserves authored source.
+Poll `forge_play_status.tune_ack`; success contains the applied value, while
+failure includes its error. Existing launch/session/generation, revision,
+sequencing, permissions and Undo rules apply. Newly eligible physics realizes
+on normal synchronization; state changes do not advance the clock.
+
 `forge_play_application_state_scope` binds a runtime-created root to an active
 state/ancestor. Supply its current EntityRef as `entity:{scene,entity}`, `domain`,
 `state`, `domain_revision` and the same launch/session/generation mutation scope.

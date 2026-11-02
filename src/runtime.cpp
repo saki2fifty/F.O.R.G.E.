@@ -303,12 +303,14 @@ RuntimeSimulation::RuntimeSimulation(WorldContext& context, Scene& scene)
     input_system_.add<FixedSimulation>();
     transforms_.add<FixedSimulation>();
     reset_presentation();
-    previous_state_retirement_ = exchange_application_state_retirement_handler(world, [this] {
-        if (physics_)
-            physics_->retire_destroyed_entities();
-        if (audio_)
-            audio_->refresh_sources();
-    });
+    previous_state_retirement_ = exchange_application_state_retirement_handler(
+        world, [this] { reconcile_state_conditions(); });
+}
+void RuntimeSimulation::reconcile_state_conditions() {
+    if (physics_)
+        physics_->retire_destroyed_entities(true);
+    if (audio_)
+        audio_->refresh_sources();
 }
 RuntimeSimulation::~RuntimeSimulation() {
     exchange_application_state_retirement_handler(context_.world(),
@@ -525,9 +527,12 @@ Json RuntimeSimulation::presentation(double alpha) const {
     sync_animation_pose();
     auto profile = context_.services().profile("runtime", "PresentationExtraction", input_tick_);
     auto result = scene_.effective_document();
+    auto conditions = scene_.state_conditions();
     const auto values = poses_.evaluate(alpha);
     for (auto& item : result.at("entities")) {
         const auto entity = scene_.entity(item.at("id")).id();
+        if (!conditions.active(entity))
+            item["state_active"] = false;
         if (particles_) {
             auto state = particles_->presentation(entity, alpha);
             if (!state.is_null())

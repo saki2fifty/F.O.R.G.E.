@@ -124,6 +124,72 @@ state requests require the Game service, available in shared-SDK Play and standa
 games. Legacy Play supports state queries and editor/UI controls but has no queued
 Game service.
 
+## Enable objects with State Conditions
+
+Use **State Condition** when stock runtime activity should depend on a logical
+state. The object stays in the Scene and Hierarchy. Its existing enable fields
+keep their authored values.
+
+1. Publish an Application States definition, attach it to the Scene's controller and save the Scene.
+2. Select an object. Choose **Inspector → Add Component → Gameplay → State Condition**.
+3. Set **Domain key** and **State key** to keys in that definition, such as `app` and `playing`.
+4. Select **Use condition**, then save the Scene.
+5. Press **Play**. Change the domain in **Game → Application states**, or use your game's state controls.
+
+The condition matches a state's current leaf or an active ancestor. A computed
+domain can supply the condition too. An inactive subordinate domain does not match.
+Turn off **Use condition** to remove this object's condition.
+
+Structural children also need their parents' conditions to match. A child with
+its own condition needs both conditions. **Child space: World** and explicit
+spatial bindings do not escape this structural rule. Prefab instances inherit
+conditions normally; an owned value can override an inherited condition.
+
+The condition affects rendering, cameras and lights, physics bodies and character
+controllers, joints, source audio and listeners, animation players and sequences,
+camera shots and audio cues, particle emitters, runtime UI documents, and navigation
+sources, obstacles, agents and behaviors. Inactive UI cannot accept new input.
+Application States and localization controllers remain available as Scene configuration.
+
+Conditions use each system's existing disable/re-enable behavior. They do not
+pause the simulation clock. Transform players and particle emitters restart;
+skeletal players retain their playback time. A physics body leaves its solver and
+is created again at its current transform on a later synchronization; its old
+velocity is not retained. A joint also needs both endpoints to be active.
+Detached audio one-shots continue independently. Other project C++ systems and
+code that writes to another object still need their own execution conditions.
+
+The authoring Scene view keeps objects available for editing. During Play, the
+Inspector explains when an object's stock activity is inactive, including a
+condition inherited through its structural parent. An existing condition's fields
+can be changed in **Live gameplay**; these edits are temporary. Invalid enabled
+domain/state references are rejected. **Stop** restores the authored condition.
+
+### Try Activity Lab
+
+Open **Feature Gallery → Scenes/135-state-activity.scene.json**, press **Play**
+and enable **Capture gameplay input**:
+
+- **Run** shows the group marker, spinning cube, falling body, particles and computed badge, and starts a quiet tone.
+- **Rest** keeps the group marker and disables the nested activity.
+- **Hide all** disables the whole structural group.
+
+The controls and camera stay available. **Pause** stops the clock; the state
+buttons still work. Scroll the control panel to reach the clock controls in a
+short Game view. Newly eligible physics bodies appear at the next **Step** or
+running physics synchronization. This example needs no project C++ module.
+
+![Activity Lab controls with Playing selected and its computed Activity enabled badge visible](../images/state-conditions-game.png)
+
+Use the native game UI to change activity. In a short view, scroll the control
+panel to reach Pause, Resume and Step. The badge is a separate conditional document.
+
+Save the Scene and publish changed assets before export. The export retains
+content needed by states that are initially inactive. Renaming a definition key
+does not rewrite keys stored in Scene or Prefab conditions; update those fields
+before starting Play. Enabled conditions require a configured definition and
+known keys. The runtime profile admits up to 10,000 effective condition values.
+
 ## Retire runtime objects when a state ends
 
 For objects created by C++ during Play, use the creation request's state lifetime:
@@ -164,8 +230,8 @@ Initial state; the current Play selection is not an exported save game.
 
 Definitions support up to 16 domains, 64 states per domain, 512 states total and 16 parent
 levels. Computed rules support up to 8 conditions each, 64 rules per domain and 256 rules
-total. An application-state definition controls logical modes. It does not
-automatically disable renderers, physics, audio or entities. Runtime objects are
+total. State membership alone does not disable objects. Add **State Condition**
+for stock activity, or condition project systems explicitly. Runtime objects are
 deleted on state exit only when explicitly given a state lifetime as described
 above.
 

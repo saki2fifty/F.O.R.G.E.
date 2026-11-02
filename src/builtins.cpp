@@ -74,6 +74,8 @@ template <class T> Json encode(const T& p) {
         return {{"catalog", p.catalog.id ? Json(p.catalog.id) : Json()}, {"locale", p.locale}};
     else if constexpr (std::is_same_v<T, ApplicationStates>)
         return {{"definition", p.definition.id ? Json(p.definition.id) : Json()}};
+    else if constexpr (std::is_same_v<T, ApplicationStateGate>)
+        return {{"enabled", p.enabled}, {"domain", p.domain}, {"state", p.state}};
     else if constexpr (std::is_same_v<T, NavigationSurface>)
         return {{"enabled", p.enabled}};
     else if constexpr (std::is_same_v<T, NavigationRegion2D>)
@@ -379,6 +381,11 @@ template <class T> Value decode(const Json& p) {
         ApplicationStates value;
         if (!p.at("definition").is_null())
             value.definition.id = p.at("definition").get<AssetId>();
+        return value;
+    } else if constexpr (std::is_same_v<T, ApplicationStateGate>) {
+        ApplicationStateGate value{p.at("enabled").get<bool>(), p.at("domain").get<std::string>(),
+                                   p.at("state").get<std::string>()};
+        value.validate();
         return value;
     } else if constexpr (std::is_same_v<T, NavigationSurface>)
         return T{p.at("enabled")};
@@ -1136,6 +1143,11 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
     } else if constexpr (std::is_same_v<T, ApplicationStates>) {
         register_asset_ref<ApplicationStatesAsset>(w, "forge.application_states_ref");
         c.template member<AssetRef<ApplicationStatesAsset>>("definition");
+    } else if constexpr (std::is_same_v<T, ApplicationStateGate>) {
+        w.component<std::string>("forge.authored_string").opaque(reflected_string);
+        c.template member<bool>("enabled")
+            .template member<std::string>("domain")
+            .template member<std::string>("state");
     } else if constexpr (std::is_same_v<T, NavigationSurface>)
         c.template member<bool>("enabled");
     else if constexpr (std::is_same_v<T, NavigationRegion2D>)
@@ -1640,6 +1652,12 @@ const std::array<Builtin, builtin_count>& builtins() {
             "unitless", {}, {},
             [](flecs::world&
                    w) { return register_type<ApplicationStates>(w, "forge.application_states"); }),
+        descriptor<ApplicationStateGate>(
+            "forge.application_state_gate",
+            "Stock runtime activity while a state or ancestor is active", "unitless", {}, {},
+            [](flecs::world& w) {
+                return register_type<ApplicationStateGate>(w, "forge.application_state_gate");
+            }),
         descriptor<MeshRenderer>(
             "forge.mesh_renderer", "Mesh and logical material slot assignments", "unitless", {}, {},
             [](flecs::world& w) { return register_type<MeshRenderer>(w, "forge.mesh_renderer"); }),
@@ -2744,6 +2762,19 @@ Json registration_options(const Builtin& type, const std::string& field) {
         value["description"] =
             "Published game-state definition; one configured controller per World";
     }
+    if (name == "forge.application_state_gate") {
+        value.erase("minimum");
+        value.erase("maximum");
+        value["animatable"] = false;
+        value["display_name"] = field == "enabled"  ? "Use condition"
+                                : field == "domain" ? "Domain key"
+                                                    : "State key";
+        value["description"] =
+            field == "enabled"
+                ? "Require this condition for stock runtime activity; structural descendants also "
+                  "follow it"
+                : "Exact semantic key in the configured Application States definition";
+    }
     if (name == "forge.ui_localization") {
         value.erase("minimum");
         value.erase("maximum");
@@ -3133,11 +3164,12 @@ void annotate_type(flecs::world& world, flecs::entity component, const Builtin& 
             throw std::runtime_error("Native member metadata changed the typed component layout");
     }
     const std::string id = type.name;
-    auto display = id == "forge.ui_document"       ? std::string("UI Document")
-                   : id == "forge.ui_localization" ? std::string("UI Localization")
-                   : id == "forge.two_bone_ik"     ? std::string("Two Bone IK")
-                   : id == "forge.aim_ik"          ? std::string("Aim IK")
-                                                   : friendly_name(id.substr(id.find('.') + 1));
+    auto display = id == "forge.application_state_gate" ? std::string("State Condition")
+                   : id == "forge.ui_document"          ? std::string("UI Document")
+                   : id == "forge.ui_localization"      ? std::string("UI Localization")
+                   : id == "forge.two_bone_ik"          ? std::string("Two Bone IK")
+                   : id == "forge.aim_ik" ? std::string("Aim IK")
+                                          : friendly_name(id.substr(id.find('.') + 1));
     if (id.ends_with("_2d"))
         display.replace(display.size() - 2, 2, "2D");
     component.set_doc_name(display.c_str()).set_doc_brief(type.description);
@@ -3243,7 +3275,7 @@ Json register_builtins(flecs::world& world, unsigned family) {
         add_reference.template operator()<UiDocumentAsset>();
         add_reference.template operator()<UiLocalizationAsset>();
         add_reference.template operator()<ApplicationStatesAsset>();
-        if (name == "forge.ui_localization")
+        if (name == "forge.ui_localization" || name == "forge.application_state_gate")
             references.push_back({world.id<std::string>(), "string"});
         if (name == "forge.mesh_renderer") {
             references.push_back({world.id<std::string>(), "string"});
@@ -3264,16 +3296,19 @@ Json register_builtins(flecs::world& world, unsigned family) {
             {{"id", type.name},
              {"display_name", ecs_doc_get_name(world.c_ptr(), c.id())},
              {"description", ecs_doc_get_brief(world.c_ptr(), c.id())},
-             {"category", name == "forge.application_states" ? "Gameplay"
-                          : category == 0 && name != "forge.model_source" &&
-                                  name != "forge.local_translation" &&
-                                  name != "forge.local_rotation" && name != "forge.local_scale" &&
-                                  name != "forge.primitive" && name != "forge.tint"
-                              ? "Rendering"
-                              : categories[category]},
+             {"category",
+              name == "forge.application_states" || name == "forge.application_state_gate"
+                  ? "Gameplay"
+              : category == 0 && name != "forge.model_source" &&
+                      name != "forge.local_translation" && name != "forge.local_rotation" &&
+                      name != "forge.local_scale" && name != "forge.primitive" &&
+                      name != "forge.tint"
+                  ? "Rendering"
+                  : categories[category]},
              {"schema_version", 1},
              {"fields", fields},
              {"optional", category != 0 || name == "forge.application_states" ||
+                              name == "forge.application_state_gate" ||
                               name == "forge.mesh_renderer" || name == "forge.particle_emitter" ||
                               name == "forge.sprite_renderer" ||
                               name == "forge.tile_map_renderer" || name == "forge.camera" ||

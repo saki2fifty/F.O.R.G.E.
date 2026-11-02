@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdint>
 #include <filesystem>
+#include <forge/application_state_activation.hpp>
 #include <forge/navigation_components.hpp>
 #include <forge/prefab.hpp>
 #include <forge/scene_identity.hpp>
@@ -20,6 +21,10 @@ class Scene {
     Scene(const Scene&) = delete;
     Scene& operator=(const Scene&) = delete;
     flecs::world& world() const { return context_.world(); }
+    // Runtime-only eligibility view; authoring previews retain their normal activity.
+    ApplicationStateActivation state_conditions() const {
+        return ApplicationStateActivation(context_);
+    }
     flecs::entity entity(const std::string& id) const;
     AssetId asset_id() const { return context_.content_.at(membership_).asset; }
     flecs::entity_t membership() const { return membership_; }

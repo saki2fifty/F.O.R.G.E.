@@ -2,6 +2,8 @@
 #include "navigation_behavior_resource.hpp"
 #include "state_graph_layout.hpp"
 #include <cmath>
+#include <forge/application_state_components.hpp>
+#include <forge/application_states.hpp>
 #include <forge/authoring.hpp>
 #include <forge/navigation.hpp>
 #include <forge/navigation_build.hpp>
@@ -139,6 +141,56 @@ void exercise(const std::filesystem::path& parent, const std::filesystem::path& 
     source.entity("agent").set<NavigationAgent>({{nav.id}, true, false, 4, .05f, 0, 0, 0});
     source.entity("agent").set<NavigationBehavior>({{patrol_id}, {}, {}, true});
     const auto snapshot = source.snapshot();
+    {
+        const ApplicationStatesDefinition modes{
+            {{"app", "", "menu", {{"menu", "", ""}, {"playing", "", ""}}, false, {}, {}}}};
+        World gated(root);
+        gated.scene.restore_snapshot(snapshot);
+        configure_application_states(gated.scene.world(), modes);
+        const auto actor = gated.scene.entity("agent");
+        actor.set<ApplicationStateGate>({true, "app", "playing"});
+        initialize_application_states(gated.scene.world());
+        gated.ready();
+        const auto initial = gated.position();
+        for (unsigned i = 0; i < 30; ++i)
+            gated.tick();
+        check(gated.position() == initial &&
+                  gated.navigation->agent_state(gated.scene.reference("agent"))->phase ==
+                      NavigationAgentPhase::Disabled &&
+                  !gated.navigation->checkpoint().is_null(),
+              "Inactive navigation moved or lost recovery admission");
+        {
+            const auto checkpoint = gated.navigation->checkpoint();
+            World recovered(root);
+            recovered.scene.restore_snapshot(gated.scene.snapshot());
+            configure_application_states(recovered.scene.world(), modes);
+            initialize_application_states(recovered.scene.world());
+            recovered.navigation->restore(checkpoint);
+            check(
+                recovered.position() == initial &&
+                    recovered.navigation->agent_state(recovered.scene.reference("agent"))->phase ==
+                        NavigationAgentPhase::Disabled,
+                "Never-active navigation recovery required nonexistent progress or moved");
+            control_application_states(recovered.scene.world(),
+                                       {{"domain", "app"}, {"state", "playing"}});
+            recovered.ready();
+            for (unsigned i = 0; i < 30; ++i)
+                recovered.tick();
+            check(recovered.position() != initial, "Recovered navigation did not activate");
+        }
+        control_application_states(gated.scene.world(), {{"domain", "app"}, {"state", "playing"}});
+        gated.ready();
+        for (unsigned i = 0; i < 30; ++i)
+            gated.tick();
+        check(gated.position() != initial, "Reactivated navigation did not move");
+        control_application_states(gated.scene.world(), {{"domain", "app"}, {"state", "menu"}});
+        const auto held = gated.position();
+        for (unsigned i = 0; i < 30; ++i)
+            gated.tick();
+        check(gated.position() == held && actor.get<NavigationAgent>().enabled &&
+                  actor.get<NavigationBehavior>().enabled,
+              "Navigation exit moved agent or changed authored enable fields");
+    }
     World world(root), other(root);
     world.scene.restore_snapshot(snapshot);
     other.scene.restore_snapshot(snapshot);

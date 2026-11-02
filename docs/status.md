@@ -5,6 +5,17 @@ The accepted local Windows package is **261024-000213**, source
 in the [README](../README.md#current-implementation). No new numbered Windows
 package accompanies the local source changes described here.
 
+Local source provides authored Application States with direct, hierarchical,
+computed and subordinate domains, source history/publication, native membership
+and lifecycle events, matching SDK helpers, Game/UI controls and automation/MCP.
+Runtime-created roots can bind to state lifetimes. Explicit **State Condition**
+components compose stock activity through structural parents without changing
+project C++ query semantics or authored enable fields. Gallery134 Signal Lock and
+Gallery135 Activity Lab provide editable, source-free export examples. See
+[the state contract](application-states.md) and
+[the usage guide](../manual/editor/application-states.md). Physical Windows/full
+editor/graphical EXE acceptance and a numbered delivery remain pending.
+
 Local source also provides bounded authored Navigation Behavior graphs for patrol,
 wait and target following. The editor, automation/MCP and ordinary Scene/prefab
 references share the existing source and component owners. Each controller keeps

@@ -1,4 +1,6 @@
 #include <cmath>
+#include <forge/application_state_components.hpp>
+#include <forge/application_states.hpp>
 #include <forge/assets.hpp>
 #include <forge/audio.hpp>
 #include <forge/authoring.hpp>
@@ -263,6 +265,27 @@ int main(int argc, char** argv) {
             };
             check(crossings(b) > crossings(a) * 1.8 && crossings(b) < crossings(a) * 2.2,
                   "Pitch multiplier did not change sample frequency");
+        }
+        {
+            Fixture gated(root);
+            gated.load(doc);
+            configure_application_states(
+                gated.scene.world(),
+                {{{"app", "", "menu", {{"menu", "", ""}, {"playing", "", ""}}, false, {}, {}}}});
+            initialize_application_states(gated.scene.world());
+            const auto speaker = gated.scene.entity("speaker");
+            const auto authored_source = speaker.get<AudioSource>();
+            speaker.set<ApplicationStateGate>({true, "app", "playing"});
+            gated.audio->refresh_sources();
+            check(gated.audio->status().at("voices") == 0,
+                  "Inactive source retained its native voice");
+            control_application_states(gated.scene.world(),
+                                       {{"domain", "app"}, {"state", "playing"}});
+            gated.audio->refresh_sources();
+            check(gated.audio->wait_for_sources(std::chrono::seconds(5)) &&
+                      gated.audio->status().at("voices") == 1 &&
+                      speaker.get<AudioSource>() == authored_source,
+                  "Source reactivation failed or mutated authored configuration");
         }
         Fixture f(root);
         f.load(doc);

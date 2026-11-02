@@ -29,7 +29,9 @@ GAMEPADS_ONLY = sys.argv[7:] == ['--gamepads-only']
 UI_ANIMATION_ONLY = sys.argv[7:] == ['--ui-animation-only']
 UI_LOCALIZATION_ONLY = sys.argv[7:] == ['--ui-localization-only']
 LIFETIMES_ONLY = len(sys.argv) == 9 and sys.argv[7] == '--state-lifetimes-only'
-APPLICATION_STATES_ONLY = sys.argv[7:] == ['--application-states-only'] or LIFETIMES_ONLY
+CONDITIONS_SDK = len(sys.argv) == 9 and sys.argv[7] == '--sdk-state-conditions-only'
+CONDITIONS_ONLY = sys.argv[7:] == ['--state-conditions-only'] or CONDITIONS_SDK
+APPLICATION_STATES_ONLY = sys.argv[7:] == ['--application-states-only'] or LIFETIMES_ONLY or CONDITIONS_ONLY
 
 
 def state_project_template(root):
@@ -57,11 +59,12 @@ def state_project_template(root):
     settings = json.loads((gallery/'forge.project.json').read_text(encoding='utf-8'))
     scene = next(row for row in catalog['assets'] if row['type'] == 'scene')
     settings['startup_scene'] = dict(asset=scene['id'], source=scene['source'])
-    if LIFETIMES_ONLY:
+    if LIFETIMES_ONLY or CONDITIONS_SDK:
         module = Path(sys.argv[8]).resolve()
         fingerprint = json.loads(subprocess.check_output([RUNTIME, '--sdk-info'], text=True))['fingerprint']
         shutil.copy2(module, output/module.name)
-        settings['modules'] = [dict(id='project.runtime_lifetime_probe', implementation='1',
+        module_id = 'project.state_condition_probe' if CONDITIONS_SDK else 'project.runtime_lifetime_probe'
+        settings['modules'] = [dict(id=module_id, implementation='1',
                                    sdk='experimental-1', fingerprint=fingerprint,
                                    library=module.name, dependencies=[])]
     (output/'forge.project.json').write_text(json.dumps(settings), encoding='utf-8')
@@ -79,7 +82,7 @@ def editor(mode='full'):
             command.append(str(state_project_template(root)))
         elif MAP_PROFILE_ONLY or AUDIO_PAUSE_ONLY or SPRITE_FRAMES_ONLY or UI_LOCALIZATION_ONLY:
             command.append(str(Path(__file__).resolve().parents[1]/'samples/projects/FeatureGallery'))
-        if AUDIO_PAUSE_ONLY or LIFETIMES_ONLY:
+        if AUDIO_PAUSE_ONLY or LIFETIMES_ONLY or CONDITIONS_SDK:
             command.append('--sdk')
         process = subprocess.Popen(command,
                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE,
@@ -169,6 +172,77 @@ for legacy in (False, True):
         assert {'forge_play_start', 'forge_play_ui_command', 'forge_export_start',
                 'forge_script_preview', 'forge_navigation_build', 'forge_navigation_overlay',
                 'forge_dependencies_save'} <= names
+        if CONDITIONS_ONLY:
+            assert 'State Condition' in advertised['forge_play_tune']['description']
+            actor = ok('forge_entity_create', arguments=dict(kind=0, name='MCP conditional body'))['results'][0]['selected']
+            for component in ('forge.physics_body_2d', 'forge.box_collider_2d', 'forge.application_state_gate'):
+                ok('forge_component_add', arguments=dict(entity=actor, component=component))
+            before_condition = read('forge_scene_read')
+            ok('forge_property_set_many', arguments=dict(entity=actor, component='forge.application_state_gate',
+                                                        values=dict(enabled=True, domain='app', state='playing')))
+            with_condition = read('forge_scene_read')
+            assert ok('forge_history_undo')['changed'] and read('forge_scene_read') == before_condition
+            assert ok('forge_history_redo')['changed'] and read('forge_scene_read') == with_condition
+            bad = mutate('forge_property_set', arguments=dict(entity=actor, component='forge.application_state_gate',
+                                                              field='domain', value='Bad Key'))
+            assert not bad['ok'] and read('forge_scene_read') == with_condition
+            ok('forge_document_save')
+            authored = read('forge_scene_read')
+            ok('forge_play_start')
+            control('forge_play_pause')
+            def conditional_actor():
+                return next(row for row in read('forge_play_snapshot')['entities'] if row['id'] == actor)
+            inactive = until(conditional_actor, lambda row: row.get('state_active') is False)
+            assert inactive['components']['forge.physics_body_2d']['enabled']
+            assert read('forge_play_physics')['value']['bodies_2d'] == 0
+            control('forge_play_application_state_request', domain='app', state='playing', domain_revision=1)
+            until(conditional_actor, lambda row: row.get('state_active', True))
+            control('forge_play_step')
+            until(lambda: read('forge_play_physics'), lambda row: row['value']['bodies_2d'] == 1)
+            if CONDITIONS_SDK:
+                until(lambda: read('forge_play_diagnostics'), lambda row:
+                      'SDK State Condition playing value verified' in json.dumps(row['value']))
+            paused = read('forge_play_status')
+            tick = paused['timing']['tick']
+            control('forge_play_tune', entity=actor, component='forge.application_state_gate', property='state', value='missing')
+            rejected = until(lambda: read('forge_play_status'), lambda row: not row['tune_pending'] and row['tune_ack'] is not None)
+            assert not rejected['tune_ack']['ok'] and conditional_actor()['components']['forge.application_state_gate']['state'] == 'playing'
+            assert rejected['timing']['tick'] == tick
+            control('forge_play_tune', entity=actor, component='forge.application_state_gate', property='state', value='menu')
+            tuned = until(lambda: read('forge_play_status'), lambda row: not row['tune_pending'] and row['tune_ack'] is not None)
+            assert 'error' not in tuned['tune_ack'] and tuned['timing']['tick'] == tick
+            until(conditional_actor, lambda row: row.get('state_active') is False)
+            assert read('forge_play_physics')['value']['bodies_2d'] == 0
+            if CONDITIONS_SDK:
+                control('forge_play_step')
+                until(lambda: read('forge_play_diagnostics'), lambda row:
+                      'SDK State Condition inactive value verified' in json.dumps(row['value']))
+                assert read('forge_play_physics')['value']['bodies_2d'] == 0
+            control('forge_play_tune', entity=actor, component='forge.application_state_gate', property='state', value='playing')
+            until(conditional_actor, lambda row: row.get('state_active', True))
+            control('forge_play_step')
+            until(lambda: read('forge_play_physics'), lambda row: row['value']['bodies_2d'] == 1)
+            control('forge_play_application_state_request', domain='app', state='menu', domain_revision=2)
+            until(conditional_actor, lambda row: row.get('state_active') is False)
+            assert read('forge_play_physics')['value']['bodies_2d'] == 0
+            assert read('forge_scene_read') == authored
+            scope = {key: paused[key] for key in ('launch', 'session', 'generation')}
+            control('forge_play_stop')
+            ok('forge_play_start')
+            control('forge_play_pause')
+            failed(mutate('forge_play_tune', **scope, entity=actor, component='forge.application_state_gate',
+                          property='enabled', value=False), 'stale_play')
+            assert conditional_actor()['components']['forge.application_state_gate']['state'] == 'playing'
+            control('forge_play_stop')
+            assert read('forge_scene_read') == authored
+            with editor('read') as (_, read_config), Client(read_config, legacy) as readonly:
+                readable = {tool['name'] for tool in readonly.request('tools/list')['result']['tools']}
+                assert 'forge_play_tune' not in readable
+                denied = readonly.request('tools/call', dict(name='forge_play_tune', arguments={}))
+                assert denied['error']['code'] == -32602, denied
+            print(('legacy' if legacy else 'current') + ': State Condition authoring/history, live semantic '
+                  'validation, native2D admission/paused retirement, restart/stale/read-only scopes PASS')
+            continue
         if APPLICATION_STATES_ONLY:
             assert 'forge_play_application_states' in names
             assert advertised['forge_play_application_state_request']['annotations']['openWorldHint']

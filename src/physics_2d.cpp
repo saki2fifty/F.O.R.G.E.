@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <box2d/box2d.h>
 #include <cmath>
+#include <forge/application_state_activation.hpp>
 #include <limits>
 #include <numbers>
 #include <stdexcept>
@@ -746,6 +747,7 @@ Desired2D desired_bodies_2d(WorldContext& context, const PhysicsConfig& settings
                             const std::map<std::uint64_t, TransformNode>& nodes,
                             const Native2D* previous, const TileMap2DOverride* candidate,
                             bool allow_pending_maps) {
+    ApplicationStateActivation conditions(context);
     std::vector<flecs::entity_t> candidates;
     auto query = context.world().query<const PhysicsBody2D>();
     query.each([&](flecs::entity entity, const PhysicsBody2D& body) {
@@ -757,6 +759,7 @@ Desired2D desired_bodies_2d(WorldContext& context, const PhysicsConfig& settings
             if (controller.enabled)
                 candidates.push_back(entity.id());
         });
+    std::erase_if(candidates, [&](auto id) { return !conditions.active(id); });
     if (candidates.size() > body_limit)
         throw std::runtime_error("2D physics body capacity 1024 exceeded");
     if (candidates.empty())
@@ -796,6 +799,8 @@ Desired2D desired_bodies_2d(WorldContext& context, const PhysicsConfig& settings
             throw std::runtime_error("Dynamic 2D body or controller requires Child space: World");
         if (body.motion != 2)
             for (auto parent = nodes.at(id).parent; parent; parent = nodes.at(parent).parent) {
+                if (!conditions.active(parent))
+                    continue;
                 const auto ancestor = context.world().entity(parent);
                 if ((ancestor.has<PhysicsBody>() && ancestor.get<PhysicsBody>().enabled &&
                      ancestor.get<PhysicsBody>().motion == 2) ||
@@ -2561,17 +2566,17 @@ void Native2D::restore(const Json& metadata, const std::string& bytes, const Des
     impl_.swap(candidate);
 }
 void Native2D::check() const { impl_->check(); }
-void Native2D::retire_destroyed(const flecs::world& world) {
+void Native2D::retire_destroyed(const flecs::world& world, ApplicationStateActivation* conditions) {
     auto& self = *impl_;
     self.check();
     Desired2D desired;
     DesiredJoints2D joints;
     for (const auto& [id, body] : self.bodies)
-        if (world.is_alive(id))
+        if (world.is_alive(id) && (!conditions || conditions->active(id)))
             desired.emplace(id, body.admitted);
     for (const auto& [id, joint] : self.joints)
-        if (world.is_alive(id) && desired.contains(joint.admitted.a) &&
-            desired.contains(joint.admitted.b))
+        if (world.is_alive(id) && (!conditions || conditions->active(id)) &&
+            desired.contains(joint.admitted.a) && desired.contains(joint.admitted.b))
             joints.emplace(id, joint.admitted);
     if (desired.size() == self.bodies.size() && joints.size() == self.joints.size())
         return;

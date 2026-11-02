@@ -66,8 +66,8 @@ void animation_tangent_preset_tests() {
                 extended.document["keys"][1]["curves"]["incoming"]["custom"] == "retain side",
             "Preset erased opaque curve extensions");
     const auto stable = extended.document;
-    for (const auto selected : {std::vector<AssetId>{}, std::vector<AssetId>{first, first},
-                                std::vector<AssetId>{AssetId::generate()}}) {
+    for (const auto& selected : {std::vector<AssetId>{}, std::vector<AssetId>{first, first},
+                                 std::vector<AssetId>{AssetId::generate()}}) {
         rejects([&] { extended.set_tangent_preset(selected, Preset::Smooth); });
         require(extended.document == stable, "Rejected preset selection changed source");
     }
