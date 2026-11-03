@@ -122,6 +122,15 @@ geometry, camera-clear, resource and validation limits. Explicit sequence captur
 reuse the capture owner's operation/sample identity and wait for temporal warmup;
 no agent-specific rendering or clock is introduced.
 
+The same tool accepts
+`{"fast_approximate_anti_aliasing":{"enabled":true,"subpixel_strength":0.5,"search_steps":12}}`.
+Smoothing is finite 0–1 and steps are an integer 1–16. Partial patches preserve other
+settings and unknown metadata; rejection retains values/revision. Existing Scene
+permissions, replay, Undo/Redo and Save apply. The filter processes composed
+current display color; it adds no history and keeps subsequent UI untouched.
+Export retains saved settings. See the [spatial filter contract](fast-approximate-antialiasing.md)
+for output limits and current validation scope.
+
 The same tool accepts `{"depth_of_field":{"enabled":true,"focus_distance":10,
 "focus_range":5,"blur_radius":8}}`. Distance and range are finite 0.001–1000000
 metres; radius is finite 0–12 pixels. Nested patches retain omitted and opaque

@@ -176,7 +176,7 @@ Gallery142 includes independent animated base/variant/chained instances; focused
 tests cover source-hidden relocated Windows-target data on Linux. Windows native
 execution and physical rendering/input acceptance require separate verification.
 
-The shared native SDK fingerprint changes with the public borrowed-definition
-accessor. C callback tables and runtime reference value shapes retain their
+The shared native SDK fingerprint changes with the selected runtime creation and
+reflected-value support semantics. C callback tables and runtime reference value shapes retain their
 contracts; modules must use the kit matching the editor/runtime fingerprint.
 Current and installed/relocated SDK tests exercise actual variant creation.

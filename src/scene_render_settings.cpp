@@ -38,6 +38,12 @@ void validate_scene_temporal_anti_aliasing(const SceneTemporalAntiAliasing& valu
     if (!std::isfinite(value.stability) || value.stability < 0 || value.stability > .95f)
         throw std::runtime_error("Temporal anti-aliasing stability must be finite from 0 to 0.95");
 }
+void validate_scene_fast_approximate_anti_aliasing(const SceneFastApproximateAntiAliasing& value) {
+    if (!std::isfinite(value.subpixel_strength) || value.subpixel_strength < 0 ||
+        value.subpixel_strength > 1 || value.search_steps < 1 || value.search_steps > 16)
+        throw std::runtime_error("Fast approximate anti-aliasing requires finite subpixel "
+                                 "strength from 0 to 1 and 1 to 16 edge search steps");
+}
 void validate_scene_distance_fog(const SceneDistanceFog& value) {
     for (const auto channel : value.color)
         if (!std::isfinite(channel) || channel < 0 || channel > 65504)
@@ -196,6 +202,27 @@ SceneRenderSettings scene_render_settings(const nlohmann::json& scene) {
         value.focus_range = read_value("focus_range", value.focus_range, .001, 1000000);
         value.blur_radius = read_value("blur_radius", value.blur_radius, 0, 12);
         validate_scene_depth_of_field(value);
+    }
+    if (settings.contains("fast_approximate_anti_aliasing")) {
+        const auto& section = settings.at("fast_approximate_anti_aliasing");
+        if (!section.is_object())
+            throw std::runtime_error("Scene fast approximate anti-aliasing must be an object");
+        auto& value = result.fast_approximate_anti_aliasing;
+        if (section.contains("enabled")) {
+            if (!section.at("enabled").is_boolean())
+                throw std::runtime_error("Fast approximate anti-aliasing enabled must be boolean");
+            value.enabled = section.at("enabled").get<bool>();
+        }
+        const auto strength = number(section, "subpixel_strength", value.subpixel_strength);
+        if (section.contains("search_steps") && !section.at("search_steps").is_number_integer())
+            throw std::runtime_error("Fast approximate anti-aliasing search steps must be integer");
+        const auto steps = number(section, "search_steps", value.search_steps);
+        if (strength < 0 || strength > 1 || steps < 1 || steps > 16 || std::floor(steps) != steps)
+            throw std::runtime_error("Fast approximate anti-aliasing strength or steps are "
+                                     "outside their supported range");
+        value.subpixel_strength = float(strength);
+        value.search_steps = unsigned(steps);
+        validate_scene_fast_approximate_anti_aliasing(value);
     }
     if (settings.contains("temporal_anti_aliasing")) {
         const auto& temporal = settings.at("temporal_anti_aliasing");

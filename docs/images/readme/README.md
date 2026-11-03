@@ -1411,7 +1411,7 @@ ImGui/SDL software/dummy; `forge_prefab_variant_editor_tests --gallery-capture
 layouts cover100/150/200percent scale, narrow/wide panels, equal-value ownership
 and Revert. PNG SHA256: `17d422f18823e95d6441f2e7795fd14401b522accc0fd75b3adf1d8ee126d374`.
 
-`manual/images/prefab-variants-game.png` is actual640×360 production FrameRenderer
+`manual/images/prefab-variants-game.png` is actual 640×360 production FrameRenderer
 output after90fixed ticks on software Vulkan/lvp. Five independently animated
 beacons show the base, amber, blue, chained pink and repeated blue instance. Four
 moving source/source-hidden relocated-export display pairs match exactly. The
@@ -1426,3 +1426,29 @@ rendering environment. Both images were personally reviewed. These are control /
 Game fixtures; full Main, Windows/MSVC/D3D12, physical input/DPI/GPU and graphical
 exported-EXE acceptance remain separate pending reviews. Offline manual/browser
 rendering and package inclusion are checked independently.
+
+
+## Fast approximate anti-aliasing
+
+`manual/images/fast-approximate-aa-controls.png` is the complete 900×340 production
+Scene lighting control capture from `forge_hdr_bloom_editor_tests <output> --fast-aa`.
+The fixture uses the normal Scene authoring owner with enabled filtering, smoothing
+0.5 and 12 search steps, ImGui/SDL software rendering and the existing packaged font.
+It resizes the actual fixture window; no image crop, control retouch or annotation
+is applied. PNG SHA256: `77bccadd59a9219927d9e97c86b6e59ea4d370a1688784daa24a2b42d001b2ab`.
+
+`manual/images/fast-approximate-aa-game.png` is actual 640×360 FrameRenderer output
+for Gallery 143 after 90 fixed ticks on software Vulkan/lvp. The pink foreground bar
+moves against original thin cyan/amber edges and tilted cubes. Four moving source /
+source-hidden relocated-export display pairs match exactly. The complete
+`authored/90-640.ppm` RGB bytes are losslessly encoded as PNG without resizing,
+compositing or color changes. PNG SHA256:
+`4c0b7e3a3b0e658c9f4600475104239c6708039b23ff9f49a23fb1ecd7a93f7f`.
+
+Both canonical images come from local `forge/fast-approximate-antialiasing` work
+based on d57e25c, with unassigned build identity. Scene source SHA256:
+`c00d8100fb35c684184889f3ce113d494d357ac8ae066dbc638fbf1234d08086`. Local receipts bind source/executable hashes,
+rendering environment and exact pixel proof. Both images were personally reviewed.
+These are authentic control/Game fixtures, not full Main desktop, Windows/MSVC /
+FXC/D3D12, physical input/DPI/GPU or graphical standalone acceptance. Offline manual
+layout and package inclusion are checked separately.

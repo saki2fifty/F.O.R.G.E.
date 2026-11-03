@@ -1,5 +1,16 @@
 # Feature Gallery
 
+## Fast approximate anti-aliasing
+
+Open **Scenes/143-fast-approximate-antialiasing.scene.json** and press **Play**.
+A pink bar moves across thin cyan and amber lines and tilted cubes. Stop Play
+and open **Tools > Scene lighting... → Fast approximate anti-aliasing**. Compare
+enabled/disabled output, **Subpixel smoothing** and **Edge search steps**. The
+defaults are **0.5** and **12**; temporal anti-aliasing is disabled in this example so the
+current-frame filter is easy to compare. Camera, light and the original animation
+clip are included. Save, select this Scene as startup and export to run it without
+project C++. See [Scene lighting](../../../manual/editor/lighting.md).
+
 ## Prefab variants
 
 Open **Scenes/142-prefab-variants.scene.json** and press **Play**. Five sliding

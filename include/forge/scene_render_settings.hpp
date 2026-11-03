@@ -64,6 +64,14 @@ struct SceneTemporalAntiAliasing {
     bool operator==(const SceneTemporalAntiAliasing&) const = default;
 };
 void validate_scene_temporal_anti_aliasing(const SceneTemporalAntiAliasing&);
+// Current display-encoded color only; no history, motion or UI filtering.
+struct SceneFastApproximateAntiAliasing {
+    bool enabled = false;
+    float subpixel_strength = .5f;
+    unsigned search_steps = 12;
+    bool operator==(const SceneFastApproximateAntiAliasing&) const = default;
+};
+void validate_scene_fast_approximate_anti_aliasing(const SceneFastApproximateAntiAliasing&);
 struct SceneDepthOfField {
     bool enabled = false;
     float focus_distance = 10;
@@ -113,6 +121,7 @@ struct SceneRenderSettings {
     SceneScreenSpaceReflections screen_space_reflections;
     // Optional approximate order-independent alpha composition for eligible Mesh views.
     bool weighted_transparency = false;
+    SceneFastApproximateAntiAliasing fast_approximate_anti_aliasing;
     bool operator==(const SceneRenderSettings&) const = default;
 };
 SceneRenderSettings scene_render_settings(const nlohmann::json& scene);

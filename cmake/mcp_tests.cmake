@@ -132,6 +132,8 @@ if(BUILD_TESTING AND (FORGE_BUILD_EDITOR OR FORGE_BUILD_MCP_EDITOR_TESTS))
  add_test(NAME mcp_document_stdio COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/mcp_document_test.py $<TARGET_FILE:forge_tools> $<TARGET_FILE:forge_mcp_document_host> "${CMAKE_CURRENT_BINARY_DIR}/mcp-document-protocol-capture.json.gz")
  # Both framings cover the 128-projector authoring workload and receipt recovery.
  set_tests_properties(mcp_document_stdio PROPERTIES TIMEOUT 240)
+ add_test(NAME mcp_fast_aa_stdio COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/mcp_document_test.py $<TARGET_FILE:forge_tools> $<TARGET_FILE:forge_mcp_document_host> "${CMAKE_CURRENT_BINARY_DIR}/mcp-fast-aa-protocol-capture.json.gz" --fast-aa-only)
+ set_tests_properties(mcp_fast_aa_stdio PROPERTIES TIMEOUT 120)
  add_test(NAME mcp_soft_shadows_stdio COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/mcp_soft_shadows_test.py $<TARGET_FILE:forge_tools> $<TARGET_FILE:forge_mcp_document_host> "${CMAKE_CURRENT_BINARY_DIR}/mcp-soft-shadows-capture.json.gz")
  set_tests_properties(mcp_soft_shadows_stdio PROPERTIES TIMEOUT 180)
  add_executable(forge_mcp_asset_host tests/mcp_asset_host.cpp)

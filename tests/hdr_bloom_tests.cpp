@@ -7,6 +7,7 @@
 #include "scene_color_tests.hpp"
 #include "scene_depth_of_field_tests.hpp"
 #include "scene_distance_fog_tests.hpp"
+#include "scene_fast_aa_settings_tests.hpp"
 #include "scene_motion_blur_tests.hpp"
 #include "scene_reflection_settings_tests.hpp"
 #include "scene_temporal_settings_tests.hpp"
@@ -142,6 +143,7 @@ int main() {
         test_scene_auto_exposure_settings();
         test_scene_distance_fog_settings();
         test_scene_temporal_settings();
+        test_scene_fast_aa_settings();
         test_scene_depth_of_field();
         test_scene_motion_blur();
         test_scene_weighted_transparency();

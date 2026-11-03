@@ -1,0 +1,863 @@
+{
+  "asset_id": "12ad1831-68d3-4912-b003-0f436a9f4afb",
+  "entities": [
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 1.7777777777777777,
+          "background_a": 1.0,
+          "background_b": 0.07000000029802322,
+          "background_g": 0.03999999910593033,
+          "background_r": 0.02500000037252903,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 100.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 10.0,
+          "orthographic_width": 0.0,
+          "projection": 0,
+          "vertical_fov": 1.0471975511965976,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 0.9971888065338135,
+          "x": 0.07492970675230026,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 3.0,
+          "z": -12.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "fd196d7c-5066-447d-bd5c-7d1c5c025314",
+      "name": "Camera - spatial edge laboratory",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.light": {
+          "basis": 0,
+          "cast_shadows": false,
+          "color_b": 1.0,
+          "color_g": 1.0,
+          "color_r": 1.0,
+          "emitter_height": 1.0,
+          "emitter_radius": 0.5,
+          "emitter_width": 1.0,
+          "enabled": true,
+          "image_height": 1.0,
+          "image_tiled": false,
+          "image_width": 1.0,
+          "inner_cone": 0.0,
+          "intensity": 2.5,
+          "kind": 0,
+          "layers": 4294967295,
+          "outer_cone": 0.7853981633974483,
+          "range": 0.0,
+          "shadow_angular_radius": 0.0,
+          "shadow_bias": 0.0010000000474974513,
+          "shadow_normal_bias": 0.019999999552965164,
+          "shadow_source_radius": 0.0,
+          "texture": null
+        },
+        "forge.local_rotation": {
+          "w": 0.939372718334198,
+          "x": 0.34289780259132385,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 5.0,
+          "z": -2.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "c7403251-ed73-4220-a991-970ee8355d74",
+      "name": "Light - temporal edge laboratory",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 12.0,
+          "y": 0.30000001192092896,
+          "z": 12.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": -0.25,
+          "z": 3.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.18000000715255737,
+          "g": 0.12999999523162842,
+          "r": 0.07999999821186066
+        }
+      },
+      "id": "b2218658-cda4-409e-a362-d8b8b9eef28c",
+      "name": "Floor - current depth reference",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9944925904273987,
+          "x": 0.0,
+          "y": 0.0,
+          "z": -0.10480716824531555
+        },
+        "forge.local_scale": {
+          "x": 0.07000000029802322,
+          "y": 3.200000047683716,
+          "z": 0.07000000029802322
+        },
+        "forge.local_translation": {
+          "x": -4.0,
+          "y": 1.6,
+          "z": 3.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.07999999821186066,
+          "g": 0.44999998807907104,
+          "r": 0.8999999761581421
+        }
+      },
+      "id": "eb6897c2-a9b0-462f-bf42-6a69c28191f1",
+      "name": "Thin diagonal edge 1",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9944925904273987,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.10480716824531555
+        },
+        "forge.local_scale": {
+          "x": 0.07000000029802322,
+          "y": 3.200000047683716,
+          "z": 0.07000000029802322
+        },
+        "forge.local_translation": {
+          "x": -3.5,
+          "y": 1.6,
+          "z": 3.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.8999999761581421,
+          "g": 0.6499999761581421,
+          "r": 0.10000000149011612
+        }
+      },
+      "id": "1f26e5c6-83d7-4758-9dcb-75065f95ac75",
+      "name": "Thin diagonal edge 2",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9944925904273987,
+          "x": 0.0,
+          "y": 0.0,
+          "z": -0.10480716824531555
+        },
+        "forge.local_scale": {
+          "x": 0.07000000029802322,
+          "y": 3.200000047683716,
+          "z": 0.07000000029802322
+        },
+        "forge.local_translation": {
+          "x": -3.0,
+          "y": 1.6,
+          "z": 3.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.07999999821186066,
+          "g": 0.44999998807907104,
+          "r": 0.8999999761581421
+        }
+      },
+      "id": "a075d995-7968-4c01-8f3a-9c6c5bc2960f",
+      "name": "Thin diagonal edge 3",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9944925904273987,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.10480716824531555
+        },
+        "forge.local_scale": {
+          "x": 0.07000000029802322,
+          "y": 3.200000047683716,
+          "z": 0.07000000029802322
+        },
+        "forge.local_translation": {
+          "x": -2.5,
+          "y": 1.6,
+          "z": 3.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.8999999761581421,
+          "g": 0.6499999761581421,
+          "r": 0.10000000149011612
+        }
+      },
+      "id": "d2ad6b71-70f3-4617-8761-5aa9a2fbbe41",
+      "name": "Thin diagonal edge 4",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9944925904273987,
+          "x": 0.0,
+          "y": 0.0,
+          "z": -0.10480716824531555
+        },
+        "forge.local_scale": {
+          "x": 0.07000000029802322,
+          "y": 3.200000047683716,
+          "z": 0.07000000029802322
+        },
+        "forge.local_translation": {
+          "x": -2.0,
+          "y": 1.6,
+          "z": 3.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.07999999821186066,
+          "g": 0.44999998807907104,
+          "r": 0.8999999761581421
+        }
+      },
+      "id": "318c0fd4-8aae-4b62-97e0-a24f07f0dd37",
+      "name": "Thin diagonal edge 5",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9944925904273987,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.10480716824531555
+        },
+        "forge.local_scale": {
+          "x": 0.07000000029802322,
+          "y": 3.200000047683716,
+          "z": 0.07000000029802322
+        },
+        "forge.local_translation": {
+          "x": -1.5,
+          "y": 1.6,
+          "z": 3.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.8999999761581421,
+          "g": 0.6499999761581421,
+          "r": 0.10000000149011612
+        }
+      },
+      "id": "9eead995-1ad8-4240-ad26-3686d6f419fc",
+      "name": "Thin diagonal edge 6",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9944925904273987,
+          "x": 0.0,
+          "y": 0.0,
+          "z": -0.10480716824531555
+        },
+        "forge.local_scale": {
+          "x": 0.07000000029802322,
+          "y": 3.200000047683716,
+          "z": 0.07000000029802322
+        },
+        "forge.local_translation": {
+          "x": -1.0,
+          "y": 1.6,
+          "z": 3.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.07999999821186066,
+          "g": 0.44999998807907104,
+          "r": 0.8999999761581421
+        }
+      },
+      "id": "1967b566-c3d5-45f2-844f-a94714617978",
+      "name": "Thin diagonal edge 7",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9944925904273987,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.10480716824531555
+        },
+        "forge.local_scale": {
+          "x": 0.07000000029802322,
+          "y": 3.200000047683716,
+          "z": 0.07000000029802322
+        },
+        "forge.local_translation": {
+          "x": -0.5,
+          "y": 1.6,
+          "z": 3.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.8999999761581421,
+          "g": 0.6499999761581421,
+          "r": 0.10000000149011612
+        }
+      },
+      "id": "6a7af4bf-0ba7-47cd-b149-43af170b436a",
+      "name": "Thin diagonal edge 8",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9944925904273987,
+          "x": 0.0,
+          "y": 0.0,
+          "z": -0.10480716824531555
+        },
+        "forge.local_scale": {
+          "x": 0.07000000029802322,
+          "y": 3.200000047683716,
+          "z": 0.07000000029802322
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 1.6,
+          "z": 3.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.07999999821186066,
+          "g": 0.44999998807907104,
+          "r": 0.8999999761581421
+        }
+      },
+      "id": "0227a79a-fba6-4387-968a-58c88b504442",
+      "name": "Thin diagonal edge 9",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9944925904273987,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.10480716824531555
+        },
+        "forge.local_scale": {
+          "x": 0.07000000029802322,
+          "y": 3.200000047683716,
+          "z": 0.07000000029802322
+        },
+        "forge.local_translation": {
+          "x": 0.5,
+          "y": 1.6,
+          "z": 3.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.8999999761581421,
+          "g": 0.6499999761581421,
+          "r": 0.10000000149011612
+        }
+      },
+      "id": "160ff1d2-ba56-469b-8955-276f1a9a8397",
+      "name": "Thin diagonal edge 10",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9944925904273987,
+          "x": 0.0,
+          "y": 0.0,
+          "z": -0.10480716824531555
+        },
+        "forge.local_scale": {
+          "x": 0.07000000029802322,
+          "y": 3.200000047683716,
+          "z": 0.07000000029802322
+        },
+        "forge.local_translation": {
+          "x": 1.0,
+          "y": 1.6,
+          "z": 3.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.07999999821186066,
+          "g": 0.44999998807907104,
+          "r": 0.8999999761581421
+        }
+      },
+      "id": "88b27a2a-6123-461c-8bc2-654553388d6a",
+      "name": "Thin diagonal edge 11",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9944925904273987,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.10480716824531555
+        },
+        "forge.local_scale": {
+          "x": 0.07000000029802322,
+          "y": 3.200000047683716,
+          "z": 0.07000000029802322
+        },
+        "forge.local_translation": {
+          "x": 1.5,
+          "y": 1.6,
+          "z": 3.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.8999999761581421,
+          "g": 0.6499999761581421,
+          "r": 0.10000000149011612
+        }
+      },
+      "id": "035f6cbb-c535-40fc-bbc5-c33078f6d91c",
+      "name": "Thin diagonal edge 12",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9944925904273987,
+          "x": 0.0,
+          "y": 0.0,
+          "z": -0.10480716824531555
+        },
+        "forge.local_scale": {
+          "x": 0.07000000029802322,
+          "y": 3.200000047683716,
+          "z": 0.07000000029802322
+        },
+        "forge.local_translation": {
+          "x": 2.0,
+          "y": 1.6,
+          "z": 3.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.07999999821186066,
+          "g": 0.44999998807907104,
+          "r": 0.8999999761581421
+        }
+      },
+      "id": "3b7b5e95-992d-4551-afd8-b61c678ebe2a",
+      "name": "Thin diagonal edge 13",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9944925904273987,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.10480716824531555
+        },
+        "forge.local_scale": {
+          "x": 0.07000000029802322,
+          "y": 3.200000047683716,
+          "z": 0.07000000029802322
+        },
+        "forge.local_translation": {
+          "x": 2.5,
+          "y": 1.6,
+          "z": 3.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.8999999761581421,
+          "g": 0.6499999761581421,
+          "r": 0.10000000149011612
+        }
+      },
+      "id": "5dec25af-1aa0-4106-b82d-b587b49859cf",
+      "name": "Thin diagonal edge 14",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9944925904273987,
+          "x": 0.0,
+          "y": 0.0,
+          "z": -0.10480716824531555
+        },
+        "forge.local_scale": {
+          "x": 0.07000000029802322,
+          "y": 3.200000047683716,
+          "z": 0.07000000029802322
+        },
+        "forge.local_translation": {
+          "x": 3.0,
+          "y": 1.6,
+          "z": 3.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.07999999821186066,
+          "g": 0.44999998807907104,
+          "r": 0.8999999761581421
+        }
+      },
+      "id": "0f530da5-9e39-45c2-896b-cfbc9bc2111d",
+      "name": "Thin diagonal edge 15",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9944925904273987,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.10480716824531555
+        },
+        "forge.local_scale": {
+          "x": 0.07000000029802322,
+          "y": 3.200000047683716,
+          "z": 0.07000000029802322
+        },
+        "forge.local_translation": {
+          "x": 3.5,
+          "y": 1.6,
+          "z": 3.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.8999999761581421,
+          "g": 0.6499999761581421,
+          "r": 0.10000000149011612
+        }
+      },
+      "id": "5708b802-d534-4402-8104-51765f46fc73",
+      "name": "Thin diagonal edge 16",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9944925904273987,
+          "x": 0.0,
+          "y": 0.0,
+          "z": -0.10480716824531555
+        },
+        "forge.local_scale": {
+          "x": 0.07000000029802322,
+          "y": 3.200000047683716,
+          "z": 0.07000000029802322
+        },
+        "forge.local_translation": {
+          "x": 4.0,
+          "y": 1.6,
+          "z": 3.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.07999999821186066,
+          "g": 0.44999998807907104,
+          "r": 0.8999999761581421
+        }
+      },
+      "id": "26ad0a81-a669-4db4-adb0-9da164ec98fc",
+      "name": "Thin diagonal edge 17",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9864183664321899,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.16425232589244843
+        },
+        "forge.local_scale": {
+          "x": 0.8999999761581421,
+          "y": 0.8999999761581421,
+          "z": 0.8999999761581421
+        },
+        "forge.local_translation": {
+          "x": -3.0,
+          "y": 0.55,
+          "z": 5.5
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.30000001192092896,
+          "g": 0.6499999761581421,
+          "r": 0.20000000298023224
+        }
+      },
+      "id": "f7164edd-11eb-4176-8dac-e012e1e28364",
+      "name": "Stationary tilted cube 1",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9689124226570129,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.24740396440029144
+        },
+        "forge.local_scale": {
+          "x": 0.8999999761581421,
+          "y": 0.8999999761581421,
+          "z": 0.8999999761581421
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.55,
+          "z": 5.5
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.30000001192092896,
+          "g": 0.5499999523162842,
+          "r": 0.44999998807907104
+        }
+      },
+      "id": "6edce50d-1b72-4159-8943-98dd0c5ec83d",
+      "name": "Stationary tilted cube 2",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9444103240966797,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.32876917719841003
+        },
+        "forge.local_scale": {
+          "x": 0.8999999761581421,
+          "y": 0.8999999761581421,
+          "z": 0.8999999761581421
+        },
+        "forge.local_translation": {
+          "x": 3.0,
+          "y": 0.55,
+          "z": 5.5
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.30000001192092896,
+          "g": 0.44999998807907104,
+          "r": 0.699999988079071
+        }
+      },
+      "id": "5f16b192-0274-4abf-9ac3-1f8759e03d93",
+      "name": "Stationary tilted cube 3",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 2.0,
+          "y": 0.4000000059604645,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 1.5,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.30000001192092896,
+          "g": 0.11999999731779099,
+          "r": 0.8999999761581421
+        },
+        "forge.transform_animator": {
+          "clip": "399c3c5e-f4e9-4ccb-94b3-bc0e518c1ece",
+          "enabled": true,
+          "loop": true,
+          "play_on_start": true,
+          "playback_speed": 0.6499999761581421,
+          "sequence": null,
+          "sequence_start_seconds": 0.0
+        }
+      },
+      "id": "17a22be3-bac2-45cb-a103-7ab9f435a8e7",
+      "name": "Animated foreground bar - shared transform clip",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    }
+  ],
+  "rendering": {
+    "fast_approximate_anti_aliasing": {
+      "enabled": true,
+      "search_steps": 12,
+      "subpixel_strength": 0.5
+    },
+    "shadows": {
+      "enabled": false
+    },
+    "temporal_anti_aliasing": {
+      "enabled": false,
+      "stability": 0.85
+    },
+    "version": 1
+  },
+  "version": 3
+}

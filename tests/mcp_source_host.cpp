@@ -11,6 +11,7 @@
 #include "import_document_automation.hpp"
 #include "material_editor.hpp"
 #include "material_graph_editor.hpp"
+#include "mcp_test_marker.hpp"
 #include "navigation_behavior_editor.hpp"
 #include "particle_effect_editor.hpp"
 #include "prefab_automation.hpp"
@@ -25,6 +26,7 @@
 #include "ui_localization_editor.hpp"
 #include <chrono>
 #include <iostream>
+#include <memory>
 #include <thread>
 
 int main(int argc, char** argv) {
@@ -47,7 +49,8 @@ int main(int argc, char** argv) {
         std::vector<std::string> recent;
         forge::EditorFiles files(scene, nullptr, recent);
         files.start(root / "Game");
-        ImGui::CreateContext();
+        const std::unique_ptr<ImGuiContext, decltype(&ImGui::DestroyContext)> imgui(
+            ImGui::CreateContext(), ImGui::DestroyContext);
         auto& io = ImGui::GetIO();
         io.IniFilename = nullptr;
         io.DisplaySize = {1500, 1000};
@@ -165,7 +168,8 @@ int main(int argc, char** argv) {
         // The complete source suite exercises every real owner before the
         // client closes it; keep this watchdog within the outer CTest budget.
         const auto end = std::chrono::steady_clock::now() + std::chrono::minutes(5);
-        while (workspace.active() && std::chrono::steady_clock::now() < end) {
+        while (workspace.active() && std::chrono::steady_clock::now() < end &&
+               !forge::test::marker_present(root / "stop")) {
             files.changed = false;
             workspace.pump(files.document, "");
             audio.poll(files.document, files.status);

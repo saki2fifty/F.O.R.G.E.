@@ -3,9 +3,11 @@
 #include "Utilities/interface/DiligentFXShaderSourceStreamFactory.hpp"
 #include "auto_exposure.hpp"
 #include "display_source.hpp"
+#include "fast_approximate_aa_shader.hpp"
 #include "fullscreen_triangle_shader.hpp"
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <limits>
 #include <stdexcept>
 #include <string>
@@ -116,11 +118,96 @@ void DisplayResolve::prepare_automatic() {
     automatic_binding_ = std::move(pipeline.second);
     automatic_ = std::move(automatic);
 }
+void DisplayResolve::prepare_fast_aa() {
+    if (fast_pipeline_)
+        return;
+    ShaderCreateInfo shader;
+    shader.SourceLanguage = SHADER_SOURCE_LANGUAGE_HLSL;
+    shader.EntryPoint = "main";
+    shader.Desc.Name = "FORGE spatial edge filter triangle";
+    shader.Desc.ShaderType = SHADER_TYPE_VERTEX;
+    shader.Source = fullscreen_triangle_vertex;
+    RefCntAutoPtr<IShader> vertex, pixel;
+    presentation_.shader(shader, &vertex);
+    shader.Desc.Name = "FORGE fast approximate anti-aliasing";
+    shader.Desc.ShaderType = SHADER_TYPE_PIXEL;
+    shader.Source = fast_approximate_aa_pixel;
+    presentation_.shader(shader, &pixel);
+    GraphicsPipelineStateCreateInfo info;
+    info.PSODesc.Name = "FORGE display spatial edge filter";
+    info.PSODesc.ResourceLayout.DefaultVariableType = SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE;
+    const ShaderResourceVariableDesc source{SHADER_TYPE_PIXEL, "AASource",
+                                            SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC};
+    info.PSODesc.ResourceLayout.Variables = &source;
+    info.PSODesc.ResourceLayout.NumVariables = 1;
+    SamplerDesc sampler;
+    sampler.MinFilter = sampler.MagFilter = FILTER_TYPE_LINEAR;
+    sampler.MipFilter = FILTER_TYPE_POINT;
+    sampler.AddressU = sampler.AddressV = sampler.AddressW = TEXTURE_ADDRESS_CLAMP;
+    const ImmutableSamplerDesc immutable{SHADER_TYPE_PIXEL, "AALinear", sampler};
+    info.PSODesc.ResourceLayout.ImmutableSamplers = &immutable;
+    info.PSODesc.ResourceLayout.NumImmutableSamplers = 1;
+    auto& graphics = info.GraphicsPipeline;
+    graphics.NumRenderTargets = 1;
+    graphics.RTVFormats[0] = TEX_FORMAT_RGBA8_UNORM;
+    graphics.PrimitiveTopology = PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    graphics.RasterizerDesc.CullMode = CULL_MODE_NONE;
+    graphics.DepthStencilDesc.DepthEnable = false;
+    graphics.DepthStencilDesc.DepthWriteEnable = false;
+    info.pVS = vertex;
+    info.pPS = pixel;
+    RefCntAutoPtr<IPipelineState> pipeline;
+    RefCntAutoPtr<IShaderResourceBinding> binding;
+    presentation_.graphics(info, &pipeline);
+    if (!pipeline)
+        throw std::runtime_error("Fast approximate anti-aliasing pipeline is unavailable");
+    pipeline->CreateShaderResourceBinding(&binding, true);
+    if (!binding || !binding->GetVariableByName(SHADER_TYPE_PIXEL, "AASource") ||
+        !binding->GetVariableByName(SHADER_TYPE_PIXEL, "AAValues"))
+        throw std::runtime_error("Fast approximate anti-aliasing shader interface is incomplete");
+    BufferDesc buffer;
+    buffer.Name = "FORGE spatial edge filter parameters";
+    buffer.Size = sizeof(float) * 4;
+    buffer.Usage = USAGE_DYNAMIC;
+    buffer.BindFlags = BIND_UNIFORM_BUFFER;
+    buffer.CPUAccessFlags = CPU_ACCESS_WRITE;
+    RefCntAutoPtr<IBuffer> values;
+    device_->CreateBuffer(buffer, nullptr, &values);
+    if (!values)
+        throw std::runtime_error("Fast approximate anti-aliasing parameter allocation failed");
+    binding->GetVariableByName(SHADER_TYPE_PIXEL, "AAValues")->Set(values);
+    fast_pipeline_ = std::move(pipeline);
+    fast_binding_ = std::move(binding);
+    fast_values_ = std::move(values);
+}
+void DisplayResolve::filter_fast_aa(IDeviceContext* context,
+                                    const SceneFastApproximateAntiAliasing& settings) {
+    const auto& input = output_->GetDesc();
+    {
+        MapHelper<float> values(context, fast_values_, MAP_WRITE, MAP_FLAG_DISCARD);
+        values[0] = float(input.Width);
+        values[1] = float(input.Height);
+        values[2] = settings.subpixel_strength;
+        values[3] = float(settings.search_steps);
+    }
+    auto* target = fast_output_->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET);
+    context->SetRenderTargets(1, &target, nullptr, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    fast_binding_->GetVariableByName(SHADER_TYPE_PIXEL, "AASource")
+        ->Set(output_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE));
+    context->SetPipelineState(fast_pipeline_);
+    context->CommitShaderResources(fast_binding_, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    Diligent::Viewport area{0, 0, float(input.Width), float(input.Height), 0, 1};
+    context->SetViewports(1, &area, input.Width, input.Height);
+    context->Draw(DrawAttribs{3, DRAW_FLAG_VERIFY_ALL});
+    fast_binding_->GetVariableByName(SHADER_TYPE_PIXEL, "AASource")->Set(nullptr);
+}
 ITextureView* DisplayResolve::resolve(IDeviceContext* context, ITextureView* source,
                                       float exposure_ev, const SceneColorAdjustments& color,
-                                      const SceneAutoExposure& automatic, float delta, bool reset) {
+                                      const SceneAutoExposure& automatic, float delta, bool reset,
+                                      const SceneFastApproximateAntiAliasing& fast) {
     validate_scene_color_adjustments(color);
     validate_scene_auto_exposure(automatic);
+    validate_scene_fast_approximate_anti_aliasing(fast);
     if (!context || !source || !std::isfinite(exposure_ev))
         throw std::runtime_error(
             "Display resolve requires a context, HDR source and finite exposure");
@@ -129,6 +216,11 @@ ITextureView* DisplayResolve::resolve(IDeviceContext* context, ITextureView* sou
         throw std::runtime_error("Display exposure exceeds finite GPU representation");
     const auto extent = display_source_extent(source);
     const auto width = extent[0], height = extent[1];
+    if (fast.enabled && std::uint64_t(width) * height > 8388608)
+        throw std::runtime_error("Fast approximate anti-aliasing exceeds 8,388,608 output pixels; "
+                                 "reduce the view size or disable the effect");
+    if (fast.enabled)
+        prepare_fast_aa();
     if (automatic.enabled) {
         if (!std::isfinite(delta) || delta < 0 || delta > .25f || context->GetDesc().IsDeferred)
             throw std::runtime_error(
@@ -141,7 +233,10 @@ ITextureView* DisplayResolve::resolve(IDeviceContext* context, ITextureView* sou
         automatic_->clear_source();
         automatic_binding_->GetVariableByName(SHADER_TYPE_PIXEL, "g_HDR")->Set(nullptr);
     }
-    if (!output_ || output_->GetDesc().Width != width || output_->GetDesc().Height != height) {
+    auto next_output = output_;
+    auto next_fast = fast_output_;
+    if (!next_output || next_output->GetDesc().Width != width ||
+        next_output->GetDesc().Height != height) {
         TextureDesc desc;
         desc.Name = "FORGE sRGB-encoded display output";
         desc.Type = RESOURCE_DIM_TEX_2D;
@@ -153,8 +248,23 @@ ITextureView* DisplayResolve::resolve(IDeviceContext* context, ITextureView* sou
         device_->CreateTexture(desc, nullptr, &candidate);
         if (!candidate)
             throw std::runtime_error("Display target allocation failed; previous target retained");
-        output_ = std::move(candidate);
+        next_output = std::move(candidate);
     }
+    // Prepare both targets before drawing or replacing the usable pair. A failed
+    // optional allocation must not publish a resized or partially rendered view.
+    if (fast.enabled && (!next_fast || next_fast->GetDesc().Width != width ||
+                         next_fast->GetDesc().Height != height)) {
+        auto desc = next_output->GetDesc();
+        desc.Name = "FORGE anti-aliased sRGB-encoded display output";
+        RefCntAutoPtr<ITexture> candidate;
+        device_->CreateTexture(desc, nullptr, &candidate);
+        if (!candidate)
+            throw std::runtime_error("Fast approximate anti-aliasing target allocation failed; "
+                                     "previous targets retained");
+        next_fast = std::move(candidate);
+    }
+    output_ = std::move(next_output);
+    fast_output_ = std::move(next_fast);
     {
         MapHelper<float> values(context, values_, MAP_WRITE, MAP_FLAG_DISCARD);
         values[0] = float(exposure);
@@ -183,12 +293,17 @@ ITextureView* DisplayResolve::resolve(IDeviceContext* context, ITextureView* sou
     draw.NumVertices = 3;
     draw.Flags = DRAW_FLAG_VERIFY_ALL;
     context->Draw(draw);
+    if (fast.enabled)
+        filter_fast_aa(context, fast);
+    fast_active_ = fast.enabled;
     return output();
 }
 ITextureView* DisplayResolve::output() const {
-    return output_ ? output_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE) : nullptr;
+    auto* image = fast_active_ ? fast_output_.RawPtr() : output_.RawPtr();
+    return image ? image->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE) : nullptr;
 }
 ITextureView* DisplayResolve::target() const {
-    return output_ ? output_->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET) : nullptr;
+    auto* image = fast_active_ ? fast_output_.RawPtr() : output_.RawPtr();
+    return image ? image->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET) : nullptr;
 }
 } // namespace forge

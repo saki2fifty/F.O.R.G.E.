@@ -10,8 +10,10 @@ import tempfile
 import time
 
 from mcp_test_client import CAPTURE, Client, failed, write_capture, finish_host
+from mcp_fast_aa_workflow import check_fast_aa_workflow
 
 TOOLS, HOST = map(str, map(Path, sys.argv[1:3]))
+FAST_AA_ONLY = "--fast-aa-only" in sys.argv[4:]
 
 
 @contextmanager
@@ -25,7 +27,7 @@ def editor(mode='files'):
             assert line, process.stderr.read()
             yield root, process, json.loads(line)
         finally:
-            finish_host(process)
+            finish_host(process, root)
 
 
 def native(config, request, sequence=None):
@@ -136,6 +138,10 @@ for legacy in (False, True):
         exposure_schema = exposure_command['input_schema']['properties']['auto_exposure']
         exposure_tool = next(item for item in catalog
                              if item['name'] == 'forge_scene_rendering_set')
+        if FAST_AA_ONLY:
+            check_fast_aa_workflow(client, discover, arguments, mutate, project,
+                                   exposure_command, exposure_tool)
+            continue
         weighted_schema = exposure_command['input_schema']['properties']['weighted_transparency']
         assert weighted_schema == {'type': 'boolean'}
         assert exposure_tool['inputSchema']['properties']['arguments']['properties']['weighted_transparency'] == weighted_schema
@@ -240,6 +246,8 @@ for legacy in (False, True):
             assert not result['ok'] and discover()['revision'] == before['revision'], result
         assert mutate('forge_scene_rendering_set',
                       arguments=dict(temporal_anti_aliasing=dict(stability=.9)))['ok']
+        check_fast_aa_workflow(client, discover, arguments, mutate, project,
+                               exposure_command, exposure_tool)
         focus_schema = exposure_command['input_schema']['properties']['depth_of_field']
         assert exposure_tool['inputSchema']['properties']['arguments']['properties']['depth_of_field'] == focus_schema
         assert set(focus_schema['properties']) == {'enabled', 'focus_distance', 'focus_range', 'blur_radius'}
@@ -631,6 +639,11 @@ for legacy in (False, True):
         (root / 'ui_project').touch()
         assert process.wait(timeout=4) == 0
         failed(client.tool('forge_discover'), 'connection_unavailable')
+
+if FAST_AA_ONLY:
+    write_capture(sys.argv[3])
+    print('MCP fast AA: both framings, schema, replay, history, save and graceful native exits passed')
+    raise SystemExit(0)
 
 for mode, count in (('read', 5), ('edit', 38)):
     with editor(mode) as (root, process, config), Client(config) as client:

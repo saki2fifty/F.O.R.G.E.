@@ -178,10 +178,11 @@ remains unchanged by default. See the [AO contract](ambient-occlusion.md) for sc
 and payload costs; Windows/full-editor/FXC/cooked D3D12 and physical acceptance
 remain queued. No new Windows package is implied.
 
-Local Scene surface effects include [temporal anti-aliasing](temporal-antialiasing.md),
+Local Scene effects include display-space [fast approximate anti-aliasing](fast-approximate-antialiasing.md),
+[temporal anti-aliasing](temporal-antialiasing.md),
 [motion blur](motion-blur.md), [depth of field](depth-of-field.md) and
 [ambient occlusion](ambient-occlusion.md), with shared Scene/Game owners, controls,
-authoring/MCP and editable Gallery102–105. Capability4 surface cooks retain readable
+authoring/MCP and editable Gallery scenes 102–105 and 143. Capability4 surface cooks retain readable
 older1/2/3 artifacts; recook older surfaces to opt into indirect output. These local
 changes require current Windows/full editor/FXC/cooked-runtime and physical acceptance;
 they are absent from the accepted Build213 ZIP. Native shutdown LSan remains open

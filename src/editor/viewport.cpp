@@ -544,7 +544,10 @@ ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsig
             auto timing = presentation_.gpu_scope(context, "Scene", "Display resolve");
             display_->resolve(
                 context, color_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE), exposure_,
-                mesh_scene_ ? mesh_scene_->settings.color_adjustments : SceneColorAdjustments{});
+                mesh_scene_ ? mesh_scene_->settings.color_adjustments : SceneColorAdjustments{}, {},
+                0, false,
+                mesh_scene_ ? mesh_scene_->settings.fast_approximate_anti_aliasing
+                            : SceneFastApproximateAntiAliasing{});
         }
         auto* display_target = display_->target();
         context->SetRenderTargets(1, &display_target, dsv,

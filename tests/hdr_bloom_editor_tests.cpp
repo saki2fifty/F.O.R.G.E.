@@ -16,6 +16,7 @@ void interactions(float scale, ImVec2 display) {
     extended["rendering"] = {{"version", 1u}, {"bloom", {{"extension", "retain"}}}};
     extended["rendering"]["auto_exposure"] = {{"extension", "retain"}};
     extended["rendering"]["temporal_anti_aliasing"] = {{"extension", "retain"}};
+    extended["rendering"]["fast_approximate_anti_aliasing"] = {{"extension", "retain"}};
     extended["rendering"]["depth_of_field"] = {{"extension", "retain"}};
     scene.reset(extended);
     const auto original = scene.document();
@@ -37,6 +38,7 @@ void interactions(float scale, ImVec2 display) {
     bool automatic_controls = false;
     bool fog_controls = false;
     bool temporal_controls = false;
+    bool fast_aa_controls = false;
     bool focus_controls = false;
     bool motion_controls = false;
     bool occlusion_controls = false;
@@ -74,6 +76,9 @@ void interactions(float scale, ImVec2 display) {
                     ui::scene_motion_controls(settings.motion_blur, locked, commit);
                 else if (focus_controls)
                     ui::scene_focus_controls(settings.depth_of_field, locked, commit);
+                else if (fast_aa_controls)
+                    ui::scene_fast_aa_controls(settings.fast_approximate_anti_aliasing, locked,
+                                               commit);
                 else if (temporal_controls)
                     ui::scene_temporal_controls(settings.temporal_anti_aliasing, locked, commit);
                 else if (fog_controls)
@@ -315,6 +320,41 @@ void interactions(float scale, ImVec2 display) {
     locked = false;
     click("temporal:section");
     temporal_controls = false;
+    fast_aa_controls = true;
+    frame();
+    click("fast-aa:section");
+    const auto before_fast_aa = scene.document();
+    click("fast-aa:enabled");
+    check(scene_render_settings(scene.document()).fast_approximate_anti_aliasing.enabled &&
+              scene.undo() && scene.document() == before_fast_aa && scene.redo(),
+          "Spatial AA checkbox bypassed Scene history");
+    type("fast-aa:subpixel", "0.75");
+    type("fast-aa:steps", "8");
+    const auto fast_aa = scene.document();
+    check(error.empty() &&
+              scene_render_settings(fast_aa).fast_approximate_anti_aliasing ==
+                  SceneFastApproximateAntiAliasing{true, .75f, 8} &&
+              fast_aa["rendering"]["fast_approximate_anti_aliasing"]["extension"] == "retain",
+          "Spatial AA controls lost values or opaque metadata");
+    type("fast-aa:steps", "17");
+    check(!error.empty() && scene.document() == fast_aa,
+          "Invalid spatial AA input changed Scene values");
+    type("fast-aa:steps", "12");
+    check(error.empty(), "Spatial AA input did not recover after rejection");
+    const auto before_fast_reset = scene.document();
+    click("fast-aa:reset");
+    check(scene_render_settings(scene.document()).fast_approximate_anti_aliasing ==
+                  SceneFastApproximateAntiAliasing{} &&
+              scene.undo() && scene.document() == before_fast_reset && scene.redo(),
+          "Spatial AA reset was not one reversible operation");
+    locked = true;
+    frame();
+    for (const auto* key :
+         {"fast-aa:enabled", "fast-aa:subpixel", "fast-aa:steps", "fast-aa:reset"})
+        check(!test::ui_targets.at(key).enabled, "Spatial AA authored control enabled during Play");
+    locked = false;
+    click("fast-aa:section");
+    fast_aa_controls = false;
     focus_controls = true;
     frame();
     click("focus:section");
@@ -580,11 +620,13 @@ void interactions(float scale, ImVec2 display) {
     ImGui::DestroyContext();
 }
 void capture(const std::filesystem::path& root, std::string_view kind = {}) {
-    const bool fog = kind == "--fog", temporal = kind == "--temporal", focus = kind == "--focus",
-               motion = kind == "--motion", occlusion = kind == "--occlusion",
-               reflection = kind == "--reflection", weighted = kind == "--weighted";
+    const bool fast = kind == "--fast-aa", fog = kind == "--fog", temporal = kind == "--temporal",
+               focus = kind == "--focus", motion = kind == "--motion",
+               occlusion = kind == "--occlusion", reflection = kind == "--reflection",
+               weighted = kind == "--weighted";
     std::filesystem::create_directories(root);
-    const int capture_height = weighted     ? 240
+    const int capture_height = fast         ? 340
+                               : weighted   ? 240
                                : reflection ? 520
                                : fog        ? 360
                                : temporal   ? 420
@@ -620,7 +662,8 @@ void capture(const std::filesystem::path& root, std::string_view kind = {}) {
     Scene scene(engine.world());
     authoring_command(
         scene, "scene.rendering.set",
-        weighted     ? Json{{"weighted_transparency", true}}
+        fast         ? Json{{"fast_approximate_anti_aliasing", {{"enabled", true}}}}
+        : weighted   ? Json{{"weighted_transparency", true}}
         : reflection ? Json{{"screen_space_reflections", {{"enabled", true}}}}
         : occlusion  ? Json{{"ambient_occlusion", {{"enabled", true}, {"normal_influence", .7}}}}
         : motion   ? Json{{"motion_blur", {{"enabled", true}, {"shutter", .5}, {"max_pixels", 32}}}}
@@ -644,7 +687,11 @@ void capture(const std::filesystem::path& root, std::string_view kind = {}) {
         const auto commit = [&](const Json& patch) {
             authoring_command(scene, "scene.rendering.set", patch);
         };
-        if (weighted)
+        if (fast)
+            ui::scene_fast_aa_controls(
+                scene_render_settings(scene.document()).fast_approximate_anti_aliasing, false,
+                commit);
+        else if (weighted)
             ui::scene_transparency_controls(
                 scene_render_settings(scene.document()).weighted_transparency, false, commit);
         else if (reflection)
@@ -675,7 +722,8 @@ void capture(const std::filesystem::path& root, std::string_view kind = {}) {
         ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData(), renderer.get());
         SDL_RenderPresent(renderer.get());
     }
-    check(SDL_SavePNG(surface.get(), (root / (weighted     ? "weighted-transparency-controls.png"
+    check(SDL_SavePNG(surface.get(), (root / (fast         ? "fast-approximate-aa-controls.png"
+                                              : weighted   ? "weighted-transparency-controls.png"
                                               : reflection ? "screen-space-reflections-controls.png"
                                               : occlusion  ? "ambient-occlusion-controls.png"
                                               : motion     ? "motion-blur-controls.png"
@@ -696,7 +744,8 @@ int main(int argc, char** argv) {
               std::string_view(argv[2]) == "--focus" || std::string_view(argv[2]) == "--motion" ||
               std::string_view(argv[2]) == "--occlusion" ||
               std::string_view(argv[2]) == "--reflection" ||
-              std::string_view(argv[2]) == "--weighted"))) {
+              std::string_view(argv[2]) == "--weighted" ||
+              std::string_view(argv[2]) == "--fast-aa"))) {
             capture(std::filesystem::absolute(argv[1]),
                     argc == 3 ? std::string_view(argv[2]) : std::string_view{});
             return 0;

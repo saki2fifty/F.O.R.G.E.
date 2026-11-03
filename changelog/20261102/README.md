@@ -1,5 +1,27 @@
 # 2026-11-02
 
+## Fast approximate anti-aliasing
+
+Scene lighting can enable a current-frame display-color edge filter with bounded
+subpixel smoothing/search steps. The shared DisplayResolve owner applies it after
+tone mapping and before native Game UI or editor overlays. It has no history;
+temporal AA can remain active, while linear HDR output stays unchanged. Disabled
+output preserves the previous path. Typed validation, partial patches, history,
+metadata/reference inspection and automation/MCP use existing Scene owners.
+
+Gallery 143 reuses original edge geometry and animation with new Scene/entity
+identities through the ordinary Save As owner. Saved settings, real Game/Scene
+views, retained viewport images, native UI text and source-hidden relocated export
+have focused software coverage. The installed SDK value boundary and fingerprint are unchanged; compatible
+modules remain compatible. Optional display targets are prepared as a pair before use.
+Windows/MSVC/FXC/D3D12 and physical acceptance remain pending; no delivery is implied.
+
+MCP test fixtures now request normal native shutdown and verify its exit, including
+source-host stop control and ImGui teardown. Earlier forced-cleanup functional
+results did not establish a native leak-check exit; current regression coverage
+separates those claims and keeps production deadlines unchanged.
+
+
 ## Single-base Prefab variants
 
 Prefab variants inherit structure and values from a typed base while retaining

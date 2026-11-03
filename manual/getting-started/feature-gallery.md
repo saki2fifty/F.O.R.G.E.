@@ -1,5 +1,11 @@
 # Explore the Feature Gallery
 
+**143-fast-approximate-antialiasing** animates a pink bar across thin diagonal
+lines and tilted cubes. Stop Play and open **Tools > Scene lighting... → Fast
+approximate anti-aliasing** to compare enabled/disabled output, Subpixel smoothing
+and Edge search steps. Camera, light and animation are included; no project C++
+module is needed. Save and export it normally. See [Scene lighting](../editor/lighting.md).
+
 **142-prefab-variants** compares an animated base with amber, blue and chained pink
 variants. Press Play to see independent sequence controllers and different speeds.
 Stop and open **Assets/Variants/AmberBeacon.prefab.json** to inspect inherited

@@ -284,3 +284,16 @@ logical asset identity. Explicit map capture excludes local diffuse contribution
 keeping its existing nonrecursive snapshot boundary. Sampled irradiance grids,
 rebaking and multi-bounce simulation are separate unimplemented capabilities.
 See [the current contract](../local-diffuse-irradiance.md).
+
+
+## Display-space spatial filtering
+
+The optional [fast approximate anti-aliasing profile](../fast-approximate-antialiasing.md)
+extends the existing Scene settings and DisplayResolve owner. It filters the final
+composed display-encoded image, after HDR effects/tone mapping and before UI or
+editor overlays. It does not create material programs, a wrapper capability,
+source identity or a new resource registry. Disabled output follows the original
+path. The presentation owner prepares bounded optional targets before publication;
+Game and Scene preview share the operation. Linear HDR output and upstream temporal
+history retain their ownership. The installed SDK value boundary and fingerprint remain unchanged; this does not
+add a native callback. Export uses a runtime kit containing the implementation.

@@ -36,7 +36,7 @@ def editor(mode='edit'):
             assert line, process.stderr.read()
             yield root, process, json.loads(line)
         finally:
-            finish_host(process)
+            finish_host(process, root)
 
 
 for legacy in (False, True):

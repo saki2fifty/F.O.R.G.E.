@@ -202,6 +202,39 @@ inline void scene_focus_controls(const SceneDepthOfField& settings, bool locked,
         "Depth edges retain their silhouette; this spatial profile does not spread foreground "
         "blur across a different surface. Scene Save and Undo include these settings.");
 }
+inline void scene_fast_aa_controls(const SceneFastApproximateAntiAliasing& settings, bool locked,
+                                   const std::function<void(const Json&)>& commit) {
+    IdScope scope("fast_approximate_anti_aliasing");
+    const bool open = ImGui::CollapsingHeader("Fast approximate anti-aliasing");
+    FORGE_UI_PROBE("fast-aa:section");
+    if (!open)
+        return;
+    DisabledScope disabled(locked);
+    bool enabled = settings.enabled;
+    if (ImGui::Checkbox("Enable fast approximate anti-aliasing", &enabled))
+        commit({{"fast_approximate_anti_aliasing", {{"enabled", enabled}}}});
+    FORGE_UI_PROBE("fast-aa:enabled");
+    float strength = settings.subpixel_strength;
+    property_label_row("Subpixel smoothing", "From 0 to 1. Edge smoothing remains active at 0.");
+    if (ImGui::InputFloat("##subpixel", &strength, 0, 0, "%.3f",
+                          ImGuiInputTextFlags_EnterReturnsTrue))
+        commit({{"fast_approximate_anti_aliasing", {{"subpixel_strength", strength}}}});
+    FORGE_UI_PROBE("fast-aa:subpixel");
+    int steps = int(settings.search_steps);
+    property_label_row("Edge search steps", "From 1 to 16 pixels in each direction along an edge.");
+    if (ImGui::InputInt("##steps", &steps, 0, 0, ImGuiInputTextFlags_EnterReturnsTrue))
+        commit({{"fast_approximate_anti_aliasing", {{"search_steps", steps}}}});
+    FORGE_UI_PROBE("fast-aa:steps");
+    if (button("Reset fast approximate anti-aliasing",
+               "Disable filtering and restore smoothing 0.5 and 12 search steps."))
+        commit({{"fast_approximate_anti_aliasing",
+                 {{"enabled", false}, {"subpixel_strength", .5}, {"search_steps", 12}}}});
+    FORGE_UI_PROBE("fast-aa:reset");
+    ImGui::TextWrapped("Smooths current scene color after tone mapping, before UI and editor "
+                       "overlays. No temporal history. Supports up to 8,388,608 output pixels. "
+                       "Higher smoothing can soften fine details. Scene Save and Undo include "
+                       "these settings.");
+}
 inline void scene_temporal_controls(const SceneTemporalAntiAliasing& settings, bool locked,
                                     const std::function<void(const Json&)>& commit) {
     IdScope scope("temporal_anti_aliasing");
@@ -474,6 +507,7 @@ inline void scene_lighting(bool& open, Scene& scene, const AssetCatalog* catalog
             scene_motion_controls(settings.motion_blur, locked, commit);
             scene_focus_controls(settings.depth_of_field, locked, commit);
             scene_temporal_controls(settings.temporal_anti_aliasing, locked, commit);
+            scene_fast_aa_controls(settings.fast_approximate_anti_aliasing, locked, commit);
             scene_distance_fog_controls(settings.distance_fog, locked, commit);
             scene_bloom_controls(settings.bloom, locked, commit);
             scene_color_controls(settings.color_adjustments, locked, commit);

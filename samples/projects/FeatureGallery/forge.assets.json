@@ -1375,6 +1375,16 @@
       "type": "model_node"
     },
     {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "12ad1831-68d3-4912-b003-0f436a9f4afb",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/143-fast-approximate-antialiasing.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
       "dependencies": [
         "cf8130ea-5707-491c-90e9-a371c5ed9039"
       ],

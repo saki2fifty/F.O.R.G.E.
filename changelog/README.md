@@ -1,6 +1,6 @@
 # Changelog
 
-- [2026-11-02](20261102/README.md) — Prefab variants/Gallery142, static collision collection/Gallery141, authored links/Gallery140, behavior trees/Gallery139, named clearance profiles/shared avoidance/Gallery138, selected collision sources/Gallery137, polygon regions/Gallery136, State Conditions/Activity Lab/Gallery135, shared editor/MCP access and illustrated offline guides. Local source; Windows verification and delivery pending.
+- [2026-11-02](20261102/README.md) — Fast approximate anti-aliasing/Gallery143, Prefab variants/Gallery142, static collision collection/Gallery141, authored links/Gallery140, behavior trees/Gallery139, named clearance profiles/shared avoidance/Gallery138, selected collision sources/Gallery137, polygon regions/Gallery136, State Conditions/Activity Lab/Gallery135, shared editor/MCP access and illustrated offline guides. Local source; Windows verification and delivery pending.
 
 - [2026-11-01](20261101/README.md) — Application states and playable Signal Lock/Gallery134, authored patrol/chase graphs and Gallery131/132, moving navigation obstacles/Gallery129/130, source-aware Sprite atlases/Gallery127 and camera-driven Tile residency/Gallery126, shared editor/MCP workflows and illustrated guides. Local source; Windows verification and delivery pending.
 

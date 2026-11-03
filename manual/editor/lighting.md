@@ -482,7 +482,8 @@ allocation overhead are additional.
 Temporal anti-aliasing combines several rendered frames to reduce flickering along
 geometry edges. Higher stability retains more of the previous image; lower values
 respond faster. The allowed range is **0–0.95**. Zero keeps the current jittered
-image without blending older color. Uncheck Enable to disable edge smoothing; motion blur can continue independently.
+image without blending older color. Uncheck Enable to disable temporal accumulation;
+motion blur and fast approximate filtering can continue independently.
 **Reset temporal anti-aliasing** disables it and restores stability **0.8** in one
 Undo step. Authored controls are read-only during Play.
 
@@ -518,6 +519,46 @@ preview has its own 512 MiB budget. Device limits and allocation overhead also
 apply. An unsupported or oversized view uses ordinary rendering with a warning.
 If Problems requests a current surface Shader, reimport that Shader and rebuild
 its dependent Materials before comparing the result or exporting.
+
+## Smooth edges without image history
+
+1. Stop Play and open **Tools > Scene lighting...**.
+2. Expand **Fast approximate anti-aliasing** and select **Enable fast approximate anti-aliasing**.
+3. Start with **Subpixel smoothing** at **0.5** and **Edge search steps** at **12**. Press **Enter** to commit a typed value.
+4. Save the scene. Scene preview, Play and exported games use these settings.
+
+This filter smooths the current scene image after tone mapping. It needs no
+previous frame, depth or motion information. It can run independently or alongside
+temporal anti-aliasing. Game UI and editor guides are drawn afterward and keep
+their original appearance.
+
+![Scene lighting with fast approximate anti-aliasing enabled, smoothing 0.500 and 12 edge search steps](../images/fast-approximate-aa-controls.png)
+
+Use the defaults first, then compare fine details with the effect enabled and disabled.
+
+**Subpixel smoothing** accepts **0–1**. Higher values soften isolated detail;
+zero leaves the edge filter active. **Edge search steps** accepts **1–16** and
+limits how far the filter follows an edge in each direction. **Reset fast
+approximate anti-aliasing** disables it and restores **0.5** and **12** in one
+Undo step. Authored controls are read-only during Play.
+
+Open **143-fast-approximate-antialiasing** in the Feature Gallery and press Play.
+The pink bar moves across thin cyan and amber lines and tilted cubes. Stop Play
+to compare the filter settings, then save. The example includes a camera and
+light, uses an existing animation clip and requires no project C++ module. Select
+the scene as startup and export with the matching runtime kit to run it separately.
+
+![Pink animated bar and tilted cubes in front of thin cyan and amber diagonal lines](../images/fast-approximate-aa-game.png)
+
+Compare current-frame edge smoothing while the foreground bar moves.
+
+Low-contrast edges may remain unchanged. Alpha discontinuities retain original
+pixels, and strong smoothing can soften small details. This filter does not
+provide temporal stability. It supports up to **8,388,608 output pixels**, including
+**3840 × 2160**, with an additional cached texture of up to **32 MiB per view**.
+If a view exceeds that limit, reduce its size or disable the effect.
+
+
 
 ## Add distance fog
 

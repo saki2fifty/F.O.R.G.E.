@@ -12,6 +12,24 @@ Reserve the build identifier with the release coordinator before dispatch; the e
 
 ## Test profiles
 
+Fast approximate anti-aliasing uses focused Scene-setting/source/history/reference
+checks, six actual-input layouts, both MCP framings, actual Game/Scene View/cache /
+Undo, temporal combination, unchanged linear HDR and native post-display UI pixels.
+Independent analytic display-edge coverage includes neutral/blue and HDR values,
+transpose/negative/steep slopes, borders/resize/alpha and pixel-budget retention.
+Gallery 143 supplies source-hidden relocated export and four exact moving software
+Vulkan display pairs. Native renderer units receive separate strict compile proof;
+normal software rendering does not establish a clean native GPU sanitizer exit or
+physical/Windows acceptance.
+
+MCP sanitizer fixtures must request graceful host shutdown and verify its own
+successful exit. A passing Python supervisor after killing its child proves
+functionality only. Source-host tests use the shared portable stop marker and an
+ImGui context owner. Focused document/source workflows run both framings with
+unsuppressed native exits. The full multi-MiB boundary stays on normal native
+consumers because instrumentation exceeds the unchanged production bridge deadline;
+no transport limit is relaxed to make an instrumented timing fixture pass.
+
 Single-base Prefab variant coverage includes source1–4 compatibility, typed base
 closure, explicit equal-value intent, reviewed stale bases, Rebase, variant-only
 Apply/history, missing-member identity, custom scalar/reference masks and migration.

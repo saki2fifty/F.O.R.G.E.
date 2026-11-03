@@ -440,9 +440,10 @@ ITextureView* FrameRenderer::render(IDeviceContext* context, const RenderScene& 
     auto* result = color_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
     if (output == Output::Display) {
         auto timing = presentation_.gpu_scope(context, profile_view_.c_str(), "Display resolve");
-        result = display_.resolve(context, result, exposure, scene.settings.color_adjustments,
-                                  automatic ? *automatic : SceneAutoExposure{},
-                                  exposure_timing.delta, reset_exposure);
+        result =
+            display_.resolve(context, result, exposure, scene.settings.color_adjustments,
+                             automatic ? *automatic : SceneAutoExposure{}, exposure_timing.delta,
+                             reset_exposure, scene.settings.fast_approximate_anti_aliasing);
     }
     if (adaptive) {
         exposure_views_.resize(cameras.size());
