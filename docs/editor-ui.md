@@ -328,3 +328,18 @@ a general cross-document Undo owner.
 Creation recipes use UI-independent entity.create with optional recipe ID; schema-owned defaults compose the result in one candidate transaction. Explicit Primitive None preserves legacy missing-Primitive cube behavior. Kinds0–3 remain unchanged; additional procedural shapes append values. Scene format3 and identity contracts were unchanged by the primitive work; old builds reject unsupported new enum values. The initial recipe checkpoint used shared CPU triangles. Phase 7 now realizes built-in primitives through the same Mesh/Material renderer as imported models while preserving legacy authored data.
 
 Compact FORGE-owned vector icons use pinned ImDrawList geometry and do not add a dependency. Menu/global/status padding is reduced; the status row provides a Details popup for overflow. Preferences moved to Edit. Scene title/dirty state uses a stable hidden ID with layout migration. Manual routes describe current behavior; no future editor is advertised as implemented.
+
+## Input Message authoring
+
+Inspector's optional Gameplay / Input Message component chooses a saved digital
+fixed-context action and an already attached registered payload component. The
+selectors preserve missing saved keys, offer None, include inherited values and
+exclude the emitter itself. They delegate to the existing property/history owner.
+Console / Gameplay input presents the runtime's copied messages status; it does
+not drive dispatch. See [Input Message usage](../manual/editor/input-messages.md)
+and [its native ownership contract](input-messages.md).
+
+Content's C++ System dialog offers **Component: None (empty registration)** for
+project query/observer startup code without an unrelated component template. It
+uses the existing source/registration/build owner. Named components retain the
+rotation template; an empty template provides no behavior until edited and built.

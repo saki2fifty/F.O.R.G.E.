@@ -1347,3 +1347,28 @@ new state owner. `mcp_application_states_play_stdio` exercises the real editor's
 state discovery, paused controls, computed/stale/launch/gesture rejection and
 runtime-only isolation through both MCP formats. Native SDK and software renderer
 fixtures provide separate evidence; these MCP checks do not assert Windows execution.
+
+## Authored input messages
+
+Discovery includes optional Gameplay component `forge.input_message` with shared
+`enabled`, `action` UUID-text and `payload` component-key fields. Configure it with
+`forge_component_add` and `forge_property_set_many`; remove its owned value with
+`forge_component_revert`. Normal permissions, target/revision, replay, Undo/Redo,
+Prefab and document-save semantics apply. Existing project-settings tools own
+the input map. Use a digital fixed-context action and an attached builtin or
+inspected opted-in project component; there is no separate agent payload store.
+
+`forge_play_input_submit` exercises the existing input owner. `forge_play_input`
+returns its cached `value.messages` observation, including tick, emitted count,
+overflow and per-source diagnostics. The normal Play launch/session/world
+correlation still applies. Sent means native dispatch, not proof of a receiver.
+Source-code creation/build/inspection supplies C++ receivers through the existing
+workflow. See [the dispatch and lifecycle contract](input-messages.md).
+
+`forge_code_create(kind="system", name="InputMessages")` omits the optional
+component template and creates an empty managed startup registration. A supplied
+component name retains the existing component-header check and rotation template.
+The same helper drives Content's None (empty registration) choice. Replace the
+new source through normal guarded code-edit/save/build operations with the Gallery
+receiver; omission does not create a native event bus or gameplay behavior. Managed
+source provenance reports an empty component string for this registration.

@@ -98,6 +98,16 @@ int main(int argc, char** argv) {
                     systems.front().source == "Native/Systems/RotationSystem.cpp",
                 "Registered system inspection is incorrect");
         require(cpp_project_sources(root).size() >= 5, "Gameplay source browser missed files");
+        require(create_cpp_system(root, "Messages", "") == "Native/Systems/Messages.cpp",
+                "Empty registered startup required an unrelated component");
+        const auto empty_system = read_cpp_source(root / "Native/Systems/Messages.cpp");
+        require(empty_system.find("forge_register_system_Messages") != std::string::npos &&
+                    empty_system.find("Components/") == std::string::npos,
+                "Empty startup template retained a component query");
+        const auto registered = managed_system_sources(root);
+        require(registered.size() == 2 && registered.back().name == "Messages" &&
+                    registered.back().component.empty(),
+                "Empty startup lost managed registration/source provenance");
         rejects([&] { create_cpp_component(root, "Rotator"); }, "Component overwritten");
         rejects([&] { create_cpp_component(root, "ROTATOR"); },
                 "Duplicate stable component key admitted");

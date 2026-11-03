@@ -20,7 +20,7 @@ if(FORGE_ENABLE_NATIVE_SDK AND NOT CMAKE_BUILD_TYPE MATCHES "^(Release|Debug|Rel
 endif()
 string(TOUPPER "${CMAKE_BUILD_TYPE}" _forge_config)
 # One explicit installed value boundary drives installation and compatibility hashing.
-set(FORGE_SDK_HEADERS native_sdk.h sdk_client.hpp identity.hpp asset_ref.hpp physics_components.hpp character_components.hpp audio_components.hpp animation_components.hpp navigation_components.hpp navigation_behavior_components.hpp ui_components.hpp render_components.hpp reflection_probe.hpp decal.hpp sprite_frames.hpp material_parameter.hpp transform_components.hpp model_asset.hpp engine_assets.hpp engine_texture_assets.hpp texture_dimension.hpp primitive_catalog.hpp)
+set(FORGE_SDK_HEADERS native_sdk.h sdk_client.hpp input_message.hpp identity.hpp asset_ref.hpp physics_components.hpp character_components.hpp audio_components.hpp animation_components.hpp navigation_components.hpp navigation_behavior_components.hpp ui_components.hpp render_components.hpp reflection_probe.hpp decal.hpp sprite_frames.hpp material_parameter.hpp transform_components.hpp model_asset.hpp engine_assets.hpp engine_texture_assets.hpp texture_dimension.hpp primitive_catalog.hpp)
 list(APPEND FORGE_SDK_HEADERS application_state_components.hpp application_state_ecs.hpp application_state_key.hpp)
 set(FORGE_SDK_CONTRACT_HASHES "")
 foreach(header IN LISTS FORGE_SDK_HEADERS)
@@ -41,6 +41,7 @@ endforeach()
 # Exact bridge and value-support semantics are part of this private SDK contract.
 foreach(source
  include/forge/application_states.hpp include/forge/application_state_definition.hpp
+ src/input_message_runtime.cpp src/input_message_runtime.hpp
  src/simple_polygon.hpp src/navigation_region.hpp src/navigation_region_value.hpp
  src/physics_collider_2d.hpp src/physics_collider_2d_native.hpp src/physics_collider_2d.cpp
  src/navigation_collision_geometry.hpp src/navigation_collision_source.hpp

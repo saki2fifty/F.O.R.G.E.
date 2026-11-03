@@ -53,6 +53,12 @@ After the test passes, choose **Build Project Code** for your own source.
 
 **Content → Code** shows the real `Native/Components`, `Native/Systems` and other supported source paths. Its friendly Code label does not rename `Native/` on disk. Use **Create / Register → C++ → Source file... / Header file...** to add a `.cpp` or `.hpp` directly under `Native/` without overwriting an existing file. Managed builds register new `.cpp` files; a custom CMake recipe must include them explicitly. C++ Sources has a **New...** shortcut to the same Content creation dialog.
 
+For project queries or observers without a component template, create a System
+and select **Component: None (empty registration)**. FORGE creates a registered
+startup function in Native/Systems and includes the source in managed builds.
+Write the query or observer in that function; the empty template has no gameplay
+behavior. Choosing a component still creates the rotation example.
+
 The built-in source editor provides C++ highlighting, line numbers, source-only
 Undo/Redo, **Ctrl+F** and **Find next**. A file changed outside FORGE shows a
 notice; a conflicting Save keeps your draft, and **Reload from disk** asks before
@@ -234,3 +240,11 @@ runtime activity. This leaves its enable fields and structural identity intact.
 It does not filter your C++ systems; keep their execution conditions explicit.
 The matching SDK value is `forge::ApplicationStateGate` in
 `forge/application_state_components.hpp`.
+
+## Receive typed input messages
+
+Add [Input Message](input-messages.md) to an entity to send an attached component's
+value to a C++ observer on a digital press. Use the actual component type as the
+event and an Any query term; read the copied value as const during the callback.
+The Feature Gallery InputMessages.cpp example demonstrates source identity checks
+and transient runtime changes through the same matching SDK.

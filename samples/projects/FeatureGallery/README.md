@@ -1912,3 +1912,22 @@ slots to test high numbered markers, or use multiple connected controllers for
 independent movement. Assignments are temporary for this host session. Save the
 Scene and Project Settings, choose this scene as startup, build the matching code
 and export. Physical controller support depends on the host and device.
+
+## Input-triggered component messages
+
+Open **Scenes/150-input-messages.scene.json** and set up project C++ code in Build.
+Use **Content > Create / Register > C++ > System...**, name it **InputMessages**
+and choose **Component: None (empty registration)**. Replace the generated
+`Native/Systems/InputMessages.cpp` with the bundled `CodeExamples/InputMessages.cpp`,
+save source and build with the matching SDK. The managed registration function
+is `forge_register_system_InputMessages`.
+The installed `input_messages_gameplay` sample target wraps this same source.
+Two cubes each have **Input Message**, the **Send component message** digital
+action and **Local Translation** as their attached payload. Capture Game input
+and press Space: each fresh press moves both cubes half a unit right, wrapping
+back from their range end. Holding Space sends once.
+
+Edit each cube's Input Message choices through Inspector. Console / Gameplay
+input shows dispatch counts and diagnostics. Stop and save authored values before
+export; include the matching compiled module. Without a receiver, events can be
+sent but the cubes remain still. See [the complete workflow](../../../manual/editor/input-messages.md).

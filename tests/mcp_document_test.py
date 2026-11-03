@@ -14,9 +14,11 @@ from mcp_fast_aa_workflow import check_fast_aa_workflow
 from mcp_mesh_scatter_workflow import check_mesh_scatter_workflow
 from mcp_sequence_clip_workflow import check_sequence_clip_workflow
 from mcp_nested_sequence_workflow import check_nested_sequence_workflow
+from mcp_input_message_workflow import check_input_message_workflow
 
 TOOLS, HOST = map(str, map(Path, sys.argv[1:3]))
 NESTED_SEQUENCES_ONLY = "--nested-sequences-only" in sys.argv[4:]
+INPUT_MESSAGES_ONLY = "--input-messages-only" in sys.argv[4:]
 SEQUENCE_CLIPS_ONLY = "--sequence-clips-only" in sys.argv[4:]
 FAST_AA_ONLY = "--fast-aa-only" in sys.argv[4:]
 MESH_SCATTER_ONLY = "--mesh-scatter-only" in sys.argv[4:]
@@ -144,6 +146,9 @@ for legacy in (False, True):
         exposure_schema = exposure_command['input_schema']['properties']['auto_exposure']
         exposure_tool = next(item for item in catalog
                              if item['name'] == 'forge_scene_rendering_set')
+        if INPUT_MESSAGES_ONLY:
+            check_input_message_workflow(client, discover, arguments, mutate, project)
+            continue
         if NESTED_SEQUENCES_ONLY:
             check_nested_sequence_workflow(client, discover, arguments, mutate, project)
             continue

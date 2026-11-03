@@ -14371,6 +14371,16 @@
       "source": "Scenes/75-2d-physics.scene.json",
       "source_dependencies": [],
       "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "8d2fcdf4-9786-482f-b8b2-058d4168f1d3",
+      "metadata": {},
+      "schema_version": 5,
+      "source": "Scenes/150-input-messages.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
     }
   ],
   "version": 2

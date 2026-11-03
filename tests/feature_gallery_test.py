@@ -284,6 +284,19 @@ assert math.isclose(rectangle['emitter_height'], .55, abs_tol=1e-6)
 assert math.isclose(sphere['emitter_radius'], .8, abs_tol=1e-6)
 assert sum('forge.mesh_renderer' in row['components'] for row in area_scene['entities']) == 4
 
+message_scene = json.loads((project_root / 'Scenes/150-input-messages.scene.json').read_text())
+assert message_scene['asset_id'] == by_source['Scenes/150-input-messages.scene.json']['id']
+message_sources = [row for row in message_scene['entities'] if 'forge.input_message' in row['components']]
+assert len(message_sources) == 2
+message_actions = {row['id']: row for row in project['input']['actions']}
+for row in message_sources:
+    message = row['components']['forge.input_message']
+    assert message == dict(enabled=True, action=message['action'], payload='forge.local_translation')
+    assert message['payload'] in row['components']
+    assert message_actions[message['action']]['kind'] == 'digital'
+    assert message_actions[message['action']]['bindings'] == [dict(control='key.space')]
+assert (project_root / 'CodeExamples/InputMessages.cpp').is_file()
+
 scenes = sorted((project_root / 'Scenes').glob('*.scene.json'))
 assert {'71-world-sprites.scene.json', '72-sprite-frame-animation.scene.json',
         '73-sprite-image-fill.scene.json', '74-tile-maps.scene.json',
@@ -297,13 +310,24 @@ player_scene = json.loads((project_root / 'Scenes/92-multiple-gamepads.scene.jso
 assert player_scene['asset_id'] == by_source['Scenes/92-multiple-gamepads.scene.json']['id']
 players = [row for row in player_scene['entities'] if row['name'].startswith('Player ')]
 assert len(players) == 4 and len({tuple(row['components']['forge.local_translation'].values()) for row in players}) == 4
-player_actions = [a for a in project['input']['actions'] if a['name'].startswith('Player ')]
+player_actions = [a for a in project['input']['actions']
+                  if a['name'] in {f'Player {slot} move' for slot in range(1, 5)}]
 assert len(player_actions) == 4
 for slot,action in enumerate(player_actions,start=1):
     assert action['kind'] == 'axis2'
     assert {b['control'] for b in action['bindings']} == {f'pad.{slot}.left_x', f'pad.{slot}.left_y'}
     assert all(b['radial'] and b['deadzone'] == .2 for b in action['bindings'])
 assert (project_root / 'CodeExamples/MultipleGamepads.cpp').is_file()
+controller_scene = json.loads((project_root / 'Scenes/149-sixteen-controllers.scene.json').read_text())
+assert controller_scene['asset_id'] == by_source['Scenes/149-sixteen-controllers.scene.json']['id']
+assert len([row for row in controller_scene['entities'] if 'forge.sprite_renderer' in row['components']]) == 16
+controller_actions = [a for a in project['input']['actions'] if a['name'].startswith('Player ')]
+assert len(controller_actions) == 16
+for slot in range(1, 17):
+    action, = [row for row in controller_actions if row['name'] == f'Player {slot} move']
+    assert action['kind'] == 'axis2'
+    assert {row['control'] for row in action['bindings']} == {f'pad.{slot}.left_x', f'pad.{slot}.left_y'}
+    assert all(row['radial'] and row['deadzone'] == .2 for row in action['bindings'])
 tile_scene = json.loads((project_root / 'Scenes/74-tile-maps.scene.json').read_text(encoding='utf-8'))
 maps = [row['components']['forge.tile_map_renderer'] for row in tile_scene['entities']
         if 'forge.tile_map_renderer' in row['components']]
@@ -551,6 +575,15 @@ try:
             if transform is not None:
                 transform.setdefault('sequence', None)
                 transform.setdefault('sequence_start_seconds', 0.)
+                transform.setdefault('sequence_next_clip', None)
+                transform.setdefault('sequence_next_start_seconds', 0.)
+            sequence = row['components'].get('forge.animation_sequence')
+            if sequence is not None:
+                sequence.setdefault('sequence', None)
+                sequence.setdefault('sequence_start_seconds', 0.)
+            avoidance = row['components'].get('forge.navigation_avoidance')
+            if avoidance is not None:
+                avoidance.setdefault('shared_group', 0)
             particles = row['components'].get('forge.particle_emitter')
             if particles is not None:
                 for field in ('size_multiplier', 'tint_r', 'tint_g', 'tint_b'):
@@ -581,6 +614,10 @@ try:
                 sound.setdefault('echo_enabled', False)
                 sound.setdefault('echo_seconds', .25)
                 sound.setdefault('echo_feedback', .35)
+                sound.setdefault('reverb_enabled', False)
+                sound.setdefault('reverb_decay', 1.5)
+                sound.setdefault('reverb_damping', .5)
+                sound.setdefault('reverb_wet', .25)
             body = row['components'].get('forge.physics_body')
             if body is not None:
                 body.setdefault('continuous_collision', False)

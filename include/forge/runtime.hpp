@@ -8,6 +8,9 @@
 #include <forge/scene.hpp>
 #include <functional>
 namespace forge {
+namespace detail {
+class InputMessageRuntime;
+}
 struct RuntimeConfig {
     double simulation_hz = 60;
     double max_elapsed = .250;
@@ -86,11 +89,7 @@ class RuntimeSimulation {
     // Publish privately edited animation joints without changing other interpolation.
     void sync_animation_pose() const;
     RuntimeInput& input() { return input_; }
-    Json input_status() const {
-        auto status = input_monitor_.status(input_.map());
-        status["rebind_listening"] = input_.rebinding();
-        return status;
-    }
+    Json input_status() const;
     void reset_presentation();
     void restore_input_tick(std::uint64_t tick) {
         input_tick_ = tick;
@@ -108,13 +107,14 @@ class RuntimeSimulation {
     mutable PresentationPoses poses_;
     RuntimeInput input_;
     InputMonitor input_monitor_;
+    std::unique_ptr<detail::InputMessageRuntime> messages_;
     std::uint64_t input_tick_ = 0;
     Json system_profile_ = Json::object();
     std::uint64_t system_profile_epoch_ = 0;
     mutable bool system_profile_requested_ = false;
     void capture_system_profile();
     flecs::entity previous_pipeline_;
-    flecs::entity input_phase_, input_system_;
+    flecs::entity input_phase_, input_system_, message_phase_, message_system_;
     flecs::entity pipeline_, transforms_, gameplay_phase_, transform_phase_;
     flecs::entity pre_physics_, physics_step_, physics_adopt_;
     flecs::entity pre_phase_, physics_phase_, adoption_phase_, post_phase_;

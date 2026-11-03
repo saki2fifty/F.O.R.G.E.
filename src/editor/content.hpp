@@ -362,7 +362,11 @@ class ContentBrowser {
             destination += code_create_name_;
         ImGui::TextWrapped("Destination: %s", destination.c_str());
         if (system) {
-            if (ImGui::BeginCombo("Component", code_system_component_.c_str())) {
+            if (ImGui::BeginCombo("Component", code_system_component_.empty()
+                                                   ? "None (empty registration)"
+                                                   : code_system_component_.c_str())) {
+                if (ImGui::Selectable("None (empty registration)", code_system_component_.empty()))
+                    code_system_component_.clear();
                 for (const auto& source : code_sources_) {
                     constexpr std::string_view prefix = "Native/Components/";
                     if (!source.starts_with(prefix) || !source.ends_with(".hpp"))
@@ -374,7 +378,10 @@ class ContentBrowser {
                 }
                 ImGui::EndCombo();
             }
-            ImGui::TextWrapped("The generated example rotates matching entities at a fixed tick.");
+            ImGui::TextWrapped(
+                code_system_component_.empty()
+                    ? "Register project queries or observers in the new startup function."
+                    : "The generated example rotates matching entities at a fixed tick.");
         }
         ImGui::BeginDisabled(locked || !ready || !create_code);
         if (ui::button("Create and open",
@@ -622,7 +629,7 @@ class ContentBrowser {
     std::stop_source stop_;
     std::future<ContentCatalogScan> scan_;
     std::shared_ptr<const std::vector<AssetRecord>> discovered_scenes_;
-    std::string code_create_kind_ = "source", code_system_component_ = "Rotator";
+    std::string code_create_kind_ = "source", code_system_component_;
     char code_create_name_[128] = "behavior.cpp";
     bool code_create_pending_ = false, focus_code_create_ = false;
     int code_create_request_frame_ = 0;

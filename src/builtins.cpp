@@ -78,6 +78,8 @@ template <class T> Json encode(const T& p) {
         return {{"definition", p.definition.id ? Json(p.definition.id) : Json()}};
     else if constexpr (std::is_same_v<T, ApplicationStateGate>)
         return {{"enabled", p.enabled}, {"domain", p.domain}, {"state", p.state}};
+    else if constexpr (std::is_same_v<T, InputMessage>)
+        return {{"enabled", p.enabled}, {"action", p.action}, {"payload", p.payload}};
     else if constexpr (std::is_same_v<T, NavigationSurface>)
         return {{"enabled", p.enabled}};
     else if constexpr (std::is_same_v<T, NavigationLink>)
@@ -395,6 +397,11 @@ template <class T> Value decode(const Json& p) {
     } else if constexpr (std::is_same_v<T, ApplicationStateGate>) {
         ApplicationStateGate value{p.at("enabled").get<bool>(), p.at("domain").get<std::string>(),
                                    p.at("state").get<std::string>()};
+        value.validate();
+        return value;
+    } else if constexpr (std::is_same_v<T, InputMessage>) {
+        InputMessage value{p.at("enabled").get<bool>(), p.at("action").get<std::string>(),
+                           p.at("payload").get<std::string>()};
         value.validate();
         return value;
     } else if constexpr (std::is_same_v<T, NavigationSurface>)
@@ -1176,6 +1183,11 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
         c.template member<bool>("enabled")
             .template member<std::string>("domain")
             .template member<std::string>("state");
+    } else if constexpr (std::is_same_v<T, InputMessage>) {
+        w.component<std::string>("forge.authored_string").opaque(reflected_string);
+        c.template member<bool>("enabled")
+            .template member<std::string>("action")
+            .template member<std::string>("payload");
     } else if constexpr (std::is_same_v<T, NavigationSurface>)
         c.template member<bool>("enabled");
     else if constexpr (std::is_same_v<T, NavigationLink>) {
@@ -1748,6 +1760,10 @@ const std::array<Builtin, builtin_count>& builtins() {
             [](flecs::world& w) {
                 return register_type<ApplicationStateGate>(w, "forge.application_state_gate");
             }),
+        descriptor<InputMessage>(
+            "forge.input_message", "Send attached component data when an input action is pressed",
+            "unitless", {}, {},
+            [](flecs::world& w) { return register_type<InputMessage>(w, "forge.input_message"); }),
         descriptor<MeshRenderer>(
             "forge.mesh_renderer", "Mesh and logical material slot assignments", "unitless", {}, {},
             [](flecs::world& w) { return register_type<MeshRenderer>(w, "forge.mesh_renderer"); }),
@@ -2937,6 +2953,15 @@ Json registration_options(const Builtin& type, const std::string& field) {
         value["description"] =
             "Published game-state definition; one configured controller per World";
     }
+    if (name == "forge.input_message") {
+        value.erase("minimum");
+        value.erase("maximum");
+        value["animatable"] = false;
+        value["description"] = field == "action" ? "Stable input action ID from Project Settings"
+                               : field == "payload"
+                                   ? "Attached component key; copied on each pressed edge"
+                                   : "Send messages during fixed Play ticks";
+    }
     if (name == "forge.application_state_gate") {
         value.erase("minimum");
         value.erase("maximum");
@@ -3487,7 +3512,7 @@ Json register_builtins(flecs::world& world, unsigned family) {
         add_reference.template operator()<UiLocalizationAsset>();
         add_reference.template operator()<ApplicationStatesAsset>();
         if (name == "forge.ui_localization" || name == "forge.application_state_gate" ||
-            name == "forge.navigation_link")
+            name == "forge.input_message" || name == "forge.navigation_link")
             references.push_back({world.id<std::string>(), "string"});
         if (name == "forge.mesh_renderer") {
             references.push_back({world.id<std::string>(), "string"});
@@ -3510,25 +3535,26 @@ Json register_builtins(flecs::world& world, unsigned family) {
             {{"id", type.name},
              {"display_name", ecs_doc_get_name(world.c_ptr(), c.id())},
              {"description", ecs_doc_get_brief(world.c_ptr(), c.id())},
-             {"category",
-              name == "forge.application_states" || name == "forge.application_state_gate"
-                  ? "Gameplay"
-              : category == 0 && name != "forge.model_source" &&
-                      name != "forge.local_translation" && name != "forge.local_rotation" &&
-                      name != "forge.local_scale" && name != "forge.primitive" &&
-                      name != "forge.tint"
-                  ? "Rendering"
-                  : categories[category]},
+             {"category", name == "forge.application_states" ||
+                                  name == "forge.application_state_gate" ||
+                                  name == "forge.input_message"
+                              ? "Gameplay"
+                          : category == 0 && name != "forge.model_source" &&
+                                  name != "forge.local_translation" &&
+                                  name != "forge.local_rotation" && name != "forge.local_scale" &&
+                                  name != "forge.primitive" && name != "forge.tint"
+                              ? "Rendering"
+                              : categories[category]},
              {"schema_version", 1},
              {"fields", fields},
-             {"optional", category != 0 || name == "forge.application_states" ||
-                              name == "forge.application_state_gate" ||
-                              name == "forge.mesh_renderer" || name == "forge.particle_emitter" ||
-                              name == "forge.sprite_renderer" ||
-                              name == "forge.tile_map_renderer" || name == "forge.camera" ||
-                              name == "forge.light" || name == "forge.reflection_probe" ||
-                              name == "forge.decal" || name == "forge.node_visibility" ||
-                              name == "forge.node_selectability"}});
+             {"optional",
+              category != 0 || name == "forge.application_states" ||
+                  name == "forge.input_message" || name == "forge.application_state_gate" ||
+                  name == "forge.mesh_renderer" || name == "forge.particle_emitter" ||
+                  name == "forge.sprite_renderer" || name == "forge.tile_map_renderer" ||
+                  name == "forge.camera" || name == "forge.light" ||
+                  name == "forge.reflection_probe" || name == "forge.decal" ||
+                  name == "forge.node_visibility" || name == "forge.node_selectability"}});
         std::lock_guard lock(catalog_mutex);
         auto validation = components.back();
         validation["type"] = "struct";

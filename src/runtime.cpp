@@ -1,5 +1,6 @@
 #include "animation_component_values.hpp"
 #include "flecs_system_trace.hpp"
+#include "input_message_runtime.hpp"
 #include "json_output_text.hpp"
 #include "particle_runtime.hpp"
 #include "runtime_entity_creation.hpp"
@@ -190,12 +191,21 @@ RuntimeSimulation::RuntimeSimulation(WorldContext& context, Scene& scene)
     }
     input_phase_ =
         world.entity("forge.runtime.Input").add(flecs::Phase).depends_on(flecs::PreFrame);
+    message_phase_ =
+        world.entity("forge.runtime.Messages").add(flecs::Phase).depends_on(input_phase_);
     gameplay_phase_ =
-        world.entity("forge.runtime.Gameplay").add(flecs::Phase).depends_on(input_phase_);
+        world.entity("forge.runtime.Gameplay").add(flecs::Phase).depends_on(message_phase_);
     input_system_ = world.system("forge.runtime.InputMonitor")
                         .kind(input_phase_)
                         .immediate()
                         .run([this](flecs::iter&) { input_monitor_.consume(input_.snapshot()); });
+    messages_ = std::make_unique<detail::InputMessageRuntime>(context_, scene_);
+    message_system_ = world.system("forge.runtime.InputMessages")
+                          .kind(message_phase_)
+                          .immediate()
+                          .run([this](flecs::iter&) {
+                              stage([&] { messages_->tick(input_.snapshot(), input_.map()); });
+                          });
     if (context.services().available(Capability::Physics))
         physics_ = std::static_pointer_cast<PhysicsRuntime>(context.services().physics());
     if (animation_) {
@@ -301,6 +311,7 @@ RuntimeSimulation::RuntimeSimulation(WorldContext& context, Scene& scene)
             .run([this](flecs::iter&) { stage([&] { context_.evaluate_world_transforms(); }); });
     world.set_pipeline(pipeline_);
     input_system_.add<FixedSimulation>();
+    message_system_.add<FixedSimulation>();
     transforms_.add<FixedSimulation>();
     reset_presentation();
     previous_state_retirement_ = exchange_application_state_retirement_handler(
@@ -332,6 +343,7 @@ RuntimeSimulation::~RuntimeSimulation() {
     physics_step_.destruct();
     physics_adopt_.destruct();
     input_system_.destruct();
+    message_system_.destruct();
     transforms_.destruct();
     pipeline_.destruct();
     transform_phase_.destruct();
@@ -340,7 +352,14 @@ RuntimeSimulation::~RuntimeSimulation() {
     physics_phase_.destruct();
     pre_phase_.destruct();
     gameplay_phase_.destruct();
+    message_phase_.destruct();
     input_phase_.destruct();
+}
+Json RuntimeSimulation::input_status() const {
+    auto status = input_monitor_.status(input_.map());
+    status["rebind_listening"] = input_.rebinding();
+    status["messages"] = messages_->status();
+    return status;
 }
 void RuntimeSimulation::tick(float dt) {
     if (!std::isfinite(dt) || dt <= 0)

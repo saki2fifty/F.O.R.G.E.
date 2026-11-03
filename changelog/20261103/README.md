@@ -120,3 +120,19 @@ Full Main/Windows/physical acceptance remains pending; no numbered delivery is i
 - Scene/Game image export accepts PNG and lossless WebP. Native encoding preserves transparent RGB and uses the existing bounded IO/atomic replacement owner; PNG remains the default.
 - File type/suffix checks and overwrite confirmation share the editor capture task. MCP admits the same formats and reports full-file MIME, while image content and sequence frames remain PNG.
 - Updated image-export instructions and native codec/ownership contracts. Platform picker, physical GPU and full Windows acceptance remain pending.
+
+### Action-triggered typed component messages
+
+- Added optional Input Message authoring with fixed digital action and attached
+  payload selectors, shared property/history/Prefab ownership and runtime diagnostics.
+- A native fixed phase copies bounded builtin or opted-in project values and sends
+  them through the existing ECS observers before gameplay; there is no parallel bus
+  or persistent queue. Existing Play input injection/observations expose the workflow
+  to MCP.
+- Added original Gallery150 and a shared optional C++ receiver/installed SDK sample.
+  The matching SDK fingerprint changes; rebuild native modules. ABI1 and existing
+  scene/prefab formats remain unchanged. Windows and physical acceptance are pending.
+
+- C++ System creation can omit the component template through Content or MCP,
+  creating an empty managed startup function for project queries/observers. Existing
+  component-bound rotation templates and registration/build ownership are retained.

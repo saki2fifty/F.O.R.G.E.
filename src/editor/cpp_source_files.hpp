@@ -230,10 +230,12 @@ inline std::string create_cpp_component(const std::filesystem::path& root,
 inline std::string create_cpp_system(const std::filesystem::path& root, const std::string& name,
                                      const std::string& component) {
     gameplay_identifier(name);
-    gameplay_identifier(component);
-    if (!std::filesystem::is_regular_file(cpp_source_path(
-            root, std::filesystem::path("Native/Components") / (component + ".hpp"))))
-        throw std::runtime_error("Create the C++ Component before its System.");
+    if (!component.empty()) {
+        gameplay_identifier(component);
+        if (!std::filesystem::is_regular_file(cpp_source_path(
+                root, std::filesystem::path("Native/Components") / (component + ".hpp"))))
+            throw std::runtime_error("Create the C++ Component before its System.");
+    }
     const auto locator = std::filesystem::path("Native/Systems") / (name + ".cpp");
     const auto path = cpp_source_path(root, locator);
     if (std::filesystem::exists(path))
@@ -245,40 +247,50 @@ inline std::string create_cpp_system(const std::filesystem::path& root, const st
         registry->find("// FORGE_SYSTEM_CALLS") == std::string::npos)
         throw std::runtime_error("This project has no managed C++ registration header.");
     std::ostringstream source;
-    source << "#include \"../Components/" << component
-           << ".hpp\"\n"
-              "#include <cmath>\n#include <flecs.h>\n#include <forge/native_sdk.h>\n"
-              "#include <forge/transform_components.hpp>\n\n"
-           << "// Runs for every entity with " << component
-           << ". Missing rotation starts at identity.\n"
-           << "void forge_register_system_" << name
-           << "(const ForgeSdkWorldV1* host) {\n"
-              "    flecs::world world(host->world);\n"
-           << "    world.system<const " << component << ">(\"gameplay." << name
-           << "\")\n"
-              "        .kind(host->fixed_phase)\n"
-           << "        .each([](flecs::iter& it, size_t row, const " << component
-           << "& data) {\n"
-              "            auto entity = it.entity(row);\n"
-              "            const auto q = entity.has<forge::LocalRotation>()\n"
-              "                ? entity.get<forge::LocalRotation>() : forge::LocalRotation{};\n"
-              "            if (!std::isfinite(data.speed)) return;\n"
-              "            const double half = double(data.speed) * it.delta_time() *\n"
-              "                                0.008726646259971648; // degrees / 2 to radians\n"
-              "            const double s = std::sin(half), c = std::cos(half);\n"
-              "            forge::LocalRotation next{float(q.x*c - q.z*s),\n"
-              "                                      float(q.w*s + q.y*c),\n"
-              "                                      float(q.z*c + q.x*s),\n"
-              "                                      float(q.w*c - q.y*s)};\n"
-              "            const double length = std::sqrt(double(next.x)*next.x +\n"
-              "                double(next.y)*next.y + double(next.z)*next.z + "
-              "double(next.w)*next.w);\n"
-              "            if (length > 0 && std::isfinite(length)) {\n"
-              "                next.x /= float(length); next.y /= float(length);\n"
-              "                next.z /= float(length); next.w /= float(length);\n"
-              "                entity.set<forge::LocalRotation>(next);\n"
-              "            }\n"
-              "        }).add(host->fixed_tag);\n}\n";
+    if (component.empty()) {
+        source << "#include <flecs.h>\n#include <forge/native_sdk.h>\n\n"
+               << "void forge_register_system_" << name
+               << "(const ForgeSdkWorldV1* host) {\n"
+                  "    flecs::world world(host->world);\n"
+                  "    // Register project queries or observers here.\n"
+                  "    (void)world;\n}\n";
+    } else {
+        source
+            << "#include \"../Components/" << component
+            << ".hpp\"\n"
+               "#include <cmath>\n#include <flecs.h>\n#include <forge/native_sdk.h>\n"
+               "#include <forge/transform_components.hpp>\n\n"
+            << "// Runs for every entity with " << component
+            << ". Missing rotation starts at identity.\n"
+            << "void forge_register_system_" << name
+            << "(const ForgeSdkWorldV1* host) {\n"
+               "    flecs::world world(host->world);\n"
+            << "    world.system<const " << component << ">(\"gameplay." << name
+            << "\")\n"
+               "        .kind(host->fixed_phase)\n"
+            << "        .each([](flecs::iter& it, size_t row, const " << component
+            << "& data) {\n"
+               "            auto entity = it.entity(row);\n"
+               "            const auto q = entity.has<forge::LocalRotation>()\n"
+               "                ? entity.get<forge::LocalRotation>() : forge::LocalRotation{};\n"
+               "            if (!std::isfinite(data.speed)) return;\n"
+               "            const double half = double(data.speed) * it.delta_time() *\n"
+               "                                0.008726646259971648; // degrees / 2 to radians\n"
+               "            const double s = std::sin(half), c = std::cos(half);\n"
+               "            forge::LocalRotation next{float(q.x*c - q.z*s),\n"
+               "                                      float(q.w*s + q.y*c),\n"
+               "                                      float(q.z*c + q.x*s),\n"
+               "                                      float(q.w*c - q.y*s)};\n"
+               "            const double length = std::sqrt(double(next.x)*next.x +\n"
+               "                double(next.y)*next.y + double(next.z)*next.z + "
+               "double(next.w)*next.w);\n"
+               "            if (length > 0 && std::isfinite(length)) {\n"
+               "                next.x /= float(length); next.y /= float(length);\n"
+               "                next.z /= float(length); next.w /= float(length);\n"
+               "                entity.set<forge::LocalRotation>(next);\n"
+               "            }\n"
+               "        }).add(host->fixed_tag);\n}\n";
+    }
     std::filesystem::create_directories(path.parent_path());
     asset_storage::replace(path, source.str());
     const auto source_line =
@@ -290,8 +302,9 @@ inline std::string create_cpp_system(const std::filesystem::path& root, const st
     asset_storage::replace(manifest, sources + source_line);
     append_managed_registration(root, "// FORGE_SYSTEM_DECLARATIONS",
                                 "// FORGE_SOURCE_SYSTEM " + name + " Native/Systems/" + name +
-                                    ".cpp " + component + "\n" + "void forge_register_system_" +
-                                    name + "(const ForgeSdkWorldV1* host);");
+                                    ".cpp " + (component.empty() ? "-" : component) + "\n" +
+                                    "void forge_register_system_" + name +
+                                    "(const ForgeSdkWorldV1* host);");
     append_managed_registration(root, "// FORGE_SYSTEM_CALLS",
                                 "forge_register_system_" + name + "(host);");
     return path_utf8(locator);
@@ -299,6 +312,10 @@ inline std::string create_cpp_system(const std::filesystem::path& root, const st
 
 // Wizard-authored provenance lives beside actual registration. It is deliberately
 // narrow: arbitrary C++ registrations have no invented source mapping.
+inline std::string_view managed_source_line(std::string_view line) {
+    const auto first = line.find_first_not_of(" \t");
+    return first == std::string_view::npos ? std::string_view{} : line.substr(first);
+}
 inline std::optional<std::string> managed_component_definition(const std::filesystem::path& root,
                                                                const std::string& key) {
     if (!key.starts_with("project.") || key.size() > 80)
@@ -311,9 +328,10 @@ inline std::optional<std::string> managed_component_definition(const std::filesy
     std::string line;
     const auto prefix = "// FORGE_SOURCE_COMPONENT " + key + " ";
     while (std::getline(lines, line)) {
-        if (!line.starts_with(prefix))
+        const auto content = managed_source_line(line);
+        if (!content.starts_with(prefix))
             continue;
-        const auto locator = line.substr(prefix.size());
+        const auto locator = std::string(content.substr(prefix.size()));
         if (locator.find_first_of("\r\n \t") != std::string::npos)
             return std::nullopt;
         try {
@@ -342,13 +360,16 @@ inline std::vector<ManagedSystemSource> managed_system_sources(const std::filesy
     std::string line;
     constexpr std::string_view prefix = "// FORGE_SOURCE_SYSTEM ";
     while (result.size() < 128 && std::getline(lines, line)) {
-        if (!line.starts_with(prefix))
+        const auto content = managed_source_line(line);
+        if (!content.starts_with(prefix))
             continue;
-        std::istringstream fields(line.substr(prefix.size()));
+        std::istringstream fields{std::string(content.substr(prefix.size()))};
         ManagedSystemSource entry;
         std::string extra;
         if (!(fields >> entry.name >> entry.source >> entry.component) || fields >> extra)
             continue;
+        if (entry.component == "-")
+            entry.component.clear();
         try {
             if (std::filesystem::is_regular_file(cpp_source_path(root, entry.source)) &&
                 registry->find("forge_register_system_" + entry.name + "(host);") !=

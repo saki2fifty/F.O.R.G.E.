@@ -4,6 +4,7 @@
 #include "../runtime_property_tune.hpp"
 #include "component_choices.hpp"
 #include "document.hpp"
+#include "input_message_controls.hpp"
 #include "model_node_scope.hpp"
 #include "model_variant_controls.hpp"
 #include "property_drawer.hpp"
@@ -705,6 +706,9 @@ class ComponentInspector {
                 }
                 bool changed =
                     rectangle_region ? false
+                    : key == "forge.input_message" && (name == "action" || name == "payload")
+                        ? (ImGui::TextUnformatted(property_label(field).c_str()),
+                           ui::input_message_choice(project, schema, values, name, value))
                     : key == "forge.tile_map_collider_2d" && name == "layer" && tile_map_layer
                         ? tile_map_layer(values, value)
                     : key == "forge.mesh_renderer" && name == "materials" && material_slots

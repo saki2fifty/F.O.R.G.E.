@@ -87,6 +87,9 @@ for legacy in (False, True):
         assert not denied['ok'], denied
         assert mutate('forge_code_setup')['ok']
         assert not mutate('forge_code_setup')['ok']  # Existing sources stay intact.
+        assert mutate('forge_code_create', kind='system', name='Messages')['ok']
+        empty = read('forge_code_read', path='Native/Systems/Messages.cpp')
+        assert 'forge_register_system_Messages' in empty['text'] and 'Components/' not in empty['text']
         assert mutate('forge_code_create', kind='component', name='Rotator')['ok']
         assert mutate('forge_code_create', kind='system', name='Spin', component='Rotator')['ok']
         assert not mutate('forge_code_create', kind='header', name='Invalid.hpp', component='Rotator')['ok']

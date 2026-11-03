@@ -521,6 +521,16 @@
         "id": "53b94d37-cfe5-4b96-84a7-198519653ff8",
         "kind": "axis2",
         "name": "Player 16 move"
+      },
+      {
+        "bindings": [
+          {
+            "control": "key.space"
+          }
+        ],
+        "id": "8c68fc99-bdb7-4bf4-9b91-dae060349ff0",
+        "kind": "digital",
+        "name": "Send component message"
       }
     ],
     "version": 1

@@ -5,12 +5,12 @@
 ```text
 SDL events → editor capture policy → ordered neutral InputEvents
     → protocol2 batches → RuntimeInput action mapping
-    → const fixed-tick InputSnapshot → Flecs InputMonitor / future gameplay consumers
+    → const fixed-tick InputSnapshot → Flecs InputMonitor → InputMessages → native gameplay consumers
 ```
 
 ## Timing
 
-RuntimeInput validates each batch completely before changing state. Continuous physical values are mapped to project actions. Each actual RuntimeSimulation tick latches one snapshot before the fixed pipeline; the same snapshot remains immutable through InputMonitor → NativeGameplay → FinalTransforms. InputMonitor counts digital edges without assigning gameplay meaning to action labels. The retired movement-only interface did not expose these actions; project C++ gameplay now reads input through the exact SDK.
+RuntimeInput validates each batch completely before changing state. Continuous physical values are mapped to project actions. Each actual RuntimeSimulation tick latches one snapshot before the fixed pipeline; the same snapshot remains immutable through InputMonitor → InputMessages → NativeGameplay → FinalTransforms. InputMonitor counts digital edges without assigning gameplay meaning to action labels. The retired movement-only interface did not expose these actions; project C++ gameplay now reads input through the exact SDK.
 
 Digital held persists; pressed/released flags accumulate until the next actual tick and are cleared after consumption. Quick taps retain both flags; multiple same-type transitions within a tick interval coalesce. Catch-up ticks see held with no repeated edge. Relative mouse/wheel contributions are consumed once; continuous axes persist. Analog1D is clamped to[-1,1]; analog2D continuous length is clamped to1. Relative contributions are added afterward. Deadzones rescale gamepad axes. No caller/render delta determines input tick duration.
 
@@ -351,3 +351,12 @@ configuration; no C ABI table/value layout or installed header change is needed.
 Ordinary simulation without Game reports raw motion unavailable. The native
 Game popup configures supported sensors; Console's Controller motion view reads
 this same owner only while expanded.
+
+## Authored typed messages
+
+Optional Input Message sends an attached builtin or admitted project component
+copy on a fixed digital pressed edge. The existing native event/observer owner
+delivers it before gameplay systems; normal observer structural writes merge at
+the message-system boundary. Project input, Scene/Prefab schemas/history and SDK
+lifetime remain authoritative. See [the full value/dispatch contract](input-messages.md)
+and [the usage guide](../manual/editor/input-messages.md).

@@ -252,7 +252,8 @@ struct CodeAutomation {
             methods.push_back(automation_method(
                 "code.create",
                 "Create a managed Component, System, source or header with the existing Content "
-                "helpers and registration rules, then open it in C++ Sources.",
+                "helpers and registration rules, then open it in C++ Sources. Omit a System's "
+                "component for an empty registered startup function for queries or observers.",
                 "code.write",
                 automation_object(
                     {{"kind",
@@ -271,11 +272,8 @@ struct CodeAutomation {
                     if (kind == "component")
                         path = ui::create_cpp_component(files.document.project(), name);
                     else if (kind == "system") {
-                        if (!request.contains("component"))
-                            throw AuthoringError("invalid_argument",
-                                                 "Systems require an existing component name");
                         path = ui::create_cpp_system(files.document.project(), name,
-                                                     request.at("component").get<std::string>());
+                                                     request.value("component", std::string{}));
                     } else {
                         if ((kind == "header" && !name.ends_with(".hpp")) ||
                             (kind == "source" && !name.ends_with(".cpp")))

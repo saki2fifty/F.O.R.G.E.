@@ -10,6 +10,7 @@ import sys
 import tempfile
 import time
 from mcp_test_client import CAPTURE, Client, failed, test_symlink, finish_host
+from mcp_input_messages_play import check_input_messages_play
 
 TOOLS, HOST, RUNTIME, KIT, NAV = sys.argv[1:6]
 NAVIGATION_ONLY = sys.argv[7:] == ['--navigation-only']
@@ -28,6 +29,7 @@ TOUCH_ONLY = sys.argv[7:] == ['--touch-only']
 ANALOG_ONLY = sys.argv[7:] == ['--analog-only']
 AUDIO_PAUSE_ONLY = sys.argv[7:] == ['--audio-pause-only']
 GAMEPADS_ONLY = sys.argv[7:] == ['--gamepads-only']
+MESSAGES_ONLY = len(sys.argv) == 9 and sys.argv[7] == '--input-messages-only'
 UI_ANIMATION_ONLY = sys.argv[7:] == ['--ui-animation-only']
 UI_LOCALIZATION_ONLY = sys.argv[7:] == ['--ui-localization-only']
 LIFETIMES_ONLY = len(sys.argv) == 9 and sys.argv[7] == '--state-lifetimes-only'
@@ -111,6 +113,22 @@ def selected_project_template(root, sources, folder):
     return output
 
 
+def message_project_template(root):
+    output = selected_project_template(root, ('Scenes/150-input-messages.scene.json',), 'Message template')
+    path = output / 'forge.project.json'
+    settings = json.loads(path.read_text())
+    scene = json.loads((output / 'Scenes/150-input-messages.scene.json').read_text())
+    settings['startup_scene'] = dict(asset=scene['asset_id'], source='Scenes/150-input-messages.scene.json')
+    module = Path(sys.argv[8]).resolve()
+    shutil.copy2(module, output / module.name)
+    fingerprint = json.loads(subprocess.check_output([RUNTIME, '--sdk-info'], text=True))['fingerprint']
+    settings['modules'] = [dict(id='project.input_messages', implementation='1', sdk='experimental-1',
+                               fingerprint=fingerprint, library=module.name,
+                               dependencies=['forge.input', 'forge.transforms'])]
+    path.write_text(json.dumps(settings))
+    return output
+
+
 def map_profile_project_template(root):
     return selected_project_template(root, (
         'Assets/Tiles/PaintedPlatforms.tilemap.json', 'Assets/Tiles/ContourTiles.tilemap.json'),
@@ -128,7 +146,9 @@ def editor(mode='full'):
         # State-only checks need the real packaged font, but no Windows export kit.
         host_resources = str(Path(__file__).resolve().parents[1]) if APPLICATION_STATES_ONLY else KIT
         command = [HOST, str(root), RUNTIME, host_resources, NAV, mode]
-        if APPLICATION_STATES_ONLY:
+        if MESSAGES_ONLY:
+            command.append(str(message_project_template(root)))
+        elif APPLICATION_STATES_ONLY:
             command.append(str(state_project_template(root)))
         elif MAP_PROFILE_ONLY:
             command.append(str(map_profile_project_template(root)))
@@ -136,7 +156,7 @@ def editor(mode='full'):
             command.append(str(audio_profile_project_template(root)))
         elif SPRITE_FRAMES_ONLY or UI_LOCALIZATION_ONLY:
             command.append(str(Path(__file__).resolve().parents[1]/'samples/projects/FeatureGallery'))
-        if AUDIO_PAUSE_ONLY or LIFETIMES_ONLY or CONDITIONS_SDK:
+        if AUDIO_PAUSE_ONLY or LIFETIMES_ONLY or CONDITIONS_SDK or MESSAGES_ONLY:
             command.append('--sdk')
         process = subprocess.Popen(command,
                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE,
@@ -226,6 +246,10 @@ for legacy in (False, True):
         assert {'forge_play_start', 'forge_play_ui_command', 'forge_export_start',
                 'forge_script_preview', 'forge_navigation_build', 'forge_navigation_overlay',
                 'forge_dependencies_save'} <= names
+        if MESSAGES_ONLY:
+            check_input_messages_play(read, ok, control, mutate, until)
+            print(('legacy' if legacy else 'current') + ': typed-message authoring source/input scopes/real SDK Play/restart passed')
+            continue
         if NAVIGATION_COLLECTION_ONLY:
             build_schema = advertised['forge_navigation_build']['inputSchema']['properties']['settings']['properties']
             assert build_schema['collect_static_colliders']['type'] == 'boolean', build_schema

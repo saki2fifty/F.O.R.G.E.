@@ -1561,3 +1561,13 @@ PNG SHA256: `618d326b2770e9dd0dea40c9916c5f3aad8630647687ab4ee7caad4263b8c0ca`. 
 canonical local validation owner. The image was personally reviewed. This is a
 GPU-independent widget fixture, not full Main, Windows/MSVC/D3D12 or physical
 input/DPI/audio acceptance. Offline layout and package inclusion are checked separately.
+
+## Input Message selectors
+
+`manual/images/input-message-inspector.png` is the unchanged600×500 PNG from the
+real ComponentInspector in `forge_input_message_ui_tests`, using SDL's software
+renderer. The test chooses a saved digital action and attached Tint through native
+ImGui input, then verifies typed values and shared Undo/Redo at1/1.5/2 scales.
+It is an isolated Inspector fixture, not full Main, Windows, OS DPI or physical
+hardware acceptance. Capture source, executable/image hashes and review are kept
+in local `AgentFiles/build/phase230-action-messages/inspector-capture.json`.
