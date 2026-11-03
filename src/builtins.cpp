@@ -120,7 +120,8 @@ template <class T> Json encode(const T& p) {
                 {"camera", p.camera.entity ? Json(p.camera) : Json()},
                 {"start_seconds", p.start_seconds},
                 {"end_seconds", p.end_seconds},
-                {"enabled", p.enabled}};
+                {"enabled", p.enabled},
+                {"blend_in_seconds", p.blend_in_seconds}};
     else if constexpr (std::is_same_v<T, AudioCue>)
         return {{"sequence", p.sequence.entity ? Json(p.sequence) : Json()},
                 {"source", p.source.entity ? Json(p.source) : Json()},
@@ -467,6 +468,10 @@ template <class T> Value decode(const Json& p) {
         v.start_seconds = p.at("start_seconds");
         v.end_seconds = p.at("end_seconds");
         v.enabled = p.at("enabled");
+        v.blend_in_seconds = p.value("blend_in_seconds", 0.);
+        if (!std::isfinite(v.blend_in_seconds) || v.blend_in_seconds < 0 ||
+            v.blend_in_seconds > v.end_seconds - v.start_seconds)
+            throw std::runtime_error("Camera Shot blend must fit within its interval");
         if (!std::isfinite(v.start_seconds) || !std::isfinite(v.end_seconds) ||
             v.start_seconds < 0 || v.start_seconds >= v.end_seconds || v.end_seconds > 3600)
             throw std::runtime_error("Camera Shot requires 0 <= start < end <= 3600 seconds");
@@ -1294,7 +1299,8 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<EntityRef>("camera")
             .template member<double>("start_seconds")
             .template member<double>("end_seconds")
-            .template member<bool>("enabled");
+            .template member<bool>("enabled")
+            .template member<double>("blend_in_seconds");
     } else if constexpr (std::is_same_v<T, AudioCue>) {
         (void)authoring_value_adapters(w);
         c.template member<EntityRef>("sequence")
@@ -2841,6 +2847,15 @@ Json registration_options(const Builtin& type, const std::string& field) {
         } else if (field == "camera") {
             value["display_name"] = "Camera";
             value["description"] = "Camera in the same loaded Scene; selection never binds by name";
+        } else if (field == "blend_in_seconds") {
+            value["display_name"] = "Blend in (seconds)";
+            value["minimum"] = 0;
+            value["maximum"] = 3600;
+            value["unit"] = "seconds";
+            value["description"] =
+                "Smooth view/lens transition from an adjacent previous shot. "
+                "Zero, first shots and gaps retain cuts. Projection, basis, aspect, viewport, "
+                "layers and clear settings must match; this blends the view, not rendered images.";
         } else if (field == "start_seconds" || field == "end_seconds") {
             value["display_name"] = field == "start_seconds" ? "Start (seconds)" : "End (seconds)";
             value["minimum"] = 0;
@@ -3506,6 +3521,10 @@ Json register_builtins(flecs::world& world, unsigned family) {
         if (name == "forge.camera") {
             world.component<ReflectedMemberDefault>(reflected_member_default_type);
             c.lookup("render_texture").set<ReflectedMemberDefault>({nullptr});
+        }
+        if (name == "forge.camera_shot") {
+            world.component<ReflectedMemberDefault>(reflected_member_default_type);
+            c.lookup("blend_in_seconds").set<ReflectedMemberDefault>({0.});
         }
         if (name == "forge.mesh_renderer") {
             c.lookup("materials").set<ReflectedSequenceKey>({"slot"});

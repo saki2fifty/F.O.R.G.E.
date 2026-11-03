@@ -35,9 +35,17 @@ with tempfile.TemporaryDirectory(prefix='forge-sequence-sdk-', dir=runtime.paren
         controllers = [r for r in source['entities'] if 'forge.animation_sequence' in r['components']]
         controller, = [r for r in controllers if not r['components']['forge.animation_sequence'].get('sequence')]
         nested = len(controllers) > 1
-        controller['components']['project.sequence_probe'] = dict(ticks=0, time=0, **{'$forge': stamp})
+        controller['components']['project.sequence_probe'] = dict(ticks=0, time=0, blend=0, **{'$forge': stamp})
         shot_tracks = sorted([r['components']['forge.camera_shot'] for r in source['entities']
                               if 'forge.camera_shot' in r['components']], key=lambda r: r['start_seconds'])
+        transition = scene_name == '68-sequence-camera-shots.scene.json'
+        if transition:
+            by_id = {row['id']: row for row in source['entities']}
+            first_camera = by_id[shot_tracks[0]['camera']['entity']]['components']['forge.camera']
+            second_camera = by_id[shot_tracks[1]['camera']['entity']]['components']['forge.camera']
+            for name in ('background_r', 'background_g', 'background_b', 'background_a'):
+                second_camera[name] = first_camera[name]
+            shot_tracks[1]['blend_in_seconds'] = .75
         dt = struct.unpack('f', struct.pack('f', 1/60))[0]
 
         def rows(state):
@@ -64,7 +72,22 @@ with tempfile.TemporaryDirectory(prefix='forge-sequence-sdk-', dir=runtime.paren
             expected = {1: 2.5, 2: .5+dt, 3: .5+2*dt, 4: 0, 5: dt,
                         6: .75}.get(tick, .75+(tick-6)*dt)
             assert probe['ticks'] == tick and abs(probe['time']-expected) < 2e-6, (tick, probe, expected)
+            assert probe['blend'] == ((.75 if tick < 3 else 1) if transition else 0), (tick, probe)
             check_camera(state, expected)
+            if transition:
+                # Native C++ updates only the duration. The actual copied view
+                # uses that value while preserving both native/local Camera poses.
+                target = next(row for row in state['effective_scene']['entities']
+                              if row['id'] == shot_tracks[1]['camera']['entity'])
+                if 2 <= expected < 2 + probe['blend']:
+                    cameras = {row['id']: row for row in source['entities']}
+                    a = cameras[shot_tracks[0]['camera']['entity']]['components']['forge.local_translation']
+                    b = cameras[shot_tracks[1]['camera']['entity']]['components']['forge.local_translation']
+                    linear = (expected - 2) / probe['blend']
+                    weight = linear*linear*(3-2*linear)
+                    for index, name in ((3, 'x'), (7, 'y'), (11, 'z')):
+                        assert abs(target['world_affine'][index] - (a[name]+(b[name]-a[name])*weight)) < 2e-6
+                    assert target['components']['forge.local_translation'] == b
             if nested:
                 expected = max(0, min(6, expected - 1))
             for actor in source['entities']:

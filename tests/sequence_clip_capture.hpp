@@ -1,21 +1,24 @@
 #pragma once
 void capture_sequence_pair(const std::filesystem::path& gallery,
                            const std::filesystem::path& scratch,
-                           const std::filesystem::path& output, bool nested = false) {
+                           const std::filesystem::path& output, bool nested = false,
+                           bool camera_transition = false) {
     const auto root = scratch / AssetId::generate().str();
     std::filesystem::create_directories(root.parent_path());
     std::filesystem::copy(gallery, root, std::filesystem::copy_options::recursive);
     if (!SDL_Init(SDL_INIT_VIDEO))
         throw std::runtime_error(SDL_GetError());
     {
-        test::ImGuiSoftwareCapture capture(720, 1100);
+        const int height = camera_transition ? 1400 : 1100;
+        test::ImGuiSoftwareCapture capture(720, height);
         ui::style(1);
         EngineContext engine;
         Scene scene(engine.world());
         SceneDocument project(scene);
         project.open_project(root);
-        project.open_scene(nested ? "Scenes/146-nested-sequences.scene.json"
-                                  : "Scenes/145-sequence-clip-blending.scene.json");
+        project.open_scene(camera_transition ? "Scenes/153-camera-transitions.scene.json"
+                           : nested          ? "Scenes/146-nested-sequences.scene.json"
+                                             : "Scenes/145-sequence-clip-blending.scene.json");
         EntityRef controller;
         std::string actor;
         const auto source = scene.snapshot();
@@ -29,7 +32,11 @@ void capture_sequence_pair(const std::filesystem::path& gallery,
                 else if (nested)
                     actor = row.at("id").get<std::string>();
             }
-            if (!nested && row.at("components").contains("forge.transform_animator"))
+            if (camera_transition && row.at("components").contains("forge.camera_shot") &&
+                row.at("components").at("forge.camera_shot").at("start_seconds") == 2)
+                actor = row.at("id").get<std::string>();
+            if (!nested && !camera_transition &&
+                row.at("components").contains("forge.transform_animator"))
                 actor = row.at("id").get<std::string>();
         }
         check(bool(controller.entity) && !actor.empty(), "Missing pair capture track");
@@ -45,7 +52,7 @@ void capture_sequence_pair(const std::filesystem::path& gallery,
             editor.poll(project, scene, false, 0, message);
             capture.new_frame();
             ImGui::SetNextWindowPos({0, 0}, ImGuiCond_Always);
-            ImGui::SetNextWindowSize({720, 1100}, ImGuiCond_Always);
+            ImGui::SetNextWindowSize({720, float(height)}, ImGuiCond_Always);
             editor.draw(project, scene, false);
             capture.render();
         };
@@ -56,14 +63,21 @@ void capture_sequence_pair(const std::filesystem::path& gallery,
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
         test::ImGuiInputDriver input(frame);
-        input.click(((nested ? "sequence:nested:" : "sequence:track:") + actor).c_str());
+        input.click(((camera_transition ? "sequence:shot:"
+                      : nested          ? "sequence:nested:"
+                                        : "sequence:track:") +
+                     actor)
+                        .c_str());
         for (unsigned i = 0; i < 4; ++i)
             frame();
         const auto controls =
-            nested ? std::vector<const char*>{"sequence:nested_start", "sequence:apply_nested",
-                                              "sequence:open_nested", "sequence:remove_nested"}
-                   : std::vector<const char*>{"sequence:start", "sequence:next_start",
-                                              "sequence:clip", "sequence:next_clip"};
+            camera_transition
+                ? std::vector<const char*>{"sequence:shot_start", "sequence:shot_end",
+                                           "sequence:shot_blend", "sequence:apply_shot"}
+            : nested ? std::vector<const char*>{"sequence:nested_start", "sequence:apply_nested",
+                                                "sequence:open_nested", "sequence:remove_nested"}
+                     : std::vector<const char*>{"sequence:start", "sequence:next_start",
+                                                "sequence:clip", "sequence:next_clip"};
         for (const char* key : controls) {
             const auto& box = test::ui_targets.at(key);
             check(box.enabled && box.minimum.x >= box.clip_minimum.x &&

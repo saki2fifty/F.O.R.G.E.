@@ -34,7 +34,10 @@ class TransformAnimationPlayback {
     bool control(EntityRef, AnimationControl);
     bool seek(EntityRef, double seconds);
     Json sequence_checkpoint(unsigned profile = 3) const;
-    Json camera_shots_checkpoint() const;
+    Json camera_shots_checkpoint(bool transitions = false) const;
+    bool has_camera_blends() const;
+    Json tune_camera_shot(EntityRef, const Json& value);
+    void project_camera_shots(Json&, double alpha) const;
     Json audio_cues_checkpoint() const;
     Json camera_presentation(flecs::entity_t, double alpha) const;
     void restore(const Json&, const Json& sequences, unsigned profile = 3);
@@ -80,6 +83,12 @@ class TransformAnimationPlayback {
         EntityRef entity;
         flecs::entity_t sequence = 0, camera = 0;
     };
+    struct ShotSample {
+        const Shot* current = nullptr;
+        const Shot* previous = nullptr;
+        double weight = 1;
+    };
+    ShotSample sample_camera_shot(flecs::entity_t membership, double alpha) const;
     struct Cue {
         AudioCue config;
         EntityRef entity;

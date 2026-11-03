@@ -234,3 +234,24 @@ collisions reject. CSS animations retain their independent presentation clock an
 transient progress. Sequence seeking means sampling the ECS values, never seeking
 a native CSS player. Copied Edit previews do not execute RML or add an overlay.
 Public installed value/header semantics require a matching exact SDK rebuild.
+
+## Smooth camera-view extension — 2026-11-03
+
+CameraShot optionally carries a zero-default incoming blend duration. Its existing
+provider/director and root clock own selection and smoothstep transition timing.
+Only adjacent shots blend; first shots, gaps and cycle starts retain cuts. The
+shared camera helper validates a matching composition profile and interpolates
+rigid world pose and lens parameters into the incoming Camera's copied row. Actual
+Camera identity, authored/native transforms and offscreen producer composition
+retain their existing owners. No virtual Camera, secondary director, image crossfade
+or native pose writer is introduced.
+
+RuntimeSimulation applies this projection after copied world-pose interpolation.
+The stopped Timeline and its frame renderer call the same animation projection
+after Scene resolves the copied hierarchy. Timeline fields retain one Scene history
+transaction; source/Prefab references retain ADR022 traversal. Live tuning exposes
+only the duration on an admitted shot through the animation owner and existing
+Inspector/MCP/review path. Private recovery8 records blend durations and preserves
+the preexisting nested sequence profile explicitly. Zero-duration cuts retain their
+older recovery shapes. Exact compatibility and migration behavior live in
+[transform animation](../transform-animation.md#sequence-camera-shots).

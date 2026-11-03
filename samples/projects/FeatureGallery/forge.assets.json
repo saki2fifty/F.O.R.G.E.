@@ -1522,6 +1522,41 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "151a4101-6d83-441b-9e93-253df61d135b",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "bb477aefc531778457687839302b60848e508cd58758ea2302ba7d46009b8a47",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.animation.transform",
+          "importer_revision": "forge.animation.transform.v12",
+          "key": "c37a1a32ed68292e7d2a3b50b47442bbd351b8e70fded2ad0ffd42a26023d4ec",
+          "output_format": "forge.transform-clip",
+          "output_version": 9,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "e8d642cb82c1d2f4fd4db0851bad1de4271784b2bf4236ae0e4b5325876d73f6",
+          "source_digest": "113f6a944d6bc737669b03c86343f7215b90b30752f25466669654ff58de91c4",
+          "version": 1
+        },
+        "forge.transform_animation": {
+          "bytes": 744,
+          "file": "animation.clip",
+          "sha256": "d100a50c3d21e1b29711d8f634fd16f67ddcdf61b6463c527a73098aa7884494",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/CameraTransitions/Rig.animation.json",
+      "source_dependencies": [],
+      "type": "transform_animation"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "15200000-1520-4152-8152-152000000000",
       "metadata": {},
       "schema_version": 3,
@@ -10446,6 +10481,16 @@
         "removed": false
       },
       "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "afee1552-5a05-44ba-a53e-5ae581ca5f48",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/153-camera-transitions.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
     },
     {
       "dependencies": [],

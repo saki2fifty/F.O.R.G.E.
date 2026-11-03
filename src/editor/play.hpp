@@ -246,6 +246,8 @@ class PlaySession {
                               const std::string& property, Json value) {
         const auto generation = sdk_game_ ? sdk_activation_generation_ : runtime_world_generation_;
         if ((!sdk_game_ && !AnimationPlaybackAccess::rig_type(type) &&
+             !(RuntimePropertyTune::camera_shot_type(type) &&
+               RuntimePropertyTune::camera_shot_property(property)) &&
              !(RuntimePropertyTune::state_condition_type(type) &&
                RuntimePropertyTune::state_condition_property(property)) &&
              !(RuntimePropertyTune::ui_values_type(type) &&

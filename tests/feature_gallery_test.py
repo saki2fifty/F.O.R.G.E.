@@ -328,6 +328,15 @@ for name, output in (('Split', 'Split'), ('Relay', 'Relay')):
     assert material['version'] == 3
     assert material['overrides']['textures']['baseColorTexture']['render_texture'] == by_source['Assets/RenderTextures/' + output + '.rendertexture.json']['id']
 
+transitions = json.loads((project_root / 'Scenes/153-camera-transitions.scene.json').read_text())
+assert transitions['asset_id'] == by_source['Scenes/153-camera-transitions.scene.json']['id']
+transition_shots = sorted((row['components']['forge.camera_shot'] for row in transitions['entities']
+                           if 'forge.camera_shot' in row['components']), key=lambda row: row['start_seconds'])
+assert [(row['start_seconds'], row['end_seconds'], row['blend_in_seconds']) for row in transition_shots] == [(0, 2, 0), (2, 4, 1), (4, 5.5, 1)]
+assert len({row['camera']['entity'] for row in transition_shots}) == 2
+rigs = [row for row in transitions['entities'] if 'forge.transform_animator' in row['components']]
+assert len(rigs) == 1 and rigs[0]['components']['forge.transform_animator']['clip'] == by_source['Assets/CameraTransitions/Rig.animation.json']['id']
+
 scenes = sorted((project_root / 'Scenes').glob('*.scene.json'))
 assert {'71-world-sprites.scene.json', '72-sprite-frame-animation.scene.json',
         '73-sprite-image-fill.scene.json', '74-tile-maps.scene.json',
@@ -561,6 +570,9 @@ try:
             camera = row['components'].get('forge.camera')
             if camera is not None:
                 camera.setdefault('render_texture', None)
+            shot = row['components'].get('forge.camera_shot')
+            if shot is not None:
+                shot.setdefault('blend_in_seconds', 0.)
             light = row['components'].get('forge.light')
             if light is not None:
                 light.setdefault('shadow_source_radius', 0.)

@@ -608,6 +608,8 @@ Json RuntimeSimulation::presentation(double alpha) const {
             item["spatial_resolved"] = found->second.resolved;
         }
     }
+    if (animation_)
+        animation_->project_camera_shots(result, alpha);
     return result;
 }
 } // namespace forge

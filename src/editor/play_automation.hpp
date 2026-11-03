@@ -385,7 +385,9 @@ struct PlayAutomation {
         methods.push_back(automation_method(
             "play.tune",
             "Queue one reflected runtime property through the actual live-tuning "
-            "owner, including Reflection Probe scalar controls and diffuse intensity (map "
+            "owner, including an admitted Camera Shot's blend_in_seconds (its camera, "
+            "sequence and interval remain Edit-only), Reflection Probe scalar controls and diffuse "
+            "intensity (map "
             "assignment is Edit-only), "
             "Decal Projector appearance, volume, angle fade, layers, priority and "
             "color/normal/roughness influences (Source Material "

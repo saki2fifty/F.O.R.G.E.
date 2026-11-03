@@ -15,7 +15,7 @@
 namespace {
 struct SequenceProbe {
     std::uint32_t ticks = 0;
-    double time = 0;
+    double time = 0, blend = 0;
 };
 void check(bool value, const char* why) {
     if (!value)
@@ -32,9 +32,11 @@ int32_t FORGE_SDK_CALL schema(const ForgeSdkWorldV1* host, char* error, uint32_t
         world.component<forge::Camera>("forge.camera");
         auto type = world.component<SequenceProbe>("project.SequenceProbe")
                         .member<std::uint32_t>("ticks")
-                        .member<double>("time");
+                        .member<double>("time")
+                        .member<double>("blend");
         return host->authoring_type(host->context, type, "project.sequence_probe", 1,
-                                    R"({"ticks":0,"time":0})", "Animation", error, capacity);
+                                    R"({"ticks":0,"time":0,"blend":0})", "Animation", error,
+                                    capacity);
     } catch (const std::exception& e) {
         if (capacity)
             std::snprintf(error, capacity, "%s", e.what());
@@ -132,7 +134,7 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char* error, uint32_t 
                         ++tracks;
                     });
                     unsigned shots = 0;
-                    current.each([&](const forge::CameraShot& shot) {
+                    current.each([&](flecs::entity actor, const forge::CameraShot& shot) {
                         if (!controllers.contains(shot.sequence.entity.str()))
                             return;
                         bool found = false;
@@ -146,8 +148,17 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char* error, uint32_t 
                                 found = true;
                             }
                         });
-                        check(found && shot.enabled && shot.start_seconds < shot.end_seconds,
+                        check(found && shot.enabled && shot.start_seconds < shot.end_seconds &&
+                                  shot.blend_in_seconds >= 0 &&
+                                  shot.blend_in_seconds <= shot.end_seconds - shot.start_seconds,
                               "Camera Shot typed data/reference unavailable through matching SDK");
+                        if (shot.blend_in_seconds > 0) {
+                            check(shot.blend_in_seconds == .75,
+                                  "Matching SDK Camera Shot blend layout differs");
+                            auto next = shot;
+                            next.blend_in_seconds = 1;
+                            actor.set(next);
+                        }
                         ++shots;
                     });
                     unsigned cues = 0;
@@ -217,6 +228,11 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char* error, uint32_t 
                 check(client.animation_seek(ref.scene_uuid, ref.entity_uuid, 1) == 0,
                       "Sequence seek admitted after Animation phase");
                 probe.time = status.time;
+                probe.blend = 0;
+                entity.world().each([&](const forge::CameraShot& shot) {
+                    if (shot.sequence.entity.str() == ref.entity_uuid)
+                        probe.blend = std::max(probe.blend, shot.blend_in_seconds);
+                });
             })
             .add(host->fixed_tag);
         return 1;

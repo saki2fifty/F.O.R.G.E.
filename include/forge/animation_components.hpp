@@ -36,6 +36,7 @@ struct CameraShot {
     EntityRef sequence{}, camera{};
     double start_seconds = 0, end_seconds = 1;
     bool enabled = true;
+    double blend_in_seconds = 0; // Adjacent incoming view/lens transition; zero retains a cut.
     bool operator==(const CameraShot&) const = default;
 };
 // A point event on the existing sequence clock. AudioSource owns the sound;

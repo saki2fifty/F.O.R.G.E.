@@ -2,6 +2,7 @@
 #include "../animation_component_values.hpp"
 #include "../animation_material_patch.hpp"
 #include "../animation_playback_access.hpp"
+#include "../camera_shot_blend.hpp"
 #include "animation_timeline_view.hpp"
 #include "document.hpp"
 #include "editor_state.hpp"
@@ -268,6 +269,11 @@ class AnimationSequenceEditor {
                 merge_animation_properties(row["components"], patch, context_->engine.world());
         }
         return source;
+    }
+    // Call after the existing Scene preview resolves copied world transforms.
+    void project_camera_shots(Json& resolved) const {
+        if (preview_active())
+            context_->animation->project_camera_shots(resolved, 1);
     }
     void draw(bool locked) {
         if (!is_open())
@@ -698,7 +704,7 @@ class AnimationSequenceEditor {
     std::set<std::string> targets_;
     std::string track_, shot_, cue_, nested_, error_;
     Json shot_camera_ = nullptr, cue_source_ = nullptr;
-    double shot_start_ = 0, shot_end_ = 1, cue_time_ = 0;
+    double shot_start_ = 0, shot_end_ = 1, shot_blend_ = 0, cue_time_ = 0;
     AnimationTimelineView view_;
     std::uint64_t revision_ = 0, pending_revision_ = 0, frame_export_serial_ = 0;
     double saved_preview_time_ = 0;
@@ -722,7 +728,7 @@ class AnimationSequenceEditor {
                  {{"entity", id}, {"component", component}, {"field", field}, {"value", value}}}};
     }
     void validate_shot(const std::string& id, const Json& camera, double start, double end,
-                       bool enabled = true) const {
+                       bool enabled = true, double blend = 0) const {
         const auto controller = scene_->entity(controller_.entity.str());
         if (!controller || !controller.has<AnimationSequence>())
             throw std::runtime_error("Sequence controller is no longer available");
@@ -730,12 +736,15 @@ class AnimationSequenceEditor {
         if (!std::isfinite(start) || !std::isfinite(end) || start < 0 || start >= end ||
             end > duration)
             throw std::runtime_error("Shot requires 0 <= start < end <= sequence duration");
+        if (!std::isfinite(blend) || blend < 0 || blend > end - start)
+            throw std::runtime_error("Camera Shot blend must fit within its interval");
         if (camera.is_null())
             throw std::runtime_error("Select a camera in this Scene");
         const auto reference = camera.get<EntityRef>();
         const auto target = scene_->entity(reference.entity.str());
         if (reference.scene != scene_->asset_id() || !target || !target.has<Camera>())
             throw std::runtime_error("Shot camera must be a Camera in this Scene");
+        validate_shot_camera(target.get<Camera>());
         std::size_t count = 0;
         const auto snapshot = scene_->effective_document();
         for (const auto& row : snapshot.at("entities")) {
@@ -756,9 +765,17 @@ class AnimationSequenceEditor {
                 if (other.sequence.scene == scene_->asset_id() && owner &&
                     owner.has<AnimationSequence>() && owner.get<AnimationSequence>().enabled)
                     throw std::runtime_error("Only one camera-shot sequence may direct this Scene");
-            } else if (start < other.end_seconds && end > other.start_seconds)
-                throw std::runtime_error(
-                    "Shot overlaps another camera shot; use adjacent intervals");
+            } else {
+                if (start < other.end_seconds && end > other.start_seconds)
+                    throw std::runtime_error(
+                        "Shot overlaps another camera shot; use adjacent intervals");
+                if (blend > 0 && other.end_seconds == start) {
+                    const auto previous = scene_->entity(other.camera.entity.str());
+                    if (!previous || !previous.has<Camera>())
+                        throw std::runtime_error("Previous shot Camera is unavailable");
+                    validate_camera_shot_blend(previous.get<Camera>(), target.get<Camera>());
+                }
+            }
         }
         if (enabled && count >= 256)
             throw std::runtime_error("Camera Shot limit (256) exceeded");
@@ -771,14 +788,17 @@ class AnimationSequenceEditor {
         if (!actor || !actor.has<CameraShot>() || actor.get<CameraShot>().sequence != controller_)
             throw std::runtime_error("Bound camera shot is no longer available");
         const auto value = actor.get<CameraShot>();
-        validate_shot(shot_, shot_camera_, shot_start_, shot_end_, value.enabled);
+        validate_shot(shot_, shot_camera_, shot_start_, shot_end_, value.enabled, shot_blend_);
         const auto start = property(shot_, "start_seconds", shot_start_, "forge.camera_shot");
         const auto end = property(shot_, "end_seconds", shot_end_, "forge.camera_shot");
         // Each draft command validates its interval. Order the two writes so
         // disjoint moves still have a valid intermediate draft; publication is atomic.
         auto commands =
             shot_end_ > value.end_seconds ? Json::array({end, start}) : Json::array({start, end});
+        commands.insert(commands.begin(),
+                        property(shot_, "blend_in_seconds", 0., "forge.camera_shot"));
         commands.push_back(property(shot_, "camera", shot_camera_, "forge.camera_shot"));
+        commands.push_back(property(shot_, "blend_in_seconds", shot_blend_, "forge.camera_shot"));
         apply_authoring(*scene_, commands, scene_->revision());
     }
     bool draw_nested_sequences(const Json& snapshot, const AnimationSequence& config,
@@ -1045,6 +1065,7 @@ class AnimationSequenceEditor {
         if (!pending_) {
             shot_start_ = value.start_seconds;
             shot_end_ = value.end_seconds;
+            shot_blend_ = value.blend_in_seconds;
             shot_camera_ = value.camera.entity ? Json(value.camera) : Json();
         }
         const auto changed = [&] {
@@ -1062,6 +1083,13 @@ class AnimationSequenceEditor {
         if (ImGui::InputDouble("Shot end", &shot_end_, 0, 0, "%.3f s"))
             changed();
         FORGE_UI_PROBE("sequence:shot_end");
+        if (ImGui::InputDouble("Shot blend in", &shot_blend_, 0, 0, "%.3f s"))
+            changed();
+        FORGE_UI_PROBE("sequence:shot_blend");
+        ui::help(
+            "Zero keeps a cut. A positive duration smoothly blends view and lens from an "
+            "adjacent previous shot; first shots and gaps cut. Projection, basis, aspect, "
+            "viewport, layers and clear settings must match. Output cameras remain independent.");
         if (ui::button("Apply shot fields",
                        "Validate the interval/camera and commit one Scene Undo step."))
             apply_pending();

@@ -148,3 +148,74 @@ void frame_source(const std::filesystem::path& gallery, const std::filesystem::p
     check(scene.document() == edited && !source.preview_active(),
           "Stale capture restoration overwrote an authored edit");
 }
+
+// The stopped Timeline and its frame-export lease project the shared view after
+// Scene has resolved the copied animated hierarchy, exactly as the editor does.
+void camera_transition_frame_source(const std::filesystem::path& gallery,
+                                    const std::filesystem::path& scratch) {
+    const auto root = scratch / AssetId::generate().str();
+    std::filesystem::copy(gallery, root, std::filesystem::copy_options::recursive);
+    EngineContext engine;
+    Scene scene(engine.world());
+    SceneDocument project(scene);
+    project.open_project(root);
+    project.open_scene("Scenes/68-sequence-camera-shots.scene.json");
+    std::vector<std::pair<std::string, CameraShot>> shots;
+    const auto initial_source = scene.document();
+    for (const auto& item : initial_source.at("entities")) {
+        const auto id = item.at("id").get<std::string>();
+        if (scene.entity(id).has<CameraShot>())
+            shots.emplace_back(id, scene.entity(id).get<CameraShot>());
+    }
+    std::sort(shots.begin(), shots.end(), [](const auto& a, const auto& b) {
+        return a.second.start_seconds < b.second.start_seconds;
+    });
+    check(shots.size() == 3, "Transition source needs the original three-shot fixture");
+    const auto outgoing = shots[0].second.camera.entity.str();
+    const auto incoming = shots[1].second.camera.entity.str();
+    auto profile = scene.entity(outgoing).get<Camera>();
+    profile.enabled = false;
+    profile.vertical_fov = 1.2;
+    scene.entity(incoming).set(profile);
+    auto shot = shots[1].second;
+    shot.blend_in_seconds = 1;
+    scene.entity(shots[1].first).set(shot);
+    const auto authored = scene.document();
+    const auto revision = scene.revision();
+    const auto resolved = scene.preview_document(authored);
+    const auto row = [](const Json& source, const std::string& id) -> const Json& {
+        const auto& rows = source.at("entities");
+        return *std::find_if(rows.begin(), rows.end(),
+                             [&](const auto& value) { return value.at("id") == id; });
+    };
+    AnimationSequenceEditor timeline;
+    timeline.open(project, scene, shot.sequence);
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(20);
+    while (!timeline.frame_export_ready()) {
+        timeline.poll(false, 0);
+        check(std::chrono::steady_clock::now() < deadline, "Transition preview did not prepare");
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    const auto lease = timeline.begin_frame_export();
+    for (double time : {2., 2.25, 2.5, 2.75, 3.}) {
+        timeline.sample_frame_export(lease, time);
+        auto source = scene.preview_document(timeline.preview(scene.document()));
+        timeline.project_camera_shots(source);
+        const auto render = extract_render_scene(source);
+        check(render.cameras.size() == 1 && render.cameras[0].entity == EntityId::parse(incoming),
+              "Stopped transition preview changed its incoming identity");
+        const double linear = time - 2, weight = linear * linear * (3 - 2 * linear);
+        for (unsigned i : {3u, 7u, 11u})
+            near(row(source, incoming).at("world_affine").at(i),
+                 std::lerp(row(resolved, outgoing).at("world_affine").at(i).get<double>(),
+                           row(resolved, incoming).at("world_affine").at(i).get<double>(), weight));
+        near(render.cameras[0].camera.vertical_fov,
+             std::lerp(scene.entity(outgoing).get<Camera>().vertical_fov, 1.2, weight));
+        check(row(source, incoming).at("components").at("forge.local_translation") ==
+                  row(authored, incoming).at("components").at("forge.local_translation"),
+              "Stopped camera blend wrote its local transform");
+    }
+    timeline.end_frame_export(lease);
+    check(scene.document() == authored && scene.revision() == revision,
+          "Transition frame sampling changed Scene source/history");
+}

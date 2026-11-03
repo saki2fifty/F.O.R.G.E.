@@ -1,4 +1,8 @@
 #include "animation_event_range.hpp"
+#include "builtins.hpp"
+#include "camera_shot_blend.hpp"
+#include "json_row_index.hpp"
+#include "render_values.hpp"
 #include "transform_animation_runtime.hpp"
 #include <algorithm>
 #include <cmath>
@@ -420,14 +424,16 @@ void TransformAnimationPlayback::synchronize_camera_shots() {
             if (camera.state != WorldContext::ResolveState::Available ||
                 !context_.world().entity(camera.entity).has<Camera>())
                 throw std::runtime_error("Camera Shot camera is unavailable in this Scene");
-            if (context_.world().entity(camera.entity).get<Camera>().render_texture.id)
-                throw std::runtime_error("Camera Shot requires a camera with main Game output");
+            validate_shot_camera(context_.world().entity(camera.entity).get<Camera>());
             const auto duration = sequence_states_.at(resolved.entity).config.duration;
             if (!std::isfinite(config.start_seconds) || !std::isfinite(config.end_seconds) ||
                 config.start_seconds < 0 || config.start_seconds >= config.end_seconds ||
                 config.end_seconds > duration)
                 throw std::runtime_error(
                     "Camera Shot requires 0 <= start < end <= sequence duration");
+            if (!std::isfinite(config.blend_in_seconds) || config.blend_in_seconds < 0 ||
+                config.blend_in_seconds > config.end_seconds - config.start_seconds)
+                throw std::runtime_error("Camera Shot blend must fit within its interval");
             candidate[membership].push_back({config, *ref, resolved.entity, camera.entity});
         } catch (const std::exception& e) {
             invalid_scenes.insert(membership);
@@ -453,6 +459,26 @@ void TransformAnimationPlayback::synchronize_camera_shots() {
             break;
         }
     }
+    for (const auto& [membership, shots] : candidate) {
+        if (invalid_scenes.contains(membership))
+            continue;
+        for (std::size_t i = 1; i < shots.size(); ++i) {
+            const auto& incoming = shots[i];
+            if (incoming.config.blend_in_seconds == 0 ||
+                shots[i - 1].config.end_seconds != incoming.config.start_seconds)
+                continue;
+            try {
+                validate_camera_shot_blend(
+                    context_.world().entity(shots[i - 1].camera).get<Camera>(),
+                    context_.world().entity(incoming.camera).get<Camera>());
+            } catch (const std::exception& e) {
+                invalid_scenes.insert(membership);
+                const auto id = context_.resolve(incoming.entity, membership).entity;
+                shot_errors_.insert(id);
+                error(id, e.what());
+            }
+        }
+    }
     for (auto membership : invalid_scenes)
         candidate.erase(membership);
     shot_scenes_.swap(candidate);
@@ -461,19 +487,13 @@ void TransformAnimationPlayback::synchronize_camera_shots() {
             !sequence_errors_.contains(id))
             errors_.erase(id);
 }
-Json TransformAnimationPlayback::camera_presentation(flecs::entity_t id, double alpha) const {
+TransformAnimationPlayback::ShotSample
+TransformAnimationPlayback::sample_camera_shot(flecs::entity_t membership, double alpha) const {
     if (!std::isfinite(alpha) || alpha < 0 || alpha > 1)
         throw std::runtime_error("Invalid camera-shot presentation alpha");
-    if (shot_scenes_.empty())
-        return nullptr;
-    const auto entity = context_.world().entity(id);
-    if (!entity.has<Camera>())
-        return nullptr;
-    if (entity.get<Camera>().render_texture.id)
-        return nullptr; // Independent producers are not directed by main-output shots.
-    const auto at = shot_scenes_.find(scene_membership(entity));
+    const auto at = shot_scenes_.find(membership);
     if (at == shot_scenes_.end())
-        return nullptr;
+        return {};
     const auto& shots = at->second;
     const auto& group = sequence_states_.at(shots.front().sequence);
     const auto& root = sequence_states_.at(group.root);
@@ -483,26 +503,125 @@ Json TransformAnimationPlayback::camera_presentation(flecs::entity_t id, double 
     const auto root_time =
         root.advance == 0 || wrapped ? root.time : root.previous + root.advance * alpha;
     if (root_time < group.root_offset || root_time > group.root_end)
-        return nullptr;
+        return {};
     const auto time = controller_presentation_time(shots.front().sequence, alpha);
-    for (const auto& shot : shots) {
+    for (std::size_t i = 0; i < shots.size(); ++i) {
+        const auto& shot = shots[i];
         const auto start = shot.config.start_seconds * animation_timebase;
         const auto end = shot.config.end_seconds * animation_timebase;
-        if (time >= start && (time < end || (time == duration && end == duration)))
-            return id == shot.camera;
+        if (time < start || !(time < end || (time == duration && end == duration)))
+            continue;
+        ShotSample result{&shot};
+        const auto span = shot.config.blend_in_seconds * animation_timebase;
+        if (i && span > 0 && time < start + span &&
+            shots[i - 1].config.end_seconds == shot.config.start_seconds) {
+            result.previous = &shots[i - 1];
+            const double linear = std::clamp((time - start) / span, 0., 1.);
+            result.weight = linear * linear * (3 - 2 * linear);
+        }
+        return result;
     }
-    return nullptr; // A gap restores ordinary authored camera composition.
+    return {};
 }
-Json TransformAnimationPlayback::camera_shots_checkpoint() const {
-    auto result = Json::array();
+Json TransformAnimationPlayback::camera_presentation(flecs::entity_t id, double alpha) const {
+    const auto entity = context_.world().entity(id);
+    if (!entity.has<Camera>() || entity.get<Camera>().render_texture.id)
+        return nullptr;
+    const auto sample = sample_camera_shot(scene_membership(entity), alpha);
+    return sample.current ? Json(id == sample.current->camera) : Json();
+}
+Json TransformAnimationPlayback::tune_camera_shot(EntityRef target, const Json& value) {
+    for (auto& [membership, shots] : shot_scenes_) {
+        for (std::size_t i = 0; i < shots.size(); ++i) {
+            auto& shot = shots[i];
+            if (shot.entity != target)
+                continue;
+            const auto& codecs = detail::builtins();
+            const auto codec = std::find_if(codecs.begin(), codecs.end(), [](const auto& entry) {
+                return std::string_view(entry.name) == "forge.camera_shot";
+            });
+            const auto resolved = context_.resolve(target, membership);
+            if (resolved.state != WorldContext::ResolveState::Available)
+                throw std::runtime_error("Live Camera Shot target is unavailable");
+            auto actor = context_.world().entity(resolved.entity);
+            auto candidate = codec->read(actor, true);
+            candidate["blend_in_seconds"] = value;
+            detail::validate_components({{"forge.camera_shot", candidate}});
+            const auto config = std::get<CameraShot>(codec->decode(candidate));
+            detail::validate_reflected_value(actor, config);
+            if (config.blend_in_seconds > 0 && i &&
+                shots[i - 1].config.end_seconds == config.start_seconds)
+                validate_camera_shot_blend(
+                    context_.world().entity(shots[i - 1].camera).get<Camera>(),
+                    context_.world().entity(shot.camera).get<Camera>());
+            actor.set(config);
+            shot.config = config;
+            return config.blend_in_seconds;
+        }
+        (void)membership;
+    }
+    throw std::runtime_error("Live Camera Shot tuning needs an admitted enabled shot");
+}
+bool TransformAnimationPlayback::has_camera_blends() const {
     for (const auto& [membership, shots] : shot_scenes_) {
         (void)membership;
         for (const auto& shot : shots)
+            if (shot.config.blend_in_seconds > 0)
+                return true;
+    }
+    return false;
+}
+void TransformAnimationPlayback::project_camera_shots(Json& document, double alpha) const {
+    if (!has_camera_blends())
+        return;
+    const auto rows = detail::index_json_rows(document.at("entities"));
+    std::map<std::string, RenderCamera> candidate;
+    const auto read = [&](flecs::entity_t id) {
+        const auto ref = context_.reference(id);
+        if (!ref || !rows.contains(ref->entity.str()))
+            throw std::runtime_error("Camera Shot view is missing from copied presentation");
+        const auto& row = *rows.at(ref->entity.str());
+        if (!row.value("spatial_resolved", false))
+            throw std::runtime_error("Camera Shot view has an unresolved world pose");
+        RenderCamera value{
+            ref->entity, detail::camera_value(row.at("components").at("forge.camera")), {}};
+        value.world.m = row.at("world_affine").get<std::array<double, 12>>();
+        return value;
+    };
+    for (const auto& [membership, shots] : shot_scenes_) {
+        (void)shots;
+        const auto sample = sample_camera_shot(membership, alpha);
+        if (!sample.previous || sample.previous->camera == sample.current->camera)
+            continue;
+        auto value = blend_camera_shot(read(sample.previous->camera), read(sample.current->camera),
+                                       sample.weight);
+        candidate.emplace(value.entity.str(), std::move(value));
+    }
+    // Build every view before publishing any override into this copied document.
+    for (auto& row : document.at("entities")) {
+        const auto at = candidate.find(row.at("id").get_ref<const std::string&>());
+        if (at == candidate.end())
+            continue;
+        const auto values = detail::render_value(at->second.camera);
+        for (const auto* field : {"vertical_fov", "orthographic_height", "orthographic_width",
+                                  "near_plane", "far_plane"})
+            row["components"]["forge.camera"][field] = values.at(field);
+        row["world_affine"] = at->second.world.m;
+    }
+}
+Json TransformAnimationPlayback::camera_shots_checkpoint(bool transitions) const {
+    auto result = Json::array();
+    for (const auto& [membership, shots] : shot_scenes_) {
+        (void)membership;
+        for (const auto& shot : shots) {
             result.push_back({{"entity", shot.entity},
                               {"sequence", shot.config.sequence},
                               {"camera", shot.config.camera},
                               {"start_seconds", shot.config.start_seconds},
                               {"end_seconds", shot.config.end_seconds}});
+            if (transitions)
+                result.back()["blend_in_seconds"] = shot.config.blend_in_seconds;
+        }
     }
     // Native entity/membership allocation order is not persistent identity.
     std::sort(result.begin(), result.end(), [](const Json& a, const Json& b) {

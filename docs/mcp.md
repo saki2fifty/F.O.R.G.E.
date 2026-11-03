@@ -1382,3 +1382,24 @@ The same helper drives Content's None (empty registration) choice. Replace the
 new source through normal guarded code-edit/save/build operations with the Gallery
 receiver; omission does not create a native event bus or gameplay behavior. Managed
 source provenance reports an empty component string for this registration.
+
+## Smooth Camera Shot views
+
+Discovery exposes native `forge.camera_shot.blend_in_seconds` with an optional
+zero default and seconds metadata. Existing `forge_property_set` and atomic property
+batches author it; the ordinary history tools Undo/Redo the Scene value. Camera
+and sequence bindings remain typed EntityRefs. The animation provider validates
+nonoverlapping intervals and matching adjacent camera composition before playback.
+No additional MCP director or separate Scene implementation exists.
+
+`forge_play_tune` accepts only an admitted enabled shot's `blend_in_seconds` in
+Play, using the current launch/session/generation scope. Poll `forge_play_status`
+for the tuning acknowledgement; failed duration/profile validation leaves the
+runtime value unchanged. Camera, sequence, interval and enabled state remain Edit
+operations. Paused `forge_play_animation_control` seeking updates the copied view
+without a simulation tick. Runtime tuning capture/read/apply can review the duration
+and apply it with the ordinary Scene history owner. Stopping Play preserves source.
+
+Both current and legacy stdio framing use the same native descriptor and operation.
+See [camera-shot behavior](transform-animation.md#sequence-camera-shots) and the
+[manual workflow](../manual/editor/animation-sequences.md#camera-shots).

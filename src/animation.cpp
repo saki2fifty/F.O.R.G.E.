@@ -2235,6 +2235,14 @@ void AnimationPlaybackAccess::control(AnimationRuntime& runtime, EntityRef ref,
         runtime.impl_->apply_model_poses(true, {}, id);
     }
 }
+Json AnimationPlaybackAccess::tune_camera_shot(AnimationRuntime& runtime, EntityRef target,
+                                               const Json& value) {
+    if (!runtime.impl_ || runtime.impl_->context.role() != WorldRole::Runtime ||
+        !runtime.impl_->context.on_owner_thread() || runtime.impl_->context.world().is_readonly())
+        throw ArchiveError("Live Camera Shot tuning requires the writable animation owner");
+    runtime.impl_->synchronize();
+    return runtime.impl_->transforms.tune_camera_shot(target, value);
+}
 Json AnimationPlaybackAccess::tune_rig(AnimationRuntime& runtime, EntityRef ref,
                                        const std::string& type, const std::string& property,
                                        const Json& value) {
@@ -2301,6 +2309,10 @@ Json AnimationRuntime::presentation_properties(flecs::entity_t id, double alpha)
     if (!camera.is_null())
         result["forge.camera"]["enabled"] = camera;
     return result;
+}
+void AnimationRuntime::project_camera_shots(Json& document, double alpha) const {
+    if (impl_)
+        impl_->transforms.project_camera_shots(document, alpha);
 }
 Json AnimationRuntime::presentation(flecs::entity_t id, double alpha) {
     if (!std::isfinite(alpha) || alpha < 0 || alpha > 1)
@@ -2538,6 +2550,12 @@ Json AnimationRuntime::checkpoint() const {
         result["audio_cues"] = impl_->transforms.audio_cues_checkpoint();
         result["sequence_entries"] = impl_->transforms.sequence_checkpoint(7);
     }
+    if (impl_ && impl_->transforms.has_camera_blends()) {
+        result["sequence_profile"] = result.at("version").get<unsigned>();
+        result["version"] = 8;
+        result["camera_shots"] = impl_->transforms.camera_shots_checkpoint(true);
+        result["audio_cues"] = impl_->transforms.audio_cues_checkpoint();
+    }
     return result;
 }
 void AnimationRuntime::restore(const Json& data) {
@@ -2587,13 +2605,23 @@ void AnimationRuntime::restore(const Json& data) {
     }
     if ((data.at("version") != 1 && data.at("version") != 2 && data.at("version") != 3 &&
          data.at("version") != 4 && data.at("version") != 5 && data.at("version") != 6 &&
-         data.at("version") != 7) ||
+         data.at("version") != 7 && data.at("version") != 8) ||
         !data.at("entries").is_array() || data.at("entries").size() != impl_->states.size() ||
         !impl_->errors.empty())
         throw ArchiveError("Animation recovery configuration differs");
-    if ((data.at("version") < 4 && data.contains("camera_shots")) ||
+    unsigned sequence_profile = data.at("version").get<unsigned>();
+    if (sequence_profile == 8) {
+        if (!data.contains("sequence_profile") ||
+            !data.at("sequence_profile").is_number_unsigned() ||
+            data.at("sequence_profile").get<unsigned>() < 4 ||
+            data.at("sequence_profile").get<unsigned>() > 7)
+            throw ArchiveError("Camera Shot recovery sequence profile differs");
+        sequence_profile = data.at("sequence_profile").get<unsigned>();
+    }
+    if ((data.at("version") < 8 && impl_->transforms.has_camera_blends()) ||
+        (data.at("version") < 4 && data.contains("camera_shots")) ||
         (data.at("version") >= 4 ? data.at("camera_shots") : Json::array()) !=
-            impl_->transforms.camera_shots_checkpoint())
+            impl_->transforms.camera_shots_checkpoint(data.at("version") >= 8))
         throw ArchiveError("Camera Shot recovery configuration differs");
     if ((data.at("version") < 5 && data.contains("audio_cues")) ||
         (data.at("version") >= 5 ? data.at("audio_cues") : Json::array()) !=
@@ -2852,7 +2880,7 @@ void AnimationRuntime::restore(const Json& data) {
     swap_sources();
     impl_->transforms.restore(data.value("transform_entries", Json::array()),
                               data.at("version") >= 3 ? data.at("sequence_entries") : Json::array(),
-                              data.at("version").get<unsigned>());
+                              sequence_profile);
     for (auto& value : values) {
         auto& p = *value.playback;
         const auto time = value.time;

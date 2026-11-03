@@ -186,7 +186,9 @@ Gallery70 combines editable sound points, two camera shots and object animation.
 ## Sequence camera shots
 
 `CameraShot` is a Scene-owned native component with `sequence` and `camera`
-EntityRefs, `start_seconds`, `end_seconds` and `enabled`. An unbound shot is inactive.
+EntityRefs, `start_seconds`, `end_seconds`, `enabled` and optional
+`blend_in_seconds` (default zero). An unbound shot is inactive. Blend duration must
+be finite and between zero and the shot's own duration.
 The existing transform provider prepares up to 256 enabled/bound shots per world;
 both references resolve in the shot's loaded Scene membership. The controller must
 be an AnimationSequence and the target a Camera. Intervals require finite
@@ -198,15 +200,35 @@ and leave the authored source unchanged.
 
 Selection samples the existing controller's presentation time. Intervals are
 start-inclusive/end-exclusive. A shot ending at sequence duration also holds at
-that final nonlooping time. Loop discontinuities snap with the existing clip
-presentation; there is no cross-camera blend. Gaps and disabled controllers restore
-ordinary camera composition. Only copied Camera.enabled values change: the chosen
-camera becomes enabled, including a disabled standby camera, and the other cameras
-in that membership become disabled. Native Camera components, source files and
-authored history remain unchanged. Lens/transform/resource admission stays with
-the existing render and animation owners.
+that final nonlooping time. Gaps and disabled controllers restore ordinary camera
+composition. Shot selection changes copied Camera.enabled values: the chosen main
+camera becomes enabled, including a disabled standby camera, and other main cameras
+in that membership become disabled. Render-texture producer cameras remain independent.
 
-Timeline borrows Scene history for creation, camera/interval edits and removal.
+Zero blend duration retains an exact cut. A positive incoming duration interpolates
+from the immediately adjacent previous shot over the beginning of the incoming
+interval, with smoothstep weight `u*u*(3-2*u)`. First shots, gaps and the loop start
+cut; there is no transition from the previous cycle. Both endpoints use their
+current copied world poses, including parent and clip animation. Shared rigid-frame
+validation and existing quaternion interpolation provide position/orientation;
+vertical FOV, orthographic dimensions and near/far planes interpolate linearly.
+The actual incoming Camera keeps its entity identity. This is view/lens interpolation,
+not a rendered-image crossfade, physical lens simulation or extra camera controller.
+
+A blended pair must match projection, basis, aspect policy, normalized viewport,
+flip flags, layer mask, composition order, infinite-far setting, clear policy and
+background color. Orthographic automatic-width and fixed-width modes must match.
+Enabled flags may differ. Render-texture output cameras cannot be shot targets.
+Incompatible enabled adjacent pairs invalidate that Scene's shot arrangement with
+an actionable diagnostic. Pose admission remains with the render transform owner.
+
+Native Camera poses/lenses, source files and authored history remain unchanged.
+RuntimeSimulation applies the shared camera projection only after interpolation
+has resolved every copied world pose. Stopped Timeline preview and its frame-export
+consumer invoke that same projection after Scene resolves their copied animated
+hierarchy. No native transform override, virtual identity or additional clock exists.
+
+Timeline borrows Scene history for creation, camera/interval/blend edits and removal.
 Creation uses the existing `entity.create` recipe command with initial component
 values, so a bound shot is one transaction. Pending edits retain their Scene revision
 and reject stale commits. The existing isolated preview projects the same copied
@@ -214,14 +236,26 @@ selection; Game can render it while Play is stopped, with an explicit preview la
 and without running runtime UI, native gameplay, sound or physics. Stop/close/Scene
 changes restore the authored view.
 
-Private animation checkpoint4 records exact active shot identities, references and
-intervals alongside the existing sequence clocks. Nonshot configurations keep
-checkpoint3; versions1–3 reject recovery when active shots cannot be described.
-Shot mismatches reject before clock adoption. Scene/Prefab/clip formats and ABI1
-function tables are unchanged. The installed animation component header changes the
-exact SDK fingerprint; rebuild native modules with the matching SDK. ADR021/022
-retain clock and portable-reference ownership. Gallery68 demonstrates cuts, a gap,
-coordinated object motion and normal source-free export.
+Zero-blend arrangements retain their existing private recovery profiles. Positive
+active blends use checkpoint8, recording exact shot durations and an explicit
+`sequence_profile` that preserves the existing sequence/object/UI/nested profile4–7.
+Recovery validates the source configuration and nested profile before adopting
+clocks. Earlier profiles reject active blends they cannot describe. Optional source
+fields read as zero through both codec and generic reflected Scene admission.
+
+Live Play tuning admits only `CameraShot.blend_in_seconds` on an already admitted,
+enabled shot. The animation owner validates the detached typed candidate, interval
+bound and adjacent pair before publishing the native duration and existing shot
+configuration together. It preserves controller time and rejects changes to camera,
+sequence, interval and enabled state. Inspector and MCP use this same operation;
+Keep runtime values can review/apply the duration through ordinary Scene Undo.
+
+Scene/Prefab/clip formats and ABI1 function tables are unchanged. The installed
+animation component header changes the exact SDK fingerprint; rebuild native
+modules with the matching SDK. ADR021/022 retain clock and portable-reference
+ownership. Gallery68 demonstrates legacy cuts. Gallery153 demonstrates smooth
+incoming/return views with an animated shared camera rig, a normal-composition gap
+and source-free export.
 
 ## Reflected component fields
 

@@ -42,10 +42,14 @@ Real Windows editor captures using small validation scenes. Click an image to op
 | [![Integrated C++ editor showing a rotation system and project code in Content](manual/images/cpp-editor.png)](manual/images/cpp-editor.png) | [![Material graph connecting a color parameter to surface output with a rendered sphere preview](manual/images/material-graph.png)](manual/images/material-graph.png) |
 | **[Animation states](manual/editor/animation-states.md)** | **[Mesh editing and sculpting](manual/editor/editable-meshes.md)** |
 | [![Animation state graph with connected Idle, Walk and Run states](manual/images/animation-states.png)](manual/images/animation-states.png) | [![Editable mesh workspace showing a wireframe sphere and sculpt brush symmetry controls](manual/images/mesh-sculpting.png)](manual/images/mesh-sculpting.png) |
-| **[Sequence camera cuts](manual/editor/animation-sequences.md)** | **[Live Inspector tuning](manual/editor/play-mode.md)** |
+| **[Sequence camera cuts and transitions](manual/editor/animation-sequences.md)** | **[Live Inspector tuning](manual/editor/play-mode.md)** |
 | [![Animation sequence timeline with camera shot intervals and camera selection](manual/images/camera-sequencing.png)](manual/images/camera-sequencing.png) | [![A running game with C++ component properties adjustable in the Live Gameplay Inspector](manual/images/live-inspector.png)](manual/images/live-inspector.png) |
 
 [Capture sources](docs/images/readme/README.md) · [Implementation and delivery status](docs/status.md)
+
+[Smooth Camera Shot transitions](manual/editor/animation-sequences.md#camera-shots)
+move between adjacent camera views and lenses while preserving animated camera rigs.
+Gallery153 includes an incoming blend, a return blend and an overview gap.
 
 ## Live camera images
 

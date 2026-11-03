@@ -64,6 +64,8 @@ if len(sys.argv) == 5 and sys.argv[4] in focused_targets:
         env=os.environ.copy()
         if not windows:env['LD_LIBRARY_PATH']=str(moved/'bin')+':'+env.get('LD_LIBRARY_PATH','')
         if sys.argv[4] == '--sequence-only':
+            source = Path(__file__).resolve().parents[1]
+            assert (moved/'sdk/include/forge/animation_components.hpp').read_bytes() == (source/'include/forge/animation_components.hpp').read_bytes()
             subprocess.run([sys.executable, str(Path(__file__).with_name('animation_sequence_process_test.py')),
                             str(moved/'bin'/('forge_runtime'+exe)),
                             str(Path(__file__).resolve().parents[1]/'samples/projects/FeatureGallery'),

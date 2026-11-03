@@ -385,6 +385,25 @@ void exercise(const std::filesystem::path& gallery, const std::filesystem::path&
     check(scene.entity(shot).get<CameraShot>().sequence.entity == EntityId::parse(controller),
           "Shot Redo did not retain its durable reference");
     const auto initial_shot = scene.entity(shot).get<CameraShot>();
+    const auto blend = std::min(.25, (initial_shot.end_seconds - initial_shot.start_seconds) * .5);
+    const auto blend_text = std::to_string(blend);
+    type("sequence:shot_blend", blend_text.c_str());
+    click("sequence:apply_shot");
+    near(scene.entity(shot).get<CameraShot>().blend_in_seconds, blend);
+    editor.undo();
+    frame();
+    check(scene.entity(shot).get<CameraShot>() == initial_shot,
+          "Shot blend edit was not one Scene Undo transaction");
+    editor.redo();
+    frame();
+    near(scene.entity(shot).get<CameraShot>().blend_in_seconds, blend);
+    editor.undo();
+    frame();
+    type("sequence:shot_blend", "9999");
+    click("sequence:apply_shot");
+    check(scene.entity(shot).get<CameraShot>() == initial_shot,
+          "Invalid shot blend changed authored values");
+    click("sequence:reset_shot");
     type("sequence:shot_start", "3");
     type("sequence:shot_end", "4");
     check(scene.entity(shot).get<CameraShot>() == initial_shot &&
@@ -621,6 +640,10 @@ int main(int argc, char** argv) {
             capture_sequence_pair(argv[2], argv[3], argv[4]);
             return 0;
         }
+        if (argc == 5 && std::string_view(argv[1]) == "--capture-camera-transition") {
+            capture_sequence_pair(argv[2], argv[3], argv[4], false, true);
+            return 0;
+        }
         if (argc == 5 && std::string_view(argv[1]) == "--capture-nested") {
             capture_sequence_pair(argv[2], argv[3], argv[4], true);
             return 0;
@@ -628,6 +651,7 @@ int main(int argc, char** argv) {
         check(argc == 3, "Need Gallery and sequence UI scratch root");
         frame_plans();
         frame_source(argv[1], argv[2]);
+        camera_transition_frame_source(argv[1], argv[2]);
         for (float scale : {1.f, 1.5f, 2.f})
             for (auto display : {ImVec2{1400, 1500}, ImVec2{960, 640}})
                 exercise(argv[1], argv[2], scale, display);

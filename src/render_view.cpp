@@ -142,24 +142,33 @@ std::array<std::array<float, 4>, 3> decal_gpu_transform(const DecalView& value, 
     }
     return result;
 }
-CameraView camera_view(const Camera& c, const AffineTransform& a, std::uint32_t width,
-                       std::uint32_t height) {
-    validate_camera(c);
+AffineTransform camera_rigid_transform(const AffineTransform& a) {
     validate_affine(a);
-    require(width && height, "Camera target has zero extent");
-    CameraView result{};
-    result.position = a.point({0, 0, 0});
-    result.right = unit(a.vector({1, 0, 0}));
-    result.up = unit(a.vector({0, 1, 0}));
-    auto forward = unit(a.vector({0, 0, 1}));
+    const auto right = unit(a.vector({1, 0, 0}));
+    const auto up = unit(a.vector({0, 1, 0}));
+    const auto forward = unit(a.vector({0, 0, 1}));
     // Exact glTF view-matrix contract: proper normalized orientation. Explicit
     // orthogonality additionally prevents a near-unit determinant hiding shear.
     constexpr double tolerance = 1e-5;
-    require(std::abs(dot(cross(result.right, result.up), forward) - 1) <= tolerance &&
-                std::abs(dot(result.right, result.up)) <= tolerance &&
-                std::abs(dot(result.right, forward)) <= tolerance &&
-                std::abs(dot(result.up, forward)) <= tolerance,
+    require(std::abs(dot(cross(right, up), forward) - 1) <= tolerance &&
+                std::abs(dot(right, up)) <= tolerance &&
+                std::abs(dot(right, forward)) <= tolerance &&
+                std::abs(dot(up, forward)) <= tolerance,
             "Camera orientation is reflected or sheared; a proper orthogonal frame is required");
+    const auto position = a.point({0, 0, 0});
+    return {{right[0], up[0], forward[0], position[0], right[1], up[1], forward[1], position[1],
+             right[2], up[2], forward[2], position[2]}};
+}
+CameraView camera_view(const Camera& c, const AffineTransform& a, std::uint32_t width,
+                       std::uint32_t height) {
+    validate_camera(c);
+    const auto rigid = camera_rigid_transform(a);
+    require(width && height, "Camera target has zero extent");
+    CameraView result{};
+    result.position = rigid.point({0, 0, 0});
+    result.right = rigid.vector({1, 0, 0});
+    result.up = rigid.vector({0, 1, 0});
+    auto forward = rigid.vector({0, 0, 1});
     if (c.basis == std::uint32_t(ViewBasis::GltfNegativeZ))
         for (auto& x : forward)
             x = -x;

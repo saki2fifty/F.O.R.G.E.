@@ -190,6 +190,7 @@ class ComponentInspector {
         if (!components.contains(key) || !components.at(key).is_object())
             return false;
         return AnimationPlaybackAccess::rig_type(key) ||
+               RuntimePropertyTune::camera_shot_type(key) ||
                RuntimePropertyTune::state_condition_type(key) ||
                RuntimePropertyTune::ui_values_type(key) ||
                RuntimePropertyTune::ui_localization_type(key) ||
@@ -221,6 +222,8 @@ class ComponentInspector {
                                         const Json& components) {
         const auto name = field.at("id").get<std::string>();
         return components.at(key).contains(name) &&
+               (!RuntimePropertyTune::camera_shot_type(key) ||
+                RuntimePropertyTune::camera_shot_property(name)) &&
                (!RuntimePropertyTune::state_condition_type(key) ||
                 RuntimePropertyTune::state_condition_property(name)) &&
                (!RuntimePropertyTune::ui_values_type(key) ||

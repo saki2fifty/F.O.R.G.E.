@@ -7,7 +7,8 @@ namespace forge::test_sequence_frame_render {
 using test_view_image_ui::check;
 using test_view_image_ui::read;
 inline void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* graphics,
-                     const std::filesystem::path& gallery, const std::filesystem::path& scratch) {
+                     const std::filesystem::path& gallery, const std::filesystem::path& scratch,
+                     bool transition = false) {
     const auto project_root = std::filesystem::absolute(scratch / AssetId::generate().str());
     std::filesystem::create_directories(project_root.parent_path());
     std::filesystem::copy(gallery, project_root, std::filesystem::copy_options::recursive);
@@ -31,6 +32,20 @@ inline void exercise(DiligentPresentation& presentation, Diligent::IDeviceContex
     }
     check(bool(controller.entity) && bool(front) && bool(side),
           "Sequence render Gallery source is incomplete");
+    if (transition) {
+        auto incoming = scene.entity(side.str());
+        auto lens = scene.entity(front.str()).get<Camera>();
+        lens.enabled = false;
+        incoming.set(lens);
+        for (const auto& item : snapshot.at("entities")) {
+            const auto actor = scene.entity(item.at("id").get<std::string>());
+            if (actor.has<CameraShot>() && actor.get<CameraShot>().camera.entity == side) {
+                auto shot = actor.get<CameraShot>();
+                shot.blend_in_seconds = 1;
+                actor.set(shot);
+            }
+        }
+    }
     AnimationTimelineEditor timeline;
     std::string message;
     timeline.open_sequence(project, scene, controller);
@@ -59,7 +74,10 @@ inline void exercise(DiligentPresentation& presentation, Diligent::IDeviceContex
     host->catalog(catalog);
     FrameRenderer renderer(presentation);
     renderer.resources(host);
-    const ui::SequenceFramePlan plan{0, 2. / 3, 3}; // Exact samples0,1.5,3: includes the cut.
+    const ui::SequenceFramePlan plan =
+        transition ? ui::SequenceFramePlan{2.5, 2, 3} : ui::SequenceFramePlan{0, 2. / 3, 3};
+    // Transition samples2.5,3,3.5 include the incoming boundary and blend midpoint.
+    // Legacy samples0,1.5,3 retain their existing exact-cut contract.
     unsigned width = 384, height = 216;
     const auto submit = [&] {
         host->submit();
@@ -74,7 +92,8 @@ inline void exercise(DiligentPresentation& presentation, Diligent::IDeviceContex
         presentation.begin_frame();
         // Main uses this same owner projection and Scene transform resolution.
         // Resolving an already effective snapshot would leave stale world matrices.
-        const auto source = scene.preview_document(timeline.preview(scene.document()));
+        auto source = scene.preview_document(timeline.preview(scene.document()));
+        timeline.project_camera_shots(source);
         auto* image = renderer.game(graphics, source, width, height);
         check(image && renderer.cameras().size() == 1,
               "Sequence preview did not produce one Game camera");
@@ -86,7 +105,7 @@ inline void exercise(DiligentPresentation& presentation, Diligent::IDeviceContex
                                                 {true, 1280, 720},
                                                 {true, 1920, 1080},
                                                 {true, 1024, 1024}};
-    for (unsigned profile = 0; profile < std::size(profiles); ++profile) {
+    for (unsigned profile = 0; profile < (transition ? 1u : std::size(profiles)); ++profile) {
         const auto output = profiles[profile];
         width = output.fixed ? unsigned(output.width) : 384;
         height = output.fixed ? unsigned(output.height) : 216;
@@ -108,7 +127,8 @@ inline void exercise(DiligentPresentation& presentation, Diligent::IDeviceContex
                 std::this_thread::sleep_for(std::chrono::milliseconds(1));
             }
             check(renderer.diagnostics().empty() &&
-                      renderer.cameras().front().entity == (i < 2 ? front : side),
+                      renderer.cameras().front().entity ==
+                          ((transition ? i == 0 : i < 2) ? front : side),
                   "Actual Game frame lost a sequence camera cut or emitted diagnostics");
             test::ViewImageReference reference;
             reference.queue(presentation.device(), graphics, image);
@@ -118,8 +138,10 @@ inline void exercise(DiligentPresentation& presentation, Diligent::IDeviceContex
                           width, height, expected[i]);
         }
         timeline.end_frame_export(lease);
-        check(expected[0] != expected[1] && expected[1] != expected[2],
+        check((transition || expected[0] != expected[1]) && expected[1] != expected[2],
               "Actual animation/camera samples produced identical images");
+        // A held outgoing view can equal the exact incoming boundary (weight zero).
+        // The incoming blend midpoint must still differ from that boundary.
 
         ui::ViewImageTask task; // Borrowed Timeline and native presentation outlive it.
         const auto folder = scratch / ("frames-" + AssetId::generate().str());

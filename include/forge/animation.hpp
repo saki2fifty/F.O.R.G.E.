@@ -37,6 +37,8 @@ class AnimationRuntime : public AnimationService {
     void reset_presentation();
     Json presentation(flecs::entity_t entity, double alpha);
     Json presentation_properties(flecs::entity_t entity, double alpha) const;
+    // Host copied presentation only, after interpolated world poses are available.
+    void project_camera_shots(Json& document, double alpha) const;
     // Resource sampling can be ready while a newly loaded model still awaits
     // its first fixed-boundary channel application. Visual hosts must distinguish
     // those states without mutating transforms during presentation extraction.

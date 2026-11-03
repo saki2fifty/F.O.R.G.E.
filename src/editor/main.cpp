@@ -6347,10 +6347,13 @@ int main(int argc, char** argv) {
                                     source = scene_tools.preview(source);
                                 if (modal.active())
                                     source = modal.preview(source);
-                                return (blockout.active() || scene_tools.active() ||
-                                        modal.active() || animation_timeline.preview_active())
-                                           ? scene.preview_document(source)
-                                           : authoring_snapshot.effective(scene);
+                                auto resolved =
+                                    (blockout.active() || scene_tools.active() || modal.active() ||
+                                     animation_timeline.preview_active())
+                                        ? scene.preview_document(source)
+                                        : authoring_snapshot.effective(scene);
+                                animation_timeline.project_camera_shots(resolved);
+                                return resolved;
                             });
                     };
                     const auto& preview = read_preview();

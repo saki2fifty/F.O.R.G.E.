@@ -1,5 +1,19 @@
 # 2026-11-03
 
+## Smooth sequence camera views
+
+Camera Shot adds an optional zero-default incoming blend duration. Compatible
+adjacent views smoothly interpolate current copied world poses and lenses while
+retaining the incoming Camera identity. The existing controller clock, hierarchy,
+preview, frame sampling and exported runtime supply the same behavior. First shots,
+gaps and loop starts retain cuts; render-texture producers remain independent.
+
+Timeline applies interval/camera/blend edits as one Undo step. Live Inspector and
+MCP tuning expose only an admitted shot's duration; Keep runtime values can review
+it for the Scene. Scene copy, Prefab references, exact SDK matching and versioned
+recovery preserve existing ownership. Original Gallery153 demonstrates animated
+camera rigs, incoming/return blends and an overview gap.
+
 ## Seeded foliage placement
 
 **Tools > Foliage placement...** and the shared `mesh.scatter` authoring command

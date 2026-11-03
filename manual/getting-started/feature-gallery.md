@@ -554,3 +554,18 @@ output, and a third relays that image to a second monitor while the source cubes
 rotate. Inspect **Assets/RenderTextures** for the published image configurations,
 Materials and rotation Clip. See [Show a camera image on a Mesh](../editor/render-textures.md)
 for layer masks, resizing and export. This scene needs no project C++ compiler.
+
+## Smooth camera views
+
+Open **153-camera-transitions** and press Play. A narrow left view holds for two
+seconds, eases into a wider right view, then smoothly returns to the left. A final
+half-second uses the overview camera before the loop restarts. Both shot cameras
+move with the same animated rig.
+
+Stop, select **Director - six-second loop** and open its sequence Timeline. Select
+**B - one-second smooth incoming view**, change **Shot blend in**, choose **Apply
+shot fields**, then **Refresh clips** and preview in Game. Save the Scene and export
+normally; no project C++ module is needed. See [Camera shots](../editor/animation-sequences.md).
+
+![Colored depth markers seen during a smooth Camera Shot transition](../images/camera-transition-gallery.png)
+The Game view interpolates both the camera pose and lens while the shared rig moves.

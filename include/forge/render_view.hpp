@@ -20,6 +20,8 @@ struct CameraView {
     PixelViewport viewport;
     bool orientation_reversed{}; // Relative to FORGE +Z / unflipped projection.
 };
+// Shared camera pose admission: normalize scale and require a proper orthogonal frame.
+AffineTransform camera_rigid_transform(const AffineTransform&);
 // Reject undefined orientation, empty viewport or unrepresentable projection.
 // World scale affects position, never FOV/clip distance/orthographic size.
 CameraView camera_view(const Camera&, const AffineTransform&, std::uint32_t target_width,

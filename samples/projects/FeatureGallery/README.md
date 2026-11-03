@@ -1962,3 +1962,17 @@ screens. Keep that separation when editing; feedback loops are rejected. Publish
 outputs and Materials, save the Scene, then select it as startup before export.
 After resizing an output, republish dependent Materials before export.
 See [the camera image guide](../../../manual/editor/render-textures.md).
+
+## Smooth Camera Shot views
+
+Open **Scenes/153-camera-transitions.scene.json** and press Play. The narrow left
+view holds, blends for one second into a wider right view, then blends back. Both
+cameras ride an animated shared rig. A final half-second uses the enabled overview
+camera before the six-second loop restarts.
+
+Stop, select **Director - six-second loop** and open its sequence Timeline. Select
+**B - one-second smooth incoming view** to edit **Shot blend in**. Apply the fields,
+refresh clips and preview in Game. A zero value creates an exact cut. Smooth pairs
+must share projection, viewport, layers and clear/background settings; the manual
+lists the complete compatible profile. Save the Scene and export it normally;
+this example needs no project C++ module.

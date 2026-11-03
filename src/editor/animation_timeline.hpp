@@ -140,6 +140,10 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
         preview_ = playing_ = false;
         sequence_.stop_preview();
     }
+    void project_camera_shots(Json& resolved) const {
+        if (sequence_mode())
+            sequence_.project_camera_shots(resolved);
+    }
     Json preview(Json source) {
         if (sequence_mode())
             return sequence_.preview(std::move(source));

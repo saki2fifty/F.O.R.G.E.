@@ -1616,3 +1616,24 @@ original capture paths and native receipts are recorded in
 `AgentFiles/build/phase232-render-texture-authoring/manual-captures.json`.
 These captures do not establish full Main, Windows/MSVC/D3D12, physical GPU/DPI,
 external MCP client or graphical EXE acceptance.
+
+## Smooth Camera Shot controls and view
+
+[Incoming shot controls](../../../manual/images/camera-transition-editor.png)
+shows the production Timeline with Gallery153's incoming shot selected and **Shot
+blend in** editable. The unretouched720×1400 PNG comes from the actual SDL/ImGui
+software capture in `tests/sequence_clip_capture.hpp`.
+
+[Transition Game view](../../../manual/images/camera-transition-gallery.png)
+shows the production FrameRenderer at tick150 in Gallery153 on software Vulkan.
+The animated camera rig is halfway through the incoming view/lens transition.
+Four source/source-hidden relocated display pairs match exactly; the stopped
+Timeline's three exported PNG samples also match independently read display pixels.
+Lossless P6 RGB-to-PNG conversion retains every source pixel.
+
+Both canonical images were personally reviewed. Local unassigned source is based
+on f076f8d with the smooth camera-view implementation. Exact executable/image/source
+hashes and capture receipts are in
+`AgentFiles/build/phase233-camera-shot-transitions/manual-captures.json`.
+The captures do not establish full Main, Windows/MSVC/D3D12, physical GPU/DPI,
+external MCP client or graphical EXE acceptance.

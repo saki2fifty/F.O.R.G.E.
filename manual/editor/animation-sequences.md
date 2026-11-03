@@ -139,12 +139,37 @@ To author shots in your own sequence:
 
 1. Create the cameras and position them in the Scene. Standby cameras can have **Enabled** turned off; a shot activates its chosen camera in the rendered view.
 2. Open the controller's sequence Timeline. Select a camera in Hierarchy and choose **Add shot from selected camera**. The shot fills the next free interval at or after the playhead.
-3. Select its row under **Camera shots**. Choose **Shot camera**, enter **Shot start** and **Shot end**, then choose **Apply shot fields**. The edit uses one Scene Undo step. Apply or reset pending fields before switching tracks.
+3. Select its row under **Camera shots**. Choose **Shot camera**, enter **Shot start**, **Shot end** and **Shot blend in**, then choose **Apply shot fields**. The edit uses one Scene Undo step. Apply or reset pending fields before switching tracks.
 4. Choose **Refresh clips**, then **Preview sequence** and open **Game**. Scrub a shot's strip or the playhead slider to inspect the cuts. Stopping preview restores the authored camera settings.
 5. Choose **Save scene**. Play and export use this saved arrangement; no C++ module is required.
 
-Adjacent shots cut exactly at their shared boundary. Shots cannot overlap and must
-fit inside the controller's duration. Gaps use normal enabled cameras and their
+Keep **Shot blend in = 0** for an exact cut. To move smoothly into an adjacent
+shot, enter a positive duration no longer than that incoming shot. During this
+interval the view eases from the previous camera's current position, orientation
+and lens to the incoming camera. Animated and parented cameras keep moving during
+the transition. First shots, gaps and the start of each loop use a cut.
+
+For a blend, both cameras must use the same projection, basis, aspect policy,
+viewport, flips, Layers, Order, infinite-far, Clear and background settings.
+Orthographic cameras must both use automatic width or both use fixed width.
+Their positions, rotations, lens values and Enabled flags can differ. Camera shots
+require main Game output; cameras that write Render Textures run independently.
+An incompatible pair appears in Problems and prevents the sequence from preparing.
+
+Open **153-camera-transitions** to try a six-second arrangement: the view moves
+from a narrow left camera to a wider right camera, then returns. Both cameras
+share an animated rig. Select the incoming shot under **Camera shots**, adjust
+**Shot blend in**, choose **Apply shot fields**, then **Refresh clips** to preview.
+
+![Sequence Timeline with the incoming Camera Shot selected and its blend duration editable](../images/camera-transition-editor.png)
+The selected incoming shot controls the duration of its smooth view and lens transition.
+
+During Play, select a shot and adjust **Blend in (seconds)** in Inspector's
+**Live gameplay** section. This changes the running duration. Stop restores the
+authored value; use **Keep runtime values** to review a value for the Scene before
+saving. Camera links, interval bounds and Enabled remain Edit controls.
+
+Shots cannot overlap and must fit inside the controller's duration. Gaps use normal enabled cameras and their
 composition order. A final shot ending at the controller duration holds when a
 nonlooping sequence finishes. Disabled controllers and unbound or disabled shots
 do not direct the camera.
@@ -189,8 +214,8 @@ stay stored for when they are removed from the sequence.
 
 **Remove from sequence** keeps the primary clip and clears its controller and next
 clip. Each object supports one primary clip and one optional next transform clip.
-Camera shots cut without blending. This sequence mode does not crossfade property
-curves, edit bones or encode a movie. Each controller has at most one parent
+Camera shots support cuts and compatible view/lens transitions. This sequence mode
+does not crossfade rendered images or property curves, edit bones or encode a movie. Each controller has at most one parent
 placement; place a copy of a complete linked group to reuse it independently.
 
 Pause, Step and simulation Speed work as they do for other animations. C++ can use

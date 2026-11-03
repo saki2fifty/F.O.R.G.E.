@@ -8,6 +8,7 @@ struct AnimationPlaybackAccess {
     // Fresh copied World only; validate original placement before local isolation.
     static void prepare_sequence_preview_root(AnimationRuntime&, EntityRef);
     static void control(AnimationRuntime&, EntityRef, const Json& command);
+    static Json tune_camera_shot(AnimationRuntime&, EntityRef, const Json& value);
     static bool rig_type(std::string_view type) {
         return type == "forge.two_bone_ik" || type == "forge.aim_ik";
     }

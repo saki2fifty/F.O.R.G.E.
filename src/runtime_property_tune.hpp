@@ -10,6 +10,10 @@ namespace forge {
 struct RuntimePropertyTune {
     EntityRef target;
     std::string type, property;
+    static bool camera_shot_type(std::string_view type) { return type == "forge.camera_shot"; }
+    static bool camera_shot_property(std::string_view property) {
+        return property == "blend_in_seconds";
+    }
     static bool state_condition_type(std::string_view type) {
         return type == "forge.application_state_gate";
     }
