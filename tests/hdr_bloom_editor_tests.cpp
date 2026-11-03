@@ -1,4 +1,5 @@
 #include "editor/scene_lighting.hpp"
+#include "imgui_input_driver.hpp"
 #include <backends/imgui_impl_sdlrenderer3.h>
 #include <filesystem>
 #include <imgui_internal.h>
@@ -97,56 +98,9 @@ void interactions(float scale, ImVec2 display) {
         }
         ImGui::Render();
     };
-    auto click = [&](const char* key) {
-        test::UiTarget box;
-        bool visible = false;
-        for (unsigned attempt = 0; attempt < 40; ++attempt) {
-            frame();
-            box = test::ui_targets.at(key);
-            if (box.minimum.y >= box.clip_minimum.y && box.maximum.y <= box.clip_maximum.y) {
-                visible = true;
-                break;
-            }
-            io.AddMousePosEvent(box.clip_minimum.x + 8, box.clip_maximum.y - 8);
-            io.AddMouseWheelEvent(0, box.minimum.y < box.clip_minimum.y ? 1.f : -1.f);
-            frame();
-        }
-        if (!visible)
-            throw std::runtime_error(std::string("Display control could not be reached: ") + key +
-                                     " at scale " + std::to_string(scale));
-        if (!box.enabled || box.minimum.x < box.clip_minimum.x ||
-            box.maximum.x > box.clip_maximum.x || box.minimum.y < box.clip_minimum.y ||
-            box.maximum.y > box.clip_maximum.y)
-            throw std::runtime_error(
-                std::string(key) + " clipped/disabled at scale " + std::to_string(scale) + ": " +
-                Json{{"box", {box.minimum.x, box.minimum.y, box.maximum.x, box.maximum.y}},
-                     {"clip",
-                      {box.clip_minimum.x, box.clip_minimum.y, box.clip_maximum.x,
-                       box.clip_maximum.y}},
-                     {"enabled", box.enabled}}
-                    .dump());
-        io.AddMousePosEvent((box.minimum.x + box.maximum.x) / 2,
-                            (box.minimum.y + box.maximum.y) / 2);
-        frame();
-        io.AddMouseButtonEvent(0, true);
-        frame();
-        io.AddMouseButtonEvent(0, false);
-        frame();
-    };
-    auto type = [&](const char* key, const char* value) {
-        click(key);
-        io.AddKeyEvent(ImGuiMod_Ctrl, true);
-        io.AddKeyEvent(ImGuiKey_A, true);
-        frame();
-        io.AddKeyEvent(ImGuiKey_A, false);
-        io.AddKeyEvent(ImGuiMod_Ctrl, false);
-        io.AddInputCharactersUTF8(value);
-        frame();
-        io.AddKeyEvent(ImGuiKey_Enter, true);
-        frame();
-        io.AddKeyEvent(ImGuiKey_Enter, false);
-        frame();
-    };
+    test::ImGuiInputDriver input(frame);
+    auto click = [&](const char* key) { input.click(key); };
+    auto type = [&](const char* key, const char* value) { input.type(key, value); };
     for (unsigned i = 0; i < 4; ++i)
         frame();
     click("bloom:enabled");

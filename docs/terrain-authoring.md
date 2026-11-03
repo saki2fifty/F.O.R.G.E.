@@ -77,7 +77,9 @@ more CPU work on edits; admission limits are not a frame-rate guarantee.
 Runtime packages contain selected Mesh/collision cooks and scene data, with no
 terrain grids, source editor, compiler or per-sample Scene entities. No new native
 gameplay component or SDK ABI is introduced. This profile does not provide
-streaming, volumes, overhangs, holes, water, splines or foliage.
+streaming, volumes, overhangs, holes, water, splines or terrain-projected foliage.
+Independent fixed-plane Mesh groups use the separate [foliage placement](foliage-placement.md)
+Scene workflow; they do not change terrain ownership or project onto its surface.
 
 See [the user guide](../manual/editor/terrain.md) and Gallery55. Local normal and
 sanitized tests cover source/history/cook/watch/resources, navigation triangles,

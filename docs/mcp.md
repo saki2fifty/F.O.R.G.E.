@@ -85,6 +85,16 @@ For example, `entity.create` becomes `forge_entity_create`. Its `arguments`
 schema and description come directly from the existing catalog. Stable target,
 `expected_revision` and `sequence` are separate required arguments. New catalog
 commands therefore acquire bindings without another hand-maintained command list.
+`mesh.scatter` becomes `forge_mesh_scatter` for bounded foliage placement.
+It uses an effective Mesh Renderer template and explicit world center, disk radius,
+spacing, integer count/seed, scale multipliers and yaw bounds. It creates an
+ordinary independent group in one Undo step; a failure creates no partial patch.
+All settings are required and discoverable. Spacing compares only new origins;
+placement uses a fixed horizontal Y plane, without terrain projection or copying
+children, gameplay, animation or Prefab links. Renderer values and template local
+rotation/scale are copied through the shared Scene command. See
+[foliage placement](foliage-placement.md) for exact bounds and current limits.
+
 `forge_scene_apply` groups 1..128 catalog commands into one atomic Undo entry;
 `forge_scene_replace`, `forge_history_undo` and `forge_history_redo` preserve their
 existing transaction semantics. Editor read-only grants list those four reads

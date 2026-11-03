@@ -11,9 +11,11 @@ import time
 
 from mcp_test_client import CAPTURE, Client, failed, write_capture, finish_host
 from mcp_fast_aa_workflow import check_fast_aa_workflow
+from mcp_mesh_scatter_workflow import check_mesh_scatter_workflow
 
 TOOLS, HOST = map(str, map(Path, sys.argv[1:3]))
 FAST_AA_ONLY = "--fast-aa-only" in sys.argv[4:]
+MESH_SCATTER_ONLY = "--mesh-scatter-only" in sys.argv[4:]
 
 
 @contextmanager
@@ -71,7 +73,7 @@ for legacy in (False, True):
             return result['result']
 
         catalog = client.request('tools/list')['result']['tools']
-        assert len(catalog) == 42, len(catalog)
+        assert len(catalog) == 43, len(catalog)
         state = discover()
         probe_schema = next(c for c in state['result']['schema']['components']
                             if c['id'] == 'forge.reflection_probe')
@@ -138,10 +140,17 @@ for legacy in (False, True):
         exposure_schema = exposure_command['input_schema']['properties']['auto_exposure']
         exposure_tool = next(item for item in catalog
                              if item['name'] == 'forge_scene_rendering_set')
+        if MESH_SCATTER_ONLY:
+            check_mesh_scatter_workflow(client, discover, arguments, mutate, project, catalog)
+            continue
         if FAST_AA_ONLY:
             check_fast_aa_workflow(client, discover, arguments, mutate, project,
                                    exposure_command, exposure_tool)
             continue
+        check_mesh_scatter_workflow(client, discover, arguments, mutate, project, catalog)
+        for _ in range(3):
+            assert mutate('forge_history_undo')['result']['changed']
+        assert mutate('forge_document_save')['ok']
         weighted_schema = exposure_command['input_schema']['properties']['weighted_transparency']
         assert weighted_schema == {'type': 'boolean'}
         assert exposure_tool['inputSchema']['properties']['arguments']['properties']['weighted_transparency'] == weighted_schema
@@ -640,12 +649,25 @@ for legacy in (False, True):
         assert process.wait(timeout=4) == 0
         failed(client.tool('forge_discover'), 'connection_unavailable')
 
+if MESH_SCATTER_ONLY:
+    with editor('read') as (root, process, config), Client(config) as client:
+        catalog = client.request('tools/list')['result']['tools']
+        assert not any(t['name'] == 'forge_mesh_scatter' for t in catalog)
+        state = client.tool('forge_discover')
+        denied = native(config, dict(api=1, method='scene.apply', target=state['result']['target'],
+            expected_revision=state['revision'], commands=[dict(operation='mesh.scatter', arguments={})]),
+            state['next_sequence'])
+        assert not denied['ok'] and client.tool('forge_discover')['revision'] == state['revision']
+    write_capture(sys.argv[3])
+    print('MCP mesh scatter: both framings, schema, permissions, replay, revisions, history, save and graceful exits passed')
+    raise SystemExit(0)
+
 if FAST_AA_ONLY:
     write_capture(sys.argv[3])
     print('MCP fast AA: both framings, schema, replay, history, save and graceful native exits passed')
     raise SystemExit(0)
 
-for mode, count in (('read', 5), ('edit', 38)):
+for mode, count in (('read', 5), ('edit', 39)):
     with editor(mode) as (root, process, config), Client(config) as client:
         catalog = client.request('tools/list')['result']['tools']
         assert len(catalog) == count

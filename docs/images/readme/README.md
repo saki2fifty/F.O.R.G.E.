@@ -10,7 +10,7 @@ controls are visible. Source and Scene values remain unchanged by capture.
 PNG SHA256: `049c35e7b3e5a6bf34573f4a1fddde0a6362439d15816af3791f654e7c1d0a19`.
 
 [Tree Game](../../../manual/images/navigation-behavior-tree-game.png) shows the
-unretouched640×360 production FrameRenderer after90fixedticks in Gallery139
+unretouched640×360 production FrameRenderer after 90 fixed ticks in Gallery139
 (`e363aa80-78a1-43c6-975a-6cbdc39dfc2b`). Cyan follows the tree's navigation intent;
 orange is the animated target and green marks the patrol destinations. Four
 visibly moving source/source-hidden relocated export display pairs match exactly
@@ -26,7 +26,7 @@ or graphical EXE acceptance.
 ## Named navigation build profiles
 
 [Profile Game](../../../manual/images/navigation-profile-gallery.png) shows the
-unretouched640×360 production FrameRenderer after90fixedticks in Gallery138
+unretouched640×360 production FrameRenderer after 90 fixed ticks in Gallery138
 (`9105eaa8-0920-4e64-bf3d-9bd2bf8f7392`). The small cyan agent uses default clearance;
 the large amber agent uses its independent Large asset. Four exact moving
 source-hidden/relocated export displays pass. Lossless PPM-to-PNG conversion
@@ -1452,3 +1452,35 @@ rendering environment and exact pixel proof. Both images were personally reviewe
 These are authentic control/Game fixtures, not full Main desktop, Windows/MSVC /
 FXC/D3D12, physical input/DPI/GPU or graphical standalone acceptance. Offline manual
 layout and package inclusion are checked separately.
+
+
+## Foliage placement
+
+[Placement controls](../../../manual/images/foliage-placement-controls.png) is the
+unretouched 720×1100 production FoliagePlacement window, rendered with actual ImGui
+and SDL software output. Real pointer input chooses the template and runs Check
+layout without committing Scene objects. The fixture sets an actual full window
+size; all controls and the checked-layout status are visible. Capture command:
+`forge_foliage_editor_tests <private-output>`. The same production owner is exercised
+with actual keyboard/pointer input at 100/150/200 percent in full/compact layouts,
+including asserted window dimensions. This is a GPU-independent component capture,
+not a full Main-window or physical Windows/DPI acceptance screenshot.
+PNG SHA256: `da027ee107a71a4c6bd724f97bbbcb9e2ca77340140933c56d6d4384a4ed96e8`.
+
+[Meadow Game](../../../manual/images/foliage-placement-game.png) is the unretouched
+640×360 production FrameRenderer after 90 fixed ticks in Gallery 144
+(`dd33660e-3750-4ef4-8c5e-bb90d85f7448`). Original base-pivot blades form 128 green
+and 64 amber ordinary placements, beside the independent green template and a
+moving pink marker. Four moving source/source-hidden relocated-export pairs match
+exactly under software Vulkan. The Scene View independently renders 195 instances
+with active batching and verifies individual template picking. Draw counts depend
+on existing queue order and compatible numeric material values; this is not a
+physical GPU performance claim. Capture uses `forge_foliage_vulkan_probe <Gallery>
+<private-output>`, and PPM-to-PNG conversion preserves every RGB byte.
+PNG SHA256: `fa06996e668cb5b257d0bb5a77d9b53380cb633cb333d0c92e1ebc0f6846e160`.
+
+Both captures use local foliage source, original FORGE-authored geometry and existing
+pinned dependencies. No controls/pixels are retouched, no temporary capture fixture
+is shipped in runtime content, and no Windows/D3D12/full-editor/physical acceptance
+is implied. Exact local source/command/image proofs are retained by the capability
+batch's canonical validation owner.

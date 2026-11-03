@@ -12407,6 +12407,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "dd33660e-3750-4ef4-8c5e-bb90d85f7448",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/144-foliage-placement.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "de0bbbad-1e4f-46e7-84e8-8faf8daa10c0",
       "metadata": {
         "forge.application_states": {
@@ -13401,6 +13411,41 @@
         "owner": "68396b2f-7051-4a23-95ec-958c9c7a3c51",
         "removed": false
       },
+      "type": "mesh"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "cd229d9fb8cfd077632086d191576acf58feed5abd287317876b39e647a37782",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.mesh.editable",
+          "importer_revision": "forge.mesh.editable.v1",
+          "key": "b8398e45d9338dbb247030cf486372886c0a5eacfe890cd641284350782b1b07",
+          "output_format": "forge.mesh-bundle",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "464a99d8b271e0d92b63e54fb73c26b0e77e8db10df1ccc7f7154b6e037218fc",
+          "source_digest": "6b5ca5a752d945114a1d2e85e6a13a38a13f8c9a142ddd1499c2dc4a9f2a31b2",
+          "version": 1
+        },
+        "forge.mesh": {
+          "bytes": 1439,
+          "file": "mesh.bin",
+          "sha256": "71037d3095bdfd7f2b644e6318c88d2d44d984df76b2ec4978b85eed84125c19",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Foliage/MeadowBlade.mesh.json",
+      "source_dependencies": [],
       "type": "mesh"
     },
     {

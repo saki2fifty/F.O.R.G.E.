@@ -59,6 +59,7 @@
 #include "export_automation.hpp"
 #include "files.hpp"
 #include "flecs_script.hpp"
+#include "foliage_placement.hpp"
 #include "frame_renderer.hpp"
 #include "game_export.hpp"
 #include "game_input.hpp"
@@ -567,6 +568,7 @@ int main(int argc, char** argv) {
                 audio_mix.reset();
         };
         bool scene_lighting_open = false;
+        forge::ui::FoliagePlacement foliage_placement;
         const char* base = SDL_GetBasePath();
         if (!base)
             throw std::runtime_error("Cannot locate runtime directory");
@@ -3109,6 +3111,9 @@ int main(int argc, char** argv) {
                 "scene.lighting", "Scene / Lighting", "",
                 "Edit environment lighting, sky and game exposure using Scene Save and Undo.", true,
                 [&] { scene_lighting_open = true; });
+            add_action("scene.foliage", "Scene / Foliage placement", "",
+                       "Place seeded groups of independent Mesh Renderer objects.", true,
+                       [&] { foliage_placement.open = true; });
             const bool cpp_task = editor.task.id() == "cpp_sources";
             const bool task_save_locked =
                 cpp_task ? (files.busy() || content_files.busy() || sdk_build->busy() ||
@@ -5286,6 +5291,7 @@ int main(int argc, char** argv) {
                         resource_inspector.menu();
                         project_settings.menu();
                         actions.item("scene.lighting", "Scene lighting...");
+                        actions.item("scene.foliage", "Foliage placement...");
                     });
                     forge::ui::help_menu(std::filesystem::path(base), message);
                     if (narrow_menu)
@@ -5386,6 +5392,7 @@ int main(int argc, char** argv) {
             const auto lighting_catalog = mesh_resources ? mesh_resources->catalog() : nullptr;
             forge::ui::scene_lighting(scene_lighting_open, scene, lighting_catalog.get(),
                                       edit_locked);
+            foliage_placement.draw(scene, editor.selection, edit_locked);
             if (runtime_tuning_review.draw(scene, files.document, edit_locked))
                 message = runtime_tuning_review.status();
             ecs_workspace.draw(scene, editor.problems);

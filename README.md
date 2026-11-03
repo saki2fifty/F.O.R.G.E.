@@ -238,6 +238,15 @@ Scene lighting includes independently authored [fast approximate anti-aliasing](
 for Scene/Game display color. Gallery 143 demonstrates the saved workflow and normal
 standalone export; temporal AA and post-filter Game UI remain independent.
 
+Foliage placement creates bounded seeded groups of independent Mesh Renderer
+objects through **Tools > Foliage placement...** and the same automation/MCP command.
+Spacing, yaw/scale variation, complete layout checks and one-step Scene Undo use the
+normal object and asset owners. Gallery 144 includes an original editable blade Mesh
+and two patches for saving, Play and export. Placement uses a horizontal plane;
+it does not project onto terrain. See [the guide](manual/editor/foliage.md).
+
+![Green and amber foliage patches in the Game view](manual/images/foliage-placement-game.png)
+
 
 ## Build and test
 Requires Git, CMake 3.30+, Ninja, Python 3.10+, and a C++20-capable toolchain. Windows requires an MSVC developer shell and Windows SDK.

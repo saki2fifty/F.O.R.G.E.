@@ -5,6 +5,16 @@ The accepted local Windows package is **261024-000213**, source
 in the [README](../README.md#current-implementation). No new numbered Windows
 package accompanies the local source changes described here.
 
+Local source adds bounded foliage placement through ordinary Mesh Renderer objects.
+**Tools > Foliage placement...**, the shared `mesh.scatter` command and generated
+MCP tool provide seeded horizontal layouts, spacing, scale/yaw variation, complete
+candidate validation and one Scene Undo per group. Gallery 144 has 128 green and 64
+amber blades using one original editable Mesh. Normal objects, shared asset and
+rendering owners, Scene Save, Play and export remain authoritative. This workflow
+does not project onto terrain, paint surfaces or stream worlds. See
+[the contract](foliage-placement.md) and [the user guide](../manual/editor/foliage.md).
+Windows/full-editor/physical acceptance remains pending.
+
 Local source provides authored Application States with direct, hierarchical,
 computed and subordinate domains, source history/publication, native membership
 and lifecycle events, matching SDK helpers, Game/UI controls and automation/MCP.

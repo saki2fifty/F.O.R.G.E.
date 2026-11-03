@@ -1,4 +1,5 @@
 #include "builtins.hpp"
+#include "mesh_scatter_authoring.hpp"
 #include "model_variant_edit.hpp"
 #include "reflected_value.hpp"
 #include "scene_draft.hpp"
@@ -232,6 +233,8 @@ Json execute(detail::SceneDraft& scene, const std::string& op, const Json& a) {
         (void)entity(doc, id);
     }
     Json result = {{"operation", op}, {"selected", id}};
+    if (op == "mesh.scatter")
+        return detail::scatter_mesh(scene, id, a);
     if (op == "model.material_variant") {
         const auto& variant = a.at("variant");
         detail::validate_reflected_json(
@@ -706,6 +709,25 @@ Json authoring_commands() {
         "Move before a sibling; empty before moves to the end. Does not reparent or change "
         "transforms.",
         reorder, {"entity", "before"});
+    add("mesh.scatter", "Place foliage group",
+        "Create 1 to 512 ordinary independent Mesh Renderer objects in a seeded horizontal disk. "
+        "Copies the selected entity's renderer and local orientation/scale only. Center is world "
+        "space; Y is a fixed plane. Spacing separates origins within this new group only. No "
+        "terrain projection, collision avoidance, children, gameplay or linked Prefab is copied. "
+        "One Undo removes the group; failed fitting creates nothing.",
+        {{"entity", text_type()},
+         {"name", text_type()},
+         {"center", xyz()},
+         {"radius", number(.01, 1000)},
+         {"spacing", number(0, 2000)},
+         {"count", {{"type", "integer"}, {"minimum", 1}, {"maximum", 512}}},
+         {"seed", {{"type", "integer"}, {"minimum", 0}, {"maximum", 4294967295ull}}},
+         {"scale_min", number(.01, 100)},
+         {"scale_max", number(.01, 100)},
+         {"yaw_min", number(-360, 360)},
+         {"yaw_max", number(-360, 360)}},
+        {"entity", "name", "center", "radius", "spacing", "count", "seed", "scale_min", "scale_max",
+         "yaw_min", "yaw_max"});
     add("entity.duplicate", "Duplicate subtree",
         "Copy the selected entity and descendants, remapping internal references.", entity_arg,
         {"entity"});

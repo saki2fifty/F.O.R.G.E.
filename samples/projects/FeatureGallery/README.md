@@ -1,5 +1,18 @@
 # Feature Gallery
 
+## Foliage placement
+
+Open **Scenes/144-foliage-placement.scene.json** and press **Play**. Two ordinary
+groups contain 128 green and 64 amber tapered blades, with an independent template,
+ground, camera, light and moving foreground marker. Stop Play, select the blade
+template and use **Tools > Foliage placement...** to create another seeded patch.
+**Check layout** changes no Scene objects; **Place foliage** creates one group with
+one Scene Undo. Open **Assets/Foliage/MeadowBlade.mesh.json** in Content to edit the
+original blade source. Its pivot sits at the base for uniform scale variation.
+This example uses a horizontal plane; it does not project onto terrain. Save,
+select this Scene as startup and export without project C++.
+See [Place foliage](../../../manual/editor/foliage.md).
+
 ## Fast approximate anti-aliasing
 
 Open **Scenes/143-fast-approximate-antialiasing.scene.json** and press **Play**.

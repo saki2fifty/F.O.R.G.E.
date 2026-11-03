@@ -534,3 +534,15 @@ Inspect **Frame regions**, including the canvas dimensions, retained offsets and
 `rotated_clockwise`. Use Simple image mode and a Blend Material with depth writes
 off. Save the scene and set it as startup to export this comparison. See
 [Sprites and atlas packing](../editor/sprites.md) for the complete workflow.
+
+## Foliage placement
+
+Open **144-foliage-placement.scene.json** for128 green and 64 amber tapered blades,
+an independent template and a moving marker. Stop Play, select the template and
+open **Tools > Foliage placement...**. Choose **Use selected Mesh Renderer**, set
+**Group name**, center, radius, spacing, count, seed and variation, then use
+**Check layout** and **Place foliage**. One Scene Undo removes the new group.
+The source Mesh opens through Content; its base pivot keeps scaled blades on the
+origin plane. Save the Scene and export through the normal workflow. The tool
+uses a horizontal plane and does not project onto terrain.
+See [Place foliage](../editor/foliage.md).
