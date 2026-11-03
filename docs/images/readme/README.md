@@ -1484,3 +1484,22 @@ pinned dependencies. No controls/pixels are retouched, no temporary capture fixt
 is shipped in runtime content, and no Windows/D3D12/full-editor/physical acceptance
 is implied. Exact local source/command/image proofs are retained by the capability
 batch's canonical validation owner.
+
+## Two-clip sequence Timeline
+
+[Sequence crossfade controls](../../../manual/images/sequence-clip-blending.png)
+is the unretouched 720×1100 production Animation Timeline, rendered by the existing
+SDL/ImGui software fixture at 100% with the project font. Actual pointer input
+selects the original Gallery145 cube track. The primary and next strips, highlighted
+overlap, typed clip pickers and pending start fields are visible. Capture does not
+change authored project content. Frame export is unavailable in this isolated
+Timeline fixture because it has no graphical Game host; the actual copied frame
+sampling workflow is tested separately.
+PNG SHA256: `e4dc070d0b1f89b229d1dd06fb33a627ea6abb800bbfce7550ea2db93855ecaf`.
+
+Capture uses `forge_animation_sequence_editor_tests --capture-pair <Gallery>
+<private-scratch> <png>` with local sequence source based on 7e5a133 and an
+unassigned build identity. Exact executable, source, Scene and image receipts
+remain with the local capability validation owner. No pixels or controls are
+retouched. This is not full Main, Windows/MSVC/D3D12, physical input/DPI/GPU/audio,
+performance or graphical EXE acceptance.

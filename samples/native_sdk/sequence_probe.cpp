@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <flecs.h>
@@ -72,7 +73,7 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char* error, uint32_t 
                     seek(.5);
                 } else if (tick == 3) {
                     flecs::world current(host->world);
-                    unsigned tracks = 0;
+                    unsigned tracks = 0, pairs = 0;
                     current.each([&](flecs::entity child, const forge::TransformAnimator& player) {
                         if (player.sequence.entity.str() != ref.entity_uuid)
                             return;
@@ -88,6 +89,16 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char* error, uint32_t 
                                   client.animation_seek(child_ref.scene_uuid, child_ref.entity_uuid,
                                                         .25) == 0,
                               "C++ independently controlled a bound track");
+                        if (player.sequence_next_clip.id) {
+                            check(player.clip.id && player.sequence_next_start_seconds == 1 &&
+                                      std::abs(status.duration - 3) < 1e-9 &&
+                                      player.sequence_next_clip.id.str() ==
+                                          status.blend_clip_uuid &&
+                                      std::abs(status.blend_weight -
+                                               std::clamp(status.time - 1., 0., 1.)) < 1e-9,
+                                  "Sequence pair values/span differ through matching SDK");
+                            ++pairs;
+                        }
                         ++tracks;
                     });
                     unsigned shots = 0;
@@ -130,6 +141,7 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char* error, uint32_t 
                         ++cues;
                     });
                     check((cues == 0 && shots == 0 && tracks == 3) ||
+                              (cues == 0 && shots == 0 && tracks == 1 && pairs == 1) ||
                               (cues == 0 && shots == 3 && tracks == 1) ||
                               (cues == 3 && shots == 2 && tracks == 1),
                           "Sequence probe did not inspect its complete object/shot tracks");
@@ -160,7 +172,7 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char* error, uint32_t 
             .add(host->fixed_tag);
         world.system<const forge::AnimationSequence, SequenceProbe>("project.SequenceObservation")
             .kind(host->post_animation_phase)
-            .each([host](flecs::entity entity, const forge::AnimationSequence&,
+            .each([host](flecs::entity entity, const forge::AnimationSequence& config,
                          SequenceProbe& probe) {
                 if (!probe.ticks)
                     return;
@@ -170,7 +182,7 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char* error, uint32_t 
                 check(client.entity_reference(entity.id(), ref) == 1 &&
                           client.animation_playback(ref.scene_uuid, ref.entity_uuid, status) == 1,
                       "C++ sequence observation unavailable");
-                check(status.clip_uuid[0] == 0 && status.duration == 6,
+                check(status.clip_uuid[0] == 0 && status.duration == config.duration,
                       "Controller status fabricated a clip identity");
                 check(client.animation_seek(ref.scene_uuid, ref.entity_uuid, 1) == 0,
                       "Sequence seek admitted after Animation phase");

@@ -1,5 +1,6 @@
 #pragma once
 #include "animation_material_inputs.hpp"
+#include "sequence_clip_span.hpp"
 #include <forge/animation.hpp>
 #include <forge/resource.hpp>
 #include <forge/transform_animation.hpp>
@@ -21,18 +22,21 @@ class TransformAnimationPlayback {
     Json presentation_properties(flecs::entity_t, double alpha) const;
     bool ready() const;
     bool checkpoint_ready() const;
+    bool has_next_sequence_clips() const;
     bool pending() const { return pending_; }
     std::vector<std::uint64_t> take_discontinuities();
     Json checkpoint() const;
     void restore(const Json&);
     std::optional<AnimationPlayback> playback(EntityRef) const;
+    Json sequence_clip_status(EntityRef) const;
     bool control(EntityRef, AnimationControl);
     bool seek(EntityRef, double seconds);
     Json sequence_checkpoint(bool audio_entries = false) const;
     Json camera_shots_checkpoint() const;
     Json audio_cues_checkpoint() const;
     Json camera_presentation(flecs::entity_t, double alpha) const;
-    void restore(const Json&, const Json& sequences, bool audio_entries = false);
+    void restore(const Json&, const Json& sequences, bool audio_entries = false,
+                 bool paired_entries = false);
     void pose_validator(AnimationRuntime::PoseValidator callback) {
         validator_ = std::move(callback);
     }
@@ -50,6 +54,10 @@ class TransformAnimationPlayback {
         EntityRef entity;
         ResourceTicket ticket;
         ResourceLease<TransformAnimationAsset> clip;
+        AssetRef<TransformAnimationAsset> requested_next;
+        ResourceTicket next_ticket;
+        ResourceLease<TransformAnimationAsset> next_clip;
+        std::optional<detail::SequenceClipSpan> span;
         double time = 0;
         double previous = 0, advance = 0;
         bool playing = false, discontinuous = true;
@@ -108,6 +116,8 @@ class TransformAnimationPlayback {
     void cue_error(Cue&, const std::string&, bool binding);
     void synchronize_materials();
     double sequence_time(const State&, double) const;
+    double clip_span_duration(const State&) const;
+    LocalTransform sample_pose(const State&, double) const;
     std::map<flecs::entity_t, double> times_at(flecs::entity_t controller, double time) const;
 };
 } // namespace forge

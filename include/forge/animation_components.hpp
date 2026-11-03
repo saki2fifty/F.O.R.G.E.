@@ -49,6 +49,10 @@ struct TransformAnimator {
     float playback_speed = 1;
     EntityRef sequence{};
     double sequence_start_seconds = 0;
+    // Optional second object-transform clip on the same sequence clock. Its
+    // natural overlap with the primary clip defines a linear crossfade.
+    AssetRef<TransformAnimationAsset> sequence_next_clip{};
+    double sequence_next_start_seconds = 0;
     bool operator==(const TransformAnimator&) const = default;
 };
 struct Animator {

@@ -2159,6 +2159,11 @@ Json AnimationPlaybackAccess::status(AnimationRuntime& runtime, EntityRef ref) {
                        {"transitioning", value->transitioning},
                        {"transition_weight", value->transition_weight},
                        {"blend_weight", value->blend_weight}});
+        if (runtime.impl_ && runtime.impl_->context.on_owner_thread()) {
+            auto clips = runtime.impl_->transforms.sequence_clip_status(ref);
+            if (!clips.is_null())
+                result["sequence_clips"] = std::move(clips);
+        }
     }
     return result;
 }
@@ -2515,6 +2520,12 @@ Json AnimationRuntime::checkpoint() const {
             result["sequence_entries"] = impl_->transforms.sequence_checkpoint(true);
         }
     }
+    if (impl_ && impl_->transforms.has_next_sequence_clips()) {
+        result["version"] = 6;
+        result["camera_shots"] = impl_->transforms.camera_shots_checkpoint();
+        result["audio_cues"] = impl_->transforms.audio_cues_checkpoint();
+        result["sequence_entries"] = impl_->transforms.sequence_checkpoint(true);
+    }
     return result;
 }
 void AnimationRuntime::restore(const Json& data) {
@@ -2563,7 +2574,7 @@ void AnimationRuntime::restore(const Json& data) {
             throw ArchiveError("Animation recovery admission timed out");
     }
     if ((data.at("version") != 1 && data.at("version") != 2 && data.at("version") != 3 &&
-         data.at("version") != 4 && data.at("version") != 5) ||
+         data.at("version") != 4 && data.at("version") != 5 && data.at("version") != 6) ||
         !data.at("entries").is_array() || data.at("entries").size() != impl_->states.size() ||
         !impl_->errors.empty())
         throw ArchiveError("Animation recovery configuration differs");
@@ -2571,8 +2582,8 @@ void AnimationRuntime::restore(const Json& data) {
         (data.at("version") >= 4 ? data.at("camera_shots") : Json::array()) !=
             impl_->transforms.camera_shots_checkpoint())
         throw ArchiveError("Camera Shot recovery configuration differs");
-    if ((data.at("version") != 5 && data.contains("audio_cues")) ||
-        (data.at("version") == 5 ? data.at("audio_cues") : Json::array()) !=
+    if ((data.at("version") < 5 && data.contains("audio_cues")) ||
+        (data.at("version") >= 5 ? data.at("audio_cues") : Json::array()) !=
             impl_->transforms.audio_cues_checkpoint())
         throw ArchiveError("Audio Cue recovery configuration differs");
     std::set<flecs::entity_t> seen;
@@ -2828,7 +2839,7 @@ void AnimationRuntime::restore(const Json& data) {
     swap_sources();
     impl_->transforms.restore(data.value("transform_entries", Json::array()),
                               data.at("version") >= 3 ? data.at("sequence_entries") : Json::array(),
-                              data.at("version") == 5);
+                              data.at("version") >= 5, data.at("version") == 6);
     for (auto& value : values) {
         auto& p = *value.playback;
         const auto time = value.time;

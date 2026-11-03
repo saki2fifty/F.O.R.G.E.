@@ -9,8 +9,8 @@ import sys
 
 
 class Worker:
-    def __init__(self, runtime, project, env=None):
-        self.process = subprocess.Popen([str(runtime), '--sdk-project', str(project)],
+    def __init__(self, runtime, project, env=None, arguments=()):
+        self.process = subprocess.Popen([str(runtime), '--sdk-project', str(project), *arguments],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             text=True, env=env, cwd=project)
         self.sequence, self.session = 0, ''

@@ -25,6 +25,45 @@ that span; the sequence end may truncate it. A group wrap/restart/seek snaps cop
 presentation endpoints, and held transform crossings reuse the standalone policy.
 Scalar presentation samples shared group time across offset boundaries.
 
+### Two-clip transform spans
+
+`sequence_next_clip` is an optional second Transform Animation reference on the
+same TransformAnimator. `sequence_next_start_seconds` gives its start on the
+controller clock. Missing fields backfill null/zero; an empty next slot keeps
+single-clip and standalone semantics. A next slot requires a primary clip and a
+resolved enabled sequence. Both starts must lie inside the controller; the next
+start and end must not precede the primary start and end. Endpoints may extend
+past the controller and be truncated by it.
+
+Both clips must animate identical, nonempty local-transform channel sets, without
+property, component-field or material curves. Admit both Resources leases before
+adopting the pair. Through the natural overlap, linearly interpolate position and
+scale and use the clip sampler's shortest-arc quaternion interpolation for rotation.
+In a gap, hold the primary endpoint until the next start, then cut. Hold the first
+and last poses outside the union. No independent next clock or second pose writer
+is introduced. Held crossings in either clip, gap cuts and controller wraps/seeks
+use the current presentation-discontinuity owner.
+
+Public playback uses its existing `blend_clip` and `blend_weight` observations
+for the selected next clip and its derived contribution; no callback layout change
+is needed. Private playback status also includes `sequence_clips` for admitted bound tracks: the
+primary identity/start/duration and, when present, the next identity/start/duration
+and current derived weight. The Timeline uses this status to draw both spans;
+it does not read or decode clip files independently. Its start fields stage one
+Scene transaction and preserve which properties the user edited. Removing a track
+clears its next clip and controller binding while retaining primary/standalone
+settings; Undo restores both. Inspector and generic automation/MCP property edits
+use the same registered native values, revision and Scene history owners.
+
+Animation checkpoint6 is emitted only with an admitted next slot. It carries both
+clip revisions and next start, together with current camera-shot, audio-cue and
+sequence entry-pending state. After admitting the complete resource pair, mismatched pairs or older profiles
+are rejected before restoring poses/clocks. A fresh worker can therefore restore
+without a prior preparation pass. Without a next slot, the current older-profile readers and
+writers retain their behavior. Scene/Prefab and clip source/cook formats do not
+change. Nested sequences, more than two clips on one actor, property crossfades
+and movie encoding are outside this profile.
+
 The current complete transform/property candidate and writer-conflict checks run
 before any pose write. Existing AnimationService status/control/seek operations
 accept controllers and standalone TransformAnimators. Bound players expose status

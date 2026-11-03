@@ -37,7 +37,8 @@ or bind by display name/path.
 AnimationRuntime's existing transform provider owns the controller's transient time;
 there is no new global clock, scheduler or animation service. One controller governs
 all its referenced clips with duration, loop, playback intent and speed0–4. Each
-attachment still has exactly one clip, so no overlapping writes/blend arbitration is
+attachment initially had exactly one clip (extended by the two-clip decision below),
+so no independent overlapping writers/blend arbitration is
 introduced. Bound clips ignore their retained standalone loop/speed/start intent.
 
 Sample local clip time as clamp(sequence time minus start offset,0,clip duration).
@@ -159,3 +160,29 @@ No new asset kind, dependency, arbitrary event language, nested sequence asset,
 track blending, skeletal editing or in-game editor. Real Timeline input, runtime/
 presentation/recovery, persistent remapping, C++, Gallery and source-offline export
 must pass before this consumer is marked complete.
+
+
+## Two-clip object sequence spans — accepted additive design
+
+2026-11-03. Extend the existing TransformAnimator with an optional next transform-clip
+reference and start time on its existing sequence. Empty next slots preserve
+single-clip and standalone behavior. These are two stable component property keys,
+not new placement identities, sequence assets, clocks or pose writers. The provider
+already owns one complete candidate per actor, so a separate arrangement-entity
+writer is unnecessary for this bounded profile.
+
+Admit both clip resources together. The initial next-clip profile requires two
+transform-only clips with identical nonzero channel masks and ordered starts/ends.
+Blend linearly through their natural overlap, reusing the existing clip-owned
+quaternion interpolation. Gaps hold the primary endpoint until the next clip starts;
+the shared clock then cuts to the next clip. Hold the first/last outside the whole
+span, subject to the existing controller duration. Preserve complete transform /
+writer validation, held/cut discontinuities, preview, seek, loop and exact recovery.
+Property/material/component curves and skeletal animation retain their existing
+paths; they are not mixed by this profile.
+
+Append installed component values deliberately and require a matching exact SDK.
+C callback table layouts and reusable clip source/cook formats stay unchanged.
+Recovery must record both selected revisions and reject incompatible state before
+publication; older no-next configurations retain their supported recovery readers.
+Editor/automation/MCP and runtime/export use the same fields and provider owners.

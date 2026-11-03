@@ -25,3 +25,23 @@ This is bounded fixed-plane placement, without surface painting, terrain project
 collision avoidance, wind or world streaming. Scene format, installed SDK and
 third-party pins are unchanged. Windows/full-editor/physical acceptance remains
 pending; no numbered delivery is implied.
+
+## Two-clip sequence crossfades
+
+A Transform Animator can select one optional next transform clip and its start on
+an existing Animation Sequence. Matching transform channels crossfade through the
+natural overlap, holding endpoints outside the span and cutting after gaps. The
+existing complete pose candidate, controller clock and resource owner remain
+responsible for both clips. Property, material and skeletal curves keep their
+existing paths.
+
+Timeline shows both clips and their overlap, with a typed Next clip picker and two
+pending starts committed as one Scene Undo step. Inspector and automation/MCP use
+the same registered values. Removing a track keeps the primary and standalone
+settings while clearing the next slot and controller; Undo restores the pair.
+
+Private recovery records both clip revisions and admits the complete resource pair
+before validating the new profile. Old scenes and empty next slots retain their
+single-clip behavior. Public native component values require a matching rebuilt
+SDK module; callback tables and clip source/cook formats are unchanged. Gallery145
+contains two original published clips and an exportable demonstration.

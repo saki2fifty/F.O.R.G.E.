@@ -1,4 +1,6 @@
 #include "animation_timeline.hpp"
+#include "imgui_input_driver.hpp"
+#include "imgui_software_capture.hpp"
 #include "sequence_frame_plan.hpp"
 #include <forge/render_scene.hpp>
 #include <imgui_internal.h>
@@ -285,14 +287,65 @@ void exercise(const std::filesystem::path& gallery, const std::filesystem::path&
           "Sequence edits stayed enabled during Play");
     locked = false;
     frame();
+    // Both slots use the same asset picker, copied runtime and Scene transaction.
+    click("asset-picker:transform_animation:Next clip");
+    type("asset-search:transform_animation:Next clip", "EasedPlatform.animation.json");
+    click("picker-option:" + clip.str());
+    check(scene.entity(actor).get<TransformAnimator>().sequence_next_clip.id == clip,
+          "Next clip picker did not use the selected asset identity");
+    near(scene.entity(actor).get<TransformAnimator>().sequence_next_start_seconds, 1.5);
+    // The prior preview is stale after Save; a new slot starts at the primary
+    // offset when no current admitted duration is available.
+    const auto before_timing = scene.document();
+    type("sequence:start", "1.75");
+    type("sequence:next_start", "2.75");
+    check(scene.document() == before_timing, "Pending pair timing edited the Scene");
+    click("sequence:apply_start");
+    near(scene.entity(actor).get<TransformAnimator>().sequence_start_seconds, 1.75);
+    near(scene.entity(actor).get<TransformAnimator>().sequence_next_start_seconds, 2.75);
+    editor.undo();
+    frame();
+    check(scene.document() == before_timing, "Pair timing was not one Undo transaction");
+    editor.redo();
+    frame();
+    type("sequence:next_start", "1");
+    click("sequence:apply_start");
+    near(scene.entity(actor).get<TransformAnimator>().sequence_next_start_seconds, 2.75);
+    click("button:Reset pending timing");
+    click("sequence:refresh");
+    {
+        const auto end = std::chrono::steady_clock::now() + std::chrono::seconds(20);
+        while (!editor.frame_export_ready()) {
+            check(std::chrono::steady_clock::now() < end, "Pair preview admission timed out");
+            frame();
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+    }
+    const auto pair_authored = scene.document();
+    const auto pair_token = editor.begin_frame_export();
+    editor.sample_frame_export(pair_token, 3.25);
+    {
+        const auto pair_preview = editor.preview(scene.document());
+        bool found = false;
+        for (const auto& row : pair_preview.at("entities"))
+            if (row.at("id") == actor) {
+                near(row.at("components").at("forge.local_translation").at("x"), 1.375);
+                found = true;
+            }
+        check(found, "Pair frame sample lost its actor");
+    }
+    editor.end_frame_export(pair_token);
+    check(scene.document() == pair_authored, "Pair frame sampling edited source");
     click("sequence:remove");
     check(!scene.entity(actor).get<TransformAnimator>().sequence.entity &&
-              scene.entity(actor).get<TransformAnimator>().clip.id == clip,
+              scene.entity(actor).get<TransformAnimator>().clip.id == clip &&
+              !scene.entity(actor).get<TransformAnimator>().sequence_next_clip.id,
           "Removing track lost clip/standalone settings");
     editor.undo();
     frame();
     check(scene.entity(actor).get<TransformAnimator>().sequence.entity ==
-              EntityId::parse(controller),
+                  EntityId::parse(controller) &&
+              scene.entity(actor).get<TransformAnimator>().sequence_next_clip.id == clip,
           "Remove track Undo lost binding");
     // Camera shots reuse Scene commands/history and the isolated sequence clock.
     progress("object tracks passed");
@@ -528,7 +581,7 @@ void exercise(const std::filesystem::path& gallery, const std::filesystem::path&
     click("button:Keep editing");
     frame();
     check(editor.sequence_mode(), "Queued clip opened after pending sequence field was retained");
-    near(scene.entity(actor).get<TransformAnimator>().sequence_start_seconds, 1.5);
+    near(scene.entity(actor).get<TransformAnimator>().sequence_start_seconds, 1.75);
     editor.undo();
     frame();
     type("sequence:start", "2");
@@ -557,9 +610,14 @@ void exercise(const std::filesystem::path& gallery, const std::filesystem::path&
     ImGui::DestroyContext();
     progress("passed");
 }
+#include "sequence_clip_capture.hpp"
 } // namespace
 int main(int argc, char** argv) {
     try {
+        if (argc == 5 && std::string_view(argv[1]) == "--capture-pair") {
+            capture_sequence_pair(argv[2], argv[3], argv[4]);
+            return 0;
+        }
         check(argc == 3, "Need Gallery and sequence UI scratch root");
         frame_plans();
         frame_source(argv[1], argv[2]);

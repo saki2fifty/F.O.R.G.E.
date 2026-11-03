@@ -108,15 +108,27 @@ void TransformAnimationPlayback::synchronize() {
     synchronize_sequences();
     pending_ = false;
     std::set<flecs::entity_t> alive;
-    std::set<AssetId> used;
+    std::set<AssetId> used, previous_assets;
+    for (const auto& [id, state] : states_) {
+        (void)id;
+        for (auto asset : {state.config.clip, state.requested, state.config.sequence_next_clip,
+                           state.requested_next})
+            if (asset.id)
+                previous_assets.insert(asset.id);
+    }
     players_.each([&](flecs::entity entity, const TransformAnimator& config) {
         const auto reference = context_.reference(entity.id());
-        if (entity.has(flecs::Prefab) || !reference || !config.enabled || !config.clip.id ||
-            !conditions.active(entity.id()))
+        if (entity.has(flecs::Prefab) || !reference || !config.enabled ||
+            (!config.clip.id && !config.sequence_next_clip.id) || !conditions.active(entity.id()))
             return;
         alive.insert(entity.id());
         if (alive.size() > 256) {
             error(entity.id(), "Transform animation player limit (256) exceeded");
+            return;
+        }
+        if (!config.clip.id) {
+            load_errors_.insert(entity.id());
+            error(entity.id(), "Sequence next clip requires a primary transform clip");
             return;
         }
         if (!catalog_) {
@@ -130,6 +142,9 @@ void TransformAnimationPlayback::synchronize() {
             if (!std::isfinite(config.sequence_start_seconds) ||
                 config.sequence_start_seconds < 0 || config.sequence_start_seconds > 3600)
                 throw std::runtime_error("Sequence track start must be within 0–3600 seconds");
+            if (!std::isfinite(config.sequence_next_start_seconds) ||
+                config.sequence_next_start_seconds < 0 || config.sequence_next_start_seconds > 3600)
+                throw std::runtime_error("Sequence next clip start must be within 0–3600 seconds");
             flecs::entity_t sequence = 0;
             if (config.sequence.entity) {
                 flecs::entity_t membership = 0;
@@ -152,13 +167,24 @@ void TransformAnimationPlayback::synchronize() {
                 if (config.sequence_start_seconds > sequence_states_.at(sequence).config.duration)
                     throw std::runtime_error("Track start exceeds the sequence duration");
             }
+            if (config.sequence_next_clip.id &&
+                (!sequence || config.sequence_next_start_seconds >
+                                  sequence_states_.at(sequence).config.duration))
+                throw std::runtime_error(
+                    "Next clip requires a sequence and a start within its duration");
+            if (config.sequence_next_clip.id)
+                used.insert(config.sequence_next_clip.id);
             used.insert(config.clip.id);
             auto& state = states_[entity.id()];
             const bool changed =
                 state.config.clip != config.clip || state.entity != *reference ||
                 state.config.sequence != config.sequence ||
-                state.config.sequence_start_seconds != config.sequence_start_seconds;
+                state.config.sequence_start_seconds != config.sequence_start_seconds ||
+                state.config.sequence_next_clip != config.sequence_next_clip ||
+                (config.sequence_next_clip.id &&
+                 state.config.sequence_next_start_seconds != config.sequence_next_start_seconds);
             state.requested = config.clip;
+            state.requested_next = config.sequence_next_clip;
             auto ticket = request(config.clip);
             state.ticket = ticket;
             auto clip = pool_.acquire(ticket);
@@ -169,6 +195,35 @@ void TransformAnimationPlayback::synchronize() {
                 pending_ = true;
                 return;
             }
+            ResourceTicket next_ticket;
+            ResourceLease<TransformAnimationAsset> next_clip;
+            std::optional<detail::SequenceClipSpan> span;
+            if (config.sequence_next_clip.id) {
+                next_ticket = request(config.sequence_next_clip);
+                state.next_ticket = next_ticket;
+                next_clip = pool_.acquire(next_ticket);
+                if (!next_clip) {
+                    const auto info = next_ticket.inspect();
+                    if (resource_detail::terminal(info.state))
+                        throw std::runtime_error(info.diagnostic);
+                    pending_ = true;
+                    return;
+                }
+                const auto transform_only = [](const TransformAnimationClip& value) {
+                    return value.channels != 0 && !value.properties &&
+                           value.material_bindings.empty() && value.component_bindings.empty();
+                };
+                if (!transform_only(clip.get()) || !transform_only(next_clip.get()) ||
+                    clip->channels != next_clip->channels)
+                    throw std::runtime_error(
+                        "Sequence crossfade requires transform-only clips with matching channels");
+                span = detail::SequenceClipSpan::make(config.sequence_start_seconds,
+                                                      config.sequence_next_start_seconds,
+                                                      clip->duration, next_clip->duration);
+            }
+            const bool next_revision_changed = bool(state.next_clip) != bool(next_clip) ||
+                                               (state.next_clip && next_clip &&
+                                                state.next_clip.identity() != next_clip.identity());
             if (changed || !state.clip ||
                 state.clip.identity().revision != clip.identity().revision)
                 (void)prepare_animation_components(context_, entity, clip.get(), 0, true);
@@ -187,18 +242,21 @@ void TransformAnimationPlayback::synchronize() {
                 state.time = 0;
                 state.playing = config.play_on_start;
             }
-            if (changed || !state.clip ||
+            if (changed || !state.clip || next_revision_changed ||
                 state.clip.identity().revision != clip.identity().revision) {
                 state.discontinuous = true;
                 state.previous = state.time;
                 state.advance = 0;
             }
-            state.time = std::min(state.time, double(clip->duration));
             state.config = config;
             state.sequence = sequence;
             state.entity = *reference;
             state.ticket = std::move(ticket);
             state.clip = std::move(clip);
+            state.next_clip = std::move(next_clip);
+            state.next_ticket = std::move(next_ticket);
+            state.span = std::move(span);
+            state.time = std::min(state.time, clip_span_duration(state));
             if (sequence)
                 state.time = sequence_time(state, sequence_states_.at(sequence).time);
             if (load_errors_.erase(entity.id()))
@@ -208,15 +266,17 @@ void TransformAnimationPlayback::synchronize() {
             error(entity.id(), e.what());
         }
     });
-    for (const auto& [id, state] : states_) {
+    auto retained = used;
+    for (const auto& [id, state] : states_)
         if (alive.contains(id))
-            continue;
-        if (state.config.clip.id && !used.contains(state.config.clip.id))
-            pool_.unload(state.config.clip);
-        if (state.requested.id && !used.contains(state.requested.id) &&
-            state.requested != state.config.clip)
-            pool_.unload(state.requested);
-    }
+            for (auto asset : {state.config.clip, state.config.sequence_next_clip})
+                if (asset.id)
+                    retained.insert(asset.id);
+    // Keep admitted last-good leases while a replacement prepares. Retire old
+    // requests through the same bounded pool, including changes on live actors.
+    for (auto asset : previous_assets)
+        if (!retained.contains(asset))
+            pool_.unload({asset});
     std::erase_if(states_, [&](const auto& entry) { return !alive.contains(entry.first); });
     std::erase_if(errors_, [&](const auto& entry) {
         return !alive.contains(entry.first) && !sequence_states_.contains(entry.first) &&
@@ -226,6 +286,23 @@ void TransformAnimationPlayback::synchronize() {
     synchronize_materials();
     synchronize_camera_shots();
     synchronize_audio_cues();
+}
+double TransformAnimationPlayback::clip_span_duration(const State& state) const {
+    return state.span ? state.span->duration_us : double(state.clip->duration);
+}
+LocalTransform TransformAnimationPlayback::sample_pose(const State& state, double time) const {
+    const auto first = state.clip->sample(time);
+    if (!state.span || !state.next_clip)
+        return first;
+    const auto weight = state.span->next_weight(time);
+    if (weight == 0)
+        return first;
+    const auto next = state.next_clip->sample(time - state.span->next_offset_us);
+    return weight == 1 ? next : interpolate_animation_poses(first, next, weight);
+}
+bool TransformAnimationPlayback::has_next_sequence_clips() const {
+    return std::any_of(states_.begin(), states_.end(),
+                       [](const auto& value) { return bool(value.second.next_clip); });
 }
 void TransformAnimationPlayback::apply(const std::map<flecs::entity_t, double>& times,
                                        bool commit) {
@@ -286,7 +363,7 @@ void TransformAnimationPlayback::apply(const std::map<flecs::entity_t, double>& 
                     throw std::runtime_error(
                         "Transform Animator cannot replace an animated model node pose");
         }
-        const auto pose = state.clip->sample(time);
+        const auto pose = sample_pose(state, time);
         auto at = candidate.find(id);
         if (at == candidate.end())
             throw std::runtime_error("Transform animation target has no local transform");
@@ -391,6 +468,15 @@ void TransformAnimationPlayback::tick(double seconds, bool deliver_events) {
             state.time = sequence_time(state, group->second.time);
             state.advance = state.time - state.previous;
             state.discontinuous |= group->second.discontinuous;
+            if (state.span && state.next_clip && state.advance > 0) {
+                state.discontinuous |=
+                    state.span->cut_crossed(state.previous, state.time) ||
+                    held_crossed(state.next_clip->keys,
+                                 std::clamp(state.previous - state.span->next_offset_us, 0.,
+                                            state.span->next_duration_us),
+                                 std::clamp(state.time - state.span->next_offset_us, 0.,
+                                            state.span->next_duration_us));
+            }
             if (state.time >= state.previous &&
                 held_crossed(state.clip->keys, state.previous, state.time))
                 state.discontinuous = true;
@@ -534,21 +620,28 @@ Json TransformAnimationPlayback::checkpoint() const {
     auto result = Json::array();
     for (const auto& [id, state] : states_) {
         (void)id;
-        if (state.clip)
-            result.push_back(
-                {{"entity", state.entity},
-                 {"clip", state.config.clip.id},
-                 {"revision", state.clip.identity().revision},
-                 {"time_us", state.time},
-                 {"playing", state.playing},
-                 {"sequence", state.config.sequence.entity ? Json(state.config.sequence) : Json()},
-                 {"sequence_start_seconds", state.config.sequence_start_seconds}});
+        if (!state.clip)
+            continue;
+        Json value = {
+            {"entity", state.entity},
+            {"clip", state.config.clip.id},
+            {"revision", state.clip.identity().revision},
+            {"time_us", state.time},
+            {"playing", state.playing},
+            {"sequence", state.config.sequence.entity ? Json(state.config.sequence) : Json()},
+            {"sequence_start_seconds", state.config.sequence_start_seconds}};
+        if (state.next_clip) {
+            value["sequence_next_clip"] = state.config.sequence_next_clip.id;
+            value["sequence_next_revision"] = state.next_clip.identity().revision;
+            value["sequence_next_start_seconds"] = state.config.sequence_next_start_seconds;
+        }
+        result.push_back(std::move(value));
     }
     return result;
 }
 void TransformAnimationPlayback::restore(const Json& values) { restore(values, Json::array()); }
 void TransformAnimationPlayback::restore(const Json& values, const Json& sequences,
-                                         bool audio_entries) {
+                                         bool audio_entries, bool paired_entries) {
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
     do {
         if (context_.services().available(Capability::Resources))
@@ -562,6 +655,10 @@ void TransformAnimationPlayback::restore(const Json& values, const Json& sequenc
     } while (std::chrono::steady_clock::now() < deadline);
     if (!ready() || !values.is_array() || values.size() != states_.size())
         throw std::runtime_error("Transform animation recovery configuration differs");
+    // A fresh worker may not have admitted either clip when restore begins.
+    // Compare the recovery profile only after admission, before adopting state.
+    if (paired_entries != has_next_sequence_clips())
+        throw std::runtime_error("Sequence next clip recovery profile/version differs");
     if (!sequences.is_array() || sequences.size() != sequence_states_.size())
         throw std::runtime_error("Animation sequence recovery configuration differs");
     auto groups = sequence_states_;
@@ -601,9 +698,19 @@ void TransformAnimationPlayback::restore(const Json& values, const Json& sequenc
         const double time = value.at("time_us");
         if (!state.clip || value.at("clip") != Json(state.config.clip.id) ||
             value.at("revision") != state.clip.identity().revision || !std::isfinite(time) ||
-            time < 0 || time > state.clip->duration || !value.at("playing").is_boolean() ||
+            time < 0 || time > clip_span_duration(state) || !value.at("playing").is_boolean() ||
             !times.emplace(resolved.entity, time).second)
             throw std::runtime_error("Transform animation recovery revision/time mismatch");
+        if (state.next_clip) {
+            if (value.at("sequence_next_clip") != Json(state.config.sequence_next_clip.id) ||
+                value.at("sequence_next_revision") != state.next_clip.identity().revision ||
+                value.at("sequence_next_start_seconds") != state.config.sequence_next_start_seconds)
+                throw std::runtime_error(
+                    "Sequence next clip recovery revision/configuration mismatch");
+        } else if (value.contains("sequence_next_clip") ||
+                   value.contains("sequence_next_revision") ||
+                   value.contains("sequence_next_start_seconds"))
+            throw std::runtime_error("Unexpected sequence next clip recovery metadata");
         const auto expected_sequence =
             state.config.sequence.entity ? Json(state.config.sequence) : Json();
         if (value.value("sequence", Json()) != expected_sequence ||

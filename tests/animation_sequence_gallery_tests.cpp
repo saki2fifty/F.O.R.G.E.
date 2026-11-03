@@ -1,9 +1,11 @@
 #include "animation_playback_access.hpp"
 #include "runtime_package.hpp"
+#include "transform_animation_authoring.hpp"
 #include <forge/animation.hpp>
 #include <forge/authoring.hpp>
 #include <forge/render_scene.hpp>
 #include <forge/runtime.hpp>
+#include <forge/scene_identity.hpp>
 #include <fstream>
 #include <iostream>
 #include <numbers>
@@ -204,16 +206,22 @@ void exercise_shots(const std::filesystem::path& root, const Json& source) {
     live.scene.entity(group.entity.str()).set(config);
     inspect(live, fallback);
 }
+#include "sequence_clip_gallery_tests.hpp"
 } // namespace
 int main(int argc, char** argv) {
     try {
         check(argc == 3, "Need Gallery and sequence scratch root");
+        if (std::string_view(argv[1]) == "--author-pair") {
+            author_sequence_pair(argv[2]);
+            return 0;
+        }
         const auto scratch = std::filesystem::absolute(argv[2]) / AssetId::generate().str();
         std::filesystem::create_directories(scratch);
         const auto root = scratch / "source";
         std::filesystem::copy(argv[1], root, std::filesystem::copy_options::recursive);
         const auto source = read(root / "Scenes/62-coordinated-animation.scene.json");
         const auto shots = read(root / "Scenes/68-sequence-camera-shots.scene.json");
+        const auto pair = read(root / pair_gallery_scene);
         const auto catalog = AssetCatalog::open_project(root);
         std::set<AssetId> clips;
         for (const auto& row : source.at("entities"))
@@ -228,8 +236,11 @@ int main(int argc, char** argv) {
         check(clips.size() == 3, "Sequence Gallery did not reuse three independent clips");
         exercise(root, source);
         exercise_shots(root, shots);
+        exercise_sequence_pair(root, pair);
+        exercise_pair_with_cues(root, read(root / "Scenes/70-sequence-audio-cues.scene.json"));
         const std::array roots{source.at("asset_id").get<AssetId>(),
-                               shots.at("asset_id").get<AssetId>()};
+                               shots.at("asset_id").get<AssetId>(),
+                               pair.at("asset_id").get<AssetId>()};
         {
             ProjectLease lease(root);
             prepare_runtime_content_catalog(lease, roots, {});
@@ -239,7 +250,13 @@ int main(int argc, char** argv) {
         const auto moved = scratch / "relocated";
         std::filesystem::rename(exported, moved);
         const auto shipped = open_runtime_content(moved, {"windows", "d3d12"});
-        check(shipped.records().size() == 7, "Sequence export has an incorrect content closure");
+        check(shipped.records().size() == 10, "Sequence export has an incorrect content closure");
+        for (const auto& row : pair.at("entities"))
+            if (row.at("components").contains("forge.transform_animator")) {
+                const auto& config = row.at("components").at("forge.transform_animator");
+                clips.insert(config.at("clip").get<AssetId>());
+                clips.insert(config.at("sequence_next_clip").get<AssetId>());
+            }
         for (const auto id : clips)
             check(shipped.records().contains(id) &&
                       !std::filesystem::exists(moved / catalog.records().at(id).source),
@@ -247,6 +264,7 @@ int main(int argc, char** argv) {
         std::filesystem::rename(root, scratch / "source-offline");
         exercise(moved, read(moved / shipped.records().at(roots[0]).source));
         exercise_shots(moved, read(moved / shipped.records().at(roots[1]).source));
+        exercise_sequence_pair(moved, read(moved / shipped.records().at(roots[2]).source));
         std::cout << "Gallery62 coordinated animation and Gallery68 actual camera shots/cuts/gaps, "
                      "recovery/candidates and relocated source-free Windows-target data PASS\n";
     } catch (const std::exception& e) {

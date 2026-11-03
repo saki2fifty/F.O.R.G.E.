@@ -773,6 +773,16 @@ AnimationPropertyValues TransformAnimationClip::sample_properties(double time) c
         }
     return result;
 }
+LocalTransform interpolate_animation_poses(const LocalTransform& a, const LocalTransform& b,
+                                           double t) {
+    require(std::isfinite(t) && t >= 0 && t <= 1, "Invalid animation pose interpolation weight");
+    auto mix = [t](double x, double y) { return x + (y - x) * t; };
+    return {{mix(a.translation.x, b.translation.x), mix(a.translation.y, b.translation.y),
+             mix(a.translation.z, b.translation.z)},
+            slerp(a.rotation, b.rotation, t),
+            {float(mix(a.scale.x, b.scale.x)), float(mix(a.scale.y, b.scale.y)),
+             float(mix(a.scale.z, b.scale.z))}};
+}
 LocalTransform TransformAnimationClip::sample(double time) const {
     require(std::isfinite(time) && !keys.empty(), "Invalid animation sample time/keys");
     const auto right =
@@ -818,11 +828,7 @@ LocalTransform TransformAnimationClip::sample(double time) const {
                 slerp(a.rotation, b.rotation, t),
                 scale};
     }
-    return {{mix(a.translation.x, b.translation.x), mix(a.translation.y, b.translation.y),
-             mix(a.translation.z, b.translation.z)},
-            slerp(a.rotation, b.rotation, t),
-            {float(mix(a.scale.x, b.scale.x)), float(mix(a.scale.y, b.scale.y)),
-             float(mix(a.scale.z, b.scale.z))}};
+    return interpolate_animation_poses(a, b, t);
 }
 TransformAnimationSource TransformAnimationSource::create(AssetId id) {
     auto key = animation_pose_json({});

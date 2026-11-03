@@ -1,0 +1,35 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [],
+    "importer": "forge.animation.transform",
+    "importer_revision": "forge.animation.transform.v12",
+    "key_version": 1,
+    "output_format": "forge.transform-clip",
+    "output_version": 9,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {},
+    "settings_version": 1,
+    "source": "8abf10f9c641a84411704c03ec741fec43cb120ca9ff2c9ec0846ffed66a98bd",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.transform-animation.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "e7fd7562-1fcf-4098-bd3f-6532bd868211",
+    "source": "Assets/Sequences/BlendArrival.animation.json",
+    "source_digest": "8abf10f9c641a84411704c03ec741fec43cb120ca9ff2c9ec0846ffed66a98bd",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.animation.transform",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

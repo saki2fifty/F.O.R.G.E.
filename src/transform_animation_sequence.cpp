@@ -55,8 +55,9 @@ void TransformAnimationPlayback::synchronize_sequences() {
     std::erase_if(sequence_errors_, [&](auto id) { return !alive.contains(id); });
 }
 double TransformAnimationPlayback::sequence_time(const State& state, double time) const {
-    return std::clamp(time - state.config.sequence_start_seconds * animation_timebase, 0.,
-                      double(state.clip->duration));
+    return state.span ? state.span->relative_time(time)
+                      : std::clamp(time - state.config.sequence_start_seconds * animation_timebase,
+                                   0., double(state.clip->duration));
 }
 std::map<flecs::entity_t, double> TransformAnimationPlayback::times_at(flecs::entity_t controller,
                                                                        double time) const {
@@ -90,7 +91,11 @@ std::optional<AnimationPlayback> TransformAnimationPlayback::playback(EntityRef 
         const auto& state = at->second;
         result.clip = state.config.clip.id;
         result.time = state.time / animation_timebase;
-        result.duration = double(state.clip->duration) / animation_timebase;
+        result.duration = clip_span_duration(state) / animation_timebase;
+        if (state.span && state.next_clip) {
+            result.blend_clip = state.config.sequence_next_clip.id;
+            result.blend_weight = state.span->next_weight(state.time);
+        }
         result.speed = state.config.playback_speed;
         result.loop = state.config.loop;
         result.enabled = state.config.enabled;
@@ -102,12 +107,33 @@ std::optional<AnimationPlayback> TransformAnimationPlayback::playback(EntityRef 
             result.playing =
                 sequence.playing && result.speed > 0 &&
                 sequence.time >= state.config.sequence_start_seconds * animation_timebase &&
-                state.time < state.clip->duration;
+                state.time < clip_span_duration(state);
         }
     } else
         return {};
     result.progress = std::clamp(result.time / result.duration, 0., 1.);
     result.finished = !result.loop && result.time >= result.duration;
+    return result;
+}
+Json TransformAnimationPlayback::sequence_clip_status(EntityRef ref) const {
+    if (!ready())
+        return nullptr;
+    const auto resolved = context_.resolve(ref);
+    if (resolved.state != WorldContext::ResolveState::Available)
+        return nullptr;
+    const auto found = states_.find(resolved.entity);
+    if (found == states_.end() || !found->second.clip || !found->second.sequence)
+        return nullptr;
+    const auto& state = found->second;
+    Json result{{"clip", state.config.clip.id},
+                {"start_seconds", state.config.sequence_start_seconds},
+                {"duration_seconds", double(state.clip->duration) / animation_timebase}};
+    if (state.span && state.next_clip)
+        result["next"] = {
+            {"clip", state.config.sequence_next_clip.id},
+            {"start_seconds", state.config.sequence_next_start_seconds},
+            {"duration_seconds", double(state.next_clip->duration) / animation_timebase},
+            {"weight", state.span->next_weight(state.time)}};
     return result;
 }
 bool TransformAnimationPlayback::seek(EntityRef ref, double seconds) {

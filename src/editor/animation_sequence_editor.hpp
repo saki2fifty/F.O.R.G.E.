@@ -59,7 +59,8 @@ class AnimationSequenceEditor {
         save_requested = false;
         close_cancelled = false;
         closing_ = false;
-        time_ = offset_ = 0;
+        time_ = offset_ = next_offset_ = 0;
+        pending_track_fields_ = 0;
         view_ = {};
     }
     void request_save() {
@@ -385,30 +386,43 @@ class AnimationSequenceEditor {
             FORGE_UI_PROBE("sequence:track:" + id);
             ImGui::EndDisabled();
             const auto origin = ImGui::GetCursorScreenPos();
-            const auto size =
-                ImVec2{std::max(40.f, ImGui::GetContentRegionAvail().x), 24 * ui::interface_scale};
+            const auto size = ImVec2{std::max(40.f, ImGui::GetContentRegionAvail().x),
+                                     (value.sequence_next_clip.id ? 40 : 24) * ui::interface_scale};
             ImGui::InvisibleButton("##track span", size);
             FORGE_UI_PROBE("sequence:span:" + id);
             auto* draw = ImGui::GetWindowDrawList();
             draw->AddRectFilled(origin, {origin.x + size.x, origin.y + size.y},
                                 IM_COL32(32, 42, 52, 255));
-            double duration = 0;
-            if (ready_ && context_) {
-                const auto status =
-                    context_->animation->playback({controller_.scene, EntityId::parse(id)});
-                if (status)
-                    duration = status->duration;
-            }
+            Json clips;
+            if (ready_ && !stale_ && context_)
+                clips = AnimationPlaybackAccess::status(*context_->animation,
+                                                        {controller_.scene, EntityId::parse(id)})
+                            .value("sequence_clips", Json());
             const auto x = [&](double seconds) {
                 return origin.x +
                        float(std::clamp(view_.fraction(seconds * animation_timebase), 0., 1.)) *
                            size.x;
             };
-            if (duration > 0)
-                draw->AddRectFilled(
-                    {x(value.sequence_start_seconds), origin.y + 3},
-                    {x(value.sequence_start_seconds + duration), origin.y + size.y - 3},
-                    IM_COL32(55, 125, 164, 255));
+            if (clips.is_object()) {
+                const double primary_end =
+                    value.sequence_start_seconds + clips.at("duration_seconds").get<double>();
+                const bool paired = clips.contains("next");
+                const float middle = origin.y + size.y / 2;
+                draw->AddRectFilled({x(value.sequence_start_seconds), origin.y + 3},
+                                    {x(primary_end), paired ? middle - 1 : origin.y + size.y - 3},
+                                    IM_COL32(55, 125, 164, 255));
+                if (paired) {
+                    const double next_end = value.sequence_next_start_seconds +
+                                            clips.at("next").at("duration_seconds").get<double>();
+                    draw->AddRectFilled({x(value.sequence_next_start_seconds), middle + 1},
+                                        {x(next_end), origin.y + size.y - 3},
+                                        IM_COL32(131, 92, 181, 255));
+                    if (primary_end > value.sequence_next_start_seconds)
+                        draw->AddRectFilled({x(value.sequence_next_start_seconds), origin.y + 3},
+                                            {x(primary_end), origin.y + size.y - 3},
+                                            IM_COL32(235, 186, 77, 70));
+                }
+            }
             draw->AddLine({x(time_), origin.y}, {x(time_), origin.y + size.y},
                           IM_COL32(255, 203, 78, 255), 2);
             if (ImGui::IsItemActive() && ImGui::IsMouseDown(0)) {
@@ -426,23 +440,43 @@ class AnimationSequenceEditor {
             scene_->entity(track_).has<TransformAnimator>()) {
             const auto value = scene_->entity(track_).get<TransformAnimator>();
             if (value.sequence == controller_) {
-                if (!pending_)
+                if (!pending_) {
                     offset_ = value.sequence_start_seconds;
+                    next_offset_ = value.sequence_next_start_seconds;
+                    pending_track_fields_ = 0;
+                }
+                ImGui::TextUnformatted(value.sequence_next_clip.id ? "Primary clip start"
+                                                                   : "Clip start");
                 ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
                 if (ImGui::InputDouble("##track start", &offset_, 0, 0, "%.3f s")) {
                     if (!pending_)
                         pending_revision_ = scene_->revision();
                     pending_ = true;
+                    pending_track_fields_ |= 1;
                 }
                 FORGE_UI_PROBE("sequence:start");
-                if (ui::button("Apply track start", "Commit this offset as one Scene Undo step."))
+                if (value.sequence_next_clip.id) {
+                    ImGui::TextUnformatted("Next clip start");
+                    ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
+                    if (ImGui::InputDouble("##next track start", &next_offset_, 0, 0, "%.3f s")) {
+                        if (!pending_)
+                            pending_revision_ = scene_->revision();
+                        pending_ = true;
+                        pending_track_fields_ |= 2;
+                    }
+                    FORGE_UI_PROBE("sequence:next_start");
+                }
+                if (ui::button(value.sequence_next_clip.id ? "Apply track timing"
+                                                           : "Apply track start",
+                               "Commit edited timing fields as one Scene Undo step."))
                     apply_pending();
                 FORGE_UI_PROBE("sequence:apply_start");
-                if (ui::button("Reset pending start", "Reload the saved Scene draft value.")) {
+                if (ui::button(value.sequence_next_clip.id ? "Reset pending timing"
+                                                           : "Reset pending start",
+                               "Reload the saved Scene draft values."))
                     pending_ = false;
-                }
                 if (pending_)
-                    ImGui::TextWrapped("Apply or reset the pending start before changing tracks.");
+                    ImGui::TextWrapped("Apply or reset pending timing before changing tracks.");
                 ImGui::BeginDisabled(pending_);
                 ImGui::SetNextItemWidth(std::max(80.f, ImGui::GetContentRegionAvail().x -
                                                            ImGui::CalcTextSize("Clip").x -
@@ -460,12 +494,51 @@ class AnimationSequenceEditor {
                     }
                 }
                 FORGE_UI_PROBE("sequence:clip");
-                if (ui::button("Remove from sequence", "Keep the clip and standalone settings; "
-                                                       "clear only its sequence binding.")) {
+                Json next =
+                    value.sequence_next_clip.id ? Json(value.sequence_next_clip.id) : Json();
+                ImGui::SetNextItemWidth(std::max(80.f, ImGui::GetContentRegionAvail().x -
+                                                           ImGui::CalcTextSize("Next clip").x -
+                                                           ImGui::GetStyle().ItemInnerSpacing.x));
+                if (catalog_ && asset_ref_picker(*catalog_, next, TransformAnimationAsset::type,
+                                                 "Next clip", true)) {
                     try {
-                        apply_authoring(*scene_,
-                                        Json::array({property(track_, "sequence", nullptr)}),
-                                        scene_->revision());
+                        Json commands = Json::array({property(track_, "sequence_next_clip", next)});
+                        if (!value.sequence_next_clip.id && !next.is_null()) {
+                            double start = value.sequence_start_seconds;
+                            if (ready_ && !stale_ && context_) {
+                                const auto status = AnimationPlaybackAccess::status(
+                                    *context_->animation,
+                                    {controller_.scene, EntityId::parse(track_)});
+                                if (status.contains("sequence_clips"))
+                                    start = std::min(config.duration,
+                                                     start + status.at("sequence_clips")
+                                                                     .at("duration_seconds")
+                                                                     .get<double>() /
+                                                                 2);
+                            }
+                            commands.push_back(
+                                property(track_, "sequence_next_start_seconds", start));
+                        }
+                        apply_authoring(*scene_, commands, scene_->revision());
+                        stop_preview();
+                    } catch (const std::exception& e) {
+                        error_ = e.what();
+                    }
+                }
+                FORGE_UI_PROBE("sequence:next_clip");
+                if (value.sequence_next_clip.id)
+                    ImGui::TextWrapped(
+                        "The overlap crossfades blue to purple. Both clips must animate "
+                        "the same transform channels, with ordered starts and ends. "
+                        "Property curves cannot crossfade. Refresh to validate and preview.");
+                if (ui::button("Remove from sequence",
+                               "Keep the primary clip and standalone settings; "
+                               "clear the sequence binding and next clip.")) {
+                    try {
+                        Json commands = Json::array({property(track_, "sequence", nullptr)});
+                        if (value.sequence_next_clip.id)
+                            commands.push_back(property(track_, "sequence_next_clip", nullptr));
+                        apply_authoring(*scene_, commands, scene_->revision());
                         track_.clear();
                         cue_.clear();
                         pending_ = false;
@@ -569,7 +642,8 @@ class AnimationSequenceEditor {
     std::uint64_t revision_ = 0, pending_revision_ = 0, frame_export_serial_ = 0;
     double saved_preview_time_ = 0;
     bool frame_exporting_ = false, saved_preview_ = false, saved_playing_ = false;
-    double time_ = 0, offset_ = 0;
+    double time_ = 0, offset_ = 0, next_offset_ = 0;
+    unsigned pending_track_fields_ = 0;
     bool ready_ = false, stale_ = false, preview_ = false, playing_ = false, pending_ = false,
          closing_ = false, locked_ = false;
     bool frame_source_current() const {
@@ -970,7 +1044,7 @@ class AnimationSequenceEditor {
                     throw std::runtime_error("Sequence preview generation exhausted");
                 ++frame_export_serial_;
             }
-            if (ready_ && context_)
+            if (ready_ && !stale_ && context_)
                 AnimationPlaybackAccess::control(
                     *context_->animation, controller_,
                     {{"operation", "seek"}, {"position_seconds", time_}});
@@ -1008,9 +1082,17 @@ class AnimationSequenceEditor {
             if (pending_ && scene_->revision() != pending_revision_)
                 throw std::runtime_error(
                     "Scene changed. Reset the pending start before applying it.");
-            apply_authoring(*scene_,
-                            Json::array({property(track_, "sequence_start_seconds", offset_)}),
-                            scene_->revision());
+            const auto config = target.get<TransformAnimator>();
+            if (config.sequence_next_clip.id &&
+                (!std::isfinite(next_offset_) || next_offset_ < offset_ || next_offset_ > duration))
+                throw std::runtime_error(
+                    "Next clip start must follow the primary start and stay inside the sequence");
+            Json commands = Json::array();
+            if (!pending_ || (pending_track_fields_ & 1))
+                commands.push_back(property(track_, "sequence_start_seconds", offset_));
+            if (config.sequence_next_clip.id && (pending_track_fields_ & 2))
+                commands.push_back(property(track_, "sequence_next_start_seconds", next_offset_));
+            apply_authoring(*scene_, commands, scene_->revision());
             pending_ = false;
             stop_preview();
             error_.clear();

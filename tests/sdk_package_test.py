@@ -5,6 +5,7 @@ build=Path(sys.argv[1]).resolve();cmake=sys.argv[2];ninja=sys.argv[3]
 cache=dict(line.split('=',1) for line in (build/'CMakeCache.txt').read_text().splitlines() if '=' in line and not line.startswith(('//','#')))
 compiler=next(value for key,value in cache.items() if key.startswith('CMAKE_CXX_COMPILER:'))
 compiler_arg='-DCMAKE_CXX_COMPILER='+compiler
+build_jobs=str(max(1,int(os.environ.get('FORGE_SDK_TEST_JOBS', '2'))))
 def validate_guides(stage):
     for document in (stage/'sdk/docs').rglob('*.md'):
         for target in re.findall(r'\[[^\]]+\]\(([^)]+)\)', document.read_text(encoding='utf-8')):
@@ -14,6 +15,7 @@ def validate_guides(stage):
                 assert resolved.is_relative_to(stage/'sdk') and resolved.is_file(), f'Broken installed guide link: {target}'
 
 focused_targets = {
+    '--sequence-only': 'sequence_gameplay',
     '--prefab-only': 'prefab_gameplay',
     '--ui-localization-only': 'ui_localization_gameplay',
     '--navigation-behavior-only': 'navigation_behavior_gameplay',
@@ -48,7 +50,7 @@ if len(sys.argv) == 5 and sys.argv[4] in focused_targets:
                         compiler_arg,'-DCMAKE_BUILD_TYPE=Release','-DCMAKE_MAKE_PROGRAM='+ninja,
                         '-DFORGE_NATIVE_SDK='+str(stage)],check=True)
         subprocess.run([cmake,'--build',str(client),'--target',target,
-                        '--parallel','2'],check=True)
+                        '--parallel',build_jobs],check=True)
         windows=os.name=='nt';exe='.exe' if windows else '';ext='.dll' if windows else '.so'
         module=client/(target+ext)
         if not windows:
@@ -59,6 +61,13 @@ if len(sys.argv) == 5 and sys.argv[4] in focused_targets:
         stage.rename(moved)
         env=os.environ.copy()
         if not windows:env['LD_LIBRARY_PATH']=str(moved/'bin')+':'+env.get('LD_LIBRARY_PATH','')
+        if sys.argv[4] == '--sequence-only':
+            subprocess.run([sys.executable, str(Path(__file__).with_name('animation_sequence_process_test.py')),
+                            str(moved/'bin'/('forge_runtime'+exe)),
+                            str(Path(__file__).resolve().parents[1]/'samples/projects/FeatureGallery'),
+                            str(module)], env=env, cwd=moved, check=True, timeout=120)
+            print('Installed-only paired sequence values, exact recovery and relocated SDK/runtime hosts passed')
+            sys.exit(0)
         if sys.argv[4] == '--prefab-only':
             assert not (moved/'sdk/include/forge/prefab.hpp').exists()
             subprocess.run([sys.executable, str(Path(__file__).with_name('prefab_spawn_process_test.py')),
@@ -216,7 +225,7 @@ assert (stage/'sdk/include/forge/transform_components.hpp').exists()
 assert (stage/'sdk/sample/Physics2DJoints.hpp').is_file()
 assert (stage/'sdk/sample/character_2d_probe.cpp').is_file()
 subprocess.run([cmake,'-S',str(stage/'sdk/sample'),'-B',str(client),'-G','Ninja',compiler_arg,'-DCMAKE_BUILD_TYPE=Release','-DCMAKE_MAKE_PROGRAM='+ninja,'-DFORGE_NATIVE_SDK='+str(stage)],check=True)
-subprocess.run([cmake,'--build',str(client),'--parallel','2'],check=True)
+subprocess.run([cmake,'--build',str(client),'--parallel',build_jobs],check=True)
 windows=os.name=='nt';exe='.exe' if windows else '';ext='.dll' if windows else '.so'
 runtime=stage/'bin'/('forge_runtime'+exe)
 module=client/('gameplay'+ext)
@@ -301,7 +310,7 @@ starter = build / 'sdk-starter-client-test'
 subprocess.run([cmake,'-S',str(stage/'sdk/template'),'-B',str(starter),'-G','Ninja',compiler_arg,
                 '-DCMAKE_BUILD_TYPE=Release','-DCMAKE_MAKE_PROGRAM='+ninja,
                 '-DForgeNativeSdk_DIR='+str(stage/'sdk')],check=True)
-subprocess.run([cmake,'--build',str(starter),'--parallel','2'],check=True)
+subprocess.run([cmake,'--build',str(starter),'--parallel',build_jobs],check=True)
 starter_project = stage / 'starter-project'; starter_project.mkdir()
 shutil.copy2(starter/('gameplay'+ext),starter_project/('gameplay'+ext))
 starter_manifest = dict(manifest)

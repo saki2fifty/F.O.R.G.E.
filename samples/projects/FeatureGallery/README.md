@@ -1829,3 +1829,18 @@ clip demonstrate the Timeline's **Component fields**, numeric cubic slopes, held
 Enabled/Direction keys and matching-module export. A source checkout needs Build Project Code before Play;
 the combined Windows package supplies the compiled example. Feature Gallery's
 ordinary scenes remain usable without a project C++ module.
+
+## Two-clip sequence crossfade
+
+Open `Scenes/145-sequence-clip-blending.scene.json` and press **Play → Game**.
+The cube uses two original local-transform clips on one four-second sequence.
+The primary clip starts at zero and runs for two seconds; the next starts at one
+and ends at three. The overlap blends position, rotation and scale, then the last
+pose holds until the loop repeats. Both clips are in `Assets/Sequences`.
+
+Open the controller's sequence Timeline, select the cube track and inspect **Clip**,
+**Next clip**, **Primary clip start** and **Next clip start**. The two strips mark
+each clip and highlight the overlap. Apply timing, refresh clips and preview; Scene
+Save persists the arrangement. Export uses the same prepared clips without the
+source editor or a compiler. The [sequence guide](../../../manual/editor/animation-sequences.md)
+explains limits, gaps, clearing the next slot and frame export.

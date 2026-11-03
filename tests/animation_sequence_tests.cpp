@@ -34,23 +34,27 @@ template <class F> void rejects(F function) {
     check(rejected, "Invalid sequence operation accepted");
 }
 AssetId clip(const std::shared_ptr<ProjectLease>& lease, AssetImportService& imports,
-             const std::filesystem::path& path, bool light, bool held = false) {
+             const std::filesystem::path& path, bool light, bool held = false,
+             std::int64_t duration = animation_timebase,
+             const std::function<void(TransformAnimationSource&)>& customize = {}) {
     auto doc = TransformAnimationDocument::create(lease, path);
     doc->edit(doc->revision(), "Sequence fixture", [&](Json& json) {
         TransformAnimationSource source{json};
-        source.retime_duration(animation_timebase);
+        source.retime_duration(duration);
         if (light) {
             source.add_property(AnimationProperty::LightIntensity, 1);
             source.document["channels"] = Json::array();
             auto values = source.clip().keys.front().properties;
             values[unsigned(AnimationProperty::LightIntensity)] = 3;
-            source.set_key(animation_timebase, {}, false, {}, {}, values);
+            source.set_key(duration, {}, false, {}, {}, values);
         } else
-            source.set_key(animation_timebase, {{4, 0, 0}, {}, {1, 1, 1}});
+            source.set_key(duration, {{4, 0, 0}, {}, {1, 1, 1}});
         if (held) {
-            source.set_key(animation_timebase / 2, {{2, 0, 0}, {}, {1, 1, 1}});
+            source.set_key(duration / 2, {{2, 0, 0}, {}, {1, 1, 1}});
             source.document["keys"][0]["interpolation"] = "held";
         }
+        if (customize)
+            customize(source);
         json = source.document;
     });
     doc->save();
@@ -69,10 +73,12 @@ struct Runtime {
     Scene scene;
     RuntimeSimulation simulation;
     std::shared_ptr<AnimationRuntime> animation;
-    Runtime(const std::filesystem::path& root, const Json& source)
+    Runtime(const std::filesystem::path& root, const Json& source, bool admit = true)
         : engine(WorldRole::Runtime, false, {animation_module(root)}), scene(engine.world()),
           simulation(engine.world(), scene), animation(animation_runtime(engine.world())) {
         scene.restore_snapshot(source);
+        if (!admit)
+            return;
         const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(20);
         while (!animation->prepare_initial_pose()) {
             check(std::chrono::steady_clock::now() < deadline, "Sequence admission timed out");
@@ -547,6 +553,7 @@ void camera_shots(const std::filesystem::path& root) {
                  "typed duplicate-name references and exact recovery passed\n";
 }
 #include "audio_cue_tests.hpp"
+#include "sequence_clip_blend_tests.hpp"
 } // namespace
 int main(int argc, char** argv) {
     try {
@@ -562,6 +569,7 @@ int main(int argc, char** argv) {
         const auto motion = clip(lease, imports, "Assets/Motion.animation.json", false);
         const auto pulse = clip(lease, imports, "Assets/Pulse.animation.json", true);
         const auto held = clip(lease, imports, "Assets/Held.animation.json", false, true);
+        sequence_clip_blend_tests(root, lease, imports, motion, pulse, held);
         persistence(root, motion);
         EngineContext author;
         Scene scene(author.world());

@@ -126,7 +126,10 @@ template <class T> Json encode(const T& p) {
                 {"loop", p.loop},
                 {"playback_speed", p.playback_speed},
                 {"sequence", p.sequence.entity ? Json(p.sequence) : Json()},
-                {"sequence_start_seconds", p.sequence_start_seconds}};
+                {"sequence_start_seconds", p.sequence_start_seconds},
+                {"sequence_next_clip",
+                 p.sequence_next_clip.id ? Json(p.sequence_next_clip.id) : Json()},
+                {"sequence_next_start_seconds", p.sequence_next_start_seconds}};
     else if constexpr (std::is_same_v<T, TwoBoneIK> || std::is_same_v<T, AimIK>) {
         Json value = {
             {"enabled", p.enabled},   {"weight", p.weight},     {"twist_degrees", p.twist_degrees},
@@ -469,6 +472,12 @@ template <class T> Value decode(const Json& p) {
         if (!std::isfinite(v.sequence_start_seconds) || v.sequence_start_seconds < 0 ||
             v.sequence_start_seconds > 3600)
             throw std::runtime_error("Sequence track start must be within 0–3600 seconds");
+        if (!p.value("sequence_next_clip", Json()).is_null())
+            v.sequence_next_clip.id = p.at("sequence_next_clip").get<AssetId>();
+        v.sequence_next_start_seconds = p.value("sequence_next_start_seconds", 0.);
+        if (!std::isfinite(v.sequence_next_start_seconds) || v.sequence_next_start_seconds < 0 ||
+            v.sequence_next_start_seconds > 3600)
+            throw std::runtime_error("Sequence next clip start must be within 0–3600 seconds");
         return v;
     } else if constexpr (std::is_same_v<T, TwoBoneIK> || std::is_same_v<T, AimIK>) {
         T v;
@@ -1255,7 +1264,9 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<bool>("loop")
             .template member<float>("playback_speed")
             .template member<EntityRef>("sequence")
-            .template member<double>("sequence_start_seconds");
+            .template member<double>("sequence_start_seconds")
+            .template member<AssetRef<TransformAnimationAsset>>("sequence_next_clip")
+            .template member<double>("sequence_next_start_seconds");
     } else if constexpr (std::is_same_v<T, TwoBoneIK> || std::is_same_v<T, AimIK>) {
         register_asset_ref<ModelNodeAsset>(w, "forge.model_node_ref");
         if constexpr (std::is_same_v<T, TwoBoneIK>)
@@ -2748,6 +2759,14 @@ Json registration_options(const Builtin& type, const std::string& field) {
             value["display_name"] = "Sequence controller";
             value["description"] =
                 "Optional scene Animation Sequence that controls this clip's timing";
+        } else if (field == "sequence_next_clip") {
+            value["display_name"] = "Next clip";
+        } else if (field == "sequence_next_start_seconds") {
+            value["display_name"] = "Next clip start (seconds)";
+            value["minimum"] = 0;
+            value["maximum"] = 3600;
+            value["description"] =
+                "Second clip start on the same sequence; overlap crossfades linearly";
         } else if (field == "sequence_start_seconds") {
             value["display_name"] = "Sequence start (seconds)";
             value["minimum"] = 0;
@@ -2807,7 +2826,8 @@ Json registration_options(const Builtin& type, const std::string& field) {
             value["maximum"] = UINT32_MAX;
             value["description"] =
                 "Stable state ID in the selected set; zero selects its entry state";
-        } else if (field == "skeleton" || field == "clip" || field == "blend_clip") {
+        } else if (field == "skeleton" || field == "clip" || field == "blend_clip" ||
+                   field == "sequence_next_clip") {
             value["asset_type"] = field == "skeleton" ? SkeletonAsset::type
                                   : name == "forge.transform_animator"
                                       ? TransformAnimationAsset::type
@@ -2816,6 +2836,8 @@ Json registration_options(const Builtin& type, const std::string& field) {
             value["description"] =
                 field == "skeleton"
                     ? "Registered skeleton identity; clip must bind to this exact skeleton revision"
+                : field == "sequence_next_clip" ? "Optional next transform-only clip with matching "
+                                                  "channels; requires a sequence"
                 : name == "forge.transform_animator"
                     ? "Reusable local-transform animation clip"
                     : "Registered clip identity produced for the chosen skeleton";
@@ -3568,7 +3590,8 @@ Json admitted_builtin_source(const Builtin& type, const Json& source) {
         !current.contains("diffuse_intensity"))
         current["diffuse_intensity"] = type.defaults.at("diffuse_intensity");
     if (std::string_view(type.name) == "forge.transform_animator")
-        for (const auto* field : {"sequence", "sequence_start_seconds"})
+        for (const auto* field : {"sequence", "sequence_start_seconds", "sequence_next_clip",
+                                  "sequence_next_start_seconds"})
             if (!current.contains(field))
                 current[field] = type.defaults.at(field);
     if (std::string_view(type.name) == "forge.particle_emitter")

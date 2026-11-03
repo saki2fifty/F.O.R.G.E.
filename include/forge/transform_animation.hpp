@@ -151,6 +151,8 @@ struct TransformAnimationSource {
     void set_tangent_preset(std::span<const AssetId>, TransformAnimationTangentPreset);
 };
 TransformAnimationClip decode_transform_animation(std::span<const std::byte>, AssetId);
+// Clip-owned linear pose interpolation, shared by key sampling and sequence blends.
+LocalTransform interpolate_animation_poses(const LocalTransform&, const LocalTransform&, double);
 nlohmann::json animation_pose_json(const LocalTransform&);
 LocalTransform animation_pose(const nlohmann::json&);
 } // namespace forge

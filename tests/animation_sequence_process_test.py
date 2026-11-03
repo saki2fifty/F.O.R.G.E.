@@ -27,7 +27,7 @@ with tempfile.TemporaryDirectory(prefix='forge-sequence-sdk-', dir=runtime.paren
     stamp = dict(format='forge.authored-component', version=1, module=declaration['module'],
                  schema_version=declaration['schema_version'], digest=declaration['digest'])
     for scene_name in ('62-coordinated-animation.scene.json', '68-sequence-camera-shots.scene.json',
-                       '70-sequence-audio-cues.scene.json'):
+                       '70-sequence-audio-cues.scene.json', '145-sequence-clip-blending.scene.json'):
         source_path = root / 'Scenes' / scene_name
         original = source_path.read_bytes()
         source = json.loads(original)
@@ -72,12 +72,18 @@ with tempfile.TemporaryDirectory(prefix='forge-sequence-sdk-', dir=runtime.paren
                     u = min(1., max(0., (expected-1)/2))
                     intensity = .8+2.2*u*u*(3-2*u)
                     assert abs(actual['forge.light']['intensity']-intensity) < 2e-6
+                elif actor['components']['forge.transform_animator'].get('sequence_next_clip'):
+                    a = -3 + 4*min(1., max(0., expected/2))
+                    b = 3 - 4*min(1., max(0., (expected-1)/2))
+                    weight = min(1., max(0., expected-1))
+                    x = a*(1-weight) + b*weight
+                    assert abs(actual['forge.local_translation']['x']-x) < 2e-6, (tick, actual, x)
                 else:
                     u = min(1., max(0., (expected-.5)/2))
                     x = -2+4*u*u*(3-2*u)
                     assert abs(actual['forge.local_translation']['x']-x) < 2e-6, (tick, actual, x)
 
-        first = Worker(runtime, root)
+        first = Worker(runtime, root, arguments=('--audio', 'offline'))
         recovered = []
         try:
             state = first.request('replace', scene=source)
@@ -98,7 +104,7 @@ with tempfile.TemporaryDirectory(prefix='forge-sequence-sdk-', dir=runtime.paren
                 if tick in (1, 4, 6, 12):
                     checkpoint = state['recovery']
                     assert checkpoint is not None
-                    other = Worker(runtime, root)
+                    other = Worker(runtime, root, arguments=('--audio', 'offline'))
                     restored = other.request('replace', scene=checkpoint['scene'], recovery=checkpoint,
                         recovery_session=checkpoint['session'], recovery_tick=checkpoint['tick'])
                     recovered.append(other)
@@ -112,11 +118,8 @@ with tempfile.TemporaryDirectory(prefix='forge-sequence-sdk-', dir=runtime.paren
 
         class EditorWorker(Worker):
             def __init__(self):
-                self.process = subprocess.Popen([runtime, '--sdk-project', root, '--sdk-play', 'on',
-                    '--audio', 'offline', '--user-data', root / 'users'], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE, text=True, cwd=root)
-                self.sequence, self.session = 0, ''
-                self.request('hello')
+                super().__init__(runtime, root, arguments=('--sdk-play', 'on', '--audio', 'offline',
+                                                          '--user-data', str(root / 'users')))
 
         editor = EditorWorker()
         try:
@@ -150,6 +153,15 @@ with tempfile.TemporaryDirectory(prefix='forge-sequence-sdk-', dir=runtime.paren
             assert abs(sought['animation_playback']['time']-seek_seconds) < 1e-12
             check_camera(sought, seek_seconds)
             assert not sought['animation_playback']['playing']
+            pair_actor = next((r for r in source['entities'] if r['components'].get(
+                'forge.transform_animator', {}).get('sequence_next_clip')), None)
+            if pair_actor is not None:
+                actor_ref = dict(scene=source['asset_id'], entity=pair_actor['id'])
+                track_status = editor.request('snapshot', animation_watch=actor_ref)['animation_playback']
+                assert track_status['blend_weight'] == .5, track_status
+                assert track_status['sequence_clips']['next']['weight'] == .5, track_status
+                assert track_status['sequence_clips']['next']['clip'] == pair_actor['components'][
+                    'forge.transform_animator']['sequence_next_clip'], track_status
             restarted = editor.request('animation_playback', generation=generation, source=ref,
                                        operation='restart', animation_watch=ref)
             assert restarted['animation_playback']['time'] == 0

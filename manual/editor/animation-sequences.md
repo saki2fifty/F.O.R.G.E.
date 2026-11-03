@@ -1,7 +1,8 @@
 # Coordinate several animations
 
 An **Animation Sequence** makes several objects use one playback time. Each object
-keeps its own reusable animation clip and a start time inside the sequence.
+keeps its reusable animation clip and a start time inside the sequence. A second
+transform clip can crossfade on the same object.
 
 ![Timeline with camera shot intervals and camera selection](../images/camera-sequencing.png)
 
@@ -29,6 +30,39 @@ After Scene edits or publishing changed clips, choose **Refresh clips** again.
 Open **Game** while sequence preview is active to see the camera image without
 starting gameplay. The **SEQUENCE PREVIEW** label identifies this temporary view.
 Use Game Play to hear sound and run gameplay.
+
+## Crossfade two clips on one object
+
+Open **FeatureGallery / Scenes / 145-sequence-clip-blending.scene.json** and press
+**Play → Game**. The cube moves and rotates through two clips in a four-second
+loop. The first clip starts at zero, the next at one second; the one-second
+overlap blends from the first motion into the next.
+
+![Timeline showing primary and next clip strips, the overlap, and both start fields](../images/sequence-clip-blending.png)
+
+The blue and purple clips overlap from one to two seconds on the selected track.
+
+To make a two-clip track:
+
+1. Create and publish two Transform Animation clips. Both must animate the same position, rotation and/or scale channels, without light, camera, sound, material or component-field curves.
+2. Add the object to an Animation Sequence and choose its **Clip**. Select the object track, then choose **Next clip** using the asset picker.
+3. Enter **Primary clip start** and **Next clip start**, then choose **Apply track timing**. Both edited values use one Scene Undo step. **Reset pending timing** reloads the current Scene values. Apply or reset before switching tracks or clips.
+4. Choose **Refresh clips**. The upper blue strip shows the primary clip, the lower purple strip shows the next, and the highlighted intersection shows the crossfade. Use **Preview sequence**, scrubbing or frame export to inspect the result.
+5. Choose **Save scene**. Game Play and exported games use the same saved clips and timing.
+
+The next clip must start and finish no earlier than the primary clip. Both starts
+must be inside the sequence's duration. An endpoint may extend beyond that duration;
+the controller stops or loops at its own end. During an overlap, position and scale
+blend linearly, while rotation follows the shortest arc. The clips keep their own
+key interpolation. If there is a gap, the primary's final pose holds until the next
+clip starts, then the pose cuts to that clip. Before and after the whole track,
+the first and last poses hold.
+
+Choose **None / Clear** in **Next clip** to return to a single clip. **Remove from
+sequence** clears the controller binding and next clip while keeping the primary
+clip and its standalone settings. Undo restores the arrangement. A missing or
+incompatible clip is reported during **Refresh clips** or Play preparation; correct
+its selection, channel set or timing and refresh again.
 
 ## Export preview frames
 
@@ -114,9 +148,10 @@ last value. A sequence's end can cut a clip short. The controller's loop, speed 
 playback intent govern all its tracks; the individual clips' standalone settings
 stay stored for when they are removed from the sequence.
 
-**Remove from sequence** clears the binding and keeps the clip. An object can have
-one Transform Animator clip. This sequence mode does not blend overlapping
-tracks, blend between shots, edit bones or nest sequences.
+**Remove from sequence** keeps the primary clip and clears its controller and next
+clip. Each object supports one primary clip and one optional next transform clip.
+Camera shots cut without blending. This sequence mode does not crossfade property
+curves, edit bones, nest sequences or encode a movie.
 
 Pause, Step and simulation Speed work as they do for other animations. C++ can use
 the existing animation playback/control/seek operations on the controller. Bound

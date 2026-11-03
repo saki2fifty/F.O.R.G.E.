@@ -1937,3 +1937,22 @@ exclusion. The supported cross-target CPU Collision recipe in portable fixtures
 does not establish Windows/MSVC/native package, full editor, physical GPU/input/DPI
 or graphical exported-executable acceptance. Run those separate acceptance owners
 before making those claims.
+
+## Sequence pair consumer checks
+
+`animation_sequence` checks deterministic two-clip blends, gap and held cuts,
+controller seeks/wraps, bounded resource turnover, portable Prefabs and recovery
+against exact clip revisions. `animation_sequence_editor` drives Timeline timing,
+pickers, Undo, copied preview and frame samples at three scales and two sizes.
+`animation_sequence_gallery` checks the original Gallery145 and source-hidden
+relocated cooked content, including the next clip's dependency closure.
+
+`mcp_sequence_clips_stdio` uses both framings and the ordinary Scene schema,
+permissions, revisions, replay, history and persistence operations.
+`native_sdk_sequence` exercises direct and SDK Play hosts;
+`native_sdk_sequence_installed` builds the sequence client solely from the installed
+SDK, relocates it and repeats those native controls and fresh-worker recoveries.
+Headless sequence workers request the existing offline audio output explicitly.
+SDK package tests accept `FORGE_SDK_TEST_JOBS` for measured local build scheduling;
+the default remains two jobs. Select concurrency from available CPU and memory.
+These checks do not establish Windows editor or physical GPU/audio acceptance.
