@@ -12,6 +12,10 @@ typedef struct ForgeImageBytes {
 // C contains all libpng longjmp; output is owned by the caller until freed below.
 int forge_png_encode_rgba8(const void* pixels, size_t extent, unsigned width, unsigned height,
                            size_t stride, size_t byte_limit, ForgeImageBytes* result);
+// Lossless still WebP, preserving RGB even under zero alpha. Private image-tool
+// integration; native encoding may allocate working memory beyond output bytes.
+int forge_webp_encode_rgba8(const void* pixels, size_t extent, unsigned width, unsigned height,
+                            size_t stride, size_t byte_limit, ForgeImageBytes* result);
 void forge_image_bytes_free(ForgeImageBytes* result);
 #ifdef __cplusplus
 }

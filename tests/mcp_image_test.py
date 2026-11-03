@@ -96,6 +96,23 @@ for legacy in (False,True):
         selected=settled(); assert selected['preview_ready'],selected
         assert image(preview['operation'])[1]==png
 
+        # Full files use the requested codec; agent image content stays PNG.
+        webp_job=ok('forge_capture_start',view='scene',path='Screenshots/Scene.WEbP')
+        webp_complete=settled()
+        assert webp_complete['preview_ready'] and not webp_complete['error'],webp_complete
+        assert webp_complete['file_mime']=='image/webp'
+        full_webp=(root/'Output/Screenshots/Scene.WEbP').read_bytes()
+        assert full_webp[:4]==b'RIFF' and full_webp[8:12]==b'WEBP'
+        assert image(webp_job['operation'])[1]==png
+        failed(mutate('forge_capture_start',view='scene',path='Screenshots/Scene.WEbP'),'output_exists')
+        assert not mutate('forge_capture_start',view='scene',path='../Escape.webp')['ok']
+        failed(mutate('forge_capture_start',view='scene',path='unsupported.jpg'),'invalid_path')
+        assert read('forge_capture_status')['artifact_operation']==webp_complete['artifact_operation']
+        webp_preview=ok('forge_capture_preview',artifact_operation=webp_complete['artifact_operation'])
+        assert settled()['preview_ready']
+        assert image(webp_preview['operation'])[1]==png
+        assert (root/'Output/Screenshots/Scene.WEbP').read_bytes()==full_webp
+
         entity=ok('forge_entity_create',arguments=dict(kind=0,name='Recording controller'))['results'][0]['selected']
         source=ok('forge_capture_sequence_open',controller=entity)
         assert source['ready']

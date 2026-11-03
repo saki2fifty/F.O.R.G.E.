@@ -34,8 +34,10 @@ struct CaptureAutomation {
             value["view"] = "reflection";
             value["reflection"] = owner.work_->state();
         }
-        if (!owner.completed_image_.empty())
+        if (!owner.completed_image_.empty()) {
             value["file"] = path_utf8(owner.completed_image_);
+            value["file_mime"] = view_image_mime(view_image_format(owner.completed_image_));
+        }
         const auto* frames =
             owner.frames_ ? static_cast<const ui::ViewImageTask::FrameReceipt*>(&*owner.frames_)
             : owner.completed_frames_ ? &*owner.completed_frames_
@@ -97,7 +99,7 @@ struct CaptureAutomation {
         result.push_back(automation_method(
             "capture.status",
             "Read the actual view-image task and "
-            "its PNG/sequence/reflection progress. Rendering and IO remain asynchronous and "
+            "its PNG/WebP/sequence/reflection progress. Rendering and IO remain asynchronous and "
             "owned by the editor.",
             "capture.read", automation_object(), false,
             [&owner, &files](const Json&) { return state(owner, files); }));
@@ -227,7 +229,8 @@ struct CaptureAutomation {
         result.push_back(automation_method(
             "capture.start",
             "Capture the next rendered Scene or "
-            "Game view through the existing image task. Output must be PNG inside the approved "
+            "Game view through the existing image task. Use .png or lossless .webp inside the "
+            "approved "
             "folder. Existing files require replace:true. Poll status/image; this does not freeze "
             "the game or claim that a starting game already rendered a frame.",
             "capture.write",
@@ -239,15 +242,14 @@ struct CaptureAutomation {
             [&owner, &scene, &files, providers, root, &message](const Json& request) {
                 ready(files, providers, false);
                 const auto file = destination(root, request);
-                auto extension = path_utf8(file.extension());
-                std::transform(
-                    extension.begin(), extension.end(), extension.begin(),
-                    [](unsigned char c) { return char(c >= 'A' && c <= 'Z' ? c - 'A' + 'a' : c); });
-                if (extension != ".png")
-                    throw AuthoringError("invalid_path", "Use a .png output filename");
+                try {
+                    (void)view_image_format(file);
+                } catch (const std::exception& e) {
+                    throw AuthoringError("invalid_path", e.what());
+                }
                 if (std::filesystem::exists(file) && !request.value("replace", false))
                     throw AuthoringError("output_exists",
-                                         "Explicitly request replacement of this PNG");
+                                         "Explicitly request replacement of this image");
                 const auto view = request.at("view") == "scene" ? ui::ViewImageTask::View::Scene
                                                                 : ui::ViewImageTask::View::Game;
                 if (!owner.selected_path(view, file, files.document.project(), scene.asset_id(),
@@ -261,7 +263,8 @@ struct CaptureAutomation {
         result.push_back(automation_method(
             "capture.preview",
             "Prepare a preview of this task's "
-            "completed PNG, or an existing completed sequence frame. This reads only the owned "
+            "completed PNG/WebP, or an existing completed sequence frame. This reads only the "
+            "owned "
             "artifact; poll status then capture.image using the returned new operation.",
             "capture.write",
             automation_object(
@@ -284,7 +287,7 @@ struct CaptureAutomation {
                                             owner.completed_frames_->plan.filename(*frame)
                                       : owner.completed_image_;
                 if (path.empty())
-                    throw AuthoringError("not_ready", "Choose an existing owned PNG/frame");
+                    throw AuthoringError("not_ready", "Choose an existing owned image/frame");
                 (void)output.relative(path);
                 if (!owner.begin_preview(request.at("artifact_operation"), frame, message))
                     throw AuthoringError("capture_busy", "Wait for the active image task");

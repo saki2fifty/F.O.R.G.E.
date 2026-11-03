@@ -870,12 +870,12 @@ A separately selected **Allow an output folder** grant permits output only insid
 that canonical root. `forge_output_folder_create` creates a new child with an
 existing parent. Root redirects and path aliases are rejected.
 
-`forge_capture_start` requests the next rendered Scene/Game PNG. Existing files
-require `replace:true`. `capture_status` reports the native image task. Its ready
+`forge_capture_start` requests the next rendered Scene/Game image: **.png** or lossless **.webp** inside the granted output root. Existing files
+require `replace:true`. `capture_status` reports the native image task and completed `file_mime` (`image/png` or `image/webp`). Its ready
 `capture_image` returns a bounded PNG **image content block** plus metadata; base64
 is not repeated in text or structured JSON. The preview fits1024 pixels, while the
-full PNG retains rendered dimensions. Only the task's exact current ready operation
-is readable. `capture_preview` prepares a completed owned PNG or sequence frame;
+full PNG/WebP file retains rendered dimensions and exact captured RGBA, including transparent RGB. Only the task's exact current ready operation
+is readable. `capture_preview` prepares a completed owned PNG/WebP or PNG sequence frame;
 there is no arbitrary filesystem image-read tool.
 
 Timeline frame export uses `capture_sequence_open/read/start`, the actual sequence
@@ -1003,9 +1003,9 @@ It is registered when `FORGE_TEST_MCP_RUNTIME_KIT` selects an authentic prepared
 Windows runtime kit. Export admission and output hashes are checked on Linux;
 that does not execute its graphical Windows game or a combined C++ Windows export.
 
-`mcp_image_stdio` exercises the real image-task IO, PNG encoding, bounded previews,
+`mcp_image_stdio` exercises the real image-task IO, PNG/lossless WebP encoding, exact PNG previews,
 MCP image blocks and sequence receipts with detached recorded pixels and a
-recording frame source. It checks owner/path/operation guards, cancellation and
+recording frame source. It checks format/MIME consistency, replacement, owner/path/operation guards, cancellation and
 frame restoration without creating a GPU device. Actual renderer/readback,
 Timeline playback and Windows MCP client acceptance require the native gate.
 These fixtures do not claim physical display, audio or GPU acceptance.

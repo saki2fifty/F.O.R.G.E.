@@ -92,7 +92,7 @@ content may differ; use **Window** to open a panel mentioned in a guide.
 
 ## Workspace and troubleshooting
 
-- [Viewport](editor/viewport.md)
+- [Viewport and PNG/WebP image export](editor/viewport.md)
 - [Panels and windows](editor/panels-windows.md)
 - [Settings and appearance](editor/settings.md)
 - [Keyboard shortcuts](editor/shortcuts.md)

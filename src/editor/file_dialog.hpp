@@ -22,6 +22,7 @@ class FileDialog {
         Kind kind;
         std::string path, error;
         std::vector<std::string> paths;
+        int filter_index = -1;
     };
 #ifdef FORGE_UI_FIXTURE
     // Native picker boundary only. The fixture still clicks the actual command;
@@ -49,7 +50,8 @@ class FileDialog {
 #endif
         auto* owned = new std::shared_ptr<State>(state_);
         static const SDL_DialogFileFilter filter{"FORGE scene", "json"};
-        static const SDL_DialogFileFilter image_filter{"PNG image", "png"};
+        static const SDL_DialogFileFilter image_filters[]{{"PNG image", "png"},
+                                                          {"Lossless WebP image", "webp"}};
         if (kind == Kind::ImportFiles)
             SDL_ShowOpenFileDialog(callback, owned, window, nullptr, 0, state_->location.c_str(),
                                    true);
@@ -59,7 +61,7 @@ class FileDialog {
         else if (kind == Kind::SaveScene)
             SDL_ShowSaveFileDialog(callback, owned, window, &filter, 1, state_->location.c_str());
         else if (kind == Kind::SaveImage)
-            SDL_ShowSaveFileDialog(callback, owned, window, &image_filter, 1,
+            SDL_ShowSaveFileDialog(callback, owned, window, image_filters, 2,
                                    state_->location.c_str());
         else
             SDL_ShowOpenFolderDialog(callback, owned, window, state_->location.c_str(), false);
@@ -80,11 +82,12 @@ class FileDialog {
         std::string location;
         std::optional<Result> result;
     };
-    static void SDLCALL callback(void* userdata, const char* const* files, int) {
+    static void SDLCALL callback(void* userdata, const char* const* files, int filter_index) {
         std::unique_ptr<std::shared_ptr<State>> owned(
             static_cast<std::shared_ptr<State>*>(userdata));
         auto& state = **owned;
         Result result{state.kind, {}, {}};
+        result.filter_index = filter_index;
         if (!files)
             result.error = SDL_GetError();
         else if (*files) {

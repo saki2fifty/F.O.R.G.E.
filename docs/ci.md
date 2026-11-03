@@ -2047,3 +2047,22 @@ checks real tail intervals against the same Scene with reverb disabled and compa
 It also checks bounded voice turnover and unchanged saved content. These are
 CPU/offline/widget tests, not full Main/Windows/MSVC/D3D12 or physical audio/input/DPI
 acceptance, and they do not establish device deadline performance.
+
+## Lossless WebP view-image output
+
+`image_webp_encode` checks native exact RGBA (including RGB under zero alpha), odd
+sizes and padded rows, bounded output callback failure, invalid extents/strides,
+case-insensitive filenames, actual saved files, preserved previous output and
+WebP-to-PNG protocol previews. `image_png_encode` retains the existing PNG writer
+and atomic-storage checks; final fixture bytes remain attributable across the
+shared callback-buffer extraction. `mcp_image_stdio` exercises both encodings
+through the existing owner/granted root, both MCP framings, full-file MIME and
+unchanged PNG image content. Its detached pixels are not rendered Game evidence.
+
+`view_image_editor_vulkan` runs the same actual image-task editor fixture as the
+Windows viewport gate at100/150/200% and wide/compact layouts, using native Vulkan
+texture readback. It includes the file-picker adapter's WebP hint, appended-suffix
+overwrite confirmation/Cancel and mismatched type/filename rejection. The native
+picker itself remains platform acceptance. The normal `view_image_vulkan` keeps
+its independent renderer/readback checks. These functional software-backend tests
+do not establish physical GPU, full Main/Windows or graphical EXE acceptance.

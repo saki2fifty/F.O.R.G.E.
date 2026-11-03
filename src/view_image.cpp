@@ -6,10 +6,41 @@
 #include "view_image_limits.h"
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 #include <stdexcept>
 namespace forge {
-void save_view_png(const std::filesystem::path& path, unsigned width, unsigned height,
-                   std::span<const std::uint8_t> rgba) {
+ViewImageFormat view_image_format(const std::filesystem::path& path) {
+    auto extension = path.extension().u8string();
+    for (auto& c : extension)
+        if (c >= u8'A' && c <= u8'Z')
+            c = char8_t(c + (u8'a' - u8'A'));
+    if (extension == u8".png")
+        return ViewImageFormat::Png;
+    if (extension == u8".webp")
+        return ViewImageFormat::Webp;
+    throw std::runtime_error("Choose a PNG (.png) or lossless WebP (.webp) image filename");
+}
+const char* view_image_suffix(ViewImageFormat format) {
+    switch (format) {
+    case ViewImageFormat::Png:
+        return ".png";
+    case ViewImageFormat::Webp:
+        return ".webp";
+    }
+    throw std::runtime_error("Unsupported view image format");
+}
+const char* view_image_mime(ViewImageFormat format) {
+    switch (format) {
+    case ViewImageFormat::Png:
+        return "image/png";
+    case ViewImageFormat::Webp:
+        return "image/webp";
+    }
+    throw std::runtime_error("Unsupported view image format");
+}
+namespace {
+void save_image(const std::filesystem::path& path, unsigned width, unsigned height,
+                std::span<const std::uint8_t> rgba, ViewImageFormat format) {
     struct Encoded : ForgeImageBytes {
         Encoded() : ForgeImageBytes{} {}
         ~Encoded() { forge_image_bytes_free(this); }
@@ -17,11 +48,22 @@ void save_view_png(const std::filesystem::path& path, unsigned width, unsigned h
     if (!width || !height || width > FORGE_VIEW_IMAGE_MAX_EXTENT ||
         height > FORGE_VIEW_IMAGE_MAX_EXTENT || rgba.size() != std::size_t(width) * height * 4)
         throw std::runtime_error("View image requires complete RGBA8 display pixels");
-    if (!forge_png_encode_rgba8(rgba.data(), rgba.size(), width, height, std::size_t(width) * 4,
-                                FORGE_VIEW_IMAGE_ENCODED_LIMIT, &encoded))
+    const auto encode =
+        format == ViewImageFormat::Png ? forge_png_encode_rgba8 : forge_webp_encode_rgba8;
+    if (!encode(rgba.data(), rgba.size(), width, height, std::size_t(width) * 4,
+                FORGE_VIEW_IMAGE_ENCODED_LIMIT, &encoded))
         throw std::runtime_error(encoded.error);
     asset_storage::replace(
         path, std::string_view(reinterpret_cast<const char*>(encoded.bytes), encoded.size));
+}
+} // namespace
+void save_view_image(const std::filesystem::path& path, unsigned width, unsigned height,
+                     std::span<const std::uint8_t> rgba) {
+    save_image(path, width, height, rgba, view_image_format(path));
+}
+void save_view_png(const std::filesystem::path& path, unsigned width, unsigned height,
+                   std::span<const std::uint8_t> rgba) {
+    save_image(path, width, height, rgba, ViewImageFormat::Png);
 }
 ViewImagePreview preview_view_pixels(unsigned width, unsigned height,
                                      std::span<const std::uint8_t> rgba) {
@@ -80,12 +122,20 @@ ViewImagePreview read_view_preview(const std::filesystem::path& path) {
         Decoded() : ForgeImagePixels{} {}
         ~Decoded() { forge_image_pixels_free(this); }
     } image;
-    if (!forge_png_decode(bytes.data(), bytes.size(), FORGE_VIEW_IMAGE_MAX_EXTENT,
-                          FORGE_VIEW_IMAGE_PIXEL_LIMIT, 0, &image))
+    const bool webp = bytes.size() >= 12 && std::memcmp(bytes.data(), "RIFF", 4) == 0 &&
+                      std::memcmp(bytes.data() + 8, "WEBP", 4) == 0;
+    // The common decoder's budget covers input and output. At this extent its
+    // RGBA8 output is already bounded by the stricter pixel budget; permit the
+    // encoded overhead separately without narrowing valid exported images.
+    static_assert(std::uint64_t(FORGE_VIEW_IMAGE_MAX_EXTENT) * FORGE_VIEW_IMAGE_MAX_EXTENT * 4 <=
+                  FORGE_VIEW_IMAGE_PIXEL_LIMIT);
+    const auto decode = webp ? forge_webp_decode : forge_png_decode;
+    if (!decode(bytes.data(), bytes.size(), FORGE_VIEW_IMAGE_MAX_EXTENT,
+                webp ? FORGE_VIEW_IMAGE_ENCODED_LIMIT : FORGE_VIEW_IMAGE_PIXEL_LIMIT, 0, &image))
         throw std::runtime_error(image.error);
     if (image.channels != 4 || image.component_bytes != 1 ||
-        image.stride != std::size_t(image.width) * 4)
-        throw std::runtime_error("The owned view artifact is not RGBA8 PNG");
+        image.stride != std::size_t(image.width) * 4 || image.size > FORGE_VIEW_IMAGE_PIXEL_LIMIT)
+        throw std::runtime_error("The owned view artifact is not RGBA8 PNG or WebP");
     return preview_view_pixels(image.width, image.height, {image.pixels, image.size});
 }
 } // namespace forge

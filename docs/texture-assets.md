@@ -229,8 +229,20 @@ source; pixel preparation does not apply EXIF orientation or edit metadata.
 
 The codec is private to asset tools, single-threaded, with official runtime SIMD
 dispatch. Its native demux CMake target links the full upstream codec library;
-only the importer uses it, and tests use its encoder to generate owned fixtures.
-This does not expose a WebP export or runtime decoder API. Source/output budgets
+the importer and view-image tools use it, and tests use its encoder to generate owned fixtures.
+Single Scene/Game view images can be saved as lossless WebP through the existing
+image task. The native encoder uses the advanced lossless preset with exact RGB
+under zero alpha, single-threaded encoding and a bounded output callback shared
+with PNG. It accepts complete top-to-bottom RGBA8 display pixels, dimensions up to
+4096 per axis,64MiB input and68MiB output. Row padding is validated; WebP's native
+stride must fit an int. Invalid input or encoding failure produces no replacement.
+`asset_storage::replace` publishes only a complete image under the existing file
+and overwrite rules. Heavy codec work remains in the task's IO job. Once committing,
+that job finishes before task retirement; there is no native encoder preemption.
+Protocol previews are still PNG, bounded by the existing1024-pixel/8MiB limits.
+The owned still-WebP decoder prepares them without an asset import or publication.
+This view-output path does not add runtime image decoding or GPU texture formats.
+Source/output budgets
 and cooperative boundaries complement the isolated import worker's CPU/memory
 limits; codec-internal peak allocations are not bounded by the output buffer alone.
 

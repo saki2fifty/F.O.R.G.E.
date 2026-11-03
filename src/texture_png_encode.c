@@ -1,16 +1,13 @@
 #include "texture_encode.h"
+#include "texture_encode_buffer.h"
 #include "view_image_limits.h"
 #include <png.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-typedef struct ForgePngWriter {
-    ForgeImageBytes* result;
-    size_t capacity, limit;
-} ForgePngWriter;
 static void forge_png_write_error(png_structp png, png_const_charp message) {
-    ForgePngWriter* writer = (ForgePngWriter*)png_get_error_ptr(png);
-    if (writer && writer->result) {
+    ForgeImageWriter* writer = (ForgeImageWriter*)png_get_error_ptr(png);
+    if (writer && writer->result && message != writer->result->error) {
         size_t length = strlen(message);
         if (length >= sizeof(writer->result->error))
             length = sizeof(writer->result->error) - 1;
@@ -24,25 +21,9 @@ static void forge_png_write_warning(png_structp png, png_const_charp message) {
     (void)message;
 }
 static void forge_png_write(png_structp png, png_bytep bytes, png_size_t length) {
-    ForgePngWriter* writer = (ForgePngWriter*)png_get_io_ptr(png);
-    ForgeImageBytes* result = writer->result;
-    if (length > writer->limit - result->size)
-        png_error(png, "PNG output exceeds byte budget");
-    const size_t required = result->size + length;
-    if (required > writer->capacity) {
-        size_t capacity = writer->capacity ? writer->capacity : 4096;
-        if (capacity > writer->limit)
-            capacity = writer->limit;
-        while (capacity < required)
-            capacity = capacity > writer->limit / 2 ? writer->limit : capacity * 2;
-        void* grown = realloc(result->bytes, capacity);
-        if (!grown)
-            png_error(png, "PNG output allocation failed");
-        result->bytes = (unsigned char*)grown;
-        writer->capacity = capacity;
-    }
-    memcpy(result->bytes + result->size, bytes, length);
-    result->size = required;
+    ForgeImageWriter* writer = (ForgeImageWriter*)png_get_io_ptr(png);
+    if (!forge_image_writer_append(writer, bytes, length))
+        png_error(png, writer->result->error);
 }
 void forge_image_bytes_free(ForgeImageBytes* result) {
     if (result) {
@@ -66,13 +47,14 @@ int forge_png_encode_rgba8(const void* pixels, size_t extent, unsigned width, un
         strcpy(result->error, "Invalid RGBA8 image extent or PNG byte budget");
         return 0;
     }
-    ForgePngWriter* writer = (ForgePngWriter*)calloc(1, sizeof(*writer));
+    ForgeImageWriter* writer = (ForgeImageWriter*)calloc(1, sizeof(*writer));
     if (!writer) {
         strcpy(result->error, "PNG writer allocation failed");
         return 0;
     }
     writer->result = result;
     writer->limit = byte_limit;
+    writer->codec = "PNG";
     png_structp png = png_create_write_struct(PNG_LIBPNG_VER_STRING, writer, forge_png_write_error,
                                               forge_png_write_warning);
     if (!png) {

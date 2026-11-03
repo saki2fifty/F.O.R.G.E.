@@ -133,7 +133,9 @@ the first usable render of that view. Project/Scene changes before capture cance
 it; already captured pixels can finish independently. Hidden/unavailable views,
 missing Game cameras, unsupported targets and IO failures report through existing
 timestamped status/Problems owners. One request is admitted at a time. A filename
-without a suffix gains `.png`; an existing appended filename requires explicit
+without a suffix gains the selected image filter's `.png` or `.webp` suffix,
+with PNG as the fallback when the picker reports no filter. An explicit suffix
+must match a reported filter. An existing appended filename requires explicit
 confirmation because the native chooser may have confirmed a different name.
 
 DiligentPresentation owns one source/staging/context lease through its existing
@@ -145,9 +147,15 @@ replace the captured revision. The existing Scene GPU grid and Game runtime UI
 are included; ImGui handles, debug overlays and editor chrome are separate.
 
 One editor async task encodes detached pixels and publishes a binary file through
-existing atomic file storage. The selected libpng C boundary contains longjmp,
-caps output at 68 MiB, writes sRGB intent and preserves display-encoded RGBA bytes.
-Compression and disk writes do not run in the frame loop. Failure preserves the
+existing atomic file storage. PNG uses the selected libpng C boundary containing
+longjmp and sRGB intent. Lossless WebP uses the pinned native advanced encoder
+with exact transparent RGB and single-threaded encoding. Both share one bounded
+callback buffer, cap encoded output at68MiB and preserve display RGBA8 bytes.
+Native codec working allocations are additional to detached pixel/output buffers.
+Compression and disk writes do not run in the frame loop. Once committing, the
+IO job finishes before retirement; cancellation does not preempt a native encoder.
+Completed metadata reports the actual file MIME; bounded agent previews remain
+PNG regardless of the full-file format. Failure preserves the
 previous file before publication; no asset registration, Scene history, persisted component, SDK API,
 runtime editor or separate capture clock is introduced. These view commands save
 one current-size image. Timeline has a separate sequence-frame operation below.

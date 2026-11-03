@@ -290,7 +290,8 @@ class ViewImageTask {
     // Completed picker selection. This adapter also accepts explicit editor requests;
     // an existing filename is already confirmed by the calling file picker.
     bool selected_path(View view, const std::filesystem::path& path,
-                       const std::filesystem::path& project, AssetId scene, std::string& message) {
+                       const std::filesystem::path& project, AssetId scene, std::string& message,
+                       std::optional<ViewImageFormat> picker_format = {}) {
         if (busy())
             return false;
         try {
@@ -301,19 +302,18 @@ class ViewImageTask {
             destination_ = std::filesystem::absolute(path).lexically_normal();
             const bool append = destination_.extension().empty();
             if (append)
-                destination_ += ".png";
-            auto extension = path_utf8(destination_.extension());
-            for (auto& c : extension)
-                if (c >= 'A' && c <= 'Z')
-                    c = static_cast<char>(c + ('a' - 'A'));
-            if (extension != ".png")
-                throw std::runtime_error("Choose a PNG filename ending in .png");
+                destination_ += view_image_suffix(picker_format.value_or(ViewImageFormat::Png));
+            const auto format = view_image_format(destination_);
+            if (picker_format && *picker_format != format)
+                throw std::runtime_error(std::string("Use a filename ending in ") +
+                                         view_image_suffix(*picker_format) +
+                                         " for the selected image filter");
             if (std::filesystem::is_directory(destination_))
                 throw std::runtime_error("Choose an image file, not a folder");
             // An appended suffix can name a file the native picker did not confirm.
             confirm_ = append && std::filesystem::exists(destination_);
             pending_ = true;
-            publish_status(confirm_ ? "Confirm replacing the PNG image"
+            publish_status(confirm_ ? "Confirm replacing the image"
                                     : "Waiting for the rendered view image",
                            message);
             return true;
@@ -324,7 +324,7 @@ class ViewImageTask {
         }
     }
     // IO-only completion is separate from GPU readback retirement so native
-    // tooling can read owned PNG artifacts without a graphics device.
+    // tooling can read owned image artifacts without a graphics device.
     bool poll_files(std::string& message) {
         try {
             if (job_.valid() &&
@@ -415,9 +415,16 @@ class ViewImageTask {
                         publish_status("Image save cancelled", message);
                     else if (project != project_ || scene != scene_)
                         publish_status("Image save cancelled because the Scene changed", message);
-                    else
+                    else {
+                        if (result->filter_index < -1 || result->filter_index > 1)
+                            throw std::runtime_error("The image dialog returned an unknown filter");
+                        std::optional<ViewImageFormat> format;
+                        if (result->filter_index >= 0)
+                            format = result->filter_index == 1 ? ViewImageFormat::Webp
+                                                               : ViewImageFormat::Png;
                         selected_path(view_, std::filesystem::u8path(result->path), project, scene,
-                                      message);
+                                      message, format);
+                    }
                 }
             }
             if (!frames_ && pending_ && (project != project_ || scene != scene_)) {
@@ -694,9 +701,8 @@ class ViewImageTask {
             ImGui::EndPopup();
         }
         if (confirm_)
-            ImGui::OpenPopup("Replace PNG image?");
-        if (ImGui::BeginPopupModal("Replace PNG image?", nullptr,
-                                   ImGuiWindowFlags_AlwaysAutoResize)) {
+            ImGui::OpenPopup("Replace image?");
+        if (ImGui::BeginPopupModal("Replace image?", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
             if (!confirm_) {
                 ImGui::CloseCurrentPopup();
                 ImGui::EndPopup();
@@ -704,7 +710,7 @@ class ViewImageTask {
             }
             ImGui::TextUnformatted("Replace this existing image?");
             ImGui::TextWrapped("%s", path_utf8(destination_).c_str());
-            if (button("Replace", "Replace the existing PNG after the new image is ready.")) {
+            if (button("Replace", "Replace the existing image after the new image is ready.")) {
                 confirm_ = false;
                 ImGui::CloseCurrentPopup();
             }
@@ -764,7 +770,7 @@ class ViewImageTask {
         file_work_ = FileWork::Image;
         job_ = std::async(std::launch::async, [pixels = std::move(pixels), destination,
                                                preview_requested] {
-            save_view_png(destination, pixels.width, pixels.height, pixels.rgba);
+            save_view_image(destination, pixels.width, pixels.height, pixels.rgba);
             FileResult result{path_utf8(destination), {}};
             if (preview_requested) {
                 try {
@@ -777,7 +783,9 @@ class ViewImageTask {
         });
         publish_status(frames_ ? "Saving sequence frame " + std::to_string(frames_->completed + 1) +
                                      " / " + std::to_string(frames_->plan.frame_count)
-                               : "Saving PNG image…",
+                       : view_image_format(destination_) == ViewImageFormat::Webp
+                           ? "Saving lossless WebP image…"
+                           : "Saving PNG image…",
                        message);
     }
     void stop_frames(std::string reason) {

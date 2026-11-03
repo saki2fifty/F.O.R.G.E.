@@ -114,3 +114,9 @@ Full Main/Windows/physical acceptance remains pending; no numbered delivery is i
 - The Gamepads popup offers all sixteen slots and scrolls within the viewport. Automation/MCP discovery and assignment share the same owner and revision/permission guards.
 - Gallery149 adds sixteen markers and twelve actions while preserving the earlier Gallery records, actions and four-player scene. The shared optional C++ example and installed SDK sample support both scenes.
 - Updated controller instructions and authentic assignment/motion screenshots. Windows, physical devices, full-editor and graphical-export acceptance remain pending.
+
+### Lossless WebP view-image output
+
+- Scene/Game image export accepts PNG and lossless WebP. Native encoding preserves transparent RGB and uses the existing bounded IO/atomic replacement owner; PNG remains the default.
+- File type/suffix checks and overwrite confirmation share the editor capture task. MCP admits the same formats and reports full-file MIME, while image content and sequence frames remain PNG.
+- Updated image-export instructions and native codec/ownership contracts. Platform picker, physical GPU and full Windows acceptance remain pending.

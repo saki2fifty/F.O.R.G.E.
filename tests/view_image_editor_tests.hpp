@@ -108,7 +108,9 @@ inline void exercise(DiligentPresentation& presentation, Diligent::IDeviceContex
     auto exact_image = [&](const std::filesystem::path& path) {
         const auto bytes = read(path);
         ForgeImagePixels decoded{};
-        const bool ok = forge_png_decode(bytes.data(), bytes.size(), 4096, 1024, false, &decoded);
+        const auto decode =
+            view_image_format(path) == ViewImageFormat::Webp ? forge_webp_decode : forge_png_decode;
+        const bool ok = decode(bytes.data(), bytes.size(), 4096, 1024, false, &decoded);
         const bool equal = ok && decoded.width == 2 && decoded.height == 2 &&
                            decoded.size == expected.size() &&
                            std::memcmp(decoded.pixels, expected.data(), expected.size()) == 0;
@@ -180,6 +182,30 @@ inline void exercise(DiligentPresentation& presentation, Diligent::IDeviceContex
     task.capture(View::Game, presentation, graphics, view, message);
     finish();
     exact_image(output);
+    const auto webp = project / "filtered.webp";
+    FileDialog::fixture_selection =
+        FileDialog::Result{FileDialog::Kind::SaveImage, path_utf8(project / "filtered"), {}, {}, 1};
+    task.choose(View::Scene, nullptr, project, scene);
+    task.poll(presentation, graphics, project, scene, message);
+    check(task.busy(), "Native WebP filter did not admit a suffix-free destination");
+    task.capture(View::Scene, presentation, graphics, view, message);
+    finish();
+    exact_image(webp);
+    const auto previous_webp = read(webp);
+    FileDialog::fixture_selection =
+        FileDialog::Result{FileDialog::Kind::SaveImage, path_utf8(project / "filtered"), {}, {}, 1};
+    task.choose(View::Scene, nullptr, project, scene);
+    task.poll(presentation, graphics, project, scene, message);
+    task.capture(View::Scene, presentation, graphics, view, message);
+    check(!presentation.readback_pending(), "Appended WebP suffix bypassed overwrite confirmation");
+    click("button:Cancel");
+    check(!task.busy() && read(webp) == previous_webp, "Cancelled overwrite changed the WebP");
+    FileDialog::fixture_selection =
+        FileDialog::Result{FileDialog::Kind::SaveImage, path_utf8(output), {}, {}, 1};
+    task.choose(View::Scene, nullptr, project, scene);
+    task.poll(presentation, graphics, project, scene, message);
+    check(!task.busy() && read(output) == previous && message.find(".webp") != std::string::npos,
+          "Conflicting native filename/filter wrote a misleading format");
     check(
         task.selected_path(View::Scene, project / "absent" / "failed.png", project, scene, message),
         "Image task did not stage IO failure case");

@@ -89,19 +89,23 @@ Flight speed applies to RMB+WASD, Space and Shift. Tool choice, grid visibility/
 ## Save an image
 
 In the Scene toolbar, open **View → Save image…**. In Game, click **Save image…**
-above the image. Choose a PNG filename and wait for **Image saved** in the status
-bar or Console. Keep the requested view open; Game needs an active camera.
+above the image. Choose **PNG image** with a **.png** filename, or **Lossless WebP image**
+with a **.webp** filename. PNG is the default. Change the filename suffix when
+changing the file type; a conflicting suffix produces an error. Wait for
+**Image saved** in the status bar or Console. Keep the requested view open;
+Game needs an active camera.
 
-The PNG uses the view's current render size. Scene includes the visible grid;
+Both formats store the captured RGBA pixels losslessly, including transparency.
+The image uses the view's current render size. Scene includes the visible grid;
 Game includes runtime UI drawn into its image. Selection handles, debug overlays
 and editor panels are excluded. Colors and transparency are preserved.
 
 One image saves at a time. Changing Scene before capture cancels the request.
 Once the image is captured, saving can finish in the background while you continue
-working. The existing image is replaced only after a complete PNG has been written.
+working. The existing image is replaced only after a complete image has been encoded and written.
 Saving an image does not mark
 the Scene as changed or add an Undo step. This command saves a single image.
-For numbered sequence preview frames, use
+For numbered PNG sequence preview frames, use
 [Timeline → Export frames](animation-sequences.md).
 
 ## Save a camera bookmark
