@@ -33,6 +33,7 @@ class UiRuntime final : public UiService {
         std::string identity;
         std::string localization_scope;
         std::string application_state_scope;
+        AssetId render_texture{};
     };
     std::map<EntityId, Instance> instances_;
     std::uint64_t next_instance_ = 0;

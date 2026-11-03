@@ -2,12 +2,14 @@
 #include "Graphics/GraphicsEngine/interface/DeviceContext.h"
 #include "Graphics/GraphicsEngine/interface/RenderDevice.h"
 #include "Graphics/GraphicsTools/interface/MapHelper.hpp"
+#include "Utilities/interface/DiligentFXShaderSourceStreamFactory.hpp"
 #include <RmlUi/Core.h>
 #include <algorithm>
 #include <array>
 #include <cstring>
 #include <forge/ui_assets.hpp>
 #include <forge/ui_diligent.hpp>
+#include <forge/ui_presenter.hpp>
 #include <map>
 #include <stdexcept>
 using namespace Diligent;
@@ -32,7 +34,53 @@ struct UiDiligentRenderer::Impl final : Rml::RenderInterface {
     RefCntAutoPtr<IDeviceContext> context;
     RefCntAutoPtr<ITexture> stencil;
     RefCntAutoPtr<IBuffer> constants;
-    std::array<RefCntAutoPtr<IPipelineState>, 4> pipelines;
+    std::array<std::array<RefCntAutoPtr<IPipelineState>, 4>, 2> pipelines;
+    unsigned output_format = 0;
+    std::uint64_t stencil_allocations = 0;
+    struct ClippingImage {
+        unsigned width, height;
+        std::uint64_t used;
+        RefCntAutoPtr<ITexture> image;
+        std::uint64_t bytes() const { return std::uint64_t(width) * height * 4; }
+    };
+    std::vector<ClippingImage> clipping_images;
+    std::uint64_t clipping_bytes = 0, clipping_use = 0;
+    void clipping(unsigned w, unsigned h) {
+        for (auto& entry : clipping_images)
+            if (entry.width == w && entry.height == h) {
+                entry.used = ++clipping_use;
+                stencil = entry.image;
+                return;
+            }
+        // Scratch clipping images belong to this renderer. Bound size churn by
+        // count and logical D24S8 bytes; camera image ownership stays elsewhere.
+        constexpr std::uint64_t budget = 256ull * 1024 * 1024;
+        const auto bytes = std::uint64_t(w) * h * 4;
+        stencil.Release();
+        while (!clipping_images.empty() &&
+               (clipping_images.size() >= 5 || clipping_bytes + bytes > budget)) {
+            const auto oldest =
+                std::min_element(clipping_images.begin(), clipping_images.end(),
+                                 [](const auto& a, const auto& b) { return a.used < b.used; });
+            clipping_bytes -= oldest->bytes();
+            clipping_images.erase(oldest);
+        }
+        TextureDesc desc;
+        desc.Name = "FORGE UI clipping";
+        desc.Type = RESOURCE_DIM_TEX_2D;
+        desc.Width = w;
+        desc.Height = h;
+        desc.Format = TEX_FORMAT_D24_UNORM_S8_UINT;
+        desc.BindFlags = BIND_DEPTH_STENCIL;
+        RefCntAutoPtr<ITexture> image;
+        device->CreateTexture(desc, nullptr, &image);
+        ++stencil_allocations;
+        if (!image)
+            throw std::runtime_error("UI stencil allocation failed");
+        clipping_images.push_back({w, h, ++clipping_use, image});
+        clipping_bytes += bytes;
+        stencil = std::move(image);
+    }
     std::map<Rml::CompiledGeometryHandle, Geometry> geometry;
     std::map<Rml::TextureHandle, Texture> textures;
     std::size_t geometry_bytes = 0, texture_bytes = 0;
@@ -46,19 +94,30 @@ struct UiDiligentRenderer::Impl final : Rml::RenderInterface {
         ShaderCreateInfo shader;
         shader.SourceLanguage = SHADER_SOURCE_LANGUAGE_HLSL;
         shader.EntryPoint = "main";
+        shader.pShaderSourceStreamFactory = &DiligentFXShaderSourceStreamFactory::GetInstance();
         shader.Desc.UseCombinedTextureSamplers = True;
         shader.Desc.Name = "FORGE runtime UI VS";
         shader.Desc.ShaderType = SHADER_TYPE_VERTEX;
         shader.Source =
             R"(cbuffer UiData {column_major float4x4 transform;float4 screen;float4 translation;};
-struct Out {float4 p:SV_POSITION;float4 color:COLOR0;float2 uv:TEXCOORD0;};
-Out main(float2 v:ATTRIB0,float4 color:ATTRIB1,float2 uv:ATTRIB2){Out o;float4 p=mul(transform,float4(v+translation.xy,0,1));o.p=float4(2*p.x/screen.x-p.w,p.w-2*p.y/screen.y,0,p.w);o.color=color;o.uv=uv;return o;})";
+struct Out {float4 p:SV_POSITION;float4 color:COLOR0;float2 uv:TEXCOORD0;nointerpolation float linear_target:TEXCOORD1;};
+Out main(float2 v:ATTRIB0,float4 color:ATTRIB1,float2 uv:ATTRIB2){Out o;float4 p=mul(transform,float4(v+translation.xy,0,1));o.p=float4(2*p.x/screen.x-p.w,p.w-2*p.y/screen.y,0,p.w);o.color=color;o.uv=uv;o.linear_target=screen.z;return o;})";
         RefCntAutoPtr<IShader> vs, ps;
         device->CreateShader(shader, &vs);
         shader.Desc.Name = "FORGE runtime UI PS";
         shader.Desc.ShaderType = SHADER_TYPE_PIXEL;
-        shader.Source = R"(Texture2D ui_texture;SamplerState ui_texture_sampler;
-float4 main(float4 p:SV_POSITION,float4 color:COLOR0,float2 uv:TEXCOORD0):SV_TARGET{return color*ui_texture.Sample(ui_texture_sampler,uv);})";
+        // Reuse the pinned graphics stack's transfer function. RmlUi colors and
+        // images arrive premultiplied in display space; decode straight RGB and
+        // premultiply again for blending into a linear camera image.
+        shader.Source = R"(#include "SRGBUtilities.fxh"
+Texture2D ui_texture;SamplerState ui_texture_sampler;
+float4 main(float4 p:SV_POSITION,float4 color:COLOR0,float2 uv:TEXCOORD0,
+            nointerpolation float linear_target:TEXCOORD1):SV_TARGET {
+    float4 value=color*ui_texture.Sample(ui_texture_sampler,uv);
+    if(linear_target>0.5)
+        value.rgb=value.a>0 ? SRGBToLinear(value.rgb/value.a)*value.a : float3(0,0,0);
+    return value;
+})";
         device->CreateShader(shader, &ps);
         if (!vs || !ps)
             throw std::runtime_error("Runtime UI shader compilation failed");
@@ -82,48 +141,53 @@ float4 main(float4 p:SV_POSITION,float4 color:COLOR0,float2 uv:TEXCOORD0):SV_TAR
         sampler.MipFilter = FILTER_TYPE_LINEAR;
         sampler.AddressU = sampler.AddressV = sampler.AddressW = TEXTURE_ADDRESS_WRAP;
         ImmutableSamplerDesc immutable{SHADER_TYPE_PIXEL, "ui_texture", sampler};
-        for (unsigned mode = 0; mode < 4; ++mode) {
-            GraphicsPipelineStateCreateInfo p;
-            p.PSODesc.Name = "FORGE runtime UI";
-            p.PSODesc.PipelineType = PIPELINE_TYPE_GRAPHICS;
-            p.pVS = vs;
-            p.pPS = ps;
-            p.GraphicsPipeline.NumRenderTargets = 1;
-            p.GraphicsPipeline.RTVFormats[0] = TEX_FORMAT_RGBA8_UNORM;
-            p.GraphicsPipeline.DSVFormat = TEX_FORMAT_D24_UNORM_S8_UINT;
-            p.GraphicsPipeline.PrimitiveTopology = PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-            p.GraphicsPipeline.InputLayout.LayoutElements = layout;
-            p.GraphicsPipeline.InputLayout.NumElements = 3;
-            auto& raster = p.GraphicsPipeline.RasterizerDesc;
-            raster.CullMode = CULL_MODE_NONE;
-            raster.ScissorEnable = True;
-            auto& depth = p.GraphicsPipeline.DepthStencilDesc;
-            depth.DepthEnable = False;
-            depth.DepthWriteEnable = False;
-            depth.StencilEnable = mode != 0;
-            depth.StencilReadMask = 255;
-            depth.StencilWriteMask = mode >= 2 ? 255 : 0;
-            depth.FrontFace.StencilFunc =
-                mode == 2 ? COMPARISON_FUNC_ALWAYS : COMPARISON_FUNC_EQUAL;
-            depth.FrontFace.StencilPassOp = mode == 2   ? STENCIL_OP_REPLACE
-                                            : mode == 3 ? STENCIL_OP_INCR_SAT
-                                                        : STENCIL_OP_KEEP;
-            depth.BackFace = depth.FrontFace;
-            auto& blend = p.GraphicsPipeline.BlendDesc.RenderTargets[0];
-            blend.BlendEnable = True;
-            blend.SrcBlend = BLEND_FACTOR_ONE;
-            blend.DestBlend = BLEND_FACTOR_INV_SRC_ALPHA;
-            blend.SrcBlendAlpha = BLEND_FACTOR_ONE;
-            blend.DestBlendAlpha = BLEND_FACTOR_INV_SRC_ALPHA;
-            blend.RenderTargetWriteMask = mode >= 2 ? COLOR_MASK_NONE : COLOR_MASK_ALL;
-            p.PSODesc.ResourceLayout.Variables = &variable;
-            p.PSODesc.ResourceLayout.NumVariables = 1;
-            p.PSODesc.ResourceLayout.ImmutableSamplers = &immutable;
-            p.PSODesc.ResourceLayout.NumImmutableSamplers = 1;
-            device->CreateGraphicsPipelineState(p, &pipelines[mode]);
-            if (!pipelines[mode])
-                throw std::runtime_error("Runtime UI pipeline creation failed");
-            pipelines[mode]->GetStaticVariableByName(SHADER_TYPE_VERTEX, "UiData")->Set(constants);
+        for (unsigned format = 0; format < pipelines.size(); ++format) {
+            for (unsigned mode = 0; mode < 4; ++mode) {
+                GraphicsPipelineStateCreateInfo p;
+                p.PSODesc.Name = "FORGE runtime UI";
+                p.PSODesc.PipelineType = PIPELINE_TYPE_GRAPHICS;
+                p.pVS = vs;
+                p.pPS = ps;
+                p.GraphicsPipeline.NumRenderTargets = 1;
+                p.GraphicsPipeline.RTVFormats[0] =
+                    format ? TEX_FORMAT_RGBA16_FLOAT : TEX_FORMAT_RGBA8_UNORM;
+                p.GraphicsPipeline.DSVFormat = TEX_FORMAT_D24_UNORM_S8_UINT;
+                p.GraphicsPipeline.PrimitiveTopology = PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+                p.GraphicsPipeline.InputLayout.LayoutElements = layout;
+                p.GraphicsPipeline.InputLayout.NumElements = 3;
+                auto& raster = p.GraphicsPipeline.RasterizerDesc;
+                raster.CullMode = CULL_MODE_NONE;
+                raster.ScissorEnable = True;
+                auto& depth = p.GraphicsPipeline.DepthStencilDesc;
+                depth.DepthEnable = False;
+                depth.DepthWriteEnable = False;
+                depth.StencilEnable = mode != 0;
+                depth.StencilReadMask = 255;
+                depth.StencilWriteMask = mode >= 2 ? 255 : 0;
+                depth.FrontFace.StencilFunc =
+                    mode == 2 ? COMPARISON_FUNC_ALWAYS : COMPARISON_FUNC_EQUAL;
+                depth.FrontFace.StencilPassOp = mode == 2   ? STENCIL_OP_REPLACE
+                                                : mode == 3 ? STENCIL_OP_INCR_SAT
+                                                            : STENCIL_OP_KEEP;
+                depth.BackFace = depth.FrontFace;
+                auto& blend = p.GraphicsPipeline.BlendDesc.RenderTargets[0];
+                blend.BlendEnable = True;
+                blend.SrcBlend = BLEND_FACTOR_ONE;
+                blend.DestBlend = BLEND_FACTOR_INV_SRC_ALPHA;
+                blend.SrcBlendAlpha = BLEND_FACTOR_ONE;
+                blend.DestBlendAlpha = BLEND_FACTOR_INV_SRC_ALPHA;
+                blend.RenderTargetWriteMask = mode >= 2 ? COLOR_MASK_NONE : COLOR_MASK_ALL;
+                p.PSODesc.ResourceLayout.Variables = &variable;
+                p.PSODesc.ResourceLayout.NumVariables = 1;
+                p.PSODesc.ResourceLayout.ImmutableSamplers = &immutable;
+                p.PSODesc.ResourceLayout.NumImmutableSamplers = 1;
+                device->CreateGraphicsPipelineState(p, &pipelines[format][mode]);
+                if (!pipelines[format][mode])
+                    throw std::runtime_error("Runtime UI pipeline creation failed");
+                pipelines[format][mode]
+                    ->GetStaticVariableByName(SHADER_TYPE_VERTEX, "UiData")
+                    ->Set(constants);
+            }
         }
         SetTransform(nullptr);
         Rml::byte pixel[] = {255, 255, 255, 255};
@@ -195,7 +259,7 @@ float4 main(float4 p:SV_POSITION,float4 color:COLOR0,float2 uv:TEXCOORD0):SV_TAR
         device->CreateTexture(desc, &initial, &t.texture);
         if (!t.texture)
             return 0;
-        pipelines[0]->CreateShaderResourceBinding(&t.bindings, true);
+        pipelines[0][0]->CreateShaderResourceBinding(&t.bindings, true);
         t.bindings->GetVariableByName(SHADER_TYPE_PIXEL, "ui_texture")
             ->Set(t.texture->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE));
         const auto id = next++;
@@ -246,13 +310,14 @@ float4 main(float4 p:SV_POSITION,float4 color:COLOR0,float2 uv:TEXCOORD0):SV_TAR
         auto t = textures.find(tex ? tex : white);
         if (g == geometry.end() || t == textures.end())
             return;
-        context->SetPipelineState(pipelines[mode]);
+        context->SetPipelineState(pipelines[output_format][mode]);
         {
             MapHelper<Constants> cb(context, constants, MAP_WRITE, MAP_FLAG_DISCARD);
             std::memcpy(cb->matrix, transform.data(), 64);
             cb->screen[0] = float(width);
             cb->screen[1] = float(height);
-            cb->screen[2] = cb->screen[3] = 0;
+            cb->screen[2] = float(output_format);
+            cb->screen[3] = 0;
             cb->translation[0] = offset.x;
             cb->translation[1] = offset.y;
             cb->translation[2] = cb->translation[3] = 0;
@@ -313,26 +378,18 @@ void UiDiligentRenderer::begin(IDeviceContext* c, ITextureView* color, unsigned 
     auto& s = *impl_;
     if (!c || !color || !w || !h || w > 8192 || h > 8192)
         throw std::runtime_error("Invalid UI render target");
+    auto* target = color->GetTexture()->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET);
+    if (!target || (target->GetDesc().Format != TEX_FORMAT_RGBA8_UNORM &&
+                    target->GetDesc().Format != TEX_FORMAT_RGBA16_FLOAT))
+        throw std::runtime_error("Runtime UI needs a display RGBA8 or linear HDR RGBA16 target");
+    s.output_format = target->GetDesc().Format == TEX_FORMAT_RGBA16_FLOAT ? 1u : 0u;
     s.context = c;
-    if (!s.stencil || s.width != w || s.height != h) {
-        TextureDesc desc;
-        desc.Name = "FORGE UI clipping";
-        desc.Type = RESOURCE_DIM_TEX_2D;
-        desc.Width = w;
-        desc.Height = h;
-        desc.Format = TEX_FORMAT_D24_UNORM_S8_UINT;
-        desc.BindFlags = BIND_DEPTH_STENCIL;
-        s.stencil.Release();
-        s.device->CreateTexture(desc, nullptr, &s.stencil);
-        if (!s.stencil)
-            throw std::runtime_error("UI stencil allocation failed");
-    }
+    s.clipping(w, h);
     s.width = w;
     s.height = h;
     s.scissor = s.clip = false;
     s.stencil_ref = 0;
     s.SetTransform(nullptr);
-    auto* target = color->GetTexture()->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET);
     c->SetRenderTargets(1, &target, s.stencil->GetDefaultView(TEXTURE_VIEW_DEPTH_STENCIL),
                         RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     Viewport view;
@@ -341,4 +398,24 @@ void UiDiligentRenderer::begin(IDeviceContext* c, ITextureView* color, unsigned 
     c->SetViewports(1, &view, w, h);
 }
 void UiDiligentRenderer::end() { impl_->context.Release(); }
+UiDiligentRenderer::ClippingStats UiDiligentRenderer::clipping_stats() const {
+    const auto& s = *impl_;
+    return {s.stencil_allocations, unsigned(s.clipping_images.size()), s.clipping_bytes};
+}
+void UiDiligentRenderer::draw_output(UiPresenter& presenter, AssetRef<RenderTextureAsset> output,
+                                     IDeviceContext* context, ITextureView* color, unsigned width,
+                                     unsigned height) {
+    if (!presenter.has_output(output))
+        return;
+    try {
+        // begin validates dimensions before conversion to the native layout type.
+        begin(context, color, width, height);
+        presenter.update_output(output, int(width), int(height));
+        presenter.render_output(output);
+    } catch (...) {
+        end();
+        throw;
+    }
+    end();
+}
 } // namespace forge

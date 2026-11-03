@@ -281,6 +281,7 @@ Json export_standalone_game(const ProjectLease& lease, const GameExportRequest& 
     package_runtime_content(source.root(), scratch / "content", roots, target, {}, stop,
                             reference_schema, inspect);
     const auto content = open_runtime_content(scratch / "content", target, {}, stop);
+    validate_runtime_ui_compatibility(content, engine);
     settings["startup_scene"]["source"] = path_utf8(content.records().at(startup).source);
     progress("Collect runtime and native modules", 3);
     for (const auto& [file, info] : runtime.at("files").items()) {

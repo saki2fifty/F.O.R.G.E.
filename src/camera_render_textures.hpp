@@ -16,7 +16,8 @@ class CameraRenderTextures {
     ~CameraRenderTextures();
     const RenderTextureInputs& render(Diligent::IDeviceContext*, const RenderScene&,
                                       MeshSceneRenderer&, std::uint32_t consumer_layers,
-                                      double seconds, const TemporalFrameSample*);
+                                      double seconds, const TemporalFrameSample*,
+                                      const RenderTextureOverlay* overlay = nullptr);
     void invalidate_temporal_history();
     void submit();
     bool pending() const { return pending_; }

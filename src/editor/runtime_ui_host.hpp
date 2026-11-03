@@ -28,7 +28,7 @@ class RuntimeUiHost {
     unsigned target_width_ = 1, target_height_ = 1;
     RuntimeUiInput input_;
     std::string error_;
-    bool creation_failed_ = false, suspended_ = true;
+    bool creation_failed_ = false, suspended_ = true, frame_ready_ = false;
     std::optional<UiAssetSnapshot> observed_assets_;
     void capture_assets() {
         if (const auto* snapshot = presenter_ ? presenter_->asset_snapshot() : nullptr)
@@ -242,8 +242,8 @@ class RuntimeUiHost {
             return true;
         }
     }
-    void draw(PlaySession& play, Diligent::IDeviceContext* context, Diligent::ITextureView* texture,
-              ImVec2 origin, ImVec2 size, unsigned w, unsigned h) {
+    void prepare_frame(PlaySession& play, ImVec2 origin, ImVec2 size, unsigned w, unsigned h) {
+        frame_ready_ = false;
         origin_ = origin;
         size_ = size;
         target_width_ = w;
@@ -256,7 +256,30 @@ class RuntimeUiHost {
                 double(SDL_GetTicksNS()) / 1e9, int(w), int(h),
                 std::clamp(SDL_GetWindowDisplayScale(window_) * float(w) / std::max(1.f, size.x),
                            .5f, 4.f));
-            renderer_->begin(context, texture, w, h);
+            frame_ready_ = true;
+        } catch (const std::exception& e) {
+            error_ = e.what();
+        }
+    }
+    void draw_output(PlaySession& play, Diligent::IDeviceContext* context, AssetId output,
+                     Diligent::ITextureView* texture, unsigned w, unsigned h) {
+        if (!presenter_ || !play.ready() || !presenter_->has_output({output}))
+            return;
+        try {
+            if (!frame_ready_)
+                throw std::runtime_error("UI presentation frame is not ready");
+            renderer_->draw_output(*presenter_, {output}, context, texture, w, h);
+        } catch (const std::exception& e) {
+            error_ = e.what();
+            throw; // The producer cannot publish an incomplete current image.
+        }
+    }
+    void draw(PlaySession& play, Diligent::IDeviceContext* context,
+              Diligent::ITextureView* texture) {
+        if (!presenter_ || !play.ready() || !frame_ready_)
+            return;
+        try {
+            renderer_->begin(context, texture, target_width_, target_height_);
             presenter_->render();
             renderer_->end();
         } catch (const std::exception& e) {
@@ -264,6 +287,7 @@ class RuntimeUiHost {
             error_ = e.what();
         }
     }
+
     void controls(PlaySession& play) {
         const auto& loading = play.sdk_loading();
         const auto offered_ticket =

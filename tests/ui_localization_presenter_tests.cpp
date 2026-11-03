@@ -135,6 +135,47 @@ button {display:block;width:160px;height:32px;} input {display:block;width:180px
                   "Staged localization leaked into the active context");
             presenter.cancel_prepared(ticket);
             check(Rml::GetNumContexts() == 1, "Canceled localization context survived");
+            // Every output context needs its own native transform registry.
+            // The two documents share one immutable catalog and copied locale.
+            auto routed = state.at("documents").at(0);
+            const auto output = AssetId::generate();
+            routed["entity"] = EntityId::generate();
+            routed["instance"] = routed.at("entity").get<EntityId>().str() + ":output";
+            routed["render_texture"] = output;
+            routed["layer"] = 1u;
+            state["documents"].push_back(routed);
+            state["version"] = 2u;
+            state["revision"] = state.at("revision").get<std::uint64_t>() + 1;
+            const bool grouped = presenter.accept(state);
+            check(grouped, presenter.diagnostic().c_str());
+            presenter.update(.4, 800, 600, 2);
+            presenter.update_output({output}, 320, 160);
+            presenter.render();
+            presenter.render_output({output});
+            check(Rml::GetNumContexts() == 2, "Localized output did not create one native group");
+            for (int i = 0; i < Rml::GetNumContexts(); ++i)
+                check(text(Rml::GetContext(i)->GetDocument(0), "title") == "Continuer",
+                      "Translation transform did not reach every native output context");
+            auto* first_context = Rml::GetContext(0);
+            auto* second_context = Rml::GetContext(1);
+            state["localization"]["locale"] = "en";
+            state["revision"] = state.at("revision").get<std::uint64_t>() + 1;
+            const bool switched = presenter.accept(state);
+            check(switched, presenter.diagnostic().c_str());
+            presenter.update(.5, 800, 600);
+            presenter.update_output({output}, 320, 160);
+            check(Rml::GetContext(0) == first_context && Rml::GetContext(1) == second_context,
+                  "Output language switch replaced the live native groups");
+            for (int i = 0; i < Rml::GetNumContexts(); ++i)
+                check(text(Rml::GetContext(i)->GetDocument(0), "title") == "Play",
+                      "Paused locale selection did not update output text");
+            auto prepared_state = state;
+            prepared_state["revision"] = state.at("revision").get<std::uint64_t>() + 1;
+            const auto grouped_ticket = presenter.prepare(prepared_state);
+            check(presenter.prepared(grouped_ticket) && Rml::GetNumContexts() == 4,
+                  "Staged localized outputs lost a native group");
+            presenter.cancel_prepared(grouped_ticket);
+            check(Rml::GetNumContexts() == 2, "Canceled localized output groups survived");
         }
         check(renderer.geometry.empty() && renderer.textures.empty(),
               "Localized native contexts retained render handles");

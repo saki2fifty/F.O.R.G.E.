@@ -1,6 +1,7 @@
 #pragma once
 #include "gpu_residency.hpp"
 #include "render_texture_resource.hpp"
+#include <functional>
 #include <set>
 
 namespace forge {
@@ -33,6 +34,9 @@ template <> struct Traits<RenderTextureAsset> {
 };
 } // namespace gpu_detail
 using RenderTextureImages = std::map<AssetId, GpuLease<RenderTextureAsset>>;
+// Borrowed presentation composition; does not own the output image or its clock.
+using RenderTextureOverlay = std::function<void(Diligent::IDeviceContext*, AssetId,
+                                                Diligent::ITextureView*, unsigned, unsigned)>;
 // Borrowed pass inputs, never persisted. Only this frame's completed producers
 // are readable; retained leases alone do not authorize sampling previous pixels.
 struct RenderTextureInputs {

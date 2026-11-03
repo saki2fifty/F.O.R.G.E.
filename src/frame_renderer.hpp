@@ -23,17 +23,20 @@ class FrameRenderer {
     void invalidate_temporal_history();
     Diligent::ITextureView* game(Diligent::IDeviceContext*, const nlohmann::json&, unsigned width,
                                  unsigned height, double presentation_seconds = 0,
-                                 const TemporalFrameSample* sample = nullptr);
+                                 const TemporalFrameSample* sample = nullptr,
+                                 const RenderTextureOverlay* overlay = nullptr);
     Diligent::ITextureView* game(Diligent::IDeviceContext*, RenderScene, unsigned width,
                                  unsigned height, double presentation_seconds = 0,
-                                 const TemporalFrameSample* sample = nullptr);
+                                 const TemporalFrameSample* sample = nullptr,
+                                 const RenderTextureOverlay* overlay = nullptr);
     Diligent::ITextureView* render(Diligent::IDeviceContext*, const RenderScene&,
                                    std::span<const PreparedCamera>, unsigned width, unsigned height,
                                    float exposure, const SceneAutoExposure* automatic = nullptr,
                                    double presentation_seconds = 0,
                                    const TemporalFrameSample* sample = nullptr,
                                    Output output = Output::Display,
-                                   const RenderTextureInputs* render_textures = nullptr);
+                                   const RenderTextureInputs* render_textures = nullptr,
+                                   const RenderTextureOverlay* overlay = nullptr);
     bool temporal_ready() const;
     bool pending() const;
     const std::vector<Diagnostic>& diagnostics() const { return diagnostics_; }

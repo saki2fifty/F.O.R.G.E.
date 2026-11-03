@@ -30,11 +30,13 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
         std::string instance, model_name;
         Json descriptor;
         Rml::ElementDocument* document = nullptr;
+        Rml::Context* context = nullptr;
         Rml::DataModelHandle model;
     };
     struct Set {
         std::string name;
         Rml::Context* context = nullptr;
+        std::map<AssetId, Rml::Context*> outputs;
         std::shared_ptr<UiResources> resources;
         UiAssetSnapshot assets;
         Json localization;
@@ -44,6 +46,7 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
         Rml::ElementDocument* frame_document = nullptr;
         Rml::ElementText* frame_text = nullptr;
     };
+    std::set<AssetId> prepared_outputs;
     struct File {
         const std::vector<std::byte>* bytes;
         std::size_t pos = 0;
@@ -313,6 +316,11 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
     void retire(std::unique_ptr<Set>& set) {
         if (!set)
             return;
+        for (const auto& [output, context] : set->outputs) {
+            (void)output;
+            if (context)
+                Rml::RemoveContext(context->GetName());
+        }
         Rml::RemoveContext(set->name);
         // Exact RmlUi6.3 ReleaseRenderManagers also releases ALL font resources
         // and updates surviving contexts. Do not invalidate another scene's
@@ -341,9 +349,9 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
                 return false;
             }
         }
-        Json request = {{"version", ui_protocol::version}, {"session", session},
-                        {"generation", generation},        {"id", ++command_id},
-                        {"instance", doc.instance},        {"command", name}};
+        Json request = {{"version", current.at("version")}, {"session", session},
+                        {"generation", generation},         {"id", ++command_id},
+                        {"instance", doc.instance},         {"command", name}};
         if (value)
             request["value"] = *value;
         pending.push_back(std::move(request));
@@ -419,15 +427,31 @@ body { width:100%; height:100%; z-index:65536; }
             std::stable_sort(
                 descriptors.begin(), descriptors.end(),
                 [](const auto& a, const auto& b) { return a.at("layer") < b.at("layer"); });
+            std::set<Rml::Context*> initialized_contexts;
             for (const auto& desc : descriptors) {
                 auto d = std::make_unique<Doc>();
                 d->instance = desc.at("instance");
                 d->descriptor = desc;
+                d->context = candidate->context;
+                const auto output_value = desc.value("render_texture", Json());
+                if (!output_value.is_null()) {
+                    const auto output = output_value.get<AssetId>();
+                    auto [at, added] = candidate->outputs.try_emplace(output, nullptr);
+                    if (added) {
+                        at->second = Rml::CreateContext(candidate->name + "-" + output.str(),
+                                                        {width, height}, &renderer);
+                        if (!at->second)
+                            throw std::runtime_error("UI output context creation failed");
+                        at->second->SetDensityIndependentPixelRatio(1);
+                    }
+                    d->context = at->second;
+                }
                 d->model_name = "forge" + std::to_string(candidate->docs.size());
-                auto model = candidate->context->CreateDataModel(d->model_name);
+                auto model = d->context->CreateDataModel(d->model_name);
                 if (!model)
                     throw std::runtime_error("UI data model creation failed");
                 auto* ptr = d.get();
+                const bool first_model = initialized_contexts.insert(d->context).second;
                 if (!candidate->application_states.is_null()) {
                     for (const auto& [key, value] : desc.at("model").items()) {
                         (void)value;
@@ -435,7 +459,7 @@ body { width:100%; height:100%; z-index:65536; }
                             throw std::runtime_error(
                                 "Application state UI reserves its state presentation bindings");
                     }
-                    if (candidate->docs.empty())
+                    if (first_model)
                         model.RegisterTransformFunc(
                             "state_is", [set = candidate.get()](const Rml::VariantList& args) {
                                 if (args.size() != 3 || args[0].GetType() != Rml::Variant::STRING ||
@@ -474,7 +498,7 @@ body { width:100%; height:100%; z-index:65536; }
                     }
                 }
                 if (candidate->messages) {
-                    if (candidate->docs.empty())
+                    if (first_model)
                         model.RegisterTransformFunc(
                             "tr", [table = candidate->messages](const Rml::VariantList& args) {
                                 if (args.size() != 2 || args[0].GetType() != Rml::Variant::STRING ||
@@ -557,8 +581,8 @@ body { width:100%; height:100%; z-index:65536; }
                     throw std::runtime_error("UI document needs body");
                 if (!static_inspection)
                     text.insert(body + 5, " data-model=\"" + d->model_name + "\"");
-                d->document = candidate->context->LoadDocumentFromMemory(text, candidate->name +
-                                                                                   "/" + source);
+                d->document =
+                    d->context->LoadDocumentFromMemory(text, candidate->name + "/" + source);
                 if (!d->document)
                     throw std::runtime_error("UI document load failed");
                 // Native parsed DOM, not a second RML parser. Only literal image
@@ -586,8 +610,16 @@ body { width:100%; height:100%; z-index:65536; }
             if (!static_inspection)
                 update_frame_statistics(*candidate);
             candidate->context->Update();
+            for (const auto& [output, context] : candidate->outputs) {
+                (void)output;
+                context->Update();
+            }
             renderer.preparing = true;
             candidate->context->Render();
+            for (const auto& [output, context] : candidate->outputs) {
+                (void)output;
+                context->Render();
+            }
             renderer.preparing = false;
             for (auto& d : candidate->docs)
                 if (!d->descriptor.at("visible").get<bool>())
@@ -614,6 +646,7 @@ body { width:100%; height:100%; z-index:65536; }
         auto previous = std::move(live);
         retire(previous);
         live = std::move(next);
+        prepared_outputs.clear();
         ++presentation_revision;
         return true;
     }
@@ -665,6 +698,7 @@ void UiPresenter::reset(std::string session, std::uint64_t generation) {
     s.session = std::move(session);
     s.generation = generation;
     s.current = nullptr;
+    s.prepared_outputs.clear();
     s.error.clear();
     s.failed_structure.clear();
     s.replica.reset(s.session, generation);
@@ -705,6 +739,7 @@ bool UiPresenter::activate_prepared(std::uint64_t ticket) noexcept {
     auto previous = std::move(s.live);
     s.retire(previous);
     s.live = std::move(s.staged->set);
+    s.prepared_outputs.clear();
     s.current = std::move(s.staged->state);
     s.replica = std::move(s.staged->replica);
     s.session = std::move(s.staged->session);
@@ -749,7 +784,9 @@ bool UiPresenter::accept(const Json& j) {
                 rebuild = true;
                 break;
             }
-            if (it->at("layer") != d->descriptor.at("layer") ||
+            if (it->value("render_texture", Json()) !=
+                    d->descriptor.value("render_texture", Json()) ||
+                it->at("layer") != d->descriptor.at("layer") ||
                 it->at("commands") != d->descriptor.at("commands") ||
                 it->at("model").size() != d->descriptor.at("model").size()) {
                 rebuild = true;
@@ -859,6 +896,7 @@ void UiPresenter::update(double t, int w, int h, float dp) {
     if (!std::isfinite(t) || t < s.time || w < 1 || h < 1 || w > 8192 || h > 8192 ||
         !std::isfinite(dp) || dp < .5f || dp > 4)
         throw std::runtime_error("Invalid UI presentation dimensions/time");
+    s.prepared_outputs.clear();
     s.time = t;
     s.width = w;
     s.height = h;
@@ -869,6 +907,26 @@ void UiPresenter::update(double t, int w, int h, float dp) {
         s.live->context->Update();
     }
 }
+void UiPresenter::update_output(AssetRef<RenderTextureAsset> output, int w, int h, float dp) {
+    auto& s = *impl_;
+    s.check();
+    if (!output.id || w < 1 || h < 1 || w > 8192 || h > 8192 || !std::isfinite(dp) || dp < .5f ||
+        dp > 4)
+        throw std::runtime_error("Invalid UI output viewport");
+    if (!s.live)
+        return;
+    const auto at = s.live->outputs.find(output.id);
+    if (at == s.live->outputs.end())
+        return;
+    auto* context = at->second;
+    const bool resized = context->GetDimensions() != Rml::Vector2i{w, h} ||
+                         context->GetDensityIndependentPixelRatio() != dp;
+    context->SetDimensions({w, h});
+    context->SetDensityIndependentPixelRatio(dp);
+    if (s.prepared_outputs.insert(output.id).second || resized)
+        context->Update();
+}
+
 void UiPresenter::frame_statistics(const std::string& text) {
     auto& s = *impl_;
     s.check();
@@ -882,6 +940,38 @@ void UiPresenter::frame_statistics(const std::string& text) {
         s.update_frame_statistics(*s.live);
     if (s.staged)
         s.update_frame_statistics(*s.staged->set);
+}
+std::vector<AssetId> UiPresenter::output_targets() const {
+    auto& s = *impl_;
+    s.check();
+    std::vector<AssetId> result;
+    if (s.live)
+        for (const auto& [output, context] : s.live->outputs) {
+            (void)context;
+            result.push_back(output);
+        }
+    return result;
+}
+bool UiPresenter::has_output(AssetRef<RenderTextureAsset> output) const {
+    auto& s = *impl_;
+    s.check();
+    return output.id && s.live && s.live->outputs.contains(output.id);
+}
+void UiPresenter::render_output(AssetRef<RenderTextureAsset> output) {
+    auto& s = *impl_;
+    s.check();
+    if (!output.id) {
+        render();
+        return;
+    }
+    if (!s.live)
+        return;
+    const auto at = s.live->outputs.find(output.id);
+    if (at == s.live->outputs.end())
+        return;
+    if (!s.prepared_outputs.contains(output.id))
+        throw std::runtime_error("UI output viewport has not been prepared");
+    at->second->Render();
 }
 void UiPresenter::render() {
     auto& s = *impl_;
@@ -995,7 +1085,8 @@ std::optional<Json> UiPresenter::pending_command() const {
 void UiPresenter::acknowledge(const Json& ack) {
     auto& s = *impl_;
     s.check();
-    if (s.pending.empty() || ack.value("version", 0) != ui_protocol::version ||
+    if (s.pending.empty() ||
+        ack.value("version", 0u) != s.pending.front().at("version").get<unsigned>() ||
         ack.value("session", "") != s.session ||
         ack.value("generation", std::uint64_t{}) != s.generation ||
         ack.at("id") != s.pending.front().at("id"))

@@ -1,4 +1,6 @@
 #pragma once
+#include <cstdint>
+#include <forge/asset_ref.hpp>
 #include <memory>
 namespace Rml {
 class RenderInterface;
@@ -9,6 +11,7 @@ struct IDeviceContext;
 struct ITextureView;
 } // namespace Diligent
 namespace forge {
+class UiPresenter;
 class UiDiligentRenderer {
   public:
     explicit UiDiligentRenderer(Diligent::IRenderDevice*);
@@ -19,6 +22,17 @@ class UiDiligentRenderer {
     void begin(Diligent::IDeviceContext*, Diligent::ITextureView* color, unsigned width,
                unsigned height);
     void end();
+    // Allocation counts and logical bytes; not physical GPU memory or timing.
+    struct ClippingStats {
+        std::uint64_t allocations = 0;
+        unsigned cached_sizes = 0;
+        std::uint64_t cached_bytes = 0;
+    };
+    ClippingStats clipping_stats() const;
+    // Shared camera-output composition used by graphical hosts. The presenter
+    // retains model/context/time ownership; the camera pass retains image ownership.
+    void draw_output(UiPresenter&, AssetRef<RenderTextureAsset>, Diligent::IDeviceContext*,
+                     Diligent::ITextureView*, unsigned width, unsigned height);
 
   private:
     struct Impl;

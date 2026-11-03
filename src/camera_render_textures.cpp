@@ -33,7 +33,8 @@ void CameraRenderTextures::submit() {
 const RenderTextureInputs&
 CameraRenderTextures::render(IDeviceContext* context, const RenderScene& scene,
                              MeshSceneRenderer& materials, std::uint32_t consumer_layers,
-                             double seconds, const TemporalFrameSample* sample) {
+                             double seconds, const TemporalFrameSample* sample,
+                             const RenderTextureOverlay* overlay) {
     host_->check_thread();
     if (context != host_->context_.RawPtr())
         throw std::runtime_error("Camera outputs require the resource host's presentation context");
@@ -140,6 +141,8 @@ CameraRenderTextures::render(IDeviceContext* context, const RenderScene& scene,
                     report(scene.scene, "Output " + asset.str() + ": " + error.text);
                 continue;
             }
+            if (overlay && *overlay)
+                (*overlay)(context, asset, rendered, pass.definition.width, pass.definition.height);
             CopyTextureAttribs copy{rendered->GetTexture(),
                                     RESOURCE_STATE_TRANSITION_MODE_TRANSITION, target.image.get(),
                                     RESOURCE_STATE_TRANSITION_MODE_TRANSITION};

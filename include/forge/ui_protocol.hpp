@@ -6,7 +6,8 @@
 #include <string>
 namespace forge::ui_protocol {
 using Json = nlohmann::json;
-inline constexpr unsigned version = 1;
+inline constexpr unsigned legacy_version = 1;
+inline constexpr unsigned version = 2;
 inline constexpr std::size_t max_documents = 16, max_values = 32, max_string = 1024;
 bool identifier(const std::string&);
 void validate_value(const Json&);

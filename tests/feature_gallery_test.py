@@ -337,6 +337,17 @@ assert len({row['camera']['entity'] for row in transition_shots}) == 2
 rigs = [row for row in transitions['entities'] if 'forge.transform_animator' in row['components']]
 assert len(rigs) == 1 and rigs[0]['components']['forge.transform_animator']['clip'] == by_source['Assets/CameraTransitions/Rig.animation.json']['id']
 
+camera_ui = json.loads((project_root / 'Scenes/154-camera-output-ui.scene.json').read_text())
+assert camera_ui['asset_id'] == by_source['Scenes/154-camera-output-ui.scene.json']['id']
+panels = [row for row in camera_ui['entities'] if 'forge.ui_document' in row['components']]
+assert len(panels) == 2
+routed = next(row for row in panels if row['components']['forge.ui_document']['render_texture'])
+assert routed['components']['forge.ui_document']['render_texture'] == by_source['Assets/RenderTextures/Split.rendertexture.json']['id']
+assert routed['components']['forge.ui_document']['document'] == by_source['Assets/UI/CameraOutput/Telemetry.rml']['id']
+assert routed['components']['forge.ui_values']['values'] == [dict(name='amount', value=1)]
+assert len({row['id'] for row in camera_ui['entities']} & {row['id'] for row in camera_images['entities']}) == 0
+assert len([row for row in camera_ui['entities'] if 'forge.camera' in row['components']]) == 4
+
 scenes = sorted((project_root / 'Scenes').glob('*.scene.json'))
 assert {'71-world-sprites.scene.json', '72-sprite-frame-animation.scene.json',
         '73-sprite-image-fill.scene.json', '74-tile-maps.scene.json',
@@ -515,6 +526,9 @@ def same_authored_value(actual, expected, location='$'):
             # every explicit value/extension exact while checking native defaults.
             expected = dict(rotated_clockwise=False, source_width=0, source_height=0,
                             trim_x=0, trim_y=0) | expected
+        if location.endswith('.components.forge.ui_document'):
+            # Optional output routing admits old main-window sources as null.
+            expected = dict(render_texture=None) | expected
         assert isinstance(actual, dict) and actual.keys() == expected.keys(), location
         for key in expected:
             same_authored_value(actual[key], expected[key], location + '.' + key)

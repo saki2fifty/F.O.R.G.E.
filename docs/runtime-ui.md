@@ -4,7 +4,7 @@ The standalone host can request a presentation-only FPS panel through
 `UiPresenter::frame_statistics`. Empty text hides it; the default creates no
 diagnostic document. The text is validated UTF-8 capped at128bytes and inserted
 as a literal text node, without RML parsing or model binding. One private document
-per existing context uses the same resource admission, font and renderer. It
+per live/staged main context uses the same resource admission, font and renderer. It
 stays outside authored document counts, source provenance and gameplay protocol
 models, and takes no input/focus. Live/staged sets keep their ordinary lifetime.
 See [standalone presentation statistics](standalone-host.md) for launch and timing.
@@ -21,13 +21,13 @@ The standalone `forge_game` executable composes gameplay, Diligent and the same 
 
 ## Authored state and assets
 
-`UiDocument` contains a typed `AssetRef<UiDocumentAsset>`, `enabled`, `visible`, and `layer` (0–255). One entity displays one document. Only these fields are authored. The builtin participates in reflected editing, structured prefab inheritance, explicit equal-value property overrides, Revert, scene Undo/Redo and save/reopen. No DOM, focus, GPU handle, hover, copied model or text layout is serialized.
+`UiDocument` contains a typed `AssetRef<UiDocumentAsset>`, `enabled`, `visible`, `layer` (0–255), and optional typed `render_texture` output reference. One entity displays one document. Only these fields are authored. The builtin participates in reflected editing, structured prefab inheritance, explicit equal-value property overrides, Revert, scene Undo/Redo and save/reopen. No DOM, focus, GPU handle, hover, copied model or text layout is serialized.
 
 The catalog records a schema-1 `ui_document` asset with an AssetId and project-relative `.rml` locator. Renaming a catalog locator preserves references. Supporting RCSS, PNG/JPEG/TGA and font files remain contained source resources. Phase7 optionally registers them as logical Content assets for identity, inspection and dependency/referrer workflows; the presenter continues to use admitted file copies. Registration and the generated HUD example are UI-independent operations in `forge_ui_assets`. These asset writes are outside scene Undo. RML and supporting raw resources have no UI cooker or HTTP loader. Typed localization tables use the source/import/cook owner described below. Component edits retain ordinary Scene/Prefab history rules; resource registration remains separate from Scene Undo.
 
 ## Private copied-value protocol
 
-Protocol version 1 carries a runtime session, generation, monotonic snapshot revision and up to 16 document descriptors. Each has an entity/asset ID, document incarnation, visibility/layer, scalar model and allowed command names. RmlUi retains copies, never ECS storage or gameplay DLL callbacks. Native RmlUi data binding supplies read-only variables; no scripting language is enabled.
+Main-only snapshots retain private protocol1; a positive output assignment requires protocol2. Both carry a runtime session, generation, monotonic snapshot revision and up to 16 document descriptors. Each has an entity/asset ID, document incarnation, visibility/layer, nullable output, scalar model and allowed command names. Protocol1 rejects a positive output, so a legacy presenter cannot silently draw routed UI on main. Command receipts retain their request version. RmlUi retains copies, never ECS storage or gameplay DLL callbacks. Native RmlUi data binding supplies read-only variables; no scripting language is enabled.
 
 Model snapshots admit the project catalog only when an enabled document has an
 assigned asset. Empty scenes, disabled documents and unassigned documents require
@@ -122,6 +122,43 @@ Gallery133 supplies original English/French/Spanish messages, regional/default
 fallback, literal accented text and paused controls. This is game UI localization;
 editor translation, full shaping and complete international input remain absent.
 
+## Camera output composition
+
+The existing UiPresenter owns one main context and lazily created contexts per
+positive output within each live/staged Set. Documents, model values, commands,
+localization, application-state transforms, resource snapshots and preparation
+remain under that same presenter. Complete preparation/cancel/activation and
+retirement include every context. No output registry or second presenter exists.
+Layer sorting is stable within each group. Native input/focus and private FPS
+statistics use main only; explicit semantic commands still identify their document.
+Changing the saved output renews the runtime document incarnation and rejects its
+old command immediately, before the next copied snapshot.
+
+Hosts update shared presentation time once before Game. CameraRenderTextures
+borrows an optional overlay callback after its complete producer composition and
+before copying/publishing the current image for Material/relay consumers. The
+shared UiDiligent draw_output lays out that context at the pass dimensions and
+renders it without advancing simulation or another clock. A failed composition
+cannot publish stale current pixels. Main UI draws after the Game display as before.
+Density is1 for outputs; main density retains the existing window policy. An output
+without an enabled producer has no draw pass. No pointer/raycast surface input,
+world-space layout, stopped Scene overlay or stopped Timeline UI export is added.
+
+The graphics adapter retains RGBA8 display-encoded blending. Its RGBA16_FLOAT
+variant unpremultiplies combined UI color, decodes straight RGB through the pinned
+DiligentFX SRGBToLinear function and premultiplies for linear HDR blending. The
+camera image remains opaque; the consuming view owns exposure/tone mapping.
+Meshes retain their authored UV conventions, including any intentional flips.
+Clipping scratch images remain renderer-owned: at most5 sizes and256MiB logical
+D24S8 bytes, with least-recently-used eviction and ordinary Diligent lifetimes.
+These are allocation bounds, not physical-memory or hardware-performance claims.
+
+Generated runtime kits advertise engine.runtime_ui_protocol from the current
+header. Export/distribution admission reads the existing cooked document graph,
+including Prefab overrides, and requires matching support for a positive UI output
+edge. A main-only project can still use a legacy kit. Scene/Prefab default admission
+keeps missing outputs null; exact C++ modules require the updated header fingerprint.
+
 ## Time, input and density
 
 RmlUi Update/layout/render uses monotonic **presentation time**, separate from fixed simulation. Pause leaves mouse, typing, hover and UI controls responsive. F7 advances exactly one simulation tick.
@@ -134,7 +171,7 @@ Viewport coordinates map to render-target pixels. RmlUi dimensions match that ta
 
 ProjectPaths mediates every resource read. Styles/images are document-relative. RmlUi 6.3 passes `@font-face src` directly to FileInterface without JoinPath; FORGE scopes those font paths to the project root during candidate admission. Absolute paths, escape paths, remote URLs, query/fragment locators and arbitrary resource extensions reject. Engine Lato bytes come from the packaged resource root, independent of the current working directory.
 
-Bounds include: 256 KiB per RML/RCSS, 32 resources / 32 MiB per candidate context, 32 levels / 8192 RML tags, bounded RCSS expressions, finite bounded numeric styles, fonts up to 4 MiB with an admitted SFNT table directory, and PNG/JPEG/uncompressed 24/32-bit TGA up to 2048×2048. Image sources cap at 16 MiB + 274 bytes; native decoded pixels cap at 16 MiB, including 16-bit PNG samples. Generated GPU textures share a 64 MiB/512-object budget; geometry shares 64 MiB/8192 objects. Font variants cap at 32 / 16 MiB per presenter lifetime. Font parsing uses pinned FreeType; directory validation does not claim to prove every internal font table safe.
+Bounds include: 256 KiB per RML/RCSS, 32 resources / 32 MiB per complete candidate Set, 32 levels / 8192 RML tags, bounded RCSS expressions, finite bounded numeric styles, fonts up to 4 MiB with an admitted SFNT table directory, and PNG/JPEG/uncompressed 24/32-bit TGA up to 2048×2048. Image sources cap at 16 MiB + 274 bytes; native decoded pixels cap at 16 MiB, including 16-bit PNG samples. Generated GPU textures share a 64 MiB/512-object budget; geometry shares 64 MiB/8192 objects. Font variants cap at 32 / 16 MiB per presenter lifetime. Font parsing uses pinned FreeType; directory validation does not claim to prove every internal font table safe.
 
 Reload UI creates a fresh context/resource snapshot, binds copied values, loads documents, updates layout and prepares initial geometry/textures through a non-drawing render gate. Only a successful candidate replaces the previous context. Failure retains the prior usable presentation and reports an error. RmlUi deferred document destruction is completed by destroying the candidate/old context while its callbacks and resources are still alive. Global styles are cleared for each candidate; old documents retain their own live references. Font family caches are global to the presenter: change the family or restart Play when replacing a font with the same family.
 
@@ -155,7 +192,7 @@ reference stylesheet includes a visible track and draggable thumb.
 
 RmlUi geometry uses immutable Diligent buffers, a dynamic transform/screen constant buffer, scissor rectangles, transformed geometry and stencil clip masks. UI draws over the freshly rendered scene into its RGBA8 UNORM target. The viewport already redraws during Play, so transparent HUDs do not accumulate over a retained scene.
 
-RmlUi colors/generated textures are already premultiplied. TGA source pixels are premultiplied once during decoding. The blend is ONE / INV_SRC_ALPHA for color and alpha. The existing display-encoded UNORM scene path is preserved; no sRGB decode or extra gamma conversion is applied. This is not a new linear-light/HDR rendering pipeline. Text and images follow the same convention.
+RmlUi colors/generated textures are already premultiplied. TGA source pixels are premultiplied once during decoding. The blend is ONE / INV_SRC_ALPHA for color and alpha. The existing display-encoded UNORM path applies no extra gamma conversion. The camera-output RGBA16 variant uses the explicit premultiplied linear transfer described above. Text and images follow the same convention.
 
 Context/geometry/textures retire before the render adapter and Diligent device. All presenter calls run on one owning thread, with one active presenter per process. No callback/job can outlive it.
 

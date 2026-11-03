@@ -64,6 +64,42 @@ For menus and state-driven choices, use [Application States](application-states.
 Its read-only state bindings, ancestor conditions and revision-checked `forge.state`
 buttons work without a project C++ module, including while paused.
 
+## Draw UI in a Camera image
+
+1. Create and publish a [Render Texture](render-textures.md). Assign it to an enabled Camera, and display the image through a Mesh Material.
+2. Select the UI entity. In **Inspector → UI Document → Render Texture**, select that same output asset. Leave this field empty for an ordinary main-window HUD.
+3. Keep **Document**, **Enabled** and **Visible** assigned as usual. Save the Scene and press **Play**. The document draws over the complete output image after its Cameras, before Materials and other Cameras read the image.
+4. Add [UI Values](sequence-ui.md) to bind numbers to its text or styles. These values and the built-in `tick` / `paused` bindings work on the output too.
+
+Open **Scenes/154-camera-output-ui.scene.json** in the Feature Gallery for a
+working example. Both monitors show the telemetry panel; the second monitor reads
+it through another Camera during the same frame. The guide stays on the main Game
+view. Pause, select **Telemetry - UI in Split camera output**, and change
+**Live gameplay → UI Values → amount** between `0` and `1` to fade the panel.
+Use the ordinary Keep runtime values review if you want to retain a live change.
+
+![Upright telemetry UI on two camera-image monitors, with a separate main Game guide](../images/camera-output-ui-gallery.png)
+
+The same telemetry panel reaches the direct monitor and its camera relay.
+
+Each output uses its published width and height. RCSS `px` and `dp` both correspond
+to output pixels, independently of editor/window scale. Higher **Layer** values
+place documents above lower ones on the same output. One UI Document chooses one
+output; use another entity to display another copy.
+
+Output images are display surfaces. Clicking a Mesh does not send pointer,
+keyboard or focus events to its UI. Put interactive controls on the main Game HUD.
+The output must have an enabled Camera producer; assigning UI alone creates no
+image. Runtime UI draws during Play and standalone gameplay; it is not drawn in
+the stopped Scene view or stopped animation frame exports.
+
+Save the UI resources, Scene and output/Material publications before exporting.
+Use the runtime kit packaged with your editor; an older kit without output-UI
+support is rejected. The exported game includes the reachable RML resources and
+recreates the image. UI focus, animation progress and live values are not saved
+unless an existing save/review workflow explicitly retains them.
+
+
 ## Animate your HUD
 
 Open **Scenes/100-ui-animation.scene.json** in the Feature Gallery and press **Play**.

@@ -72,7 +72,8 @@ template <class T> Json encode(const T& p) {
         return {{"document", p.document.id ? Json(p.document.id) : Json()},
                 {"enabled", p.enabled},
                 {"visible", p.visible},
-                {"layer", p.layer}};
+                {"layer", p.layer},
+                {"render_texture", p.render_texture.id ? Json(p.render_texture.id) : Json()}};
     else if constexpr (std::is_same_v<T, UiLocalization>)
         return {{"catalog", p.catalog.id ? Json(p.catalog.id) : Json()}, {"locale", p.locale}};
     else if constexpr (std::is_same_v<T, UiValues>)
@@ -385,6 +386,8 @@ template <class T> Value decode(const Json& p) {
         v.enabled = p.at("enabled");
         v.visible = p.at("visible");
         v.layer = p.at("layer");
+        if (const auto output = p.value("render_texture", Json()); !output.is_null())
+            v.render_texture.id = output.get<AssetId>();
         return v;
     } else if constexpr (std::is_same_v<T, UiLocalization>) {
         UiLocalization value;
@@ -1179,10 +1182,12 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
         c.template member<double>("x").template member<double>("y").template member<double>("z");
     } else if constexpr (std::is_same_v<T, UiDocument>) {
         register_asset_ref<UiDocumentAsset>(w, "forge.ui_document_ref");
+        register_asset_ref<RenderTextureAsset>(w, "forge.render_texture_ref");
         c.template member<AssetRef<UiDocumentAsset>>("document")
             .template member<bool>("enabled")
             .template member<bool>("visible")
-            .template member<std::uint32_t>("layer");
+            .template member<std::uint32_t>("layer")
+            .template member<AssetRef<RenderTextureAsset>>("render_texture");
     } else if constexpr (std::is_same_v<T, UiLocalization>) {
         register_asset_ref<UiLocalizationAsset>(w, "forge.ui_localization_ref");
         w.component<std::string>("forge.authored_string").opaque(reflected_string);
@@ -2987,6 +2992,14 @@ Json registration_options(const Builtin& type, const std::string& field) {
             value["asset_type"] = UiDocumentAsset::type;
             value["nullable"] = true;
             value["description"] = "Registered RML document identity";
+        } else if (field == "render_texture") {
+            value["display_name"] = "Render Texture";
+            value["asset_type"] = RenderTextureAsset::type;
+            value["nullable"] = true;
+            value["description"] =
+                "Null draws on the main Game display. An assigned camera output receives this "
+                "document after its scene cameras and before image consumers; surface pointer "
+                "routing is not enabled by this assignment.";
         } else if (field == "layer") {
             value["minimum"] = 0;
             value["maximum"] = 255;
@@ -3518,7 +3531,7 @@ Json register_builtins(flecs::world& world, unsigned family) {
             c.lookup("values").set<ReflectedSequenceKey>({"name"});
             c.lookup("values").set<ReflectedSequenceLimit>({UiValues::max_entries});
         }
-        if (name == "forge.camera") {
+        if (name == "forge.camera" || name == "forge.ui_document") {
             world.component<ReflectedMemberDefault>(reflected_member_default_type);
             c.lookup("render_texture").set<ReflectedMemberDefault>({nullptr});
         }

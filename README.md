@@ -62,6 +62,16 @@ relays it through a second Camera to another monitor.
 Production Game renderer capture on software Vulkan. Saved outputs, Material
 bindings, source controls, layer masks and export are explained in the guide.
 
+[Runtime UI in camera images](manual/editor/runtime-ui.md#draw-ui-in-a-camera-image)
+adds a document after the producer Cameras and before Materials sample the output.
+Gallery154 includes upright telemetry on direct/relayed monitors, paused value
+editing and a separate main-window guide.
+
+[![Telemetry UI appears on both camera-image monitors with an independent main Game guide](manual/images/camera-output-ui-gallery.png)](manual/editor/runtime-ui.md#draw-ui-in-a-camera-image)
+
+Actual GamePresentation capture on software Vulkan. Output surfaces are display-only;
+source-hidden relocated exports match the original pixels.
+
 ## Projected material color
 
 [Decal Projectors](manual/editor/decals.md) project color, normal detail and roughness onto lit Mesh

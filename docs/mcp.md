@@ -760,6 +760,17 @@ fields, Stop, then Apply through RuntimeTuningReview. Apply creates one Scene Un
 step and Save remains separate. Changes to the reviewed scene/schema invalidate
 it; arbitrary runtime-only entities or C++ state do not become authored values.
 
+## UI output assignment
+
+Discovery exposes the nullable typed `forge.ui_document.render_texture` field.
+Use the existing component/property operations and `forge_property_set` to choose
+a published Render Texture UUID or null for main. Normal Scene revision, atomic
+validation, Undo/Redo, Prefab inheritance/overrides and save rules apply; no separate
+agent-only route exists. Author the producer Camera and consumer Material through
+the existing output workflow. Output UI is display-only: assigning it does not
+route Mesh clicks, keyboard or focus. Runtime model values and explicit semantic
+commands retain their existing scope. See [Runtime UI](runtime-ui.md).
+
 ## Raw UI/shader sources, recipes and navigation
 
 `forge_source_text_list/read/write` and `source_folder_create` cover raw project

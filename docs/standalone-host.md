@@ -49,8 +49,9 @@ The graphical adapter performs these steps before activation:
 3. Prepare actual FrameRenderer draw bundles, textures, environment and pipelines
    at the output size. Wait for pending work; reject terminal diagnostics, including
    missing meshes, fallback draws and a missing valid authored camera.
-4. Create a second native RmlUi context with admitted documents, fonts, images and
-   geometry. It neither draws into the current framebuffer nor receives input.
+4. Create a complete staged RmlUi Set with main and assigned-output contexts,
+   admitted documents, fonts, images and geometry. It neither draws into the current
+   framebuffer nor receives input.
 5. Recheck readiness and publish prepared frame/UI owners with the new world.
    Retire old consumers/world before the next gameplay tick.
 

@@ -3278,6 +3278,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "2c5a59b5-1294-40b9-9608-12a248f27d9d",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/154-camera-output-ui.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "2c614cb7-d5d8-41f4-9e52-82e0a8a8b37b",
       "metadata": {},
       "schema_version": 3,
@@ -5525,6 +5535,61 @@
         "removed": false
       },
       "type": "model_node"
+    },
+    {
+      "dependencies": [
+        "823085a3-3dd4-4ddc-a63e-bff972165993",
+        "f6cab2cb-6452-49c5-bfd2-33a7cb86f7c8"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "794cc4f0494ec2b092221db73e36aaf5fb05ad9946e2be043e6c7026a7e2d49c",
+          "role": "material.render_texture:baseColorTexture",
+          "target": "823085a3-3dd4-4ddc-a63e-bff972165993",
+          "type": "render_texture"
+        },
+        {
+          "kind": "build",
+          "revision": "cb68dd3c52321655f344aafd9dcf90f198f94a784a923359c34417b41d359fc9",
+          "role": "material.base",
+          "target": "f6cab2cb-6452-49c5-bfd2-33a7cb86f7c8",
+          "type": "material"
+        }
+      ],
+      "id": "5758da1d-71d1-4e68-951e-bad5cd7f32cb",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "a0ddee4854b520bca51ce4cd701760d36f2207df5e689565a83f0d2828ccde0e",
+          "backend": "d3d12",
+          "dependency_digest": "8507c86f706ff5fbca314096a654746e78da5bc498d944041eab509f2264e372",
+          "generation": 1,
+          "importer": "forge.material.builtin",
+          "importer_revision": "8db6a6ed325b5ab659529c58f4fb3cfe1c116832c67c50cd0bab70652e0cbf8e",
+          "key": "ae6edab9ec372a7a9c0299c74941d919fa158fb2e4aa1a981a4f34c307a45f34",
+          "output_format": "forge.material-bundle",
+          "output_version": 3,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "77e4cb50ea0df6b80c521c7fa33cf0332f6244a0fe091cf5d7c4d9a4446ad9dd",
+          "source_digest": "e1b5372aae12688ebbde775f64d2181ceb24cfb314d25eb0519af055bfd1eadd",
+          "version": 1
+        },
+        "forge.material": {
+          "render_textures": {
+            "baseColorTexture": "823085a3-3dd4-4ddc-a63e-bff972165993"
+          },
+          "shader": null,
+          "textures": {},
+          "version": 3
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/UI/CameraOutput/Relay.material.json",
+      "source_dependencies": [],
+      "type": "material"
     },
     {
       "dependencies": [
@@ -9081,6 +9146,28 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "8c3a7dc2-a4e0-467d-a3a2-33e49489ad63",
+      "metadata": {
+        "forge.ui_source": {
+          "bytes": 540,
+          "digest": "e654ec18401e3d9395989badde3d2d46e95652d9473a76103342bb513a488323",
+          "format": "rml"
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/UI/CameraOutput/Telemetry.rml",
+      "source_dependencies": [
+        {
+          "revision": "e654ec18401e3d9395989badde3d2d46e95652d9473a76103342bb513a488323",
+          "role": "ui.source",
+          "source": "Assets/UI/CameraOutput/Telemetry.rml"
+        }
+      ],
+      "type": "ui_document"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "8ce743c7-17e5-4148-9404-e69b23a3b961",
       "metadata": {
         "forge.import": {
@@ -10091,6 +10178,28 @@
       "type": "transform_animation"
     },
     {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "a653ef75-51c1-4aa5-9562-b099c6c351ca",
+      "metadata": {
+        "forge.ui_source": {
+          "bytes": 669,
+          "digest": "fcee10464911fabdacff16c9a5787b9664c7159794a3e75210275a65c5307229",
+          "format": "rml"
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/UI/CameraOutput/Guide.rml",
+      "source_dependencies": [
+        {
+          "revision": "fcee10464911fabdacff16c9a5787b9664c7159794a3e75210275a65c5307229",
+          "role": "ui.source",
+          "source": "Assets/UI/CameraOutput/Guide.rml"
+        }
+      ],
+      "type": "ui_document"
+    },
+    {
       "dependencies": [
         "03f314d8-69d9-4650-9683-4c9a1ae0b87d"
       ],
@@ -10491,6 +10600,61 @@
       "source": "Scenes/153-camera-transitions.scene.json",
       "source_dependencies": [],
       "type": "scene"
+    },
+    {
+      "dependencies": [
+        "d486b605-2e2a-439b-93fe-633bde7e420b",
+        "ebac9231-8bd9-41d4-a603-cb04620fa3ed"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "30d785931bab8e149cd231580829af6bce1988a3ab2a1fcbe37bbe970e6781b7",
+          "role": "material.render_texture:baseColorTexture",
+          "target": "d486b605-2e2a-439b-93fe-633bde7e420b",
+          "type": "render_texture"
+        },
+        {
+          "kind": "build",
+          "revision": "3a28485bdb1cb20126d50a3919b60c60eaa21c053e93851460741734d379f553",
+          "role": "material.base",
+          "target": "ebac9231-8bd9-41d4-a603-cb04620fa3ed",
+          "type": "material"
+        }
+      ],
+      "id": "b051661a-e644-40eb-9d25-b2d66a5307ae",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "ee1cbc0af1ce511e8356b5e46d1239bbbe1f4f6e11fbcb60c52d9422352c4e79",
+          "backend": "d3d12",
+          "dependency_digest": "6fdb7fae2fe5e79ed062eea73b4380fedd82c3cc422a9fd587431a0cb46b4623",
+          "generation": 1,
+          "importer": "forge.material.builtin",
+          "importer_revision": "8db6a6ed325b5ab659529c58f4fb3cfe1c116832c67c50cd0bab70652e0cbf8e",
+          "key": "3241c69fe729a5bd3f26a3cdf85721320ebb20a55716449d66b5aaaedc6c3dbb",
+          "output_format": "forge.material-bundle",
+          "output_version": 3,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "35e54aed476fab731f96b6fa3cccb546100b589dd132870f8d39a96be4261ca2",
+          "source_digest": "f27dbced21c0790a4746dda2a35bae110e87734b2c59ff4330b05fe14355a00b",
+          "version": 1
+        },
+        "forge.material": {
+          "render_textures": {
+            "baseColorTexture": "d486b605-2e2a-439b-93fe-633bde7e420b"
+          },
+          "shader": null,
+          "textures": {},
+          "version": 3
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/UI/CameraOutput/Split.material.json",
+      "source_dependencies": [],
+      "type": "material"
     },
     {
       "dependencies": [],

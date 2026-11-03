@@ -732,7 +732,7 @@ for legacy in (False, True):
 
         if render_texture_id is not None:
             check_render_texture_workflow(read, mutate, edit, status, content,
-                                          save_published, render_texture_id, root)
+                                          save_published, render_texture_id, root, discovery)
 
         if NAVIGATION_BEHAVIOR_ONLY:
             owner = 'navigation_behavior'

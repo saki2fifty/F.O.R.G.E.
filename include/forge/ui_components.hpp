@@ -17,6 +17,8 @@ struct UiDocument {
     AssetRef<UiDocumentAsset> document;
     bool enabled = true, visible = true;
     std::uint32_t layer = 0;
+    // Null draws on the main Game display. Camera retains output-image ownership.
+    AssetRef<RenderTextureAsset> render_texture{};
     bool operator==(const UiDocument&) const = default;
 };
 } // namespace forge

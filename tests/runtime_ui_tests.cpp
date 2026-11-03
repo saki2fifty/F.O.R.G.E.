@@ -1,3 +1,4 @@
+#include "asset_reference_impact.hpp"
 #include <algorithm>
 #include <forge/application_state_components.hpp>
 #include <forge/application_states.hpp>
@@ -141,10 +142,12 @@ int main(int argc, char** argv) {
         {
             EngineContext ordered_world;
             Scene ordered(ordered_world.world());
+            const auto prefab_output = AssetId::generate();
             const Json ui = {{"document", asset.id},
                              {"enabled", true},
                              {"visible", true},
                              {"layer", 3},
+                             {"render_texture", prefab_output},
                              {"future", {{"keep", 7}}}};
             ordered.restore_snapshot(
                 {{"version", 1},
@@ -186,6 +189,32 @@ int main(int argc, char** argv) {
                 if (row.at("id") == instance)
                     mapped = row.at("prefab_instance").at("members").at(member);
             check(!mapped.empty(), "UI child member was not mapped");
+            check(ordered.entity(mapped).get<UiDocument>().render_texture.id == prefab_output,
+                  "UI Prefab instance lost its inherited output assignment");
+            const std::array reference_documents{
+                AssetReferenceDocument{"UI-rows.prefab.json", original}};
+            const auto references = collect_asset_references(ordered.schema(), reference_documents);
+            check(std::any_of(references.references.begin(), references.references.end(),
+                              [&](const auto& hit) {
+                                  return hit.target == prefab_output &&
+                                         hit.expected_type == RenderTextureAsset::type &&
+                                         hit.property == "forge.ui_document.render_texture";
+                              }),
+                  "UI Prefab output did not enter the authoritative typed reference graph");
+            authoring_command(ordered, "property.set",
+                              {{"entity", mapped},
+                               {"component", "forge.ui_document"},
+                               {"field", "render_texture"},
+                               {"value", nullptr}});
+            check(!ordered.entity(mapped).get<UiDocument>().render_texture.id,
+                  "Explicit null did not override an inherited UI output");
+            ordered.undo();
+            check(ordered.entity(mapped).get<UiDocument>().render_texture.id == prefab_output,
+                  "UI output inheritance did not survive Undo");
+            ordered.redo();
+            check(!ordered.entity(mapped).get<UiDocument>().render_texture.id,
+                  "UI output override did not survive Redo");
+            ordered.undo();
             authoring_command(ordered, "property.set",
                               {{"entity", mapped},
                                {"component", "forge.ui_document"},
@@ -206,6 +235,8 @@ int main(int argc, char** argv) {
             returned["members"] = original.at("members");
             library.publish(ordered, absent, returned);
             check(ordered.entity(mapped).has<UiDocument>(), "UI member did not return");
+            check(ordered.entity(mapped).get<UiDocument>().render_texture.id == prefab_output,
+                  "Returning Prefab member lost its UI output assignment");
             check_ui_rows(ordered);
             ordered.entity(instance).destruct();
             check_ui_rows(ordered);
@@ -249,6 +280,17 @@ int main(int argc, char** argv) {
         };
         auto ack = gate.dispatch(command, dispatch);
         check(ack["ok"], "UI command acknowledged");
+        check(ack.at("version") == command.at("version"), "Receipt retains request protocol");
+        {
+            ui_protocol::CommandGate output_gate;
+            output_gate.reset("ui-test", 1);
+            auto output_request = command;
+            output_request["session"] = "ui-test";
+            output_request["version"] = ui_protocol::version;
+            const auto output_ack = output_gate.dispatch(output_request, [](const Json&) {});
+            check(output_ack.at("ok") && output_ack.at("version") == ui_protocol::version,
+                  "Image-output command receives protocol2 receipt");
+        }
         check(gate.dispatch(command, dispatch) == ack, "Exact retry repeats receipt");
         auto action = service->poll_action("DecreaseHealth");
         check(action && action->entity == entity && !service->poll_action("DecreaseHealth"),
@@ -434,6 +476,46 @@ int main(int argc, char** argv) {
                       target.get<UiDocument>().enabled,
                   "UI reactivation retained an old incarnation or changed authored enable");
             reject([&] { service->command(scene, old_command, [](const auto&) {}); });
+        }
+        {
+            // Output routing is copied configuration, and changing it renews the
+            // existing document incarnation before any next presentation snapshot.
+            auto target = scene.entity(entity.str());
+            const auto before = service->snapshot(scene, "session", 1, 0, true);
+            check(before.at("documents")[0].at("render_texture").is_null(),
+                  "Legacy UI default stopped targeting the main display");
+            auto old_command = command;
+            old_command["instance"] = before.at("documents")[0].at("instance");
+            auto config = target.get<UiDocument>();
+            const auto output = AssetId::generate();
+            config.render_texture = {output};
+            target.set(config);
+            reject([&] { service->command(scene, old_command, [](const auto&) {}); });
+            const auto routed = service->snapshot(scene, "session", 1, 0, true);
+            check(routed.at("documents")[0].at("render_texture") == Json(output) &&
+                      routed.at("documents")[0].at("instance") != old_command.at("instance"),
+                  "UI output assignment was omitted or kept stale input identity");
+            check(routed.at("version") == 2 && before.at("version") == 1,
+                  "Output snapshots did not version their routing requirement");
+            ui_protocol::validate_snapshot(routed);
+            auto downlevel = routed;
+            downlevel["version"] = 1u;
+            reject([&] { ui_protocol::validate_snapshot(downlevel); });
+            auto invalid = routed;
+            invalid["documents"][0]["render_texture"] = 42;
+            reject([&] { ui_protocol::validate_snapshot(invalid); });
+            invalid["documents"][0]["render_texture"] = AssetId{}.str();
+            reject([&] { ui_protocol::validate_snapshot(invalid); });
+            config.render_texture = {};
+            target.set(config);
+            const auto main = service->snapshot(scene, "session", 1, 0, true);
+            check(main.at("documents")[0].at("render_texture").is_null() &&
+                      main.at("documents")[0].at("instance") !=
+                          routed.at("documents")[0].at("instance"),
+                  "Returning UI to the main display retained the old surface incarnation");
+            auto legacy = main;
+            legacy["documents"][0].erase("render_texture");
+            ui_protocol::validate_snapshot(legacy);
         }
         service->shutdown();
         reject([&] { service->publish(entity, "health", 5); });

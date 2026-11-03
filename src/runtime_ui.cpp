@@ -179,13 +179,16 @@ Json UiRuntime::snapshot(const Scene& scene, const std::string& session, std::ui
         }
         documents.insert(entity);
         const auto handle = scene.entity(entity.str()).id();
+        const auto output_value = c.value("render_texture", Json());
+        const auto output = output_value.is_null() ? AssetId{} : output_value.get<AssetId>();
         auto it = instances_.find(entity);
         if (it == instances_.end() || it->second.asset != asset || it->second.entity != handle ||
             it->second.localization_scope != scope ||
-            it->second.application_state_scope != state_scope)
-            instances_[entity] = {asset, handle,
-                                  entity.str() + ":" + std::to_string(++next_instance_), scope,
-                                  state_scope};
+            it->second.application_state_scope != state_scope ||
+            it->second.render_texture != output)
+            instances_[entity] = {
+                asset, handle,      entity.str() + ":" + std::to_string(++next_instance_),
+                scope, state_scope, output};
         auto model = models_.contains(entity) ? models_.at(entity) : Json::object();
         if (e.at("components").contains("forge.ui_values")) {
             const auto values =
@@ -221,15 +224,22 @@ Json UiRuntime::snapshot(const Scene& scene, const std::string& session, std::ui
                         {"instance", instances_.at(entity).identity},
                         {"visible", c.at("visible")},
                         {"layer", c.at("layer")},
+                        {"render_texture", output_value},
                         {"model", std::move(model)},
                         {"commands", std::move(actions)}});
     }
     std::erase_if(instances_, [&](const auto& entry) { return !documents.contains(entry.first); });
     std::erase_if(models_, [&](const auto& entry) { return !live.contains(entry.first); });
     std::erase_if(pending_, [&](const auto& action) { return !live.contains(action.entity); });
-    Json result = {{"version", ui_protocol::version}, {"session", session},
-                   {"generation", generation},        {"revision", ++revision_},
-                   {"documents", std::move(docs)},    {"errors", std::move(errors)}};
+    const bool image_outputs = std::any_of(docs.begin(), docs.end(), [](const auto& document) {
+        return !document.at("render_texture").is_null();
+    });
+    Json result = {{"version", image_outputs ? ui_protocol::version : ui_protocol::legacy_version},
+                   {"session", session},
+                   {"generation", generation},
+                   {"revision", ++revision_},
+                   {"documents", std::move(docs)},
+                   {"errors", std::move(errors)}};
     if (localization)
         result["localization"] = localization->descriptor;
     if (states)
@@ -256,7 +266,8 @@ void UiRuntime::command(Scene& scene, const Json& request,
         throw std::runtime_error("UI document no longer exists");
     const auto& d = e.get<UiDocument>();
     auto conditions = scene.state_conditions();
-    if (!d.enabled || !d.visible || d.document.id != asset || !conditions.active(e.id()))
+    if (!d.enabled || !d.visible || d.document.id != asset ||
+        d.render_texture.id != known->second.render_texture || !conditions.active(e.id()))
         throw std::runtime_error("UI document no longer accepts input");
     if (AssetCatalog::open_project(project_).resolve(d.document).state != AssetState::Available)
         throw std::runtime_error("UI document asset is unavailable");

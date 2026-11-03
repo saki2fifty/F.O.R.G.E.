@@ -149,15 +149,18 @@ void FrameRenderer::report(const Diagnostic& value) {
 }
 ITextureView* FrameRenderer::game(IDeviceContext* context, const nlohmann::json& source,
                                   unsigned width, unsigned height, double seconds,
-                                  const TemporalFrameSample* sample) {
-    return game(context, extract_render_scene(source), width, height, seconds, sample);
+                                  const TemporalFrameSample* sample,
+                                  const RenderTextureOverlay* overlay) {
+    return game(context, extract_render_scene(source), width, height, seconds, sample, overlay);
 }
 ITextureView* FrameRenderer::game(IDeviceContext* context, RenderScene scene, unsigned width,
                                   unsigned height, double seconds,
-                                  const TemporalFrameSample* sample) {
+                                  const TemporalFrameSample* sample,
+                                  const RenderTextureOverlay* overlay) {
     const auto cameras = prepare_game_cameras(scene, width, height);
-    auto* result = render(context, scene, cameras.cameras, width, height, scene.settings.exposure,
-                          &scene.settings.auto_exposure, seconds, sample);
+    auto* result =
+        render(context, scene, cameras.cameras, width, height, scene.settings.exposure,
+               &scene.settings.auto_exposure, seconds, sample, Output::Display, nullptr, overlay);
     for (const auto& error : cameras.diagnostics)
         report(error);
     omitted_ += cameras.omitted_diagnostics;
@@ -169,7 +172,8 @@ ITextureView* FrameRenderer::render(IDeviceContext* context, const RenderScene& 
                                     unsigned height, float exposure,
                                     const SceneAutoExposure* automatic, double seconds,
                                     const TemporalFrameSample* sample, Output output,
-                                    const RenderTextureInputs* render_textures) {
+                                    const RenderTextureInputs* render_textures,
+                                    const RenderTextureOverlay* overlay) {
     if (thread_ != std::this_thread::get_id() || !context)
         throw std::runtime_error("Frame rendering requires its presentation thread and context");
     if (output != Output::Display && output != Output::LinearHdr &&
@@ -210,15 +214,15 @@ ITextureView* FrameRenderer::render(IDeviceContext* context, const RenderScene& 
                                [](const auto& c) { return bool(c.camera.render_texture.id); })) {
             if (!render_textures_)
                 render_textures_ = std::make_unique<CameraRenderTextures>(presentation_, host_);
-            meshes_->render_textures(render_textures_->render(context, scene, *meshes_,
-                                                              consumer_layers, seconds, sample));
+            meshes_->render_textures(render_textures_->render(
+                context, scene, *meshes_, consumer_layers, seconds, sample, overlay));
         }
         meshes_->update(scene, cameras);
         if (!render_textures && !render_textures_ &&
             !meshes_->render_texture_reads(scene, UINT32_MAX).empty()) {
             render_textures_ = std::make_unique<CameraRenderTextures>(presentation_, host_);
-            meshes_->render_textures(render_textures_->render(context, scene, *meshes_,
-                                                              consumer_layers, seconds, sample));
+            meshes_->render_textures(render_textures_->render(
+                context, scene, *meshes_, consumer_layers, seconds, sample, overlay));
             meshes_->update(scene, cameras);
         }
         if (!render_textures && render_textures_)

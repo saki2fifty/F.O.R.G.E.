@@ -1,0 +1,50 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [
+      {
+        "kind": "runtime",
+        "revision": "794cc4f0494ec2b092221db73e36aaf5fb05ad9946e2be043e6c7026a7e2d49c",
+        "role": "material.render_texture:baseColorTexture",
+        "target": "823085a3-3dd4-4ddc-a63e-bff972165993",
+        "type": "render_texture"
+      },
+      {
+        "kind": "build",
+        "revision": "cb68dd3c52321655f344aafd9dcf90f198f94a784a923359c34417b41d359fc9",
+        "role": "material.base",
+        "target": "f6cab2cb-6452-49c5-bfd2-33a7cb86f7c8",
+        "type": "material"
+      }
+    ],
+    "importer": "forge.material.builtin",
+    "importer_revision": "8db6a6ed325b5ab659529c58f4fb3cfe1c116832c67c50cd0bab70652e0cbf8e",
+    "key_version": 1,
+    "output_format": "forge.material-bundle",
+    "output_version": 3,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {},
+    "settings_version": 1,
+    "source": "e1b5372aae12688ebbde775f64d2181ceb24cfb314d25eb0519af055bfd1eadd",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.material.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "5758da1d-71d1-4e68-951e-bad5cd7f32cb",
+    "source": "Assets/UI/CameraOutput/Relay.material.json",
+    "source_digest": "e1b5372aae12688ebbde775f64d2181ceb24cfb314d25eb0519af055bfd1eadd",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.material.builtin",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

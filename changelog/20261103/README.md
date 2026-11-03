@@ -1,5 +1,26 @@
 # 2026-11-03
 
+## Runtime UI in camera images
+
+UI Document adds an optional typed Render Texture assignment. Main-window HUDs
+keep their default; assigned documents render after the output's Cameras and
+before same-frame Material/relay consumers. One presenter owns the live/staged
+context groups, copied models, resources, commands and presentation time. Output
+layout uses published pixels and density1; window input/focus remains on main.
+
+The graphics adapter supports explicit premultiplied linear-HDR blending and
+bounded clipping-image reuse. Scene/Prefab reflection, Inspector, automation/MCP,
+Undo and missing-field defaults share existing owners. Positive routing requires
+private UI protocol2; main-only snapshots remain1 and receipts retain the request
+version. Export rejects unsupported runtime kits before replacing a good output.
+Public C++ value headers require their matching SDK fingerprint; ABI1 is unchanged.
+
+Original Gallery154 includes telemetry on direct/relayed monitors, paused UiValues
+opacity and a main guide. Its Material UV transforms retain existing mesh/resource
+contracts. Local software Vulkan verifies native text, model updates, same-frame
+ordering, main isolation/resize and source-hidden relocated images. This is not
+Windows/D3D12, physical-device, graphical-EXE or surface-input acceptance.
+
 ## Smooth sequence camera views
 
 Camera Shot adds an optional zero-default incoming blend duration. Compatible

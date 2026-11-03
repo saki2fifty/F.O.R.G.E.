@@ -100,19 +100,26 @@ std::unique_ptr<GameScenePreparation> GamePresentation::prepare(std::uint64_t ti
 }
 Diligent::ITextureView* GamePresentation::draw(GameSession& game, double time) {
     ui_.loading(game.loading_state());
-    ui_.update(time, int(width_), int(height_), density_);
-    if (!active_)
+    if (!active_) {
+        ui_.update(time, int(width_), int(height_), density_);
         return nullptr;
+    }
     resources_->pump();
-    auto scene = extract_render_scene(game.presentation());
-    detail::bind_runtime_tile_maps(game.active().engine.world(), scene);
-    auto* image = active_->game(context_, std::move(scene), width_, height_, time);
-    resources_->submit();
     const auto status = game.status();
     ui_.accept(runtime_ui(game.active())
                    ->snapshot(game.active().scene, session_, generation_,
                               status.at("clock").at("tick"), status.at("state") == "paused"));
     ui_.update(time, int(width_), int(height_), density_);
+    const RenderTextureOverlay overlay = [&](Diligent::IDeviceContext* context, AssetId output,
+                                             Diligent::ITextureView* image, unsigned w,
+                                             unsigned h) {
+        ui_renderer_.draw_output(ui_, {output}, context, image, w, h);
+    };
+    auto scene = extract_render_scene(game.presentation());
+    detail::bind_runtime_tile_maps(game.active().engine.world(), scene);
+    auto* image =
+        active_->game(context_, std::move(scene), width_, height_, time, nullptr, &overlay);
+    resources_->submit();
     auto* target = image->GetTexture()->GetDefaultView(Diligent::TEXTURE_VIEW_RENDER_TARGET);
     ui_renderer_.begin(context_, target, width_, height_);
     try {

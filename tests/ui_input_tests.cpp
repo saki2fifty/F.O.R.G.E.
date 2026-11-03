@@ -1,3 +1,4 @@
+#include "runtime_ui_host.hpp"
 #include "runtime_ui_input.hpp"
 #include <RmlUi/Core.h>
 #include <fstream>

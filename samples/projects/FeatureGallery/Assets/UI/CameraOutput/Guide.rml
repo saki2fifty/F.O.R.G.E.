@@ -1,0 +1,6 @@
+<rml><head><style>
+body, div {display:block; font-family:Lato; color:#e7f4ff; pointer-events:none;}
+body {margin:0; width:100%; height:100%;}
+#title {position:absolute; left:3%; top:4%; font-size:22px; color:#67f1b9;}
+#guide {box-sizing:border-box; position:absolute; left:3%; bottom:4%; width:94%; padding:10px; font-size:15px; background-color:#102438e8;}
+</style></head><body><div id="title">Runtime UI in camera images</div><div id="guide">Left: camera output + UI. Right: same-frame relay.<br/>Pause and edit Telemetry / UI Values / amount to fade the panel.<br/>The main guide stays on the Game view. Display surfaces do not take pointer input.</div></body></rml>

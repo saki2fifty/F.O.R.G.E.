@@ -18,7 +18,9 @@ std::uint64_t natural(const Json& v) {
     return v.get<std::uint64_t>();
 }
 void scope(const Json& j) {
-    require(j.is_object() && j.value("version", 0) == version, "Unsupported private UI protocol");
+    require(j.is_object() &&
+                (j.value("version", 0) == legacy_version || j.value("version", 0) == version),
+            "Unsupported private UI protocol");
     const auto s = j.at("session").get<std::string>();
     require(!s.empty() && s.size() <= 128, "Invalid UI session");
     require(natural(j.at("generation")) > 0, "Invalid UI generation");
@@ -147,6 +149,11 @@ void validate_snapshot(const Json& j) {
         const auto entity = d.at("entity").get<std::string>();
         (void)EntityId::parse(entity);
         (void)d.at("asset").get<AssetId>();
+        // Missing/null retains the legacy main-display snapshot shape.
+        if (const auto output = d.value("render_texture", Json()); !output.is_null()) {
+            require(j.at("version") == version, "UI image outputs require private protocol2");
+            require(bool(output.get<AssetId>()), "UI output needs a valid asset identity");
+        }
         const auto instance = d.at("instance").get<std::string>();
         require(!instance.empty() && instance.size() <= 128 && ids.insert(instance).second,
                 "Invalid UI document instance");
@@ -210,7 +217,7 @@ Json CommandGate::dispatch(const Json& j, const std::function<void(const Json&)>
     require(!instance.empty() && instance.size() <= 128, "Invalid UI command document instance");
     if (j.contains("value"))
         validate_value(j.at("value"));
-    Json ack = {{"version", version},
+    Json ack = {{"version", j.at("version")},
                 {"session", session_},
                 {"generation", generation_},
                 {"id", id},

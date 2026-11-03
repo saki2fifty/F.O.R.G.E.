@@ -7,6 +7,9 @@ struct StandaloneDistribution {
     std::filesystem::path root, content;
     nlohmann::json manifest, settings;
 };
+// Inspect the existing cooked document graph, including Prefab overrides. A main
+// window document remains compatible with kits predating image-output routing.
+void validate_runtime_ui_compatibility(const AssetCatalog&, const nlohmann::json& engine);
 // Full read-only admission before loading gameplay code or opening a window.
 StandaloneDistribution open_standalone_distribution(const std::filesystem::path&,
                                                     const RuntimePackageTarget&,

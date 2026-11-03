@@ -6495,11 +6495,22 @@ int main(int argc, char** argv) {
                                 game_viewport->invalidate_temporal_history();
                             game_preview_generation = generation;
                         }
+                        forge::RenderTextureOverlay ui_output;
+                        if (game_view && !sequence_camera_preview) {
+                            runtime_ui.prepare_frame(play, image_origin, size, render_width,
+                                                     render_height);
+                            ui_output = [&](Diligent::IDeviceContext* graphics,
+                                            forge::AssetId output, Diligent::ITextureView* image,
+                                            unsigned w, unsigned h) {
+                                runtime_ui.draw_output(play, graphics, output, image, w, h);
+                            };
+                        }
                         auto* texture =
                             game_view
                                 ? game_viewport->game(context, std::move(copied_game_scene),
                                                       render_width, render_height, ImGui::GetTime(),
-                                                      temporal_sample ? &*temporal_sample : nullptr)
+                                                      temporal_sample ? &*temporal_sample : nullptr,
+                                                      ui_output ? &ui_output : nullptr)
                                 : viewport.render(context, rendered, render_width, render_height,
                                                   view_camera, view_cache.generation(),
                                                   performance.continuous,
@@ -6517,9 +6528,7 @@ int main(int argc, char** argv) {
                         }
 #endif
                         if (game_view && !sequence_camera_preview)
-                            runtime_ui.draw(play, context, texture, image_origin, size,
-                                            unsigned(std::max(1.0f, size.x * render_scale)),
-                                            unsigned(std::max(1.0f, size.y * render_scale)));
+                            runtime_ui.draw(play, context, texture);
                         if (texture && (!game_view || !game_viewport->cameras().empty())) {
                             (game_view ? game_image_available : scene_image_available) = true;
                             view_image.capture(

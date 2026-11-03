@@ -1637,3 +1637,19 @@ hashes and capture receipts are in
 `AgentFiles/build/phase233-camera-shot-transitions/manual-captures.json`.
 The captures do not establish full Main, Windows/MSVC/D3D12, physical GPU/DPI,
 external MCP client or graphical EXE acceptance.
+
+
+## UI in camera images
+
+[Camera-output UI](../../../manual/images/camera-output-ui-gallery.png) is an
+unretouched640×360 actual GamePresentation/GameSession capture of Gallery154 on
+software Vulkan. Both monitor Materials show upright telemetry text; the main
+guide remains separate. The paused tick is0. Lossless P6-to-PNG conversion preserves
+every RGB pixel. The original source and source-hidden relocated export displays
+match exactly, including transparent/visible model states and main resize.
+PNG SHA256: `cdc54d78d4a6823adfe641e3dc50fb4ecf9ddd27d1484f39e5d047dc6d934c01`.
+
+Personally reviewed from local unassigned source based on2b05874. Exact inputs,
+executable and capture provenance are recorded in the local234 manual-captures
+receipt. This does not establish full Main/editor, Windows/MSVC/D3D12, physical
+input/DPI/GPU, performance or graphical-EXE acceptance.

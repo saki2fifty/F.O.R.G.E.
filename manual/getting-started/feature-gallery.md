@@ -569,3 +569,19 @@ normally; no project C++ module is needed. See [Camera shots](../editor/animatio
 
 ![Colored depth markers seen during a smooth Camera Shot transition](../images/camera-transition-gallery.png)
 The Game view interpolates both the camera pose and lens while the shared rig moves.
+
+
+## UI in camera images
+
+Open **154-camera-output-ui** and press Play. The telemetry header appears on both
+monitors; the right monitor reads the left through a second Camera during the same
+frame. The help panel remains on the main Game view. Pause, select **Telemetry -
+UI in Split camera output**, and change **Live gameplay → UI Values → amount**
+between `0` and `1` to fade the output panel. The fixed gameplay tick stays held.
+
+![Telemetry panels appear upright on the direct and relayed monitor images](../images/camera-output-ui-gallery.png)
+
+The monitor Materials contain their UV orientation. Edit the RML in
+**Assets/UI/CameraOutput**, save and use **Reload UI**. Select this Scene as startup,
+save it and use the editor's matching runtime kit to export. Mesh clicks do not
+provide input to the displayed UI. See [Runtime UI](../editor/runtime-ui.md).

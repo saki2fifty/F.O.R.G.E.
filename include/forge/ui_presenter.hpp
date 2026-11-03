@@ -48,7 +48,13 @@ class UiPresenter {
     bool activate_prepared(std::uint64_t ticket) noexcept;
     void cancel_prepared(std::uint64_t ticket);
     void update(double elapsed_seconds, int width, int height, float density = 1);
+    // The existing camera pass supplies its physical layout at the shared time.
+    void update_output(AssetRef<RenderTextureAsset>, int width, int height, float density = 1);
+    // Observations of the current document set, never output resource ownership.
+    std::vector<AssetId> output_targets() const;
+    bool has_output(AssetRef<RenderTextureAsset>) const;
     void render();
+    void render_output(AssetRef<RenderTextureAsset>);
     bool mouse_move(int x, int y, int modifiers);
     bool mouse_button(int button, bool down, int modifiers);
     bool wheel(float x, float y, int modifiers);

@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <forge/game_content.hpp>
 #include <forge/project.hpp>
+#include <forge/ui_protocol.hpp>
 #include <set>
 namespace forge {
 namespace {
@@ -64,6 +65,21 @@ Json verify_distribution_files(const std::filesystem::path& root,
     require(found == expected, "Distribution file inventory differs from manifest");
     return result;
 }
+void validate_runtime_ui_compatibility(const AssetCatalog& catalog, const Json& engine) {
+    for (const auto& [id, record] : catalog.records()) {
+        (void)id;
+        for (const auto& edge : record.dependency_edges)
+            if (edge.kind == AssetDependencyKind::Runtime &&
+                edge.role == "document:forge.ui_document.render_texture") {
+                const auto protocol = engine.find("runtime_ui_protocol");
+                require(protocol != engine.end() && protocol->is_number_integer() &&
+                            *protocol == ui_protocol::version,
+                        "Camera-output UI requires a matching runtime kit with UI image-output "
+                        "support; select the runtime kit packaged with this editor");
+                return;
+            }
+    }
+}
 StandaloneDistribution open_standalone_distribution(const std::filesystem::path& root,
                                                     const RuntimePackageTarget& target,
                                                     std::string_view profile,
@@ -98,6 +114,7 @@ StandaloneDistribution open_standalone_distribution(const std::filesystem::path&
             "Standalone and game configuration profiles differ");
     const auto content = paths.resolve(content_locator);
     const auto catalog = open_runtime_content(content, target, {}, stop);
+    validate_runtime_ui_compatibility(catalog, engine);
     const auto startup = settings.at("startup_scene").at("asset").get<AssetId>();
     (void)load_game_scene(content, {startup});
     require(manifest.at("assets") == runtime_asset_inventory(catalog),

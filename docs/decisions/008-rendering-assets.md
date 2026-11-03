@@ -309,3 +309,16 @@ Material reads and Camera writes, with feedback rejected before current sampling
 Linear HDR producers and normal consumer display composition reuse FrameRenderer.
 This supplies the concrete resource/composition consumer for authored targets.
 See [Scene camera render textures](../render-textures.md).
+
+
+## Runtime UI in camera images —2026-11-03
+
+A UiDocument may select an existing Render Texture through an optional typed
+reference. The existing presenter partitions its live/staged Set by output;
+resources, copied models, command validation, localization and time retain their
+owners. CameraRenderTextures borrows composition after scene Cameras and before
+current-image copy/publication. The shared graphics adapter supports linear HDR
+premultiplied UI blending; the consuming view retains tone mapping. No new output
+registry, render graph, input authority or gameplay clock is introduced. Main-only
+protocol1 remains supported; positive routing uses private protocol2 and matching
+runtime-kit admission. Mesh UVs remain authored surface data. See [Runtime UI](../runtime-ui.md).

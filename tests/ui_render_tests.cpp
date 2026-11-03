@@ -1,4 +1,5 @@
 // Independent RmlUi/Diligent host: deliberately no ImGui/editor linkage.
+#include "Common/interface/Float16.hpp"
 #include "Common/interface/RefCntAutoPtr.hpp"
 #include "fixtures/texture_jpeg.hpp"
 #include "fixtures/ui_png.hpp"
@@ -19,6 +20,7 @@
 #include "ui_frame_statistics_render_tests.hpp"
 #include "ui_localization_render_tests.hpp"
 #include <RmlUi/Core.h>
+#include <cmath>
 #include <cstring>
 #include <forge/ui_diligent.hpp>
 #include <forge/ui_presenter.hpp>
@@ -37,9 +39,12 @@ void require(bool value, const char* text) {
 void check(HRESULT result, const char* text) { require(SUCCEEDED(result), text); }
 #endif
 using Pixels = std::vector<std::array<unsigned char, 4>>;
-Pixels readback(IRenderDevice* device, IDeviceContext* context, ITextureView* view) {
+template <class Pixel>
+std::vector<Pixel> readback_pixels(IRenderDevice* device, IDeviceContext* context,
+                                   ITextureView* view, TEXTURE_FORMAT format) {
     auto* texture = view->GetTexture();
     auto desc = texture->GetDesc();
+    require(desc.Format == format, "UI readback pixel format mismatch");
     desc.Name = "FORGE test readback";
     desc.Usage = USAGE_STAGING;
     desc.BindFlags = BIND_NONE;
@@ -58,14 +63,18 @@ Pixels readback(IRenderDevice* device, IDeviceContext* context, ITextureView* vi
     MappedTextureSubresource data;
     context->MapTextureSubresource(staging, 0, 0, MAP_READ, MAP_FLAG_DO_NOT_WAIT, nullptr, data);
     require(data.pData != nullptr, "Readback map failed");
-    Pixels result(desc.Width * desc.Height);
+    std::vector<Pixel> result(desc.Width * desc.Height);
     for (unsigned y = 0; y < desc.Height; ++y)
         std::memcpy(result.data() + y * desc.Width,
                     static_cast<const unsigned char*>(data.pData) + y * data.Stride,
-                    desc.Width * 4);
+                    desc.Width * sizeof(Pixel));
     context->UnmapTextureSubresource(staging, 0, 0);
     context->FinishFrame();
     return result;
+}
+Pixels readback(IRenderDevice* device, IDeviceContext* context, ITextureView* view) {
+    return readback_pixels<std::array<unsigned char, 4>>(device, context, view,
+                                                         TEX_FORMAT_RGBA8_UNORM);
 }
 void save(const Pixels& pixels, unsigned width, unsigned height,
           const std::filesystem::path& path) {
@@ -163,6 +172,46 @@ int main(int argc, char** argv) {
         require(p[0] >= 127 && p[0] <= 129 && p[2] >= 126 && p[2] <= 128,
                 "Premultiplied alpha blend");
         save(pixels, 320, 160, images / "ui-alpha.ppm");
+        {
+            auto hdr_desc = desc;
+            hdr_desc.Name = "Linear HDR UI fixture";
+            hdr_desc.Format = TEX_FORMAT_RGBA16_FLOAT;
+            RefCntAutoPtr<ITexture> hdr;
+            device->CreateTexture(hdr_desc, nullptr, &hdr);
+            require(bool(hdr), "Linear UI target allocation");
+            auto* output = hdr->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET);
+            context->SetRenderTargets(1, &output, nullptr,
+                                      RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+            const float background[] = {0, 0, 2, 1};
+            context->ClearRenderTarget(output, background,
+                                       RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+            const auto geometry = quad(20, 20, 80, 60, {128, 128, 128, 128});
+            const Rml::byte texel[] = {32, 0, 0, 128};
+            const auto image = r.GenerateTexture({texel, 4}, {1, 1});
+            require(geometry && image, "Linear UI fixture resources");
+            renderer.begin(context, output, 320, 160);
+            r.RenderGeometry(geometry, {0, 0}, image);
+            renderer.end();
+            const auto linear = readback_pixels<std::array<std::uint16_t, 4>>(
+                device, context, output, TEX_FORMAT_RGBA16_FLOAT);
+            const auto actual = [&](unsigned x, unsigned y, unsigned channel) {
+                return float(Float16(linear.at(y * 320 + x).at(channel)));
+            };
+            // The two alpha factors multiply. Straight display red is .25;
+            // its linear value is .050876, then premultiplied by (128/255)^2.
+            require(std::abs(actual(30, 30, 0) - .012819f) < .0001f &&
+                        std::abs(actual(30, 30, 2) - 1.496071f) < .002f && actual(30, 30, 3) == 1 &&
+                        actual(0, 0, 2) == 2,
+                    "UI linear transfer/premultiplication or HDR preservation differs");
+            r.ReleaseGeometry(geometry);
+            r.ReleaseTexture(image);
+            // Existing geometry/texture bindings must still work when switching back.
+            start();
+            r.RenderGeometry(red, {0, 0}, 0);
+            renderer.end();
+            require(readback(device, context, rtv) == pixels,
+                    "Linear UI output changed the existing display path");
+        }
         start();
         r.EnableScissorRegion(true);
         r.SetScissorRegion(Rml::Rectanglei::FromPositionSize({40, 20}, {20, 40}));
@@ -394,6 +443,44 @@ img {position:absolute;width:64px;height:64px;top:16px;} #png {left:16px;} #jpg 
                 require(bright > 150, "Actual RmlUi font/text rendering");
                 save(pixels, size, 480, images / ("ui-document-" + std::to_string(size) + ".ppm"));
             }
+
+            // The same live output document follows actual pass dimensions,
+            // independently of the unchanged main viewport/density and model.
+            const auto output = forge::AssetId::generate();
+            state["version"] = 2;
+            state["revision"] = 2u;
+            state["documents"][0]["render_texture"] = output;
+            const bool accepted = presenter.accept(state);
+            require(accepted, presenter.diagnostic().c_str());
+            const auto revision = presenter.presentation_revision();
+            for (unsigned size : {320u, 240u, 320u}) {
+                desc.Width = size;
+                desc.Height = 160;
+                target.Release();
+                device->CreateTexture(desc, nullptr, &target);
+                require(bool(target), "Resized UI output allocation failed");
+                rtv = target->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET);
+                context->SetRenderTargets(1, &rtv, nullptr,
+                                          RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+                const float clear[]{0, 0, 0, 1};
+                context->ClearRenderTarget(rtv, clear, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+                presenter.update(++elapsed, 640, 480, 2);
+                renderer.draw_output(presenter, {output}, context, rtv, size, 160);
+                pixels = readback(device, context, rtv);
+                unsigned bright = 0;
+                for (auto color : pixels)
+                    bright += color[0] > 150 && color[1] > 150 && color[2] > 150;
+                require(bright > 60 && presenter.presentation_revision() == revision,
+                        "UI output resize lost text or rebuilt its live context");
+                Rml::Context* native_output = nullptr;
+                for (int i = 0; i < Rml::GetNumContexts(); ++i)
+                    if (Rml::GetContext(i)->GetName().ends_with(output.str()))
+                        native_output = Rml::GetContext(i);
+                require(Rml::GetNumContexts() == 2 && native_output &&
+                            native_output->GetDimensions() == Rml::Vector2i{int(size), 160} &&
+                            native_output->GetDensityIndependentPixelRatio() == 1,
+                        "Output layout inherited main-window dimensions or density");
+            }
         }
         forge::test_ui_frame_statistics::exercise(device, context, renderer, images, argv[2],
                                                   readback, save);
@@ -406,6 +493,53 @@ img {position:absolute;width:64px;height:64px;top:16px;} #png {left:16px;} #jpg 
         if (argc == 4)
             forge::test_state_gallery_pixels::exercise(device, context, renderer, images, argv[2],
                                                        argv[3], readback, save);
+        // Two already-owned view sizes alternating for ten frames. Count native
+        // clipping allocations independently of color allocation or wall time.
+        {
+            std::array<RefCntAutoPtr<ITexture>, 2> views;
+            const std::array sizes{std::pair{64u, 32u}, std::pair{96u, 48u}};
+            for (unsigned i = 0; i < views.size(); ++i) {
+                desc.Width = sizes[i].first;
+                desc.Height = sizes[i].second;
+                device->CreateTexture(desc, nullptr, &views[i]);
+                require(bool(views[i]), "Clipping workload target allocation failed");
+            }
+            forge::UiDiligentRenderer scratch(device);
+            const auto before = scratch.clipping_stats();
+            for (unsigned frame = 0; frame < 10; ++frame)
+                for (unsigned i = 0; i < views.size(); ++i) {
+                    scratch.begin(context, views[i]->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET),
+                                  sizes[i].first, sizes[i].second);
+                    scratch.end();
+                }
+            const auto after = scratch.clipping_stats();
+            require(after.allocations - before.allocations == 2 && after.cached_sizes == 2 &&
+                        after.cached_bytes == (64 * 32 + 96 * 48) * 4,
+                    "Alternating output sizes recreate clipping images");
+            std::cout << "Alternating clipping workload allocations="
+                      << after.allocations - before.allocations
+                      << " cached_sizes=" << after.cached_sizes
+                      << " logical_bytes=" << after.cached_bytes << '\n';
+            // A sixth distinct small size evicts the least recently used scratch
+            // image. It never becomes another camera output or content resource.
+            for (unsigned i = 1; i <= 6; ++i) {
+                desc.Width = 16 * i;
+                desc.Height = 16;
+                RefCntAutoPtr<ITexture> color;
+                device->CreateTexture(desc, nullptr, &color);
+                require(bool(color), "Clipping eviction target allocation failed");
+                scratch.begin(context, color->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET),
+                              desc.Width, desc.Height);
+                scratch.end();
+            }
+            require(scratch.clipping_stats().cached_sizes == 5,
+                    "Clipping scratch size churn exceeds its bound");
+            const auto evicted = scratch.clipping_stats().allocations;
+            scratch.begin(context, views[0]->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET), 64, 32);
+            scratch.end();
+            require(scratch.clipping_stats().allocations == evicted + 1,
+                    "Least recently used clipping size was not evicted");
+        }
         context->WaitForIdle();
         std::cout << "Runtime UI native geometry, clipping, transform, texture, blend, font "
                      "and resize passed\n";

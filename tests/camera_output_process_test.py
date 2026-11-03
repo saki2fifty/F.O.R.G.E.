@@ -35,15 +35,21 @@ with tempfile.TemporaryDirectory(prefix='camera-output-', dir=scratch) as tempor
                 return {field['id']: field['default'] for field in component['fields']}
             camera = defaults('forge.camera')
             camera.update(render_texture=output, order=7, extension=dict(retain='camera'))
+            ui = defaults('forge.ui_document')
+            ui.update(render_texture=output, enabled=False, layer=4, extension=dict(retain='ui'))
             source = dict(version=3, asset_id=str(uuid.uuid4()), entities=[dict(
                 id=actor, name='Public output camera', components={
                     'forge.local_translation': defaults('forge.local_translation'),
                     'forge.local_rotation': defaults('forge.local_rotation'),
-                    'forge.local_scale': defaults('forge.local_scale'), 'forge.camera': camera})])
+                    'forge.local_scale': defaults('forge.local_scale'), 'forge.camera': camera,
+                    'forge.ui_document': ui})])
             original = copy.deepcopy(source)
             def values(state):
                 assert not any(row['severity'].lower() in ('error', 'fatal') for row in state['diagnostics']), state['diagnostics']
-                return next(row['components']['forge.camera'] for row in state['effective_scene']['entities'] if row['id'] == actor)
+                components = next(row['components'] for row in state['effective_scene']['entities'] if row['id'] == actor)
+                expected_ui = ui if components['forge.camera']['render_texture'] else ui | dict(render_texture=None, layer=5)
+                assert components['forge.ui_document'] == expected_ui, components
+                return components['forge.camera']
             active = activate(host, source, sdk)
             assert values(active) == camera
             assert any('Public Camera output layout admitted' in row['text'] for row in active['diagnostics'])
@@ -63,4 +69,4 @@ with tempfile.TemporaryDirectory(prefix='camera-output-', dir=scratch) as tempor
             assert host.request('quit')['ok'] and host.process.wait(timeout=20) == 0
         finally:
             host.close()
-print('Public Camera output reference/layout, fixed writes, restart, ordinary recovery and both runtime hosts passed')
+print('Public Camera/UI output reference/layout, fixed writes, restart, ordinary recovery and both runtime hosts passed')

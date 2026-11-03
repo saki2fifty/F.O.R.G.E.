@@ -5,6 +5,16 @@ The accepted local Windows package is **261024-000213**, source
 in the [README](../README.md#current-implementation). No new numbered Windows
 package accompanies the local source changes described here.
 
+Local source adds Runtime UI in camera outputs through a nullable typed UI Document
+assignment. One presenter prepares main and output context groups; UI draws before
+same-frame Material/relay reads. Output density is1, pointer/focus stay on main,
+and existing Scene/Prefab/history/automation owners are reused. Gallery154 has
+telemetry text, paused opacity and correctly oriented direct/relayed monitors.
+Native software Vulkan and source-hidden relocated content comparisons pass;
+export rejects runtime kits without matching UI protocol support. This does not
+establish Windows, full-editor, physical-device or graphical-EXE acceptance.
+See [Runtime UI](runtime-ui.md) and the [guide](../manual/editor/runtime-ui.md).
+
 Local source adds bounded foliage placement through ordinary Mesh Renderer objects.
 **Tools > Foliage placement...**, the shared `mesh.scatter` command and generated
 MCP tool provide seeded horizontal layouts, spacing, scale/yaw variation, complete

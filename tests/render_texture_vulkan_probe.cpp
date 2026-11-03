@@ -314,6 +314,31 @@ int main(int argc, char** argv) {
         check(capture(first_image.get()->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE)) == green,
               "Another view overwrote a retained camera output");
 
+        // A UI/presentation overlay must complete before the producer image is
+        // current. A callback failure invalidates this frame, even with old leases.
+        presentation.begin_frame();
+        unsigned overlays = 0;
+        const RenderTextureOverlay rejected_overlay =
+            [&](IDeviceContext*, AssetId asset, ITextureView* image, unsigned w, unsigned h) {
+                check(asset == id && image && w == output->source().compiled().width &&
+                          h == output->source().compiled().height,
+                      "Output overlay did not receive actual producer dimensions");
+                ++overlays;
+                throw std::runtime_error("fixture.overlay.failure");
+            };
+        first.render(context, background, first_materials, 2, 0, nullptr, &rejected_overlay);
+        check(overlays == 1 && first.inputs().produced.empty() &&
+                  std::any_of(first.diagnostics().begin(), first.diagnostics().end(),
+                              [](const auto& d) {
+                                  return d.text.find("fixture.overlay.failure") !=
+                                         std::string::npos;
+                              }),
+              "Failed output UI composition published stale pixels or lost its diagnostic");
+        finish();
+        prepare(first, first_materials);
+        check(first.inputs().produced.contains(id), "A corrected overlay did not recover output");
+        finish();
+
         const auto package = root.parent_path() / (root.filename().string() + "-package");
         std::filesystem::create_directories(root / "Scenes");
         authored.save(root / "Scenes/Monitor.scene.json");

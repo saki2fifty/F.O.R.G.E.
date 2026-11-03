@@ -1,0 +1,6 @@
+<rml><head><style>
+body, div {display:block; font-family:Lato; color:#e7f4ff; pointer-events:none;}
+body {margin:0; width:100%; height:100%;}
+#panel {box-sizing:border-box; width:100%; height:82px; padding:12px 18px; background-color:#102438e8; border-bottom:2px #36e5a4;}
+#title {font-size:22px; color:#67f1b9;} #detail {font-size:16px; margin-top:6px;}
+</style></head><body><div id="panel" data-style-opacity="amount"><div id="title">CAMERA FEED / LIVE UI</div><div id="detail">Tick: {{tick}} | Paused: {{paused}}</div></div></body></rml>

@@ -52,6 +52,30 @@ int main(int argc, char** argv) {
         const RuntimePackageTarget target{"linux", "none"};
         package_runtime_content(project, out / "content", roots, target);
         const auto catalog = open_runtime_content(out / "content", target);
+        {
+            // Metadata admission uses the existing typed graph, without realizing
+            // ECS or interpreting an unrelated project file as a UI document.
+            AssetCatalog routed(scratch / "ui-compatibility");
+            const AssetRecord output{AssetId::generate(), "render_texture",
+                                     "Image.rendertexture.json", 1};
+            routed.add(output);
+            AssetRecord document{AssetId::generate(), "prefab", "Panel.prefab.json", 1};
+            document.dependencies = {output.id};
+            document.dependency_edges = {{output.id,
+                                          "render_texture",
+                                          AssetDependencyKind::Runtime,
+                                          "document:forge.ui_document.render_texture",
+                                          {}}};
+            routed.add(document);
+            validate_runtime_ui_compatibility(routed, {{"runtime_ui_protocol", 2}});
+            reject([&] { validate_runtime_ui_compatibility(routed, Json::object()); });
+            for (const Json& protocol :
+                 {Json(), Json(1), Json(2.0), Json("2"), Json(true), Json(3)})
+                reject([&] {
+                    validate_runtime_ui_compatibility(routed, {{"runtime_ui_protocol", protocol}});
+                });
+            validate_runtime_ui_compatibility(catalog, Json::object());
+        }
         // File-inventory fixture only, not executable/graphics acceptance.
         asset_storage::replace(out / "forge_game", "test executable bytes");
         std::filesystem::copy_file(argv[2], out / "resources/ui/LatoLatin-Regular.ttf");

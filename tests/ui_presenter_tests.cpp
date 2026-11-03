@@ -21,6 +21,93 @@ std::vector<std::byte> read(const std::filesystem::path& path) {
     std::memcpy(v.data(), b.data(), b.size());
     return v;
 }
+void output_groups(Renderer& renderer, const std::filesystem::path& root,
+                   const std::filesystem::path& font) {
+    std::ofstream(root / "outputs.rml")
+        << R"rml(<rml><head><style>body {font-family:Lato;font-size:18px;} button {display:block;width:180px;height:40px;}</style></head><body><button id="pause" data-event-click="command('Pause')">Output {{tick}}</button></body></rml>)rml";
+    const auto asset = register_ui_document(root, "outputs.rml").id;
+    UiPresenter presenter(renderer, root, read(font));
+    presenter.reset("outputs", 1);
+    const auto main_id = EntityId::generate(), output_id = EntityId::generate();
+    const auto output = AssetId::generate();
+    const auto document = [&](EntityId id, unsigned value, AssetId target) {
+        return Json{{"entity", id},
+                    {"asset", asset},
+                    {"instance", id.str()},
+                    {"visible", true},
+                    {"layer", value},
+                    {"render_texture", target ? Json(target) : Json()},
+                    {"model", {{"tick", value}, {"paused", true}}},
+                    {"commands", {"Pause"}}};
+    };
+    Json state{
+        {"version", 2u},
+        {"session", "outputs"},
+        {"generation", 1u},
+        {"revision", 1u},
+        {"documents", Json::array({document(main_id, 1, {}), document(output_id, 2, output)})}};
+    const bool accepted = presenter.accept(state);
+    check(accepted, presenter.diagnostic().c_str());
+    check(Rml::GetNumContexts() == 2 && presenter.document_count() == 2 &&
+              presenter.output_targets() == std::vector<AssetId>{output},
+          "UI output grouping duplicated its document/model authority");
+    presenter.update(1, 800, 600);
+    bool rejected = false;
+    try {
+        presenter.render_output({output});
+    } catch (const std::exception&) {
+        rejected = true;
+    }
+    check(rejected, "An output without physical dimensions rendered through the main viewport");
+    presenter.update(1, 800, 600, 2);
+    presenter.update_output({output}, 320, 160);
+    Rml::Context *main = nullptr, *surface = nullptr;
+    for (int i = 0; i < Rml::GetNumContexts(); ++i) {
+        auto* context = Rml::GetContext(i);
+        (context->GetName().find(output.str()) == std::string::npos ? main : surface) = context;
+    }
+    check(main && surface && main->GetDimensions() == Rml::Vector2i{800, 600} &&
+              surface->GetDimensions() == Rml::Vector2i{320, 160} && main->GetNumDocuments() == 1 &&
+              surface->GetNumDocuments() == 1,
+          "Independent UI target dimensions or document membership differ");
+    const auto draws = renderer.draws;
+    presenter.render();
+    check(renderer.draws > draws, "Main UI lost its existing renderer");
+    const auto after_main = renderer.draws;
+    presenter.render_output({output});
+    check(renderer.draws > after_main, "UI output group did not render");
+    auto* button = main->GetDocument(0)->GetElementById("pause");
+    const auto position = button->GetAbsoluteOffset();
+    presenter.mouse_move(int(position.x + 10), int(position.y + 10), 0);
+    presenter.mouse_button(0, true, 0);
+    presenter.mouse_button(0, false, 0);
+    const auto command = presenter.pending_command();
+    check(command && command->at("instance") == main_id.str(),
+          "Main pointer input reached an output document");
+    auto ack = *command;
+    ack["ok"] = true;
+    presenter.acknowledge(ack);
+    check(presenter.command(output_id.str(), "Pause", std::nullopt),
+          "Explicit semantic commands lost their output document");
+    check(presenter.pending_command()->at("instance") == output_id.str(),
+          "Output semantic command changed document identity");
+    const auto replacement_output = AssetId::generate();
+    auto replacement = state;
+    replacement["generation"] = 2u;
+    replacement["documents"][1]["render_texture"] = replacement_output;
+    auto ticket = presenter.prepare(replacement);
+    check(Rml::GetNumContexts() == 4 && presenter.output_targets() == std::vector<AssetId>{output},
+          "Staged output context replaced or shared the live layout");
+    presenter.cancel_prepared(ticket);
+    check(Rml::GetNumContexts() == 2, "Cancelled UI outputs leaked native contexts");
+    ticket = presenter.prepare(replacement);
+    check(presenter.activate_prepared(ticket) && Rml::GetNumContexts() == 2 &&
+              presenter.output_targets() == std::vector<AssetId>{replacement_output},
+          "UI output candidate activation retained old contexts or routing");
+    presenter.reset("outputs-reset", 1);
+    check(Rml::GetNumContexts() == 0 && presenter.output_targets().empty(),
+          "UI output reset retained contexts or routing");
+}
 int main(int argc, char** argv) {
     try {
         check(argc == 3, "Need root and font");
@@ -382,6 +469,7 @@ int main(int argc, char** argv) {
                 p.update(reference_time += .02, 1280, 720);
             }
         }
+        output_groups(renderer, root, argv[2]);
         check(renderer.geometry.empty() && renderer.textures.empty(),
               "RmlUi releases resources before renderer destruction");
         std::filesystem::remove_all(root);

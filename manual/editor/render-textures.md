@@ -82,8 +82,16 @@ unavailable.
 
 Render textures fill 2D Color slots on Mesh Materials. Sprite, Tile Map, particle,
 Decal, environment and light-image inputs require their existing static resources.
-UI and editor overlays are not included in these images. An isolated Material
-preview has no scene Camera producer; inspect the Material on a Mesh in Scene or Game.
+During Play, [Runtime UI](runtime-ui.md) can explicitly
+select this output through **UI Document → Render Texture**. It draws after all
+producer Cameras and before image consumers. Main-window UI and editor overlays
+stay separate. Mesh clicks do not provide input to output UI. An isolated Material
+preview has no scene Camera producer; inspect the Material on a Mesh in Game.
+
+A Mesh uses its own UV coordinates to display the image. If text is upside down,
+correct that Material's texture UV transform rather than changing the Camera.
+The Gallery154 monitor Materials use UV offset `(0, 1)` and scale `(1, -1)` for
+their primitive surfaces.
 
 Check **Problems** for a missing producer, unpublished configuration or feedback
 cycle. Ensure the producer Camera is enabled and its layer mask excludes every
