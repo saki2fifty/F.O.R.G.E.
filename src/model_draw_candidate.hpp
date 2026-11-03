@@ -40,6 +40,8 @@ prepare_model_material_parameters(const PreparedModelDraw&,
 // This is a transient cache key, never a new authored asset or entity identity.
 struct PreparedModelDrawKey {
     std::vector<ResourceIdentity> resources;
+    // View-local physical image identity; never serialized or used in a cook key.
+    std::vector<std::pair<AssetId, std::uintptr_t>> render_textures;
     std::vector<std::tuple<std::uint32_t, std::string, AssetId>> bindings;
     std::vector<std::pair<AssetId, TextureSemantic>> textures;
     std::vector<std::string> unresolved;

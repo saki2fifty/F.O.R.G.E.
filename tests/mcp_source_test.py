@@ -11,6 +11,7 @@ import wave
 from mcp_test_client import CAPTURE, Client, failed, write_capture, finish_host
 from mcp_prefab_workflow import check_prefab_workflow
 from mcp_terrain_foliage_workflow import check_terrain_foliage_workflow
+from mcp_render_texture_workflow import check_render_texture_workflow
 
 TOOLS, HOST, WORKER = map(str, map(Path, sys.argv[1:4]))
 TERRAIN_FOLIAGE_ONLY = "--terrain-foliage-only" in sys.argv[5:]
@@ -25,6 +26,7 @@ SPRITE_GRAPH_ONLY = "--sprite-graph-only" in sys.argv[5:]
 NAVIGATION_BEHAVIOR_ONLY = "--navigation-behavior-only" in sys.argv[5:]
 UI_LOCALIZATION_ONLY = "--ui-localization-only" in sys.argv[5:]
 UI_VALUES_ONLY = "--ui-values-only" in sys.argv[5:]
+RENDER_TEXTURE_ONLY = "--render-texture-only" in sys.argv[5:]
 APPLICATION_STATES_ONLY = "--application-states-only" in sys.argv[5:]
 
 
@@ -104,7 +106,11 @@ for legacy in (False, True):
                         document_session=state['session'])['value']
 
         kinds = read('forge_asset_document_types')['editors']
-        assert len(kinds) == 16 and all(not item['status']['open'] for item in kinds), kinds
+        assert len(kinds) == 17 and all(not item['status']['open'] for item in kinds), kinds
+        output_catalog = read('forge_asset_render_texture_catalog')
+        assert output_catalog['editor'] == 'render_texture' and output_catalog['asset_type'] == 'render_texture'
+        assert output_catalog['limits']['outputs'] == 4 and output_catalog['limits']['maximum_dimension'] == 2048
+        assert output_catalog['material']['source_version'] == 3
         localization_catalog = read('forge_asset_localization_catalog')
         assert localization_catalog['editor'] == 'ui_localization'
         assert localization_catalog['limits']['locales'] == 8
@@ -161,8 +167,10 @@ for legacy in (False, True):
             kinds = [kind for kind in kinds if kind['editor'] == 'application_states']
         if UI_VALUES_ONLY:
             kinds = [kind for kind in kinds if kind['editor'] == 'animation_timeline']
+        if RENDER_TEXTURE_ONLY:
+            kinds = [kind for kind in kinds if kind['editor'] == 'render_texture']
         atlas_image = None
-        if not COLLISION_ONLY and not SPRITE_GRAPH_ONLY and not NAVIGATION_BEHAVIOR_ONLY and not UI_LOCALIZATION_ONLY and not APPLICATION_STATES_ONLY and not UI_VALUES_ONLY:
+        if not COLLISION_ONLY and not SPRITE_GRAPH_ONLY and not NAVIGATION_BEHAVIOR_ONLY and not UI_LOCALIZATION_ONLY and not APPLICATION_STATES_ONLY and not UI_VALUES_ONLY and not RENDER_TEXTURE_ONLY:
             # Original owned raster, imported only through the advertised MCP
             # settings/publication workflow; no catalog fixture injection.
             header = bytearray(18)
@@ -213,6 +221,7 @@ for legacy in (False, True):
             save_published('material')
             assert edit('forge_asset_document_close', 'material')['ok']
         set_id = None
+        render_texture_id = None
         for kind in kinds:
             owner = kind['editor']
             extra = dict(tile_set=set_id) if owner == 'tile_map' else dict(textures=[atlas_image]) if owner == 'sprite_atlas' else {}
@@ -226,6 +235,8 @@ for legacy in (False, True):
             result = mutate('forge_asset_document_create', editor=owner, path=path, **extra)
             assert result['ok'], result
             initial = status(owner)
+            if owner == 'render_texture':
+                render_texture_id = initial['asset']
             assert initial['revision'] == 1 and initial['unpublished']
             if owner == 'tile_set':
                 set_id = initial['asset']
@@ -454,6 +465,21 @@ for legacy in (False, True):
                     assert content(owner) == selected and status(owner)['revision'] == revision
                 assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == original
                 assert edit('forge_asset_document_redo', owner)['ok'] and content(owner) == selected
+            if owner == 'render_texture':
+                original = content(owner)
+                assert edit('forge_asset_document_patch', owner, patch=[
+                    dict(op='replace', path='/width', value=128),
+                    dict(op='replace', path='/height', value=64)])['ok']
+                selected = content(owner)
+                assert selected['width'] == 128 and selected['height'] == 64
+                for pointer, bad in (('/width', 0), ('/height', 2049), ('/width', 32.5),
+                                     ('/height', True), ('/profile', 'unknown')):
+                    revision = status(owner)['revision']
+                    assert not edit('forge_asset_document_patch', owner,
+                                    patch=[dict(op='replace', path=pointer, value=bad)])['ok']
+                    assert content(owner) == selected and status(owner)['revision'] == revision
+                assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == original
+                assert edit('forge_asset_document_redo', owner)['ok'] and content(owner) == selected
             if owner == 'ui_localization':
                 original = content(owner)
                 assert edit('forge_asset_document_patch', owner, patch=[
@@ -646,7 +672,7 @@ for legacy in (False, True):
                             document_session=status(owner)['session'], cells=query)['cells'][0]['tile'] == 0
             # The fixture has no shader renderer/profile; graph compilation is not claimed.
             if owner in ('material', 'collision', 'editable_mesh', 'particle_effect', 'terrain',
-                         'tile_set', 'sprite_atlas', 'animation_timeline', 'navigation_behavior', 'ui_localization', 'application_states'):
+                         'tile_set', 'sprite_atlas', 'animation_timeline', 'navigation_behavior', 'ui_localization', 'application_states', 'render_texture'):
                 result = edit('forge_asset_document_save', owner)
                 assert result['ok'], result
                 end = time.monotonic() + 35
@@ -704,6 +730,10 @@ for legacy in (False, True):
                 assert not status(owner)['dirty']  # Same saved-state semantics as interactive editing.
             assert edit('forge_asset_document_close', owner, discard=True)['ok']
 
+        if render_texture_id is not None:
+            check_render_texture_workflow(read, mutate, edit, status, content,
+                                          save_published, render_texture_id, root)
+
         if NAVIGATION_BEHAVIOR_ONLY:
             owner = 'navigation_behavior'
             template = read('forge_asset_document_template', editor=owner, behavior_profile='tree')
@@ -745,7 +775,7 @@ for legacy in (False, True):
             assert json.loads((root/'Game/Assets/McpTree.behavior.json').read_text())['nodes'] == tree['nodes']
             assert edit('forge_asset_document_close', owner, discard=True)['ok']
 
-        if COLLISION_ONLY or ATLAS_ONLY or SPRITE_GRAPH_ONLY or NAVIGATION_BEHAVIOR_ONLY or UI_LOCALIZATION_ONLY or APPLICATION_STATES_ONLY or UI_VALUES_ONLY:
+        if COLLISION_ONLY or ATLAS_ONLY or SPRITE_GRAPH_ONLY or NAVIGATION_BEHAVIOR_ONLY or UI_LOCALIZATION_ONLY or APPLICATION_STATES_ONLY or UI_VALUES_ONLY or RENDER_TEXTURE_ONLY:
             continue
 
         # Typed importer settings use the shared draft, schema and native worker.

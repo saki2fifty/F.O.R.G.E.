@@ -122,6 +122,7 @@ struct Camera {
     std::uint32_t layers = UINT32_MAX;
     bool clear_color = true, clear_depth = true;
     float background_r = .02f, background_g = .025f, background_b = .03f, background_a = 1;
+    AssetRef<RenderTextureAsset> render_texture; // Empty selects the main presentation.
     bool operator==(const Camera&) const = default;
 };
 enum class LightKind : std::uint32_t { Directional, Point, Spot, Rectangle, Sphere };

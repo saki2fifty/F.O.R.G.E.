@@ -11,7 +11,8 @@ change. Opening this window keeps Scene as the active editing task.
 Scene lighting controls affect authored lighting. The Scene preview light is a separate viewing aid.
 
 Turn off **Preview light** on the Scene toolbar when adjusting authored lighting.
-Game always uses authored lighting. Camera/light icons and selection guides are
+Game and [camera render textures](render-textures.md) use authored lighting.
+Camera/light icons and selection guides are
 explained in [Viewport](viewport.md).
 
 ## Add a rectangular or spherical light

@@ -16,6 +16,7 @@
 #include <forge/material_source.hpp>
 #include <forge/navigation_behavior.hpp>
 #include <forge/particle_effect_source.hpp>
+#include <forge/render_texture.hpp>
 #include <forge/scene_render_settings.hpp>
 #include <forge/terrain_source.hpp>
 #include <forge/ui_localization.hpp>
@@ -370,6 +371,9 @@ struct Inspect {
                 }
             }
             // Semantic domain/state names and labels never become asset references.
+        } else if (doc.value("format", std::string{}) == "forge.render-texture") {
+            RenderTextureSource{doc}.validate();
+            opaque_fields(doc, {"format", "version", "asset_id", "profile", "width", "height"});
         } else if (doc.value("format", std::string{}) == "forge.ui-localization") {
             UiLocalizationSource{doc}.validate();
             opaque_fields(doc, {"format", "version", "asset_id", "default_locale", "locales"});
@@ -480,9 +484,14 @@ struct Inspect {
                 reference(Json(base->id), "base", "Material base", MaterialAsset::type);
             if (doc.contains("overrides") && doc.at("overrides").contains("textures"))
                 for (const auto& [key, binding] : doc.at("overrides").at("textures").items())
-                    if (!binding.is_null())
-                        reference(binding.at("asset"), "textures." + key, "Material texture",
-                                  TextureAsset::type);
+                    if (!binding.is_null()) {
+                        const bool output =
+                            doc.at("version") == 3 && binding.contains("render_texture");
+                        reference(binding.at(output ? "render_texture" : "asset"),
+                                  "textures." + key,
+                                  output ? "Material render texture" : "Material texture",
+                                  output ? RenderTextureAsset::type : TextureAsset::type);
+                    }
             for (const auto& [key, unused] : doc.items()) {
                 (void)unused;
                 if (key != "kind" && key != "version" && key != "asset_id" && key != "base" &&

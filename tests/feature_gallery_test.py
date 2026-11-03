@@ -18,6 +18,9 @@ for row in assets:
         assert 3 <= saved['version'] <= 5 and 3 <= row['schema_version'] <= 5, \
             f"Gallery scene is not admitted by runtime packaging: {row['source']}"
 for source, cooked in (('Assets/Shape.mesh.json', 'mesh.bin'),
+                       ('Assets/RenderTextures/Split.rendertexture.json', 'render-texture.json'),
+                       ('Assets/RenderTextures/Relay.rendertexture.json', 'render-texture.json'),
+                       ('Assets/RenderTextures/Spin.animation.json', 'animation.clip'),
                        ('Assets/Physics2D/Solid.material.json', 'material.values'),
                        ('Assets/Physics2D/Platform.animation.json', 'animation.clip'),
                        ('Assets/Navigation/MovingObstacle3D.animation.json', 'animation.clip'),
@@ -312,6 +315,19 @@ ui_controllers = [row['components']['forge.animation_sequence'] for row in ui_se
 assert sorted(row['duration'] for row in ui_controllers) == [2, 4]
 assert next(row for row in ui_controllers if row['duration'] == 2)['sequence_start_seconds'] == 1
 
+camera_images = json.loads((project_root / 'Scenes/152-camera-render-textures.scene.json').read_text())
+assert camera_images['asset_id'] == by_source['Scenes/152-camera-render-textures.scene.json']['id']
+outputs = {by_source['Assets/RenderTextures/' + name + '.rendertexture.json']['id'] for name in ('Split', 'Relay')}
+producers = [row['components']['forge.camera'] for row in camera_images['entities']
+             if row['components'].get('forge.camera', {}).get('render_texture')]
+assert len(producers) == 3 and {row['render_texture'] for row in producers} == outputs
+assert sorted(row['layers'] for row in producers) == [1, 1, 4]
+assert len([row for row in camera_images['entities'] if 'forge.transform_animator' in row['components']]) == 2
+for name, output in (('Split', 'Split'), ('Relay', 'Relay')):
+    material = json.loads((project_root / ('Assets/RenderTextures/' + name + '.material.json')).read_text())
+    assert material['version'] == 3
+    assert material['overrides']['textures']['baseColorTexture']['render_texture'] == by_source['Assets/RenderTextures/' + output + '.rendertexture.json']['id']
+
 scenes = sorted((project_root / 'Scenes').glob('*.scene.json'))
 assert {'71-world-sprites.scene.json', '72-sprite-frame-animation.scene.json',
         '73-sprite-image-fill.scene.json', '74-tile-maps.scene.json',
@@ -542,6 +558,9 @@ try:
         # admitted typed values explicitly expose their documented defaults.
         expected = json.loads(json.dumps(source))
         for row in expected['entities']:
+            camera = row['components'].get('forge.camera')
+            if camera is not None:
+                camera.setdefault('render_texture', None)
             light = row['components'].get('forge.light')
             if light is not None:
                 light.setdefault('shadow_source_radius', 0.)

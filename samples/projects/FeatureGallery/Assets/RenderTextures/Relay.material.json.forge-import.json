@@ -1,0 +1,43 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [
+      {
+        "kind": "runtime",
+        "revision": "794cc4f0494ec2b092221db73e36aaf5fb05ad9946e2be043e6c7026a7e2d49c",
+        "role": "material.render_texture:baseColorTexture",
+        "target": "823085a3-3dd4-4ddc-a63e-bff972165993",
+        "type": "render_texture"
+      }
+    ],
+    "importer": "forge.material.builtin",
+    "importer_revision": "8db6a6ed325b5ab659529c58f4fb3cfe1c116832c67c50cd0bab70652e0cbf8e",
+    "key_version": 1,
+    "output_format": "forge.material-bundle",
+    "output_version": 3,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {},
+    "settings_version": 1,
+    "source": "2df9ddd73490398d2b1339c81e44b26af23181da8458e938775d47bfc769ed15",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.material.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "f6cab2cb-6452-49c5-bfd2-33a7cb86f7c8",
+    "source": "Assets/RenderTextures/Relay.material.json",
+    "source_digest": "2df9ddd73490398d2b1339c81e44b26af23181da8458e938775d47bfc769ed15",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.material.builtin",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

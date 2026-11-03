@@ -48,9 +48,11 @@ vertical projection flips. They are not silently rejected or applied to node sca
 
 Enabled cameras compose by ascending order, with EntityId as the deterministic tie
 breaker. Each camera declares clear-color/depth policy, linear background RGBA and a
-render-layer mask. The current component targets the main presentation surface;
-future render-target assets require a concrete resource/composition consumer.
-No persistent target identity is invented here.
+render-layer mask. `Camera.render_texture` optionally selects a saved
+RenderTextureAsset; nil selects the main presentation. Cameras sharing a target
+compose at that configuration's dimensions. The bounded output graph, Material
+sampling, same-frame dependency order and lifetime are described in
+[Scene camera render textures](render-textures.md).
 
 Derived projection storage is row-major4x4 applied to column vectors. View depth is
 positive and D3D clip depth is[0,1]. Double world/view evaluation is distinct from
@@ -140,7 +142,8 @@ produce contextual diagnostics without rewriting the scene or discarding unrelat
 valid components. Retention is256 diagnostics plus an explicit omitted count.
 
 `prepare_game_cameras` validates target-dependent projection and preserves ascending
-composition order. It reports absent valid cameras instead of copying the Scene
+composition order. Its optional output argument selects that RenderTextureAsset;
+the default nil argument includes only main-output Cameras. It reports absent valid cameras instead of copying the Scene
 navigation camera. The renderer combines this copied subset with managed resource revisions,
 skinning/morph pose data and camera draw composition; see [render features](render-features.md).
 This extraction function alone does not own those resources or their lifetimes. Existing runtime interpolation supplies world poses before
@@ -180,5 +183,8 @@ reviewed separately from assertions.
 Helper extraction refreshes after SceneTools input as well as before picking, so
 a drag uses the same effective pose for mesh rendering and guides. Snapshot reads
 are sequenced before reading their cache generation. Auto-aspect frusta use the
-last Game output dimensions, falling back to the Scene area before a Game frame
-exists; fixed Camera aspect remains authoritative. No GPU-specific handle is read.
+published render-texture dimensions for an assigned Camera, including its normalized
+viewport. Unavailable output configuration hides the frustum. Main-output Cameras
+use the last Game dimensions, falling back to the Scene area before a Game frame
+exists. Fixed Camera aspect remains authoritative. Definitions come from the shared
+CPU resource owner; no GPU-specific handle is read.

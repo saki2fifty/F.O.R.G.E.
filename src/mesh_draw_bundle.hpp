@@ -3,6 +3,7 @@
 #include "mesh_draw.hpp"
 #include "model_draw_candidate.hpp"
 #include "model_instance_pose.hpp"
+#include "render_texture_gpu.hpp"
 namespace forge {
 // A complete physical candidate. Construct detached, then swap the unique owner
 // only on success and after verifying the caller's catalog epoch. Destroy bundles
@@ -22,7 +23,9 @@ class MeshDrawBundle {
                    GpuResidency<TextureAsset>&, Diligent::TEXTURE_FORMAT color,
                    Diligent::TEXTURE_FORMAT depth, bool skinned = false,
                    std::shared_ptr<const MeshPoseGeometry> geometry = {},
-                   MeshDrawProfile profile = MeshDrawProfile::Mesh);
+                   MeshDrawProfile profile = MeshDrawProfile::Mesh,
+                   const RenderTextureImages& render_textures = {});
+    bool render_textures_ready(const RenderTextureInputs&) const;
     void environment(const EnvironmentLease&);
     void shadows(const ShadowLighting*);
     void transmission(const TransmissionLighting*);
@@ -150,6 +153,7 @@ class MeshDrawBundle {
     EnvironmentLease environment_;
     GpuLease<MeshAsset> mesh_;
     std::map<asset_detail::DrawTextureKey, GpuLease<TextureAsset>> textures_;
+    RenderTextureImages render_textures_;
     GpuLease<TextureAsset> sprite_mip_; // Lives longer than SRBs retaining its native view.
     std::vector<std::string> unresolved_;
     std::vector<std::vector<PartInfo>> info_;

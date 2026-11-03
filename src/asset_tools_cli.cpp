@@ -20,6 +20,7 @@
 #include "material_authoring.hpp"
 #include "navigation_behavior_authoring.hpp"
 #include "particle_effect_authoring.hpp"
+#include "render_texture_authoring.hpp"
 #include "self_executable.hpp"
 #include "terrain_authoring.hpp"
 #include "texture_authoring.hpp"
@@ -217,6 +218,7 @@ int asset_tools_cli(int argc, char** argv) {
             const bool animation_states = path_utf8(source).ends_with(".states.json");
             const bool navigation_behavior = path_utf8(source).ends_with(".behavior.json");
             const bool ui_localization = path_utf8(source).ends_with(".localization.json");
+            const bool render_texture = path_utf8(source).ends_with(".rendertexture.json");
             const bool application_states = path_utf8(source).ends_with(".appstates.json");
             const bool animation_mask = path_utf8(source).ends_with(".mask.json");
             const bool animation_blend_space = path_utf8(source).ends_with(".blendspace.json");
@@ -237,6 +239,7 @@ int asset_tools_cli(int argc, char** argv) {
                             : animation_mask        ? animation_mask_import_registry()
                             : animation_states      ? animation_states_import_registry()
                             : navigation_behavior   ? navigation_behavior_import_registry()
+                            : render_texture        ? render_texture_import_registry()
                             : ui_localization       ? ui_localization_import_registry()
                             : application_states    ? application_states_import_registry()
                             : transform_animation   ? transform_animation_import_registry()
@@ -315,6 +318,11 @@ int asset_tools_cli(int argc, char** argv) {
                                asset_detail::read_bytes(ProjectPaths(project).resolve(source),
                                                         ui_localization_byte_limit))
                                .asset();
+            else if (render_texture)
+                identity = RenderTextureSource::parse(
+                               asset_detail::read_bytes(ProjectPaths(project).resolve(source),
+                                                        render_texture_source_byte_limit))
+                               .asset();
             else if (application_states)
                 identity = ApplicationStatesSource::parse(
                                asset_detail::read_bytes(ProjectPaths(project).resolve(source),
@@ -362,7 +370,7 @@ int asset_tools_cli(int argc, char** argv) {
                 std::move(draft),
                 [decisions, collision, material, editable_mesh, particle_effect, terrain,
                  transform_animation, animation_states, animation_mask, animation_blend_space,
-                 tile_set, tile_map, navigation_behavior, ui_localization,
+                 tile_set, tile_map, navigation_behavior, ui_localization, render_texture,
                  application_states](auto& candidate, const auto& plan, const auto& catalog) {
                     if (tile_set || tile_map) {
                         if (!decisions.empty())
@@ -402,6 +410,11 @@ int asset_tools_cli(int argc, char** argv) {
                             throw std::runtime_error(
                                 "UI Localization has no subasset correspondence decisions");
                         prepare_ui_localization_publication(candidate, plan);
+                    } else if (render_texture) {
+                        if (!decisions.empty())
+                            throw std::runtime_error(
+                                "Render Texture has no subasset correspondence decisions");
+                        prepare_render_texture_publication(candidate, plan);
                     } else if (application_states) {
                         if (!decisions.empty())
                             throw std::runtime_error(

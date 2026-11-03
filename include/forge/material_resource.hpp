@@ -16,6 +16,7 @@ struct MaterialResourceData {
     MaterialData values;
     MaterialTextureBindings textures;
     std::optional<MaterialShaderSnapshot> surface;
+    MaterialRenderTextureBindings render_textures;
     std::size_t resident_bytes() const;
 };
 void validate_render_material(const MaterialResourceData&);

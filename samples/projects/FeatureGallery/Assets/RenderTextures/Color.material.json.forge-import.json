@@ -1,0 +1,35 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [],
+    "importer": "forge.material.builtin",
+    "importer_revision": "8db6a6ed325b5ab659529c58f4fb3cfe1c116832c67c50cd0bab70652e0cbf8e",
+    "key_version": 1,
+    "output_format": "forge.material-bundle",
+    "output_version": 3,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {},
+    "settings_version": 1,
+    "source": "23847e21761022c39c3f0cdb730c8e779fcfaf8e791eb4847e9a7b7fd0ac3326",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.material.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "d5fe7ff3-16f4-4f5f-a9ce-80d355791c5b",
+    "source": "Assets/RenderTextures/Color.material.json",
+    "source_digest": "23847e21761022c39c3f0cdb730c8e779fcfaf8e791eb4847e9a7b7fd0ac3326",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.material.builtin",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

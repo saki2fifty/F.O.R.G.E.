@@ -1,0 +1,117 @@
+{
+  "asset_id": "edfad17f-2421-46fd-b04d-2d6a5a9a46c8",
+  "channels": [
+    "forge.local_rotation"
+  ],
+  "duration_us": 2000000,
+  "format": "forge.transform-animation",
+  "keys": [
+    {
+      "id": "b1681d13-3d5b-4644-b789-68fbfab46b71",
+      "interpolation": "linear",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "time_us": 0,
+      "translation": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": "02ca4b20-d3eb-471d-a029-f0bc5bc170a2",
+      "interpolation": "linear",
+      "rotation": [
+        0.0,
+        0.7071067690849304,
+        0.0,
+        0.7071067690849304
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "time_us": 500000,
+      "translation": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": "81a5ba48-6bc8-431d-af24-4b7617f2a419",
+      "interpolation": "linear",
+      "rotation": [
+        0.0,
+        1.0,
+        0.0,
+        6.123234262925839e-17
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "time_us": 1000000,
+      "translation": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": "80aae8d0-4499-47ef-b171-4a063d941c2e",
+      "interpolation": "linear",
+      "rotation": [
+        0.0,
+        0.7071067690849304,
+        0.0,
+        -0.7071067690849304
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "time_us": 1500000,
+      "translation": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "id": "fb818934-1431-4a98-a765-cc95f626dc7c",
+      "interpolation": "linear",
+      "rotation": [
+        0.0,
+        1.2246468525851679e-16,
+        0.0,
+        -1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "time_us": 2000000,
+      "translation": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  ],
+  "timebase": 1000000,
+  "version": 1
+}

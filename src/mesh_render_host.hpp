@@ -14,6 +14,7 @@
 namespace forge {
 struct MeshResourceInspection {
     ResourceStatistics meshes, materials, textures, particles, tile_sets, tile_maps, tile_chunks;
+    ResourceStatistics render_textures;
     GpuResidencyStats gpu_meshes, gpu_textures, environments;
     std::vector<ResourceInfo> revisions, requests;
 };
@@ -36,6 +37,8 @@ class MeshResourceHost {
     void pump();
     void submit();
     MeshResourceInspection inspect() const;
+    ResourceTicket request_render_texture_values(AssetRef<RenderTextureAsset>);
+    ResourceLease<RenderTextureAsset> render_texture_values(const ResourceTicket&);
     // Read-only editor consumers share the host's existing published Map/Set pools.
     ResourceTicket request_tile_map_values(AssetRef<TileMapAsset>);
     ResourceLease<TileMapAsset> tile_map_values(const ResourceTicket&);
@@ -44,6 +47,7 @@ class MeshResourceHost {
 
   private:
     friend class MeshSceneRenderer;
+    friend class CameraRenderTextures;
     void check_thread() const;
     const std::thread::id thread_ = std::this_thread::get_id();
     DiligentPresentation& presentation_;
@@ -58,6 +62,7 @@ class MeshResourceHost {
     ResourcePool<MaterialAsset> materials_;
     const ResourcePoolLimits texture_limits_{};
     ResourcePool<TextureAsset> textures_{texture_limits_};
+    ResourcePool<RenderTextureAsset> render_textures_{{1, 64, 256, 64 * 1024}};
     struct SpriteMipIdentity {
         std::string variant, revision;
     };
@@ -102,6 +107,9 @@ class MeshSceneRenderer {
                                std::size_t draw_part_limit = 4096,
                                std::uint64_t material_budget = 16 * 1024 * 1024);
     bool update(const RenderScene&, std::span<const PreparedCamera> tile_views = {});
+    void render_textures(const RenderTextureInputs&);
+    std::set<AssetId> render_texture_reads(const RenderScene&, std::uint32_t layers,
+                                           bool require_complete = false) const;
     // Capture the last completed rendered frame, after all its camera views.
     // Authored updates may occur between frames; they must not advance history.
     void commit_temporal_frame(bool enabled);
@@ -197,6 +205,7 @@ class MeshSceneRenderer {
         std::vector<MaterialSlotOverride> overrides;
         AssetRef<MaterialVariantAsset> variant;
         std::uint64_t epoch = 0;
+        std::uint64_t render_texture_epoch = 0;
         std::unique_ptr<SpriteValues> sprite;
         std::unique_ptr<asset_detail::ModelDrawCandidate> candidate;
         std::shared_ptr<MeshDrawBundle> ready;
@@ -221,6 +230,8 @@ class MeshSceneRenderer {
                                                        const asset_detail::PreparedModelDraw&,
                                                        EntityId, DrawScope, std::uint64_t image);
     std::map<asset_detail::PreparedModelDrawKey, std::weak_ptr<MeshDrawBundle>> bundles_;
+    RenderTextureInputs render_texture_inputs_;
+    std::uint64_t render_texture_epoch_ = 1;
     struct EnvironmentSelection {
         AssetRef<TextureAsset> source;
         std::uint64_t epoch = UINT64_MAX;

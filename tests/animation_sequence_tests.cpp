@@ -1,6 +1,7 @@
 #include "../samples/projects/FeatureGallery/CodeExamples/SequenceControl.hpp"
 #include "animation_playback_access.hpp"
 #include "transform_animation_authoring.hpp"
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <forge/animation.hpp>
@@ -331,6 +332,11 @@ void camera_shots(const std::filesystem::path& root) {
     const auto a = create("Camera", "render.camera");
     const auto b = create("Camera", "render.camera");
     const auto fallback = create("Normal camera", "render.camera");
+    const auto producer = create("Independent output camera", "render.camera");
+    const auto output = AssetId::generate();
+    auto producer_settings = scene.entity(producer).get<Camera>();
+    producer_settings.render_texture = {output};
+    scene.entity(producer).set(producer_settings);
     auto camera = scene.entity(a).get<Camera>();
     camera.enabled = false;
     scene.entity(a).set(camera);
@@ -371,12 +377,16 @@ void camera_shots(const std::filesystem::path& root) {
     const auto shown = [&](Runtime& runtime, double alpha = 1) {
         const auto copied = runtime.simulation.presentation(alpha);
         const auto render = extract_render_scene(copied);
-        check(render.cameras.size() == 1, "Camera shot did not select exactly one camera");
+        const auto main = prepare_game_cameras(render, 800, 600);
+        const auto target = prepare_game_cameras(render, 512, 256, {output});
+        check(main.cameras.size() == 1 && target.cameras.size() == 1 &&
+                  target.cameras[0].entity == EntityId::parse(producer),
+              "Camera shot disabled the output producer or selected multiple main cameras");
         check(!runtime.scene.entity(a).get<Camera>().enabled &&
                   !runtime.scene.entity(b).get<Camera>().enabled &&
                   runtime.scene.entity(fallback).get<Camera>().enabled,
               "Camera selection wrote native/authored enabled values");
-        return render.cameras.front().entity.str();
+        return main.cameras.front().entity.str();
     };
     for (const auto& target : {controller, first}) {
         Runtime gated(root, source);
@@ -458,6 +468,23 @@ void camera_shots(const std::filesystem::path& root) {
     };
     rejects([&] { Runtime invalid(root, modified("end_seconds", 1.25)); });
     rejects([&] { Runtime invalid(root, modified("camera", group)); });
+    {
+        Runtime invalid(root,
+                        modified("camera", EntityRef{scene.asset_id(), EntityId::parse(producer)}),
+                        false);
+        try {
+            (void)invalid.animation->prepare_initial_pose();
+        } catch (const std::exception&) {
+            // The diagnostic owner retains the precise rejection in either host path.
+        }
+        const auto diagnostics = invalid.engine.services().diagnostics();
+        check(std::any_of(diagnostics.begin(), diagnostics.end(),
+                          [](const auto& item) {
+                              return item.at("text").template get<std::string>().find(
+                                         "main Game output") != std::string::npos;
+                          }),
+              "Camera Shot did not diagnose its unsupported output camera");
+    }
     rejects([&] {
         Runtime invalid(root, modified("sequence", EntityRef{AssetId::generate(), group.entity}));
     });

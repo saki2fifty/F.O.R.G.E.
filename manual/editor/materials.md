@@ -110,6 +110,13 @@ color for surface colors, normal for normal maps, and data for numeric masks.
 A cube environment texture cannot fill a two-dimensional surface texture slot.
 An incompatible selection fails publication instead of replacing the usable material.
 
+For a live camera image, use **Render texture** in a 2D Color role instead of a
+static Texture. Only one of these assignments fills a role. Publish the output
+first, save the Material, and preview it on a Mesh in Scene or Game with an enabled
+producer Camera. An isolated Material preview has no scene producer. See
+[Show a camera image on a mesh](render-textures.md) for layer masks, output sizing,
+composition, export and supported consumers.
+
 Each slot has its own UV set, offset, signed scale, rotation in radians, wrapping,
 filtering, anisotropy and LOD controls. **Border RGBA** appears for border wrapping.
 Anisotropy requires compatible linear filtering. See [Textures](textures.md) for

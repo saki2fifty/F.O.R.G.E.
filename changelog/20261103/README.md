@@ -157,3 +157,19 @@ Full Main/Windows/physical acceptance remains pending; no numbered delivery is i
 - Structured Gallery admission explicitly recognizes current additive sequence,
   navigation-sharing and audio-reverb defaults while keeping existing authored
   files and identities unchanged.
+
+## Scene camera output images
+
+- Saved Render Texture configurations and Camera output references feed typed
+  Material2D Color bindings. Multiple Cameras compose into one output, and
+  dependent outputs render before their consumers during the same frame.
+- Existing pools, native leases, real completion fences, FrameRenderer and Material
+  ownership supply bounded view-local images. Missing writers and feedback cycles
+  cannot authorize stale pixels. Scene and Game images remain independent.
+- Content source controls, Inspector/Prefab/history, source and assignment MCP tools,
+  matching C++ SDK values, original Gallery152 and the task manual cover the workflow.
+  Resize requires republishing dependent Materials before export. Source/bundle3
+  preserves older extension semantics with explicit collision-safe promotion.
+- The profile is opaque linear HDR2D, four outputs/sixteen Cameras/four million
+  configured pixels. Unsupported static-only consumers retain their current types.
+  Local software rendering is separate from pending Windows/physical acceptance.

@@ -176,7 +176,8 @@ int main(int argc, char** argv) {
                 if (auto renderer = components.find("forge.mesh_renderer");
                     renderer != components.end() && !renderer->contains("material_parameters"))
                     (*renderer)["material_parameters"] = Json::array();
-                const Json additions = {{"forge.transform_animator",
+                const Json additions = {{"forge.camera", {{"render_texture", nullptr}}},
+                                        {"forge.transform_animator",
                                          {{"sequence", nullptr},
                                           {"sequence_start_seconds", 0.},
                                           {"sequence_next_clip", nullptr},

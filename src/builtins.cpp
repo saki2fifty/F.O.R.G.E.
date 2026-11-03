@@ -750,6 +750,7 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
     else if constexpr (std::is_same_v<T, NodeSelectability>)
         c.template member<bool>("selectable");
     else if constexpr (std::is_same_v<T, Camera>) {
+        register_asset_ref<RenderTextureAsset>(w, "forge.render_texture_ref");
         c.template member<bool>("enabled")
             .template member<std::uint32_t>("projection")
             .template member<std::uint32_t>("basis")
@@ -773,7 +774,8 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<float>("background_r")
             .template member<float>("background_g")
             .template member<float>("background_b")
-            .template member<float>("background_a");
+            .template member<float>("background_a")
+            .template member<AssetRef<RenderTextureAsset>>("render_texture");
         for (const auto& [field, offset] :
              {std::pair{"enabled", offsetof(Camera, enabled)},
               std::pair{"projection", offsetof(Camera, projection)},
@@ -798,7 +800,8 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
               std::pair{"background_r", offsetof(Camera, background_r)},
               std::pair{"background_g", offsetof(Camera, background_g)},
               std::pair{"background_b", offsetof(Camera, background_b)},
-              std::pair{"background_a", offsetof(Camera, background_a)}}) {
+              std::pair{"background_a", offsetof(Camera, background_a)},
+              std::pair{"render_texture", offsetof(Camera, render_texture)}}) {
             const auto* member = ecs_struct_get_member(w.c_ptr(), c.id(), field);
             if (!member || std::size_t(member->offset) != offset)
                 throw std::runtime_error("Camera native Meta disagrees with typed layout");
@@ -2052,8 +2055,14 @@ Json registration_options(const Builtin& type, const std::string& field) {
             {"background_r", "Linear background red channel"},
             {"background_g", "Linear background green channel"},
             {"background_b", "Linear background blue channel"},
-            {"background_a", "Background alpha channel"}};
+            {"background_a", "Background alpha channel"},
+            {"render_texture", "Output image asset; empty selects the main Game view"}};
         value["description"] = help.at(field);
+        if (field == "render_texture") {
+            value["display_name"] = "Render texture";
+            value["asset_type"] = RenderTextureAsset::type;
+            value["nullable"] = true;
+        }
         if (field == "vertical_fov") {
             value["minimum"] = 0;
             value["maximum"] = std::numbers::pi;
@@ -3494,6 +3503,10 @@ Json register_builtins(flecs::world& world, unsigned family) {
             c.lookup("values").set<ReflectedSequenceKey>({"name"});
             c.lookup("values").set<ReflectedSequenceLimit>({UiValues::max_entries});
         }
+        if (name == "forge.camera") {
+            world.component<ReflectedMemberDefault>(reflected_member_default_type);
+            c.lookup("render_texture").set<ReflectedMemberDefault>({nullptr});
+        }
         if (name == "forge.mesh_renderer") {
             c.lookup("materials").set<ReflectedSequenceKey>({"slot"});
             c.lookup("material_parameters").set<ReflectedSequenceKey>({"slot", {"key"}});
@@ -3536,6 +3549,7 @@ Json register_builtins(flecs::world& world, unsigned family) {
         add_reference.template operator()<MaterialVariantAsset>();
         add_reference.template operator()<MeshAsset>();
         add_reference.template operator()<TextureAsset>();
+        add_reference.template operator()<RenderTextureAsset>();
         add_reference.template operator()<ParticleEffectAsset>();
         add_reference.template operator()<TileMapAsset>();
         add_reference.template operator()<CollisionAsset>();

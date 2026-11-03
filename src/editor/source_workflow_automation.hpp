@@ -3,6 +3,7 @@
 #include <forge/application_state_source.hpp>
 #include <forge/material_graph.hpp>
 #include <forge/navigation_behavior.hpp>
+#include <forge/render_texture.hpp>
 #include <forge/ui_localization.hpp>
 
 namespace forge {
@@ -36,6 +37,61 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
          {"flags", automation_integer(0, UINT32_MAX)}},
         {"layer", "x", "y"});
     std::vector<LiveAuthoringMethod> methods;
+    methods.push_back(automation_method(
+        "asset.render_texture.catalog",
+        "Describe saved camera output images, typed material bindings, pass ordering and limits. "
+        "Create/read/patch/publish through the render_texture source editor; assign the published "
+        "output using the reflected Camera property and a Material version3 image binding.",
+        "asset.read", automation_object(), false, [](const Json&) {
+            MaterialData shape;
+            shape.model = "forge.gltf.unlit.v1";
+            shape.textures["baseColorTexture"].semantic = TextureSemantic::Color;
+            const auto slot = material_values_document(shape).at("textures").at("baseColorTexture");
+            return Json{{"format", "forge.render-texture"},
+                        {"version", 1},
+                        {"editor", "render_texture"},
+                        {"suffix", ".rendertexture.json"},
+                        {"asset_type", RenderTextureAsset::type},
+                        {"component", "forge.camera"},
+                        {"property", "render_texture"},
+                        {"profile", "linear-hdr-opaque"},
+                        {"limits",
+                         {{"outputs", 4},
+                          {"cameras", 16},
+                          {"pixels", 4194304},
+                          {"minimum_dimension", 1},
+                          {"maximum_dimension", render_texture_max_dimension},
+                          {"source_bytes", render_texture_source_byte_limit}}},
+                        {"material",
+                         {{"source_version", 3},
+                          {"binding_field", "render_texture"},
+                          {"slot_dimension", "2D"},
+                          {"slot_semantic", "Color"},
+                          {"binding_template", {{"render_texture", nullptr}, {"slot", slot}}},
+                          {"binding_template_note", "Replace null with the published RenderTexture "
+                                                    "UUID before patching a Material source."},
+                          {"consumer", "MeshRenderer"}}},
+                        {"composition",
+                         "Cameras sharing an output compose by order and EntityId using "
+                         "their viewport, clear and layer controls. An empty Camera output "
+                         "selects the main Game view. Camera Shot directs main cameras only."},
+                        {"ordering",
+                         "Outputs render before their material consumers. Reads follow selected "
+                         "materials on visible objects in the camera layer mask; use separate "
+                         "producer and screen layers. Missing writers and feedback cycles reject "
+                         "the affected outputs. Previous pixels are never treated as current."},
+                        {"color",
+                         "Linear RGBA16 float with alpha fixed to one. Display exposure, tone "
+                         "mapping and grading belong to the consuming view. No mip chain, cube, "
+                         "array, transparent-output or CPU image readback asset is authored."},
+                        {"persistence",
+                         "Saved UUID and configuration participate in normal dependency "
+                         "closure. Pixel images are scoped to the presentation view/device; "
+                         "they are recreated in Play, preview and exported runtime. Save / "
+                         "Publish the output and Material before saving/exporting the Scene. "
+                         "After resizing an output, republish dependent Materials before export; "
+                         "stale recorded dependency revisions are rejected."}};
+        }));
     methods.push_back(automation_method(
         "asset.application_states.catalog",
         "Describe logical game-state domains, hierarchy, computed rules and subordinate "

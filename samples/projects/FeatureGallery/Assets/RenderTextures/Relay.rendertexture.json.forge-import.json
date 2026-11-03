@@ -1,0 +1,35 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [],
+    "importer": "forge.render.texture",
+    "importer_revision": "forge.render.texture.v1",
+    "key_version": 1,
+    "output_format": "forge.render-texture",
+    "output_version": 1,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {},
+    "settings_version": 1,
+    "source": "7efe9aaf8384e1a911ec8ebb51cb2a3d518740fd07eff2b87ca01325cd9211c7",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.render-texture.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "823085a3-3dd4-4ddc-a63e-bff972165993",
+    "source": "Assets/RenderTextures/Relay.rendertexture.json",
+    "source_digest": "7efe9aaf8384e1a911ec8ebb51cb2a3d518740fd07eff2b87ca01325cd9211c7",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.render.texture",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

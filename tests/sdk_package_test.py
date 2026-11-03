@@ -19,6 +19,7 @@ focused_targets = {
     '--prefab-only': 'prefab_gameplay',
     '--ui-localization-only': 'ui_localization_gameplay',
     '--ui-values-only': 'ui_values_gameplay',
+    '--camera-output-only': 'camera_output_gameplay',
     '--navigation-behavior-only': 'navigation_behavior_gameplay',
     '--decals-only': 'decal_gameplay',
     '--soft-shadows-only': 'soft_shadow_gameplay',
@@ -76,6 +77,17 @@ if len(sys.argv) == 5 and sys.argv[4] in focused_targets:
                             str(Path(__file__).resolve().parents[1]/'samples/projects/FeatureGallery'),
                             str(module), '--variant'], env=env, cwd=moved, check=True, timeout=120)
             print('Installed-only Prefab variant creation, relocated SDK and both runtime hosts passed')
+            sys.exit(0)
+        if sys.argv[4] == '--camera-output-only':
+            source = Path(__file__).resolve().parents[1]
+            for name in ('render_components.hpp', 'asset_ref.hpp'):
+                assert (moved/'sdk/include/forge'/name).read_bytes() == (source/'include/forge'/name).read_bytes()
+            assert not (moved/'sdk/include/forge/render_texture.hpp').exists()
+            subprocess.run([sys.executable, str(source/'tests/camera_output_process_test.py'),
+                            str(moved/'bin'/('forge_runtime'+exe)), str(module),
+                            str(source/'samples/projects/FeatureGallery/forge.project.json'), str(base/'camera-process')],
+                           env=env, cwd=moved, check=True, timeout=120)
+            print('Installed-only typed Camera output, relocated SDK and both runtime hosts passed')
             sys.exit(0)
         if sys.argv[4] == '--ui-values-only':
             assert (moved/'sdk/include/forge/ui_values.hpp').read_bytes() == (Path(__file__).resolve().parents[1]/'include/forge/ui_values.hpp').read_bytes()

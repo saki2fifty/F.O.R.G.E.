@@ -127,5 +127,6 @@ struct CameraComposition {
 // All enabled cameras in order, with identity tie-break. An empty valid selection
 // emits a diagnostic; the editor navigation camera is never substituted here.
 CameraComposition prepare_game_cameras(const RenderScene&, std::uint32_t width,
-                                       std::uint32_t height);
+                                       std::uint32_t height,
+                                       AssetRef<RenderTextureAsset> output = {});
 } // namespace forge

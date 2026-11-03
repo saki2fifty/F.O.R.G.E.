@@ -3,7 +3,7 @@
 #include <forge/material_resource.hpp>
 namespace forge {
 void validate_render_material(const MaterialResourceData& data) {
-    validate_material_bindings(data.values, data.textures);
+    validate_material_bindings(data.values, data.textures, data.render_textures);
     if (data.surface) {
         if (!data.surface->shader.id || !valid_content_digest(data.surface->revision) ||
             !data.surface->program.surface)
@@ -19,6 +19,11 @@ std::size_t MaterialResourceData::resident_bytes() const {
         (void)ref;
         bytes += sizeof(std::pair<const std::string, AssetRef<TextureAsset>>) + 4 * sizeof(void*) +
                  name.capacity();
+    }
+    for (const auto& [name, ref] : render_textures) {
+        (void)ref;
+        bytes +=
+            sizeof(MaterialRenderTextureBindings::value_type) + 4 * sizeof(void*) + name.capacity();
     }
     if (surface)
         bytes += surface->revision.capacity() + surface->program.resident_bytes();

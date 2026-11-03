@@ -34,10 +34,25 @@ MaterialSource MaterialSource::create(AssetId id) {
     result.validate();
     return result;
 }
+void MaterialSource::enable_render_textures() {
+    validate();
+    if (document.at("version") == 3)
+        return;
+    const auto& overrides = document.at("overrides");
+    if (overrides.contains("textures"))
+        for (const auto& [role, binding] : overrides.at("textures").items()) {
+            (void)role;
+            require(!binding.is_object() || !binding.contains("render_texture"),
+                    "Older material extension uses render_texture; rename the extension before "
+                    "promoting to source version3");
+        }
+    document["version"] = 3;
+}
 void MaterialSource::validate() const {
     object(document, 64);
     require(document.at("kind") == "forge.material" && document.at("version").is_number_integer() &&
-                (document.at("version") == 1 || document.at("version") == 2),
+                (document.at("version") == 1 || document.at("version") == 2 ||
+                 document.at("version") == 3),
             "Unsupported material source kind/version");
     require(bool(asset()), "Material source requires a persistent AssetId");
     if (const auto parent = base())
@@ -45,7 +60,8 @@ void MaterialSource::validate() const {
     const auto& overrides = document.at("overrides");
     object(overrides, 64);
     if (overrides.contains("shader")) {
-        require(document.at("version") == 2, "Shader-backed materials require source version2");
+        require(document.at("version") != 1,
+                "Shader-backed materials require source version 2 or 3");
         if (!overrides.at("shader").is_null())
             require(bool(overrides.at("shader").get<AssetRef<ShaderAsset>>().id),
                     "Material shader override requires a typed Shader AssetId");
@@ -72,8 +88,11 @@ void MaterialSource::validate() const {
         for (const auto& [name, value] : overrides.at("textures").items())
             if (!value.is_null()) {
                 object(value, 32);
-                require(bool(value.at("asset").get<AssetRef<TextureAsset>>().id),
-                        "Material texture override requires an AssetId");
+                const bool output = document.at("version") == 3 && value.contains("render_texture");
+                require(!output || !value.contains("asset"),
+                        "Material slot cannot bind both a texture and a render texture");
+                require(bool(value.at(output ? "render_texture" : "asset").get<AssetId>()),
+                        "Material texture override requires a typed AssetId");
                 projection["textures"][name] = value.at("slot");
             }
     (void)material_values_from_document(projection);
@@ -110,7 +129,7 @@ ResolvedMaterialSource resolve_material_source(const MaterialSource& source,
     ResolvedMaterialSource result;
     result.values.model = "forge.gltf.metallic-roughness.v1";
     if (base) {
-        validate_material_bindings(base->values, base->textures);
+        validate_material_bindings(base->values, base->textures, base->render_textures);
         if (!base->shader)
             (void)prepare_pbr_material(base->values);
         result = *base;
@@ -166,14 +185,24 @@ ResolvedMaterialSource resolve_material_source(const MaterialSource& source,
             if (texture.is_null()) {
                 values["textures"].erase(name);
                 result.textures.erase(name);
+                result.render_textures.erase(name);
             } else {
                 object(texture, 32);
                 values["textures"][name] = texture.at("slot");
-                result.textures[name] = texture.at("asset").get<AssetRef<TextureAsset>>();
+                const bool output =
+                    source.document.at("version") == 3 && texture.contains("render_texture");
+                if (output) {
+                    result.textures.erase(name);
+                    result.render_textures[name] =
+                        texture.at("render_texture").get<AssetRef<RenderTextureAsset>>();
+                } else {
+                    result.render_textures.erase(name);
+                    result.textures[name] = texture.at("asset").get<AssetRef<TextureAsset>>();
+                }
             }
         }
     result.values = material_values_from_document(values);
-    validate_material_bindings(result.values, result.textures);
+    validate_material_bindings(result.values, result.textures, result.render_textures);
     if (surface)
         validate_surface_material(result.values, *surface);
     else

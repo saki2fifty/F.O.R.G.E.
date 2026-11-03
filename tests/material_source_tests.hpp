@@ -87,7 +87,7 @@ inline void test_material_source() {
     auto bad = base;
     bad.document["base"] = bad.asset();
     rejects([&] { bad.validate(); });
-    for (const auto& value : {Json(3), Json(1.0), Json("1")}) {
+    for (const auto& value : {Json(4), Json(1.0), Json("1")}) {
         bad = base;
         bad.document["version"] = value;
         rejects([&] { parse(bad.document); });

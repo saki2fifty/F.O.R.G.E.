@@ -398,9 +398,11 @@ RenderScene extract_render_scene(const Json& source) {
     return result;
 }
 CameraComposition prepare_game_cameras(const RenderScene& scene, std::uint32_t width,
-                                       std::uint32_t height) {
+                                       std::uint32_t height, AssetRef<RenderTextureAsset> output) {
     CameraComposition result;
     for (const auto& camera : scene.cameras) {
+        if (!camera.camera.enabled || camera.camera.render_texture != output)
+            continue;
         try {
             result.cameras.push_back({camera.entity, camera.camera,
                                       camera_view(camera.camera, camera.world, width, height)});
@@ -409,9 +411,14 @@ CameraComposition prepare_game_cameras(const RenderScene& scene, std::uint32_t w
                                       e.what(), "forge.camera"));
         }
     }
+    std::sort(result.cameras.begin(), result.cameras.end(), [](const auto& a, const auto& b) {
+        return a.settings.order != b.settings.order ? a.settings.order < b.settings.order
+                                                    : a.entity < b.entity;
+    });
     if (result.cameras.empty())
         report(result, diagnostic(scene.scene, {}, "render.camera.missing",
-                                  "No enabled valid game camera is available"));
+                                  output.id ? "No enabled valid render texture camera is available"
+                                            : "No enabled valid game camera is available"));
     return result;
 }
 } // namespace forge

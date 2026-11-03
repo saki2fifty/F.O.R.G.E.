@@ -27,7 +27,11 @@ inline void ppm(const std::filesystem::path& path, const Pixels& pixels, unsigne
 inline std::vector<Pixels> render(DiligentPresentation& presentation, IDeviceContext* context,
                                   const std::filesystem::path& root, AssetId scene_id,
                                   const std::filesystem::path& output,
-                                  std::size_t minimum_colors = 21, bool expect_animation = true) {
+                                  std::size_t minimum_colors = 21, bool expect_animation = true,
+                                  std::array<unsigned, 3> sample_ticks = {30, 60, 90}) {
+    check(sample_ticks[0] > 0 && sample_ticks[0] < sample_ticks[1] &&
+              sample_ticks[1] < sample_ticks[2] && sample_ticks[2] <= 3600,
+          "Gallery sample ticks must increase within the bounded capture interval");
     RuntimeWorld world({}, {}, std::nullopt, root, false);
     world.scene.restore_snapshot(load_game_scene(root, {scene_id}));
     auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(20);
@@ -71,12 +75,12 @@ inline std::vector<Pixels> render(DiligentPresentation& presentation, IDeviceCon
               "Gallery did not render its expected course and actor colors");
         results.push_back(std::move(pixels));
     };
-    for (unsigned tick = 1; tick <= 90; ++tick) {
+    for (unsigned tick = 1; tick <= sample_ticks.back(); ++tick) {
         world.simulation.tick(1.f / 60);
-        if (tick == 30 || tick == 60 || tick == 90)
+        if (std::find(sample_ticks.begin(), sample_ticks.end(), tick) != sample_ticks.end())
             capture(tick, 640, 360);
     }
-    capture(90, 360, 640);
+    capture(sample_ticks.back(), 360, 640);
     unsigned changed = 0;
     for (std::size_t i = 0; i < results[0].size(); ++i)
         changed += results[0][i] != results[2][i];

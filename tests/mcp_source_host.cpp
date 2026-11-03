@@ -3,6 +3,7 @@
 #include "animation_states_editor.hpp"
 #include "animation_timeline.hpp"
 #include "application_states_editor.hpp"
+#include "asset_read_automation.hpp"
 #include "audio_imports.hpp"
 #include "automation.hpp"
 #include "collision_editor.hpp"
@@ -16,6 +17,7 @@
 #include "navigation_behavior_editor.hpp"
 #include "particle_effect_editor.hpp"
 #include "prefab_automation.hpp"
+#include "render_texture_editor.hpp"
 #include "source_file_lifecycle_tests.hpp"
 #include "source_publication_tests.hpp"
 #include "source_workflow_automation.hpp"
@@ -77,6 +79,7 @@ int main(int argc, char** argv) {
         forge::AnimationStatesEditor states;
         forge::NavigationBehaviorEditor behavior;
         forge::UiLocalizationEditor localization;
+        forge::RenderTextureEditor render_texture;
         forge::ApplicationStatesEditor application_states;
         forge::AnimationBlendSpaceEditor blend;
         forge::AnimationMaskEditor mask;
@@ -102,6 +105,7 @@ int main(int argc, char** argv) {
         bind("animation_states", states);
         bind("navigation_behavior", behavior);
         bind("ui_localization", localization);
+        bind("render_texture", render_texture);
         bind("application_states", application_states);
         bind("animation_blend_space", blend);
         bind("animation_mask", mask);
@@ -153,6 +157,9 @@ int main(int argc, char** argv) {
         forge::ui::AutomationWorkspace workspace;
         workspace.workflow_methods = [&](const auto& permissions) {
             auto methods = forge::source_document_automation_methods(documents, permissions);
+            auto discovery = forge::asset_read_automation_methods(files.document, imports);
+            methods.insert(methods.end(), std::make_move_iterator(discovery.begin()),
+                           std::make_move_iterator(discovery.end()));
             auto foliage = forge::foliage_automation_methods(scene, files.document);
             methods.insert(methods.end(), std::make_move_iterator(foliage.begin()),
                            std::make_move_iterator(foliage.end()));
@@ -193,6 +200,11 @@ int main(int argc, char** argv) {
             states.poll(files.document, files.status);
             behavior.poll(files.document, files.status);
             localization.poll(files.document, files.status);
+            render_texture.poll(files.document, files.status);
+            if (auto catalog = render_texture.take_catalog())
+                imports.catalog_changed(std::move(catalog));
+            if (auto catalog = material.take_catalog())
+                imports.catalog_changed(std::move(catalog));
             application_states.poll(files.document, files.status);
             blend.poll(files.document, files.status);
             mask.poll(files.document, files.status);
@@ -218,6 +230,7 @@ int main(int argc, char** argv) {
             states.draw(files.document, scene, false);
             behavior.draw(files.document, scene, false);
             localization.draw(files.document, scene, false);
+            render_texture.draw(files.document, scene, false);
             application_states.draw(files.document, scene, false);
             blend.draw(files.document, scene, false);
             mask.draw(files.document, scene, false);

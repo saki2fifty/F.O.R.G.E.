@@ -420,6 +420,8 @@ void TransformAnimationPlayback::synchronize_camera_shots() {
             if (camera.state != WorldContext::ResolveState::Available ||
                 !context_.world().entity(camera.entity).has<Camera>())
                 throw std::runtime_error("Camera Shot camera is unavailable in this Scene");
+            if (context_.world().entity(camera.entity).get<Camera>().render_texture.id)
+                throw std::runtime_error("Camera Shot requires a camera with main Game output");
             const auto duration = sequence_states_.at(resolved.entity).config.duration;
             if (!std::isfinite(config.start_seconds) || !std::isfinite(config.end_seconds) ||
                 config.start_seconds < 0 || config.start_seconds >= config.end_seconds ||
@@ -467,6 +469,8 @@ Json TransformAnimationPlayback::camera_presentation(flecs::entity_t id, double 
     const auto entity = context_.world().entity(id);
     if (!entity.has<Camera>())
         return nullptr;
+    if (entity.get<Camera>().render_texture.id)
+        return nullptr; // Independent producers are not directed by main-output shots.
     const auto at = shot_scenes_.find(scene_membership(entity));
     if (at == shot_scenes_.end())
         return nullptr;

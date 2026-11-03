@@ -16,12 +16,14 @@ const AssetRecord& root_record(const AssetCatalog& catalog, AssetRef<MaterialAss
     const auto& imported = record.metadata.at("forge.import");
     require(record.metadata.at("forge.material").at("version").is_number_integer() &&
                 (record.metadata.at("forge.material").at("version") == 1 ||
-                 record.metadata.at("forge.material").at("version") == 2),
+                 record.metadata.at("forge.material").at("version") == 2 ||
+                 record.metadata.at("forge.material").at("version") == 3),
             "Unsupported material publication metadata version");
     const auto& generation = imported.at("generation");
     require(imported.at("version") == 1 && imported.at("importer") == "forge.material.builtin" &&
                 imported.at("output_format") == "forge.material-bundle" &&
-                (imported.at("output_version") == 1 || imported.at("output_version") == 2) &&
+                (imported.at("output_version") == 1 || imported.at("output_version") == 2 ||
+                 imported.at("output_version") == 3) &&
                 generation.is_number_unsigned() && generation.get<std::uint64_t>() > 0 &&
                 valid_content_digest(imported.at("key").get<std::string>()),
             "Invalid material publication selection");
@@ -31,8 +33,13 @@ const AssetRecord& root_record(const AssetCatalog& catalog, AssetRef<MaterialAss
 std::vector<ArtifactFile> encode_material_bundle(AssetId asset, const MaterialResourceData& data) {
     require(bool(asset), "Material bundle has no identity");
     validate_render_material(data);
-    nlohmann::json metadata{
-        {"version", data.surface ? 2 : 1}, {"asset", asset}, {"textures", data.textures}};
+    nlohmann::json metadata{{"version", !data.render_textures.empty() ? 3
+                                        : data.surface                ? 2
+                                                                      : 1},
+                            {"asset", asset},
+                            {"textures", data.textures}};
+    if (!data.render_textures.empty())
+        metadata["render_textures"] = data.render_textures;
     if (data.surface)
         metadata["shader"] = {{"asset", data.surface->shader},
                               {"revision", data.surface->revision},
@@ -61,7 +68,8 @@ MaterialResourceData decode_material_bundle(const std::vector<ArtifactFile>& fil
     }
     require(values && bindings, "Material bundle is incomplete");
     const auto j = parse_bounded_json(bindings->bytes, 65536, 4096, 8);
-    require(j.at("version").is_number_integer() && (j.at("version") == 1 || j.at("version") == 2),
+    require(j.at("version").is_number_integer() &&
+                (j.at("version") == 1 || j.at("version") == 2 || j.at("version") == 3),
             "Unsupported material bindings version");
     const auto asset = j.at("asset").get<AssetId>();
     require(bool(asset) && (!expected || expected == asset), "Material bundle identity mismatch");
@@ -69,7 +77,13 @@ MaterialResourceData decode_material_bundle(const std::vector<ArtifactFile>& fil
             "Material bundle texture count exceeds limit");
     MaterialResourceData result{decode_material(values->bytes),
                                 j.at("textures").get<MaterialTextureBindings>()};
-    require((j.at("version") == 2) == bool(shader) && bool(shader) == j.contains("shader"),
+    if (j.at("version") == 3) {
+        require(j.at("render_textures").is_object() && j.at("render_textures").size() <= 64,
+                "Material bundle render texture count exceeds limit");
+        result.render_textures = j.at("render_textures").get<MaterialRenderTextureBindings>();
+    }
+    require((j.at("version") == 3 || (j.at("version") == 2) == bool(shader)) &&
+                bool(shader) == j.contains("shader"),
             "Material surface snapshot/version mismatch");
     if (shader) {
         const auto& selection = j.at("shader");
@@ -106,6 +120,12 @@ MaterialSelection load_material_selection(const std::filesystem::path& project,
     auto data = decode_material_bundle(artifact.files, ref.id);
     require(record.metadata.at("forge.material").at("textures") == nlohmann::json(data.textures),
             "Material catalog texture bindings differ from cooked revision");
+    const auto& material_metadata = record.metadata.at("forge.material");
+    if (material_metadata.at("version") == 3)
+        require(material_metadata.at("render_textures") == nlohmann::json(data.render_textures),
+                "Material catalog render texture bindings differ from cooked revision");
+    else
+        require(data.render_textures.empty(), "Render textures require material metadata version3");
     const auto& shader = record.metadata.at("forge.material").value("shader", nlohmann::json{});
     require(shader == (data.surface ? nlohmann::json(data.surface->shader) : nlohmann::json{}),
             "Material catalog Shader binding differs from cooked revision");

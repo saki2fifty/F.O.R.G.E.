@@ -8451,6 +8451,41 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "823085a3-3dd4-4ddc-a63e-bff972165993",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "b17728eb8b503ed4138864760218f9c69c34133dd1c710de7d361a68dd74418a",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.render.texture",
+          "importer_revision": "forge.render.texture.v1",
+          "key": "794cc4f0494ec2b092221db73e36aaf5fb05ad9946e2be043e6c7026a7e2d49c",
+          "output_format": "forge.render-texture",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "8262e4098224b48d18d62d0ca95dfdc92f755ebbbd77333cd412488ef6b87d45",
+          "source_digest": "7efe9aaf8384e1a911ec8ebb51cb2a3d518740fd07eff2b87ca01325cd9211c7",
+          "version": 1
+        },
+        "forge.render_texture": {
+          "bytes": 150,
+          "file": "render-texture.json",
+          "sha256": "7c2387723404df6975eed9ef1c22e782c7ccf76a0209ac853f2fd755df0279a8",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/RenderTextures/Relay.rendertexture.json",
+      "source_dependencies": [],
+      "type": "render_texture"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "8433ffa4-e1a1-44f9-b48c-1e0e1ea0d6af",
       "metadata": {
         "forge.import": {
@@ -10224,6 +10259,16 @@
       "source": "Assets/Sequences/BlendReturn.animation.json",
       "source_dependencies": [],
       "type": "transform_animation"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "a99b3d47-3fc7-40f5-a10d-0b16aea67cd3",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/152-camera-render-textures.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
     },
     {
       "dependencies": [],
@@ -12052,6 +12097,41 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "d486b605-2e2a-439b-93fe-633bde7e420b",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "cc6f662875d652ebafb6ff524aff64342df4c7391b55ad18df45cfb2e8e79d12",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.render.texture",
+          "importer_revision": "forge.render.texture.v1",
+          "key": "30d785931bab8e149cd231580829af6bce1988a3ab2a1fcbe37bbe970e6781b7",
+          "output_format": "forge.render-texture",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "ed8e16793c3b42e424649a57345e2e8d89dfec8792128138edd43b9f19e31885",
+          "source_digest": "073b2b0f55d7e8be834b6e3e02719abf9e478e0a064c3347425d8ff0c137fd7d",
+          "version": 1
+        },
+        "forge.render_texture": {
+          "bytes": 150,
+          "file": "render-texture.json",
+          "sha256": "a4667522718452f4f7d2369e38dcc628406d6b79eb7fdc2ee89ff95d2c63e4df",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/RenderTextures/Split.rendertexture.json",
+      "source_dependencies": [],
+      "type": "render_texture"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "d4b6e7a5-5c2a-4ee0-852d-cb53ffc7319a",
       "metadata": {},
       "schema_version": 3,
@@ -12183,6 +12263,41 @@
       "source": "Assets/AnimationTiming/FrameGridTiming.animation.json",
       "source_dependencies": [],
       "type": "transform_animation"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "d5fe7ff3-16f4-4f5f-a9ce-80d355791c5b",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "80241b7c0b9d45a1697d744d62a5c921697ca3220da0172853e95f76853a38ad",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.material.builtin",
+          "importer_revision": "8db6a6ed325b5ab659529c58f4fb3cfe1c116832c67c50cd0bab70652e0cbf8e",
+          "key": "249b3dd8e8cb08ae8544eb6699ad928b3f377f906cccda0491ca2570ef6268b5",
+          "output_format": "forge.material-bundle",
+          "output_version": 3,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "1e0ac31e9b36c687702bd25722ec762dd37b4de3e7dc65b84fd1fb7eb2473749",
+          "source_digest": "23847e21761022c39c3f0cdb730c8e779fcfaf8e791eb4847e9a7b7fd0ac3326",
+          "version": 1
+        },
+        "forge.material": {
+          "render_textures": {},
+          "shader": null,
+          "textures": {},
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/RenderTextures/Color.material.json",
+      "source_dependencies": [],
+      "type": "material"
     },
     {
       "dependencies": [],
@@ -13057,6 +13172,53 @@
       "type": "transform_animation"
     },
     {
+      "dependencies": [
+        "d486b605-2e2a-439b-93fe-633bde7e420b"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "30d785931bab8e149cd231580829af6bce1988a3ab2a1fcbe37bbe970e6781b7",
+          "role": "material.render_texture:baseColorTexture",
+          "target": "d486b605-2e2a-439b-93fe-633bde7e420b",
+          "type": "render_texture"
+        }
+      ],
+      "id": "ebac9231-8bd9-41d4-a603-cb04620fa3ed",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "0af8c3fd1d2bcd0ce893847a4ace1884f4f7047fb13793cb70c087b6bb7d1cfe",
+          "backend": "d3d12",
+          "dependency_digest": "f7f183aacfcfbe29c6e8de66a64a7de58ef4c2120eb6f77f9716d0a011e7b59a",
+          "generation": 1,
+          "importer": "forge.material.builtin",
+          "importer_revision": "8db6a6ed325b5ab659529c58f4fb3cfe1c116832c67c50cd0bab70652e0cbf8e",
+          "key": "3a28485bdb1cb20126d50a3919b60c60eaa21c053e93851460741734d379f553",
+          "output_format": "forge.material-bundle",
+          "output_version": 3,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "8a3fb2b3a2556ba8bdc7e606006ce1fa8d923d7161fc76a4d44a6acff0cf4c7d",
+          "source_digest": "403dc2d234da593ed1250c55db1d29797d063fa5cf05bbf24997d0f1072bad26",
+          "version": 1
+        },
+        "forge.material": {
+          "render_textures": {
+            "baseColorTexture": "d486b605-2e2a-439b-93fe-633bde7e420b"
+          },
+          "shader": null,
+          "textures": {},
+          "version": 3
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/RenderTextures/Split.material.json",
+      "source_dependencies": [],
+      "type": "material"
+    },
+    {
       "dependencies": [],
       "dependency_edges": [],
       "id": "ebb4b561-887e-4310-865d-e4e4850846a7",
@@ -13195,6 +13357,41 @@
       "source": "Scenes/127-source-aware-sprite-atlas.scene.json",
       "source_dependencies": [],
       "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "edfad17f-2421-46fd-b04d-2d6a5a9a46c8",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "54f3c01589bf10f53f59b211345fc92a6be7e4d70637e1c220f6588906275bcf",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.animation.transform",
+          "importer_revision": "forge.animation.transform.v12",
+          "key": "02f8b33563607a028f9f154df3424fb75c839e976dcc15d08c34ec4eee3ad56f",
+          "output_format": "forge.transform-clip",
+          "output_version": 9,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "4e50cae4b19c938ecfef8b88d9d47d87f1dd06b03ee4dff77c4002ceac9812ef",
+          "source_digest": "5120983cc6194c5c8a39b0f643c2f9ccedeaff87db629666cc01398728efd16e",
+          "version": 1
+        },
+        "forge.transform_animation": {
+          "bytes": 1175,
+          "file": "animation.clip",
+          "sha256": "8943292dd794adcfa2a85fd969990661703fc8ca270b141e5870cb279ef2b4a0",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/RenderTextures/Spin.animation.json",
+      "source_dependencies": [],
+      "type": "transform_animation"
     },
     {
       "dependencies": [
@@ -13826,6 +14023,53 @@
       "source": "Assets/PolygonCube.mesh.json",
       "source_dependencies": [],
       "type": "mesh"
+    },
+    {
+      "dependencies": [
+        "823085a3-3dd4-4ddc-a63e-bff972165993"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "794cc4f0494ec2b092221db73e36aaf5fb05ad9946e2be043e6c7026a7e2d49c",
+          "role": "material.render_texture:baseColorTexture",
+          "target": "823085a3-3dd4-4ddc-a63e-bff972165993",
+          "type": "render_texture"
+        }
+      ],
+      "id": "f6cab2cb-6452-49c5-bfd2-33a7cb86f7c8",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "9c0031cb3d303b21595b085f4f6e05950090a166a9798fbdf90005f43b772bbf",
+          "backend": "d3d12",
+          "dependency_digest": "11910732c368f3206121b3b4962cba099b92cdca0c547a94dfa40d8511761951",
+          "generation": 1,
+          "importer": "forge.material.builtin",
+          "importer_revision": "8db6a6ed325b5ab659529c58f4fb3cfe1c116832c67c50cd0bab70652e0cbf8e",
+          "key": "cb68dd3c52321655f344aafd9dcf90f198f94a784a923359c34417b41d359fc9",
+          "output_format": "forge.material-bundle",
+          "output_version": 3,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "ba5456077958f4d0ca389219a9fae7171a20a772bc567b292f30ef0275e2d62f",
+          "source_digest": "2df9ddd73490398d2b1339c81e44b26af23181da8458e938775d47bfc769ed15",
+          "version": 1
+        },
+        "forge.material": {
+          "render_textures": {
+            "baseColorTexture": "823085a3-3dd4-4ddc-a63e-bff972165993"
+          },
+          "shader": null,
+          "textures": {},
+          "version": 3
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/RenderTextures/Relay.material.json",
+      "source_dependencies": [],
+      "type": "material"
     },
     {
       "dependencies": [],

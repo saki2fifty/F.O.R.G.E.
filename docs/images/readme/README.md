@@ -1593,3 +1593,26 @@ Local run/output attribution is retained by the engineering validation owner.
 - `ui-values-inspector.png`: SHA-256 `4933e9a460f753434927743c07dfdf1fdb5a51cce9df08659b13c784703ef485`.
 - `ui-values-live.png`: SHA-256 `d193b7c1e49bd8b7da7ef620185dc1d0c5d510d24d689a74aafe95c98e04097c`.
 - `ui-values-timeline.png`: SHA-256 `9d7f1d6c8ddc1b819b0285c3107527ea778f30facbed370f98c8cc6b39a53bbb`.
+
+## Camera output images
+
+[Render Texture controls](../../../manual/images/render-texture-editor.png) is the
+unretouched1080×360 production RenderTextureEditor in SDL/ImGui software rendering.
+Actual numeric input, Apply/Cancel, source Undo/Redo, locks and Save / Publish are
+exercised before capture. PNG SHA256:
+`3b2b6e0b14beb5d38540ed8a3da8666683df0a33426fa687536b0fe21353a158`.
+
+[Two Game monitors](../../../manual/images/render-texture-gallery.png) shows the
+unretouched640×360 production FrameRenderer at tick75 in original Gallery152
+(`a99b3d47-3fc7-40f5-a10d-0b16aea67cd3`). The left monitor combines red/cyan producer
+Cameras; another Camera relays it to the right monitor during the same frame.
+Four source/source-hidden relocated animated display pairs match exactly on
+software Vulkan. Lossless P6 RGB-to-PNG conversion retains every source pixel.
+PNG SHA256: `fc1e7005f0ffa3ef36b767f7be322ca3f0ea61fe80057b5dfdc7889343c4550a`.
+
+Both captures were personally reviewed. Local unassigned source is based on57ed673
+with the render-texture implementation. Exact executable/image/source hashes,
+original capture paths and native receipts are recorded in
+`AgentFiles/build/phase232-render-texture-authoring/manual-captures.json`.
+These captures do not establish full Main, Windows/MSVC/D3D12, physical GPU/DPI,
+external MCP client or graphical EXE acceptance.

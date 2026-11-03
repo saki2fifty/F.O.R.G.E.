@@ -217,7 +217,8 @@ class MaterialEditor {
                                             surface_ ? &*surface_->program.surface : nullptr);
                 if (update_preview)
                     update_preview({document_->source().asset()},
-                                   {next.values, next.textures, surface_}, catalog_);
+                                   {next.values, next.textures, surface_, next.render_textures},
+                                   catalog_);
                 resolved_ = next;
                 error_.clear();
             } catch (const std::exception& e) {
@@ -503,7 +504,7 @@ inline void MaterialEditor::fields() {
     Json shader_ref = selected_shader ? Json(selected_shader->id) : Json{};
     if (asset_ref_picker(*catalog_, shader_ref, "shader", "Surface Shader", false))
         mutate("Change surface Shader", [&](auto& j) {
-            j["version"] = 2;
+            j["version"] = std::max(j.at("version").template get<int>(), 2);
             j["overrides"]["shader"] = shader_ref;
             j["overrides"]["model"] =
                 shader_ref.is_null() ? "forge.gltf.metallic-roughness.v1" : surface_material_model;
@@ -522,7 +523,7 @@ inline void MaterialEditor::fields() {
             });
     }
     if (selected_shader && edit_graph && resolved_ && surface_ &&
-        surface_->program.surface->physically_based) {
+        resolved_->render_textures.empty() && surface_->program.surface->physically_based) {
         if (ui::button("Edit surface graph",
                        "Open this material's Shader graph with its current material values and "
                        "texture bindings in the preview."))
@@ -754,13 +755,17 @@ inline void MaterialEditor::fields() {
         Json ref = resolved_ && resolved_->textures.contains(key)
                        ? Json(resolved_->textures.at(key).id)
                        : Json();
+        bool output = resolved_ && resolved_->render_textures.contains(key);
+        if (output)
+            ref = resolved_->render_textures.at(key).id;
         const bool owns = overrides.contains("textures") && overrides.at("textures").contains(key);
         if (owns) {
             const auto& authored = overrides.at("textures").at(key);
             if (authored.is_null())
                 ref = nullptr;
             else {
-                ref = authored.at("asset");
+                output = source.document.at("version") == 3 && authored.contains("render_texture");
+                ref = authored.at(output ? "render_texture" : "asset");
                 MaterialData projection;
                 projection.model = model;
                 auto value = material_values_document(projection);
@@ -775,13 +780,20 @@ inline void MaterialEditor::fields() {
                 projection.textures[key] = slot;
                 const auto data = material_values_document(projection).at("textures").at(key);
                 mutate("Change " + key, [&](auto& j) {
+                    if (output && !ref.is_null()) {
+                        MaterialSource promoted{j};
+                        promoted.enable_render_textures();
+                        j = std::move(promoted.document);
+                    }
                     auto& field = j["overrides"]["textures"][key];
                     if (ref.is_null())
                         field = nullptr;
                     else {
                         if (!field.is_object())
                             field = Json::object();
-                        field["asset"] = ref;
+                        if (j.at("version") == 3)
+                            field.erase(output ? "asset" : "render_texture");
+                        field[output ? "render_texture" : "asset"] = ref;
                         if (!field["slot"].is_object())
                             field["slot"] = Json::object();
                         field["slot"].update(data);
@@ -791,8 +803,26 @@ inline void MaterialEditor::fields() {
                 report(e.what());
             }
         };
-        if (asset_ref_picker(*catalog_, ref, "texture", "Texture"))
+        Json static_ref = output ? Json() : ref;
+        if (asset_ref_picker(*catalog_, static_ref, "texture", "Texture")) {
+            output = false;
+            ref = static_ref;
             set_slot();
+        }
+        if (output ||
+            (slot.dimension == TextureDimension::D2 && slot.semantic == TextureSemantic::Color)) {
+            Json image_ref = output ? ref : Json();
+            if (asset_ref_picker(*catalog_, image_ref, RenderTextureAsset::type,
+                                 "Render texture")) {
+                output = true;
+                ref = image_ref;
+                set_slot();
+            }
+            ui::help(
+                "Use one source Texture or one Render texture for this role. Camera images "
+                "are linear HDR and opaque; preview them on a mesh in Scene or Game with an "
+                "enabled producer Camera. An isolated material preview has no Scene producer.");
+        }
         if (!ref.is_null()) {
             bool edited = false;
             if (slot.dimension == TextureDimension::D2 ||

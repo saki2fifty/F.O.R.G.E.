@@ -10,7 +10,7 @@ MeshDrawBundle::MeshDrawBundle(DiligentPresentation& presentation,
                                GpuResidency<TextureAsset>& textures, Diligent::TEXTURE_FORMAT color,
                                Diligent::TEXTURE_FORMAT depth, bool skinned,
                                std::shared_ptr<const MeshPoseGeometry> geometry,
-                               MeshDrawProfile profile)
+                               MeshDrawProfile profile, const RenderTextureImages& render_textures)
     : presentation_(presentation), color_(color), depth_(depth), prepared_(prepared),
       geometry_(geometry ? std::move(geometry)
                          : std::make_shared<const MeshPoseGeometry>(
@@ -38,6 +38,15 @@ MeshDrawBundle::MeshDrawBundle(DiligentPresentation& presentation,
         if (material.identity().asset != id)
             throw std::runtime_error("Draw material lease identity mismatch");
         validate_render_material(material.get());
+        for (const auto& [role, ref] : material->render_textures) {
+            (void)role;
+            const auto image = render_textures.find(ref.id);
+            if (image == render_textures.end() || !image->second)
+                throw RenderTexturePending("Camera output image is not admitted yet");
+            if (image->second.source().asset != ref.id)
+                throw std::runtime_error("Render texture lease identity mismatch");
+            render_textures_.try_emplace(ref.id, image->second);
+        }
         for (const auto& [role, ref] : material->textures) {
             const auto semantic = material->values.textures.at(role).semantic;
             const auto resolved = prepared.texture_asset({ref.id, semantic});
@@ -127,11 +136,23 @@ std::unique_ptr<MeshDraw> MeshDrawBundle::prepare_draw(Diligent::IDeviceContext*
                                         .get()
                                         ->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
         }
+        for (const auto& [role, ref] : material.render_textures)
+            native_textures[role] = render_textures_.at(ref.id).get()->GetDefaultView(
+                Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
     }
     return std::make_unique<MeshDraw>(
         presentation_, context, mesh_.get().lods.at(lod).parts.at(part), *values, native_textures,
         target, depth_, skinned_, Diligent::SHADER_COMPILER_DEFAULT,
         Diligent::SHADER_OPTIMIZATION_LEVEL_DEFAULT, surface, profile, area_lights);
+}
+bool MeshDrawBundle::render_textures_ready(const RenderTextureInputs& inputs) const {
+    for (const auto& [asset, image] : render_textures_) {
+        const auto current = inputs.images.find(asset);
+        if (!inputs.produced.contains(asset) || current == inputs.images.end() ||
+            !current->second || current->second.get() != image.get())
+            return false;
+    }
+    return true;
 }
 std::size_t MeshDrawBundle::draw_part_count() const {
     std::size_t count = 0;

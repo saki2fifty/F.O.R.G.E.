@@ -109,6 +109,9 @@ bool MeshSceneRenderer::update_decals(const RenderScene& scene) {
                     throw std::runtime_error(
                         "Projectors require a built-in PBR or unlit "
                         "Material; custom Surface Shader sources are unsupported");
+                if (!material->render_textures.empty())
+                    throw std::runtime_error("Projectors require source textures; camera render "
+                                             "textures are supported by MeshRenderer materials");
                 DecalResources candidate;
                 candidate.values = prepare_decal_material(material->values, material->textures);
                 candidate.material = std::move(material);

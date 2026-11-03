@@ -16,6 +16,7 @@
 #include "navigation_behavior_admission.hpp"
 #include "particle_effect_resource.hpp"
 #include "publish_directory.hpp"
+#include "render_texture_resource.hpp"
 #include "root_mesh_artifact.hpp"
 #include "runtime_document_package.hpp"
 #include "runtime_raw_assets.hpp"
@@ -187,13 +188,26 @@ AssetRecord runtime_record(AssetRecord record) {
         return record;
     }
     Json metadata = Json::object();
-    for (const auto* name :
-         {"forge.import", "forge.model", "forge.mesh", "forge.terrain", "forge.material",
-          "forge.shader", "forge.audio", "forge.ui_source", "forge.collision",
-          "forge.transform_animation", "forge.animation_states", "forge.animation_mask",
-          "forge.animation_blend_space", "forge.particle_effect", "forge.tile_set",
-          "forge.tile_map", "forge.navigation_behavior", "forge.ui_localization",
-          "forge.application_states"})
+    for (const auto* name : {"forge.import",
+                             "forge.model",
+                             "forge.mesh",
+                             "forge.terrain",
+                             "forge.material",
+                             "forge.shader",
+                             "forge.audio",
+                             "forge.ui_source",
+                             "forge.collision",
+                             "forge.transform_animation",
+                             "forge.animation_states",
+                             "forge.animation_mask",
+                             "forge.animation_blend_space",
+                             "forge.particle_effect",
+                             "forge.tile_set",
+                             "forge.tile_map",
+                             "forge.navigation_behavior",
+                             "forge.ui_localization",
+                             "forge.application_states",
+                             "forge.render_texture"})
         if (record.metadata.contains(name))
             metadata[name] = record.metadata.at(name);
     record.metadata = std::move(metadata);
@@ -280,6 +294,8 @@ void admit_bundle(const AssetRecord& root, const CachedArtifact& artifact) {
     } else if (root.type == NavigationBehaviorAsset::type &&
                format == "forge.navigation-behavior") {
         (void)admit_navigation_behavior_artifact(root, artifact);
+    } else if (root.type == RenderTextureAsset::type && format == "forge.render-texture") {
+        (void)admit_render_texture_artifact(root, artifact);
     } else if (root.type == UiLocalizationAsset::type && format == "forge.ui-localization") {
         (void)admit_ui_localization_artifact(root, artifact);
     } else if (root.type == ApplicationStatesAsset::type && format == "forge.application-states") {
@@ -476,7 +492,7 @@ void validate_selections(const std::filesystem::path& root, const AssetCatalog& 
         else if (record.type == MaterialAsset::type) {
             const auto material = load_material_selection(root, catalog, {id}, stop);
             require(
-                material.data.textures.size() ==
+                material.data.textures.size() + material.data.render_textures.size() ==
                     std::size_t(std::count_if(
                         record.dependency_edges.begin(), record.dependency_edges.end(),
                         [](const auto& edge) { return !is_declared_runtime_dependency(edge); })),
@@ -489,6 +505,14 @@ void validate_selections(const std::filesystem::path& root, const AssetCatalog& 
                                                edge.role == "material.texture:" + role;
                                     }),
                         "Material cooked texture binding is absent from runtime closure");
+            for (const auto& [role, ref] : material.data.render_textures)
+                require(std::any_of(record.dependency_edges.begin(), record.dependency_edges.end(),
+                                    [&](const auto& edge) {
+                                        return edge.target == ref.id &&
+                                               edge.expected_type == RenderTextureAsset::type &&
+                                               edge.role == "material.render_texture:" + role;
+                                    }),
+                        "Material cooked render texture binding is absent from runtime closure");
         } else if (record.type == MeshAsset::type && !record.subasset) {
             ResourcePool<MeshAsset> pool;
             const auto ticket =

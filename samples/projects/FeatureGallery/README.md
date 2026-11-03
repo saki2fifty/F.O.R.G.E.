@@ -1946,3 +1946,19 @@ name requires updating the clip. RML expressions live in **Assets/UI/Sequence/hu
 The Scene has a Camera and needs no project C++ compiler. Save/publish changes and
 select it as startup before normal export. Edit Timeline preview and silent frame
 export do not render Runtime UI; evaluate the HUD in Game Play.
+
+## Live camera output images
+
+Open **Scenes/152-camera-render-textures.scene.json** and press Play. Two producer
+Cameras view rotating red and cyan cubes and share **Split.rendertexture.json**
+using left/right half viewports. Monitor A samples that image. A relay Camera
+views Monitor A and writes **Relay.rendertexture.json**, sampled by Monitor B.
+The main Camera shows both monitors. No project C++ compiler is required.
+
+**Assets/RenderTextures** owns both 512×256 configurations, three Materials and
+an original two-second rotation Clip. Source cubes use layer1, Monitor A layer4,
+Monitor B layer8 and the main Camera mask12. Producer masks exclude their own
+screens. Keep that separation when editing; feedback loops are rejected. Publish
+outputs and Materials, save the Scene, then select it as startup before export.
+After resizing an output, republish dependent Materials before export.
+See [the camera image guide](../../../manual/editor/render-textures.md).

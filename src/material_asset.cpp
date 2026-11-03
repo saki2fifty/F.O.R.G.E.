@@ -68,12 +68,21 @@ void validate_material(const MaterialData& m) {
         require(std::isfinite(t.rotation), "Invalid texture rotation");
     }
 }
-void validate_material_bindings(const MaterialData& m, const MaterialTextureBindings& bindings) {
+void validate_material_bindings(const MaterialData& m, const MaterialTextureBindings& bindings,
+                                const MaterialRenderTextureBindings& render_textures) {
     validate_material(m);
-    require(bindings.size() == m.textures.size(), "Material texture binding count mismatch");
+    require(bindings.size() + render_textures.size() == m.textures.size(),
+            "Material texture binding count mismatch");
     for (const auto& [name, ref] : bindings)
         require(m.textures.contains(name) && bool(ref.id),
                 "Missing/unknown material texture binding");
+    for (const auto& [name, ref] : render_textures) {
+        require(m.textures.contains(name) && bool(ref.id) && !bindings.contains(name),
+                "Missing, unknown or duplicate render texture binding");
+        const auto& slot = m.textures.at(name);
+        require(slot.dimension == TextureDimension::D2 && slot.semantic == TextureSemantic::Color,
+                "Render textures require a 2D Color material slot");
+    }
 }
 void validate_material_layout(const MaterialData& m, const MaterialLayout& layout) {
     validate_material(m);

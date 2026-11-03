@@ -546,3 +546,11 @@ The source Mesh opens through Content; its base pivot keeps scaled blades on the
 origin plane. Save the Scene and export through the normal workflow. The tool
 uses a horizontal plane and does not project onto terrain.
 See [Place foliage](../editor/foliage.md).
+
+## Live camera images
+
+Open **152-camera-render-textures** and press Play. Two Cameras share a split
+output, and a third relays that image to a second monitor while the source cubes
+rotate. Inspect **Assets/RenderTextures** for the published image configurations,
+Materials and rotation Clip. See [Show a camera image on a Mesh](../editor/render-textures.md)
+for layer masks, resizing and export. This scene needs no project C++ compiler.

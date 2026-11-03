@@ -8,14 +8,16 @@
 #include "temporal_view.hpp"
 #include <optional>
 namespace forge {
+class CameraRenderTextures;
 // Shared visual frame composition. No ImGui, editor camera, ECS ownership or
 // authoring service; both editor views and a future standalone host can call it.
 class FrameRenderer {
   public:
     // LinearHdr skips display exposure/tone mapping/grading. Scene effects are
     // still explicit in the supplied settings; the caller chooses that profile.
-    enum class Output { Display, LinearHdr };
+    enum class Output { Display, LinearHdr, LinearHdrOpaque };
     explicit FrameRenderer(DiligentPresentation&, std::string profile_view = "Game");
+    ~FrameRenderer();
     void resources(std::shared_ptr<MeshResourceHost>);
     // Presentation discontinuity reported by the existing preview/seek owner.
     void invalidate_temporal_history();
@@ -30,9 +32,10 @@ class FrameRenderer {
                                    float exposure, const SceneAutoExposure* automatic = nullptr,
                                    double presentation_seconds = 0,
                                    const TemporalFrameSample* sample = nullptr,
-                                   Output output = Output::Display);
+                                   Output output = Output::Display,
+                                   const RenderTextureInputs* render_textures = nullptr);
     bool temporal_ready() const;
-    bool pending() const { return meshes_ && meshes_->pending(); }
+    bool pending() const;
     const std::vector<Diagnostic>& diagnostics() const { return diagnostics_; }
     std::size_t omitted_diagnostics() const { return omitted_; }
     const std::vector<PreparedCamera>& cameras() const { return cameras_; }
@@ -49,7 +52,7 @@ class FrameRenderer {
 
   private:
     void targets(unsigned width, unsigned height);
-    void clear_camera(Diligent::IDeviceContext*, const Camera&);
+    void clear_camera(Diligent::IDeviceContext*, const Camera&, bool alpha_only = false);
     void report(const Diagnostic&);
     Diligent::RefCntAutoPtr<Diligent::ITextureView> output_;
     const std::thread::id thread_ = std::this_thread::get_id();
@@ -58,11 +61,13 @@ class FrameRenderer {
     DisplayResolve display_;
     HdrBloom bloom_;
     EnvironmentSky sky_;
+    std::shared_ptr<MeshResourceHost> host_;
+    std::unique_ptr<CameraRenderTextures> render_textures_;
     std::unique_ptr<MeshSceneRenderer> meshes_;
     Diligent::RefCntAutoPtr<Diligent::ITexture> color_, depth_;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> clear_color_;
-    std::array<Diligent::RefCntAutoPtr<Diligent::IPipelineState>, 3> clears_;
-    std::array<Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding>, 3> clear_bindings_;
+    std::array<Diligent::RefCntAutoPtr<Diligent::IPipelineState>, 4> clears_;
+    std::array<Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding>, 4> clear_bindings_;
     std::optional<RenderScene> game_scene_;
     std::vector<PreparedCamera> cameras_;
     std::vector<Diagnostic> diagnostics_;

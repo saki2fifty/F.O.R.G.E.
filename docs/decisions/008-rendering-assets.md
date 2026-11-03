@@ -297,3 +297,15 @@ path. The presentation owner prepares bounded optional targets before publicatio
 Game and Scene preview share the operation. Linear HDR output and upstream temporal
 history retain their ownership. The installed SDK value boundary and fingerprint remain unchanged; this does not
 add a native callback. Export uses a runtime kit containing the implementation.
+
+## Camera image composition
+
+Camera remains the output-routing authority through an optional RenderTextureAsset
+reference. Material owns its typed image role and existing sampling intent; a
+MeshRenderer never owns an image handle or replacement texture database. Explicit
+Material source/bundle3 versions the discriminator while preserving opaque old
+extensions and ordinary asset identity. Per-view pass order derives from selected
+Material reads and Camera writes, with feedback rejected before current sampling.
+Linear HDR producers and normal consumer display composition reuse FrameRenderer.
+This supplies the concrete resource/composition consumer for authored targets.
+See [Scene camera render textures](../render-textures.md).

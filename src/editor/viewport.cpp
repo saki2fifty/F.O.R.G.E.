@@ -258,9 +258,27 @@ ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsig
         if (!mesh_scene_ || live || mesh_generation_ != generation) {
             mesh_scene_ = extract_render_scene(scene);
             mesh_generation_ = generation;
+            if (render_textures_)
+                render_textures_->invalidate_temporal_history();
+        }
+        if (render_textures_ ||
+            std::any_of(mesh_scene_->cameras.begin(), mesh_scene_->cameras.end(),
+                        [](const auto& c) { return bool(c.camera.render_texture.id); })) {
+            if (!render_textures_)
+                render_textures_ = std::make_unique<CameraRenderTextures>(presentation_, host_);
+            meshes_->render_textures(
+                render_textures_->render(context, *mesh_scene_, *meshes_, UINT32_MAX, 0, nullptr));
+            live = true;
         }
         if (meshes_->update(*mesh_scene_, std::span(&prepared, 1)))
             frame_.reset();
+        if (!render_textures_ && !meshes_->render_texture_reads(*mesh_scene_, UINT32_MAX).empty()) {
+            render_textures_ = std::make_unique<CameraRenderTextures>(presentation_, host_);
+            meshes_->render_textures(
+                render_textures_->render(context, *mesh_scene_, *meshes_, UINT32_MAX, 0, nullptr));
+            meshes_->update(*mesh_scene_, std::span(&prepared, 1));
+            live = true;
+        }
         sky_.select(meshes_->environment());
         live = live || meshes_->pending();
     }
@@ -582,6 +600,8 @@ ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsig
     if (meshes_)
         meshes_->commit_temporal_frame(temporal_applied && (aa_enabled || blur_enabled));
     temporal_complete = true;
+    if (render_textures_)
+        render_textures_->submit();
     ++redraws;
     frame_ = key;
     return display_ ? display_->output() : color_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);

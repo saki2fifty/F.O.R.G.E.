@@ -14,11 +14,15 @@ struct MaterialSource {
     static MaterialSource parse(std::span<const std::byte> bytes);
     static MaterialSource create(AssetId asset);
     void validate() const;
+    // Explicit promotion preserves old extension intent or rejects a reserved
+    // discriminator collision before changing the document.
+    void enable_render_textures();
 };
 struct ResolvedMaterialSource {
     MaterialData values;
     MaterialTextureBindings textures;
     std::optional<AssetRef<ShaderAsset>> shader;
+    MaterialRenderTextureBindings render_textures;
 };
 std::optional<AssetRef<ShaderAsset>>
 material_shader_reference(const MaterialSource&, const ResolvedMaterialSource* base = nullptr);

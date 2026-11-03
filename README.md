@@ -47,6 +47,17 @@ Real Windows editor captures using small validation scenes. Click an image to op
 
 [Capture sources](docs/images/readme/README.md) · [Implementation and delivery status](docs/status.md)
 
+## Live camera images
+
+[Render textures](manual/editor/render-textures.md) display a Camera's live scene
+image on a Mesh. Gallery152 combines two Cameras into one split-screen image and
+relays it through a second Camera to another monitor.
+
+[![Two monitor meshes display red and cyan camera feeds, including a same-frame camera relay](manual/images/render-texture-gallery.png)](manual/editor/render-textures.md)
+
+Production Game renderer capture on software Vulkan. Saved outputs, Material
+bindings, source controls, layer masks and export are explained in the guide.
+
 ## Projected material color
 
 [Decal Projectors](manual/editor/decals.md) project color, normal detail and roughness onto lit Mesh
@@ -222,6 +233,7 @@ See the [capability checklist and validation limits](docs/mcp.md).
 - Exact-version shared-Flecs C++ gameplay SDK, [Jolt physics](manual/editor/physics.md), and [Audio sources/listeners and WAV/FLAC/MP3 import](manual/editor/audio.md).
 
 - Model/texture/material/shader importing, cooked resources and dependency-aware, relocatable game export with a standalone SDL/Diligent/RmlUi executable.
+- [Live Camera images](manual/editor/render-textures.md): saved output sizes, shared-camera composition and dependency-ordered Mesh Material sampling. Gallery152 includes split and relayed outputs with rotating scene sources.
 - [Sequence-driven UI](manual/editor/sequence-ui.md): edit named numbers in Inspector, animate keyed values with the Scene clock and bind them to RML text, styles and classes. Gallery151 works without project C++; native CSS motion retains presentation time.
 - [Navigation](manual/editor/navigation.md), with static collision collection, authored directional links and local source for [patrol, wait, chase graphs and behavior trees](manual/editor/navigation-behavior.md), shared editor/MCP authoring and ready Gallery131/132/139/140/141 examples; [runtime UI](manual/editor/runtime-ui.md) and the [asset workflow](manual/editor/content-browser.md).
 - [Application States](manual/editor/application-states.md): authored direct/hierarchical/computed/subordinate modes, source and Scene history, runtime-only Game/UI controls, native conditions/events, matching SDK and MCP access, explicit stock activity conditions, runtime-created root lifetimes, and playable Gallery134/135.

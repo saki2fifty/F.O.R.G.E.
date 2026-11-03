@@ -40,6 +40,9 @@ inline void validate_sprite_material_profile(const MaterialData& material) {
 // Material publication. Display labels and parameter order never choose it.
 inline std::string_view sprite_material_image(const MaterialResourceData& material) {
     validate_render_material(material);
+    if (!material.render_textures.empty())
+        throw std::invalid_argument("Sprite and Tile Map profiles require source textures; camera "
+                                    "render textures are supported by MeshRenderer materials");
     if (material.surface) {
         const auto& definition = *material.surface->program.surface;
         if (!definition.sprite_image)

@@ -127,6 +127,7 @@ std::vector<ReflectedAdapter> authoring_value_adapters(flecs::world& world) {
     FORGE_REF(MeshAsset);
     FORGE_REF(MaterialAsset);
     FORGE_REF(TextureAsset);
+    FORGE_REF(RenderTextureAsset);
     FORGE_REF(ShaderAsset);
     FORGE_REF(AudioClipAsset);
     FORGE_REF(SkeletonAsset);

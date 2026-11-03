@@ -18,6 +18,7 @@
 #include <forge/navigation_behavior.hpp>
 #include <forge/particle_effect_source.hpp>
 #include <forge/prefab.hpp>
+#include <forge/render_texture.hpp>
 #include <forge/scene.hpp>
 #include <forge/scene_identity.hpp>
 #include <forge/shader_asset.hpp>
@@ -256,9 +257,9 @@ static std::string rewrite_authored_with_schema(const AssetRecord& record, std::
         record.type != "shader" && record.type != "collision" &&
         record.type != "transform_animation" && record.type != "animation_states" &&
         record.type != NavigationBehaviorAsset::type && record.type != UiLocalizationAsset::type &&
-        record.type != ApplicationStatesAsset::type && record.type != "animation_mask" &&
-        record.type != "animation_blend_space" && record.type != ParticleEffectAsset::type &&
-        !terrain)
+        record.type != ApplicationStatesAsset::type && record.type != RenderTextureAsset::type &&
+        record.type != "animation_mask" && record.type != "animation_blend_space" &&
+        record.type != ParticleEffectAsset::type && !terrain)
         throw std::runtime_error("No authored-document copy adapter for this source format");
     if (terrain && !path_utf8(destination).ends_with(".terrain.json"))
         throw std::runtime_error("Terrain files must retain the .terrain.json suffix");
@@ -273,6 +274,9 @@ static std::string rewrite_authored_with_schema(const AssetRecord& record, std::
     if (record.type == UiLocalizationAsset::type &&
         !path_utf8(destination).ends_with(".localization.json"))
         throw std::runtime_error("UI Localization files must retain the .localization.json suffix");
+    if (record.type == RenderTextureAsset::type &&
+        !path_utf8(destination).ends_with(".rendertexture.json"))
+        throw std::runtime_error("Render Texture files must retain the .rendertexture.json suffix");
     if (record.type == ApplicationStatesAsset::type &&
         !path_utf8(destination).ends_with(".appstates.json"))
         throw std::runtime_error("Application States files must retain the .appstates.json suffix");
@@ -319,6 +323,8 @@ static std::string rewrite_authored_with_schema(const AssetRecord& record, std::
             NavigationBehaviorSource{value}.validate();
         else if (record.type == UiLocalizationAsset::type)
             UiLocalizationSource{value}.validate();
+        else if (record.type == RenderTextureAsset::type)
+            RenderTextureSource{value}.validate();
         else if (record.type == ApplicationStatesAsset::type)
             ApplicationStatesSource{value}.validate();
         else if (record.type == "animation_mask")

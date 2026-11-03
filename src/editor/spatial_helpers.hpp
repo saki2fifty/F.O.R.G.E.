@@ -12,9 +12,12 @@
 #include "widgets.hpp"
 #include <forge/audio_components.hpp>
 #include <forge/render_scene.hpp>
+#include <forge/render_texture.hpp>
 #include <numbers>
 #include <tuple>
 namespace forge::ui {
+using CameraOutputReader =
+    std::function<std::optional<RenderTextureData>(AssetRef<RenderTextureAsset>)>;
 // Editor-only detached visualization. No hidden entities, meshes or authored state.
 struct SpatialMarker {
     std::string entity, name, note;
@@ -35,9 +38,10 @@ inline Double3 helper_add(Double3 a, Double3 b, double scale = 1) {
         a[i] += b[i] * scale;
     return a;
 }
-inline std::vector<SpatialMarker> spatial_markers(const Json& source, unsigned width,
-                                                  unsigned height, double extent,
-                                                  const NavigationTileContours& tiles = {}) {
+inline std::vector<SpatialMarker>
+spatial_markers(const Json& source, unsigned width, unsigned height, double extent,
+                const NavigationTileContours& tiles = {},
+                const std::map<AssetId, RenderTextureData>& outputs = {}) {
     std::vector<SpatialMarker> result;
     const auto policies = extract_node_policies(source);
     for (const auto& row : source.at("entities")) {
@@ -156,7 +160,16 @@ inline std::vector<SpatialMarker> spatial_markers(const Json& source, unsigned w
                 } else if (is_camera) {
                     const auto settings = spatial_component_value<Camera>(c, "forge.camera");
                     marker.enabled = settings.enabled;
-                    const auto view = camera_view(settings, world, width, height);
+                    unsigned output_width = width, output_height = height;
+                    if (settings.render_texture.id) {
+                        const auto output = outputs.find(settings.render_texture.id);
+                        if (output == outputs.end())
+                            throw std::runtime_error(
+                                "Render texture configuration unavailable; frustum hidden");
+                        output_width = output->second.width;
+                        output_height = output->second.height;
+                    }
+                    const auto view = camera_view(settings, world, output_width, output_height);
                     const bool ortho =
                         settings.projection == unsigned(CameraProjection::Orthographic);
                     const double end =
@@ -353,11 +366,18 @@ class SpatialHelpers {
     bool visible = true;
     float size = 24, extent = 10;
     void update(const Json& source, std::uint64_t generation, unsigned width, unsigned height,
-                const PublishedTileMapReader& read_tiles = {}) {
+                const PublishedTileMapReader& read_tiles = {},
+                const CameraOutputReader& read_outputs = {}) {
         if (generation_ != generation) {
             map_ids_.clear();
+            output_ids_.clear();
             for (const auto& row : source.at("entities")) {
                 const auto& components = row.at("components");
+                if (components.contains("forge.camera")) {
+                    const auto camera = spatial_component_value<Camera>(components, "forge.camera");
+                    if (camera.render_texture.id)
+                        output_ids_.insert(camera.render_texture.id);
+                }
                 if (!components.contains("forge.navigation_region_2d") ||
                     components.at("forge.navigation_region_2d").value("source", 0u) != 1 ||
                     !components.contains("forge.tile_map_renderer"))
@@ -379,6 +399,21 @@ class SpatialHelpers {
             resources += id.str() + ":" + view.revision + (view.current ? ":ready;" : ":waiting;");
             maps.emplace(id, view);
         }
+        std::map<AssetId, RenderTextureData> outputs;
+        for (const auto id : output_ids_) {
+            resources += id.str() + ":output:";
+            try {
+                const auto value = read_outputs ? read_outputs({id}) : std::nullopt;
+                if (value) {
+                    outputs.emplace(id, *value);
+                    resources += std::to_string(value->width) + "x" + std::to_string(value->height);
+                } else
+                    resources += "waiting";
+            } catch (const std::exception& error) {
+                resources += error.what();
+            }
+            resources += ";";
+        }
         if (generation_ == generation && width_ == width && height_ == height &&
             extent_ == extent && resources_ == resources)
             return;
@@ -391,7 +426,7 @@ class SpatialHelpers {
                                                              map.variants.get(), collider.layer,
                                                              transform, obstacle);
         };
-        markers_ = spatial_markers(source, width, height, extent, tiles);
+        markers_ = spatial_markers(source, width, height, extent, tiles, outputs);
         resources_ = std::move(resources);
         generation_ = generation;
         width_ = width;
@@ -566,7 +601,7 @@ class SpatialHelpers {
     mutable std::string hovered_;
     mutable double hover_time_ = 0;
     std::vector<SpatialMarker> markers_;
-    std::set<AssetId> map_ids_;
+    std::set<AssetId> map_ids_, output_ids_;
     std::string resources_;
     std::uint64_t generation_ = UINT64_MAX;
     unsigned width_ = 0, height_ = 0;

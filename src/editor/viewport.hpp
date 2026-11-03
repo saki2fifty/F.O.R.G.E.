@@ -3,6 +3,7 @@
 #include "Graphics/GraphicsEngine/interface/DeviceContext.h"
 #include "Graphics/GraphicsEngine/interface/PipelineState.h"
 #include "Graphics/GraphicsEngine/interface/RenderDevice.h"
+#include "camera_render_textures.hpp"
 #include "depth_of_field.hpp"
 #include "display_resolve.hpp"
 #include "environment_sky.hpp"
@@ -33,8 +34,10 @@ class Viewport {
     }
     void resources(std::shared_ptr<MeshResourceHost> host) {
         sky_.select({});
-        meshes_ =
-            host ? std::make_unique<MeshSceneRenderer>(std::move(host), color_format_) : nullptr;
+        meshes_.reset();
+        render_textures_.reset();
+        host_ = std::move(host);
+        meshes_ = host_ ? std::make_unique<MeshSceneRenderer>(host_, color_format_) : nullptr;
         mesh_scene_.reset();
         frame_.reset();
         temporal_.reset();
@@ -42,6 +45,16 @@ class Viewport {
         temporal_camera_.reset();
     }
     const MeshSceneRenderer* meshes() const { return meshes_.get(); }
+    bool pending() const {
+        return (meshes_ && meshes_->pending()) || (render_textures_ && render_textures_->pending());
+    }
+    std::vector<Diagnostic> diagnostics() const {
+        auto result = meshes_ ? meshes_->diagnostics() : std::vector<Diagnostic>{};
+        if (render_textures_)
+            result.insert(result.end(), render_textures_->diagnostics().begin(),
+                          render_textures_->diagnostics().end());
+        return result;
+    }
     const RenderScene* render_scene() const { return mesh_scene_ ? &*mesh_scene_ : nullptr; }
     bool frame(const Json&, const std::string& selected, EditorCamera&, float aspect);
     bool frame_selection(const Json&, const std::vector<std::string>&, EditorCamera&, float aspect);
@@ -59,6 +72,8 @@ class Viewport {
     float exposure_ = 0;
     bool preview_lighting_ = false;
     EnvironmentSky sky_;
+    std::shared_ptr<MeshResourceHost> host_;
+    std::unique_ptr<CameraRenderTextures> render_textures_;
     std::unique_ptr<MeshSceneRenderer> meshes_;
     std::optional<RenderScene> mesh_scene_;
     std::uint64_t mesh_generation_ = 0;

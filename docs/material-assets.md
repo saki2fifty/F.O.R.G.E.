@@ -281,3 +281,12 @@ handles or descriptor layout assumptions.
 ## Phase10 graph extension
 
 [Material graphs](material-graphs.md) add Shader source version3 and surface metadata version2 with shared metallic/roughness PBR and binding labels. Existing final-color custom surfaces, Material sparse overrides and publication/history owners remain supported. Graph source and generated HLSL cannot both be authored authorities.
+
+## Live camera image bindings
+
+Material source/bundle3 adds explicit typed RenderTextureAsset bindings in2D Color
+roles. A role owns either a static Texture or a render image, retaining the same
+Material-owned sampler and UV settings. Older source extension semantics remain
+versioned; promotion rejects collisions before changing data. An isolated preview
+has no scene producer. See [Scene camera render textures](render-textures.md) for
+selected revision edges, runtime closure, native lifetime and supported consumers.

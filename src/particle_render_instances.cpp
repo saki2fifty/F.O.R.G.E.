@@ -25,6 +25,9 @@ void validate_particle_mesh_profile(const MeshResourceData& resource) {
 }
 void validate_particle_material_profile(const MaterialResourceData& material) {
     validate_render_material(material);
+    if (!material.render_textures.empty())
+        throw std::runtime_error("CPU mesh particles require source textures; camera render "
+                                 "textures are supported by MeshRenderer materials");
     if (material.surface || material.values.alpha == MaterialAlpha::Blend ||
         material_transmits(prepare_pbr_material(material.values)))
         throw std::runtime_error(

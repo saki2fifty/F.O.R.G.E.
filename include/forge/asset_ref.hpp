@@ -24,6 +24,10 @@ struct MaterialAsset {
 struct TextureAsset {
     static constexpr const char* type = "texture";
 };
+// Saved output configuration. Pixel contents belong to a presentation scope.
+struct RenderTextureAsset {
+    static constexpr const char* type = "render_texture";
+};
 struct ShaderAsset {
     static constexpr const char* type = "shader";
 };

@@ -1,0 +1,35 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [],
+    "importer": "forge.render.texture",
+    "importer_revision": "forge.render.texture.v1",
+    "key_version": 1,
+    "output_format": "forge.render-texture",
+    "output_version": 1,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {},
+    "settings_version": 1,
+    "source": "073b2b0f55d7e8be834b6e3e02719abf9e478e0a064c3347425d8ff0c137fd7d",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.render-texture.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "d486b605-2e2a-439b-93fe-633bde7e420b",
+    "source": "Assets/RenderTextures/Split.rendertexture.json",
+    "source_digest": "073b2b0f55d7e8be834b6e3e02719abf9e478e0a064c3347425d8ff0c137fd7d",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.render.texture",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

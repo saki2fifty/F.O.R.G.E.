@@ -1,0 +1,20 @@
+{
+  "asset_id": "d5fe7ff3-16f4-4f5f-a9ce-80d355791c5b",
+  "kind": "forge.material",
+  "overrides": {
+    "double_sided": true,
+    "model": "forge.gltf.unlit.v1",
+    "parameters": {
+      "baseColorFactor": {
+        "type": 5,
+        "value": [
+          0.125,
+          0.5,
+          0.25,
+          1.0
+        ]
+      }
+    }
+  },
+  "version": 1
+}

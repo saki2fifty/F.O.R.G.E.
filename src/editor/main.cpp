@@ -90,6 +90,7 @@
 #include "project_source_automation.hpp"
 #include "published_tile_map.hpp"
 #include "reflection_capture_host.hpp"
+#include "render_texture_editor.hpp"
 #include "resource_inspector.hpp"
 #include "runtime_dependencies.hpp"
 #include "runtime_tuning_review.hpp"
@@ -1056,6 +1057,16 @@ int main(int argc, char** argv) {
             [&](forge::AssetRef<forge::TileMapAsset> asset) {
                 return published_tile_map.select(mesh_resources, asset);
             };
+        const forge::ui::CameraOutputReader read_camera_output =
+            [&](forge::AssetRef<forge::RenderTextureAsset> asset)
+            -> std::optional<forge::RenderTextureData> {
+            if (!mesh_resources)
+                return {};
+            const auto ticket = mesh_resources->request_render_texture_values(asset);
+            mesh_resources->pump();
+            const auto values = mesh_resources->render_texture_values(ticket);
+            return values ? std::optional(values.get()) : std::nullopt;
+        };
         viewport.navigation_tiles = [&](const auto& collider, const auto& transform,
                                         bool obstacle) {
             const auto map = read_published_tile_map({collider.map});
@@ -1074,6 +1085,7 @@ int main(int argc, char** argv) {
         forge::AnimationStatesEditor animation_states;
         forge::NavigationBehaviorEditor navigation_behavior;
         forge::UiLocalizationEditor ui_localization;
+        forge::RenderTextureEditor render_texture;
         forge::ApplicationStatesEditor application_states;
         forge::AnimationMaskEditor animation_mask;
         forge::ParticleEffectEditor particle_editor;
@@ -1343,6 +1355,11 @@ int main(int argc, char** argv) {
                               [](auto& c, const auto& p, const auto&) {
                                   forge::prepare_ui_localization_publication(c, p);
                               }});
+            routes.push_back({"forge.render.texture", forge::desktop_texture_target(),
+                              forge::render_texture_import_registry(),
+                              [](auto& c, const auto& p, const auto&) {
+                                  forge::prepare_render_texture_publication(c, p);
+                              }});
             routes.push_back({"forge.application.states", forge::desktop_texture_target(),
                               forge::application_states_import_registry(),
                               [](auto& c, const auto& p, const auto&) {
@@ -1483,6 +1500,9 @@ int main(int argc, char** argv) {
             } else if (kind == "ui_localization") {
                 if (open)
                     ui_localization.open(files.document, path);
+            } else if (kind == "render_texture") {
+                if (open)
+                    render_texture.open(files.document, path);
             } else if (kind == "application_states") {
                 if (open)
                     application_states.open(files.document, path);
@@ -1867,6 +1887,28 @@ int main(int argc, char** argv) {
         asset_editors.add(
             {"ui_localization", "Open UI localization", [&](const forge::AssetRecord& asset) {
                  ui_localization.open(files.document, asset.source);
+             }});
+        documents.add({"render_texture",
+                       "Render Texture",
+                       "Render Texture###Render Texture",
+                       true,
+                       [&] { return render_texture.is_open(); },
+                       [&] { return render_texture.dirty(); },
+                       [&] {
+                           render_texture.draw(files.document, scene,
+                                               asset_document_locked || play.active());
+                       },
+                       [&] { render_texture.request_save(); },
+                       [&] { render_texture.undo(); },
+                       [&] { render_texture.redo(); },
+                       [&] { render_texture.request_close(); },
+                       [&] { return render_texture.can_undo(); },
+                       [&] { return render_texture.can_redo(); },
+                       {},
+                       [&] { return std::exchange(render_texture.close_cancelled, false); }});
+        asset_editors.add(
+            {"render_texture", "Open render texture", [&](const forge::AssetRecord& asset) {
+                 render_texture.open(files.document, asset.source);
              }});
         documents.add({"application_states",
                        "Application States",
@@ -2278,6 +2320,8 @@ int main(int argc, char** argv) {
                                                          navigation_behavior, files.document));
         documents.bind_source("ui_localization", forge::AssetDocumentAutomation::bind(
                                                      ui_localization, files.document));
+        documents.bind_source("render_texture",
+                              forge::AssetDocumentAutomation::bind(render_texture, files.document));
         documents.bind_source("application_states", forge::AssetDocumentAutomation::bind(
                                                         application_states, files.document));
         documents.bind_source("animation_blend_space", forge::AssetDocumentAutomation::bind(
@@ -5465,6 +5509,14 @@ int main(int argc, char** argv) {
                     play.model_assets_changed();
                     content.refresh(files);
                 }
+                render_texture.poll(files.document, message);
+                if (auto catalog = render_texture.take_catalog()) {
+                    content_imports.catalog_changed(catalog);
+                    if (mesh_resources)
+                        mesh_resources->catalog(catalog);
+                    play.model_assets_changed();
+                    content.refresh(files);
+                }
                 application_states.poll(files.document, message);
                 if (auto catalog = application_states.take_catalog()) {
                     content_imports.catalog_changed(catalog);
@@ -6387,7 +6439,7 @@ int main(int argc, char** argv) {
                             const auto& helper_snapshot = read_preview();
                             spatial_helpers.update(helper_snapshot, view_cache.generation(),
                                                    guide_width, guide_height,
-                                                   read_published_tile_map);
+                                                   read_published_tile_map, read_camera_output);
                         }
                         const bool previous_move_tool = scene_tools.move_tool;
                         if (!game_view)
@@ -6412,7 +6464,8 @@ int main(int argc, char** argv) {
                         // SceneTools may have changed the preview during this frame.
                         if (!game_view)
                             spatial_helpers.update(rendered, view_cache.generation(), guide_width,
-                                                   guide_height, read_published_tile_map);
+                                                   guide_height, read_published_tile_map,
+                                                   read_camera_output);
                         const float render_scale =
                             std::min(1.0f, 4096.0f / std::max(size.x, size.y));
                         const auto scene_submit = forge::ui::Performance::Clock::now();
@@ -6689,6 +6742,7 @@ int main(int argc, char** argv) {
                         animation_states.content(files.document, edit_locked);
                         navigation_behavior.content(files.document, edit_locked);
                         ui_localization.content(files.document, edit_locked);
+                        render_texture.content(files.document, edit_locked);
                         application_states.content(files.document, edit_locked);
                         animation_mask.content(files.document, edit_locked);
                         animation_blend_space.content(files.document, edit_locked);
@@ -7073,9 +7127,9 @@ int main(int argc, char** argv) {
             };
             collect_diagnostics(scene_engine.services().diagnostics());
             collect_diagnostics(play.diagnostics());
-            if (const auto* rendered = viewport.meshes()) {
+            if (viewport.meshes()) {
                 forge::Json records = forge::Json::array();
-                for (const auto& diagnostic : rendered->diagnostics())
+                for (const auto& diagnostic : viewport.diagnostics())
                     records.push_back(forge::diagnostic_json(diagnostic));
                 collect_diagnostics(records);
             }
@@ -7325,6 +7379,7 @@ int main(int argc, char** argv) {
                 observed["graph_compiled"] = graph_editor.preview_ready();
                 observed["graph_preview_current"] = graph_editor.preview_current();
                 observed["scene_mesh_pending"] = viewport.meshes() && viewport.meshes()->pending();
+                observed["scene_render_pending"] = viewport.pending();
                 observed["scene_mesh_diagnostics"] = forge::Json::array();
                 if (viewport.meshes())
                     for (const auto& diagnostic : viewport.meshes()->diagnostics())
@@ -8269,11 +8324,10 @@ int main(int argc, char** argv) {
                                box.minimum.y >= box.clip_minimum.y &&
                                box.maximum.y <= box.clip_maximum.y;
                     };
-                    bool render_ready =
-                        fixture.view_image_target &&
-                        (mode == 2 ? !game_viewport->pending()
-                                   : viewport.meshes() && !viewport.meshes()->pending() &&
-                                         viewport.meshes()->diagnostics().empty());
+                    bool render_ready = fixture.view_image_target &&
+                                        (mode == 2 ? !game_viewport->pending()
+                                                   : viewport.meshes() && !viewport.pending() &&
+                                                         viewport.diagnostics().empty());
                     if (!fixture.source_baseline_ready) {
                         render_ready &= content_imports.ready_for_play() && !content.refreshing();
                         if (render_ready)

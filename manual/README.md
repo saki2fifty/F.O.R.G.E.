@@ -40,6 +40,7 @@ content may differ; use **Window** to open a panel mentioned in a guide.
 - [Place foliage on planes and heightfields](editor/foliage.md)
 - [Importing textures](editor/textures.md)
 - [Materials](editor/materials.md)
+- [Show a live camera image on a Mesh](editor/render-textures.md)
 - [Blend overlapping transparent Meshes](editor/transparency.md)
 - [Project color, normals and roughness onto a Mesh](editor/decals.md)
 - [Material Graph for Meshes and Sprites](editor/material-graphs.md)

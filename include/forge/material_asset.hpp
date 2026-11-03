@@ -27,6 +27,7 @@ struct MaterialData {
     bool operator==(const MaterialData&) const = default;
 };
 using MaterialTextureBindings = std::map<std::string, AssetRef<TextureAsset>>;
+using MaterialRenderTextureBindings = std::map<std::string, AssetRef<RenderTextureAsset>>;
 struct MaterialTextureLayout {
     TextureSemantic semantic = TextureSemantic::Data;
     TextureDimension dimension = TextureDimension::D2;
@@ -41,7 +42,8 @@ struct MaterialLayout {
 };
 void validate_material(const MaterialData& material);
 void validate_material_bindings(const MaterialData& material,
-                                const MaterialTextureBindings& bindings);
+                                const MaterialTextureBindings& bindings,
+                                const MaterialRenderTextureBindings& render_textures = {});
 void validate_material_layout(const MaterialData& material, const MaterialLayout& layout);
 // Shared typed projection for source authoring and cooked envelopes. This is a
 // value representation; durable texture identities remain separate bindings.

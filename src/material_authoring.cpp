@@ -2,6 +2,7 @@
 #include "asset_bytes.hpp"
 #include "material_selection.hpp"
 #include "model_render_resource.hpp"
+#include "render_texture_resource.hpp"
 #include <algorithm>
 #include <forge/engine_assets.hpp>
 #include <forge/material_source.hpp>
@@ -28,7 +29,7 @@ AssetImporterDescriptor descriptor() {
     d.source_kinds = {"forge.material"};
     d.output_types = {"material"};
     d.output_format = "forge.material-bundle";
-    d.output_version = 2;
+    d.output_version = 3;
     d.targets = {{"windows", "d3d12", "desktop"}, {"linux", "none", "cpu"}};
     d.execution = ImportExecution::TrustedCpuTask;
     d.limits.output_files = 3;
@@ -102,7 +103,7 @@ Snapshot capture(const AssetImportRequest& request, std::stop_token stop) {
     input.importer_revision = FORGE_MATERIAL_RECIPE_FINGERPRINT;
     input.settings = nlohmann::json::object();
     input.output_format = "forge.material-bundle";
-    input.output_version = 2;
+    input.output_version = 3;
     input.platform = request.target.platform;
     input.backend = request.target.backend;
     input.profile = request.target.profile;
@@ -176,7 +177,8 @@ MaterialSourceContext prepare_material_source(const std::filesystem::path& proje
             inherited_shader = data.surface;
         base = ResolvedMaterialSource{std::move(data.values), std::move(data.textures),
                                       inherited_shader ? std::optional{inherited_shader->shader}
-                                                       : std::nullopt};
+                                                       : std::nullopt,
+                                      std::move(data.render_textures)};
     }
     const auto ref = material_shader_reference(source, base ? &*base : nullptr);
     if (ref) {
@@ -220,11 +222,33 @@ EvaluatedMaterialSource evaluate_material_source(const std::filesystem::path& pr
         result.data.surface ? &*result.data.surface->program.surface : nullptr);
     result.data.values = resolved.values;
     result.data.textures = resolved.textures;
+    result.data.render_textures = resolved.render_textures;
     validate_render_material(result.data);
     for (const auto& [role, texture] : resolved.textures)
         result.dependencies.push_back(dependency(catalog, texture.id, TextureAsset::type,
                                                  AssetDependencyKind::Runtime,
                                                  "material.texture:" + role));
+    if (!resolved.render_textures.empty()) {
+        ResourcePool<RenderTextureAsset> pool({1, 1, 64, 65536});
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(60);
+        for (const auto& [role, texture] : resolved.render_textures) {
+            result.dependencies.push_back(dependency(catalog, texture.id, RenderTextureAsset::type,
+                                                     AssetDependencyKind::Runtime,
+                                                     "material.render_texture:" + role));
+            const auto ticket =
+                request_render_texture(pool, project, catalog.records().at(texture.id));
+            while (!pool.wait(ticket, std::chrono::milliseconds(20))) {
+                cancelled(stop);
+                const auto info = ticket.inspect();
+                if (resource_detail::terminal(info.state))
+                    throw std::runtime_error("Material render texture " + role + ": " +
+                                             info.diagnostic);
+                require(std::chrono::steady_clock::now() < deadline,
+                        "Material render texture admission timed out");
+            }
+            validate_render_texture(pool.acquire(ticket).get());
+        }
+    }
     cancelled(stop);
     return result;
 }
@@ -252,8 +276,9 @@ void prepare_material_publication(AssetPublicationCandidate& c, const AssetImpor
          1,
          {},
          {{"forge.material",
-           {{"version", 2},
+           {{"version", data.render_textures.empty() ? 2 : 3},
             {"textures", data.textures},
+            {"render_textures", data.render_textures},
             {"shader", data.surface ? nlohmann::json(data.surface->shader) : nlohmann::json{}}}}}}};
 }
 } // namespace forge

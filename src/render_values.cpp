@@ -334,7 +334,8 @@ Json render_value(const Camera& p) {
             {"background_r", p.background_r},
             {"background_g", p.background_g},
             {"background_b", p.background_b},
-            {"background_a", p.background_a}};
+            {"background_a", p.background_a},
+            {"render_texture", p.render_texture.id ? Json(p.render_texture.id) : Json()}};
 }
 Json render_value(const Light& p) {
     return {{"enabled", p.enabled},
@@ -387,6 +388,8 @@ Camera camera_value(const Json& p) {
     value.background_g = p.at("background_g").get<float>();
     value.background_b = p.at("background_b").get<float>();
     value.background_a = p.at("background_a").get<float>();
+    if (const auto at = p.find("render_texture"); at != p.end() && !at->is_null())
+        value.render_texture.id = at->get<AssetId>();
     validate_camera(value);
     return value;
 }

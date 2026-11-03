@@ -10,6 +10,7 @@
 #include <forge/asset_publication.hpp>
 #include <forge/material_graph.hpp>
 #include <forge/material_source.hpp>
+#include <forge/render_texture.hpp>
 #include <forge/scene_identity.hpp>
 #include <forge/transform_animation.hpp>
 #include <iostream>
@@ -345,6 +346,53 @@ int main(int argc, char** argv) {
               "State set move changed identities");
         EngineContext reference_world;
         Scene reference_scene(reference_world.world());
+        auto image = RenderTextureSource::create(AssetId::generate());
+        image.document["width"] = 800;
+        image.document["height"] = 400;
+        image.document["extension"] = {{"retain", 17}};
+        write(project / "Assets/Screen.rendertexture.json", image.document);
+        auto dynamic_material = MaterialSource::create(AssetId::generate());
+        dynamic_material.enable_render_textures();
+        MaterialData image_values;
+        image_values.model = "forge.gltf.metallic-roughness.v1";
+        image_values.textures["baseColorTexture"].semantic = TextureSemantic::Color;
+        dynamic_material.document["overrides"]["textures"]["baseColorTexture"] = {
+            {"render_texture", image.asset()},
+            {"slot", material_values_document(image_values).at("textures").at("baseColorTexture")}};
+        write(project / "Assets/Screen.material.json", dynamic_material.document);
+        catalog = AssetCatalog::open_project(project);
+        catalog.add(
+            {image.asset(), RenderTextureAsset::type, "Assets/Screen.rendertexture.json", 1, {}});
+        catalog.add(
+            {dynamic_material.asset(), MaterialAsset::type, "Assets/Screen.material.json", 1, {}});
+        catalog.save(AssetCatalog::project_index(project));
+        const auto image_copy = prepare_asset_file_operation(
+            project, {AssetFileAction::Duplicate, image.asset(), "Moved/Screen.rendertexture.json"},
+            rewrite);
+        transaction.commit(image_copy.changes, false);
+        auto image_expected = image.document;
+        image_expected["asset_id"] = image_copy.result;
+        check(image_copy.result != image.asset() &&
+                  read(project / "Moved/Screen.rendertexture.json") == image_expected,
+              "Camera output copy lost configuration/extensions or reused its source identity");
+        const auto screen_copy = prepare_asset_file_operation(
+            project,
+            {AssetFileAction::Duplicate, dynamic_material.asset(), "Moved/Screen.material.json"},
+            rewrite);
+        transaction.commit(screen_copy.changes, false);
+        auto screen_expected = dynamic_material.document;
+        screen_expected["asset_id"] = screen_copy.result;
+        check(read(project / "Moved/Screen.material.json") == screen_expected,
+              "Material copy retargeted its shared camera output or lost source data");
+        const std::array screen_documents{
+            AssetReferenceDocument{"Assets/Screen.rendertexture.json", image.document},
+            AssetReferenceDocument{"Assets/Screen.material.json", dynamic_material.document}};
+        const auto output_impact =
+            inspect_asset_references(reference_scene.schema(), screen_documents, {image.asset()});
+        check(output_impact.references.size() == 1 && output_impact.uninspected.size() == 1 &&
+                  output_impact.uninspected[0].find("extension") != std::string::npos &&
+                  output_impact.references[0].expected_type == RenderTextureAsset::type,
+              "Camera output reference review lost its Material-owned typed edge");
         const std::array documents{
             AssetReferenceDocument{"Assets/Walk.states.json", states.document}};
         const auto impact =

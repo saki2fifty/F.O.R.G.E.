@@ -175,3 +175,7 @@ set_target_properties(ui_localization_gameplay PROPERTIES PREFIX "" BUILD_RPATH_
 add_library(application_states_gameplay MODULE application_states_probe.cpp)
 target_link_libraries(application_states_gameplay PRIVATE ForgeNativeSdk::Client)
 set_target_properties(application_states_gameplay PROPERTIES PREFIX "" BUILD_RPATH_USE_ORIGIN TRUE)
+
+add_library(camera_output_gameplay MODULE camera_output_probe.cpp)
+target_link_libraries(camera_output_gameplay PRIVATE ForgeNativeSdk::Client)
+set_target_properties(camera_output_gameplay PROPERTIES PREFIX "" BUILD_RPATH_USE_ORIGIN TRUE)

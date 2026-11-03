@@ -1,6 +1,7 @@
 #include "frame_renderer.hpp"
 #include "Graphics/GraphicsTools/interface/MapHelper.hpp"
 #include "auto_exposure_plan.hpp"
+#include "camera_render_textures.hpp"
 #include "render_projection.hpp"
 namespace forge {
 using namespace Diligent;
@@ -38,7 +39,7 @@ FrameRenderer::FrameRenderer(DiligentPresentation& presentation, std::string pro
     presentation.device()->CreateBuffer(buffer, nullptr, &clear_color_);
     if (!clear_color_)
         throw std::runtime_error("Camera clear buffer allocation failed");
-    for (unsigned mask = 1; mask <= 3; ++mask) {
+    for (unsigned mask = 1; mask <= 4; ++mask) {
         GraphicsPipelineStateCreateInfo info;
         info.PSODesc.Name = "FORGE camera rectangle clear";
         info.PSODesc.ResourceLayout.DefaultVariableType = SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE;
@@ -51,7 +52,9 @@ FrameRenderer::FrameRenderer(DiligentPresentation& presentation, std::string pro
         info.GraphicsPipeline.DepthStencilDesc.DepthWriteEnable = (mask & 2) != 0;
         info.GraphicsPipeline.DepthStencilDesc.DepthFunc = COMPARISON_FUNC_ALWAYS;
         info.GraphicsPipeline.BlendDesc.RenderTargets[0].RenderTargetWriteMask =
-            (mask & 1) ? COLOR_MASK_ALL : COLOR_MASK_NONE;
+            mask == 4    ? COLOR_MASK_ALPHA
+            : (mask & 1) ? COLOR_MASK_ALL
+                         : COLOR_MASK_NONE;
         info.pVS = vs;
         info.pPS = ps;
         presentation.graphics(info, &clears_[mask - 1]);
@@ -64,6 +67,10 @@ FrameRenderer::FrameRenderer(DiligentPresentation& presentation, std::string pro
         variable->Set(clear_color_);
     }
 }
+FrameRenderer::~FrameRenderer() = default;
+bool FrameRenderer::pending() const {
+    return (meshes_ && meshes_->pending()) || (render_textures_ && render_textures_->pending());
+}
 void FrameRenderer::invalidate_temporal_history() {
     if (thread_ != std::this_thread::get_id())
         throw std::runtime_error("Frame history changed off presentation thread");
@@ -72,6 +79,8 @@ void FrameRenderer::invalidate_temporal_history() {
             camera.history->invalidate();
     if (meshes_)
         meshes_->commit_temporal_frame(false);
+    if (render_textures_)
+        render_textures_->invalidate_temporal_history();
     temporal_time_.reset();
     temporal_sample_.reset();
 }
@@ -79,8 +88,10 @@ void FrameRenderer::resources(std::shared_ptr<MeshResourceHost> host) {
     invalidate_temporal_history();
     sky_.select({});
     camera_effects_.clear();
-    meshes_ = host ? std::make_unique<MeshSceneRenderer>(std::move(host), TEX_FORMAT_RGBA16_FLOAT)
-                   : nullptr;
+    meshes_.reset();
+    render_textures_.reset();
+    host_ = std::move(host);
+    meshes_ = host_ ? std::make_unique<MeshSceneRenderer>(host_, TEX_FORMAT_RGBA16_FLOAT) : nullptr;
     exposure_time_.reset();
     exposure_views_.clear();
     exposure_was_pending_ = false;
@@ -112,8 +123,9 @@ void FrameRenderer::targets(unsigned width, unsigned height) {
     color_ = std::move(color);
     depth_ = std::move(depth);
 }
-void FrameRenderer::clear_camera(IDeviceContext* context, const Camera& settings) {
-    const unsigned mask = unsigned(settings.clear_color) | (unsigned(settings.clear_depth) << 1);
+void FrameRenderer::clear_camera(IDeviceContext* context, const Camera& settings, bool alpha_only) {
+    const unsigned mask =
+        alpha_only ? 4 : unsigned(settings.clear_color) | (unsigned(settings.clear_depth) << 1);
     if (!mask)
         return;
     {
@@ -156,10 +168,12 @@ ITextureView* FrameRenderer::render(IDeviceContext* context, const RenderScene& 
                                     std::span<const PreparedCamera> cameras, unsigned width,
                                     unsigned height, float exposure,
                                     const SceneAutoExposure* automatic, double seconds,
-                                    const TemporalFrameSample* sample, Output output) {
+                                    const TemporalFrameSample* sample, Output output,
+                                    const RenderTextureInputs* render_textures) {
     if (thread_ != std::this_thread::get_id() || !context)
         throw std::runtime_error("Frame rendering requires its presentation thread and context");
-    if (output != Output::Display && output != Output::LinearHdr)
+    if (output != Output::Display && output != Output::LinearHdr &&
+        output != Output::LinearHdrOpaque)
         throw std::invalid_argument("Unknown frame output profile");
     validate_scene_distance_fog(scene.settings.distance_fog);
     validate_scene_temporal_anti_aliasing(scene.settings.temporal_anti_aliasing);
@@ -186,7 +200,30 @@ ITextureView* FrameRenderer::render(IDeviceContext* context, const RenderScene& 
     diagnostics_.clear();
     omitted_ = 0;
     if (meshes_) {
+        std::uint32_t consumer_layers = 0;
+        for (const auto& camera : cameras)
+            consumer_layers |= camera.settings.layers;
+        if (render_textures) {
+            meshes_->render_textures(*render_textures);
+        } else if (render_textures_ ||
+                   std::any_of(scene.cameras.begin(), scene.cameras.end(),
+                               [](const auto& c) { return bool(c.camera.render_texture.id); })) {
+            if (!render_textures_)
+                render_textures_ = std::make_unique<CameraRenderTextures>(presentation_, host_);
+            meshes_->render_textures(render_textures_->render(context, scene, *meshes_,
+                                                              consumer_layers, seconds, sample));
+        }
         meshes_->update(scene, cameras);
+        if (!render_textures && !render_textures_ &&
+            !meshes_->render_texture_reads(scene, UINT32_MAX).empty()) {
+            render_textures_ = std::make_unique<CameraRenderTextures>(presentation_, host_);
+            meshes_->render_textures(render_textures_->render(context, scene, *meshes_,
+                                                              consumer_layers, seconds, sample));
+            meshes_->update(scene, cameras);
+        }
+        if (!render_textures && render_textures_)
+            for (const auto& error : render_textures_->diagnostics())
+                report(error);
         sky_.select(meshes_->environment());
     }
     const bool pending_resources = pending();
@@ -437,6 +474,14 @@ ITextureView* FrameRenderer::render(IDeviceContext* context, const RenderScene& 
         }
     }
     ++frames;
+    if (output == Output::LinearHdrOpaque) {
+        auto* target = color_->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET);
+        context->SetRenderTargets(1, &target, depth_->GetDefaultView(TEXTURE_VIEW_DEPTH_STENCIL),
+                                  RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        Viewport viewport{0.f, 0.f, float(width), float(height), 0.f, 1.f};
+        context->SetViewports(1, &viewport, width, height);
+        clear_camera(context, Camera{}, true);
+    }
     auto* result = color_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
     if (output == Output::Display) {
         auto timing = presentation_.gpu_scope(context, profile_view_.c_str(), "Display resolve");
@@ -471,6 +516,8 @@ ITextureView* FrameRenderer::render(IDeviceContext* context, const RenderScene& 
     }
     if (meshes_)
         meshes_->commit_temporal_frame(any_temporal && (aa_enabled || blur_enabled));
+    if (!render_textures && render_textures_)
+        render_textures_->submit();
     temporal_scene_ = scene.scene;
     temporal_settings_ = scene.settings;
     temporal_epoch_ = epoch;

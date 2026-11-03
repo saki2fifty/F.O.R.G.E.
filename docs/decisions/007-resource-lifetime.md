@@ -60,3 +60,15 @@ Logical cell lookup must remain exact regardless of decoded residency. Render
 visibility must not silently remove physical geometry, authored cells, runtime
 edits or neighbor-query evidence. Existing full-loading behavior remains supported.
 The archive/pool foundation does not itself establish a complete streaming workflow.
+
+## Mutable camera output realizations
+
+A saved RenderTextureAsset revision owns only an immutable validated configuration.
+Its pixels are a mutable view/device-local realization in the existing typed GPU
+residency owner, distinct from immutable TextureAsset image data. Shared CPU pools
+and read-only leases serve rendering and editor guides. Native draw bundles hold
+leases beyond bindings; real completion fences and bounded physical payloads govern
+retirement across resize and retained candidates. A same-frame produced set, not
+lease existence, authorizes sampling. This deliberately extends the loaded-resource
+boundary without adding persistent pixel identities or another resource manager.
+See [the output contract](../render-textures.md).

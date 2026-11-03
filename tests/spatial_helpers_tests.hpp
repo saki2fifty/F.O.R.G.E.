@@ -52,6 +52,45 @@ inline void test_spatial_helpers() {
         }
     }
     require(scene.document() == before, "Scene helper generation mutated authored state");
+    const auto output_id = AssetId::generate();
+    auto output_source = before;
+    for (auto& row : output_source["entities"])
+        if (row.at("id") == camera) {
+            auto& lens = row["components"]["forge.camera"];
+            lens["aspect"] = 0.;
+            lens["render_texture"] = output_id;
+            lens["viewport_width"] = .5;
+        }
+    scene.reset(output_source);
+    ui::SpatialHelpers outputs;
+    std::optional<RenderTextureData> definition = RenderTextureData{1024, 256};
+    const ui::CameraOutputReader read_output = [&](auto ref) {
+        require(ref.id == output_id, "Frustum requested another camera output");
+        return definition;
+    };
+    const auto guide_aspect = [&] {
+        const auto& rows = outputs.markers();
+        const auto at =
+            std::find_if(rows.begin(), rows.end(), [&](const auto& m) { return m.camera; });
+        require(at != rows.end() && !at->lines.empty(), "Published output has no camera frustum");
+        const auto corner = at->lines.front().second;
+        return std::abs((corner[0] - at->position[0]) / (corner[1] - at->position[1]));
+    };
+    outputs.update(scene.effective_document(), 50, 800, 600, {}, read_output);
+    require(std::abs(guide_aspect() - 2) < 1e-5,
+            "Output frustum used Game dimensions or ignored its split viewport");
+    definition = RenderTextureData{512, 512};
+    outputs.update(scene.effective_document(), 50, 800, 600, {}, read_output);
+    require(std::abs(guide_aspect() - .5) < 1e-5,
+            "Published resize left a stale frustum without a Scene edit");
+    definition.reset();
+    outputs.update(scene.effective_document(), 50, 800, 600, {}, read_output);
+    for (const auto& marker : outputs.markers())
+        if (marker.camera)
+            require(marker.lines.empty() && marker.note.find("frustum hidden") != std::string::npos,
+                    "Unavailable output invented a main-output frustum");
+    require(scene.document() == output_source, "Output frustum mutated Camera source");
+    scene.reset(before);
     auto area = before;
     for (auto& row : area["entities"])
         if (row.at("id") == light) {

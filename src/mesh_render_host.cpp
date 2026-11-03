@@ -52,6 +52,7 @@ MeshResourceInspection MeshResourceHost::inspect() const {
     result.meshes = meshes_.statistics();
     result.materials = materials_.statistics();
     result.textures = textures_.statistics();
+    result.render_textures = render_textures_.statistics();
     result.particles = particles_.statistics();
     result.tile_sets = tile_sets_.statistics();
     result.tile_maps = tile_maps_.statistics();
@@ -68,6 +69,7 @@ MeshResourceInspection MeshResourceHost::inspect() const {
     append(meshes_);
     append(materials_);
     append(textures_);
+    append(render_textures_);
     append(particles_);
     append(tile_sets_);
     append(tile_maps_);
@@ -366,6 +368,7 @@ void MeshResourceHost::preview_material(AssetRef<MaterialAsset> ref, MaterialRes
     const auto revision = asset_build_digest(
         {{"values", material_values_document(data.values)},
          {"textures", data.textures},
+         {"render_textures", data.render_textures},
          {"shader_revision", data.surface ? data.surface->revision : ""},
          {"shader_input", data.surface ? data.surface->program.build_key : ""},
          {"shader_layout", data.surface ? data.surface->program.layout_digest() : ""}});
@@ -432,6 +435,8 @@ void MeshResourceHost::pump() {
     meshes_.pump();
     materials_.pump();
     textures_.pump();
+    render_textures_.pump();
+    render_textures_.collect();
     particles_.pump();
     particles_.collect();
     tile_sets_.pump();
@@ -442,6 +447,20 @@ void MeshResourceHost::pump() {
     environments_.collect();
     gpu_meshes_.collect();
     gpu_textures_.collect();
+}
+ResourceTicket MeshResourceHost::request_render_texture_values(AssetRef<RenderTextureAsset> asset) {
+    check_thread();
+    if (!catalog_)
+        throw std::runtime_error("Camera output inspection requires a project catalog");
+    const auto record = catalog_->records().find(asset.id);
+    if (record == catalog_->records().end())
+        throw std::runtime_error("Camera render texture asset is missing: " + asset.id.str());
+    return request_render_texture(render_textures_, project_, record->second);
+}
+ResourceLease<RenderTextureAsset>
+MeshResourceHost::render_texture_values(const ResourceTicket& ticket) {
+    check_thread();
+    return render_textures_.acquire(ticket);
 }
 ResourceTicket MeshResourceHost::request_tile_map_values(AssetRef<TileMapAsset> asset) {
     check_thread();
@@ -573,7 +592,19 @@ std::shared_ptr<MeshDrawBundle>
 MeshSceneRenderer::prepare_bundle(const asset_detail::PreparedModelDraw& prepared, bool skinned,
                                   std::shared_ptr<const MeshPoseGeometry> geometry,
                                   MeshDrawProfile profile) {
-    const auto key = asset_detail::prepared_model_draw_key(prepared, skinned, profile);
+    auto key = asset_detail::prepared_model_draw_key(prepared, skinned, profile);
+    for (const auto& [id, material] : prepared.materials) {
+        (void)id;
+        for (const auto& [role, ref] : material->render_textures) {
+            (void)role;
+            const auto image = render_texture_inputs_.images.find(ref.id);
+            if (image == render_texture_inputs_.images.end() || !image->second)
+                throw RenderTexturePending("Camera output image is not admitted yet");
+            key.resources.push_back(image->second.source());
+            key.render_textures.emplace_back(
+                ref.id, reinterpret_cast<std::uintptr_t>(image->second.get().RawPtr()));
+        }
+    }
     if (auto found = bundles_.find(key); found != bundles_.end())
         if (auto existing = found->second.lock())
             return existing;
@@ -594,10 +625,62 @@ MeshSceneRenderer::prepare_bundle(const asset_detail::PreparedModelDraw& prepare
     }
     auto next = std::make_shared<MeshDrawBundle>(
         host_->presentation_, host_->context_, prepared, host_->gpu_meshes_, host_->gpu_textures_,
-        color_, Diligent::TEX_FORMAT_D32_FLOAT, skinned, std::move(geometry), profile);
+        color_, Diligent::TEX_FORMAT_D32_FLOAT, skinned, std::move(geometry), profile,
+        render_texture_inputs_.images);
     next->environment(environment_.ready);
     bundles_[key] = next;
     return next;
+}
+void MeshSceneRenderer::render_textures(const RenderTextureInputs& inputs) {
+    host_->check_thread();
+    bool changed = inputs.images.size() != render_texture_inputs_.images.size();
+    if (!changed)
+        for (const auto& [asset, image] : inputs.images) {
+            const auto old = render_texture_inputs_.images.find(asset);
+            if (old == render_texture_inputs_.images.end() || !image || !old->second ||
+                image.get() != old->second.get()) {
+                changed = true;
+                break;
+            }
+        }
+    render_texture_inputs_ = inputs;
+    if (changed)
+        ++render_texture_epoch_;
+}
+std::set<AssetId> MeshSceneRenderer::render_texture_reads(const RenderScene& scene,
+                                                          std::uint32_t layers,
+                                                          bool require_complete) const {
+    host_->check_thread();
+    std::set<AssetId> result;
+    for (const auto& mesh : scene.meshes) {
+        if (!mesh.renderer.enabled || !mesh.renderer.visible || !(mesh.renderer.layers & layers))
+            continue;
+        const auto found = entries_.find({mesh.entity, scope(mesh)});
+        if (found == entries_.end()) {
+            if (require_complete)
+                throw RenderTexturePending("Camera image material dependencies are still loading");
+            continue;
+        }
+        const auto& entry = found->second;
+        const auto* source = entry.candidate ? entry.candidate->ready() : nullptr;
+        if (require_complete && entry.candidate && !source)
+            throw RenderTexturePending("Camera image material dependencies are still loading");
+        if (!source && entry.ready)
+            source = &entry.ready->prepared();
+        if (!source) {
+            if (require_complete)
+                throw RenderTexturePending("Camera image material dependencies are unavailable");
+            continue;
+        }
+        for (const auto& [id, material] : source->materials) {
+            (void)id;
+            for (const auto& [role, ref] : material->render_textures) {
+                (void)role;
+                result.insert(ref.id);
+            }
+        }
+    }
+    return result;
 }
 bool MeshSceneRenderer::update(const RenderScene& scene,
                                std::span<const PreparedCamera> tile_views) {
@@ -724,9 +807,11 @@ bool MeshSceneRenderer::update(const RenderScene& scene,
                     entry.sprite->checked = false;
                 entry.parameter_error = error.what();
             }
-        const bool resource_changed = entry.epoch != host_->epoch_ || entry.mesh != renderer.mesh ||
-                                      entry.overrides != renderer.materials ||
-                                      entry.variant != renderer.material_variant;
+        const bool resource_changed =
+            entry.epoch != host_->epoch_ || entry.mesh != renderer.mesh ||
+            entry.overrides != renderer.materials || entry.variant != renderer.material_variant ||
+            (entry.ready && entry.render_texture_epoch != render_texture_epoch_ &&
+             !entry.ready->render_textures_ready(render_texture_inputs_));
         if (resource_changed) {
             if (entry.sprite) {
                 entry.sprite->mip_pending = false;
@@ -737,6 +822,7 @@ bool MeshSceneRenderer::update(const RenderScene& scene,
             entry.candidate_geometry.reset();
             entry.failed_skin_mode.reset();
             entry.epoch = host_->epoch_;
+            entry.render_texture_epoch = render_texture_epoch_;
             entry.mesh = renderer.mesh;
             entry.overrides = renderer.materials;
             entry.variant = renderer.material_variant;
@@ -828,6 +914,8 @@ bool MeshSceneRenderer::update(const RenderScene& scene,
                     entry.candidate.reset();
                     entry.candidate_geometry.reset();
                     changed = true;
+                } catch (const RenderTexturePending& e) {
+                    entry.error = e.what(); // Retain the complete candidate for producer admission.
                 } catch (const SpriteMipsPending&) {
                     // Keep the old complete draw while shared workers finish.
                 } catch (const DrawCapacityError& e) {
@@ -1157,6 +1245,8 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
         if (found == entries_.end() || !found->second.ready)
             return;
         auto& entry = found->second;
+        if (!entry.ready->render_textures_ready(render_texture_inputs_))
+            return;
         const auto& pose = instance_pose ? *instance_pose : *entry.pose;
         const auto queue_start = queue.size();
         try {
@@ -1906,6 +1996,8 @@ void MeshSceneRenderer::shadows(const RenderScene& scene, const CameraView& came
             continue;
         const auto found = entries_.find({mesh.entity, scope(mesh)});
         if (found == entries_.end() || !found->second.ready)
+            continue;
+        if (!found->second.ready->render_textures_ready(render_texture_inputs_))
             continue;
         try {
             auto world_bounds = mesh_instance_bounds(*found->second.pose, camera.position);

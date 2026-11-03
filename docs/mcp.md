@@ -301,7 +301,7 @@ and their suffixes. `template` exposes each existing owner's initial source shap
 editor's current document. These tools never create a parallel draft or history.
 Material, material graph, collision, editable mesh, particle, terrain, Tile Set,
 Tile Map, Sprite atlas, animation states/blend space/mask, transform animation and
-Navigation Behavior, UI Localization and Application States are bound. `forge_asset_behavior_catalog` describes the native
+Navigation Behavior, UI Localization, Application States and Render Texture are bound. `forge_asset_behavior_catalog` describes the native
 behavior source versions1/2, state actions/conditions, tree node kinds and examples,
 finite limits, row shapes, monotonic IDs and execution policy. Use editor
 `navigation_behavior`; template/create accepts optional `behavior_profile` with
@@ -311,6 +311,16 @@ use the existing document revision/validation/history, including unfinished draf
 and stricter connected-tree publication. Use the
 ordinary template/create/read/patch/history/save/close tools. Its component's
 graph/target/anchor/enabled fields use the existing reflected Scene authoring tools.
+
+`forge_asset_render_texture_catalog` describes saved Camera output dimensions,
+linear-HDR/opaque limits, Camera field, composition/feedback rules and a full typed
+2D Color Material `binding_template`. Use editor `render_texture` with the same
+source tools. Publish it, replace the template's null UUID with its output UUID,
+then author a Material version3 role and publish that Material. Camera output and
+Mesh material assignments use ordinary reflected component/property tools and
+Scene Undo. Separate producer/screen layers; conservative selected reads reject
+feedback even when a screen is outside the frustum. After resizing an output,
+republish dependent Materials before export. See [the complete contract](render-textures.md).
 
 `forge_asset_localization_catalog` describes bounded literal-message catalogs,
 locale tags, fallback, source limits and RML bindings. Use editor
