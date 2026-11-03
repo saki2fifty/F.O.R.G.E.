@@ -107,3 +107,10 @@ Pause/Resume available after clip EOS. Gallery148 reuses original sound/sequence
 content for dry/bright/damped comparisons and source-hidden exported PCM. The
 illustrated manual covers authoring, controls, saving/export and current limits.
 Full Main/Windows/physical acceptance remains pending; no numbered delivery is implied.
+
+### Sixteen independent controller slots
+
+- Extended the existing controller routes to sixteen numbered players. Multi-digit control IDs, rebinding, assignment, rumble and copied motion use the same validated slot bound; earlier bindings and the active alias retain their behavior.
+- The Gamepads popup offers all sixteen slots and scrolls within the viewport. Automation/MCP discovery and assignment share the same owner and revision/permission guards.
+- Gallery149 adds sixteen markers and twelve actions while preserving the earlier Gallery records, actions and four-player scene. The shared optional C++ example and installed SDK sample support both scenes.
+- Updated controller instructions and authentic assignment/motion screenshots. Windows, physical devices, full-editor and graphical-export acceptance remain pending.

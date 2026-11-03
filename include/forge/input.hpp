@@ -14,9 +14,9 @@ struct ActionIdTag;
 using ActionId = PersistentId<ActionIdTag>;
 enum class ActionKind { Digital, Axis1, Axis2 };
 inline constexpr std::size_t touch_contact_limit = 8;
-// Logical local-controller slots use 1..4; unindexed pad.* keeps active-pad input.
-inline constexpr std::size_t gamepad_slot_limit = 4;
 inline constexpr std::size_t gamepad_device_limit = 16;
+// Each tracked controller may own a logical slot; pad.* keeps active-pad input.
+inline constexpr std::size_t gamepad_slot_limit = gamepad_device_limit;
 struct InputControl {
     std::string id;
     bool relative = false;
@@ -27,7 +27,7 @@ const std::vector<InputControl>& input_controls();
 const InputControl& input_control(const std::string& id);
 // Requires a registered control; the paired axis keeps its logical slot prefix.
 bool is_gamepad_stick_control(const std::string& id);
-// Known controls: null for other devices, 0 for active pad, 1..4 for logical slots.
+// Known controls: null for other devices, 0 for active pad, 1..gamepad_slot_limit otherwise.
 std::optional<std::uint32_t> gamepad_control_slot(const std::string& id);
 std::string gamepad_control_id(std::uint32_t slot, std::string_view leaf);
 struct InputBinding {

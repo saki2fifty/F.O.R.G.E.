@@ -69,7 +69,7 @@ content may differ; use **Window** to open a panel mentioned in a guide.
 
 - [Choose game modes and condition object activity](editor/application-states.md)
 - [Project Code (C++ components, systems and unscaled timers)](editor/native-gameplay.md)
-- [Gameplay input, local controllers, raw motion, analog response and vibration](editor/input.md)
+- [Gameplay input, sixteen local controllers, raw motion, analog response and vibration](editor/input.md)
 - [Touch contacts, tap, hold, swipe, pan, pinch and rotation](editor/touch-input.md)
 - [Physics](editor/physics.md)
 - [Navigation profiles, authored links, polygon regions, static collision collection, moving obstacles and destinations](editor/navigation.md)

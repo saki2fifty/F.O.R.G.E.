@@ -20,15 +20,15 @@ Pause does not latch input. Step consumes the pending snapshot once; Resume cons
 
 Hello may carry simulation_hz and input_map; explicit runtime CLI frequency takes precedence. Existing protocol2 callers omitting them retain60Hz/empty-map behavior. Snapshot/Pause/Resume/Step requests may carry at most4096 ordered input_events. Existing session/request IDs reject stale envelopes. PlaySession retains a bounded queue; overflow replaces it with a neutral reset and diagnostic. Scene snapshots/persistence never contain transient input. Restart/recovery starts neutral; live module replacement clears input after successful load.
 
-Capture is explicit in the Game panel during Play. Keyboard/mouse events go exclusively to the captured game except Esc/F6/F7. Release before editor text input; text/popup/file-operation/focus gates release capture. Without capture all editor controls retain their existing routes. SdlGamepads owns up to16 connected SDL handles and four independent logical slots, plus the legacy active-controller alias. Disconnect neutralizes only the affected logical slot and active alias, then closes its handle. Raw controller accelerometer/gyroscope observations use the separate motion profile below; relative-mouse capture is supported through `GameInput::capture_checked(relative_mode=true)` so the cursor is hidden and motion continues without hitting the Game image edge.
+Capture is explicit in the Game panel during Play. Keyboard/mouse events go exclusively to the captured game except Esc/F6/F7. Release before editor text input; text/popup/file-operation/focus gates release capture. Without capture all editor controls retain their existing routes. SdlGamepads owns up to16 connected SDL handles and sixteen independent logical slots, plus the legacy active-controller alias. Disconnect neutralizes only the affected logical slot and active alias, then closes its handle. Raw controller accelerometer/gyroscope observations use the separate motion profile below; relative-mouse capture is supported through `GameInput::capture_checked(relative_mode=true)` so the cursor is hidden and motion continues without hitting the Game image edge.
 
 ## Local controller slots
 
-`pad.1.*` through `pad.4.*` expose the same 15 buttons and six axes as legacy
+`pad.1.*` through `pad.16.*` expose the same 15 buttons and six axes as legacy
 `pad.*`, with the same ranges. Sticks pair only within their logical slot for
 radial conditioning and context consumption. Slot controls are appended to the
 existing discovery registry, preserving earlier IDs/order. `pad.0.*` and
-`pad.5.*` are invalid. Input/settings schemas and persistence owners are unchanged.
+`pad.17.*` and zero-padded indices such as `pad.01.*` are invalid. Input/settings schemas and persistence owners are unchanged.
 The legacy alias still selects deliberate input after its 250ms guard; this guard
 does not block another slot's input. Binding both namespaces deliberately reads
 the same physical device twice. UI navigation and the global device prompt retain
@@ -36,8 +36,12 @@ their existing active-controller policy; no per-player UI-focus system is implie
 Revision protects connection/assignment topology; the active alias may change
 without advancing it. Read the current observation when that alias matters.
 
-New connections fill the lowest free slot. Further tracked devices are unassigned
-but can supply the legacy alias. The platform owner issues opaque connection
+Indices use canonical decimal notation, including `pad.10.*` through `pad.16.*`;
+rebind filters parse the full index. Existing discovery entries through slot4 keep
+their order; slots5..16 append after them.
+
+New connections fill the lowest free slot. Tracked devices can also be explicitly unassigned
+and still supply the legacy alias. The platform owner issues opaque connection
 tokens and a monotonically increasing topology revision. Tokens are scoped to
 one open connection and host, never written to projects/user bindings. Disconnect,
 remap and assignment advance the revision. Reassignment can unassign a device
@@ -59,7 +63,7 @@ The copied `GamepadTopology` record is `{available,revision,active,devices}`.
 Each device has `{device,name,slot,connected,rumble}`. `available:false` means the
 native adapter is unavailable, distinct from an available empty list. Names are
 bounded sanitized display text; they are not identity keys. `GamepadAssignment`
-requires `{revision,device,slot}` with current positive revision and slot 0..4.
+requires `{revision,device,slot}` with current positive revision and slot 0..16.
 Records validate completely before replacing their destination. SDK Play sends
 changed topology on the existing correlated `snapshot` request's `gamepads` field;
 metadata cannot run on another command or roll its revision backwards. Device
@@ -116,7 +120,7 @@ Escape or reset cancels. The captured sample retains direction. Captured batches
 never also enter gameplay. The caller still validates and commits the candidate.
 The slot filter accepts only its gamepad namespace, avoiding duplicate legacy/
 indexed aliases and other players. Keyboard/mouse/touch remain eligible. The Game
-service infers it from an existing binding, or accepts explicit `gamepad_slot`0..4
+service infers it from an existing binding, or accepts explicit `gamepad_slot`0..16
 on `rebind_begin`; copied `rebind.gamepad_slot` reports the selected filter.
 
 Stick-axis bindings may opt into `radial: true`. Pair both axes of the same stick
@@ -174,7 +178,7 @@ instead of silently reverting to an axis-wise deadzone.
 
 The existing Game service accepts a scoped `rumble` operation with numeric `low`
 and `high` strengths0..1 and integral `duration_ms`0..5000. Nonzero strength
-requires positive duration. Optional `slot` 1..4 targets that logical controller;
+requires positive duration. Optional `slot` 1..16 targets that logical controller;
 omitted/0 targets the legacy active controller. Zero strengths with slot 0 stop
 all owned feedback; a specific slot stops only its current device. The shared neutral value
 validator is reused by host dispatch and editor wire admission. This is transient

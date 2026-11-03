@@ -549,18 +549,20 @@ not an editor-window capture or physical GPU/Windows acceptance.
 
 [Assignments](../../../manual/images/gamepad-assignments.png) and
 [Motion sensors](../../../manual/images/gamepad-motion.png) are complete600×450
-native FORGE GameInput captures from2026-10-27, based on
-7bf6b3acf2a5992263339b1cf6bcfb2d7e89ad6f with the local raw-motion batch applied.
+native FORGE GameInput captures from2026-11-03, based on
+1873f61470623bb8f319c8f8593e3b2c164a97aa with the sixteen-slot batch applied.
 `tests/multiple_gamepads_ui_tests.cpp` uses GCC12 Release, Linux, the pinned
-Dear ImGui SDL3 software renderer and four actual SDL virtual controllers with
-native sensor capabilities/rates. The same real widgets pass mouse sensor toggle,
-Tab/Space keyboard toggle, occupied-slot assignment and1/1.5/2-scale layout.
-The validation/capture receipt records exact fixture/owner hashes and images.
-These are isolated editor-control fixtures, not full Windows Main or physical
-controller/GPU acceptance. Original/canonical PNG SHA256 values:
+Dear ImGui SDL3 software renderer and sixteen actual SDL virtual controllers
+with native sensor capabilities/rates. The popup is constrained to the viewport;
+these images show its visible top portion and scrollbar. Actual input tests scroll
+to Player16, change its assignment, toggle sensors by mouse and Tab/Space, and
+transfer an occupied Player16 slot at1/1.5/2-scale layouts. Exact fixture/owner,
+executable and image hashes are recorded in the local capture receipt. These are
+isolated editor-control fixtures, not full Windows Main or physical acceptance.
+Original/canonical PNG SHA256 values:
 
-- gamepad-assignments.png: `f4ab28ab2f41807f8123aa9bbcd7bd4267631709e376d75542a113e510d2d5eb`
-- gamepad-motion.png: `56c497f3120183359449c98913a1db8ea48680f5c3dc432106ed3e6faef6e6b8`
+- gamepad-assignments.png: `e1ad16cb2f7f240e64a86a52bd3609c881137dcacc7962285712ca51bc775016`
+- gamepad-motion.png: `1d14b841e40f45fd9f0ae285b2b22271ce375bf4dfe2c3e824161924c89b9a4b`
 
 Full original PNG bytes/dimensions are preserved, with no crop, resize, retouch,
 generated controls or duplicate canonical image asset.

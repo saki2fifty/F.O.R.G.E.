@@ -275,7 +275,8 @@ std::optional<Json> GameHostControls::execute(std::uint64_t token, const Json& c
         if (command.contains("gamepad_slot")) {
             const auto& field = command.at("gamepad_slot");
             if (!field.is_number_integer() || field < 0 || field > gamepad_slot_limit)
-                throw std::runtime_error("Rebinding gamepad slot must be an integer in 0..4");
+                throw std::runtime_error("Rebinding gamepad slot must be an integer in 0.." +
+                                         std::to_string(gamepad_slot_limit));
             slot = field.get<std::uint32_t>();
         }
         input.begin_rebind(slot);

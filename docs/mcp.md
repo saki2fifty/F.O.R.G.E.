@@ -1045,14 +1045,14 @@ hardware/audio and a particular AI application's connection remain user testing.
 `forge_play_gamepads` reads the same host device observation as the Game panel:
 availability, topology revision, active connection and up to 16 copied device
 records. `forge_play_gamepads_assign` accepts that current `revision`, opaque
-`device` token and `slot` 0..4, plus normal document target/expected revision and
+`device` token and `slot` 0..16, plus normal document target/expected revision and
 mutation sequence. It needs the existing execution grant, validates project
 ownership and delegates to GameInput/SdlGamepads. Stale topology/connection,
 invalid slot, full neutral-input queue or failed native Stop reject without
 changing assignments. Only old/new slots' input and feedback are neutralized;
 the operation does not invoke the global input-release preparation used by input
 injection. This is transient host routing, without authored Undo or saved tokens.
-Read discovery for `pad.1.*` through `pad.4.*` controls; `pad.*` remains available
+Read discovery for `pad.1.*` through `pad.16.*` controls; `pad.*` remains available
 for the legacy active controller. Tools do not create virtual or physical devices.
 
 Use the existing C++ source/declarations/build tools to author a module that submits

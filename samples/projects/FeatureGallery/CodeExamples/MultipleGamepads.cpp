@@ -1,10 +1,12 @@
-// Original four-player Gallery behavior. Each action reads one logical pad slot.
+// Original Gallery behavior. Each action reads one logical pad slot.
+#include "ControllerSlots.hpp"
 #include <algorithm>
 #include <array>
 #include <cstring>
 #include <flecs.h>
 #include <forge/sdk_client.hpp>
 #include <forge/transform_components.hpp>
+#include <span>
 void forge_register_system_MultipleGamepads(const ForgeSdkWorldV1* host) {
     flecs::world world(host->world);
     world.component<forge::LocalTranslation>("forge.local_translation");
@@ -19,14 +21,20 @@ void forge_register_system_MultipleGamepads(const ForgeSdkWorldV1* host) {
                 "16700000-1670-4167-8167-000000000012", "16700000-1670-4167-8167-000000000013"};
             const forge::sdk::Client client(host);
             ForgeSdkEntityRefV1 reference{};
-            if (client.entity_reference(it.entity(row), reference) != 1 ||
-                std::strcmp(reference.scene_uuid, "16700000-1670-4167-8167-167000000000"))
+            if (client.entity_reference(it.entity(row), reference) != 1)
                 return;
-            for (std::size_t player = 0; player < markers.size(); ++player) {
-                if (std::strcmp(reference.entity_uuid, markers[player]))
+            std::span<const char* const> marker_ids = markers, action_ids = actions;
+            if (!std::strcmp(reference.scene_uuid, forge::examples::controller_slots_scene)) {
+                marker_ids = forge::examples::controller_slot_markers;
+                action_ids = forge::examples::controller_slot_actions;
+            } else if (std::strcmp(reference.scene_uuid, "16700000-1670-4167-8167-167000000000")) {
+                return;
+            }
+            for (std::size_t player = 0; player < marker_ids.size(); ++player) {
+                if (std::strcmp(reference.entity_uuid, marker_ids[player]))
                     continue;
                 ForgeSdkActionV1 move{};
-                if (!client.action(actions[player], move))
+                if (!client.action(action_ids[player], move))
                     return;
                 const double distance = 3 * it.delta_time(); // Three world units per second.
                 position.x = std::clamp(position.x + move.x * distance, -7., 7.);

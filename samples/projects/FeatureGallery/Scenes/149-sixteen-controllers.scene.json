@@ -1,0 +1,1116 @@
+{
+  "asset_id": "89d8fadc-aaea-4f44-b548-5c98a70a1c9f",
+  "entities": [
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 1.6,
+          "background_a": 1.0,
+          "background_b": 0.029999999329447746,
+          "background_g": 0.02500000037252903,
+          "background_r": 0.019999999552965164,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 50.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 10.0,
+          "orthographic_width": 16.0,
+          "projection": 1,
+          "vertical_fov": 1.0471975511965976,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": -8.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "4cd0946a-bae0-488e-abdb-b81222c17fb6",
+      "name": "Sixteen-controller canvas camera",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -4.5,
+          "y": 3.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sprite_renderer": {
+          "border_bottom": 0,
+          "border_left": 0,
+          "border_right": 0,
+          "border_top": 0,
+          "columns": 1,
+          "enabled": true,
+          "flip_x": false,
+          "flip_y": false,
+          "frame": 0,
+          "frame_regions": [],
+          "height": 1.0,
+          "image_mode": 0,
+          "layers": 4294967295,
+          "margin_x": 0,
+          "margin_y": 0,
+          "material": "258b9537-c0f6-448d-af8c-818f150d67cf",
+          "mip_filter": 0,
+          "order": 0,
+          "pivot_x": 0.5,
+          "pivot_y": 0.5,
+          "pixels_per_meter": 16.0,
+          "region_enabled": true,
+          "region_height": 14,
+          "region_width": 13,
+          "region_x": 1,
+          "region_y": 1,
+          "rows": 1,
+          "spacing_x": 0,
+          "spacing_y": 0,
+          "texture_frames": false,
+          "tint_a": 1.0,
+          "tint_b": 0.15000000596046448,
+          "tint_g": 0.20000000298023224,
+          "tint_r": 1.0,
+          "visible": true,
+          "width": 1.0
+        }
+      },
+      "id": "f87c87cf-0c36-4309-9c63-6d30852d6276",
+      "name": "Player 1 - left stick",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -1.5,
+          "y": 3.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sprite_renderer": {
+          "border_bottom": 0,
+          "border_left": 0,
+          "border_right": 0,
+          "border_top": 0,
+          "columns": 1,
+          "enabled": true,
+          "flip_x": false,
+          "flip_y": false,
+          "frame": 0,
+          "frame_regions": [],
+          "height": 1.0,
+          "image_mode": 0,
+          "layers": 4294967295,
+          "margin_x": 0,
+          "margin_y": 0,
+          "material": "258b9537-c0f6-448d-af8c-818f150d67cf",
+          "mip_filter": 0,
+          "order": 0,
+          "pivot_x": 0.5,
+          "pivot_y": 0.5,
+          "pixels_per_meter": 16.0,
+          "region_enabled": true,
+          "region_height": 14,
+          "region_width": 13,
+          "region_x": 1,
+          "region_y": 1,
+          "rows": 1,
+          "spacing_x": 0,
+          "spacing_y": 0,
+          "texture_frames": false,
+          "tint_a": 1.0,
+          "tint_b": 0.30000001192092896,
+          "tint_g": 0.800000011920929,
+          "tint_r": 0.15000000596046448,
+          "visible": true,
+          "width": 1.0
+        }
+      },
+      "id": "383668df-1475-4e93-a9ba-dc8e2722cd22",
+      "name": "Player 2 - left stick",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 1.5,
+          "y": 3.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sprite_renderer": {
+          "border_bottom": 0,
+          "border_left": 0,
+          "border_right": 0,
+          "border_top": 0,
+          "columns": 1,
+          "enabled": true,
+          "flip_x": false,
+          "flip_y": false,
+          "frame": 0,
+          "frame_regions": [],
+          "height": 1.0,
+          "image_mode": 0,
+          "layers": 4294967295,
+          "margin_x": 0,
+          "margin_y": 0,
+          "material": "258b9537-c0f6-448d-af8c-818f150d67cf",
+          "mip_filter": 0,
+          "order": 0,
+          "pivot_x": 0.5,
+          "pivot_y": 0.5,
+          "pixels_per_meter": 16.0,
+          "region_enabled": true,
+          "region_height": 14,
+          "region_width": 13,
+          "region_x": 1,
+          "region_y": 1,
+          "rows": 1,
+          "spacing_x": 0,
+          "spacing_y": 0,
+          "texture_frames": false,
+          "tint_a": 1.0,
+          "tint_b": 1.0,
+          "tint_g": 0.5,
+          "tint_r": 0.20000000298023224,
+          "visible": true,
+          "width": 1.0
+        }
+      },
+      "id": "9b65aa71-74ea-47bc-936b-9607cb65767a",
+      "name": "Player 3 - left stick",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 4.5,
+          "y": 3.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sprite_renderer": {
+          "border_bottom": 0,
+          "border_left": 0,
+          "border_right": 0,
+          "border_top": 0,
+          "columns": 1,
+          "enabled": true,
+          "flip_x": false,
+          "flip_y": false,
+          "frame": 0,
+          "frame_regions": [],
+          "height": 1.0,
+          "image_mode": 0,
+          "layers": 4294967295,
+          "margin_x": 0,
+          "margin_y": 0,
+          "material": "258b9537-c0f6-448d-af8c-818f150d67cf",
+          "mip_filter": 0,
+          "order": 0,
+          "pivot_x": 0.5,
+          "pivot_y": 0.5,
+          "pixels_per_meter": 16.0,
+          "region_enabled": true,
+          "region_height": 14,
+          "region_width": 13,
+          "region_x": 1,
+          "region_y": 1,
+          "rows": 1,
+          "spacing_x": 0,
+          "spacing_y": 0,
+          "texture_frames": false,
+          "tint_a": 1.0,
+          "tint_b": 0.10000000149011612,
+          "tint_g": 0.75,
+          "tint_r": 1.0,
+          "visible": true,
+          "width": 1.0
+        }
+      },
+      "id": "31f25689-580f-4ed9-839c-38fb723fd7a3",
+      "name": "Player 4 - left stick",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -4.5,
+          "y": 1.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sprite_renderer": {
+          "border_bottom": 0,
+          "border_left": 0,
+          "border_right": 0,
+          "border_top": 0,
+          "columns": 1,
+          "enabled": true,
+          "flip_x": false,
+          "flip_y": false,
+          "frame": 0,
+          "frame_regions": [],
+          "height": 1.0,
+          "image_mode": 0,
+          "layers": 4294967295,
+          "margin_x": 0,
+          "margin_y": 0,
+          "material": "258b9537-c0f6-448d-af8c-818f150d67cf",
+          "mip_filter": 0,
+          "order": 0,
+          "pivot_x": 0.5,
+          "pivot_y": 0.5,
+          "pixels_per_meter": 16.0,
+          "region_enabled": true,
+          "region_height": 14,
+          "region_width": 13,
+          "region_x": 1,
+          "region_y": 1,
+          "rows": 1,
+          "spacing_x": 0,
+          "spacing_y": 0,
+          "texture_frames": false,
+          "tint_a": 1.0,
+          "tint_b": 0.15000000596046448,
+          "tint_g": 0.20000000298023224,
+          "tint_r": 1.0,
+          "visible": true,
+          "width": 1.0
+        }
+      },
+      "id": "4c3aa8a0-dba1-4731-9a33-f07602baf3e7",
+      "name": "Player 5 - left stick",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -1.5,
+          "y": 1.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sprite_renderer": {
+          "border_bottom": 0,
+          "border_left": 0,
+          "border_right": 0,
+          "border_top": 0,
+          "columns": 1,
+          "enabled": true,
+          "flip_x": false,
+          "flip_y": false,
+          "frame": 0,
+          "frame_regions": [],
+          "height": 1.0,
+          "image_mode": 0,
+          "layers": 4294967295,
+          "margin_x": 0,
+          "margin_y": 0,
+          "material": "258b9537-c0f6-448d-af8c-818f150d67cf",
+          "mip_filter": 0,
+          "order": 0,
+          "pivot_x": 0.5,
+          "pivot_y": 0.5,
+          "pixels_per_meter": 16.0,
+          "region_enabled": true,
+          "region_height": 14,
+          "region_width": 13,
+          "region_x": 1,
+          "region_y": 1,
+          "rows": 1,
+          "spacing_x": 0,
+          "spacing_y": 0,
+          "texture_frames": false,
+          "tint_a": 1.0,
+          "tint_b": 0.30000001192092896,
+          "tint_g": 0.800000011920929,
+          "tint_r": 0.15000000596046448,
+          "visible": true,
+          "width": 1.0
+        }
+      },
+      "id": "cbb67d44-906b-42d6-9139-79fe610d8f16",
+      "name": "Player 6 - left stick",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 1.5,
+          "y": 1.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sprite_renderer": {
+          "border_bottom": 0,
+          "border_left": 0,
+          "border_right": 0,
+          "border_top": 0,
+          "columns": 1,
+          "enabled": true,
+          "flip_x": false,
+          "flip_y": false,
+          "frame": 0,
+          "frame_regions": [],
+          "height": 1.0,
+          "image_mode": 0,
+          "layers": 4294967295,
+          "margin_x": 0,
+          "margin_y": 0,
+          "material": "258b9537-c0f6-448d-af8c-818f150d67cf",
+          "mip_filter": 0,
+          "order": 0,
+          "pivot_x": 0.5,
+          "pivot_y": 0.5,
+          "pixels_per_meter": 16.0,
+          "region_enabled": true,
+          "region_height": 14,
+          "region_width": 13,
+          "region_x": 1,
+          "region_y": 1,
+          "rows": 1,
+          "spacing_x": 0,
+          "spacing_y": 0,
+          "texture_frames": false,
+          "tint_a": 1.0,
+          "tint_b": 1.0,
+          "tint_g": 0.5,
+          "tint_r": 0.20000000298023224,
+          "visible": true,
+          "width": 1.0
+        }
+      },
+      "id": "da0502ae-5b19-477b-b60d-4ffcdb9db9ac",
+      "name": "Player 7 - left stick",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 4.5,
+          "y": 1.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sprite_renderer": {
+          "border_bottom": 0,
+          "border_left": 0,
+          "border_right": 0,
+          "border_top": 0,
+          "columns": 1,
+          "enabled": true,
+          "flip_x": false,
+          "flip_y": false,
+          "frame": 0,
+          "frame_regions": [],
+          "height": 1.0,
+          "image_mode": 0,
+          "layers": 4294967295,
+          "margin_x": 0,
+          "margin_y": 0,
+          "material": "258b9537-c0f6-448d-af8c-818f150d67cf",
+          "mip_filter": 0,
+          "order": 0,
+          "pivot_x": 0.5,
+          "pivot_y": 0.5,
+          "pixels_per_meter": 16.0,
+          "region_enabled": true,
+          "region_height": 14,
+          "region_width": 13,
+          "region_x": 1,
+          "region_y": 1,
+          "rows": 1,
+          "spacing_x": 0,
+          "spacing_y": 0,
+          "texture_frames": false,
+          "tint_a": 1.0,
+          "tint_b": 0.10000000149011612,
+          "tint_g": 0.75,
+          "tint_r": 1.0,
+          "visible": true,
+          "width": 1.0
+        }
+      },
+      "id": "8da18eb2-c218-4c41-b2d0-a332d46e9bc3",
+      "name": "Player 8 - left stick",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -4.5,
+          "y": -1.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sprite_renderer": {
+          "border_bottom": 0,
+          "border_left": 0,
+          "border_right": 0,
+          "border_top": 0,
+          "columns": 1,
+          "enabled": true,
+          "flip_x": false,
+          "flip_y": false,
+          "frame": 0,
+          "frame_regions": [],
+          "height": 1.0,
+          "image_mode": 0,
+          "layers": 4294967295,
+          "margin_x": 0,
+          "margin_y": 0,
+          "material": "258b9537-c0f6-448d-af8c-818f150d67cf",
+          "mip_filter": 0,
+          "order": 0,
+          "pivot_x": 0.5,
+          "pivot_y": 0.5,
+          "pixels_per_meter": 16.0,
+          "region_enabled": true,
+          "region_height": 14,
+          "region_width": 13,
+          "region_x": 1,
+          "region_y": 1,
+          "rows": 1,
+          "spacing_x": 0,
+          "spacing_y": 0,
+          "texture_frames": false,
+          "tint_a": 1.0,
+          "tint_b": 0.15000000596046448,
+          "tint_g": 0.20000000298023224,
+          "tint_r": 1.0,
+          "visible": true,
+          "width": 1.0
+        }
+      },
+      "id": "c51f3af5-21c9-40ed-9cec-49067c28528f",
+      "name": "Player 9 - left stick",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -1.5,
+          "y": -1.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sprite_renderer": {
+          "border_bottom": 0,
+          "border_left": 0,
+          "border_right": 0,
+          "border_top": 0,
+          "columns": 1,
+          "enabled": true,
+          "flip_x": false,
+          "flip_y": false,
+          "frame": 0,
+          "frame_regions": [],
+          "height": 1.0,
+          "image_mode": 0,
+          "layers": 4294967295,
+          "margin_x": 0,
+          "margin_y": 0,
+          "material": "258b9537-c0f6-448d-af8c-818f150d67cf",
+          "mip_filter": 0,
+          "order": 0,
+          "pivot_x": 0.5,
+          "pivot_y": 0.5,
+          "pixels_per_meter": 16.0,
+          "region_enabled": true,
+          "region_height": 14,
+          "region_width": 13,
+          "region_x": 1,
+          "region_y": 1,
+          "rows": 1,
+          "spacing_x": 0,
+          "spacing_y": 0,
+          "texture_frames": false,
+          "tint_a": 1.0,
+          "tint_b": 0.30000001192092896,
+          "tint_g": 0.800000011920929,
+          "tint_r": 0.15000000596046448,
+          "visible": true,
+          "width": 1.0
+        }
+      },
+      "id": "dad90ae3-2a0d-4cdc-908c-6d74ac371a60",
+      "name": "Player 10 - left stick",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 1.5,
+          "y": -1.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sprite_renderer": {
+          "border_bottom": 0,
+          "border_left": 0,
+          "border_right": 0,
+          "border_top": 0,
+          "columns": 1,
+          "enabled": true,
+          "flip_x": false,
+          "flip_y": false,
+          "frame": 0,
+          "frame_regions": [],
+          "height": 1.0,
+          "image_mode": 0,
+          "layers": 4294967295,
+          "margin_x": 0,
+          "margin_y": 0,
+          "material": "258b9537-c0f6-448d-af8c-818f150d67cf",
+          "mip_filter": 0,
+          "order": 0,
+          "pivot_x": 0.5,
+          "pivot_y": 0.5,
+          "pixels_per_meter": 16.0,
+          "region_enabled": true,
+          "region_height": 14,
+          "region_width": 13,
+          "region_x": 1,
+          "region_y": 1,
+          "rows": 1,
+          "spacing_x": 0,
+          "spacing_y": 0,
+          "texture_frames": false,
+          "tint_a": 1.0,
+          "tint_b": 1.0,
+          "tint_g": 0.5,
+          "tint_r": 0.20000000298023224,
+          "visible": true,
+          "width": 1.0
+        }
+      },
+      "id": "2ce7fcfe-f349-4fd4-9723-957f7d1b15bc",
+      "name": "Player 11 - left stick",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 4.5,
+          "y": -1.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sprite_renderer": {
+          "border_bottom": 0,
+          "border_left": 0,
+          "border_right": 0,
+          "border_top": 0,
+          "columns": 1,
+          "enabled": true,
+          "flip_x": false,
+          "flip_y": false,
+          "frame": 0,
+          "frame_regions": [],
+          "height": 1.0,
+          "image_mode": 0,
+          "layers": 4294967295,
+          "margin_x": 0,
+          "margin_y": 0,
+          "material": "258b9537-c0f6-448d-af8c-818f150d67cf",
+          "mip_filter": 0,
+          "order": 0,
+          "pivot_x": 0.5,
+          "pivot_y": 0.5,
+          "pixels_per_meter": 16.0,
+          "region_enabled": true,
+          "region_height": 14,
+          "region_width": 13,
+          "region_x": 1,
+          "region_y": 1,
+          "rows": 1,
+          "spacing_x": 0,
+          "spacing_y": 0,
+          "texture_frames": false,
+          "tint_a": 1.0,
+          "tint_b": 0.10000000149011612,
+          "tint_g": 0.75,
+          "tint_r": 1.0,
+          "visible": true,
+          "width": 1.0
+        }
+      },
+      "id": "52167bdc-b1cd-4f4f-9b86-5f2d26a17f2d",
+      "name": "Player 12 - left stick",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -4.5,
+          "y": -3.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sprite_renderer": {
+          "border_bottom": 0,
+          "border_left": 0,
+          "border_right": 0,
+          "border_top": 0,
+          "columns": 1,
+          "enabled": true,
+          "flip_x": false,
+          "flip_y": false,
+          "frame": 0,
+          "frame_regions": [],
+          "height": 1.0,
+          "image_mode": 0,
+          "layers": 4294967295,
+          "margin_x": 0,
+          "margin_y": 0,
+          "material": "258b9537-c0f6-448d-af8c-818f150d67cf",
+          "mip_filter": 0,
+          "order": 0,
+          "pivot_x": 0.5,
+          "pivot_y": 0.5,
+          "pixels_per_meter": 16.0,
+          "region_enabled": true,
+          "region_height": 14,
+          "region_width": 13,
+          "region_x": 1,
+          "region_y": 1,
+          "rows": 1,
+          "spacing_x": 0,
+          "spacing_y": 0,
+          "texture_frames": false,
+          "tint_a": 1.0,
+          "tint_b": 0.15000000596046448,
+          "tint_g": 0.20000000298023224,
+          "tint_r": 1.0,
+          "visible": true,
+          "width": 1.0
+        }
+      },
+      "id": "44d5be2f-fee9-486b-9d36-afeed0a36dd4",
+      "name": "Player 13 - left stick",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -1.5,
+          "y": -3.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sprite_renderer": {
+          "border_bottom": 0,
+          "border_left": 0,
+          "border_right": 0,
+          "border_top": 0,
+          "columns": 1,
+          "enabled": true,
+          "flip_x": false,
+          "flip_y": false,
+          "frame": 0,
+          "frame_regions": [],
+          "height": 1.0,
+          "image_mode": 0,
+          "layers": 4294967295,
+          "margin_x": 0,
+          "margin_y": 0,
+          "material": "258b9537-c0f6-448d-af8c-818f150d67cf",
+          "mip_filter": 0,
+          "order": 0,
+          "pivot_x": 0.5,
+          "pivot_y": 0.5,
+          "pixels_per_meter": 16.0,
+          "region_enabled": true,
+          "region_height": 14,
+          "region_width": 13,
+          "region_x": 1,
+          "region_y": 1,
+          "rows": 1,
+          "spacing_x": 0,
+          "spacing_y": 0,
+          "texture_frames": false,
+          "tint_a": 1.0,
+          "tint_b": 0.30000001192092896,
+          "tint_g": 0.800000011920929,
+          "tint_r": 0.15000000596046448,
+          "visible": true,
+          "width": 1.0
+        }
+      },
+      "id": "2d3d954c-fbd0-470a-bcce-383ce1658b8c",
+      "name": "Player 14 - left stick",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 1.5,
+          "y": -3.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sprite_renderer": {
+          "border_bottom": 0,
+          "border_left": 0,
+          "border_right": 0,
+          "border_top": 0,
+          "columns": 1,
+          "enabled": true,
+          "flip_x": false,
+          "flip_y": false,
+          "frame": 0,
+          "frame_regions": [],
+          "height": 1.0,
+          "image_mode": 0,
+          "layers": 4294967295,
+          "margin_x": 0,
+          "margin_y": 0,
+          "material": "258b9537-c0f6-448d-af8c-818f150d67cf",
+          "mip_filter": 0,
+          "order": 0,
+          "pivot_x": 0.5,
+          "pivot_y": 0.5,
+          "pixels_per_meter": 16.0,
+          "region_enabled": true,
+          "region_height": 14,
+          "region_width": 13,
+          "region_x": 1,
+          "region_y": 1,
+          "rows": 1,
+          "spacing_x": 0,
+          "spacing_y": 0,
+          "texture_frames": false,
+          "tint_a": 1.0,
+          "tint_b": 1.0,
+          "tint_g": 0.5,
+          "tint_r": 0.20000000298023224,
+          "visible": true,
+          "width": 1.0
+        }
+      },
+      "id": "59d1f1e5-0f85-40a9-a754-704dba4d3867",
+      "name": "Player 15 - left stick",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 4.5,
+          "y": -3.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sprite_renderer": {
+          "border_bottom": 0,
+          "border_left": 0,
+          "border_right": 0,
+          "border_top": 0,
+          "columns": 1,
+          "enabled": true,
+          "flip_x": false,
+          "flip_y": false,
+          "frame": 0,
+          "frame_regions": [],
+          "height": 1.0,
+          "image_mode": 0,
+          "layers": 4294967295,
+          "margin_x": 0,
+          "margin_y": 0,
+          "material": "258b9537-c0f6-448d-af8c-818f150d67cf",
+          "mip_filter": 0,
+          "order": 0,
+          "pivot_x": 0.5,
+          "pivot_y": 0.5,
+          "pixels_per_meter": 16.0,
+          "region_enabled": true,
+          "region_height": 14,
+          "region_width": 13,
+          "region_x": 1,
+          "region_y": 1,
+          "rows": 1,
+          "spacing_x": 0,
+          "spacing_y": 0,
+          "texture_frames": false,
+          "tint_a": 1.0,
+          "tint_b": 0.10000000149011612,
+          "tint_g": 0.75,
+          "tint_r": 1.0,
+          "visible": true,
+          "width": 1.0
+        }
+      },
+      "id": "66206273-05ef-43ee-8fcc-a5fc51998ff8",
+      "name": "Player 16 - left stick",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    }
+  ],
+  "version": 5
+}

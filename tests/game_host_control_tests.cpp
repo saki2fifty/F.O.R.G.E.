@@ -324,6 +324,34 @@ void run(const std::filesystem::path& root) {
     game.input({{"key.j", 1}});
     check(game.active().simulation.input().latch(1).actions.at(action).pressed,
           "Persisted rebind did not reach runtime");
+    check(
+        request(
+            {{"operation", "rebind_begin"}, {"action", action}, {"index", 0}, {"gamepad_slot", 10}})
+                .state == "succeeded",
+        "Game service rejected an explicit multi-digit player filter");
+    game.input({{"pad.1.south", 1}, {"pad.10.south", 1}});
+    host.pump(now);
+    check(request({{"operation", "rebind_commit"}}).state == "succeeded",
+          "Game service could not persist the Player10 binding");
+    check(request({{"operation", "rebind_begin"}, {"action", action}, {"index", 0}}).state ==
+                  "succeeded" &&
+              game.active().simulation.input().rebind_gamepad_slot() == 10,
+          "Game service inferred only the first digit of the saved player binding");
+    check(
+        request(
+            {{"operation", "rebind_begin"}, {"action", action}, {"index", 0}, {"gamepad_slot", 17}})
+                    .state == "failed" &&
+            game.active().simulation.input().rebinding() &&
+            game.active().simulation.input().rebind_gamepad_slot() == 10,
+        "Invalid player filter changed the active Game service listener");
+    game.input({{"pad.1.east", 1}, {"pad.16.east", 1}});
+    host.pump(now);
+    check(game.active().simulation.input().rebinding(),
+          "Another logical slot captured the inferred Player10 listener");
+    game.input({{"pad.10.east", 1}});
+    host.pump(now);
+    check(request({{"operation", "rebind_commit"}}).state == "succeeded",
+          "Game service failed to commit the inferred multi-digit rebind");
     check(request({{"operation", "rebind_reset"}, {"action", action}}).state == "succeeded",
           "Restore defaults failed");
     game.input({{"key.space", 1}});

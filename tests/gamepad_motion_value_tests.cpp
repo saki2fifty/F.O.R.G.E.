@@ -24,6 +24,15 @@ void copied_motion() {
     GamepadTopology topology{
         true, 1, "host:connection", {{"host:connection", "Controller", 1, true, false}}};
     motion.validate(topology);
+    auto high_slot = motion;
+    auto high_topology = topology;
+    high_slot.devices[0].slot = high_topology.devices[0].slot = 16;
+    high_slot.validate(high_topology);
+    check(Json(high_slot).get<GamepadMotion>().devices[0].slot == 16,
+          "Copied motion truncated a multi-digit logical slot");
+    auto invalid_slot = Json(high_slot);
+    invalid_slot["devices"][0]["slot"] = 17;
+    rejects([&] { (void)invalid_slot.get<GamepadMotion>(); });
     ++topology.revision;
     rejects([&] { motion.validate(topology); });
     --topology.revision;

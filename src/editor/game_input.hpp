@@ -8,7 +8,7 @@
 #include <array>
 #include <source_location>
 namespace forge {
-// Four logical gamepad slots, a legacy active alias, keyboard/mouse and bounded
+// Independent logical gamepad slots, a legacy active alias, keyboard/mouse and bounded
 // captured touch contacts. SDL stays in this platform adapter.
 //
 // SdlGameCursor owns the observed SDL_GetWindowRelativeMouseMode
@@ -473,13 +473,27 @@ class GameInput {
         if (ImGui::Button("Gamepads..."))
             ImGui::OpenPopup("Gamepad assignments");
         FORGE_UI_PROBE("button:Gamepads");
+        const auto extent = ImGui::GetMainViewport()->WorkSize;
+        ImGui::SetNextWindowSizeConstraints({0, 0},
+                                            {std::max(100.f, extent.x - 2 * ImGui::GetFontSize()),
+                                             std::max(100.f, extent.y - 2 * ImGui::GetFontSize())});
         if (ImGui::BeginPopup("Gamepad assignments")) {
             // Explicit wrap width avoids auto-size/TextWrapped feedback that
             // otherwise produces a narrow, screen-height popup on first open.
             ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + 28 * ImGui::GetFontSize());
             ImGui::TextUnformatted("Local gamepads");
-            ImGui::TextWrapped("Assign controllers to Player 1..4 for indexed pad controls. "
-                               "Assignments last for this editor session.");
+            ImGui::TextWrapped("Assign controllers to Player 1..%zu for indexed pad controls. "
+                               "Assignments last for this editor session.",
+                               gamepad_slot_limit);
+            static const auto slot_labels = [] {
+                std::string labels = "Unassigned";
+                for (std::size_t index = 1; index <= gamepad_slot_limit; ++index) {
+                    labels.push_back('\0');
+                    labels += "Player " + std::to_string(index);
+                }
+                labels.push_back('\0');
+                return labels;
+            }();
             const auto devices = gamepads();
             if (devices.devices.empty())
                 ImGui::TextUnformatted("No connected gamepads.");
@@ -489,8 +503,7 @@ class GameInput {
                 int slot = int(device.slot);
                 ImGui::BeginDisabled(!device.connected);
                 ImGui::SetNextItemWidth(12 * ImGui::GetFontSize());
-                if (ImGui::Combo("Slot", &slot,
-                                 "Unassigned\0Player 1\0Player 2\0Player 3\0Player 4\0")) {
+                if (ImGui::Combo("Slot", &slot, slot_labels.c_str())) {
                     try {
                         assign_gamepad(play,
                                        {devices.revision, device.device, std::uint32_t(slot)});

@@ -147,7 +147,7 @@ int main(int argc, char** argv) {
             frame();
             click("settings:input:action:" + id.str());
             if (touch || gesture || single || players) {
-                const std::string desired = players  ? "pad.4.left_x"
+                const std::string desired = players  ? "pad.16.left_x"
                                             : touch  ? "touch.7.pressure"
                                             : single ? "touch.gesture.tap"
                                                      : "touch.gesture.rotation";

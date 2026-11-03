@@ -254,8 +254,10 @@ struct PlayAutomation {
         methods.push_back(automation_method(
             "play.gamepads",
             "Read the actual host's transient controller connections, "
-            "logical slots 1..4 and topology revision. Opaque connection tokens are not saved "
-            "identities. An unavailable host is distinct from an empty device list.",
+            "logical slots 1.." +
+                std::to_string(gamepad_slot_limit) +
+                " and topology revision. Opaque connection tokens are not saved "
+                "identities. An unavailable host is distinct from an empty device list.",
             "play.read", automation_object(), false, [&files, providers](const Json&) {
                 files.document.check_ownership();
                 return Json(providers.gamepads ? providers.gamepads() : GamepadTopology{});
@@ -275,10 +277,11 @@ struct PlayAutomation {
             return methods;
         methods.push_back(automation_method(
             "play.gamepads.assign",
-            "Assign a current connection to slot 1..4, or 0 to "
-            "unassign. Use the revision and device token from play.gamepads. An occupied "
-            "slot is cleared first; only affected controls and feedback are released. "
-            "This transient host edit has no authored Undo or saved identity.",
+            "Assign a current connection to slot 1.." + std::to_string(gamepad_slot_limit) +
+                ", or 0 to "
+                "unassign. Use the revision and device token from play.gamepads. An occupied "
+                "slot is cleared first; only affected controls and feedback are released. "
+                "This transient host edit has no authored Undo or saved identity.",
             "play.execute",
             automation_object({{"revision", automation_integer(1)},
                                {"device", automation_text(128, 1)},

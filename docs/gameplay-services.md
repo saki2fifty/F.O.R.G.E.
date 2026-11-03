@@ -290,12 +290,12 @@ target with their own host.
 | `settings` | none | Copied resolved settings |
 | `set_settings` | `values` grouped by display/audio/input | Validate, apply and persist user overrides; rollback on failure |
 | `input_contexts` | `active` array | Replace active context set and neutralize old input |
-| `rumble` | numeric `low`/`high`0..1, integer `duration_ms`0..5000, optional `slot` 0..4 | Request bounded feedback; omitted/0 targets active,1..4 targets a logical player. Zero strengths with slot 0 stop all owned feedback; a numbered Stop affects one slot |
-| `gamepad_assign` | current `revision`, opaque `device`, integer `slot` 0..4 | Reassign a live connection;0 unassigns. The platform owner neutralizes affected slots and stops their feedback; stale connection/revision or native Stop failure rejects |
+| `rumble` | numeric `low`/`high`0..1, integer `duration_ms`0..5000, optional `slot` 0..16 | Request bounded feedback; omitted/0 targets active,1..16 targets a logical player. Zero strengths with slot 0 stop all owned feedback; a numbered Stop affects one slot |
+| `gamepad_assign` | current `revision`, opaque `device`, integer `slot` 0..16 | Reassign a live connection;0 unassigns. The platform owner neutralizes affected slots and stops their feedback; stale connection/revision or native Stop failure rejects |
 | `gamepad_sensor` | current `revision`, opaque `device`, `sensor` accelerometer/gyroscope, Boolean `enabled` | Configure a supported live sensor; changed modes advance the device revision. Raw data requires native gameplay routing; no saved hardware identity |
 | `cursor` | `capture` | Request host capture/release; capture requires an adapter and focus |
 | `ui_navigation` | `direction`: next/previous/accept | Native RmlUi focus traversal/activation where supplied |
-| `rebind_begin` | `action`, `index`, optional `gamepad_slot`0..4 | Listen for a candidate; infer the gamepad namespace from the old binding unless supplied. Other players/aliases cannot capture it; keyboard/mouse/touch remain eligible |
+| `rebind_begin` | `action`, `index`, optional `gamepad_slot`0..16 | Listen for a candidate; infer the gamepad namespace from the old binding unless supplied. Other players/aliases cannot capture it; keyboard/mouse/touch remain eligible |
 | `rebind_cancel` | none | Discard pending candidate |
 | `rebind_commit` | optional `clear`, `allow_conflicts` | Validate and persist the chosen slot; sharing must be deliberate |
 | `rebind_reset` | optional `action` | Restore project defaults and cancel the pending candidate |
@@ -394,12 +394,12 @@ routing, bounds, stop-failure limitations and unsupported haptic features.
 
 `game_query.gamepads` copies the actual host's bounded `{available,revision,active,devices}`
 observation. Device records contain opaque `device` connection token, display
-`name`, logical `slot` 0..4, `connected` and native `rumble` capability. Unavailable
+`name`, logical `slot` 0..16, `connected` and native `rumble` capability. Unavailable
 is distinct from no controllers. `gamepad_assignment_host` reports an assignment
 adapter, not hardware support. Query immediately before constructing an assignment
 request, inspect its scoped receipt and refresh/retry if topology changed.
 Do not persist connection tokens. Bindings persist logical `pad.1.*` through
-`pad.4.*` controls under the established InputMap/settings owners.
+`pad.16.*` controls under the established InputMap/settings owners.
 
 GamePlatformControls supplies synchronous query/assignment callbacks for an SDL
 host, or a polled assignment callback for SDK Play. The editor's same GameInput

@@ -28,7 +28,8 @@ bool gamepad_token(std::string_view value) {
 }
 std::uint32_t gamepad_slot_value(const Json& value) {
     if (!value.is_number_integer() || value < 0 || value > gamepad_slot_limit)
-        throw std::runtime_error("Gamepad slot must be an integer in 0..4");
+        throw std::runtime_error("Gamepad slot must be an integer in 0.." +
+                                 std::to_string(gamepad_slot_limit));
     return value.get<std::uint32_t>();
 }
 std::uint64_t gamepad_unsigned(const Json& value, const char* field = "revision") {
@@ -71,8 +72,8 @@ GamepadSensorSample read_sensor_sample(const Json& value) {
 } // namespace
 void GamepadAssignment::validate() const {
     if (!revision || !gamepad_token(device) || slot > gamepad_slot_limit)
-        throw std::runtime_error(
-            "Gamepad assignment needs a current device/revision and slot 0..4");
+        throw std::runtime_error("Gamepad assignment needs a current device/revision and slot 0.." +
+                                 std::to_string(gamepad_slot_limit));
 }
 void to_json(Json& json, const GamepadAssignment& value) {
     value.validate();
@@ -284,7 +285,9 @@ void GamepadRumble::validate() const {
         duration_ms > 5000 || (duration_ms == 0 && (low != 0 || high != 0)) ||
         slot > gamepad_slot_limit)
         throw std::runtime_error("Gamepad rumble requires finite strengths in [0,1] and 1..5000 "
-                                 "ms; slots are 1..4 or 0 for active; zero strengths stop");
+                                 "ms; slots are 1.." +
+                                 std::to_string(gamepad_slot_limit) +
+                                 " or 0 for active; zero strengths stop");
 }
 void to_json(nlohmann::json& json, const GamepadRumble& value) {
     value.validate();
@@ -408,7 +411,8 @@ const InputControl& input_control(const std::string& id) {
 }
 std::string gamepad_control_id(std::uint32_t slot, std::string_view leaf) {
     if (slot > gamepad_slot_limit)
-        throw std::runtime_error("Gamepad slot must be 1..4 or 0 for active controls");
+        throw std::runtime_error("Gamepad slot must be 1.." + std::to_string(gamepad_slot_limit) +
+                                 " or 0 for active controls");
     const auto id = (slot ? "pad." + std::to_string(slot) + "." : "pad.") + std::string(leaf);
     return input_control(id).id;
 }
@@ -417,7 +421,13 @@ std::optional<std::uint32_t> gamepad_control_slot(const std::string& id) {
     if (!id.starts_with("pad."))
         return {};
     const auto dot = id.find('.', 4);
-    return dot == std::string::npos ? 0 : std::uint32_t(id[4] - '0');
+    // Registry admission above guarantees canonical decimal indices. Consume
+    // the entire index so multi-digit slots retain their own namespace.
+    std::uint32_t slot = 0;
+    if (dot != std::string::npos)
+        for (std::size_t i = 4; i < dot; ++i)
+            slot = slot * 10 + std::uint32_t(id[i] - '0');
+    return slot;
 }
 bool is_gamepad_stick_control(const std::string& id) {
     const auto& control = input_control(id);
@@ -609,7 +619,8 @@ bool RuntimeInput::control_action(const InputAction& action) const {
 }
 void RuntimeInput::begin_rebind(std::uint32_t gamepad_slot) {
     if (gamepad_slot > gamepad_slot_limit)
-        throw std::runtime_error("Rebinding gamepad slot must be 0..4");
+        throw std::runtime_error("Rebinding gamepad slot must be 0.." +
+                                 std::to_string(gamepad_slot_limit));
     rebind_held_.clear();
     for (const auto& [control, value] : controls_)
         if (!input_control(control).relative && std::abs(value) > .25)

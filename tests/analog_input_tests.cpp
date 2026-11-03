@@ -58,11 +58,16 @@ void math() {
     rejects([] { (void)input_axis(1.1, 0); });
 }
 void gamepad_slot_mapping() {
-    const std::array<InputVector, 4> samples{{{.1, 1}, {.6, 0}, {-.75, .25}, {.25, -.75}}};
+    std::array<InputVector, gamepad_slot_limit> samples;
+    for (std::size_t i = 0; i < samples.size(); ++i)
+        samples[i] = {(i % 2 ? -1 : 1) * (.3 + .025 * i), .1 + .02 * i};
     std::vector<ActionId> ids;
     Json source{{"version", 1}, {"actions", Json::array()}};
     for (std::size_t slot = 1; slot <= gamepad_slot_limit; ++slot) {
         const auto prefix = "pad." + std::to_string(slot) + ".";
+        check(gamepad_control_slot(prefix + "south") == slot &&
+                  gamepad_control_id(std::uint32_t(slot), "south") == prefix + "south",
+              "Logical gamepad slot did not round trip its full decimal index");
         check(is_gamepad_stick_control(prefix + "left_x") &&
                   is_gamepad_stick_control(prefix + "right_y") &&
                   !is_gamepad_stick_control(prefix + "south") &&
@@ -108,8 +113,21 @@ void gamepad_slot_mapping() {
     near(released.actions.at(legacy).x, -.5);
     check(released.actions.at(keyboard).held,
           "One logical pad's neutral controls released unrelated input");
-    rejects([] { (void)input_control("pad.0.south"); });
-    rejects([] { (void)input_control("pad.5.south"); });
+    for (const auto* id : {"pad.0.south", "pad.17.south", "pad.01.south", "pad.016.south",
+                           "pad.-1.south", "pad.+1.south", "pad.1x.south", "pad.1.0.south"})
+        rejects([&] { (void)gamepad_control_slot(id); });
+    rejects([] { (void)gamepad_control_id(17, "south"); });
+    rejects([&] { input.submit({{"pad.16.left_x", 0}, {"pad.17.south", 1}}); });
+    near(input.latch(3).actions.at(ids.back()).x, snapshot.actions.at(ids.back()).x);
+    // Multi-digit filtering must not treat Player 10 as Player 1 or the alias.
+    input.begin_rebind(10);
+    input.submit({{"pad.1.south", 1}, {"pad.south", 1}, {"pad.16.south", 1}});
+    check(input.rebinding() && !input.take_rebind(), "Another slot captured Player 10 rebind");
+    input.submit({{"pad.10.south", 1}});
+    const auto rebound = input.take_rebind();
+    check(!input.rebinding() && rebound && rebound->control == "pad.10.south",
+          "Multi-digit rebind filter lost its logical slot");
+    rejects([&] { input.begin_rebind(17); });
     auto invalid = source;
     invalid["actions"][0]["bindings"][0]["control"] = "pad.1.south";
     rejects([&] { (void)InputMap(invalid); });

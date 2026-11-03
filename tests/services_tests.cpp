@@ -111,7 +111,7 @@ static void input_context_tests() {
     check(!input.rebinding() && input.take_rebind()->control == "pad.2.south",
           "Player 2 rebind did not capture its indexed control");
     input.begin_rebind();
-    reject([&] { input.begin_rebind(5); });
+    reject([&] { input.begin_rebind(17); });
     check(input.rebinding() && input.rebind_gamepad_slot() == 0,
           "Invalid player filter partially changed listening state");
     input.submit({{"pad.2.east", 1}, {"pad.east", 1}});

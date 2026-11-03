@@ -1808,8 +1808,9 @@ units/second, within the visible canvas. Register
 needs `forge.input` and `forge.transforms`; no custom authored component. Without
 the optional module, the markers remain authored. Save Scene/Settings, select 92
 as startup, build current source and export. Standalone creates its own
-assignments; connected device tokens are never saved. Four slots, 16 tracked
-connections, legacy active `pad.*` bindings remain supported. Separate per-player UI focus is unavailable. Controller motion uses Gallery93. Physical Windows/controller verification is
+assignments; connected device tokens are never saved. This scene uses four of the
+sixteen logical slots. Up to16 tracked connections and legacy active `pad.*`
+bindings are supported. Separate per-player UI focus is unavailable. Controller motion uses Gallery93. Physical Windows/controller verification is
 not implied by virtual-device tests.
 
 ### 93 — Raw controller motion
@@ -1893,3 +1894,21 @@ Gain and the Effects mix channel control the complete processed signal; mute
 keeps its time advancing. Active effect edits clear history without rewinding the
 clip. This is a per-source effect, with no shared effect buses or room simulation.
 See [Audio](../../../manual/editor/audio.md).
+
+## Sixteen independent controllers
+
+Open **Scenes/149-sixteen-controllers.scene.json** to see sixteen Sprite markers
+in a four-by-four layout. Project Settings includes **Player 1 move** through
+**Player 16 move**, each with matching radial left-stick bindings. Build/register
+**CodeExamples/MultipleGamepads.cpp** with **ControllerSlots.hpp** beside it, or
+build the installed **multiple_gamepads_gameplay** sample. The same code also
+serves the four-player scene92. Without the optional module, use Console to
+inspect the actions; the markers remain still.
+
+In Game, open **Gamepads...**, scroll to a controller and choose **Player 1** through
+**Player 16**. Choosing an occupied slot unassigns its previous controller. Close
+the popup and capture gameplay input again. You can move one controller between
+slots to test high numbered markers, or use multiple connected controllers for
+independent movement. Assignments are temporary for this host session. Save the
+Scene and Project Settings, choose this scene as startup, build the matching code
+and export. Physical controller support depends on the host and device.

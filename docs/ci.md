@@ -1611,7 +1611,7 @@ checks are not native Windows/full editor/physical GPU acceptance.
 
 ## Gamepad feedback gate
 
-`gamepad_feedback` also covers four independent logical slots and both input
+`gamepad_feedback` also covers sixteen independent logical slots and both input
 latch domains with real SDL virtual controllers: scoped disconnect/remap/assignment,
 stale revisions and other-host connection tokens, native Stop failures, independent
 feedback and the sixteen-device ownership cap. Its public C++ fixture queries and
@@ -1620,17 +1620,23 @@ full Play input queues reject before physical routing changes. Installed/relocat
 `native_sdk_gamepad_feedback_installed` repeats that actual public client path.
 
 `multiple_gamepads_ui` drives the real GameInput popup by mouse and keyboard at
-1/1.5/2 scales, including transfer of an occupied slot and a layout regression.
+1/1.5/2 scales, including scrolling to the last of sixteen controllers, transfer to occupied Player16 and bounded popup layout.
 Its complete native software PNG is the manual's canonical assignment capture;
 provenance is in the screenshot record. `settings_lifecycle_players` selects an
 indexed stick and radial conditioning through the native Settings widgets.
-`multiple_gamepads_process` verifies original Gallery92's four conditioned actions
+`multiple_gamepads_process` verifies Gallery92's four and Gallery149's sixteen conditioned actions
 and movement per fixed tick, scoped neutralization, whole-batch rejection and
 restart in both running hosts. SDK Game defaults and ordinary authored bindings
 are separate expected conditioning inputs. `native_sdk_multiple_gamepads_installed`
 builds the public sample from installed headers/sources and repeats after relocation.
 `sprite_gallery` includes92 in its actual prepared/relocated source-free closure,
 preserving all four marker identities and Sprite values.
+
+`controller_slots_gallery` validates all seventeen authored entities and packages
+the selected Scene/Sprite resource closure, hides sources and reopens relocated
+content with exact Scene identities/values. It is content-only export proof; the
+process tests separately execute the optional code in both hosts. No graphical
+EXE or physical controller acceptance is implied.
 
 `mcp_multiple_gamepads_stdio` uses actual SDL virtual connections and both MCP
 framings for query/discovery, live assignment/scoped input release, stale and invalid

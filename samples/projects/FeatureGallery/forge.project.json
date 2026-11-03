@@ -1,284 +1,536 @@
 {
-  "version": 2,
+  "game": {
+    "application_id": "org.forge.feature-gallery",
+    "audio": {
+      "master_volume": 1.0
+    },
+    "display": {
+      "display": 0,
+      "height": 720,
+      "mode": "windowed",
+      "vsync": false,
+      "width": 1280
+    },
+    "input": {
+      "gamepad_sensitivity": 1.0,
+      "invert_gamepad_y": false,
+      "invert_mouse_y": false,
+      "mouse_sensitivity": 1.0,
+      "stick_deadzone": 0.15,
+      "trigger_deadzone": 0.05
+    },
+    "profile": "development",
+    "save_schema": 1,
+    "title": "FORGE Feature Gallery",
+    "version": 1
+  },
+  "input": {
+    "actions": [
+      {
+        "bindings": [
+          {
+            "control": "touch.0.down"
+          }
+        ],
+        "id": "15500000-1550-4155-8155-000000000010",
+        "kind": "digital",
+        "name": "Touch0 down"
+      },
+      {
+        "bindings": [
+          {
+            "control": "touch.0.x"
+          }
+        ],
+        "id": "15500000-1550-4155-8155-000000000011",
+        "kind": "axis1",
+        "name": "Touch0 x"
+      },
+      {
+        "bindings": [
+          {
+            "control": "touch.0.y"
+          }
+        ],
+        "id": "15500000-1550-4155-8155-000000000012",
+        "kind": "axis1",
+        "name": "Touch0 y"
+      },
+      {
+        "bindings": [
+          {
+            "control": "touch.0.pressure"
+          }
+        ],
+        "id": "15500000-1550-4155-8155-000000000013",
+        "kind": "axis1",
+        "name": "Touch0 pressure"
+      },
+      {
+        "bindings": [
+          {
+            "control": "touch.gesture.active"
+          }
+        ],
+        "id": "15600000-1560-4156-8156-000000000010",
+        "kind": "digital",
+        "name": "Touch gesture active"
+      },
+      {
+        "bindings": [
+          {
+            "control": "touch.gesture.pan_x"
+          }
+        ],
+        "id": "15600000-1560-4156-8156-000000000011",
+        "kind": "axis1",
+        "name": "Touch gesture pan_x"
+      },
+      {
+        "bindings": [
+          {
+            "control": "touch.gesture.pan_y"
+          }
+        ],
+        "id": "15600000-1560-4156-8156-000000000012",
+        "kind": "axis1",
+        "name": "Touch gesture pan_y"
+      },
+      {
+        "bindings": [
+          {
+            "control": "touch.gesture.pinch"
+          }
+        ],
+        "id": "15600000-1560-4156-8156-000000000013",
+        "kind": "axis1",
+        "name": "Touch gesture pinch"
+      },
+      {
+        "bindings": [
+          {
+            "control": "touch.gesture.rotation"
+          }
+        ],
+        "id": "15600000-1560-4156-8156-000000000014",
+        "kind": "axis1",
+        "name": "Touch gesture rotation"
+      },
+      {
+        "bindings": [
+          {
+            "control": "touch.gesture.tap"
+          }
+        ],
+        "id": "16000000-1600-4160-8160-000000000010",
+        "kind": "digital",
+        "name": "Single touch tap"
+      },
+      {
+        "bindings": [
+          {
+            "control": "touch.gesture.double_tap"
+          }
+        ],
+        "id": "16000000-1600-4160-8160-000000000011",
+        "kind": "digital",
+        "name": "Single touch double_tap"
+      },
+      {
+        "bindings": [
+          {
+            "control": "touch.gesture.long_press"
+          }
+        ],
+        "id": "16000000-1600-4160-8160-000000000012",
+        "kind": "digital",
+        "name": "Single touch long_press"
+      },
+      {
+        "bindings": [
+          {
+            "control": "touch.gesture.swipe_left"
+          }
+        ],
+        "id": "16000000-1600-4160-8160-000000000013",
+        "kind": "digital",
+        "name": "Single touch swipe_left"
+      },
+      {
+        "bindings": [
+          {
+            "control": "touch.gesture.swipe_right"
+          }
+        ],
+        "id": "16000000-1600-4160-8160-000000000014",
+        "kind": "digital",
+        "name": "Single touch swipe_right"
+      },
+      {
+        "bindings": [
+          {
+            "control": "touch.gesture.swipe_up"
+          }
+        ],
+        "id": "16000000-1600-4160-8160-000000000015",
+        "kind": "digital",
+        "name": "Single touch swipe_up"
+      },
+      {
+        "bindings": [
+          {
+            "control": "touch.gesture.swipe_down"
+          }
+        ],
+        "id": "16000000-1600-4160-8160-000000000016",
+        "kind": "digital",
+        "name": "Single touch swipe_down"
+      },
+      {
+        "bindings": [
+          {
+            "control": "pad.1.left_x",
+            "deadzone": 0.2,
+            "radial": true,
+            "x": 1,
+            "y": 0
+          },
+          {
+            "control": "pad.1.left_y",
+            "deadzone": 0.2,
+            "radial": true,
+            "x": 0,
+            "y": -1
+          }
+        ],
+        "id": "16700000-1670-4167-8167-000000000010",
+        "kind": "axis2",
+        "name": "Player 1 move"
+      },
+      {
+        "bindings": [
+          {
+            "control": "pad.2.left_x",
+            "deadzone": 0.2,
+            "radial": true,
+            "x": 1,
+            "y": 0
+          },
+          {
+            "control": "pad.2.left_y",
+            "deadzone": 0.2,
+            "radial": true,
+            "x": 0,
+            "y": -1
+          }
+        ],
+        "id": "16700000-1670-4167-8167-000000000011",
+        "kind": "axis2",
+        "name": "Player 2 move"
+      },
+      {
+        "bindings": [
+          {
+            "control": "pad.3.left_x",
+            "deadzone": 0.2,
+            "radial": true,
+            "x": 1,
+            "y": 0
+          },
+          {
+            "control": "pad.3.left_y",
+            "deadzone": 0.2,
+            "radial": true,
+            "x": 0,
+            "y": -1
+          }
+        ],
+        "id": "16700000-1670-4167-8167-000000000012",
+        "kind": "axis2",
+        "name": "Player 3 move"
+      },
+      {
+        "bindings": [
+          {
+            "control": "pad.4.left_x",
+            "deadzone": 0.2,
+            "radial": true,
+            "x": 1,
+            "y": 0
+          },
+          {
+            "control": "pad.4.left_y",
+            "deadzone": 0.2,
+            "radial": true,
+            "x": 0,
+            "y": -1
+          }
+        ],
+        "id": "16700000-1670-4167-8167-000000000013",
+        "kind": "axis2",
+        "name": "Player 4 move"
+      },
+      {
+        "bindings": [
+          {
+            "control": "pad.5.left_x",
+            "deadzone": 0.2,
+            "radial": true,
+            "x": 1,
+            "y": 0
+          },
+          {
+            "control": "pad.5.left_y",
+            "deadzone": 0.2,
+            "radial": true,
+            "x": 0,
+            "y": -1
+          }
+        ],
+        "id": "6ba5d737-3d80-467d-b4fb-ef94ce9a2a96",
+        "kind": "axis2",
+        "name": "Player 5 move"
+      },
+      {
+        "bindings": [
+          {
+            "control": "pad.6.left_x",
+            "deadzone": 0.2,
+            "radial": true,
+            "x": 1,
+            "y": 0
+          },
+          {
+            "control": "pad.6.left_y",
+            "deadzone": 0.2,
+            "radial": true,
+            "x": 0,
+            "y": -1
+          }
+        ],
+        "id": "c5086d77-0739-408f-ac1e-a323fa7981b3",
+        "kind": "axis2",
+        "name": "Player 6 move"
+      },
+      {
+        "bindings": [
+          {
+            "control": "pad.7.left_x",
+            "deadzone": 0.2,
+            "radial": true,
+            "x": 1,
+            "y": 0
+          },
+          {
+            "control": "pad.7.left_y",
+            "deadzone": 0.2,
+            "radial": true,
+            "x": 0,
+            "y": -1
+          }
+        ],
+        "id": "8c89902b-77d6-417b-9e74-2a82013ceb92",
+        "kind": "axis2",
+        "name": "Player 7 move"
+      },
+      {
+        "bindings": [
+          {
+            "control": "pad.8.left_x",
+            "deadzone": 0.2,
+            "radial": true,
+            "x": 1,
+            "y": 0
+          },
+          {
+            "control": "pad.8.left_y",
+            "deadzone": 0.2,
+            "radial": true,
+            "x": 0,
+            "y": -1
+          }
+        ],
+        "id": "c89a8140-dc26-4ca1-ba25-31a6e4b684a3",
+        "kind": "axis2",
+        "name": "Player 8 move"
+      },
+      {
+        "bindings": [
+          {
+            "control": "pad.9.left_x",
+            "deadzone": 0.2,
+            "radial": true,
+            "x": 1,
+            "y": 0
+          },
+          {
+            "control": "pad.9.left_y",
+            "deadzone": 0.2,
+            "radial": true,
+            "x": 0,
+            "y": -1
+          }
+        ],
+        "id": "d0a39f38-4890-4470-857f-6e819d3483c2",
+        "kind": "axis2",
+        "name": "Player 9 move"
+      },
+      {
+        "bindings": [
+          {
+            "control": "pad.10.left_x",
+            "deadzone": 0.2,
+            "radial": true,
+            "x": 1,
+            "y": 0
+          },
+          {
+            "control": "pad.10.left_y",
+            "deadzone": 0.2,
+            "radial": true,
+            "x": 0,
+            "y": -1
+          }
+        ],
+        "id": "914d1e25-375b-4a41-8df3-d0626e138b36",
+        "kind": "axis2",
+        "name": "Player 10 move"
+      },
+      {
+        "bindings": [
+          {
+            "control": "pad.11.left_x",
+            "deadzone": 0.2,
+            "radial": true,
+            "x": 1,
+            "y": 0
+          },
+          {
+            "control": "pad.11.left_y",
+            "deadzone": 0.2,
+            "radial": true,
+            "x": 0,
+            "y": -1
+          }
+        ],
+        "id": "ed24d9e3-4c5c-4989-8203-4b3f770a6d4b",
+        "kind": "axis2",
+        "name": "Player 11 move"
+      },
+      {
+        "bindings": [
+          {
+            "control": "pad.12.left_x",
+            "deadzone": 0.2,
+            "radial": true,
+            "x": 1,
+            "y": 0
+          },
+          {
+            "control": "pad.12.left_y",
+            "deadzone": 0.2,
+            "radial": true,
+            "x": 0,
+            "y": -1
+          }
+        ],
+        "id": "0a463da4-4289-4931-ae25-0a938ec4dd3b",
+        "kind": "axis2",
+        "name": "Player 12 move"
+      },
+      {
+        "bindings": [
+          {
+            "control": "pad.13.left_x",
+            "deadzone": 0.2,
+            "radial": true,
+            "x": 1,
+            "y": 0
+          },
+          {
+            "control": "pad.13.left_y",
+            "deadzone": 0.2,
+            "radial": true,
+            "x": 0,
+            "y": -1
+          }
+        ],
+        "id": "a21d7c21-5325-4091-9b32-fc8bc0a240ac",
+        "kind": "axis2",
+        "name": "Player 13 move"
+      },
+      {
+        "bindings": [
+          {
+            "control": "pad.14.left_x",
+            "deadzone": 0.2,
+            "radial": true,
+            "x": 1,
+            "y": 0
+          },
+          {
+            "control": "pad.14.left_y",
+            "deadzone": 0.2,
+            "radial": true,
+            "x": 0,
+            "y": -1
+          }
+        ],
+        "id": "93487ef8-5f13-4b06-9174-af319d806576",
+        "kind": "axis2",
+        "name": "Player 14 move"
+      },
+      {
+        "bindings": [
+          {
+            "control": "pad.15.left_x",
+            "deadzone": 0.2,
+            "radial": true,
+            "x": 1,
+            "y": 0
+          },
+          {
+            "control": "pad.15.left_y",
+            "deadzone": 0.2,
+            "radial": true,
+            "x": 0,
+            "y": -1
+          }
+        ],
+        "id": "4dc41122-d6ae-42db-951c-8463f6f91a99",
+        "kind": "axis2",
+        "name": "Player 15 move"
+      },
+      {
+        "bindings": [
+          {
+            "control": "pad.16.left_x",
+            "deadzone": 0.2,
+            "radial": true,
+            "x": 1,
+            "y": 0
+          },
+          {
+            "control": "pad.16.left_y",
+            "deadzone": 0.2,
+            "radial": true,
+            "x": 0,
+            "y": -1
+          }
+        ],
+        "id": "53b94d37-cfe5-4b96-84a7-198519653ff8",
+        "kind": "axis2",
+        "name": "Player 16 move"
+      }
+    ],
+    "version": 1
+  },
+  "modules": [],
   "name": "FORGE Feature Gallery",
   "simulation_hz": 60,
   "startup_scene": {
     "asset": "60051eae-98f9-4436-ad7d-c5975cbce84e",
     "source": "Scenes/01-transforms.scene.json"
   },
-  "input": {
-    "version": 1,
-    "actions": [
-      {
-        "id": "15500000-1550-4155-8155-000000000010",
-        "name": "Touch0 down",
-        "kind": "digital",
-        "bindings": [
-          {
-            "control": "touch.0.down"
-          }
-        ]
-      },
-      {
-        "id": "15500000-1550-4155-8155-000000000011",
-        "name": "Touch0 x",
-        "kind": "axis1",
-        "bindings": [
-          {
-            "control": "touch.0.x"
-          }
-        ]
-      },
-      {
-        "id": "15500000-1550-4155-8155-000000000012",
-        "name": "Touch0 y",
-        "kind": "axis1",
-        "bindings": [
-          {
-            "control": "touch.0.y"
-          }
-        ]
-      },
-      {
-        "id": "15500000-1550-4155-8155-000000000013",
-        "name": "Touch0 pressure",
-        "kind": "axis1",
-        "bindings": [
-          {
-            "control": "touch.0.pressure"
-          }
-        ]
-      },
-      {
-        "id": "15600000-1560-4156-8156-000000000010",
-        "name": "Touch gesture active",
-        "kind": "digital",
-        "bindings": [
-          {
-            "control": "touch.gesture.active"
-          }
-        ]
-      },
-      {
-        "id": "15600000-1560-4156-8156-000000000011",
-        "name": "Touch gesture pan_x",
-        "kind": "axis1",
-        "bindings": [
-          {
-            "control": "touch.gesture.pan_x"
-          }
-        ]
-      },
-      {
-        "id": "15600000-1560-4156-8156-000000000012",
-        "name": "Touch gesture pan_y",
-        "kind": "axis1",
-        "bindings": [
-          {
-            "control": "touch.gesture.pan_y"
-          }
-        ]
-      },
-      {
-        "id": "15600000-1560-4156-8156-000000000013",
-        "name": "Touch gesture pinch",
-        "kind": "axis1",
-        "bindings": [
-          {
-            "control": "touch.gesture.pinch"
-          }
-        ]
-      },
-      {
-        "id": "15600000-1560-4156-8156-000000000014",
-        "name": "Touch gesture rotation",
-        "kind": "axis1",
-        "bindings": [
-          {
-            "control": "touch.gesture.rotation"
-          }
-        ]
-      },
-      {
-        "id": "16000000-1600-4160-8160-000000000010",
-        "name": "Single touch tap",
-        "kind": "digital",
-        "bindings": [
-          {
-            "control": "touch.gesture.tap"
-          }
-        ]
-      },
-      {
-        "id": "16000000-1600-4160-8160-000000000011",
-        "name": "Single touch double_tap",
-        "kind": "digital",
-        "bindings": [
-          {
-            "control": "touch.gesture.double_tap"
-          }
-        ]
-      },
-      {
-        "id": "16000000-1600-4160-8160-000000000012",
-        "name": "Single touch long_press",
-        "kind": "digital",
-        "bindings": [
-          {
-            "control": "touch.gesture.long_press"
-          }
-        ]
-      },
-      {
-        "id": "16000000-1600-4160-8160-000000000013",
-        "name": "Single touch swipe_left",
-        "kind": "digital",
-        "bindings": [
-          {
-            "control": "touch.gesture.swipe_left"
-          }
-        ]
-      },
-      {
-        "id": "16000000-1600-4160-8160-000000000014",
-        "name": "Single touch swipe_right",
-        "kind": "digital",
-        "bindings": [
-          {
-            "control": "touch.gesture.swipe_right"
-          }
-        ]
-      },
-      {
-        "id": "16000000-1600-4160-8160-000000000015",
-        "name": "Single touch swipe_up",
-        "kind": "digital",
-        "bindings": [
-          {
-            "control": "touch.gesture.swipe_up"
-          }
-        ]
-      },
-      {
-        "id": "16000000-1600-4160-8160-000000000016",
-        "name": "Single touch swipe_down",
-        "kind": "digital",
-        "bindings": [
-          {
-            "control": "touch.gesture.swipe_down"
-          }
-        ]
-      },
-      {
-        "id": "16700000-1670-4167-8167-000000000010",
-        "name": "Player 1 move",
-        "kind": "axis2",
-        "bindings": [
-          {
-            "control": "pad.1.left_x",
-            "x": 1,
-            "y": 0,
-            "radial": true,
-            "deadzone": 0.2
-          },
-          {
-            "control": "pad.1.left_y",
-            "x": 0,
-            "y": -1,
-            "radial": true,
-            "deadzone": 0.2
-          }
-        ]
-      },
-      {
-        "id": "16700000-1670-4167-8167-000000000011",
-        "name": "Player 2 move",
-        "kind": "axis2",
-        "bindings": [
-          {
-            "control": "pad.2.left_x",
-            "x": 1,
-            "y": 0,
-            "radial": true,
-            "deadzone": 0.2
-          },
-          {
-            "control": "pad.2.left_y",
-            "x": 0,
-            "y": -1,
-            "radial": true,
-            "deadzone": 0.2
-          }
-        ]
-      },
-      {
-        "id": "16700000-1670-4167-8167-000000000012",
-        "name": "Player 3 move",
-        "kind": "axis2",
-        "bindings": [
-          {
-            "control": "pad.3.left_x",
-            "x": 1,
-            "y": 0,
-            "radial": true,
-            "deadzone": 0.2
-          },
-          {
-            "control": "pad.3.left_y",
-            "x": 0,
-            "y": -1,
-            "radial": true,
-            "deadzone": 0.2
-          }
-        ]
-      },
-      {
-        "id": "16700000-1670-4167-8167-000000000013",
-        "name": "Player 4 move",
-        "kind": "axis2",
-        "bindings": [
-          {
-            "control": "pad.4.left_x",
-            "x": 1,
-            "y": 0,
-            "radial": true,
-            "deadzone": 0.2
-          },
-          {
-            "control": "pad.4.left_y",
-            "x": 0,
-            "y": -1,
-            "radial": true,
-            "deadzone": 0.2
-          }
-        ]
-      }
-    ]
-  },
-  "modules": [],
-  "game": {
-    "version": 1,
-    "application_id": "org.forge.feature-gallery",
-    "title": "FORGE Feature Gallery",
-    "profile": "development",
-    "save_schema": 1,
-    "display": {
-      "mode": "windowed",
-      "width": 1280,
-      "height": 720,
-      "display": 0,
-      "vsync": false
-    },
-    "audio": {
-      "master_volume": 1.0
-    },
-    "input": {
-      "mouse_sensitivity": 1.0,
-      "gamepad_sensitivity": 1.0,
-      "invert_mouse_y": false,
-      "invert_gamepad_y": false,
-      "stick_deadzone": 0.15,
-      "trigger_deadzone": 0.05
-    }
-  }
+  "version": 2
 }

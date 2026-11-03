@@ -147,20 +147,21 @@ void values_and_devices() {
     check(SDL_DetachVirtualJoystick(c), SDL_GetError());
 }
 void multiple_devices() {
-    std::array<Feedback, 5> feedback;
-    std::array<SDL_JoystickID, 5> ids;
+    std::array<Feedback, gamepad_slot_limit> feedback;
+    std::array<SDL_JoystickID, gamepad_slot_limit> ids;
     for (std::size_t i = 0; i < ids.size(); ++i)
         ids[i] = attach(&feedback[i]);
     {
         SdlGamepads pads;
         pads.discover();
         auto topology = pads.snapshot();
-        check(topology.available && topology.devices.size() == 5 && topology.revision == 5,
+        check(topology.available && topology.devices.size() == ids.size() &&
+                  topology.revision == ids.size(),
               "Device discovery did not publish all live connections");
         for (std::size_t i = 0; i < ids.size(); ++i)
-            check(topology.devices[i].slot == (i < 4 ? i + 1 : 0),
+            check(topology.devices[i].slot == i + 1,
                   "Default logical slots are not deterministic/bounded");
-        check(Json(topology).get<GamepadTopology>().devices.size() == 5,
+        check(Json(topology).get<GamepadTopology>().devices.size() == ids.size(),
               "Copied device observation did not round trip");
         const auto retained = Json(topology);
         for (auto invalid : {Json{{"available", true}}, retained}) {
@@ -169,7 +170,7 @@ void multiple_devices() {
             rejects([&] { from_json(invalid, topology); });
             check(Json(topology) == retained, "Invalid device observation partially applied");
         }
-        for (const Json bad : {Json(true), Json(-1), Json(5), Json(1.5)}) {
+        for (const Json& bad : {Json(true), Json(-1), Json(17), Json(1.5)}) {
             auto request =
                 Json(GamepadAssignment{topology.revision, topology.devices[0].device, 1});
             request["slot"] = bad;
@@ -178,7 +179,7 @@ void multiple_devices() {
             output["slot"] = bad;
             rejects([&] { (void)output.get<GamepadRumble>(); });
         }
-        std::array<ActionId, 4> players, menus;
+        std::array<ActionId, gamepad_slot_limit> players, menus;
         const auto keyboard = ActionId::generate(), legacy = ActionId::generate();
         Json map{
             {"version", 2},
@@ -222,45 +223,47 @@ void multiple_devices() {
         check(press(2, 1100).size() == 1 && pads.active() == ids[1],
               "Legacy switch guard blocked independent player input");
         press(3, 1100);
+        for (std::size_t i = 4; i < ids.size(); ++i)
+            press(i, 1100);
         for (const auto* snapshot : {&input.latch(1), &input.latch_controls(1)})
             for (const auto id : snapshot == &input.snapshot() ? players : menus)
                 check(snapshot->actions.at(id).held && snapshot->actions.at(id).pressed,
                       "Simultaneous players lost held/press edges in a latch domain");
         check(input.snapshot().actions.at(keyboard).held, "Controller switch released keyboard");
-        pads.rumble({.25, .5, 5000, 1});
-        pads.rumble({.5, .25, 5000, 2});
-        pads.rumble({.75, .25, 5000, 4});
+        for (std::uint32_t slot = 1; slot <= gamepad_slot_limit; ++slot)
+            pads.rumble({.25, .5, 5000, slot});
         press(2, 1500);
         check(feedback[0].low != 0 && feedback[1].low != 0 && feedback[3].low != 0,
               "Active alias change stopped another player's indexed feedback");
         topology = pads.snapshot();
-        const GamepadAssignment edit{topology.revision, topology.devices[0].device, 2};
-        feedback[0].fail = true;
+        const GamepadAssignment edit{topology.revision, topology.devices[9].device, 16};
+        feedback[9].fail = true;
         rejects([&] { pads.assign(edit); });
         check(Json(pads.snapshot()) == Json(topology), "Failed native Stop changed assignments");
-        feedback[0].fail = false;
+        feedback[9].fail = false;
         const auto neutral = pads.assign(edit);
         check(neutral.size() == 42, "Assignment did not neutralize both affected slots");
         input.submit(neutral);
         const auto fixed = input.latch(2), control = input.latch_controls(2);
-        for (std::size_t i = 0; i < 4; ++i) {
-            check(fixed.actions.at(players[i]).held == (i >= 2) &&
-                      control.actions.at(menus[i]).held == (i >= 2),
+        for (std::size_t i = 0; i < players.size(); ++i) {
+            const bool unaffected = i != 9 && i != 15;
+            check(fixed.actions.at(players[i]).held == unaffected &&
+                      control.actions.at(menus[i]).held == unaffected,
                   "Assignment neutralized the wrong player or latch domain");
-            if (i < 2)
+            if (!unaffected)
                 check(fixed.actions.at(players[i]).released &&
                           control.actions.at(menus[i]).released,
                       "Assignment did not produce release edges");
         }
-        check(fixed.actions.at(keyboard).held && feedback[0].low == 0 && feedback[1].low == 0 &&
-                  feedback[3].low != 0,
+        check(fixed.actions.at(keyboard).held && feedback[9].low == 0 && feedback[15].low == 0 &&
+                  feedback[0].low != 0 && feedback[1].low != 0 && feedback[3].low != 0,
               "Assignment changed unrelated input or feedback");
         rejects([&] { pads.assign(edit); }); // Revision is now stale.
         SdlGamepads other;
         other.discover();
         rejects([&] { other.assign({other.snapshot().revision, edit.device, 1}); });
         topology = pads.snapshot();
-        check(topology.devices[0].slot == 2 && topology.devices[1].slot == 0,
+        check(topology.devices[9].slot == 16 && topology.devices[15].slot == 0,
               "Occupied logical slot was not transferred");
         SDL_Event removal{};
         removal.type = SDL_EVENT_GAMEPAD_REMOVED;
@@ -286,7 +289,7 @@ void multiple_devices() {
     for (std::size_t i = 0; i < ids.size(); ++i)
         if (i != 2)
             check(SDL_DetachVirtualJoystick(ids[i]), SDL_GetError());
-    // Bound native handle ownership independently of the four logical routes.
+    // Bound native handle ownership even when all logical routes are occupied.
     std::array<Feedback, gamepad_device_limit + 1> capped_feedback;
     std::vector<SDL_JoystickID> capped;
     for (auto& feedback : capped_feedback)

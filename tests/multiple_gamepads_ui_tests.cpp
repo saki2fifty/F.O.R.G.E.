@@ -35,7 +35,8 @@ void widgets(const std::filesystem::path& output, float scale) {
     GameInput input;
     input.pump(play, true);
     const auto initial = input.gamepads();
-    check(initial.devices.size() == 4, "UI fixture did not discover four native virtual devices");
+    check(initial.devices.size() == gamepad_slot_limit,
+          "UI fixture did not discover sixteen native virtual devices");
     {
         ui::style(scale);
         auto frame = [&] {
@@ -82,14 +83,31 @@ void widgets(const std::filesystem::path& output, float scale) {
         const auto slot_control = "gamepad:slot:" + initial.devices[0].device;
         check(test::ui_targets.contains(slot_control), "Assignment popup did not open");
         const auto* popup = ImGui::GetCurrentContext()->OpenPopupStack.back().Window;
-        const auto last = test::ui_targets.at("gamepad:slot:" + initial.devices[3].device);
-        check(popup && popup->Size.y <= last.maximum.y - popup->Pos.y + 40 * scale,
-              "Assignment popup has excessive blank height");
+        check(popup && popup->Pos.y >= 0 && popup->Pos.y + popup->Size.y <= io.DisplaySize.y &&
+                  popup->ScrollMax.y > 0,
+              "Sixteen-controller popup is not bounded and scrollable");
         if (scale == 1) {
             std::filesystem::create_directories(output);
             check(SDL_SavePNG(surface.get(), (output / "gamepad-assignments.png").string().c_str()),
                   SDL_GetError());
         }
+        auto scroll = [&](float amount) {
+            io.AddMousePosEvent(popup->Pos.x + popup->Size.x / 2, popup->Pos.y + popup->Size.y / 2);
+            frame();
+            io.AddMouseWheelEvent(0, amount);
+            frame();
+            frame();
+        };
+        scroll(-100);
+        const auto last_control = "gamepad:slot:" + initial.devices.back().device;
+        click(last_control);
+        key(ImGuiKey_Home);
+        key(ImGuiKey_Enter);
+        check(input.gamepads().devices.back().slot == 0,
+              "Scrolled Player 16 assignment was not reachable by actual input");
+        auto restored = input.gamepads();
+        input.assign_gamepad(play, {restored.revision, restored.devices.back().device, 16});
+        scroll(100);
         const auto motion_control = "gamepad:motion:" + initial.devices[0].device;
         click(motion_control);
         frame();
@@ -123,14 +141,14 @@ void widgets(const std::filesystem::path& output, float scale) {
         click(slot_control);
         key(ImGuiKey_End);
         key(ImGuiKey_Enter);
-        check(input.gamepads().devices[0].slot == 4 && input.gamepads().devices[3].slot == 0,
-              "Keyboard assignment did not transfer occupied Player 4 slot");
+        check(input.gamepads().devices[0].slot == 16 && input.gamepads().devices.back().slot == 0,
+              "Keyboard assignment did not transfer occupied Player 16 slot");
         key(ImGuiKey_Escape);
         // Reset via the same owner for the next scale; no raw handle edits.
         auto devices = input.gamepads();
         input.assign_gamepad(play, {devices.revision, devices.devices[0].device, 1});
         devices = input.gamepads();
-        input.assign_gamepad(play, {devices.revision, devices.devices[3].device, 4});
+        input.assign_gamepad(play, {devices.revision, devices.devices.back().device, 16});
     }
 }
 } // namespace
@@ -154,7 +172,7 @@ int main(int argc, char** argv) {
         device.nsensors = 2;
         device.sensors = sensors.data();
         device.SetSensorsEnabled = [](void*, bool) { return true; };
-        for (unsigned player = 0; player < 4; ++player)
+        for (unsigned player = 0; player < gamepad_slot_limit; ++player)
             check(SDL_AttachVirtualJoystick(&device) != 0, SDL_GetError());
         for (float scale : {1.f, 1.5f, 2.f})
             widgets(std::filesystem::absolute(argv[1]), scale);

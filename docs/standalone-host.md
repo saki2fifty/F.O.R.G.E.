@@ -99,7 +99,7 @@ UI coordinates convert client coordinates to output pixels; gameplay deltas use
 saved sensitivity. Focus loss and UI key consumption release held gameplay state.
 Existing action bindings, including user overrides, feed the fixed-tick consumer.
 UI Pause/Resume/Step use the validated command gate. The shared SdlGamepads owner
-routes four logical controller slots plus the legacy active alias. GameHostControls
+routes sixteen logical controller slots plus the legacy active alias. GameHostControls
 delegates cursor, input contexts, rebind/settings and scene/save Game requests to
 their existing owners. Copied controller observations and revision-checked transient
 assignment use that same SDL owner; per-slot feedback requires window focus.

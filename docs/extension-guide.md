@@ -719,7 +719,7 @@ haptic data are supplied. No new SDK C callback/layout is needed.
 
 ## Local controller slots
 
-Bind independent actions to `pad.1.*` through `pad.4.*`; `pad.*` remains the
+Bind independent actions to `pad.1.*` through `pad.16.*`; `pad.*` remains the
 active-controller alias. Sticks range -1..1 and triggers0..1. Pair both axes of
 one indexed stick for radial conditioning. Game/user input defaults can replace
 the binding's inner deadzone. `Client::action` copies current fixed-domain
@@ -736,10 +736,11 @@ receipt; replace the example revision/token with the current query values and
 refresh on stale revision/connection or failure. An occupied
 slot is displaced. The host stops only affected feedback and neutralizes old/new
 logical input. Global focus/capture resets still release all input. Assignments
-last for the host session; new connections fill the lowest free slot. Slots1..4
-and 16 tracked connections are bounded. No per-player UI-focus or sensors API.
+last for the host session; new connections fill the lowest free slot. Slots1..16
+and16 tracked connections are bounded. No per-player UI-focus system is implied.
+Raw sensor access is described under Controller motion.
 
-Rumble accepts optional `slot` 1..4; omitted/0 targets the active alias. Zero
+Rumble accepts optional `slot` 1..16; omitted/0 targets the active alias. Zero
 strengths with an indexed slot stop that device; an untargeted zero stops all
 owned feedback. Native support/focus/routing still determine success. SDK Play
 uses its existing correlated platform offer/ack lifecycle for assignment/output;
@@ -747,8 +748,9 @@ no callback/table/layout change is required.
 
 Installed `multiple_gamepads_gameplay` builds `multiple_gamepads_probe.cpp` and
 the original `MultipleGamepads.cpp` as module `project.multiple_gamepads`.
-It needs `forge.input` and `forge.transforms`. Its four ActionIds and scoped
-marker references match Gallery92. Each marker moves at three world units per
+It needs `forge.input` and `forge.transforms`. Its saved ActionIds and scoped
+marker references match Gallery92 and149; ControllerSlots.hpp carries the latter
+scene's authored identities. Keep that header beside MultipleGamepads.cpp. Each marker moves at three world units per
 second times its conditioned action vector, bounded to X±7/Y±4. The module uses
 ordinary authored transforms in the runtime copy; it adds no authored schema.
 Build/install the matching module kit and use current code when exporting.

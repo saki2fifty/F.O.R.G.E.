@@ -56,7 +56,7 @@ int main(int argc, char** argv) {
                 {{SDL_SENSOR_ACCEL, 100}, {SDL_SENSOR_GYRO, 200}}};
             device.sensors = sensors.data();
             device.SetSensorsEnabled = [](void*, bool) { return true; };
-            for (unsigned player = 0; player < 5; ++player) {
+            for (unsigned player = 0; player < forge::gamepad_device_limit; ++player) {
                 device.nsensors = player == 4 ? 0 : 2;
                 if (!SDL_AttachVirtualJoystick(&device))
                     throw std::runtime_error(SDL_GetError());

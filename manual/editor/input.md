@@ -44,23 +44,25 @@ For a two-dimensional movement action, use four bindings:
 
 Continuous axes are clamped; two-dimensional continuous input is normalized if its length exceeds one. Relative mouse deltas are not normalized. Mouse delta units are SDL motion units, and wheel values are scroll units; they are not automatically multiplied by frame time.
 
-Gamepad sticks range from -1 to 1; triggers range from 0 to 1. Set **deadzone**, such as `0.2`, to ignore small stick movement; the remaining range is rescaled. Use **pad.1.** through **pad.4.** controls for independent players. The shorter **pad.** controls follow one active controller: a deliberate button press or strong stick movement on another controller selects it after a short guard. C++ can request bounded controller vibration. Raw accelerometer and gyroscope support is described under Controller motion.
+Gamepad sticks range from -1 to 1; triggers range from 0 to 1. Set **deadzone**, such as `0.2`, to ignore small stick movement; the remaining range is rescaled. Use **pad.1.** through **pad.16.** controls for independent players. The shorter **pad.** controls follow one active controller: a deliberate button press or strong stick movement on another controller selects it after a short guard. C++ can request bounded controller vibration. Raw accelerometer and gyroscope support is described under Controller motion.
 
 ## Assign local controllers
 
-![Gamepad assignments showing four controllers mapped to Players 1 through 4](../images/gamepad-assignments.png)
+![Scrollable gamepad assignments with sixteen numbered player slots](../images/gamepad-assignments.png)
 
 Choose a player slot beside each connected controller.
 
 1. Connect your controllers. In the **Game** panel, click **Gamepads...**.
-2. Choose **Player 1**, **Player 2**, **Player 3** or **Player 4** beside each controller. New connections fill the lowest free slot automatically. Choosing an occupied slot unassigns its previous controller.
+2. Choose a slot from **Player 1** through **Player 16** beside each controller. Scroll the list to reach additional controllers. New connections fill the lowest free slot automatically. Choosing an occupied slot unassigns its previous controller.
 3. Choose **Unassigned** for a controller that should not supply a numbered player. It can still become the active controller for shorter **pad.** bindings.
 4. In **Project Settings**, bind each player's actions to its numbered controls, such as **pad.2.left_x** and **pad.2.left_y**. Use matching radial deadzones on both stick axes. Click **Save Settings**.
 5. Close the popup, start Play, click **Capture gameplay input**, and test each player's actions in Console. Opening editor popups releases gameplay input; capture again before testing.
 
-Disconnecting a controller releases its player's controls. Reassignment starts neutral and needs fresh input. The other numbered slots remain independent. Assignments last for the current host session; projects save action bindings, not connected-device identities. An exported game makes its own assignments as controllers connect. C++ menus can read and change those assignments through the Game service. Four numbered slots and up to sixteen connected controllers are supported; additional tracked controllers are unassigned.
+Disconnecting a controller releases its player's controls. Reassignment starts neutral and needs fresh input. The other numbered slots remain independent. Assignments last for the current host session; projects save action bindings, not connected-device identities. An exported game makes its own assignments as controllers connect. C++ menus can read and change those assignments through the Game service. Sixteen numbered slots and up to sixteen connected controllers are supported. Controllers beyond that connection limit are not tracked.
 
-For a visible example, open **Scenes/92-multiple-gamepads.scene.json** in a writable Feature Gallery copy. It has four colored player markers and matching input actions. Build/register **CodeExamples/MultipleGamepads.cpp** with `forge_register_system_MultipleGamepads`, or build the matching SDK's `multiple_gamepads_gameplay` sample target. Move each marker with its player's left stick. Without that optional code, the markers stay still and Console can still show the actions. Save Settings and Scene, select it as startup, build current code, then export and test with your controllers.
+For a four-player example, open **Scenes/92-multiple-gamepads.scene.json** in a writable Feature Gallery copy. It has four colored player markers and matching input actions. Build/register **CodeExamples/MultipleGamepads.cpp** with `forge_register_system_MultipleGamepads`, or build the matching SDK's `multiple_gamepads_gameplay` sample target. Move each marker with its player's left stick. Without that optional code, the markers stay still and Console can still show the actions. Save Settings and Scene, select it as startup, build current code, then export and test with your controllers.
+
+For sixteen players, open **Scenes/149-sixteen-controllers.scene.json**. Its four rows of markers use **Player 1 move** through **Player 16 move** in Project Settings. The same optional **CodeExamples/MultipleGamepads.cpp** handles both examples; keep **ControllerSlots.hpp** beside it when copying the code. The installed **multiple_gamepads_gameplay** sample includes both files. Use **Gamepads...** to move one connected controller between high numbered slots while testing, or connect multiple controllers to move markers independently. Save the Scene and Settings, choose this scene as startup, and build the matching code before exporting.
 
 ## Controller motion
 
