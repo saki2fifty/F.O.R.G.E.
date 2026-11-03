@@ -8,6 +8,7 @@
 #include "search.hpp"
 #include <SDL3/SDL.h>
 #include <array>
+#include <cfloat>
 #include <cmath>
 #include <cstdint>
 #include <forge/engine_assets.hpp>
@@ -442,6 +443,8 @@ inline bool property_collection(const std::filesystem::path& root, const Json& f
             }
         }
         ImGui::EndDisabled();
+        // Leave room for the collapsed struct heading and its editable fields.
+        ImGui::SetNextWindowSizeConstraints({24 * ImGui::GetFontSize(), 0}, {FLT_MAX, FLT_MAX});
         if (ImGui::BeginPopup("New collection item")) {
             auto found = drafts.find(id);
             if (found != drafts.end()) {
@@ -539,6 +542,7 @@ inline bool property_field_body(const std::filesystem::path& root, const Json& f
     const auto label = "##" + property_label(field);
     if (type == "struct" || type == "array" || type == "vector") {
         const bool open = ImGui::TreeNode(visible_label.c_str());
+        FORGE_UI_PROBE("property-tree:" + field.at("id").get<std::string>());
         ui::help(
             field
                 .value("description", std::string("Expand this reflected value. Changes use the "
@@ -687,6 +691,7 @@ inline bool property_field_body(const std::filesystem::path& root, const Json& f
     } else
         ImGui::TextWrapped("%s: unsupported reflected type %s (read only)", label.c_str(),
                            type.c_str());
+    FORGE_UI_PROBE("property-value:" + field.at("id").get<std::string>());
     auto description =
         field.value("description", std::string{}) +
         (commit_on_enter ? " Numeric/text edits commit with Enter."

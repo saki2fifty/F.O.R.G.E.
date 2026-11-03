@@ -24,6 +24,7 @@ ATLAS_ONLY = "--atlas-only" in sys.argv[5:]
 SPRITE_GRAPH_ONLY = "--sprite-graph-only" in sys.argv[5:]
 NAVIGATION_BEHAVIOR_ONLY = "--navigation-behavior-only" in sys.argv[5:]
 UI_LOCALIZATION_ONLY = "--ui-localization-only" in sys.argv[5:]
+UI_VALUES_ONLY = "--ui-values-only" in sys.argv[5:]
 APPLICATION_STATES_ONLY = "--application-states-only" in sys.argv[5:]
 
 
@@ -158,8 +159,10 @@ for legacy in (False, True):
             kinds = [kind for kind in kinds if kind['editor'] == 'ui_localization']
         if APPLICATION_STATES_ONLY:
             kinds = [kind for kind in kinds if kind['editor'] == 'application_states']
+        if UI_VALUES_ONLY:
+            kinds = [kind for kind in kinds if kind['editor'] == 'animation_timeline']
         atlas_image = None
-        if not COLLISION_ONLY and not SPRITE_GRAPH_ONLY and not NAVIGATION_BEHAVIOR_ONLY and not UI_LOCALIZATION_ONLY and not APPLICATION_STATES_ONLY:
+        if not COLLISION_ONLY and not SPRITE_GRAPH_ONLY and not NAVIGATION_BEHAVIOR_ONLY and not UI_LOCALIZATION_ONLY and not APPLICATION_STATES_ONLY and not UI_VALUES_ONLY:
             # Original owned raster, imported only through the advertised MCP
             # settings/publication workflow; no catalog fixture injection.
             header = bytearray(18)
@@ -494,116 +497,142 @@ for legacy in (False, True):
                 # Syntax/source ownership here; native target admission is covered by
                 # animation_component with the actual reflected C++ component.
                 original = content(owner)
-                clip = json.loads(json.dumps(original))
-                clip['version'] = 6
-                clip['component_bindings'] = [dict(component='project.motion', field='speed',
-                    admission=dict(format='forge.authored-component', version=1,
-                                   module='project.motion', schema_version=1, digest='a' * 64))]
-                for row in clip['keys']:
-                    row['component_values'] = [dict(component='project.motion', field='speed',
-                                                    value=90, curve=dict(interpolation='cubic', incoming=0, outgoing=0))]
-                old = status(owner)
+                if UI_VALUES_ONLY:
+                    collections = original
+                else:
+                    clip = json.loads(json.dumps(original))
+                    clip['version'] = 6
+                    clip['component_bindings'] = [dict(component='project.motion', field='speed',
+                        admission=dict(format='forge.authored-component', version=1,
+                                       module='project.motion', schema_version=1, digest='a' * 64))]
+                    for row in clip['keys']:
+                        row['component_values'] = [dict(component='project.motion', field='speed',
+                                                        value=90, curve=dict(interpolation='cubic', incoming=0, outgoing=0))]
+                    old = status(owner)
+                    assert edit('forge_asset_document_patch', owner,
+                                patch=[dict(op='replace', path='', value=clip)])['ok']
+                    assert content(owner) == clip
+                    admitted = status(owner)
+                    invalid = edit('forge_asset_document_patch', owner,
+                                   patch=[dict(op='replace', path='/keys/0/component_values/0/value', value='invalid')])
+                    assert not invalid['ok']
+                    assert content(owner) == clip and status(owner)['revision'] == admitted['revision']
+                    failed(mutate('forge_asset_document_patch', editor=owner,
+                                  document_session=old['session'], document_revision=old['revision'],
+                                  patch=[dict(op='replace', path='', value=original)]), 'stale_document')
+                    assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == original
+                    assert edit('forge_asset_document_redo', owner)['ok'] and content(owner) == clip
+                    typed = json.loads(json.dumps(clip))
+                    typed['version'] = 7
+                    typed['component_bindings'][0]['value_type'] = 'scalar'
+                    discrete = [('enabled', 'bool', False), ('marker', 'int64', -(1 << 63)),
+                                ('score', 'uint64', (1 << 64) - 1)]
+                    for field_name, value_kind, initial_value in discrete:
+                        typed['component_bindings'].append(dict(component='project.motion', field=field_name,
+                            value_type=value_kind, admission=clip['component_bindings'][0]['admission']))
+                        for row in typed['keys']:
+                            row['component_values'].append(dict(component='project.motion', field=field_name,
+                                                                 value=initial_value))
+                    assert edit('forge_asset_document_patch', owner,
+                                patch=[dict(op='replace', path='', value=typed)])['ok']
+                    assert content(owner) == typed
+                    typed_state = status(owner)
+                    for index, invalid_value in [(1, 1), (2, 1.25), (2, 1 << 63), (3, -1)]:
+                        invalid = edit('forge_asset_document_patch', owner,
+                                       patch=[dict(op='replace', path=f'/keys/0/component_values/{index}/value', value=invalid_value)])
+                        assert not invalid['ok'], invalid
+                        assert content(owner) == typed and status(owner)['revision'] == typed_state['revision']
+                    invalid = edit('forge_asset_document_patch', owner,
+                                   patch=[dict(op='add', path='/keys/0/component_values/1/curve',
+                                               value=dict(interpolation='linear', incoming=0, outgoing=0))])
+                    assert not invalid['ok'] and content(owner) == typed
+                    failed(mutate('forge_asset_document_patch', editor=owner,
+                                  document_session=admitted['session'], document_revision=admitted['revision'],
+                                  patch=[dict(op='replace', path='', value=clip)]), 'stale_document')
+                    assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == clip
+                    assert edit('forge_asset_document_redo', owner)['ok'] and content(owner) == typed
+                    nested = json.loads(json.dumps(typed))
+                    nested['version'] = 8
+                    for leaf_name, value_kind, initial_value in [('speed', 'scalar', 30),
+                            ('enabled', 'bool', False), ('score', 'uint64', (1 << 64) - 1)]:
+                        nested['component_bindings'].append(dict(component='project.motion',
+                            field='settings', member_path=[leaf_name], value_type=value_kind,
+                            admission=clip['component_bindings'][0]['admission']))
+                        for row in nested['keys']:
+                            row['component_values'].append(dict(component='project.motion',
+                                field='settings', member_path=[leaf_name], value=initial_value))
+                    assert edit('forge_asset_document_patch', owner,
+                                patch=[dict(op='replace', path='', value=nested)])['ok']
+                    assert content(owner) == nested
+                    nested_state = status(owner)
+                    for patch_path, bad_value in [('/component_bindings/4/member_path', 'speed'),
+                            ('/component_bindings/4/member_path', ['']),
+                            ('/component_bindings/4/member_path', ['speed'] * 17),
+                            ('/keys/0/component_values/4/member_path', ['missing']),
+                            ('/keys/0/component_values/5/value', 1)]:
+                        invalid = edit('forge_asset_document_patch', owner,
+                            patch=[dict(op='replace', path=patch_path, value=bad_value)])
+                        assert not invalid['ok'], invalid
+                        assert content(owner) == nested and status(owner)['revision'] == nested_state['revision']
+                    failed(mutate('forge_asset_document_patch', editor=owner,
+                        document_session=typed_state['session'], document_revision=typed_state['revision'],
+                        patch=[dict(op='replace', path='', value=typed)]), 'stale_document')
+                    assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == typed
+                    assert edit('forge_asset_document_redo', owner)['ok'] and content(owner) == nested
+                    collections = json.loads(json.dumps(nested))
+                    collections['version'] = 9
+                    for tail, value_kind, initial_value in [([dict(index=0), 'speed'], 'scalar', 45),
+                            ([dict(key=['left', 'speed']), 'marker'], 'uint64', (1 << 64) - 1),
+                            ([dict(key='right'), 'enabled'], 'bool', False)]:
+                        collections['component_bindings'].append(dict(component='project.motion',
+                            field='entries', element_path=tail, value_type=value_kind,
+                            admission=clip['component_bindings'][0]['admission']))
+                        for row in collections['keys']:
+                            row['component_values'].append(dict(component='project.motion',
+                                field='entries', element_path=tail, value=initial_value))
+                    assert edit('forge_asset_document_patch', owner,
+                        patch=[dict(op='replace', path='', value=collections)])['ok']
+                    assert content(owner) == collections
+                    collection_state = status(owner)
+                    for patch_path, bad_value in [('/component_bindings/7/element_path', ['speed']),
+                            ('/component_bindings/7/element_path', [dict(index=-1)]),
+                            ('/component_bindings/7/element_path', [dict(index=1.25)]),
+                            ('/component_bindings/7/element_path', [dict(index=4096)]),
+                            ('/component_bindings/7/element_path', [dict(index=0, key='left')]),
+                            ('/component_bindings/8/element_path', [dict(key=['left'])]),
+                            ('/keys/0/component_values/7/element_path', [dict(index=1), 'speed'])]:
+                        invalid = edit('forge_asset_document_patch', owner,
+                            patch=[dict(op='replace', path=patch_path, value=bad_value)])
+                        assert not invalid['ok'], invalid
+                        assert content(owner) == collections and status(owner)['revision'] == collection_state['revision']
+                    failed(mutate('forge_asset_document_patch', editor=owner,
+                        document_session=nested_state['session'], document_revision=nested_state['revision'],
+                        patch=[dict(op='replace', path='', value=nested)]), 'stale_document')
+                    assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == nested
+                    assert edit('forge_asset_document_redo', owner)['ok'] and content(owner) == collections
+                declaration = next(row for row in discovery()['result']['schema']['components'] if row['id'] == 'forge.ui_values')
+                assert declaration['admission']['format'] == 'forge.builtin-component'
+                named = json.loads(json.dumps(collections))
+                named['version'] = 9
+                named['channels'] = []
+                named['component_bindings'] = [dict(component='forge.ui_values', field='values',
+                    element_path=[dict(key='amount'), 'value'], value_type='scalar', admission=declaration['admission'])]
+                for keyframe in named['keys']:
+                    keyframe['component_values'] = [dict(component='forge.ui_values', field='values',
+                        element_path=[dict(key='amount'), 'value'], value=.25)]
+                before_named = status(owner)
                 assert edit('forge_asset_document_patch', owner,
-                            patch=[dict(op='replace', path='', value=clip)])['ok']
-                assert content(owner) == clip
-                admitted = status(owner)
+                    patch=[dict(op='replace', path='', value=named)])['ok']
+                assert content(owner) == named
+                named_state = status(owner)
                 invalid = edit('forge_asset_document_patch', owner,
-                               patch=[dict(op='replace', path='/keys/0/component_values/0/value', value='invalid')])
-                assert not invalid['ok']
-                assert content(owner) == clip and status(owner)['revision'] == admitted['revision']
+                    patch=[dict(op='replace', path='/component_bindings/0/admission/format', value='forge.invalid-component')])
+                assert not invalid['ok'] and content(owner) == named and status(owner)['revision'] == named_state['revision']
                 failed(mutate('forge_asset_document_patch', editor=owner,
-                              document_session=old['session'], document_revision=old['revision'],
-                              patch=[dict(op='replace', path='', value=original)]), 'stale_document')
-                assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == original
-                assert edit('forge_asset_document_redo', owner)['ok'] and content(owner) == clip
-                typed = json.loads(json.dumps(clip))
-                typed['version'] = 7
-                typed['component_bindings'][0]['value_type'] = 'scalar'
-                discrete = [('enabled', 'bool', False), ('marker', 'int64', -(1 << 63)),
-                            ('score', 'uint64', (1 << 64) - 1)]
-                for field_name, value_kind, initial_value in discrete:
-                    typed['component_bindings'].append(dict(component='project.motion', field=field_name,
-                        value_type=value_kind, admission=clip['component_bindings'][0]['admission']))
-                    for row in typed['keys']:
-                        row['component_values'].append(dict(component='project.motion', field=field_name,
-                                                             value=initial_value))
-                assert edit('forge_asset_document_patch', owner,
-                            patch=[dict(op='replace', path='', value=typed)])['ok']
-                assert content(owner) == typed
-                typed_state = status(owner)
-                for index, invalid_value in [(1, 1), (2, 1.25), (2, 1 << 63), (3, -1)]:
-                    invalid = edit('forge_asset_document_patch', owner,
-                                   patch=[dict(op='replace', path=f'/keys/0/component_values/{index}/value', value=invalid_value)])
-                    assert not invalid['ok'], invalid
-                    assert content(owner) == typed and status(owner)['revision'] == typed_state['revision']
-                invalid = edit('forge_asset_document_patch', owner,
-                               patch=[dict(op='add', path='/keys/0/component_values/1/curve',
-                                           value=dict(interpolation='linear', incoming=0, outgoing=0))])
-                assert not invalid['ok'] and content(owner) == typed
-                failed(mutate('forge_asset_document_patch', editor=owner,
-                              document_session=admitted['session'], document_revision=admitted['revision'],
-                              patch=[dict(op='replace', path='', value=clip)]), 'stale_document')
-                assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == clip
-                assert edit('forge_asset_document_redo', owner)['ok'] and content(owner) == typed
-                nested = json.loads(json.dumps(typed))
-                nested['version'] = 8
-                for leaf_name, value_kind, initial_value in [('speed', 'scalar', 30),
-                        ('enabled', 'bool', False), ('score', 'uint64', (1 << 64) - 1)]:
-                    nested['component_bindings'].append(dict(component='project.motion',
-                        field='settings', member_path=[leaf_name], value_type=value_kind,
-                        admission=clip['component_bindings'][0]['admission']))
-                    for row in nested['keys']:
-                        row['component_values'].append(dict(component='project.motion',
-                            field='settings', member_path=[leaf_name], value=initial_value))
-                assert edit('forge_asset_document_patch', owner,
-                            patch=[dict(op='replace', path='', value=nested)])['ok']
-                assert content(owner) == nested
-                nested_state = status(owner)
-                for patch_path, bad_value in [('/component_bindings/4/member_path', 'speed'),
-                        ('/component_bindings/4/member_path', ['']),
-                        ('/component_bindings/4/member_path', ['speed'] * 17),
-                        ('/keys/0/component_values/4/member_path', ['missing']),
-                        ('/keys/0/component_values/5/value', 1)]:
-                    invalid = edit('forge_asset_document_patch', owner,
-                        patch=[dict(op='replace', path=patch_path, value=bad_value)])
-                    assert not invalid['ok'], invalid
-                    assert content(owner) == nested and status(owner)['revision'] == nested_state['revision']
-                failed(mutate('forge_asset_document_patch', editor=owner,
-                    document_session=typed_state['session'], document_revision=typed_state['revision'],
-                    patch=[dict(op='replace', path='', value=typed)]), 'stale_document')
-                assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == typed
-                assert edit('forge_asset_document_redo', owner)['ok'] and content(owner) == nested
-                collections = json.loads(json.dumps(nested))
-                collections['version'] = 9
-                for tail, value_kind, initial_value in [([dict(index=0), 'speed'], 'scalar', 45),
-                        ([dict(key=['left', 'speed']), 'marker'], 'uint64', (1 << 64) - 1),
-                        ([dict(key='right'), 'enabled'], 'bool', False)]:
-                    collections['component_bindings'].append(dict(component='project.motion',
-                        field='entries', element_path=tail, value_type=value_kind,
-                        admission=clip['component_bindings'][0]['admission']))
-                    for row in collections['keys']:
-                        row['component_values'].append(dict(component='project.motion',
-                            field='entries', element_path=tail, value=initial_value))
-                assert edit('forge_asset_document_patch', owner,
-                    patch=[dict(op='replace', path='', value=collections)])['ok']
-                assert content(owner) == collections
-                collection_state = status(owner)
-                for patch_path, bad_value in [('/component_bindings/7/element_path', ['speed']),
-                        ('/component_bindings/7/element_path', [dict(index=-1)]),
-                        ('/component_bindings/7/element_path', [dict(index=1.25)]),
-                        ('/component_bindings/7/element_path', [dict(index=4096)]),
-                        ('/component_bindings/7/element_path', [dict(index=0, key='left')]),
-                        ('/component_bindings/8/element_path', [dict(key=['left'])]),
-                        ('/keys/0/component_values/7/element_path', [dict(index=1), 'speed'])]:
-                    invalid = edit('forge_asset_document_patch', owner,
-                        patch=[dict(op='replace', path=patch_path, value=bad_value)])
-                    assert not invalid['ok'], invalid
-                    assert content(owner) == collections and status(owner)['revision'] == collection_state['revision']
-                failed(mutate('forge_asset_document_patch', editor=owner,
-                    document_session=nested_state['session'], document_revision=nested_state['revision'],
-                    patch=[dict(op='replace', path='', value=nested)]), 'stale_document')
-                assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == nested
-                assert edit('forge_asset_document_redo', owner)['ok'] and content(owner) == collections
+                    document_session=before_named['session'], document_revision=before_named['revision'],
+                    patch=[dict(op='replace', path='', value=collections)]), 'stale_document')
+                assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == collections
+                assert edit('forge_asset_document_redo', owner)['ok'] and content(owner) == named
             if owner == 'tile_map':
                 failed(edit('forge_asset_document_tile_collision', owner, tile=1, collision=dict(kind='none')), 'invalid_arguments')
                 cells = [dict(layer=1, x=-33, y=64, tile=7, flags=0), dict(layer=1, x=0, y=0, tile=0)]
@@ -716,7 +745,7 @@ for legacy in (False, True):
             assert json.loads((root/'Game/Assets/McpTree.behavior.json').read_text())['nodes'] == tree['nodes']
             assert edit('forge_asset_document_close', owner, discard=True)['ok']
 
-        if COLLISION_ONLY or ATLAS_ONLY or SPRITE_GRAPH_ONLY or NAVIGATION_BEHAVIOR_ONLY or UI_LOCALIZATION_ONLY or APPLICATION_STATES_ONLY:
+        if COLLISION_ONLY or ATLAS_ONLY or SPRITE_GRAPH_ONLY or NAVIGATION_BEHAVIOR_ONLY or UI_LOCALIZATION_ONLY or APPLICATION_STATES_ONLY or UI_VALUES_ONLY:
             continue
 
         # Typed importer settings use the shared draft, schema and native worker.

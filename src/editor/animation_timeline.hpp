@@ -944,16 +944,15 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
                     for (std::size_t i = 0; i < clip_->component_bindings.size(); ++i) {
                         const auto& binding = clip_->component_bindings[i];
                         const auto& value = row.at("components").at(binding.component);
-                        if (value.value("$forge", Json()) != binding.admission)
-                            throw std::runtime_error(
-                                "Component animation target schema has changed");
                         const auto& types = schema.at("components");
                         const auto type =
                             std::find_if(types.begin(), types.end(), [&](const auto& declaration) {
                                 return declaration.at("id") == binding.component;
                             });
-                        if (type == types.end())
-                            throw std::runtime_error("Animated component is unavailable");
+                        if (type == types.end() || !animation_component_matches(*type, value) ||
+                            type->at("admission") != binding.admission)
+                            throw std::runtime_error(
+                                "Animated component schema is unavailable or changed");
                         captured_components.at(i) =
                             value.at(animation_component_pointer(*type, value, binding));
                     }
@@ -1198,7 +1197,8 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
         if (!open)
             return;
         ui::help(
-            "Animate editable scalar fields on the chosen object's C++ components. Floats "
+            "Animate editable scalar fields on the chosen object's C++ components and UI Values. "
+            "Floats "
             "interpolate; Boolean, integer and enum values hold until the next key. Fields "
             "require their matching inspected schema. Struct and collection leaves are supported. "
             "Indexed entries follow their position; keyed entries follow their declared key.");
@@ -1228,8 +1228,7 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
         const auto schema = scene.schema();
         for (const auto& type : schema.at("components")) {
             const auto key = type.at("id").get<std::string>();
-            if (!type.value("custom", false) || !components.contains(key) ||
-                components.at(key).value("$forge", Json()) != type.at("admission"))
+            if (!components.contains(key) || !animation_component_matches(type, components.at(key)))
                 continue;
             for (const auto& binding : animation_component_fields(type, &components.at(key))) {
                 if (std::find(clip_->component_bindings.begin(), clip_->component_bindings.end(),

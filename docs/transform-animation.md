@@ -291,12 +291,15 @@ requiring a matching module rebuild without a scene/clip stamp migration.
 
 The current target profile admits editable root and nested struct-leaf float32/float64, Boolean
 and signed/unsigned integer fields, including their declared enum/bitmask domains,
-of an existing opt-in authored C++ component. It verifies the exact admission stamp,
+of an existing opt-in authored C++ component or an explicitly admitted builtin
+(initially UI Values). It verifies the exact admission stamp,
 field presence, read-only policy and reflected member domain, including all cubic
 extrema for continuous fields and every keyed value for discrete fields. The shared
 reflection validator admits native widths/ranges/choices; discrete values never
 pass through double. Editable fixed-array and admitted native Meta vector leaves are supported. UI/DOM
-properties and arbitrary project opaque C++ containers remain unsupported. AuthoredCodec remains the native owner: read current complete state,
+property paths and arbitrary project opaque C++ containers remain unsupported.
+UI Values supplies numeric model inputs through existing keyed tracks, not DOM
+property paths. AuthoredCodec remains the native owner for project C++ values: read current complete state,
 replace the selected leaf values, clone the current native value through its
 copy hooks and stage only differing members recursively,
 then apply only after every transform/property/material/component candidate is
@@ -594,7 +597,7 @@ or undeclared values, and property syntax in versions1/2 reject explicitly.
 
 These typed built-in bindings use current native Camera/Light/AudioSource/ParticleEmitter members
 and existing scalar/domain validators. They retain fixed builtin IDs; named Material and reflected component fields use
-separate binding lists in the same clip. UI/DOM bindings remain unsupported. Sprite frame support appends a binding to the public property arrays,
+separate binding lists in the same clip. UI Values uses reflected component bindings; arbitrary UI/DOM property paths remain unsupported. Sprite frame support appends a binding to the public property arrays,
 changing the exact SDK fingerprint; native modules need a matching SDK rebuild.
 ABI1 callback tables remain unchanged.
 Version3 introduced these property values; version4 adds scalar curves. New

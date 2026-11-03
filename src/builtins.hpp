@@ -11,6 +11,7 @@
 #include <forge/reflection_probe.hpp>
 #include <forge/render_components.hpp>
 #include <forge/ui_components.hpp>
+#include <forge/ui_values.hpp>
 #include <forge/world.hpp>
 #include <optional>
 #include <variant>
@@ -22,10 +23,10 @@ using Value =
                  AudioListener, Animator, TransformAnimator, AnimationSequence, CameraShot,
                  TwoBoneIK, AimIK, NavigationSurface, NavigationLink, NavigationRegion2D,
                  NavigationObstacle, NavigationBehavior, NavigationAgent, NavigationAvoidance,
-                 UiDocument, UiLocalization, ApplicationStates, ApplicationStateGate, InputMessage,
-                 MeshRenderer, ModelSource, Camera, Light, NodeVisibility, NodeSelectability,
-                 ParticleEmitter, AudioCue, SpriteRenderer, TileMapRenderer, PhysicsBody2D,
-                 BoxCollider2D, CircleCollider2D, CapsuleCollider2D, PhysicsJoint2D,
+                 UiDocument, UiLocalization, UiValues, ApplicationStates, ApplicationStateGate,
+                 InputMessage, MeshRenderer, ModelSource, Camera, Light, NodeVisibility,
+                 NodeSelectability, ParticleEmitter, AudioCue, SpriteRenderer, TileMapRenderer,
+                 PhysicsBody2D, BoxCollider2D, CircleCollider2D, CapsuleCollider2D, PhysicsJoint2D,
                  TileMapCollider2D, ReflectionProbe, DecalProjector>;
 inline constexpr std::size_t builtin_count = std::variant_size_v<Value>;
 struct Builtin {

@@ -16,6 +16,8 @@ struct RuntimePropertyTune {
     static bool state_condition_property(std::string_view property) {
         return property == "enabled" || property == "domain" || property == "state";
     }
+    static bool ui_values_type(std::string_view type) { return type == "forge.ui_values"; }
+    static bool ui_values_property(std::string_view property) { return property == "values"; }
     static bool ui_localization_type(std::string_view type) {
         return type == "forge.ui_localization";
     }

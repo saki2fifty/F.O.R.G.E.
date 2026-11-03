@@ -1,10 +1,13 @@
 #pragma once
 #include "authored_component.hpp"
+#include "builtins.hpp"
 #include <forge/transform_animation.hpp>
 #include <forge/world.hpp>
 
 namespace forge {
 // Shared detached-value admission for native playback and copied editor preview.
+// Builtins explicitly opt in with a reflected stamp; authored values also carry $forge.
+bool animation_component_matches(const nlohmann::json& declaration, const nlohmann::json& current);
 std::optional<AnimationComponentValueType>
 animation_component_field_type(const nlohmann::json& field);
 bool animation_component_field_supported(const nlohmann::json& field);
@@ -27,6 +30,10 @@ struct AnimationComponentCandidate {
     const detail::AuthoredCodec* codec;
     std::optional<detail::ReflectedCandidate> value;
     nlohmann::json patch;
+    const detail::Builtin* builtin = nullptr;
+    std::optional<detail::Value> builtin_value;
+    std::string key() const;
+    void apply(flecs::entity) const;
 };
 std::vector<AnimationComponentCandidate> prepare_animation_components(WorldContext&, flecs::entity,
                                                                       const TransformAnimationClip&,

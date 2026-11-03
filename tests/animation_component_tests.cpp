@@ -226,7 +226,7 @@ void padding_updates() {
               entity.get<PaddedOwnedState>().counter == 73,
           "Detached native update mutated its source");
     for (const auto& candidate : prepared)
-        candidate.codec->apply(entity, candidate.value);
+        candidate.apply(entity);
     near(entity.get<PaddedOwnedState>().speed, 240);
     check(entity.get<PaddedOwnedState>().counter == 73 &&
               entity.get<PaddedOwnedState>().label == state.label,

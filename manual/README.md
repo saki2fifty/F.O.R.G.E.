@@ -77,6 +77,7 @@ content may differ; use **Window** to open a panel mentioned in a guide.
 - [Create patrol, wait and chase graphs and behavior trees](editor/navigation-behavior.md)
 - [Audio: import, preview, filters, echo, reverb, mixing and music/UI pause](editor/audio.md)
 - [Runtime UI: HUDs, menus, transitions and keyframe animation](editor/runtime-ui.md)
+- [Animate named UI values with a Scene sequence](editor/sequence-ui.md)
 - [Translate a game's menus and HUD](editor/ui-localization.md)
 - [Flecs Script](editor/flecs-script.md)
 

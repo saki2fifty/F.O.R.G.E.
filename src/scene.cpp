@@ -795,9 +795,13 @@ Json Scene::tune_runtime_property(const std::string& entity_id, const std::strin
                probe = RuntimePropertyTune::probe_type(type_key),
                decal = RuntimePropertyTune::decal_type(type_key),
                light = RuntimePropertyTune::light_type(type_key),
+               ui_values = RuntimePropertyTune::ui_values_type(type_key),
                localization = RuntimePropertyTune::ui_localization_type(type_key),
                condition = RuntimePropertyTune::state_condition_type(type_key);
-    if (sprite || material || probe || light || decal || localization || condition) {
+    if (sprite || material || probe || light || decal || localization || ui_values || condition) {
+        if (ui_values &&
+            (!RuntimePropertyTune::ui_values_property(property_key) || !target.has<UiValues>()))
+            throw std::runtime_error("Only existing UI Values can be tuned live");
         if (condition && (!RuntimePropertyTune::state_condition_property(property_key) ||
                           !target.has<ApplicationStateGate>()))
             throw std::runtime_error("Only an existing State Condition can be tuned live");
@@ -1098,6 +1102,8 @@ Json Scene::serialize(bool effective, bool ui_only) const {
             auto components = Json::object();
             if (item.at("components").contains("forge.ui_document"))
                 components["forge.ui_document"] = item.at("components").at("forge.ui_document");
+            if (item.at("components").contains("forge.ui_values"))
+                components["forge.ui_values"] = item.at("components").at("forge.ui_values");
             if (item.at("components").contains("forge.ui_localization"))
                 components["forge.ui_localization"] =
                     item.at("components").at("forge.ui_localization");
@@ -1147,6 +1153,7 @@ Json Scene::serialize(bool effective, bool ui_only) const {
         }
         for (const auto& type : detail::builtins()) {
             if (ui_only && std::string_view(type.name) != "forge.ui_document" &&
+                std::string_view(type.name) != "forge.ui_values" &&
                 std::string_view(type.name) != "forge.ui_localization" &&
                 std::string_view(type.name) != "forge.application_states")
                 continue;

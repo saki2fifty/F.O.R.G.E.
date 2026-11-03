@@ -1,0 +1,11 @@
+<rml><head><link type="text/rcss" href="hud.rcss" /></head>
+<body><div id="panel"><p id="eyebrow">FORGE / SCENE TIMELINE</p>
+<h1>Sequence-driven UI</h1><p>One scene clock drives named UI Values.</p>
+<div class="track"><div id="fill" data-style-width="width + 'px'" data-style-opacity="amount" data-class-bright="amount >= 0.6"></div></div>
+<p id="amount">Opacity: {{amount}}</p><p>Width: {{width}} px</p>
+<p id="state" data-class-paused="paused">Pause holds the bar. The small pulse keeps moving.</p>
+<div id="pulse"></div><div class="buttons"><button id="pause" data-event-click="command('Pause')">Pause</button>
+<button id="resume" data-event-click="command('Resume')">Resume</button>
+<button id="step" data-event-click="command('Step')">Step</button></div>
+<p class="hint">The two-second child starts at 1s of a four-second loop. Inspect the HUD's UI Values and Transform Animator. No C++ compiler required.</p>
+</div></body></rml>

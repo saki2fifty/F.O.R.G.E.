@@ -11,6 +11,7 @@ import tempfile
 import time
 from mcp_test_client import CAPTURE, Client, failed, test_symlink, finish_host
 from mcp_input_messages_play import check_input_messages_play
+from mcp_ui_sequence_play import check_ui_sequence_play
 
 TOOLS, HOST, RUNTIME, KIT, NAV = sys.argv[1:6]
 NAVIGATION_ONLY = sys.argv[7:] == ['--navigation-only']
@@ -30,6 +31,7 @@ ANALOG_ONLY = sys.argv[7:] == ['--analog-only']
 AUDIO_PAUSE_ONLY = sys.argv[7:] == ['--audio-pause-only']
 GAMEPADS_ONLY = sys.argv[7:] == ['--gamepads-only']
 MESSAGES_ONLY = len(sys.argv) == 9 and sys.argv[7] == '--input-messages-only'
+UI_SEQUENCE_ONLY = sys.argv[7:] == ['--ui-sequence-only']
 UI_ANIMATION_ONLY = sys.argv[7:] == ['--ui-animation-only']
 UI_LOCALIZATION_ONLY = sys.argv[7:] == ['--ui-localization-only']
 LIFETIMES_ONLY = len(sys.argv) == 9 and sys.argv[7] == '--state-lifetimes-only'
@@ -146,7 +148,9 @@ def editor(mode='full'):
         # State-only checks need the real packaged font, but no Windows export kit.
         host_resources = str(Path(__file__).resolve().parents[1]) if APPLICATION_STATES_ONLY else KIT
         command = [HOST, str(root), RUNTIME, host_resources, NAV, mode]
-        if MESSAGES_ONLY:
+        if UI_SEQUENCE_ONLY:
+            command.append(str(selected_project_template(root, ('Scenes/151-sequence-ui.scene.json', 'Assets/Sequences/UiValues.animation.json', 'Assets/UI/Sequence/hud.rml', 'Assets/UI/Sequence/hud.rcss'), 'UI sequence template')))
+        elif MESSAGES_ONLY:
             command.append(str(message_project_template(root)))
         elif APPLICATION_STATES_ONLY:
             command.append(str(state_project_template(root)))
@@ -246,6 +250,10 @@ for legacy in (False, True):
         assert {'forge_play_start', 'forge_play_ui_command', 'forge_export_start',
                 'forge_script_preview', 'forge_navigation_build', 'forge_navigation_overlay',
                 'forge_dependencies_save'} <= names
+        if UI_SEQUENCE_ONLY:
+            check_ui_sequence_play(read, ok, control, mutate, until, discovery, advertised)
+            print(('legacy' if legacy else 'current') + ': UI Values discovery/authoring/Undo, real nested sequence Play/seek/tuning/review and stale generation checks passed')
+            continue
         if MESSAGES_ONLY:
             check_input_messages_play(read, ok, control, mutate, until)
             print(('legacy' if legacy else 'current') + ': typed-message authoring source/input scopes/real SDK Play/restart passed')

@@ -1,3 +1,4 @@
+#include "ui_values_json.hpp"
 #include <algorithm>
 #include <charconv>
 #include <forge/application_states.hpp>
@@ -186,6 +187,16 @@ Json UiRuntime::snapshot(const Scene& scene, const std::string& session, std::ui
                                   entity.str() + ":" + std::to_string(++next_instance_), scope,
                                   state_scope};
         auto model = models_.contains(entity) ? models_.at(entity) : Json::object();
+        if (e.at("components").contains("forge.ui_values")) {
+            const auto values =
+                detail::ui_values_from_json(e.at("components").at("forge.ui_values"));
+            for (const auto& item : values.values) {
+                if (model.contains(item.name))
+                    throw std::runtime_error("UI Values conflicts with a C++ model publication: " +
+                                             item.name);
+                model[item.name] = item.value;
+            }
+        }
         if (localization &&
             (model.contains("forge_locale") || model.contains("forge_resolved_locale")))
             throw std::runtime_error("Localized UI reserves its locale presentation bindings");

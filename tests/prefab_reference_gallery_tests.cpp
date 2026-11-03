@@ -176,6 +176,24 @@ int main(int argc, char** argv) {
                 if (auto renderer = components.find("forge.mesh_renderer");
                     renderer != components.end() && !renderer->contains("material_parameters"))
                     (*renderer)["material_parameters"] = Json::array();
+                const Json additions = {{"forge.transform_animator",
+                                         {{"sequence", nullptr},
+                                          {"sequence_start_seconds", 0.},
+                                          {"sequence_next_clip", nullptr},
+                                          {"sequence_next_start_seconds", 0.}}},
+                                        {"forge.animation_sequence",
+                                         {{"sequence", nullptr}, {"sequence_start_seconds", 0.}}},
+                                        {"forge.navigation_avoidance", {{"shared_group", 0u}}},
+                                        {"forge.audio_source",
+                                         {{"reverb_enabled", false},
+                                          {"reverb_decay", 1.5},
+                                          {"reverb_damping", .5},
+                                          {"reverb_wet", .25}}}};
+                for (const auto& [component, defaults] : additions.items())
+                    if (auto value = components.find(component); value != components.end())
+                        for (const auto& [field, fallback] : defaults.items())
+                            if (!value->contains(field))
+                                (*value)[field] = fallback;
             }
             const auto admitted = scene.document();
             if (!detail::json_value_equal(admitted, expected)) {

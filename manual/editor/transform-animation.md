@@ -61,9 +61,9 @@ changing projects or deleting the preview object ends preview.
 the fields. It does not capture the temporary preview. Timeline **Undo / Redo**
 affects clip edits; scene Undo affects attachment and ordinary scene edits.
 
-## Animate a C++ component field
+## Animate a component field
 
-First build and inspect the project's C++ components, then add the desired
+For a project C++ field, first build and inspect the project's components, then add the desired
 component to an object. See [C++ project code](native-gameplay.md). The component
 must opt into authoring and expose an editable float, double, Boolean, integer or
 enum field, either at its root or within editable structs.
@@ -81,7 +81,7 @@ A selected key shows continuous curves and exact held values on Settings array e
 The target must already have the matching inspected component. FORGE rejects a
 changed schema, read-only field or ancestor, or curve outside the field's supported range.
 Remove an obsolete binding and add the current field after inspecting a changed
-component schema. Keep at least one transform channel or property binding.
+component schema. Keep at least one transform channel, property or component-field binding.
 
 Scene and sequence previews sample the fields without running project C++ code.
 The Timeline's field values follow the playhead; test a C++ behavior's visible
@@ -103,8 +103,7 @@ Choose **Add** for that leaf. Neighboring values remain unchanged. **Capture aut
 pose** captures the bound leaves as well as the transform.
 
 Up to 64 scalar component leaves can be bound per clip, including editable members
-inside nested structs, fixed arrays and admitted native tables. UI fields are
-unavailable here. Array/table elements must already exist: add or edit their data
+inside nested structs, fixed arrays and admitted native tables. [UI Values](sequence-ui.md) also exposes its named numeric leaves through this workflow without project C++. Arbitrary DOM properties are unavailable here. Array/table elements must already exist: add or edit their data
 in the Inspector first. Timeline shows zero-based indices for positional entries
 and key values for tables with declared entry keys. Reordering a keyed table keeps
 its animation on that entry. Removing the selected entry reports a binding error;

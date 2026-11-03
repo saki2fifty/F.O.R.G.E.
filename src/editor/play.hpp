@@ -248,6 +248,8 @@ class PlaySession {
         if ((!sdk_game_ && !AnimationPlaybackAccess::rig_type(type) &&
              !(RuntimePropertyTune::state_condition_type(type) &&
                RuntimePropertyTune::state_condition_property(property)) &&
+             !(RuntimePropertyTune::ui_values_type(type) &&
+               RuntimePropertyTune::ui_values_property(property)) &&
              !(RuntimePropertyTune::ui_localization_type(type) &&
                RuntimePropertyTune::ui_localization_property(property)) &&
              !RuntimePropertyTune::navigation_type(type) &&

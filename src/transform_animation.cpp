@@ -122,7 +122,8 @@ AnimationComponentBinding component_binding(const Json& row, bool typed, bool ne
     component_text(row.at("field"));
     const auto& stamp = row.at("admission");
     require(stamp.is_object() && stamp.size() == 5 &&
-                stamp.at("format") == "forge.authored-component" &&
+                (stamp.at("format") == "forge.authored-component" ||
+                 stamp.at("format") == "forge.builtin-component") &&
                 stamp.at("version").is_number_integer() && stamp.at("version") == 1 &&
                 stamp.at("schema_version").is_number_integer() && stamp.at("schema_version") > 0,
             "Invalid animated component schema admission");

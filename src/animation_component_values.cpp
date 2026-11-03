@@ -10,6 +10,13 @@ std::optional<AnimationComponentValueType> animation_component_field_type(const 
     return animation_component_field_type(field.value("type", std::string{}),
                                           field.value("read_only", false));
 }
+bool animation_component_matches(const Json& declaration, const Json& current) {
+    if (!current.is_object() || !declaration.contains("admission"))
+        return false;
+    const auto& stamp = declaration.at("admission");
+    return declaration.value("custom", false) ? current.value("$forge", Json()) == stamp
+                                              : stamp.at("format") == "forge.builtin-component";
+}
 bool animation_component_field_supported(const Json& field) {
     return animation_component_field_type(field).has_value();
 }
@@ -20,7 +27,7 @@ struct FieldTarget {
 };
 FieldTarget resolve(const Json& declaration, const AnimationComponentBinding& binding,
                     const Json* current) {
-    if (!declaration.value("custom", false) || declaration.at("id") != binding.component ||
+    if (!declaration.contains("admission") || declaration.at("id") != binding.component ||
         declaration.at("admission") != binding.admission ||
         binding.member_path.size() + binding.element_path.size() > 16)
         throw std::runtime_error("Animated component schema does not match");
@@ -115,7 +122,7 @@ Json::json_pointer animation_component_pointer(const Json& declaration, const Js
 std::vector<AnimationComponentBinding> animation_component_fields(const Json& declaration,
                                                                   const Json* current) {
     std::vector<AnimationComponentBinding> result;
-    if (!declaration.value("custom", false))
+    if (!declaration.contains("admission"))
         return result;
     AnimationComponentBinding binding{declaration.at("id"), "", declaration.at("admission")};
     const auto visit = [&](const auto& self, const Json& field, const Json* value) -> void {
@@ -165,8 +172,7 @@ std::vector<AnimationComponentBinding> animation_component_fields(const Json& de
 }
 Json sample_animation_component(const Json& declaration, const Json& current,
                                 const TransformAnimationClip& clip, double time, bool whole_clip) {
-    if (!declaration.value("custom", false) || !current.is_object() ||
-        current.value("$forge", Json()) != declaration.at("admission"))
+    if (!animation_component_matches(declaration, current))
         throw std::runtime_error("Animated component requires its matching authored schema");
     const auto& fields = declaration.at("fields");
     const Json structure{{"type", "struct"}, {"fields", fields}};
@@ -216,7 +222,14 @@ void merge_animation_properties(Json& components, const Json& patch, const World
             }
             auto& target = components[component][field];
             if (codec == codecs.end()) {
-                target = value;
+                const auto& builtins = detail::builtins();
+                const auto builtin =
+                    std::find_if(builtins.begin(), builtins.end(),
+                                 [&](const auto& item) { return component == item.name; });
+                target =
+                    builtin == builtins.end()
+                        ? value
+                        : detail::merge_builtin_property_extensions(*builtin, field, value, target);
                 continue;
             }
             const auto& members = codec->declaration.at("structure").at("fields");
@@ -251,16 +264,47 @@ prepare_animation_components(WorldContext& context, flecs::entity entity,
         for (const auto& binding : clip.component_bindings)
             if (binding.component == codec.key())
                 patch[binding.field] = value.at(binding.field);
-        result.push_back({&codec, std::move(prepared), std::move(patch)});
+        result.push_back({&codec, std::move(prepared), std::move(patch), nullptr, {}});
+    }
+    for (const auto& builtin : detail::builtins()) {
+        if (!remaining.contains(builtin.name))
+            continue;
+        const auto& types = context.schema().at("components");
+        const auto declaration = std::find_if(types.begin(), types.end(), [&](const auto& type) {
+            return type.at("id") == builtin.name;
+        });
+        if (declaration == types.end() || !declaration->contains("admission"))
+            continue;
+        auto value = sample_animation_component(*declaration, builtin.read(entity, true), clip,
+                                                time, whole_clip);
+        detail::validate_components({{builtin.name, value}});
+        auto typed = builtin.decode(value);
+        std::visit([&](const auto& item) { detail::validate_reflected_value(entity, item); },
+                   typed);
+        auto patch = Json::object();
+        for (const auto& binding : clip.component_bindings)
+            if (binding.component == builtin.name)
+                patch[binding.field] = value.at(binding.field);
+        result.push_back({nullptr, {}, std::move(patch), &builtin, std::move(typed)});
+        remaining.erase(builtin.name);
     }
     if (!remaining.empty())
         throw std::runtime_error("Animated component is unavailable: " + *remaining.begin());
     return result;
 }
+std::string AnimationComponentCandidate::key() const {
+    return builtin ? builtin->name : codec->key();
+}
+void AnimationComponentCandidate::apply(flecs::entity entity) const {
+    if (builtin)
+        builtin->apply(entity, builtin_value);
+    else
+        codec->apply(entity, value);
+}
 Json animation_component_patch(const std::vector<AnimationComponentCandidate>& candidates) {
     auto result = Json::object();
     for (const auto& candidate : candidates)
-        result[candidate.codec->key()] = candidate.patch;
+        result[candidate.key()] = candidate.patch;
     return result;
 }
 } // namespace forge

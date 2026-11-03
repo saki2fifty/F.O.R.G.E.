@@ -2,6 +2,7 @@
 #include <forge/authoring.hpp>
 #include <forge/runtime_ui.hpp>
 #include <forge/ui_assets.hpp>
+#include <forge/ui_values.hpp>
 #include <iostream>
 
 using namespace forge;
@@ -106,6 +107,9 @@ int main(int argc, char** argv) {
         auto legacy = state;
         legacy.erase("localization");
         rejects([&] { ui_protocol::validate_snapshot(legacy); });
+        scene.entity("hud").set<UiValues>({{{"forge_locale", .5}}});
+        rejects([&] { (void)service->snapshot(scene, "locale-test", 1, 77, true); });
+        scene.entity("hud").remove<UiValues>();
         service->publish(scene.reference("hud").entity, "forge_locale", "custom value");
         rejects([&] { (void)service->snapshot(scene, "locale-test", 1, 77, true); });
 

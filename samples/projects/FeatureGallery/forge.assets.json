@@ -8614,6 +8614,43 @@
       "type": "tile_set"
     },
     {
+      "dependencies": [
+        "95491df3-090a-4711-98d0-f11d026c32b7"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "",
+          "role": "ui.automatic",
+          "target": "95491df3-090a-4711-98d0-f11d026c32b7",
+          "type": "ui_stylesheet"
+        }
+      ],
+      "id": "8571c68b-9340-4d39-a3e0-fd089451e909",
+      "metadata": {
+        "forge.ui_source": {
+          "bytes": 934,
+          "digest": "638527bc1ef79d5f4308fa661a1359096a2e49081c47a6d1b2c7db6d0af5b72b",
+          "format": "rml"
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/UI/Sequence/hud.rml",
+      "source_dependencies": [
+        {
+          "revision": "983f17bbb53728ca8c7872a6cd11a02b7e9aa7e29377c2bd93518965d1c5e2f3",
+          "role": "ui.observed",
+          "source": "Assets/UI/Sequence/hud.rcss"
+        },
+        {
+          "revision": "638527bc1ef79d5f4308fa661a1359096a2e49081c47a6d1b2c7db6d0af5b72b",
+          "role": "ui.source",
+          "source": "Assets/UI/Sequence/hud.rml"
+        }
+      ],
+      "type": "ui_document"
+    },
+    {
       "dependencies": [],
       "dependency_edges": [],
       "id": "86349f74-d462-47b1-91dd-257707503c90",
@@ -9013,6 +9050,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "8d2fcdf4-9786-482f-b8b2-058d4168f1d3",
+      "metadata": {},
+      "schema_version": 5,
+      "source": "Scenes/150-input-messages.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "8e4f9375-8d84-4251-9dbe-31f51cc8dbcd",
       "metadata": {
         "forge.import": {
@@ -9195,6 +9242,28 @@
         "removed": false
       },
       "type": "animation_clip"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "95491df3-090a-4711-98d0-f11d026c32b7",
+      "metadata": {
+        "forge.ui_source": {
+          "bytes": 1143,
+          "digest": "983f17bbb53728ca8c7872a6cd11a02b7e9aa7e29377c2bd93518965d1c5e2f3",
+          "format": "rcss"
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/UI/Sequence/hud.rcss",
+      "source_dependencies": [
+        {
+          "revision": "983f17bbb53728ca8c7872a6cd11a02b7e9aa7e29377c2bd93518965d1c5e2f3",
+          "role": "ui.source",
+          "source": "Assets/UI/Sequence/hud.rcss"
+        }
+      ],
+      "type": "ui_stylesheet"
     },
     {
       "dependencies": [],
@@ -10155,6 +10224,16 @@
       "source": "Assets/Sequences/BlendReturn.animation.json",
       "source_dependencies": [],
       "type": "transform_animation"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "a9bfb022-a578-430c-bb7f-7d895ee364b5",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/151-sequence-ui.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
     },
     {
       "dependencies": [
@@ -13285,6 +13364,41 @@
       "type": "scene"
     },
     {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "f1f2dc89-e01f-4a8e-a27c-bc5d052766a9",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "b0dbb8744eda4ef52080f438e80054c726790c076dab7225e558919728ce50b7",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.animation.transform",
+          "importer_revision": "forge.animation.transform.v12",
+          "key": "a22f584a7b3ecb355447c0a339d4db98eb6ff49c44841958243037d65678fb97",
+          "output_format": "forge.transform-clip",
+          "output_version": 9,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "a33b769a2e8fbae21200e266f5bf661aabdb94406970040e7d579c9145b45e92",
+          "source_digest": "0299e24d1500d80e44cc2998a500c502a0a1790921beaa51745eccb945acb97c",
+          "version": 1
+        },
+        "forge.transform_animation": {
+          "bytes": 2001,
+          "file": "animation.clip",
+          "sha256": "426d91f120a32e5e39851bbb6beef1ed37a15dd0c9a37d27b672fd96a9684f68",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Sequences/UiValues.animation.json",
+      "source_dependencies": [],
+      "type": "transform_animation"
+    },
+    {
       "dependencies": [
         "99ee18f7-3644-46f1-94ed-610f76e4583b"
       ],
@@ -14369,16 +14483,6 @@
       "metadata": {},
       "schema_version": 5,
       "source": "Scenes/75-2d-physics.scene.json",
-      "source_dependencies": [],
-      "type": "scene"
-    },
-    {
-      "dependencies": [],
-      "dependency_edges": [],
-      "id": "8d2fcdf4-9786-482f-b8b2-058d4168f1d3",
-      "metadata": {},
-      "schema_version": 5,
-      "source": "Scenes/150-input-messages.scene.json",
       "source_dependencies": [],
       "type": "scene"
     }

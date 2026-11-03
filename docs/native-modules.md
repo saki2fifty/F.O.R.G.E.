@@ -246,3 +246,15 @@ fingerprint; rebuild matching C++ modules. ABI1 callback tables remain unchanged
 The installed `soft_shadows.cpp` example writes all three supported image kinds
 with matching built-in 2D/Cube resources, then clears the image for area kinds.
 See [light-image ownership and limits](light-images.md).
+
+### Scene UI Values
+
+The installed `<forge/ui_values.hpp>` exposes UiValue and UiValues with normal
+owned C++ strings/vectors, finite-number/name validation and a16-entry limit.
+The engine registers their native reflection and lifecycle. UI Values can be
+read/updated through the same native component API as other installed values;
+existing copied UI publications must use different names. Native playback and
+ordinary/SDK hosts consume the same component. `ui_values_gameplay` is an original
+installed sample that checks independent vector/string copying and publishes a
+separate cpp_width value from the current native width. Exact SDK matching is
+required. UI runtime/presenter/asset handles are not installed as a second owner.

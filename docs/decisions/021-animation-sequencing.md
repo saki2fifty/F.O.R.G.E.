@@ -216,3 +216,21 @@ validates its original active binding, so preview cannot hide an active cycle.
 Automation/MCP must expose the same native fields/operations and ownership.
 Multiple placements of one controller, independent child rate/loop overrides,
 property/skeletal crossfades and movie encoding are outside this first profile.
+
+## Scene-owned UI values through reflected builtin admission
+
+2026-11-03. Optional UiValues joins the existing component-field candidate owner.
+Builtins must explicitly opt in with a five-field forge.builtin-component stamp
+derived from their reflected value schema; UiValues is the initial admitted type.
+User-authored component stamps remain forge.authored-component and their native
+values still require matching $forge admission. Existing clip/cook versions retain
+their current keyed collection identities; no Scene migration or new clock is used.
+Native builtin codecs stage complete detached candidates before shared publication.
+The same reflection-extension owner preserves opaque keyed collection siblings.
+
+UiRuntime projects the committed Scene values into its existing copied model;
+UiPresenter retains native expression/style/class ownership. Explicit C++ name
+collisions reject. CSS animations retain their independent presentation clock and
+transient progress. Sequence seeking means sampling the ECS values, never seeking
+a native CSS player. Copied Edit previews do not execute RML or add an overlay.
+Public installed value/header semantics require a matching exact SDK rebuild.

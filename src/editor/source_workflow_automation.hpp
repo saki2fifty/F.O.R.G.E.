@@ -470,11 +470,11 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                        "Publish the Set and dependent Maps before Play/export."
                      : "") +
                 (std::string_view(action) == "patch"
-                     ? " Timeline source6 supports editable scalar C++ component fields with "
+                     ? " Timeline source6 supports editable scalar component fields with "
                        "component/field keys and matching inspected admission stamps; each key "
                        "provides component_values. Source7 adds explicit value_type scalar/bool/"
                        "int64/uint64: Boolean and exact integer values hold until the next key, "
-                       "without curves. Use the current custom component schema for native "
+                       "without curves. Use the current admitted component schema for native "
                        "widths, ranges and enum choices. Source8 adds optional member_path arrays "
                        "of "
                        "struct member IDs below field on both descriptors and key values; "
@@ -482,7 +482,12 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                        "starting with {index:N} for positional unkeyed collections or "
                        "{key:string-or-string-tuple} for declared collection keys, followed by "
                        "member IDs/selectors. Repeat the complete identity on each key value; "
-                       "missing elements reject without resizing or adding rows."
+                       "missing elements reject without resizing or adding rows. UI Values opts "
+                       "into "
+                       "the same keyed field tracks with forge.builtin-component admission; user "
+                       "C++ components retain forge.authored-component admission. Copy the exact "
+                       "current schema stamp. UI expressions consume the sampled numbers in Game; "
+                       "native CSS animation keeps presentation time."
                      : ""),
             "asset.write", automation_object(std::move(properties), std::move(needed)), true,
             [invoke, action](const Json& request) { return invoke(action, request); }));

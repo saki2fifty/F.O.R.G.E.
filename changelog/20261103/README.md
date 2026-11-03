@@ -136,3 +136,24 @@ Full Main/Windows/physical acceptance remains pending; no numbered delivery is i
 - C++ System creation can omit the component template through Content or MCP,
   creating an empty managed startup function for project queries/observers. Existing
   component-bound rotation templates and registration/build ownership are retained.
+
+### Sequence-driven UI values
+
+- Added optional UI Values: up to16 unique named finite numbers on a UI Document
+  entity. Existing RML expressions consume these Scene-owned values for text,
+  styles and classes, with explicit C++ publication collision checks and shared
+  copied-model limits.
+- The existing component-track owner now admits explicitly stamped reflected
+  builtins, starting with keyed UI Values. Timeline/source/cook, complete candidate,
+  nested sequence clocks, seek, ordinary recovery and opaque keyed extensions use
+  their existing owners. Native CSS animations retain presentation time.
+- Inspector, live tuning/review, property/history/Prefab, automation/MCP and the
+  matching installed SDK share the same component. Collection-entry drafts have
+  room for their fields, and startup animator failures include their cause.
+- Added original Gallery151, source-hidden relocated content coverage and an
+  illustrated user guide. Scene/sequence Edit previews and frame export still omit
+  Runtime UI; arbitrary DOM paths and native CSS seeking are unavailable. Rebuild
+  project modules against the matching SDK. Windows/physical acceptance is pending.
+- Structured Gallery admission explicitly recognizes current additive sequence,
+  navigation-sharing and audio-reverb defaults while keeping existing authored
+  files and identities unchanged.

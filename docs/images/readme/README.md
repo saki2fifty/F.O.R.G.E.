@@ -1571,3 +1571,25 @@ ImGui input, then verifies typed values and shared Undo/Redo at1/1.5/2 scales.
 It is an isolated Inspector fixture, not full Main, Windows, OS DPI or physical
 hardware acceptance. Capture source, executable/image hashes and review are kept
 in local `AgentFiles/build/phase230-action-messages/inspector-capture.json`.
+
+## UI Values Inspector and Timeline
+
+Canonical assets are `manual/images/ui-values-inspector.png`,
+`ui-values-live.png` and `ui-values-timeline.png` (each640×650). They are unchanged
+PNG output from the actual ComponentInspector, live tuning and AnimationTimelineEditor
+controls in `tests/ui_values_editor_tests.cpp`. The fixture drives native ImGui
+input, draft entry creation, numeric edits, Scene Undo/Redo, temporary live updates,
+tuning review, keyed builtin track selection and clip key Undo at100/150/200percent.
+The three canonical images are100percent captures from the passing local profile
+`ui-authoring-integration` (5affected profiles pass52.37s), from working source based
+on7493f3d. The fixture source SHA-256 is `5b6f9431c79b424f0e9306a6a47f49e32c65e343dd5b407b856cf3f063648bd0`.
+
+SDL3's software renderer draws the unchanged ImGui output with the packaged Lato
+font. All three images were personally viewed before copying. There is no crop,
+resize, inserted UI or retouch. These focused production-control fixtures do not
+prove a full desktop editor session, Windows, physical DPI/input or GPU acceptance.
+Local run/output attribution is retained by the engineering validation owner.
+
+- `ui-values-inspector.png`: SHA-256 `4933e9a460f753434927743c07dfdf1fdb5a51cce9df08659b13c784703ef485`.
+- `ui-values-live.png`: SHA-256 `d193b7c1e49bd8b7da7ef620185dc1d0c5d510d24d689a74aafe95c98e04097c`.
+- `ui-values-timeline.png`: SHA-256 `9d7f1d6c8ddc1b819b0285c3107527ea778f30facbed370f98c8cc6b39a53bbb`.

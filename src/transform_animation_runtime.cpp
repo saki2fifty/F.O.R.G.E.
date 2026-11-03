@@ -387,7 +387,7 @@ void TransformAnimationPlayback::apply(const std::map<flecs::entity_t, double>& 
         auto entity = context_.world().entity(id);
         if (components.contains(id))
             for (const auto& value : components.at(id))
-                value.codec->apply(entity, value.value);
+                value.apply(entity);
         if (properties.contains(id))
             properties.at(id).commit(entity);
         if (materials.contains(id))
@@ -422,7 +422,8 @@ bool TransformAnimationPlayback::checkpoint_ready() const {
 bool TransformAnimationPlayback::initial_pose() {
     // AnimationRuntime synchronizes assets before this provider is evaluated.
     if (!errors_.empty())
-        throw std::runtime_error("Invalid Transform Animator configuration");
+        throw std::runtime_error("Invalid Transform Animator configuration: " +
+                                 errors_.begin()->second);
     if (pending_)
         return false;
     std::map<flecs::entity_t, double> times;

@@ -191,6 +191,7 @@ class ComponentInspector {
             return false;
         return AnimationPlaybackAccess::rig_type(key) ||
                RuntimePropertyTune::state_condition_type(key) ||
+               RuntimePropertyTune::ui_values_type(key) ||
                RuntimePropertyTune::ui_localization_type(key) ||
                RuntimePropertyTune::navigation_type(key) ||
                RuntimePropertyTune::particle_type(key) || RuntimePropertyTune::material_type(key) ||
@@ -222,6 +223,8 @@ class ComponentInspector {
         return components.at(key).contains(name) &&
                (!RuntimePropertyTune::state_condition_type(key) ||
                 RuntimePropertyTune::state_condition_property(name)) &&
+               (!RuntimePropertyTune::ui_values_type(key) ||
+                RuntimePropertyTune::ui_values_property(name)) &&
                (!RuntimePropertyTune::ui_localization_type(key) ||
                 RuntimePropertyTune::ui_localization_property(name)) &&
                (!RuntimePropertyTune::navigation_type(key) ||

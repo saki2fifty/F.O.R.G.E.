@@ -4,6 +4,7 @@
 #include <RmlUi/Core/ElementText.h>
 #include <forge/application_states.hpp>
 #include <forge/runtime_ui.hpp>
+#include <forge/ui_values.hpp>
 #include <iostream>
 
 namespace {
@@ -213,6 +214,9 @@ button,input {display:block;width:200px;height:36px;}
         invalid = state;
         invalid["application_states"]["domains"][0]["membership"].push_back("menu");
         rejects([&] { ui_protocol::validate_snapshot(invalid); });
+        scene.entity(hud_id.str()).set<UiValues>({{{"forge_state_app", .5}}});
+        rejects([&] { (void)ui->snapshot(scene, "states", 1, 0, true); });
+        scene.entity(hud_id.str()).remove<UiValues>();
         ui->publish(hud_id, "forge_state_app", "spoofed");
         rejects([&] { (void)ui->snapshot(scene, "state-ui", 1, 42, true); });
         {

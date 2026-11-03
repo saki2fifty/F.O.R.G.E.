@@ -11,6 +11,7 @@
 #include "reflected_value.hpp"
 #include "reflected_vector.hpp"
 #include "render_values.hpp"
+#include "ui_values_json.hpp"
 #include <algorithm>
 #include <cctype>
 #include <cmath>
@@ -74,6 +75,8 @@ template <class T> Json encode(const T& p) {
                 {"layer", p.layer}};
     else if constexpr (std::is_same_v<T, UiLocalization>)
         return {{"catalog", p.catalog.id ? Json(p.catalog.id) : Json()}, {"locale", p.locale}};
+    else if constexpr (std::is_same_v<T, UiValues>)
+        return ui_values_json(p);
     else if constexpr (std::is_same_v<T, ApplicationStates>)
         return {{"definition", p.definition.id ? Json(p.definition.id) : Json()}};
     else if constexpr (std::is_same_v<T, ApplicationStateGate>)
@@ -389,6 +392,8 @@ template <class T> Value decode(const Json& p) {
         value.locale = p.at("locale").get<std::string>();
         (void)canonical_ui_locale(value.locale);
         return value;
+    } else if constexpr (std::is_same_v<T, UiValues>) {
+        return ui_values_from_json(p);
     } else if constexpr (std::is_same_v<T, ApplicationStates>) {
         ApplicationStates value;
         if (!p.at("definition").is_null())
@@ -1175,6 +1180,13 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
         w.component<std::string>("forge.authored_string").opaque(reflected_string);
         c.template member<AssetRef<UiLocalizationAsset>>("catalog").template member<std::string>(
             "locale");
+    } else if constexpr (std::is_same_v<T, UiValues>) {
+        w.component<std::string>("forge.authored_string").opaque(reflected_string);
+        w.component<UiValue>("forge.ui_value")
+            .template member<std::string>("name")
+            .template member<double>("value");
+        w.component<std::vector<UiValue>>("forge.ui_value_list").opaque(reflected_vector<UiValue>);
+        c.template member<std::vector<UiValue>>("values");
     } else if constexpr (std::is_same_v<T, ApplicationStates>) {
         register_asset_ref<ApplicationStatesAsset>(w, "forge.application_states_ref");
         c.template member<AssetRef<ApplicationStatesAsset>>("definition");
@@ -1579,6 +1591,17 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
                     "Material parameter override native Meta disagrees with typed layout");
         }
     }
+    if constexpr (std::is_same_v<T, UiValues>) {
+        for (const auto& [field, offset] : {std::pair{"name", offsetof(UiValue, name)},
+                                            std::pair{"value", offsetof(UiValue, value)}}) {
+            const auto* member = ecs_struct_get_member(w.c_ptr(), w.id<UiValue>(), field);
+            if (!member || std::size_t(member->offset) != offset)
+                throw std::runtime_error("UI Value native Meta disagrees with typed layout");
+        }
+        const auto* member = ecs_struct_get_member(w.c_ptr(), c.id(), "values");
+        if (!member || std::size_t(member->offset) != offsetof(UiValues, values))
+            throw std::runtime_error("UI Values native Meta disagrees with typed layout");
+    }
     c.add(flecs::OnInstantiate, flecs::Inherit);
     return c;
 }
@@ -1749,6 +1772,10 @@ const std::array<Builtin, builtin_count>& builtins() {
             "unitless", {}, {},
             [](flecs::world&
                    w) { return register_type<UiLocalization>(w, "forge.ui_localization"); }),
+        descriptor<UiValues>(
+            "forge.ui_values",
+            "Scene-owned named numbers for UI model bindings and component animation", "unitless",
+            {}, {}, [](flecs::world& w) { return register_type<UiValues>(w, "forge.ui_values"); }),
         descriptor<ApplicationStates>(
             "forge.application_states", "Logical game-state domains and transition conditions",
             "unitless", {}, {},
@@ -2953,6 +2980,13 @@ Json registration_options(const Builtin& type, const std::string& field) {
         value["description"] =
             "Published game-state definition; one configured controller per World";
     }
+    if (name == "forge.ui_values") {
+        value.erase("minimum");
+        value.erase("maximum");
+        value["description"] =
+            "Named finite numbers on this UI Document. Bind them in RML; animate values through "
+            "keyed component-field tracks. Names must not collide with C++ publications.";
+    }
     if (name == "forge.input_message") {
         value.erase("minimum");
         value.erase("maximum");
@@ -3387,6 +3421,7 @@ void annotate_type(flecs::world& world, flecs::entity component, const Builtin& 
     const std::string id = type.name;
     auto display = id == "forge.application_state_gate" ? std::string("State Condition")
                    : id == "forge.ui_document"          ? std::string("UI Document")
+                   : id == "forge.ui_values"            ? std::string("UI Values")
                    : id == "forge.ui_localization"      ? std::string("UI Localization")
                    : id == "forge.two_bone_ik"          ? std::string("Two Bone IK")
                    : id == "forge.aim_ik" ? std::string("Aim IK")
@@ -3433,8 +3468,10 @@ Json register_builtins(flecs::world& world, unsigned family) {
     for (const auto& type : builtins()) {
         const std::string name = type.name;
         const unsigned category =
-            (name == "forge.ui_document" || name == "forge.ui_localization") ? 5u
-            : name.starts_with("forge.navigation_")                          ? 4u
+            (name == "forge.ui_document" || name == "forge.ui_localization" ||
+             name == "forge.ui_values")
+                ? 5u
+            : name.starts_with("forge.navigation_") ? 4u
             : (name == "forge.animator" || name == "forge.transform_animator" ||
                name == "forge.animation_sequence" || name == "forge.camera_shot" ||
                name == "forge.audio_cue" || name == "forge.two_bone_ik" || name == "forge.aim_ik")
@@ -3453,6 +3490,10 @@ Json register_builtins(flecs::world& world, unsigned family) {
         if (name == "forge.navigation_link")
             for (const auto& [member, value] : type.defaults.items())
                 c.lookup(member.c_str()).add<ReflectedNoAnimation>();
+        if (name == "forge.ui_values") {
+            c.lookup("values").set<ReflectedSequenceKey>({"name"});
+            c.lookup("values").set<ReflectedSequenceLimit>({UiValues::max_entries});
+        }
         if (name == "forge.mesh_renderer") {
             c.lookup("materials").set<ReflectedSequenceKey>({"slot"});
             c.lookup("material_parameters").set<ReflectedSequenceKey>({"slot", {"key"}});
@@ -3519,6 +3560,10 @@ Json register_builtins(flecs::world& world, unsigned family) {
             references.push_back({world.id<std::vector<MaterialSlotOverride>>(), "vector"});
             references.push_back({world.id<std::vector<MaterialParameterOverride>>(), "vector"});
         }
+        if (name == "forge.ui_values") {
+            references.push_back({world.id<std::string>(), "string"});
+            references.push_back({world.id<std::vector<UiValue>>(), "vector"});
+        }
         if (name == "forge.sprite_renderer")
             references.push_back({world.id<std::vector<SpriteFrameRegion>>(), "vector"});
         if (name == "forge.navigation_region_2d")
@@ -3555,6 +3600,17 @@ Json register_builtins(flecs::world& world, unsigned family) {
                   name == "forge.camera" || name == "forge.light" ||
                   name == "forge.reflection_probe" || name == "forge.decal" ||
                   name == "forge.node_visibility" || name == "forge.node_selectability"}});
+        if (name == "forge.ui_values") {
+            // A builtin opts into the existing component-track admission explicitly.
+            // Its stamp describes the reflected value shape, never a Scene instance.
+            const auto digest = authored_structure_digest(
+                {{"id", name}, {"fields", components.back().at("fields")}});
+            components.back()["admission"] = {{"format", "forge.builtin-component"},
+                                              {"version", 1u},
+                                              {"module", "forge.ui"},
+                                              {"schema_version", 1u},
+                                              {"digest", digest}};
+        }
         std::lock_guard lock(catalog_mutex);
         auto validation = components.back();
         validation["type"] = "struct";

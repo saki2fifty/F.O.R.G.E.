@@ -53,7 +53,7 @@ button { padding: 8px 12px; background-color: #34597b; }
 button:hover { background-color: #477da9; }
 ```
 
-FORGE supplies the data model automatically; omit `data-model` attributes. `tick` and `paused` reflect gameplay state. Registered gameplay commands and additional values require gameplay code; the included pause/step example works without it. Events request changes from gameplay. A text field's local contents are transient and do not automatically change game state.
+FORGE supplies the data model automatically; omit `data-model` attributes. `tick` and `paused` reflect gameplay state. Add [UI Values](sequence-ui.md) on the same entity to supply named numbers without C++. Project C++ can publish additional scalar values and register commands. The included pause/step example works without it. Events request changes from gameplay. A text field's local contents are transient and do not automatically change game state.
 
 For translated menus, use a [UI Localization catalog](ui-localization.md) and
 `{{ 'message_key' | tr(forge_locale) }}`. Its language command works without
@@ -76,9 +76,9 @@ Hover a button to see its color transition.
 
 The gallery HUD keeps moving while the paused tick counter holds.
 
-UI motion belongs to the document's RCSS stylesheet. It uses presentation time,
+RCSS motion belongs to the document's stylesheet. It uses presentation time,
 so gameplay pause and simulation speed do not control it. It is separate from
-Scene objects' Animation Timeline. Edit the gallery's **Assets/UI/Motion/hud.rcss**
+Scene objects' Animation Timeline. To animate a bound number with sequence time, use [UI Values](sequence-ui.md). Edit the gallery's **Assets/UI/Motion/hud.rcss**
 in a text editor to change the duration, endpoint values or colors. Save, then use
 **Reload UI** in the Game controls. A successful reload restarts the document's
 animations; an invalid replacement keeps the previous usable UI and shows a

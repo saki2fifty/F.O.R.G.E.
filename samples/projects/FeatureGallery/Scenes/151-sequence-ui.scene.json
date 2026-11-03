@@ -1,0 +1,175 @@
+{
+  "asset_id": "a9bfb022-a578-430c-bb7f-7d895ee364b5",
+  "entities": [
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 0.0,
+          "background_a": 1.0,
+          "background_b": 0.029999999329447746,
+          "background_g": 0.02500000037252903,
+          "background_r": 0.019999999552965164,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 1000.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 10.0,
+          "orthographic_width": 0.0,
+          "projection": 0,
+          "vertical_fov": 1.0471975511965976,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 0.9914448857307434,
+          "x": 0.13052618503570557,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 2.0,
+          "z": -7.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "52741c56-65b2-4fa4-b282-7fc2c08615f9",
+      "name": "Camera",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.transform_animator": {
+          "clip": "f1f2dc89-e01f-4a8e-a27c-bc5d052766a9",
+          "enabled": true,
+          "loop": true,
+          "play_on_start": true,
+          "playback_speed": 1.0,
+          "sequence": {
+            "entity": "32dfcf45-ec4b-4394-9cb3-0ffc5a999831",
+            "scene": "a9bfb022-a578-430c-bb7f-7d895ee364b5"
+          },
+          "sequence_next_clip": null,
+          "sequence_next_start_seconds": 0.0,
+          "sequence_start_seconds": 0.0
+        },
+        "forge.ui_document": {
+          "document": "8571c68b-9340-4d39-a3e0-fd089451e909",
+          "enabled": true,
+          "layer": 0,
+          "visible": true
+        },
+        "forge.ui_values": {
+          "values": [
+            {
+              "name": "amount",
+              "value": 0.2
+            },
+            {
+              "name": "width",
+              "value": 80.0
+            }
+          ]
+        }
+      },
+      "id": "50124852-ba49-4e97-a53f-dad75798f60d",
+      "name": "HUD - keyed Timeline values"
+    },
+    {
+      "components": {
+        "forge.animation_sequence": {
+          "duration": 4.0,
+          "enabled": true,
+          "loop": true,
+          "play_on_start": true,
+          "playback_speed": 1.0,
+          "sequence": null,
+          "sequence_start_seconds": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 1.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "dba2efd8-6c3e-42cb-96e6-594d2070870a",
+      "name": "Root - four-second loop",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.animation_sequence": {
+          "duration": 2.0,
+          "enabled": true,
+          "loop": false,
+          "play_on_start": true,
+          "playback_speed": 1.0,
+          "sequence": {
+            "entity": "dba2efd8-6c3e-42cb-96e6-594d2070870a",
+            "scene": "a9bfb022-a578-430c-bb7f-7d895ee364b5"
+          },
+          "sequence_start_seconds": 1.0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 1.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "32dfcf45-ec4b-4394-9cb3-0ffc5a999831",
+      "name": "Child - two seconds placed at 1s",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    }
+  ],
+  "version": 3
+}

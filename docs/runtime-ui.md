@@ -192,8 +192,9 @@ Relocating the game does not require the original project directory.
 Native RCSS keyframes and transitions run through the existing RmlUi context and
 monotonic presentation clock. Supported examples cover width, opacity, background
 color and translation. State classes use ordinary copied scalar model bindings;
-hover/focus use native input. Gameplay pause/zero time scale do not freeze UI.
-There is no Scene Timeline-to-DOM binding, second animation player or persistent
+hover/focus use native input. Gameplay pause/zero time scale do not freeze these RCSS animations.
+Scene UI Values can drive existing RML expressions through component-field tracks;
+see the named-value profile below. There is no second animation player or persistent
 DOM/property registry. Native animation progress is transient and restarts on
 successful document replacement. The selected dependency caps each animation
 advance at0.1s; this is visual presentation, not a fixed-tick gameplay timer.
@@ -284,3 +285,38 @@ unconfigured projects retain their existing behavior. State changes preserve the
 native context/focus, while controller/definition/incarnation changes re-admit a
 complete set. `UiPresenter::application_states_state()` copies only the displayed
 set's observations. See the [user guide](../manual/editor/application-states.md).
+
+## Scene-owned named values and sequence time
+
+Optional `forge.ui_values` on a UiDocument entity owns up to16 keyed `{name,value}`
+entries. The public UiValues type validates unique finite doubles and native
+variable names: initial ASCII letter, then ASCII letters/digits/underscore,
+maximum64bytes. Native expression keywords reject case-insensitively; tick, paused
+and the forge_loading_ prefix reject. Localization/state names reject through
+their existing conditional reservation checks.
+
+Scene narrow UI projection includes this component, including effective Prefab
+values. UiRuntime merges entries into its ephemeral copied model after copying
+existing C++ publications. A duplicate is an explicit failure, never an overwrite
+or insertion into the C++ publication map. The existing combined32-entry model
+bound includes tick and paused. C++ publication API/name policy remains unchanged.
+Native binding dirtiness updates numeric values without document replacement;
+adding/removing/renaming a binding uses the existing structure replacement owner.
+
+UI Values explicitly opts into the existing reflected component-track admission
+with a builtin schema stamp. Keyed name selectors target its value leaves. Existing
+clip interpolation, full candidate, root/nested sequence clocks, seek and ordinary
+runtime recovery remain authoritative. Gameplay Pause/Step/time scale affect these
+samples. A CSS class expression may also select ordinary native styles/animations;
+those CSS animations keep presentation time and have no sequence seeking contract.
+Avoid simultaneous native animation/transition and binding writers on one style.
+
+Inspector and the generic property/history/Prefab owners author values. Live
+tuning uses RuntimePropertyTune and the normal tuning-review operation; animation
+may replace a tuned field at its next sample. Automation/MCP discover the same
+component schema, property/source methods and Play controls. Edit Timeline previews
+copy sampled values but do not execute/render RML, and sequence frame output omits
+Runtime UI. Use real Game Play for visual UI evaluation. No arbitrary DOM path,
+new asset, independent clock, CSS player or transient DOM checkpoint is added.
+Gallery151 demonstrates a placed child sequence driving width/opacity/class while
+an independent CSS pulse continues during Pause.

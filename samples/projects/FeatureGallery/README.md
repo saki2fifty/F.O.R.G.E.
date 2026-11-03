@@ -1931,3 +1931,18 @@ Edit each cube's Input Message choices through Inspector. Console / Gameplay
 input shows dispatch counts and diagnostics. Stop and save authored values before
 export; include the matching compiled module. Without a receiver, events can be
 sent but the cubes remain still. See [the complete workflow](../../../manual/editor/input-messages.md).
+
+## Scene sequence UI
+
+Open **Scenes/151-sequence-ui.scene.json** and press Play. The bar grows, fades and
+changes color on a four-second root loop. Its two-second child starts at root1s
+and animates the HUD's keyed UI Values amount and width. Pause holds the bar; a
+small independent RCSS pulse continues. Step advances one simulation tick.
+
+Select **HUD - keyed Timeline values** to inspect UI Values and Transform Animator.
+Open **Assets/Sequences/UiValues.animation.json** to edit the two component-field
+tracks. Reordering entries preserves their bindings; renaming/removing an animated
+name requires updating the clip. RML expressions live in **Assets/UI/Sequence/hud.rml**.
+The Scene has a Camera and needs no project C++ compiler. Save/publish changes and
+select it as startup before normal export. Edit Timeline preview and silent frame
+export do not render Runtime UI; evaluate the HUD in Game Play.

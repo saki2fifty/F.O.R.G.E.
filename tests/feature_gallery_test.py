@@ -297,6 +297,21 @@ for row in message_sources:
     assert message_actions[message['action']]['bindings'] == [dict(control='key.space')]
 assert (project_root / 'CodeExamples/InputMessages.cpp').is_file()
 
+ui_sequence = json.loads((project_root / 'Scenes/151-sequence-ui.scene.json').read_text())
+assert ui_sequence['asset_id'] == by_source['Scenes/151-sequence-ui.scene.json']['id']
+ui_hud = next(row for row in ui_sequence['entities'] if 'forge.ui_values' in row['components'])
+assert ui_hud['components']['forge.ui_values']['values'] == [dict(name='amount', value=.2), dict(name='width', value=80.)]
+ui_clip = by_source['Assets/Sequences/UiValues.animation.json']
+assert ui_hud['components']['forge.transform_animator']['clip'] == ui_clip['id']
+ui_keys = json.loads((project_root / ui_clip['source']).read_text())
+assert ui_keys['version'] == 9 and ui_keys['channels'] == []
+assert len(ui_keys['component_bindings']) == 2 and len(ui_keys['keys']) == 3
+assert {row['element_path'][0]['key'] for row in ui_keys['component_bindings']} == {'amount', 'width'}
+assert all(row['admission']['format'] == 'forge.builtin-component' for row in ui_keys['component_bindings'])
+ui_controllers = [row['components']['forge.animation_sequence'] for row in ui_sequence['entities'] if 'forge.animation_sequence' in row['components']]
+assert sorted(row['duration'] for row in ui_controllers) == [2, 4]
+assert next(row for row in ui_controllers if row['duration'] == 2)['sequence_start_seconds'] == 1
+
 scenes = sorted((project_root / 'Scenes').glob('*.scene.json'))
 assert {'71-world-sprites.scene.json', '72-sprite-frame-animation.scene.json',
         '73-sprite-image-fill.scene.json', '74-tile-maps.scene.json',
