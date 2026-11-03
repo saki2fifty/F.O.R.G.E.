@@ -13,8 +13,10 @@ from mcp_test_client import CAPTURE, Client, failed, write_capture, finish_host
 from mcp_fast_aa_workflow import check_fast_aa_workflow
 from mcp_mesh_scatter_workflow import check_mesh_scatter_workflow
 from mcp_sequence_clip_workflow import check_sequence_clip_workflow
+from mcp_nested_sequence_workflow import check_nested_sequence_workflow
 
 TOOLS, HOST = map(str, map(Path, sys.argv[1:3]))
+NESTED_SEQUENCES_ONLY = "--nested-sequences-only" in sys.argv[4:]
 SEQUENCE_CLIPS_ONLY = "--sequence-clips-only" in sys.argv[4:]
 FAST_AA_ONLY = "--fast-aa-only" in sys.argv[4:]
 MESH_SCATTER_ONLY = "--mesh-scatter-only" in sys.argv[4:]
@@ -142,6 +144,9 @@ for legacy in (False, True):
         exposure_schema = exposure_command['input_schema']['properties']['auto_exposure']
         exposure_tool = next(item for item in catalog
                              if item['name'] == 'forge_scene_rendering_set')
+        if NESTED_SEQUENCES_ONLY:
+            check_nested_sequence_workflow(client, discover, arguments, mutate, project)
+            continue
         if SEQUENCE_CLIPS_ONLY:
             check_sequence_clip_workflow(client, discover, arguments, mutate, project)
             continue
@@ -654,18 +659,20 @@ for legacy in (False, True):
         assert process.wait(timeout=4) == 0
         failed(client.tool('forge_discover'), 'connection_unavailable')
 
-if SEQUENCE_CLIPS_ONLY:
+if SEQUENCE_CLIPS_ONLY or NESTED_SEQUENCES_ONLY:
     with editor('read') as (root, process, config), Client(config) as client:
         state = client.tool('forge_discover')
         assert not any(t['name'] == 'forge_property_set_many'
                        for t in client.request('tools/list')['result']['tools'])
         denied = native(config, dict(api=1, method='scene.apply', target=state['result']['target'],
             expected_revision=state['revision'], commands=[dict(operation='property.set', arguments=dict(
-                entity='8a4fe69d-5818-4cc6-b1ed-8510642d9e6f', component='forge.transform_animator',
-                field='sequence_next_start_seconds', value=.5))]), state['next_sequence'])
+                entity='8a4fe69d-5818-4cc6-b1ed-8510642d9e6f',
+                component='forge.animation_sequence' if NESTED_SEQUENCES_ONLY else 'forge.transform_animator',
+                field='sequence_start_seconds' if NESTED_SEQUENCES_ONLY else 'sequence_next_start_seconds', value=.5))]), state['next_sequence'])
         assert not denied['ok'] and client.tool('forge_discover')['revision'] == state['revision']
     write_capture(sys.argv[3])
-    print('MCP sequence clips: both framings, schema, permissions, replay, revisions, history, save/reopen and graceful exits passed')
+    print(('MCP nested sequences' if NESTED_SEQUENCES_ONLY else 'MCP sequence clips') +
+          ': both framings, schema, permissions, replay, revisions, history, save/reopen and graceful exits passed')
     raise SystemExit(0)
 
 if MESH_SCATTER_ONLY:

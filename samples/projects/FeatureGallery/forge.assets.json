@@ -5445,6 +5445,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "5661629c-06da-4eff-a261-c17746af61ef",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/146-nested-sequences.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "570cbfe8-2d87-4e94-aa10-3b24a16e6c14",
       "metadata": {
         "forge.import": {

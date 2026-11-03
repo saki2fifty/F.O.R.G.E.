@@ -8,7 +8,9 @@
 #include <forge/render_components.hpp>
 #include <forge/sdk_client.hpp>
 #include <limits>
+#include <set>
 #include <stdexcept>
+#include <string>
 #include <thread>
 namespace {
 struct SequenceProbe {
@@ -73,9 +75,37 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char* error, uint32_t 
                     seek(.5);
                 } else if (tick == 3) {
                     flecs::world current(host->world);
+                    std::set<std::string> controllers{ref.entity_uuid};
+                    unsigned nested = 0;
+                    current.each([&](flecs::entity child,
+                                     const forge::AnimationSequence& placement) {
+                        if (placement.sequence.entity.str() != ref.entity_uuid)
+                            return;
+                        ForgeSdkEntityRefV1 child_ref{};
+                        ForgeSdkAnimationPlaybackV1 status{};
+                        check(client.entity_reference(child.id(), child_ref) == 1 &&
+                                  placement.sequence.scene.str() == ref.scene_uuid &&
+                                  placement.sequence_start_seconds == 1 &&
+                                  placement.duration == 6 && placement.playback_speed == 2 &&
+                                  !placement.play_on_start && placement.loop &&
+                                  client.animation_playback(child_ref.scene_uuid,
+                                                            child_ref.entity_uuid, status) == 1 &&
+                                  status.duration == 6 && !status.loop &&
+                                  status.speed == config.playback_speed &&
+                                  std::abs(status.time - std::clamp(admitted.time - 1, 0., 6.)) <
+                                      1e-9,
+                              "Nested typed values/derived status differ through matching SDK");
+                        check(client.animation_control(child_ref.scene_uuid, child_ref.entity_uuid,
+                                                       FORGE_SDK_ANIMATION_PAUSE) == 0 &&
+                                  client.animation_seek(child_ref.scene_uuid, child_ref.entity_uuid,
+                                                        .25) == 0,
+                              "C++ independently controlled a bound sequence");
+                        controllers.insert(child_ref.entity_uuid);
+                        ++nested;
+                    });
                     unsigned tracks = 0, pairs = 0;
                     current.each([&](flecs::entity child, const forge::TransformAnimator& player) {
-                        if (player.sequence.entity.str() != ref.entity_uuid)
+                        if (!controllers.contains(player.sequence.entity.str()))
                             return;
                         ForgeSdkEntityRefV1 child_ref{};
                         ForgeSdkAnimationPlaybackV1 status{};
@@ -103,7 +133,7 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char* error, uint32_t 
                     });
                     unsigned shots = 0;
                     current.each([&](const forge::CameraShot& shot) {
-                        if (shot.sequence.entity.str() != ref.entity_uuid)
+                        if (!controllers.contains(shot.sequence.entity.str()))
                             return;
                         bool found = false;
                         current.each([&](flecs::entity camera, const forge::Camera& lens) {
@@ -122,7 +152,7 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char* error, uint32_t 
                     });
                     unsigned cues = 0;
                     current.each([&](const forge::AudioCue& cue) {
-                        if (cue.sequence.entity.str() != ref.entity_uuid)
+                        if (!controllers.contains(cue.sequence.entity.str()))
                             return;
                         bool found = false;
                         current.each([&](flecs::entity actor, const forge::AudioSource& source) {
@@ -143,7 +173,7 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char* error, uint32_t 
                     check((cues == 0 && shots == 0 && tracks == 3) ||
                               (cues == 0 && shots == 0 && tracks == 1 && pairs == 1) ||
                               (cues == 0 && shots == 3 && tracks == 1) ||
-                              (cues == 3 && shots == 2 && tracks == 1),
+                              (cues == 3 && shots == 2 && tracks == 1 && nested <= 1),
                           "Sequence probe did not inspect its complete object/shot tracks");
                 } else if (tick == 4) {
                     control(FORGE_SDK_ANIMATION_PAUSE);

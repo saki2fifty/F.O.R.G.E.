@@ -137,7 +137,7 @@ void exercise(const std::filesystem::path& root) {
     held.document["keys"][0]["interpolation"] = "held";
     near(held.clip().sample_properties(999999)[unsigned(AnimationProperty::AudioGain)], .25);
     near(held.clip().sample_properties(1000000)[unsigned(AnimationProperty::AudioPitch)], 2);
-    for (const auto [property, invalid] :
+    for (const auto& [property, invalid] :
          {std::pair{AnimationProperty::AudioGain, -1.},
           std::pair{AnimationProperty::AudioGain, 4.001},
           std::pair{AnimationProperty::AudioPitch, .249},
@@ -364,6 +364,10 @@ int main(int argc, char** argv) {
         }
         if (argc == 4 && std::string_view(argv[1]) == "--cue-gallery") {
             audio_cue_gallery(argv[2], argv[3]);
+            return 0;
+        }
+        if (argc == 4 && std::string_view(argv[1]) == "--nested-cue-gallery") {
+            audio_cue_gallery(argv[2], argv[3], true);
             return 0;
         }
         check(argc == 2, "Need animated audio scratch root");

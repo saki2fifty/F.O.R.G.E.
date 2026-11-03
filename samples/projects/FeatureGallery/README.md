@@ -1844,3 +1844,20 @@ each clip and highlight the overlap. Apply timing, refresh clips and preview; Sc
 Save persists the arrangement. Export uses the same prepared clips without the
 source editor or a compiler. The [sequence guide](../../../manual/editor/animation-sequences.md)
 explains limits, gaps, clearing the next slot and frame export.
+
+## Nested sequence arrangement
+
+Open `Scenes/146-nested-sequences.scene.json` and press **Play → Game**. An
+eight-second parent contains a six-second child at one second. The child reuses
+the original sound-cue scene's panel motion, three pitched tones and camera cuts.
+Tones sound at parent times one, three and five seconds; the ordinary overview
+camera covers time outside the child placement. The whole arrangement loops.
+
+Open the parent's sequence Timeline and select the child under **Nested sequences**.
+The green span shows its placement. Change **Start in parent**, apply and refresh
+to preview the combined arrangement. **Open nested timeline** edits the child locally;
+**Open parent timeline** returns to the arrangement. The child's stored speed of two,
+loop and disabled Play on start demonstrate standalone intent: the placed child
+instead follows the parent's clock and rate. Save the Scene before exporting.
+See the [sequence guide](../../../manual/editor/animation-sequences.md) for
+detachment, Prefabs, controls, sound behavior and current limits.

@@ -2,7 +2,8 @@
 
 An **Animation Sequence** makes several objects use one playback time. Each object
 keeps its reusable animation clip and a start time inside the sequence. A second
-transform clip can crossfade on the same object.
+transform clip can crossfade on the same object. Sequences can also contain other
+sequences, sharing their root controller's playback time.
 
 ![Timeline with camera shot intervals and camera selection](../images/camera-sequencing.png)
 
@@ -63,6 +64,44 @@ sequence** clears the controller binding and next clip while keeping the primary
 clip and its standalone settings. Undo restores the arrangement. A missing or
 incompatible clip is reported during **Refresh clips** or Play preparation; correct
 its selection, channel set or timing and refresh again.
+
+## Place a sequence inside another
+
+Open **FeatureGallery / Scenes / 146-nested-sequences.scene.json** and press
+**Play → Game**. The parent loops every eight seconds. Its six-second child starts
+at one second: the three tones sound at parent times one, three and five seconds,
+the gold panel moves, and the child switches between two cameras. The normal
+overview camera appears before and after the child placement.
+
+![Timeline showing a child sequence placed at one second inside its parent](../images/nested-sequences.png)
+
+Select the child row to edit its start or open its own Timeline.
+
+1. Create two **Animation Sequence** controllers in the same Scene. Give the parent enough **Duration** for the arrangement; the child's duration controls its placement length.
+2. Open the parent's sequence Timeline. Select the child controller in Hierarchy, position the playhead and choose **Add selected sequence**.
+3. Select the child under **Nested sequences**. Enter **Start in parent**, then choose **Apply sequence start**. This uses one Scene Undo step. **Reset pending sequence start** discards the pending value. Apply or reset before opening or removing the placement.
+4. Choose **Refresh clips**, then **Preview sequence**. The green strip marks the child placement. Scrub the parent to inspect its descendants together. Game preview and frame export use the same composed camera image.
+5. Choose **Open nested timeline** to edit the child's own objects, shots, sound cues or further child placements. Its local preview uses its own stored timing. **Open parent timeline** returns to the parent arrangement; refresh the parent to review the combined result.
+6. Choose **Save scene**. Game Play and export use the saved parent bindings and prepared clips and sounds.
+
+While placed, the child's clock, speed, loop and start/stop intent come from the
+root controller. Its own **Playback speed**, **Loop** and **Play on start** stay
+stored for local preview or standalone use. Pause, seek or restart the root to
+control the arrangement. A bound child cannot be controlled independently.
+
+Child starts must be inside their immediate parent's duration. Ancestor ends
+truncate longer placements. Object tracks hold their first and last values
+outside the placement; camera shots direct only within it, including their exact
+final frame when a final shot reaches the child's end. Sound cues fire at their
+translated parent times during forward playback, including each root loop.
+Seeking and silent Timeline preview do not play skipped sounds.
+
+**Remove sequence placement** clears the parent link and keeps the child, tracks,
+start value and standalone settings. Undo restores the link. Inspector also exposes
+**Parent sequence** and **Start in parent**. Circular links, missing controllers
+and cross-Scene parents are reported during refresh or Play preparation. Include
+the complete linked group when making a Prefab. Up to 64 enabled controllers can
+participate; one controller with camera shots can direct each loaded Scene.
 
 ## Export preview frames
 
@@ -151,7 +190,8 @@ stay stored for when they are removed from the sequence.
 **Remove from sequence** keeps the primary clip and clears its controller and next
 clip. Each object supports one primary clip and one optional next transform clip.
 Camera shots cut without blending. This sequence mode does not crossfade property
-curves, edit bones, nest sequences or encode a movie.
+curves, edit bones or encode a movie. Each controller has at most one parent
+placement; place a copy of a complete linked group to reuse it independently.
 
 Pause, Step and simulation Speed work as they do for other animations. C++ can use
 the existing animation playback/control/seek operations on the controller. Bound

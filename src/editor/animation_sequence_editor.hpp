@@ -51,6 +51,7 @@ class AnimationSequenceEditor {
         scene_ = nullptr;
         controller_ = {};
         track_.clear();
+        nested_.clear();
         shot_.clear();
         shot_camera_ = nullptr;
         cue_.clear();
@@ -276,7 +277,18 @@ class AnimationSequenceEditor {
             ImGui::TextWrapped("Sequence controller is missing. Scene Undo can restore it.");
             return;
         }
+        const auto snapshot = scene_->effective_document();
         const auto config = entity.get<AnimationSequence>();
+        std::string sequence_name = controller_.entity.str();
+        for (const auto& row : snapshot.at("entities"))
+            if (row.at("id") == sequence_name) {
+                sequence_name = row.value("name", sequence_name);
+                break;
+            }
+        ImGui::Text("Sequence: %s", sequence_name.c_str());
+        if (config.sequence.entity)
+            ImGui::TextWrapped("Local preview uses this controller's stored timing. Its parent "
+                               "controls placed playback.");
         view_.reconcile(config.duration * animation_timebase);
         ImGui::TextUnformatted("Scene sequence — arrangement edits use Scene Save and Undo");
         ImGui::BeginDisabled(locked || frame_exporting_);
@@ -285,6 +297,28 @@ class AnimationSequenceEditor {
         if (ui::button("Select controller", "Edit duration, loop and speed in Inspector.") &&
             ui::editor_context)
             ui::editor_context->selection.select_entity(controller_.entity.str());
+        if (config.sequence.entity) {
+            ImGui::BeginDisabled(pending_);
+            const bool go_parent = ui::button(
+                "Open parent timeline", "Return to the controller that places this sequence.");
+            FORGE_UI_PROBE("sequence:open_parent");
+            ImGui::EndDisabled();
+            if (go_parent) {
+                try {
+                    const auto parent = scene_->entity(config.sequence.entity.str());
+                    if (config.sequence.scene != scene_->asset_id() || !parent ||
+                        !parent.has<AnimationSequence>())
+                        throw std::runtime_error("Parent sequence is unavailable in this Scene");
+                    if (ui::editor_context)
+                        ui::editor_context->selection.select_entity(config.sequence.entity.str());
+                    open(*project_, *scene_, config.sequence);
+                    ImGui::EndDisabled();
+                    return;
+                } catch (const std::exception& error) {
+                    error_ = error.what();
+                }
+            }
+        }
         ImGui::TextWrapped("Duration %.3f s | %s | Speed %.2f", config.duration,
                            config.loop ? "Loop" : "One-shot", config.playback_speed);
         if (ui::button("Refresh clips",
@@ -338,7 +372,6 @@ class AnimationSequenceEditor {
         ImGui::SameLine();
         if (ui::button("Zoom out", "Zoom around the view center."))
             view_.zoom(.5, .5);
-        const auto snapshot = scene_->effective_document();
         const auto selected =
             ui::editor_context ? ui::editor_context->selection.entity() : std::string();
         const bool can_add = !pending_ && !selected.empty() &&
@@ -357,6 +390,7 @@ class AnimationSequenceEditor {
                 commands.push_back(property(selected, "sequence", controller_));
                 apply_authoring(*scene_, commands, scene_->revision());
                 track_ = selected;
+                nested_.clear();
                 shot_.clear();
                 cue_.clear();
                 pending_ = false;
@@ -380,6 +414,7 @@ class AnimationSequenceEditor {
             ImGui::BeginDisabled(pending_);
             if (ImGui::Selectable(row.value("name", id).c_str(), track_ == id)) {
                 track_ = id;
+                nested_.clear();
                 shot_.clear();
                 cue_.clear();
             }
@@ -540,6 +575,7 @@ class AnimationSequenceEditor {
                             commands.push_back(property(track_, "sequence_next_clip", nullptr));
                         apply_authoring(*scene_, commands, scene_->revision());
                         track_.clear();
+                        nested_.clear();
                         cue_.clear();
                         pending_ = false;
                         stop_preview();
@@ -550,6 +586,10 @@ class AnimationSequenceEditor {
                 FORGE_UI_PROBE("sequence:remove");
                 ImGui::EndDisabled();
             }
+        }
+        if (draw_nested_sequences(snapshot, config, selected)) {
+            ImGui::EndDisabled();
+            return;
         }
         draw_camera_shots(snapshot, config, selected);
         draw_audio_cues(snapshot, config, selected);
@@ -572,6 +612,23 @@ class AnimationSequenceEditor {
                                                       role_mask(WorldRole::Runtime))}),
               scene(engine.world()), animation(animation_runtime(engine.world())) {
             scene.restore_snapshot(source);
+            AnimationPlaybackAccess::prepare_sequence_preview_root(*animation, controller);
+            std::set<std::string> controllers{controller.entity.str()};
+            for (unsigned remaining = 64; remaining > 0; --remaining) {
+                const auto before = controllers.size();
+                for (const auto& row : source.at("entities")) {
+                    const auto id = row.at("id").get<std::string>();
+                    const auto entity = scene.entity(id);
+                    if (!entity || !entity.has<AnimationSequence>())
+                        continue;
+                    const auto parent = entity.get<AnimationSequence>().sequence;
+                    if (parent.scene == controller.scene &&
+                        controllers.contains(parent.entity.str()))
+                        controllers.insert(id);
+                }
+                if (before == controllers.size())
+                    break;
+            }
             // Keep movement guards on targets/ancestors so preview uses the
             // runtime's own writer-conflict policy. Unrelated animation stays idle.
             std::set<flecs::entity_t> guards;
@@ -580,14 +637,15 @@ class AnimationSequenceEditor {
                 const auto actor = scene.entity(id);
                 if (!actor)
                     continue;
-                if (id == controller.entity.str())
+                if (controllers.contains(id))
                     for (auto parent = actor; parent && guards.insert(parent.id()).second;
                          parent = parent.target(flecs::ChildOf)) {
                     }
                 if (!actor.has<TransformAnimator>())
                     continue;
                 const auto value = actor.get<TransformAnimator>();
-                if (value.sequence != controller || !value.enabled)
+                if (value.sequence.scene != controller.scene ||
+                    !controllers.contains(value.sequence.entity.str()) || !value.enabled)
                     continue;
                 targets.insert(id);
                 for (auto parent = actor; parent && guards.insert(parent.id()).second;
@@ -601,15 +659,18 @@ class AnimationSequenceEditor {
                     continue;
                 if (entity.has<AnimationSequence>()) {
                     auto value = entity.get<AnimationSequence>();
-                    if (id == controller.entity.str())
+                    if (id == controller.entity.str()) {
                         value.play_on_start = false;
-                    else if (!targets.contains(id))
+                        value.sequence = {};
+                        value.sequence_start_seconds = 0;
+                    } else if (!controllers.contains(id))
                         value.enabled = false;
                     entity.set(value);
                 }
                 if (entity.has<CameraShot>()) {
                     auto value = entity.get<CameraShot>();
-                    if (value.sequence != controller)
+                    if (value.sequence.scene != controller.scene ||
+                        !controllers.contains(value.sequence.entity.str()))
                         value.enabled = false;
                     entity.set(value);
                 }
@@ -635,14 +696,14 @@ class AnimationSequenceEditor {
     std::unique_ptr<Context> context_;
     std::shared_ptr<const AssetCatalog> catalog_;
     std::set<std::string> targets_;
-    std::string track_, shot_, cue_, error_;
+    std::string track_, shot_, cue_, nested_, error_;
     Json shot_camera_ = nullptr, cue_source_ = nullptr;
     double shot_start_ = 0, shot_end_ = 1, cue_time_ = 0;
     AnimationTimelineView view_;
     std::uint64_t revision_ = 0, pending_revision_ = 0, frame_export_serial_ = 0;
     double saved_preview_time_ = 0;
     bool frame_exporting_ = false, saved_preview_ = false, saved_playing_ = false;
-    double time_ = 0, offset_ = 0, next_offset_ = 0;
+    double time_ = 0, offset_ = 0, next_offset_ = 0, nested_start_ = 0;
     unsigned pending_track_fields_ = 0;
     bool ready_ = false, stale_ = false, preview_ = false, playing_ = false, pending_ = false,
          closing_ = false, locked_ = false;
@@ -720,6 +781,155 @@ class AnimationSequenceEditor {
         commands.push_back(property(shot_, "camera", shot_camera_, "forge.camera_shot"));
         apply_authoring(*scene_, commands, scene_->revision());
     }
+    bool draw_nested_sequences(const Json& snapshot, const AnimationSequence& config,
+                               const std::string& selected) {
+        std::vector<std::string> children;
+        for (const auto& row : snapshot.at("entities")) {
+            const auto id = row.at("id").get<std::string>();
+            const auto actor = scene_->entity(id);
+            if (actor.has<AnimationSequence>() &&
+                actor.get<AnimationSequence>().sequence == controller_)
+                children.push_back(id);
+        }
+        const bool can_add =
+            !pending_ && !selected.empty() && selected != controller_.entity.str() &&
+            scene_->entity(selected) && scene_->entity(selected).has<AnimationSequence>() &&
+            scene_->entity(selected).get<AnimationSequence>().sequence != controller_;
+        if (children.empty() && !can_add && nested_.empty())
+            return false;
+        ImGui::SeparatorText("Nested sequences");
+        ImGui::TextWrapped("Place a controller on this timeline. Its child tracks share the root "
+                           "clock; its standalone speed, loop and start intent stay stored.");
+        ImGui::BeginDisabled(!can_add);
+        if (ui::button("Add selected sequence",
+                       "Place the selected controller at the playhead as one Scene Undo step.")) {
+            try {
+                apply_authoring(*scene_,
+                                Json::array({property(selected, "sequence", controller_,
+                                                      "forge.animation_sequence"),
+                                             property(selected, "sequence_start_seconds",
+                                                      std::clamp(time_, 0., config.duration),
+                                                      "forge.animation_sequence")}),
+                                scene_->revision());
+                nested_ = selected;
+                track_.clear();
+                shot_.clear();
+                cue_.clear();
+                stop_preview();
+            } catch (const std::exception& error) {
+                error_ = error.what();
+            }
+        }
+        FORGE_UI_PROBE("sequence:add_nested");
+        ImGui::EndDisabled();
+        for (const auto& id : children) {
+            const auto value = scene_->entity(id).get<AnimationSequence>();
+            std::string name = id;
+            for (const auto& row : snapshot.at("entities"))
+                if (row.at("id") == id) {
+                    name = row.value("name", id);
+                    break;
+                }
+            ImGui::PushID(id.c_str());
+            ImGui::BeginDisabled(pending_);
+            if (ImGui::Selectable(name.c_str(), nested_ == id)) {
+                nested_ = id;
+                track_.clear();
+                shot_.clear();
+                cue_.clear();
+            }
+            FORGE_UI_PROBE("sequence:nested:" + id);
+            ImGui::EndDisabled();
+            const auto origin = ImGui::GetCursorScreenPos();
+            const ImVec2 size{std::max(40.f, ImGui::GetContentRegionAvail().x),
+                              24 * ui::interface_scale};
+            ImGui::InvisibleButton("##nested span", size);
+            FORGE_UI_PROBE("sequence:nested_span:" + id);
+            auto* draw = ImGui::GetWindowDrawList();
+            const auto x = [&](double seconds) {
+                return origin.x +
+                       float(std::clamp(view_.fraction(seconds * animation_timebase), 0., 1.)) *
+                           size.x;
+            };
+            draw->AddRectFilled(origin, {origin.x + size.x, origin.y + size.y},
+                                IM_COL32(32, 42, 52, 255));
+            draw->AddRectFilled(
+                {x(value.sequence_start_seconds), origin.y + 3},
+                {x(value.sequence_start_seconds + value.duration), origin.y + size.y - 3},
+                IM_COL32(72, 153, 117, 255));
+            draw->AddLine({x(time_), origin.y}, {x(time_), origin.y + size.y},
+                          IM_COL32(255, 203, 78, 255), 2);
+            if (ImGui::IsItemActive() && ImGui::IsMouseDown(0)) {
+                time_ = view_.time((ImGui::GetIO().MousePos.x - origin.x) / size.x) /
+                        animation_timebase;
+                playing_ = false;
+                if (ready_ && !stale_)
+                    seek_preview();
+            }
+            ImGui::TextDisabled("Start %.3f s | Length %.3f s%s", value.sequence_start_seconds,
+                                value.duration, value.enabled ? "" : " | Disabled");
+            ImGui::PopID();
+        }
+        if (nested_.empty())
+            return false;
+        const auto target = scene_->entity(nested_);
+        if (!target || !target.has<AnimationSequence>() ||
+            target.get<AnimationSequence>().sequence != controller_) {
+            ImGui::TextWrapped("The selected sequence is no longer placed here.");
+            if (ui::button("Reset pending sequence start", "Discard the pending field.")) {
+                pending_ = false;
+                nested_.clear();
+            }
+            return false;
+        }
+        if (!pending_)
+            nested_start_ = target.get<AnimationSequence>().sequence_start_seconds;
+        ImGui::TextUnformatted("Start in parent");
+        ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
+        if (ImGui::InputDouble("##nested start", &nested_start_, 0, 0, "%.3f s")) {
+            if (!pending_)
+                pending_revision_ = scene_->revision();
+            pending_ = true;
+        }
+        FORGE_UI_PROBE("sequence:nested_start");
+        if (ui::button("Apply sequence start",
+                       "Commit the placement start in one Scene Undo step."))
+            apply_pending();
+        FORGE_UI_PROBE("sequence:apply_nested");
+        if (ui::button("Reset pending sequence start", "Reload the current Scene field."))
+            pending_ = false;
+        FORGE_UI_PROBE("sequence:reset_nested");
+        ImGui::BeginDisabled(pending_);
+        bool open_child = false;
+        if (ui::button("Open nested timeline",
+                       "Edit this sequence locally, including its own child placements."))
+            open_child = true;
+        FORGE_UI_PROBE("sequence:open_nested");
+        if (ui::button("Remove sequence placement",
+                       "Clear the parent binding and keep the controller, tracks and standalone "
+                       "settings.")) {
+            try {
+                apply_authoring(*scene_,
+                                Json::array({property(nested_, "sequence", nullptr,
+                                                      "forge.animation_sequence")}),
+                                scene_->revision());
+                nested_.clear();
+                stop_preview();
+            } catch (const std::exception& error) {
+                error_ = error.what();
+            }
+        }
+        FORGE_UI_PROBE("sequence:remove_nested");
+        ImGui::EndDisabled();
+        if (open_child && !nested_.empty()) {
+            const EntityRef child{controller_.scene, EntityId::parse(nested_)};
+            if (ui::editor_context)
+                ui::editor_context->selection.select_entity(nested_);
+            open(*project_, *scene_, child);
+            return true;
+        }
+        return false;
+    }
     void draw_camera_shots(const Json& snapshot, const AnimationSequence& config,
                            const std::string& selected) {
         ImGui::SeparatorText("Camera shots");
@@ -765,6 +975,7 @@ class AnimationSequenceEditor {
                                                          {"end_seconds", end}}}});
                 shot_ = result.at("selected");
                 track_.clear();
+                nested_.clear();
                 cue_.clear();
                 stop_preview();
                 error_.clear();
@@ -789,6 +1000,7 @@ class AnimationSequenceEditor {
             if (ImGui::Selectable(row.value("name", id).c_str(), shot_ == id)) {
                 shot_ = id;
                 track_.clear();
+                nested_.clear();
                 cue_.clear();
             }
             FORGE_UI_PROBE("sequence:shot:" + id);
@@ -930,6 +1142,7 @@ class AnimationSequenceEditor {
                 cue_ = result.at("selected");
                 shot_.clear();
                 track_.clear();
+                nested_.clear();
                 stop_preview();
                 error_.clear();
             } catch (const std::exception& error) {
@@ -952,6 +1165,7 @@ class AnimationSequenceEditor {
                 cue_ = id;
                 shot_.clear();
                 track_.clear();
+                nested_.clear();
             }
             FORGE_UI_PROBE("sequence:cue:" + id);
             ImGui::EndDisabled();
@@ -1055,6 +1269,28 @@ class AnimationSequenceEditor {
     }
     bool apply_pending() {
         try {
+            if (!nested_.empty()) {
+                const auto parent = scene_->entity(controller_.entity.str());
+                const auto child = scene_->entity(nested_);
+                if (!parent || !parent.has<AnimationSequence>() || !child ||
+                    !child.has<AnimationSequence>() ||
+                    child.get<AnimationSequence>().sequence != controller_)
+                    throw std::runtime_error("Nested sequence placement is no longer available");
+                if (!std::isfinite(nested_start_) || nested_start_ < 0 ||
+                    nested_start_ > parent.get<AnimationSequence>().duration)
+                    throw std::runtime_error("Nested start must be inside the parent sequence");
+                if (pending_ && scene_->revision() != pending_revision_)
+                    throw std::runtime_error(
+                        "Scene changed. Reset the pending sequence start before applying it.");
+                apply_authoring(*scene_,
+                                Json::array({property(nested_, "sequence_start_seconds",
+                                                      nested_start_, "forge.animation_sequence")}),
+                                scene_->revision());
+                pending_ = false;
+                stop_preview();
+                error_.clear();
+                return true;
+            }
             if (!cue_.empty()) {
                 apply_cue();
                 pending_ = false;

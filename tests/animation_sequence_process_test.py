@@ -27,11 +27,14 @@ with tempfile.TemporaryDirectory(prefix='forge-sequence-sdk-', dir=runtime.paren
     stamp = dict(format='forge.authored-component', version=1, module=declaration['module'],
                  schema_version=declaration['schema_version'], digest=declaration['digest'])
     for scene_name in ('62-coordinated-animation.scene.json', '68-sequence-camera-shots.scene.json',
-                       '70-sequence-audio-cues.scene.json', '145-sequence-clip-blending.scene.json'):
+                       '70-sequence-audio-cues.scene.json', '145-sequence-clip-blending.scene.json',
+                       '146-nested-sequences.scene.json'):
         source_path = root / 'Scenes' / scene_name
         original = source_path.read_bytes()
         source = json.loads(original)
-        controller, = [r for r in source['entities'] if 'forge.animation_sequence' in r['components']]
+        controllers = [r for r in source['entities'] if 'forge.animation_sequence' in r['components']]
+        controller, = [r for r in controllers if not r['components']['forge.animation_sequence'].get('sequence')]
+        nested = len(controllers) > 1
         controller['components']['project.sequence_probe'] = dict(ticks=0, time=0, **{'$forge': stamp})
         shot_tracks = sorted([r['components']['forge.camera_shot'] for r in source['entities']
                               if 'forge.camera_shot' in r['components']], key=lambda r: r['start_seconds'])
@@ -43,8 +46,10 @@ with tempfile.TemporaryDirectory(prefix='forge-sequence-sdk-', dir=runtime.paren
         def check_camera(state, expected):
             if not shot_tracks:
                 return
+            local = expected - 1 if nested else expected
             target = next((s['camera']['entity'] for s in shot_tracks
-                           if s['start_seconds'] <= expected < s['end_seconds']), None)
+                           if s['start_seconds'] <= local < s['end_seconds'] or
+                           (nested and local == 6 and s['end_seconds'] == 6)), None)
             if target is None:
                 target, = [r['id'] for r in source['entities']
                            if r['components'].get('forge.camera', {}).get('enabled')]
@@ -60,6 +65,8 @@ with tempfile.TemporaryDirectory(prefix='forge-sequence-sdk-', dir=runtime.paren
                         6: .75}.get(tick, .75+(tick-6)*dt)
             assert probe['ticks'] == tick and abs(probe['time']-expected) < 2e-6, (tick, probe, expected)
             check_camera(state, expected)
+            if nested:
+                expected = max(0, min(6, expected - 1))
             for actor in source['entities']:
                 if 'forge.transform_animator' not in actor['components']:
                     continue
@@ -169,4 +176,4 @@ with tempfile.TemporaryDirectory(prefix='forge-sequence-sdk-', dir=runtime.paren
             check_camera(restarted, 0)
         finally:
             editor.close()
-print('Exact C++ object/camera-shot controls and typed fields, four recoveries per scene and SDK Play PASS')
+print('Exact C++ object/nested/camera-shot controls and typed fields, four recoveries per scene and SDK Play PASS')

@@ -16,6 +16,7 @@ void near(double a, double b) {
     check(std::abs(a - b) < 1e-5,
           "Sequence UI numeric oracle differs: " + std::to_string(a) + " vs " + std::to_string(b));
 }
+#include "nested_sequence_editor_workflow.hpp"
 #include "sequence_frame_export_tests.hpp"
 void exercise(const std::filesystem::path& gallery, const std::filesystem::path& scratch,
               float scale, ImVec2 display) {
@@ -99,8 +100,8 @@ void exercise(const std::filesystem::path& gallery, const std::filesystem::path&
         auto box = test::ui_targets.at(id);
         const bool selectable =
             id.starts_with("picker-option:") || id.starts_with("sequence:track:") ||
-            id.starts_with("sequence:shot:") || id.starts_with("sequence:cue:") ||
-            id.starts_with("entity-picker-row:");
+            id.starts_with("sequence:nested:") || id.starts_with("sequence:shot:") ||
+            id.starts_with("sequence:cue:") || id.starts_with("entity-picker-row:");
         auto inside = [&] {
             const ImVec2 center{(box.minimum.x + box.maximum.x) / 2,
                                 (box.minimum.y + box.maximum.y) / 2};
@@ -349,6 +350,8 @@ void exercise(const std::filesystem::path& gallery, const std::filesystem::path&
           "Remove track Undo lost binding");
     // Camera shots reuse Scene commands/history and the isolated sequence clock.
     progress("object tracks passed");
+    nested_editor_workflow(project, scene, editor, context, controller, clip, frame, click, type);
+    progress("nested sequences passed");
     const auto camera = authoring_command(scene, "entity.create",
                                           {{"name", "Equal camera name"},
                                            {"recipe", "render.camera"},
@@ -616,6 +619,10 @@ int main(int argc, char** argv) {
     try {
         if (argc == 5 && std::string_view(argv[1]) == "--capture-pair") {
             capture_sequence_pair(argv[2], argv[3], argv[4]);
+            return 0;
+        }
+        if (argc == 5 && std::string_view(argv[1]) == "--capture-nested") {
+            capture_sequence_pair(argv[2], argv[3], argv[4], true);
             return 0;
         }
         check(argc == 3, "Need Gallery and sequence UI scratch root");

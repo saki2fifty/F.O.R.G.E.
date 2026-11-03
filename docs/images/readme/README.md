@@ -1495,11 +1495,32 @@ overlap, typed clip pickers and pending start fields are visible. Capture does n
 change authored project content. Frame export is unavailable in this isolated
 Timeline fixture because it has no graphical Game host; the actual copied frame
 sampling workflow is tested separately.
-PNG SHA256: `e4dc070d0b1f89b229d1dd06fb33a627ea6abb800bbfce7550ea2db93855ecaf`.
+PNG SHA256: `03accdbc02e72a1cae2bf1352837e09943757bec0512887bf5e771a7f0ce7fe8`.
 
 Capture uses `forge_animation_sequence_editor_tests --capture-pair <Gallery>
-<private-scratch> <png>` with local sequence source based on 7e5a133 and an
+<private-scratch> <png>` with local sequence source based on 5027e2b and an
 unassigned build identity. Exact executable, source, Scene and image receipts
 remain with the local capability validation owner. No pixels or controls are
 retouched. This is not full Main, Windows/MSVC/D3D12, physical input/DPI/GPU/audio,
 performance or graphical EXE acceptance.
+
+
+## Nested sequence Timeline
+
+[Nested sequence placement](../../../manual/images/nested-sequences.png) is the
+unretouched 720×1100 production Animation Timeline at 100%, rendered with the same
+SDL/ImGui software fixture and project font. Actual pointer input selects the
+original Gallery146 child row on its eight-second parent. The green six-second
+placement, start field, apply/reset, local navigation and detachment controls are
+visible. The capture includes the selected controller name. No authored Gallery
+file changes during capture. Frame export is disabled because the isolated
+Timeline fixture has no graphical Game host.
+PNG SHA256: `0b96320ccb6be139998c71ccf7e1895bbb914fcccad1e9b5d809c58f2311a4bd`.
+
+Capture uses `forge_animation_sequence_editor_tests --capture-nested <Gallery>
+<private-scratch> <png>`, source based on 5027e2b and an unassigned build identity.
+The same source refreshes the two-clip Timeline image above because its visible
+header now identifies the selected controller. Exact executable/source/Scene/image
+proofs remain with the local capability validation owner. No pixels or controls
+are retouched; full Main, Windows/MSVC/D3D12, physical input/DPI/GPU/audio,
+performance and graphical EXE acceptance remain separate.

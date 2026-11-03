@@ -1956,3 +1956,27 @@ Headless sequence workers request the existing offline audio output explicitly.
 SDK package tests accept `FORGE_SDK_TEST_JOBS` for measured local build scheduling;
 the default remains two jobs. Select concurrency from available CPU and memory.
 These checks do not establish Windows editor or physical GPU/audio acceptance.
+
+## Nested sequence consumers
+
+`animation_sequence` also covers three-level derived clocks, child control rejection,
+same-Scene reference/cycle validation, 64-controller admission, ancestor truncation,
+exact root cue boundaries/multiple periods, paired clips, portable Prefab member
+links, duplication and cold recovery7. Root seeks stage all descendant poses.
+`animation_sequence_editor` drives placement/start/navigation/detachment and Undo
+in six layouts through actual production Timeline input. Its copied frame samples
+use the same descendant provider and preserve Scene intent.
+
+`mcp_nested_sequences_stdio` exercises both framings, registered schema/limits,
+permissions, revision/replay, history and save/reopen. `native_sdk_sequence` and
+`native_sdk_sequence_installed` include Gallery146 through direct/SDK Play hosts,
+typed parent/start values, derived observation, rejected independent child controls
+and four cold-worker recoveries per scene. The installed case uses only the
+installed/relocated SDK, with its current component fingerprint.
+
+`animation_sequence_gallery` adds Gallery146 to its source-hidden relocated content
+closure. `animation_nested_cue_gallery` uses the existing real offline audio fixture
+to verify seven pitched cues across parent loops, camera/geometry composition,
+silence between cues and source-hidden relocated export. Ordinary audio-cue tests
+retain their unnested profile. These CPU/software checks do not establish full
+Main, Windows/MSVC/D3D12, physical audio/GPU/input/DPI or graphical EXE acceptance.

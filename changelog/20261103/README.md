@@ -45,3 +45,25 @@ before validating the new profile. Old scenes and empty next slots retain their
 single-clip behavior. Public native component values require a matching rebuilt
 SDK module; callback tables and clip source/cook formats are unchanged. Gallery145
 contains two original published clips and an exportable demonstration.
+
+
+## Nested sequence placements
+
+An Animation Sequence can place another controller at a start in parent seconds.
+The root governs all descendant timing and controls while each child retains its
+standalone settings. Same-Scene typed bindings reuse Scene/Prefab history and
+reference remapping. Graph validation rejects cycles and invalid active parents
+within the existing controller budget. Ancestor ends truncate child placements.
+
+Timeline provides nested spans, one pending start, apply/reset, local child/parent
+navigation and detachment. Root seek/restart stages descendant poses together;
+independent bound controls reject. Camera cuts and sound cues use translated root
+timing, with exact entry/end/wrap behavior and cold recovery. Inspector and generic
+automation/MCP expose the same registered fields and revision/history owners.
+
+Gallery146 demonstrates an eight-second parent with a six-second child at one
+second, using existing original motion, cameras and three pitched sound cues.
+The manual includes an authentic Timeline capture and instructions for authoring,
+preview, Prefabs and export. Native component values require a matching rebuilt
+SDK module; C callback layouts and Scene/Prefab/clip formats are unchanged.
+Windows/full-editor/physical acceptance remains pending; no numbered delivery is implied.

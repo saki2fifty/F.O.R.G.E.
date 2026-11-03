@@ -1,7 +1,7 @@
 #pragma once
 void capture_sequence_pair(const std::filesystem::path& gallery,
                            const std::filesystem::path& scratch,
-                           const std::filesystem::path& output) {
+                           const std::filesystem::path& output, bool nested = false) {
     const auto root = scratch / AssetId::generate().str();
     std::filesystem::create_directories(root.parent_path());
     std::filesystem::copy(gallery, root, std::filesystem::copy_options::recursive);
@@ -14,14 +14,22 @@ void capture_sequence_pair(const std::filesystem::path& gallery,
         Scene scene(engine.world());
         SceneDocument project(scene);
         project.open_project(root);
-        project.open_scene("Scenes/145-sequence-clip-blending.scene.json");
+        project.open_scene(nested ? "Scenes/146-nested-sequences.scene.json"
+                                  : "Scenes/145-sequence-clip-blending.scene.json");
         EntityRef controller;
         std::string actor;
         const auto source = scene.snapshot();
         for (const auto& row : source.at("entities")) {
-            if (row.at("components").contains("forge.animation_sequence"))
-                controller = {scene.asset_id(), row.at("id").get<EntityId>()};
-            if (row.at("components").contains("forge.transform_animator"))
+            if (row.at("components").contains("forge.animation_sequence")) {
+                if (row.at("components")
+                        .at("forge.animation_sequence")
+                        .value("sequence", Json{})
+                        .is_null())
+                    controller = {scene.asset_id(), row.at("id").get<EntityId>()};
+                else if (nested)
+                    actor = row.at("id").get<std::string>();
+            }
+            if (!nested && row.at("components").contains("forge.transform_animator"))
                 actor = row.at("id").get<std::string>();
         }
         check(bool(controller.entity) && !actor.empty(), "Missing pair capture track");
@@ -48,11 +56,15 @@ void capture_sequence_pair(const std::filesystem::path& gallery,
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
         test::ImGuiInputDriver input(frame);
-        input.click(("sequence:track:" + actor).c_str());
+        input.click(((nested ? "sequence:nested:" : "sequence:track:") + actor).c_str());
         for (unsigned i = 0; i < 4; ++i)
             frame();
-        for (const char* key :
-             {"sequence:start", "sequence:next_start", "sequence:clip", "sequence:next_clip"}) {
+        const auto controls =
+            nested ? std::vector<const char*>{"sequence:nested_start", "sequence:apply_nested",
+                                              "sequence:open_nested", "sequence:remove_nested"}
+                   : std::vector<const char*>{"sequence:start", "sequence:next_start",
+                                              "sequence:clip", "sequence:next_clip"};
+        for (const char* key : controls) {
             const auto& box = test::ui_targets.at(key);
             check(box.enabled && box.minimum.x >= box.clip_minimum.x &&
                       box.maximum.x <= box.clip_maximum.x && box.minimum.y >= box.clip_minimum.y &&

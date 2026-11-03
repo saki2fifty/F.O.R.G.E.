@@ -1,7 +1,7 @@
 #pragma once
 // The shared Running fixture uses actual animation, audio, PCM and Scene owners.
 void audio_cue_gallery_run(const std::filesystem::path& root, const Json& source,
-                           const std::filesystem::path& path) {
+                           const std::filesystem::path& path, bool nested = false) {
     const auto catalog = std::make_shared<const AssetCatalog>(AssetCatalog::open_project(root));
     const auto original_catalog = catalog->document(), original_source = read(root / path);
     Running run(root);
@@ -9,12 +9,12 @@ void audio_cue_gallery_run(const std::filesystem::path& root, const Json& source
     run.ready();
     check(run.audio->status().at("one_shots") == 0 && run.signal(12000).energy == 0,
           "Gallery70 started sound before a forward sequence tick");
-    check(run.animation->checkpoint().at("version") == 5 &&
+    check(run.animation->checkpoint().at("version") == (nested ? 7 : 5) &&
               run.animation->checkpoint().at("audio_cues").size() == 3 &&
               run.animation->checkpoint().at("camera_shots").size() == 2,
           "Gallery70 lost exact combined cue/shot recovery");
     std::array<EntityRef, 3> emitters;
-    EntityId moving, front, side;
+    EntityId moving, front, side, fallback;
     for (const auto& row : source.at("entities")) {
         const auto& values = row.at("components");
         const auto id = row.at("id").get<EntityId>();
@@ -23,6 +23,8 @@ void audio_cue_gallery_run(const std::filesystem::path& root, const Json& source
             emitters.at(unsigned(cue.at("time_seconds").get<double>() / 2)) =
                 cue.at("source").get<EntityRef>();
         }
+        if (values.contains("forge.camera") && values.at("forge.camera").at("enabled").get<bool>())
+            fallback = id;
         if (values.contains("forge.transform_animator"))
             moving = id;
         if (values.contains("forge.camera_shot")) {
@@ -34,23 +36,28 @@ void audio_cue_gallery_run(const std::filesystem::path& root, const Json& source
     check(bool(moving) && bool(front) && bool(side), "Gallery70 visual actors missing");
     unsigned heard = 0;
     double energy = 0;
-    for (unsigned step = 1; step <= 52; ++step) {
+    for (unsigned step = 1; step <= (nested ? 68u : 52u); ++step) {
         run.simulation.tick(.25f);
-        const auto time = std::fmod(step * .25, 6.);
+        const auto time = std::fmod(step * .25, nested ? 8. : 6.);
+        const auto local_time = nested ? std::clamp(time - 1, 0., 6.) : time;
+        const auto target = nested && (time < 1 || time > 7) ? fallback
+                            : local_time < 3                 ? front
+                                                             : side;
         const auto checkpoint = run.animation->checkpoint();
         const auto image = extract_render_scene(run.simulation.presentation(1));
         check(image.diagnostics.empty() && image.meshes.size() == 5 && image.lights.size() == 1 &&
-                  image.cameras.size() == 1 &&
-                  image.cameras.front().entity == (time < 3 ? front : side),
+                  image.cameras.size() == 1 && image.cameras.front().entity == target,
               "Gallery70 sound integration lost actual geometry or sequence camera cuts");
-        const auto u = std::clamp((time - .5) / 2., 0., 1.);
+        const auto u = std::clamp((local_time - .5) / 2., 0., 1.);
         near(run.scene.entity(moving.str()).get<LocalTranslation>().x,
              -2 + 4 * u * u * (3 - 2 * u));
         check(run.animation->checkpoint() == checkpoint,
               "Gallery70 render extraction advanced cue/sequence time");
-        const bool crossing = step == 1 || step % 8 == 0;
+        const auto within = step % 32;
+        const bool crossing =
+            nested ? within == 4 || within == 12 || within == 20 : step == 1 || step % 8 == 0;
         if (crossing) {
-            const unsigned index = step == 1 ? 0 : (step / 8) % 3;
+            const unsigned index = nested ? (within - 4) / 8 : step == 1 ? 0 : (step / 8) % 3;
             check(run.audio->status().at("one_shots") == 1 &&
                       AudioSourceAccess::status(*run.audio, emitters[index]).at("one_shots") == 1,
                   "Gallery70 emitted missing, wrong-source or duplicate loop-boundary sound");
@@ -63,7 +70,8 @@ void audio_cue_gallery_run(const std::filesystem::path& root, const Json& source
             ++heard;
         } else {
             const auto signal = run.signal(12000);
-            if (step == 7 || step == 15 || step == 23)
+            if (nested ? within == 3 || within == 11 || within == 19 || within == 31
+                       : step == 7 || step == 15 || step == 23)
                 check(signal.energy == 0, "Gallery70 retained unwanted sound between cue points");
         }
     }
@@ -71,16 +79,18 @@ void audio_cue_gallery_run(const std::filesystem::path& root, const Json& source
     check(read(root / path) == original_source &&
               AssetCatalog::open_project(root).document() == original_catalog,
           "Gallery70 playback changed source/catalog intent");
-    std::cout << "Gallery70 actual PCM cues=" << heard << ", energy=" << energy << '\n';
+    std::cout << (nested ? "Nested Gallery146 actual PCM cues=" : "Gallery70 actual PCM cues=")
+              << heard << ", energy=" << energy << '\n';
 }
-void audio_cue_gallery(const std::filesystem::path& original,
-                       const std::filesystem::path& scratch) {
+void audio_cue_gallery(const std::filesystem::path& original, const std::filesystem::path& scratch,
+                       bool nested = false) {
     const auto root = std::filesystem::absolute(scratch) / AssetId::generate().str();
     std::filesystem::create_directories(root.parent_path());
     std::filesystem::copy(original, root, std::filesystem::copy_options::recursive);
-    const auto path = std::filesystem::path("Scenes/70-sequence-audio-cues.scene.json");
+    const auto path = std::filesystem::path(nested ? "Scenes/146-nested-sequences.scene.json"
+                                                   : "Scenes/70-sequence-audio-cues.scene.json");
     const auto source = read(root / path);
-    audio_cue_gallery_run(root, source, path);
+    audio_cue_gallery_run(root, source, path, nested);
     const auto game = root.string() + "-game", relocated = game + "-relocated";
     const std::array roots{source.at("asset_id").get<AssetId>()};
     EngineContext author;
@@ -99,5 +109,5 @@ void audio_cue_gallery(const std::filesystem::path& original,
     const auto scene = catalog.resolve(AssetRef<SceneAsset>{roots.front()});
     check(scene.state == AssetState::Available, "Relocated Gallery70 Scene is unavailable");
     audio_cue_gallery_run(relocated, read(std::filesystem::path(relocated) / scene.record->source),
-                          scene.record->source);
+                          scene.record->source, nested);
 }

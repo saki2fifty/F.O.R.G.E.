@@ -23,6 +23,8 @@ class TransformAnimationPlayback {
     bool ready() const;
     bool checkpoint_ready() const;
     bool has_next_sequence_clips() const;
+    bool has_nested_sequences() const;
+    void prepare_sequence_preview_root(EntityRef);
     bool pending() const { return pending_; }
     std::vector<std::uint64_t> take_discontinuities();
     Json checkpoint() const;
@@ -31,12 +33,11 @@ class TransformAnimationPlayback {
     Json sequence_clip_status(EntityRef) const;
     bool control(EntityRef, AnimationControl);
     bool seek(EntityRef, double seconds);
-    Json sequence_checkpoint(bool audio_entries = false) const;
+    Json sequence_checkpoint(unsigned profile = 3) const;
     Json camera_shots_checkpoint() const;
     Json audio_cues_checkpoint() const;
     Json camera_presentation(flecs::entity_t, double alpha) const;
-    void restore(const Json&, const Json& sequences, bool audio_entries = false,
-                 bool paired_entries = false);
+    void restore(const Json&, const Json& sequences, unsigned profile = 3);
     void pose_validator(AnimationRuntime::PoseValidator callback) {
         validator_ = std::move(callback);
     }
@@ -69,6 +70,8 @@ class TransformAnimationPlayback {
     struct SequenceState {
         AnimationSequence config;
         EntityRef entity;
+        flecs::entity_t parent = 0, root = 0;
+        double root_offset = 0, root_end = 0;
         double time = 0, previous = 0, advance = 0;
         bool playing = false, discontinuous = true, entry_pending = true;
     };
@@ -93,6 +96,7 @@ class TransformAnimationPlayback {
     flecs::query<const AudioCue> audio_cues_;
     std::map<flecs::entity_t, SequenceState> sequence_states_;
     std::set<flecs::entity_t> sequence_errors_;
+    std::set<flecs::entity_t> inactive_sequences_;
     std::map<flecs::entity_t, std::vector<Shot>> shot_scenes_;
     std::set<flecs::entity_t> shot_errors_;
     std::map<flecs::entity_t, Cue> cue_states_;
@@ -108,6 +112,9 @@ class TransformAnimationPlayback {
     ResourceTicket request(AssetRef<TransformAnimationAsset>);
     void apply(const std::map<flecs::entity_t, double>& times, bool commit);
     void error(flecs::entity_t, const std::string&);
+    static flecs::entity_t scene_membership(flecs::entity);
+    double controller_time(const SequenceState&, double root_time) const;
+    double controller_presentation_time(flecs::entity_t, double alpha) const;
     void synchronize_sequences();
     void synchronize_camera_shots();
     void synchronize_audio_cues();

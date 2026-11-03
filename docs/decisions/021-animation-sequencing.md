@@ -186,3 +186,33 @@ C callback table layouts and reusable clip source/cook formats stay unchanged.
 Recovery must record both selected revisions and reject incompatible state before
 publication; older no-next configurations retain their supported recovery readers.
 Editor/automation/MCP and runtime/export use the same fields and provider owners.
+
+## Nested Scene controller placements — accepted bounded design
+
+2026-11-03. This additive profile uses the existing sequence ownership boundaries.
+An AnimationSequence may retain a typed parent sequence reference and start in that
+parent's seconds. Empty bindings preserve standalone behavior. The existing native
+component, Scene/Prefab reference/history owner and transform animation provider
+remain authoritative; no sequence asset, graph database, global clock or manager
+is added. Installed value additions require matching SDK rebuilds.
+
+A bound controller is a finite placement. Its time is derived from the root clock,
+summed placement offsets and ancestor-clipped span. Standalone speed, loop and
+play-on-start intent stay stored but do not create an independent bound clock.
+Child controls reject; root seek/restart stages descendant poses and clocks in one
+complete candidate. Validate same-Scene references and cycles within the current
+64-controller budget. Disabled chains retire through current activation ownership.
+
+Translate sound cue points to the root's unwrapped interval and reuse the existing
+periodic-range/batch owner, preserving exact offset entry, end and root-wrap events.
+Sample root presentation time before local clamping; camera shots direct only
+within the placement's active span. Keep the current one camera-shot director per
+loaded Scene rather than introducing nested precedence. Recovery must validate
+parent bindings and all derived clocks after resource admission, before adoption.
+
+The Timeline borrows Scene history. Local copied preview includes descendants and
+isolates the selected controller from its parent only after the existing provider
+validates its original active binding, so preview cannot hide an active cycle.
+Automation/MCP must expose the same native fields/operations and ownership.
+Multiple placements of one controller, independent child rate/loop overrides,
+property/skeletal crossfades and movie encoding are outside this first profile.

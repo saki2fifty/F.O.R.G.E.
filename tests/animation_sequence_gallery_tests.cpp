@@ -206,6 +206,7 @@ void exercise_shots(const std::filesystem::path& root, const Json& source) {
     live.scene.entity(group.entity.str()).set(config);
     inspect(live, fallback);
 }
+#include "nested_sequence_gallery_tests.hpp"
 #include "sequence_clip_gallery_tests.hpp"
 } // namespace
 int main(int argc, char** argv) {
@@ -215,6 +216,10 @@ int main(int argc, char** argv) {
             author_sequence_pair(argv[2]);
             return 0;
         }
+        if (std::string_view(argv[1]) == "--author-nested") {
+            author_nested_sequence(argv[2]);
+            return 0;
+        }
         const auto scratch = std::filesystem::absolute(argv[2]) / AssetId::generate().str();
         std::filesystem::create_directories(scratch);
         const auto root = scratch / "source";
@@ -222,6 +227,7 @@ int main(int argc, char** argv) {
         const auto source = read(root / "Scenes/62-coordinated-animation.scene.json");
         const auto shots = read(root / "Scenes/68-sequence-camera-shots.scene.json");
         const auto pair = read(root / pair_gallery_scene);
+        const auto nested = read(root / nested_gallery_scene);
         const auto catalog = AssetCatalog::open_project(root);
         std::set<AssetId> clips;
         for (const auto& row : source.at("entities"))
@@ -237,10 +243,11 @@ int main(int argc, char** argv) {
         exercise(root, source);
         exercise_shots(root, shots);
         exercise_sequence_pair(root, pair);
+        exercise_nested_sequence(root, nested);
         exercise_pair_with_cues(root, read(root / "Scenes/70-sequence-audio-cues.scene.json"));
-        const std::array roots{source.at("asset_id").get<AssetId>(),
-                               shots.at("asset_id").get<AssetId>(),
-                               pair.at("asset_id").get<AssetId>()};
+        const std::array roots{
+            source.at("asset_id").get<AssetId>(), shots.at("asset_id").get<AssetId>(),
+            pair.at("asset_id").get<AssetId>(), nested.at("asset_id").get<AssetId>()};
         {
             ProjectLease lease(root);
             prepare_runtime_content_catalog(lease, roots, {});
@@ -250,7 +257,7 @@ int main(int argc, char** argv) {
         const auto moved = scratch / "relocated";
         std::filesystem::rename(exported, moved);
         const auto shipped = open_runtime_content(moved, {"windows", "d3d12"});
-        check(shipped.records().size() == 10, "Sequence export has an incorrect content closure");
+        check(shipped.records().size() == 11, "Sequence export has an incorrect content closure");
         for (const auto& row : pair.at("entities"))
             if (row.at("components").contains("forge.transform_animator")) {
                 const auto& config = row.at("components").at("forge.transform_animator");
@@ -265,6 +272,7 @@ int main(int argc, char** argv) {
         exercise(moved, read(moved / shipped.records().at(roots[0]).source));
         exercise_shots(moved, read(moved / shipped.records().at(roots[1]).source));
         exercise_sequence_pair(moved, read(moved / shipped.records().at(roots[2]).source));
+        exercise_nested_sequence(moved, read(moved / shipped.records().at(roots[3]).source));
         std::cout << "Gallery62 coordinated animation and Gallery68 actual camera shots/cuts/gaps, "
                      "recovery/candidates and relocated source-free Windows-target data PASS\n";
     } catch (const std::exception& e) {

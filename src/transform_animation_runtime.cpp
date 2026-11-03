@@ -147,16 +147,14 @@ void TransformAnimationPlayback::synchronize() {
                 throw std::runtime_error("Sequence next clip start must be within 0–3600 seconds");
             flecs::entity_t sequence = 0;
             if (config.sequence.entity) {
-                flecs::entity_t membership = 0;
-                for (auto parent = entity; parent && !membership;
-                     parent = parent.target(flecs::ChildOf))
-                    membership = parent.target<SceneMember>().id();
+                const auto membership = scene_membership(entity);
                 const auto resolved = context_.resolve(config.sequence, membership);
                 if (resolved.state != WorldContext::ResolveState::Available ||
                     !context_.world().entity(resolved.entity).has<AnimationSequence>())
                     throw std::runtime_error("Sequence controller is unavailable in this scene");
                 if (!context_.world().entity(resolved.entity).get<AnimationSequence>().enabled ||
-                    !conditions.active(resolved.entity)) {
+                    !conditions.active(resolved.entity) ||
+                    inactive_sequences_.contains(resolved.entity)) {
                     alive.erase(entity.id());
                     return;
                 }
@@ -441,7 +439,7 @@ void TransformAnimationPlayback::tick(double seconds, bool deliver_events) {
         (void)id;
         sequence.previous = sequence.time;
         sequence.advance = 0;
-        if (!sequence.playing)
+        if (sequence.parent || !sequence.playing)
             continue;
         const auto duration = sequence.config.duration * animation_timebase;
         sequence.advance = seconds * animation_timebase * sequence.config.playback_speed;
@@ -454,6 +452,15 @@ void TransformAnimationPlayback::tick(double seconds, bool deliver_events) {
             sequence.time = duration;
             sequence.playing = false;
         }
+    }
+    for (auto& [id, sequence] : sequence_states_) {
+        (void)id;
+        if (!sequence.parent)
+            continue;
+        const auto& root = sequence_states_.at(sequence.root);
+        sequence.time = controller_time(sequence, root.time);
+        sequence.advance = sequence.time - sequence.previous;
+        sequence.discontinuous |= root.discontinuous;
     }
     std::map<flecs::entity_t, double> times;
     for (auto& [id, state] : states_) {
@@ -580,10 +587,9 @@ Json TransformAnimationPlayback::presentation_properties(flecs::entity_t id, dou
     const auto& state = at->second;
     auto time = state.previous + state.advance * alpha;
     if (state.sequence) {
-        const auto& sequence = sequence_states_.at(state.sequence);
         time = state.advance == 0
                    ? state.time
-                   : sequence_time(state, sequence.previous + sequence.advance * alpha);
+                   : sequence_time(state, controller_presentation_time(state.sequence, alpha));
     } else if (state.config.loop)
         time = std::fmod(time, double(state.clip->duration));
     auto values = AnimationPropertyState::from(context_.world().entity(id), state.clip->properties);
@@ -641,7 +647,9 @@ Json TransformAnimationPlayback::checkpoint() const {
 }
 void TransformAnimationPlayback::restore(const Json& values) { restore(values, Json::array()); }
 void TransformAnimationPlayback::restore(const Json& values, const Json& sequences,
-                                         bool audio_entries, bool paired_entries) {
+                                         unsigned profile) {
+    const bool audio_entries = profile >= 5;
+    const bool nested_entries = profile >= 7;
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
     do {
         if (context_.services().available(Capability::Resources))
@@ -657,8 +665,9 @@ void TransformAnimationPlayback::restore(const Json& values, const Json& sequenc
         throw std::runtime_error("Transform animation recovery configuration differs");
     // A fresh worker may not have admitted either clip when restore begins.
     // Compare the recovery profile only after admission, before adopting state.
-    if (paired_entries != has_next_sequence_clips())
-        throw std::runtime_error("Sequence next clip recovery profile/version differs");
+    if ((profile == 6 && !has_next_sequence_clips()) ||
+        (profile < 6 && has_next_sequence_clips()) || nested_entries != has_nested_sequences())
+        throw std::runtime_error("Sequence pair/nested recovery profile differs");
     if (!sequences.is_array() || sequences.size() != sequence_states_.size())
         throw std::runtime_error("Animation sequence recovery configuration differs");
     auto groups = sequence_states_;
@@ -685,7 +694,20 @@ void TransformAnimationPlayback::restore(const Json& values, const Json& sequenc
                 : value.contains("entry_pending"))
             throw std::runtime_error("Sequence recovery cue-entry state/version mismatch");
         state.entry_pending = audio_entries ? value.at("entry_pending").get<bool>() : false;
+        if (nested_entries) {
+            const auto parent = state.config.sequence.entity ? Json(state.config.sequence) : Json();
+            if (value.at("sequence") != parent ||
+                value.at("sequence_start_seconds") != state.config.sequence_start_seconds ||
+                (state.parent && (state.playing || state.entry_pending)))
+                throw std::runtime_error("Nested sequence recovery binding/intent differs");
+        } else if (value.contains("sequence") || value.contains("sequence_start_seconds"))
+            throw std::runtime_error("Unexpected nested sequence recovery fields");
         state.discontinuous = true;
+    }
+    for (const auto& [id, state] : groups) {
+        (void)id;
+        if (state.parent && state.time != controller_time(state, groups.at(state.root).time))
+            throw std::runtime_error("Nested sequence recovery clock differs from its root");
     }
     std::map<flecs::entity_t, double> times;
     std::map<flecs::entity_t, bool> playing;

@@ -107,7 +107,9 @@ template <class T> Json encode(const T& p) {
                 {"enabled", p.enabled},
                 {"play_on_start", p.play_on_start},
                 {"loop", p.loop},
-                {"playback_speed", p.playback_speed}};
+                {"playback_speed", p.playback_speed},
+                {"sequence", p.sequence.entity ? Json(p.sequence) : Json()},
+                {"sequence_start_seconds", p.sequence_start_seconds}};
     else if constexpr (std::is_same_v<T, CameraShot>)
         return {{"sequence", p.sequence.entity ? Json(p.sequence) : Json()},
                 {"camera", p.camera.entity ? Json(p.camera) : Json()},
@@ -433,6 +435,12 @@ template <class T> Value decode(const Json& p) {
         if (!std::isfinite(v.duration) || v.duration < 1e-6 || v.duration > 3600 ||
             !std::isfinite(v.playback_speed) || v.playback_speed < 0 || v.playback_speed > 4)
             throw std::runtime_error("Animation Sequence duration/speed is outside its range");
+        if (!p.value("sequence", Json()).is_null())
+            v.sequence = p.at("sequence").get<EntityRef>();
+        v.sequence_start_seconds = p.value("sequence_start_seconds", 0.);
+        if (!std::isfinite(v.sequence_start_seconds) || v.sequence_start_seconds < 0 ||
+            v.sequence_start_seconds > 3600)
+            throw std::runtime_error("Nested sequence start must be within 0–3600 seconds");
         return v;
     } else if constexpr (std::is_same_v<T, CameraShot>) {
         CameraShot v;
@@ -1237,11 +1245,14 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<double>("destination_y")
             .template member<double>("destination_z");
     } else if constexpr (std::is_same_v<T, AnimationSequence>) {
+        (void)authoring_value_adapters(w);
         c.template member<double>("duration")
             .template member<bool>("enabled")
             .template member<bool>("play_on_start")
             .template member<bool>("loop")
-            .template member<float>("playback_speed");
+            .template member<float>("playback_speed")
+            .template member<EntityRef>("sequence")
+            .template member<double>("sequence_start_seconds");
     } else if constexpr (std::is_same_v<T, CameraShot>) {
         (void)authoring_value_adapters(w);
         c.template member<EntityRef>("sequence")
@@ -2756,9 +2767,12 @@ Json registration_options(const Builtin& type, const std::string& field) {
             value["description"] =
                 "Sequence length in seconds; clips are held at their end or cut here";
         } else if (field == "sequence") {
-            value["display_name"] = "Sequence controller";
+            value["display_name"] =
+                name == "forge.animation_sequence" ? "Parent sequence" : "Sequence controller";
             value["description"] =
-                "Optional scene Animation Sequence that controls this clip's timing";
+                name == "forge.animation_sequence"
+                    ? "Optional same-Scene parent; its root controls this sequence's timing"
+                    : "Optional scene Animation Sequence that controls this clip's timing";
         } else if (field == "sequence_next_clip") {
             value["display_name"] = "Next clip";
         } else if (field == "sequence_next_start_seconds") {
@@ -2768,11 +2782,15 @@ Json registration_options(const Builtin& type, const std::string& field) {
             value["description"] =
                 "Second clip start on the same sequence; overlap crossfades linearly";
         } else if (field == "sequence_start_seconds") {
-            value["display_name"] = "Sequence start (seconds)";
+            value["display_name"] = name == "forge.animation_sequence" ? "Start in parent (seconds)"
+                                                                       : "Sequence start (seconds)";
             value["minimum"] = 0;
             value["maximum"] = 3600;
-            value["description"] =
-                "Clip start on its sequence; first pose holds before start and last pose after end";
+            value["description"] = name == "forge.animation_sequence"
+                                       ? "Placement in parent seconds; bound speed, loop and start "
+                                         "intent come from the root"
+                                       : "Clip start on its sequence; first pose holds before "
+                                         "start and last pose after end";
         }
         if (field == "blend_mode") {
             value["display_name"] = "Blend mode";
@@ -3399,8 +3417,9 @@ Json register_builtins(flecs::world& world, unsigned family) {
         }
         std::vector<ReflectedAdapter> references;
         if (name == "forge.physics_joint" || name == "forge.physics_joint_2d" ||
-            name == "forge.transform_animator" || name == "forge.camera_shot" ||
-            name == "forge.audio_cue" || name == "forge.navigation_behavior")
+            name == "forge.transform_animator" || name == "forge.animation_sequence" ||
+            name == "forge.camera_shot" || name == "forge.audio_cue" ||
+            name == "forge.navigation_behavior")
             references = authoring_value_adapters(world);
         // Native typed identity remains authoritative even when an earlier SDK
         // schema registered a reference before its builtin family used a label.
@@ -3589,9 +3608,13 @@ Json admitted_builtin_source(const Builtin& type, const Json& source) {
     if (std::string_view(type.name) == "forge.reflection_probe" &&
         !current.contains("diffuse_intensity"))
         current["diffuse_intensity"] = type.defaults.at("diffuse_intensity");
+    if (std::string_view(type.name) == "forge.transform_animator" ||
+        std::string_view(type.name) == "forge.animation_sequence")
+        for (const auto* field : {"sequence", "sequence_start_seconds"})
+            if (!current.contains(field))
+                current[field] = type.defaults.at(field);
     if (std::string_view(type.name) == "forge.transform_animator")
-        for (const auto* field : {"sequence", "sequence_start_seconds", "sequence_next_clip",
-                                  "sequence_next_start_seconds"})
+        for (const auto* field : {"sequence_next_clip", "sequence_next_start_seconds"})
             if (!current.contains(field))
                 current[field] = type.defaults.at(field);
     if (std::string_view(type.name) == "forge.particle_emitter")

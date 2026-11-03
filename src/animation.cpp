@@ -2167,6 +2167,12 @@ Json AnimationPlaybackAccess::status(AnimationRuntime& runtime, EntityRef ref) {
     }
     return result;
 }
+void AnimationPlaybackAccess::prepare_sequence_preview_root(AnimationRuntime& runtime,
+                                                            EntityRef ref) {
+    if (!runtime.impl_ || !runtime.impl_->context.on_owner_thread())
+        throw ArchiveError("Sequence preview composition requires an owner-thread World");
+    runtime.impl_->transforms.prepare_sequence_preview_root(ref);
+}
 void AnimationPlaybackAccess::control(AnimationRuntime& runtime, EntityRef ref,
                                       const Json& command) {
     if (!runtime.impl_ || !runtime.impl_->context.on_owner_thread() || !runtime.playback(ref))
@@ -2517,14 +2523,20 @@ Json AnimationRuntime::checkpoint() const {
             result["audio_cues"] = std::move(cues);
             if (!result.contains("camera_shots"))
                 result["camera_shots"] = Json::array();
-            result["sequence_entries"] = impl_->transforms.sequence_checkpoint(true);
+            result["sequence_entries"] = impl_->transforms.sequence_checkpoint(5);
         }
     }
     if (impl_ && impl_->transforms.has_next_sequence_clips()) {
         result["version"] = 6;
         result["camera_shots"] = impl_->transforms.camera_shots_checkpoint();
         result["audio_cues"] = impl_->transforms.audio_cues_checkpoint();
-        result["sequence_entries"] = impl_->transforms.sequence_checkpoint(true);
+        result["sequence_entries"] = impl_->transforms.sequence_checkpoint(6);
+    }
+    if (impl_ && impl_->transforms.has_nested_sequences()) {
+        result["version"] = 7;
+        result["camera_shots"] = impl_->transforms.camera_shots_checkpoint();
+        result["audio_cues"] = impl_->transforms.audio_cues_checkpoint();
+        result["sequence_entries"] = impl_->transforms.sequence_checkpoint(7);
     }
     return result;
 }
@@ -2574,7 +2586,8 @@ void AnimationRuntime::restore(const Json& data) {
             throw ArchiveError("Animation recovery admission timed out");
     }
     if ((data.at("version") != 1 && data.at("version") != 2 && data.at("version") != 3 &&
-         data.at("version") != 4 && data.at("version") != 5 && data.at("version") != 6) ||
+         data.at("version") != 4 && data.at("version") != 5 && data.at("version") != 6 &&
+         data.at("version") != 7) ||
         !data.at("entries").is_array() || data.at("entries").size() != impl_->states.size() ||
         !impl_->errors.empty())
         throw ArchiveError("Animation recovery configuration differs");
@@ -2839,7 +2852,7 @@ void AnimationRuntime::restore(const Json& data) {
     swap_sources();
     impl_->transforms.restore(data.value("transform_entries", Json::array()),
                               data.at("version") >= 3 ? data.at("sequence_entries") : Json::array(),
-                              data.at("version") >= 5, data.at("version") == 6);
+                              data.at("version").get<unsigned>());
     for (auto& value : values) {
         auto& p = *value.playback;
         const auto time = value.time;

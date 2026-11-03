@@ -61,8 +61,47 @@ sequence entry-pending state. After admitting the complete resource pair, mismat
 are rejected before restoring poses/clocks. A fresh worker can therefore restore
 without a prior preparation pass. Without a next slot, the current older-profile readers and
 writers retain their behavior. Scene/Prefab and clip source/cook formats do not
-change. Nested sequences, more than two clips on one actor, property crossfades
+change. More than two clips on one actor, property crossfades
 and movie encoding are outside this profile.
+
+### Nested controller placements
+
+`AnimationSequence.sequence` is an optional typed parent EntityRef;
+`sequence_start_seconds` is its finite start in immediate-parent seconds (0–3600,
+not beyond the parent duration). Missing fields backfill null/zero. The reference
+adapter reuses Scene duplication, Prefab member links and generic Inspector /
+automation/MCP property edits, revision and history. No separate arrangement
+database or advancing child clock is introduced.
+
+The existing provider validates the active graph: same loaded Scene, available
+controller, no cycles, within the 64-controller budget. Disabled/inactive ancestors
+retire their descendants. Each private SequenceState derives its root, accumulated
+offset and ancestor-clipped endpoint. Bound standalone speed, loop and play-on-start
+values remain stored; effective timing comes from the root. Root seek/restart stages
+all descendant clocks and poses before publication. Child control/seek rejects.
+Object values clamp to the finite local span; copied scalar presentation samples
+root time before clamping. Camera selection applies only within the placement,
+retaining the exact final shot frame at its end and ordinary cameras outside it.
+The existing one-director-per-Scene rule applies across the arrangement.
+
+Sound cue points translate into the root's unwrapped interval. The existing
+periodic-range and bounded 128-occurrence batch preserve offset entry/end,
+multiple periods, root wrap and deterministic ordering. Seek/recovery do not replay
+crossed sounds. Ancestor truncation excludes points beyond the clipped end.
+
+The Timeline edits one borrowed Scene history. Nested rows expose one pending start,
+apply/reset, local child/parent navigation and detachment. Local copied preview
+first validates the original active binding through the same provider, then isolates
+the selected root and includes all descendants and writer guards. Its own stored
+timing applies locally. Silent preview/frame export runs no gameplay or audio.
+
+Private animation recovery7 is required for admitted nested controllers, with or
+without paired clips. It includes parent/start metadata, root-derived local times,
+current clip revisions and camera/audio/entry state. Admission precedes complete
+recovery validation; invalid metadata or inconsistent derived clocks reject before
+adoption. Unnested configurations retain their supported older profiles. Installed
+native component values/fingerprint change; rebuild modules against the matching
+SDK. C callback layouts and Scene/Prefab/clip formats remain unchanged.
 
 The current complete transform/property candidate and writer-conflict checks run
 before any pose write. Existing AnimationService status/control/seek operations

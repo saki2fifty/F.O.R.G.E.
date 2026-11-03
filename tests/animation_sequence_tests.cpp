@@ -553,6 +553,8 @@ void camera_shots(const std::filesystem::path& root) {
                  "typed duplicate-name references and exact recovery passed\n";
 }
 #include "audio_cue_tests.hpp"
+#include "nested_sequence_audio_tests.hpp"
+#include "nested_sequence_tests.hpp"
 #include "sequence_clip_blend_tests.hpp"
 } // namespace
 int main(int argc, char** argv) {
@@ -569,6 +571,8 @@ int main(int argc, char** argv) {
         const auto motion = clip(lease, imports, "Assets/Motion.animation.json", false);
         const auto pulse = clip(lease, imports, "Assets/Pulse.animation.json", true);
         const auto held = clip(lease, imports, "Assets/Held.animation.json", false, true);
+        nested_audio_cue_tests(root);
+        nested_sequence_tests(root, motion, pulse);
         sequence_clip_blend_tests(root, lease, imports, motion, pulse, held);
         persistence(root, motion);
         EngineContext author;
