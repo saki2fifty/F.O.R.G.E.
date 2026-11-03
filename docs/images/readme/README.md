@@ -1653,3 +1653,22 @@ Personally reviewed from local unassigned source based on2b05874. Exact inputs,
 executable and capture provenance are recorded in the local234 manual-captures
 receipt. This does not establish full Main/editor, Windows/MSVC/D3D12, physical
 input/DPI/GPU, performance or graphical-EXE acceptance.
+
+
+## Native UI filter samples
+
+[UI filter lab](../../../manual/images/ui-filter-gallery.png) is an unretouched
+640×360 actual GamePresentation/GameSession capture of Gallery155 on software
+Vulkan. The same original shapes compare reference, grayscale, brightness,
+contrast, opacity and model-driven blur. All three pause controls fit the tested
+landscape and portrait Game targets. Paused model updates and RCSS filter animation
+change actual pixels without advancing fixed simulation. Source-hidden relocated
+content renders the same four captures, including changed blur and portrait.
+Lossless P6-to-PNG conversion retains every RGB pixel.
+PNG SHA256: `7abc2a2e2a7c7bb2b7a145a605d07ee5e256ed34e7f67d19b9ef695dc4ea8c90`.
+
+Personally reviewed from local unassigned source based on b24db7d. Exact native
+executable, source/export captures and limits are retained in the local235
+manual-captures receipt and final source freeze. This is test-fixture/native
+software-rendering evidence, not full Main/editor, Windows/MSVC/D3D12, physical
+GPU/input/DPI/performance, external MCP client or graphical-EXE acceptance.

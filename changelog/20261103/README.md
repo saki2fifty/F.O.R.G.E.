@@ -1,5 +1,21 @@
 # 2026-11-03
 
+## Native UI blur and color filters
+
+RML/RCSS supports bounded blur, opacity, grayscale, brightness and contrast chains,
+including copied model bindings and presentation-time animations. Shared drawing
+and isolated export inspection admit the same native parameters. Existing main /
+camera-output contexts, clipping, premultiplied color, staged resource retirement
+and failure retention remain authoritative. Scratch resources and filter counts
+have explicit bounds. Export/distribution admission requires matching filter-kit
+support using independently re-admitted source metadata; unfiltered legacy content
+keeps its existing metadata and compatibility.
+
+Original Gallery155 compares six shape/color samples and exposes live Inspector
+blur while paused. Existing source editing, tuning, UI reload and export MCP tools
+cover the workflow; no separate effects service is added. Windows/physical-device
+acceptance remains pending.
+
 ## Runtime UI in camera images
 
 UI Document adds an optional typed Render Texture assignment. Main-window HUDs

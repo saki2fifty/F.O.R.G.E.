@@ -3,6 +3,7 @@
 #include "Graphics/GraphicsEngine/interface/RenderDevice.h"
 #include "Graphics/GraphicsTools/interface/MapHelper.hpp"
 #include "Utilities/interface/DiligentFXShaderSourceStreamFactory.hpp"
+#include "ui_filter_layers.hpp"
 #include <RmlUi/Core.h>
 #include <algorithm>
 #include <array>
@@ -30,6 +31,7 @@ struct UiDiligentRenderer::Impl final : Rml::RenderInterface {
         float screen[4];
         float translation[4];
     };
+    UiFilterLayers layers;
     RefCntAutoPtr<IRenderDevice> device;
     RefCntAutoPtr<IDeviceContext> context;
     RefCntAutoPtr<ITexture> stencil;
@@ -90,7 +92,7 @@ struct UiDiligentRenderer::Impl final : Rml::RenderInterface {
     bool scissor = false, clip = false;
     Rml::Rectanglei region;
     std::array<float, 16> transform{};
-    Impl(IRenderDevice* d) : device(d) {
+    Impl(IRenderDevice* d) : layers(d), device(d) {
         ShaderCreateInfo shader;
         shader.SourceLanguage = SHADER_SOURCE_LANGUAGE_HLSL;
         shader.EntryPoint = "main";
@@ -290,6 +292,44 @@ float4 main(float4 p:SV_POSITION,float4 color:COLOR0,float2 uv:TEXCOORD0,
             textures.erase(it);
         }
     }
+    void bind_current() {
+        auto* target = layers.current_color();
+        if (!context || !target)
+            return;
+        context->SetRenderTargets(1, &target, stencil->GetDefaultView(TEXTURE_VIEW_DEPTH_STENCIL),
+                                  RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        Viewport view;
+        view.Width = float(width);
+        view.Height = float(height);
+        context->SetViewports(1, &view, width, height);
+    }
+    Rml::CompiledFilterHandle CompileFilter(const Rml::String& name,
+                                            const Rml::Dictionary& parameters) override {
+        return layers.compile(name, parameters);
+    }
+    void ReleaseFilter(Rml::CompiledFilterHandle filter) override { layers.release(filter); }
+    Rml::LayerHandle PushLayer() override {
+        const auto handle = layers.push();
+        bind_current();
+        return handle;
+    }
+    void PopLayer() override {
+        layers.pop();
+        bind_current();
+    }
+    void CompositeLayers(Rml::LayerHandle source, Rml::LayerHandle destination,
+                         Rml::BlendMode blend,
+                         Rml::Span<const Rml::CompiledFilterHandle> filters) override {
+        try {
+            layers.composite(source, destination, blend, filters,
+                             stencil->GetDefaultView(TEXTURE_VIEW_DEPTH_STENCIL), stencil_ref, clip,
+                             scissor, region);
+        } catch (...) {
+            bind_current();
+            throw;
+        }
+        bind_current();
+    }
     void EnableScissorRegion(bool value) override { scissor = value; }
     void SetScissorRegion(Rml::Rectanglei value) override { region = value; }
     void SetTransform(const Rml::Matrix4f* m) override {
@@ -384,20 +424,23 @@ void UiDiligentRenderer::begin(IDeviceContext* c, ITextureView* color, unsigned 
         throw std::runtime_error("Runtime UI needs a display RGBA8 or linear HDR RGBA16 target");
     s.output_format = target->GetDesc().Format == TEX_FORMAT_RGBA16_FLOAT ? 1u : 0u;
     s.context = c;
+    s.layers.begin(c, target, w, h);
     s.clipping(w, h);
     s.width = w;
     s.height = h;
     s.scissor = s.clip = false;
     s.stencil_ref = 0;
     s.SetTransform(nullptr);
-    c->SetRenderTargets(1, &target, s.stencil->GetDefaultView(TEXTURE_VIEW_DEPTH_STENCIL),
-                        RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    Viewport view;
-    view.Width = float(w);
-    view.Height = float(h);
-    c->SetViewports(1, &view, w, h);
+    s.bind_current();
 }
-void UiDiligentRenderer::end() { impl_->context.Release(); }
+void UiDiligentRenderer::end() {
+    impl_->layers.end();
+    impl_->context.Release();
+}
+UiDiligentRenderer::FilterStats UiDiligentRenderer::filter_stats() const {
+    const auto s = impl_->layers.statistics();
+    return {s.allocations, s.cached_bytes, s.cached_images, s.filters, s.active_layers};
+}
 UiDiligentRenderer::ClippingStats UiDiligentRenderer::clipping_stats() const {
     const auto& s = *impl_;
     return {s.stencil_allocations, unsigned(s.clipping_images.size()), s.clipping_bytes};

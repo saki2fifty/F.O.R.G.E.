@@ -53,7 +53,11 @@ class UiResources {
     ProjectPaths paths_;
     RuntimeContentAccess access_;
     std::set<std::filesystem::path> automatic_;
-    std::map<std::string, std::vector<std::byte>> files_;
+    struct File {
+        std::vector<std::byte> bytes;
+        bool filters = false;
+    };
+    std::map<std::string, File> files_;
     std::map<AssetId, std::filesystem::path> documents_;
     std::optional<UiLocalizationData> localization_;
     std::size_t bytes_ = 0;

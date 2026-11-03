@@ -67,7 +67,8 @@ int main(int argc, char** argv) {
         reject([&] {
             validate_ui_text("<rml><body style=\"font-size:999999px\"></body></rml>", true);
         });
-        reject([&] { validate_ui_text("body {filter:blur(1px);}", false); });
+        validate_ui_text("body {filter:blur(1px);}", false);
+        reject([&] { validate_ui_text("body {backdrop-filter:blur(1px);}", false); });
         reject([&] { decode_ui_image({}); });
         reject([&] { validate_ui_font({}); });
         EngineContext author;

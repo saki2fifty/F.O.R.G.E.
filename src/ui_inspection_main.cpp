@@ -1,6 +1,7 @@
 #include "asset_bytes.hpp"
 #include "asset_storage.hpp"
 #include "bounded_json.hpp"
+#include "ui_filter_admission.hpp"
 #include "ui_inspection_transport.hpp"
 #include <RmlUi/Core.h>
 #include <forge/ui_presenter.hpp>
@@ -10,7 +11,17 @@ namespace {
 // without allocating GPU objects; graphical readiness remains the game host's job.
 struct InspectionRenderer final : Rml::RenderInterface {
     std::uintptr_t next = 1;
-    std::set<std::uintptr_t> geometry, textures;
+    std::set<std::uintptr_t> geometry, textures, filters;
+    Rml::CompiledFilterHandle CompileFilter(const Rml::String& name,
+                                            const Rml::Dictionary& parameters) override {
+        (void)forge::ui_filter_detail::admit_filter(name, parameters);
+        if (filters.size() >= forge::ui_filter_detail::max_filters)
+            throw std::runtime_error("export.ui.limit: Compiled filter count exceeds 256");
+        const auto id = next++;
+        filters.insert(id);
+        return id;
+    }
+    void ReleaseFilter(Rml::CompiledFilterHandle h) override { filters.erase(h); }
     Rml::CompiledGeometryHandle CompileGeometry(Rml::Span<const Rml::Vertex> vertices,
                                                 Rml::Span<const int> indices) override {
         if (geometry.size() >= 32768 || vertices.size() > 1000000 || indices.size() > 3000000)

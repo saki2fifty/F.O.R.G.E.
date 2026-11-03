@@ -771,6 +771,24 @@ the existing output workflow. Output UI is display-only: assigning it does not
 route Mesh clicks, keyboard or focus. Runtime model values and explicit semantic
 commands retain their existing scope. See [Runtime UI](runtime-ui.md).
 
+## UI filter authoring
+
+Use `forge_source_text_read/write` to edit RML/RCSS `filter` declarations or
+`data-style-filter` bindings, then register/refresh through
+`forge_source_ui_register`. Blur0..16 resolved pixels, opacity/grayscale0..1 and
+brightness/contrast0..4 share native source/candidate admission; chains cap at8
+and active nesting at4. Invalid source/reload returns the ordinary diagnostic and
+retains the preceding usable presentation. Source writes keep their Edit-only
+file grant, exact disk digest, target/revision/sequence and no-Undo contract.
+
+The existing `forge.ui_values` schema/property commands set saved named scalar
+values; `forge_play_tune` changes them in the current launch through the ordinary
+runtime tuning/review owner. RCSS filter animation stays on presentation time.
+`forge_play_ui_reload` retains its current Play identity and execution permission.
+Export uses the existing project export service and requires a matching filter-
+capable runtime kit. No separate agent filter graph, DOM mutation or tool family
+is introduced. See [Runtime UI](runtime-ui.md) for rendering/resource limits.
+
 ## Raw UI/shader sources, recipes and navigation
 
 `forge_source_text_list/read/write` and `source_folder_create` cover raw project

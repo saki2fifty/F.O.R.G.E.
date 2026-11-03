@@ -1976,3 +1976,15 @@ refresh clips and preview in Game. A zero value creates an exact cut. Smooth pai
 must share projection, viewport, layers and clear/background settings; the manual
 lists the complete compatible profile. Save the Scene and export it normally;
 this example needs no project C++ module.
+
+
+## UI filter lab
+
+`Scenes/155-ui-filters.scene.json` compares original reference, grayscale,
+brightness, contrast, opacity and blur shape samples. Pause and edit Filter lab
+HUD / Live gameplay / UI Values / blur (0..16 resolved pixels). The pulse uses
+ordinary RCSS filter keyframes on presentation time. Stop restores saved values.
+`Assets/UI/Filters/Lab.rml` is editable RML/RCSS source; save and Reload UI to try
+changes. Select this Scene as startup and export with the matching runtime kit.
+No project C++ module or compiler is required. See the Runtime UI manual for
+filter ranges and temporary-layer limits.

@@ -150,6 +150,50 @@ Save the Scene and select it as startup before exporting. The game includes the
 required RML and RCSS through the normal content package. This example needs no
 C++ module or compiler. Transient animation progress is not saved in the Scene.
 
+## Apply blur and color filters
+
+![Six samples compare reference shapes, grayscale, brightness, contrast, opacity and live blur](../images/ui-filter-gallery.png)
+
+The Game view keeps the sample labels sharp while each panel filters its own shapes.
+
+Open **Scenes/155-ui-filters.scene.json** in **Examples/FeatureGallery** and press
+**Play**. Compare the reference shapes with grayscale, brightness, contrast,
+opacity and blur. Pause, select **Filter lab HUD**, and change **Live gameplay →
+UI Values → blur** between `0` and `16`. The blur sample updates while the fixed
+gameplay tick stays held. The small soft pulse keeps animating on presentation time.
+Stop returns the live value to its saved setting.
+
+Edit **Assets/UI/Filters/Lab.rml** through the Content source workflow or a text
+editor. Filters belong in an element's RML inline style or linked/embedded RCSS:
+
+```css
+#panel { filter: blur(2px) contrast(1.2); }
+```
+
+Filters apply to the element and its descendants in the written order. Put a label
+outside that element if its text should stay sharp. A named UI Value can control a
+filter with `data-style-filter="'blur(' + blur + 'px)'"`. Use a saved **UI Values**
+component for the initial value and the live Inspector to try changes during Play.
+Avoid having a binding and an animation control the same filter property.
+
+- `blur(2px)`: standard deviation from `0` to `16` resolved pixels.
+- `opacity(0.5)`: `0` to `1`.
+- `grayscale(1)`: `0` to `1`.
+- `brightness(1.5)`: `0` to `4`; `1` keeps the original brightness.
+- `contrast(1.5)`: `0` to `4`; `1` keeps the original contrast.
+
+Chains support up to eight filters and four nested filtered layers. Blur softens
+pixels within the target image; content beyond the image edge is unavailable.
+Large viewports and nested effects use more temporary image memory. Unsupported
+filters, excessive values or resource limits report a problem. **Reload UI** keeps
+the previous usable UI when a replacement fails. Correct the source and reload.
+
+Filters also work in UI assigned to a camera image. Save the sources and Scene,
+select the Scene as startup, and export with the runtime kit supplied with this
+editor. An older kit without filter support is rejected before replacing an
+existing export. No C++ module is needed. Backdrop filters, masks, shadows,
+shader decorators and gradients are unavailable.
+
 ## Layout your document
 
 RmlUi does not supply a browser's default HTML layout. If a menu collapses into a
@@ -185,7 +229,7 @@ export artwork in the orientation and display colors you want.
 
 Use document-relative local resource paths. The supplied **Lato** font is packaged with FORGE, so it does not depend on installed system fonts. You may load project `.ttf`/`.otf` fonts using an RCSS `@font-face` declaration, with suitable redistribution rights. Use explicit `font-family` and `font-size`; font shorthand is not supported in this integration. When replacing a font using the same family name, restart Play to clear its font cache.
 
-Images support **PNG**, **JPEG** (`.jpg` or `.jpeg`) and uncompressed true-color **TGA** (24 or 32 bits), at most 2048×2048. Use PNG for transparent icons and JPEG for opaque artwork. Image bytes and decoded pixels have additional limits; very large or high-precision images can exceed them. SVG, remote URLs, templates and stylesheet imports are not supported yet. Link multiple stylesheets individually. Filters, shader gradients, offscreen effects and shadows are also deferred.
+Images support **PNG**, **JPEG** (`.jpg` or `.jpeg`) and uncompressed true-color **TGA** (24 or 32 bits), at most 2048×2048. Use PNG for transparent icons and JPEG for opaque artwork. Image bytes and decoded pixels have additional limits; very large or high-precision images can exceed them. SVG, remote URLs, templates and stylesheet imports are not supported yet. Link multiple stylesheets individually. Blur and the color filters described above use bounded temporary layers. Backdrop filters, masks, shader gradients and shadows are unavailable.
 
 `px` means game render-target pixels; `dp` follows display density. The editor's interface scale remains separate. Check text input and sizing on the displays and input languages used by your game.
 

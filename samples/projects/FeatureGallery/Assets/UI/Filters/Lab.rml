@@ -1,0 +1,24 @@
+<rml><head><style>
+body,div,p,h1 {display:block;} body {margin:0;width:100%;height:100%;font-family:Lato;font-size:15px;color:#e5f2ff;pointer-events:none;}
+#lab {position:absolute;left:4%;top:3%;width:92%;}
+h1 {font-size:25px;margin:0 0 5px;color:#79e7cf;} p {margin:4px 0;}
+#grid {margin-top:10px;} .card {display:inline-block;width:30%;margin:0 2% 10px 0;vertical-align:top;}
+.label {height:21px;font-size:13px;} .sample {position:relative;height:58px;background-color:#1b3347;}
+.red,.green,.blue {position:absolute;top:10px;width:30%;height:42px;}
+.red {left:4%;background-color:#e96644;} .green {left:35%;background-color:#63cf89;} .blue {left:66%;background-color:#4e96df;}
+.word {position:absolute;left:9%;top:24px;font-size:16px;color:white;}
+#gray {filter:grayscale(1);} #bright {filter:brightness(1.6);} #contrast {filter:contrast(1.8);} #fade {filter:opacity(0.35);}
+#motion {width:42px;height:12px;margin-top:8px;background-color:#79e7cf;animation:2s linear-in infinite alternate softness;}
+@keyframes softness {from {filter:blur(0px);} to {filter:blur(5px);}}
+button {display:inline-block;padding:7px 10px;margin:5px 5px 0 0;background-color:#30536e;pointer-events:auto;}
+button:hover,button:focus {background-color:#4c849e;} .hint {font-size:13px;color:#adc7db;}
+</style></head><body><div id="lab"><h1>UI filter lab</h1><p>Same shapes. Different filters.</p><div id="grid">
+<div class="card"><div class="label">Reference</div><div class="sample"><div class="red"/><div class="green"/><div class="blue"/><div class="word">FORGE</div></div></div>
+<div class="card"><div class="label">Grayscale / 1</div><div id="gray" class="sample"><div class="red"/><div class="green"/><div class="blue"/><div class="word">FORGE</div></div></div>
+<div class="card"><div class="label">Brightness / 1.6</div><div id="bright" class="sample"><div class="red"/><div class="green"/><div class="blue"/><div class="word">FORGE</div></div></div>
+<div class="card"><div class="label">Contrast / 1.8</div><div id="contrast" class="sample"><div class="red"/><div class="green"/><div class="blue"/><div class="word">FORGE</div></div></div>
+<div class="card"><div class="label">Opacity / 0.35</div><div id="fade" class="sample"><div class="red"/><div class="green"/><div class="blue"/><div class="word">FORGE</div></div></div>
+<div class="card"><div class="label">Blur / {{blur}} px</div><div id="blur" class="sample" data-style-filter="'blur(' + blur + 'px)'"><div class="red"/><div class="green"/><div class="blue"/><div class="word">FORGE</div></div></div>
+</div><p class="hint">Inspector: Filter lab HUD / UI Values / blur (0 to 16).</p><p class="hint">The soft pulse keeps animating during Pause. Tick: {{tick}}</p><div id="motion"/>
+<button id="pause" data-event-click="command('Pause')">Pause</button><button id="resume" data-event-click="command('Resume')">Resume</button><button id="step" data-event-click="command('Step')">Step</button>
+</div></body></rml>

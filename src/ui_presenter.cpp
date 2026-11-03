@@ -1,4 +1,5 @@
 #include "asset_bytes.hpp"
+#include "ui_filter_profile.hpp"
 #include <RmlUi/Core.h>
 #include <RmlUi/Core/ElementText.h>
 #include <algorithm>
@@ -8,6 +9,7 @@
 #include <limits>
 #include <set>
 #include <thread>
+#include <type_traits>
 #include <utility>
 namespace forge {
 namespace {
@@ -64,66 +66,170 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
         Rml::RenderInterface& target;
         std::string& error;
         bool preparing = false;
+        struct Layer {
+            bool forwarded, valid;
+        };
+        std::vector<Layer> layers;
+        Rml::LayerHandle virtual_layer = 1;
         RenderGate(Rml::RenderInterface& r, std::string& e) : target(r), error(e) {}
+        void fail(std::string_view message) {
+            if (error.empty())
+                error.assign(message.substr(0, 2048));
+        }
+        template <class F> auto call(F action) -> std::invoke_result_t<F> {
+            try {
+                if constexpr (std::is_void_v<std::invoke_result_t<F>>) {
+                    action();
+                    return;
+                } else {
+                    return action();
+                }
+            } catch (const std::exception& e) {
+                fail(e.what());
+            } catch (...) {
+                fail("Unknown UI rendering callback failure");
+            }
+            if constexpr (!std::is_void_v<std::invoke_result_t<F>>)
+                return {};
+        }
+        // Keep native render walks balanced when a backend allocation fails.
+        // Report a new fault after the walk, while preserving an older source
+        // diagnostic when the usable predecessor rendered successfully.
+        template <class F> void checked(F action, bool propagate = true) {
+            auto previous = std::move(error);
+            error.clear();
+            try {
+                action();
+                if (!error.empty())
+                    throw std::runtime_error(error);
+            } catch (const std::exception& e) {
+                fail(e.what());
+                if (propagate)
+                    throw;
+                return;
+            }
+            error = std::move(previous);
+        }
+        bool blocked() const {
+            return std::any_of(layers.begin(), layers.end(),
+                               [](const auto& layer) { return !layer.valid; });
+        }
+        void render(Rml::Context& context, bool propagate = true) {
+            checked(
+                [&] {
+                    context.Render();
+                    if (!layers.empty())
+                        fail("UI native filter layer walk is unbalanced");
+                },
+                propagate);
+        }
         Rml::CompiledGeometryHandle CompileGeometry(Rml::Span<const Rml::Vertex> v,
                                                     Rml::Span<const int> i) override {
-            auto h = target.CompileGeometry(v, i);
+            const auto h = call([&] { return target.CompileGeometry(v, i); });
             if (!h)
-                error = "UI geometry allocation/admission failed";
+                fail("UI geometry allocation/admission failed");
             return h;
         }
-        void ReleaseGeometry(Rml::CompiledGeometryHandle h) override { target.ReleaseGeometry(h); }
+        void ReleaseGeometry(Rml::CompiledGeometryHandle h) override {
+            call([&] { target.ReleaseGeometry(h); });
+        }
         void RenderGeometry(Rml::CompiledGeometryHandle h, Rml::Vector2f p,
                             Rml::TextureHandle t) override {
-            if (!preparing)
-                target.RenderGeometry(h, p, t);
+            if (!preparing && !blocked())
+                call([&] { target.RenderGeometry(h, p, t); });
         }
         Rml::TextureHandle LoadTexture(Rml::Vector2i& d, const Rml::String& p) override {
-            auto h = target.LoadTexture(d, p);
-            if (!h && error.empty())
-                error = "UI image could not be loaded: " + p;
+            const auto h = call([&] { return target.LoadTexture(d, p); });
+            if (!h)
+                fail("UI image could not be loaded: " + p);
             return h;
         }
         Rml::TextureHandle GenerateTexture(Rml::Span<const Rml::byte> b, Rml::Vector2i d) override {
-            auto h = target.GenerateTexture(b, d);
+            const auto h = call([&] { return target.GenerateTexture(b, d); });
             if (!h)
-                error = "UI generated texture allocation/admission failed";
+                fail("UI generated texture allocation/admission failed");
             return h;
         }
-        void ReleaseTexture(Rml::TextureHandle h) override { target.ReleaseTexture(h); }
+        void ReleaseTexture(Rml::TextureHandle h) override {
+            call([&] { target.ReleaseTexture(h); });
+        }
         void EnableScissorRegion(bool b) override {
-            if (!preparing)
-                target.EnableScissorRegion(b);
+            if (!preparing && !blocked())
+                call([&] { target.EnableScissorRegion(b); });
         }
         void SetScissorRegion(Rml::Rectanglei r) override {
-            if (!preparing)
-                target.SetScissorRegion(r);
+            if (!preparing && !blocked())
+                call([&] { target.SetScissorRegion(r); });
         }
         void SetTransform(const Rml::Matrix4f* m) override {
-            if (!preparing)
-                target.SetTransform(m);
+            if (!preparing && !blocked())
+                call([&] { target.SetTransform(m); });
         }
         void EnableClipMask(bool b) override {
-            if (!preparing)
-                target.EnableClipMask(b);
+            if (!preparing && !blocked())
+                call([&] { target.EnableClipMask(b); });
         }
         void RenderToClipMask(Rml::ClipMaskOperation o, Rml::CompiledGeometryHandle h,
                               Rml::Vector2f p) override {
-            if (!preparing)
-                target.RenderToClipMask(o, h, p);
+            if (!preparing && !blocked())
+                call([&] { target.RenderToClipMask(o, h, p); });
         }
         Rml::LayerHandle PushLayer() override {
-            error = "UI offscreen layers/filters are not supported in this integration";
+            Rml::LayerHandle handle = 0;
+            bool valid = !blocked() && layers.size() < ui_filter_detail::max_layers;
+            if (!valid)
+                fail("UI filter layer stack exceeds four active layers");
+            else if (preparing)
+                handle = virtual_layer++;
+            else
+                handle = call([&] { return target.PushLayer(); });
+            valid &= handle != 0;
+            if (!valid)
+                fail("UI filter layer could not be allocated");
+            layers.push_back({!preparing && valid, valid});
+            return handle;
+        }
+        void PopLayer() override {
+            if (layers.empty()) {
+                fail("UI filter layer stack is unbalanced");
+                return;
+            }
+            if (layers.back().forwarded)
+                call([&] { target.PopLayer(); });
+            layers.pop_back();
+        }
+        void CompositeLayers(Rml::LayerHandle source, Rml::LayerHandle destination,
+                             Rml::BlendMode blend,
+                             Rml::Span<const Rml::CompiledFilterHandle> filters) override {
+            if (filters.size() > ui_filter_detail::max_chain ||
+                (blend != Rml::BlendMode::Blend && blend != Rml::BlendMode::Replace)) {
+                fail("Invalid UI filter composition or chain exceeds eight");
+                return;
+            }
+            if (!preparing && !blocked())
+                call([&] { target.CompositeLayers(source, destination, blend, filters); });
+        }
+        Rml::CompiledFilterHandle CompileFilter(const Rml::String& name,
+                                                const Rml::Dictionary& parameters) override {
+            const auto handle = call([&] { return target.CompileFilter(name, parameters); });
+            if (!handle)
+                fail("UI filter could not be admitted by this renderer");
+            return handle;
+        }
+        void ReleaseFilter(Rml::CompiledFilterHandle filter) override {
+            call([&] { target.ReleaseFilter(filter); });
+        }
+        Rml::TextureHandle SaveLayerAsTexture() override {
+            fail("UI layer snapshots and shadow decorators are not supported");
             return 0;
         }
-        Rml::CompiledFilterHandle CompileFilter(const Rml::String&,
-                                                const Rml::Dictionary&) override {
-            error = "UI filters are not supported in this integration";
+        Rml::CompiledFilterHandle SaveLayerAsMaskImage() override {
+            fail("UI mask images are not supported");
             return 0;
         }
         Rml::CompiledShaderHandle CompileShader(const Rml::String&,
                                                 const Rml::Dictionary&) override {
-            error = "UI shader decorators are not supported in this integration";
+            fail("UI shader decorators are not supported in this integration");
             return 0;
         }
     };
@@ -614,11 +720,13 @@ body { width:100%; height:100%; z-index:65536; }
                 (void)output;
                 context->Update();
             }
+            if (!error.empty())
+                throw std::runtime_error(error);
             renderer.preparing = true;
-            candidate->context->Render();
+            renderer.render(*candidate->context);
             for (const auto& [output, context] : candidate->outputs) {
                 (void)output;
-                context->Render();
+                renderer.render(*context);
             }
             renderer.preparing = false;
             for (auto& d : candidate->docs)
@@ -904,7 +1012,7 @@ void UiPresenter::update(double t, int w, int h, float dp) {
     if (s.live) {
         s.live->context->SetDimensions({w, h});
         s.live->context->SetDensityIndependentPixelRatio(dp);
-        s.live->context->Update();
+        s.renderer.checked([&] { s.live->context->Update(); }, false);
     }
 }
 void UiPresenter::update_output(AssetRef<RenderTextureAsset> output, int w, int h, float dp) {
@@ -924,7 +1032,7 @@ void UiPresenter::update_output(AssetRef<RenderTextureAsset> output, int w, int 
     context->SetDimensions({w, h});
     context->SetDensityIndependentPixelRatio(dp);
     if (s.prepared_outputs.insert(output.id).second || resized)
-        context->Update();
+        s.renderer.checked([&] { context->Update(); });
 }
 
 void UiPresenter::frame_statistics(const std::string& text) {
@@ -971,7 +1079,7 @@ void UiPresenter::render_output(AssetRef<RenderTextureAsset> output) {
         return;
     if (!s.prepared_outputs.contains(output.id))
         throw std::runtime_error("UI output viewport has not been prepared");
-    at->second->Render();
+    s.renderer.render(*at->second);
 }
 void UiPresenter::render() {
     auto& s = *impl_;
@@ -979,7 +1087,7 @@ void UiPresenter::render() {
     if (s.live) {
         if (!s.frame_statistics_label.empty() && s.live->frame_document)
             s.live->frame_document->PullToFront();
-        s.live->context->Render();
+        s.renderer.render(*s.live->context, false);
     }
 }
 bool UiPresenter::mouse_move(int x, int y, int m) {

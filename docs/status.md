@@ -5,6 +5,13 @@ The accepted local Windows package is **261024-000213**, source
 in the [README](../README.md#current-implementation). No new numbered Windows
 package accompanies the local source changes described here.
 
+Local source also adds bounded native UI blur/color filters, shared graphical /
+non-graphical payload admission, model/keyframe updates and source-derived runtime
+kit requirements. Gallery155 has six original samples and paused Inspector blur.
+Focused native and MCP proof is recorded with the current local validation batch;
+full-editor/Windows/physical acceptance remains pending. No new ZIP is implied.
+See [Runtime UI](runtime-ui.md).
+
 Local source adds Runtime UI in camera outputs through a nullable typed UI Document
 assignment. One presenter prepares main and output context groups; UI draws before
 same-frame Material/relay reads. Output density is1, pointer/focus stay on main,

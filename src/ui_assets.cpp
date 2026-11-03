@@ -1,5 +1,6 @@
 #include "asset_bytes.hpp"
 #include "texture_decode.h"
+#include "ui_filter_profile.hpp"
 #include "ui_localization_admission.hpp"
 #include <algorithm>
 #include <cctype>
@@ -39,8 +40,7 @@ std::uint32_t be(std::span<const std::byte> b, std::size_t p, unsigned n) {
 unsigned le(std::span<const std::byte> b, std::size_t p) {
     return std::to_integer<unsigned>(b[p]) | (std::to_integer<unsigned>(b[p + 1]) << 8);
 }
-} // namespace
-void validate_ui_text(std::string_view text, bool markup) {
+bool validate_text_profile(std::string_view text, bool markup) {
     require(text.size() <= 256 * 1024, "RML/RCSS exceeds 256 KiB");
     require(text.find('\0') == std::string_view::npos, "RML/RCSS contains NUL");
     (void)nlohmann::json(std::string(text)).dump();
@@ -50,7 +50,8 @@ void validate_ui_text(std::string_view text, bool markup) {
     std::vector<std::string> stack;
     std::size_t nodes = 0;
     unsigned braces = 0, parens = 0;
-    std::string property;
+    std::string property, token;
+    bool filters = false;
     for (std::size_t i = 0; i < text.size();) {
         if (markup && text.substr(i, 4) == "<!--") {
             auto e = text.find("-->", i + 4);
@@ -110,6 +111,7 @@ void validate_ui_text(std::string_view text, bool markup) {
                         continue;
                     }
                     auto name = lower(std::string(attributes.substr(begin, a - begin)));
+                    filters |= name == "data-style-filter";
                     while (a < attributes.size() && space(attributes[a]))
                         ++a;
                     if (a == attributes.size() || attributes[a] != '=')
@@ -129,8 +131,13 @@ void validate_ui_text(std::string_view text, bool markup) {
                     begin = ++a;
                     while (a < attributes.size() && attributes[a] != q)
                         ++a;
-                    if (name == "style")
-                        validate_ui_text(attributes.substr(begin, a - begin), false);
+                    if (name == "style") {
+                        const auto style = attributes.substr(begin, a - begin);
+                        // Native attribute parsing expands character references.
+                        // Encoded styles conservatively require the current filter kit.
+                        filters |= style.find('&') != style.npos;
+                        filters |= validate_text_profile(style, false);
+                    }
                     if (a < attributes.size())
                         ++a;
                 }
@@ -151,7 +158,7 @@ void validate_ui_text(std::string_view text, bool markup) {
                 if (tag == "style") {
                     auto close = text.find("</style>", end + 1);
                     require(close != text.npos, "Unterminated RML style");
-                    validate_ui_text(text.substr(end + 1, close - end - 1), false);
+                    filters |= validate_text_profile(text.substr(end + 1, close - end - 1), false);
                     i = close;
                     continue;
                 }
@@ -161,18 +168,17 @@ void validate_ui_text(std::string_view text, bool markup) {
         }
         if (!markup) {
             char c = text[i];
+            // Retain identifier pieces across comments, as the stylesheet reader does.
+            if (std::isalpha(static_cast<unsigned char>(c)) || c == '-')
+                token += char(std::tolower(static_cast<unsigned char>(c)));
+            else if (!space(c) && c != ':')
+                token.clear();
             if (c == ':') {
-                auto end = i;
-                while (end > 0 && space(text[end - 1]))
-                    --end;
-                auto start = end;
-                while (start > 0 && (std::isalpha(static_cast<unsigned char>(text[start - 1])) ||
-                                     text[start - 1] == '-'))
-                    --start;
-                property = lower(std::string(text.substr(start, end - start)));
-                require(property != "filter" && property != "backdrop-filter" &&
-                            property != "mask-image" && property != "box-shadow",
-                        "UI filters, masks and shadows are not supported yet");
+                property = std::exchange(token, {});
+                filters |= property == "filter";
+                require(property != "backdrop-filter" && property != "mask-image" &&
+                            property != "box-shadow",
+                        "UI backdrop filters, masks and shadows are not supported");
                 require(property != "font", "Use explicit font-family and font-size properties");
             }
             if (c == '{' || c == ';' || c == '}')
@@ -227,6 +233,11 @@ void validate_ui_text(std::string_view text, bool markup) {
     if (markup)
         require(nodes > 0 && text.find("<rml") != text.npos && text.find("<body") != text.npos,
                 "RML requires rml and body elements");
+    return filters;
+}
+} // namespace
+void validate_ui_text(std::string_view text, bool markup) {
+    (void)validate_text_profile(text, markup);
 }
 void validate_ui_font(std::span<const std::byte> b) {
     require(b.size() >= 12 && b.size() <= 4 * 1024 * 1024, "Invalid UI font size");
@@ -337,7 +348,7 @@ const std::vector<std::byte>& UiResources::read(const std::string& name) {
     const auto locator = ProjectPaths::normalize(std::filesystem::u8path(name));
     const auto key = path_utf8(locator);
     if (auto it = files_.find(key); it != files_.end())
-        return it->second;
+        return it->second.bytes;
     require(resource_count() < 32, "UI dependency count exceeds 32");
     const auto ext = lower(locator.extension().string());
     const bool text = ext == ".rml" || ext == ".rcss";
@@ -345,9 +356,11 @@ const std::vector<std::byte>& UiResources::read(const std::string& name) {
             "Unsupported UI resource type");
     auto data = access_.read(locator, text ? 256 * 1024 : 16 * 1024 * 1024 + 274);
     require(bytes_ + data.size() <= 32 * 1024 * 1024, "UI resource bytes exceed 32 MiB");
+    bool filters = false;
     if (text)
-        validate_ui_text(std::string_view(reinterpret_cast<const char*>(data.data()), data.size()),
-                         ext == ".rml");
+        filters = validate_text_profile(
+            std::string_view(reinterpret_cast<const char*>(data.data()), data.size()),
+            ext == ".rml");
     else if (image_extension(ext)) {
         const bool png = data.size() >= 8 && std::memcmp(data.data(), "\x89PNG\r\n\x1a\n", 8) == 0;
         const bool jpeg =
@@ -360,7 +373,7 @@ const std::vector<std::byte>& UiResources::read(const std::string& name) {
     } else
         validate_ui_font(data);
     bytes_ += data.size();
-    return files_.emplace(key, std::move(data)).first->second;
+    return files_.emplace(key, File{std::move(data), filters}).first->second.bytes;
 }
 std::string UiResources::document(AssetRef<UiDocumentAsset> ref) {
     const auto resolved = AssetCatalog::open_project(paths_.root()).resolve(ref);
@@ -397,7 +410,8 @@ const UiLocalizationData& UiResources::localization(AssetRef<UiLocalizationAsset
 }
 UiAssetSnapshot UiResources::snapshot() const {
     UiAssetSnapshot result{paths_.root(), documents_, {}, automatic_};
-    for (const auto& [name, bytes] : files_) {
+    for (const auto& [name, file] : files_) {
+        const auto& bytes = file.bytes;
         const auto source = std::filesystem::u8path(name);
         const auto extension = lower(source.extension().string());
         const std::string type = extension == ".rml"          ? "ui_document"
@@ -409,6 +423,8 @@ UiAssetSnapshot UiResources::snapshot() const {
                           asset_detail::content_digest(bytes),
                           bytes.size(),
                           {{"format", extension.substr(1)}}};
+        if (file.filters)
+            info.details["runtime_features"] = {{"filters", ui_filter_detail::profile_version}};
         if (image_extension(extension)) {
             const auto [width, height] = image_dimensions(bytes);
             info.details["width"] = width;

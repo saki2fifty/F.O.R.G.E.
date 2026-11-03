@@ -123,9 +123,10 @@ void present(const std::filesystem::path& root, const Json& source,
             const std::string original(reinterpret_cast<const char*>(bytes.data()), bytes.size());
             const auto previous = presenter.presentation_revision();
             const auto sources = presenter.asset_snapshot()->sources;
-            for (const auto* invalid : {"#fill {transition:opacity 0.4s linear;}",
-                                        "@keyframes bad {from {filter:blur(3px);} to {opacity:1;}}",
-                                        "@keyframes broken {from {width:40px;}"}) {
+            for (const auto* invalid :
+                 {"#fill {transition:opacity 0.4s linear;}",
+                  "@keyframes bad {from {backdrop-filter:blur(3px);} to {opacity:1;}}",
+                  "@keyframes broken {from {width:40px;}"}) {
                 write(path, original + invalid);
                 check(!presenter.reload() && !presenter.diagnostic().empty(),
                       "Invalid animated replacement published");

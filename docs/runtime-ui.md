@@ -256,7 +256,7 @@ presentation state or access to arbitrary DOM/script/engine files.
 
 Adopted: native RML/RCSS layout, styled text/buttons/forms, copied scalar expressions, local text editing, multiple ordered documents, PNG/JPEG/TGA images, project fonts, transforms, scissor and stencil masks, explicit reload. Documents sort by layer then stable incoming scene order; RmlUi manages normal DOM focus/z-order within that context.
 
-Deferred: browser JavaScript, Lua, debugger UI, SVG/Lottie/HarfBuzz, RCSS imports/templates, world-space UI, collections/two-way gameplay binding, public plugin APIs and a visual UI designer. Standalone gamepad navigation now routes through input actions to native RmlUi focus traversal and activation. Link stylesheets individually. Offscreen layers, filters, masks, shader decorators/gradients and shadows are unsupported and diagnosed; they are not silently advertised as working. Use explicit font-family/font-size rather than shorthand. This is the first screen-space integration, not a visual UI designer.
+Deferred: browser JavaScript, Lua, debugger UI, SVG/Lottie/HarfBuzz, RCSS imports/templates, world-space UI, collections/two-way gameplay binding, public plugin APIs and a visual UI designer. Standalone gamepad navigation now routes through input actions to native RmlUi focus traversal and activation. Link stylesheets individually. Bounded blur/color filters use transient renderer-owned layers as described below. Backdrop filters, masks, shader decorators/gradients and shadows remain unsupported and diagnosed. Use explicit font-family/font-size rather than shorthand. This is the first screen-space integration, not a visual UI designer.
 
 ## Upstream evidence
 
@@ -357,3 +357,61 @@ Runtime UI. Use real Game Play for visual UI evaluation. No arbitrary DOM path,
 new asset, independent clock, CSS player or transient DOM checkpoint is added.
 Gallery151 demonstrates a placed child sequence driving width/opacity/class while
 an independent CSS pulse continues during Pause.
+
+
+## Native filter profile
+
+RML inline styles and embedded/linked RCSS may use `filter` chains containing
+blur, opacity, brightness, contrast and grayscale. The native parser resolves
+units and interpolation; the shared FORGE profile admits finite nonnegative
+values: blur sigma0..16 resolved pixels (Gaussian truncated at3sigma/radius48),
+opacity/grayscale0..1 and brightness/contrast0..4. At most8filters per chain,
+4active nested layers and256compiled filters across the renderer's live/staged
+resources are admitted. Identity blur skips its passes. Authored chain order is
+preserved. RCSS keyframes/transitions and `data-style-filter` expressions use the
+same profile; their values must remain within these bounds.
+
+UiDiligentRenderer owns its private layer facet, compiled handles and scratch
+pool: at most32RGBA8/RGBA16images and256MiB logical image bytes, with inactive
+least-recently-used eviction by size/format. These are storage bounds, not actual
+VRAM or performance measurements. Each layer starts transparent; separable blur
+and color operations preserve premultiplied alpha semantics. Layers use the
+current destination domain: display-encoded main RGBA8 or already-linear output
+RGBA16_FLOAT. Brightness/contrast can exceed normalized RGB before target-format
+storage; HDR values retain their range. No second gamma decode is applied.
+Stencil/scissor constrain the final composition; in-place Blend/Replace uses a
+scratch copy to avoid sampling the active render target. Geometry clips retain
+the existing shared stencil owner. Blur cannot recover pixels outside the target.
+
+RenderGate prepares virtual layers without framebuffer drawing, validates native
+compiled filter payloads through the target renderer and retires handles with its
+owning candidate context. Renderer callbacks record failures until the native walk
+balances its stack; main-view faults remain diagnostics; output faults also throw after Update/Render
+to prevent publication of a failed camera image. A failed source candidate preserves the complete prior
+presentation. Live binding/animation faults are diagnosed; they do not roll back
+arbitrary transient DOM state.
+
+UiResources derives filter requirements during the same bounded source admission
+that retains immutable bytes. Declared `filter` properties, including keyframes,
+and `data-style-filter` bindings add `runtime_features:{filters:1}` to the existing
+source details/`forge.ui_source` metadata. Inline styles containing character
+references conservatively require this profile because native attribute parsing
+expands them before interpreting CSS. Other comments and quoted ordinary text do
+not add the requirement; ordinary unfiltered sources gain no new key. Catalog preparation independently re-admits
+source bytes and evidence; inspection transport and cooked metadata retain it.
+This is a conservative declaration requirement, including `filter:none`, not a
+prediction of arbitrary future rich-text/DOM injection.
+
+Runtime kits advertise `engine.runtime_ui_filters:1` from the same profile header.
+The existing export/distribution compatibility helper requires an exact integer
+match for cooked sources declaring filters, independently of camera-output UI
+protocol2. Unfiltered legacy sources/kits retain their compatibility. The isolated
+non-graphical export inspector uses the shared native payload admission without
+GPU objects; graphical readiness stays with the actual game host.
+
+Gallery155 provides original shape/color samples, Inspector-driven blur and a
+presentation-time filter pulse. Source editing/registration, live UI reload,
+UiValues tuning and export use their existing automation/MCP operations and guards.
+No effects database, authored DOM format, new game clock or plugin ABI is added.
+Backdrop/mask/shadow/gradient/shader effects, world-space UI and surface input
+remain outside this profile.

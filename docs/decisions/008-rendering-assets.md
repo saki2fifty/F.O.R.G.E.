@@ -322,3 +322,17 @@ premultiplied UI blending; the consuming view retains tone mapping. No new outpu
 registry, render graph, input authority or gameplay clock is introduced. Main-only
 protocol1 remains supported; positive routing uses private protocol2 and matching
 runtime-kit admission. Mesh UVs remain authored surface data. See [Runtime UI](../runtime-ui.md).
+
+
+## Bounded native UI filters —2026-11-03
+
+UiDiligentRenderer owns transient transparent layers and blur/color composition;
+UiPresenter retains source/candidate, context-group and presentation-time ownership.
+One native payload admission helper serves drawing and isolated export inspection,
+with pure parameter/kernel rules in the existing UI assets target. There is no new
+Scene output registry, render graph, authored effects format or simulation clock.
+RML/RCSS and named UI Values remain the authoring path for UI, automation and MCP.
+RGBA8 and already-linear RGBA16 layers use their destination color domain.
+Existing cooked UI source metadata records the required filter profile, and the
+shared export/distribution gate checks the kit independently of routing protocol.
+See [Runtime UI](../runtime-ui.md) for limits and failure semantics.

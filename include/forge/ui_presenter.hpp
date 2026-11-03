@@ -47,6 +47,8 @@ class UiPresenter {
     // False means stale/wrong-thread; no resource loading occurs here.
     bool activate_prepared(std::uint64_t ticket) noexcept;
     void cancel_prepared(std::uint64_t ticket);
+    // Late main-view drawing/resource faults remain diagnostics. Output methods
+    // also throw after the native walk, so a producer cannot publish partial UI.
     void update(double elapsed_seconds, int width, int height, float density = 1);
     // The existing camera pass supplies its physical layout at the shared time.
     void update_output(AssetRef<RenderTextureAsset>, int width, int height, float density = 1);

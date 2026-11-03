@@ -29,6 +29,11 @@ class UiDiligentRenderer {
         std::uint64_t cached_bytes = 0;
     };
     ClippingStats clipping_stats() const;
+    struct FilterStats {
+        std::uint64_t allocations = 0, cached_bytes = 0;
+        unsigned cached_images = 0, filters = 0, active_layers = 0;
+    };
+    FilterStats filter_stats() const;
     // Shared camera-output composition used by graphical hosts. The presenter
     // retains model/context/time ownership; the camera pass retains image ownership.
     void draw_output(UiPresenter&, AssetRef<RenderTextureAsset>, Diligent::IDeviceContext*,

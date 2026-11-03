@@ -6,6 +6,7 @@
 #include "game_presentation.hpp"
 #include "render_texture_fixture.hpp"
 #include "runtime_package.hpp"
+#include "ui_filter_profile.hpp"
 #include <forge/authoring.hpp>
 #include <forge/project.hpp>
 #include <forge/project_lease.hpp>
@@ -26,12 +27,18 @@ struct Fixture {
     EntityId panel;
     bool gallery = false;
 };
-Fixture author(const std::filesystem::path& root) {
+Fixture author(const std::filesystem::path& root, bool filtered = false) {
     std::filesystem::create_directories(root / "Assets/UiOutputProbe");
     std::ofstream(root / "Assets/UiOutputProbe/Panel.rml")
         << R"rml(<rml><head><style>body {margin:0;width:100%;height:100%;background-color:#00ff00;}</style></head><body data-style-opacity="amount"></body></rml>)rml";
     std::ofstream(root / "Assets/UiOutputProbe/Main.rml")
         << R"rml(<rml><head><style>body {margin:0;} #marker {position:absolute;left:0;top:0;width:40px;height:20px;background-color:#ffff00;}</style></head><body><div id="marker"/></body></rml>)rml";
+    if (filtered) {
+        std::ofstream(root / "Assets/UiOutputProbe/Panel.rml")
+            << R"rml(<rml><head><style>body {margin:0;width:100%;height:100%;background-color:#00ff00;filter:brightness(0.5) blur(1px);}</style></head><body data-style-opacity="amount"></body></rml>)rml";
+        std::ofstream(root / "Assets/UiOutputProbe/Main.rml")
+            << R"rml(<rml><head><style>body {margin:0;} #marker {position:absolute;left:0;top:0;width:40px;height:20px;background-color:#ffff00;filter:contrast(1);}</style></head><body><div id="marker"/></body></rml>)rml";
+    }
     const auto panel_asset = register_ui_document(root, "Assets/UiOutputProbe/Panel.rml");
     const auto main_asset = register_ui_document(root, "Assets/UiOutputProbe/Main.rml");
     auto catalog = AssetCatalog::open_project(root);
@@ -302,7 +309,7 @@ int main(int argc, char** argv) {
             }
             check(fixture.panel && fixture.output, "Gallery UI output assignment missing");
         } else {
-            fixture = author(root);
+            fixture = author(root, argc == 5 && std::string_view(argv[4]) == "--filters");
         }
         const auto font = asset_detail::read_bytes(argv[2], 4 * 1024 * 1024);
         EngineVkCreateInfo create;
@@ -342,7 +349,8 @@ int main(int argc, char** argv) {
                        {"sdk_fingerprint", std::string(64, 'a')},
                        {"source_commit", std::string(40, 'b')},
                        {"build_id", "local-ui-output-fixture"},
-                       {"runtime_ui_protocol", ui_protocol::version}}},
+                       {"runtime_ui_protocol", ui_protocol::version},
+                       {"runtime_ui_filters", ui_filter_detail::profile_version}}},
                      {"files", Json::object()}};
         for (const auto& file : std::filesystem::recursive_directory_iterator(kit))
             if (file.is_regular_file()) {
@@ -380,6 +388,28 @@ int main(int argc, char** argv) {
             check(asset_detail::read_bytes(destination / "forge.standalone.json",
                                            16 * 1024 * 1024) == admitted,
                   "Rejected UI output kit replaced the last good export");
+        }
+        if (argc == 5 && std::string_view(argv[4]) == "--filters") {
+            runtime["engine"]["runtime_ui_protocol"] = ui_protocol::version;
+            for (const Json& profile :
+                 {Json(), Json(0), Json("1"), Json(1.0), Json(true), Json(2)}) {
+                if (profile.is_null())
+                    runtime["engine"].erase("runtime_ui_filters");
+                else
+                    runtime["engine"]["runtime_ui_filters"] = profile;
+                write_kit();
+                bool rejected = false;
+                try {
+                    export_standalone_game(*lease, request, inspector);
+                } catch (const std::exception& error) {
+                    rejected =
+                        std::string(error.what()).find("UI filter support") != std::string::npos;
+                }
+                check(rejected, "Incompatible UI filter runtime kit was admitted");
+                check(asset_detail::read_bytes(destination / "forge.standalone.json",
+                                               16 * 1024 * 1024) == admitted,
+                      "Rejected UI filter kit replaced the last good export");
+            }
         }
         const auto moved = scratch / "Relocated game";
         std::filesystem::rename(destination, moved);

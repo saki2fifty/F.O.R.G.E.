@@ -62,6 +62,15 @@ relays it through a second Camera to another monitor.
 Production Game renderer capture on software Vulkan. Saved outputs, Material
 bindings, source controls, layer masks and export are explained in the guide.
 
+[Native UI filters](manual/editor/runtime-ui.md#apply-blur-and-color-filters)
+include bounded blur, grayscale, brightness, contrast and opacity. Gallery155
+compares the same shapes and exposes paused Inspector blur tuning.
+
+[![Native Runtime UI reference and filter samples with Inspector blur guidance and pause controls](manual/images/ui-filter-gallery.png)](manual/editor/runtime-ui.md#apply-blur-and-color-filters)
+
+Actual GamePresentation capture on software Vulkan. Filters use the same source,
+model, reload and package owners; Windows/physical-device acceptance is pending.
+
 [Runtime UI in camera images](manual/editor/runtime-ui.md#draw-ui-in-a-camera-image)
 adds a document after the producer Cameras and before Materials sample the output.
 Gallery154 includes upright telemetry on direct/relayed monitors, paused value

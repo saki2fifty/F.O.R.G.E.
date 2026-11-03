@@ -1,8 +1,13 @@
 #pragma once
+#include "../src/ui_filter_admission.hpp"
 #include <RmlUi/Core.h>
+#include <algorithm>
 #include <forge/ui_presenter.hpp>
+#include <map>
 #include <set>
 #include <stdexcept>
+#include <utility>
+#include <vector>
 struct UiTestRenderer final : Rml::RenderInterface {
     static void check(bool value, const char* why) {
         if (!value)
@@ -11,6 +16,10 @@ struct UiTestRenderer final : Rml::RenderInterface {
     std::set<std::uintptr_t> geometry, textures;
     std::uintptr_t next = 1;
     unsigned draws = 0, clips = 0, transforms = 0;
+    bool filters_supported = false, fail_layer = false;
+    unsigned layer_pushes = 0, composites = 0;
+    std::map<Rml::CompiledFilterHandle, std::pair<std::string, float>> filters;
+    std::vector<Rml::LayerHandle> layers;
     std::set<std::string> loaded_sources;
     Rml::CompiledGeometryHandle CompileGeometry(Rml::Span<const Rml::Vertex> v,
                                                 Rml::Span<const int> i) override {
@@ -48,6 +57,41 @@ struct UiTestRenderer final : Rml::RenderInterface {
     }
     void ReleaseTexture(Rml::TextureHandle t) override {
         check(textures.erase(t) == 1, "Texture retired once");
+    }
+    Rml::CompiledFilterHandle CompileFilter(const Rml::String& name,
+                                            const Rml::Dictionary& parameters) override {
+        if (!filters_supported)
+            return 0;
+        const auto value = forge::ui_filter_detail::admit_filter(name, parameters).value;
+        const auto handle = next++;
+        filters.emplace(handle, std::pair{name, value});
+        return handle;
+    }
+    void ReleaseFilter(Rml::CompiledFilterHandle handle) override {
+        check(filters.erase(handle) == 1, "Filter retired once");
+    }
+    Rml::LayerHandle PushLayer() override {
+        if (fail_layer)
+            throw std::runtime_error("fixture.filter.layer-allocation");
+        check(filters_supported, "Unsupported recording filter layer");
+        const auto handle = next++;
+        layers.push_back(handle);
+        ++layer_pushes;
+        return handle;
+    }
+    void PopLayer() override {
+        check(!layers.empty(), "Native filter layer walk balanced");
+        layers.pop_back();
+    }
+    void CompositeLayers(Rml::LayerHandle source, Rml::LayerHandle destination, Rml::BlendMode,
+                         Rml::Span<const Rml::CompiledFilterHandle> chain) override {
+        const auto live = [&](Rml::LayerHandle h) {
+            return !h || std::find(layers.begin(), layers.end(), h) != layers.end();
+        };
+        check(live(source) && live(destination), "Live filter composition layers");
+        for (const auto handle : chain)
+            check(filters.contains(handle), "Live compiled filter");
+        ++composites;
     }
     void EnableScissorRegion(bool) override { ++clips; }
     void SetScissorRegion(Rml::Rectanglei) override { ++clips; }

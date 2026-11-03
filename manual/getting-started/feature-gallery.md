@@ -585,3 +585,18 @@ The monitor Materials contain their UV orientation. Edit the RML in
 **Assets/UI/CameraOutput**, save and use **Reload UI**. Select this Scene as startup,
 save it and use the editor's matching runtime kit to export. Mesh clicks do not
 provide input to the displayed UI. See [Runtime UI](../editor/runtime-ui.md).
+
+
+## UI filter samples
+
+Open **155-ui-filters** and press **Play** to compare reference, grayscale,
+brightness, contrast, opacity and blur samples. Pause, select **Filter lab HUD**,
+and edit **Live gameplay → UI Values → blur** from `0` to `16`. The soft pulse
+continues on presentation time while the fixed tick stays held. Stop restores
+the saved value. Edit **Assets/UI/Filters/Lab.rml** and use **Reload UI** for saved
+source changes. Select this Scene as startup and export with the matching runtime
+kit. See [Runtime UI](../editor/runtime-ui.md) for ranges, nesting and resource limits.
+
+![Reference and filtered color samples with live blur and pause controls](../images/ui-filter-gallery.png)
+
+The same editable document supplies every sample and the presentation-time pulse.

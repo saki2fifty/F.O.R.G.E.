@@ -75,6 +75,27 @@ int main(int argc, char** argv) {
                     validate_runtime_ui_compatibility(routed, {{"runtime_ui_protocol", protocol}});
                 });
             validate_runtime_ui_compatibility(catalog, Json::object());
+            AssetRecord stylesheet{AssetId::generate(), "ui_stylesheet", "filters.rcss", 1};
+            stylesheet.metadata["forge.ui_source"] = {{"runtime_features", {{"filters", 1}}}};
+            routed.add(stylesheet);
+            validate_runtime_ui_compatibility(
+                routed, {{"runtime_ui_protocol", 2}, {"runtime_ui_filters", 1}});
+            reject(
+                [&] { validate_runtime_ui_compatibility(routed, {{"runtime_ui_protocol", 2}}); });
+            for (const Json& profile : {Json(), Json(0), Json(1.0), Json("1"), Json(true), Json(2)})
+                reject([&] {
+                    validate_runtime_ui_compatibility(
+                        routed, {{"runtime_ui_protocol", 2}, {"runtime_ui_filters", profile}});
+                });
+            for (const Json& features : {Json(), Json::array(), Json{{"filters", 1.0}},
+                                         Json{{"filters", 2}}, Json{{"future_effect", 1}}}) {
+                stylesheet.metadata["forge.ui_source"]["runtime_features"] = features;
+                routed.replace(stylesheet);
+                reject([&] {
+                    validate_runtime_ui_compatibility(
+                        routed, {{"runtime_ui_protocol", 2}, {"runtime_ui_filters", 1}});
+                });
+            }
         }
         // File-inventory fixture only, not executable/graphics acceptance.
         asset_storage::replace(out / "forge_game", "test executable bytes");

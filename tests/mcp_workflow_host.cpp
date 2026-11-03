@@ -125,6 +125,7 @@ int main(int argc, char** argv) {
         forge::ui::FlecsScriptEditor scripts(tools);
         forge::ui::Problems problems;
         UiTestRenderer renderer;
+        renderer.filters_supported = true;
         std::unique_ptr<forge::UiPresenter> presenter;
         std::string presenter_session;
         std::uint64_t presenter_generation = 0, submitted = 0;

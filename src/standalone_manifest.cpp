@@ -2,6 +2,7 @@
 #include "asset_bytes.hpp"
 #include "bounded_json.hpp"
 #include "native_io_path.hpp"
+#include "ui_filter_profile.hpp"
 #include <algorithm>
 #include <forge/game_content.hpp>
 #include <forge/project.hpp>
@@ -76,8 +77,24 @@ void validate_runtime_ui_compatibility(const AssetCatalog& catalog, const Json& 
                             *protocol == ui_protocol::version,
                         "Camera-output UI requires a matching runtime kit with UI image-output "
                         "support; select the runtime kit packaged with this editor");
-                return;
             }
+        const auto source = record.metadata.find("forge.ui_source");
+        if (source == record.metadata.end())
+            continue;
+        const auto features = source->find("runtime_features");
+        if (features == source->end())
+            continue;
+        require(features->is_object(), "Invalid UI source runtime features");
+        for (const auto& [name, version] : features->items()) {
+            require(name == "filters" && version.is_number_integer() &&
+                        version == ui_filter_detail::profile_version,
+                    "Unsupported UI source runtime feature/profile");
+            const auto support = engine.find("runtime_ui_filters");
+            require(support != engine.end() && support->is_number_integer() &&
+                        *support == ui_filter_detail::profile_version,
+                    "UI filters require a matching runtime kit with UI filter support; "
+                    "select the runtime kit packaged with this editor");
+        }
     }
 }
 StandaloneDistribution open_standalone_distribution(const std::filesystem::path& root,

@@ -169,6 +169,34 @@ int main(int argc, char** argv) {
         RuntimeUiInspector inspect = [&](AssetId id, std::stop_token stop) {
             return inspect_ui_dependencies(worker, font_path, project, id, stop);
         };
+        {
+            asset_storage::replace(
+                project / "filters.rml",
+                "<rml><head><style>body{font-family:Lato;filter:blur(2px) contrast(1.2);}</style>"
+                "</head><body>Filtered export</body></rml>");
+            ProjectLease writer(project);
+            const auto filtered = register_ui_source(writer, "filters.rml");
+            const auto observed = inspect(filtered.id, {});
+            check(observed.sources.size() == 1 &&
+                      observed.sources.front().details.at("runtime_features").at("filters") == 1,
+                  "Native export inspector omitted filter requirements");
+            asset_storage::replace(project / "filters.rml",
+                                   "<rml><head><style>body{font-family:Lato;filter:blur(17px);}</"
+                                   "style></head><body>Bad</body></rml>");
+            rejects([&] { inspect(filtered.id, {}); }, "UI filter parameter exceeds");
+            asset_storage::replace(
+                project / "filters.rml",
+                "<rml><body style=\"font-family:Lato;fil&#116;er&#58;blur(2px)\">"
+                "Encoded inline filter</body></rml>");
+            const auto encoded = inspect(filtered.id, {});
+            check(encoded.sources.front().details.at("runtime_features").at("filters") == 1,
+                  "Native encoded inline filters lost their runtime kit requirement");
+            asset_storage::replace(
+                project / "filters.rml",
+                "<rml><body "
+                "style=\"font-family:Lato;fil&#116;er&#58;blur(17px)\">Bad</body></rml>");
+            rejects([&] { inspect(filtered.id, {}); }, "UI filter parameter exceeds");
+        }
         // Automatically discovered logical assets must get durable catalog IDs
         // before low-level immutable packaging, not random per-export identities.
         asset_storage::replace(project / "fresh.rcss", "body{font-family:Lato;color:blue;}");
