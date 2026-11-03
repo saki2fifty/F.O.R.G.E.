@@ -79,3 +79,16 @@ def check_mesh_scatter_workflow(client, discover, arguments, mutate, project, ca
             assert math.hypot(point[0]-old[0], point[1]-old[1]) >= .0002
         world_points.append(point)
     assert mutate('forge_history_undo')['result']['changed']
+    elevations = dict(values, count=3, world_heights=[2.5, -1, 7])
+    placed = mutate('forge_mesh_scatter', arguments=elevations)
+    assert placed['ok'], placed
+    state = discover()
+    projected = client.tool('forge_scene_read', target=state['result']['target'])['result']
+    projected_rows = {row['id']: row for row in projected['entities']}
+    for id_, expected in zip(placed['result']['results'][0]['created'], elevations['world_heights']):
+        assert projected_rows[id_]['components']['forge.local_translation']['y'] == expected - values['center']['y']
+    assert mutate('forge_history_undo')['result']['changed']
+    for heights in ([1], [True, 2, 3], [1, 2, 'height'], [1, 2, 1e12 + 1]):
+        state = discover()
+        result = mutate('forge_mesh_scatter', arguments=dict(elevations, world_heights=heights))
+        assert not result['ok'] and discover()['revision'] == state['revision'], result

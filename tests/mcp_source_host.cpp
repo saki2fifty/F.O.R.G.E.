@@ -8,6 +8,7 @@
 #include "collision_editor.hpp"
 #include "content_imports.hpp"
 #include "editable_mesh_editor.hpp"
+#include "foliage_automation.hpp"
 #include "import_document_automation.hpp"
 #include "material_editor.hpp"
 #include "material_graph_editor.hpp"
@@ -152,6 +153,9 @@ int main(int argc, char** argv) {
         forge::ui::AutomationWorkspace workspace;
         workspace.workflow_methods = [&](const auto& permissions) {
             auto methods = forge::source_document_automation_methods(documents, permissions);
+            auto foliage = forge::foliage_automation_methods(scene, files.document);
+            methods.insert(methods.end(), std::make_move_iterator(foliage.begin()),
+                           std::make_move_iterator(foliage.end()));
             auto settings = forge::import_document_automation_methods(documents, permissions);
             methods.insert(methods.end(), std::make_move_iterator(settings.begin()),
                            std::make_move_iterator(settings.end()));

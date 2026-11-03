@@ -89,16 +89,31 @@ commands therefore acquire bindings without another hand-maintained command list
 It uses an effective Mesh Renderer template and explicit world center, disk radius,
 spacing, integer count/seed, scale multipliers and yaw bounds. It creates an
 ordinary independent group in one Undo step; a failure creates no partial patch.
-All settings are required and discoverable. Spacing compares only new origins;
-placement uses a fixed horizontal Y plane, without terrain projection or copying
-children, gameplay, animation or Prefab links. Renderer values and template local
+The base settings are required and discoverable. Spacing compares new horizontal
+origins. Optional `world_heights` supplies one finite world Y per generated origin;
+otherwise placement uses the fixed Y plane. Children, gameplay, animation and
+Prefab links are not copied. Renderer values and template local
 rotation/scale are copied through the shared Scene command. See
 [foliage placement](foliage-placement.md) for exact bounds and current limits.
 
+`forge_foliage_terrain_prepare` binds the read-only `foliage.terrain.prepare`
+workflow. Supply a `terrain` Scene entity ID, the ordinary scatter `arguments`
+without `world_heights`, and optional `height_offset` (-1000–1000). It validates
+one current published heightfield selection and matching on-disk source, then
+returns `arguments`, `scene_revision`, `terrain_mesh`, `terrain_revision` and
+`source_digest`. Apply the returned arguments with `forge_mesh_scatter` at the
+returned Scene revision, using the normal mutation sequence. Preparation does
+not publish files or change Scene/history, is available to read-only clients and
+checks the same project/target scope. Upright terrain yaw/scaling is supported;
+tilt/inversion, missing coverage and source/publication mismatch reject. The
+saved result is an ordinary static group, without a live terrain link.
+
 `forge_scene_apply` groups 1..128 catalog commands into one atomic Undo entry;
 `forge_scene_replace`, `forge_history_undo` and `forge_history_redo` preserve their
-existing transaction semantics. Editor read-only grants list those four reads
-plus `forge_project_read`; isolated scene-only test hosts retain the four reads.
+existing transaction semantics. Core editor read-only discovery includes those
+four Scene reads plus `forge_project_read`. Project workflows such as terrain
+preparation expose their additional reads under the granted capabilities; isolated
+scene-only test hosts retain the four core reads.
 
 `forge_scene_rendering_set` includes the Scene's optional `auto_exposure` section
 alongside manual exposure, lighting, bloom and color. For example, send

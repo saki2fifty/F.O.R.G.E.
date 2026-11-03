@@ -19,7 +19,7 @@ and renderer resource admission retain their ordinary semantics. Imported meshes
 do not acquire a model animation/skin instance by being placed this way.
 
 Create a root at the requested world center with identity rotation/scale. Each
-child has a horizontal disk offset, zero local Y, a seeded +Y yaw preceding the
+child has a horizontal disk offset, a resolved local Y, a seeded +Y yaw preceding the
 template local rotation, and a uniform multiplier applied to the template local
 scale. Existing transform validation admits or rejects the complete candidate.
 Every entity uses the existing independently allocated UUID owner; IDs are never
@@ -58,10 +58,14 @@ only. Candidate admission also checks the rounded world position against the dis
 radius. Distance uses a scale-safe norm, including subnormal positive spacing;
 quantized duplicate world positions cannot pass a positive spacing request. The
 cell index uses bounded center-relative coordinates and a conservative neighborhood.
-It does not compare old groups, mesh bounds or colliders. There is no terrain projection, arbitrary
+It does not compare old groups, mesh bounds or colliders. There is no arbitrary
 surface painting, slope filter, brush stroke, wind simulation or world streaming.
-The requested Y is an origin plane; a suitable Mesh pivot is needed for plants
-that should rest on the ground at every scale. A horizontal placement workflow is
+Without optional `world_heights`, the requested center Y is an origin plane and
+children have zero local Y. With that array, each generated origin uses the
+corresponding absolute world Y; the group pivot remains the requested center.
+The array must contain exactly one finite value in -1e12 to 1e12 meters per
+placement, in generated layout order. Spacing still measures horizontal origins.
+A suitable base pivot is needed for plants to rest on the ground at every scale. A horizontal placement workflow is
 not a claim of a complete large-world precision workflow.
 
 ## Transactions and access
@@ -76,14 +80,51 @@ Automation uses `scene.apply` with `mesh.scatter`; MCP exposes the generated
 `forge_mesh_scatter` binding from the same command schema. Existing project/target,
 permissions, revision, request replay, history and document-save rules apply.
 No parallel agent implementation is introduced. Discovery states limits and the
-fixed-plane/independent-object semantics. See [MCP](mcp.md) and the
+plane/resolved-height and independent-object semantics. See [MCP](mcp.md) and the
 [user guide](../manual/editor/foliage.md).
+
+## Published heightfield preparation
+
+`prepare_terrain_foliage` prepares ordinary `mesh.scatter` arguments against a
+resolved Scene Mesh Renderer using an existing published root heightfield Mesh.
+It uses the current effective affine and the existing project-scoped catalog,
+immutable selected-cache reader and root Mesh artifact admission. An additive
+`DerivedDataCache::open_existing` factory rejects a missing cache without creating
+it; callers use `load_selected` for this read-only workflow. Existing cache writer
+operations retain their semantics.
+
+The bounded on-disk terrain source must match the rendered publication's digest
+and AssetId. Unsaved source-editor drafts are not read. Save and publish modified
+terrain before preparing a layout. A private batch query builds one validated
+terrain grid and reuses the existing exact float-triangle sampler for every
+origin; it creates no persistent height cache or alternate geometry database.
+
+The terrain's world vertical axis must remain upright with positive scale.
+Horizontal yaw, scale and translation are supported through the effective affine;
+pitched, rolled, inverted and ill-conditioned surfaces reject. Every generated
+horizontal origin must have terrain coverage, otherwise preparation rejects the
+whole request. The optional height offset is finite and within -1000 to 1000
+meters. Only origin height changes: copied orientation is retained, yaw is around
+world +Y, and blades do not align to slopes or follow later terrain edits.
+
+The function preflights the complete detached Scene command without changing
+Scene/history, source, cache or publication. It returns `arguments`,
+`scene_revision`, `terrain_mesh`, `terrain_revision` and `source_digest`.
+Automation `foliage.terrain.prepare` and MCP `forge_foliage_terrain_prepare` expose
+the same function as `asset.read`. Apply the returned arguments through ordinary
+`mesh.scatter` at the returned Scene revision. Preparation is a point-in-time
+sample; it is not an asset lock or a live placement recipe. UI **Check layout**
+and **Place foliage** prepare through that same owner, with publication/history
+still delegated to the existing authoring command.
 
 ## Evidence boundary
 
 Focused layout/authoring checks, actual ImGui input, MCP and Gallery consumers
 exercise the same owners. Gallery 144 contains an independently authored tapered
-blade Mesh and two ordinary placed groups. Runtime resources and source-hidden
+blade Mesh and two ordinary placed groups. Gallery 147 reuses that blade and an
+existing layered terrain with 128 projected ordinary origins. Actual UI input
+covers both workflows at three scales and two sizes; MCP uses both framings.
+Runtime resources and source-hidden
 relocated content are tested separately from physical Windows acceptance.
 Measurements of local CPU authoring and software rendering do not establish
 physical GPU performance, hardware input/DPI acceptance or Windows execution.

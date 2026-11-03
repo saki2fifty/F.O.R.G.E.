@@ -1,5 +1,7 @@
 #pragma once
 #include "../mesh_scatter_authoring.hpp"
+#include "../terrain_foliage_authoring.hpp"
+#include "document.hpp"
 #include "editor_state.hpp"
 #include "scene_cache.hpp"
 #include "widgets.hpp"
@@ -9,7 +11,8 @@ namespace forge::ui {
 class FoliagePlacement {
   public:
     bool open = false;
-    void draw(Scene& scene, EditorSelection& selection, bool locked) {
+    void draw(Scene& scene, EditorSelection& selection, bool locked,
+              SceneDocument* project = nullptr) {
         if (!open)
             return;
         draft_window_size({520 * interface_scale, 760 * interface_scale});
@@ -22,6 +25,8 @@ class FoliagePlacement {
                 owner_ = &scene;
                 scene_ = asset;
                 source_.clear();
+                terrain_.clear();
+                projected_ = false;
                 status_.clear();
                 error_.clear();
             }
@@ -57,6 +62,37 @@ class FoliagePlacement {
             ImGui::InputText("##group", name_.data(), name_.size());
             FORGE_UI_PROBE("foliage:name");
             help("Name of the new group. Each placement is an ordinary child in the Hierarchy.");
+            ImGui::BeginDisabled(!project);
+            if (ImGui::Checkbox("Project onto heightfield terrain", &projected_))
+                status_.clear();
+            FORGE_UI_PROBE("foliage:projected");
+            ImGui::EndDisabled();
+            if (!project)
+                ImGui::TextDisabled("Open a project to select terrain.");
+            if (projected_) {
+                ImGui::BeginDisabled(!selected);
+                if (button("Use selected terrain",
+                           "Choose the heightfield Mesh Renderer in Hierarchy. The foliage "
+                           "template stays selected above.")) {
+                    terrain_ = selected->at("id");
+                    status_.clear();
+                    error_.clear();
+                }
+                FORGE_UI_PROBE("foliage:terrain");
+                ImGui::EndDisabled();
+                const auto* surface = find_mesh(view, terrain_);
+                ImGui::TextWrapped("Terrain: %s",
+                                   surface ? surface->at("name").get<std::string>().c_str()
+                                           : "Choose a published heightfield Mesh Renderer");
+                ImGui::TextWrapped("The terrain must cover every origin and remain upright. "
+                                   "Publish terrain edits before placement. Objects keep their own "
+                                   "orientation and do not follow later terrain edits.");
+                ImGui::TextUnformatted("Height offset (m)");
+                ImGui::SetNextItemWidth(-1);
+                if (ImGui::InputDouble("##height offset", &height_offset_, 0, 0, "%.3f"))
+                    status_.clear();
+                FORGE_UI_PROBE("foliage:height_offset");
+            }
             auto field = [&](const char* label, const char* key, double& value, const char* tip) {
                 ImGui::TextUnformatted(label);
                 ImGui::SetNextItemWidth(-1);
@@ -70,8 +106,9 @@ class FoliagePlacement {
             field("Center X (m)", "x", settings_.center[0],
                   "World X coordinate of the disk center.");
             field("Center Y (m)", "y", settings_.center[1],
-                  "Every new object origin uses this Y. "
-                  "No terrain or surface projection.");
+                  projected_ ? "Group origin Y; each child origin is projected onto the terrain "
+                               "plus Height offset."
+                             : "Every new object origin uses this horizontal plane Y.");
             field("Center Z (m)", "z", settings_.center[2],
                   "World Z coordinate of the disk center.");
             field("Radius (m)", "radius", settings_.radius,
@@ -102,21 +139,37 @@ class FoliagePlacement {
             field("Maximum yaw (deg)", "yaw_max", settings_.yaw_max,
                   "At least the minimum and at most 360 degrees.");
             settings_.count = count_ > 0 ? std::uint32_t(count_) : 0;
-            ImGui::BeginDisabled(!source);
+            ImGui::BeginDisabled(!source ||
+                                 (projected_ && (!project || !find_mesh(view, terrain_))));
             auto perform = [&](bool place) {
                 try {
-                    const auto arguments =
+                    auto arguments =
                         detail::mesh_scatter_arguments(source_, settings_, name_.data());
+                    auto revision = scene.revision();
+                    if (projected_) {
+                        const auto prepared = prepare_terrain_foliage(
+                            *project->writer_guard(), scene, arguments, terrain_, height_offset_);
+                        arguments = prepared.at("arguments");
+                        revision = prepared.at("scene_revision");
+                    }
                     if (place) {
-                        const auto result = authoring_command(scene, "mesh.scatter", arguments);
+                        const auto result =
+                            apply_authoring(scene,
+                                            Json::array({{{"operation", "mesh.scatter"},
+                                                          {"arguments", arguments}}}),
+                                            revision)
+                                .at("results")
+                                .at(0);
                         selection.select_entity(result.at("selected"));
                         status_ =
                             "Foliage placed. Scene Undo removes the entire group. Save the Scene.";
                     } else {
                         // The same complete detached command admission validates renderer,
                         // transforms, layout, names and the Scene budget without publication.
-                        preview_authoring(scene, Json::array({{{"operation", "mesh.scatter"},
-                                                               {"arguments", arguments}}}));
+                        // Terrain preparation already preflights this same detached command.
+                        if (!projected_)
+                            preview_authoring(scene, Json::array({{{"operation", "mesh.scatter"},
+                                                                   {"arguments", arguments}}}));
                         status_ = "Layout fits. No Scene objects have been changed.";
                     }
                     error_.clear();
@@ -162,7 +215,9 @@ class FoliagePlacement {
     AuthoringSnapshot snapshot_;
     const Scene* owner_ = nullptr;
     AssetId scene_;
-    std::string source_, status_, error_;
+    std::string source_, terrain_, status_, error_;
+    bool projected_ = false;
+    double height_offset_ = 0;
     std::array<char, 128> name_{'F', 'o', 'l', 'i', 'a', 'g', 'e', 0};
     detail::MeshScatterSettings settings_;
     int count_ = 32;

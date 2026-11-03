@@ -1456,16 +1456,19 @@ layout and package inclusion are checked separately.
 
 ## Foliage placement
 
-[Placement controls](../../../manual/images/foliage-placement-controls.png) is the
-unretouched 720×1100 production FoliagePlacement window, rendered with actual ImGui
-and SDL software output. Real pointer input chooses the template and runs Check
-layout without committing Scene objects. The fixture sets an actual full window
-size; all controls and the checked-layout status are visible. Capture command:
-`forge_foliage_editor_tests <private-output>`. The same production owner is exercised
-with actual keyboard/pointer input at 100/150/200 percent in full/compact layouts,
-including asserted window dimensions. This is a GPU-independent component capture,
-not a full Main-window or physical Windows/DPI acceptance screenshot.
-PNG SHA256: `da027ee107a71a4c6bd724f97bbbcb9e2ca77340140933c56d6d4384a4ed96e8`.
+[Placement controls](../../../manual/images/foliage-placement-controls.png) and
+[heightfield controls](../../../manual/images/terrain-foliage-controls.png) are
+unretouched 720×1280 captures of the production FoliagePlacement window, rendered
+with actual ImGui and SDL software output. Real pointer/keyboard input selects
+Gallery147's independent blade template and published layered terrain, enters
+128 placements and checks the layout without changing Scene intent or Problems.
+All controls, status and explanatory text are visible. Capture command:
+`forge_foliage_editor_tests --capture-gallery <Gallery> <private-output>`.
+The production owner is also exercised with real input at 100/150/200 percent
+in full/compact layouts. These GPU-independent component captures do not establish
+full Main, physical Windows input or display/DPI acceptance.
+Plane PNG SHA256: `b754f957d74adcdbc7697cc05dade951dfd1f822b42a66b6a417af587dc10ab0`.
+Heightfield PNG SHA256: `bad668a6c94763c0591437e16a02dc8b223163d33a1a5f0639bbd382bec66360`.
 
 [Meadow Game](../../../manual/images/foliage-placement-game.png) is the unretouched
 640×360 production FrameRenderer after 90 fixed ticks in Gallery 144
@@ -1484,6 +1487,21 @@ pinned dependencies. No controls/pixels are retouched, no temporary capture fixt
 is shipped in runtime content, and no Windows/D3D12/full-editor/physical acceptance
 is implied. Exact local source/command/image proofs are retained by the capability
 batch's canonical validation owner.
+
+[Heightfield meadow Game](../../../manual/images/terrain-foliage-game.png) is the
+unretouched 640×360 production FrameRenderer after90 fixed ticks in Gallery147
+(`e6d70f7c-b8a2-4af3-97b2-5f0834e40e75`). Its128 ordinary blades rest on the
+published layered terrain, with an independent template. Four static source /
+source-hidden relocated export displays match exactly using software Vulkan.
+Scene View checks131 draw instances (including the terrain's two parts), active
+batching and individual template picking. Capture command:
+`forge_foliage_vulkan_probe <Gallery> <private-output> Scenes/147-terrain-foliage.scene.json`.
+Lossless PPM-to-PNG encoding verifies every RGB byte. No pixels are adjusted or
+controls retouched. PNG SHA256:
+`6f49ac94b2b4563cf21091e567d251d2557b88f3aa93b609e5f6d93bab355cdd`.
+This is software rendering evidence, not physical GPU performance or Windows /
+D3D12/full desktop/graphical EXE acceptance. Capture source/executable/input hashes
+and byte proofs remain in the canonical local capability validation owner.
 
 ## Two-clip sequence Timeline
 

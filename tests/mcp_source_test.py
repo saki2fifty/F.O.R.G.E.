@@ -10,8 +10,10 @@ import time
 import wave
 from mcp_test_client import CAPTURE, Client, failed, write_capture, finish_host
 from mcp_prefab_workflow import check_prefab_workflow
+from mcp_terrain_foliage_workflow import check_terrain_foliage_workflow
 
 TOOLS, HOST, WORKER = map(str, map(Path, sys.argv[1:4]))
+TERRAIN_FOLIAGE_ONLY = "--terrain-foliage-only" in sys.argv[5:]
 PREFAB_ONLY = "--prefab-only" in sys.argv[5:]
 # Instrumented native admission can exceed the unchanged production bridge
 # deadline for the multi-MiB boundary fixture. Normal CTest always includes it.
@@ -41,7 +43,17 @@ def editor(mode='edit'):
 
 for legacy in (False, True):
     with editor('read') as (root, process, config), Client(config, legacy) as client:
-        names = {tool['name'] for tool in client.request('tools/list')['result']['tools']}
+        readonly_tools = client.request('tools/list')['result']['tools']
+        names = {tool['name'] for tool in readonly_tools}
+        preparation = next(t for t in readonly_tools if t['name'] == 'forge_foliage_terrain_prepare')
+        assert preparation['annotations']['readOnlyHint']
+        state = client.tool('forge_discover')
+        missing = '00000000-0000-4000-8000-000000000099'
+        failed(client.tool('forge_foliage_terrain_prepare', target=state['result']['target'],
+            terrain=missing, arguments=dict(entity=missing, name='Read-only preflight',
+                center=dict(x=0, y=0, z=0), radius=1, spacing=0, count=1, seed=1,
+                scale_min=1, scale_max=1, yaw_min=0, yaw_max=0)), 'invalid_surface')
+        assert client.tool('forge_discover')['revision'] == state['revision']
         assert 'forge_asset_document_types' in names
         assert 'forge_prefab_source_read' in names
         assert not {'forge_prefab_variant_create', 'forge_prefab_duplicate', 'forge_prefab_source_rebase', 'forge_prefab_source_revert'} & names
@@ -180,6 +192,10 @@ for legacy in (False, True):
                 time.sleep(.02)
             assert not settled['dirty'] and not settled['unpublished'] and not settled['diagnostic'], settled
             return settled
+        if TERRAIN_FOLIAGE_ONLY:
+            check_terrain_foliage_workflow(read, mutate, edit, content, save_published,
+                                           discovery, client, root)
+            continue
         if COLLISION_ONLY:
             # FORGE's own unlit image fixture references the immutable engine Checker
             # texture, so every dependent source is created/published through MCP.

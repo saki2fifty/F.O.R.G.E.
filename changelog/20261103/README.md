@@ -67,3 +67,24 @@ The manual includes an authentic Timeline capture and instructions for authoring
 preview, Prefabs and export. Native component values require a matching rebuilt
 SDK module; C callback layouts and Scene/Prefab/clip formats are unchanged.
 Windows/full-editor/physical acceptance remains pending; no numbered delivery is implied.
+
+
+## Foliage projection onto heightfields
+
+**Tools > Foliage placement...** can project seeded ordinary objects onto a
+published upright heightfield. Separate template/surface choices and a bounded
+height offset resolve every origin against the rendered terrain revision.
+Missing coverage or mismatched on-disk source rejects the complete layout.
+Existing Scene history, copied renderer values, seeded horizontal spacing and
+ordinary export remain responsible for the result. Placements do not follow
+later surface edits or align to slopes.
+
+Read-only automation/MCP terrain preparation returns ordinary `mesh.scatter`
+arguments, Scene revision and source provenance. The shared command admits an
+optional exact-count finite world-height array. Runtime needs no procedural
+placement manager or source files. Gallery147 demonstrates 128 projected blades
+using existing original content; the manual includes controls and Game captures.
+An additive immutable-cache opening factory preserves existing constructor/layout
+semantics. Dependency pins and native gameplay component/callback layouts are
+unchanged. Windows/full-editor/physical acceptance remains pending; no numbered
+delivery is implied.

@@ -2,6 +2,7 @@
 #include "editable_mesh_document.hpp"
 #include "mesh_scatter_authoring.hpp"
 #include "runtime_package.hpp"
+#include "terrain_foliage_authoring.hpp"
 #include <array>
 #include <cmath>
 #include <forge/animation_components.hpp>
@@ -11,6 +12,7 @@
 #include <forge/project_lease.hpp>
 #include <forge/render_scene.hpp>
 #include <forge/scene_identity.hpp>
+#include <forge/terrain_source.hpp>
 #include <fstream>
 #include <iostream>
 #include <thread>
@@ -147,7 +149,9 @@ void author(const std::filesystem::path& root) {
     const std::array roots{record.id};
     prepare_runtime_content_catalog(*lease, roots, {}, scene.schema());
 }
-void exercise(const std::filesystem::path& root, AssetId id) {
+#include "terrain_foliage_gallery.hpp"
+void exercise(const std::filesystem::path& root, AssetId id,
+              const Json& expected = Json::object()) {
     struct Preparation final : GameScenePreparation {
         GamePreparationProgress poll(RuntimeWorld& w) override {
             return {w.prepare_scene_resources(), "foliage resources"};
@@ -167,6 +171,26 @@ void exercise(const std::filesystem::path& root, AssetId id) {
     game.activate(candidate, {}, false);
     auto& world = game.active();
     const auto authored = world.scene.effective_document();
+    if (!expected.empty()) {
+        unsigned count = 0;
+        for (const auto& e : authored.at("entities"))
+            if (e.at("name").get<std::string>().starts_with("Terrain meadow ")) {
+                const auto& point = expected.at(e.at("id").get<std::string>());
+                const auto& m = e.at("world_affine");
+                for (unsigned axis = 0; axis < 3; ++axis)
+                    check(std::abs(m[axis * 4 + 3].get<double>() - point[axis].get<double>()) <
+                              1e-8,
+                          "Runtime foliage no longer rests on its authored terrain surface");
+                ++count;
+            }
+        world.simulation.tick(1.f / 60);
+        const auto render = extract_render_scene(world.simulation.presentation(1));
+        check(count == 128 && render.meshes.size() == 130 && render.cameras.size() == 1 &&
+                  !render.lights.empty(),
+              "Terrain foliage lost its ordinary runtime renderers/camera/light");
+        std::cout << "Terrain foliage:128 projected origins and actual runtime resources ready\n";
+        return;
+    }
     unsigned green = 0, amber = 0;
     flecs::entity moving;
     for (const auto& e : authored.at("entities")) {
@@ -201,18 +225,26 @@ int main(int argc, char** argv) {
             author(std::filesystem::absolute(argv[2]));
             return 0;
         }
+        if (argc == 3 && std::string_view(argv[1]) == "--author-terrain") {
+            author_terrain_meadow(std::filesystem::absolute(argv[2]));
+            return 0;
+        }
         check(argc == 3, "Need Gallery and scratch paths");
         const auto scratch = std::filesystem::absolute(argv[2]) / AssetId::generate().str();
         const auto source = scratch / "source";
         std::filesystem::create_directories(scratch);
         std::filesystem::copy(argv[1], source, std::filesystem::copy_options::recursive);
         const auto id = read(source / scene_path).at("asset_id").get<AssetId>();
+        const auto terrain = read(source / terrain_scene_path).at("asset_id").get<AssetId>();
+        const auto expected = terrain_meadow_oracle(source);
         exercise(source, id);
-        const std::array roots{id};
+        exercise(source, terrain, expected);
+        const std::array roots{id, terrain};
         package_runtime_content(source, scratch / "export", roots, {"windows", "d3d12"});
         std::filesystem::rename(scratch / "export", scratch / "relocated");
         std::filesystem::rename(source, scratch / "source-offline");
         exercise(scratch / "relocated", id);
+        exercise(scratch / "relocated", terrain, expected);
         std::cout << "Foliage source-hidden relocated Windows-target content passed on Linux\n";
     } catch (const std::exception& e) {
         std::cerr << e.what() << '\n';

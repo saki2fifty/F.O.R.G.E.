@@ -2,10 +2,12 @@
 #include "asset_file_transaction.hpp"
 #include "asset_reference_impact.hpp"
 #include "asset_reimport.hpp"
+#include "mesh_scatter_authoring.hpp"
 #include "model_render_resource.hpp"
 #include "root_mesh_artifact.hpp"
 #include "runtime_package.hpp"
 #include "terrain_authoring.hpp"
+#include "terrain_foliage_authoring.hpp"
 #include <forge/asset_discovery.hpp>
 #include <iostream>
 #include <thread>
@@ -124,6 +126,7 @@ void watch(const std::filesystem::path& root) {
             "Invalid watched terrain replaced the working selected Mesh");
 }
 } // namespace
+#include "terrain_foliage_tests.hpp"
 int main(int argc, char** argv) {
     try {
         require(argc == 2, "Need terrain asset scratch path");
@@ -272,6 +275,7 @@ int main(int argc, char** argv) {
         require(encode_mesh(load(root, catalog, id)) == expected,
                 "Terrain resource reread offline source");
         watch(root / "Watch");
+        terrain_foliage(root / "Foliage");
         std::cout << "Terrain history, cook, strict admission, copy, last-good and relocated "
                      "source-free package passed\n";
     } catch (const std::exception& error) {

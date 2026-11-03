@@ -40,6 +40,10 @@ Discard or Cancel.
 
 ## Place, collide and export
 
+For independent plants that rest on the published surface, use
+[Foliage placement](foliage.md). Save and publish terrain edits before placing a
+patch. Existing patches keep their saved heights when you sculpt later.
+
 Select a scene entity with a Mesh Renderer, then click **Assign to selected Mesh
 Renderer** after publishing. Position and scale it with the ordinary Inspector,
 and assign a Material to its default surface slot.

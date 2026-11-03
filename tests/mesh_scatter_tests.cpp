@@ -6,6 +6,7 @@
 #include <forge/engine_assets.hpp>
 #include <forge/render_scene.hpp>
 #include <iostream>
+#include <limits>
 #include <set>
 using namespace forge;
 namespace {
@@ -221,12 +222,59 @@ void authoring() {
                   << '\n';
     }
 }
+void resolved_heights() {
+    EngineContext engine;
+    Scene scene(engine.world());
+    const auto source = authoring_command(scene, "entity.create", {{"recipe", "primitive.0"}})
+                            .at("selected")
+                            .get<std::string>();
+    detail::MeshScatterSettings settings;
+    settings.center = {20, 7, -10};
+    settings.count = 16;
+    const auto layout = detail::mesh_scatter_layout(settings);
+    auto arguments = detail::mesh_scatter_arguments(source, settings, "Projected patch");
+    Json heights = Json::array();
+    for (const auto& placement : layout)
+        heights.push_back(.5 * (settings.center[0] + placement.offset[0]) +
+                          .25 * (settings.center[2] + placement.offset[1]) + 3);
+    arguments["world_heights"] = heights;
+    const auto before = scene.document();
+    const auto result = authoring_command(scene, "mesh.scatter", arguments);
+    const auto after = scene.document();
+    const auto effective = scene.effective_document();
+    for (std::size_t i = 0; i < layout.size(); ++i) {
+        const auto& world = row(effective, result.at("created")[i]).at("world_affine");
+        check(std::abs(world[7].get<double>() -
+                       (.5 * world[3].get<double>() + .25 * world[11].get<double>() + 3)) < 1e-10,
+              "Resolved placement origins do not lie on the expected world plane");
+    }
+    check(scene.undo() && scene.document() == before && scene.redo() && scene.document() == after,
+          "Resolved height placement did not use one Scene history entry");
+    for (const auto& bad : std::vector<Json>{Json::array({0}), Json::array(), nullptr, "invalid"}) {
+        auto request = arguments;
+        request["world_heights"] = bad;
+        const auto revision = scene.revision();
+        rejected([&] { authoring_command(scene, "mesh.scatter", request); });
+        check(scene.revision() == revision && scene.document() == after,
+              "Malformed resolved heights changed the Scene");
+    }
+    for (const auto& bad : {Json(true), Json("height"), Json(1e12 + 1),
+                            Json(std::numeric_limits<double>::infinity())}) {
+        auto request = arguments;
+        request["world_heights"][8] = bad;
+        const auto revision = scene.revision();
+        rejected([&] { authoring_command(scene, "mesh.scatter", request); });
+        check(scene.revision() == revision && scene.document() == after,
+              "Invalid resolved height partially changed placement/history");
+    }
+}
 } // namespace
 int main() {
     try {
         layout();
         distant_layout();
         authoring();
+        resolved_heights();
         std::cout << "Mesh scatter checks passed\n";
     } catch (const std::exception& e) {
         std::cerr << e.what() << '\n';

@@ -5392,7 +5392,7 @@ int main(int argc, char** argv) {
             const auto lighting_catalog = mesh_resources ? mesh_resources->catalog() : nullptr;
             forge::ui::scene_lighting(scene_lighting_open, scene, lighting_catalog.get(),
                                       edit_locked);
-            foliage_placement.draw(scene, editor.selection, edit_locked);
+            foliage_placement.draw(scene, editor.selection, edit_locked, &files.document);
             if (runtime_tuning_review.draw(scene, files.document, edit_locked))
                 message = runtime_tuning_review.status();
             ecs_workspace.draw(scene, editor.problems);

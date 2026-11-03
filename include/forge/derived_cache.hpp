@@ -29,6 +29,9 @@ class DerivedDataCache {
   public:
     using Validator = std::function<void(const CachedArtifact&)>;
     explicit DerivedDataCache(std::filesystem::path project, CacheLimits limits = {});
+    // Open a selected-artifact cache without creating its directory. This does
+    // not restrict later methods; read-only workflows use load_selected only.
+    static DerivedDataCache open_existing(std::filesystem::path project, CacheLimits limits = {});
     std::optional<CachedArtifact> find(const AssetBuildInput& input, const Validator& validate);
     // Runtime/tool readers can load an already selected immutable revision without
     // the importer or original source. Missing/corrupt data throws; no publication.
@@ -52,6 +55,7 @@ class DerivedDataCache {
     nlohmann::json verify(const Validator& validate);
 
   private:
+    DerivedDataCache(std::filesystem::path project, CacheLimits, bool create_directory);
     std::filesystem::path project_, root_;
     CacheLimits limits_;
     CachedArtifact read(const std::string& key) const;

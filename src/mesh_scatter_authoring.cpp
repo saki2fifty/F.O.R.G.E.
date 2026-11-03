@@ -99,17 +99,20 @@ Json mesh_scatter_arguments(const std::string& source, const MeshScatterSettings
             {"yaw_min", s.yaw_min},
             {"yaw_max", s.yaw_max}};
 }
-Json scatter_mesh(SceneDraft& scene, const std::string& source, const Json& a) {
+MeshScatterSettings mesh_scatter_settings(const Json& a) {
     const auto& center = a.at("center");
-    const MeshScatterSettings settings{{center.at("x"), center.at("y"), center.at("z")},
-                                       a.at("radius"),
-                                       a.at("spacing"),
-                                       a.at("scale_min"),
-                                       a.at("scale_max"),
-                                       a.at("yaw_min"),
-                                       a.at("yaw_max"),
-                                       a.at("count"),
-                                       a.at("seed")};
+    return MeshScatterSettings{{center.at("x"), center.at("y"), center.at("z")},
+                               a.at("radius"),
+                               a.at("spacing"),
+                               a.at("scale_min"),
+                               a.at("scale_max"),
+                               a.at("yaw_min"),
+                               a.at("yaw_max"),
+                               a.at("count"),
+                               a.at("seed")};
+}
+Json scatter_mesh(SceneDraft& scene, const std::string& source, const Json& a) {
+    const auto settings = mesh_scatter_settings(a);
     const auto name = a.at("name").get<std::string>();
     if (name.find_first_not_of(" \t\r\n") == std::string::npos)
         invalid("Foliage group name must not be blank");
@@ -131,6 +134,20 @@ Json scatter_mesh(SceneDraft& scene, const std::string& source, const Json& a) {
         invalid("The foliage template needs a nonempty Mesh reference");
     const auto local = read_local(prototype->at("components"));
     const auto placements = mesh_scatter_layout(settings);
+    std::vector<double> heights;
+    if (a.contains("world_heights")) {
+        const auto& values = a.at("world_heights");
+        if (!values.is_array() || values.size() != placements.size())
+            invalid("Resolved world heights must match the generated placement count");
+        heights.reserve(values.size());
+        for (const auto& value : values) {
+            if (!value.is_number())
+                invalid("Resolved world heights must be numeric");
+            const auto height = value.get<double>();
+            range(height, -1e12, 1e12);
+            heights.push_back(height);
+        }
+    }
     std::set<std::string> occupied;
     for (const auto& row : doc.at("entities"))
         occupied.insert(row.at("id").get<std::string>());
@@ -160,7 +177,8 @@ Json scatter_mesh(SceneDraft& scene, const std::string& source, const Json& a) {
                     {"spatial", {{"mode", "follow_structure"}}},
                     {"components", {{"forge.mesh_renderer", renderer}}}};
         auto transform = local;
-        transform.translation = {p.offset[0], 0, p.offset[1]};
+        transform.translation = {p.offset[0], heights.empty() ? 0 : heights[i] - settings.center[1],
+                                 p.offset[1]};
         // Yaw about +Y precedes the template local rotation. The existing
         // rotation owner normalizes the result; position/gameplay are not copied.
         const auto yaw = rotation_about_axis({0, 1, 0}, p.yaw);

@@ -1,5 +1,6 @@
 #include "bounded_json.hpp"
 #include "brush_samples.hpp"
+#include "terrain_height_query.hpp"
 #include <algorithm>
 #include <cmath>
 #include <forge/terrain_source.hpp>
@@ -231,9 +232,10 @@ MeshData terrain_mesh(const TerrainRaster& raster) {
     validate_mesh(result, {32 * 1024 * 1024, 8 * 129 * 129, 8 * 128 * 128 * 6, 8, 4, 0, 1});
     return result;
 }
-std::optional<double> terrain_height(const TerrainRaster& raster, double x, double z) {
+namespace {
+std::optional<double> height_at(const TerrainRaster& raster, const Grid& points, double x,
+                                double z) {
     require(std::isfinite(x) && std::isfinite(z), "Terrain query position is nonfinite");
-    const auto points = grid(raster);
     for (const auto& tile : raster.tiles) {
         const auto first = key(raster, tile, 0, 0),
                    last = key(raster, tile, raster.side - 1, raster.side - 1);
@@ -262,6 +264,22 @@ std::optional<double> terrain_height(const TerrainRaster& raster, double x, doub
     }
     return {};
 }
+} // namespace
+std::optional<double> terrain_height(const TerrainRaster& raster, double x, double z) {
+    require(std::isfinite(x) && std::isfinite(z), "Terrain query position is nonfinite");
+    return height_at(raster, grid(raster), x, z);
+}
+std::vector<std::optional<double>>
+detail::terrain_heights(const TerrainRaster& raster,
+                        std::span<const std::array<double, 2>> positions) {
+    const auto points = grid(raster);
+    std::vector<std::optional<double>> result;
+    result.reserve(positions.size());
+    for (const auto& point : positions)
+        result.push_back(height_at(raster, points, point[0], point[1]));
+    return result;
+}
+
 TerrainSource TerrainSource::create(AssetId asset, unsigned side, double tile_size) {
     require(bool(asset) && side >= 2 && side <= 129, "Invalid new terrain identity/resolution");
     const auto layer = TerrainLayerId::generate();

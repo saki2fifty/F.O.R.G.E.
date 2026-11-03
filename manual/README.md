@@ -37,7 +37,7 @@ content may differ; use **Window** to open a panel mentioned in a guide.
 - [Importing and placing models](editor/models.md)
 - [Editable Meshes and UVs](editor/editable-meshes.md)
 - [Shape terrain with height layers](editor/terrain.md)
-- [Place foliage](editor/foliage.md)
+- [Place foliage on planes and heightfields](editor/foliage.md)
 - [Importing textures](editor/textures.md)
 - [Materials](editor/materials.md)
 - [Blend overlapping transparent Meshes](editor/transparency.md)

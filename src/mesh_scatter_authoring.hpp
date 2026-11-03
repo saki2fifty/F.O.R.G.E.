@@ -19,6 +19,7 @@ struct MeshScatterPlacement {
 };
 // Bounded candidate generation only; no identities, Scene state or hidden runtime data.
 std::vector<MeshScatterPlacement> mesh_scatter_layout(const MeshScatterSettings&);
+MeshScatterSettings mesh_scatter_settings(const Json& arguments);
 Json mesh_scatter_arguments(const std::string& source, const MeshScatterSettings&,
                             const std::string& name);
 Json scatter_mesh(SceneDraft&, const std::string& source, const Json& arguments);

@@ -319,12 +319,20 @@ int main(int argc, char** argv) {
             bad.source_digest = "../outside";
             (void)bad.key();
         });
+        const auto missing_reader = root / "MissingReader";
+        std::filesystem::create_directories(missing_reader);
+        rejects([&] { (void)DerivedDataCache::open_existing(missing_reader); });
+        require(!std::filesystem::exists(missing_reader / ".forge"),
+                "Opening a missing selected cache created directories");
         DerivedDataCache cache(root, {1024, 2048, 4});
         const auto build = input();
         require(!cache.find(build, admission), "Missing cache reported hit");
         auto artifact = cache.publish(build, {{"data.bin", bytes("validated")}}, admission);
         require(cache.find(build, admission)->manifest == artifact.manifest, "Cache hit differs");
         const auto selected_artifact = cache.load_selected(build.key(), admission);
+        auto reader = DerivedDataCache::open_existing(root, {1024, 2048, 4});
+        require(reader.load_selected(build.key(), admission).manifest == artifact.manifest,
+                "Existing cache reader differs from the published selection");
         require(selected_artifact.manifest == artifact.manifest,
                 "Selected cache revision differs from build-input lookup");
         rejects([&] { cache.load_selected("../outside", admission); });

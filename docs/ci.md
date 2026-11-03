@@ -1980,3 +1980,30 @@ to verify seven pitched cues across parent loops, camera/geometry composition,
 silence between cues and source-hidden relocated export. Ordinary audio-cue tests
 retain their unnested profile. These CPU/software checks do not establish full
 Main, Windows/MSVC/D3D12, physical audio/GPU/input/DPI or graphical EXE acceptance.
+
+
+## Heightfield foliage consumers
+
+`terrain_source` checks scalar/batch equality, triangle diagonals, bounds, missing
+coverage and invalid input. `asset_build` checks immutable cache opening without
+creating missing directories. `terrain_asset` checks actual published terrain,
+transformed cooked-vertex height oracles, unchanged preparation state, source
+selection, coverage/tilt/inversion rejection and ordinary Scene history.
+`mesh_scatter` checks ordered resolved world heights, exact count/finite validation
+and atomic Undo/Redo. `foliage_editor` drives planar and projected controls with
+real input at three scales in two layouts, including Play locks and failures.
+
+`mcp_mesh_scatter_stdio` covers raw resolved heights through the ordinary command.
+`mcp_terrain_foliage_stdio` covers both framings, terrain creation/publication,
+read-only discovery and permissions, shared preparation, revision/replay, placement,
+Undo/Redo, stale/source errors and document saving. `foliage_gallery` checks original
+Gallery144 and heightfield Gallery147, including 128 expected projected origins and
+source-hidden relocated content. No project source reader is needed at runtime.
+
+`terrain_foliage_vulkan` renders the same Scene View and Game consumers using the
+existing foliage probe's optional Scene argument. It verifies compatible batching,
+individual template picking, static frames, visible green geometry and four exact
+source/relocated-export display pairs. A two-part terrain contributes two draw
+instances; instance count is not Mesh entity count. Original `foliage_vulkan` keeps
+its animated two-color scene. These software checks do not establish physical GPU
+performance, Windows/MSVC/D3D12, full desktop, input/DPI or graphical EXE acceptance.

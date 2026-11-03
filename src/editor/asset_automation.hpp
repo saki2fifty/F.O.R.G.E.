@@ -3,6 +3,7 @@
 #include "automation_permissions.hpp"
 #include "automation_schema.hpp"
 #include "content_imports.hpp"
+#include "foliage_automation.hpp"
 #include "scene_asset_drop.hpp"
 #include "source_import.hpp"
 #include <forge/engine_assets.hpp>
@@ -47,6 +48,9 @@ asset_automation_methods(Scene& scene, EditorFiles& files, ContentImports& impor
             throw AuthoringError("not_ready", "Wait for the current project's asset catalog");
         return current;
     };
+    auto foliage = foliage_automation_methods(scene, files.document);
+    methods.insert(methods.end(), std::make_move_iterator(foliage.begin()),
+                   std::make_move_iterator(foliage.end()));
     methods.push_back(automation_method(
         "asset.search", "Page current project and immutable engine assets by name, source or type.",
         "asset.read",

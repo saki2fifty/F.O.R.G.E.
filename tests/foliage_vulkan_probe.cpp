@@ -8,7 +8,7 @@ using namespace forge;
 using namespace Diligent;
 namespace {
 Json scene_view(DiligentPresentation& presentation, IDeviceContext* context,
-                const std::filesystem::path& root, AssetId id) {
+                const std::filesystem::path& root, AssetId id, bool terrain) {
     EngineContext engine(WorldRole::Runtime, false);
     Scene scene(engine.world());
     scene.restore_snapshot(load_game_scene(root, {id}));
@@ -22,6 +22,10 @@ Json scene_view(DiligentPresentation& presentation, IDeviceContext* context,
     camera.target = {-.5f, 1, 0};
     camera.pitch = -.35f;
     camera.distance = 20;
+    if (terrain) {
+        camera.target = {0, 2, 0};
+        camera.distance = 26;
+    }
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
     unsigned settled = 0;
     do {
@@ -48,14 +52,20 @@ Json scene_view(DiligentPresentation& presentation, IDeviceContext* context,
                              {"batched_calls", stats.batched_calls},
                              {"calls", stats.calls}};
     const auto failure = "Foliage static Mesh draw counts: " + counts.dump();
-    test_gallery_capture::check(stats.instances == 195 && stats.batched_calls > 0 &&
-                                    stats.calls < stats.instances,
+    // Each of the terrain's two tile parts contributes a draw instance.
+    test_gallery_capture::check(stats.instances == (terrain ? 131u : 195u) &&
+                                    stats.batched_calls > 0 && stats.calls < stats.instances,
                                 failure.c_str());
     std::string prototype;
+    AffineTransform prototype_transform;
     for (const auto& e : source.at("entities"))
-        if (e.at("name").get<std::string>().starts_with("Blade template"))
+        if (e.at("name").get<std::string>().starts_with("Blade template")) {
             prototype = e.at("id");
-    const auto point = project_point(camera, {-6.875f, .8f, -3}, 640, 360);
+            prototype_transform.m = e.at("world_affine").get<std::array<double, 12>>();
+        }
+    const auto center = prototype_transform.point({.125, .8, 0});
+    const auto point =
+        project_point(camera, {float(center[0]), float(center[1]), float(center[2])}, 640, 360);
     test_gallery_capture::check(
         point && viewport.pick(source, camera, 640, 360, (*point)[0], (*point)[1]) == prototype,
         "Independent template picking failed after batched foliage rendering");
@@ -67,7 +77,9 @@ Json scene_view(DiligentPresentation& presentation, IDeviceContext* context,
 } // namespace
 int main(int argc, char** argv) {
     try {
-        test_gallery_capture::check(argc == 3, "Need Gallery and scratch paths");
+        test_gallery_capture::check(argc == 3 || argc == 4,
+                                    "Need Gallery and scratch paths, optionally terrain Scene");
+        const bool terrain = argc == 4;
         const auto scratch = std::filesystem::absolute(argv[2]) / AssetId::generate().str();
         const auto root = scratch / "Gallery";
         std::filesystem::create_directories(root);
@@ -80,24 +92,26 @@ int main(int argc, char** argv) {
         test_gallery_capture::check(device && context, "Vulkan unavailable");
         DiligentPresentation presentation(device);
         Json source;
-        std::ifstream(root / "Scenes/144-foliage-placement.scene.json") >> source;
+        std::ifstream(root / (terrain ? argv[3] : "Scenes/144-foliage-placement.scene.json")) >>
+            source;
         const auto id = source.at("asset_id").get<AssetId>();
-        const auto stats = scene_view(presentation, context, root, id);
-        const auto authored =
-            test_gallery_capture::render(presentation, context, root, id, scratch / "authored", 6);
+        const auto stats = scene_view(presentation, context, root, id, terrain);
+        const auto authored = test_gallery_capture::render(presentation, context, root, id,
+                                                           scratch / "authored", 6, !terrain);
         unsigned green = 0, amber = 0;
         for (const auto& p : authored[2]) {
             green += double(p[1]) > double(p[0]) * 1.3 && double(p[1]) > double(p[2]) * 1.1;
             amber += double(p[0]) > double(p[1]) * 1.1 && double(p[1]) > double(p[2]) * 1.4;
         }
-        test_gallery_capture::check(green > 200 && amber > 100,
-                                    "Gallery did not visibly render both foliage patches");
+        test_gallery_capture::check(green > 200 && (terrain || amber > 100),
+                                    "Gallery did not visibly render the expected foliage");
         const std::array roots{id};
         package_runtime_content(root, scratch / "Content", roots, {"windows", "d3d12"});
         std::filesystem::rename(scratch / "Content", scratch / "Relocated game");
         std::filesystem::rename(root, scratch / "SourcesOffline");
-        const auto exported = test_gallery_capture::render(
-            presentation, context, scratch / "Relocated game", id, scratch / "relocated", 6);
+        const auto exported =
+            test_gallery_capture::render(presentation, context, scratch / "Relocated game", id,
+                                         scratch / "relocated", 6, !terrain);
         test_gallery_capture::check(authored == exported,
                                     "Source-hidden foliage displays changed after relocation");
         Json receipt = {{"scene", id},

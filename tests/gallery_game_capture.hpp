@@ -27,7 +27,7 @@ inline void ppm(const std::filesystem::path& path, const Pixels& pixels, unsigne
 inline std::vector<Pixels> render(DiligentPresentation& presentation, IDeviceContext* context,
                                   const std::filesystem::path& root, AssetId scene_id,
                                   const std::filesystem::path& output,
-                                  std::size_t minimum_colors = 21) {
+                                  std::size_t minimum_colors = 21, bool expect_animation = true) {
     RuntimeWorld world({}, {}, std::nullopt, root, false);
     world.scene.restore_snapshot(load_game_scene(root, {scene_id}));
     auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(20);
@@ -80,7 +80,9 @@ inline std::vector<Pixels> render(DiligentPresentation& presentation, IDeviceCon
     unsigned changed = 0;
     for (std::size_t i = 0; i < results[0].size(); ++i)
         changed += results[0][i] != results[2][i];
-    check(changed > 100, "Gallery did not visibly animate its gameplay");
+    check(expect_animation ? changed > 100 : changed == 0,
+          expect_animation ? "Gallery did not visibly animate its gameplay"
+                           : "Static Gallery unexpectedly changed during gameplay");
     return results;
 }
 } // namespace forge::test_gallery_capture

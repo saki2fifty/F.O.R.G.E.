@@ -196,6 +196,13 @@ std::size_t CachedArtifact::byte_size() const {
     return total;
 }
 DerivedDataCache::DerivedDataCache(std::filesystem::path project, CacheLimits limits)
+    : DerivedDataCache(std::move(project), limits, true) {}
+DerivedDataCache DerivedDataCache::open_existing(std::filesystem::path project,
+                                                 CacheLimits limits) {
+    return DerivedDataCache(std::move(project), limits, false);
+}
+DerivedDataCache::DerivedDataCache(std::filesystem::path project, CacheLimits limits,
+                                   bool create_directory)
     : project_(std::filesystem::canonical(asset_detail::native_io_path(project))), limits_(limits) {
     if (!limits.files || limits.files > 4096 || !limits.file_bytes ||
         limits.file_bytes > limits.total_bytes ||
@@ -209,7 +216,10 @@ DerivedDataCache::DerivedDataCache(std::filesystem::path project, CacheLimits li
     // spelling across directory operations, not just streams. Logical locators,
     // artifact keys and manifests remain project-relative and backend-neutral.
     root_ = asset_detail::native_io_path(root_);
-    std::filesystem::create_directories(root_);
+    if (create_directory)
+        std::filesystem::create_directories(root_);
+    else if (!std::filesystem::is_directory(root_))
+        throw std::runtime_error("Selected derived cache directory is missing");
     ordinary_path(root_);
 }
 CachedArtifact DerivedDataCache::read(const std::string& key) const {

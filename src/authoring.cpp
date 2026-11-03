@@ -712,8 +712,10 @@ Json authoring_commands() {
     add("mesh.scatter", "Place foliage group",
         "Create 1 to 512 ordinary independent Mesh Renderer objects in a seeded horizontal disk. "
         "Copies the selected entity's renderer and local orientation/scale only. Center is world "
-        "space; Y is a fixed plane. Spacing separates origins within this new group only. No "
-        "terrain projection, collision avoidance, children, gameplay or linked Prefab is copied. "
+        "space; Y is a fixed plane unless resolved world_heights are supplied in generated "
+        "layout order. Heights are copied values, without a live surface link. Spacing separates "
+        "horizontal origins within this new group only. No terrain lookup, collision avoidance, "
+        "children, gameplay or linked Prefab is copied. "
         "One Undo removes the group; failed fitting creates nothing.",
         {{"entity", text_type()},
          {"name", text_type()},
@@ -721,6 +723,8 @@ Json authoring_commands() {
          {"radius", number(.01, 1000)},
          {"spacing", number(0, 2000)},
          {"count", {{"type", "integer"}, {"minimum", 1}, {"maximum", 512}}},
+         {"world_heights",
+          {{"type", "array"}, {"minItems", 1}, {"maxItems", 512}, {"items", number(-1e12, 1e12)}}},
          {"seed", {{"type", "integer"}, {"minimum", 0}, {"maximum", 4294967295ull}}},
          {"scale_min", number(.01, 100)},
          {"scale_max", number(.01, 100)},

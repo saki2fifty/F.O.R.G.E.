@@ -1,3 +1,4 @@
+#include "terrain_height_query.hpp"
 #include <cmath>
 #include <forge/terrain_source.hpp>
 #include <iostream>
@@ -81,6 +82,30 @@ void geometry() {
     near(*terrain_height(triangle, .5, .5), 1.5); // bilinear would incorrectly give 1.75
     near(*terrain_height(triangle, .75, .75), 2.75);
     reject([&] { terrain_height(raster, std::numeric_limits<double>::infinity(), 0); });
+}
+void batch_queries() {
+    const auto raster = plane();
+    const std::array<std::array<double, 2>, 6> positions{
+        {{0, 0}, {.25, .75}, {1, 1}, {2, 2}, {-.01, 1}, {1, 2.01}}};
+    const auto heights = detail::terrain_heights(raster, positions);
+    require(heights.size() == positions.size(), "Terrain batch lost query order");
+    for (std::size_t i = 0; i < positions.size(); ++i) {
+        const auto expected = terrain_height(raster, positions[i][0], positions[i][1]);
+        require(heights[i] == expected, "Terrain batch differs from the original surface query");
+    }
+    auto nonlinear = TerrainSource::create(AssetId::generate(), 2, 1).raster();
+    nonlinear.tiles[0].layers[0].heights = {0, 1, 2, 4};
+    const std::array<std::array<double, 2>, 2> diagonal{{{.5, .5}, {.75, .75}}};
+    const auto triangles = detail::terrain_heights(nonlinear, diagonal);
+    near(*triangles[0], 1.5);
+    near(*triangles[1], 2.75);
+    require(detail::terrain_heights(raster, {}).empty(), "Empty terrain batch produced samples");
+    auto bad = positions;
+    bad.back()[0] = std::numeric_limits<double>::infinity();
+    reject([&] { detail::terrain_heights(raster, bad); });
+    auto invalid = raster;
+    invalid.tiles.front().layers.front().heights.clear();
+    reject([&] { detail::terrain_heights(invalid, positions); });
 }
 void layers_and_seams() {
     auto raster = plane();
@@ -359,6 +384,7 @@ void source_admission() {
 int main() {
     try {
         geometry();
+        batch_queries();
         layers_and_seams();
         float_boundaries();
         source_admission();

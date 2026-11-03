@@ -12706,6 +12706,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "e6d70f7c-b8a2-4af3-97b2-5f0834e40e75",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/147-terrain-foliage.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "e73043a0-eb10-4d5f-9375-640773df0bbe",
       "metadata": {},
       "schema_version": 3,

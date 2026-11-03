@@ -13,6 +13,20 @@ This example uses a horizontal plane; it does not project onto terrain. Save,
 select this Scene as startup and export without project C++.
 See [Place foliage](../../../manual/editor/foliage.md).
 
+## Foliage on terrain
+
+Open **Scenes/147-terrain-foliage.scene.json** and press **Play → Game**. A green
+meadow contains 128 ordinary blades resting on the existing layered heightfield,
+plus an independent blade template. Stop Play and open **Tools > Foliage
+placement...**. Select the blade template and choose **Use selected Mesh Renderer**;
+enable **Project onto heightfield terrain**, select the layered terrain and choose
+**Use selected terrain**. Set the patch center/radius inside the terrain, then
+**Check layout** and **Place foliage**. Each placement remains an ordinary object
+and the whole group is one Undo step. Terrain must be published and upright;
+every origin needs coverage. Later terrain edits do not move existing blades.
+Save, choose this Scene as startup and export without project C++.
+See [Place foliage](../../../manual/editor/foliage.md).
+
 ## Fast approximate anti-aliasing
 
 Open **Scenes/143-fast-approximate-antialiasing.scene.json** and press **Play**.
