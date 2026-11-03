@@ -245,9 +245,10 @@ Resume restores its state without rewinding a completed clip: native sound start
 rewinds EOS, so tail-only Resume must start only the effect. Source Stop silences
 the chain and discards its audible history; the next Restart creates fresh history.
 Full suspension and game-pause groups freeze their connected chains; routing-only
-changes preserve history. Source `echo_tail` identifies its primary tail and
-`echo_tails` counts all retained tails, including paused one-shots. Live sound can
-show Echo tail and enables Pause/Resume for it even when no clip is still playing.
+changes preserve history. Source `echo_tail` identifies its primary echo tail and `echo_tails` counts retained
+echoes. `effects_tail(s)` and `reverb_tail(s)` include their respective primary and
+one-shot tails, including paused ones. Live sound shows Effect tail and enables
+Pause/Resume even when no clip is still playing.
 Counts indicate retained output state, not physical device audibility.
 
 Existing property/Play automation and MCP bindings expose the same fields and
@@ -274,7 +275,11 @@ settings publication fails. SdkPlay and standalone startup use resolved preferen
 Plain project audio uses declared project defaults.
 
 For this flat gain-only mixer, channel gain multiplies each existing voice's
-spatial-admitted source gain before the common gameplay Master group. This is
+spatial-admitted source gain at its final existing output bus, after buffered
+effects and before the common gameplay Master group. The native source engine
+volume stays at one; source and category faders therefore also mute stored tails.
+No new group is added. This shared gain owner handles source synchronization,
+live mix changes, one-shots, effect replacement/Restart and private preview reset. This is
 linear volume mixing; no extra graph node or dynamic attachment is required.
 Master-route sources bypass category gain, but retain Master output gain.
 Each source follows its own `pause_with_game` policy, independently of its channel. Channel/master updates validate every value
@@ -289,6 +294,53 @@ separate audible channels, with relocated source-free PCM proof. SDK component
 layout/fingerprint changes require matching C++ rebuild; ABI1 remains unchanged.
 This batch supplies four common channels. Custom buses, shared effects, streaming and
 separate custom bus graphs remain future capabilities.
+
+## Per-source reverberation
+
+AudioSource appends `reverb_enabled` (false), `reverb_decay` (1.5 seconds,0.1–10),
+`reverb_damping` (0.5,0–0.95) and `reverb_wet` (0.25,0–1). Existing builtin default
+admission keeps older Scenes/Prefabs disabled. Reflection, Inspector, ordinary
+Scene history, generic automation/MCP and native SDK values share these fields.
+Native component layout/fingerprint changes require matching C++ modules; C callback
+tables and clip/source formats are unchanged. Recovery retains component intent,
+not native DSP buffers or one-shots; restored autoplay begins with fresh history.
+
+The FORGE-owned private AudioReverb uses four unequal delays per channel, an
+orthogonal feedback mix, duration-scaled losses and one-pole feedback damping.
+Channels have different delays and independent state. Decay is nominal; no physical
+room or exact universal reverberation-time equivalence is claimed. Existing pinned
+miniaudio provides graph routing and callback lifetime only. SourceEffects owns a
+stable-address custom node after HPF→LPF→echo; no effect bus graph or second mixer
+is introduced. Construction allocates on the owner, processing accesses only
+preallocated samples, and node uninitialization detaches/waits before DSP storage
+is destroyed. Continuous callbacks consume native padded input counts, including
+null silence. Callbacks never access ECS, files, services or project ownership.
+
+Disabled or zero-wet reverb creates no node/buffer. Effective parameter changes
+replace the existing effect chain and clear its history without resetting the
+clip. Dormant parameter changes do not rebuild it. Source/category faders apply
+after effects, so mute covers retained output while source/DSP clocks continue.
+Routing and pause preserve history. The existing native group can retain two
+already buffered stereo frames at a leaf control boundary in offline tests;
+controls are not sample-accurate cuts. Do not reset the shared group to control
+one source. Source Stop disables output; Restart creates and admits fresh history
+and restores its gain. Full suspension and per-source/game pause freeze tails.
+
+Each reverb voice owns eight float delay buffers at the current48kHz stereo
+output. The local implementation allocates59520 payload bytes per voice; actual
+`reverb_buffer_bytes` derives from vector capacities and includes one-shots. It
+excludes native node/filter overhead and temporary replacement chains. Existing
+`echo_buffer_bytes` retains its separate meaning. Existing256-total/16-one-shot
+caps apply; there is no independent unbounded effect population. These memory and
+CPU/offline checks do not establish physical audio deadline or device performance.
+
+A reverb tail is retired after `ceil(rate*(2*decay+0.5))` output frames from
+owner-observed EOS. With echo upstream, its existing tail bound is added. This is
+a bounded retirement policy, not a universal absolute-silence threshold for every
+possible waveform. Paused tails retain their existing voice slot. Gallery148
+reuses the original tone and sequence/mesh/camera assets for dry0s/bright3s/damped6s
+comparisons. Actual offline cue/tail PCM is byte-identical after source-hidden
+relocated export; no source WAV or project C++ is required at playback.
 
 ## Live Play mix and status
 
@@ -459,6 +511,9 @@ Recovery reconstructs autoplay from recovered authored source components, from f
 ## Composition and SDK
 
 `forge_runtime --project PATH --audio device` explicitly enables optional real output. Plain `--project` supplies the asset root only; protocol hello keeps the existing clock/input/gravity configuration authority, including recovery from the active play session. `--audio offline` selects no-device logic tests; omitting `--audio` remains headless. The experimental profile uses `--sdk-project PATH` with the same audio option. A consumer requiring Audio must declare dependency `forge.audio`; unavailable required services prevent consumer startup. Optional output failure emits a diagnostic and continues without Audio capability.
+Runtime Scene preparation requires an available audio provider for nondefinition
+AudioSource entities; headless scenes without that requirement still load normally.
+Schema-only authoring and validation retain data-only component support.
 
 Exact SDK supplies a size/fingerprint-checked `audio_source` callback taking scene UUID, entity UUID and operation: `FORGE_SDK_AUDIO_STOP`0, `FORGE_SDK_AUDIO_RESTART`1, `FORGE_SDK_AUDIO_PAUSE`2, `FORGE_SDK_AUDIO_RESUME`3, `FORGE_SDK_AUDIO_ONE_SHOT`4. The first two retain their previous semantics; unknown values reject. Fixed callbacks retain queued owner-thread operations. Control callbacks can immediately command only active sources with `pause_with_game=false`; ordinary sources and suspended/unpublished output reject. Generation and selected clip are captured at enqueue and revalidated before execution. Source-engine AudioService exposes matching `play`, `play_one_shot`, `stop_source`, `pause_source`, `resume_source` owner-thread commands. The changed installed header fingerprint requires rebuilding exact SDK consumers; callback table size and ABI number remain unchanged. Gameplay can register/query/edit FORGE AudioSource values through shared Flecs. No miniaudio types or headers enter the SDK. AssetId is preserved by copying typed component references; out-of-line host identity/catalog helper implementations are not exported as a general SDK library.
 
@@ -491,7 +546,7 @@ generations, routing and voices. Seek and stopped Timeline preview request no
 sound. Existing effects retain their ordinary audio lifetime. Private animation
 recovery preserves cue intent without recovering or replaying audio cursors.
 
-Later work includes streaming music, voice stealing, custom buses, cue graphs, shared effects/reverb, multiple listeners, sample-accurate recovery continuity and device selection.
+Later work includes streaming music, voice stealing, custom buses, cue graphs, shared effect buses, impulse responses, acoustic room simulation, multiple listeners, sample-accurate recovery continuity and device selection.
 
 
 ## AudioClip import and selected revisions

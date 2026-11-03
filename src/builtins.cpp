@@ -200,7 +200,11 @@ template <class T> Json encode(const T& p) {
                 {"high_pass_hz", p.high_pass_hz},
                 {"echo_enabled", p.echo_enabled},
                 {"echo_seconds", p.echo_seconds},
-                {"echo_feedback", p.echo_feedback}};
+                {"echo_feedback", p.echo_feedback},
+                {"reverb_enabled", p.reverb_enabled},
+                {"reverb_decay", p.reverb_decay},
+                {"reverb_damping", p.reverb_damping},
+                {"reverb_wet", p.reverb_wet}};
     else if constexpr (std::is_same_v<T, AudioListener>)
         return {{"enabled", p.enabled}};
     else if constexpr (std::is_same_v<T, CharacterController2D>)
@@ -584,6 +588,10 @@ template <class T> Value decode(const Json& p) {
         v.echo_enabled = p.value("echo_enabled", false);
         v.echo_seconds = p.value("echo_seconds", .25f);
         v.echo_feedback = p.value("echo_feedback", .35f);
+        v.reverb_enabled = p.value("reverb_enabled", false);
+        v.reverb_decay = p.value("reverb_decay", 1.5f);
+        v.reverb_damping = p.value("reverb_damping", .5f);
+        v.reverb_wet = p.value("reverb_wet", .25f);
         if (v.maximum_distance < v.minimum_distance)
             throw std::runtime_error("Audio maximum distance must be at least minimum distance");
         if (v.outer_angle < v.inner_angle)
@@ -1365,7 +1373,11 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<float>("high_pass_hz")
             .template member<bool>("echo_enabled")
             .template member<float>("echo_seconds")
-            .template member<float>("echo_feedback");
+            .template member<float>("echo_feedback")
+            .template member<bool>("reverb_enabled")
+            .template member<float>("reverb_decay")
+            .template member<float>("reverb_damping")
+            .template member<float>("reverb_wet");
     } else if constexpr (std::is_same_v<T, AudioListener>)
         c.template member<bool>("enabled");
     else if constexpr (std::is_same_v<T, CharacterController2D>)
@@ -2596,6 +2608,14 @@ Json registration_options(const Builtin& type, const std::string& field) {
                              "clears its history without restarting the clip"},
             {"echo_feedback", "Fraction retained for each repeat; zero bypasses echo. Echo can "
                               "increase peaks. Reduce source gain if needed"},
+            {"reverb_enabled", "Diffuse this source and its one-shots with a fading reverb. "
+                               "Stop/Restart clears effect history; Pause freezes it"},
+            {"reverb_decay", "Nominal reverb decay in seconds. Active edits clear the effect "
+                             "history without restarting the clip"},
+            {"reverb_damping", "Reduce high frequencies in the feedback tail: zero is bright, "
+                               "larger values soften the decay"},
+            {"reverb_wet",
+             "Linear reverb blend: zero bypasses, one outputs only the reverberated signal"},
             {"low_pass_hz", "Low-pass cutoff in Hz; frequencies above it are reduced. Changing "
                             "an active filter resets filter state without restarting the clip"},
             {"high_pass_hz", "High-pass cutoff in Hz; frequencies below it are reduced. Changing "
@@ -2644,6 +2664,24 @@ Json registration_options(const Builtin& type, const std::string& field) {
             value["display_name"] = "Echo feedback";
             value["minimum"] = 0;
             value["maximum"] = .75;
+        }
+        if (field == "reverb_enabled")
+            value["display_name"] = "Reverb";
+        if (field == "reverb_decay") {
+            value["display_name"] = "Reverb decay (s)";
+            value["minimum"] = .1;
+            value["maximum"] = 10;
+            value["unit"] = "seconds";
+        }
+        if (field == "reverb_damping") {
+            value["display_name"] = "Reverb damping";
+            value["minimum"] = 0;
+            value["maximum"] = .95;
+        }
+        if (field == "reverb_wet") {
+            value["display_name"] = "Reverb wet mix";
+            value["minimum"] = 0;
+            value["maximum"] = 1;
         }
         if (field == "low_pass_enabled" || field == "high_pass_enabled")
             value["display_name"] =
@@ -3635,10 +3673,26 @@ Json admitted_builtin_source(const Builtin& type, const Json& source) {
             if (!current.contains(field))
                 current[field] = type.defaults.at(field);
     if (std::string_view(type.name) == "forge.audio_source")
-        for (const auto* field :
-             {"attenuation", "rolloff", "cone_enabled", "inner_angle", "outer_angle", "outer_gain",
-              "bus", "doppler", "pause_with_game", "low_pass_enabled", "high_pass_enabled",
-              "low_pass_hz", "high_pass_hz", "echo_enabled", "echo_seconds", "echo_feedback"})
+        for (const auto* field : {"attenuation",
+                                  "rolloff",
+                                  "cone_enabled",
+                                  "inner_angle",
+                                  "outer_angle",
+                                  "outer_gain",
+                                  "bus",
+                                  "doppler",
+                                  "pause_with_game",
+                                  "low_pass_enabled",
+                                  "high_pass_enabled",
+                                  "low_pass_hz",
+                                  "high_pass_hz",
+                                  "echo_enabled",
+                                  "echo_seconds",
+                                  "echo_feedback",
+                                  "reverb_enabled",
+                                  "reverb_decay",
+                                  "reverb_damping",
+                                  "reverb_wet"})
             if (!current.contains(field))
                 current[field] = type.defaults.at(field);
     if (std::string_view(type.name) == "forge.physics_body")

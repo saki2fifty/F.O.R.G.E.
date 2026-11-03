@@ -88,3 +88,22 @@ An additive immutable-cache opening factory preserves existing constructor/layou
 semantics. Dependency pins and native gameplay component/callback layouts are
 unchanged. Windows/full-editor/physical acceptance remains pending; no numbered
 delivery is implied.
+
+
+## Source reverberation and processed-voice gain
+
+Audio Source adds opt-in bounded reverb with decay, damping and wet mix controls.
+The independent per-voice DSP uses the existing runtime effect graph, tail budgets,
+source/one-shot lifecycle and project resource owners. Existing scenes default to
+disabled; parameter edits, pause, Stop/Restart and recovery retain the documented
+clip/history boundaries. Native component values require a matching rebuilt SDK;
+C callback tables and clip formats are unchanged. Generic authoring/Inspector,
+Play tuning and automation/MCP expose the same registered fields.
+
+Source and category faders now apply at each voice's final existing output, so
+mute includes buffered echo/reverb while source/DSP time continues. No new mixer
+or bus graph is introduced. Live sound identifies retained Effect tails and keeps
+Pause/Resume available after clip EOS. Gallery148 reuses original sound/sequence
+content for dry/bright/damped comparisons and source-hidden exported PCM. The
+illustrated manual covers authoring, controls, saving/export and current limits.
+Full Main/Windows/physical acceptance remains pending; no numbered delivery is implied.

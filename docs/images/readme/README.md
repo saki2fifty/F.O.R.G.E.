@@ -1542,3 +1542,20 @@ header now identifies the selected controller. Exact executable/source/Scene/ima
 proofs remain with the local capability validation owner. No pixels or controls
 are retouched; full Main, Windows/MSVC/D3D12, physical input/DPI/GPU/audio,
 performance and graphical EXE acceptance remain separate.
+
+
+## Source reverb Inspector
+
+[Reverb controls](../../../manual/images/audio-reverb.png) is an unretouched
+720×1400 production ComponentInspector capture through actual ImGui/SDL software
+output. A private project fixture uses Gallery's original published FalloffTone
+and ordinary AudioSource values. The capture checks all four reverb controls are
+visible/enabled, Scene intent is unchanged and no Problem is raised. It is an
+authored Inspector capture, without invented live playback status. The same
+controls are exercised with real pointer/keyboard input and Undo/Redo at four
+scales (0.65,1,1.5,2), plus actual retained-tail Pause/Resume input.
+Command: `forge_audio_editor_tests --capture-reverb <Gallery> <private-output>`.
+PNG SHA256: `618d326b2770e9dd0dea40c9916c5f3aad8630647687ab4ee7caad4263b8c0ca`. Source, executable and capture inputs remain bound in the
+canonical local validation owner. The image was personally reviewed. This is a
+GPU-independent widget fixture, not full Main, Windows/MSVC/D3D12 or physical
+input/DPI/audio acceptance. Offline layout and package inclusion are checked separately.

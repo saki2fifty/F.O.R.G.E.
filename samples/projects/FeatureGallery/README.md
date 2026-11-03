@@ -1875,3 +1875,21 @@ loop and disabled Play on start demonstrate standalone intent: the placed child
 instead follows the parent's clock and rate. Save the Scene before exporting.
 See the [sequence guide](../../../manual/editor/animation-sequences.md) for
 detachment, Prefabs, controls, sound behavior and current limits.
+
+
+## Source reverb
+
+Open **Scenes/148-source-reverb.scene.json** and press **Play → Game**. A ten-second
+sequence plays the same original tone dry at0seconds, with bright reverb at3seconds
+and with stronger damping at6seconds. The red/green/blue objects identify those
+sources. Camera, light, motion, sound cues and all resource references are included;
+no project C++ is required for Play or export.
+
+Stop Play and select the green or blue source. In **Inspector → Audio Source**,
+change **Reverb**, **Reverb decay (s)**, **Reverb damping** and **Reverb wet mix**.
+Save and Play again to hear the next cue with those settings. During Play the
+ordinary live controls can tune values or pause/resume a retained effect tail.
+Gain and the Effects mix channel control the complete processed signal; mute
+keeps its time advancing. Active effect edits clear history without rewinding the
+clip. This is a per-source effect, with no shared effect buses or room simulation.
+See [Audio](../../../manual/editor/audio.md).

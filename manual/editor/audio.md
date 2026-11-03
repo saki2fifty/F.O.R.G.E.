@@ -202,14 +202,14 @@ Prefabs can supply the same settings, with ordinary instance overrides and Rever
 Live filter changes update the current sounds without restarting their clips or
 advancing gameplay. A paused gameplay sound stays silent; a source with **Pause
 with game** turned off can still be heard. Changing or enabling a filter resets
-its internal filter state and may cause a short transition or click. The controls
+the source's effect history and may cause a short transition or click. The controls
 do not provide a smoothed, sample-accurate automation envelope.
 
 Open **85 — Audio filters** in the Feature Gallery. Only **Dry tone** starts
 automatically. Stop it under **Live sound**, then use **Play / Restart** on either
 filtered speaker to compare the same recording. Saved filter settings also apply
-in an exported game. These are source filters; custom effect buses, reverb,
-send/return routing and automatic acoustic occlusion are unavailable.
+in an exported game. These are source filters. Custom effect buses, send/return routing and automatic
+acoustic occlusion are unavailable. See the reverb controls below for diffuse tails.
 
 ## Add an echo
 
@@ -219,11 +219,51 @@ send/return routing and automatic acoustic occlusion are unavailable.
 4. Play the sound and compare with Echo off. Reduce the source's Gain if overlapping repeats become too loud.
 5. Stop Play, edit the authored values and save the scene to keep them in the project and exported game. Prefab overrides and Revert work normally.
 
-Echo keeps the original sound and adds fading repeats after pitch, spatial processing and any source filters. Each one-shot has its own echo. A short clip can finish while its echo continues; the voice is released after the tail fades. The longest interval and highest feedback retain a tail for about 33 seconds after the clip's end is observed. Paused tails keep their place in the voice limit. Echo is disabled by default and does not change the imported recording.
+Echo keeps the original sound and adds fading repeats after pitch, spatial processing and any source filters. Each one-shot has its own echo. A short clip can finish while its echo continues; the voice is released after the tail fades. With echo alone, the longest interval and highest feedback retain a tail for about 33 seconds after the clip's end is observed. Paused tails keep their place in the voice limit. Echo is disabled by default and does not change the imported recording.
 
 Source Pause freezes the sound and its echo, including an echo that continues after the clip ends. Resume continues it. Stop discards the echo, and Play / Restart begins with fresh echo history. **Pause with game** also applies to echoes; full output suspension always pauses them.
 
 Live changes to Echo, its interval or feedback update current voices without restarting their clips. Changing an active effect clears its history and can produce a short transition or click. Echo feedback is not a separate wet/dry mixer, reverb or shared effect bus.
+
+## Add source reverb
+
+1. Select a sound entity and expand **Inspector → Audio Source**. Choose an imported Clip. Enable **Play On Start** to hear it automatically, or start it with **Live sound** during Play.
+2. Enable **Reverb**. Set **Reverb decay (s)** from 0.1 to 10 seconds. Start with 0.6 for a short tail.
+3. Set **Reverb damping** from 0 to 0.95. Lower values keep a brighter tail; higher values soften high frequencies.
+4. Set **Reverb wet mix** from 0 to 1. Zero bypasses reverb; one plays only the reverberated signal. Try 0.5 to mix the original sound with the tail.
+5. Compare the sound in Play. Stop Play, edit the authored settings and save the Scene to keep them for export. Prefab overrides and Revert use the same fields.
+
+![Audio Source Inspector with Reverb enabled and its decay, damping and wet mix controls](../images/audio-reverb.png)
+
+Reverb settings are near the bottom of Audio Source. This example uses the Effects mix channel.
+
+Reverb follows pitch, spatial processing, source filters and echo. Each source and
+one-shot keeps its own effect history. **Gain** and the mix channel volume control
+the whole processed signal, including retained tails. Muting keeps playback and
+effect time advancing; unmuting continues them. Reduce Gain if effects become too loud.
+
+**Pause sound** freezes the source and its tail. **Resume sound** continues them;
+**Stop sound** silences the source, and **Play / Restart** starts fresh effect
+history. **Pause with game** applies normally. Live sound shows **Effect tail**
+when a retained echo or reverb remains after its clip ends.
+
+Changing active reverb, filter or echo parameters clears that source's effect
+history without rewinding its clip. Gain, mix-channel changes and pause controls
+preserve the history. Controls apply through the audio buffers and do not provide
+sample-accurate cuts or a smoothed effect-parameter automation envelope.
+
+Open **148 — Source reverb** in the Feature Gallery. A ten-second sequence plays
+the same original tone dry at 0 seconds, with bright reverb at 3 seconds and with
+more damping at 6 seconds. The scene includes its camera, light and saved settings;
+Play and export it without project C++. Select either reverb source to change its
+settings and compare the next cue.
+
+Decay is a nominal effect setting rather than a physical room measurement. A
+reverb tail is retired after twice the decay plus 0.5 seconds from its observed
+clip end; pausing freezes that time. Echo followed by reverb adds their retained
+tail spans. Tails occupy the normal voice limits until retirement. This is a
+per-source effect; shared effect buses, send/return routing, impulse-response
+files and acoustic room simulation are unavailable.
 
 ## Start or stop a source during Play
 

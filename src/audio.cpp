@@ -1,5 +1,6 @@
 #include "audio_preview_access.hpp"
 #include "audio_resource.hpp"
+#include "audio_reverb.hpp"
 #include "audio_source_access.hpp"
 #include "audio_values.hpp"
 #include "builtins.hpp"
@@ -51,16 +52,17 @@ bool same_failed_config(const AudioSource& a, const AudioSource& b) {
         a.spatialized != b.spatialized || a.attenuation != b.attenuation ||
         a.cone_enabled != b.cone_enabled || a.bus != b.bus ||
         a.pause_with_game != b.pause_with_game || a.low_pass_enabled != b.low_pass_enabled ||
-        a.high_pass_enabled != b.high_pass_enabled || a.echo_enabled != b.echo_enabled)
+        a.high_pass_enabled != b.high_pass_enabled || a.echo_enabled != b.echo_enabled ||
+        a.reverb_enabled != b.reverb_enabled)
         return false;
-    const std::array left{a.gain,         a.pitch,       a.minimum_distance, a.maximum_distance,
-                          a.rolloff,      a.inner_angle, a.outer_angle,      a.outer_gain,
-                          a.doppler,      a.low_pass_hz, a.high_pass_hz,     a.echo_seconds,
-                          a.echo_feedback};
-    const std::array right{b.gain,         b.pitch,       b.minimum_distance, b.maximum_distance,
-                           b.rolloff,      b.inner_angle, b.outer_angle,      b.outer_gain,
-                           b.doppler,      b.low_pass_hz, b.high_pass_hz,     b.echo_seconds,
-                           b.echo_feedback};
+    const std::array left{a.gain,          a.pitch,        a.minimum_distance, a.maximum_distance,
+                          a.rolloff,       a.inner_angle,  a.outer_angle,      a.outer_gain,
+                          a.doppler,       a.low_pass_hz,  a.high_pass_hz,     a.echo_seconds,
+                          a.echo_feedback, a.reverb_decay, a.reverb_damping,   a.reverb_wet};
+    const std::array right{b.gain,          b.pitch,        b.minimum_distance, b.maximum_distance,
+                           b.rolloff,       b.inner_angle,  b.outer_angle,      b.outer_gain,
+                           b.doppler,       b.low_pass_hz,  b.high_pass_hz,     b.echo_seconds,
+                           b.echo_feedback, b.reverb_decay, b.reverb_damping,   b.reverb_wet};
     for (unsigned i = 0; i < left.size(); ++i)
         if (!(left[i] == right[i] || (std::isnan(left[i]) && std::isnan(right[i]))))
             return false;
@@ -110,10 +112,55 @@ struct AudioRuntime::Impl {
     ResourcePool<AudioClipAsset> clips{{2, max_voices, 4096, max_cache}};
     std::map<AssetId, ResourceTicket> requests;
     std::map<std::uint64_t, AssetId> pending_sources;
+    struct ReverbNode : ma_node_base {
+        unsigned channels;
+        detail::AudioReverb signal;
+        ReverbNode(ma_engine& engine, const AudioSource& source)
+            : ma_node_base{}, channels(ma_engine_get_channels(&engine)),
+              signal(ma_engine_get_sample_rate(&engine), channels, source.reverb_decay,
+                     source.reverb_damping, source.reverb_wet) {
+            static const ma_node_vtable table{process, nullptr, 1, 1,
+                                              MA_NODE_FLAG_CONTINUOUS_PROCESSING |
+                                                  MA_NODE_FLAG_ALLOW_NULL_INPUT};
+            auto config = ma_node_config_init();
+            config.vtable = &table;
+            config.pInputChannels = &channels;
+            config.pOutputChannels = &channels;
+            checked(ma_node_init(ma_engine_get_node_graph(&engine), &config, nullptr,
+                                 static_cast<ma_node_base*>(this)),
+                    "Source reverb");
+        }
+        ReverbNode(const ReverbNode&) = delete;
+        ReverbNode& operator=(const ReverbNode&) = delete;
+        ~ReverbNode() { ma_node_uninit(static_cast<ma_node_base*>(this), nullptr); }
+        static void process(ma_node* node, const float** inputs, ma_uint32* input_frames,
+                            float** outputs, ma_uint32* output_frames) noexcept {
+            auto& self = *static_cast<ReverbNode*>(static_cast<ma_node_base*>(node));
+            const auto frames = *output_frames;
+            // Continuous nodes receive a padded input frame count even for
+            // null silence. Consume that count so native input caches advance.
+            const auto taken = std::min(*input_frames, frames);
+            self.signal.process(inputs ? inputs[0] : nullptr, outputs[0], taken);
+            self.signal.process(nullptr, outputs[0] + std::size_t(taken) * self.channels,
+                                frames - taken);
+            *input_frames = taken;
+        }
+    };
+    struct EffectMemory {
+        std::uint64_t echo = 0, reverb = 0;
+        EffectMemory& operator+=(EffectMemory other) {
+            echo += other.echo;
+            reverb += other.reverb;
+            return *this;
+        }
+    };
     struct SourceEffects {
         ma_lpf_node low{};
         ma_hpf_node high{};
         ma_delay_node echo{};
+        std::unique_ptr<ReverbNode> reverb;
+        float reverb_decay = 0, reverb_damping = 0, reverb_wet = 0;
+        std::uint64_t echo_tail_frames = 0;
         bool low_ready = false, high_ready = false;
         bool echo_ready = false;
         float low_hz = 0, high_hz = 0;
@@ -122,6 +169,12 @@ struct AudioRuntime::Impl {
         std::uint64_t echo_buffer_bytes = 0;
         static bool has_echo(const AudioSource& source) {
             return source.echo_enabled && source.echo_feedback > 0;
+        }
+        static bool has_reverb(const AudioSource& source) {
+            return source.reverb_enabled && source.reverb_wet > 0;
+        }
+        EffectMemory memory() const {
+            return {echo_buffer_bytes, reverb ? reverb->signal.bytes() : 0};
         }
         // Build detached nodes; never reinitialize DSP state on the device thread.
         void initialize(ma_engine& engine, const AudioSource& source) {
@@ -155,13 +208,29 @@ struct AudioRuntime::Impl {
                 echo_seconds = source.echo_seconds;
                 echo_feedback = source.echo_feedback;
                 echo_buffer_bytes = std::uint64_t(frames) * channels * sizeof(float);
-                tail_frames = frames * static_cast<std::uint64_t>(std::ceil(
-                                           std::log(.0001) / std::log(double(echo_feedback))));
+                echo_tail_frames = frames * static_cast<std::uint64_t>(std::ceil(
+                                                std::log(.0001) / std::log(double(echo_feedback))));
                 if (low_ready || high_ready)
                     checked(ma_node_attach_output_bus(low_ready ? static_cast<ma_node*>(&low)
                                                                 : static_cast<ma_node*>(&high),
                                                       0, &echo, 0),
                             "Audio echo input");
+            }
+            tail_frames = echo_tail_frames;
+            if (has_reverb(source)) {
+                reverb = std::make_unique<ReverbNode>(engine, source);
+                reverb_decay = source.reverb_decay;
+                reverb_damping = source.reverb_damping;
+                reverb_wet = source.reverb_wet;
+                tail_frames += reverb->signal.tail_frames();
+                ma_node* upstream = echo_ready   ? static_cast<ma_node*>(&echo)
+                                    : low_ready  ? static_cast<ma_node*>(&low)
+                                    : high_ready ? static_cast<ma_node*>(&high)
+                                                 : nullptr;
+                if (upstream)
+                    checked(ma_node_attach_output_bus(upstream, 0,
+                                                      static_cast<ma_node_base*>(reverb.get()), 0),
+                            "Audio reverb input");
             }
         }
         bool matches(const AudioSource& source) const {
@@ -169,21 +238,29 @@ struct AudioRuntime::Impl {
                    (!low_ready || low_hz == source.low_pass_hz) &&
                    (!high_ready || high_hz == source.high_pass_hz) &&
                    echo_ready == has_echo(source) &&
-                   (!echo_ready ||
-                    (echo_seconds == source.echo_seconds && echo_feedback == source.echo_feedback));
+                   (!echo_ready || (echo_seconds == source.echo_seconds &&
+                                    echo_feedback == source.echo_feedback)) &&
+                   bool(reverb) == has_reverb(source) &&
+                   (!reverb ||
+                    (reverb_decay == source.reverb_decay &&
+                     reverb_damping == source.reverb_damping && reverb_wet == source.reverb_wet));
         }
         ma_node* input() {
-            return high_ready  ? static_cast<ma_node*>(&high)
-                   : low_ready ? static_cast<ma_node*>(&low)
-                               : static_cast<ma_node*>(&echo);
+            return high_ready   ? static_cast<ma_node*>(&high)
+                   : low_ready  ? static_cast<ma_node*>(&low)
+                   : echo_ready ? static_cast<ma_node*>(&echo)
+                                : static_cast<ma_node_base*>(reverb.get());
         }
         ma_node* output() {
+            if (reverb)
+                return static_cast<ma_node_base*>(reverb.get());
             return echo_ready  ? static_cast<ma_node*>(&echo)
                    : low_ready ? static_cast<ma_node*>(&low)
                                : static_cast<ma_node*>(&high);
         }
         ~SourceEffects() {
             // Native node uninit detaches and waits for in-flight processing.
+            reverb.reset();
             if (echo_ready)
                 ma_delay_node_uninit(&echo, nullptr);
             if (high_ready)
@@ -204,9 +281,9 @@ struct AudioRuntime::Impl {
         float source_volume = 1;
         AudioMotion motion;
         std::unique_ptr<SourceEffects> effects;
-        std::optional<std::uint64_t> echo_tail_start;
-        bool echo_drained = false;
-        std::uint64_t echo_buffer_bytes() const { return effects ? effects->echo_buffer_bytes : 0; }
+        std::optional<std::uint64_t> effects_tail_start;
+        bool effects_drained = false;
+        EffectMemory effect_memory() const { return effects ? effects->memory() : EffectMemory{}; }
         void effects_running(bool running) {
             if (effects)
                 checked(ma_node_set_state(effects->output(),
@@ -222,13 +299,25 @@ struct AudioRuntime::Impl {
     };
     struct SourceVoice : Voice {
         std::vector<std::unique_ptr<Voice>> one_shots;
-        std::uint64_t echo_buffer_bytes() const {
-            auto bytes = Voice::echo_buffer_bytes();
+        EffectMemory effect_memory() const {
+            auto memory = Voice::effect_memory();
             for (const auto& shot : one_shots)
-                bytes += shot->echo_buffer_bytes();
-            return bytes;
+                memory += shot->effect_memory();
+            return memory;
         }
     };
+    static void apply_voice_gain(Voice& voice, const std::array<float, 3>& channels) {
+        const auto channel = voice.authored.bus == 0 ? 1 : channels.at(voice.authored.bus - 1);
+        auto* output =
+            voice.effects ? voice.effects->output() : static_cast<ma_node*>(&voice.sound);
+        // Source/category faders follow buffered effects, so mute also covers
+        // their retained tails. Reading the graph still advances source/DSP time.
+        checked(ma_node_set_output_bus_volume(output, 0, voice.source_volume * channel),
+                "Audio source output gain");
+        if (voice.effects)
+            checked(ma_node_set_output_bus_volume(&voice.sound, 0, 1), "Audio effect input gain");
+        ma_sound_set_volume(&voice.sound, 1);
+    }
     std::map<std::uint64_t, std::unique_ptr<SourceVoice>> voices;
     std::map<std::uint64_t, std::string> failures;
     std::map<std::uint64_t, AudioSource> failed_config;
@@ -439,24 +528,34 @@ struct AudioRuntime::Impl {
     bool voice_finished(Voice& voice) {
         if (voice.start_pending || voice.source_paused || !ma_sound_at_end(&voice.sound))
             return false;
-        if (!voice.effects || !voice.effects->echo_ready || voice.echo_drained)
+        if (!voice.effects || !voice.effects->tail_frames || voice.effects_drained)
             return true;
-        const auto time = ma_node_get_time(&voice.effects->echo);
-        if (!voice.echo_tail_start)
-            voice.echo_tail_start = time;
-        if (time - *voice.echo_tail_start < voice.effects->tail_frames)
+        const auto time = ma_node_get_time(voice.effects->output());
+        if (!voice.effects_tail_start)
+            voice.effects_tail_start = time;
+        if (time - *voice.effects_tail_start < voice.effects->tail_frames)
             return false;
         voice.effects_running(false);
-        voice.echo_drained = true;
+        voice.effects_drained = true;
         return true;
     }
-    static bool echo_tail(const Voice& voice) {
-        return voice.effects && voice.effects->echo_ready && !voice.echo_drained &&
+    static bool effects_tail(const Voice& voice) {
+        return voice.effects && voice.effects->tail_frames && !voice.effects_drained &&
                ma_sound_at_end(&voice.sound);
+    }
+    static bool echo_tail(const Voice& voice) {
+        if (!effects_tail(voice) || !voice.effects->echo_ready)
+            return false;
+        return !voice.effects_tail_start ||
+               ma_node_get_time(voice.effects->output()) - *voice.effects_tail_start <
+                   voice.effects->echo_tail_frames;
+    }
+    static bool reverb_tail(const Voice& voice) {
+        return effects_tail(voice) && bool(voice.effects->reverb);
     }
     void reap_finished() {
         for (auto& [id, source] : voices) {
-            if (source->one_shots.empty() && (!source->effects || !source->effects->echo_ready))
+            if (source->one_shots.empty() && (!source->effects || !source->effects->tail_frames))
                 continue;
             const auto resolved = world.resolve(source->ref);
             if (resolved.state != WorldContext::ResolveState::Available || resolved.entity != id ||
@@ -464,7 +563,7 @@ struct AudioRuntime::Impl {
                 world.world().entity(id).get<AudioSource>().clip != source->authored.clip) {
                 source->one_shots.clear();
                 source->effects_running(false);
-                source->echo_drained = true;
+                source->effects_drained = true;
                 continue;
             }
             (void)voice_finished(*source);
@@ -490,7 +589,8 @@ struct AudioRuntime::Impl {
         const auto& config_value = v.authored;
         auto* parent = config_value.pause_with_game ? &pausable_group : &group;
         const bool filtered = config_value.low_pass_enabled || config_value.high_pass_enabled ||
-                              SourceEffects::has_echo(config_value);
+                              SourceEffects::has_echo(config_value) ||
+                              SourceEffects::has_reverb(config_value);
         if (reset || (v.effects ? !v.effects->matches(config_value) : filtered)) {
             std::unique_ptr<SourceEffects> next;
             if (filtered) {
@@ -502,6 +602,8 @@ struct AudioRuntime::Impl {
                                                               ? ma_node_state_started
                                                               : ma_node_state_stopped),
                         "Audio effect initial state");
+                checked(ma_node_set_output_bus_volume(next->output(), 0, 0),
+                        "Audio detached effect gain");
                 checked(ma_node_attach_output_bus(next->output(), 0, parent, 0),
                         "Audio effect output");
             }
@@ -509,8 +611,9 @@ struct AudioRuntime::Impl {
                         &v.sound, 0, next ? next->input() : static_cast<ma_node*>(parent), 0),
                     "Audio effect input");
             v.effects = std::move(next);
-            v.echo_tail_start.reset();
-            v.echo_drained = ma_sound_at_end(&v.sound);
+            v.effects_tail_start.reset();
+            v.effects_drained = ma_sound_at_end(&v.sound);
+            apply_voice_gain(v, config.channel_volumes);
         } else if (v.follows_game_pause != config_value.pause_with_game) {
             checked(ma_node_attach_output_bus(v.effects ? v.effects->output()
                                                         : static_cast<ma_node*>(&v.sound),
@@ -537,9 +640,7 @@ struct AudioRuntime::Impl {
         }
         const bool spatial_valid = listener_valid && source_pose_valid && direction_valid;
         v.source_volume = (!config_value.spatialized || spatial_valid) ? config_value.gain : 0;
-        const float channel_volume =
-            config_value.bus == 0 ? 1 : config.channel_volumes.at(config_value.bus - 1);
-        ma_sound_set_volume(&v.sound, v.source_volume * channel_volume);
+        apply_voice_gain(v, config.channel_volumes);
         if (config_value.spatialized && !spatial_valid) {
             if (spatial_errors.insert(e.id()).second)
                 diagnostic("audio.spatial_unavailable",
@@ -812,14 +913,14 @@ struct AudioRuntime::Impl {
             if (c.operation == AudioSourceOperation::Stop) {
                 voice.one_shots.clear();
                 voice.effects_running(false);
-                voice.echo_drained = true;
-                voice.echo_tail_start.reset();
+                voice.effects_drained = true;
+                voice.effects_tail_start.reset();
             }
             for (auto& shot : voice.one_shots) {
                 if (c.operation == AudioSourceOperation::Pause &&
                     (shot->start_pending ||
                      (ma_sound_is_playing(&shot->sound) && !ma_sound_at_end(&shot->sound)) ||
-                     echo_tail(*shot))) {
+                     effects_tail(*shot))) {
                     checked(ma_sound_stop(&shot->sound), "Pause one-shot");
                     shot->effects_running(false);
                     shot->start_pending = false;
@@ -865,7 +966,7 @@ struct AudioRuntime::Impl {
                 configure_effects(voice, true);
                 checked(ma_sound_start(&sound), "Play source");
                 voice.effects_running(true);
-                voice.echo_drained = false;
+                voice.effects_drained = false;
                 voice.source_paused = false;
                 break;
             case AudioSourceOperation::Stop:
@@ -874,7 +975,8 @@ struct AudioRuntime::Impl {
                 voice.source_paused = false;
                 break;
             case AudioSourceOperation::Pause:
-                if ((ma_sound_is_playing(&sound) && !ma_sound_at_end(&sound)) || echo_tail(voice)) {
+                if ((ma_sound_is_playing(&sound) && !ma_sound_at_end(&sound)) ||
+                    effects_tail(voice)) {
                     checked(ma_sound_stop(&sound), "Pause source");
                     voice.effects_running(false);
                     voice.source_paused = true;
@@ -898,7 +1000,7 @@ struct AudioRuntime::Impl {
             if (intent.first) {
                 checked(ma_sound_start(&voice.sound), "Start prepared source");
                 voice.effects_running(true);
-                voice.echo_drained = false;
+                voice.effects_drained = false;
             }
         }
         for (auto& [id, source] : voices)
@@ -981,9 +1083,18 @@ Json AudioSourceAccess::status(AudioRuntime& runtime, EntityRef ref) {
                 {"echo_enabled", entity.get<AudioSource>().echo_enabled},
                 {"echo_seconds", entity.get<AudioSource>().echo_seconds},
                 {"echo_feedback", entity.get<AudioSource>().echo_feedback},
+                {"reverb_enabled", entity.get<AudioSource>().reverb_enabled},
+                {"reverb_decay", entity.get<AudioSource>().reverb_decay},
+                {"reverb_damping", entity.get<AudioSource>().reverb_damping},
+                {"reverb_wet", entity.get<AudioSource>().reverb_wet},
                 {"echo_tail", false},
+                {"effects_tail", false},
+                {"effects_tails", 0},
+                {"reverb_tail", false},
+                {"reverb_tails", 0},
                 {"echo_tails", 0},
                 {"echo_buffer_bytes", 0},
+                {"reverb_buffer_bytes", 0},
                 {"duration", 0}};
     if (found == runtime.impl_->voices.end() || !found->second->ready ||
         found->second->ref != ref || !entity.has<AudioSource>() ||
@@ -991,10 +1102,14 @@ Json AudioSourceAccess::status(AudioRuntime& runtime, EntityRef ref) {
         throw std::runtime_error("AudioSource has no admitted voice in the current world");
     unsigned playing_shots = 0, paused_shots = 0;
     unsigned echo_tails = AudioRuntime::Impl::echo_tail(*found->second) ? 1 : 0;
+    unsigned effects_tails = AudioRuntime::Impl::effects_tail(*found->second) ? 1 : 0;
+    unsigned reverb_tails = AudioRuntime::Impl::reverb_tail(*found->second) ? 1 : 0;
     for (const auto& shot : found->second->one_shots) {
         playing_shots += ma_sound_is_playing(&shot->sound) && !ma_sound_at_end(&shot->sound);
         paused_shots += shot->source_paused;
         echo_tails += AudioRuntime::Impl::echo_tail(*shot);
+        effects_tails += AudioRuntime::Impl::effects_tail(*shot);
+        reverb_tails += AudioRuntime::Impl::reverb_tail(*shot);
     }
     return {{"source", ref},
             {"one_shots", found->second->one_shots.size()},
@@ -1014,9 +1129,18 @@ Json AudioSourceAccess::status(AudioRuntime& runtime, EntityRef ref) {
             {"echo_enabled", found->second->authored.echo_enabled},
             {"echo_seconds", found->second->authored.echo_seconds},
             {"echo_feedback", found->second->authored.echo_feedback},
+            {"reverb_enabled", found->second->authored.reverb_enabled},
+            {"reverb_decay", found->second->authored.reverb_decay},
+            {"reverb_damping", found->second->authored.reverb_damping},
+            {"reverb_wet", found->second->authored.reverb_wet},
             {"echo_tail", AudioRuntime::Impl::echo_tail(*found->second)},
             {"echo_tails", echo_tails},
-            {"echo_buffer_bytes", found->second->echo_buffer_bytes()},
+            {"effects_tail", AudioRuntime::Impl::effects_tail(*found->second)},
+            {"effects_tails", effects_tails},
+            {"reverb_tail", AudioRuntime::Impl::reverb_tail(*found->second)},
+            {"reverb_tails", reverb_tails},
+            {"echo_buffer_bytes", found->second->effect_memory().echo},
+            {"reverb_buffer_bytes", found->second->effect_memory().reverb},
             {"loop", found->second->authored.loop},
             {"duration", found->second->clip->duration()}};
 }
@@ -1034,11 +1158,9 @@ void AudioRuntime::mix_volumes(float master, const std::array<float, 3>& channel
     ma_sound_group_set_volume(&impl_->group, master);
     for (const auto& [id, voice] : impl_->voices) {
         (void)id;
-        const float channel_volume =
-            voice->authored.bus == 0 ? 1 : channels.at(voice->authored.bus - 1);
-        ma_sound_set_volume(&voice->sound, voice->source_volume * channel_volume);
+        Impl::apply_voice_gain(*voice, channels);
         for (auto& shot : voice->one_shots)
-            ma_sound_set_volume(&shot->sound, shot->source_volume * channel_volume);
+            Impl::apply_voice_gain(*shot, channels);
     }
     impl_->config.master_volume = master;
     impl_->config.channel_volumes = channels;
@@ -1046,11 +1168,11 @@ void AudioRuntime::mix_volumes(float master, const std::array<float, 3>& channel
 Json AudioRuntime::status() const {
     impl_->check();
     unsigned playing = 0;
-    std::uint64_t echo_bytes = 0;
+    Impl::EffectMemory memory;
     for (const auto& [id, voice] : impl_->voices) {
         (void)id;
         playing += ma_sound_is_playing(&voice->sound);
-        echo_bytes += voice->echo_buffer_bytes();
+        memory += voice->effect_memory();
     }
     const auto resources = impl_->clips.statistics();
     return {{"mixed_frames", impl_->mixed_frames.load(std::memory_order_relaxed)},
@@ -1066,7 +1188,8 @@ Json AudioRuntime::status() const {
             {"one_shots", impl_->shot_count()},
             {"clips", resources.selected},
             {"decoded_bytes", resources.memory.cpu_asset},
-            {"echo_buffer_bytes", echo_bytes},
+            {"echo_buffer_bytes", memory.echo},
+            {"reverb_buffer_bytes", memory.reverb},
             {"pending_sources", impl_->pending_sources.size()},
             {"pending_clips", resources.pending},
             {"failed_sources", impl_->failures.size()},
@@ -1150,7 +1273,7 @@ double AudioPreviewAccess::seek(AudioRuntime& runtime, EntityRef ref, double sec
     voice.ready = true;
     ma_sound_set_spatialization_enabled(&voice.sound, MA_FALSE);
     ma_sound_set_looping(&voice.sound, voice.authored.loop);
-    ma_sound_set_volume(&voice.sound, voice.source_volume);
+    impl.apply_voice_gain(voice, impl.config.channel_volumes);
     checked(ma_sound_start(&voice.sound), "Preview sound resume");
     return double(frame) / data.rate;
 }

@@ -1096,6 +1096,18 @@ or effect owner. Source controls freeze/resume post-EOS tails without restarting
 their clips; Stop clears them. These reads/controls retain the same permissions,
 watched identity, revision, generation and unchanged authored-Scene rules.
 
+Source reverb also uses the registered Audio Source fields and the same
+`forge_property_set_many` / `forge_play_tune` paths: `reverb_enabled`,
+`reverb_decay` (0.1–10 seconds), `reverb_damping` (0–0.95) and `reverb_wet` (0–1).
+The existing complete-component admission rejects invalid values and preserves
+the previous authored/runtime state. Actor identity, permissions, revision/replay,
+Undo/save and unchanged authored-Scene rules remain shared; no reverb-specific
+mutation implementation is added. Live observations include admitted settings,
+`effects_tail(s)`, `reverb_tail(s)` and derived `reverb_buffer_bytes`, including
+one-shots. Source/category gain applies after effects so mute covers retained
+tails while their time continues. Effect-parameter edits clear source effect
+history; Source Pause/Resume retains it and Stop/Restart uses the normal lifecycle.
+
 ## Ordered Sprite frame regions
 
 Native discovery for forge.sprite_renderer includes frame_regions as a vector of

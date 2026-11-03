@@ -113,16 +113,22 @@ struct Fixture {
 #include "audio_mix_tests.hpp"
 #include "audio_one_shot_tests.hpp"
 #include "audio_pause_policy_tests.hpp"
+#include "audio_reverb_runtime_tests.hpp"
 #include "audio_source_control_tests.hpp"
 int main(int argc, char** argv) {
     try {
-        check(argc == 2, "Test path required");
+        check(argc == 2 || (argc == 3 && std::string_view(argv[2]) == "--reverb-only"),
+              "Test path required");
         const auto root = std::filesystem::path(argv[1]) / AssetId::generate().str();
         std::filesystem::create_directories(root / "Assets");
         wav(root / "Assets/tone.wav");
         auto record = AssetCatalog::register_audio_clip(root, "Assets/tone.wav");
         check(AssetCatalog::register_audio_clip(root, "Assets/tone.wav").id == record.id,
               "Registration changed identity");
+        if (argc == 3) {
+            audio_reverb_runtime_tests(root, record.id);
+            return 0;
+        }
         auto catalog = AssetCatalog::open_project(root);
         attenuation_tests(root, record.id);
         cone_tests(root, record.id);
@@ -134,6 +140,7 @@ int main(int argc, char** argv) {
         audio_pause_policy_tests(root, record.id);
         audio_filter_tests(root, record.id);
         audio_echo_tests(root, record.id);
+        audio_reverb_runtime_tests(root, record.id);
         {
             Fixture full(root), quiet(root, .5f), muted(root, 0);
             full.load(source(record.id));

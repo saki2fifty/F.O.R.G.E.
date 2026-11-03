@@ -57,8 +57,14 @@ void directional_guides() {
             "Degenerate direction fabricated a cone guide");
 }
 } // namespace
+#include "audio_reverb_editor_capture.hpp"
 int main(int argc, char** argv) {
     try {
+        if (argc == 4 && std::string_view(argv[1]) == "--capture-reverb") {
+            capture_reverb_inspector(std::filesystem::absolute(argv[2]),
+                                     std::filesystem::absolute(argv[3]));
+            return 0;
+        }
         require(argc == 2, "Need audio Inspector scratch folder");
         const auto scratch = std::filesystem::absolute(argv[1]);
         std::filesystem::create_directories(scratch);
@@ -286,6 +292,18 @@ int main(int argc, char** argv) {
                             scene.redo() &&
                             scene.entity(id).get<AudioSource>().echo_feedback == .625f,
                         "Echo feedback lost Scene Undo/Redo");
+                click("reverb_enabled");
+                numeric("reverb_decay", "1.25");
+                numeric("reverb_damping", "0.75");
+                numeric("reverb_wet", "0.5");
+                require(scene.entity(id).get<AudioSource>().reverb_enabled &&
+                            scene.entity(id).get<AudioSource>().reverb_decay == 1.25f &&
+                            scene.entity(id).get<AudioSource>().reverb_damping == .75f &&
+                            scene.entity(id).get<AudioSource>().reverb_wet == .5f,
+                        "Actual reverb controls did not author the source");
+                require(scene.undo() && scene.entity(id).get<AudioSource>().reverb_wet == .25f &&
+                            scene.redo() && scene.entity(id).get<AudioSource>().reverb_wet == .5f,
+                        "Reverb wet mix lost Scene Undo/Redo");
                 project.save();
                 click("bus");
                 key(ImGuiKey_DownArrow);
@@ -414,6 +432,18 @@ int main(int argc, char** argv) {
                 require(live_requests == 10 && live_operation == AudioSourceOperation::Resume,
                         "Paused post-EOS echo did not enable the actual Resume button");
                 sound_status["echo_tails"] = 0;
+                sound_status["source_paused"] = false;
+                sound_status["reverb_tails"] = 1;
+                sound_status["effects_tails"] = 1;
+                click("pause");
+                require(live_requests == 11 && live_operation == AudioSourceOperation::Pause,
+                        "Post-EOS reverb did not enable the actual Pause button");
+                sound_status["source_paused"] = true;
+                click("pause");
+                require(live_requests == 12 && live_operation == AudioSourceOperation::Resume,
+                        "Paused post-EOS reverb did not enable Resume");
+                sound_status["reverb_tails"] = 0;
+                sound_status["effects_tails"] = 0;
                 sound_status["source_paused"] = false;
                 live = false;
                 mixing = true;

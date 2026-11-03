@@ -27,6 +27,8 @@ struct AudioSource {
     float low_pass_hz = 20000, high_pass_hz = 20;
     bool echo_enabled = false;
     float echo_seconds = .25f, echo_feedback = .35f;
+    bool reverb_enabled = false;
+    float reverb_decay = 1.5f, reverb_damping = .5f, reverb_wet = .25f;
     bool operator==(const AudioSource&) const = default;
 };
 struct AudioListener {

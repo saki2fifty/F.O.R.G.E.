@@ -3,15 +3,20 @@
 #include "runtime_package.hpp"
 #include "transform_animation_authoring.hpp"
 #include "transform_animation_preview.hpp"
+#include <algorithm>
+#include <array>
+#include <cstring>
 #include <forge/animation.hpp>
 #include <forge/audio.hpp>
 #include <forge/authoring.hpp>
 #include <forge/render_scene.hpp>
 #include <forge/runtime.hpp>
+#include <forge/scene_identity.hpp>
 #include <fstream>
 #include <iostream>
 #include <limits>
 #include <numbers>
+#include <span>
 #include <thread>
 using namespace forge;
 namespace {
@@ -355,9 +360,18 @@ void gallery(const std::filesystem::path& original, const std::filesystem::path&
 }
 #include "audio_cue_gallery_tests.hpp"
 #include "audio_cue_pcm_tests.hpp"
+#include "audio_reverb_gallery_tests.hpp"
 } // namespace
 int main(int argc, char** argv) {
     try {
+        if (argc == 3 && std::string_view(argv[1]) == "--author-reverb-gallery") {
+            author_reverb_gallery(std::filesystem::absolute(argv[2]));
+            return 0;
+        }
+        if (argc == 4 && std::string_view(argv[1]) == "--reverb-gallery") {
+            reverb_gallery(argv[2], argv[3]);
+            return 0;
+        }
         if (argc == 4 && std::string_view(argv[1]) == "--gallery") {
             gallery(argv[2], argv[3]);
             return 0;

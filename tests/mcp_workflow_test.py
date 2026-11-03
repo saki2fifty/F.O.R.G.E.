@@ -73,15 +73,15 @@ def state_project_template(root):
     return output
 
 
-def map_profile_project_template(root):
-    """Keep the two authored Maps and their selected dependency closure."""
+def selected_project_template(root, sources, folder):
+    """Copy a bounded published dependency closure for one MCP workflow."""
     gallery = Path(__file__).resolve().parents[1]/'samples/projects/FeatureGallery'
-    output = root/'Map template'
+    output = root/folder
     output.mkdir()
     catalog = json.loads((gallery/'forge.assets.json').read_text(encoding='utf-8'))
     records = {row['id']: row for row in catalog['assets']}
-    pending = [row['id'] for row in records.values() if row['source'] in (
-        'Assets/Tiles/PaintedPlatforms.tilemap.json', 'Assets/Tiles/ContourTiles.tilemap.json')]
+    pending = [row['id'] for row in records.values() if row['source'] in sources]
+    assert {records[asset]['source'] for asset in pending} == set(sources)
     selected = set()
     while pending:
         asset = pending.pop()
@@ -111,6 +111,16 @@ def map_profile_project_template(root):
     return output
 
 
+def map_profile_project_template(root):
+    return selected_project_template(root, (
+        'Assets/Tiles/PaintedPlatforms.tilemap.json', 'Assets/Tiles/ContourTiles.tilemap.json'),
+        'Map template')
+
+
+def audio_profile_project_template(root):
+    return selected_project_template(root, ('Assets/FalloffTone.wav',), 'Audio template')
+
+
 @contextmanager
 def editor(mode='full'):
     with tempfile.TemporaryDirectory(prefix='forge-mcp-workflows-') as temporary:
@@ -122,7 +132,9 @@ def editor(mode='full'):
             command.append(str(state_project_template(root)))
         elif MAP_PROFILE_ONLY:
             command.append(str(map_profile_project_template(root)))
-        elif AUDIO_PAUSE_ONLY or SPRITE_FRAMES_ONLY or UI_LOCALIZATION_ONLY:
+        elif AUDIO_PAUSE_ONLY:
+            command.append(str(audio_profile_project_template(root)))
+        elif SPRITE_FRAMES_ONLY or UI_LOCALIZATION_ONLY:
             command.append(str(Path(__file__).resolve().parents[1]/'samples/projects/FeatureGallery'))
         if AUDIO_PAUSE_ONLY or LIFETIMES_ONLY or CONDITIONS_SDK:
             command.append('--sdk')
@@ -975,7 +987,9 @@ for legacy in (False, True):
                 values=dict(clip=clip, spatialized=False, loop=True, play_on_start=True,
                             low_pass_enabled=True, low_pass_hz=800.,
                             high_pass_enabled=True, high_pass_hz=100.,
-                            echo_enabled=True, echo_seconds=.25, echo_feedback=.35)))
+                            echo_enabled=True, echo_seconds=.25, echo_feedback=.35,
+                            reverb_enabled=True, reverb_decay=1.5,
+                            reverb_damping=.5, reverb_wet=.25)))
             ok('forge_property_set', arguments=dict(entity=actor, component='forge.audio_source',
                                                    field='pause_with_game', value=False))
             assert ok('forge_history_undo')['changed']
@@ -994,6 +1008,11 @@ for legacy in (False, True):
             assert not observed['source']['paused'], observed
             assert observed['source']['low_pass_enabled'] and observed['source']['high_pass_enabled'], observed
             assert observed['source']['echo_enabled'] and observed['source']['echo_seconds'] == .25, observed
+            assert observed['source']['reverb_enabled'] and observed['source']['reverb_wet'] == .25, observed
+            for field, value in [('reverb_decay', 2.), ('reverb_damping', .75), ('reverb_wet', .5)]:
+                control('forge_play_tune', entity=actor, component='forge.audio_source', property=field, value=value)
+                until(lambda: read('forge_play_audio'), lambda row: (row.get('source') or {}).get(field) == value)
+
             control('forge_play_tune', entity=actor, component='forge.audio_source', property='echo_seconds', value=.5)
             until(lambda: read('forge_play_audio'), lambda row: (row.get('source') or {}).get('echo_seconds') == .5)
             control('forge_play_tune', entity=actor, component='forge.audio_source', property='echo_feedback', value=.625)
@@ -1018,6 +1037,11 @@ for legacy in (False, True):
             rejected = until(lambda: read('forge_play_status'), lambda row: not row['tune_pending'] and row['tune_ack'] is not None)
             assert not rejected['tune_ack']['ok'], rejected
             assert read('forge_play_audio')['source']['echo_feedback'] == .625
+            control('forge_play_tune', entity=actor, component='forge.audio_source', property='reverb_decay', value=10.1)
+            rejected = until(lambda: read('forge_play_status'), lambda row: not row['tune_pending'] and row['tune_ack'] is not None)
+            assert not rejected['tune_ack']['ok'], rejected
+            assert read('forge_play_audio')['source']['reverb_decay'] == 2.
+
             assert read('forge_play_status')['timing']['tick'] == tick
             assert read('forge_scene_read') == authored
             control('forge_play_stop')

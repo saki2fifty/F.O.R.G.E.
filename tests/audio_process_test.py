@@ -6,6 +6,12 @@ module=Path(sys.argv[2]).resolve() if len(sys.argv)>2 and sys.argv[2]!='-' else 
 codec_gallery=Path(sys.argv[3]).resolve() if len(sys.argv)>3 else None
 scene_id='11111111-1111-4111-8111-111111111111'
 entity_id='22222222-2222-4222-8222-222222222222'
+reverb_expected = dict(reverb_enabled=bool(module), reverb_decay=.75 if module else 1.5,
+                       reverb_damping=.25 if module else .5, reverb_wet=.5 if module else .25)
+def check_reverb(values):
+ for name, expected in reverb_expected.items():
+  assert values[name] == expected, (name, values)
+
 clip_id='33333333-3333-4333-8333-333333333333'
 class Worker:
  def __init__(self,root,audio=True,sdk=False):
@@ -23,6 +29,7 @@ class Worker:
    try:self.request('quit');self.p.wait(timeout=5)
    finally:
     if self.p.poll() is None:self.p.kill();self.p.wait()
+  assert self.p.returncode == 0, self.p.stderr.read()
 with tempfile.TemporaryDirectory(dir=runtime.parent) as folder:
  root=Path(folder)
  with wave.open(str(root/'tone.wav'),'wb') as wav:
@@ -118,6 +125,7 @@ with tempfile.TemporaryDirectory(dir=runtime.parent) as folder:
     assert status['low_pass_hz']==4000 and status['high_pass_hz']==100
     assert cone['echo_enabled'] and cone['echo_seconds']==.125 and cone['echo_feedback']==.375
     assert status['echo_enabled'] and status['echo_seconds']==.125 and status['echo_feedback']==.375
+    check_reverb(cone);check_reverb(status)
     assert any(d['text']=='Audio SDK command queued' for d in stepped['diagnostics'])
     assert not any(d['text']=='Invalid audio SDK operation accepted' for d in stepped['diagnostics'])
   transient=worker.request('audio_source',source=ref,operation='one_shot',audio_source_watch=ref)
@@ -129,6 +137,23 @@ with tempfile.TemporaryDirectory(dir=runtime.parent) as folder:
   assert restored['timing']['tick']==4 and restored['audio']['paused'] and restored['audio']['playing_sources']==1
   assert restored['audio']['one_shots']==0 and restored['audio']['voices']==1
   assert restored['audio']['master_volume']==.25 and restored['audio']['channel_volumes']==[.5,0,.75]
+  check_reverb(worker.request('snapshot',audio_source_watch=ref)['audio_source'])
+  cold=Worker(root,sdk=bool(module))
+  try:
+   cold.request('hello',simulation_hz=60,gravity=[0,-3,0])
+   fresh=cold.request('replace',scene=checkpoint['scene'],recovery=checkpoint,
+                      recovery_session=checkpoint['session'],recovery_tick=checkpoint['tick'],
+                      audio_source_watch=ref)
+   deadline=time.monotonic()+5
+   while not fresh.get('audio_source',{}).get('available'):
+    assert time.monotonic()<deadline, fresh
+    time.sleep(.01)
+    fresh=cold.request('snapshot',audio_source_watch=ref)
+   assert fresh['timing']['tick']==4 and fresh['audio']['paused']
+   assert fresh['audio']['one_shots']==0
+   check_reverb(fresh['audio_source'])
+  finally:cold.close()
+
   # Corrupt candidate leaves the old audio-bearing world intact and paused.
   bad=copy.deepcopy(checkpoint);bad['integrity']='bad'
   try:worker.request('replace',scene=checkpoint['scene'],recovery=bad,recovery_session=checkpoint['session'],recovery_tick=checkpoint['tick'])
@@ -159,7 +184,15 @@ with tempfile.TemporaryDirectory(dir=runtime.parent) as folder:
   headless=Worker(root,audio=False)
   try:
    assert headless.request('hello')['audio']['output']=='disabled'
-   assert headless.request('replace',scene=scene)['audio']['output']=='disabled'
+   silent=copy.deepcopy(scene)
+   del silent['entities'][0]['components']['forge.audio_source']
+   accepted=headless.request('replace',scene=silent)
+   assert accepted['audio']['output']=='disabled'
+   try:headless.request('replace',scene=scene)
+   except AssertionError as error:
+    assert 'audio output is unavailable' in str(error), error
+   else:raise AssertionError('Audio-bearing runtime Scene accepted without its required provider')
+   assert headless.request('snapshot')['scene']==accepted['scene']
    try:headless.request('audio_mix',mix=mix)
    except AssertionError:pass
    else:raise AssertionError('Headless audio mix accepted')

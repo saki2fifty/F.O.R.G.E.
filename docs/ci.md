@@ -2007,3 +2007,37 @@ source/relocated-export display pairs. A two-part terrain contributes two draw
 instances; instance count is not Mesh entity count. Original `foliage_vulkan` keeps
 its animated two-color scene. These software checks do not establish physical GPU
 performance, Windows/MSVC/D3D12, full desktop, input/DPI or graphical EXE acceptance.
+
+
+## Source reverb consumers
+
+`audio_reverb` checks the independent private DSP's impulse, stereo separation,
+callback-block invariance, in-place/NULL input, decay/damping, finite output and
+admission/memory/tail bounds. `audio_reverb_runtime` and the normal `audio` suite
+use the real offline provider for bypass, composed filters/echo/reverb, retained
+one-shots, EOS, pause/resume, Stop/Restart, source/category mute and uninterrupted
+state comparison. Authored defaults/bounds/atomic history and unchanged native
+NaN failure caching/correction are covered. `animation_audio` retains actual gain
+and pitch curves through the same mixer.
+
+`audio_editor` drives all four reverb controls and Undo/Redo at four scales, plus
+retained-tail Pause/Resume. Its optional `--capture-reverb` mode captures the actual
+authored ComponentInspector on SDL software without mutating Scene intent or
+inventing runtime status. `mcp_audio_pause_stdio` authors/tunes the same fields,
+rejects invalid values and preserves authored content through both framings.
+Its tone-only published closure avoids unrelated Gallery imports; the shared Map
+fixture closure is preserved. Full-project imports have their own acceptance scope.
+
+`native_sdk_audio` and `native_sdk_audio_filters_installed` check typed values,
+commands, same-worker and fresh-worker recovery with matching configuration and
+normal successful native exits. The installed case uses only the relocated SDK.
+`audio_process` also checks legacy defaults and headless provider admission: an
+audio-bearing runtime Scene requires output; a rejected candidate preserves the
+previous silent Scene. No physical device is silently enabled.
+
+`animation_audio_reverb_gallery` runs Gallery148's dry/bright/damped timed cues,
+checks real tail intervals against the same Scene with reverb disabled and compares
+11seconds of source/relocated-export PCM bytes exactly after hiding source files.
+It also checks bounded voice turnover and unchanged saved content. These are
+CPU/offline/widget tests, not full Main/Windows/MSVC/D3D12 or physical audio/input/DPI
+acceptance, and they do not establish device deadline performance.
