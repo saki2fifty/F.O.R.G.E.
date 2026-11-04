@@ -553,6 +553,61 @@ class CpuProfiler {
         }
         ImGui::EndTable();
     }
+    void draw_worker_writes(const Json& entries, const Json* observation) {
+        if (!observation) {
+            ImGui::TextWrapped("Worker access is unavailable in this snapshot. Collect and "
+                               "refresh a fixed tick with a matching runtime.");
+            return;
+        }
+        const auto& data = *observation;
+        ImGui::TextWrapped(
+            "%u stages | %u configured systems | %u / %u terms", data.at("workers").get<unsigned>(),
+            data.at("system_count").get<unsigned>(), data.at("copied_terms").get<unsigned>(),
+            data.at("total_terms").get<unsigned>());
+        ImGui::TextWrapped("%zu / %u fixed-source writes | %u unresolved terms",
+                           data.at("writes").size(), data.at("total_writes").get<unsigned>(),
+                           data.at("unresolved_terms").get<unsigned>());
+        if (data.at("terms_truncated").get<bool>() || data.at("truncated").get<bool>())
+            ImGui::TextWrapped("Partial observation: terms or write rows were omitted.");
+        ImGui::TextWrapped("Shared write declarations in partitioned systems; not measured races.");
+        help("Only multi-threaded systems with more than one configured stage and a This-source "
+             "query are inspected. Concrete fixed-entity writes can share storage across "
+             "callbacks. Owned self fields and shared reads are excluded from this check. "
+             "Optional fields may be absent. Traversal, complex queries, omitted declarations "
+             "and custom callback/run side effects remain outside the resolved coverage. "
+             "An empty table does not establish race freedom or measured concurrency.");
+        if (!ImGui::BeginTable(
+                "Worker shared writes", 4,
+                ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_ScrollX |
+                    ImGuiTableFlags_ScrollY,
+                {0, std::max(80.f * interface_scale, ImGui::GetContentRegionAvail().y)}))
+            return;
+        for (const char* label : {"System", "Component", "Fixed source", "Term"})
+            ImGui::TableSetupColumn(label, ImGuiTableColumnFlags_WidthFixed,
+                                    (std::string_view(label) == "Term" ? 80.f : 250.f) *
+                                        interface_scale);
+        ImGui::TableSetupScrollFreeze(0, 1);
+        ImGui::TableHeadersRow();
+        for (const auto& write : data.at("writes")) {
+            const auto& row = entries.at(write.at("system").get<std::size_t>());
+            if (!native_plan_row_matches(row, filter_))
+                continue;
+            const auto& term = row.at("access").at("terms").at(write.at("term").get<std::size_t>());
+            const auto& name = row.at("name").get_ref<const std::string&>();
+            ImGui::TableNextRow();
+            ImGui::TableNextColumn();
+            ImGui::TextUnformatted(name.c_str());
+            FORGE_UI_PROBE(std::string("profiler:game:worker-write:") + name + ":" +
+                           std::to_string(write.at("term").get<unsigned>()));
+            for (const char* key : {"name", "source_name"}) {
+                ImGui::TableNextColumn();
+                ImGui::TextUnformatted(term.at(key).get_ref<const std::string&>().c_str());
+            }
+            ImGui::TableNextColumn();
+            ImGui::Text("%u", term.at("index").get<unsigned>());
+        }
+        ImGui::EndTable();
+    }
     void draw_systems(const nlohmann::json& status) {
         try {
             if (!status.value("available", false)) {
@@ -585,6 +640,11 @@ class CpuProfiler {
             const auto* diagnostics =
                 status.contains("access_diagnostics") ? &status.at("access_diagnostics") : nullptr;
             detail::validate_native_system_access(entries, diagnostics);
+            const auto* worker_access =
+                status.contains("worker_access") ? &status.at("worker_access") : nullptr;
+            if (worker_access)
+                detail::validate_native_system_worker_access(entries, *worker_access,
+                                                             status.value("ecs_workers", 1u));
             const auto* dependencies =
                 status.contains("dependencies") ? &status.at("dependencies") : nullptr;
             if (dependencies) {
@@ -682,6 +742,12 @@ class CpuProfiler {
                 if (ordering) {
                     draw_native_system_dependencies(entries, dependencies, filter_,
                                                     dependency_nodes_);
+                    ImGui::EndTabItem();
+                }
+                const bool worker_writes = ImGui::BeginTabItem("Worker writes");
+                FORGE_UI_PROBE("profiler:game:worker-writes-tab");
+                if (worker_writes) {
+                    draw_worker_writes(entries, worker_access);
                     ImGui::EndTabItem();
                 }
                 ImGui::EndTabBar();

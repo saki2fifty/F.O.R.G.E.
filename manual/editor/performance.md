@@ -145,8 +145,8 @@ or complex expressions and no-data output annotations are outside the comparison
 A source that traverses from a fixed entity retains that starting entity's name;
 hover the Source cell to read it. Callback side effects that were never declared
 are outside this observation.
-The comparison covers different systems; it does not analyze sharing among the
-worker callbacks of a single system.
+The overlap comparison covers different systems. Use **Worker writes** for the
+separate check of fixed-source writes inside a partitioned system.
 
 In a short window, scroll the Profiler panel to reach its data. Use the table's
 horizontal scrollbar to reach the remaining columns. Repeated declarations for
@@ -158,6 +158,29 @@ rows with an 8192-comparison limit. A partial-observation notice identifies omit
 coverage. An empty list cannot establish independent access. The Plan's separate
 256-entry limit still applies. Clear discards these observations with the other
 collected system data; stopping Play or replacing the world requires fresh data.
+
+## Review writes shared by worker callbacks
+
+1. Set **Fixed ECS workers** above 1 in Project Settings, save, and restart Play with matching runtime and SDK support. Declare a C++ system as multi-threaded only when its callback supports partitioned entity rows.
+2. Open **Window → Profiler → Play runtime → ECS systems**. Start collection and run or Step a fixed tick, then stop collection to retain the observation.
+3. Choose **Worker writes**. Read the stage, configured-system and term counts. Each row identifies a system, component, fixed source and zero-based query term that declares writable shared storage.
+4. Review that C++ declaration and callback. Multiple callbacks can receive the same fixed-source value even when their entity rows are separate. A shared field that only needs reading should use a read declaration. Check **Declared access** for the source, operator and unresolved fields before changing code.
+5. Rebuild C++, restart Play and collect another fixed tick to inspect the current declarations. **Clear samples** discards the copied observation. Older snapshots show an unavailable-data explanation.
+
+![Profiler showing a declared fixed-source write in an actual four-stage runtime system](../images/native-worker-writes.png)
+
+This check covers configured multi-threaded systems with multiple stages and a
+native This-source query. It lists concrete fixed-entity data writes. Owned self
+fields, shared reads, serial systems and queries without This-source row
+partitioning are excluded from this check; they are not certified race free.
+Optional fields may be absent. Traversal, complex queries, omitted declarations
+and custom callback or run-function side effects need separate review.
+
+Rows describe declarations, not measured writes, simultaneous callbacks or races.
+The view retains at most 128 write rows from the existing bounded query-term
+copy. Counts, unresolved terms and partial-observation notices identify missing
+coverage. An empty table cannot establish safe concurrency. Use CPU scopes and
+worker tracks to inspect actual dispatch observations separately.
 
 ## Inspect native ordering targets
 

@@ -105,6 +105,11 @@ def verify(runtime, module, gallery, capture=None):
                         assert not nodes[motion['id']]['phase_tag']
                         target = nodes[edge['target']]
                         assert target['phase_tag'] and target['name'] == motion['phase']
+                        assert motion['access']['matches_this']
+                        worker_access = plan['worker_access']
+                        assert worker_access['workers'] == count and not worker_access['writes']
+                        assert not worker_access['truncated'] and worker_access['capacity'] == 128
+                        assert worker_access['system_count'] >= (1 if count > 1 else 0)
                         if count > 1:
                             assert not plan['native_system_timing'] and plan['system_trace_scope'] == 'native_stages'
                             assert all(row['cpu_seconds'] is None for row in plan['entries']

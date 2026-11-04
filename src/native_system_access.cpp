@@ -132,7 +132,10 @@ Json native_system_access(flecs::world& world, const ecs_query_t* query, std::si
                                      : "unresolved"}});
     }
     remaining -= copied;
-    return {{"total_terms", count}, {"truncated", count > copied}, {"terms", std::move(terms)}};
+    return {{"total_terms", count},
+            {"truncated", count > copied},
+            {"matches_this", query && bool(query->flags & EcsQueryMatchThis)},
+            {"terms", std::move(terms)}};
 }
 Json native_system_access_overlaps(const Json& entries) {
     struct Reference {
@@ -210,6 +213,88 @@ Json native_system_access_overlaps(const Json& entries) {
             {"truncated", truncated},
             {"pairs", std::move(pairs)}};
 }
+namespace {
+struct WorkerAccessCoverage {
+    std::size_t systems = 0, copied = 0, total = 0, unresolved = 0, total_writes = 0;
+    bool terms_truncated = false;
+    std::vector<std::pair<std::size_t, std::size_t>> writes;
+};
+WorkerAccessCoverage worker_access_coverage(const Json& entries, unsigned workers) {
+    if (!entries.is_array() || entries.size() > native_system_plan_capacity || !workers ||
+        workers > 16)
+        throw std::runtime_error("Invalid native worker access scope");
+    WorkerAccessCoverage result;
+    if (workers == 1)
+        return result;
+    for (std::size_t i = 0; i < entries.size(); ++i) {
+        const auto& row = entries[i];
+        if (row.at("kind") != "system" || !row.at("multi_threaded").get<bool>())
+            continue;
+        const auto& access = row.at("access");
+        if (!access.at("matches_this").get<bool>())
+            continue; // Native no-This iteration is not partitioned over entity rows.
+        ++result.systems;
+        result.total += access.at("total_terms").get<std::size_t>();
+        result.terms_truncated |= access.at("truncated").get<bool>();
+        for (const auto& term : access.at("terms")) {
+            ++result.copied;
+            result.unresolved += term.at("analysis") == "unresolved";
+            if (term.at("analysis") != "included" || term.at("source") != "entity" ||
+                !term.at("writes").get<bool>())
+                continue;
+            ++result.total_writes;
+            if (result.writes.size() < native_worker_write_capacity)
+                result.writes.emplace_back(i, term.at("index").get<std::size_t>());
+        }
+    }
+    return result;
+}
+} // namespace
+Json native_system_worker_access(const Json& entries, unsigned workers) {
+    const auto coverage = worker_access_coverage(entries, workers);
+    Json writes = Json::array();
+    for (const auto& [system, term] : coverage.writes)
+        writes.push_back({{"system", system}, {"term", term}});
+    return {{"workers", workers},
+            {"system_count", coverage.systems},
+            {"copied_terms", coverage.copied},
+            {"total_terms", coverage.total},
+            {"unresolved_terms", coverage.unresolved},
+            {"terms_truncated", coverage.terms_truncated},
+            {"capacity", native_worker_write_capacity},
+            {"total_writes", coverage.total_writes},
+            {"truncated", coverage.total_writes > coverage.writes.size()},
+            {"writes", std::move(writes)}};
+}
+void validate_native_system_worker_access(const Json& entries, const Json& observation,
+                                          unsigned workers) {
+    const auto coverage = worker_access_coverage(entries, workers);
+    const std::pair<const char*, std::size_t> counters[] = {
+        {"workers", workers},
+        {"system_count", coverage.systems},
+        {"copied_terms", coverage.copied},
+        {"total_terms", coverage.total},
+        {"unresolved_terms", coverage.unresolved},
+        {"capacity", native_worker_write_capacity},
+        {"total_writes", coverage.total_writes}};
+    for (const auto& [key, expected] : counters)
+        if (!integer(observation.at(key), native_system_plan_capacity * 127) ||
+            observation.at(key) != expected)
+            throw std::runtime_error("Invalid native worker access counter");
+    const auto& writes = observation.at("writes");
+    if (!writes.is_array() || writes.size() != coverage.writes.size() ||
+        !observation.at("terms_truncated").is_boolean() ||
+        observation.at("terms_truncated") != coverage.terms_truncated ||
+        !observation.at("truncated").is_boolean() ||
+        observation.at("truncated") != (coverage.total_writes > coverage.writes.size()))
+        throw std::runtime_error("Invalid native worker access coverage");
+    for (std::size_t i = 0; i < writes.size(); ++i)
+        if (!integer(writes[i].at("system"), native_system_plan_capacity - 1) ||
+            !integer(writes[i].at("term"), native_access_row_capacity - 1) ||
+            writes[i].at("system") != coverage.writes[i].first ||
+            writes[i].at("term") != coverage.writes[i].second)
+            throw std::runtime_error("Native worker write lost its declaration");
+}
 void validate_native_system_access(const Json& entries, const Json* overlaps) {
     if (!entries.is_array() || entries.size() > native_system_plan_capacity)
         throw std::runtime_error("Invalid native access plan");
@@ -220,6 +305,8 @@ void validate_native_system_access(const Json& entries, const Json* overlaps) {
             continue; // Older copied snapshots remain readable.
         const auto& access = row.at("access");
         const auto& terms = access.at("terms");
+        if (access.contains("matches_this") && !access.at("matches_this").is_boolean())
+            throw std::runtime_error("Invalid native This-source observation");
         if (row.at("kind") != "system" || !terms.is_array() ||
             terms.size() > native_access_row_capacity || !integer(access.at("total_terms"), 127) ||
             access.at("total_terms") < terms.size() || !access.at("truncated").is_boolean() ||

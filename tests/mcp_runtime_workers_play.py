@@ -54,6 +54,10 @@ def check_runtime_workers_play(read, ok, control, mutate, until, discovery):
         assert edge['pair_owned'] and nodes[motion['id']]['root']
         assert not nodes[motion['id']]['phase_tag']
         assert nodes[edge['target']]['phase_tag'] and nodes[edge['target']]['name'] == motion['phase']
+        assert motion['access']['matches_this']
+        assert ecs['worker_access']['workers'] == 4 and not ecs['worker_access']['writes']
+        assert ecs['worker_access']['system_count'] >= 1
+        assert ecs['worker_access']['capacity'] == 128 and not ecs['worker_access']['truncated']
         exported = read('forge_play_profile_trace')
         assert exported['trace']['otherData']['native_stages'] == [0, 1, 2, 3]
         assert {row['args']['native_stage'] for row in exported['trace']['traceEvents']

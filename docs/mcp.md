@@ -807,6 +807,18 @@ not persistent game entities or a complete dependency/race analysis. Older
 snapshots may omit `dependencies`. Refresh/collection/Clear use the same controls
 and permissions as the rest of the profile; reads do not progress gameplay.
 
+`ecs.worker_access` references declared fixed-source writes in configured
+multi-threaded This-source systems with more than one actual stage. `writes`
+contains at most128 `system`/`term` references into the existing copied plan;
+`total_writes`, eligible system/term counts, unresolved terms and separate
+term/write truncation flags describe coverage. `access.matches_this` preserves
+the initialized query flag. Owned self fields, shared reads, serial/single-stage
+execution and no-This queries are outside this particular check, not certified
+race free. Traversal, complex/omitted declarations and custom callback/run side
+effects require separate review. These are declarations, not measured writes,
+simultaneous callbacks or race verdicts. Legacy snapshots may omit these fields.
+Collection, scoped reads, Clear/Stop and replacement use the existing owners.
+
 `forge_play_profile_trace` reads the cached isolated Play CPU profile as Trace Event
 JSON under `play.read`; it does not execute gameplay or require an execution grant.
 Start collection and request `profile_refresh` through the existing controls first.

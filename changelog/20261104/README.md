@@ -1,5 +1,16 @@
 # 2026-11-04
 
+## Declared writes shared by native workers
+
+The existing native query observation now identifies bounded fixed-source write
+declarations in configured multi-threaded systems with partitioned This-source
+rows and multiple stages. Profiler Worker writes and scoped Play/MCP reads share
+the same references, counts and unresolved/partial coverage. Native ownership and
+execution remain unchanged; these are declarations, not observed races or writes.
+Original tests confirm actual shared field identity, private row partitioning and
+no-This dispatch at one and four stages without performing concurrent shared
+writes. Windows/full-editor/physical acceptance remains pending.
+
 ## Native system dependency inspection
 
 The Profiler's Ordering links view inspects bounded native DependsOn targets,

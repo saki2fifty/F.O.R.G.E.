@@ -240,6 +240,36 @@ plan and display an unavailable-target explanation. Existing Play/MCP refresh
 and cached profile reads expose the same bounded data; no new write permission,
 authoring relation owner, ABI or SDK boundary is introduced.
 
+## Declared worker shared writes
+
+The same copied `ecs` observation includes `worker_access`. The existing
+`native_system_access` owner records each query's native `matches_this` flag and
+inspects configured multi-threaded systems only when actual stage count exceeds
+one and that flag is set. The selected native worker iterator partitions entity
+rows; fixed-source field storage can remain the same across worker callbacks.
+No-This iteration is outside this check. Query declarations cannot constrain
+arbitrary custom run/callback side effects.
+
+Only included concrete fixed-entity data fields that declare writes are listed.
+Default shared reads, owned self fields and serial/single-stage execution are
+excluded from this specific warning, not reported race free. Traversal/complex
+terms remain unresolved; optional data can be absent. No observed memory writes,
+actual concurrency, scheduler change or native race verdict is inferred.
+
+`worker_access` contains `workers`, `system_count` (eligible configured systems),
+`copied_terms`, `total_terms`, `unresolved_terms`, `terms_truncated`, `capacity`128,
+`total_writes`, `truncated` and `writes`. Each write references an existing plan
+row by `system` and that row's copied term by `term`. Counts retain all eligible
+copied declarations; only the first128 references are retained in native order.
+The shared bounded coverage walk supplies both serialization and validation.
+Validation checks stage scope, counters, types and exact retained references
+against already validated declarations before any native UI table begins.
+
+The Profiler **Worker writes** view and scoped Play/MCP profile reads use this
+same post-tick data. Legacy snapshots may omit it or the new query flag. Clear,
+Stop and world replacement retain their existing whole-snapshot lifecycle.
+No SDK header/fingerprint, ABI, document identity or persistence boundary changes.
+
 ## Declared native query access
 
 Each copied system row also includes `access`: total_terms, truncated and terms.

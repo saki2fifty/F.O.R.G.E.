@@ -1,9 +1,15 @@
 #include "ParallelMotion.hpp"
 #include "native_system_access.hpp"
+#include <array>
+#include <atomic>
 #include <cmath>
+#include <cstdint>
+#include <filesystem>
 #include <forge/runtime.hpp>
 #include <forge/transform_components.hpp>
+#include <fstream>
 #include <iostream>
+#include <vector>
 using namespace forge;
 namespace {
 void check(bool value, const char* message) {
@@ -172,6 +178,158 @@ void declarations() {
     }
     check(rejected, "Floating-point diagnostic counter was accepted");
 }
+void worker_declarations() {
+    WorldContext context(WorldRole::Runtime);
+    auto& world = context.world();
+    auto source = world.entity().set<Value>({13});
+    ecs_term_t own{};
+    own.id = world.id<Value>();
+    own.src.id = EcsSelf;
+    auto shared = own;
+    shared.src.id = source.id() | EcsIsEntity | EcsSelf;
+    shared.inout = EcsInOut;
+    auto access = query_access(world, {own, shared});
+    auto entries = rows({access});
+    entries[0]["multi_threaded"] = true;
+    auto observation = detail::native_system_worker_access(entries, 4);
+    check(observation.at("writes").size() == 1 && observation.at("writes")[0].at("system") == 0 &&
+              observation.at("writes")[0].at("term") == 1,
+          "Fixed shared write was omitted or owned-row write was flagged");
+    detail::validate_native_system_access(entries, nullptr);
+    detail::validate_native_system_worker_access(entries, observation, 4);
+    for (const char* key :
+         {"workers", "system_count", "copied_terms", "total_terms", "unresolved_terms", "capacity",
+          "total_writes", "truncated", "terms_truncated"}) {
+        auto invalid = observation;
+        invalid[key] = "bad";
+        bool rejected = false;
+        try {
+            detail::validate_native_system_worker_access(entries, invalid, 4);
+        } catch (...) {
+            rejected = true;
+        }
+        check(rejected, "Malformed worker coverage was accepted");
+    }
+    auto invalid = observation;
+    invalid["writes"][0]["term"] = 0;
+    bool rejected = false;
+    try {
+        detail::validate_native_system_worker_access(entries, invalid, 4);
+    } catch (...) {
+        rejected = true;
+    }
+    check(rejected, "Worker warning was redirected to an owned field");
+    check(detail::native_system_worker_access(entries, 1).at("writes").empty(),
+          "Single-stage execution was labeled shared worker writing");
+    entries[0]["multi_threaded"] = false;
+    check(detail::native_system_worker_access(entries, 4).at("writes").empty(),
+          "Serial system was labeled shared worker writing");
+    entries[0]["multi_threaded"] = true;
+    shared.inout = EcsInOutDefault;
+    entries[0]["access"] = query_access(world, {own, shared});
+    check(detail::native_system_worker_access(entries, 4).at("writes").empty(),
+          "Default shared read was labeled a shared write");
+    shared.inout = EcsInOut;
+    shared.src.id |= EcsUp;
+    entries[0]["access"] = query_access(world, {own, shared}, 1);
+    observation = detail::native_system_worker_access(entries, 4);
+    check(observation.at("terms_truncated") && observation.at("total_terms") == 2 &&
+              observation.at("writes").empty(),
+          "Omitted worker fields lost partial coverage");
+    entries[0]["access"] = query_access(world, {own, shared});
+    observation = detail::native_system_worker_access(entries, 4);
+    check(observation.at("unresolved_terms") == 1 && observation.at("writes").empty(),
+          "Traversal write was treated as resolved fixed storage");
+    auto big = Json::array();
+    entries[0]["access"] = access;
+    for (unsigned i = 0; i < 256; ++i)
+        big.push_back(entries[0]);
+    observation = detail::native_system_worker_access(big, 4);
+    detail::validate_native_system_access(big, nullptr);
+    detail::validate_native_system_worker_access(big, observation, 4);
+    check(observation.at("writes").size() == 128 && observation.at("total_writes") == 256 &&
+              observation.at("truncated"),
+          "Worker write bound was exceeded or hidden");
+}
+struct WorkerPrivate {
+    int value = 0;
+};
+struct WorkerShared {
+    int value = 13;
+};
+Json actual_worker_sources(unsigned stages, bool writable, bool matches_this) {
+    EngineContext engine(WorldRole::Runtime);
+    Scene scene(engine.world());
+    auto& world = scene.world();
+    std::array<std::atomic<std::uintptr_t>, 16> addresses{};
+    std::array<std::atomic<unsigned>, 16> calls{};
+    RuntimeSimulation simulation(engine.world(), scene, {stages});
+    auto shared = world.entity().set<WorkerShared>({13});
+    if (!matches_this)
+        shared.set<WorkerPrivate>({0});
+    std::vector<flecs::entity> actors;
+    for (unsigned i = 0; i < 256; ++i)
+        actors.push_back(world.entity().set<WorkerPrivate>({0}));
+    auto builder = world.system<WorkerPrivate, WorkerShared>("WorkerSharedDeclaration");
+    builder.kind(world.lookup("forge.runtime.Gameplay"))
+        .term_at(0)
+        .src()
+        .self()
+        .term_at(1)
+        .src(shared)
+        .self()
+        .inout(writable ? flecs::InOut : flecs::In)
+        .multi_threaded();
+    if (!matches_this)
+        builder.term_at(0).src(shared).self();
+    auto system =
+        builder.each([&](flecs::iter& it, size_t, WorkerPrivate& value, WorkerShared& source) {
+            const auto stage = unsigned(it.world().get_stage_id());
+            if (stage >= addresses.size())
+                std::terminate();
+            addresses[stage].store(reinterpret_cast<std::uintptr_t>(&source));
+            calls[stage].fetch_add(1);
+            // Shared write is declared, but this test only reads the shared field.
+            if (matches_this)
+                value.value += source.value;
+        });
+    system.add<FixedSimulation>();
+    engine.services().profiling(true);
+    (void)simulation.system_profile();
+    simulation.tick(1.f / 60);
+    const auto profile = simulation.system_profile();
+    const auto& entries = profile.at("entries");
+    const auto& observation = profile.at("worker_access");
+    detail::validate_native_system_worker_access(entries, observation, stages);
+    bool found = false;
+    for (const auto& row : entries)
+        if (row.at("kind") == "system" && row.at("id") == system.id()) {
+            found = true;
+            check(row.at("access").at("matches_this") == matches_this,
+                  "Native This-source configuration was lost");
+        }
+    check(found, "Actual worker declaration was absent from the copied plan");
+    check(observation.at("writes").size() == std::size_t(stages > 1 && writable && matches_this),
+          "Actual worker/shared-write eligibility disagrees with declarations");
+    const auto expected = reinterpret_cast<std::uintptr_t>(&shared.get<WorkerShared>());
+    unsigned total = 0;
+    for (unsigned i = 0; i < stages; ++i) {
+        const auto count = calls[i].load();
+        check(count == (matches_this ? 256 / stages
+                        : i == 0     ? 1u
+                                     : 0u),
+              "Native row partition or no-This dispatch changed");
+        check(!count || addresses[i].load() == expected,
+              "Fixed field was not the same storage across actual worker stages");
+        total += count;
+    }
+    check(total == (matches_this ? 256u : 1u) && shared.get<WorkerShared>().value == 13,
+          "Observation changed shared state or native callback count");
+    for (auto actor : actors)
+        check(actor.get<WorkerPrivate>().value == (matches_this ? 13 : 0),
+              "Private entity rows changed or repeated");
+    return profile;
+}
 void runtime_observation() {
     EngineContext engine(WorldRole::Runtime);
     Scene scene(engine.world());
@@ -255,11 +413,29 @@ void canonical_owned_motion() {
     }
 }
 } // namespace
-int main() {
+int main(int argc, char** argv) {
     try {
+        check(argc == 1 || argc == 2, "Expected optional native worker access capture path");
         declarations();
+        worker_declarations();
+        Json captured;
+        for (unsigned stages : {1u, 4u}) {
+            actual_worker_sources(stages, false, true);
+            auto profile = actual_worker_sources(stages, true, true);
+            if (stages == 4)
+                captured = std::move(profile);
+            actual_worker_sources(stages, true, false);
+        }
         runtime_observation();
         canonical_owned_motion();
+        if (argc == 2) {
+            const auto path = std::filesystem::u8path(argv[1]);
+            if (path.has_parent_path())
+                std::filesystem::create_directories(path.parent_path());
+            std::ofstream stream(path);
+            stream << captured.dump(2) << '\n';
+            check(bool(stream), "Could not write actual native worker access capture");
+        }
         std::cout << "Native access metadata, bounds and real pipeline PASS\n";
     } catch (const std::exception& e) {
         std::cerr << e.what() << '\n';

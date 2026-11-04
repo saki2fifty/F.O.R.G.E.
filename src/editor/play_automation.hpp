@@ -665,7 +665,10 @@ struct PlayAutomation {
             "measured races or complete ambiguity analysis. Bounded native DependsOn lookups "
             "include target slots, phase tags and owned-pair presence; lookup may resolve "
             "inherited targets. The legacy phase field names the first target, not a resolved "
-            "execution phase. Links are not a complete ordering graph.",
+            "execution phase. Links are not a complete ordering graph. Bounded worker_access "
+            "references identify declared fixed-source writes in multi-threaded This-source "
+            "systems with multiple stages. Counts and unresolved/truncated coverage accompany "
+            "the declarations; they do not measure actual writes, races or concurrency.",
             "play.execute", automation_object(properties(), required()), true,
             [&files, &play, providers](const Json& request) {
                 current(play, files, providers, request);

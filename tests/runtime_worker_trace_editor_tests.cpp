@@ -12,8 +12,8 @@ void check(bool condition, const char* message) {
     if (!condition)
         throw std::runtime_error(message);
 }
-void exercise(const Json& captured, float scale, bool compact,
-              const std::filesystem::path& output) {
+void exercise(const Json& captured, float scale, bool compact, const std::filesystem::path& output,
+              const Json& worker_access) {
     const unsigned width = unsigned((compact ? 600 : 1240) * scale);
     const unsigned height = unsigned(760 * scale);
     test::ImGuiSoftwareCapture capture(width, height);
@@ -109,12 +109,37 @@ void exercise(const Json& captured, float scale, bool compact,
     frame();
     check(!test::ui_targets.contains("profiler:game:access-tab"),
           "Malformed native access metadata reached an unfinished native table");
+    if (!worker_access.is_null()) {
+        shown = {{"compiled", true},
+                 {"enabled", true},
+                 {"available", true},
+                 {"ecs", worker_access},
+                 {"samples", Json::array()}};
+        frame();
+        input.type("profiler:game:system-filter", "WorkerSharedDeclaration");
+        input.click("profiler:game:worker-writes-tab");
+        std::string writer;
+        for (const auto& write : worker_access.at("worker_access").at("writes")) {
+            const auto& row = worker_access.at("entries").at(write.at("system").get<std::size_t>());
+            writer = row.at("name").get<std::string>();
+            check(test::ui_targets.contains("profiler:game:worker-write:" + writer + ":1"),
+                  "Actual native fixed-source write was omitted from controls");
+        }
+        check(!writer.empty(), "Actual native worker capture has no declared shared write");
+        if (!compact && scale == 1 && !output.empty())
+            capture.save(output / "native-worker-writes.png");
+        shown["ecs"]["worker_access"]["writes"][0]["term"] = 0;
+        frame();
+        check(!test::ui_targets.contains("profiler:game:worker-writes-tab"),
+              "Redirected worker write reference reached a native table");
+    }
     test::observe_ui = false;
 }
 } // namespace
 int main(int argc, char** argv) {
     try {
-        check(argc == 2 || argc == 3, "Need actual runtime profile and optional capture directory");
+        check(argc >= 2 && argc <= 4,
+              "Need actual runtime profile, optional capture directory and worker access profile");
         const auto source = std::filesystem::u8path(argv[1]);
         check(std::filesystem::file_size(source) <= 2 * 1024 * 1024,
               "Profile input exceeds fixture bound");
@@ -123,13 +148,19 @@ int main(int argc, char** argv) {
         const auto timeline = cpu_scope_timeline(profile.at("samples"));
         check(timeline.native_workers && timeline.measured_threads == 4,
               "Capture does not contain all four actual native stages");
+        Json worker_access;
+        if (argc == 4) {
+            const auto path = std::filesystem::u8path(argv[3]);
+            check(std::filesystem::file_size(path) <= 2 * 1024 * 1024,
+                  "Worker access capture exceeds fixture bound");
+            std::ifstream stream(path);
+            worker_access = Json::parse(stream);
+        }
         for (float scale : {1.f, 1.5f, 2.f})
             for (bool compact : {false, true})
-                exercise(profile, scale, compact, argc == 3 ? argv[2] : "");
-        std::cout << "Production worker summary/Timeline/access/dependency views from actual SDK "
-                     "measurements "
-                     "passed six "
-                     "layouts\n";
+                exercise(profile, scale, compact, argc >= 3 ? argv[2] : "", worker_access);
+        std::cout << "Production worker/access/dependency views from actual runtime observations "
+                     "passed six layouts\n";
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';
         return 1;

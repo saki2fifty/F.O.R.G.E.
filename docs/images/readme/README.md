@@ -1894,6 +1894,26 @@ Local capture provenance is in
 This graph-only image does not establish a full editor window, Windows cooked
 Shader, Game/export, hardware DPI or physical GPU acceptance.
 
+## Native worker shared-write declarations
+
+`manual/images/native-worker-writes.png` is the canonical unretouched1240x760
+production Profiler control capture. Its data comes from an actual four-stage
+RuntimeSimulation execution in `forge_native_system_access_tests`:256private
+rows update once, each native stage observes the same fixed-source address,
+and the callback deliberately reads that shared value without writing it.
+The query declares shared write access, illustrating a declaration warning
+without executing a concurrent shared write. Names and temporary IDs are native
+fixture metadata. This is distinct from the SDK ParallelMotion snapshot used
+for the access/ordering images below.
+
+The control fixture replays the immutable native observation and drives Worker
+writes, filtering and malformed-reference handling at six wide/compact100/150/200%
+layouts. SDL software rendering supplies the pixels. Exact source, both profile
+origins, binary and image hashes with receipts are recorded locally in
+`AgentFiles/build/phase254-native-worker-write-inspection/capture-provenance.json`.
+This is actual runtime-data replay in production controls, not full-editor,
+Windows, physical GPU/input/DPI, observed-race or performance acceptance.
+
 ## Native system ordering targets
 
 `manual/images/native-system-dependencies.png` is the canonical unretouched
@@ -1906,7 +1926,7 @@ SDL software rendering supplies the pixels. A separate controlled data oracle
 checks legacy absence and system/phase/inherited-pair presentation; it supplies
 no manual image. Exact source/profile/binary/module/image hashes and receipts
 are recorded locally in
-`AgentFiles/build/phase253-native-dependency-inspection/capture-provenance.json`.
+`AgentFiles/build/phase254-native-worker-write-inspection/capture-provenance.json`.
 This is measured-data replay in production controls, not full-editor, Windows,
 physical GPU/input/DPI or performance acceptance.
 
@@ -1922,7 +1942,7 @@ covers a positive write/read overlap and malformed-reference rejection; it does
 not supply manual images. SDL software rendering supplies the control pixels.
 Exact source/profile/binary/image hashes, process/capture receipts and limits are
 recorded locally in
-`AgentFiles/build/phase253-native-dependency-inspection/capture-provenance.json`.
+`AgentFiles/build/phase254-native-worker-write-inspection/capture-provenance.json`.
 This is actual measured-data replay in production controls, not a full running
 editor, Windows, physical input/GPU/DPI or performance acceptance capture.
 

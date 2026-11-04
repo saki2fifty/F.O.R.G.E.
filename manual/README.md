@@ -102,7 +102,7 @@ content may differ; use **Window** to open a panel mentioned in a guide.
 - [Keyboard shortcuts](editor/shortcuts.md)
 - [Command palette](editor/commands.md)
 - [Problems and diagnostics](editor/diagnostics.md)
-- [Performance, CPU timelines, worker tracks, component access and ordering targets](editor/performance.md)
+- [Performance, CPU timelines, worker tracks, shared writes and ordering targets](editor/performance.md)
 - [Loaded resources and import cache](editor/resources.md)
 - [ECS inspection](editor/ecs-tools.md)
 

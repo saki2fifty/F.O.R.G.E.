@@ -287,6 +287,9 @@ void interactions(float scale, ImVec2 display) {
     click("profiler:game:dependencies-tab");
     check(!test::ui_targets.contains("profiler:game:dependency-nodes"),
           "Legacy snapshot invented ordering target metadata");
+    click("profiler:game:worker-writes-tab");
+    check(!test::ui_targets.contains("profiler:game:worker-write:MissingGameplay:0"),
+          "Legacy snapshot invented worker write metadata");
     click("profiler:game:plan-tab");
     game["ecs"]["entries"][0]["cpu_seconds"] = "invalid";
     frame();

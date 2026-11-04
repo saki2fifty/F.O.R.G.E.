@@ -530,6 +530,8 @@ void RuntimeSimulation::capture_system_profile() {
             {"total_entries", count},
             {"truncated", count > limit},
             {"access_diagnostics", detail::native_system_access_overlaps(rows)},
+            {"worker_access",
+             detail::native_system_worker_access(rows, unsigned(context_.world().get_threads()))},
             {"dependencies", detail::native_system_dependencies(world, dependency_roots)},
             {"entries", std::move(rows)}};
         if (context_.world().get_threads() > 1) {
