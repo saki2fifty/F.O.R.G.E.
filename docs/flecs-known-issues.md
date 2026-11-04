@@ -116,6 +116,30 @@ Verified2026-09-20 at the same exact pin.
 - **Removal:** re-evaluate the exact getter implementation in a future stable
   release, retaining full-width enum round-trip and invalid-value tests.
 
+## FLECS-007 — simple-query declaration metadata
+
+Verified2026-11-04 against the selected commit. In
+`src/query/validator.c`, `flecs_query_finalize_simple` initializes the write-field
+summary but does not populate the read-field summary that the general validator
+sets. A default read/write declaration can therefore have an empty read mask.
+Do not use that mask alone to describe declared access.
+
+The optimized source handling also distinguishes the canonical `src.id=EcsSelf`
+form from a fully specified `$this|self|variable` descriptor when deciding whether
+to add implicit inheritance. For required owned storage, use the existing C++
+builder's zero-based `.term_at(index).src().self()` and inspect the initialized
+source. FORGE does not rewrite the native query or hide traversal in its view.
+
+The access observation copies native data/source metadata and independently
+decodes the documented access enum: owned defaults permit read/write, shared
+defaults are read only, and explicit modes keep their declared meaning. Traversal
+remains unresolved for storage-overlap analysis. No dependency patch or alternate
+query evaluator is introduced. `native_system_access` covers simple/optional
+declarations, shared sources and the canonical original motion source at1/4 stages.
+The inconsistency was reproduced with selectively instrumented FORGE consumers
+linked to the normal native library; this is not native-library ASan or race-
+sanitizer acceptance. No installed SDK, identity or persistent format changes.
+
 ## Per-system timing with native worker stages
 
 At pin `fb55f3c25660425cfe1bc4cf5e6bff8b3f18a9b8`,

@@ -86,6 +86,15 @@ def verify(runtime, module, gallery, capture=None):
                         assert plan['available'] and plan.get('ecs_workers', 1) == count
                         assert any(row.get('name', '').endswith('ParallelMotionUpdate') and
                                    row['multi_threaded'] for row in plan['entries'])
+                        motion, = [row for row in plan['entries'] if row.get('name', '').endswith('ParallelMotionUpdate')]
+                        access = motion['access']
+                        assert not access['truncated'] and access['total_terms'] == 2
+                        translation = access['terms'][1]
+                        assert translation['source'] == 'self' and translation['reads'] and translation['writes'] and translation['analysis'] == 'included', translation
+                        assert translation['name'].endswith('local_translation')
+                        diagnostic = plan['access_diagnostics']
+                        assert diagnostic['copied_terms'] <= 512 and len(diagnostic['pairs']) <= 128
+                        assert diagnostic['comparisons'] <= 8192
                         if count > 1:
                             assert not plan['native_system_timing'] and plan['system_trace_scope'] == 'native_stages'
                             assert all(row['cpu_seconds'] is None for row in plan['entries']

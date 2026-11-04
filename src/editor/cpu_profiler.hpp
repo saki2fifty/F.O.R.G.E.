@@ -1,5 +1,6 @@
 #pragma once
 #include "../cpu_profile_trace.hpp"
+#include "../native_system_access.hpp"
 #include "event_time.hpp"
 #include "telemetry.hpp"
 #include "widgets.hpp"
@@ -161,9 +162,10 @@ class CpuProfiler {
         ImGui::TextUnformatted(enabled ? "COLLECTING" : "STOPPED - samples retained");
         ImGui::TextWrapped(
             gpu       ? "GPU pass durations; separate rows must not be summed into a frame time."
-            : systems ? "Native system lifetime CPU totals. Clear removes this view, not "
-                        "Flecs counters. These are not per-tick or frame times."
+            : systems ? "Native lifetime totals; not per-tick or frame times."
                       : "CPU wall time only. Nested scopes overlap.");
+        if (systems)
+            help("Clear removes this observation, not native lifetime counters.");
         ImGui::BeginDisabled(pending);
         ImGui::BeginDisabled(!ready || !submit);
         if (ImGui::Button(enabled ? "Stop collection" : "Start collection")) {
@@ -415,6 +417,137 @@ class CpuProfiler {
             }
         ImGui::EndTable();
     }
+    void draw_system_access(const nlohmann::json& entries, const nlohmann::json* observation,
+                            bool overlaps) {
+        if (!observation || observation->empty()) {
+            ImGui::TextWrapped("Declared access is unavailable in this snapshot. Collect and "
+                               "refresh a fixed tick with a matching runtime.");
+            return;
+        }
+        const auto& diagnostics = *observation;
+        ImGui::TextWrapped("%u / %u terms copied | %u unresolved | %zu possible overlaps",
+                           diagnostics.at("copied_terms").get<unsigned>(),
+                           diagnostics.at("total_terms").get<unsigned>(),
+                           diagnostics.at("unresolved_terms").get<unsigned>(),
+                           diagnostics.at("pairs").size());
+        if (diagnostics.at("terms_truncated").get<bool>() ||
+            diagnostics.at("truncated").get<bool>())
+            ImGui::TextWrapped("Partial observation: a term, comparison or overlap limit was "
+                               "reached. An empty list does not prove independent access.");
+        const char* explanation =
+            overlaps
+                ? "Possible shared component access in current native order. Query filters may "
+                  "select disjoint entities. These are declarations, not measured races."
+                : "Declared query fields, not observed reads/writes. Default access permits owned "
+                  "writes; shared default fields are read only. Review unresolved sources "
+                  "separately.";
+        const auto available = ImGui::GetContentRegionAvail();
+        const auto explanation_height =
+            ImGui::CalcTextSize(explanation, nullptr, false, std::max(1.f, available.x)).y;
+        const bool compact = available.y - explanation_height < 160 * interface_scale;
+        ImGui::TextWrapped("%s", compact ? "Declarations only. Possible overlaps are not races."
+                                         : explanation);
+        if (compact)
+            help(explanation);
+        if (!ImGui::BeginTable(
+                overlaps ? "Access overlaps" : "Declared access", overlaps ? 5 : 7,
+                ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_ScrollX |
+                    ImGuiTableFlags_ScrollY,
+                {0, std::max(80.f * interface_scale, ImGui::GetContentRegionAvail().y)}))
+            return;
+        if (overlaps) {
+            for (const char* column :
+                 {"Earlier system", "Later system", "Component", "Access", "Scope"})
+                ImGui::TableSetupColumn(column, ImGuiTableColumnFlags_WidthFixed,
+                                        (std::string_view(column) == "Scope" ? 180.f : 230.f) *
+                                            interface_scale);
+        } else {
+            for (const char* column :
+                 {"Order", "System", "Component", "Access", "Source", "Operator", "Review"})
+                ImGui::TableSetupColumn(column, ImGuiTableColumnFlags_WidthFixed,
+                                        (std::string_view(column) == "Order" ? 55.f
+                                         : std::string_view(column) == "System" ||
+                                                 std::string_view(column) == "Component"
+                                             ? 230.f
+                                             : 130.f) *
+                                            interface_scale);
+        }
+        ImGui::TableSetupScrollFreeze(0, 1);
+        ImGui::TableHeadersRow();
+        if (overlaps) {
+            for (const auto& pair : diagnostics.at("pairs")) {
+                const auto& first = entries.at(pair.at("first").get<std::size_t>());
+                const auto& second = entries.at(pair.at("second").get<std::size_t>());
+                const auto a = first.at("name").get<std::string>();
+                const auto b = second.at("name").get<std::string>();
+                const auto component = pair.at("component").get<std::string>();
+                if (*filter_ && a.find(filter_) == std::string::npos &&
+                    b.find(filter_) == std::string::npos &&
+                    component.find(filter_) == std::string::npos)
+                    continue;
+                ImGui::TableNextRow();
+                ImGui::TableNextColumn();
+                ImGui::TextUnformatted(a.c_str());
+                FORGE_UI_PROBE(std::string("profiler:game:overlap:") + a + ":" + b);
+                ImGui::TableNextColumn();
+                ImGui::TextUnformatted(b.c_str());
+                ImGui::TableNextColumn();
+                ImGui::TextUnformatted(component.c_str());
+                ImGui::TableNextColumn();
+                ImGui::TextUnformatted(pair.at("kind") == "write_write" ? "Write / write"
+                                                                        : "Read / write");
+                ImGui::TableNextColumn();
+                ImGui::TextUnformatted(pair.at("scope") == "same_entity"
+                                           ? "Same fixed entity"
+                                           : "Possible entity overlap");
+            }
+        } else {
+            for (std::size_t i = 0; i < entries.size(); ++i) {
+                const auto& row = entries[i];
+                if (!row.contains("access"))
+                    continue;
+                const auto name = row.at("name").get<std::string>();
+                for (const auto& term : row.at("access").at("terms")) {
+                    const auto component = term.at("name").get<std::string>();
+                    auto source = term.at("source") == "entity"
+                                      ? term.at("source_name").get<std::string>()
+                                      : term.at("source").get<std::string>();
+                    if (term.at("source") != "entity" && term.at("source_id") != 0)
+                        source += " from " + term.at("source_name").get<std::string>();
+                    if (*filter_ && name.find(filter_) == std::string::npos &&
+                        component.find(filter_) == std::string::npos &&
+                        source.find(filter_) == std::string::npos)
+                        continue;
+                    ImGui::TableNextRow();
+                    ImGui::TableNextColumn();
+                    ImGui::Text("%zu", i + 1);
+                    ImGui::TableNextColumn();
+                    ImGui::TextUnformatted(name.c_str());
+                    FORGE_UI_PROBE(std::string("profiler:game:access:") + name + ":" +
+                                   std::to_string(term.at("index").get<unsigned>()));
+                    ImGui::TableNextColumn();
+                    ImGui::TextUnformatted(component.c_str());
+                    ImGui::TableNextColumn();
+                    auto access = term.at("access").get<std::string>();
+                    if (access == "default" && term.at("analysis") == "included")
+                        access += term.at("writes").get<bool>() ? " (R/W)" : " (read)";
+                    ImGui::TextUnformatted(access.c_str());
+                    ImGui::TableNextColumn();
+                    ImGui::TextUnformatted(source.c_str());
+                    if (ImGui::IsItemHovered())
+                        ImGui::SetTooltip("%s", source.c_str());
+                    ImGui::TableNextColumn();
+                    ImGui::TextUnformatted(
+                        term.at("operator").get_ref<const std::string&>().c_str());
+                    ImGui::TableNextColumn();
+                    ImGui::TextUnformatted(term.at("analysis") == "included"  ? "Compared"
+                                           : term.at("analysis") == "ignored" ? "Not compared"
+                                                                              : "Unresolved");
+                }
+            }
+        }
+        ImGui::EndTable();
+    }
     void draw_systems(const nlohmann::json& status) {
         try {
             if (!status.value("available", false)) {
@@ -444,11 +577,15 @@ class CpuProfiler {
                       row.at("cpu_seconds") < 0)))
                     throw std::runtime_error("Invalid native system row");
             }
+            const auto* diagnostics =
+                status.contains("access_diagnostics") ? &status.at("access_diagnostics") : nullptr;
+            detail::validate_native_system_access(entries, diagnostics);
             ImGui::Text("Native plan at tick %llu | %zu / %u entries",
                         static_cast<unsigned long long>(status.at("tick").get<std::uint64_t>()),
                         entries.size(), status.at("total_entries").get<unsigned>());
-            ImGui::TextWrapped("Systems without matches are absent. Merge rows are native "
-                               "synchronization points. This plan is not an execution trace.");
+            ImGui::TextWrapped("Native order; not an execution trace.");
+            help("Systems without matches are absent. Merge rows are native synchronization "
+                 "points; conditional systems need not run on every invocation.");
             if (const auto workers = status.value("ecs_workers", 1u); workers > 1) {
                 ImGui::TextWrapped("%u ECS stages. Per-system lifetime timings are unavailable "
                                    "with workers; whole fixed-tick timings remain available.",
@@ -463,49 +600,76 @@ class CpuProfiler {
             if (status.at("truncated").get<bool>())
                 ImGui::TextWrapped("Showing the first 256 entries; the native plan is larger.");
             ImGui::SetNextItemWidth(-1);
-            ImGui::InputTextWithHint("##System filter", "Filter system or phase...", filter_,
-                                     sizeof(filter_));
+            ImGui::InputTextWithHint("##System filter", "Filter system, phase or component...",
+                                     filter_, sizeof(filter_));
             FORGE_UI_PROBE("profiler:game:system-filter");
-            if (ImGui::BeginTable(
-                    "Native systems", 5,
-                    ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV |
-                        ImGuiTableFlags_ScrollX | ImGuiTableFlags_ScrollY,
-                    {0, std::max(80.f * interface_scale, ImGui::GetContentRegionAvail().y)})) {
-                for (const char* column : {"Order", "System", "Phase", "CPU lifetime ms", "Mode"})
-                    ImGui::TableSetupColumn(column, ImGuiTableColumnFlags_WidthFixed,
-                                            (std::string_view(column) == "System" ? 250.f : 145.f) *
-                                                interface_scale);
-                ImGui::TableSetupScrollFreeze(0, 1);
-                ImGui::TableHeadersRow();
-                for (std::size_t i = 0; i < entries.size(); ++i) {
-                    const auto& row = entries[i];
-                    const bool merge = row.at("kind") == "merge";
-                    const auto name = merge ? "Merge" : row.at("name").get<std::string>();
-                    const auto phase = merge ? "" : row.at("phase").get<std::string>();
-                    if (*filter_ && !merge && name.find(filter_) == std::string::npos &&
-                        phase.find(filter_) == std::string::npos)
-                        continue;
-                    ImGui::TableNextRow();
-                    ImGui::TableNextColumn();
-                    ImGui::Text("%zu", i + 1);
-                    ImGui::TableNextColumn();
-                    ImGui::TextUnformatted(name.c_str());
-                    FORGE_UI_PROBE(std::string("profiler:game:system:") + name);
-                    ImGui::TableNextColumn();
-                    ImGui::TextUnformatted(phase.c_str());
-                    ImGui::TableNextColumn();
-                    if (!merge && !row.at("cpu_seconds").is_null())
-                        ImGui::Text("%.3f", row.at("cpu_seconds").get<double>() * 1000);
-                    else
-                        ImGui::TextUnformatted("--");
-                    ImGui::TableNextColumn();
-                    if (!merge)
-                        ImGui::TextUnformatted(row.at("multi_threaded").get<bool>()
-                                                   ? "Multi-threaded"
-                                               : row.at("immediate").get<bool>() ? "Immediate"
-                                                                                 : "Deferred");
+            if (ImGui::BeginTabBar("Native ECS views")) {
+                const bool plan = ImGui::BeginTabItem("Plan");
+                FORGE_UI_PROBE("profiler:game:plan-tab");
+                if (plan) {
+                    if (ImGui::BeginTable("Native systems", 5,
+                                          ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV |
+                                              ImGuiTableFlags_ScrollX | ImGuiTableFlags_ScrollY,
+                                          {0, std::max(80.f * interface_scale,
+                                                       ImGui::GetContentRegionAvail().y)})) {
+                        for (const char* column :
+                             {"Order", "System", "Phase", "CPU lifetime ms", "Mode"})
+                            ImGui::TableSetupColumn(
+                                column, ImGuiTableColumnFlags_WidthFixed,
+                                (std::string_view(column) == "System" ? 250.f : 145.f) *
+                                    interface_scale);
+                        ImGui::TableSetupScrollFreeze(0, 1);
+                        ImGui::TableHeadersRow();
+                        for (std::size_t i = 0; i < entries.size(); ++i) {
+                            const auto& row = entries[i];
+                            const bool merge = row.at("kind") == "merge";
+                            const auto name = merge ? "Merge" : row.at("name").get<std::string>();
+                            const auto phase = merge ? "" : row.at("phase").get<std::string>();
+                            bool matches = name.find(filter_) != std::string::npos ||
+                                           phase.find(filter_) != std::string::npos;
+                            if (!matches && row.contains("access"))
+                                for (const auto& term : row.at("access").at("terms"))
+                                    matches |= term.at("name").get_ref<const std::string&>().find(
+                                                   filter_) != std::string::npos;
+                            if (*filter_ && !merge && !matches)
+                                continue;
+                            ImGui::TableNextRow();
+                            ImGui::TableNextColumn();
+                            ImGui::Text("%zu", i + 1);
+                            ImGui::TableNextColumn();
+                            ImGui::TextUnformatted(name.c_str());
+                            FORGE_UI_PROBE(std::string("profiler:game:system:") + name);
+                            ImGui::TableNextColumn();
+                            ImGui::TextUnformatted(phase.c_str());
+                            ImGui::TableNextColumn();
+                            if (!merge && !row.at("cpu_seconds").is_null())
+                                ImGui::Text("%.3f", row.at("cpu_seconds").get<double>() * 1000);
+                            else
+                                ImGui::TextUnformatted("--");
+                            ImGui::TableNextColumn();
+                            if (!merge)
+                                ImGui::TextUnformatted(
+                                    row.at("multi_threaded").get<bool>() ? "Multi-threaded"
+                                    : row.at("immediate").get<bool>()    ? "Immediate"
+                                                                         : "Deferred");
+                        }
+                        ImGui::EndTable();
+                    }
+                    ImGui::EndTabItem();
                 }
-                ImGui::EndTable();
+                const bool access = ImGui::BeginTabItem("Declared access");
+                FORGE_UI_PROBE("profiler:game:access-tab");
+                if (access) {
+                    draw_system_access(entries, diagnostics, false);
+                    ImGui::EndTabItem();
+                }
+                const bool overlaps = ImGui::BeginTabItem("Access overlaps");
+                FORGE_UI_PROBE("profiler:game:overlaps-tab");
+                if (overlaps) {
+                    draw_system_access(entries, diagnostics, true);
+                    ImGui::EndTabItem();
+                }
+                ImGui::EndTabBar();
             }
         } catch (const std::exception& error) {
             ImGui::TextWrapped("System data rejected: %s", error.what());

@@ -207,6 +207,49 @@ The pinned native stats count/rebuild fields are not used: the implementation at
 fb55f3c populates its ordered vectors, not those struct summary fields. Native
 stats remain their own authority; FORGE does not invent history or totals.
 
+## Declared native query access
+
+Each copied system row also includes `access`: total_terms, truncated and terms.
+The shared observation copies at most512 terms across256 plan entries,32 per
+system. Term display names use the same bounded UTF-8-safe160-source-byte policy.
+Term indices and native IDs are ephemeral diagnostic handles. No component values
+are copied. The query's public data-field metadata, initialized source references
+and declared access modes supply the observation; inspection never enumerates matching
+entities, iterates a gameplay query or rebuilds the native pipeline.
+
+Each term includes its component/pair ID and name, declared access/operator,
+source kind and optional fixed-source ID/name, potential field reads/writes,
+and analysis classification. Native default owned access permits reads and writes; native
+default fixed-source shared fields remain read only. Traversal may vary by match,
+so its potential write flag is not a claim of concrete writable shared storage.
+No-data output annotations may describe structural changes and remain unresolved.
+The selected native simple-query path does not populate every read summary mask;
+declaration display therefore decodes the documented access modes independently.
+See [the pinned-version registry](flecs-known-issues.md).
+
+`access_diagnostics` reports copied/total/unresolved terms, term truncation and
+possible overlaps. Comparison considers concrete data fields on owned `$this` or
+fixed entity sources in simple AND/optional queries. At least one must write;
+read/read and known distinct fixed entities are excluded. Pair rows reference
+actual earlier/later plan indices and term indices. These are potential shared
+component declarations, not detected races: filters may select disjoint entities,
+optional data may be absent, and native phase/order/merge rules remain authoritative.
+There is no new ordering graph, native scheduling change or ambiguity verdict.
+Repeated declarations for the same system/component/source pair retain one
+representative overlap, with its actual matching term references and access kind;
+the access rows retain all copied terms. No maximum-severity aggregation is claimed.
+
+Complex expressions, wildcards, traversal/variable sources, structural annotations,
+unselected systems and undeclared callback side effects are outside this comparison.
+Sharing among workers within one system is not analyzed by these cross-system pairs.
+Unresolved and omitted terms are not reported safe. At most128 overlap rows and
+8192 same-component candidate comparisons are retained; truncated coverage is
+explicit. The existing plan truncation applies independently. An empty overlap
+list does not establish independence. Collection requests, Clear/Stop, world
+replacement, copied Play status and MCP retain the same owner and epoch rules.
+Older snapshots without access metadata remain readable. Native UI validates all
+optional term/counter/reference bounds before opening its tables.
+
 ## Service and lifecycle
 
 ServiceAccess provides profile_status(), profiling_enabled(), clear_profiles(),

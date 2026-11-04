@@ -42,6 +42,11 @@ def check_runtime_workers_play(read, ok, control, mutate, until, discovery):
         assert ecs['system_trace_scope'] == 'native_stages'
         assert any(row.get('name', '').endswith('ParallelMotionUpdate') and row['multi_threaded']
                    for row in ecs['entries'])
+        motion, = [row for row in ecs['entries'] if row.get('name', '').endswith('ParallelMotionUpdate')]
+        assert motion['access']['terms'][1]['source'] == 'self', motion
+        assert motion['access']['terms'][1]['reads'] and motion['access']['terms'][1]['writes'] and not motion['access']['truncated']
+        assert ecs['access_diagnostics']['copied_terms'] <= 512
+        assert len(ecs['access_diagnostics']['pairs']) <= 128
         exported = read('forge_play_profile_trace')
         assert exported['trace']['otherData']['native_stages'] == [0, 1, 2, 3]
         assert {row['args']['native_stage'] for row in exported['trace']['traceEvents']

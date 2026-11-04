@@ -92,7 +92,10 @@ The installed execution header participates in the exact SDK fingerprint.
 
 The independently authored `ParallelMotion` example declares const data plus an
 owned writable translation, opts into native stages, and uses the iterator's
-entity for deferred `modified`. It has no host-service dependency. Installed SDK
+staged entity for deferred `modified`. Its zero-based `.term_at(1).src().self()` applies
+to the translation source, excluding entities with only inherited translation
+storage. The original source is exercised with private and inherited storage at
+one and four native stages. It has no host-service dependency. Installed SDK
 sample target `parallel_motion_gameplay` builds the same canonical Gallery source.
 
 ## Typed 2D physics

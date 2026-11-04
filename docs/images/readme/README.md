@@ -1894,6 +1894,22 @@ Local capture provenance is in
 This graph-only image does not establish a full editor window, Windows cooked
 Shader, Game/export, hardware DPI or physical GPU acceptance.
 
+## Declared native system access
+
+`manual/images/native-declared-access.png` is the canonical unretouched1240x760
+production Profiler capture. The control fixture replays actual original-SDK
+ParallelMotion runtime measurements and copied native query declarations at four
+stages. The writable translation is owned; its read-only data may traverse.
+Six wide/compact100/150/200% layouts and actual input cover worker summaries,
+Timeline and declared access/overlap tabs. A separate controlled copied-data test
+covers a positive write/read overlap and malformed-reference rejection; it does
+not supply manual images. SDL software rendering supplies the control pixels.
+Exact source/profile/binary/image hashes, process/capture receipts and limits are
+recorded locally in
+`AgentFiles/build/phase252-ecs-access-diagnostics/capture-provenance.json`.
+This is actual measured-data replay in production controls, not a full running
+editor, Windows, physical input/GPU/DPI or performance acceptance capture.
+
 ## Native worker trace tracks
 
 `manual/images/native-worker-traces.png` is the canonical unretouched1240x760

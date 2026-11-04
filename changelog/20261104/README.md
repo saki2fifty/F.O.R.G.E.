@@ -1,5 +1,16 @@
 # 2026-11-04
 
+## Declared native system access
+
+The existing fixed-pipeline observation now copies bounded native query access,
+source and operator metadata. Profiler Plan, Declared access and Access overlaps
+views share the same Play/MCP data. Potential read/write and write/write overlaps
+retain observed native order, with explicit unresolved and truncated coverage;
+they are not race verdicts or a replacement scheduler. ParallelMotion now selects
+its translation source with the correct zero-based term index, requiring owned
+storage. Its canonical source is checked against inherited and private entities
+at one and four stages. Windows/full-editor/physical acceptance remains pending.
+
 ## Native ECS worker trace tracks
 
 Optional native dispatch capture now records runtime-owned worker stages through

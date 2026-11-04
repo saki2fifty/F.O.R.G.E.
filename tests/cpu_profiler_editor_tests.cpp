@@ -288,7 +288,78 @@ void interactions(float scale, ImVec2 display) {
     frame();
     check(!test::ui_targets.contains("profiler:game:system:MissingGameplay"),
           "Malformed native timing was displayed");
+    // Controlled copied-data layout oracle; manual captures use real runtime data.
+    Json declarations = native;
+    Json term{{"index", 0u},
+              {"id", std::uint64_t(201)},
+              {"name", "ProbeValue"},
+              {"access", "write"},
+              {"operator", "and"},
+              {"source", "self"},
+              {"source_id", std::uint64_t(0)},
+              {"source_name", ""},
+              {"data", true},
+              {"reads", false},
+              {"writes", true},
+              {"analysis", "included"}};
+    declarations["entries"][0]["access"] = {
+        {"total_terms", 1}, {"truncated", false}, {"terms", Json::array({term})}};
+    auto reader = declarations["entries"][0];
+    reader["id"] = std::uint64_t(102);
+    reader["name"] = "MissingReadback";
+    reader["access"]["terms"][0]["access"] = "read";
+    reader["access"]["terms"][0]["reads"] = true;
+    reader["access"]["terms"][0]["writes"] = false;
+    declarations["entries"][1] = reader;
+    declarations["access_diagnostics"] =
+        detail::native_system_access_overlaps(declarations["entries"]);
+    detail::validate_native_system_access(declarations["entries"],
+                                          &declarations["access_diagnostics"]);
+    game["ecs"] = declarations;
+    frame();
+    click("profiler:game:access-tab");
+    frame();
+    if (!test::ui_targets.contains("profiler:game:access:MissingGameplay:0")) {
+        // At 960x640/200% the parent panel scrolls; reach its data like a user.
+        io.AddMousePosEvent(30 * scale, 50 * scale);
+        frame();
+        io.AddMouseWheelEvent(0, -8);
+        frame();
+        frame();
+    }
+    if (!test::ui_targets.contains("profiler:game:access:MissingGameplay:0") ||
+        !test::ui_targets.contains("profiler:game:access:MissingReadback:0")) {
+        std::string found;
+        for (const auto& [key, target] : test::ui_targets)
+            if (key.starts_with("profiler:game:"))
+                found += key + "@" + std::to_string(target.minimum.y) + ".." +
+                         std::to_string(target.maximum.y) + " ";
+        auto* window = ImGui::FindWindowByName("Profiler###CpuProfiler");
+        if (window)
+            found += "window=" + std::to_string(window->Size.x) + "," +
+                     std::to_string(window->Size.y) +
+                     " scroll=" + std::to_string(window->Scroll.y) + "/" +
+                     std::to_string(window->ScrollMax.y) +
+                     " cursor=" + std::to_string(window->DC.CursorPos.y) +
+                     " inner=" + std::to_string(window->InnerRect.Max.y);
+        throw std::runtime_error("Declared access rows missing at scale " + std::to_string(scale) +
+                                 " display=" + std::to_string(display.x) + "," +
+                                 std::to_string(display.y) + ": " + found);
+    }
+    click("profiler:game:overlaps-tab");
+    frame();
+    check(test::ui_targets.contains("profiler:game:overlap:MissingGameplay:MissingReadback"),
+          "Positive write/read overlap was absent from native controls");
+    game["ecs"]["access_diagnostics"]["pairs"][0]["second"] = 9999;
+    frame();
+    check(!test::ui_targets.contains("profiler:game:access-tab"),
+          "Invalid overlap reached a native table");
     game["ecs"] = native;
+    frame();
+    io.AddMousePosEvent(30 * scale, 50 * scale);
+    frame();
+    io.AddMouseWheelEvent(0, 8);
+    frame();
     frame();
     click("profiler:game:clear");
     check(!game["ecs"]["available"].get<bool>() && requested_enabled && requested_clear,

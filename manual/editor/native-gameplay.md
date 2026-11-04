@@ -81,6 +81,9 @@ The camera and light are ready for Play.
 7. Compare with a saved setting of 1 after restarting Play. Cube motion should match. Sixteen cubes are a small demonstration, not a speed benchmark.
 
 The example declares read-only component data and a writable, owned translation.
+Its `.term_at(1).src().self()` restricts the second query field to the entity's
+own translation; term indices start at zero. An entity that only inherits a
+translation does not match this system. Give it its own translation to move it.
 Only its explicit `multi_threaded()` system is distributed. Its modification
 notification uses the iterator's staged entity and publishes at the native merge.
 Do not call owner-thread services, manipulate the root world, change shared

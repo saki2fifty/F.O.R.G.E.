@@ -30,7 +30,8 @@ void forge_register_system_ParallelMotion(const ForgeSdkWorldV1* host) {
     world.component<forge::LocalTranslation>("forge.local_translation");
     world.system<const ParallelMotion, forge::LocalTranslation>("gameplay.ParallelMotionUpdate")
         .kind(host->fixed_phase)
-        .term_at(2)
+        .term_at(1)
+        .src()
         .self()
         .multi_threaded()
         .each([](flecs::iter& it, std::size_t row, const ParallelMotion& motion,

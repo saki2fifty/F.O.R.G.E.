@@ -659,7 +659,10 @@ struct PlayAutomation {
             "Poll play.profile; Clear discards its plan, not Flecs lifetime counters. With "
             "multiple fixed ECS workers, per-system CPU totals are unavailable (null) and "
             "system_trace_scope identifies supported native stage or owner-only capture; "
-            "fixed-tick scope timing remains. Trace records identify actually observed stages.",
+            "fixed-tick scope timing remains. Trace records identify actually observed stages. "
+            "The copied plan includes bounded declared query access and possible component "
+            "overlaps in native order, with unresolved/truncated coverage. These are not "
+            "measured races or complete ambiguity analysis.",
             "play.execute", automation_object(properties(), required()), true,
             [&files, &play, providers](const Json& request) {
                 current(play, files, providers, request);

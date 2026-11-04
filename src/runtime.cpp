@@ -1,11 +1,10 @@
 #include "animation_component_values.hpp"
 #include "flecs_system_trace.hpp"
 #include "input_message_runtime.hpp"
-#include "json_output_text.hpp"
+#include "native_system_access.hpp"
 #include "particle_runtime.hpp"
 #include "runtime_entity_creation.hpp"
 #include "runtime_tile_map.hpp"
-#include "utf8_boundary.hpp"
 #include <algorithm>
 #include <cmath>
 #include <forge/application_states.hpp>
@@ -493,13 +492,9 @@ void RuntimeSimulation::capture_system_profile() {
         const auto* systems = ecs_vec_first_t(&stats.value.systems, ecs_entity_t);
         Json rows = Json::array();
         const auto name = [&world](ecs_entity_t id) {
-            std::string text = id ? world.entity(id).path().c_str() : "";
-            if (text.size() > 160) {
-                text.resize(detail::utf8_range_end(text, 0, 157));
-                text += "...";
-            }
-            return detail::json_output_text(text);
+            return detail::native_system_display_name(world, id);
         };
+        std::size_t access_remaining = detail::native_access_term_capacity;
         for (int i = 0; i < std::min(count, limit); ++i) {
             const auto id = systems[i];
             if (!id) {
@@ -510,16 +505,18 @@ void RuntimeSimulation::capture_system_profile() {
             if (!system)
                 throw std::runtime_error("Native pipeline contains an unavailable system");
             const double seconds = system->time_spent;
-            rows.push_back({{"kind", "system"},
-                            {"id", id},
-                            {"name", name(id)},
-                            {"phase", name(ecs_get_target(world, id, EcsDependsOn, 0))},
-                            {"cpu_seconds", !system_timing_suppressed_ && ecs_os_has_time() &&
-                                                    std::isfinite(seconds) && seconds >= 0
-                                                ? Json(seconds)
-                                                : Json(nullptr)},
-                            {"immediate", system->immediate},
-                            {"multi_threaded", system->multi_threaded}});
+            rows.push_back(
+                {{"kind", "system"},
+                 {"id", id},
+                 {"name", name(id)},
+                 {"phase", name(ecs_get_target(world, id, EcsDependsOn, 0))},
+                 {"cpu_seconds", !system_timing_suppressed_ && ecs_os_has_time() &&
+                                         std::isfinite(seconds) && seconds >= 0
+                                     ? Json(seconds)
+                                     : Json(nullptr)},
+                 {"immediate", system->immediate},
+                 {"multi_threaded", system->multi_threaded},
+                 {"access", detail::native_system_access(world, system->query, access_remaining)}});
         }
         system_profile_ = {{"available", true},
                            {"tick", input_tick_},
@@ -527,6 +524,7 @@ void RuntimeSimulation::capture_system_profile() {
                            {"capacity", limit},
                            {"total_entries", count},
                            {"truncated", count > limit},
+                           {"access_diagnostics", detail::native_system_access_overlaps(rows)},
                            {"entries", std::move(rows)}};
         if (context_.world().get_threads() > 1) {
             system_profile_["ecs_workers"] = context_.world().get_threads();

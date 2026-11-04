@@ -101,7 +101,7 @@ capture. Pause without Step does not run another fixed tick.
 1. Start Play and open **Window → Profiler → Play runtime → ECS systems**.
 2. Click **Start collection**. Run the game, or use Step while paused, to populate the table.
 3. Read **Order**, **System** and **Phase** to inspect the native fixed-pipeline plan. **Merge** marks a Flecs synchronization point. Systems with no matching entities are absent.
-4. Use **Filter system or phase...** to find a system. Order numbers keep their original positions when filtering; merge rows remain visible.
+4. Use **Filter system, phase or component...** to find a system. Order numbers keep their original positions when filtering; merge rows remain visible.
 5. Stop collection to retain the view. **Clear samples** discards it; another collected fixed tick can populate it again.
 
 **CPU lifetime ms** is the native system's cumulative CPU wall time since that system
@@ -125,6 +125,39 @@ matches. It is not a log of every invocation or a thread timeline. Large plans
 show their first 256 entries with a truncation notice; long names end with `...`.
 Collection adds overhead. The authoring world's separate ECS inspection window
 does not execute gameplay to produce these observations.
+
+## Review declared component access
+
+1. Open **Window → Profiler → Play runtime → ECS systems**. Start collection and run or Step a fixed tick, then stop collection to retain the view.
+2. Choose **Declared access**. Filter by a system or component name to read its declared fields, access mode, source and query operator.
+3. Use **Plan** to locate the system's current native order and phase. **Default (R/W)** permits changes to owned data; a default shared field is read only. **Compared** means this field participates in the limited overlap check.
+4. Choose **Access overlaps** to review possible read/write or write/write sharing between earlier and later systems. Check your C++ declarations and phase choices when their relative order matters.
+
+![Profiler showing the actual ParallelMotion query's read-only data and owned writable translation](../images/native-declared-access.png)
+
+These are query declarations, not measurements of every memory access. Overlap
+rows do not prove a race: filters can select different entities, optional data
+can be absent, and systems still run in the displayed native order. The view does
+not reorder systems or edit code.
+
+**Unresolved** fields need separate review. Traversal, variable sources, wildcard
+or complex expressions and no-data output annotations are outside the comparison.
+A source that traverses from a fixed entity retains that starting entity's name;
+hover the Source cell to read it. Callback side effects that were never declared
+are outside this observation.
+The comparison covers different systems; it does not analyze sharing among the
+worker callbacks of a single system.
+
+In a short window, scroll the Profiler panel to reach its data. Use the table's
+horizontal scrollbar to reach the remaining columns. Repeated declarations for
+the same system/component/source pair share a representative overlap row; the
+Declared access tab retains the individual copied terms.
+
+The view copies at most 512 terms, 32 per system, and retains up to 128 overlap
+rows with an 8192-comparison limit. A partial-observation notice identifies omitted
+coverage. An empty list cannot establish independent access. The Plan's separate
+256-entry limit still applies. Clear discards these observations with the other
+collected system data; stopping Play or replacing the world requires fresh data.
 
 ## Compare a repeatable CPU workload
 

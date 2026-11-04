@@ -26,6 +26,7 @@ void exercise(const Json& captured, float scale, bool compact,
     ui::CpuProfiler profiler;
     Telemetry telemetry;
     bool open = true;
+    Json shown = captured;
     const auto frame = [&] {
         test::ui_targets.clear();
         capture.new_frame();
@@ -33,7 +34,7 @@ void exercise(const Json& captured, float scale, bool compact,
         if (auto* window = ImGui::FindWindowByName("Profiler###CpuProfiler"))
             ImGui::SetWindowSize(window, {float(width), float(height)}, ImGuiCond_Always);
         (void)profiler.draw(
-            open, editor.access(), telemetry, captured, true, false, "",
+            open, editor.access(), telemetry, shown, true, false, "",
             [](bool, bool) { return false; }, Json::object(), {}, [](bool) { return false; });
         capture.render();
     };
@@ -61,6 +62,37 @@ void exercise(const Json& captured, float scale, bool compact,
         std::filesystem::create_directories(output);
         capture.save(output / "native-worker-traces.png");
     }
+    input.click("profiler:game:systems-tab");
+    input.click("profiler:game:access-tab");
+    std::string system;
+    for (const auto& row : captured.at("ecs").at("entries"))
+        if (row.value("name", "").ends_with("ParallelMotionUpdate"))
+            system = row.at("name").get<std::string>();
+    check(!system.empty() && test::ui_targets.contains("profiler:game:access:" + system + ":1"),
+          "Declared access view omitted actual SDK translation access");
+    if (!compact && scale == 1 && !output.empty())
+        capture.save(output / "native-declared-access.png");
+    input.type("profiler:game:system-filter", "local_translation");
+    input.click("profiler:game:plan-tab");
+    check(test::ui_targets.contains("profiler:game:system:" + system),
+          "Component-name filtering omitted the actual SDK system from Plan");
+    input.type("profiler:game:system-filter", "ParallelMotion");
+    input.click("profiler:game:overlaps-tab");
+    for (const auto& pair : captured.at("ecs").at("access_diagnostics").at("pairs")) {
+        const auto& entries = captured.at("ecs").at("entries");
+        const auto a =
+            entries.at(pair.at("first").get<std::size_t>()).at("name").get<std::string>();
+        const auto b =
+            entries.at(pair.at("second").get<std::size_t>()).at("name").get<std::string>();
+        if (a.find("ParallelMotion") != std::string::npos ||
+            b.find("ParallelMotion") != std::string::npos)
+            check(test::ui_targets.contains("profiler:game:overlap:" + a + ":" + b),
+                  "Overlap view omitted a matching actual native declaration pair");
+    }
+    shown["ecs"]["access_diagnostics"]["copied_terms"] = 513;
+    frame();
+    check(!test::ui_targets.contains("profiler:game:access-tab"),
+          "Malformed native access metadata reached an unfinished native table");
     test::observe_ui = false;
 }
 } // namespace
@@ -78,7 +110,8 @@ int main(int argc, char** argv) {
         for (float scale : {1.f, 1.5f, 2.f})
             for (bool compact : {false, true})
                 exercise(profile, scale, compact, argc == 3 ? argv[2] : "");
-        std::cout << "Production worker summary/Timeline from actual SDK measurements passed six "
+        std::cout << "Production worker summary/Timeline/access views from actual SDK measurements "
+                     "passed six "
                      "layouts\n";
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';
