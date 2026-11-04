@@ -128,9 +128,10 @@ concurrency finding, without a separate ThreadSanitizer capture.
 RuntimeSimulation suppresses native per-system measurement while worker stages
 can run, restores the previous flag on retirement, and reports unavailable
 per-system times rather than partial totals. Whole fixed-tick host scopes remain
-valid. The existing native trace adapter uses a thread-local capture and records
-the owner stage only. Pipeline plan/merge metadata remains native-owned. No
-dependency patch, replacement counters or alternate scheduler is introduced.
+valid. Independent bounded native dispatch capture can observe supported caller
+and worker stages without enabling that native accumulated counter. Pipeline
+plan/merge metadata remains native-owned. No dependency patch, replacement
+lifetime counters or alternate scheduler is introduced.
 Default single-stage native timing remains enabled as before. Keep the limitation
 explicit in Profiler/UI/API documentation and test worker-mode flag suppression,
 owner-stage execution and restoration before enabling the configuration in hosts.

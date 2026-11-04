@@ -12,20 +12,22 @@ struct CpuProfileRow {
     std::size_t count = 0;
     double total = 0, maximum = 0, latest = 0;
     std::uint64_t tick = 0;
+    unsigned native_stage = 0;
 };
 inline std::vector<CpuProfileRow> summarize_cpu_profiles(const nlohmann::json& samples,
                                                          bool gpu = false) {
     if (!samples.is_array() || samples.size() > profile_record_capacity)
         throw std::runtime_error("CPU profile snapshot exceeds its record bound");
-    std::map<std::pair<std::string, std::string>, CpuProfileRow> groups;
+    std::map<std::tuple<std::string, std::string, unsigned>, CpuProfileRow> groups;
     for (const auto& sample : samples) {
         const auto value = profile_record_value(sample, gpu);
         const auto& category = value.category;
         const auto& name = value.name;
         const auto seconds = value.seconds;
-        auto& row = groups[{category, name}];
+        auto& row = groups[{category, name, value.native_stage}];
         row.category = category;
         row.name = name;
+        row.native_stage = value.native_stage;
         ++row.count;
         row.total += seconds;
         row.maximum = std::max(row.maximum, seconds);
@@ -38,7 +40,8 @@ inline std::vector<CpuProfileRow> summarize_cpu_profiles(const nlohmann::json& s
     std::sort(result.begin(), result.end(), [](const auto& a, const auto& b) {
         if (a.total != b.total)
             return a.total > b.total;
-        return std::tie(a.category, a.name) < std::tie(b.category, b.name);
+        return std::tie(a.category, a.name, a.native_stage) <
+               std::tie(b.category, b.name, b.native_stage);
     });
     return result;
 }
@@ -216,13 +219,14 @@ class CpuProfiler {
             FORGE_UI_PROBE("profiler:game:native-systems");
             ImGui::EndDisabled();
             help("With collection on, retain actual inclusive native ECS dispatch intervals "
-                 "from this owner thread, up to depth64. This adds overhead and shares "
-                 "the512-record history. "
-                 "It does not measure worker utilization or native lifetime totals.");
+                 "on the caller and supported native worker stages, up to depth64. This "
+                 "adds overhead and shares the512-record history. Native stage labels "
+                 "identify measured dispatches, not OS IDs or hardware CPU utilization. "
+                 "Custom clocks and external worker configurations retain owner-only capture.");
             if (!supported)
                 ImGui::TextWrapped("Native system tracing is unavailable in this Play host.");
             if (const auto dropped = status.value("native_systems_dropped", std::uint64_t{}))
-                ImGui::TextWrapped("Skipped dispatches beyond depth64: %llu",
+                ImGui::TextWrapped("Skipped native dispatches (depth/buffer limits): %llu",
                                    static_cast<unsigned long long>(dropped));
         }
         if (!gpu) {
@@ -230,7 +234,8 @@ class CpuProfiler {
             ImGui::Checkbox("Timeline", &timeline);
             FORGE_UI_PROBE(std::string("profiler:") + owner + ":timeline");
             help("Measured CPU intervals only. Duration-only SDK/explicit records remain in "
-                 "the summary. Layout rows do not measure worker concurrency.");
+                 "the summary. Native stages identify measured threads; logical overlap "
+                 "lanes within a stage are layout only.");
             if (timeline) {
                 try {
                     draw_timeline(owner, status);
@@ -243,13 +248,15 @@ class CpuProfiler {
         }
         try {
             const auto rows = summarize_cpu_profiles(status.at("samples"), gpu);
+            const bool stages = std::any_of(rows.begin(), rows.end(),
+                                            [](const auto& row) { return row.native_stage != 0; });
             ImGui::Text("Recent records: %zu / 512 | Scope groups: %zu",
                         status.at("samples").size(), rows.size());
             if (rows.empty())
                 ImGui::TextWrapped("Start collection, then use the editor or run the game. "
                                    "Clear starts a fresh observation window.");
             if (ImGui::BeginTable(
-                    "CPU scopes", 7,
+                    "CPU scopes", stages ? 8 : 7,
                     ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV |
                         ImGuiTableFlags_ScrollX | ImGuiTableFlags_ScrollY,
                     {0, std::max(80.f * interface_scale, ImGui::GetContentRegionAvail().y)})) {
@@ -258,6 +265,9 @@ class CpuProfiler {
                     ImGui::TableSetupColumn(column, ImGuiTableColumnFlags_WidthFixed,
                                             (std::string(column) == "Scope" ? 220.f : 105.f) *
                                                 interface_scale);
+                if (stages)
+                    ImGui::TableSetupColumn("Stage", ImGuiTableColumnFlags_WidthFixed,
+                                            105.f * interface_scale);
                 ImGui::TableSetupScrollFreeze(0, 1);
                 ImGui::TableHeadersRow();
                 for (const auto& row : rows) {
@@ -269,7 +279,9 @@ class CpuProfiler {
                     ImGui::TextUnformatted(row.category.c_str());
                     ImGui::TableNextColumn();
                     ImGui::TextUnformatted(row.name.c_str());
-                    FORGE_UI_PROBE(std::string("profiler:") + owner + ":row:" + row.name);
+                    FORGE_UI_PROBE(
+                        std::string("profiler:") + owner + ":row:" + row.name +
+                        (row.native_stage ? ":stage:" + std::to_string(row.native_stage) : ""));
                     ImGui::TableNextColumn();
                     ImGui::Text("%zu", row.count);
                     ImGui::TableNextColumn();
@@ -280,6 +292,13 @@ class CpuProfiler {
                     ImGui::Text("%.3f", row.latest * 1000);
                     ImGui::TableNextColumn();
                     ImGui::Text("%llu", static_cast<unsigned long long>(row.tick));
+                    if (stages) {
+                        ImGui::TableNextColumn();
+                        if (row.native_stage)
+                            ImGui::Text("Worker %u", row.native_stage);
+                        else
+                            ImGui::TextUnformatted("Owner");
+                    }
                 }
                 ImGui::EndTable();
             }
@@ -290,8 +309,9 @@ class CpuProfiler {
     }
     void draw_timeline(const char* owner, const nlohmann::json& status) {
         const auto timeline = cpu_scope_timeline(status.at("samples"));
-        ImGui::TextWrapped("Owner thread | Measured intervals: %zu | Duration-only records: %zu",
-                           timeline.spans.size(), timeline.duration_only);
+        ImGui::TextWrapped("Measured threads: %zu | Intervals: %zu | Duration-only records: %zu",
+                           timeline.measured_threads, timeline.spans.size(),
+                           timeline.duration_only);
         ImGui::Text("Retained window: %.3f ms", timeline.seconds * 1000);
         ImGui::BeginDisabled(timeline.spans.empty());
         if (ImGui::Button("Copy trace JSON")) {
@@ -309,8 +329,9 @@ class CpuProfiler {
         FORGE_UI_PROBE(std::string("profiler:") + owner + ":trace-copy");
         ImGui::EndDisabled();
         help("Copies all retained measured CPU spans as Trace Event JSON, including capture "
-             "date/time and UTC offset. Filter changes this view only. Logical overlap "
-             "lanes are not additional measured threads. Editor/runtime clocks are separate.");
+             "date/time and UTC offset. Filter changes this view only. Native ECS stage "
+             "tracks identify measured workers; overlap lanes stay within each stage. "
+             "Editor/runtime clocks are separate; stage IDs are not OS IDs.");
         if (timeline.spans.empty()) {
             ImGui::TextWrapped("Collect completed host scopes or render frames to see intervals. "
                                "A duration without its measured start cannot be placed here.");
@@ -322,7 +343,7 @@ class CpuProfiler {
                 span.name.find(filter_) != std::string::npos)
                 visible.push_back(&span);
         if (!ImGui::BeginTable(
-                "Measured CPU intervals", 4,
+                "Measured CPU intervals", timeline.native_workers ? 5 : 4,
                 ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_ScrollY |
                     ImGuiTableFlags_ScrollX,
                 {0, std::max(80.f * interface_scale, ImGui::GetContentRegionAvail().y)}))
@@ -333,6 +354,9 @@ class CpuProfiler {
         ImGui::TableSetupColumn("Duration ms", ImGuiTableColumnFlags_WidthFixed,
                                 110 * interface_scale);
         ImGui::TableSetupColumn("Interval", ImGuiTableColumnFlags_WidthStretch);
+        if (timeline.native_workers)
+            ImGui::TableSetupColumn("Stage", ImGuiTableColumnFlags_WidthFixed,
+                                    100 * interface_scale);
         ImGui::TableSetupScrollFreeze(0, 1);
         ImGui::TableHeadersRow();
         ImGuiListClipper clipper;
@@ -345,7 +369,9 @@ class CpuProfiler {
                 ImGui::TableNextRow();
                 ImGui::TableNextColumn();
                 ImGui::TextUnformatted((span.category + " / " + span.name).c_str());
-                FORGE_UI_PROBE(std::string("profiler:") + owner + ":span:" + span.name);
+                FORGE_UI_PROBE(
+                    std::string("profiler:") + owner + ":span:" + span.name +
+                    (span.native_stage ? ":stage:" + std::to_string(span.native_stage) : ""));
                 ImGui::TableNextColumn();
                 ImGui::Text("%.3f", span.start * 1000);
                 ImGui::TableNextColumn();
@@ -377,6 +403,13 @@ class CpuProfiler {
                                 static_cast<unsigned long long>(span.tick),
                                 static_cast<unsigned long long>(span.sequence));
                     ImGui::EndTooltip();
+                }
+                if (timeline.native_workers) {
+                    ImGui::TableNextColumn();
+                    if (span.native_stage)
+                        ImGui::Text("Worker %u", span.native_stage);
+                    else
+                        ImGui::TextUnformatted("Owner");
                 }
                 ImGui::PopID();
             }
@@ -416,11 +449,17 @@ class CpuProfiler {
                         entries.size(), status.at("total_entries").get<unsigned>());
             ImGui::TextWrapped("Systems without matches are absent. Merge rows are native "
                                "synchronization points. This plan is not an execution trace.");
-            if (const auto workers = status.value("ecs_workers", 1u); workers > 1)
+            if (const auto workers = status.value("ecs_workers", 1u); workers > 1) {
                 ImGui::TextWrapped("%u ECS stages. Per-system lifetime timings are unavailable "
-                                   "with workers. System trace scopes cover the owner thread; "
-                                   "whole fixed-tick timings remain available.",
+                                   "with workers; whole fixed-tick timings remain available.",
                                    workers);
+                ImGui::TextWrapped("%s", status.value("system_trace_scope", "owner_thread") ==
+                                                 "native_stages"
+                                             ? "Native dispatch capture supports caller and worker "
+                                               "stages. Enable Trace ECS systems in CPU scopes."
+                                             : "Native dispatch capture covers the owner thread "
+                                               "only in this configuration.");
+            }
             if (status.at("truncated").get<bool>())
                 ImGui::TextWrapped("Showing the first 256 entries; the native plan is larger.");
             ImGui::SetNextItemWidth(-1);

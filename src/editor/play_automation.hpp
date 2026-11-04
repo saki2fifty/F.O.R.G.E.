@@ -176,8 +176,9 @@ struct PlayAutomation {
             "Read up to128 measured CPU scopes per page from the cached Play profile as "
             "Trace Event JSON. Refresh after collection. Reuse the returned profile_state "
             "for subsequent pages; changed snapshots reject it. Duration-only SDK/GPU/native "
-            "lifetime records are not given invented timestamps. Logical overlap lanes are "
-            "one owner thread, not measured workers. Editor-wide traces remain in its UI.",
+            "lifetime records are not given invented timestamps. Admitted native worker "
+            "records retain stage identity; overlap lanes stay within their stage. Native "
+            "stage/track IDs are not OS thread IDs. Editor-wide traces remain in its UI.",
             "play.read",
             automation_object({{"offset", automation_integer(0, 512)},
                                {"limit", automation_integer(1, 128)},
@@ -628,8 +629,10 @@ struct PlayAutomation {
             "play.profile.control",
             "Control the existing runtime CPU collection. Read a fresh "
             "snapshot with play.profile.refresh after it is acknowledged. Optional "
-            "native_systems captures actual owner-thread native ECS dispatch scopes; "
-            "it is not measured worker utilization or native lifetime totals.",
+            "native_systems captures actual native dispatch intervals on the caller and "
+            "supported worker stages. Custom clocks/external worker configurations retain "
+            "owner-only capture. This is wall-time observation, not hardware CPU utilization "
+            "or native lifetime totals.",
             "play.execute", automation_object(profile_properties, profile_required), true,
             [&files, &play, providers](const Json& request) {
                 current(play, files, providers, request);
@@ -655,7 +658,8 @@ struct PlayAutomation {
             "watch settings. Start collection and advance a fixed tick for ECS data. "
             "Poll play.profile; Clear discards its plan, not Flecs lifetime counters. With "
             "multiple fixed ECS workers, per-system CPU totals are unavailable (null) and "
-            "native system traces cover the owner thread only; fixed-tick scope timing remains.",
+            "system_trace_scope identifies supported native stage or owner-only capture; "
+            "fixed-tick scope timing remains. Trace records identify actually observed stages.",
             "play.execute", automation_object(properties(), required()), true,
             [&files, &play, providers](const Json& request) {
                 current(play, files, providers, request);

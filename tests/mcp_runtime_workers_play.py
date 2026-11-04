@@ -28,7 +28,9 @@ def check_runtime_workers_play(read, ok, control, mutate, until, discovery):
         control('forge_play_pause')
         paused = until(lambda: read('forge_play_status'), lambda row: row['paused'] and row['control_ready'])
         start = position()
-        control('forge_play_profile_control', enabled=True, clear=True)
+        control('forge_play_profile_refresh')
+        until(lambda: read('forge_play_profile')['value'], lambda row: row.get('native_systems_available'))
+        control('forge_play_profile_control', enabled=True, clear=True, native_systems=True)
         control('forge_play_step')
         until(lambda: read('forge_play_status'), lambda row: row['control_ready'] and
               row['timing']['tick'] == paused['timing']['tick'] + 1)
@@ -37,9 +39,13 @@ def check_runtime_workers_play(read, ok, control, mutate, until, discovery):
         profile = until(lambda: read('forge_play_profile')['value'], lambda row: row.get('ecs', {}).get('available'))
         ecs = profile['ecs']
         assert ecs['ecs_workers'] == 4 and not ecs['native_system_timing']
-        assert ecs['system_trace_scope'] == 'owner_thread'
+        assert ecs['system_trace_scope'] == 'native_stages'
         assert any(row.get('name', '').endswith('ParallelMotionUpdate') and row['multi_threaded']
                    for row in ecs['entries'])
+        exported = read('forge_play_profile_trace')
+        assert exported['trace']['otherData']['native_stages'] == [0, 1, 2, 3]
+        assert {row['args']['native_stage'] for row in exported['trace']['traceEvents']
+                if row['ph'] == 'X'} == {0, 1, 2, 3}
         scope = read('forge_play_status')
         failed(mutate('forge_play_tune', launch=scope['launch'], session=scope['session'],
                       generation=scope['generation'] + 1, entity=actor,

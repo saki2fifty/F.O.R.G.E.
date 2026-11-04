@@ -54,6 +54,8 @@ std::vector<std::string> module_order(const std::vector<ModuleRequirement>& modu
                                       unsigned available);
 namespace detail {
 struct ServiceState;
+class NativeSystemTraceCapture;
+class NativeWorkerTraceDomain;
 template <class T> struct ServiceSlot {
     std::weak_ptr<T> service;
 };
@@ -124,6 +126,11 @@ class ServiceAccess {
 
   private:
     friend class EngineServices;
+    friend class detail::NativeSystemTraceCapture;
+    friend class detail::NativeWorkerTraceDomain;
+    bool native_profile_clock_compatible() const;
+    void record_native_profile_span(std::uint64_t epoch, unsigned stage, const std::string& name,
+                                    double start_seconds, double seconds, std::uint64_t tick) const;
     std::weak_ptr<detail::ServiceState> state_;
     unsigned allowed_ = 0;
     template <class T>

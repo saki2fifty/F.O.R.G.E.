@@ -12,7 +12,7 @@ import uuid
 from runtime_client import Runtime, activate
 
 
-def verify(runtime, module, gallery):
+def verify(runtime, module, gallery, capture=None):
     runtime, module, gallery = map(lambda value: Path(value).resolve(), (runtime, module, gallery))
     fingerprint = json.loads(subprocess.check_output([runtime, '--sdk-info'], text=True))['fingerprint']
     defaults = json.loads((gallery / 'forge.project.json').read_text())['game']
@@ -87,9 +87,17 @@ def verify(runtime, module, gallery):
                         assert any(row.get('name', '').endswith('ParallelMotionUpdate') and
                                    row['multi_threaded'] for row in plan['entries'])
                         if count > 1:
-                            assert not plan['native_system_timing'] and plan['system_trace_scope'] == 'owner_thread'
+                            assert not plan['native_system_timing'] and plan['system_trace_scope'] == 'native_stages'
                             assert all(row['cpu_seconds'] is None for row in plan['entries']
                                        if row['kind'] == 'system')
+                            spans = result['cpu_profile']['samples']
+                            assert {row['native_stage'] for row in spans if 'native_stage' in row} == {1, 2, 3}
+                            assert all(row['category'] == 'ecs.system' and row['start_seconds'] >= 0
+                                       for row in spans if 'native_stage' in row)
+                            if sdk and capture:
+                                output = Path(capture).resolve()
+                                output.parent.mkdir(parents=True, exist_ok=True)
+                                output.write_text(json.dumps(result['cpu_profile'], indent=2))
                     if not sdk:
                         recovery = result['recovery']
                         assert recovery and recovery.get('ecs_workers', 1) == count
@@ -108,6 +116,11 @@ def verify(runtime, module, gallery):
                             assert time.monotonic() < deadline
                             replacement = worker.request('snapshot', profile_watch=True)
                         assert replacement['cpu_profile']['ecs'].get('ecs_workers', 1) == count
+                        if count > 1:
+                            assert {row['native_stage'] for row in replacement['cpu_profile']['samples']
+                                    if 'native_stage' in row} == {1, 2, 3}
+                            assert all(row['tick'] == 1 for row in replacement['cpu_profile']['samples']
+                                       if 'native_stage' in row), 'Replacement leaked an older world capture'
                     worker.request('quit')
                     assert worker.process.wait(timeout=10) == 0
                     assert hashlib.sha256(saved.read_bytes()).hexdigest() == original_hash
@@ -137,4 +150,4 @@ def verify(runtime, module, gallery):
 
 
 if __name__ == '__main__':
-    verify(*sys.argv[1:4])
+    verify(*sys.argv[1:])

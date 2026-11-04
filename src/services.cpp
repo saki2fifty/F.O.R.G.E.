@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <deque>
+#include <forge/runtime_execution.hpp>
 #include <forge/services.hpp>
 #include <limits>
 #include <set>
@@ -13,13 +14,15 @@ namespace detail {
 struct ServiceState {
     std::thread::id owner = std::this_thread::get_id();
     bool alive = true, profiling = false, profiling_systems = false;
+    bool default_profile_clock = true;
     EngineServices::Now now;
     std::deque<Json> diagnostics, profiles;
     std::uint64_t diagnostic_sequence = 0;
     std::uint64_t profile_generation = 0, profile_sequence = 0, profile_epoch = 0;
     std::uint64_t system_profile_drops = 0;
     void append_profile(const std::string& category, const std::string& name, double seconds,
-                        std::uint64_t tick, bool gpu = false, std::optional<double> start = {}) {
+                        std::uint64_t tick, bool gpu = false, std::optional<double> start = {},
+                        unsigned native_stage = 0) {
         Json sample{{"category", category},         {"name", name},
                     {"seconds", seconds},           {"count", 1},
                     {gpu ? "frame" : "tick", tick}, {"sequence", profile_sequence + 1}};
@@ -27,6 +30,8 @@ struct ServiceState {
             sample["clock"] = "gpu";
         else if (start)
             sample["start_seconds"] = *start;
+        if (native_stage)
+            sample["native_stage"] = native_stage;
         profiles.push_back(std::move(sample));
         if (profiles.size() > profile_record_capacity)
             profiles.pop_front();
@@ -77,6 +82,7 @@ Json diagnostic_json(const Diagnostic& d) {
 EngineServices::EngineServices(bool profiling, Now now)
     : state_(std::make_shared<detail::ServiceState>()) {
     state_->profiling = profiling;
+    state_->default_profile_clock = !now;
     state_->now = now ? std::move(now) : [] {
         return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch())
             .count();
@@ -335,18 +341,48 @@ void ServiceAccess::record_profile(const std::string& category, const std::strin
     state->append_profile(category, name, seconds, tick);
 #endif
 }
-void ServiceAccess::record_profile_span(const std::string& category, const std::string& name,
-                                        double start_seconds, double seconds,
-                                        std::uint64_t tick) const {
-    require(Capability::Profiling);
+namespace {
+void validate_profile_interval(const std::string& category, const std::string& name,
+                               double start_seconds, double seconds) {
     if (category.empty() || category.size() > 128 || name.empty() || name.size() > 128 ||
         !std::isfinite(start_seconds) || !std::isfinite(seconds) || seconds < 0 || seconds > 3600 ||
         !std::isfinite(start_seconds + seconds))
         throw std::runtime_error("Invalid CPU profile interval");
+}
+} // namespace
+void ServiceAccess::record_profile_span(const std::string& category, const std::string& name,
+                                        double start_seconds, double seconds,
+                                        std::uint64_t tick) const {
+    require(Capability::Profiling);
+    validate_profile_interval(category, name, start_seconds, seconds);
 #ifndef FORGE_DISABLE_PROFILING
     const auto state = state_.lock();
     if (state->profiling)
         state->append_profile(category, name, seconds, tick, false, start_seconds);
+#endif
+}
+bool ServiceAccess::native_profile_clock_compatible() const {
+    require(Capability::Profiling);
+#ifndef FORGE_DISABLE_PROFILING
+    return state_.lock()->default_profile_clock;
+#else
+    return false;
+#endif
+}
+void ServiceAccess::record_native_profile_span(std::uint64_t epoch, unsigned stage,
+                                               const std::string& name, double start_seconds,
+                                               double seconds, std::uint64_t tick) const {
+    require(Capability::Profiling);
+    validate_profile_interval("ecs.system", name, start_seconds, seconds);
+    if (!stage || stage >= runtime_ecs_worker_limit)
+        throw std::runtime_error("Invalid native profile stage");
+#ifndef FORGE_DISABLE_PROFILING
+    const auto state = state_.lock();
+    if (state->profiling && state->default_profile_clock && state->profile_epoch == epoch)
+        state->append_profile("ecs.system", name, seconds, tick, false, start_seconds, stage);
+#else
+    (void)epoch;
+    (void)tick;
 #endif
 }
 ProfileScope ServiceAccess::profile(const char* category, const char* name,

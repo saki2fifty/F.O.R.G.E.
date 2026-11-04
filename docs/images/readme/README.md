@@ -1894,6 +1894,21 @@ Local capture provenance is in
 This graph-only image does not establish a full editor window, Windows cooked
 Shader, Game/export, hardware DPI or physical GPU acceptance.
 
+## Native worker trace tracks
+
+`manual/images/native-worker-traces.png` is the canonical unretouched1240x760
+production Profiler control capture, personally viewed. The runtime process runs
+the original SDK ParallelMotion with four native stages, records real measured
+intervals, and the UI fixture replays that immutable status. Its Stage column
+shows caller/worker attribution; this is not a fabricated data set or a running
+full desktop editor capture. Summary/Timeline input checks cover six wide/compact
+100/150/200% layouts. SDL software rendering provides the pixels. Exact profile,
+source, binary, module and image hashes, process/capture receipts and limits are
+recorded locally in
+`AgentFiles/build/phase251-ecs-worker-traces/capture-provenance.json`. No Windows,
+physical GPU/input/DPI, external trace viewer or hardware performance acceptance
+is established by this control image.
+
 ## Fixed ECS worker settings
 
 `manual/images/fixed-ecs-workers-settings.png` is the canonical unretouched

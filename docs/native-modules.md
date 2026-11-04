@@ -70,11 +70,17 @@ fixed-clock Pause/Step and owner merge boundaries remain authoritative.
 
 The exact pin's per-system accumulated timing uses a shared non-atomic counter.
 Parallel runtime suppresses that measurement, restores its previous flag on
-retirement and reports `cpu_seconds:null`, `native_system_timing:false`,
-`system_trace_scope:"owner_thread"` and the actual `ecs_workers` in the ECS plan.
-Owner-thread scope timing still includes whole-tick synchronization. Native
-system traces omit worker spans. These limits also apply through automation/MCP;
-the plan is not a complete worker timeline. See [known issues](flecs-known-issues.md).
+retirement and reports `cpu_seconds:null`, `native_system_timing:false`, and
+the actual `ecs_workers` in the ECS plan. `system_trace_scope` identifies supported
+capture as `native_stages` or `owner_thread`; collection must still be enabled.
+The default monotonic clock and runtime-owned native stages support detached
+worker dispatch records, published through the owning service after progress.
+Custom clocks, externally configured stages or unavailable bootstrap hooks retain
+owner-only capture. Actual trace metadata lists observed stages in its retained
+window. Native stage identifiers are not OS thread IDs or hardware utilization.
+Whole-tick scope timing still includes synchronization. These limits also apply
+through automation/MCP. See [CPU profiling](cpu-profiling.md) and
+[known issues](flecs-known-issues.md).
 
 Ordinary private recovery records nondefault worker counts and rejects a
 checkpoint at a different execution configuration. Legacy sequential checkpoints

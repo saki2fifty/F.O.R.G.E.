@@ -1,5 +1,16 @@
 # 2026-11-04
 
+## Native ECS worker trace tracks
+
+Optional native dispatch capture now records runtime-owned worker stages through
+bounded detached buffers and publishes through the existing owner/epoch store.
+The Profiler separates stage summaries and Timeline tracks, with stage-aware trace
+export and existing MCP reads. Default-off, custom-clock/external-OS fallback,
+Clear/Stop, bounds, concurrent worlds and lifetime handling preserve execution
+ownership. Native accumulated per-system timing remains disabled in parallel.
+The illustrated manual explains observed stages, retention and current limits;
+Windows/full-editor/physical/external-client acceptance remains pending.
+
 ## Opt-in fixed ECS workers
 
 Project Settings now saves 1..16 native fixed ECS stages, defaulting to one and

@@ -1,6 +1,7 @@
 #include "cpu_profile_trace.hpp"
 #include <algorithm>
 #include <cmath>
+#include <forge/runtime_execution.hpp>
 #include <forge/services.hpp>
 #include <limits>
 #include <set>
@@ -21,6 +22,13 @@ ProfileRecordValue profile_record_value(const Json& sample, bool gpu) {
         result.name.size() > 128 || !std::isfinite(result.seconds) || result.seconds < 0 ||
         result.seconds > 3600)
         throw std::runtime_error("Invalid profile snapshot value");
+    if (sample.contains("native_stage")) {
+        const auto& stage = sample.at("native_stage");
+        if (gpu || result.category != "ecs.system" || !sample.contains("start_seconds") ||
+            !stage.is_number_integer() || stage <= 0 || stage >= runtime_ecs_worker_limit)
+            throw std::runtime_error("Invalid measured native profile stage");
+        result.native_stage = stage.get<unsigned>();
+    }
     return result;
 }
 CpuScopeTimeline cpu_scope_timeline(const Json& samples) {
@@ -28,6 +36,7 @@ CpuScopeTimeline cpu_scope_timeline(const Json& samples) {
         throw std::runtime_error("CPU timeline exceeds the native record bound");
     CpuScopeTimeline result;
     std::set<std::uint64_t> sequences;
+    std::set<unsigned> stages;
     for (const auto& sample : samples) {
         const auto value = profile_record_value(sample);
         if (!sample.contains("start_seconds")) {
@@ -39,10 +48,13 @@ CpuScopeTimeline cpu_scope_timeline(const Json& samples) {
             throw std::runtime_error("Invalid CPU interval start or sequence");
         CpuScopeSpan span{value.category, value.name,     sample.at("start_seconds"),
                           value.seconds,  value.position, sample.at("sequence")};
+        span.native_stage = value.native_stage;
         if (!std::isfinite(span.start) || !std::isfinite(span.start + span.seconds) ||
             !sequences.insert(span.sequence).second)
             throw std::runtime_error("CPU interval clock or sequence is invalid");
         result.spans.push_back(std::move(span));
+        stages.insert(value.native_stage);
+        result.native_workers |= value.native_stage != 0;
     }
     std::sort(result.spans.begin(), result.spans.end(), [](const auto& a, const auto& b) {
         if (a.start != b.start)
@@ -53,6 +65,7 @@ CpuScopeTimeline cpu_scope_timeline(const Json& samples) {
     });
     if (!result.spans.empty())
         result.origin = result.spans.front().start;
+    result.measured_threads = stages.size();
     std::vector<std::vector<double>> lane_ends;
     for (auto& span : result.spans) {
         span.start -= result.origin;
@@ -63,19 +76,32 @@ CpuScopeTimeline cpu_scope_timeline(const Json& samples) {
         result.seconds = std::max(result.seconds, end);
         std::size_t lane = 0;
         for (; lane < lane_ends.size(); ++lane) {
+            if (result.lane_stages[lane] != span.native_stage)
+                continue;
             auto& ends = lane_ends[lane];
             while (!ends.empty() && ends.back() <= span.start)
                 ends.pop_back();
             if (ends.empty() || end <= ends.back())
                 break;
         }
-        if (lane == lane_ends.size())
+        if (lane == lane_ends.size()) {
             lane_ends.emplace_back();
+            result.lane_stages.push_back(span.native_stage);
+        }
         lane_ends[lane].push_back(end);
         span.lane = lane;
     }
     result.lanes = lane_ends.size();
     return result;
+}
+std::string cpu_scope_lane_label(const CpuScopeTimeline& timeline, std::size_t lane) {
+    const auto stage = timeline.lane_stages.at(lane);
+    std::string label = stage ? "ECS worker stage " + std::to_string(stage) : "Owner-thread scopes";
+    const auto overlap =
+        std::count(timeline.lane_stages.begin(), timeline.lane_stages.begin() + lane, stage);
+    if (overlap)
+        label += " / logical overlap lane " + std::to_string(overlap + 1);
+    return label;
 }
 Json cpu_scope_trace(const Json& status, std::string_view owner, std::string_view captured_at,
                      std::size_t offset, std::size_t limit) {
@@ -104,40 +130,50 @@ Json cpu_scope_trace(const Json& status, std::string_view owner, std::string_vie
                           {"name", "thread_name"},
                           {"pid", 1},
                           {"tid", lane + 1},
-                          {"args",
-                           {{"name", lane == 0 ? "Owner-thread scopes"
-                                               : "Owner-thread scopes / logical overlap lane " +
-                                                     std::to_string(lane + 1)}}}});
+                          {"args", {{"name", cpu_scope_lane_label(timeline, lane)}}}});
     for (std::size_t i = begin; i < begin + count; ++i) {
         const auto& span = timeline.spans[i];
-        events.push_back(
-            {{"ph", "X"},
-             {"name", span.name},
-             {"cat", span.category},
-             {"pid", 1},
-             {"tid", span.lane + 1},
-             {"ts", span.start * 1000000},
-             {"dur", span.seconds * 1000000},
-             {"args",
-              {{"tick", std::to_string(span.tick)}, {"sequence", std::to_string(span.sequence)}}}});
+        Json arguments{{"tick", std::to_string(span.tick)},
+                       {"sequence", std::to_string(span.sequence)}};
+        if (timeline.native_workers)
+            arguments["native_stage"] = span.native_stage;
+        events.push_back({{"ph", "X"},
+                          {"name", span.name},
+                          {"cat", span.category},
+                          {"pid", 1},
+                          {"tid", span.lane + 1},
+                          {"ts", span.start * 1000000},
+                          {"dur", span.seconds * 1000000},
+                          {"args", std::move(arguments)}});
     }
-    return {{"traceEvents", std::move(events)},
-            {"displayTimeUnit", "ms"},
-            {"otherData",
-             {{"producer", "FORGE CPU scopes"},
-              {"owner", owner},
-              {"captured_at", captured_at},
-              {"clock", "owner-local CPU clock; relative microseconds"},
-              {"origin_seconds", timeline.origin},
-              {"source", std::move(source)},
-              {"measured_spans", timeline.spans.size()},
-              {"exported_spans", count},
-              {"page", {{"offset", offset}, {"limit", limit}}},
-              {"duration_only_records", timeline.duration_only},
-              {"owner_threads", 1},
-              {"layout_lanes", timeline.lanes},
-              {"lane_semantics", "Logical overlap layout for one owner thread; no measured "
-                                 "concurrency or OS thread IDs"}}}};
+    Json result{{"traceEvents", std::move(events)},
+                {"displayTimeUnit", "ms"},
+                {"otherData",
+                 {{"producer", "FORGE CPU scopes"},
+                  {"owner", owner},
+                  {"captured_at", captured_at},
+                  {"clock", "owner-local CPU clock; relative microseconds"},
+                  {"origin_seconds", timeline.origin},
+                  {"source", std::move(source)},
+                  {"measured_spans", timeline.spans.size()},
+                  {"exported_spans", count},
+                  {"page", {{"offset", offset}, {"limit", limit}}},
+                  {"duration_only_records", timeline.duration_only},
+                  {"owner_threads", 1},
+                  {"layout_lanes", timeline.lanes},
+                  {"lane_semantics", "Logical overlap layout for one owner thread; no measured "
+                                     "concurrency or OS thread IDs"}}}};
+    if (timeline.native_workers) {
+        auto& metadata = result["otherData"];
+        const std::set<unsigned> stages(timeline.lane_stages.begin(), timeline.lane_stages.end());
+        metadata["native_stages"] = stages;
+        metadata["measured_threads"] = timeline.measured_threads;
+        metadata["clock"] = "process-local monotonic CPU clock; relative microseconds";
+        metadata["lane_semantics"] =
+            "Measured native ECS stages; logical overlap lanes stay within their stage. "
+            "Stage/track identifiers are not OS thread IDs.";
+    }
+    return result;
 }
 Json cpu_scope_trace(const Json& status, std::string_view owner, std::string_view captured_at) {
     return cpu_scope_trace(status, owner, captured_at, 0, profile_record_capacity);

@@ -341,6 +341,8 @@ RuntimeSimulation::RuntimeSimulation(WorldContext& context, Scene& scene,
         system_timing_suppressed_ = true;
     }
     if (execution.ecs_workers > 1) {
+        worker_trace_ = detail::make_native_worker_trace_domain(execution.ecs_workers);
+        detail::NativeWorkerTraceStartup trace_startup(worker_trace_.get());
         world.set_threads(static_cast<int>(execution.ecs_workers));
         owns_workers_ = true;
     }
@@ -427,7 +429,8 @@ void RuntimeSimulation::tick(float dt) {
             auto profile = context_.services().profile("runtime", "ApplicationStates", input_tick_);
             advance_application_states(context_.world());
         }
-        detail::NativeSystemTraceCapture native_traces(context_.services(), input_tick_);
+        detail::NativeSystemTraceCapture native_traces(context_.services(), input_tick_,
+                                                       worker_trace_.get());
         context_.world().progress(dt);
     } catch (...) {
         context_.modules().end_tick();
@@ -528,7 +531,9 @@ void RuntimeSimulation::capture_system_profile() {
         if (context_.world().get_threads() > 1) {
             system_profile_["ecs_workers"] = context_.world().get_threads();
             system_profile_["native_system_timing"] = false;
-            system_profile_["system_trace_scope"] = "owner_thread";
+            system_profile_["system_trace_scope"] =
+                worker_trace_ && worker_trace_->available(context_.services()) ? "native_stages"
+                                                                               : "owner_thread";
         }
     } catch (const std::exception& error) {
         system_profile_ = {{"available", false}, {"reason", error.what()}};

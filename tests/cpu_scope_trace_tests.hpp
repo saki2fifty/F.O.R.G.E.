@@ -105,7 +105,7 @@ inline void scope_trace_tests() {
     const auto zero = cpu_scope_timeline(Json::array({sample("point", -100, 0, 1)}));
     check(zero.spans.size() == 1 && zero.spans[0].start == 0 && zero.seconds == 0,
           "Zero-duration or negative clock origin was fabricated/dropped");
-    for (const Json value : {Json(-1), Json(1.5), Json("bad")}) {
+    for (const Json& value : {Json(-1), Json(1.5), Json("bad")}) {
         auto invalid = crossed;
         invalid[0]["sequence"] = value;
         reject([&] { cpu_scope_timeline(invalid); });
@@ -141,4 +141,37 @@ inline void scope_trace_tests() {
     auto invalid_status = escaped;
     invalid_status["epoch"] = -1;
     reject([&] { cpu_scope_trace(invalid_status, "Owner", "time"); });
+    auto first_worker = sample("worker", 1, 5, 2);
+    first_worker["category"] = "ecs.system";
+    first_worker["native_stage"] = 1;
+    auto crossing_worker = first_worker;
+    crossing_worker["sequence"] = 3;
+    crossing_worker["start_seconds"] = 2;
+    auto second_worker = first_worker;
+    second_worker["sequence"] = 4;
+    second_worker["native_stage"] = 2;
+    const Json parallel =
+        Json::array({sample("owner", 0, 10, 1), first_worker, crossing_worker, second_worker});
+    const auto tracks = cpu_scope_timeline(parallel);
+    check(tracks.measured_threads == 3 && tracks.lanes == 4 && tracks.native_workers,
+          "Crossing worker intervals lost measured-stage identity or logical overlap lanes");
+    for (const auto& span : tracks.spans)
+        check(tracks.lane_stages.at(span.lane) == span.native_stage,
+              "Worker trace used a track from another measured stage");
+    const auto parallel_trace = cpu_scope_trace({{"samples", parallel}}, "Parallel", "time");
+    check(parallel_trace.at("otherData").at("native_stages") == Json::array({0, 1, 2}) &&
+              parallel_trace.at("otherData").at("measured_threads") == 3,
+          "Parallel trace export omitted observed native stage metadata");
+    for (const Json& invalid : {Json(), Json(false), Json(0), Json(-1), Json(16), Json(1.),
+                                Json("1"), Json(std::uint64_t{1} << 32)}) {
+        auto candidate = first_worker;
+        candidate["native_stage"] = invalid;
+        reject([&] { cpu_scope_timeline(Json::array({candidate})); });
+    }
+    auto no_start = first_worker;
+    no_start.erase("start_seconds");
+    reject([&] { cpu_scope_timeline(Json::array({no_start})); });
+    auto wrong_category = first_worker;
+    wrong_category["category"] = "sdk";
+    reject([&] { cpu_scope_timeline(Json::array({wrong_category})); });
 }

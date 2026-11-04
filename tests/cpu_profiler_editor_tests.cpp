@@ -29,6 +29,24 @@ void summary_oracles() {
               std::abs(rows[1].total / rows[1].count - .004) < 1e-12 && rows[1].maximum == .006 &&
               rows[1].latest == .006 && rows[1].tick == 2,
           "Independent profile aggregate oracle failed");
+    auto parallel = Json::array();
+    for (unsigned stage : {0u, 1u, 2u}) {
+        Json value{{"category", "ecs.system"},
+                   {"name", "Shared query"},
+                   {"seconds", .001 * (stage + 1)},
+                   {"tick", 1},
+                   {"count", 1},
+                   {"start_seconds", 1},
+                   {"sequence", stage + 1}};
+        if (stage)
+            value["native_stage"] = stage;
+        parallel.push_back(std::move(value));
+    }
+    const auto parallel_rows = ui::summarize_cpu_profiles(parallel);
+    check(parallel_rows.size() == 3 && parallel_rows[0].native_stage == 2 &&
+              parallel_rows[1].native_stage == 1 && parallel_rows[2].native_stage == 0 &&
+              parallel_rows[0].count == 1,
+          "CPU summary merged separate native worker stages into one serial scope");
     auto gpu = samples;
     for (auto& sample : gpu) {
         sample["clock"] = "gpu";

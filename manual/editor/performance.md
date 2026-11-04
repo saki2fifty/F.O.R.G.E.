@@ -58,7 +58,11 @@ The history holds at most 512 records. Nested scopes overlap; adding their durat
 
 The timeline shows completed host scopes with measured starts. Duration-only records, including C++ SDK profile samples and the exclusive **UpdateAndEditorUI** total, stay in the summary. If the timeline is empty, collect an editor frame or a Play fixed tick and check its measured interval count. **Copy trace JSON** is disabled until a measured interval exists.
 
-This view measures one owner thread. Trace files may use logical overlap lanes to lay out crossing intervals; these are not additional measured worker threads. GPU durations and ECS system lifetime totals remain in their own views. Sampled call stacks are unavailable.
+Host scopes belong to the calling owner. Supported native ECS worker dispatches
+retain their stage identity and use separate tracks. Logical overlap lanes within
+one stage are layout only. Stage identifiers are not OS thread IDs. GPU durations
+and ECS system lifetime totals remain in their own views. Sampled call stacks are
+unavailable.
 
 ### Trace individual ECS dispatches
 
@@ -67,9 +71,30 @@ This view measures one owner thread. Trace files may use logical overlap lanes t
 3. Run the game or Step while paused, then stop collection. Enable **Timeline** and filter for **ecs.system** to find individual native dispatches. **Copy trace JSON** includes them with the other measured intervals.
 4. Disable **Trace ECS systems** when you finish. It starts off in a new process. **Clear samples** discards retained records and resets skipped-dispatch counts.
 
-A dispatch includes the native system's query, setup and deferred work. A timer-gated system contributes a dispatch only when it runs. These are not separate measurements of every entity callback. Only systems running inside the fixed pipeline boundary on its owner thread are traced; the view does not measure worker utilization.
+A dispatch includes the native system's query, setup and deferred work. A timer-gated system contributes a dispatch only when it runs. These are not separate measurements of every entity callback. Capture covers the caller and supported native ECS workers inside the fixed pipeline boundary. Other background tasks are outside this capture. These are wall intervals, not hardware CPU utilization.
 
-Collection and system tracing both add overhead. The shared history holds at most 512 records, so a busy tick can replace older samples quickly. Nesting beyond 64 dispatches shows a skipped count. Stop collection promptly to retain the action you need. The options are temporary diagnostics and do not change saved Scene data or exported game content.
+Collection and system tracing both add overhead. The shared history holds at most 512 records, so a busy tick can replace older samples quickly, including older worker observations. Nesting beyond 64 or a worker's 512-record capture buffer shows a skipped count. Stop collection promptly to retain the action you need. The options are temporary diagnostics and do not change saved Scene data or exported game content.
+
+### Read native worker tracks
+
+![Profiler Timeline showing measured ParallelMotion dispatches from the caller and native worker stages](../images/native-worker-traces.png)
+
+1. Build and attach the [ParallelMotion example](native-gameplay.md), then save **Fixed ECS workers** as 4 in Project Settings and restart Play.
+2. Open **Window → Profiler → Play runtime → CPU scopes**, enable **Trace ECS systems**, and start collection.
+3. Run or Step, then stop collection. Filter for **ParallelMotion**.
+4. Read each summary row's **Stage** to compare Owner and Worker dispatches separately. Enable **Timeline** to compare their measured intervals and copy the trace when needed.
+
+**Measured threads** counts the stages represented in the retained intervals.
+It can be lower than your configured count after records are evicted. Worker
+numbers identify native ECS stages within this runtime; Owner is its caller.
+The summary keeps separate groups for the same system on different stages.
+Overlapping durations must not be added together to estimate frame time.
+
+If no worker tracks appear, check that an attached system has matches and uses
+`multi_threaded()`, that the saved worker count was applied by restarting Play,
+and that tracing and collection were enabled before a fixed tick. Custom clocks,
+external worker configurations and unsupported host hooks retain owner-only
+capture. Pause without Step does not run another fixed tick.
 
 ## Inspect ECS system order
 
@@ -88,9 +113,9 @@ utilization. A missing timing value appears as `--`.
 
 With **Fixed ECS workers** above 1, per-system lifetime timings are unavailable
 and appear as `--`. The plan still shows systems, access modes and merges.
-**Trace ECS systems** captures only dispatches on the owner thread; it does not
-capture worker-thread spans. **CPU scopes → FixedSimulationTick** still measures
-the owner waiting for the whole tick, including its worker synchronization.
+**Trace ECS systems** can capture caller and supported native worker dispatches;
+their observed stages appear in CPU scopes. **CPU scopes → FixedSimulationTick**
+still measures the owner waiting for the whole tick, including its synchronization.
 Compare identical scenes and settings rather than adding incomplete system rows.
 
 The displayed tick identifies when the native plan was captured. Watching the

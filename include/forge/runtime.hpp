@@ -12,7 +12,8 @@
 namespace forge {
 namespace detail {
 class InputMessageRuntime;
-}
+class NativeWorkerTraceDomain;
+} // namespace detail
 struct RuntimeConfig {
     double simulation_hz = 60;
     double max_elapsed = .250;
@@ -140,6 +141,7 @@ class RuntimeSimulation {
     std::exception_ptr stage_error_;
     bool owns_workers_ = false;
     bool system_timing_suppressed_ = false, previous_system_timing_ = false;
+    std::unique_ptr<detail::NativeWorkerTraceDomain> worker_trace_;
     template <class F> void stage(F&& f) noexcept {
         if (stage_error_)
             return;

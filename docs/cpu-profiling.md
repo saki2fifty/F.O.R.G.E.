@@ -47,8 +47,11 @@ duplicate/nonpositive sequences and unrepresentable windows are rejected.
 Export uses documented Trace Event complete `X` events and `M` process/track metadata,
 with `ts` and `dur` in microseconds and `displayTimeUnit=ms`. Complete events must nest
 within a track, so crossing intervals are assigned explicitly labelled logical
-overlap lanes. All lanes represent one owner thread; pid/tid values are layout
-identifiers, not OS IDs or measured worker concurrency. See the official
+overlap lanes within their measured stage. Untagged spans belong to the caller;
+strict `native_stage`1..15 tags are admitted only on measured `ecs.system` records.
+Workers use distinct tracks; crossing intervals on one stage receive logical
+overlap lanes. Native stage/track identifiers are not OS IDs. Owner-only captures
+retain their existing envelope. See the official
 [Perfetto external-format guide](https://perfetto.dev/docs/getting-started/other-formats).
 No viewer implementation or parser is integrated; external viewer acceptance is
 separate from the format/unit/nesting checks.
@@ -104,20 +107,43 @@ The default-off option emits category `ecs.system` through the existing scope ri
 Timeline, trace copy and paged Play MCP. A scope brackets an actual native dispatch
 inside `RuntimeSimulation::tick`'s fixed pipeline, after native timer gating. It
 includes query/setup/defer work, not a separate record for every entity callback.
-Explicit nested native runs inside this boundary are included. Calls outside the
-boundary and callbacks on foreign threads are not captured. No native worker pool
-or scheduler is enabled. Logical overlap lanes still represent one owner thread.
+Explicit nested native runs inside this boundary are included. Runtime-owned
+long-running ECS stages also support dispatch capture with the default monotonic
+service clock. Calls outside this boundary and unrelated foreign threads are not
+captured. Worker execution is controlled by saved `ecs_workers`; tracing does not
+resize a pool or create a scheduler. The native stage, not an OS ID, identifies
+each measured worker track. Logical overlap lanes stay within that stage.
 
-Each tick uses a scoped thread-local bridge. Completed nested scopes are admitted
-through the same weak, owner-thread, clock/epoch service. Unmatched scopes cancel
-on scope exit. Up to64 dispatches can nest; excess pushes/pops stay balanced and
-increment `native_systems_dropped`, reset by Clear. The shared512-record history
-can evict older frame/host records quickly when many systems run. Native paths are
+Each tick uses a scoped bridge. Caller scopes retain their weak owner service.
+Workers copy detached names/starts/durations into preallocated per-stage buffers;
+they never read a custom clock or invoke a service. Completed records publish
+through the existing owner store with the captured tick and collection epoch.
+Clear during a tick rejects older worker records. Custom clocks and external
+native stage configurations retain owner-only capture. `system_trace_scope` in
+the ECS plan reports supported capture; `native_stages` and `measured_threads`
+in trace metadata report only observed retained records. One collector owner
+remains authoritative even when several native stages are measured.
+
+Up to64 dispatches nest per thread. Each worker can copy512 completed records per
+capture; depth/buffer overflow increments the existing `native_systems_dropped`,
+reset by Clear. Unmatched scopes are discarded; worker TLS resets older nesting
+on its first push in a new capture. Owner exception unwind disables that domain
+until retirement, preventing late callbacks from acquiring a later tick. Slot
+handoff remains mutex-safe during unwind. Arbitrary exceptions escaping native
+gameplay callbacks are not made resumable by instrumentation.
+
+The shared512-record history can evict older records quickly, including earlier
+stages in a busy tick. This eviction is distinct from skipped dispatches. Observed
+thread counts may therefore be lower than the configured count. Native paths are
 copied with at most128 display bytes, UTF-8-safe shortening and invalid-byte output
 replacement; they are display labels, not persistent entity identifiers.
 
-The native library privately enables pinned Flecs `FLECS_PERF_TRACE`. FORGE installs
-its OS callbacks before worlds/threads, retaining the existing OS configuration.
+The native library privately enables pinned Flecs `FLECS_PERF_TRACE`. FORGE composes
+its perf callbacks and a delegating thread-start adapter at OS bootstrap, before
+worlds/threads. The selected native creator, callback, opaque argument, handle and
+join remain authoritative. Only a scoped binding around RuntimeSimulation's
+explicit stage creation attaches a detached domain to those threads. There is no
+world registry or replacement thread scheduler, and no runtime OS-table rewrite.
 An already configured external callback/API remains authoritative; unsupported
 hosts report `native_systems_available=false`, reject enable and retain ordinary
 host profiling. The isolated Script worker skips this initialization so its
@@ -164,6 +190,13 @@ measurement clock. A missing/nonfinite native timing is null. CPU scopes retain
 their existing recent-window semantics. Neither view is total frame/GPU cost.
 Native waits can contribute to these durations. Mode describes configuration,
 not measured concurrency or worker utilization.
+
+With multiple stages, RuntimeSimulation disables the pinned shared non-atomic
+native per-system timing counter, restoring its former flag on retirement.
+CPU lifetime values are null. Independent completed dispatch records use the
+profiling store above; enabling them does not re-enable native lifetime timing.
+`ecs_workers` reports actual stages, including caller0. The trace observes wall
+intervals and waits, not scheduler CPU running time or hardware utilization.
 
 Only the first256 plan entries are copied; truncation is explicit. Each displayed
 path has at most160 source bytes, shortened at a UTF-8 boundary with `...`; invalid
@@ -259,7 +292,7 @@ fixed runtime workloads. UI tests drive actual ImGui input at100/150/200%; produ
 pipe and SDK-host tests verify optional responses, rejected controls, paused stepping
 and replacement isolation. These CPU checks do not prove Windows/GPU performance,
 visual review or physical desktop acceptance. No hardware counters, allocation profiler,
-sampled flame graph, worker-thread tracing or exported in-game editor is implemented here.
+sampled flame graph or exported in-game editor is implemented here.
 Host and opt-in native dispatch starts/copy and paged Play trace reads are implemented;
 native dispatch intervals remain distinct from native ECS lifetime observations.
 

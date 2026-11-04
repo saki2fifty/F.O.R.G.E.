@@ -29,6 +29,18 @@ leases. This implements the declared-stage decision without an engine task graph
 See [Project Code](../native-modules.md) for the execution value, profiling limits,
 recovery and package compatibility contract.
 
+## Native worker diagnostic publication
+
+Runtime-owned ECS stages can attach bounded detached profiling buffers through a
+thread-start adapter composed at the existing native OS bootstrap. It delegates
+the selected creator/callback/handle and retains native joins. A scoped caller
+binding around explicit stage creation supplies attribution; no world registry
+or replacement scheduler is introduced. Worker callbacks never access services.
+The caller publishes completed records with the owning tick/epoch after progress.
+Default monotonic clock provenance is required; custom clocks/external stages
+retain owner-only capture. Unwind disables that capture domain and incomplete
+records do not migrate to later ticks. See [CPU profiling](../cpu-profiling.md).
+
 ## PlaySession transport: narrow transport-only owner
 
 The editor's `forge::PlaySession` runs an external FORGE runtime as a child
