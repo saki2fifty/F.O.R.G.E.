@@ -24,7 +24,7 @@ Enter the new **Group name**. Set these controls:
 - **Center X (m)**, **Center Y (m)**, **Center Z (m)**: World center of the new group. With terrain projection off, every new origin uses the same Y. With projection on, Y sets the group's origin; terrain and Height offset set the child heights.
 - **Radius (m)**: Horizontal disk radius, from 0.01 to 1000 meters.
 - **Minimum spacing (m)**: Minimum horizontal distance between new origins in this group. Zero permits any spacing.
-- **Count**: 1 to 512 objects per placement.
+- **Count**: 1 to 512 objects per placement. With terrain projection, **Candidate count** generates this pool before slope filtering.
 - **Seed**: 0 to 4294967295. Change it for a different layout.
 - **Minimum scale multiplier**, **Maximum scale multiplier**: Random uniform multiplier of the template's local scale. Each value is 0.01 to 100; maximum must be at least minimum.
 - **Minimum yaw (deg)**, **Maximum yaw (deg)**: Rotation about world +Y before the template's local rotation. Use -360 to 360 degrees; maximum must be at least minimum.
@@ -49,11 +49,13 @@ terrain. They are ordinary objects with saved heights, ready for Play and export
 2. Choose the foliage template with **Use selected Mesh Renderer**. Enable **Project onto heightfield terrain**.
 3. Select the terrain's Mesh Renderer in Hierarchy, then choose **Use selected terrain**. The template and terrain have separate selections.
 4. Set **Center X (m)**, **Center Z (m)** and **Radius (m)** so every new origin lies over a terrain tile. Set **Height offset (m)** from -1000 to 1000; zero places origins directly on the published surface. **Center Y (m)** controls the group pivot rather than moving the projected origins.
-5. Choose **Check layout**, then **Place foliage**. Save the Scene. Undo removes the entire new patch in one step.
+5. Set **Minimum slope (deg)** and **Maximum slope (deg)**. The default 0–90 keeps every covered candidate. For flatter ground, try 0–20. These angles measure the actual world-space triangle surface, including terrain scaling; they do not measure smoothed lighting normals.
+6. Enable **Align to terrain slope** to tilt the placement frame onto the triangle surface. Leave it off to keep world-up yaw and the template orientation.
+7. Choose **Check layout** and read how many candidates remain. **Place foliage** creates that subset. Save the Scene. Undo removes the entire new patch in one step.
 
-![Foliage controls with terrain projection, a selected heightfield and a checked layout](../images/terrain-foliage-controls.png)
+![Foliage controls with terrain slope range, alignment enabled and checked candidate count](../images/terrain-foliage-controls.png)
 
-The template stays separate while the selected terrain supplies each new origin's height.
+The selected terrain supplies heights and geometric slopes; Check layout reports how many candidates remain.
 
 Projection uses the published surface. Save and publish terrain edits before
 placing a patch; unsaved source drafts are not used. If a saved source differs
@@ -61,8 +63,22 @@ from its published Mesh, preparation stops until it is published again. Every
 origin must be covered; a disk crossing missing tiles or the outer edge can fail
 without creating objects. Move its center or reduce its radius.
 
-Objects retain their template orientation; yaw rotates about world +Y. This does
-not align plants to slopes. Heights are copied at placement.
+Slope filtering keeps candidates in the original seeded layout. It does not
+search again to fill the requested candidate count. A lower retained count is
+expected; change the seed, center, radius or slope range for a different patch.
+Retained origins keep their original spacing, yaw, scale and height offset. If no
+candidate meets the range, the tool reports an error and creates no group.
+Minimum and maximum must satisfy 0 ≤ minimum ≤ maximum ≤ 90 degrees. Both ends
+are included. At an exact triangle diagonal or tile boundary, the same triangle
+selection as the terrain height query determines the slope.
+
+With **Align to terrain slope** off, objects retain their template orientation
+and yaw rotates about world +Y. With it on, the tool tilts that placement frame's
++Y to the geometric terrain normal. Seeded yaw and the template rotation stay
+relative to the tilted frame. A normally upright template follows the slope;
+its own authored tilt or base-orientation correction remains relative. Scale and
+its axis signs are preserved. Height offset moves along world Y, not the normal.
+Heights and orientations are copied at placement.
 Later terrain movement or sculpting does not update old patches. Place a new patch
 or adjust the ordinary objects when the ground changes.
 
@@ -102,7 +118,7 @@ to 10,000 entities and the normal command data budget.
 Spacing compares new origins in the current group. Mesh bounds can overlap, and
 other groups, objects and colliders are not checked. Terrain projection supports
 the published heightfield profile. Tilted or vertically inverted terrain, arbitrary
-imported surfaces, slope filters, paint strokes, wind and world streaming are not
+imported surfaces, collision filters, paint strokes, wind and world streaming are not
 supported. Place on a suitable surface or adjust objects with the normal
 Scene tools. Very large coordinates still have the limits of their consuming
 renderer, collision and navigation systems.

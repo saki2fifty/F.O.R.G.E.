@@ -1460,17 +1460,22 @@ layout and package inclusion are checked separately.
 
 [Placement controls](../../../manual/images/foliage-placement-controls.png) and
 [heightfield controls](../../../manual/images/terrain-foliage-controls.png) are
-unretouched 720×1280 captures of the production FoliagePlacement window, rendered
+unretouched 720×1340 captures of the production FoliagePlacement window, rendered
 with actual ImGui and SDL software output. Real pointer/keyboard input selects
 Gallery147's independent blade template and published layered terrain, enters
-128 placements and checks the layout without changing Scene intent or Problems.
+128 candidates and checks the layout without changing Scene intent or Problems.
+Heightfield controls include inclusive Minimum/Maximum slope, checked Align to
+terrain slope and the retained/candidate status. The shown default0..90range keeps all128 origins.
 All controls, status and explanatory text are visible. Capture command:
 `forge_foliage_editor_tests --capture-gallery <Gallery> <private-output>`.
 The production owner is also exercised with real input at 100/150/200 percent
 in full/compact layouts. These GPU-independent component captures do not establish
 full Main, physical Windows input or display/DPI acceptance.
-Plane PNG SHA256: `b754f957d74adcdbc7697cc05dade951dfd1f822b42a66b6a417af587dc10ab0`.
-Heightfield PNG SHA256: `bad668a6c94763c0591437e16a02dc8b223163d33a1a5f0639bbd382bec66360`.
+Plane PNG SHA256: `f4906fc5d6584f914a859a75eb25ec61ab56e647b84fc8a29f6d1448f0eb0fe9`.
+Heightfield PNG SHA256: `075f84ae494c54d2124d494178fa92d7893a945a0eade531b9e28867bb5f0b90`.
+Current capture consumer SHA256: `91249bb5265cdd861bf8c187e65e7c482281f794893b3abc1dbef5b5370e864f`.
+Local unassigned source; current control captures replace the earlier captures in
+their canonical assets. Game images below retain their separate unchanged proof.
 
 [Meadow Game](../../../manual/images/foliage-placement-game.png) is the unretouched
 640×360 production FrameRenderer after 90 fixed ticks in Gallery 144

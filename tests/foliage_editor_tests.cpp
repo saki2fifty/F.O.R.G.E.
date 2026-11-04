@@ -116,6 +116,14 @@ void exercise(float scale, bool compact, const std::filesystem::path& scratch) {
     input.type("foliage:z", "4");
     input.type("foliage:y", "7");
     input.type("foliage:height_offset", "0.35");
+    input.type("foliage:slope_min", "0");
+    input.type("foliage:slope_max", "10");
+    const auto before_slope_rejection = scene.document();
+    input.click("foliage:check");
+    check(scene.document() == before_slope_rejection && owner.problems.size() == 1,
+          "Slope-filtered empty UI layout changed Scene or failed to report rejection");
+    input.type("foliage:slope_max", "40");
+    input.click("foliage:align_slope");
     input.type("foliage:radius", "0.8");
     input.type("foliage:spacing", "0.2");
     input.type("foliage:count", "8");
@@ -144,6 +152,9 @@ void exercise(float scale, bool compact, const std::filesystem::path& scratch) {
                            (ground_origin[1] + .5 * (m[3].get<double>() - ground_origin[0]) +
                             .25 * (m[11].get<double>() - ground_origin[2]) + .35)) < 1e-8,
                   "Actual terrain controls produced off-surface origins");
+            check(std::abs(m[1].get<double>() / m[5].get<double>() + .5) < 2e-6 &&
+                      std::abs(m[9].get<double>() / m[5].get<double>() + .25) < 2e-6,
+                  "Actual Align to terrain slope control did not orient the placement frame");
             ++on_surface;
         }
     check(on_surface == 8 && scene.undo() && scene.document() == before_projection &&
@@ -170,7 +181,7 @@ void capture(const std::filesystem::path& output, const std::filesystem::path& g
     if (!SDL_Init(SDL_INIT_VIDEO))
         throw std::runtime_error(SDL_GetError());
     {
-        const float height = gallery.empty() ? 1100 : 1280;
+        const float height = gallery.empty() ? 1100 : 1340;
         test::ImGuiSoftwareCapture capture(720, unsigned(height));
         ui::style(1);
         EngineContext engine;
@@ -226,6 +237,7 @@ void capture(const std::filesystem::path& output, const std::filesystem::path& g
             input.type("foliage:y", "0");
             input.type("foliage:z", "0");
             input.type("foliage:count", "128");
+            input.click("foliage:align_slope");
             input.type("foliage:seed", "91");
             input.type("foliage:spacing", "0.55");
             input.type("foliage:scale_min", "0.65");
@@ -236,7 +248,8 @@ void capture(const std::filesystem::path& output, const std::filesystem::path& g
             check(scene.document() == before && owner.problems.size() == 0,
                   "Terrain capture changed authored intent or failed preparation");
             for (const char* key : {"foliage:projected", "foliage:terrain", "foliage:height_offset",
-                                    "foliage:check", "foliage:place"}) {
+                                    "foliage:slope_min", "foliage:slope_max", "foliage:check",
+                                    "foliage:align_slope", "foliage:place"}) {
                 const auto& box = test::ui_targets.at(key);
                 check(box.enabled && box.minimum.y >= box.clip_minimum.y &&
                           box.maximum.y <= box.clip_maximum.y,

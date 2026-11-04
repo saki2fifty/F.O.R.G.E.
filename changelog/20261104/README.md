@@ -1,5 +1,18 @@
 # 2026-11-04
 
+## Heightfield foliage slope filters and alignment
+
+Foliage placement and read-only terrain preparation accept an inclusive world
+geometric slope range. The shared float-triangle query and spatial normal owner
+respect the rendered surface and nonuniform terrain scale. An explicit mask keeps
+a subset of the original seeded candidate pool; native status/MCP report retained
+and candidate counts. The ordinary Scene command creates only retained children
+with one Undo/Redo entry. Optional surface-frame alignment uses the same prepared
+normal, with seeded yaw/template rotation relative to that frame and signed scale
+preserved. Direction normalization handles subnormal values; invalid excluded
+normals reject atomically. Existing default unfiltered/upright behavior remains. No foliage runtime component, terrain source schema or SDK ABI
+changes; Windows/physical review remains queued.
+
 ## Lossless WebP sequence output
 
 Timeline **Export frames…** can add a repeating `animation.webp` while retaining

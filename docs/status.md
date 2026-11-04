@@ -55,7 +55,9 @@ MCP tool provide seeded horizontal layouts, spacing, scale/yaw variation, comple
 candidate validation and one Scene Undo per group. Gallery 144 has 128 green and 64
 amber blades using one original editable Mesh. Normal objects, shared asset and
 rendering owners, Scene Save, Play and export remain authoritative. This workflow
-does not project onto terrain, paint surfaces or stream worlds. See
+supports published-heightfield projection and optional world geometric slope
+filters and optional surface-frame alignment through the same native/preparation /
+MCP/Scene owners; it does not paint arbitrary surfaces, avoid colliders or stream worlds. See
 [the contract](foliage-placement.md) and [the user guide](../manual/editor/foliage.md).
 Windows/full-editor/physical acceptance remains pending.
 

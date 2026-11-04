@@ -268,6 +268,134 @@ void resolved_heights() {
               "Invalid resolved height partially changed placement/history");
     }
 }
+void selection_masks() {
+    EngineContext engine;
+    Scene scene(engine.world());
+    const auto source = authoring_command(scene, "entity.create", {{"recipe", "primitive.0"}})
+                            .at("selected")
+                            .get<std::string>();
+    detail::MeshScatterSettings settings;
+    settings.count = 16;
+    auto arguments = detail::mesh_scatter_arguments(source, settings, "Selected patch");
+    arguments["world_heights"] = Json::array();
+    for (unsigned i = 0; i < settings.count; ++i)
+        arguments["world_heights"].push_back(i * .5);
+    const auto before = scene.document();
+    const auto full = authoring_command(scene, "mesh.scatter", arguments);
+    const auto full_doc = scene.document();
+    check(scene.undo() && scene.document() == before, "Full candidate Undo failed");
+    arguments["placement_mask"] = Json::array();
+    for (unsigned i = 0; i < settings.count; ++i)
+        arguments["placement_mask"].push_back(i % 3 == 0);
+    const auto result = authoring_command(scene, "mesh.scatter", arguments);
+    const auto after = scene.document();
+    check(result.at("candidate_count") == 16 && result.at("placed_count") == 6 &&
+              result.at("created").size() == 6 &&
+              after.at("entities").size() == before.at("entities").size() + 7,
+          "Mask did not select the nonempty subset of the original pool");
+    for (unsigned index = 0; index < 6; ++index) {
+        const auto& expected = row(full_doc, full.at("created")[index * 3]);
+        const auto& selected = row(after, result.at("created")[index]);
+        check(selected.at("components") == expected.at("components") &&
+                  selected.at("name") == expected.at("name"),
+              "Filtering changed original candidate height/yaw/scale/name correspondence");
+    }
+    check(scene.undo() && scene.document() == before && scene.redo() && scene.document() == after,
+          "Selected placement did not use one ordinary history entry");
+    for (const Json& invalid :
+         {Json::array(), Json::array({true}), Json(false), Json(std::vector<bool>(16, false)),
+          Json(std::vector<int>(16, 1))}) {
+        auto bad = arguments;
+        bad["placement_mask"] = invalid;
+        const auto revision = scene.revision();
+        rejected([&] { authoring_command(scene, "mesh.scatter", bad); });
+        check(scene.document() == after && scene.revision() == revision,
+              "Invalid/empty selection partially changed Scene/history");
+    }
+}
+void normal_alignment() {
+    EngineContext engine;
+    Scene scene(engine.world());
+    const auto source = authoring_command(scene, "entity.create", {{"recipe", "primitive.0"}})
+                            .at("selected")
+                            .get<std::string>();
+    const auto template_rotation = rotation_about_axis({1, 0, 0}, 20);
+    authoring_command(scene, "transform.local",
+                      {{"entity", source},
+                       {"rotation",
+                        {{"x", template_rotation.x},
+                         {"y", template_rotation.y},
+                         {"z", template_rotation.z},
+                         {"w", template_rotation.w}}},
+                       {"scale", {{"x", -1}, {"y", 2}, {"z", .5}}}});
+    detail::MeshScatterSettings settings;
+    settings.count = 5;
+    auto arguments = detail::mesh_scatter_arguments(source, settings, "Oriented patch");
+    const auto before = scene.document();
+    const auto upright = authoring_command(scene, "mesh.scatter", arguments);
+    const auto upright_doc = scene.document();
+    check(!upright.at("aligned_to_slope").get<bool>() && scene.undo(),
+          "Default placement orientation changed");
+    const double tiny = std::numeric_limits<double>::denorm_min();
+    const std::array<Double3, 5> normals{
+        {{0, 1, 0}, {1, 1, 0}, {0, 1, 2}, {-3, 1, -2}, {tiny, tiny, tiny}}};
+    arguments["world_normals"] = Json::array();
+    for (const auto& n : normals)
+        arguments["world_normals"].push_back({{"x", n[0]}, {"y", n[1]}, {"z", n[2]}});
+    const auto aligned = authoring_command(scene, "mesh.scatter", arguments);
+    const auto aligned_doc = scene.document();
+    check(aligned.at("aligned_to_slope").get<bool>(), "Alignment provenance missing");
+    double maximum_error = 0;
+    // Authored LocalRotation is float; matrix evaluation uses those quantized samples.
+    for (unsigned i = 0; i < normals.size(); ++i) {
+        const auto base =
+            detail::read_local(row(upright_doc, upright.at("created")[i]).at("components"));
+        const auto actual =
+            detail::read_local(row(aligned_doc, aligned.at("created")[i]).at("components"));
+        auto n = i == 4 ? Double3{1, 1, 1} : normals[i];
+        const auto length = std::hypot(n[0], n[1], n[2]);
+        LocalTransform expected_tilt;
+        if (n[0] || n[2])
+            expected_tilt.rotation = rotation_about_axis(
+                {n[2], 0, -n[0]}, std::acos(n[1] / length) * 180 / std::acos(-1.));
+        const auto expected = affine_transform(expected_tilt);
+        const auto base_affine = affine_transform(base), actual_affine = affine_transform(actual);
+        for (const auto axis : {Double3{1, 0, 0}, Double3{0, 1, 0}, Double3{0, 0, 1}}) {
+            const auto want = expected.vector(base_affine.vector(axis)),
+                       got = actual_affine.vector(axis);
+            for (unsigned k = 0; k < 3; ++k) {
+                const auto error = std::abs(want[k] - got[k]);
+                maximum_error = std::max(maximum_error, error);
+                if (error >= 2e-6)
+                    throw std::runtime_error(
+                        "Alignment differs from independent axis-angle frame: " +
+                        Json{{"candidate", i},
+                             {"expected", want},
+                             {"actual", got},
+                             {"component_error", error}}
+                            .dump());
+            }
+        }
+        check(actual.translation == base.translation && actual.scale == base.scale,
+              "Alignment changed candidate origin or scale");
+    }
+    std::cout << "Float-authored alignment maximum basis error=" << maximum_error << '\n';
+    check(scene.undo() && scene.document() == before && scene.redo() &&
+              scene.document() == aligned_doc,
+          "Alignment did not use one ordinary Scene history entry");
+    for (const auto& bad_normal :
+         {Json{{"x", 0}, {"y", 0}, {"z", 0}}, Json{{"x", 0}, {"y", -1}, {"z", 0}},
+          Json{{"x", true}, {"y", 1}, {"z", 0}}, Json{{"x", 1e12 + 1}, {"y", 1}, {"z", 0}},
+          Json::array({0, 1, 0})}) {
+        auto bad = arguments;
+        bad["world_normals"][3] = bad_normal;
+        bad["placement_mask"] = {true, true, true, false, true};
+        const auto revision = scene.revision();
+        rejected([&] { authoring_command(scene, "mesh.scatter", bad); });
+        check(scene.document() == aligned_doc && scene.revision() == revision,
+              "Invalid excluded normal partially changed Scene/history");
+    }
+}
 } // namespace
 int main() {
     try {
@@ -275,6 +403,8 @@ int main() {
         distant_layout();
         authoring();
         resolved_heights();
+        selection_masks();
+        normal_alignment();
         std::cout << "Mesh scatter checks passed\n";
     } catch (const std::exception& e) {
         std::cerr << e.what() << '\n';

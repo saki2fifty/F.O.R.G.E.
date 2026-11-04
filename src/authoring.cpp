@@ -713,7 +713,11 @@ Json authoring_commands() {
         "Create 1 to 512 ordinary independent Mesh Renderer objects in a seeded horizontal disk. "
         "Copies the selected entity's renderer and local orientation/scale only. Center is world "
         "space; Y is a fixed plane unless resolved world_heights are supplied in generated "
-        "layout order. Heights are copied values, without a live surface link. Spacing separates "
+        "layout order. Optional Boolean placement_mask retains a nonempty subset in that same "
+        "candidate order; count is the generated pool, not a retained-count guarantee. Heights "
+        "are copied values, without a live surface link. Optional world_normals supplies upward "
+        "directions in candidate order; tilt +Y to each normal before the seeded yaw/template "
+        "rotation frame. Without normals yaw stays around world +Y. Spacing separates "
         "horizontal origins within this new group only. No terrain lookup, collision avoidance, "
         "children, gameplay or linked Prefab is copied. "
         "One Undo removes the group; failed fitting creates nothing.",
@@ -725,6 +729,13 @@ Json authoring_commands() {
          {"count", {{"type", "integer"}, {"minimum", 1}, {"maximum", 512}}},
          {"world_heights",
           {{"type", "array"}, {"minItems", 1}, {"maxItems", 512}, {"items", number(-1e12, 1e12)}}},
+         {"world_normals",
+          {{"type", "array"}, {"minItems", 1}, {"maxItems", 512}, {"items", xyz()}}},
+         {"placement_mask",
+          {{"type", "array"},
+           {"minItems", 1},
+           {"maxItems", 512},
+           {"items", {{"type", "boolean"}}}}},
          {"seed", {{"type", "integer"}, {"minimum", 0}, {"maximum", 4294967295ull}}},
          {"scale_min", number(.01, 100)},
          {"scale_max", number(.01, 100)},

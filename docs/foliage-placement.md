@@ -59,12 +59,29 @@ radius. Distance uses a scale-safe norm, including subnormal positive spacing;
 quantized duplicate world positions cannot pass a positive spacing request. The
 cell index uses bounded center-relative coordinates and a conservative neighborhood.
 It does not compare old groups, mesh bounds or colliders. There is no arbitrary
-surface painting, slope filter, brush stroke, wind simulation or world streaming.
+surface painting, collision filter, brush stroke, wind simulation or world streaming.
 Without optional `world_heights`, the requested center Y is an origin plane and
 children have zero local Y. With that array, each generated origin uses the
 corresponding absolute world Y; the group pivot remains the requested center.
 The array must contain exactly one finite value in -1e12 to 1e12 meters per
 placement, in generated layout order. Spacing still measures horizontal origins.
+Optional `placement_mask` is a Boolean array exactly as long as the generated
+candidate pool. It must retain at least one candidate. Masking does not resample,
+renumber the original candidate names or change their yaw/scale/heights; a subset
+retains the original minimum spacing. Scene entity budget applies to the retained
+children plus their group. All mask entries and supplied heights, including
+heights for excluded candidates, are validated before publication. Results add `candidate_count` and
+`placed_count`; `created` contains the retained child IDs in original order.
+Optional `world_normals` supplies one finite direction per original candidate
+as x/y/z, each component within±1e12 and Y strictly positive. Normalization scales
+by the largest magnitude before taking length, preserving subnormal directions.
+All entries, including excluded ones, are validated. A shortest upward-frame
+rotation (cross(+Y,n),1+dot(+Y,n)) precedes the existing yaw/template orientation.
+Positive normal Y avoids the antiparallel singularity. Thus yaw is about the
+surface frame's +Y and template rotation remains relative; signed/nonuniform
+scale and origin are unchanged. No-normal output remains unchanged. Results
+report `aligned_to_slope`. These are copied command inputs, not a live binding. Normals are prepared in double;
+rotations retain the existing float LocalRotation storage.
 A suitable base pivot is needed for plants to rest on the ground at every scale. A horizontal placement workflow is
 not a claim of a complete large-world precision workflow.
 
@@ -104,8 +121,28 @@ Horizontal yaw, scale and translation are supported through the effective affine
 pitched, rolled, inverted and ill-conditioned surfaces reject. Every generated
 horizontal origin must have terrain coverage, otherwise preparation rejects the
 whole request. The optional height offset is finite and within -1000 to 1000
-meters. Only origin height changes: copied orientation is retained, yaw is around
-world +Y, and blades do not align to slopes or follow later terrain edits.
+meters. By default only origin height changes: copied orientation is retained
+and yaw is around world +Y. Optional align_to_slope supplies the same world
+geometric normals through the command owner. Later terrain edits never move or
+rotate existing placements.
+
+Optional minimum/maximum world geometric slope default to0/90degrees. The same
+validated float-vertex triangle query now supplies height and an unnormalized
+upward face normal, selecting the existing first triangle on its diagonal. This
+is not the smoothed shading normal. The existing spatial normal_transform applies
+the effective inverse-transpose direction, including horizontal mirroring and
+nonuniform scale. Slope is atan2(horizontal normal magnitude, positive vertical
+normal), in degrees. The finite inclusive range satisfies0<=minimum<=maximum<=90.
+Filtering keeps the existing bounded candidate pool: no repeated resampling or
+retained-count promise. Preparation returns a generated-order `placement_mask`
+when filtering is requested, plus `candidate_count` and `retained_count`. An empty
+subset rejects with slope_excluded and preserves Scene/history. Coverage and all
+height/source/transform checks still apply to every candidate. Native Check/Place
+and read-only automation/MCP preparation use exactly this owner. Optional Boolean
+align_to_slope defaults false and returns original-order world_normals plus
+aligned_to_slope metadata. Filtering and orientation share the same sampled
+triangle; there is no second surface query. These tools add no persisted component,
+source schema, live terrain link or SDK ABI.
 
 The function preflights the complete detached Scene command without changing
 Scene/history, source, cache or publication. It returns `arguments`,

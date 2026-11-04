@@ -5,17 +5,25 @@
 #include "terrain_height_query.hpp"
 #include <cmath>
 #include <forge/project_paths.hpp>
+#include <numbers>
 namespace forge {
 Json prepare_terrain_foliage(const ProjectLease& lease, const Scene& scene, const Json& arguments,
-                             const std::string& terrain_entity, double height_offset) {
+                             const std::string& terrain_entity, double height_offset,
+                             TerrainFoliageSlopeRange slopes, bool align_to_slope) {
     lease.check();
     const auto revision = scene.revision();
     if (!std::isfinite(height_offset) || std::abs(height_offset) > 1000)
         throw AuthoringError("invalid_arguments",
                              "Terrain height offset must be within -1000 to 1000 meters");
-    if (arguments.contains("world_heights"))
+    if (!std::isfinite(slopes.minimum) || !std::isfinite(slopes.maximum) || slopes.minimum < 0 ||
+        slopes.maximum > 90 || slopes.minimum > slopes.maximum)
         throw AuthoringError("invalid_arguments",
-                             "Terrain preparation computes world heights; omit world_heights");
+                             "Terrain slopes must satisfy 0 <= minimum <= maximum <= 90 degrees");
+    if (arguments.contains("world_heights") || arguments.contains("placement_mask") ||
+        arguments.contains("world_normals"))
+        throw AuthoringError("invalid_arguments",
+                             "Terrain preparation computes heights and selection; omit "
+                             "world_heights, placement_mask and world_normals");
     const auto settings = detail::mesh_scatter_settings(arguments);
     const auto layout = detail::mesh_scatter_layout(settings);
     const auto view = scene.effective_document();
@@ -76,17 +84,43 @@ Json prepare_terrain_foliage(const ProjectLease& lease, const Scene& scene, cons
                                     settings.center[2] + placement.offset[1]});
         positions.push_back({point[0], point[2]});
     }
-    const auto heights = detail::terrain_heights(source.raster(), positions);
+    const auto samples = detail::terrain_surfaces(source.raster(), positions);
+    const auto normals_to_world = normal_transform(transform);
+    const bool filtered = slopes.minimum != 0 || slopes.maximum != 90;
+    Json mask = Json::array();
+    unsigned retained = 0;
     auto resolved = arguments;
     resolved["world_heights"] = Json::array();
-    for (std::size_t i = 0; i < heights.size(); ++i) {
-        if (!heights[i])
+    if (align_to_slope)
+        resolved["world_normals"] = Json::array();
+    for (std::size_t i = 0; i < samples.size(); ++i) {
+        if (!samples[i])
             throw AuthoringError("surface_coverage",
                                  "The heightfield must cover every placement origin; move the "
                                  "center or reduce the radius. No objects were created");
         resolved["world_heights"].push_back(
-            transform.point({positions[i][0], *heights[i], positions[i][1]})[1] + height_offset);
+            transform.point({positions[i][0], samples[i]->height, positions[i][1]})[1] +
+            height_offset);
+        const auto normal = normals_to_world.vector(samples[i]->normal);
+        const auto slope =
+            std::atan2(std::hypot(normal[0], normal[2]), normal[1]) * (180 / std::numbers::pi);
+        if (!std::isfinite(slope) || normal[1] <= 0)
+            throw AuthoringError("invalid_surface",
+                                 "Terrain geometric normal is not upward and finite");
+        if (align_to_slope)
+            resolved["world_normals"].push_back(
+                {{"x", normal[0]}, {"y", normal[1]}, {"z", normal[2]}});
+        const bool selected = slope >= slopes.minimum && slope <= slopes.maximum;
+        mask.push_back(selected);
+        retained += selected;
     }
+    if (filtered)
+        resolved["placement_mask"] = std::move(mask);
+    if (!retained)
+        throw AuthoringError(
+            "slope_excluded",
+            "No foliage candidates match the terrain slope range; no objects were created");
+    // Complete candidate admission remains with the ordinary Scene authoring owner.
     (void)preview_authoring(
         scene, Json::array({{{"operation", "mesh.scatter"}, {"arguments", resolved}}}));
     lease.check();
@@ -94,6 +128,9 @@ Json prepare_terrain_foliage(const ProjectLease& lease, const Scene& scene, cons
         throw AuthoringError("stale_revision", "Scene changed while preparing terrain placement");
     return {{"arguments", std::move(resolved)},
             {"scene_revision", revision},
+            {"candidate_count", layout.size()},
+            {"retained_count", retained},
+            {"aligned_to_slope", align_to_slope},
             {"terrain_mesh", mesh},
             {"terrain_revision", key},
             {"source_digest", selected.at("source_digest")}};

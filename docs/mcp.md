@@ -90,7 +90,13 @@ It uses an effective Mesh Renderer template and explicit world center, disk radi
 spacing, integer count/seed, scale multipliers and yaw bounds. It creates an
 ordinary independent group in one Undo step; a failure creates no partial patch.
 The base settings are required and discoverable. Spacing compares new horizontal
-origins. Optional `world_heights` supplies one finite world Y per generated origin;
+origins. Optional Boolean `placement_mask` retains a nonempty subset of the
+original candidate order, preserving seeded values and minimum spacing. Results
+report candidate_count/placed_count; count remains the pool size. Optional
+`world_normals` supplies upward directions for surface-frame orientation in that
+same order (finite components±1e12, Y>0, scale-safe normalization). Default without
+normals retains world-up yaw/template orientation; aligned_to_slope reports the
+selected profile. Optional `world_heights` supplies one finite world Y per generated origin;
 otherwise placement uses the fixed Y plane. Children, gameplay, animation and
 Prefab links are not copied. Renderer values and template local
 rotation/scale are copied through the shared Scene command. See
@@ -98,7 +104,18 @@ rotation/scale are copied through the shared Scene command. See
 
 `forge_foliage_terrain_prepare` binds the read-only `foliage.terrain.prepare`
 workflow. Supply a `terrain` Scene entity ID, the ordinary scatter `arguments`
-without `world_heights`, and optional `height_offset` (-1000–1000). It validates
+without `world_heights`, `placement_mask` or `world_normals`, and optional `height_offset`
+(-1000–1000), `minimum_slope`/`maximum_slope` (finite inclusive0..90degrees,
+minimum<=maximum, default0/90). Slope uses the actual transformed geometric
+triangle normal, not smoothed shading. Filtering returns an original-order mask,
+`candidate_count` and `retained_count`; no candidates retained is an error.
+It never resamples to fill count. Optional Boolean `align_to_slope` defaults false;
+when true the same prepared triangle normal is returned in `world_normals`.
+The Scene command tilts the placement frame before seeded yaw/template rotation;
+scale/signs/heights remain unchanged. Preparation reports aligned_to_slope.
+Invalid range/mask/normal/type/coverage checks preserve
+Scene/history and share native errors. The ordinary mesh.scatter command remains
+the mutation/Undo owner. It validates
 one current published heightfield selection and matching on-disk source, then
 returns `arguments`, `scene_revision`, `terrain_mesh`, `terrain_revision` and
 `source_digest`. Apply the returned arguments with `forge_mesh_scatter` at the

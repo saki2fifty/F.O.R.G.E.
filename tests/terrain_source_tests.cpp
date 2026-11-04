@@ -99,10 +99,38 @@ void batch_queries() {
     const auto triangles = detail::terrain_heights(nonlinear, diagonal);
     near(*triangles[0], 1.5);
     near(*triangles[1], 2.75);
+    const auto surfaces = detail::terrain_surfaces(nonlinear, diagonal);
+    require(surfaces.size() == 2 && surfaces[0] && surfaces[1],
+            "Terrain surface queries lost coverage");
+    near(surfaces[0]->height, 1.5);
+    near(surfaces[1]->height, 2.75);
+    require(surfaces[0]->normal == std::array<double, 3>{-1, 1, -2} &&
+                surfaces[1]->normal == std::array<double, 3>{-2, 1, -3},
+            "Geometric slope used bilinear/smooth normals or the wrong triangle");
+    const auto plane_surfaces = detail::terrain_surfaces(raster, positions);
+    for (std::size_t i = 0; i < positions.size(); ++i) {
+        require(bool(plane_surfaces[i]) == bool(heights[i]), "Normal/height coverage differs");
+        if (plane_surfaces[i]) {
+            near(plane_surfaces[i]->height, *heights[i]);
+            require(plane_surfaces[i]->normal == std::array<double, 3>{-1, 1, -2},
+                    "Flat-gradient geometric normal changed at a cell/tile boundary");
+        }
+    }
+    nonlinear.tile_size = 1.3;
+    const auto rounded_mesh = terrain_mesh(nonlinear);
+    const auto& rounded = stream(rounded_mesh.lods[0].parts[0], "POSITION");
+    const double span_x = double(rounded[3]) - rounded[0], span_z = double(rounded[8]) - rounded[2];
+    const std::array<std::array<double, 2>, 1> rounded_query{{{.75 * span_x, .75 * span_z}}};
+    const auto rounded_surface = detail::terrain_surfaces(nonlinear, rounded_query);
+    require(rounded_surface[0].has_value(), "Rounded terrain triangle lost coverage");
+    near(rounded_surface[0]->normal[0], -2 / span_x, 1e-12);
+    near(rounded_surface[0]->normal[2], -3 / span_z, 1e-12);
+    require(detail::terrain_surfaces(raster, {}).empty(), "Empty surface batch produced samples");
     require(detail::terrain_heights(raster, {}).empty(), "Empty terrain batch produced samples");
     auto bad = positions;
     bad.back()[0] = std::numeric_limits<double>::infinity();
     reject([&] { detail::terrain_heights(raster, bad); });
+    reject([&] { detail::terrain_surfaces(raster, bad); });
     auto invalid = raster;
     invalid.tiles.front().layers.front().heights.clear();
     reject([&] { detail::terrain_heights(invalid, positions); });

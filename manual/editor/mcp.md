@@ -266,6 +266,17 @@ project code with Inspector-adjustable speed, save/build/inspect it, test it in
 Play, capture a view image, then export into the granted output folder. Report the
 actual build/runtime/export results and anything not tested.**
 
+For heightfield foliage, **forge_foliage_terrain_prepare** accepts
+**minimum_slope** and **maximum_slope** in degrees, defaulting to **0** and **90**.
+The read-only preparation reports **candidate_count**, **retained_count** and
+prepared scatter arguments. Apply those exact arguments through
+**forge_mesh_scatter** at the returned Scene revision. Count is the candidate pool;
+filtering can keep fewer objects. Set **align_to_slope: true** to tilt the placement
+frame to the same geometric surface; its default is **false**. The prepared
+arguments include normals and status identifies **aligned_to_slope**. Seeded yaw
+and template rotation stay relative to the tilted frame. See
+[terrain slope filtering and alignment](foliage.md).
+
 ## Keep control
 
 - **Stop connection** immediately revokes access. Committed scene edits remain, and saved files stay on disk.

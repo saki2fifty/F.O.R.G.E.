@@ -35,16 +35,28 @@ def check_terrain_foliage_workflow(read, mutate, edit, content, save_published,
     revision = discover()['revision']
     plan = read('forge_foliage_terrain_prepare', terrain=surface, arguments=arguments,
                 height_offset=.4)
+    assert not plan['aligned_to_slope'] and 'world_normals' not in plan['arguments']
     assert plan['scene_revision'] == revision and plan['terrain_mesh'] == source['asset_id']
     assert read('forge_scene_read') == before and discover()['revision'] == revision
     assert (path / 'Assets/AgentGround.terrain.json').read_bytes() == original_source
     assert (path / 'forge.assets.json').read_bytes() == original_catalog
+    selected = read('forge_foliage_terrain_prepare', terrain=surface, arguments=arguments,
+                    height_offset=.4, minimum_slope=20, maximum_slope=40, align_to_slope=True)
+    assert selected['candidate_count'] == 12 and selected['retained_count'] == 12
+    assert selected['arguments']['placement_mask'] == [True] * 12
+    assert selected['aligned_to_slope'] and len(selected['arguments']['world_normals']) == 12
+    assert all(abs(n['x'] / n['y'] + .5) < 1e-9 and abs(n['z'] / n['y'] + .25) < 1e-9
+               for n in selected['arguments']['world_normals'])
+    malformed = dict(selected['arguments'], world_normals=[dict(x=0, y=1, z=0)])
+    failed(mutate('forge_mesh_scatter', arguments=malformed), 'invalid_arguments')
+    assert read('forge_scene_read') == before
     state = discover()
     request = dict(target=state['result']['target'], expected_revision=plan['scene_revision'],
-                   sequence=state['next_sequence'], arguments=plan['arguments'])
+                   sequence=state['next_sequence'], arguments=selected['arguments'])
     placed = client.tool('forge_mesh_scatter', **request)
     assert placed['ok'], placed
     assert client.tool('forge_mesh_scatter', **request) == placed
+    assert placed['result']['results'][0]['aligned_to_slope']
     after = read('forge_scene_read')
     rows = {r['id']: r for r in after['entities']}
     for id_ in placed['result']['results'][0]['created']:
@@ -57,7 +69,10 @@ def check_terrain_foliage_workflow(read, mutate, edit, content, save_published,
     assert read('forge_scene_read') == after
     failed(client.tool('forge_mesh_scatter', **dict(request, sequence=discover()['next_sequence'])),
            'stale_revision')
-    for extra in (dict(terrain=prototype), dict(height_offset=True), dict(height_offset=1001),
+    for extra in (dict(terrain=prototype), dict(height_offset=True), dict(height_offset=1001), dict(minimum_slope=True), dict(align_to_slope=1),
+                  dict(arguments=dict(arguments, world_normals=[dict(x=0,y=1,z=0)] * 12)), dict(maximum_slope=91),
+                  dict(minimum_slope=40, maximum_slope=20), dict(maximum_slope=10),
+                  dict(arguments=dict(arguments, placement_mask=[True] * 12)),
                   dict(arguments=dict(arguments, world_heights=[0] * 12)),
                   dict(arguments=dict(arguments, center=dict(x=1000, y=0, z=1000)))):
         state = discover()
@@ -75,3 +90,25 @@ def check_terrain_foliage_workflow(read, mutate, edit, content, save_published,
     (path / 'Assets/AgentGround.terrain.json').write_bytes(original_source)
     assert mutate('forge_document_save')['ok']
     assert json.loads((path / 'Scenes/main.scene.json').read_bytes()) == after
+
+    mixed = content('terrain')
+    mixed['tiles'][0]['layers'][0]['heights'] = [0, 0, 4, 0, 0, 4, 0, 0, 4]
+    assert edit('forge_asset_document_patch', 'terrain',
+                patch=[dict(op='replace', path='', value=mixed)])['ok']
+    save_published('terrain')
+    selected = read('forge_foliage_terrain_prepare', terrain=surface, arguments=arguments,
+                    maximum_slope=10, align_to_slope=True)
+    mask = selected['arguments']['placement_mask']
+    assert len(mask) == 12 and 0 < sum(mask) < 12
+    assert selected['candidate_count'] == 12 and selected['retained_count'] == sum(mask)
+    state = discover()
+    request = dict(target=state['result']['target'], expected_revision=selected['scene_revision'],
+                   sequence=state['next_sequence'], arguments=selected['arguments'])
+    placed = client.tool('forge_mesh_scatter', **request)
+    assert placed['ok'] and client.tool('forge_mesh_scatter', **request) == placed
+    result = placed['result']['results'][0]
+    assert result['aligned_to_slope']
+    assert result['placed_count'] == sum(mask) and len(result['created']) == sum(mask)
+    subset = read('forge_scene_read')
+    assert mutate('forge_history_undo')['ok'] and read('forge_scene_read') == after
+    assert mutate('forge_history_redo')['ok'] and read('forge_scene_read') == subset

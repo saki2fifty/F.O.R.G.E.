@@ -117,9 +117,6 @@ Json scatter_mesh(SceneDraft& scene, const std::string& source, const Json& a) {
     if (name.find_first_not_of(" \t\r\n") == std::string::npos)
         invalid("Foliage group name must not be blank");
     auto doc = scene.document();
-    if (doc.at("entities").size() + settings.count + 1 > 10000)
-        throw AuthoringError("limit_exceeded",
-                             "Foliage placement would exceed 10000 Scene entities");
     const auto view = scene.effective_document();
     const Json* prototype = nullptr;
     for (const auto& row : view.at("entities"))
@@ -148,6 +145,55 @@ Json scatter_mesh(SceneDraft& scene, const std::string& source, const Json& a) {
             heights.push_back(height);
         }
     }
+    std::vector<Double3> normals;
+    if (a.contains("world_normals")) {
+        const auto& values = a.at("world_normals");
+        if (!values.is_array() || values.size() != placements.size())
+            invalid("World normals must match the generated candidate count");
+        normals.reserve(values.size());
+        for (const auto& value : values) {
+            if (!value.is_object() || value.size() != 3 || !value.contains("x") ||
+                !value.contains("y") || !value.contains("z"))
+                invalid("World normals require numeric x, y and z");
+            Double3 normal;
+            unsigned axis = 0;
+            for (const char* key : {"x", "y", "z"}) {
+                if (!value.at(key).is_number())
+                    invalid("World normal components must be numeric");
+                normal[axis] = value.at(key).get<double>();
+                range(normal[axis++], -1e12, 1e12);
+            }
+            if (normal[1] <= 0)
+                invalid("World normals require a positive upward Y component");
+            const auto magnitude =
+                std::max({std::abs(normal[0]), std::abs(normal[1]), std::abs(normal[2])});
+            for (auto& component : normal)
+                component /= magnitude;
+            const auto length = std::hypot(normal[0], normal[1], normal[2]);
+            for (auto& component : normal)
+                component /= length;
+            normals.push_back(normal);
+        }
+    }
+    std::vector<bool> selected(placements.size(), true);
+    std::size_t retained = placements.size();
+    if (a.contains("placement_mask")) {
+        const auto& mask = a.at("placement_mask");
+        if (!mask.is_array() || mask.size() != placements.size())
+            invalid("Placement mask must match the generated candidate count");
+        retained = 0;
+        for (std::size_t i = 0; i < mask.size(); ++i) {
+            if (!mask[i].is_boolean())
+                invalid("Placement mask entries must be Boolean");
+            selected[i] = mask[i].get<bool>();
+            retained += selected[i];
+        }
+        if (!retained)
+            invalid("Placement mask must retain at least one candidate");
+    }
+    if (doc.at("entities").size() + retained + 1 > 10000)
+        throw AuthoringError("limit_exceeded",
+                             "Foliage placement would exceed 10000 Scene entities");
     std::set<std::string> occupied;
     for (const auto& row : doc.at("entities"))
         occupied.insert(row.at("id").get<std::string>());
@@ -169,6 +215,8 @@ Json scatter_mesh(SceneDraft& scene, const std::string& source, const Json& a) {
     doc["entities"].push_back(std::move(root));
     Json created = Json::array();
     for (std::size_t i = 0; i < placements.size(); ++i) {
+        if (!selected[i])
+            continue;
         const auto& p = placements[i];
         const auto id = fresh();
         Json row = {{"id", id},
@@ -185,6 +233,19 @@ Json scatter_mesh(SceneDraft& scene, const std::string& source, const Json& a) {
         const auto& q = local.rotation;
         transform.rotation = normalized({yaw.w * q.x + yaw.y * q.z, yaw.w * q.y + yaw.y * q.w,
                                          yaw.w * q.z - yaw.y * q.x, yaw.w * q.w - yaw.y * q.y});
+        if (!normals.empty()) {
+            const auto& n = normals[i];
+            // Shortest upward-frame rotation: cross(+Y,n), 1+dot(+Y,n).
+            // Positive n.y avoids the antiparallel singularity. Yaw/template
+            // rotation remain relative to this frame; scale signs are retained.
+            const auto tilt = normalized({float(n[2]), 0, float(-n[0]), float(1 + n[1])});
+            const auto rotated = transform.rotation;
+            transform.rotation =
+                normalized({tilt.w * rotated.x + tilt.x * rotated.w - tilt.z * rotated.y,
+                            tilt.w * rotated.y + tilt.z * rotated.x - tilt.x * rotated.z,
+                            tilt.w * rotated.z + tilt.x * rotated.y + tilt.z * rotated.w,
+                            tilt.w * rotated.w - tilt.x * rotated.x - tilt.z * rotated.z});
+        }
         transform.scale = checked_local_scale(
             {local.scale.x * p.scale, local.scale.y * p.scale, local.scale.z * p.scale});
         write_local(row, {}, transform, TransformChannel::All);
@@ -192,6 +253,8 @@ Json scatter_mesh(SceneDraft& scene, const std::string& source, const Json& a) {
         created.push_back(id);
     }
     scene.edit(doc);
-    return {{"operation", "mesh.scatter"}, {"selected", group}, {"created", created}};
+    return {{"operation", "mesh.scatter"}, {"selected", group},
+            {"created", created},          {"candidate_count", placements.size()},
+            {"placed_count", retained},    {"aligned_to_slope", !normals.empty()}};
 }
 } // namespace forge::detail

@@ -278,8 +278,10 @@ Foliage placement creates bounded seeded groups of independent Mesh Renderer
 objects through **Tools > Foliage placement...** and the same automation/MCP command.
 Spacing, yaw/scale variation, complete layout checks and one-step Scene Undo use the
 normal object and asset owners. Gallery 144 includes an original editable blade Mesh
-and two patches for saving, Play and export. Placement uses a horizontal plane;
-it does not project onto terrain. See [the guide](manual/editor/foliage.md).
+and two patches for saving, Play and export. Gallery147 adds published-heightfield
+projection. Optional world-space slope ranges keep a subset of the seeded candidate
+pool through the same native and MCP preparation. Optional slope alignment tilts
+the placement frame while preserving relative template rotation, with ordinary Scene objects. See [the guide](manual/editor/foliage.md).
 
 ![Green and amber foliage patches in the Game view](manual/images/foliage-placement-game.png)
 

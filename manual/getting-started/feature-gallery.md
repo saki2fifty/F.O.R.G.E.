@@ -544,7 +544,9 @@ open **Tools > Foliage placement...**. Choose **Use selected Mesh Renderer**, se
 **Check layout** and **Place foliage**. One Scene Undo removes the new group.
 The source Mesh opens through Content; its base pivot keeps scaled blades on the
 origin plane. Save the Scene and export through the normal workflow. The tool
-uses a horizontal plane and does not project onto terrain.
+uses a horizontal plane in this example. Gallery147 demonstrates published
+heightfield projection; use Minimum/Maximum slope to filter a new candidate pool
+and Align to terrain slope to tilt its placement frames.
 See [Place foliage](../editor/foliage.md).
 
 ## Live camera images

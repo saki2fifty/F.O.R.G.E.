@@ -233,8 +233,8 @@ MeshData terrain_mesh(const TerrainRaster& raster) {
     return result;
 }
 namespace {
-std::optional<double> height_at(const TerrainRaster& raster, const Grid& points, double x,
-                                double z) {
+std::optional<detail::TerrainSurfaceSample> surface_at(const TerrainRaster& raster,
+                                                       const Grid& points, double x, double z) {
     require(std::isfinite(x) && std::isfinite(z), "Terrain query position is nonfinite");
     for (const auto& tile : raster.tiles) {
         const auto first = key(raster, tile, 0, 0),
@@ -259,15 +259,23 @@ std::optional<double> height_at(const TerrainRaster& raster, const Grid& points,
         const auto [cz, fz] = cell(z, 1);
         const double a = points.at({cx, cz}).height, b = points.at({cx + 1, cz}).height,
                      c = points.at({cx, cz + 1}).height, d = points.at({cx + 1, cz + 1}).height;
-        return fx + fz <= 1 ? a + (b - a) * fx + (c - a) * fz
-                            : d + (c - d) * (1 - fx) + (b - d) * (1 - fz);
+        const double span_x = double(coordinate(raster, cx + 1)) - coordinate(raster, cx),
+                     span_z = double(coordinate(raster, cz + 1)) - coordinate(raster, cz);
+        // Match the same diagonal and rounded vertices as terrain_mesh/height queries.
+        const bool first_triangle = fx + fz <= 1;
+        const auto height = first_triangle ? a + (b - a) * fx + (c - a) * fz
+                                           : d + (c - d) * (1 - fx) + (b - d) * (1 - fz);
+        const auto dx = (first_triangle ? b - a : d - c) / span_x,
+                   dz = (first_triangle ? c - a : d - b) / span_z;
+        return detail::TerrainSurfaceSample{height, {-dx, 1, -dz}};
     }
     return {};
 }
 } // namespace
 std::optional<double> terrain_height(const TerrainRaster& raster, double x, double z) {
     require(std::isfinite(x) && std::isfinite(z), "Terrain query position is nonfinite");
-    return height_at(raster, grid(raster), x, z);
+    const auto sample = surface_at(raster, grid(raster), x, z);
+    return sample ? std::optional<double>{sample->height} : std::nullopt;
 }
 std::vector<std::optional<double>>
 detail::terrain_heights(const TerrainRaster& raster,
@@ -275,8 +283,21 @@ detail::terrain_heights(const TerrainRaster& raster,
     const auto points = grid(raster);
     std::vector<std::optional<double>> result;
     result.reserve(positions.size());
+    for (const auto& point : positions) {
+        const auto sample = surface_at(raster, points, point[0], point[1]);
+        result.push_back(sample ? std::optional<double>{sample->height} : std::nullopt);
+    }
+    return result;
+}
+
+std::vector<std::optional<detail::TerrainSurfaceSample>>
+detail::terrain_surfaces(const TerrainRaster& raster,
+                         std::span<const std::array<double, 2>> positions) {
+    const auto points = grid(raster);
+    std::vector<std::optional<TerrainSurfaceSample>> result;
+    result.reserve(positions.size());
     for (const auto& point : positions)
-        result.push_back(height_at(raster, points, point[0], point[1]));
+        result.push_back(surface_at(raster, points, point[0], point[1]));
     return result;
 }
 

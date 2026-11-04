@@ -62,6 +62,7 @@ files nor a C++ compiler. There is no terrain editor inside the running game.
 This first profile supports up to eight tiles and three height layers. It is a
 surface heightfield: caves, holes and overhangs require separate meshes.
 
-For independent Mesh groups on a horizontal plane, see [Place foliage](foliage.md).
-That tool does not project onto terrain; place on a suitable plane or adjust objects
-with the normal Scene tools.
+For independent Mesh groups on a plane or this published heightfield, see
+[Place foliage](foliage.md). Its optional world-space slope range retains a subset
+of candidate origins. Optional Align to terrain slope tilts their placement frame.
+Placed objects keep copied heights and orientations; they do not follow later terrain edits.

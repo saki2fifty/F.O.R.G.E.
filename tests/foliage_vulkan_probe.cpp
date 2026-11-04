@@ -2,13 +2,75 @@
 #include "editor/authoring.hpp"
 #include "editor/viewport.hpp"
 #include "gallery_game_capture.hpp"
+#include "mesh_scatter_authoring.hpp"
 #include "runtime_package.hpp"
+#include "terrain_foliage_authoring.hpp"
+#include <cmath>
 #include <iostream>
+#include <numbers>
 using namespace forge;
 using namespace Diligent;
 namespace {
+Json prepare_slope_patch(const std::filesystem::path& root, const std::filesystem::path& path,
+                         const Json& source) {
+    EngineContext engine;
+    Scene scene(engine.world());
+    scene.reset(source);
+    ProjectLease lease(root);
+    std::string prototype, terrain;
+    for (const auto& row : source.at("entities")) {
+        const auto name = row.at("name").get<std::string>();
+        if (name.starts_with("Blade template"))
+            prototype = row.at("id");
+        if (name.starts_with("Layered terrain"))
+            terrain = row.at("id");
+    }
+    test_gallery_capture::check(!prototype.empty() && !terrain.empty(),
+                                "Slope placement actors unavailable");
+    detail::MeshScatterSettings settings;
+    settings.center = {0, 0, 0};
+    settings.count = 48;
+    settings.radius = 5;
+    settings.spacing = .35;
+    settings.seed = 8128;
+    const auto arguments =
+        detail::mesh_scatter_arguments(prototype, settings, "Slope-aligned patch");
+    const auto observed = prepare_terrain_foliage(lease, scene, arguments, terrain, 0, {}, true);
+    double minimum = 90, maximum = 0;
+    for (const auto& value : observed.at("arguments").at("world_normals")) {
+        const Double3 n{value.at("x"), value.at("y"), value.at("z")};
+        const auto slope = std::atan2(std::hypot(n[0], n[2]), n[1]) * 180 / std::numbers::pi;
+        minimum = std::min(minimum, slope);
+        maximum = std::max(maximum, slope);
+    }
+    test_gallery_capture::check(maximum - minimum > 1e-6, "Gallery surface has no varied slopes");
+    const auto cutoff = (minimum + maximum) * .5;
+    const auto plan =
+        prepare_terrain_foliage(lease, scene, arguments, terrain, 0, {0, cutoff}, true);
+    const auto retained = plan.at("retained_count").get<unsigned>();
+    test_gallery_capture::check(retained > 0 && retained < settings.count,
+                                "Native slope selection did not produce a proper subset");
+    const auto result =
+        apply_authoring(
+            scene,
+            Json::array({{{"operation", "mesh.scatter"}, {"arguments", plan.at("arguments")}}}),
+            plan.at("scene_revision"))
+            .at("results")
+            .at(0);
+    test_gallery_capture::check(result.at("created").size() == retained &&
+                                    result.at("aligned_to_slope") == true,
+                                "Native slope preparation/Scene command disagree");
+    scene.save(root / path);
+    const std::array roots{scene.asset_id()};
+    prepare_runtime_content_catalog(lease, roots, {}, scene.schema());
+    return {{"candidate_count", settings.count},
+            {"retained_count", retained},
+            {"maximum_slope", cutoff},
+            {"aligned_to_slope", true}};
+}
 Json scene_view(DiligentPresentation& presentation, IDeviceContext* context,
-                const std::filesystem::path& root, AssetId id, bool terrain) {
+                const std::filesystem::path& root, AssetId id, bool terrain,
+                unsigned added_instances = 0) {
     EngineContext engine(WorldRole::Runtime, false);
     Scene scene(engine.world());
     scene.restore_snapshot(load_game_scene(root, {id}));
@@ -53,7 +115,7 @@ Json scene_view(DiligentPresentation& presentation, IDeviceContext* context,
                              {"calls", stats.calls}};
     const auto failure = "Foliage static Mesh draw counts: " + counts.dump();
     // Each of the terrain's two tile parts contributes a draw instance.
-    test_gallery_capture::check(stats.instances == (terrain ? 131u : 195u) &&
+    test_gallery_capture::check(stats.instances == (terrain ? 131u : 195u) + added_instances &&
                                     stats.batched_calls > 0 && stats.calls < stats.instances,
                                 failure.c_str());
     std::string prototype;
@@ -77,9 +139,11 @@ Json scene_view(DiligentPresentation& presentation, IDeviceContext* context,
 } // namespace
 int main(int argc, char** argv) {
     try {
-        test_gallery_capture::check(argc == 3 || argc == 4,
-                                    "Need Gallery and scratch paths, optionally terrain Scene");
-        const bool terrain = argc == 4;
+        test_gallery_capture::check(
+            argc == 3 || argc == 4 ||
+                (argc == 5 && std::string_view(argv[4]) == "--slope-placement"),
+            "Need Gallery/scratch, optional terrain Scene and --slope-placement");
+        const bool terrain = argc >= 4, slopes = argc == 5;
         const auto scratch = std::filesystem::absolute(argv[2]) / AssetId::generate().str();
         const auto root = scratch / "Gallery";
         std::filesystem::create_directories(root);
@@ -95,7 +159,12 @@ int main(int argc, char** argv) {
         std::ifstream(root / (terrain ? argv[3] : "Scenes/144-foliage-placement.scene.json")) >>
             source;
         const auto id = source.at("asset_id").get<AssetId>();
-        const auto stats = scene_view(presentation, context, root, id, terrain);
+        Json slope_proof;
+        if (slopes)
+            slope_proof = prepare_slope_patch(root, argv[3], source);
+        const auto stats =
+            scene_view(presentation, context, root, id, terrain,
+                       slopes ? slope_proof.at("retained_count").get<unsigned>() : 0);
         const auto authored = test_gallery_capture::render(presentation, context, root, id,
                                                            scratch / "authored", 6, !terrain);
         unsigned green = 0, amber = 0;
@@ -121,6 +190,8 @@ int main(int argc, char** argv) {
                         {"amber_pixels", amber},
                         {"scope", "Actual Scene/Game on software Vulkan; no Windows/physical "
                                   "GPU/graphical EXE acceptance"}};
+        if (slopes)
+            receipt["slope_placement"] = std::move(slope_proof);
         std::ofstream(scratch / "receipt.json") << receipt.dump(2) << '\n';
         context->WaitForIdle();
         std::cout << receipt.dump() << "\nFoliage native evidence: " << scratch << '\n';

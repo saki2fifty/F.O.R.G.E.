@@ -85,13 +85,32 @@ class FoliagePlacement {
                                    surface ? surface->at("name").get<std::string>().c_str()
                                            : "Choose a published heightfield Mesh Renderer");
                 ImGui::TextWrapped("The terrain must cover every origin and remain upright. "
-                                   "Publish terrain edits before placement. Objects keep their own "
-                                   "orientation and do not follow later terrain edits.");
+                                   "Publish terrain edits before placement. Placed objects do not "
+                                   "follow later terrain edits.");
                 ImGui::TextUnformatted("Height offset (m)");
                 ImGui::SetNextItemWidth(-1);
                 if (ImGui::InputDouble("##height offset", &height_offset_, 0, 0, "%.3f"))
                     status_.clear();
                 FORGE_UI_PROBE("foliage:height_offset");
+                ImGui::TextUnformatted("Minimum slope (deg)");
+                ImGui::SetNextItemWidth(-1);
+                if (ImGui::InputDouble("##slope-minimum", &slopes_.minimum, 0, 0, "%.3f"))
+                    status_.clear();
+                FORGE_UI_PROBE("foliage:slope_min");
+                ImGui::TextUnformatted("Maximum slope (deg)");
+                ImGui::SetNextItemWidth(-1);
+                if (ImGui::InputDouble("##slope-maximum", &slopes_.maximum, 0, 0, "%.3f"))
+                    status_.clear();
+                FORGE_UI_PROBE("foliage:slope_max");
+                ImGui::TextWrapped("0° is flat, 90° vertical. Keep only candidates within this "
+                                   "world-space triangle slope range. Count is a candidate pool; "
+                                   "filtering can retain fewer objects.");
+                if (ImGui::Checkbox("Align to terrain slope", &align_to_slope_))
+                    status_.clear();
+                FORGE_UI_PROBE("foliage:align_slope");
+                help("Tilt the placement frame to the geometric normal. Seeded yaw and the "
+                     "template rotation stay relative to that frame. With this off, keep "
+                     "world-up yaw and the template orientation.");
             }
             auto field = [&](const char* label, const char* key, double& value, const char* tip) {
                 ImGui::TextUnformatted(label);
@@ -116,13 +135,13 @@ class FoliagePlacement {
             field("Minimum spacing (m)", "spacing", settings_.spacing,
                   "0 to 2000 m between new origins in this group. Mesh bounds, old objects and "
                   "colliders are not tested. Dense requests can fail without creating objects.");
-            ImGui::TextUnformatted("Count");
+            ImGui::TextUnformatted(projected_ ? "Candidate count" : "Count");
             ImGui::SetNextItemWidth(-1);
             if (ImGui::InputInt("##count", &count_, 0, 0))
                 status_.clear();
             FORGE_UI_PROBE("foliage:count");
-            help("1 to 512 objects per placement. The whole Scene remains limited to 10000 "
-                 "entities.");
+            help("1 to 512 candidate origins. Terrain slope filtering can retain fewer objects. "
+                 "The whole Scene remains limited to 10000 entities.");
             ImGui::TextUnformatted("Seed");
             ImGui::SetNextItemWidth(-1);
             if (ImGui::InputScalar("##seed", ImGuiDataType_U32, &settings_.seed))
@@ -146,12 +165,17 @@ class FoliagePlacement {
                     auto arguments =
                         detail::mesh_scatter_arguments(source_, settings_, name_.data());
                     auto revision = scene.revision();
+                    auto retained = settings_.count;
                     if (projected_) {
                         const auto prepared = prepare_terrain_foliage(
-                            *project->writer_guard(), scene, arguments, terrain_, height_offset_);
+                            *project->writer_guard(), scene, arguments, terrain_, height_offset_,
+                            slopes_, align_to_slope_);
                         arguments = prepared.at("arguments");
                         revision = prepared.at("scene_revision");
+                        retained = prepared.at("retained_count");
                     }
+                    const auto count_text = std::to_string(retained) + " of " +
+                                            std::to_string(settings_.count) + " candidates";
                     if (place) {
                         const auto result =
                             apply_authoring(scene,
@@ -161,8 +185,8 @@ class FoliagePlacement {
                                 .at("results")
                                 .at(0);
                         selection.select_entity(result.at("selected"));
-                        status_ =
-                            "Foliage placed. Scene Undo removes the entire group. Save the Scene.";
+                        status_ = "Foliage placed: " + count_text +
+                                  ". Scene Undo removes the entire group. Save the Scene.";
                     } else {
                         // The same complete detached command admission validates renderer,
                         // transforms, layout, names and the Scene budget without publication.
@@ -170,7 +194,8 @@ class FoliagePlacement {
                         if (!projected_)
                             preview_authoring(scene, Json::array({{{"operation", "mesh.scatter"},
                                                                    {"arguments", arguments}}}));
-                        status_ = "Layout fits. No Scene objects have been changed.";
+                        status_ =
+                            "Layout fits: " + count_text + ". No Scene objects have been changed.";
                     }
                     error_.clear();
                     if (editor_context)
@@ -216,8 +241,9 @@ class FoliagePlacement {
     const Scene* owner_ = nullptr;
     AssetId scene_;
     std::string source_, terrain_, status_, error_;
-    bool projected_ = false;
+    bool projected_ = false, align_to_slope_ = false;
     double height_offset_ = 0;
+    TerrainFoliageSlopeRange slopes_;
     std::array<char, 128> name_{'F', 'o', 'l', 'i', 'a', 'g', 'e', 0};
     detail::MeshScatterSettings settings_;
     int count_ = 32;

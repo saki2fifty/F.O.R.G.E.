@@ -1,4 +1,5 @@
 #pragma once
+#include <limits>
 void terrain_foliage(const std::filesystem::path& root) {
     std::filesystem::create_directories(root / "Assets");
     const auto lease = std::make_shared<ProjectLease>(root);
@@ -125,6 +126,79 @@ void terrain_foliage(const std::filesystem::path& root) {
     require(scene.document() == after && scene.revision() == stable_revision &&
                 AssetCatalog::open_project(root).document() == catalog->document(),
             "Rejected terrain preparation changed authored intent");
+    const auto angle =
+        std::atan2(std::hypot(normal[0], normal[2]), std::abs(normal[1])) * (180 / std::acos(-1.));
+    const auto admitted = prepare_terrain_foliage(*lease, scene, arguments, surface, .4,
+                                                  {angle - 1, angle + 1}, true);
+    require(admitted.at("candidate_count") == settings.count &&
+                admitted.at("retained_count") == settings.count,
+            "Slope filter ignored actual yaw/nonuniform world scaling");
+    require(admitted.at("aligned_to_slope") == true &&
+                admitted.at("arguments").at("world_normals").size() == settings.count,
+            "Terrain alignment did not supply original-order normals");
+    const auto& prepared_normal = admitted.at("arguments").at("world_normals")[0];
+    const Double3 direction{prepared_normal.at("x"), prepared_normal.at("y"),
+                            prepared_normal.at("z")};
+    const auto direction_length = std::hypot(direction[0], direction[1], direction[2]),
+               oracle_length = std::hypot(normal[0], normal[1], normal[2]);
+    const double sign = normal[1] < 0 ? -1 : 1;
+    for (unsigned k = 0; k < 3; ++k)
+        require(std::abs(direction[k] / direction_length - sign * normal[k] / oracle_length) <
+                    1e-12,
+                "Prepared alignment normal differs from transformed cooked geometry");
+    reject([&] { prepare_terrain_foliage(*lease, scene, arguments, surface, .4, {0, angle - 1}); });
+    for (const auto slopes : {TerrainFoliageSlopeRange{-1, 90},
+                              {0, 91},
+                              {40, 20},
+                              {std::numeric_limits<double>::quiet_NaN(), 90}})
+        reject([&] { prepare_terrain_foliage(*lease, scene, arguments, surface, .4, slopes); });
+    require(scene.document() == after && scene.revision() == stable_revision,
+            "Slope preflight/rejection changed Scene/history");
+    EngineContext mirrored_engine;
+    Scene mirrored(mirrored_engine.world());
+    mirrored.reset(before);
+    authoring_command(mirrored, "transform.local",
+                      {{"entity", surface}, {"scale", {{"x", -2}, {"y", 1.5}, {"z", 1}}}});
+    auto mirrored_arguments = arguments;
+    const auto mirrored_view = mirrored.effective_document();
+    for (const auto& row : mirrored_view.at("entities"))
+        if (row.at("id") == surface) {
+            AffineTransform affine;
+            affine.m = row.at("world_affine").get<std::array<double, 12>>();
+            const auto center = affine.point({2, 0, 2});
+            mirrored_arguments["center"] = {{"x", center[0]}, {"y", center[1]}, {"z", center[2]}};
+        }
+    const auto mirrored_plan = prepare_terrain_foliage(*lease, mirrored, mirrored_arguments,
+                                                       surface, .4, {angle - 1, angle + 1});
+    require(mirrored_plan.at("retained_count") == settings.count,
+            "Mirrored horizontal terrain inverted the upward geometric slope");
+    document->edit(document->revision(), "Flat and steep halves", [](Json& json) {
+        json["tiles"][0]["layers"][0]["heights"] = {0, 0, 4, 0, 0, 4, 0, 0, 4};
+    });
+    document->save();
+    require(publish(imports, document->locator(), id).published,
+            "Mixed slope terrain did not publish");
+    const auto selected = prepare_terrain_foliage(*lease, scene, arguments, surface, .4, {0, 10});
+    const auto layout = detail::mesh_scatter_layout(settings);
+    const auto local_from_world = inverse(transform);
+    unsigned expected_count = 0;
+    for (unsigned i = 0; i < layout.size(); ++i) {
+        const auto local =
+            local_from_world.point({settings.center[0] + layout[i].offset[0], transform.m[7],
+                                    settings.center[2] + layout[i].offset[1]});
+        const bool flat = local[0] <= 2;
+        require(selected.at("arguments").at("placement_mask")[i] == flat,
+                "Slope mask differs from independent transformed flat/steep geometry");
+        expected_count += flat;
+    }
+    require(expected_count > 0 && expected_count < settings.count &&
+                selected.at("retained_count") == expected_count,
+            "Slope filter did not retain a proper subset");
+    const auto subset = authoring_command(scene, "mesh.scatter", selected.at("arguments"));
+    const auto subset_doc = scene.document();
+    require(subset.at("created").size() == expected_count && scene.undo() &&
+                scene.document() == after && scene.redo() && scene.document() == subset_doc,
+            "Slope subset count/history differs from prepared mask");
     std::cout << "Terrain foliage: published geometry, transformed heights, no preparation writes, "
                  "history and rejection passed\n";
 }
