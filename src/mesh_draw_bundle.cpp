@@ -3,19 +3,17 @@
 #include <algorithm>
 #include <forge/engine_assets.hpp>
 namespace forge {
-MeshDrawBundle::MeshDrawBundle(DiligentPresentation& presentation,
-                               Diligent::IDeviceContext* context,
-                               const asset_detail::PreparedModelDraw& prepared,
-                               GpuResidency<MeshAsset>& meshes,
-                               GpuResidency<TextureAsset>& textures, Diligent::TEXTURE_FORMAT color,
-                               Diligent::TEXTURE_FORMAT depth, bool skinned,
-                               std::shared_ptr<const MeshPoseGeometry> geometry,
-                               MeshDrawProfile profile, const RenderTextureImages& render_textures)
+MeshDrawBundle::MeshDrawBundle(
+    DiligentPresentation& presentation, Diligent::IDeviceContext* context,
+    const asset_detail::PreparedModelDraw& prepared, GpuResidency<MeshAsset>& meshes,
+    GpuResidency<TextureAsset>& textures, Diligent::TEXTURE_FORMAT color,
+    Diligent::TEXTURE_FORMAT depth, bool skinned, std::shared_ptr<const MeshPoseGeometry> geometry,
+    MeshDrawProfile profile, const RenderTextureImages& render_textures, bool wind)
     : presentation_(presentation), color_(color), depth_(depth), prepared_(prepared),
       geometry_(geometry ? std::move(geometry)
                          : std::make_shared<const MeshPoseGeometry>(
                                prepare_mesh_pose_geometry(prepared.mesh->mesh))),
-      skinned_(skinned), profile_(profile) {
+      skinned_(skinned), wind_(wind), profile_(profile) {
     const auto& source = prepared.mesh.get();
     if (profile != MeshDrawProfile::Mesh && !sprite_draw_profile(profile))
         throw std::invalid_argument("Unknown mesh draw bundle profile");
@@ -143,7 +141,7 @@ std::unique_ptr<MeshDraw> MeshDrawBundle::prepare_draw(Diligent::IDeviceContext*
     return std::make_unique<MeshDraw>(
         presentation_, context, mesh_.get().lods.at(lod).parts.at(part), *values, native_textures,
         target, depth_, skinned_, Diligent::SHADER_COMPILER_DEFAULT,
-        Diligent::SHADER_OPTIMIZATION_LEVEL_DEFAULT, surface, profile, area_lights);
+        Diligent::SHADER_OPTIMIZATION_LEVEL_DEFAULT, surface, profile, area_lights, wind_);
 }
 bool MeshDrawBundle::render_textures_ready(const RenderTextureInputs& inputs) const {
     for (const auto& [asset, image] : render_textures_) {
@@ -240,7 +238,8 @@ void MeshDrawBundle::draw_shadow(Diligent::IDeviceContext* context, const Affine
                            nullptr, {}, nullptr,
                            pose ? std::span<const float>(pose->morph_weights)
                                 : std::span<const float>{},
-                           skin, {}, parameters, slot(lod, p));
+                           skin, {}, parameters, slot(lod, p), nullptr, nullptr, nullptr, {},
+                           nullptr, {}, {}, pose ? &pose->wind : nullptr);
         }
 }
 void MeshDrawBundle::environment(const EnvironmentLease& lease) {
@@ -354,6 +353,6 @@ void MeshDrawBundle::draw_part(
                    shadows, shadow_slots, transmission,
                    pose ? std::span<const float>(pose->morph_weights) : std::span<const float>{},
                    skin, instances, parameters, slot(lod, part), sprite, fog, motion, decals,
-                   decal_bounds, images, local_irradiance);
+                   decal_bounds, images, local_irradiance, pose ? &pose->wind : nullptr);
 }
 } // namespace forge

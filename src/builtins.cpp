@@ -58,6 +58,7 @@ template <class T> Json encode(const T& p) {
                  {"parameter",
                   {{"type", unsigned(entry.parameter.type)}, {"value", entry.parameter.value}}}});
         return {{"mesh", p.mesh.id ? Json(p.mesh.id) : Json()},
+                {"wind", render_value(p.wind)},
                 {"materials", slots},
                 {"material_parameters", parameters},
                 {"material_variant", p.material_variant.id ? Json(p.material_variant.id) : Json()},
@@ -332,6 +333,8 @@ template <class T> Value decode(const Json& p) {
         return value;
     } else if constexpr (std::is_same_v<T, MeshRenderer>) {
         MeshRenderer value;
+        if (p.contains("wind"))
+            value.wind = mesh_wind_value(p.at("wind"));
         if (!p.at("mesh").is_null())
             value.mesh.id = p.at("mesh").get<AssetId>();
         for (const auto& slot : p.at("materials")) {
@@ -948,6 +951,27 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
                 throw std::runtime_error("ModelSource native Meta disagrees with typed layout");
         }
     } else if constexpr (std::is_same_v<T, MeshRenderer>) {
+        const auto wind = w.component<MeshWind>("forge.mesh_wind")
+                              .template member<bool>("enabled")
+                              .template member<double>("amplitude")
+                              .template member<double>("height")
+                              .template member<double>("direction_x")
+                              .template member<double>("direction_z")
+                              .template member<double>("frequency")
+                              .template member<double>("wavelength")
+                              .template member<double>("phase");
+        for (const auto& [field, offset] : {std::pair{"enabled", offsetof(MeshWind, enabled)},
+                                            {"amplitude", offsetof(MeshWind, amplitude)},
+                                            {"height", offsetof(MeshWind, height)},
+                                            {"direction_x", offsetof(MeshWind, direction_x)},
+                                            {"direction_z", offsetof(MeshWind, direction_z)},
+                                            {"frequency", offsetof(MeshWind, frequency)},
+                                            {"wavelength", offsetof(MeshWind, wavelength)},
+                                            {"phase", offsetof(MeshWind, phase)}}) {
+            const auto* member = ecs_struct_get_member(w.c_ptr(), wind.id(), field);
+            if (!member || std::size_t(member->offset) != offset)
+                throw std::runtime_error("Mesh wind native Meta disagrees with typed layout");
+        }
         register_asset_ref<MeshAsset>(w, "forge.mesh_ref");
         register_asset_ref<MaterialVariantAsset>(w, "forge.material_variant_ref");
         register_asset_ref<MaterialAsset>(w, "forge.material_ref");
@@ -977,7 +1001,8 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<bool>("receive_shadows")
             .template member<std::uint32_t>("layers")
             .template member<AssetRef<MaterialVariantAsset>>("material_variant")
-            .template member<std::vector<MaterialParameterOverride>>("material_parameters");
+            .template member<std::vector<MaterialParameterOverride>>("material_parameters")
+            .template member<MeshWind>("wind");
     } else if constexpr (std::is_same_v<T, TileMapRenderer>) {
         register_asset_ref<TileMapAsset>(w, "forge.tile_map_ref");
         c.template member<AssetRef<TileMapAsset>>("map")
@@ -1580,7 +1605,8 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
               std::pair{"receive_shadows", offsetof(MeshRenderer, receive_shadows)},
               std::pair{"layers", offsetof(MeshRenderer, layers)},
               std::pair{"material_variant", offsetof(MeshRenderer, material_variant)},
-              std::pair{"material_parameters", offsetof(MeshRenderer, material_parameters)}}) {
+              std::pair{"material_parameters", offsetof(MeshRenderer, material_parameters)},
+              std::pair{"wind", offsetof(MeshRenderer, wind)}}) {
             const auto* member = ecs_struct_get_member(w.c_ptr(), c.id(), field);
             if (!member || std::size_t(member->offset) != offset)
                 throw std::runtime_error("MeshRenderer native Meta disagrees with typed layout");
@@ -1902,6 +1928,41 @@ Json registration_options(const Builtin& type, const std::string& field) {
     if (type.maximum)
         value["maximum"] = *type.maximum;
     const std::string name = type.name;
+    if (name == "forge.mesh_renderer" && field == "wind")
+        value["description"] =
+            "Optional wind for static Mesh geometry without skin or morph targets. "
+            "Pins vertices at/below the object root, bends world X/Z above it, "
+            "and leaves authored transforms and collision unchanged. Edit holds "
+            "a fixed preview; Play uses simulation time.";
+    if (name == "forge.mesh_wind") {
+        if (field == "amplitude" || field == "height" || field == "wavelength") {
+            value["unit"] = "meters";
+            value["minimum"] = field == "amplitude" ? 0. : field == "height" ? .01 : .1;
+            value["maximum"] = field == "amplitude" ? 100. : 10000.;
+            value["description"] =
+                field == "amplitude" ? "Maximum horizontal displacement above the bend height. "
+                                       "Zero holds the original geometry."
+                : field == "height"
+                    ? "World height above the object root at which full displacement is reached."
+                    : "World distance along the horizontal direction for one repeating wave.";
+        } else if (field == "frequency") {
+            value["unit"] = "Hz";
+            value["minimum"] = 0.;
+            value["maximum"] = 60.;
+            value["description"] =
+                "Repeating cycles per simulation second. Zero freezes the time phase.";
+        } else if (field == "phase") {
+            value["unit"] = "degrees";
+            value["minimum"] = -360.;
+            value["maximum"] = 360.;
+            value["description"] = "Offset within the repeating wave.";
+        } else if (field == "direction_x" || field == "direction_z") {
+            value["minimum"] = -1e6;
+            value["maximum"] = 1e6;
+            value["description"] = "Horizontal world direction. The X/Z pair is normalized; "
+                                   "enabled nonzero amplitude requires a nonzero pair.";
+        }
+    }
     if (name == "forge.tile_map_collider_2d" && field == "layer") {
         value["display_name"] = "Collision layer";
         value["description"] =
@@ -3540,6 +3601,22 @@ Json register_builtins(flecs::world& world, unsigned family) {
             c.lookup("blend_in_seconds").set<ReflectedMemberDefault>({0.});
         }
         if (name == "forge.mesh_renderer") {
+            // Reuse the native annotation owner for this nested value type;
+            // it is not a separately addable authoring component.
+            const Builtin wind_metadata{"forge.mesh_wind",
+                                        "Bounded world-space wind geometry",
+                                        "unitless",
+                                        {},
+                                        {},
+                                        render_value(MeshWind{}),
+                                        nullptr,
+                                        nullptr,
+                                        nullptr,
+                                        nullptr,
+                                        nullptr};
+            annotate_type(world, world.component<MeshWind>(), wind_metadata);
+            world.component<ReflectedMemberDefault>(reflected_member_default_type);
+            c.lookup("wind").set<ReflectedMemberDefault>({render_value(MeshWind{})});
             c.lookup("materials").set<ReflectedSequenceKey>({"slot"});
             c.lookup("material_parameters").set<ReflectedSequenceKey>({"slot", {"key"}});
         }
@@ -3788,6 +3865,8 @@ Json admitted_builtin_source(const Builtin& type, const Json& source) {
             if (!current.contains(field))
                 current[field] = type.defaults.at(field);
     if (std::string_view(type.name) == "forge.mesh_renderer") {
+        if (!current.contains("wind"))
+            current["wind"] = render_value(MeshWind{});
         if (!current.contains("material_variant"))
             current["material_variant"] = nullptr;
         if (!current.contains("material_parameters"))

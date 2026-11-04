@@ -21,6 +21,11 @@ Stop...** freezes changed values for review; after Stop, **Run → Review runtim
 tuning...** lets you choose fields and apply one Scene Undo step. This never saves
 automatically or copies runtime-created entities. See [Play mode](play-mode.md).
 
+**Mesh Renderer → Wind** controls optional static-Mesh bending. The same complete
+Wind property can be tuned in Live gameplay and reviewed after Stop. Its direction
+and height use world axes and meters; it leaves authored transforms and collision
+fixed. See [Add wind](foliage.md).
+
 An inactive [State Condition](application-states.md)
 is explained in Live gameplay, including a condition on a structural parent.
 The object remains available for editing. An existing condition's fields can be

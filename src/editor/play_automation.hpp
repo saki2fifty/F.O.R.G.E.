@@ -105,7 +105,8 @@ struct PlayAutomation {
             "Page actual effective runtime entities, including current navigation failure "
             "details and sampled coordinates where available, at the reported snapshot "
             "version. Running snapshots can change between reads; pause first "
-            "for a stable inspection. This never reads an authored-world copy.",
+            "for a stable inspection. Opted-in wind includes its borrowed simulation_seconds "
+            "geometry sample. This never reads an authored-world copy.",
             "play.read",
             automation_object(
                 {{"offset", automation_integer()}, {"limit", automation_integer(1, 128)}}),
@@ -116,6 +117,8 @@ struct PlayAutomation {
                 const auto& snapshot = play.effective_snapshot();
                 auto result = state(play);
                 result["asset_id"] = snapshot.at("asset_id");
+                if (snapshot.contains("simulation_seconds"))
+                    result["simulation_seconds"] = snapshot.at("simulation_seconds");
                 result["entities"] = Json::array();
                 const auto& entities = snapshot.at("entities");
                 const auto offset = request.value("offset", std::size_t{}),
@@ -385,7 +388,9 @@ struct PlayAutomation {
         methods.push_back(automation_method(
             "play.tune",
             "Queue one reflected runtime property through the actual live-tuning "
-            "owner, including an admitted Camera Shot's blend_in_seconds (its camera, "
+            "owner, including an existing Mesh Renderer's complete wind value (static Mesh "
+            "geometry only; authored transforms and collision remain unchanged), "
+            "an admitted Camera Shot's blend_in_seconds (its camera, "
             "sequence and interval remain Edit-only), Reflection Probe scalar controls and diffuse "
             "intensity (map "
             "assignment is Edit-only), "

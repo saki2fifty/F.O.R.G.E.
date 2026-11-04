@@ -1,5 +1,18 @@
 # Runtime timing and presentation
 
+## Procedural geometry samples
+
+Static Mesh [wind](mesh-wind.md) borrows
+`RuntimeClock::presentation_seconds()`, derived from the fixed tick interval and
+alpha. Pause/Step/rate changes and collapsed resume/recovery intervals follow the
+existing pose policy. `effective_scene.simulation_seconds` is projected in the
+existing entity loop only when enabled wind is present. GameSession, SDK
+candidate/live snapshots and the headless runtime supply the same clock domain.
+Renderer wall time remains separate. Explicit `TemporalFrameSample.seconds`
+overrides the copied value for capture; an absent sample uses frozen Edit time.
+The renderer retains current/previous geometry samples through normal pose
+history, without changing authored transforms or adding a simulation clock.
+
 ## Ownership and stages
 
 The headless runtime owns a `std::chrono::steady_clock` driver. The editor controls it through protocol 2; editor frame deltas and message arrival intervals are never simulation deltas. The runtime main thread owns Flecs mutation, control handling, sampling and extraction. There is no simulation thread added for transport, SDL runtime dependency, window or GPU requirement.

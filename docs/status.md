@@ -61,6 +61,15 @@ MCP/Scene owners. Optional native 3D sphere clearance uses staged resource prepa
 [the contract](foliage-placement.md) and [the user guide](../manual/editor/foliage.md).
 Windows/full-editor/physical acceptance remains pending.
 
+Optional [static Mesh wind](mesh-wind.md) uses disabled-default renderer values,
+shared pose/instance/surface/shadow/motion/bounds/picking owners and borrowed
+simulation or explicit capture time. Native Inspector/live/Keep controls and both
+MCP framings cover normal and SDK Play. Gallery157 compares a64-plant moving patch
+with24 still plants; relocated content declares the required runtime-kit profile.
+Software Vulkan checks include actual Scene/Game and independently baked shadow
+and motion/frame oracles. Windows/MSVC/D3D12/full editor/physical acceptance
+remains pending.
+
 Local source provides authored Application States with direct, hierarchical,
 computed and subordinate domains, source history/publication, native membership
 and lifecycle events, matching SDK helpers, Game/UI controls and automation/MCP.

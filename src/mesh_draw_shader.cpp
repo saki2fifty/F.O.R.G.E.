@@ -25,6 +25,26 @@ float4 ForgeProject(float3 p) {
     return float4(dot(g_Object[9],v),dot(g_Object[10],v),dot(g_Object[11],v),dot(g_Object[12],v));
 }
 )";
+constexpr const char* wind_source = R"(
+float2 ForgeWindOffset(float height,float4 wind) {
+    float h=saturate(height*wind.z);
+    return wind.xy*(h*h);
+}
+void ForgeWindFrame(inout ForgeSurfaceFrame frame,float height,float4 wind) {
+    if(!any(wind.xy!=0))return;
+    float h=height*wind.z;
+    float gradient=h>0 && h<1 ? 2*h*wind.z : 0;
+    float handed=dot(cross(frame.Normal,frame.Tangent),frame.Bitangent)<0 ? -1 : 1;
+    float3 tangent=frame.Tangent;
+    tangent.xz+=wind.xy*(gradient*tangent.y);
+    float3 normal=frame.Normal;
+    normal.y-=gradient*dot(wind.xy,normal.xz);
+    normal=ForgeUnit(normal);
+    tangent=ForgeUnit(tangent-normal*dot(normal,tangent));
+    frame.Normal=normal;frame.Tangent=tangent;
+    frame.Bitangent=handed*ForgeUnit(cross(normal,tangent));
+}
+)";
 } // namespace
 std::string mesh_shader_varyings(const MeshVertexFetch& fetch, bool sprite_profile,
                                  std::string_view name, bool front_face) {
@@ -56,6 +76,8 @@ std::string mesh_shader_varyings(const MeshVertexFetch& fetch, bool sprite_profi
 MeshGeometryShader mesh_geometry_shader(const MeshVertexFetch& fetch, bool allow_instances,
                                         bool sprite_profile) {
     const bool instanced = allow_instances && !fetch.skin && !fetch.morph_count;
+    require(!fetch.wind || (instanced && !sprite_profile),
+            "Wind geometry requires the static Mesh instance profile");
     if (sprite_profile)
         require(!fetch.temporal && instanced && fetch.triangles &&
                     fetch.uv_sets == std::vector<unsigned>{0},
@@ -70,6 +92,8 @@ cbuffer ForgeSkin {float4 g_SkinInfo;float4 g_SkinRows[768];};
     const auto varyings = mesh_shader_varyings(fetch, sprite_profile);
     std::string vs = std::string("#include \"ForgeSurface.fxh\"\n") + object_source + skin +
                      fetch.source + varyings;
+    if (fetch.wind)
+        vs += wind_source;
     if (fetch.temporal) {
         vs += temporal_motion_uniform;
         if (fetch.skin)
@@ -84,6 +108,11 @@ cbuffer ForgeSkin {float4 g_SkinInfo;float4 g_SkinRows[768];};
         if (fetch.temporal)
             vs += "float4 PreviousR0:ATTRIB7;float4 PreviousR1:ATTRIB8;"
                   "float4 PreviousR2:ATTRIB9;float4 PreviousInfo:ATTRIB10;";
+        if (fetch.wind) {
+            vs += "float4 Wind:ATTRIB" + std::to_string(fetch.temporal ? 11 : 7) + ";";
+            if (fetch.temporal)
+                vs += "float4 PreviousWind:ATTRIB12;";
+        }
         vs += "};\n";
     }
     vs += std::string("ForgeVarying main(uint id:SV_VertexID") +
@@ -112,12 +141,18 @@ cbuffer ForgeSkin {float4 g_SkinInfo;float4 g_SkinRows[768];};
     } else
         vs += "o.World=ForgePoint(v.Position);basis=float3x3(g_Object[3].xyz,g_Object[4].xyz,g_"
               "Object[5].xyz);\n";
+    if (fetch.wind)
+        vs += "float "
+              "windHeight=dot(instance.R1.xyz,v.Position);o.World.xz+=ForgeWindOffset(windHeight,"
+              "instance.Wind);\n";
     vs += "o.Position=ForgeProject(o.World);o.Color=v.Color;\n";
     if (fetch.temporal) {
         vs += "o.PreviousClip=0;if(g_TemporalObject[11].x!=0";
         if (instanced)
             vs += "&&instance.PreviousInfo.x!=0";
         vs += "){float3 previous=ForgeLoadPreviousPosition(id);\n";
+        if (fetch.wind)
+            vs += "float previousWindHeight=dot(instance.PreviousR1.xyz,previous);\n";
         if (fetch.skin)
             vs += R"hlsl(
 float4 previousRows[3];
@@ -135,11 +170,20 @@ previous=mul(float3x3(previousRows[0].xyz,previousRows[1].xyz,previousRows[2].xy
         else
             vs += "float4 p=float4(previous,1);previous=float3(dot(g_TemporalObject[0],p),"
                   "dot(g_TemporalObject[1],p),dot(g_TemporalObject[2],p));\n";
+        if (fetch.wind)
+            vs += "previous.xz+=ForgeWindOffset(previousWindHeight,instance.PreviousWind);\n";
         vs += "o.PreviousClip=ForgePreviousProject(previous);}\n";
     }
     if (!sprite_profile) {
         vs += instanced ? "o.LegacyTint=instance.Tint;\n" : "o.LegacyTint=g_Object[14];\n";
-        vs += R"(
+        if (fetch.wind)
+            vs += R"(
+    ForgeSurfaceFrame frame=ForgeMakeSurfaceFrame(basis,v.Normal,v.Tangent);
+    ForgeWindFrame(frame,windHeight,instance.Wind);
+    o.Normal=frame.Normal;o.Tangent=frame.Tangent;o.Bitangent=frame.Bitangent;
+ )";
+        else
+            vs += R"(
     ForgeSurfaceFrame frame=ForgeMakeSurfaceFrame(basis,v.Normal,v.Tangent);
     o.Normal=frame.Normal;o.Tangent=frame.Tangent;o.Bitangent=frame.Bitangent;
  )";

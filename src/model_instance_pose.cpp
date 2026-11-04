@@ -99,7 +99,7 @@ MeshPoseGeometry prepare_mesh_pose_geometry(const MeshData& mesh, std::uint64_t 
 MeshInstancePose prepare_mesh_instance_pose(const MeshResourceData& resource,
                                             const MeshPoseGeometry& geometry,
                                             const RenderMesh& mesh, const ModelSceneIndex& index,
-                                            std::uint64_t available) {
+                                            std::uint64_t available, double seconds) {
     MeshInstancePose result;
     result.world = mesh.world;
     std::span<const float> weights = resource.mesh.morph_defaults;
@@ -142,6 +142,9 @@ MeshInstancePose prepare_mesh_instance_pose(const MeshResourceData& resource,
                 std::all_of(weights.begin(), weights.end(),
                             [](float value) { return std::isfinite(value); }),
             "Model morph weights do not match the finite mesh target profile");
+    result.wind = sample_mesh_wind(mesh.renderer.wind, mesh.world, seconds);
+    require(!result.wind.enabled || (!skin && weights.empty()),
+            "Mesh wind requires static geometry without skin or morph targets");
     Payload admission{available};
     admission.add(1, sizeof(MeshInstancePose));
     admission.add(weights.size(), sizeof(float));
@@ -210,8 +213,9 @@ MeshInstancePose prepare_mesh_instance_pose(const MeshResourceData& resource,
 RenderBounds mesh_part_bounds(const MeshInstancePose& pose, unsigned lod, unsigned part,
                               Double3 origin) {
     const auto& selected = pose.lods.at(lod).at(part);
-    return selected.skin ? skin_bounds_for_camera(*selected.skin, origin)
-                         : transform_bounds(selected.local_bounds, pose.world);
+    const auto bounds = selected.skin ? skin_bounds_for_camera(*selected.skin, origin)
+                                      : transform_bounds(selected.local_bounds, pose.world);
+    return wind_bounds(pose.wind, bounds, origin);
 }
 RenderBounds mesh_instance_bounds(const MeshInstancePose& pose, Double3 origin) {
     RenderBounds result;

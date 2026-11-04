@@ -50,14 +50,16 @@ struct PreparedModelDrawKey {
     std::map<DrawTextureKey, DrawTextureKey> texture_fallbacks;
     bool skinned{};
     MeshDrawProfile profile = MeshDrawProfile::Mesh;
+    bool wind = false;
     auto operator<=>(const PreparedModelDrawKey&) const = default;
 };
-inline PreparedModelDrawKey
-prepared_model_draw_key(const PreparedModelDraw& draw, bool skinned,
-                        MeshDrawProfile profile = MeshDrawProfile::Mesh) {
+inline PreparedModelDrawKey prepared_model_draw_key(const PreparedModelDraw& draw, bool skinned,
+                                                    MeshDrawProfile profile = MeshDrawProfile::Mesh,
+                                                    bool wind = false) {
     PreparedModelDrawKey result;
     result.skinned = skinned;
     result.profile = profile;
+    result.wind = wind;
     result.material_fallbacks = draw.material_fallbacks;
     result.texture_fallbacks = draw.texture_fallbacks;
     result.resources.push_back(draw.mesh.identity());

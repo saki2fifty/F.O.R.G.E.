@@ -127,6 +127,12 @@ RenderScene extract_render_scene(const Json& source) {
     require(source.is_object(), "Presentation scene must be an object");
     RenderScene result;
     result.scene = source.at("asset_id").get<AssetId>();
+    if (source.contains("simulation_seconds")) {
+        const auto& value = source.at("simulation_seconds");
+        require(value.is_number() && std::isfinite(value.get<double>()) && value.get<double>() >= 0,
+                "Simulation presentation time must be a finite nonnegative number");
+        result.simulation_seconds = value.get<double>();
+    }
     try {
         result.settings = scene_render_settings(source);
     } catch (const std::exception& e) {

@@ -255,8 +255,8 @@ class PlaySession {
              !(RuntimePropertyTune::ui_localization_type(type) &&
                RuntimePropertyTune::ui_localization_property(property)) &&
              !RuntimePropertyTune::navigation_type(type) &&
-             !(RuntimePropertyTune::material_type(type) &&
-               RuntimePropertyTune::material_property(property)) &&
+             !(RuntimePropertyTune::mesh_renderer_type(type) &&
+               RuntimePropertyTune::mesh_renderer_property(property)) &&
              !(RuntimePropertyTune::sprite_type(type) &&
                RuntimePropertyTune::sprite_property(property)) &&
              !(RuntimePropertyTune::probe_type(type) &&

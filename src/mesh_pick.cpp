@@ -121,6 +121,11 @@ std::optional<double> pick_mesh_part(const MeshPart& part, const MeshPartPose& p
             }
         } else
             transform(pose.world, 1);
+        if (pose.wind.enabled) {
+            const auto delta = wind_displacement(pose.wind, pose.world.vector(local)[1]);
+            relative[0] += delta[0];
+            relative[2] += delta[1];
+        }
         Double3 camera{};
         for (unsigned c = 0; c < 3; ++c) {
             camera[0] += relative[c] * view.right[c];

@@ -1,6 +1,8 @@
 #include "asset_bytes.hpp"
 #include "asset_storage.hpp"
 #include "game_export.hpp"
+#include "render_values.hpp"
+#include "runtime_document_package.hpp"
 #include "standalone_manifest.hpp"
 #include <forge/game_settings.hpp>
 #include <forge/native_sdk_identity.h>
@@ -53,6 +55,55 @@ int main(int argc, char** argv) {
         package_runtime_content(project, out / "content", roots, target);
         const auto catalog = open_runtime_content(out / "content", target);
         {
+            using package_detail::document_runtime_features;
+            MeshWind wind;
+            const auto renderer = Json{{"wind", detail::render_value(wind)}};
+            auto row = Json{{"id", EntityId::generate()},
+                            {"components", {{"forge.mesh_renderer", renderer}}}};
+            const auto none = Json::object();
+            const Json required{{"mesh_wind", mesh_wind_profile_version}};
+            check(document_runtime_features(Json{{"entities", Json::array({row})}}) == none,
+                  "Default wind requires a newer runtime kit");
+            row["components"]["forge.mesh_renderer"]["wind"]["enabled"] = true;
+            for (const char* channel : {"components", "property_overrides"}) {
+                auto entry = row;
+                if (std::string_view(channel) != "components") {
+                    entry[channel] = entry["components"];
+                    entry["components"] = Json::object();
+                }
+                for (const char* rows : {"entities", "members", "overrides"}) {
+                    Json document{{rows, Json::array({entry})}};
+                    if (std::string_view(rows) == "overrides")
+                        document["base"] = AssetId::generate();
+                    check(document_runtime_features(document) == required,
+                          "Scene/Prefab/variant wind intent omitted runtime requirements");
+                }
+            }
+            const Json unrelated{
+                {"entities", Json::array({{{"components", {{"custom.wind", row}}}}})}};
+            check(document_runtime_features(unrelated) == none,
+                  "Custom project data was interpreted as renderer wind");
+            AssetCatalog features(scratch / "wind-compatibility");
+            AssetRecord document{AssetId::generate(), "scene", "wind.scene.json", 5};
+            document.metadata["forge.runtime_document"] = {{"runtime_features", required}};
+            features.add(document);
+            validate_runtime_compatibility(features,
+                                           {{"runtime_mesh_wind", mesh_wind_profile_version}});
+            reject([&] { validate_runtime_compatibility(features, Json::object()); },
+                   "Wind project accepted a kit without geometry support");
+            for (const Json& profile : {Json(), Json(false), Json(0), Json(1.), Json("1"), Json(2)})
+                reject([&] {
+                    validate_runtime_compatibility(features, {{"runtime_mesh_wind", profile}});
+                });
+            for (const Json& invalid : {Json(), Json::array(), Json{{"mesh_wind", 2}},
+                                        Json{{"mesh_wind", 1.}}, Json{{"future_geometry", 1}}}) {
+                document.metadata["forge.runtime_document"]["runtime_features"] = invalid;
+                features.replace(document);
+                reject(
+                    [&] { validate_runtime_compatibility(features, {{"runtime_mesh_wind", 1}}); });
+            }
+        }
+        {
             // Metadata admission uses the existing typed graph, without realizing
             // ECS or interpreting an unrelated project file as a UI document.
             AssetCatalog routed(scratch / "ui-compatibility");
@@ -67,24 +118,23 @@ int main(int argc, char** argv) {
                                           "document:forge.ui_document.render_texture",
                                           {}}};
             routed.add(document);
-            validate_runtime_ui_compatibility(routed, {{"runtime_ui_protocol", 2}});
-            reject([&] { validate_runtime_ui_compatibility(routed, Json::object()); });
+            validate_runtime_compatibility(routed, {{"runtime_ui_protocol", 2}});
+            reject([&] { validate_runtime_compatibility(routed, Json::object()); });
             for (const Json& protocol :
                  {Json(), Json(1), Json(2.0), Json("2"), Json(true), Json(3)})
                 reject([&] {
-                    validate_runtime_ui_compatibility(routed, {{"runtime_ui_protocol", protocol}});
+                    validate_runtime_compatibility(routed, {{"runtime_ui_protocol", protocol}});
                 });
-            validate_runtime_ui_compatibility(catalog, Json::object());
+            validate_runtime_compatibility(catalog, Json::object());
             AssetRecord stylesheet{AssetId::generate(), "ui_stylesheet", "filters.rcss", 1};
             stylesheet.metadata["forge.ui_source"] = {{"runtime_features", {{"filters", 1}}}};
             routed.add(stylesheet);
-            validate_runtime_ui_compatibility(
-                routed, {{"runtime_ui_protocol", 2}, {"runtime_ui_filters", 1}});
-            reject(
-                [&] { validate_runtime_ui_compatibility(routed, {{"runtime_ui_protocol", 2}}); });
+            validate_runtime_compatibility(routed,
+                                           {{"runtime_ui_protocol", 2}, {"runtime_ui_filters", 1}});
+            reject([&] { validate_runtime_compatibility(routed, {{"runtime_ui_protocol", 2}}); });
             for (const Json& profile : {Json(), Json(0), Json(1.0), Json("1"), Json(true), Json(2)})
                 reject([&] {
-                    validate_runtime_ui_compatibility(
+                    validate_runtime_compatibility(
                         routed, {{"runtime_ui_protocol", 2}, {"runtime_ui_filters", profile}});
                 });
             for (const Json& features : {Json(), Json::array(), Json{{"filters", 1.0}},
@@ -92,7 +142,7 @@ int main(int argc, char** argv) {
                 stylesheet.metadata["forge.ui_source"]["runtime_features"] = features;
                 routed.replace(stylesheet);
                 reject([&] {
-                    validate_runtime_ui_compatibility(
+                    validate_runtime_compatibility(
                         routed, {{"runtime_ui_protocol", 2}, {"runtime_ui_filters", 1}});
                 });
             }

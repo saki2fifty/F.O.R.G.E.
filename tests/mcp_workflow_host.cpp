@@ -62,10 +62,10 @@ int main(int argc, char** argv) {
                     throw std::runtime_error(SDL_GetError());
             }
         }
-        const bool sdk_play = argc == 8 && std::string(argv[7]) == "--sdk";
+        const bool sdk_play = argc >= 7 && std::string(argv[argc - 1]) == "--sdk";
         if (argc == 8 && !sdk_play)
             return 2;
-        if (argc >= 7)
+        if (argc >= 7 && (!sdk_play || argc == 8))
             std::filesystem::copy(std::filesystem::u8path(argv[6]), root / "Game",
                                   std::filesystem::copy_options::recursive);
         else
@@ -111,6 +111,8 @@ int main(int argc, char** argv) {
         };
         forge::ui::GameExportTask export_task;
         forge::PlaySession play;
+        if (sdk_play)
+            play.set_user_data_override(root / "UserData");
         forge::GameInput input;
         forge::RuntimeTuningReview tuning;
         forge::ProjectSettingsEditor settings;

@@ -1,5 +1,6 @@
 #pragma once
 #include "mesh_morph.hpp"
+#include "mesh_wind.hpp"
 #include "render_bounds.hpp"
 #include <forge/mesh_resource.hpp>
 #include <forge/render_scene.hpp>
@@ -37,13 +38,15 @@ struct MeshInstancePose {
     bool skinned = false;
     std::vector<float> morph_weights;
     std::vector<std::vector<MeshPartPose>> lods;
+    MeshWindSample wind;
     bool operator==(const MeshInstancePose&) const = default;
 };
 // All instance/binding/weight/bounds checks complete before replacing a retained
 // pose or allocating a new physical draw bundle. A failure leaves both untouched.
 MeshInstancePose prepare_mesh_instance_pose(const MeshResourceData&, const MeshPoseGeometry&,
                                             const RenderMesh&, const ModelSceneIndex&,
-                                            std::uint64_t available = mesh_pose_payload_limit);
+                                            std::uint64_t available = mesh_pose_payload_limit,
+                                            double simulation_seconds = .5);
 std::uint64_t mesh_pose_bytes(const MeshPoseGeometry&);
 std::uint64_t mesh_pose_bytes(const MeshInstancePose&);
 RenderBounds mesh_part_bounds(const MeshInstancePose&, unsigned lod, unsigned part, Double3 origin);

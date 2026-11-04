@@ -587,8 +587,10 @@ struct SdkPlayRuntime::State {
         WorldBody out;
         try {
             out.body["scene"] = world.scene.snapshot();
-            out.body["effective_scene"] =
-                world.simulation.presentation(status_value.at("clock").value("alpha", 1.0));
+            const auto& clock = status_value.at("clock");
+            const auto alpha = clock.value("alpha", 1.);
+            const auto seconds = clock.at("presentation_seconds").get<double>();
+            out.body["effective_scene"] = world.simulation.presentation(alpha, seconds);
             const auto views = tile_map_play_views(world.engine.world());
             if (projected) {
                 TileMapPlaySource temporary;
@@ -671,6 +673,7 @@ struct SdkPlayRuntime::State {
         else
             status_value["clock"] = {{"tick", 0}, {"alpha", 1.0}};
         status_value["clock"]["alpha"] = 1.0;
+        status_value["clock"]["presentation_seconds"] = 0.;
         Json envelope{{"protocol", 2},
                       {"session", session},
                       {"id", std::uint64_t{0}},

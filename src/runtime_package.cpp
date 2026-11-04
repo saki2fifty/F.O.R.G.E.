@@ -10,6 +10,7 @@
 #include "collision_selection.hpp"
 #include "material_selection.hpp"
 #include "model_draw_candidate.hpp"
+#include "model_instance_pose.hpp"
 #include "model_render_resource.hpp"
 #include "native_io_path.hpp"
 #include "navigation_asset.hpp"
@@ -349,10 +350,10 @@ void admit_bundle(const AssetRecord& root, const CachedArtifact& artifact) {
         throw std::runtime_error("No cooked runtime packaging adapter for " + root.type +
                                  "; asset " + root.id.str());
 }
-void validate_object_material_values(const std::filesystem::path& root,
-                                     std::shared_ptr<const AssetCatalog> catalog,
-                                     const Json& snapshot, ResourcePool<MeshAsset>& meshes,
-                                     ResourcePool<MaterialAsset>& materials, std::stop_token stop) {
+void validate_object_render_values(const std::filesystem::path& root,
+                                   std::shared_ptr<const AssetCatalog> catalog,
+                                   const Json& snapshot, ResourcePool<MeshAsset>& meshes,
+                                   ResourcePool<MaterialAsset>& materials, std::stop_token stop) {
     const auto contains_values = [](const Json& rows) {
         return std::any_of(rows.begin(), rows.end(), [](const auto& row) {
             for (const auto* channel : {"components", "property_overrides"}) {
@@ -360,9 +361,12 @@ void validate_object_material_values(const std::filesystem::path& root,
                 if (components == row.end())
                     continue;
                 const auto renderer = components->find("forge.mesh_renderer");
-                if (renderer != components->end() &&
-                    !renderer->value("material_parameters", Json::array()).empty())
-                    return true;
+                if (renderer != components->end()) {
+                    const auto wind = renderer->find("wind");
+                    if (!renderer->value("material_parameters", Json::array()).empty() ||
+                        (wind != renderer->end() && wind->value("enabled", false)))
+                        return true;
+                }
             }
             return false;
         });
@@ -380,13 +384,15 @@ void validate_object_material_values(const std::filesystem::path& root,
     Scene scene(world);
     scene.restore_snapshot(snapshot);
     const auto effective = scene.effective_document();
+    std::optional<RenderScene> render;
+    std::optional<ModelSceneIndex> scene_index;
     for (const auto& row : effective.at("entities")) {
         cancelled(stop);
         const auto entity = scene.entity(row.at("id").get<std::string>());
         if (!entity || !entity.has<MeshRenderer>())
             continue;
         const auto& renderer = entity.get<MeshRenderer>();
-        if (renderer.material_parameters.empty())
+        if (renderer.material_parameters.empty() && (!renderer.wind.enabled || !renderer.enabled))
             continue;
         const auto mesh_ticket = request_model_mesh(meshes, root, catalog, renderer.mesh);
         require(meshes.wait(mesh_ticket, std::chrono::seconds(30)),
@@ -395,6 +401,22 @@ void validate_object_material_values(const std::filesystem::path& root,
         PreparedModelDraw prepared;
         prepared.mesh = meshes.acquire(mesh_ticket);
         require(bool(prepared.mesh), "game.export.material-values: Selected mesh expired");
+        if (renderer.wind.enabled && renderer.enabled) {
+            if (!render) {
+                render = extract_render_scene(effective);
+                scene_index.emplace(*render);
+            }
+            const auto id = row.at("id").get<EntityId>();
+            const auto mesh = std::lower_bound(
+                render->meshes.begin(), render->meshes.end(), id,
+                [](const auto& value, EntityId wanted) { return value.entity < wanted; });
+            require(mesh != render->meshes.end() && mesh->entity == id,
+                    "game.export.wind: Mesh has no admitted resolved render transform");
+            const auto geometry = prepare_mesh_pose_geometry(prepared.mesh->mesh);
+            (void)prepare_mesh_instance_pose(prepared.mesh.get(), geometry, *mesh, *scene_index);
+        }
+        if (renderer.material_parameters.empty())
+            continue;
         prepared.selection = select_mesh_materials(prepared.mesh.get(), renderer.materials,
                                                    renderer.material_variant);
         std::set<AssetId> selected;
@@ -432,12 +454,16 @@ void validate_selections(const std::filesystem::path& root, const AssetCatalog& 
             continue;
         if (package_detail::authored_document(record)) {
             auto bytes = read_bytes(ProjectPaths(root).resolve(record.source), 64 * 1024 * 1024);
-            (void)package_detail::admit_document(record, bytes);
+            const auto document = package_detail::admit_document(record, bytes);
             require(content_digest(bytes) == revision(record),
                     "Runtime document revision mismatch");
+            require(record.metadata.at("forge.runtime_document")
+                            .value("runtime_features", Json::object()) ==
+                        package_detail::document_runtime_features(document),
+                    "Runtime document feature requirements differ from admitted content");
             if (record.type == SceneAsset::type)
-                validate_object_material_values(root, selected_catalog, load_game_scene(root, {id}),
-                                                value_meshes, value_materials, stop);
+                validate_object_render_values(root, selected_catalog, load_game_scene(root, {id}),
+                                              value_meshes, value_materials, stop);
         } else if (record.type == NavMeshAsset::type)
             (void)navigation_detail::load(root, record);
         else if (record.type == CollisionAsset::type) {

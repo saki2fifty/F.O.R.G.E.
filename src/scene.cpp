@@ -791,7 +791,7 @@ Json Scene::tune_runtime_property(const std::string& entity_id, const std::strin
     if (!target || !target.is_alive() || target.has(flecs::Prefab))
         throw std::runtime_error("Live property target is missing or a prefab source");
     const bool sprite = RuntimePropertyTune::sprite_type(type_key),
-               material = RuntimePropertyTune::material_type(type_key),
+               material = RuntimePropertyTune::mesh_renderer_type(type_key),
                probe = RuntimePropertyTune::probe_type(type_key),
                decal = RuntimePropertyTune::decal_type(type_key),
                light = RuntimePropertyTune::light_type(type_key),
@@ -811,9 +811,10 @@ Json Scene::tune_runtime_property(const std::string& entity_id, const std::strin
         if (sprite &&
             (!RuntimePropertyTune::sprite_property(property_key) || !target.has<SpriteRenderer>()))
             throw std::runtime_error("Only existing sprite appearance values can be tuned live");
-        if (material &&
-            (!RuntimePropertyTune::material_property(property_key) || !target.has<MeshRenderer>()))
-            throw std::runtime_error("Only existing object material values can be tuned live");
+        if (material && (!RuntimePropertyTune::mesh_renderer_property(property_key) ||
+                         !target.has<MeshRenderer>()))
+            throw std::runtime_error("Only existing Mesh Renderer material parameters or wind "
+                                     "controls can be tuned live");
         if (probe &&
             (!RuntimePropertyTune::probe_property(property_key) || !target.has<ReflectionProbe>()))
             throw std::runtime_error("Only existing reflection probe controls can be tuned live");

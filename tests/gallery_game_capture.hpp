@@ -28,7 +28,8 @@ inline std::vector<Pixels> render(DiligentPresentation& presentation, IDeviceCon
                                   const std::filesystem::path& root, AssetId scene_id,
                                   const std::filesystem::path& output,
                                   std::size_t minimum_colors = 21, bool expect_animation = true,
-                                  std::array<unsigned, 3> sample_ticks = {30, 60, 90}) {
+                                  std::array<unsigned, 3> sample_ticks = {30, 60, 90},
+                                  bool project_simulation_time = false) {
     check(sample_ticks[0] > 0 && sample_ticks[0] < sample_ticks[1] &&
               sample_ticks[1] < sample_ticks[2] && sample_ticks[2] <= 3600,
           "Gallery sample ticks must increase within the bounded capture interval");
@@ -46,7 +47,11 @@ inline std::vector<Pixels> render(DiligentPresentation& presentation, IDeviceCon
     std::filesystem::create_directories(output);
     std::vector<Pixels> results;
     const auto capture = [&](unsigned tick, unsigned width, unsigned height) {
-        auto scene = extract_render_scene(world.simulation.presentation(1));
+        // This fixture advances exactly one 1/60 tick per loop. Opted-in
+        // procedural geometry receives that explicit simulation sample too.
+        auto scene = extract_render_scene(project_simulation_time
+                                              ? world.simulation.presentation(1, double(tick) / 60)
+                                              : world.simulation.presentation(1));
         detail::bind_runtime_tile_maps(world.engine.world(), scene);
         deadline = std::chrono::steady_clock::now() + std::chrono::seconds(45);
         Pixels pixels;

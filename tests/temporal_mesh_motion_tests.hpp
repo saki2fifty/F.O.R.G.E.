@@ -74,9 +74,82 @@ static Clips project(const Points& points, const forge::CameraView& view) {
     }
     return result;
 }
+static Points wind_points(Points values, const forge::MeshWindSample& wind) {
+    if (wind.enabled)
+        for (auto& point : values) {
+            const auto h = std::clamp((point[1] - wind.base_y) * wind.inverse_height, 0., 1.);
+            point[0] += wind.displacement[0] * h * h;
+            point[2] += wind.displacement[1] * h * h;
+        }
+    return values;
+}
+static void check_wind_normal(const Row& observed, const Clips& clip, const Points& points,
+                              const forge::MeshWindSample& wind, unsigned x, unsigned y,
+                              unsigned width, unsigned height, const forge::CameraView& view,
+                              unsigned normal_map) {
+    const double sx = 2 * (x + .5) / width - 1, sy = 1 - 2 * (y + .5) / height;
+    const double ax = clip[0][0] / clip[0][3], ay = clip[0][1] / clip[0][3],
+                 bx = clip[1][0] / clip[1][3], by = clip[1][1] / clip[1][3],
+                 cx = clip[2][0] / clip[2][3], cy = clip[2][1] / clip[2][3];
+    const double determinant = (by - cy) * (ax - cx) + (cx - bx) * (ay - cy);
+    std::array<double, 3> weights{((by - cy) * (sx - cx) + (cx - bx) * (sy - cy)) / determinant,
+                                  ((cy - ay) * (sx - cx) + (ax - cx) * (sy - cy)) / determinant, 0};
+    weights[2] = 1 - weights[0] - weights[1];
+    const auto dot = [](forge::Double3 a, forge::Double3 b) {
+        return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    };
+    const auto unit = [](forge::Double3 v) {
+        const auto length = std::hypot(v[0], v[1], v[2]);
+        for (auto& item : v)
+            item /= length;
+        return v;
+    };
+    const auto cross = [](forge::Double3 a, forge::Double3 b) {
+        return forge::Double3{a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2],
+                              a[0] * b[1] - a[1] * b[0]};
+    };
+    forge::Double3 normal{}, tangent{}, bitangent{};
+    for (unsigned i = 0; i < 3; ++i) {
+        const double h = (points[i][1] - wind.base_y) * wind.inverse_height,
+                     gradient = h > 0 && h < 1 ? 2 * h * wind.inverse_height : 0;
+        const auto n = unit({0, gradient * wind.displacement[1], -1});
+        forge::Double3 t{.6 + wind.displacement[0] * gradient * .8, .8,
+                         wind.displacement[1] * gradient * .8};
+        const auto projection = dot(n, t);
+        for (unsigned axis = 0; axis < 3; ++axis)
+            t[axis] -= n[axis] * projection;
+        t = unit(t);
+        const auto b = cross(n, t);
+        for (unsigned axis = 0; axis < 3; ++axis) {
+            normal[axis] += weights[i] * n[axis] / clip[i][3];
+            tangent[axis] += weights[i] * t[axis] / clip[i][3];
+            bitangent[axis] -= weights[i] * b[axis] / clip[i][3];
+        }
+    }
+    normal = unit(normal);
+    if (normal_map) {
+        const auto projection = dot(normal, tangent);
+        for (unsigned axis = 0; axis < 3; ++axis)
+            tangent[axis] -= normal[axis] * projection;
+        tangent = unit(tangent);
+        auto b = cross(normal, tangent);
+        const auto handed = dot(b, bitangent) < 0 ? -1. : 1.;
+        for (auto& value : b)
+            value *= handed;
+        normal = normal_map == 1 ? tangent : b;
+    }
+    for (unsigned axis = 0; axis < 3; ++axis) {
+        const auto& basis = axis == 0 ? view.right : axis == 1 ? view.up : view.forward;
+        const auto expected = basis[0] * normal[0] + basis[1] * normal[1] + basis[2] * normal[2];
+        check(
+            std::abs(expected - observed[axis]) < .002,
+            "Wind surface frame differs from independent Jacobian/covector/interpolation oracles");
+    }
+}
 static void exercise(forge::DiligentPresentation& presentation, IDeviceContext* context, bool morph,
                      bool skinned, bool batch, bool perspective, bool reflection = false,
-                     bool normal = false, bool rough = false) {
+                     bool normal = false, bool rough = false, bool wind = false,
+                     unsigned normal_map = 0) {
     using namespace forge;
     constexpr unsigned width = 192, height = 128;
     auto* device = presentation.device();
@@ -91,6 +164,11 @@ static void exercise(forge::DiligentPresentation& presentation, IDeviceContext* 
         }
     part.streams = {{"POSITION", 3, positions},
                     {"NORMAL", 3, std::vector<float>{0, 0, -1, 0, 0, -1, 0, 0, -1}}};
+    if (wind) {
+        part.streams.push_back(
+            {"TANGENT", 4, std::vector<float>{.6f, .8f, 0, -1, .6f, .8f, 0, -1, .6f, .8f, 0, -1}});
+        part.streams.push_back({"TEXCOORD_0", 2, std::vector<float>(6)});
+    }
     if (skinned) {
         part.joint_palette = {0, 1};
         std::vector<std::uint32_t> joints;
@@ -124,8 +202,26 @@ static void exercise(forge::DiligentPresentation& presentation, IDeviceContext* 
         material.parameters["emissiveFactor"] = {MaterialParameterType::LinearColor3,
                                                  {.8f, .6f, .4f}};
     }
-    const auto fetch =
+    MeshDraw::Textures textures;
+    RefCntAutoPtr<ITexture> wind_normal_image;
+    if (normal_map) {
+        material.textures["normalTexture"].semantic = TextureSemantic::Normal;
+        forge::TextureData image;
+        image.width = image.height = 1;
+        image.format = TextureFormat::RGBA16Float;
+        image.subresources = {std::vector<std::byte>(8)};
+        const std::array<float, 4> value = normal_map == 1 ? std::array<float, 4>{1, .5f, .5f, 1}
+                                                           : std::array<float, 4>{.5f, 1, .5f, 1};
+        for (unsigned lane = 0; lane < 4; ++lane) {
+            const auto bits = test_bloom::half(value[lane]);
+            std::memcpy(image.subresources[0].data() + lane * 2, &bits, 2);
+        }
+        wind_normal_image = upload_texture(device, image);
+        textures["normalTexture"] = wind_normal_image->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+    }
+    auto fetch =
         mesh_vertex_fetch(gpu.lods[0].parts[0], prepare_pbr_material(material), true, true);
+    fetch.wind = wind;
     const auto program = mesh_draw_shader(fetch, prepare_pbr_material(material), false,
                                           emulated_resource_arrays(device->GetDeviceInfo())
                                               ? MaterialSamplerBinding::NamedElements
@@ -136,7 +232,8 @@ static void exercise(forge::DiligentPresentation& presentation, IDeviceContext* 
     const auto prefix = std::to_string(morph) + "-" + std::to_string(skinned) +
                         (reflection ? "-reflection"
                          : normal   ? "-normal"
-                                    : "-indirect");
+                                    : "-indirect") +
+                        (wind ? "-wind" : "") + "-map" + std::to_string(normal_map);
     for (const auto& [stage, source] :
          {std::pair{"vertex", program.vertex}, std::pair{"pixel", program.pixel},
           std::pair{"geometry", program.geometry}}) {
@@ -144,12 +241,13 @@ static void exercise(forge::DiligentPresentation& presentation, IDeviceContext* 
         file << source;
         check(bool(file), "Temporal shader source receipt failed");
     }
-    MeshDraw draw(presentation, context, gpu.lods[0].parts[0], material, {},
+    MeshDraw draw(presentation, context, gpu.lods[0].parts[0], material, textures,
                   TEX_FORMAT_RGBA16_FLOAT, TEX_FORMAT_D32_FLOAT, true, SHADER_COMPILER_DEFAULT,
                   SHADER_OPTIMIZATION_LEVEL_DEFAULT, nullptr,
                   reflection ? MeshDrawProfile::MeshTemporalReflection
                   : normal   ? MeshDrawProfile::MeshTemporalNormal
-                             : MeshDrawProfile::MeshTemporalIndirect);
+                             : MeshDrawProfile::MeshTemporalIndirect,
+                  false, wind);
     check(draw.supports_instances() == (!morph && !skinned),
           "Temporal draw changed the static/deformed instancing policy");
     auto color = texture(device, width, height, TEX_FORMAT_RGBA16_FLOAT,
@@ -220,9 +318,21 @@ static void exercise(forge::DiligentPresentation& presentation, IDeviceContext* 
             prepare_skin_pose(current_joints, inverse, part.joint_palette, source_bounds);
     }
     const float old_weight = morph ? .15f : 0, current_weight = morph ? .75f : 0;
-    const auto old_points = points(old_weight, previous_world, old_skin ? &*old_skin : nullptr);
+    MeshWind wind_config;
+    wind_config.enabled = wind;
+    wind_config.amplitude = .6;
+    wind_config.height = 1.4;
+    wind_config.direction_x = 3;
+    wind_config.direction_z = 4;
+    wind_config.phase = 65;
+    const auto old_wind = sample_mesh_wind(wind_config, previous_world, .2),
+               current_wind = sample_mesh_wind(wind_config, current_world, .7),
+               added_wind = sample_mesh_wind(wind_config, added_world, .7);
+    const auto old_points =
+        wind_points(points(old_weight, previous_world, old_skin ? &*old_skin : nullptr), old_wind);
     const auto current_points =
-        points(current_weight, current_world, current_skin ? &*current_skin : nullptr);
+        wind_points(points(current_weight, current_world, current_skin ? &*current_skin : nullptr),
+                    current_wind);
     const auto old_clip = project(old_points, previous_view);
     const auto current_clip = project(current_points, current_view);
     DisplayResolve display(presentation);
@@ -257,6 +367,7 @@ static void exercise(forge::DiligentPresentation& presentation, IDeviceContext* 
         motion.previous_view = frame ? &previous_view : nullptr;
         motion.previous_world = frame && !batch ? &previous_world : nullptr;
         motion.previous_skin = frame && old_skin ? &*old_skin : nullptr;
+        motion.previous_wind = frame ? &old_wind : nullptr;
         motion.previous_morph_weights =
             frame && morph ? std::span(&old_weight, 1) : std::span<const float>{};
         motion.jitter = frame ? jitter : old_jitter;
@@ -264,11 +375,13 @@ static void exercise(forge::DiligentPresentation& presentation, IDeviceContext* 
         std::vector<MeshDraw::Instance> instances;
         if (batch) {
             if (frame)
-                instances.push_back({added_world, {}, nullptr, nullptr});
+                instances.push_back({added_world, {}, nullptr, nullptr, &added_wind, nullptr});
             instances.push_back({frame ? current_world : previous_world,
                                  {},
                                  nullptr,
-                                 frame ? &previous_world : nullptr});
+                                 frame ? &previous_world : nullptr,
+                                 frame ? &current_wind : &old_wind,
+                                 frame ? &old_wind : nullptr});
         }
         const auto& world =
             instances.empty() ? frame ? current_world : previous_world : instances.front().world;
@@ -279,7 +392,8 @@ static void exercise(forge::DiligentPresentation& presentation, IDeviceContext* 
                                  ? frame ? std::span(&current_weight, 1) : std::span(&old_weight, 1)
                                  : std::span<const float>{};
         draw.draw(context, world, view, {}, nullptr, nullptr, nullptr, {}, nullptr, weights, skin,
-                  instances, {}, {}, nullptr, nullptr, &motion);
+                  instances, {}, {}, nullptr, nullptr, &motion, {}, nullptr, {}, {},
+                  frame ? &current_wind : &old_wind);
         const auto point = check_motion_at(device, context, motion_target, width, height,
                                            frame ? current_clip : old_clip, old_clip,
                                            frame ? jitter : old_jitter, old_jitter, frame != 0);
@@ -290,6 +404,11 @@ static void exercise(forge::DiligentPresentation& presentation, IDeviceContext* 
             const auto& n = normals[at];
             check(std::abs(std::hypot(n[0], n[1], n[2]) - 1) < .002 && std::abs(n[3] - .1f) < .001,
                   "Posed/instanced reflection material lost its current normal or roughness");
+            if (wind)
+                check_wind_normal(n, frame ? current_clip : old_clip,
+                                  frame ? current_points : old_points,
+                                  frame ? current_wind : old_wind, point[0], point[1], width,
+                                  height, view, normal_map);
             if (reflection) {
                 const auto response =
                     forge::test_bloom::read(device, context, reflection_targets[1]);
@@ -303,7 +422,8 @@ static void exercise(forge::DiligentPresentation& presentation, IDeviceContext* 
         }
         std::optional<std::array<unsigned, 2>> added;
         if (batch && frame) {
-            const auto clip = project(points(0, added_world, nullptr), current_view);
+            const auto clip =
+                project(wind_points(points(0, added_world, nullptr), added_wind), current_view);
             added = check_motion_at(device, context, motion_target, width, height, clip, clip,
                                     jitter, old_jitter, false);
         }
@@ -388,7 +508,16 @@ static void exercise(forge::DiligentPresentation& presentation, IDeviceContext* 
     }
     std::cout << "Shared Mesh motion: morph=" << morph << " skin=" << skinned << " batch=" << batch
               << " perspective=" << perspective << " reflection=" << reflection
-              << " normal=" << normal << " rough=" << rough << " passed\n";
+              << " normal=" << normal << " rough=" << rough << " wind=" << wind << " passed\n";
+}
+static void exercise_wind(forge::DiligentPresentation& presentation, IDeviceContext* context) {
+    for (bool perspective : {false, true})
+        for (bool batch : {false, true})
+            exercise(presentation, context, false, false, batch, perspective, false, true, false,
+                     true);
+    for (unsigned normal_map : {1u, 2u})
+        exercise(presentation, context, false, false, false, true, false, true, false, true,
+                 normal_map);
 }
 static void exercise_all(forge::DiligentPresentation& presentation, IDeviceContext* context) {
     for (bool perspective : {false, true}) {

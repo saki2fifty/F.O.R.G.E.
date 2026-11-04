@@ -5,7 +5,8 @@ ordinary Mesh Renderer children under one ordinary group. The Scene, spatial
 transform codec, stable entity identity, normal history, asset references, shared
 render batching and runtime/export consumers keep their existing ownership.
 There is no foliage runtime component, asset database, population manager or
-serialized placement recipe. The installed native SDK and Scene format are unchanged.
+serialized placement recipe. Placement needs no project C++ module or Scene-format
+revision; copied renderer values follow the matching SDK value contract.
 
 ## Template and generated intent
 
@@ -14,7 +15,7 @@ reference. Definition entities cannot be templates. Copy only the effective
 MeshRenderer value and local rotation/scale; do not copy source position, parent,
 spatial binding, descendants, gameplay, colliders, animation or Prefab links.
 Material bindings, numeric material parameters, variant selection, visibility,
-shadow and layer values remain part of that renderer. Asset identity/availability
+shadow, layer and optional [Wind](mesh-wind.md) values remain part of that renderer. Asset identity/availability
 and renderer resource admission retain their ordinary semantics. Imported meshes
 do not acquire a model animation/skin instance by being placed this way.
 
@@ -59,7 +60,9 @@ radius. Distance uses a scale-safe norm, including subnormal positive spacing;
 quantized duplicate world positions cannot pass a positive spacing request. The
 cell index uses bounded center-relative coordinates and a conservative neighborhood.
 It does not compare old groups, mesh bounds or colliders. There is no arbitrary
-surface painting, brush stroke, wind simulation or world streaming. Optional collider clearance is a separate preparation step below.
+surface painting, brush stroke or world streaming. Optional [renderer wind](mesh-wind.md)
+deforms the saved Mesh objects without running placement during gameplay.
+Optional collider clearance is a separate preparation step below.
 Without optional `world_heights`, the requested center Y is an origin plane and
 children have zero local Y. With that array, each generated origin uses the
 corresponding absolute world Y; the group pivot remains the requested center.

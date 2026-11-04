@@ -361,7 +361,7 @@ RuntimeWorld& GameSession::active() {
 }
 Json GameSession::presentation() const {
     require_active();
-    return active_->simulation.presentation(clock_.alpha());
+    return active_->simulation.presentation(clock_.alpha(), clock_.presentation_seconds());
 }
 Json GameSession::status() const {
     owner();

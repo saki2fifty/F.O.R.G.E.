@@ -195,7 +195,8 @@ class ComponentInspector {
                RuntimePropertyTune::ui_values_type(key) ||
                RuntimePropertyTune::ui_localization_type(key) ||
                RuntimePropertyTune::navigation_type(key) ||
-               RuntimePropertyTune::particle_type(key) || RuntimePropertyTune::material_type(key) ||
+               RuntimePropertyTune::particle_type(key) ||
+               RuntimePropertyTune::mesh_renderer_type(key) ||
                RuntimePropertyTune::sprite_type(key) || RuntimePropertyTune::probe_type(key) ||
                RuntimePropertyTune::decal_type(key) || RuntimePropertyTune::light_type(key) ||
                (type.value("custom", false) && type.contains("admission") &&
@@ -234,8 +235,8 @@ class ComponentInspector {
                 RuntimePropertyTune::navigation_property(key, name)) &&
                (!RuntimePropertyTune::particle_type(key) ||
                 RuntimePropertyTune::particle_property(name)) &&
-               (!RuntimePropertyTune::material_type(key) ||
-                RuntimePropertyTune::material_property(name)) &&
+               (!RuntimePropertyTune::mesh_renderer_type(key) ||
+                RuntimePropertyTune::mesh_renderer_property(name)) &&
                (!RuntimePropertyTune::sprite_type(key) ||
                 RuntimePropertyTune::sprite_property(name)) &&
                (!RuntimePropertyTune::probe_type(key) ||

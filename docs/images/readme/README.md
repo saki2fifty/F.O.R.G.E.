@@ -1,5 +1,30 @@
 # README screenshots
 
+## Foliage wind
+
+[Wind Inspector](../../../manual/images/foliage-wind-inspector.png) and
+[Live Wind](../../../manual/images/foliage-wind-live.png) show the actual 720×840
+production ComponentInspector in SDL/ImGui software rendering. The authored
+controls use native nested-value metadata; the colored Live gameplay panel tunes
+the runtime copy. The capture consumer also exercises six layouts at 100/150/200%
+and actual Keep Values, Apply to Scene, Undo and Redo input.
+
+[Wind Game](../../../manual/images/foliage-wind-game.png) is an exact, unscaled
+640×360 RGB transcode of the production FrameRenderer at simulation time0.25s in
+Gallery157 (`053092de-0138-4df7-89bc-fe4fbd22b394`). The left patch has64 moving
+plants; the right patch has24 still plants. Plants share the existing original
+blade Mesh; only their saved object values differ. Scene/Game software Vulkan
+checks include shadows, instancing, deformed picking, frozen/borrowed/explicit
+time, temporal AA, mode changes, failed-value retention and four exact displays
+after source-hidden export relocation.
+
+All three canonical captures were personally reviewed and are unretouched. Local
+unassigned source is based onbc75030 with the Wind batch. Exact executable,
+source, original readback and PNG hashes are retained in
+`AgentFiles/build/phase245-foliage-wind/native-ui-captures.json` and
+`native-rendering.json`. These captures do not establish full Main, Windows /
+MSVC/D3D12, physical input/DPI/GPU, graphical EXE or performance acceptance.
+
 ## Navigation behavior trees
 
 [Tree editor](../../../manual/images/navigation-behavior-tree.png) is the

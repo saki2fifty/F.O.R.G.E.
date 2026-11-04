@@ -1,5 +1,12 @@
 # Explore the Feature Gallery
 
+**157-foliage-wind** compares 64 wind-enabled plants with a still 24-plant patch
+on the heightfield. The blade template also has Wind enabled. Press Play to see
+the geometry and shadows move; Pause and Step control its simulation sample.
+Stop and open **Inspector → Mesh Renderer → Wind**, or tune the temporary values
+in the colored **Live gameplay** panel. Save and export with the matching runtime
+kit; project C++ is optional. See [Add wind](../editor/foliage.md).
+
 **143-fast-approximate-antialiasing** animates a pink bar across thin diagonal
 lines and tilted cubes. Stop Play and open **Tools > Scene lighting... → Fast
 approximate anti-aliasing** to compare enabled/disabled output, Subpixel smoothing
@@ -548,6 +555,9 @@ uses a horizontal plane in this example. Gallery147 demonstrates published
 heightfield projection; use Minimum/Maximum slope to filter a new candidate pool
 and Align to terrain slope to tilt its placement frames.
 See [Place foliage](../editor/foliage.md).
+
+Gallery **157-foliage-wind** adds a moving/still comparison using the same blade
+and terrain assets. Its Wind values are ordinary Mesh Renderer properties.
 
 ## Live camera images
 

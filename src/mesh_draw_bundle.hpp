@@ -24,7 +24,7 @@ class MeshDrawBundle {
                    Diligent::TEXTURE_FORMAT depth, bool skinned = false,
                    std::shared_ptr<const MeshPoseGeometry> geometry = {},
                    MeshDrawProfile profile = MeshDrawProfile::Mesh,
-                   const RenderTextureImages& render_textures = {});
+                   const RenderTextureImages& render_textures = {}, bool wind = false);
     bool render_textures_ready(const RenderTextureInputs&) const;
     void environment(const EnvironmentLease&);
     void shadows(const ShadowLighting*);
@@ -110,6 +110,7 @@ class MeshDrawBundle {
     const MeshPoseGeometry& geometry() const { return *geometry_; }
     std::shared_ptr<const MeshPoseGeometry> geometry_owner() const { return geometry_; }
     bool skinned() const { return skinned_; }
+    bool wind() const { return wind_; }
     MeshDrawProfile profile() const { return profile_; }
     std::size_t lod_count() const { return lods_.size(); }
 
@@ -149,6 +150,7 @@ class MeshDrawBundle {
     asset_detail::PreparedModelDraw prepared_;
     std::shared_ptr<const MeshPoseGeometry> geometry_;
     bool skinned_ = false;
+    bool wind_ = false;
     MeshDrawProfile profile_ = MeshDrawProfile::Mesh;
     EnvironmentLease environment_;
     GpuLease<MeshAsset> mesh_;

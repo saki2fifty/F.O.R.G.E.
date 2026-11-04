@@ -223,6 +223,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "053092de-0138-4df7-89bc-fe4fbd22b394",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/157-foliage-wind.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "0545bffd-1bc1-4c09-a525-a815d6c6e3bc",
       "metadata": {
         "forge.import": {

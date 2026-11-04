@@ -10,6 +10,7 @@ Vulkan compile/device probes and unexecuted Metal/WebGPU mappings.
 | Feature | Implementation and bounds | Executable coverage |
 | --- | --- | --- |
 | Static meshes | Validated immutable Mesh resources; compact16/32-bit indices or nonindexed point/line/triangle list draws; per-part material and shadow flags | `mesh_asset`, `render_bounds`; native `mesh_gpu_tests.hpp`, `mesh_draw_tests.hpp` |
+| Static Mesh wind | Disabled-default bounded world-height deformation, shared shading/shadows/bounds/picking and previous instance motion; borrowed simulation/explicit capture time | `mesh_wind`, value/UI/MCP/SDK and Gallery157/source-hidden package checks; software Vulkan motion/frame and baked shadow comparisons. Windows/physical acceptance pending. [Contract](mesh-wind.md) |
 | Signed/singular transforms | Camera-relative world placement, parity-specific culling and cofactor surface frames; zero/tiny/negative authored visual scale retained | Transform/render bounds; native `surface_frame_tests.hpp`, `mesh_draw_tests.hpp` |
 | Skeletal skinning | Four-influence linear blend after morphs, validated joint palettes, actual deformed bounds; signed blend winding uses a geometry stage | `gltf_ozz`, `model_animation_process`, `render_bounds`; native `skin_render_tests.hpp` |
 | Morph targets | Position/normal/tangent deltas and admitted weight curves, complete-pose adoption and dynamic bounds | `morph_animation`, model pipeline; native `morph_render_tests.hpp` |

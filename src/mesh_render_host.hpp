@@ -106,7 +106,8 @@ class MeshSceneRenderer {
                                std::uint64_t pose_budget = mesh_pose_payload_limit,
                                std::size_t draw_part_limit = 4096,
                                std::uint64_t material_budget = 16 * 1024 * 1024);
-    bool update(const RenderScene&, std::span<const PreparedCamera> tile_views = {});
+    bool update(const RenderScene&, std::span<const PreparedCamera> tile_views = {},
+                std::optional<double> simulation_seconds = {});
     void render_textures(const RenderTextureInputs&);
     std::set<AssetId> render_texture_reads(const RenderScene&, std::uint32_t layers,
                                            bool require_complete = false) const;
@@ -218,14 +219,15 @@ class MeshSceneRenderer {
         bool parameters_checked = false, resource_current = false;
         std::string parameter_error;
         std::string error, pose_error;
-        std::optional<bool> failed_skin_mode;
+        std::optional<std::pair<bool, bool>> failed_geometry_mode;
         bool fallback = false;
         std::uint64_t pose_bytes() const;
         std::uint64_t material_bytes() const;
     };
     std::shared_ptr<MeshDrawBundle> prepare_bundle(const asset_detail::PreparedModelDraw&, bool,
                                                    std::shared_ptr<const MeshPoseGeometry>,
-                                                   MeshDrawProfile = MeshDrawProfile::Mesh);
+                                                   MeshDrawProfile = MeshDrawProfile::Mesh,
+                                                   bool wind = false);
     std::shared_ptr<SpriteMipBank> prepare_sprite_mips(Entry&,
                                                        const asset_detail::PreparedModelDraw&,
                                                        EntityId, DrawScope, std::uint64_t image);

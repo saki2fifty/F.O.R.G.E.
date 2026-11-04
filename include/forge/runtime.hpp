@@ -7,6 +7,7 @@
 #include <forge/physics.hpp>
 #include <forge/scene.hpp>
 #include <functional>
+#include <optional>
 namespace forge {
 namespace detail {
 class InputMessageRuntime;
@@ -37,6 +38,8 @@ class RuntimeClock {
     bool paused() const { return paused_; }
     double fixed_dt() const { return 1 / config_.simulation_hz; }
     double alpha() const { return paused_ ? 1 : accumulator_ / fixed_dt(); }
+    // Derive the same previous/current interval used by presentation poses.
+    double presentation_seconds() const;
     std::uint64_t tick() const { return tick_; }
     Json status() const;
     void restore_tick(std::uint64_t tick, Time now) {
@@ -56,6 +59,8 @@ class RuntimeClock {
     double accumulator_ = 0, clamped_seconds_ = 0;
     double time_scale_ = 1;
     std::uint64_t tick_ = 0, dropped_ticks_ = 0;
+    // Derived interpolation boundary, reset when poses collapse on resume/recovery.
+    std::uint64_t presentation_floor_tick_ = 0;
     unsigned last_ticks_ = 0;
 };
 // Derived samples keyed by generation-bearing Flecs handles; never authored ECS authority.
@@ -96,12 +101,14 @@ class RuntimeSimulation {
         input_.release_all();
     }
     Json presentation(double alpha) const;
+    Json presentation(double alpha, double simulation_seconds) const;
     // Last collected native fixed-pipeline plan; requests a fresh observation on
     // the next collected fixed tick. Never progresses gameplay. Native system
     // CPU counters retain lifetime semantics across collection/Clear.
     Json system_profile() const;
 
   private:
+    Json presentation_impl(double alpha, std::optional<double> seconds) const;
     WorldContext& context_;
     Scene& scene_;
     mutable PresentationPoses poses_;

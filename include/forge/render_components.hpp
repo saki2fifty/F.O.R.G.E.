@@ -1,6 +1,7 @@
 #pragma once
 #include <forge/asset_ref.hpp>
 #include <forge/material_parameter.hpp>
+#include <forge/mesh_wind.hpp>
 #include <forge/model_asset.hpp>
 #include <forge/sprite_frames.hpp>
 #include <string>
@@ -47,6 +48,7 @@ struct MeshRenderer {
     // Sparse object-local numeric values, addressed by stable slot/parameter keys.
     // Shared material assets and GPU resources remain owned by their existing hosts.
     std::vector<MaterialParameterOverride> material_parameters;
+    MeshWind wind;
     bool operator==(const MeshRenderer&) const = default;
 };
 // World-space XY image/sheet. Material owns texture/sampler/alpha/depth intent;

@@ -16,6 +16,14 @@ deliverables and are not claimed to be the same binary.
 
 ## Startup and ownership
 
+Reachable Scene/Prefab wind intent requires runtime-kit
+`engine.runtime_mesh_wind:1`. The existing document package owner derives and
+checks the corresponding feature requirements against admitted saved bytes;
+export and standalone admission reject an older kit without that geometry
+profile. Default-off documents keep their existing compatibility. The kit build
+reads the version from the installed public value header. See
+[static Mesh wind](mesh-wind.md) for supported geometry and time selection.
+
 `forge_game` with no arguments admits `forge.standalone.json` beside its executable,
 never from the current working directory. `--project <directory>` explicitly uses
 a prepared development project's `forge.project.json` instead. The admitted

@@ -4,6 +4,28 @@
 #include <forge/render_view.hpp>
 #include <stdexcept>
 namespace forge::detail {
+Json render_value(const MeshWind& value) {
+    validate_mesh_wind(value);
+    return {{"enabled", value.enabled},         {"amplitude", value.amplitude},
+            {"height", value.height},           {"direction_x", value.direction_x},
+            {"direction_z", value.direction_z}, {"frequency", value.frequency},
+            {"wavelength", value.wavelength},   {"phase", value.phase}};
+}
+MeshWind mesh_wind_value(const Json& source) {
+    if (!source.is_object())
+        throw std::runtime_error("Mesh wind requires an object value");
+    MeshWind value;
+    value.enabled = source.value("enabled", value.enabled);
+    value.amplitude = source.value("amplitude", value.amplitude);
+    value.height = source.value("height", value.height);
+    value.direction_x = source.value("direction_x", value.direction_x);
+    value.direction_z = source.value("direction_z", value.direction_z);
+    value.frequency = source.value("frequency", value.frequency);
+    value.wavelength = source.value("wavelength", value.wavelength);
+    value.phase = source.value("phase", value.phase);
+    validate_mesh_wind(value);
+    return value;
+}
 Json render_value(const DecalProjector& value) {
     return {{"material", value.material.id ? Json(value.material.id) : Json()},
             {"enabled", value.enabled},

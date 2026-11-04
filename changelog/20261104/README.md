@@ -1,5 +1,26 @@
 # 2026-11-04
 
+## Static Mesh wind
+
+Mesh Renderer owns optional bounded world-height wind, with disabled defaults,
+reflected Inspector controls and shared live tuning/Keep Values. Existing pose,
+instance, shading, shadow, motion, bounds and picking paths consume the same
+geometry sample. Time comes from the fixed runtime clock or explicit capture
+sample, with a frozen Edit preview. Authored transforms and physics stay fixed;
+active skin/morph combinations reject before replacing complete geometry.
+
+Automation/MCP authors the same complete property and copies it through ordinary
+scatter. Both protocol framings cover normal and SDK Play, including scope,
+invalid-value, Step and reviewed-value publication. Runtime documents declare
+their required wind profile; older kits reject opted-in content. The installed
+SDK value-header fingerprint includes MeshWind, without changing the C host ABI.
+
+Gallery157 compares64 moving plants with24 still plants using existing assets.
+The illustrated guide covers settings, tuning and export. Local numeric, native
+UI, software-Vulkan geometry/shadow/frame and source-hidden relocated content
+checks have distinct coverage. Windows/MSVC/D3D12/full-editor/physical hardware
+acceptance remains pending.
+
 ## Foliage collision clearance
 
 Optional world-space sphere clearance filters the original foliage candidate pool

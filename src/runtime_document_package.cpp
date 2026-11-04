@@ -6,9 +6,29 @@
 #include "ui_asset_catalog.hpp"
 #include <forge/asset_discovery.hpp>
 #include <forge/engine_assets.hpp>
+#include <forge/mesh_wind.hpp>
 #include <forge/prefab.hpp>
 #include <forge/scene.hpp>
 namespace forge::package_detail {
+Json document_runtime_features(const Json& document) {
+    auto result = Json::object();
+    const auto rows = document.contains("entities") ? "entities"
+                      : document.contains("base")   ? "overrides"
+                                                    : "members";
+    for (const auto& row : document.at(rows))
+        for (const char* channel : {"components", "property_overrides"}) {
+            const auto values = row.find(channel);
+            if (values == row.end())
+                continue;
+            const auto renderer = values->find("forge.mesh_renderer");
+            if (renderer == values->end())
+                continue;
+            const auto wind = renderer->find("wind");
+            if (wind != renderer->end() && wind->value("enabled", false))
+                result["mesh_wind"] = mesh_wind_profile_version;
+        }
+    return result;
+}
 bool authored_document(const AssetRecord& r) {
     return r.type == SceneAsset::type || r.type == PrefabAsset::type;
 }
@@ -162,6 +182,9 @@ void prepare_documents(AssetCatalog& catalog, const std::filesystem::path& root,
                 {"version", 1},
                 {"sha256", asset_detail::content_digest(bytes)},
                 {"schema_digest", asset_build_digest(schema)}};
+            const auto features = document_runtime_features(documents.front().document);
+            if (!features.empty())
+                record.metadata["forge.runtime_document"]["runtime_features"] = features;
             catalog.replace(record);
         }
         if (record.subasset)

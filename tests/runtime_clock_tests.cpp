@@ -4,6 +4,7 @@
 #include <forge/render_scene.hpp>
 #include <forge/runtime.hpp>
 #include <iostream>
+#include <limits>
 #include <stdexcept>
 using namespace forge;
 namespace {
@@ -23,6 +24,71 @@ template <class F> void rejects(F f) {
     throw std::runtime_error("expected rejection");
 }
 RuntimeClock::Time time_ms(int n) { return RuntimeClock::Time{} + std::chrono::milliseconds(n); }
+void presentation_time() {
+    RuntimeClock clock({10, .25, 8});
+    const auto tick = [](float) {};
+    expect_near(clock.presentation_seconds(), 0);
+    clock.resume(time_ms(0));
+    clock.advance(time_ms(50), tick);
+    expect_near(clock.presentation_seconds(), 0);
+    clock.advance(time_ms(150), tick);
+    expect_near(clock.presentation_seconds(), .05);
+    clock.advance(time_ms(250), tick);
+    expect_near(clock.presentation_seconds(), .15);
+    clock.pause(time_ms(250));
+    expect_near(clock.presentation_seconds(), .2);
+    clock.advance(time_ms(4000), tick);
+    expect_near(clock.presentation_seconds(), .2);
+    clock.step(tick);
+    expect_near(clock.presentation_seconds(), .3);
+    clock.resume(time_ms(4000));
+    // Resume collapses pose history: zero alpha must not rewind procedural geometry.
+    clock.advance(time_ms(4050), tick);
+    expect_near(clock.presentation_seconds(), .3);
+    clock.advance(time_ms(4150), tick);
+    expect_near(clock.presentation_seconds(), .35);
+    clock.set_time_scale(0);
+    clock.advance(time_ms(4250), tick);
+    expect_near(clock.presentation_seconds(), .35);
+    clock.set_time_scale(2);
+    clock.advance(time_ms(4300), tick);
+    expect_near(clock.presentation_seconds(), .45);
+    clock.restore_tick(99, time_ms(4300));
+    expect_near(clock.presentation_seconds(), 9.9);
+    clock.resume(time_ms(4300));
+    expect_near(clock.presentation_seconds(), 9.9);
+    expect_near(clock.status().at("presentation_seconds"), clock.presentation_seconds());
+
+    EngineContext engine(WorldRole::Runtime, false);
+    Scene scene(engine.world());
+    scene.replace(
+        {{"version", 1},
+         {"entities",
+          Json::array({{{"id", "wind"}, {"name", "Wind"}, {"components", Json::object()}}})}});
+    RuntimeSimulation simulation(engine.world(), scene);
+    MeshRenderer renderer;
+    renderer.mesh = {AssetId::generate()};
+    renderer.wind.enabled = true;
+    scene.entity("wind").set<MeshRenderer>(renderer);
+    const auto authored = scene.document();
+    const auto zero = simulation.presentation(1, 0);
+    check(zero.at("simulation_seconds") == 0 && extract_render_scene(zero).simulation_seconds == 0,
+          "Initial borrowed clock sample was missing or treated as false");
+    const auto sampled = simulation.presentation(.5, .375);
+    check(extract_render_scene(sampled).simulation_seconds == .375 && scene.document() == authored,
+          "Borrowed geometry sample changed source intent or was lost in rendering extraction");
+    rejects([&] { simulation.presentation(1, -1); });
+    rejects([&] { simulation.presentation(1, std::numeric_limits<double>::quiet_NaN()); });
+    for (const Json bad : {Json(true), Json(-1), Json("time")}) {
+        auto malformed = sampled;
+        malformed["simulation_seconds"] = bad;
+        rejects([&] { extract_render_scene(malformed); });
+    }
+    renderer.wind = MeshWind{};
+    scene.entity("wind").set<MeshRenderer>(renderer);
+    check(simulation.presentation(1, 42) == simulation.presentation(1),
+          "Default wind changed the legacy snapshot envelope or byte budget");
+}
 void signed_scale_interpolation() {
     PresentationPoses poses;
     std::map<std::uint64_t, TransformNode> nodes;
@@ -439,6 +505,7 @@ void live() {
 int main(int argc, char** argv) {
     try {
         clocks();
+        presentation_time();
         simulation_rates();
         unscaled_time();
         signed_scale_interpolation();

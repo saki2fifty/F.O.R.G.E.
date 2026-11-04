@@ -27,6 +27,12 @@ Large scene updates are sent in bounded pieces while gameplay continues. If an u
 
 Stop Play before editing or saving the **authored scene**. Runtime movement is never automatically saved into the authored scene.
 
+Built-in Mesh Renderer [Wind](foliage.md) follows the same simulation
+sample: Pause and zero simulation speed hold its time progression, and Step
+advances it by one tick. Tune its temporary values in the colored Live gameplay
+panel. Wind moves rendered vertices while authored transforms and colliders stay
+fixed.
+
 ## Keep selected tuning values
 
 Live gameplay values are temporary. To keep chosen values deliberately:
@@ -118,6 +124,10 @@ Stop Play before editing or saving the **authored scene** — runtime Save Game 
 **Build → C++ setup → Native SDK folder** points at the matching installed Native SDK. The editor uses this folder to launch the runtime that drives your gameplay module. The field defaults to empty; when empty, FORGE uses the NativeSdk shipped alongside the editor and only switches to your selected folder when you override it.
 
 The toolkit used to build your gameplay module must match the folder you point at. A mismatch refuses to start Play and the editor does not load the module. Your authored scene stays untouched.
+
+SDK Play also needs the project's Game defaults and application ID for its
+user-specific storage. Set and save these in [Project Settings](project-settings.md)
+before starting a new SDK project.
 
 Code changes require Stop, Save, Build and Play. Runtime values can be tuned in the Live gameplay Inspector without compiling.
 

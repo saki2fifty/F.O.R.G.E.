@@ -16,6 +16,7 @@ struct MeshVertexFetch {
     // and selected UV channels, four slots per row. UINT32_MAX is absent.
     std::vector<std::array<std::uint32_t, 4>> morph_offsets;
     bool temporal = false;
+    bool wind = false;
 };
 // One semantic layout for generated geometry and its typed pixel inputs.
 std::string mesh_shader_varyings(const MeshVertexFetch&, bool sprite_profile,

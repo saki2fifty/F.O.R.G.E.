@@ -60,6 +60,20 @@ have no copied collider. The Scene includes camera/light and uses existing blade
 and terrain assets. Save, choose it as startup and export without project C++.
 See [Place foliage](../../../manual/editor/foliage.md).
 
+## Foliage wind
+
+Open **Scenes/157-foliage-wind.scene.json** and press **Play → Game**. The left
+64-plant patch sways while the right 24-plant comparison stays still. Both use
+the existing blade and heightfield assets. Camera, light and shadows are included.
+Stop and select **Blade template - Wind controls in Inspector**, then expand
+**Inspector → Mesh Renderer → Wind**. Change amplitude, world height/direction,
+frequency, wavelength or phase. During Play the colored **Live gameplay** section
+offers temporary values and **Keep values after Stop...**. Save and export with
+the matching runtime kit; project C++ is optional. Wind changes rendered geometry
+and shadows while transforms and colliders stay fixed. New placements copy the
+template's renderer values; existing patches stay independent. See
+[Add wind](../../../manual/editor/foliage.md#add-wind).
+
 ## Fast approximate anti-aliasing
 
 Open **Scenes/143-fast-approximate-antialiasing.scene.json** and press **Play**.

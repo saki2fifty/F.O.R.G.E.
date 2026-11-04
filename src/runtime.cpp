@@ -26,11 +26,13 @@ void RuntimeClock::resume(Time now) {
     previous_ = now;
     accumulator_ = 0;
     paused_ = false;
+    presentation_floor_tick_ = tick_;
 }
 void RuntimeClock::pause(Time now) {
     previous_ = now;
     accumulator_ = 0;
     paused_ = true;
+    presentation_floor_tick_ = tick_;
 }
 void RuntimeClock::sample_time(Time now) {
     if (!time_sampled_) {
@@ -95,8 +97,13 @@ Json RuntimeClock::status() const {
             {"ticks_this_iteration", last_ticks_},
             {"accumulator", accumulator_},
             {"alpha", alpha()},
+            {"presentation_seconds", presentation_seconds()},
             {"dropped_ticks", dropped_ticks_},
             {"clamped_seconds", clamped_seconds_}};
+}
+double RuntimeClock::presentation_seconds() const {
+    const auto interval = tick_ ? double(tick_ - 1) + alpha() : 0;
+    return std::max(double(presentation_floor_tick_), interval) * fixed_dt();
 }
 void RuntimeClock::set_time_scale(double value) {
     if (!std::isfinite(value) || value < 0 || value > 4)
@@ -533,7 +540,15 @@ void RuntimeSimulation::reset_presentation() {
     if (particles_)
         particles_->reset();
 }
+Json RuntimeSimulation::presentation(double alpha, double seconds) const {
+    if (!std::isfinite(seconds) || seconds < 0)
+        throw std::runtime_error("Simulation presentation time must be finite and nonnegative");
+    return presentation_impl(alpha, seconds);
+}
 Json RuntimeSimulation::presentation(double alpha) const {
+    return presentation_impl(alpha, std::nullopt);
+}
+Json RuntimeSimulation::presentation_impl(double alpha, std::optional<double> seconds) const {
     // Owner-boundary resource adoption also proceeds while Play is paused.
     // Synchronization does not advance the runtime clock or animation time.
     if (context_.services().available(Capability::Resources))
@@ -550,6 +565,7 @@ Json RuntimeSimulation::presentation(double alpha) const {
     auto result = scene_.effective_document();
     auto conditions = scene_.state_conditions();
     const auto values = poses_.evaluate(alpha);
+    bool sampled = false;
     for (auto& item : result.at("entities")) {
         const auto entity = scene_.entity(item.at("id")).id();
         if (!conditions.active(entity))
@@ -601,6 +617,16 @@ Json RuntimeSimulation::presentation(double alpha) const {
                     !pose.is_null() && animation_->model_pose_ready(entity);
             if (!pose.is_null())
                 item["animation_pose"] = std::move(pose);
+        }
+        if (seconds && !sampled) {
+            const auto& components = item.at("components");
+            if (components.contains("forge.mesh_renderer")) {
+                const auto& renderer = components.at("forge.mesh_renderer");
+                if (renderer.contains("wind") && renderer.at("wind").value("enabled", false)) {
+                    result["simulation_seconds"] = *seconds;
+                    sampled = true;
+                }
+            }
         }
         const auto found = values.find(entity);
         if (found != values.end()) {

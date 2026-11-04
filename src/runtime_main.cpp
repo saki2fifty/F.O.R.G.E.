@@ -687,8 +687,8 @@ int main(int argc, char** argv) {
                                                                   {"error", error.what()}};
                             }
                         }
-                        response["effective_scene"] =
-                            runtime->simulation.presentation(clock.alpha());
+                        response["effective_scene"] = runtime->simulation.presentation(
+                            clock.alpha(), clock.presentation_seconds());
                         response["tile_maps"] = tile_projection.capture(
                             ui_generation, runtime->scene.asset_id(),
                             forge::tile_map_play_views(runtime->engine.world()));

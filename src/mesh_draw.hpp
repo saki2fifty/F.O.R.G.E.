@@ -5,6 +5,7 @@
 #include "material_shader.hpp"
 #include "mesh_draw_profile.hpp"
 #include "mesh_vertex_fetch.hpp"
+#include "mesh_wind.hpp"
 #include "presentation_diligent.hpp"
 #include "render_bounds.hpp"
 #include "shadow_lighting.hpp"
@@ -26,6 +27,8 @@ class MeshDraw {
         std::optional<std::array<float, 3>> legacy_tint;
         const SpriteDrawValues* sprite = nullptr; // Borrowed only until draw returns.
         const AffineTransform* previous_world = nullptr;
+        const MeshWindSample* wind = nullptr;
+        const MeshWindSample* previous_wind = nullptr;
     };
     struct Motion {
         const CameraView* previous_view = nullptr;
@@ -34,6 +37,7 @@ class MeshDraw {
         const SkinPose* previous_skin = nullptr;
         std::array<float, 2> jitter{}, previous_jitter{};
         bool valid = false;
+        const MeshWindSample* previous_wind = nullptr;
     };
     bool supports_instances() const { return bool(instances_); }
     struct ProjectedTexture {
@@ -68,7 +72,7 @@ class MeshDraw {
              Diligent::SHADER_OPTIMIZATION_LEVEL optimization =
                  Diligent::SHADER_OPTIMIZATION_LEVEL_DEFAULT,
              const MaterialShaderSnapshot* surface = nullptr,
-             MeshDrawProfile = MeshDrawProfile::Mesh, bool area_lights = false);
+             MeshDrawProfile = MeshDrawProfile::Mesh, bool area_lights = false, bool wind = false);
     void bind_environment(const GpuEnvironment*);
     void bind_shadows(const ShadowLighting*);
     void bind_transmission(const TransmissionLighting*);
@@ -89,7 +93,8 @@ class MeshDraw {
               const SceneDistanceFog* fog = nullptr, const Motion* motion = nullptr,
               std::span<const Decal> decals = {}, const RenderBounds* decal_bounds = nullptr,
               std::span<const LightImage> light_images = {},
-              std::span<const EnvironmentProbe> local_irradiance = {});
+              std::span<const EnvironmentProbe> local_irradiance = {},
+              const MeshWindSample* wind = nullptr);
 
   private:
     unsigned instance_rows() const;
@@ -132,6 +137,7 @@ class MeshDraw {
     bool weighted_{};
     bool area_lights_{};
     bool sprite_{}, sprite_trim_allowed_{}, sprite_mips_{};
+    bool wind_{};
     std::string sprite_image_variable_;
     bool lights_active_{};
     float volume_thickness_{};

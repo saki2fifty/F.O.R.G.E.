@@ -591,8 +591,8 @@ std::size_t MeshSceneRenderer::bundle_count() const {
 std::shared_ptr<MeshDrawBundle>
 MeshSceneRenderer::prepare_bundle(const asset_detail::PreparedModelDraw& prepared, bool skinned,
                                   std::shared_ptr<const MeshPoseGeometry> geometry,
-                                  MeshDrawProfile profile) {
-    auto key = asset_detail::prepared_model_draw_key(prepared, skinned, profile);
+                                  MeshDrawProfile profile, bool wind) {
+    auto key = asset_detail::prepared_model_draw_key(prepared, skinned, profile, wind);
     for (const auto& [id, material] : prepared.materials) {
         (void)id;
         for (const auto& [role, ref] : material->render_textures) {
@@ -626,7 +626,7 @@ MeshSceneRenderer::prepare_bundle(const asset_detail::PreparedModelDraw& prepare
     auto next = std::make_shared<MeshDrawBundle>(
         host_->presentation_, host_->context_, prepared, host_->gpu_meshes_, host_->gpu_textures_,
         color_, Diligent::TEX_FORMAT_D32_FLOAT, skinned, std::move(geometry), profile,
-        render_texture_inputs_.images);
+        render_texture_inputs_.images, wind);
     next->environment(environment_.ready);
     bundles_[key] = next;
     return next;
@@ -682,8 +682,9 @@ std::set<AssetId> MeshSceneRenderer::render_texture_reads(const RenderScene& sce
     }
     return result;
 }
-bool MeshSceneRenderer::update(const RenderScene& scene,
-                               std::span<const PreparedCamera> tile_views) {
+bool MeshSceneRenderer::update(const RenderScene& scene, std::span<const PreparedCamera> tile_views,
+                               std::optional<double> simulation_seconds) {
+    const auto seconds = simulation_seconds.value_or(scene.simulation_seconds.value_or(.5));
     host_->pump();
     bool changed = false;
     diagnostics_ = scene.diagnostics;
@@ -820,7 +821,7 @@ bool MeshSceneRenderer::update(const RenderScene& scene,
             entry.resource_current = false;
             entry.candidate.reset();
             entry.candidate_geometry.reset();
-            entry.failed_skin_mode.reset();
+            entry.failed_geometry_mode.reset();
             entry.epoch = host_->epoch_;
             entry.render_texture_epoch = render_texture_epoch_;
             entry.mesh = renderer.mesh;
@@ -880,12 +881,13 @@ bool MeshSceneRenderer::update(const RenderScene& scene,
                             prepare_mesh_pose_geometry(candidate->mesh->mesh, available()));
                     auto pose =
                         prepare_mesh_instance_pose(candidate->mesh.get(), *entry.candidate_geometry,
-                                                   draw_mesh, model_index, available());
+                                                   draw_mesh, model_index, available(), seconds);
                     pose_validated = true;
                     auto native = prepare_bundle(
                         *candidate, pose.skinned, entry.candidate_geometry,
                         input.sprite ? sprite_draw_profile(entry.sprite->requested.mip_filter)
-                                     : MeshDrawProfile::Mesh);
+                                     : MeshDrawProfile::Mesh,
+                        pose.wind.enabled);
                     native->prepare_material_parameters(parameters);
                     std::vector<float> thresholds;
                     for (const auto& lod : candidate->mesh->mesh.lods)
@@ -985,7 +987,7 @@ bool MeshSceneRenderer::update(const RenderScene& scene,
                     if (draw_mesh.world != entry.pose->world || !entry.pose_error.empty()) {
                         sprite_pose = entry.stage_pose(prepare_mesh_instance_pose(
                             entry.ready->prepared().mesh.get(), entry.ready->geometry(), draw_mesh,
-                            model_index, available()));
+                            model_index, available(), seconds));
                         if (sprite_pose->skinned)
                             throw std::runtime_error(
                                 "Sprite pose must remain static Quad geometry");
@@ -1030,24 +1032,27 @@ bool MeshSceneRenderer::update(const RenderScene& scene,
                     !entry.pose_error.empty()) {
                     auto pose = entry.stage_pose(prepare_mesh_instance_pose(
                         entry.ready->prepared().mesh.get(), entry.ready->geometry(), draw_mesh,
-                        model_index, available()));
-                    if (pose->skinned != entry.ready->skinned()) {
-                        if (entry.failed_skin_mode == pose->skinned)
+                        model_index, available(), seconds));
+                    if (pose->skinned != entry.ready->skinned() ||
+                        pose->wind.enabled != entry.ready->wind()) {
+                        const auto mode = std::pair{pose->skinned, pose->wind.enabled};
+                        if (entry.failed_geometry_mode == mode)
                             throw std::runtime_error(entry.pose_error);
-                        entry.failed_skin_mode = pose->skinned;
+                        entry.failed_geometry_mode = mode;
                         auto native = prepare_bundle(
                             entry.ready->prepared(), pose->skinned, entry.ready->geometry_owner(),
-                            input.sprite ? entry.ready->profile() : MeshDrawProfile::Mesh);
+                            input.sprite ? entry.ready->profile() : MeshDrawProfile::Mesh,
+                            pose->wind.enabled);
                         native->prepare_material_parameters(entry.parameters);
                         entry.ready = std::move(native);
                     }
-                    entry.failed_skin_mode.reset();
+                    entry.failed_geometry_mode.reset();
                     changed |= pose != entry.pose;
                     entry.pose = std::move(pose);
                 }
                 entry.pose_error.clear();
             } catch (const DrawCapacityError& e) {
-                entry.failed_skin_mode.reset();
+                entry.failed_geometry_mode.reset();
                 entry.pose_error = e.what();
             } catch (const std::exception& e) {
                 entry.pose_error = e.what();
@@ -1264,7 +1269,8 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
             object.scope = draw_scope;
             if (draw_scope == DrawScope::Mesh && entry.previous_pose && entry.previous_mesh &&
                 *entry.previous_mesh == entry.ready->mesh_identity() &&
-                entry.previous_pose->skinned == pose.skinned)
+                entry.previous_pose->skinned == pose.skinned &&
+                entry.previous_pose->wind.enabled == pose.wind.enabled)
                 object.previous_pose = entry.previous_pose.get();
             if (draw_scope == DrawScope::Sprite) {
                 if (!entry.sprite || !entry.sprite->ready)
@@ -1731,6 +1737,7 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
             motion.valid = temporal->valid;
             if (has_previous_part(object, part)) {
                 motion.previous_world = &object.previous_pose->world;
+                motion.previous_wind = &object.previous_pose->wind;
                 motion.previous_morph_weights = object.previous_pose->morph_weights;
                 const auto& pose = object.previous_pose->lods.at(object.lod).at(part);
                 motion.previous_skin = pose.skin ? &*pose.skin : nullptr;
@@ -1869,9 +1876,13 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
             std::array<MeshDraw::Instance, MeshDraw::instance_limit> batch;
             auto batch_bounds = object.bounds;
             std::size_t count = 1;
-            batch[0] = {*object.world, object.mesh->legacy_tint, object.sprite,
-                        has_previous_part(object, item.key.part) ? &object.previous_pose->world
-                                                                 : nullptr};
+            batch[0] = {
+                *object.world,
+                object.mesh->legacy_tint,
+                object.sprite,
+                has_previous_part(object, item.key.part) ? &object.previous_pose->world : nullptr,
+                &object.pose->wind,
+                has_previous_part(object, item.key.part) ? &object.previous_pose->wind : nullptr};
             const bool eligible = (item.key.alpha != MaterialAlpha::Blend || object.sprite) &&
                                   !item.transmission &&
                                   object.bundle->supports_instances(object.lod, item.key.part);
@@ -1894,10 +1905,15 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                         slot_parameters(next.parameters,
                                         next.bundle->slot(next.lod, next_item.key.part))))
                     break;
-                batch[count++] = {*next.world, next.mesh->legacy_tint, next.sprite,
-                                  has_previous_part(next, next_item.key.part)
-                                      ? &next.previous_pose->world
-                                      : nullptr};
+                batch[count++] = {
+                    *next.world,
+                    next.mesh->legacy_tint,
+                    next.sprite,
+                    has_previous_part(next, next_item.key.part) ? &next.previous_pose->world
+                                                                : nullptr,
+                    &next.pose->wind,
+                    has_previous_part(next, next_item.key.part) ? &next.previous_pose->wind
+                                                                : nullptr};
                 for (unsigned axis = 0; axis < 3; ++axis) {
                     batch_bounds.minimum[axis] =
                         std::min(batch_bounds.minimum[axis], next.bounds.minimum[axis]);

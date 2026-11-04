@@ -22,6 +22,7 @@ string(TOUPPER "${CMAKE_BUILD_TYPE}" _forge_config)
 # One explicit installed value boundary drives installation and compatibility hashing.
 set(FORGE_SDK_HEADERS native_sdk.h sdk_client.hpp input_message.hpp identity.hpp asset_ref.hpp physics_components.hpp character_components.hpp audio_components.hpp animation_components.hpp navigation_components.hpp navigation_behavior_components.hpp ui_components.hpp ui_values.hpp render_components.hpp reflection_probe.hpp decal.hpp sprite_frames.hpp material_parameter.hpp transform_components.hpp model_asset.hpp engine_assets.hpp engine_texture_assets.hpp texture_dimension.hpp primitive_catalog.hpp)
 list(APPEND FORGE_SDK_HEADERS application_state_components.hpp application_state_ecs.hpp application_state_key.hpp)
+list(APPEND FORGE_SDK_HEADERS mesh_wind.hpp)
 set(FORGE_SDK_CONTRACT_HASHES "")
 foreach(header IN LISTS FORGE_SDK_HEADERS)
  set(path "${PROJECT_SOURCE_DIR}/include/forge/${header}")

@@ -13,6 +13,8 @@ Json render_value(const ReflectionProbe&);
 Json render_value(const ParticleEmitter&);
 Json render_value(const SpriteRenderer&);
 Json render_value(const TileMapRenderer&);
+Json render_value(const MeshWind&);
+MeshWind mesh_wind_value(const Json&);
 Camera camera_value(const Json&);
 Light light_value(const Json&);
 ReflectionProbe reflection_probe_value(const Json&);

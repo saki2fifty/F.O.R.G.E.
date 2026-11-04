@@ -3,6 +3,9 @@
 namespace forge::package_detail {
 bool authored_document(const AssetRecord&);
 nlohmann::json admit_document(const AssetRecord&, std::span<const std::byte>);
+// Feature requirements from admitted, format-owned component/override channels.
+// Ordinary project/custom data is never interpreted as rendering intent.
+nlohmann::json document_runtime_features(const nlohmann::json& admitted);
 // Populate the SAME catalog-owned typed graph from authoritative Meta and the
 // current reachable documents. Never edits the source project catalog.
 void prepare_documents(AssetCatalog&, const std::filesystem::path&, std::span<const AssetId>,

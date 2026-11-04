@@ -217,13 +217,13 @@ ITextureView* FrameRenderer::render(IDeviceContext* context, const RenderScene& 
             meshes_->render_textures(render_textures_->render(
                 context, scene, *meshes_, consumer_layers, seconds, sample, overlay));
         }
-        meshes_->update(scene, cameras);
+        meshes_->update(scene, cameras, sample ? std::optional(sample->seconds) : std::nullopt);
         if (!render_textures && !render_textures_ &&
             !meshes_->render_texture_reads(scene, UINT32_MAX).empty()) {
             render_textures_ = std::make_unique<CameraRenderTextures>(presentation_, host_);
             meshes_->render_textures(render_textures_->render(
                 context, scene, *meshes_, consumer_layers, seconds, sample, overlay));
-            meshes_->update(scene, cameras);
+            meshes_->update(scene, cameras, sample ? std::optional(sample->seconds) : std::nullopt);
         }
         if (!render_textures && render_textures_)
             for (const auto& error : render_textures_->diagnostics())

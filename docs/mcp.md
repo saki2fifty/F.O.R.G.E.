@@ -102,6 +102,12 @@ Prefab links are not copied. Renderer values and template local
 rotation/scale are copied through the shared Scene command. See
 [foliage placement](foliage-placement.md) for exact bounds and current limits.
 
+Optional Mesh Renderer [Wind](mesh-wind.md) uses `forge_property_set` with
+component `forge.mesh_renderer`, field `wind` and its complete discovery-default
+struct. Native units/ranges/descriptions accompany its fields. `mesh.scatter`
+copies that renderer value into each independent child. It does not need a
+separate wind tool, asset or runtime placement operation.
+
 `forge_foliage_collision_start` binds `foliage.collision.start` as a read-only
 `asset.read` workflow. Pass ordinary scatter `arguments` or the arguments returned
 by terrain preparation. Optional settings: radius 0.001..100(default 0.25), offset
@@ -722,6 +728,19 @@ inspection. `tune` submits one existing reflected property; inspect `tune_pendin
 schema. `input_submit` accepts up to64 validated events from `controls`, using the
 existing input queue and physical release policy; reset releases controls.
 `time_scale` uses the existing finite [0,4] clock policy.
+
+Mesh Renderer `wind` is one tunable complete struct through `forge_play_tune`,
+using the current launch/session/generation and `play.execute` grant. It changes
+rendered geometry without moving authored transforms or physics. The status clock
+includes derived `timing.presentation_seconds`; `forge_play_snapshot` copies
+`simulation_seconds` when the actual world contains enabled wind. Pause/Step,
+runtime validation, pending acknowledgement and Keep Values retain their shared
+owners. `mcp_mesh_wind_play_stdio` and `mcp_mesh_wind_sdk_stdio` exercise both
+protocol framings, authoring/history/scatter, scoped native tuning/Step/review and
+stale-generation rejection; the SDK fixture initializes ordinary Game defaults
+and uses isolated test user data. These are local clients, without external-client
+or graphical Windows acceptance.
+
 `forge_play_status.timing` also includes `unscaled_time`, `unscaled_delta`
 (seconds) and unsigned `unscaled_sequence`, copied from the existing clock.
 Elapsed observations continue during Pause and zero rate without advancing fixed

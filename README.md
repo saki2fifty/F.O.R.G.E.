@@ -283,6 +283,13 @@ projection. Optional world-space slope ranges keep a subset of the seeded candid
 pool through the same native and MCP preparation. Optional slope alignment tilts
 the placement frame while preserving relative template rotation. Optional sphere clearance rejects candidates against existing authored 3D colliders through the same editor/MCP task. Gallery 156 provides a saved meadow around a box collider; the result remains ordinary Scene objects. See [the guide](manual/editor/foliage.md).
 
+Gallery157 adds bounded static-Mesh wind with Inspector/live controls, fixed-clock
+Pause/Step, shared shading/shadows/picking and source-free export. Its moving and
+still patches use the same original blade asset; no project C++ is required.
+See [Wind](docs/mesh-wind.md) and the illustrated [workflow](manual/editor/foliage.md#add-wind).
+
+![Wind-enabled meadow beside a still comparison patch](manual/images/foliage-wind-game.png)
+
 ![Green and amber foliage patches in the Game view](manual/images/foliage-placement-game.png)
 
 

@@ -50,6 +50,7 @@ using Row = std::array<float, 4>;
 constexpr std::array decal_storage_names{"g_ForgeDecalRows", "g_ForgeDecalRanges",
                                          "g_ForgeDecalIndices"};
 constexpr unsigned mesh_instance_rows = 7, sprite_instance_rows = 10;
+constexpr unsigned wind_instance_rows = 8, wind_temporal_instance_rows = temporal_instance_rows + 2;
 
 using IrradianceValues = std::array<Row, environment_probe_rows>;
 IrradianceValues prepare_irradiance(std::span<const EnvironmentProbe> probes, Double3 origin) {
@@ -146,6 +147,8 @@ void upload_morph_weights(IDeviceContext* context, IBuffer* buffer,
 
 } // namespace
 unsigned MeshDraw::instance_rows() const {
+    if (wind_)
+        return temporal_ ? wind_temporal_instance_rows : wind_instance_rows;
     return temporal_ ? temporal_instance_rows : sprite_ ? sprite_instance_rows : mesh_instance_rows;
 }
 MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
@@ -153,7 +156,7 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
                    TEXTURE_FORMAT color_format, TEXTURE_FORMAT depth_format, bool enable_skin,
                    SHADER_COMPILER compiler, SHADER_OPTIMIZATION_LEVEL optimization,
                    const MaterialShaderSnapshot* surface, MeshDrawProfile draw_profile,
-                   bool area_lights)
+                   bool area_lights, bool wind)
     : mesh_(mesh), shadow_pass_(color_format == TEX_FORMAT_UNKNOWN),
       temporal_(temporal_mesh_profile(draw_profile) && !shadow_pass_),
       indirect_(indirect_mesh_profile(draw_profile) && !shadow_pass_),
@@ -161,7 +164,7 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
       normal_(normal_mesh_profile(draw_profile) && !shadow_pass_),
       weighted_(draw_profile == MeshDrawProfile::MeshWeighted && !shadow_pass_),
       area_lights_(area_lights && !shadow_pass_), sprite_(sprite_draw_profile(draw_profile)),
-      sprite_mips_(sprite_draw_mip_filter(draw_profile).has_value()) {
+      sprite_mips_(sprite_draw_mip_filter(draw_profile).has_value()), wind_(wind) {
     require(draw_profile == MeshDrawProfile::Mesh || temporal_mesh_profile(draw_profile) ||
                 indirect_mesh_profile(draw_profile) ||
                 draw_profile == MeshDrawProfile::MeshWeighted || sprite_,
@@ -206,9 +209,10 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
                                             : profile->workflow != PbrWorkflow::Unlit);
     require(!area_lights_ || !surface || surface->program.surface_wrapper_version >= 7,
             "Rebuild this Shader and dependent Materials to use area lighting");
-    const auto fetch =
+    auto fetch =
         surface ? mesh_vertex_fetch(mesh, surface->program.surface->uv_sets, enable_skin, temporal_)
                 : mesh_vertex_fetch(mesh, *profile, enable_skin, temporal_);
+    fetch.wind = wind_;
 
     const auto sampler_binding = emulated_resource_arrays(presentation.device()->GetDeviceInfo())
                                      ? MaterialSamplerBinding::NamedElements
@@ -525,7 +529,7 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
             g.RTVFormats[slot] = TEX_FORMAT_RGBA16_FLOAT;
     g.DSVFormat = depth_format;
     g.PrimitiveTopology = mesh.topology;
-    std::array<LayoutElement, temporal_instance_rows> instance_layout;
+    std::array<LayoutElement, wind_temporal_instance_rows> instance_layout;
     if (program.instanced) {
         const unsigned rows = instance_rows();
         for (unsigned i = 0; i < rows; ++i)
@@ -963,7 +967,8 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
                     const SceneDistanceFog* fog, const Motion* motion,
                     std::span<const Decal> decals, const RenderBounds* decal_bounds,
                     std::span<const LightImage> images,
-                    std::span<const EnvironmentProbe> local_irradiance) {
+                    std::span<const EnvironmentProbe> local_irradiance,
+                    const MeshWindSample* wind) {
     require(local_irradiance.empty() || local_irradiance_,
             "receiver requires a current local irradiance Shader cook");
     std::optional<IrradianceValues> irradiance;
@@ -1442,10 +1447,11 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
     }
     if (instances_) {
         // Prepare the complete bounded batch before publishing any mapped bytes.
-        std::array<Row, temporal_instance_rows * instance_limit> copied{};
+        std::array<Row, wind_temporal_instance_rows * instance_limit> copied{};
         const unsigned rows = instance_rows();
-        const Instance single{world, legacy_tint ? std::optional(*legacy_tint) : std::nullopt,
-                              sprite, motion ? motion->previous_world : nullptr};
+        const Instance single{world,  legacy_tint ? std::optional(*legacy_tint) : std::nullopt,
+                              sprite, motion ? motion->previous_world : nullptr,
+                              wind,   motion ? motion->previous_wind : nullptr};
         const auto selected = instances.empty() ? std::span(&single, 1) : instances;
         for (std::size_t i = 0; i < selected.size(); ++i) {
             const auto& item = selected[i];
@@ -1497,6 +1503,20 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
                     output[6][c] = value;
                 }
                 output[6][3] = 1;
+            }
+            if (wind_) {
+                require(item.wind && item.wind->enabled,
+                        "Wind draw requires its admitted geometry sample");
+                const auto slot = temporal_ ? temporal_instance_rows : mesh_instance_rows;
+                output[slot] = {gpu(item.wind->displacement[0]), gpu(item.wind->displacement[1]),
+                                gpu(item.wind->inverse_height), 0};
+                if (temporal_ && motion->valid && item.previous_world) {
+                    require(item.previous_wind && item.previous_wind->enabled,
+                            "Wind motion requires its retained previous geometry sample");
+                    output[slot + 1] = {gpu(item.previous_wind->displacement[0]),
+                                        gpu(item.previous_wind->displacement[1]),
+                                        gpu(item.previous_wind->inverse_height), 0};
+                }
             }
             if (temporal_ && motion->valid && item.previous_world) {
                 for (unsigned r = 0; r < 3; ++r) {

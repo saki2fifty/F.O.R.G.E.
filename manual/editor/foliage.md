@@ -8,7 +8,7 @@ named group, ready for the Hierarchy, Inspector, Scene Save and game export.
 ## Choose the template
 
 1. Place or create an object with a **Mesh Renderer** and assign its Mesh.
-2. Set its local rotation and scale. Assign the materials, numeric material values, layers and shadow options you want on the new objects.
+2. Set its local rotation and scale. Assign the materials, numeric material values, layers, shadows and optional **Wind** settings you want on the new objects.
 3. Select the object in the Hierarchy, open **Tools > Foliage placement...**, and click **Use selected Mesh Renderer**.
 
 The tool starts the disk center at the template's world position. It copies the
@@ -118,6 +118,51 @@ your geometry. Every query origin must lie within +/-1 billion meters on each ax
 Tool choices and exclusions are session-only. Later collider changes do not move
 already placed objects.
 
+## Add wind
+
+Open **Gallery 157 — Foliage wind** and press **Play → Game**. The left patch sways;
+the right patch stays still. The camera, light and shadows are included. Project
+C++ is optional for this built-in effect.
+
+1. Stop Play and select the blade template or an individual plant in Hierarchy.
+2. In **Inspector → Mesh Renderer**, expand **Wind** and turn on **Enabled**.
+3. Set **Amplitude (m)** for the maximum horizontal movement and **Height (m)** for the world height above the object origin where full movement is reached. A base pivot makes a useful plant origin.
+4. Set **Direction X** and **Direction Z** for the horizontal world direction. Their relative values choose the direction; increasing both equally does not increase strength. Keep at least one nonzero when amplitude is nonzero.
+5. Set **Frequency (Hz)** for cycles per simulation second, **Wavelength (m)** for the distance between repeating waves, and **Phase (°)** for an offset.
+6. Save the Scene, then press Play. Pause holds the wind; Step advances it by one fixed tick. Simulation speed also controls its time progression.
+
+![Mesh Renderer Wind expanded in Inspector, with direction and wave controls](../images/foliage-wind-inspector.png)
+
+Edit holds a fixed wind preview. A particular phase can look straight; press Play
+or change Phase to see another point in the wave. Zero amplitude keeps the original
+geometry. Zero frequency holds the time phase; moving an object can still change
+its position within the wave.
+
+During Play, select the object and expand **Live gameplay → Mesh Renderer → Wind**.
+The colored panel marks temporary values. Numeric edits commit with Enter. Stop
+restores the authored settings. To keep a change, choose **Keep values after
+Stop...**, stop Play, review it and choose **Apply to Scene**. Wind is one complete
+reviewed property and one Scene Undo step; Save remains separate.
+
+![Wind being tuned in the colored Live gameplay panel](../images/foliage-wind-live.png)
+
+Set Wind on the template before placing foliage to copy it into the new patch.
+Existing patches keep their own values when the template changes. Group rotation
+does not rotate the world wind direction. Geometry, shading, shadows and picking
+follow the displaced vertices; authored transforms and colliders stay fixed.
+Use enough Mesh subdivisions for the bend you want: a coarse blade has straight
+edges between its displaced vertices.
+
+![Gallery 157 with a wind-enabled meadow and a still comparison patch](../images/foliage-wind-game.png)
+
+Wind supports static Mesh geometry. Active skinning and morph targets cannot be
+combined with nonzero wind. Amplitude is 0–100 m, Height is 0.01–10000 m,
+Frequency is 0–60 Hz, Wavelength is 0.1–10000 m and Phase is -360–360°.
+Each direction component is finite within ±1000000. Active wind object origins
+must stay within ±1 billion world meters on each axis. Export a saved Scene with
+the matching runtime kit supplied with the editor; an older kit without wind
+support is rejected. Wind needs no extra file or placement task during gameplay.
+
 ## Edit, save and export
 
 Expand the group in the **Hierarchy** to select individual objects. Move or rotate
@@ -150,7 +195,7 @@ to 10,000 entities and the normal command data budget.
 Spacing compares new origins in the current group. Mesh bounds can overlap, and
 existing objects require **Reject collisions** and enabled 3D colliders to affect clearance. Terrain projection supports
 the published heightfield profile. Tilted or vertically inverted terrain, arbitrary
-imported surfaces, paint strokes, wind and world streaming are not
+imported surfaces, paint strokes and world streaming are not
 supported. Place on a suitable surface or adjust objects with the normal
 Scene tools. Very large coordinates still have the limits of their consuming
 renderer, collision and navigation systems.

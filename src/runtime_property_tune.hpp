@@ -42,7 +42,7 @@ struct RuntimePropertyTune {
         return false;
     }
     static bool particle_type(std::string_view type) { return type == "forge.particle_emitter"; }
-    static bool material_type(std::string_view type) { return type == "forge.mesh_renderer"; }
+    static bool mesh_renderer_type(std::string_view type) { return type == "forge.mesh_renderer"; }
     static bool probe_type(std::string_view type) { return type == "forge.reflection_probe"; }
     static bool decal_type(std::string_view type) { return type == "forge.decal"; }
     static bool decal_property(std::string_view property) {
@@ -80,8 +80,8 @@ struct RuntimePropertyTune {
                property == "region_width" || property == "region_height" ||
                property == "frame_regions" || property == "mip_filter";
     }
-    static bool material_property(std::string_view property) {
-        return property == "material_parameters";
+    static bool mesh_renderer_property(std::string_view property) {
+        return property == "material_parameters" || property == "wind";
     }
     static bool particle_property(std::string_view property) {
         return property == "size_multiplier" || property == "tint_r" || property == "tint_g" ||
@@ -103,7 +103,7 @@ struct RuntimePropertyTune {
             request.at("type"),
             request.at("property")};
         const bool collection =
-            (material_type(result.type) && material_property(result.property)) ||
+            (mesh_renderer_type(result.type) && result.property == "material_parameters") ||
             (sprite_type(result.type) && result.property == "frame_regions");
         const std::size_t value_limit =
             sprite_type(result.type) && result.property == "frame_regions"

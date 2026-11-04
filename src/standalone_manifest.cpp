@@ -5,6 +5,7 @@
 #include "ui_filter_profile.hpp"
 #include <algorithm>
 #include <forge/game_content.hpp>
+#include <forge/mesh_wind.hpp>
 #include <forge/project.hpp>
 #include <forge/ui_protocol.hpp>
 #include <set>
@@ -66,9 +67,26 @@ Json verify_distribution_files(const std::filesystem::path& root,
     require(found == expected, "Distribution file inventory differs from manifest");
     return result;
 }
-void validate_runtime_ui_compatibility(const AssetCatalog& catalog, const Json& engine) {
+void validate_runtime_compatibility(const AssetCatalog& catalog, const Json& engine) {
     for (const auto& [id, record] : catalog.records()) {
         (void)id;
+        if (const auto document = record.metadata.find("forge.runtime_document");
+            document != record.metadata.end()) {
+            const auto features = document->find("runtime_features");
+            if (features != document->end()) {
+                require(features->is_object(), "Invalid authored document runtime features");
+                for (const auto& [name, version] : features->items()) {
+                    require(name == "mesh_wind" && version.is_number_integer() &&
+                                version == mesh_wind_profile_version,
+                            "Unsupported authored document runtime feature/profile");
+                    const auto support = engine.find("runtime_mesh_wind");
+                    require(support != engine.end() && support->is_number_integer() &&
+                                *support == mesh_wind_profile_version,
+                            "Mesh wind requires a matching runtime kit with wind geometry support; "
+                            "select the runtime kit packaged with this editor");
+                }
+            }
+        }
         for (const auto& edge : record.dependency_edges)
             if (edge.kind == AssetDependencyKind::Runtime &&
                 edge.role == "document:forge.ui_document.render_texture") {
@@ -131,7 +149,7 @@ StandaloneDistribution open_standalone_distribution(const std::filesystem::path&
             "Standalone and game configuration profiles differ");
     const auto content = paths.resolve(content_locator);
     const auto catalog = open_runtime_content(content, target, {}, stop);
-    validate_runtime_ui_compatibility(catalog, engine);
+    validate_runtime_compatibility(catalog, engine);
     const auto startup = settings.at("startup_scene").at("asset").get<AssetId>();
     (void)load_game_scene(content, {startup});
     require(manifest.at("assets") == runtime_asset_inventory(catalog),
