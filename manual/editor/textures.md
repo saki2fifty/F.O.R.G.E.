@@ -180,10 +180,44 @@ Normal blue is not reconstructed. Color transfer, preview controls, alpha hints
 and material settings do not reinterpret the values. PNG labels only actual sRGB
 storage; WebP and JPEG require sRGB. JPEG also checks actual alpha.
 
-Signed BC4/BC5 and BC6 HDR storage are outside this profile. The selected cooked
+Signed BC4/BC5 use the PNG16 workflow below. BC6 HDR storage remains unsupported.
+The selected cooked
 texture must fit 128 MiB; output must fit 4096 pixels per axis and 64 MiB RGBA8.
 The packaged asset worker must be present. A failed decode keeps an existing
 output file intact. The original editable source may be absent after publication.
+
+## Export signed block data
+
+Published **BC4 SNORM** and **BC5 SNORM** textures contain values from -1 to +1.
+Export maps each stored signed channel into a 16-bit PNG: -1 becomes 0, zero
+becomes 32768 and +1 becomes 65535. This fixed mapping makes negative values
+usable in an unsigned image. It is separate from the preview's display controls.
+
+1. Open **Assets/TextureBlocks/SignedChannel.dds** or **SignedPair.dds** in the Feature Gallery.
+2. Choose **Variant → Data**. These examples publish a Data variant; Automatic can report that its requested Color variant is missing.
+3. Expand **View controls** and choose the desired mip, layer, face or depth slice. The examples have two mips.
+4. Read the signed-export mapping above **Export image...**, then click the button and save a **.png** file. Confirm replacement when requested.
+5. Wait for **Image saved** and the signed-channel mapping in the completion message. Inspect the output through the shared image preview.
+
+![Signed-pair Texture with Data selected and the PNG16 mapping above Export image](../images/signed-texture-export.png)
+
+The full PNG contains mapped 16-bit reference samples. Its inspection preview
+quantizes to 8-bit and can reduce resolution. The file has no sRGB label. BC4
+supplies red; BC5 supplies red and green. Missing green/blue remain zero in the
+file, and alpha is 65535. Normal blue is not reconstructed. A signed preview
+display mapping can show absent channels as gray; it does not change export.
+
+PNG16 preserves the chosen quantized reference values. It cannot recover the
+original pixels lost during compression or guarantee identical rounding to every
+graphics device. To recover signed numeric values from a stored channel, use
+`2 × sample / 65535 − 1`; quantization means zero is approximate on recovery.
+JPEG, WebP and HDR destinations reject without replacing a good file.
+
+The complete selected texture must fit 128 MiB, the RGBA16 plane 128 MiB, each
+axis 4096 pixels and the encoded PNG 136 MiB. Keep the packaged asset worker
+available. An endpoint pair ordered -127 then -128 has device-dependent decoding;
+export reports an ambiguity error. Re-encode that texture with unambiguous
+endpoints. Source files may be absent after publication.
 
 
 ## Export 16-bit stored samples

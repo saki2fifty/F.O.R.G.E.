@@ -416,12 +416,60 @@ Results are decoded reference texels, not original pre-compression samples or
 original compressed bytes. BC1 preserves encoded punch-through despite an opaque
 metadata hint. There is no transfer, alpha-convention conversion or normal-Z
 reconstruction. PNG retains the format's sRGB label; lossless WebP requires sRGB;
-JPEG also requires actual opaque alpha. Signed BC4/5 and both BC6 forms reject.
+JPEG also requires actual opaque alpha. Signed BC4/5 use the PNG16 profile below;
+both BC6 forms reject.
 No universal physical-GPU rounding match is claimed. Native completion identifies
 decoded block texels; automation/MCP reports component_bits8 and
 texture.profile decoded_rgba8. Current/later owned previews, permissions, revision,
 replay, overwrite and last-good file rules use the existing owners.
 
+
+## Signed block reference PNG16
+
+BC4Snorm and BC5Snorm use the existing selected-plane/worker/image transaction,
+with fixed profile `bc-snorm-rgba16-v1`. PNG is required. The already pinned Basis
+API exposes unsigned BC4/BC5 primitives; FORGE's signed-channel arithmetic is
+independently authored from the normative
+[RGTC format rules](https://registry.khronos.org/DataFormat/specs/1.3/dataformat.1.3.html).
+It remains private asset-tools code, without a runtime decoder, dependency
+revision change or imported external implementation.
+
+Endpoints are signed two's-complement bytes. The -128 value represents -1;
+interpolation uses normalized signed endpoints and the specified selector mode.
+The ordered pair -127/-128 is explicitly ambiguous across implementations and
+rejects with a re-encode diagnostic. Each stored channel's signed result `s`
+maps to `floor((s+1)*65535/2 + 0.5)`. Integer rational arithmetic performs this
+reference quantization once, without host floating-rounding dependence. Missing
+G/B remain zero and alpha is65535; normal-Z and sRGB conversion are absent. PNG16
+retains those quantized reference values, without claiming original pre-compression
+pixels or universal graphics-device decompression rounding.
+
+The same bounded bootstrap header reader can copy a profile identifier before
+input allocation. The worker selects one fixed limit set and verifies that the
+fully admitted request retains its recipe/profile. The signed profile returns
+exactly one `rgba16le.bin`; both ends explicitly assemble little-endian samples.
+Malformed names/extents/profile/format mismatches reject. Output/storage caps are
+128/136MiB under the existing512MiB address-space and30s wall/25s CPU limits;
+UNORM retains64/72MiB. Complete selected source remains128MiB, each axis4096.
+An actual4096² signed plane exercises128MiB output through the capped worker.
+
+Rgba16Pixels carries signed-block provenance through ViewImageTask. Native
+completion describes the mapping; automation/MCP reports component_bits16 and
+`texture.profile: decoded_snorm_rgba16`. The native chooser offers PNG only and
+labels its fixed mapping before export. Display-only signed mapping, channel,
+exposure and filtering controls remain independent. Current/later owned inspection
+uses the existing16-to8-bit quantizer; the full PNG remains16-bit. Existing
+permissions, revisions, replay, cancellation, file replacement and retirement
+remain with the established image/worker owners.
+
+The Gallery's original SignedChannel/SignedPair DDS assets publish Data variants;
+choose VariantData or `semantic:"data"`, because Automatic selects Color or an
+available HDR variant. Tests cover every unambiguous endpoint pair/all selectors,
+hard independent vectors, typed worker transport, source immutability, PNG16
+roundtrip, crop/slices/budgets/cancel/errors, real native chooser/mapping at twelve
+size/DPI layouts and actual MCP output/inspection/replay/failure preservation.
+Software Vulkan and local protocol checks do not establish Windows, physical
+GPU/input/DPI or external-client acceptance.
 
 ## Normalized16-bit PNG output
 

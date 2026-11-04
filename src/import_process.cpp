@@ -301,13 +301,20 @@ ImportProcessRequest read_import_process_request(const std::filesystem::path& st
     return {request.at("payload"),
             read_files(staging / "input", request.at("inputs"), limits, false)};
 }
-std::string read_import_process_recipe(const std::filesystem::path& staging) {
+std::string read_import_process_recipe(const std::filesystem::path& staging, std::string* profile) {
     const auto request = read_json(staging / "request.json");
     require(request.at("format") == "forge.import-worker" && request.at("version") == 1 &&
                 request.at("payload").is_object(),
             "Unsupported import worker request");
     auto recipe = request.at("payload").at("recipe").get<std::string>();
     require(!recipe.empty() && recipe.size() <= 256, "Invalid import recipe identifier");
+    if (profile) {
+        const auto value = request.at("payload").find("profile");
+        *profile = value != request.at("payload").end() && value->is_string()
+                       ? value->get<std::string>()
+                       : std::string{};
+        require(profile->size() <= 256, "Invalid import profile identifier");
+    }
     return recipe;
 }
 void write_import_process_result(const std::filesystem::path& staging,

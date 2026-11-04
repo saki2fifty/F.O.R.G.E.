@@ -161,6 +161,34 @@ for legacy in (False,True):
         failure=settled()
         assert 'opaque' in failure['error'] and (root/'Output/Blocks.jpg').read_bytes()==block_jpeg,failure
         assert read('forge_scene_read')==authored
+        for label in ('SignedChannel','SignedPair'):
+            signed=next(row for row in assets if row['source']==f'Assets/TextureBlocks/{label}.dds')
+            assert not (root/'Game'/signed['source']).exists()
+            arguments16=arguments(asset=signed['id'],semantic='data',path=label+'.png')
+            accepted16=client.tool('forge_capture_texture',**arguments16)
+            assert accepted16['ok'],accepted16
+            assert client.tool('forge_capture_texture',**arguments16)==accepted16
+            complete=settled()
+            assert not complete['error'] and complete['component_bits']==16 and complete['preview_ready'],complete
+            assert complete['texture']['profile']=='decoded_snorm_rgba16',complete
+            encoded16=(root/('Output/'+label+'.png')).read_bytes()
+            assert encoded16[24]==16 and not png_has_chunk(encoded16,b'sRGB')
+            meta16,preview16=image(accepted16['result']['operation'])
+            assert (meta16['source_width'],meta16['source_height'])==(64,32)
+            assert preview16[24]==8 and not png_has_chunk(preview16,b'sRGB')
+            failed(mutate('forge_capture_texture',asset=signed['id'],semantic='data',path=label+'.png'),'output_exists')
+            ok('forge_capture_texture',asset=signed['id'],semantic='data',path=label+'.png',replace=True,mip=4)
+            invalid16=settled()
+            assert invalid16['error'] and (root/('Output/'+label+'.png')).read_bytes()==encoded16,invalid16
+            for suffix in ('.jpg','.webp','.hdr'):
+                ok('forge_capture_texture',asset=signed['id'],semantic='data',path=label+suffix)
+                unsupported16=settled()
+                assert 'require PNG' in unsupported16['error'] and not (root/('Output/'+label+suffix)).exists(),unsupported16
+            ok('forge_capture_texture',asset=signed['id'],semantic='data',path=label+'.png',replace=True,mip=1)
+            complete=settled()
+            assert not complete['error'] and complete['texture']['profile']=='decoded_snorm_rgba16',complete
+            assert (root/('Output/'+label+'.png')).read_bytes()!=encoded16
+        assert read('forge_scene_read')==authored
         jpeg_schema=catalog['forge_capture_texture']['inputSchema']['properties']['jpeg_quality']
         assert jpeg_schema['minimum']==1 and jpeg_schema['maximum']==100
         for quality in (0,101,1.5):

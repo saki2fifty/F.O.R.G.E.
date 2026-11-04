@@ -996,8 +996,18 @@ format color label; WebP requires sRGB and JPEG requires actual opaque sRGB.
 Status reports component_bits8 and texture.profile decoded_rgba8. These are
 reference decoded texels, not original pre-compression samples or compressed
 payload. BC1 retains punch-through even with an opaque hint; BC4/5 supply absent
-G/B zero and A255 without normal-Z reconstruction. Signed BC4/5 and BC6 reject.
+G/B zero and A255 without normal-Z reconstruction. BC6 rejects.
 Owned current/later previews and all output/revision/replay rules remain the same.
+
+BC4/BC5 SNORM uses the same Texture operation with a PNG destination. Choose its
+published semantic explicitly where required (`semantic:"data"` for the signed
+Gallery sources). The producer maps stored signed channels with
+round-half-up((s+1)*65535/2), emits unlabelled PNG16 with absentG/B0,A65535 and
+reports component_bits16, texture.profile decoded_snorm_rgba16. Its owned preview
+quantizes the mapped samples to8-bit. Full selected source and detached RGBA16
+caps are128MiB, encoded PNG136MiB and each axis4096. Non-PNG and ambiguous ordered
+endpoints -127/-128 reject before file replacement; preview controls and normal-Z
+reconstruction do not affect the result.
 
 Normalized R16/RG16/RGBA16 selections also use `.png`, retaining exact16-bit
 samples in RGBA file layout without an invented sRGB label. MissingG/B are0 and

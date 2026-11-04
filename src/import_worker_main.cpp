@@ -24,7 +24,8 @@ int main(int argc, char** argv) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(10));
             }
         });
-        const auto recipe = forge::asset_detail::read_import_process_recipe(staging);
+        std::string profile;
+        const auto recipe = forge::asset_detail::read_import_process_recipe(staging, &profile);
         const bool model = recipe == "forge.model.gltf";
         const bool atlas = recipe == forge::asset_detail::sprite_atlas_source_recipe;
         const bool atlas_recipe = recipe == forge::asset_detail::sprite_atlas_importer_id;
@@ -37,17 +38,21 @@ int main(int argc, char** argv) {
             !webp_sequence && recipe != "forge.texture.image" &&
             recipe != "forge.texture.container")
             throw std::runtime_error("Unsupported import worker recipe");
-        const auto limits = webp_sequence  ? forge::asset_detail::webp_sequence_worker_limits()
-                            : image_decode ? forge::asset_detail::texture_image_worker_limits()
-                            : atlas || atlas_recipe
-                                ? forge::asset_detail::sprite_atlas_source_limits()
-                            : model ? forge::asset_detail::model_worker_limits()
-                            : audio ? forge::asset_detail::audio_worker_limits()
-                            : tile  ? forge::asset_detail::tile_worker_limits()
+        const auto limits =
+            webp_sequence ? forge::asset_detail::webp_sequence_worker_limits()
+            : image_decode
+                ? forge::asset_detail::texture_image_worker_limits(
+                      profile == forge::asset_detail::texture_signed_image_decode_profile)
+            : atlas || atlas_recipe ? forge::asset_detail::sprite_atlas_source_limits()
+            : model                 ? forge::asset_detail::model_worker_limits()
+            : audio                 ? forge::asset_detail::audio_worker_limits()
+            : tile                  ? forge::asset_detail::tile_worker_limits()
                                     : forge::asset_detail::texture_worker_limits();
         auto request = forge::asset_detail::read_import_process_request(staging, limits);
         if (request.payload.at("recipe") != recipe)
             throw std::runtime_error("Import recipe changed while reading snapshot");
+        if (image_decode && request.payload.at("profile") != profile)
+            throw std::runtime_error("Image profile changed while reading snapshot");
         auto output =
             webp_sequence  ? forge::asset_detail::execute_webp_sequence_recipe(
                                  std::move(request), cancellation.get_token())

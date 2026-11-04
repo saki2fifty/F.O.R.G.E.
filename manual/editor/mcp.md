@@ -209,8 +209,17 @@ capture tool and selectors. The packaged asset worker decodes the selected block
 Status identifies **decoded_rgba8** and 8-bit components. PNG and sRGB WebP contain
 decoded reference texels; they cannot recover pixels lost during compression.
 JPEG additionally requires actual opaque sRGB texels. BC1 retains punch-through;
-BC4/5 do not reconstruct normal blue. Signed BC4/5 and BC6 reject. See
+BC4/5 do not reconstruct normal blue. BC6 rejects. See
 [compressed texture export](textures.md) for limits and the Gallery example.
+
+For **BC4/BC5 SNORM**, select the cooked variant explicitly when needed, such as
+**semantic: data** for the signed Gallery examples, and choose **.png**. Stored
+signed channels map -1..1 to 0..65535 with nearest, half-up rounding. Missing
+green/blue are zero and alpha is 65535; there is no sRGB label or normal-blue
+reconstruction. Status reports **component_bits: 16** and
+**texture.profile: decoded_snorm_rgba16**. The owned PNG inspection is quantized
+to 8-bit. Other output formats and the ambiguous -127/-128 endpoint order reject;
+an existing file remains intact. Preview display controls do not alter this mapping.
 
 Normalized **R16/RG16/RGBA16** textures use **.png** and preserve 16-bit samples in
 the full file. Capture status reports **component_bits: 16** and the completed

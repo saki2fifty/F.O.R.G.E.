@@ -334,6 +334,8 @@ if(FORGE_BUILD_VULKAN_RENDERER_PROBE)
  add_dependencies(forge_texture_image_editor_vulkan_probe forge_asset_build_worker)
  add_test(NAME texture_image_editor_vulkan COMMAND forge_texture_image_editor_vulkan_probe "${PROJECT_SOURCE_DIR}/samples/projects/FeatureGallery" "${CMAKE_BINARY_DIR}/texture-image-editor-vulkan" --blocks $<TARGET_FILE:forge_asset_build_worker>)
  set_tests_properties(texture_image_editor_vulkan PROPERTIES TIMEOUT 120)
+ add_test(NAME texture_signed_image_editor_vulkan COMMAND forge_texture_image_editor_vulkan_probe "${PROJECT_SOURCE_DIR}/samples/projects/FeatureGallery" "${CMAKE_BINARY_DIR}/texture-signed-image-editor-vulkan" --signed-blocks $<TARGET_FILE:forge_asset_build_worker>)
+ set_tests_properties(texture_signed_image_editor_vulkan PROPERTIES TIMEOUT 90)
  add_executable(forge_webp_sequence_editor_vulkan_probe tests/webp_sequence_editor_vulkan_probe.cpp
   "${diligent_SOURCE_DIR}/DiligentTools/Imgui/src/ImGuiImplDiligent.cpp"
   "${diligent_SOURCE_DIR}/DiligentTools/Imgui/src/ImGuiDiligentRenderer.cpp")

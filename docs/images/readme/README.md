@@ -1,5 +1,23 @@
 # README screenshots
 
+## Signed Texture image output
+
+[Signed Texture export](../../../manual/images/signed-texture-export.png) shows
+the actual720×650 production TextureViewer with Data selected through pointer
+input. The original Gallery SignedPair BC5 SNORM pattern, PNG16 mapping note and
+Export image button are unretouched. The same fixture clicks the native export
+control and verifies16-bit saved samples, absent sRGB and the mapped completion
+status across both signed formats and twelve wide/compact100/150/200% layouts.
+PNG SHA256: `857609693cd1e70006262734fda2a24c04687d9f8551a84535d4739b9a32cb92`.
+
+Personally reviewed local unassigned source based on88f3947. Original capture:
+`texture-signed-image-editor-vulkan/signed-pair-export-wide-100.png`; exact source,
+binary and PNG provenance is in
+`AgentFiles/build/phase246-signed-block-images/native-capture.json`.
+Software Vulkan/ImGui capture is distinct from Windows/full Main, physical
+GPU/input/DPI, graphical EXE, external-client or performance acceptance. Preview
+filtering/display mapping is independent from the exported numerical samples.
+
 ## Foliage wind
 
 [Wind Inspector](../../../manual/images/foliage-wind-inspector.png) and

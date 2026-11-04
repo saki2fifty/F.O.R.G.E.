@@ -1,5 +1,20 @@
 # 2026-11-04
 
+## Signed block Texture PNG16
+
+Published BC4/BC5 SNORM selections export through the existing Texture image
+worker/task as mapped PNG16. Stored channels map -1..1 to0..65535 with fixed
+half-up reference quantization; missing channels stay zero and alpha stays
+opaque. Native controls label the mapping and offer PNG only. Automation/MCP
+uses the same producer and reports decoded_snorm_rgba16; owned inspection uses
+the existing8-bit quantizer. Ambiguous ordered endpoints -127/-128 and BC6 reject.
+
+The bounded worker gains a distinct typed profile and checked little-endian
+transport, preserving existing UNORM limits and process/time policy. Two original
+Data Gallery patterns, illustrated instructions and focused numeric/worker/UI/MCP
+checks accompany the feature. No dependency upgrade, SDK ABI or runtime format
+change; Windows/physical acceptance remains queued.
+
 ## Static Mesh wind
 
 Mesh Renderer owns optional bounded world-height wind, with disabled defaults,

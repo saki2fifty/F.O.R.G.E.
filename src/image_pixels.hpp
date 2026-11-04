@@ -20,11 +20,13 @@ struct Rgb32Pixels {
     unsigned width = 0, height = 0;
     std::vector<float> rgb;
 };
-// Native uint16 samples from normalized storage, with no invented color label.
+// Normalized uint16 samples, with no invented color label.
 // The image encoder owns PNG byte order; source cooked bytes remain little endian.
 struct Rgba16Pixels {
     unsigned width = 0, height = 0;
     std::vector<std::uint16_t> rgba;
+    // Stored signed block channels mapped from [-1,1] to [0,65535].
+    bool snorm_block_decoded = false;
 };
 using ImagePixels = std::variant<Rgba8Pixels, Rgb32Pixels, Rgba16Pixels>;
 } // namespace forge

@@ -1,0 +1,43 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [],
+    "importer": "forge.texture.container",
+    "importer_revision": "42ae9a603bf7f3d9f2fd8bc41b9bc10fa2e320dfbd29c4ae5a54e4ecbb8f1973",
+    "key_version": 1,
+    "output_format": "forge.texture-bundle",
+    "output_version": 1,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {
+      "additional_usages": [],
+      "anisotropy": 1,
+      "filter": "linear",
+      "semantic": "data",
+      "wrap": "repeat"
+    },
+    "settings_version": 1,
+    "source": "13a4e944d2aea13c43f52c8ebe4f317ea7e62443d228dbf290d8aba3b1a58f16",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.texture.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "994162fc-9f52-48e3-b1df-b6741fbbb02f",
+    "source": "Assets/TextureBlocks/SignedChannel.dds",
+    "source_digest": "13a4e944d2aea13c43f52c8ebe4f317ea7e62443d228dbf290d8aba3b1a58f16",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.texture.container",
+    "overrides": {
+      "semantic": "data"
+    },
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

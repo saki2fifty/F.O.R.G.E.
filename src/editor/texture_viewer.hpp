@@ -4,6 +4,7 @@
 #include "../view_image.hpp"
 #include "editor_state.hpp"
 #include "icons.hpp"
+#include "ui_probe.hpp"
 #include <utility>
 namespace forge {
 class TextureViewer {
@@ -34,7 +35,20 @@ class TextureViewer {
             fit_ = true;
         }
         ui::property_label_row("Variant");
-        ImGui::Combo("##Variant", &semantic_, "Automatic\0Color\0Data\0Normal\0HDR color\0");
+        constexpr const char* variants[]{"Automatic", "Color", "Data", "Normal", "HDR color"};
+        const bool choose_variant = ImGui::BeginCombo("##Variant", variants[semantic_]);
+        FORGE_UI_PROBE("texture:variant");
+        if (choose_variant) {
+            for (int i = 0; i < 5; ++i) {
+                const bool selected = semantic_ == i;
+                if (ImGui::Selectable(variants[i], selected))
+                    semantic_ = i;
+                FORGE_UI_PROBE(std::string("texture:variant:") + variants[i]);
+                if (selected)
+                    ImGui::SetItemDefaultFocus();
+            }
+            ImGui::EndCombo();
+        }
         ui::help("Choose an imported semantic variant. Missing variants report an error; the "
                  "viewer never substitutes a differently interpreted texture.");
         std::optional<TextureSemantic> semantic;
@@ -140,6 +154,9 @@ class TextureViewer {
                 fit_ = false;
             ui::help("Scale the image only. Ctrl+Plus/Minus still changes the complete editor UI.");
             ImGui::BeginDisabled(!can_export || !preview_.current());
+            if (texture_snorm_block_storage(data->format))
+                ImGui::TextWrapped("Signed block export: PNG16. Stored channels map -1..1 to "
+                                   "0..65535; display controls do not change this mapping.");
             if (ui::button("Export image...",
                            "Save the published mip/layer/face/slice. Byte storage uses PNG, "
                            "sRGB lossless WebP or opaque sRGB JPEG; normalized16-bit storage "
@@ -147,18 +164,20 @@ class TextureViewer {
                            "Radiance HDR without tone mapping. Preview exposure, channels, crop "
                            "and checkerboard are excluded. Import settings are not carried into "
                            "the image. Maximum 4096 pixels per axis."))
-                export_ = ExportRequest{
-                    project(),
-                    catalog,
-                    asset,
-                    semantic,
-                    {settings.mip, settings.layer, settings.face, settings.depth},
-                    data->semantic == TextureSemantic::HdrColor &&
-                            (data->format == TextureFormat::RGBA16Float ||
-                             data->format == TextureFormat::RGBA32Float)
-                        ? std::optional{ViewImageFormat::Hdr}
-                    : texture_uint16_storage(data->format) ? std::optional{ViewImageFormat::Png}
-                                                           : std::nullopt};
+                export_ =
+                    ExportRequest{project(),
+                                  catalog,
+                                  asset,
+                                  semantic,
+                                  {settings.mip, settings.layer, settings.face, settings.depth},
+                                  data->semantic == TextureSemantic::HdrColor &&
+                                          (data->format == TextureFormat::RGBA16Float ||
+                                           data->format == TextureFormat::RGBA32Float)
+                                      ? std::optional{ViewImageFormat::Hdr}
+                                  : texture_uint16_storage(data->format) ||
+                                          texture_snorm_block_storage(data->format)
+                                      ? std::optional{ViewImageFormat::Png}
+                                      : std::nullopt};
             ImGui::EndDisabled();
             const float w = float(std::max(1u, data->width >> settings.mip));
             const float h = float(std::max(1u, data->height >> settings.mip));

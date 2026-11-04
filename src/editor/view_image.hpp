@@ -54,6 +54,7 @@ class ViewImageTask {
         std::string preview_error = {};
         unsigned component_bits = 0;
         bool block_decoded = false;
+        bool snorm_block_decoded = false;
         std::optional<FrameReceipt> frame_receipt = {};
     };
     struct FrameBatch : FrameReceipt {
@@ -397,11 +398,15 @@ class ViewImageTask {
                     completed_image_ = std::filesystem::u8path(result.value);
                     completed_component_bits_ = result.component_bits;
                     completed_block_decoded_ = result.block_decoded;
-                    publish_status("Image saved: " + result.value +
-                                       (result.component_bits == 16 ? " (16-bit PNG)"
-                                        : result.block_decoded      ? " (decoded block texels)"
-                                                                    : ""),
-                                   message);
+                    completed_snorm_block_decoded_ = result.snorm_block_decoded;
+                    publish_status(
+                        "Image saved: " + result.value +
+                            (result.snorm_block_decoded
+                                 ? " (PNG16, signed block channels mapped -1..1 to 0..65535)"
+                             : result.component_bits == 16 ? " (16-bit PNG)"
+                             : result.block_decoded        ? " (decoded block texels)"
+                                                           : ""),
+                        message);
                     if (editor_context)
                         editor_context->problems.resolve("view-image");
                 } else if (file_work_ == FileWork::FrameReceipt) {
@@ -876,6 +881,7 @@ class ViewImageTask {
     std::filesystem::path completed_image_, preview_file_;
     unsigned completed_component_bits_ = 0;
     bool completed_block_decoded_ = false;
+    bool completed_snorm_block_decoded_ = false;
     std::optional<FrameReceipt> completed_frames_;
     std::optional<ViewImagePreview> preview_;
     bool preview_requested_ = false;
@@ -904,6 +910,7 @@ class ViewImageTask {
             completed_image_.clear();
             completed_component_bits_ = 0;
             completed_block_decoded_ = false;
+            completed_snorm_block_decoded_ = false;
             completed_frames_.reset();
         }
     }
@@ -934,6 +941,8 @@ class ViewImageTask {
                                                                                   : 0;
             if (const auto* rgba = std::get_if<Rgba8Pixels>(&pixels))
                 result.block_decoded = rgba->block_decoded;
+            if (const auto* rgba = std::get_if<Rgba16Pixels>(&pixels))
+                result.snorm_block_decoded = rgba->snorm_block_decoded;
             if (preview_requested) {
                 try {
                     const auto format = view_image_format(destination);

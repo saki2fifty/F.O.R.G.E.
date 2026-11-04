@@ -20,6 +20,9 @@ inline bool texture_uint16_storage(TextureFormat format) {
     return format == TextureFormat::R16 || format == TextureFormat::RG16 ||
            format == TextureFormat::RGBA16;
 }
+inline bool texture_snorm_block_storage(TextureFormat format) {
+    return format == TextureFormat::BC4Snorm || format == TextureFormat::BC5Snorm;
+}
 // R16/RG16/RGBA16 only. Exact normalized samples; missing G/B=0,A=65535.
 Rgba16Pixels texture_stored_uint16_pixels(const TextureData&, TextureImageSlice = {},
                                           std::stop_token = {});

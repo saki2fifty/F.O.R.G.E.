@@ -20,8 +20,10 @@ JPEG quality1..100/default90 is shared by native controls and MCP; inspection
 shows decoded saved pixels. No source/import-metadata roundtrip is implied.
 
 UNORM BC1/2/3/4/5/7 exports decoded reference texels through the existing isolated
-worker, with an original published Gallery pattern. Signed BC4/5 and BC6 image
-output remain unsupported. Normalized R16/RG16/RGBA16 exports exact PNG16 with a
+worker, with an original published Gallery pattern. Signed BC4/5 export mapped
+PNG16 reference channels through the same worker/task; two original Data Gallery
+textures show the fixed -1..1 to0..65535 mapping. BC6 image output remains unsupported.
+Normalized R16/RG16/RGBA16 exports exact PNG16 with a
 separately quantized8-bit preview, shared native PNG-only hint, MCP precision and
 an original Gallery ramp.
 

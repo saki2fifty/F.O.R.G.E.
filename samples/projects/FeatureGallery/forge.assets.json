@@ -2256,6 +2256,35 @@
       "type": "model_node"
     },
     {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "2216a6b8-966d-443c-889f-e12cdecbffda",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "1f73aa4ca632378bf958c9509aca545e93caf9fd7b8c95fafa2f3a5787c807ed",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.texture.container",
+          "importer_revision": "42ae9a603bf7f3d9f2fd8bc41b9bc10fa2e320dfbd29c4ae5a54e4ecbb8f1973",
+          "key": "703d4bebad1339d2fcebca2dee0f906dfce30c20818183e6ccf53f3078f161bc",
+          "output_format": "forge.texture-bundle",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "b80fad1d661bb0b0d0f6a1e892c340a39fb8ea7e9fc5252120b5cfd8520eeeb7",
+          "settings_version": 1,
+          "sidecar_digest": "48870098d535562aeff104e5d5cfcc25f61255512b80f6f509a1f6022792a371",
+          "source_digest": "9488c89d3c3e3f9b8e5b8c0c6a8d7db66727ab6a9e04d6d03c540c07c0702ad5",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/TextureBlocks/SignedPair.dds",
+      "source_dependencies": [],
+      "type": "texture"
+    },
+    {
       "dependencies": [
         "074437cd-293c-49b8-81c3-b64d8cc18ad1",
         "08e7e8fb-e562-43eb-84e2-da2617a5a983",
@@ -9674,6 +9703,35 @@
         "removed": false
       },
       "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "994162fc-9f52-48e3-b1df-b6741fbbb02f",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "df70920c0864b349481b4baf92fa157cb55ddbe38efb62ce86db6bce7dfbbdcd",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.texture.container",
+          "importer_revision": "42ae9a603bf7f3d9f2fd8bc41b9bc10fa2e320dfbd29c4ae5a54e4ecbb8f1973",
+          "key": "c0f7a3912b121ebab58faaec06dd8ec9b1a8dedf1ed770f7cee1b9a7d3dcba42",
+          "output_format": "forge.texture-bundle",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "b80fad1d661bb0b0d0f6a1e892c340a39fb8ea7e9fc5252120b5cfd8520eeeb7",
+          "settings_version": 1,
+          "sidecar_digest": "af0877b96cb6a1702d40d4e9fdb1f9d60961d610cc31a4e43c16d15decb6339b",
+          "source_digest": "13a4e944d2aea13c43f52c8ebe4f317ea7e62443d228dbf290d8aba3b1a58f16",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/TextureBlocks/SignedChannel.dds",
+      "source_dependencies": [],
+      "type": "texture"
     },
     {
       "dependencies": [],

@@ -15,7 +15,8 @@ using test_view_image_ui::check;
 void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* graphics,
               const std::filesystem::path& gallery, const std::filesystem::path& output,
               float scale, bool narrow, ViewImageFormat preferred, bool precision = false,
-              bool blocks = false, const std::filesystem::path& worker = {}) {
+              bool blocks = false, const std::filesystem::path& worker = {},
+              unsigned signed_channels = 0) {
     const bool hdr = preferred == ViewImageFormat::Hdr;
     const bool jpeg = preferred == ViewImageFormat::Jpeg;
     const auto root = output / AssetId::generate().str();
@@ -24,11 +25,14 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* grap
     const auto catalog = std::make_shared<const AssetCatalog>(AssetCatalog::open_project(root));
     const auto found =
         std::find_if(catalog->records().begin(), catalog->records().end(), [&](const auto& row) {
-            return row.second.source == (blocks      ? "Assets/TextureBlocks/BlockColors.dds"
-                                         : hdr       ? "Assets/ReflectionCapture/Reflection.dds"
-                                         : precision ? "Assets/TexturePrecision/Normalized16.png"
-                                         : jpeg      ? "Assets/ReflectionProbes/WarmRoom.png"
-                                                     : "Assets/Sprites/Badge.png");
+            return row.second.source ==
+                   (signed_channels == 1   ? "Assets/TextureBlocks/SignedChannel.dds"
+                    : signed_channels == 2 ? "Assets/TextureBlocks/SignedPair.dds"
+                    : blocks               ? "Assets/TextureBlocks/BlockColors.dds"
+                    : hdr                  ? "Assets/ReflectionCapture/Reflection.dds"
+                    : precision            ? "Assets/TexturePrecision/Normalized16.png"
+                    : jpeg                 ? "Assets/ReflectionProbes/WarmRoom.png"
+                                           : "Assets/Sprites/Badge.png");
         });
     check(found != catalog->records().end(), "Missing cooked Texture fixture");
     const AssetRef<TextureAsset> asset{found->first};
@@ -39,8 +43,9 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* grap
         foreign = true;
     }
     check(foreign, "Texture pixel input admitted a catalog from another project");
+    const auto semantic = signed_channels ? std::optional{TextureSemantic::Data} : std::nullopt;
     const auto original =
-        ui::texture_image_input(root, catalog, asset, {}, {}, {}, worker).load(preferred);
+        ui::texture_image_input(root, catalog, asset, semantic, {}, {}, worker).load(preferred);
     const auto scene = AssetId::generate();
     const float width = (narrow ? 480 : 720) * scale;
     Diligent::ImGuiImplDiligent gui(
@@ -94,6 +99,12 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* grap
         presentation.device()->ReleaseStaleResources();
     };
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(15);
+    if (signed_channels) {
+        frame();
+        test::ImGuiInputDriver variant(frame);
+        variant.click("texture:variant");
+        variant.click("texture:variant:Data");
+    }
     do {
         frame();
         check(std::chrono::steady_clock::now() < deadline, "Texture viewer did not become ready");
@@ -110,10 +121,12 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* grap
     input.click("button:Export image...");
     auto request = viewer.take_export();
     check(request && request->project == root && request->texture == asset &&
-              request->catalog == catalog && !request->semantic && request->slice.mip == 0 &&
-              request->only_format == (hdr         ? std::optional{ViewImageFormat::Hdr}
-                                       : precision ? std::optional{ViewImageFormat::Png}
-                                                   : std::nullopt) &&
+              request->catalog == catalog && request->semantic == semantic &&
+              request->slice.mip == 0 &&
+              request->only_format == (hdr ? std::optional{ViewImageFormat::Hdr}
+                                       : precision || signed_channels
+                                           ? std::optional{ViewImageFormat::Png}
+                                           : std::nullopt) &&
               !viewer.take_export(),
           "Texture button did not emit one owned published selection");
     auto pixels =
@@ -124,9 +137,9 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* grap
                                                        path_utf8(target),
                                                        {},
                                                        {},
-                                                       hdr || precision ? 0
-                                                       : jpeg           ? 2
-                                                                        : -1};
+                                                       hdr || precision || signed_channels ? 0
+                                                       : jpeg                              ? 2
+                                                                                           : -1};
     task.choose(ui::ViewImageTask::View::Texture, nullptr, root, {}, std::move(pixels));
     task.poll(presentation, graphics, root, scene, message);
     check(task.busy() && !presentation.readback_pending(),
@@ -189,7 +202,7 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* grap
         check(!task.selected_path(ui::ViewImageTask::View::Scene, root / "display.hdr", root, scene,
                                   message),
               "Native display capture accepted an HDR filename");
-    } else if (precision) {
+    } else if (precision || signed_channels) {
         const auto file = asset_detail::read_bytes(target, FORGE_UINT16_IMAGE_ENCODED_LIMIT);
         ForgeImagePixels decoded{};
         const auto& exact = std::get<Rgba16Pixels>(original);
@@ -200,7 +213,8 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* grap
                            std::memcmp(decoded.pixels, exact.rgba.data(), decoded.size) == 0;
         forge_image_pixels_free(&decoded);
         check(equal, "Native PNG16 output changed sample precision, order, label or alpha");
-        check(message.find("16-bit PNG") != std::string::npos,
+        check(message.find(signed_channels ? "signed block channels mapped" : "16-bit PNG") !=
+                  std::string::npos,
               "Completed native precision export did not describe16-bit PNG");
     } else if (jpeg) {
         const auto saved = read_view_preview(target);
@@ -264,11 +278,13 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* grap
     reference.queue(presentation.device(), graphics, srv);
     const auto native_pixels = reference.read(graphics);
     save_view_png(output /
-                      (std::string(blocks      ? "compressed-texture-export-"
-                                   : hdr       ? "hdr-texture-export-"
-                                   : precision ? "uint16-texture-export-"
-                                   : jpeg      ? "jpeg-texture-export-"
-                                               : "texture-export-") +
+                      (std::string(signed_channels == 1   ? "signed-channel-export-"
+                                   : signed_channels == 2 ? "signed-pair-export-"
+                                   : blocks               ? "compressed-texture-export-"
+                                   : hdr                  ? "hdr-texture-export-"
+                                   : precision            ? "uint16-texture-export-"
+                                   : jpeg                 ? "jpeg-texture-export-"
+                                                          : "texture-export-") +
                        (narrow ? "narrow-" : "wide-") + std::to_string(int(scale * 100)) + ".png"),
                   desc.Width, desc.Height, native_pixels);
     test::observe_ui = false;
@@ -288,6 +304,16 @@ int main(int argc, char** argv) {
         Diligent::GetEngineFactoryVk()->CreateDeviceAndContextsVk(info, &device, &graphics);
         check(device && graphics, "Texture export Vulkan device unavailable");
         DiligentPresentation presentation(device);
+        if (argc == 5 && std::string_view(argv[3]) == "--signed-blocks") {
+            for (float scale : {1.f, 1.5f, 2.f})
+                for (bool narrow : {false, true})
+                    for (unsigned channels : {1u, 2u})
+                        exercise(presentation, graphics, argv[1], output, scale, narrow,
+                                 ViewImageFormat::Png, false, false, argv[4], channels);
+            std::cout << "Signed block Texture native chooser, mapping, PNG16 and twelve layouts "
+                         "passed\n";
+            return 0;
+        }
         for (float scale : {1.f, 1.5f, 2.f})
             for (bool narrow : {false, true})
                 for (auto format :

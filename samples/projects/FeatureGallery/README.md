@@ -1,5 +1,16 @@
 # Feature Gallery
 
+## Signed block channel images
+
+Open **Assets/TextureBlocks/SignedChannel.dds** or **SignedPair.dds** in Content
+and choose **Variant → Data**. These original BC4/BC5 SNORM patterns include
+negative and positive endpoints and two mips. **Export image...** writes PNG16
+with each stored channel mapped from -1..1 to0..65535; absent channels stay zero
+and alpha stays opaque. The mapping appears above the button. Preview display
+controls do not change export. See [Texture export](../../../manual/editor/textures.md)
+for precision, inspection and limits. Sources, import recipes and matching cooked
+publications are included; previous Gallery asset identities remain unchanged.
+
 ## Compressed texture image export
 
 Open **Assets/TextureBlocks/BlockColors.dds** from Content. This original BC1 sRGB

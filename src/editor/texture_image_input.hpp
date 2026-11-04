@@ -38,6 +38,9 @@ texture_image_input(std::filesystem::path project, std::shared_ptr<const AssetCa
                     {hdr                              ? texture_hdr_source_limit
                      : format == ViewImageFormat::Png ? texture_uint16_source_limit
                                                       : texture_image_source_limit});
+                if (texture_snorm_block_storage(selected.value->format) &&
+                    format != ViewImageFormat::Png)
+                    throw std::runtime_error("Signed block samples require PNG (.png) output");
                 if (hdr)
                     return texture_hdr_pixels(*selected.value, slice);
                 if (texture_format_info(selected.value->format).compressed)
