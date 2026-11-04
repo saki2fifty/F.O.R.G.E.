@@ -1,0 +1,53 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [],
+    "importer": "forge.texture.image",
+    "importer_revision": "8a38986bcbeffc8fde25761a0e24cc5d0016d9c14c953167218e083a9731243a",
+    "key_version": 1,
+    "output_format": "forge.texture-bundle",
+    "output_version": 1,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {
+      "additional_usages": [],
+      "anisotropy": 1,
+      "compression": "none",
+      "filter": "linear",
+      "flip_green": false,
+      "flip_vertical": false,
+      "max_size": 16384,
+      "mips": false,
+      "premultiply": false,
+      "semantic": "color",
+      "transfer": "linear",
+      "wrap": "repeat"
+    },
+    "settings_version": 1,
+    "source": "b1425b502ff3d6685983bc7060faa61eb9c50b66c79cfd7e3fbe2f7927a1a20f",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.texture.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "6f07078b-6759-4efc-927f-82038e08d12f",
+    "source": "Assets/TexturePrecision/Normalized16.png",
+    "source_digest": "b1425b502ff3d6685983bc7060faa61eb9c50b66c79cfd7e3fbe2f7927a1a20f",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.texture.image",
+    "overrides": {
+      "compression": "none",
+      "mips": false,
+      "semantic": "color",
+      "transfer": "linear"
+    },
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

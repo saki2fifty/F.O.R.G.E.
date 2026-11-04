@@ -14,7 +14,7 @@ namespace {
 using test_view_image_ui::check;
 void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* graphics,
               const std::filesystem::path& gallery, const std::filesystem::path& output,
-              float scale, bool narrow, ViewImageFormat preferred) {
+              float scale, bool narrow, ViewImageFormat preferred, bool precision = false) {
     const bool hdr = preferred == ViewImageFormat::Hdr;
     const bool jpeg = preferred == ViewImageFormat::Jpeg;
     const auto root = output / AssetId::generate().str();
@@ -23,9 +23,10 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* grap
     const auto catalog = std::make_shared<const AssetCatalog>(AssetCatalog::open_project(root));
     const auto found =
         std::find_if(catalog->records().begin(), catalog->records().end(), [&](const auto& row) {
-            return row.second.source == (hdr    ? "Assets/ReflectionCapture/Reflection.dds"
-                                         : jpeg ? "Assets/ReflectionProbes/WarmRoom.png"
-                                                : "Assets/Sprites/Badge.png");
+            return row.second.source == (hdr         ? "Assets/ReflectionCapture/Reflection.dds"
+                                         : precision ? "Assets/TexturePrecision/Normalized16.png"
+                                         : jpeg      ? "Assets/ReflectionProbes/WarmRoom.png"
+                                                     : "Assets/Sprites/Badge.png");
         });
     check(found != catalog->records().end(), "Missing cooked Texture fixture");
     const AssetRef<TextureAsset> asset{found->first};
@@ -107,18 +108,21 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* grap
     auto request = viewer.take_export();
     check(request && request->project == root && request->texture == asset &&
               request->catalog == catalog && !request->semantic && request->slice.mip == 0 &&
-              request->hdr == hdr && !viewer.take_export(),
+              request->only_format == (hdr         ? std::optional{ViewImageFormat::Hdr}
+                                       : precision ? std::optional{ViewImageFormat::Png}
+                                                   : std::nullopt) &&
+              !viewer.take_export(),
           "Texture button did not emit one owned published selection");
     auto pixels = ui::texture_image_input(request->project, request->catalog, request->texture,
-                                          request->semantic, request->slice, preferred);
+                                          request->semantic, request->slice, request->only_format);
     const auto target = root / (std::string("export") + view_image_suffix(preferred));
     FileDialog::fixture_selection = FileDialog::Result{FileDialog::Kind::SaveImage,
                                                        path_utf8(target),
                                                        {},
                                                        {},
-                                                       hdr    ? 0
-                                                       : jpeg ? 2
-                                                              : -1};
+                                                       hdr || precision ? 0
+                                                       : jpeg           ? 2
+                                                                        : -1};
     task.choose(ui::ViewImageTask::View::Texture, nullptr, root, {}, std::move(pixels));
     task.poll(presentation, graphics, root, scene, message);
     check(task.busy() && !presentation.readback_pending(),
@@ -181,6 +185,19 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* grap
         check(!task.selected_path(ui::ViewImageTask::View::Scene, root / "display.hdr", root, scene,
                                   message),
               "Native display capture accepted an HDR filename");
+    } else if (precision) {
+        const auto file = asset_detail::read_bytes(target, FORGE_UINT16_IMAGE_ENCODED_LIMIT);
+        ForgeImagePixels decoded{};
+        const auto& exact = std::get<Rgba16Pixels>(original);
+        const bool equal = forge_png_decode(file.data(), file.size(), 4096,
+                                            FORGE_UINT16_IMAGE_PIXEL_LIMIT, 0, &decoded) &&
+                           decoded.component_bytes == 2 && !decoded.srgb &&
+                           decoded.size == exact.rgba.size() * sizeof(std::uint16_t) &&
+                           std::memcmp(decoded.pixels, exact.rgba.data(), decoded.size) == 0;
+        forge_image_pixels_free(&decoded);
+        check(equal, "Native PNG16 output changed sample precision, order, label or alpha");
+        check(message.find("16-bit PNG") != std::string::npos,
+              "Completed native precision export did not describe16-bit PNG");
     } else if (jpeg) {
         const auto saved = read_view_preview(target);
         check(saved.width == std::get<Rgba8Pixels>(original).width &&
@@ -238,9 +255,10 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* grap
     reference.queue(presentation.device(), graphics, srv);
     const auto native_pixels = reference.read(graphics);
     save_view_png(output /
-                      (std::string(hdr    ? "hdr-texture-export-"
-                                   : jpeg ? "jpeg-texture-export-"
-                                          : "texture-export-") +
+                      (std::string(hdr         ? "hdr-texture-export-"
+                                   : precision ? "uint16-texture-export-"
+                                   : jpeg      ? "jpeg-texture-export-"
+                                               : "texture-export-") +
                        (narrow ? "narrow-" : "wide-") + std::to_string(int(scale * 100)) + ".png"),
                   desc.Width, desc.Height, native_pixels);
     test::observe_ui = false;
@@ -266,6 +284,11 @@ int main(int argc, char** argv) {
                      {ViewImageFormat::Png, ViewImageFormat::Hdr, ViewImageFormat::Jpeg})
                     if (argc == 3 || (scale == 2.f && format == ViewImageFormat::Jpeg))
                         exercise(presentation, graphics, argv[1], output, scale, narrow, format);
+        if (argc == 3)
+            for (float scale : {1.f, 1.5f, 2.f})
+                for (bool narrow : {false, true})
+                    exercise(presentation, graphics, argv[1], output, scale, narrow,
+                             ViewImageFormat::Png, true);
         std::cout << "Texture export controls, native chooser, stored pixels and project "
                      "cancellation passed\n";
     } catch (const std::exception& error) {

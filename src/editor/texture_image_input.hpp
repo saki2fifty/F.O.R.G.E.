@@ -10,8 +10,7 @@ namespace forge::ui {
 inline ViewImageTask::PixelInput
 texture_image_input(std::filesystem::path project, std::shared_ptr<const AssetCatalog> catalog,
                     AssetRef<TextureAsset> texture, std::optional<TextureSemantic> semantic = {},
-                    TextureImageSlice slice = {},
-                    ViewImageFormat preferred = ViewImageFormat::Png) {
+                    TextureImageSlice slice = {}, std::optional<ViewImageFormat> only_format = {}) {
     if (!catalog)
         throw std::runtime_error("Texture image export needs a catalog selection");
     if (catalog->project_root() != std::filesystem::weakly_canonical(project))
@@ -27,18 +26,26 @@ texture_image_input(std::filesystem::path project, std::shared_ptr<const AssetCa
                 {"layer", slice.layer},
                 {"face", slice.face},
                 {"depth", slice.depth},
-                {"profile", "stored_rgba8"}};
+                {"profile", "stored_samples"}};
     return {std::move(source),
             [project = std::move(project), catalog = std::move(catalog), texture, semantic,
              slice](ViewImageFormat format) -> ImagePixels {
                 const bool hdr = format == ViewImageFormat::Hdr;
                 auto selected = asset_detail::load_texture_selection(
                     project, *catalog, texture, semantic,
-                    {hdr ? texture_hdr_source_limit : texture_image_source_limit});
+                    {hdr                              ? texture_hdr_source_limit
+                     : format == ViewImageFormat::Png ? texture_uint16_source_limit
+                                                      : texture_image_source_limit});
                 if (hdr)
                     return texture_hdr_pixels(*selected.value, slice);
+                if (texture_uint16_storage(selected.value->format)) {
+                    if (format != ViewImageFormat::Png)
+                        throw std::runtime_error(
+                            "Normalized16-bit samples require PNG (.png) output");
+                    return texture_stored_uint16_pixels(*selected.value, slice);
+                }
                 return texture_stored_pixels(*selected.value, slice);
             },
-            true, preferred};
+            true, only_format};
 }
 } // namespace forge::ui

@@ -48,6 +48,11 @@ struct CaptureAutomation {
         if (!owner.completed_image_.empty()) {
             value["file"] = path_utf8(owner.completed_image_);
             value["file_mime"] = view_image_mime(view_image_format(owner.completed_image_));
+            if (owner.completed_component_bits_)
+                value["component_bits"] = owner.completed_component_bits_;
+            if (owner.completed_component_bits_ && value.contains("texture"))
+                value["texture"]["profile"] =
+                    owner.completed_component_bits_ == 16 ? "stored_rgba16" : "stored_rgba8";
         }
         const auto* frames =
             owner.frames_ ? static_cast<const ui::ViewImageTask::FrameReceipt*>(&*owner.frames_)
@@ -299,12 +304,16 @@ struct CaptureAutomation {
                 "capture.texture",
                 "Export one published Texture mip/layer/face/depth slice inside the output root. "
                 "PNG/sRGB lossless WebP retain R8/RG8/RGBA8 stored bytes (128 MiB source,64 MiB "
-                "RGBA); missing G/B=0,A=255. JPEG (.jpg/.jpeg) requires opaque sRGB bytes; "
+                "RGBA); missing G/B=0,A=255. PNG16 retains R16/RG16/RGBA16 samples without an "
+                "sRGB label (256 MiB source,128 MiB RGBA16,136 MiB encoded); missingA=65535. "
+                "Its PNG inspection preview quantizes to8-bit and component_bits reports16. "
+                "JPEG (.jpg/.jpeg) requires opaque sRGB bytes; "
                 "jpeg_quality is1–100, default90, JPEG only. JPEG is lossy and its preview shows "
                 "decoded output. HDR (.hdr) accepts HdrColor RGBA16/32Float, finite "
                 "nonnegative RGB and actual alpha1 (256 MiB source,192 MiB RGB float). RGBE "
                 "quantizes RGB without tone mapping; HDR has no alpha or inline image preview. "
-                "All profiles limit each axis to4096 and encoded output to68 MiB. No source "
+                "All profiles limit each axis to4096; other profiles cap encoded output at68 MiB. "
+                "No source "
                 "decode, import metadata or Scene Undo. Existing files require replace:true. "
                 "Poll capture.status for the written file path/MIME; PNG/WebP/JPEG also support "
                 "capture.image.",

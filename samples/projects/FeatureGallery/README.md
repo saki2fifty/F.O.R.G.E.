@@ -1,5 +1,15 @@
 # Feature Gallery
 
+## Normalized16-bit image export
+
+Open **Assets/TexturePrecision/Normalized16.png** from Content. This original
+published RGBA16 texture has low-bit color variation, fully transparent hidden RGB,
+partial alpha and opaque regions. Its import settings use **color** usage with **linear**
+color space, no mips and no compression. Click **Export image...**, choose **PNG image**
+and save a **.png** file. The export retains every 16-bit sample; a bounded agent
+inspection preview is 8-bit and cannot prove low-bit precision. The source image
+can be absent after publication. See [Texture image export](../../../manual/editor/textures.md).
+
 ## Foliage placement
 
 Open **Scenes/144-foliage-placement.scene.json** and press **Play**. Two ordinary

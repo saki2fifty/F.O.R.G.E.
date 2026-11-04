@@ -82,6 +82,36 @@ Rgba8Pixels texture_stored_pixels(const TextureData& texture, TextureImageSlice 
     cancelled(stop);
     return result;
 }
+Rgba16Pixels texture_stored_uint16_pixels(const TextureData& texture, TextureImageSlice slice,
+                                          std::stop_token stop) {
+    cancelled(stop);
+    const auto selected = image_slice(texture, slice, texture_uint16_source_limit);
+    if (!texture_uint16_storage(texture.format))
+        throw std::runtime_error("Normalized16-bit export requires R16, RG16 or RGBA16 storage");
+    const auto format = texture_format_info(texture.format);
+    const auto& layout = selected.layout;
+    const auto count = std::uint64_t(layout.width) * layout.height * 4;
+    if (count * sizeof(std::uint16_t) > FORGE_UINT16_IMAGE_PIXEL_LIMIT)
+        throw std::runtime_error("Normalized16-bit image exceeds128 MiB; choose a smaller mip");
+    Rgba16Pixels result{layout.width, layout.height,
+                        std::vector<std::uint16_t>(std::size_t(count))};
+    for (unsigned y = 0; y < layout.height; ++y) {
+        cancelled(stop);
+        const auto* row = selected.bytes.data() + std::size_t(y) * layout.row_bytes;
+        auto* output = result.rgba.data() + std::size_t(y) * layout.width * 4;
+        for (unsigned x = 0; x < layout.width; ++x) {
+            for (unsigned c = 0; c < format.channels; ++c) {
+                const auto* source = row + (std::size_t(x) * format.channels + c) * 2;
+                output[x * 4 + c] = std::uint16_t(std::to_integer<unsigned>(source[0]) |
+                                                  (std::to_integer<unsigned>(source[1]) << 8));
+            }
+            if (format.channels < 4)
+                output[x * 4 + 3] = 65535;
+        }
+    }
+    cancelled(stop);
+    return result;
+}
 Rgb32Pixels texture_hdr_pixels(const TextureData& texture, TextureImageSlice slice,
                                std::stop_token stop) {
     cancelled(stop);

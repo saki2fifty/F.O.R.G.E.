@@ -2814,8 +2814,7 @@ int main(int argc, char** argv) {
                         throw std::runtime_error("Finish the current image export first");
                     auto input = forge::ui::texture_image_input(
                         request->project, std::move(request->catalog), request->texture,
-                        request->semantic, request->slice,
-                        request->hdr ? forge::ViewImageFormat::Hdr : forge::ViewImageFormat::Png);
+                        request->semantic, request->slice, request->only_format);
                     view_image.choose(forge::ui::ViewImageTask::View::Texture, window.get(),
                                       request->project, {}, std::move(input));
                 } catch (const std::exception& error) {

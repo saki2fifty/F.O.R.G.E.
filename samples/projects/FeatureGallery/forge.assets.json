@@ -7014,6 +7014,35 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "6f07078b-6759-4efc-927f-82038e08d12f",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "c47df7cb74d85d94652417aea6d14f0f16d9650e05e758aa0e51704b133ad32d",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.texture.image",
+          "importer_revision": "8a38986bcbeffc8fde25761a0e24cc5d0016d9c14c953167218e083a9731243a",
+          "key": "cdb66b0a5a94d48a7f792ad2bfa19f612a0468062c233b57dd5640e8ad17a3fb",
+          "output_format": "forge.texture-bundle",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "aa5328ea5f3dbd8390680a369174f2ad2eb5dd2d84b1a1ad31b2334ead5e7624",
+          "settings_version": 1,
+          "sidecar_digest": "ad1e3b81c6d982af45f444ea3e4450ccd768c86e385ea55fddde5ccd55f5d172",
+          "source_digest": "b1425b502ff3d6685983bc7060faa61eb9c50b66c79cfd7e3fbe2f7927a1a20f",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/TexturePrecision/Normalized16.png",
+      "source_dependencies": [],
+      "type": "texture"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "6f2f93da-5ef5-4524-aadf-d4ebb8ef50ef",
       "metadata": {},
       "schema_version": 5,

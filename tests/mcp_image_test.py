@@ -88,6 +88,8 @@ for legacy in (False,True):
         hdr_asset=next(row for row in assets if row['source']=='Assets/ReflectionCapture/Reflection.dds')
         opaque=next(row for row in assets if row['source']=='Assets/ReflectionProbes/WarmRoom.png')
         assert not (root/'Game'/opaque['source']).exists()
+        precision=next(row for row in assets if row['source']=='Assets/TexturePrecision/Normalized16.png')
+        assert not (root/'Game'/precision['source']).exists()
         assert not (root/'Game'/hdr_asset['source']).exists()
         assert not (root/'Game'/badge['source']).exists()
         assert not (root/'Game'/normal['source']).exists()
@@ -168,6 +170,30 @@ for legacy in (False,True):
         complete=settled();assert not complete['error'] and complete['preview_ready'],complete
         _,normal_image=image(normal_job['operation'])
         assert not png_has_chunk(normal_image,b'sRGB')
+        precision_request=arguments(asset=precision['id'],path='Precision.PNG')
+        precision_job=client.tool('forge_capture_texture',**precision_request)
+        assert precision_job['ok'],precision_job
+        assert client.tool('forge_capture_texture',**precision_request)==precision_job
+        precision_complete=settled()
+        assert not precision_complete['error'] and precision_complete['preview_ready'],precision_complete
+        assert precision_complete['component_bits']==16 and precision_complete['file_mime']=='image/png'
+        assert precision_complete['texture']['profile']=='stored_rgba16'
+        full_precision=(root/'Output/Precision.PNG').read_bytes()
+        assert full_precision[24:26]==bytes([16,6]) and not png_has_chunk(full_precision,b'sRGB')
+        precision_meta,precision_preview=image(precision_job['result']['operation'])
+        assert precision_meta['source_width']==256 and precision_meta['source_height']==96
+        assert precision_preview[24:26]==bytes([8,6]) and not png_has_chunk(precision_preview,b'sRGB')
+        later=ok('forge_capture_preview',artifact_operation=precision_complete['artifact_operation'])
+        assert settled()['component_bits']==16
+        assert image(later['operation'])[1]==precision_preview
+        failed(mutate('forge_capture_texture',asset=precision['id'],path='Precision.PNG'),'output_exists')
+        for suffix in ('.webp','.jpg','.hdr'):
+            destination=root/('Output/Keep'+suffix)
+            destination.write_bytes(b'last good artifact')
+            ok('forge_capture_texture',asset=precision['id'],path=destination.name,replace=True)
+            failure=settled()
+            assert failure['error'] and destination.read_bytes()==b'last good artifact',failure
+        assert (root/'Output/Precision.PNG').read_bytes()==full_precision
         failed(mutate('forge_capture_start',view='scene',path='Display.hdr'),'invalid_path')
         hdr_request=arguments(asset=hdr_asset['id'],semantic='hdr',face=5,path='Radiance.hdr')
         admitted_hdr=client.tool('forge_capture_texture',**hdr_request)

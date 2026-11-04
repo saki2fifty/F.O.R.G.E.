@@ -98,6 +98,26 @@ void save_image_pixels(const std::filesystem::path& path, const Rgba8Pixels& pix
     save_image(path, pixels.width, pixels.height, pixels.rgba, view_image_format(path), pixels.srgb,
                options);
 }
+void save_image_pixels(const std::filesystem::path& path, const Rgba16Pixels& pixels,
+                       const ImageEncodingOptions& options) {
+    options.validate();
+    if (view_image_format(path) != ViewImageFormat::Png)
+        throw std::runtime_error("Normalized16-bit samples require PNG (.png) output");
+    if (!pixels.width || !pixels.height || pixels.width > FORGE_VIEW_IMAGE_MAX_EXTENT ||
+        pixels.height > FORGE_VIEW_IMAGE_MAX_EXTENT ||
+        pixels.rgba.size() != std::size_t(pixels.width) * pixels.height * 4)
+        throw std::runtime_error("Normalized16-bit PNG requires complete packed RGBA samples");
+    struct Encoded : ForgeImageBytes {
+        Encoded() : ForgeImageBytes{} {}
+        ~Encoded() { forge_image_bytes_free(this); }
+    } encoded;
+    if (!forge_png_encode_rgba16(pixels.rgba.data(), pixels.rgba.size() * sizeof(std::uint16_t),
+                                 pixels.width, pixels.height, std::size_t(pixels.width) * 8,
+                                 FORGE_UINT16_IMAGE_ENCODED_LIMIT, &encoded))
+        throw std::runtime_error(encoded.error);
+    asset_storage::replace(
+        path, std::string_view(reinterpret_cast<const char*>(encoded.bytes), encoded.size));
+}
 void save_image_pixels(const std::filesystem::path& path, const Rgb32Pixels& pixels,
                        const ImageEncodingOptions& options) {
     options.validate();
@@ -168,14 +188,36 @@ ViewImagePreview preview_view_pixels(unsigned width, unsigned height,
 ViewImagePreview preview_image_pixels(const Rgba8Pixels& pixels) {
     return preview_view_pixels(pixels.width, pixels.height, pixels.rgba, pixels.srgb);
 }
+namespace {
+ViewImagePreview preview_uint16_pixels(unsigned width, unsigned height,
+                                       std::span<const std::byte> native, bool srgb = false) {
+    if (!width || !height || width > FORGE_VIEW_IMAGE_MAX_EXTENT ||
+        height > FORGE_VIEW_IMAGE_MAX_EXTENT || native.size() != std::size_t(width) * height * 8 ||
+        native.size() > FORGE_UINT16_IMAGE_PIXEL_LIMIT)
+        throw std::runtime_error("Normalized16-bit preview needs complete bounded RGBA samples");
+    std::vector<std::uint8_t> rgba(native.size() / 2);
+    for (std::size_t at = 0; at < rgba.size(); ++at) {
+        std::uint16_t value;
+        std::memcpy(&value, native.data() + at * 2, sizeof(value));
+        rgba[at] = std::uint8_t((std::uint32_t(value) * 255 + 32767) / 65535);
+    }
+    return preview_view_pixels(width, height, rgba, srgb);
+}
+} // namespace
+ViewImagePreview preview_image_pixels(const Rgba16Pixels& pixels) {
+    return preview_uint16_pixels(pixels.width, pixels.height,
+                                 std::as_bytes(std::span(pixels.rgba)));
+}
 ViewImagePreview preview_image_pixels(const ImagePixels& pixels) {
     if (const auto* rgba = std::get_if<Rgba8Pixels>(&pixels))
+        return preview_image_pixels(*rgba);
+    if (const auto* rgba = std::get_if<Rgba16Pixels>(&pixels))
         return preview_image_pixels(*rgba);
     throw std::runtime_error("Inline HDR previews are unavailable; the full HDR file is saved");
 }
 ViewImagePreview read_view_preview(const std::filesystem::path& path) {
     asset_storage::ordinary(path);
-    const auto bytes = asset_detail::read_bytes(path, FORGE_VIEW_IMAGE_ENCODED_LIMIT);
+    const auto bytes = asset_detail::read_bytes(path, FORGE_UINT16_IMAGE_ENCODED_LIMIT);
     if ((bytes.size() >= 10 && std::memcmp(bytes.data(), "#?RADIANCE", 10) == 0) ||
         (bytes.size() >= 6 && std::memcmp(bytes.data(), "#?RGBE", 6) == 0))
         throw std::runtime_error("Inline HDR previews are unavailable; use the full HDR file");
@@ -191,9 +233,14 @@ ViewImagePreview read_view_preview(const std::filesystem::path& path) {
     static_assert(std::uint64_t(FORGE_VIEW_IMAGE_MAX_EXTENT) * FORGE_VIEW_IMAGE_MAX_EXTENT * 4 <=
                   FORGE_VIEW_IMAGE_PIXEL_LIMIT);
     const bool jpeg = bytes.size() >= 2 && bytes[0] == std::byte{255} && bytes[1] == std::byte{216};
+    if ((webp || jpeg) && bytes.size() > FORGE_VIEW_IMAGE_ENCODED_LIMIT)
+        throw std::runtime_error("Byte image artifact exceeds68 MiB encoded budget");
     const auto decode = webp ? forge_webp_decode : jpeg ? forge_jpeg_decode : forge_png_decode;
     if (!decode(bytes.data(), bytes.size(), FORGE_VIEW_IMAGE_MAX_EXTENT,
-                webp ? FORGE_VIEW_IMAGE_ENCODED_LIMIT : FORGE_VIEW_IMAGE_PIXEL_LIMIT, 0, &image))
+                webp   ? FORGE_VIEW_IMAGE_ENCODED_LIMIT
+                : jpeg ? FORGE_VIEW_IMAGE_PIXEL_LIMIT
+                       : FORGE_UINT16_IMAGE_PIXEL_LIMIT,
+                0, &image))
         throw std::runtime_error(image.error);
     if (jpeg) {
         if ((image.channels != 1 && image.channels != 3) || image.component_bytes != 1 ||
@@ -207,6 +254,13 @@ ViewImagePreview read_view_preview(const std::filesystem::path& path) {
                     image.pixels[at * image.channels + (image.channels == 1 ? 0 : c)];
         return preview_view_pixels(image.width, image.height, rgba, true);
     }
+    if (!webp && image.channels == 4 && image.component_bytes == 2 &&
+        image.stride == std::size_t(image.width) * 8 && image.size == image.stride * image.height)
+        return preview_uint16_pixels(image.width, image.height,
+                                     std::as_bytes(std::span(image.pixels, image.size)),
+                                     image.srgb != 0);
+    if (bytes.size() > FORGE_VIEW_IMAGE_ENCODED_LIMIT)
+        throw std::runtime_error("Byte image artifact exceeds68 MiB encoded budget");
     if (image.channels != 4 || image.component_bytes != 1 ||
         image.stride != std::size_t(image.width) * 4 || image.size > FORGE_VIEW_IMAGE_PIXEL_LIMIT)
         throw std::runtime_error("The owned view artifact is not RGBA8 PNG or WebP");

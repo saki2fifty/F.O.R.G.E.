@@ -1,5 +1,24 @@
 # 2026-11-04
 
+## Normalized16-bit texture image export
+
+Published R16/RG16/RGBA16 textures can save precision-preserving PNG16 through the
+existing Texture selection/slice, typed image task, shared libpng writer and
+atomic file transaction. Actual samples, alpha and hidden RGB remain exact;
+missingG/B0 andA65535, with no invented sRGB label or gamma/normal conversion.
+The profile admits256MiB selected source,128MiB RGBA16,4096axis and136MiB encoded
+PNG while existing byte/HDR/JPEG/WebP output bounds remain.
+
+The native preview hints PNG-only and describes16-bit completion. Automation/MCP
+reports actual component_bits/profile; current and delayed PNG inspection uses one
+nearest8-bit quantizer and existing preview sizing. Its preview is distinct from
+the exact full file. The original published Gallery precision ramp uses the normal
+isolated import/publication owner; previous scenes, settings and asset identities
+remain. Native/MCP workflow, source-hidden precision checks, known wire-endian
+vectors, strict CPU boundaries and the illustrated manual cover the behavior.
+No vendor code/version/texture schema changes or numbered delivery is introduced;
+Windows/full-editor/physical-device acceptance remains queued.
+
 ## JPEG still-image export
 
 Scene/Game image capture and published opaque sRGB byte textures can save JPEG

@@ -1,6 +1,7 @@
 #pragma once
 #include "../texture_asset_preview.hpp"
 #include "../texture_image.hpp"
+#include "../view_image.hpp"
 #include "editor_state.hpp"
 #include "icons.hpp"
 #include <utility>
@@ -13,7 +14,7 @@ class TextureViewer {
         AssetRef<TextureAsset> texture;
         std::optional<TextureSemantic> semantic;
         TextureImageSlice slice;
-        bool hdr = false;
+        std::optional<ViewImageFormat> only_format;
     };
     std::optional<ExportRequest> take_export() { return std::exchange(export_, {}); }
     TextureViewer(DiligentPresentation& presentation, Diligent::IDeviceContext* context,
@@ -140,20 +141,24 @@ class TextureViewer {
             ui::help("Scale the image only. Ctrl+Plus/Minus still changes the complete editor UI.");
             ImGui::BeginDisabled(!can_export || !preview_.current());
             if (ui::button("Export image...",
-                           "Save the published mip/layer/face/slice. Byte storage uses PNG or "
-                           "sRGB lossless WebP; opaque HdrColor float storage uses quantized "
+                           "Save the published mip/layer/face/slice. Byte storage uses PNG, "
+                           "sRGB lossless WebP or opaque sRGB JPEG; normalized16-bit storage "
+                           "uses exact PNG16. Opaque HdrColor float storage uses quantized "
                            "Radiance HDR without tone mapping. Preview exposure, channels, crop "
                            "and checkerboard are excluded. Import settings are not carried into "
                            "the image. Maximum 4096 pixels per axis."))
-                export_ =
-                    ExportRequest{project(),
-                                  catalog,
-                                  asset,
-                                  semantic,
-                                  {settings.mip, settings.layer, settings.face, settings.depth},
-                                  data->semantic == TextureSemantic::HdrColor &&
-                                      (data->format == TextureFormat::RGBA16Float ||
-                                       data->format == TextureFormat::RGBA32Float)};
+                export_ = ExportRequest{
+                    project(),
+                    catalog,
+                    asset,
+                    semantic,
+                    {settings.mip, settings.layer, settings.face, settings.depth},
+                    data->semantic == TextureSemantic::HdrColor &&
+                            (data->format == TextureFormat::RGBA16Float ||
+                             data->format == TextureFormat::RGBA32Float)
+                        ? std::optional{ViewImageFormat::Hdr}
+                    : texture_uint16_storage(data->format) ? std::optional{ViewImageFormat::Png}
+                                                           : std::nullopt};
             ImGui::EndDisabled();
             const float w = float(std::max(1u, data->width >> settings.mip));
             const float h = float(std::max(1u, data->height >> settings.mip));

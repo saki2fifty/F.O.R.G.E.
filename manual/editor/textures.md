@@ -134,7 +134,7 @@ storage in this export profile; choose PNG for other stored channels.
 
 The PNG/WebP stored-pixel profile supports uncompressed R8, RG8, RGBA8 and RGBA8
 sRGB. Compressed, 16-bit normalized and floating-point storage cannot use this
-profile. For supported floating-point HDR textures, use the HDR profile below. The complete
+profile. For normalized 16-bit storage, use PNG16 below. For supported floating-point HDR textures, use the HDR profile below. The complete
 selected texture must fit 128 MiB; the chosen image must fit 4096 pixels per axis
 and 64 MiB RGBA. Choose a smaller mip for an oversized image. The encoded file
 limit is 68 MiB. A rejected export keeps any existing destination file intact.
@@ -151,6 +151,44 @@ cancel a texture export. Export creates no Scene Undo entry and changes no impor
 settings. The file does not preserve sampler settings, semantic usage, alpha
 convention, other mips or asset identity. When importing it again, choose the
 appropriate settings for its stored channels; identical appearance is not implied.
+
+
+## Export 16-bit stored samples
+
+Open a published **R16**, **RG16** or **RGBA16** normalized texture. Choose the
+matching **Color**, **Data** or **Normal** under **Variant**; select data/normal
+explicitly for those usages. In the Feature Gallery, **Assets/TexturePrecision/Normalized16.png** provides an original RGBA16
+sample with gradients, low-bit variation and transparency. This profile preserves
+normalized samples; floating-point half values use the separate HDR workflow.
+
+![Published normalized 16-bit precision texture with Export image above its color and alpha pattern](../images/uint16-texture-export.png)
+
+The preview is an inspection image. The exported PNG retains 16-bit sample precision.
+
+1. Select **Mip**, **Array layer**, **Cube face** or **Depth slice** as needed under **View controls**.
+2. Click **Export image...**. The chooser offers **PNG image** for this selection. Use a **.png** filename and confirm replacement when required.
+3. Wait for **Image saved**. The completion message identifies **16-bit PNG**.
+
+The file contains 16-bit RGBA samples. Present channels, alpha and RGB beneath
+transparent alpha remain exact. R16 expands to red with green/blue zero and
+alpha 65535; RG16 retains red/green with blue zero and alpha 65535. Green is not
+interpreted as alpha. Cooked byte order is converted to the PNG file convention;
+no color transfer, normal reconstruction, tone mapping or alpha conversion occurs.
+The PNG has no invented sRGB label. Source color/import metadata, sampler settings
+and other subresources are excluded; choose the correct usage/linear settings when
+importing it again.
+
+The full selected texture must fit 256 MiB, and the chosen image must fit 4096 pixels
+per axis and 128 MiB of RGBA16 samples. Encoded output is capped at 136 MiB. Choose a
+smaller mip for an oversized image. A failed export preserves an existing file.
+JPEG, WebP and HDR filenames cannot store this exact normalized 16-bit profile.
+
+Agent PNG inspection previews quantize each 16-bit channel to the nearest 8-bit
+value and may reduce resolution to 1024 pixels on the longest side. These previews
+retain alpha and the unlabelled channel interpretation, with no gamma conversion.
+Current and later preview requests use the same quantization. Inspect the full
+PNG with a 16-bit-capable reader to check precision; the screenshot/preview alone
+does not demonstrate low-bit equality.
 
 
 ## Export a JPEG image
@@ -213,5 +251,5 @@ Scene-history behavior described above also applies to HDR.
 
 MCP writes the same HDR file and reports its path and MIME through capture status.
 Inline HDR image previews are unavailable in this profile; this does not prevent
-successful file output. Scene/Game view-image capture and Timeline frame export
-continue to save their rendered display images as PNG/WebP and PNG respectively.
+successful file output. Scene/Game view-image capture uses PNG, lossless WebP or
+opaque JPEG. Timeline frame export uses PNG.

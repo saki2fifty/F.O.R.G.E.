@@ -41,6 +41,7 @@ class ViewImageTask {
         std::string value;
         std::optional<ViewImagePreview> preview;
         std::string preview_error = {};
+        unsigned component_bits = 0;
     };
     struct FrameReceipt {
         SequenceFrameSourceInfo source;
@@ -69,7 +70,7 @@ class ViewImageTask {
         Json source;
         std::function<ImagePixels(ViewImageFormat)> load;
         bool allow_hdr = false;
-        ViewImageFormat preferred_format = ViewImageFormat::Png;
+        std::optional<ViewImageFormat> only_format = {};
     };
     bool busy() const {
         return dialog_.busy() || pending_ || copied_ || job_.valid() || frames_ ||
@@ -296,9 +297,12 @@ class ViewImageTask {
         const char* filename = view == View::Texture ? "Texture.png"
                                : view == View::Scene ? "Scene.png"
                                                      : "Game.png";
-        const bool hdr = input_ && input_->preferred_format == ViewImageFormat::Hdr;
-        dialog_.show(FileDialog::Kind::SaveImage, window,
-                     path_utf8(project / (hdr ? "Texture.hdr" : filename)), hdr);
+        const auto only_format = input_ ? input_->only_format : std::nullopt;
+        const auto suggested = view == View::Texture && only_format
+                                   ? std::string("Texture") + view_image_suffix(*only_format)
+                                   : std::string(filename);
+        dialog_.show(FileDialog::Kind::SaveImage, window, path_utf8(project / suggested),
+                     only_format);
     }
     // Completed picker selection. This adapter also accepts explicit editor requests;
     // an existing filename is already confirmed by the calling file picker.
@@ -374,7 +378,10 @@ class ViewImageTask {
                     publish_status("Image preview ready", message);
                 } else if (!frames_) {
                     completed_image_ = std::filesystem::u8path(result.value);
-                    publish_status("Image saved: " + result.value, message);
+                    completed_component_bits_ = result.component_bits;
+                    publish_status("Image saved: " + result.value +
+                                       (result.component_bits == 16 ? " (16-bit PNG)" : ""),
+                                   message);
                     if (editor_context)
                         editor_context->problems.resolve("view-image");
                 } else if (file_work_ == FileWork::FrameReceipt) {
@@ -460,8 +467,9 @@ class ViewImageTask {
                                            : "Image save cancelled because the Scene changed",
                                        message);
                     else {
-                        const bool hdr = input_ && input_->preferred_format == ViewImageFormat::Hdr;
-                        const auto format = FileDialog::image_format(result->filter_index, hdr);
+                        const auto only_format = input_ ? input_->only_format : std::nullopt;
+                        const auto format =
+                            FileDialog::image_format(result->filter_index, only_format);
                         selected_path(view_, std::filesystem::u8path(result->path), project, scene,
                                       message, format, std::move(input_));
                     }
@@ -833,6 +841,7 @@ class ViewImageTask {
     std::future<FileResult> job_;
     std::string operation_, artifact_operation_, preview_operation_, error_, preview_error_;
     std::filesystem::path completed_image_, preview_file_;
+    unsigned completed_component_bits_ = 0;
     std::optional<FrameReceipt> completed_frames_;
     std::optional<ViewImagePreview> preview_;
     bool preview_requested_ = false;
@@ -859,6 +868,7 @@ class ViewImageTask {
             input_.reset();
             artifact_operation_ = operation_;
             completed_image_.clear();
+            completed_component_bits_ = 0;
             completed_frames_.reset();
         }
     }
@@ -881,9 +891,12 @@ class ViewImageTask {
         file_work_ = FileWork::Image;
         job_ = std::async(std::launch::async, [load = std::move(load), destination,
                                                preview_requested, encoding]() mutable {
-            auto pixels = load();
+            ImagePixels pixels = load();
             save_image_pixels(destination, pixels, encoding);
             FileResult result{path_utf8(destination), {}};
+            result.component_bits = std::holds_alternative<Rgba16Pixels>(pixels)  ? 16
+                                    : std::holds_alternative<Rgba8Pixels>(pixels) ? 8
+                                                                                  : 0;
             if (preview_requested) {
                 try {
                     result.preview = view_image_format(destination) == ViewImageFormat::Jpeg

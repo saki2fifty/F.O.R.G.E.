@@ -361,7 +361,7 @@ bounded to4096 per axis and64MiB. Missing G/B are0, missingA255. All present byt
 including RGB under zero alpha and premultiplied/normal/data channels, remain exact.
 There is no color/alpha/normal conversion or source/import metadata roundtrip.
 The byte profile rejects block compression,16-bit and floating storage before
-publication. The separate HDR output profile is described below.
+publication. The separate normalized16-bit PNG and HDR output profiles are described below.
 
 The detached RGBA8 value records an sRGB label without changing bytes. PNG emits
 its sRGB chunk only for sRGB storage; otherwise no color-space label is invented.
@@ -379,6 +379,44 @@ bounded pixel/encoding job finishes before retirement, with no preemption promis
 The MCP output grant, canonical path checks, explicit replacement, revision/sequence
 and exact-current-operation read rules remain authoritative. No second agent-only
 export path is maintained. See [the user guide](../manual/editor/textures.md).
+
+
+## Normalized16-bit PNG output
+
+Published R16/RG16/RGBA16 storage projects through the same checked image slice and
+selected-artifact loader into an owned Rgba16Pixels value. Cooked little-endian
+scalars are explicitly assembled as native uint16 values. Present channels/alpha
+and hidden RGB remain exact; missingG/B are0 and missingA65535. No source decode,
+color/gamma/normal/alpha conversion or invented sRGB label is performed. The
+complete selected normalized texture limit is256MiB, packed RGBA16 is128MiB,
+each axis4096 and encoded PNG136MiB. Existing byte/HDR/JPEG/WebP output limits
+remain. PNG selected-artifact reading can admit256MiB before the actual typed
+projection enforces the byte or16-bit source profile; this is not a128MiB process
+memory ceiling. Native codec/read/preview buffers are additional bounded storage.
+
+One shared libpng C writer handles8/16-bit IHDR, bounded callbacks and longjmp
+cleanup. The pinned public png_set_swap API converts native little-endian16-bit
+rows to PNG network order after png_write_info. Existing PNG8 entry points and
+byte budgets remain intact; the16-bit entry point deliberately emits no sRGB chunk.
+The C++ exact sample-count/format check precedes the existing atomic file writer.
+Wrong suffix, sample layout, selector or budget cannot replace a good artifact.
+
+The Texture preview hints PNG-only for normalized16-bit selections through the
+same optional single-format chooser contract as HDR-only output. Byte selections
+retain their PNG/WebP/JPEG choices. A completed native status identifies16-bit PNG.
+Automation/MCP uses the same producer/transaction, reports component_bits16 and
+stored_rgba16 for a completed texture, and preserves output permissions, exact
+revision/replay, overwrite and source-lifetime rules. Pending texture metadata uses
+stored_samples until the actual producer establishes8/16-bit result precision.
+
+Owned current/later PNG inspection uses one bounded quantizer: each uint16 sample
+maps to nearest uint8 via(value*255+32767)/65535, then the existing1024-axis preview
+resampler. Alpha/hidden RGB and the absent color label are retained at that reduced
+precision. The full PNG stays16-bit; no lossless-preview claim is made. The private
+PNG decoder retains native uint16 samples and full framing checks. It may read a
+136MiB normalized16-bit artifact and decode128MiB; byte codecs keep their68MiB
+encoded admission. The inspection path still reads only owned artifacts, with no
+new arbitrary-file or decoder authority. See [the user guide](../manual/editor/textures.md).
 
 
 ## JPEG still-image output
@@ -447,7 +485,7 @@ The HDR file exists on disk and status returns its path/MIME. Inline protocol PN
 previews of HDR are explicitly unsupported, including later preview requests;
 no unsupervised HDR source decoder is added to editor image IO. Successful output
 retains a separate preview diagnostic and does not become a file failure. Existing
-PNG/WebP preview reads remain header-based, including owned files without a suffix.
+PNG8/16, WebP and JPEG preview reads remain header-based, including owned files without a suffix.
 Full-file download is not an MCP operation; capture status describes the written
 artifact. A trusted external image application or ordinary authorized asset-import
 workflow can consume it. See [the user guide](../manual/editor/textures.md).

@@ -16,6 +16,9 @@ int forge_png_encode_rgba8(const void* pixels, size_t extent, unsigned width, un
 int forge_png_encode_rgba8_profile(const void* pixels, size_t extent, unsigned width,
                                    unsigned height, size_t stride, int srgb, size_t byte_limit,
                                    ForgeImageBytes* result);
+// Native-endian RGBA uint16 samples, PNG16 with no sRGB label. Rows may be padded.
+int forge_png_encode_rgba16(const void* pixels, size_t extent, unsigned width, unsigned height,
+                            size_t stride, size_t byte_limit, ForgeImageBytes* result);
 // Lossless still WebP, preserving RGB even under zero alpha. Private image-tool
 // integration; native encoding may allocate working memory beyond output bytes.
 int forge_webp_encode_rgba8(const void* pixels, size_t extent, unsigned width, unsigned height,

@@ -11,7 +11,8 @@ inline void published_texture_fixture(const std::filesystem::path& gallery,
     auto catalog = forge::AssetCatalog::open_project(project);
     for (const char* locator :
          {"Assets/Sprites/Badge.png", "Assets/OcclusionNormals/RippleNormals.png",
-          "Assets/ReflectionCapture/Reflection.dds", "Assets/ReflectionProbes/WarmRoom.png"}) {
+          "Assets/ReflectionCapture/Reflection.dds", "Assets/ReflectionProbes/WarmRoom.png",
+          "Assets/TexturePrecision/Normalized16.png"}) {
         const auto found =
             std::find_if(source.records().begin(), source.records().end(),
                          [&](const auto& row) { return row.second.source == locator; });

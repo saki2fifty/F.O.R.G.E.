@@ -1726,3 +1726,24 @@ readback also requires varied rendered pixels; frame retirement follows the
 existing offscreen host protocol. Existing byte/HDR canonical captures above
 remain unchanged and retain their original provenance. Windows/full Main/MSVC /
 D3D12, physical GPU/input/DPI, external clients and graphical EXE remain pending.
+
+
+## Normalized16-bit texture image export
+
+[Precision texture export](../../../manual/images/uint16-texture-export.png) shows
+the actual production TextureViewer displaying the original Gallery normalized
+RGBA16 ramp and its alpha checkerboard. The published source image is absent from
+the fixture. The exported full PNG preserves16-bit samples; this8-bit screenshot
+and the display alone cannot establish low-bit precision.
+
+This authentic720×650 local unassigned-build image uses the approved pinned
+Diligent ImGui renderer, software Vulkan and independent RGBA readback encoded
+directly as PNG. No cropping, resizing, retouching or fabricated controls. Source:
+`tests/texture_image_editor_vulkan_probe.cpp`, `texture_image_editor_vulkan`;
+`texture-image-editor-vulkan/uint16-texture-export-wide-100.png`.
+PNG SHA256: `9375188c17a24a921f7406a80f9201d18cc3f7cfd744180620f32ea8e60b4f30`.
+Native consumer SHA256: `27146e38b42da28a12f233f82dccd04eb159097d51dfa2b189176bdb4c254ec2`.
+The full native suite covers24byte/HDR/JPEG/normalized16-bit wide/narrow cases at
+1/1.5/2interface scale, with actual input, chooser hints and exact PNG16 samples.
+Windows/full Main/MSVC/D3D12/physical GPU/input/DPI/performance and external-client
+acceptance remain pending.

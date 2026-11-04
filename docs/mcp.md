@@ -929,6 +929,18 @@ R8/RG8/RGBA8/sRGB byte storage, a complete128MiB selected texture and a4096-axis
 Missing G/B are0 and missingA255. Present bytes, including alpha/hidden RGB,
 remain exact, with no preview color/alpha/normal conversion or import metadata.
 
+Normalized R16/RG16/RGBA16 selections also use `.png`, retaining exact16-bit
+samples in RGBA file layout without an invented sRGB label. MissingG/B are0 and
+missingA65535; RG16 green is not alpha. The selected source limit is256MiB, detached
+RGBA16 128MiB, extent4096axis and encoded PNG136MiB. Other format destinations
+reject without overwriting a good file. Status reports `component_bits:16` and
+completed `texture.profile:"stored_rgba16"`; completed byte files report8 and
+stored_rgba8, while pending selection metadata uses stored_samples. Bounded PNG
+image content is8-bit, using nearest channel quantization and existing1024-axis
+sizing. The saved PNG preserves16-bit precision; its preview does not. Current and
+later owned-file previews share quantization. Original sources remain unused and
+the same output/revision/replay/overwrite/Undo boundaries apply.
+
 For JPEG still output, use `.jpg/.jpeg` and optional `jpeg_quality`1..100
 (default90). Both `forge_capture_start` and `forge_capture_texture` accept this
 option only for JPEG destinations; other combinations reject before starting work.

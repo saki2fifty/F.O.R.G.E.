@@ -9,7 +9,9 @@ Local source adds published Texture stored-pixel export through the native previ
 and shared automation/MCP image task. The bounded byte-storage profile supports
 PNG, sRGB lossless WebP and opaque sRGB JPEG, selected mip/layer/face/depth and source-hidden cooked
 assets. It performs no color/alpha/normal conversion or import-metadata roundtrip;
-compressed/normalized16-bit storage remains unsupported. A separate opaque linear
+compressed storage remains unsupported. Normalized R16/RG16/RGBA16 now exports
+exact PNG16 with a separately quantized8-bit preview, shared native PNG-only hint,
+MCP result precision and an original published Gallery ramp. A separate opaque linear
 HdrColor RGBA16/32Float profile writes quantized Radiance HDR without tone mapping;
 JPEG quality1..100/default90 is shared by native controls and MCP; its previews
 show decoded saved pixels. HDR inline image previews remain unsupported. Windows/full-editor/physical

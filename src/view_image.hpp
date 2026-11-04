@@ -20,6 +20,9 @@ void save_view_image(const std::filesystem::path&, unsigned width, unsigned heig
 // PNG. WebP requires sRGB bytes; JPEG requires opaque sRGB bytes and is lossy.
 void save_image_pixels(const std::filesystem::path&, const Rgba8Pixels&,
                        const ImageEncodingOptions& = {});
+// Exact normalized16-bit PNG only; no color/alpha conversion or invented label.
+void save_image_pixels(const std::filesystem::path&, const Rgba16Pixels&,
+                       const ImageEncodingOptions& = {});
 // Quantized RGBE .hdr only; opaque linear HDR values have no alpha or inline preview.
 void save_image_pixels(const std::filesystem::path&, const Rgb32Pixels&,
                        const ImageEncodingOptions& = {});
@@ -37,6 +40,8 @@ struct ViewImagePreview {
 ViewImagePreview preview_view_pixels(unsigned width, unsigned height,
                                      std::span<const std::uint8_t> rgba, bool srgb = true);
 ViewImagePreview preview_image_pixels(const Rgba8Pixels&);
+// Inspection quantizes normalized16-bit samples to8-bit; full files remain exact.
+ViewImagePreview preview_image_pixels(const Rgba16Pixels&);
 ViewImagePreview preview_image_pixels(const ImagePixels&);
 ViewImagePreview read_view_preview(const std::filesystem::path&);
 } // namespace forge

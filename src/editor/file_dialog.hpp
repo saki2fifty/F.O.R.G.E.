@@ -43,15 +43,26 @@ class FileDialog {
         ImageChoice{{"JPEG image", "jpg;jpeg"}, ViewImageFormat::Jpeg}};
     inline static constexpr ImageChoice hdr_choice{{"HDR image (Radiance RGBE)", "hdr"},
                                                    ViewImageFormat::Hdr};
-    static std::optional<ViewImageFormat> image_format(int index, bool hdr) {
+    static const ImageChoice& image_choice(ViewImageFormat format) {
+        if (format == hdr_choice.format)
+            return hdr_choice;
+        for (const auto& choice : image_choices)
+            if (choice.format == format)
+                return choice;
+        throw std::runtime_error("The image dialog has no matching format");
+    }
+    static std::optional<ViewImageFormat>
+    image_format(int index, std::optional<ViewImageFormat> only_format = {}) {
         if (index == -1)
             return {};
-        if (index < 0 || (hdr ? index != 0 : std::size_t(index) >= image_choices.size()))
+        if (index < 0 || (only_format ? index != 0 : std::size_t(index) >= image_choices.size()))
             throw std::runtime_error("The image dialog returned an unknown filter");
-        return hdr ? hdr_choice.format : image_choices[std::size_t(index)].format;
+        return only_format ? image_choice(*only_format).format
+                           : image_choices[std::size_t(index)].format;
     }
     bool busy() const { return busy_; }
-    void show(Kind kind, SDL_Window* window, std::string location, bool hdr_image = false) {
+    void show(Kind kind, SDL_Window* window, std::string location,
+              std::optional<ViewImageFormat> only_format = {}) {
         if (busy_)
             return;
         busy_ = true;
@@ -86,8 +97,9 @@ class FileDialog {
             SDL_ShowSaveFileDialog(callback, owned, window, &filter, 1, state_->location.c_str());
         else if (kind == Kind::SaveImage)
             SDL_ShowSaveFileDialog(
-                callback, owned, window, hdr_image ? &hdr_choice.filter : image_filters.data(),
-                hdr_image ? 1 : int(image_filters.size()), state_->location.c_str());
+                callback, owned, window,
+                only_format ? &image_choice(*only_format).filter : image_filters.data(),
+                only_format ? 1 : int(image_filters.size()), state_->location.c_str());
         else
             SDL_ShowOpenFolderDialog(callback, owned, window, state_->location.c_str(), false);
     }

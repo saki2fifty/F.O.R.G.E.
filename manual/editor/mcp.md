@@ -204,6 +204,12 @@ textures and shared-exponent RGBE quantization; it provides a written file path 
 MIME through capture status, with no inline HDR image preview. Import drafts and preview display controls
 are excluded. Existing files require an explicit replacement request.
 
+Normalized **R16/RG16/RGBA16** textures use **.png** and preserve 16-bit samples in
+the full file. Capture status reports **component_bits: 16** and the completed
+texture profile **stored_rgba16**. The bounded PNG preview uses nearest 8-bit
+samples and may reduce resolution; it cannot demonstrate full 16-bit precision.
+Its PNG16 limits and channel/alpha rules are described in [Texture image export](textures.md).
+
 For **.jpg/.jpeg**, the agent can set **jpeg_quality** from **1–100**; the default is
 **90**. This option is accepted only for JPEG destinations. Texture JPEG output
 requires opaque sRGB byte storage. JPEG is lossy even at 100; its PNG inspection

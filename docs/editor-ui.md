@@ -167,6 +167,13 @@ previous file before publication; no asset registration, Scene history, persiste
 runtime editor or separate capture clock is introduced. These view commands save
 one current-size image. Timeline has a separate sequence-frame operation below.
 
+Published normalized16-bit Texture selections use the same image task with a
+PNG-only picker hint, exact RGBA16 file output and separately quantized8-bit
+inspection. HDR retains its single HDR filter; ordinary byte selections retain
+PNG/WebP/JPEG. The chooser's optional single-format hint and index map use one
+ordered format owner. Completed PNG16 status describes the preserved precision.
+See [Texture output](texture-assets.md) for bounds and semantics.
+
 ### Sequence preview frames
 
 The ready scene-sequence Timeline's **Export frames…** action uses the same image

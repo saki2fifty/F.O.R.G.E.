@@ -542,3 +542,24 @@ CPU strict checks instrument this C++20 writer instance without vendor edits or
 sanitizer suppressions; other dependency objects remain normally compiled. This
 is not a general upstream repair or Windows/MSVC acceptance claim. No live-only
 API, new JPEG sequence encoder or arbitrary image/file capability is assumed.
+
+
+## Shared PNG16 image writer selection — 2026-11-04
+
+Retain the approved coordinated Diligent snapshot and its pinned libpng1.6.55 /
+zlib targets. The existing PNG C writer now shares its error/callback/atomic-output
+boundary across8/16-bit IHDR. Exact selected example.c write-transform order and
+pngtrans.c/pngwrite.c establish public png_set_swap after png_write_info for native
+little-endian uint16 rows. Existing bounded PNG decoding already retains native
+uint16 values with the corresponding read transform; its source semantics remain.
+No dependency/version/ABI/serialized texture format changes, vendor patch or copied
+codec implementation is introduced. Existing Runtime/NativeSdk libpng/zlib notices
+remain installed. The PNG16 profile deliberately has no sRGB label; it preserves
+normalized channels and alpha rather than interpreting color or source metadata.
+
+The dedicated sample test also decompresses one-pixel IDAT with the exact selected
+ZLIB::ZLIB target and checks known high-byte-first wire values independently of
+the PNG decoder's own endian transform. Focused checks cover low bits, padded rows,
+selectors, budgets, source-hidden publication and separately quantized previews.
+Selected FORGE C/C++ boundaries receive strict/sanitizer checks; upstream codec
+objects remain normal. Windows/MSVC/physical acceptance is separate.
