@@ -29,14 +29,20 @@ void InputMessageRuntime::tick(const InputSnapshot& input, const InputMap& map) 
     status_["overflow"] = 0;
     status_["sources"] = Json::array();
     auto& rows = status_["sources"];
+    for (auto& [id, observation] : observations_) {
+        (void)id;
+        observation.seen = false;
+    }
     std::map<EntityId, flecs::entity_t> sources;
     world.each([&](flecs::entity entity, const InputMessage&) {
         if (entity.has<SceneMember>(scene_.membership()))
             if (const auto ref = context_.reference(entity))
                 sources.emplace(ref->entity, entity);
     });
-    if (sources.empty())
+    if (sources.empty()) {
+        observations_.clear();
         return;
+    }
     std::vector<Pending> pending;
     std::size_t bytes = 0;
     ApplicationStateActivation activity(context_);
@@ -50,6 +56,7 @@ void InputMessageRuntime::tick(const InputSnapshot& input, const InputMap& map) 
         rows.push_back({{"entity", EntityRef{scene_.asset_id(), id}},
                         {"action", config.action},
                         {"payload", config.payload},
+                        {"trigger", config.trigger},
                         {"state", "Ready"}});
         auto& row = rows.back();
         try {
@@ -68,7 +75,8 @@ void InputMessageRuntime::tick(const InputSnapshot& input, const InputMap& map) 
                              [&](const auto& value) { return value.id == action_id; });
             if (definition == map.actions().end())
                 throw std::runtime_error("Action is absent from the active input map");
-            if (definition->kind != ActionKind::Digital)
+            if (definition->kind != ActionKind::Digital &&
+                config.trigger != std::uint32_t(InputMessageTrigger::Changed))
                 throw std::runtime_error("Input Message requires a digital action");
             for (const auto& context : map.contexts())
                 if (context.name == definition->context && context.control)
@@ -76,6 +84,29 @@ void InputMessageRuntime::tick(const InputSnapshot& input, const InputMap& map) 
             const auto action = input.actions.find(action_id);
             if (action == input.actions.end())
                 throw std::runtime_error("Action is absent from the active input map");
+            const auto& current = action->second;
+            bool triggered = config.trigger == std::uint32_t(InputMessageTrigger::Released)
+                                 ? current.released
+                                 : current.pressed;
+            if (config.trigger == std::uint32_t(InputMessageTrigger::Changed)) {
+                auto& previous = observations_[id];
+                if (previous.source != handle || previous.action != action_id ||
+                    previous.kind != definition->kind || previous.context != definition->context ||
+                    previous.payload != config.payload) {
+                    previous.source = handle;
+                    previous.action = action_id;
+                    previous.kind = definition->kind;
+                    previous.context = definition->context;
+                    previous.payload = config.payload;
+                    previous.value = {};
+                }
+                triggered =
+                    definition->kind == ActionKind::Digital
+                        ? current.pressed || current.released || current.held != previous.value.held
+                        : current.x != previous.value.x || current.y != previous.value.y;
+                previous.value = current;
+                previous.seen = true;
+            }
             ecs_entity_t type = 0;
             const Builtin* builtin_value = nullptr;
             const AuthoredCodec* authored_value = nullptr;
@@ -102,7 +133,7 @@ void InputMessageRuntime::tick(const InputSnapshot& input, const InputMap& map) 
                 (info->hooks.flags & (ECS_TYPE_HOOK_CTOR_ILLEGAL | ECS_TYPE_HOOK_COPY_ILLEGAL |
                                       ECS_TYPE_HOOK_DTOR_ILLEGAL)))
                 throw std::runtime_error("Payload has no supported native value lifecycle");
-            if (!action->second.pressed)
+            if (!triggered)
                 continue;
             const auto value = builtin_value ? builtin_value->read(entity, true)
                                              : authored_value->read(entity, true);
@@ -121,6 +152,7 @@ void InputMessageRuntime::tick(const InputSnapshot& input, const InputMap& map) 
             row["diagnostic"] = error.what();
         }
     }
+    std::erase_if(observations_, [](const auto& row) { return !row.second.seen; });
     // Capture every value before invoking project observers. The immediate native
     // system retains its outer deferral: structural observer writes merge at the
     // system boundary, after this captured batch and before Gameplay.

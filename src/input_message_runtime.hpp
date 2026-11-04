@@ -14,6 +14,15 @@ class InputMessageRuntime {
   private:
     WorldContext& context_;
     Scene& scene_;
+    struct Observation {
+        flecs::entity_t source{};
+        ActionId action;
+        ActionKind kind{};
+        std::string context, payload;
+        ActionState value;
+        bool seen = false;
+    };
+    std::map<EntityId, Observation> observations_;
     Json status_ = {{"tick", 0},
                     {"emitted", 0},
                     {"emitted_total", std::uint64_t{}},

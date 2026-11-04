@@ -1,5 +1,24 @@
 # Feature Gallery
 
+## Input Message triggers
+
+Open `159-input-message-triggers` to try digital Released and analog Changed
+sources. Create an empty C++ System named **InputMessageTriggers**, replace its
+source with `CodeExamples/InputMessageTriggers.cpp` and copy the matching
+`InputMessageTriggers.hpp` beside it in `Native/Systems`. Build project code with
+the matching SDK, press Play and capture Game input. Release Space to toggle the
+orange cube's height; Q/E or the right stick's horizontal axis sets the blue
+cube's height; W/A/S/D or the left stick sets the green cube's position.
+Stable values do not repeat; returning to neutral sends one change. Console's
+Gameplay input section shows each source's trigger and dispatch status.
+
+The receiver borrows the current fixed action value through the public SDK
+inside the typed component observer. It does not replace the attached payload
+with input fields. The installed `input_messages_gameplay` target includes this
+receiver and the original Pressed example in scene150. Save authored settings and
+scene, select the scene as startup, build and include its matching module and
+runtime kit for export. See [the input-message guide](../../../manual/editor/input-messages.md).
+
 ## Imported diffuse lightmaps
 
 Open `158-imported-lightmaps` to compare three cubes sharing one graph Material

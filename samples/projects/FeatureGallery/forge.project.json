@@ -531,6 +531,60 @@
         "id": "8c68fc99-bdb7-4bf4-9b91-dae060349ff0",
         "kind": "digital",
         "name": "Send component message"
+      },
+      {
+        "bindings": [
+          {
+            "control": "key.q",
+            "x": -1
+          },
+          {
+            "control": "key.e"
+          },
+          {
+            "control": "pad.right_x"
+          }
+        ],
+        "id": "15900000-1590-4159-8159-000000000010",
+        "kind": "axis1",
+        "name": "Message height"
+      },
+      {
+        "bindings": [
+          {
+            "control": "key.a",
+            "x": -1,
+            "y": 0
+          },
+          {
+            "control": "key.d",
+            "x": 1,
+            "y": 0
+          },
+          {
+            "control": "key.w",
+            "x": 0,
+            "y": 1
+          },
+          {
+            "control": "key.s",
+            "x": 0,
+            "y": -1
+          },
+          {
+            "control": "pad.left_x",
+            "x": 1,
+            "y": 0
+          },
+          {
+            "control": "pad.left_y",
+            "x": 0,
+            "y": -1
+          }
+        ],
+        "id": "15900000-1590-4159-8159-000000000011",
+        "kind": "axis2",
+        "name": "Message position"
       }
     ],
     "version": 1

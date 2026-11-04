@@ -1,6 +1,6 @@
 # Gameplay input
 
-Input actions give your project named controls with stable identities. They are separate from editor shortcuts. Runtime systems read these values. Your gameplay code decides how they move a character or camera. Use [Input Message](input-messages.md) to send an attached component's data to a C++ observer on a digital press.
+Input actions give your project named controls with stable identities. They are separate from editor shortcuts. Runtime systems read these values. Your gameplay code decides how they move a character or camera. Use [Input Message](input-messages.md) to send an attached component's data to a C++ observer on a press, release or fixed action-value change.
 
 ![Project Settings with Input contexts and Add context controls](../images/input-contexts.png)
 

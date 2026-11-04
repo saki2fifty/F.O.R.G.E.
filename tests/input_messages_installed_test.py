@@ -19,6 +19,9 @@ with tempfile.TemporaryDirectory(prefix='input-messages-sdk-', dir=build) as fol
         gallery.parents[2] / 'include/forge/input_message.hpp').read_bytes()
     assert (stage / 'sdk/sample/InputMessages.cpp').read_bytes() == (
         gallery / 'CodeExamples/InputMessages.cpp').read_bytes()
+    for example in ('InputMessageTriggers.cpp', 'InputMessageTriggers.hpp'):
+        assert (stage / 'sdk/sample' / example).read_bytes() == (
+            gallery / 'CodeExamples' / example).read_bytes()
     stage.rename(moved)
     subprocess.run([cmake, '-S', moved / 'sdk/sample', '-B', client, '-G', 'Ninja',
                     '-DCMAKE_BUILD_TYPE=' + cache['CMAKE_BUILD_TYPE:STRING'],

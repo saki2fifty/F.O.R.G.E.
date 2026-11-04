@@ -84,7 +84,10 @@ template <class T> Json encode(const T& p) {
     else if constexpr (std::is_same_v<T, ApplicationStateGate>)
         return {{"enabled", p.enabled}, {"domain", p.domain}, {"state", p.state}};
     else if constexpr (std::is_same_v<T, InputMessage>)
-        return {{"enabled", p.enabled}, {"action", p.action}, {"payload", p.payload}};
+        return {{"enabled", p.enabled},
+                {"action", p.action},
+                {"payload", p.payload},
+                {"trigger", p.trigger}};
     else if constexpr (std::is_same_v<T, NavigationSurface>)
         return {{"enabled", p.enabled}};
     else if constexpr (std::is_same_v<T, NavigationLink>)
@@ -414,6 +417,11 @@ template <class T> Value decode(const Json& p) {
     } else if constexpr (std::is_same_v<T, InputMessage>) {
         InputMessage value{p.at("enabled").get<bool>(), p.at("action").get<std::string>(),
                            p.at("payload").get<std::string>()};
+        if (const auto trigger = p.find("trigger"); trigger != p.end()) {
+            if (!trigger->is_number_integer() || *trigger < 0 || *trigger > 2)
+                throw std::runtime_error("Input Message trigger must be an integer from 0 to 2");
+            value.trigger = trigger->get<std::uint32_t>();
+        }
         value.validate();
         return value;
     } else if constexpr (std::is_same_v<T, NavigationSurface>)
@@ -1237,7 +1245,8 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
         w.component<std::string>("forge.authored_string").opaque(reflected_string);
         c.template member<bool>("enabled")
             .template member<std::string>("action")
-            .template member<std::string>("payload");
+            .template member<std::string>("payload")
+            .template member<std::uint32_t>("trigger");
     } else if constexpr (std::is_same_v<T, NavigationSurface>)
         c.template member<bool>("enabled");
     else if constexpr (std::is_same_v<T, NavigationLink>) {
@@ -1828,7 +1837,7 @@ const std::array<Builtin, builtin_count>& builtins() {
                 return register_type<ApplicationStateGate>(w, "forge.application_state_gate");
             }),
         descriptor<InputMessage>(
-            "forge.input_message", "Send attached component data when an input action is pressed",
+            "forge.input_message", "Send attached component data on a fixed input action trigger",
             "unitless", {}, {},
             [](flecs::world& w) { return register_type<InputMessage>(w, "forge.input_message"); }),
         descriptor<MeshRenderer>(
@@ -3089,10 +3098,16 @@ Json registration_options(const Builtin& type, const std::string& field) {
         value.erase("minimum");
         value.erase("maximum");
         value["animatable"] = false;
-        value["description"] = field == "action" ? "Stable input action ID from Project Settings"
-                               : field == "payload"
-                                   ? "Attached component key; copied on each pressed edge"
-                                   : "Send messages during fixed Play ticks";
+        if (field == "trigger") {
+            value["minimum"] = 0;
+            value["maximum"] = 2;
+        }
+        value["description"] =
+            field == "trigger"
+                ? "0 Pressed, 1 Released (digital); 2 Changed (digital or analog fixed-tick value)"
+            : field == "action"  ? "Stable input action ID from Project Settings"
+            : field == "payload" ? "Attached component key; copied on each matching input trigger"
+                                 : "Send messages during fixed Play ticks";
     }
     if (name == "forge.application_state_gate") {
         value.erase("minimum");
@@ -3595,6 +3610,11 @@ Json register_builtins(flecs::world& world, unsigned family) {
         if (name == "forge.camera" || name == "forge.ui_document") {
             world.component<ReflectedMemberDefault>(reflected_member_default_type);
             c.lookup("render_texture").set<ReflectedMemberDefault>({nullptr});
+        }
+        if (name == "forge.input_message") {
+            world.component<ReflectedMemberDefault>(reflected_member_default_type);
+            c.lookup("trigger").set<ReflectedMemberDefault>(
+                {std::uint32_t(InputMessageTrigger::Pressed)});
         }
         if (name == "forge.camera_shot") {
             world.component<ReflectedMemberDefault>(reflected_member_default_type);

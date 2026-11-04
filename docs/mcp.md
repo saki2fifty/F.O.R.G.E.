@@ -1555,16 +1555,18 @@ fixtures provide separate evidence; these MCP checks do not assert Windows execu
 ## Authored input messages
 
 Discovery includes optional Gameplay component `forge.input_message` with shared
-`enabled`, `action` UUID-text and `payload` component-key fields. Configure it with
+`enabled`, `action` UUID-text, `payload` component-key and unsigned `trigger` fields
+(0Pressed/default,1Released,2Changed). Discovery supplies the trigger range and
+legacy missing-field default. Configure it with
 `forge_component_add` and `forge_property_set_many`; remove its owned value with
 `forge_component_revert`. Normal permissions, target/revision, replay, Undo/Redo,
 Prefab and document-save semantics apply. Existing project-settings tools own
-the input map. Use a digital fixed-context action and an attached builtin or
-inspected opted-in project component; there is no separate agent payload store.
+the input map. Pressed/Released use digital fixed-context actions; Changed also
+accepts fixed Axis1/Axis2. Use an attached builtin or inspected opted-in project component; there is no separate agent payload store.
 
 `forge_play_input_submit` exercises the existing input owner. `forge_play_input`
 returns its cached `value.messages` observation, including tick, emitted count,
-overflow and per-source diagnostics. The normal Play launch/session/world
+overflow, per-source trigger and diagnostics. The normal Play launch/session/world
 correlation still applies. Sent means native dispatch, not proof of a receiver.
 Source-code creation/build/inspection supplies C++ receivers through the existing
 workflow. See [the dispatch and lifecycle contract](input-messages.md).

@@ -16,6 +16,13 @@ deliverables and are not claimed to be the same binary.
 
 ## Startup and ownership
 
+Reachable Input Message Released/Changed declarations require runtime-kit
+`engine.runtime_input_message_triggers:1`. Saved Scene/Prefab/variant components
+and property overrides supply the requirement through the existing document
+package owner. Pressed/default declarations retain legacy compatibility. Kit
+admission rejects missing or unsupported trigger profiles; SDK modules also need
+the exact current fingerprint. See [input messages](input-messages.md).
+
 Reachable Scene/Prefab wind intent requires runtime-kit
 `engine.runtime_mesh_wind:1`. The existing document package owner derives and
 checks the corresponding feature requirements against admitted saved bytes;

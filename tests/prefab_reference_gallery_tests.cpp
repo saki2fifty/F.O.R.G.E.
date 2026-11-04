@@ -177,6 +177,17 @@ int main(int argc, char** argv) {
                     renderer != components.end() && !renderer->contains("material_parameters"))
                     (*renderer)["material_parameters"] = Json::array();
                 const Json additions = {{"forge.camera", {{"render_texture", nullptr}}},
+                                        {"forge.input_message", {{"trigger", 0u}}},
+                                        {"forge.mesh_renderer",
+                                         {{"wind",
+                                           {{"enabled", false},
+                                            {"amplitude", .2},
+                                            {"frequency", .5},
+                                            {"wavelength", 8.},
+                                            {"direction_x", 1.},
+                                            {"direction_z", 0.},
+                                            {"height", 1.6},
+                                            {"phase", 0.}}}}},
                                         {"forge.transform_animator",
                                          {{"sequence", nullptr},
                                           {"sequence_start_seconds", 0.},

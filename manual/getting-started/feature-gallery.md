@@ -1,5 +1,13 @@
 # Explore the Feature Gallery
 
+**159-input-message-triggers** has three cubes with Released/Changed messages.
+Build its supplied InputMessageTriggers C++ observer with the matching SDK, then
+capture Game input. Release Space to switch the orange cube's height; Q/E or the
+right stick controls the blue cube; W/A/S/D or the left stick controls the green
+cube. Console shows trigger and dispatch status. Save settings/scene and include
+the matching module and runtime kit for export. See
+[Input Message setup and examples](../editor/input-messages.md).
+
 **157-foliage-wind** compares 64 wind-enabled plants with a still 24-plant patch
 on the heightfield. The blade template also has Wind enabled. Press Play to see
 the geometry and shadows move; Pause and Step control its simulation sample.

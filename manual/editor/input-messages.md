@@ -1,25 +1,44 @@
 # Send component data from an input action
 
-An Input Message sends a copy of an entity's component data when a digital input
-action is pressed. A C++ observer receives the copy and can change the running
-game. Holding the action sends once; a fresh press sends again.
+An Input Message sends a copy of an entity's component data when its saved input
+action triggers. Choose Pressed, Released or Changed. A C++ observer receives the
+copy and can change the running game.
 
-![Inspector with Input Message enabled, Send message selected as its Action and Tint as its Payload](../images/input-message-inspector.png)
+![Inspector with Input Message enabled, Axis value selected as its Action, Tint as its Payload and Changed as its Trigger](../images/input-message-inspector.png)
 
-Choose a saved Action and an attached Payload in Input Message.
+Choose a saved Action, an attached Payload and the Trigger that sends it.
 
 ## Prepare the source
 
-1. Open Project Settings and create a digital input action, such as Send message, bound to key.space. Save the settings. Use a fixed input context if your project uses contexts.
+1. Open Project Settings and create an input action. For a first test, use a digital action named Send message, bound to key.space. Save the settings. Use a fixed input context if your project uses contexts.
 2. Select an entity in Hierarchy. Attach or configure the component whose data you want to send. Builtin components and inspected, opted-in C++ components are supported, including inherited prefab values.
 3. In Inspector, choose Add Component, then Gameplay, then Input Message.
-4. Leave Enabled checked. Choose the saved action under Action. Choose the attached component under Payload.
+4. Leave Enabled checked. Choose a Trigger, then the saved action under Action. Choose the attached component under Payload. Pressed is the default.
 5. Save the scene. These selections use the usual Undo, Redo and prefab overrides.
 
-Action lists digital actions in fixed input contexts. Payload lists registered
+Action lists compatible actions in fixed input contexts. Pressed and Released
+list digital actions; Changed also lists Axis1/Axis2 actions. Payload lists registered
 components already attached to the entity. None leaves the emitter unassigned.
 An Unavailable selection retains its saved ID or key; restore the missing action
 or component, or select a replacement. Input Message cannot select itself.
+
+## Choose when to send
+
+- **Pressed** accepts digital actions and sends when pressed. Holding does not repeat.
+- **Released** accepts digital actions and sends when released.
+- **Changed** accepts digital, Axis1 and Axis2 actions. It sends when a digital edge occurs or the fixed action value changes.
+
+Changed uses the action's conditioned value after bindings and deadzones. Stable
+values send nothing. Returning a stick or key axis to neutral sends one change.
+A new neutral source sends nothing; enabling a source with nonneutral input can
+send again. A quick digital press and release between ticks sends one Changed
+message. Equal mouse-delta values in consecutive ticks do not repeat Changed;
+the return to zero does. Use a normal fixed system for continuous movement.
+
+Trigger changes preserve your selected action. If it becomes Unavailable, choose
+a compatible action or restore the matching trigger. To stop dispatch, disable
+the source or use State Conditions. Runtime callbacks receive the attached payload
+copy; input values are not automatically written into payload fields.
 
 ## Receive the message in C++
 
@@ -61,6 +80,21 @@ and clock controls can neutralize pending physical input. Resume, capture input
 and make a fresh press when testing with the editor's clock controls. Runtime
 changes disappear when that runtime is replaced; save configuration in Edit.
 
+## Try Released and analog changes
+
+1. Open Feature Gallery scene Scenes/159-input-message-triggers.scene.json. It has a Camera, light and three colored cubes.
+2. Create an empty C++ System named InputMessageTriggers. Replace its source with CodeExamples/InputMessageTriggers.cpp. Copy CodeExamples/InputMessageTriggers.hpp beside it in Native/Systems, then save and build project code with the matching SDK.
+3. Press Play, open Game and capture gameplay input. Press and release Space: the orange cube switches height on release. Holding Space does not move it.
+4. Hold E or Q to raise or lower the blue cube. Release the key to return it to its neutral height. The right stick's horizontal axis provides the same control.
+5. Use W/A/S/D or the left stick to move the green cube around its neutral position. It updates only when the fixed action value changes. Release the controls to return to neutral.
+6. Open Console, expand Gameplay input and check Input messages. Each source shows its Trigger, state and diagnostic. Stop Play and save the scene and Project Settings before export. Include the matching compiled module and use the runtime kit packaged with this editor.
+
+The example reads the current action with sdk::Client::action inside the typed
+observer, using the same fixed input as the message trigger. It filters by the
+Gallery scene's identity. Creating a different scene requires updating that
+filter and selecting your own saved actions. Both examples are installed with
+the SDK's input_messages_gameplay sample target.
+
 ## Current limits
 
 Messages run before fixed C++ gameplay systems. All payloads for a tick are
@@ -68,8 +102,9 @@ copied before callbacks. Normal structural changes requested by observers become
 visible after this batch, before gameplay systems. A source scheduled for
 deletion still sends its already captured message.
 
-Only digital actions in fixed contexts are supported. State Conditions and
-disabled entities suppress dispatch. At most 256 sources are considered per tick;
+Only fixed-context actions are supported. Pressed/Released require digital
+actions; Changed additionally supports Axis1/Axis2. State Conditions and disabled
+entities suppress dispatch. At most 256 sources are considered per tick;
 Console reports overflow. Each payload must fit the 64 KiB value envelope and all
 copies together must fit 4 MiB per tick. Unsupported raw pointers, resource owners
 and unregistered project types cannot be selected. Messages have no saved

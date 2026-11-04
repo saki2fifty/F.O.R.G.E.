@@ -19,6 +19,7 @@ void exercise(const std::filesystem::path& output, float scale) {
     project.open_project(root);
     auto settings = project.settings().document();
     const auto action = ActionId::generate().str();
+    const auto axis = ActionId::generate().str(), control = ActionId::generate().str();
     settings["input"] = {
         {"version", 2},
         {"contexts", Json::array({{{"name", "Fixed"}, {"active", true}},
@@ -28,12 +29,12 @@ void exercise(const std::filesystem::path& output, float scale) {
                                   {"kind", "digital"},
                                   {"context", "Fixed"},
                                   {"bindings", Json::array({{{"control", "key.space"}}})}},
-                                 {{"id", ActionId::generate()},
-                                  {"name", "Axis excluded"},
+                                 {{"id", axis},
+                                  {"name", "Axis value"},
                                   {"kind", "axis1"},
                                   {"context", "Fixed"},
                                   {"bindings", Json::array()}},
-                                 {{"id", ActionId::generate()},
+                                 {{"id", control},
                                   {"name", "Menu excluded"},
                                   {"kind", "digital"},
                                   {"context", "Menu"},
@@ -120,6 +121,30 @@ void exercise(const std::filesystem::path& output, float scale) {
           "Payload selector lost component key");
     check(scene.undo() && scene.entity(entity).get<InputMessage>().payload.empty() && scene.redo(),
           "Actual Inspector selection bypassed Undo/Redo");
+    frame();
+    click("input-message-choice:trigger");
+    frame();
+    click("input-message-option:trigger:2");
+    check(scene.entity(entity).get<InputMessage>().trigger == 2 && scene.undo() &&
+              scene.entity(entity).get<InputMessage>().trigger == 0 && scene.redo(),
+          "Changed trigger selection lost its value or one-step history");
+    frame();
+    click("input-message-choice:action");
+    frame();
+    check(test::ui_targets.contains("input-message-option:action:" + axis) &&
+              !test::ui_targets.contains("input-message-option:action:" + control),
+          "Changed selector omitted analog actions or admitted control-frame actions");
+    click("input-message-option:action:" + axis);
+    check(scene.entity(entity).get<InputMessage>().action == axis,
+          "Analog action selection lost its stable ID");
+    frame();
+    click("input-message-choice:trigger");
+    frame();
+    click("input-message-option:trigger:0");
+    check(scene.entity(entity).get<InputMessage>().action == axis,
+          "Changing trigger silently retargeted an incompatible action");
+    check(scene.undo() && scene.entity(entity).get<InputMessage>().trigger == 2,
+          "Trigger Undo did not restore Changed mode");
     frame();
     frame();
     if (scale == 1)

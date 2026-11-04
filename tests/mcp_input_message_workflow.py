@@ -8,7 +8,9 @@ def check_input_message_workflow(client, discover, arguments, mutate, project):
     schema = next(c for c in discover()['result']['schema']['components'] if c['id'] == component)
     assert schema['optional'] and schema['category'] == 'Gameplay'
     fields = {f['id']: f for f in schema['fields']}
-    assert {k: v['default'] for k, v in fields.items()} == dict(enabled=True, action='', payload='')
+    assert {k: v['default'] for k, v in fields.items()} == dict(enabled=True, action='', payload='', trigger=0)
+    assert fields['trigger']['minimum'] == 0 and fields['trigger']['maximum'] == 2
+    assert fields['trigger']['default_if_missing'] == 0
     created = mutate('forge_entity_create', arguments=dict(kind=0, name='Message source'))
     assert created['ok'], created
     entity = created['result']['results'][0]['selected']
@@ -20,7 +22,7 @@ def check_input_message_workflow(client, discover, arguments, mutate, project):
         return next(row for row in result['result']['entities'] if row['id'] == entity)['components'][component]
 
     before = config()
-    values = dict(action='23000000-0000-4230-8230-000000000001', payload='forge.tint')
+    values = dict(action='23000000-0000-4230-8230-000000000001', payload='forge.tint', trigger=2)
     request = arguments(arguments=dict(entity=entity, component=component, values=values))
     changed = client.tool('forge_property_set_many', **request)
     assert changed['ok'] and client.tool('forge_property_set_many', **request) == changed
@@ -31,7 +33,9 @@ def check_input_message_workflow(client, discover, arguments, mutate, project):
     failed(client.tool('forge_property_set_many', **dict(request, sequence=discover()['next_sequence'])),
            'stale_revision')
     for field, bad in (('enabled', 1), ('action', 'Space'), ('payload', 'invalid key'),
-                       ('payload', 'x' * 129)):
+                       ('payload', 'x' * 129), ('trigger', -1), ('trigger', 3),
+                       ('trigger', 2**32), ('trigger', True), ('trigger', 1.5),
+                       ('trigger', 'Changed')):
         revision = discover()['revision']
         rejected = mutate('forge_property_set', arguments=dict(entity=entity, component=component,
                                                                field=field, value=bad))

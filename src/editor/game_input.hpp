@@ -6,6 +6,7 @@
 #include "play.hpp"
 #include "widgets.hpp"
 #include <array>
+#include <forge/input_message.hpp>
 #include <source_location>
 namespace forge {
 // Independent logical gamepad slots, a legacy active alias, keyboard/mouse and bounded
@@ -685,8 +686,10 @@ inline void draw_input_monitor(const PlaySession& play) {
         ui::help("Typed component copies sent to C++ observers before fixed gameplay systems.");
         for (const auto& source : messages.at("sources")) {
             const auto state = source.at("state").get<std::string>();
-            ImGui::TextWrapped("%s: %s", source.at("payload").get_ref<const std::string&>().c_str(),
-                               state.c_str());
+            const auto* trigger = input_message_trigger_name(source.value("trigger", 0u));
+            ImGui::TextWrapped("%s [%s]: %s",
+                               source.at("payload").get_ref<const std::string&>().c_str(),
+                               trigger ? trigger : "Invalid trigger", state.c_str());
             if (source.contains("diagnostic"))
                 ImGui::TextWrapped("%s",
                                    source.at("diagnostic").get_ref<const std::string&>().c_str());

@@ -1,5 +1,19 @@
 # 2026-11-04
 
+## Input Message trigger modes
+
+Input Message adds Pressed, Released and Changed controls. Changed accepts fixed
+digital/Axis1/Axis2 actions and sends once when the conditioned value changes,
+including return to neutral. Older missing-trigger documents keep Pressed behavior.
+Native value snapshots, lifecycle/bounds and shared Scene/Prefab/history remain
+the dispatch and persistence owners. SDK receivers can read the same fixed action;
+matching module fingerprints and runtime-kit profiles protect new content.
+
+Gallery159 demonstrates release and analog callbacks with original shared C++
+examples, installed SDK targets, scoped MCP Play and an illustrated user guide.
+Local checks are separate from pending Windows/full-editor/physical acceptance.
+
+
 ## Imported diffuse lightmaps
 
 Mesh Material graphs expose optional linear Lightmap irradiance, with zero

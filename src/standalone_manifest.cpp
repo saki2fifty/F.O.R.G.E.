@@ -5,6 +5,7 @@
 #include "ui_filter_profile.hpp"
 #include <algorithm>
 #include <forge/game_content.hpp>
+#include <forge/input_message.hpp>
 #include <forge/mesh_wind.hpp>
 #include <forge/project.hpp>
 #include <forge/shader_asset.hpp>
@@ -93,6 +94,17 @@ void validate_runtime_compatibility(const AssetCatalog& catalog, const Json& eng
             if (features != document->end()) {
                 require(features->is_object(), "Invalid authored document runtime features");
                 for (const auto& [name, version] : features->items()) {
+                    if (name == "input_message_triggers") {
+                        require(version.is_number_integer() &&
+                                    version == input_message_trigger_profile_version,
+                                "Unsupported authored document runtime feature/profile");
+                        const auto support = engine.find("runtime_input_message_triggers");
+                        require(support != engine.end() && support->is_number_integer() &&
+                                    *support == input_message_trigger_profile_version,
+                                "Input Message triggers require a matching runtime kit; select "
+                                "the runtime kit packaged with this editor");
+                        continue;
+                    }
                     require(name == "mesh_wind" && version.is_number_integer() &&
                                 version == mesh_wind_profile_version,
                             "Unsupported authored document runtime feature/profile");

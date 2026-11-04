@@ -6,6 +6,7 @@
 #include "ui_asset_catalog.hpp"
 #include <forge/asset_discovery.hpp>
 #include <forge/engine_assets.hpp>
+#include <forge/input_message.hpp>
 #include <forge/mesh_wind.hpp>
 #include <forge/prefab.hpp>
 #include <forge/scene.hpp>
@@ -20,6 +21,14 @@ Json document_runtime_features(const Json& document) {
             const auto values = row.find(channel);
             if (values == row.end())
                 continue;
+            if (const auto message = values->find("forge.input_message"); message != values->end())
+                if (const auto trigger = message->find("trigger"); trigger != message->end()) {
+                    if (!trigger->is_number_integer() || *trigger < 0 || *trigger > 2)
+                        throw std::runtime_error(
+                            "game.export.document: Invalid Input Message trigger");
+                    if (*trigger != std::uint32_t(InputMessageTrigger::Pressed))
+                        result["input_message_triggers"] = input_message_trigger_profile_version;
+                }
             const auto renderer = values->find("forge.mesh_renderer");
             if (renderer == values->end())
                 continue;

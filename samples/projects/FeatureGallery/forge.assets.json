@@ -1627,6 +1627,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "15900000-1590-4159-8159-000000000001",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/159-input-message-triggers.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "15e09146-b361-4bfd-98a2-a0583420edd5",
       "metadata": {
         "forge.audio": {

@@ -713,7 +713,8 @@ class ComponentInspector {
                 }
                 bool changed =
                     rectangle_region ? false
-                    : key == "forge.input_message" && (name == "action" || name == "payload")
+                    : key == "forge.input_message" &&
+                            (name == "action" || name == "payload" || name == "trigger")
                         ? (ImGui::TextUnformatted(property_label(field).c_str()),
                            ui::input_message_choice(project, schema, values, name, value))
                     : key == "forge.tile_map_collider_2d" && name == "layer" && tile_map_layer

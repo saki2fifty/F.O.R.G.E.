@@ -100,7 +100,77 @@ def verify(runtime, module, gallery):
                 worker.request('quit'); worker.process.wait(timeout=5)
                 assert worker.process.returncode == 0
             assert original == unchanged
-    print('Typed-message Gallery: both hosts, fixed edges, snapshots, restart, cold ordinary recovery and graceful exits passed')
+    verify_triggers(runtime, module, gallery)
+    print('Typed-message Gallery: both hosts, fixed edges, analog changes, snapshots, restart, cold ordinary recovery and graceful exits passed')
+
+
+def verify_triggers(runtime, module, gallery):
+    for sdk in (False, True):
+        with touch_example(runtime, module, gallery, '159-input-message-triggers.scene.json',
+                           'project.input_messages', sdk) as (worker, original):
+            routes = {row['components']['forge.input_message']['action']: row['id']
+                      for row in original['entities'] if 'forge.input_message' in row['components']}
+            release = routes['8c68fc99-bdb7-4bf4-9b91-dae060349ff0']
+            one = routes['15900000-1590-4159-8159-000000000010']
+            two = routes['15900000-1590-4159-8159-000000000011']
+
+            def positions(state):
+                return {row['id']: row['components']['forge.local_translation']
+                        for row in state['effective_scene']['entities'] if row['id'] in routes.values()}
+
+            def messages(state):
+                return state['input']['messages']
+
+            initial = activate(worker, original, sdk)
+            baseline = positions(initial)
+            assert messages(initial)['emitted_total'] == 0
+            if sdk:
+                step = worker.request('step', input_events=[dict(control='key.e', value=1)])
+                assert positions(step) == baseline and messages(step)['emitted_total'] == 0
+                worker.request('resume')
+
+            def send(events, count):
+                command = 'snapshot' if sdk else 'step'
+                state = worker.request(command, **(dict(input_events=events) if events else {}))
+                if sdk:
+                    state = observe_touch(worker, lambda row: messages(row)['emitted_total'] == count
+                                          and row['timing']['tick'] >= state['timing']['tick'] + 2)
+                assert messages(state)['emitted_total'] == count, (sdk, messages(state))
+                return state
+
+            pressed = send([dict(control='key.space', value=1)], 0)
+            assert positions(pressed) == baseline
+            released = send([dict(control='key.space', value=0)], 1)
+            assert positions(released)[release]['y'] == 2
+            first = send([dict(control='key.e', value=1), dict(control='key.d', value=1)], 3)
+            assert positions(first)[one]['y'] == 3.5 and positions(first)[two]['x'] == 3.5, (sdk, first)
+            held = send([], 3)
+            assert positions(held) == positions(first)
+            changed = send([dict(control='key.d', value=0), dict(control='key.w', value=1)], 4)
+            assert positions(changed)[two]['x'] == 1.5 and positions(changed)[two]['y'] == 3.5
+            neutral = send([dict(control='key.e', value=0), dict(control='key.w', value=0)], 6)
+            assert positions(neutral)[one]['y'] == 1.5 and positions(neutral)[two]['y'] == 1.5
+            quick = send([dict(control='key.space', value=1), dict(control='key.space', value=0)], 7)
+            assert positions(quick)[release]['y'] == .5
+            nonneutral = send([dict(control='key.e', value=1)], 8)
+            assert positions(nonneutral)[one]['y'] == 3.5
+            paused = worker.request('pause')
+            idle = worker.request('snapshot')
+            assert idle['timing']['tick'] == paused['timing']['tick']
+            assert messages(idle) == messages(paused)
+            stepped = worker.request('step')
+            # SDK clock release neutralizes capture; the ordinary protocol host
+            # owns no editor capture and retains its submitted physical value.
+            assert messages(stepped)['emitted_total'] == (9 if sdk else 8)
+            assert positions(stepped)[one]['y'] == (1.5 if sdk else 3.5)
+            if sdk:
+                worker.request('resume')
+            neutral = send([dict(control='key.e', value=0)], 9)
+            assert positions(neutral)[one]['y'] == 1.5
+            restarted = activate(worker, original, sdk)
+            assert positions(restarted) == baseline and messages(restarted)['emitted_total'] == 0
+            worker.request('quit'); worker.process.wait(timeout=5)
+            assert worker.process.returncode == 0
 
 
 if __name__ == '__main__':

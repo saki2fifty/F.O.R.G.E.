@@ -121,7 +121,8 @@ def selected_project_template(root, sources, folder):
 
 
 def message_project_template(root):
-    output = selected_project_template(root, ('Scenes/150-input-messages.scene.json',), 'Message template')
+    output = selected_project_template(root, ('Scenes/150-input-messages.scene.json',
+                                              'Scenes/159-input-message-triggers.scene.json'), 'Message template')
     path = output / 'forge.project.json'
     settings = json.loads(path.read_text())
     scene = json.loads((output / 'Scenes/150-input-messages.scene.json').read_text())

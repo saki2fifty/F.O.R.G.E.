@@ -5,6 +5,7 @@
 #include "runtime_document_package.hpp"
 #include "standalone_manifest.hpp"
 #include <forge/game_settings.hpp>
+#include <forge/input_message.hpp>
 #include <forge/native_sdk_identity.h>
 #include <forge/project.hpp>
 #include <forge/scene.hpp>
@@ -103,6 +104,76 @@ int main(int argc, char** argv) {
                 reject(
                     [&] { validate_runtime_compatibility(features, {{"runtime_mesh_wind", 1}}); });
             }
+        }
+        {
+            using package_detail::document_runtime_features;
+            const auto none = Json::object();
+            const Json required{{"input_message_triggers", input_message_trigger_profile_version}};
+            for (const char* rows : {"entities", "members", "overrides"})
+                for (const char* channel : {"components", "property_overrides"}) {
+                    Json document{
+                        {rows,
+                         Json::array({{{channel, {{"forge.input_message", Json::object()}}}}})}};
+                    if (std::string_view(rows) == "overrides")
+                        document["base"] = AssetId::generate();
+                    auto& message = document[rows][0][channel]["forge.input_message"];
+                    check(document_runtime_features(document) == none,
+                          "Legacy Input Message requires a newer kit");
+                    message["trigger"] = 0;
+                    check(document_runtime_features(document) == none,
+                          "Default Pressed trigger requires a newer kit");
+                    for (unsigned trigger : {1u, 2u}) {
+                        message["trigger"] = trigger;
+                        check(document_runtime_features(document) == required,
+                              "Scene/Prefab/variant omitted trigger runtime requirements");
+                    }
+                    for (const Json& invalid :
+                         {Json(), Json(false), Json(-1), Json(3), Json(0.), Json(1.),
+                          Json("Changed"), Json(std::uint64_t{1} << 32)}) {
+                        message["trigger"] = invalid;
+                        reject([&] { (void)document_runtime_features(document); },
+                               "Invalid trigger produced runtime compatibility metadata");
+                    }
+                }
+            const Json combined{{"mesh_wind", mesh_wind_profile_version},
+                                {"input_message_triggers", input_message_trigger_profile_version}};
+            const Json document{
+                {"entities",
+                 Json::array({{{"components",
+                                {{"forge.mesh_renderer", {{"wind", {{"enabled", true}}}}},
+                                 {"forge.input_message", {{"trigger", 2}}}}}}})}};
+            check(document_runtime_features(document) == combined,
+                  "Input Message requirements hid renderer requirements");
+            AssetCatalog features(scratch / "trigger-compatibility");
+            AssetRecord record{AssetId::generate(), "scene", "trigger.scene.json", 5};
+            features.add(record);
+            validate_runtime_compatibility(features, none);
+            record.metadata["forge.runtime_document"] = {{"runtime_features", required}};
+            features.replace(record);
+            validate_runtime_compatibility(features, {{"runtime_input_message_triggers",
+                                                       input_message_trigger_profile_version}});
+            reject([&] { validate_runtime_compatibility(features, none); },
+                   "Trigger project accepted a kit without trigger support");
+            for (const Json& invalid : {Json(), Json(false), Json(-1), Json(0), Json(1.), Json("1"),
+                                        Json(2), Json(std::uint64_t{1} << 32)}) {
+                reject([&] {
+                    validate_runtime_compatibility(features,
+                                                   {{"runtime_input_message_triggers", invalid}});
+                });
+                record.metadata["forge.runtime_document"]["runtime_features"] = {
+                    {"input_message_triggers", invalid}};
+                features.replace(record);
+                reject([&] {
+                    validate_runtime_compatibility(features,
+                                                   {{"runtime_input_message_triggers", 1}});
+                });
+                record.metadata["forge.runtime_document"]["runtime_features"] = required;
+                features.replace(record);
+            }
+            record.metadata["forge.runtime_document"]["runtime_features"] = combined;
+            features.replace(record);
+            validate_runtime_compatibility(
+                features, {{"runtime_mesh_wind", 1}, {"runtime_input_message_triggers", 1}});
         }
         {
             // Metadata admission uses the existing typed graph, without realizing

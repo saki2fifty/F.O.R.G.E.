@@ -1614,11 +1614,14 @@ input/DPI/audio acceptance. Offline layout and package inclusion are checked sep
 
 `manual/images/input-message-inspector.png` is the unchanged600×500 PNG from the
 real ComponentInspector in `forge_input_message_ui_tests`, using SDL's software
-renderer. The test chooses a saved digital action and attached Tint through native
-ImGui input, then verifies typed values and shared Undo/Redo at1/1.5/2 scales.
-It is an isolated Inspector fixture, not full Main, Windows, OS DPI or physical
-hardware acceptance. Capture source, executable/image hashes and review are kept
-in local `AgentFiles/build/phase230-action-messages/inspector-capture.json`.
+renderer. The test chooses Changed, a saved analog action and attached Tint
+through native ImGui input; it checks typed values, incompatible-ID retention and
+shared Undo/Redo at1/1.5/2 scales. The image was personally reviewed without crop,
+resize or retouch. It is an isolated Inspector fixture, not full Main, Windows,
+OS DPI or physical hardware acceptance. Capture source, executable/image hashes
+and validation attribution are retained in local
+`AgentFiles/build/phase248-input-message-triggers/capture-provenance.json`.
+PNG SHA256: `edb89aac4c7388cddf623539381603114ae2213c5feda8cfcb0799c3a45d8b2f`.
 
 ## UI Values Inspector and Timeline
 

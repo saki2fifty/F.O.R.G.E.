@@ -2066,3 +2066,27 @@ overwrite confirmation/Cancel and mismatched type/filename rejection. The native
 picker itself remains platform acceptance. The normal `view_image_vulkan` keeps
 its independent renderer/readback checks. These functional software-backend tests
 do not establish physical GPU, full Main/Windows or graphical EXE acceptance.
+
+
+## Input Message trigger checks
+
+`input_messages` covers Pressed/Released/Changed, conditioned fixed analog values,
+digital quick taps, inactive/removed/recreated sources, context/state activation,
+payload unavailability without replay, rebinding, relative neutral transitions,
+selection bounds and native snapshot lifecycle. `input_message_ui` drives real
+Trigger/Action/Payload controls and history at100/150/200percent.
+`mcp_input_messages_stdio` exercises shared discovery, range/default admission,
+permissions/revision/replay/history and saved values through both envelopes.
+`mcp_input_messages_play_stdio` adds actual project module dispatch, Released and
+analog Changed through scoped Play input, clock neutralization and restart.
+
+`input_messages_process` runs the original Gallery150 and trigger Gallery159
+receivers through ordinary and SDK runtime hosts. Observers read the same fixed
+input through the public SDK. `input_messages_installed` installs/relocates the
+SDK, checks original shared source/header bytes, builds its sample and repeats
+both hosts without developer library paths. `input_message_gallery` packages and
+restores the saved scene from runtime content and checks kit compatibility.
+`standalone_manifest` covers Scene/Prefab/variant declarations, both value channels,
+legacy defaults, combined feature facts and malformed/missing kit profiles.
+Local portable checks do not establish Windows/MSVC/full Main, physical input,
+external MCP-client or graphical exported-game acceptance.

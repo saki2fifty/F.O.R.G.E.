@@ -299,6 +299,18 @@ for row in message_sources:
     assert message_actions[message['action']]['kind'] == 'digital'
     assert message_actions[message['action']]['bindings'] == [dict(control='key.space')]
 assert (project_root / 'CodeExamples/InputMessages.cpp').is_file()
+trigger_scene = json.loads((project_root / 'Scenes/159-input-message-triggers.scene.json').read_text())
+assert trigger_scene['asset_id'] == by_source['Scenes/159-input-message-triggers.scene.json']['id']
+trigger_sources = [row for row in trigger_scene['entities'] if 'forge.input_message' in row['components']]
+assert len(trigger_sources) == 3
+assert sorted(row['components']['forge.input_message']['trigger'] for row in trigger_sources) == [1, 2, 2]
+for row in trigger_sources:
+    message = row['components']['forge.input_message']
+    kind = message_actions[message['action']]['kind']
+    assert message['payload'] == 'forge.local_translation' and message['payload'] in row['components']
+    assert (message['trigger'] == 1 and kind == 'digital') or (message['trigger'] == 2 and kind in ('axis1', 'axis2'))
+for example in ('InputMessageTriggers.cpp', 'InputMessageTriggers.hpp'):
+    assert (project_root / 'CodeExamples' / example).is_file()
 
 ui_sequence = json.loads((project_root / 'Scenes/151-sequence-ui.scene.json').read_text())
 assert ui_sequence['asset_id'] == by_source['Scenes/151-sequence-ui.scene.json']['id']
@@ -590,6 +602,9 @@ try:
         # admitted typed values explicitly expose their documented defaults.
         expected = json.loads(json.dumps(source))
         for row in expected['entities']:
+            message = row['components'].get('forge.input_message')
+            if message is not None:
+                message.setdefault('trigger', 0)
             camera = row['components'].get('forge.camera')
             if camera is not None:
                 camera.setdefault('render_texture', None)
