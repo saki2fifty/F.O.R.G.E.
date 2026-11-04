@@ -1,18 +1,28 @@
 #pragma once
 #include "../texture_asset_preview.hpp"
+#include "../texture_image.hpp"
 #include "editor_state.hpp"
 #include "icons.hpp"
+#include <utility>
 namespace forge {
 class TextureViewer {
   public:
+    struct ExportRequest {
+        std::filesystem::path project;
+        std::shared_ptr<const AssetCatalog> catalog;
+        AssetRef<TextureAsset> texture;
+        std::optional<TextureSemantic> semantic;
+        TextureImageSlice slice;
+    };
+    std::optional<ExportRequest> take_export() { return std::exchange(export_, {}); }
     TextureViewer(DiligentPresentation& presentation, Diligent::IDeviceContext* context,
                   const std::filesystem::path& project)
         : preview_(presentation, context, project) {}
     const std::filesystem::path& project() const { return preview_.project(); }
     bool ready() const { return preview_.data() && !preview_.pending(); }
     const std::string& error() const { return preview_.error(); }
-    void draw(std::shared_ptr<const AssetCatalog> catalog, AssetRef<TextureAsset> asset,
-              bool draft) {
+    void draw(std::shared_ptr<const AssetCatalog> catalog, AssetRef<TextureAsset> asset, bool draft,
+              bool can_export = false) {
         ui::heading("Texture preview", "View the last published texture. Settings below affect "
                                        "only this view, not the source, import or scene.");
         if (asset != selected_) {
@@ -22,7 +32,7 @@ class TextureViewer {
             fit_ = true;
         }
         ui::property_label_row("Variant");
-        ImGui::Combo("##Variant", &semantic_, "Automatic color\0Color\0Data\0Normal\0HDR color\0");
+        ImGui::Combo("##Variant", &semantic_, "Automatic\0Color\0Data\0Normal\0HDR color\0");
         ui::help("Choose an imported semantic variant. Missing variants report an error; the "
                  "viewer never substitutes a differently interpreted texture.");
         std::optional<TextureSemantic> semantic;
@@ -38,7 +48,7 @@ class TextureViewer {
                      "the UI thread.");
             return;
         }
-        preview_.select(std::move(catalog), asset, semantic);
+        preview_.select(catalog, asset, semantic);
         preview_.pump();
         if (draft) {
             ImGui::TextWrapped(
@@ -127,6 +137,21 @@ class TextureViewer {
             if (ImGui::SliderFloat("##Image zoom", &zoom_, .125f, 8.f, "%.3fx"))
                 fit_ = false;
             ui::help("Scale the image only. Ctrl+Plus/Minus still changes the complete editor UI.");
+            ImGui::BeginDisabled(!can_export || !preview_.current());
+            if (ui::button("Export stored pixels...",
+                           "Save the published mip/layer/face/slice as PNG; sRGB storage also "
+                           "supports lossless WebP. "
+                           "Copies uncompressed 8-bit channels without the preview's exposure, "
+                           "checkerboard, channel display, crop, color transfer or alpha "
+                           "conversion. Import settings "
+                           "are not carried into the image. Maximum 4096 pixels per axis."))
+                export_ =
+                    ExportRequest{project(),
+                                  catalog,
+                                  asset,
+                                  semantic,
+                                  {settings.mip, settings.layer, settings.face, settings.depth}};
+            ImGui::EndDisabled();
             const float w = float(std::max(1u, data->width >> settings.mip));
             const float h = float(std::max(1u, data->height >> settings.mip));
             const float image_height =
@@ -171,6 +196,7 @@ class TextureViewer {
     }
 
   private:
+    std::optional<ExportRequest> export_;
     TextureAssetPreview preview_;
     AssetRef<TextureAsset> selected_;
     int semantic_ = 0;
@@ -189,8 +215,12 @@ class TextureViewerDocument {
         open_ = focus_ = true;
     }
     bool is_open() const { return open_; }
+    std::optional<TextureViewer::ExportRequest> take_export() {
+        return viewer_ ? viewer_->take_export() : std::nullopt;
+    }
     void close() { open_ = false; }
-    void draw(const std::filesystem::path& project, std::shared_ptr<const AssetCatalog> catalog) {
+    void draw(const std::filesystem::path& project, std::shared_ptr<const AssetCatalog> catalog,
+              bool can_export = false) {
         if (project != project_) {
             open_ = false;
             return;
@@ -207,7 +237,7 @@ class TextureViewerDocument {
         if (ImGui::Begin("Texture###Texture viewer", &open_)) {
             if (ui::editor_context && ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows))
                 ui::editor_context->task.focus_document("texture_viewer", "Texture");
-            viewer_->draw(std::move(catalog), asset_, false);
+            viewer_->draw(std::move(catalog), asset_, false, can_export);
         }
         ImGui::End();
     }

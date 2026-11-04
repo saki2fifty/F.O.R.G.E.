@@ -1,6 +1,8 @@
 #include "automation.hpp"
 #include "capture_automation.hpp"
 #include "mcp_test_marker.hpp"
+#include "published_texture_fixture.hpp"
+#include "texture_image_input.hpp"
 #include <chrono>
 #include <iostream>
 #include <thread>
@@ -10,7 +12,7 @@ namespace forge::test {
 // File/preview jobs, frame scheduling, receipts and MCP all use the real owner.
 struct ViewImageTaskAccess {
     static void deliver_test_pixels(ui::ViewImageTask& owner, std::string& message, double cursor) {
-        if (!owner.pending_ || owner.copied_ || owner.job_.valid())
+        if (owner.input_ || !owner.pending_ || owner.copied_ || owner.job_.valid())
             return;
         if (owner.frames_) {
             const auto sample = owner.temporal_sample();
@@ -74,12 +76,14 @@ struct RecordingFrames final : forge::ui::SequenceFrameSource {
 };
 int main(int argc, char** argv) {
     try {
-        if (argc != 3)
+        if (argc != 3 && argc != 4)
             return 2;
         const auto root = std::filesystem::u8path(argv[1]);
         const bool output = std::string(argv[2]) != "read";
         forge::SceneDocument::create_project(root / "Game", "Native image IO fixture");
         std::filesystem::create_directory(root / "Output");
+        if (argc == 4)
+            forge::test::published_texture_fixture(std::filesystem::u8path(argv[3]), root / "Game");
         forge::EngineContext engine;
         forge::Scene scene(engine.world());
         std::vector<std::string> recent;
@@ -93,6 +97,15 @@ int main(int argc, char** argv) {
         std::string message;
         forge::CaptureAutomationProviders providers;
         providers.show = [](auto) {};
+        providers.texture = [&](forge::AssetRef<forge::TextureAsset> texture,
+                                std::optional<forge::TextureSemantic> semantic,
+                                forge::TextureImageSlice slice) {
+            return forge::ui::texture_image_input(
+                files.document.project(),
+                std::make_shared<const forge::AssetCatalog>(
+                    forge::AssetCatalog::open_project(files.document.project())),
+                texture, semantic, slice);
+        };
         providers.open_sequence = [&](const std::string& entity) {
             if (!scene.entity(entity).is_valid())
                 throw std::runtime_error("Choose a current entity");

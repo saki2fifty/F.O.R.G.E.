@@ -81,6 +81,10 @@ int forge_png_decode(const void* bytes, size_t size, unsigned dimension_limit, s
     png_set_chunk_malloc_max(png, byte_limit < 16 * 1024 * 1024 ? byte_limit : 16 * 1024 * 1024);
     png_set_crc_action(png, PNG_CRC_ERROR_QUIT, PNG_CRC_ERROR_QUIT);
     png_read_info(png, info);
+    {
+        int intent = 0;
+        result->srgb = png_get_sRGB(png, info, &intent) != 0;
+    }
     int depth = png_get_bit_depth(png, info), color = png_get_color_type(png, info);
     if (color == PNG_COLOR_TYPE_PALETTE)
         png_set_palette_to_rgb(png);

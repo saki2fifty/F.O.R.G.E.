@@ -313,6 +313,15 @@ if(FORGE_BUILD_VULKAN_RENDERER_PROBE)
  set_tests_properties(normal_geometry_vulkan PROPERTIES TIMEOUT 120)
  add_test(NAME temporal_filter_vulkan COMMAND forge_temporal_filter_vulkan_probe "${CMAKE_BINARY_DIR}/temporal-scene" "${PROJECT_SOURCE_DIR}/samples/projects/FeatureGallery")
  set_tests_properties(temporal_filter_vulkan PROPERTIES TIMEOUT 90)
+ # Use the same pinned third-party renderer as the editor; its sources and notices stay upstream.
+ add_executable(forge_texture_image_editor_vulkan_probe tests/texture_image_editor_vulkan_probe.cpp
+  "${diligent_SOURCE_DIR}/DiligentTools/Imgui/src/ImGuiImplDiligent.cpp"
+  "${diligent_SOURCE_DIR}/DiligentTools/Imgui/src/ImGuiDiligentRenderer.cpp")
+ target_include_directories(forge_texture_image_editor_vulkan_probe PRIVATE src "${diligent_SOURCE_DIR}/DiligentCore" "${diligent_SOURCE_DIR}/DiligentTools/Imgui/interface")
+ target_compile_definitions(forge_texture_image_editor_vulkan_probe PRIVATE FORGE_UI_FIXTURE UNICODE _UNICODE NOMINMAX)
+ target_link_libraries(forge_texture_image_editor_vulkan_probe PRIVATE forge_authoring forge_presentation_diligent forge_view_image SDL3::SDL3 imgui Diligent-BuildSettings Diligent-GraphicsEngineVk-static)
+ add_test(NAME texture_image_editor_vulkan COMMAND forge_texture_image_editor_vulkan_probe "${PROJECT_SOURCE_DIR}/samples/projects/FeatureGallery" "${CMAKE_BINARY_DIR}/texture-image-editor-vulkan")
+ set_tests_properties(texture_image_editor_vulkan PROPERTIES TIMEOUT 120)
  add_executable(forge_view_image_vulkan_probe tests/view_image_vulkan_probe.cpp)
  add_executable(forge_reflection_capture_vulkan_probe tests/reflection_capture_vulkan_probe.cpp)
  add_executable(forge_reflection_capture_workflow_vulkan_probe tests/reflection_capture_workflow_vulkan_probe.cpp)

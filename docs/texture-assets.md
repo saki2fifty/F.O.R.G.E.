@@ -340,3 +340,41 @@ entries and explicit retirement; preview success does not publish authored data.
 The standalone texture import document owns its draft/save workflow and shows its
 preview before a collapsed import-settings section. Generated model textures use
 a read-only central document. Neither view creates a Flecs world or authored data.
+
+
+## Published texture image output
+
+The native Texture preview and `capture.texture` / `forge_capture_texture` compose
+`asset_detail::load_texture_selection` with `texture_stored_pixels` and the existing
+ViewImageTask image IO transaction. Standalone and generated model members use the
+same selected-publication admission as runtime resources, including recipe/hash,
+semantic and family revision checks. A copied catalog and owned selection values
+outlive the UI; no borrowed GPU texture or preview pixels enter the encoder.
+There is no source decode, reimport, new cache owner, asset registration or Scene
+history entry. Original image bytes may be absent when the cooked selection exists.
+
+The first output profile accepts R8/RG8/RGBA8/RGBA8Srgb and one explicit mip,
+array layer, cube face (+X,-X,+Y,-Y,+Z,-Z) and depth plane. Existing TextureData
+validation and layout own subresource ordering and tight row strides. The complete
+selected texture is bounded to128MiB; the projected top-row-first RGBA8 image is
+bounded to4096 per axis and64MiB. Missing G/B are0, missingA255. All present bytes,
+including RGB under zero alpha and premultiplied/normal/data channels, remain exact.
+There is no color/alpha/normal conversion or source/import metadata roundtrip.
+Block compression,16-bit/float/HDR storage reject before publication.
+
+The detached RGBA8 value records an sRGB label without changing bytes. PNG emits
+its sRGB chunk only for sRGB storage; otherwise no color-space label is invented.
+The lossless WebP output profile requires sRGB storage. Existing rendered Scene /
+Game output remains sRGB-labelled. Owned protocol previews retain the label when
+re-encoded; downscaled previews are inspection images, not byte-exact full outputs.
+Encoder and file-publication limits/overwrite guarantees remain those above.
+
+Texture exports share the one existing image task, native format chooser and file
+writer. The button requires a current published preview and idle shared task;
+unsupported storage or output sizes report a job error. Draft import settings and
+view display/crop controls are excluded. Pending requests/pickers cancel on project
+change; Scene changes do not invalidate an accepted texture selection. An active
+bounded pixel/encoding job finishes before retirement, with no preemption promise.
+The MCP output grant, canonical path checks, explicit replacement, revision/sequence
+and exact-current-operation read rules remain authoritative. No second agent-only
+export path is maintained. See [the user guide](../manual/editor/textures.md).

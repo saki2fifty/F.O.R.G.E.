@@ -1,4 +1,4 @@
-# Importing textures
+# Importing and exporting textures
 
 Import prepares an image for use as a texture and gives it a durable asset identity.
 The original image stays unchanged. Assign textures to surface roles in the [Material editor](materials.md);
@@ -103,3 +103,50 @@ per axis; exceptionally large visible areas are downsampled. This viewer has sep
 256 MiB CPU and GPU texture payload budgets. An asset exceeding the preview budget
 can remain valid for another consumer; the preview reports the limitation.
 Import settings are under the separate **Import settings** foldout.
+
+
+## Export stored pixels
+
+Open a published texture in Content. In **Texture preview**, choose its **Variant**
+and expand **View controls** to select a **Mip**, **Array layer**, **Cube face** or
+**Depth slice**, when available. **Automatic** selects HDR color when present,
+otherwise color; choose data or normal explicitly for those variants.
+
+![Texture preview with Variant, Image zoom, Export stored pixels and the published badge over a checkerboard](../images/texture-export.png)
+
+The export button sits above the published image. The checkerboard belongs to the preview.
+
+1. Click **Export stored pixels...** below **Image zoom**.
+2. Choose **PNG image** and a **.png** filename. For sRGB byte storage, you can also choose **Lossless WebP image** and a **.webp** filename. A suffix that disagrees with the selected file type produces an error.
+3. Confirm replacement if the filename already exists. Wait for **Image saved** in the status bar or Console.
+
+The export contains the selected published mip/layer/face/slice at its stored
+resolution, with its top row first. It copies RGBA bytes, including transparency
+and RGB under fully transparent pixels. R8 becomes red with green/blue zero and
+opaque alpha; RG8 keeps red/green with blue zero and opaque alpha. The second
+channel is green, not alpha.
+
+Preview **Channels**, **Display**, **Exposure (stops)**, checkerboard, filtering,
+zoom and scroll position do not affect this export. It performs no color transfer,
+tone mapping, normal reconstruction or alpha conversion. PNG records sRGB only
+for sRGB storage; data and linear channels remain unlabelled. WebP requires sRGB
+storage in this export profile; choose PNG for other stored channels.
+
+Supported storage is uncompressed R8, RG8, RGBA8 and RGBA8 sRGB. Compressed,
+16-bit, floating-point and HDR storage cannot use this command. The complete
+selected texture must fit 128 MiB; the chosen image must fit 4096 pixels per axis
+and 64 MiB RGBA. Choose a smaller mip for an oversized image. The encoded file
+limit is 68 MiB. A rejected export keeps any existing destination file intact.
+
+A generated model texture can also be exported from its read-only **Texture** tab.
+An unapplied import draft is excluded: publish it first to export the new result.
+Export needs the published cooked data and never rebuilds from the original image.
+If that data is unavailable or invalid, use the ordinary import workflow first.
+
+One image operation runs at a time across texture and Scene/Game exports.
+Changing projects while the picker or request is pending cancels it. Once the
+pixel/file job starts, it finishes before retirement; changing Scenes does not
+cancel a texture export. Export creates no Scene Undo entry and changes no import
+settings. The file does not preserve sampler settings, semantic usage, alpha
+convention, other mips or asset identity. When importing it again, choose the
+appropriate settings for its stored channels; identical appearance is not implied.

@@ -115,6 +115,7 @@
 #include "status_bar.hpp"
 #include "terrain_editor.hpp"
 #include "terrain_preview.hpp"
+#include "texture_image_input.hpp"
 #include "texture_imports.hpp"
 #include "texture_viewer.hpp"
 #include "tile_map_editor.hpp"
@@ -962,6 +963,7 @@ int main(int argc, char** argv) {
                                                "forge_asset_build.exe");
         forge::AudioPreviewEditor audio_preview;
         audio_imports.preview_before_settings = true;
+        bool texture_export_available = false;
         std::unique_ptr<forge::TextureViewer> texture_viewer;
         forge::TextureViewerDocument texture_view_document(presentation, context);
         texture_imports.preview_before_settings = true;
@@ -972,7 +974,7 @@ int main(int argc, char** argv) {
                 texture_viewer = std::make_unique<forge::TextureViewer>(presentation, context,
                                                                         document.project());
             texture_viewer->draw(mesh_resources->catalog(), {texture_imports.selected_asset()},
-                                 texture_imports.dirty());
+                                 texture_imports.dirty(), texture_export_available);
         };
         forge::ModelImportEditor model_imports(
             std::filesystem::path(base) / "forge_asset_build.exe",
@@ -1740,7 +1742,8 @@ int main(int argc, char** argv) {
                        [&] {
                            texture_view_document.draw(files.document.project(),
                                                       mesh_resources ? mesh_resources->catalog()
-                                                                     : nullptr);
+                                                                     : nullptr,
+                                                      texture_export_available);
                        },
                        {},
                        {},
@@ -2579,6 +2582,15 @@ int main(int argc, char** argv) {
             methods.insert(methods.end(), std::make_move_iterator(exports.begin()),
                            std::make_move_iterator(exports.end()));
             forge::CaptureAutomationProviders capturing;
+            capturing.texture = [&](forge::AssetRef<forge::TextureAsset> texture,
+                                    std::optional<forge::TextureSemantic> semantic,
+                                    forge::TextureImageSlice slice) {
+                return forge::ui::texture_image_input(
+                    files.document.project(),
+                    std::make_shared<const forge::AssetCatalog>(
+                        forge::AssetCatalog::open_project(files.document.project())),
+                    texture, semantic, slice);
+            };
             capturing.reflection = [&](const std::string& entity,
                                        const forge::ui::ReflectionCaptureRequest& settings) {
                 start_reflection(entity, settings, false);
@@ -2790,6 +2802,27 @@ int main(int argc, char** argv) {
             }
             view_image.poll(presentation, context, files.document.project(), scene.asset_id(),
                             message);
+            for (auto& request : std::array<std::optional<forge::TextureViewer::ExportRequest>, 2>{
+                     texture_viewer ? texture_viewer->take_export() : std::nullopt,
+                     texture_view_document.take_export()}) {
+                if (!request)
+                    continue;
+                try {
+                    if (request->project != files.document.project())
+                        throw std::runtime_error("The Texture export project changed");
+                    if (view_image.busy())
+                        throw std::runtime_error("Finish the current image export first");
+                    auto input = forge::ui::texture_image_input(
+                        request->project, std::move(request->catalog), request->texture,
+                        request->semantic, request->slice);
+                    view_image.choose(forge::ui::ViewImageTask::View::Texture, window.get(),
+                                      request->project, {}, std::move(input));
+                } catch (const std::exception& error) {
+                    message = error.what();
+                    editor.record_status("Image export", message);
+                }
+            }
+            texture_export_available = !view_image.busy();
             if (files.preferences_changed) {
                 last_project = forge::path_text(files.document.project());
                 try {

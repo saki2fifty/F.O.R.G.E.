@@ -19,7 +19,7 @@ TOOLS, HOST = sys.argv[1:3]
 def editor(mode='output'):
     with tempfile.TemporaryDirectory(prefix='forge-mcp-image-') as temporary:
         root=Path(temporary)
-        process=subprocess.Popen([HOST,str(root),mode],stdout=subprocess.PIPE,stderr=subprocess.PIPE,
+        process=subprocess.Popen([HOST,str(root),mode,str(Path(__file__).resolve().parents[1]/'samples/projects/FeatureGallery')],stdout=subprocess.PIPE,stderr=subprocess.PIPE,
                                  text=True,encoding='utf-8')
         try:
             line=process.stdout.readline()
@@ -36,6 +36,17 @@ def until(fn,predicate,timeout=15):
         if predicate(value): return value
         time.sleep(.01)
     raise AssertionError(value)
+
+
+def png_has_chunk(data, wanted):
+    at=8
+    while at+12<=len(data):
+        size=struct.unpack('>I',data[at:at+4])[0]
+        assert at+12+size<=len(data)
+        if data[at+4:at+8]==wanted:return True
+        at+=size+12
+    assert at==len(data)
+    return False
 
 
 for legacy in (False,True):
@@ -69,6 +80,57 @@ for legacy in (False,True):
             assert struct.unpack('>II',png[16:24])==(plain['result']['width'],plain['result']['height'])
             assert len(png)==plain['result']['image']['bytes']
             return plain['result'],png
+
+        assert 'forge_capture_texture' in catalog
+        assets=json.loads((root/'Game/forge.assets.json').read_text())['assets']
+        badge=next(row for row in assets if row['source']=='Assets/Sprites/Badge.png')
+        normal=next(row for row in assets if row['source']=='Assets/OcclusionNormals/RippleNormals.png')
+        assert not (root/'Game'/badge['source']).exists()
+        assert not (root/'Game'/normal['source']).exists()
+        authored=read('forge_scene_read')
+        stale_texture=arguments(asset=badge['id'],path='StaleTexture.png')
+        stale_texture['expected_revision']+=1
+        failed(client.tool('forge_capture_texture',**stale_texture),'stale_revision')
+        foreign_texture=arguments(asset=badge['id'],path='ForeignTexture.png')
+        foreign_texture['target']=dict(foreign_texture['target'],session='foreign')
+        failed(client.tool('forge_capture_texture',**foreign_texture),'wrong_target')
+        assert not (root/'Output/StaleTexture.png').exists()
+        assert not (root/'Output/ForeignTexture.png').exists()
+        assert not read('forge_capture_status')['busy']
+        texture_request=arguments(asset=badge['id'],path='Texture.png')
+        admitted=client.tool('forge_capture_texture',**texture_request)
+        assert admitted['ok'],admitted
+        assert client.tool('forge_capture_texture',**texture_request)==admitted
+        complete=settled()
+        assert complete['view']=='texture' and complete['texture']['asset']==badge['id'],complete
+        assert complete['texture']['profile']=='stored_rgba8' and complete['preview_ready'] and not complete['error'],complete
+        metadata,texture_png=image(admitted['result']['operation'])
+        assert (metadata['source_width'],metadata['source_height'])==(32,32),metadata
+        assert png_has_chunk(texture_png,b'sRGB')
+        assert texture_png==(root/'Output/Texture.png').read_bytes()
+        failed(mutate('forge_capture_texture',asset=badge['id'],path='Texture.png'),'output_exists')
+        assert not mutate('forge_capture_texture',asset=badge['id'],path='../Escape.png')['ok']
+        assert not mutate('forge_capture_texture',asset=badge['id'],path='bad.jpg')['ok']
+        assert not mutate('forge_capture_texture',asset=badge['id'],path='bad.png',mip=32)['ok']
+        ok('forge_capture_texture',asset=badge['id'],path='Texture.png',replace=True,mip=31)
+        failure=settled()
+        assert failure['error'] and (root/'Output/Texture.png').read_bytes()==texture_png,failure
+        small=ok('forge_capture_texture',asset=badge['id'],path='Mip.png',mip=1)
+        resized=settled();assert not resized['error'],resized
+        small_meta,_=image(small['operation'])
+        assert (small_meta['source_width'],small_meta['source_height'])==(16,16)
+        webp=ok('forge_capture_texture',asset=badge['id'],path='Texture.webp')
+        complete=settled();assert complete['file_mime']=='image/webp' and not complete['error'],complete
+        webp_file=(root/'Output/Texture.webp').read_bytes()
+        assert webp_file[:4]==b'RIFF' and webp_file[8:12]==b'WEBP'
+        ok('forge_capture_texture',asset=normal['id'],semantic='normal',path='Texture.webp',replace=True)
+        failure=settled()
+        assert 'require PNG' in failure['error'] and (root/'Output/Texture.webp').read_bytes()==webp_file,failure
+        normal_job=ok('forge_capture_texture',asset=normal['id'],semantic='normal',path='Normal.png')
+        complete=settled();assert not complete['error'] and complete['preview_ready'],complete
+        _,normal_image=image(normal_job['operation'])
+        assert not png_has_chunk(normal_image,b'sRGB')
+        assert read('forge_scene_read')==authored
 
         (root/'hold_pixels').touch()
         ok('forge_output_folder_create',path='Screenshots')
@@ -158,5 +220,6 @@ for legacy in (False,True):
         names={tool['name'] for tool in client.request('tools/list')['result']['tools']}
         assert 'forge_capture_status' in names and 'forge_capture_image' not in names
         assert 'forge_capture_start' not in names and 'forge_capture_sequence_start' not in names
+        assert 'forge_capture_texture' not in names
 
 with gzip.open(sys.argv[3],'wt',encoding='utf-8') as output: json.dump(CAPTURE,output,separators=(',',':'))

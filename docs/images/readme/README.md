@@ -1672,3 +1672,23 @@ executable, source/export captures and limits are retained in the local235
 manual-captures receipt and final source freeze. This is test-fixture/native
 software-rendering evidence, not full Main/editor, Windows/MSVC/D3D12, physical
 GPU/input/DPI/performance, external MCP client or graphical-EXE acceptance.
+
+
+## Texture stored-pixel export
+
+[Texture export](../../../manual/images/texture-export.png) is an authentic720×650
+local source fixture capture, not a complete Windows editor or physical-device
+acceptance image. The actual production TextureViewer displays the original
+Feature Gallery Badge's published cooked texture with its editable source absent.
+The native input fixture uses the editor's pinned Diligent ImGui renderer and a
+software Vulkan offscreen target. An independent RGBA readback is encoded directly
+with the existing PNG writer; there is no cropping, resizing, retouching or fabricated
+control. The caption distinguishes the preview checkerboard from exported pixels.
+
+Source: `texture-image-editor-vulkan/texture-export-wide-100.png` from
+`forge_texture_image_editor_vulkan_probe`, test `texture_image_editor_vulkan`,
+local unassigned build. PNG SHA256: `2e010c3aa3d93d3d5e2348339b091c77ea1368cfffeb41461c1c267cb8e573a6`.
+Exact source/consumer hashes and six layout/input cases are retained in the local
+validation owner. Windows/full Main/D3D12, physical GPU/input/DPI, graphical EXE
+and numbered delivery remain pending. The existing texture-import capture still
+teaches the separate import-settings workflow.

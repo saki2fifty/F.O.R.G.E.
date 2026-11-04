@@ -12,6 +12,7 @@
 #include "model_watch_tests.hpp"
 #include "runtime_dependencies.hpp"
 #include "runtime_package.hpp"
+#include "texture_image.hpp"
 #include <forge/engine_assets.hpp>
 #include <forge/model_asset.hpp>
 #include <fstream>
@@ -267,6 +268,13 @@ int main(int argc, char** argv) {
                     texture_lease.identity().revision == material_lease.identity().revision &&
                     texture_lease.identity().revision == mesh_lease.identity().revision,
                 "Model render resource family mixed revisions or color semantics");
+        const auto export_selection =
+            load_texture_selection(root, *first_catalog, texture_ref, texture_semantic);
+        const auto export_pixels = texture_stored_pixels(*export_selection.value);
+        require(export_pixels.width == texture_lease->width &&
+                    export_pixels.height == texture_lease->height &&
+                    export_pixels.rgba == texture_stored_pixels(texture_lease.get()).rgba,
+                "Stored model-member export used another publication or texture");
         const auto image_bytes = texture_lease->byte_size();
         ModelDrawCandidate complete(root, first_catalog, 1, selected_mesh, {}, mesh_resources);
         require(!complete.ready(), "Draw published before dependency adoption");

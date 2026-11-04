@@ -62,6 +62,7 @@ int forge_webp_decode(const void* bytes, size_t size, unsigned dimension_limit, 
         return 0;
     }
     result->width = (unsigned)config.input.width;
+    result->srgb = 1;
     result->height = (unsigned)config.input.height;
     result->channels = 4;
     result->component_bytes = 1;

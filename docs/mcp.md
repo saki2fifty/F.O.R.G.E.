@@ -917,6 +917,26 @@ full PNG/WebP file retains rendered dimensions and exact captured RGBA, includin
 is readable. `capture_preview` prepares a completed owned PNG/WebP or PNG sequence frame;
 there is no arbitrary filesystem image-read tool.
 
+`forge_capture_texture` exports a published Texture asset's stored pixels through
+that same image task. Supply `asset` and an output-root-relative `path`, with
+optional `semantic` (`automatic`, `color`, `data`, `normal`), `mip`0..31,
+`layer`/`depth`0..2047, `face`0..5 and `replace`. Actual dimensions and variants
+are validated by the selected-artifact owner; syntactically bounded unavailable
+selections fail without replacing a good image. Automatic prefers HDR color then
+color; it never substitutes data or normal. The profile admits uncompressed
+R8/RG8/RGBA8/sRGB byte storage, a complete128MiB selected texture and a4096-axis /
+64MiB RGBA image. PNG preserves the stored sRGB label; WebP requires sRGB storage.
+Missing G/B are0 and missingA255. Present bytes, including alpha/hidden RGB,
+remain exact, with no preview color/alpha/normal conversion or import metadata.
+
+The result reports `view:"texture"` and the owned requested asset/semantic/slice
+under `texture`. Poll the existing status/image/file operations. The published
+catalog/cache is required; source images are not read or rebuilt. Standalone and
+model-member selections use the existing CPU resource admission. This operation
+requires the output grant and normal target/revision/sequence guards, uses no Scene
+Undo, and is absent for read-only connections. Pending project changes cancel;
+a job already committing finishes. Existing view/sequence requests cannot overlap.
+
 Timeline frame export uses `capture_sequence_open/read/start`, the actual sequence
 controller and observed source revision/preview generation. Start chooses a new
 folder and native end-exclusive frame plan; fixed dimensions render real pixels.
@@ -962,7 +982,7 @@ Build208 ZIP. Platform execution/visual acceptance remain separate from implemen
 | UI/shader text and Flecs recipes | Baseline file writes, native registration/import, diagnostic preview | Source storage / UI catalog / shader importer / FlecsScriptEditor |
 | Navigation and declared runtime dependencies | Actual bake and reviewed catalog publication | NavigationTools / RuntimeDependenciesEditor |
 | Play/inspection/input/live values/profiling/UI | Exact launch/session/world, existing controls/observations/review | PlaySession / GameInput / UiPresenter / RuntimeTuningReview |
-| View images and sampled frames | Owned output, real image blocks, native sampling/readback/IO | ViewImageTask / Timeline / presentation |
+| View images, stored Texture pixels and sampled frames | Owned output, real image blocks, selected artifacts and native sampling/readback/IO | ViewImageTask / Timeline / presentation |
 | Export and supervised testing | Native validation/publication/run/cancel under output/execution grants | GameExportTask / export_standalone_game |
 | Engine repository, arbitrary shell/OS automation, editor layout/preferences | Outside game-project MCP authority | Separate repository or desktop work |
 

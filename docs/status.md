@@ -5,6 +5,13 @@ The accepted local Windows package is **261024-000213**, source
 in the [README](../README.md#current-implementation). No new numbered Windows
 package accompanies the local source changes described here.
 
+Local source adds published Texture stored-pixel export through the native preview
+and shared automation/MCP image task. The bounded byte-storage profile supports
+PNG and sRGB lossless WebP, selected mip/layer/face/depth and source-hidden cooked
+assets. It performs no color/alpha/normal conversion or import-metadata roundtrip;
+compressed/16-bit/HDR storage remains unsupported. Windows/full-editor/physical
+acceptance and a numbered package remain pending. See [Texture assets](texture-assets.md).
+
 Local source also adds bounded native UI blur/color filters, shared graphical /
 non-graphical payload admission, model/keyframe updates and source-derived runtime
 kit requirements. Gallery155 has six original samples and paused Inspector blur.

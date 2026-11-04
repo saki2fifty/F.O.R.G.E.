@@ -17,7 +17,7 @@ The additional grants are:
 - An external source folder for imports.
 - A Projects folder for creating and switching projects.
 - **Allow C++ build and execution** for builds, native inspection, Play and game testing.
-- **Allow an output folder** for exports and view images.
+- **Allow an output folder** for exports, view images and stored texture pixels.
 
 The exact settings screen depends on the application. It must support local
 stdio MCP servers and one of FORGE's supported protocol versions:
@@ -194,8 +194,15 @@ unavailable.
 ## View images, export and test
 
 Choose an existing output folder before enabling the connection. The agent can
-create child output folders, capture Scene/Game PNGs and inspect bounded image
-previews through MCP. Full PNG files keep the rendered dimensions. Timeline
+create child output folders, capture Scene/Game PNG or lossless WebP images and
+inspect bounded PNG previews through MCP. Full files keep rendered dimensions.
+`forge_capture_texture` exports a published Texture's selected mip/layer/face/depth
+slice through the same image task. The agent supplies the asset, variant and output
+filename; the stored-byte profile, PNG/sRGB WebP distinction and limits are described
+in [Export stored pixels](textures.md). Import drafts and preview display controls
+are excluded. Existing files require an explicit replacement request.
+
+Timeline
 sequence export uses the existing preview/controller and writes sampled frames
 plus their receipt into a new folder. Cancellation retains completed files and
 restores the preview cursor; an image already committing must finish.

@@ -5,6 +5,7 @@ extern "C" {
 #endif
 typedef struct ForgeImagePixels {
     unsigned width, height, channels, component_bytes;
+    int srgb; // PNG sRGB metadata or the unprofiled WebP color convention.
     size_t stride, size;
     unsigned char* pixels;
     char error[256];

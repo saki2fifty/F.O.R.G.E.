@@ -108,6 +108,9 @@ the Scene as changed or add an Undo step. This command saves a single image.
 For numbered PNG sequence preview frames, use
 [Timeline → Export frames](animation-sequences.md).
 
+To export a published texture's stored channels, use
+[Texture preview → Export stored pixels...](textures.md).
+
 ## Save a camera bookmark
 
 Choose **View → Save view** to store one camera bookmark for the current scene. **View → Restore view** returns to it. The bookmark also restores automatically when that scene opens again, including after an editor restart. A scene without a bookmark opens with the default camera.

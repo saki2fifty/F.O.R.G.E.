@@ -40,7 +40,7 @@ const char* view_image_mime(ViewImageFormat format) {
 }
 namespace {
 void save_image(const std::filesystem::path& path, unsigned width, unsigned height,
-                std::span<const std::uint8_t> rgba, ViewImageFormat format) {
+                std::span<const std::uint8_t> rgba, ViewImageFormat format, bool srgb = true) {
     struct Encoded : ForgeImageBytes {
         Encoded() : ForgeImageBytes{} {}
         ~Encoded() { forge_image_bytes_free(this); }
@@ -48,10 +48,16 @@ void save_image(const std::filesystem::path& path, unsigned width, unsigned heig
     if (!width || !height || width > FORGE_VIEW_IMAGE_MAX_EXTENT ||
         height > FORGE_VIEW_IMAGE_MAX_EXTENT || rgba.size() != std::size_t(width) * height * 4)
         throw std::runtime_error("View image requires complete RGBA8 display pixels");
-    const auto encode =
-        format == ViewImageFormat::Png ? forge_png_encode_rgba8 : forge_webp_encode_rgba8;
-    if (!encode(rgba.data(), rgba.size(), width, height, std::size_t(width) * 4,
-                FORGE_VIEW_IMAGE_ENCODED_LIMIT, &encoded))
+    if (format == ViewImageFormat::Webp && !srgb)
+        throw std::runtime_error("Stored channels without an sRGB label require PNG output");
+    const auto ok = format == ViewImageFormat::Png
+                        ? forge_png_encode_rgba8_profile(rgba.data(), rgba.size(), width, height,
+                                                         std::size_t(width) * 4, srgb,
+                                                         FORGE_VIEW_IMAGE_ENCODED_LIMIT, &encoded)
+                        : forge_webp_encode_rgba8(rgba.data(), rgba.size(), width, height,
+                                                  std::size_t(width) * 4,
+                                                  FORGE_VIEW_IMAGE_ENCODED_LIMIT, &encoded);
+    if (!ok)
         throw std::runtime_error(encoded.error);
     asset_storage::replace(
         path, std::string_view(reinterpret_cast<const char*>(encoded.bytes), encoded.size));
@@ -61,12 +67,16 @@ void save_view_image(const std::filesystem::path& path, unsigned width, unsigned
                      std::span<const std::uint8_t> rgba) {
     save_image(path, width, height, rgba, view_image_format(path));
 }
+void save_image_pixels(const std::filesystem::path& path, const Rgba8Pixels& pixels) {
+    save_image(path, pixels.width, pixels.height, pixels.rgba, view_image_format(path),
+               pixels.srgb);
+}
 void save_view_png(const std::filesystem::path& path, unsigned width, unsigned height,
                    std::span<const std::uint8_t> rgba) {
     save_image(path, width, height, rgba, ViewImageFormat::Png);
 }
 ViewImagePreview preview_view_pixels(unsigned width, unsigned height,
-                                     std::span<const std::uint8_t> rgba) {
+                                     std::span<const std::uint8_t> rgba, bool srgb) {
     if (!width || !height || width > FORGE_VIEW_IMAGE_MAX_EXTENT ||
         height > FORGE_VIEW_IMAGE_MAX_EXTENT || rgba.size() != std::size_t(width) * height * 4)
         throw std::runtime_error("View preview requires bounded RGBA8 display pixels");
@@ -107,9 +117,9 @@ ViewImagePreview preview_view_pixels(unsigned width, unsigned height,
         Encoded() : ForgeImageBytes{} {}
         ~Encoded() { forge_image_bytes_free(this); }
     } encoded;
-    if (!forge_png_encode_rgba8(pixels, std::size_t(result.width) * result.height * 4, result.width,
-                                result.height, std::size_t(result.width) * 4, 8 * 1024 * 1024,
-                                &encoded))
+    if (!forge_png_encode_rgba8_profile(pixels, std::size_t(result.width) * result.height * 4,
+                                        result.width, result.height, std::size_t(result.width) * 4,
+                                        srgb, 8 * 1024 * 1024, &encoded))
         throw std::runtime_error(encoded.error);
     const auto* first = reinterpret_cast<const std::byte*>(encoded.bytes);
     result.png.assign(first, first + encoded.size);
@@ -136,6 +146,7 @@ ViewImagePreview read_view_preview(const std::filesystem::path& path) {
     if (image.channels != 4 || image.component_bytes != 1 ||
         image.stride != std::size_t(image.width) * 4 || image.size > FORGE_VIEW_IMAGE_PIXEL_LIMIT)
         throw std::runtime_error("The owned view artifact is not RGBA8 PNG or WebP");
-    return preview_view_pixels(image.width, image.height, {image.pixels, image.size});
+    return preview_view_pixels(image.width, image.height, {image.pixels, image.size},
+                               image.srgb != 0);
 }
 } // namespace forge

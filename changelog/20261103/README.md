@@ -1,5 +1,17 @@
 # 2026-11-03
 
+## Stored texture pixel export
+
+Published standalone and model-member Texture assets can export one mip/layer /
+face/depth slice through the existing native image task and `forge_capture_texture`.
+PNG supports uncompressed R8/RG8/RGBA8/sRGB bytes; lossless WebP requires sRGB
+storage. Top-row orientation, stored channels and alpha are preserved. Missing
+channels use texture defaults. No source decode, display conversion, import draft
+or metadata is included. Complete selected source and output budgets are explicit;
+unsupported storage fails before replacing an existing image. Project cancellation,
+output grants, overwrite rules and current-operation reads reuse existing owners.
+Windows/full-editor/physical-device acceptance remains pending.
+
 ## Native UI blur and color filters
 
 RML/RCSS supports bounded blur, opacity, grayscale, brightness and contrast chains,

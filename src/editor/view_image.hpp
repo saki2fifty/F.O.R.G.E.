@@ -15,6 +15,7 @@
 #include <chrono>
 #include <cstring>
 #include <forge/build.hpp>
+#include <functional>
 #include <future>
 #include <memory>
 #include <optional>
@@ -28,7 +29,7 @@ struct ViewImageTaskAccess;
 }
 #endif
 namespace forge::ui {
-// One explicit image operation: a single view or sequential sequence frames.
+// One image operation: a rendered view, stored pixels or sequence frames.
 // No authored state or persistent panel.
 class ViewImageTask {
     friend struct ::forge::CaptureAutomation;
@@ -63,7 +64,11 @@ class ViewImageTask {
     };
 
   public:
-    enum class View { Scene, Game };
+    enum class View { Scene, Game, Texture };
+    struct PixelInput {
+        Json source;
+        std::function<Rgba8Pixels()> load;
+    };
     bool busy() const {
         return dialog_.busy() || pending_ || copied_ || job_.valid() || frames_ ||
                (work_ && work_->busy());
@@ -276,29 +281,36 @@ class ViewImageTask {
         }
         return false; // A readback/file write already committing must finish.
     }
-    void choose(View view, SDL_Window* window, const std::filesystem::path& project,
-                AssetId scene) {
+    void choose(View view, SDL_Window* window, const std::filesystem::path& project, AssetId scene,
+                std::optional<PixelInput> input = {}) {
         if (busy())
             return;
+        validate_input(view, input);
         start_operation();
         project_ = project;
-        scene_ = scene;
+        scene_ = view == View::Texture ? AssetId{} : scene;
         view_ = view;
-        dialog_.show(FileDialog::Kind::SaveImage, window,
-                     path_utf8(project / (view == View::Scene ? "Scene.png" : "Game.png")));
+        input_ = std::move(input);
+        const char* filename = view == View::Texture ? "Texture.png"
+                               : view == View::Scene ? "Scene.png"
+                                                     : "Game.png";
+        dialog_.show(FileDialog::Kind::SaveImage, window, path_utf8(project / filename));
     }
     // Completed picker selection. This adapter also accepts explicit editor requests;
     // an existing filename is already confirmed by the calling file picker.
     bool selected_path(View view, const std::filesystem::path& path,
                        const std::filesystem::path& project, AssetId scene, std::string& message,
-                       std::optional<ViewImageFormat> picker_format = {}) {
+                       std::optional<ViewImageFormat> picker_format = {},
+                       std::optional<PixelInput> input = {}) {
         if (busy())
             return false;
         try {
+            validate_input(view, input);
             start_operation();
             project_ = project;
-            scene_ = scene;
+            scene_ = view == View::Texture ? AssetId{} : scene;
             view_ = view;
+            input_ = std::move(input);
             destination_ = std::filesystem::absolute(path).lexically_normal();
             const bool append = destination_.extension().empty();
             if (append)
@@ -314,6 +326,7 @@ class ViewImageTask {
             confirm_ = append && std::filesystem::exists(destination_);
             pending_ = true;
             publish_status(confirm_ ? "Confirm replacing the image"
+                           : input_ ? "Waiting to export stored Texture pixels"
                                     : "Waiting for the rendered view image",
                            message);
             return true;
@@ -327,6 +340,8 @@ class ViewImageTask {
     // tooling can read owned image artifacts without a graphics device.
     bool poll_files(std::string& message) {
         try {
+            if (pending_ && !confirm_ && input_ && !job_.valid())
+                queue_image(std::move(input_->load), message);
             if (job_.valid() &&
                 job_.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
                 auto result = job_.get();
@@ -391,6 +406,13 @@ class ViewImageTask {
                     throw std::runtime_error(
                         "Sequence frame resources did not become ready within 60 seconds");
             }
+            if (!frames_ && pending_ && !current_source(project, scene)) {
+                pending_ = confirm_ = false;
+                publish_status(view_ == View::Texture
+                                   ? "Image save cancelled because the project changed"
+                                   : "Image save cancelled because the Scene changed",
+                               message);
+            }
             if (!poll_files(message))
                 return;
             if (auto result = dialog_.take()) {
@@ -413,8 +435,11 @@ class ViewImageTask {
                         throw std::runtime_error(result->error);
                     if (result->path.empty())
                         publish_status("Image save cancelled", message);
-                    else if (project != project_ || scene != scene_)
-                        publish_status("Image save cancelled because the Scene changed", message);
+                    else if (!current_source(project, scene))
+                        publish_status(view_ == View::Texture
+                                           ? "Image save cancelled because the project changed"
+                                           : "Image save cancelled because the Scene changed",
+                                       message);
                     else {
                         if (result->filter_index < -1 || result->filter_index > 1)
                             throw std::runtime_error("The image dialog returned an unknown filter");
@@ -423,14 +448,17 @@ class ViewImageTask {
                             format = result->filter_index == 1 ? ViewImageFormat::Webp
                                                                : ViewImageFormat::Png;
                         selected_path(view_, std::filesystem::u8path(result->path), project, scene,
-                                      message, format);
+                                      message, format, std::move(input_));
                     }
                 }
             }
-            if (!frames_ && pending_ && (project != project_ || scene != scene_)) {
+            if (!frames_ && pending_ && !current_source(project, scene)) {
                 pending_ = confirm_ = false;
                 publish_status("Image save cancelled because the Scene changed", message);
             }
+            if (input_)
+                return; // CPU pixel producers never request a Scene/Game readback.
+
             if (frames_ && (frames_->cancelled || !frames_->error.empty()) && copied_ &&
                 !frames_->discarding) {
                 presentation.cancel_readback();
@@ -730,6 +758,7 @@ class ViewImageTask {
     FileWork file_work_ = FileWork::Image;
     bool frame_popup_ = false;
     FileDialog dialog_;
+    std::optional<PixelInput> input_;
     std::filesystem::path project_, destination_;
     AssetId scene_;
     std::string status_;
@@ -741,6 +770,13 @@ class ViewImageTask {
     std::optional<FrameReceipt> completed_frames_;
     std::optional<ViewImagePreview> preview_;
     bool preview_requested_ = false;
+    static void validate_input(View view, const std::optional<PixelInput>& input) {
+        if (view == View::Texture ? !input || !input->load : bool(input))
+            throw std::runtime_error("Stored Texture pixels require an explicit pixel producer");
+    }
+    bool current_source(const std::filesystem::path& project, AssetId scene) const {
+        return project == project_ && (view_ == View::Texture || scene == scene_);
+    }
     void start_operation(bool keep_artifact = false) {
         work_.reset();
         operation_ = AssetId::generate().str();
@@ -751,6 +787,7 @@ class ViewImageTask {
         error_.clear();
         preview_error_.clear();
         if (!keep_artifact) {
+            input_.reset();
             artifact_operation_ = operation_;
             completed_image_.clear();
             completed_frames_.reset();
@@ -765,16 +802,22 @@ class ViewImageTask {
             } else if (frames_->width != pixels.width || frames_->height != pixels.height)
                 throw std::runtime_error("Rendered frame dimensions changed during export");
         }
+        queue_image([pixels = std::move(pixels)]() mutable { return std::move(pixels); }, message);
+    }
+    template <class Load> void queue_image(Load load, std::string& message) {
+        pending_ = confirm_ = false;
         const auto destination = destination_;
         const bool preview_requested = preview_requested_;
         file_work_ = FileWork::Image;
-        job_ = std::async(std::launch::async, [pixels = std::move(pixels), destination,
-                                               preview_requested] {
-            save_view_image(destination, pixels.width, pixels.height, pixels.rgba);
+        job_ = std::async(std::launch::async, [load = std::move(load), destination,
+                                               preview_requested]() mutable {
+            auto pixels = load();
+            save_image_pixels(destination, pixels);
             FileResult result{path_utf8(destination), {}};
             if (preview_requested) {
                 try {
-                    result.preview = preview_view_pixels(pixels.width, pixels.height, pixels.rgba);
+                    result.preview =
+                        preview_view_pixels(pixels.width, pixels.height, pixels.rgba, pixels.srgb);
                 } catch (const std::exception& e) {
                     result.preview_error = e.what();
                 }

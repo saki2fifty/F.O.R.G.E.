@@ -4,6 +4,7 @@
 #include "Graphics/GraphicsEngine/interface/Query.h"
 #include "Graphics/GraphicsTools/interface/RenderStateCache.h"
 #include "PBR_Renderer.hpp"
+#include "image_pixels.hpp"
 #include <array>
 #include <cstdint>
 #include <forge/services.hpp>
@@ -56,10 +57,7 @@ class DiligentPresentation {
     nlohmann::json gpu_profile_status() const;
     GpuScope gpu_scope(Diligent::IDeviceContext*, const char* view, const char* stage,
                        bool enabled = true);
-    struct DisplayPixels {
-        unsigned width{}, height{};
-        std::vector<std::uint8_t> rgba;
-    };
+    using DisplayPixels = Rgba8Pixels;
     struct HdrPixels {
         unsigned width{}, height{};
         // Four raw half-float channels, eight bytes per pixel; no conversion.

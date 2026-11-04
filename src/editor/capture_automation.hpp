@@ -1,5 +1,6 @@
 #pragma once
 #include "../automation_image.hpp"
+#include "../texture_image.hpp"
 #include "automation_permissions.hpp"
 #include "automation_schema.hpp"
 #include "files.hpp"
@@ -12,6 +13,9 @@ struct CaptureAutomationProviders {
     std::function<ui::SequenceFrameSource&()> sequence;
     std::function<std::string(bool)> unavailable;
     std::function<void(const std::string&, const ui::ReflectionCaptureRequest&)> reflection;
+    std::function<ui::ViewImageTask::PixelInput(AssetRef<TextureAsset>,
+                                                std::optional<TextureSemantic>, TextureImageSlice)>
+        texture;
 };
 struct CaptureAutomation {
     static Json state(ui::ViewImageTask& owner, EditorFiles& files) {
@@ -30,6 +34,10 @@ struct CaptureAutomation {
             {"view", owner.view_ == ui::ViewImageTask::View::Scene ? "scene" : "game"}};
         if (owner.scene_)
             value["scene"] = owner.scene_;
+        if (owner.view_ == ui::ViewImageTask::View::Texture && owner.input_) {
+            value["view"] = "texture";
+            value["texture"] = owner.input_->source;
+        }
         if (owner.work_) {
             value["view"] = "reflection";
             value["reflection"] = owner.work_->state();
@@ -89,6 +97,18 @@ struct CaptureAutomation {
                 {"duration", info.duration},
                 {"source_revision", info.revision},
                 {"preview_generation", info.preview_generation}};
+    }
+    static std::filesystem::path image_destination(const std::filesystem::path& root,
+                                                   const Json& request) {
+        const auto file = destination(root, request);
+        try {
+            (void)view_image_format(file);
+        } catch (const std::exception& e) {
+            throw AuthoringError("invalid_path", e.what());
+        }
+        if (std::filesystem::exists(file) && !request.value("replace", false))
+            throw AuthoringError("output_exists", "Explicitly request replacement of this image");
+        return file;
     }
     static std::vector<LiveAuthoringMethod> methods(ui::ViewImageTask& owner, Scene& scene,
                                                     EditorFiles& files,
@@ -241,15 +261,7 @@ struct CaptureAutomation {
             true,
             [&owner, &scene, &files, providers, root, &message](const Json& request) {
                 ready(files, providers, false);
-                const auto file = destination(root, request);
-                try {
-                    (void)view_image_format(file);
-                } catch (const std::exception& e) {
-                    throw AuthoringError("invalid_path", e.what());
-                }
-                if (std::filesystem::exists(file) && !request.value("replace", false))
-                    throw AuthoringError("output_exists",
-                                         "Explicitly request replacement of this image");
+                const auto file = image_destination(root, request);
                 const auto view = request.at("view") == "scene" ? ui::ViewImageTask::View::Scene
                                                                 : ui::ViewImageTask::View::Game;
                 if (!owner.selected_path(view, file, files.document.project(), scene.asset_id(),
@@ -260,6 +272,56 @@ struct CaptureAutomation {
                 return state(owner, files);
             },
             true));
+        if (providers.texture)
+            result.push_back(automation_method(
+                "capture.texture",
+                "Export stored pixels from one published Texture mip/layer/face/depth slice "
+                "to PNG or lossless WebP inside the approved output root. Supports uncompressed "
+                "R8/RG8/RGBA8/sRGB byte storage, at most 4096 per axis, 64 MiB output and 128 MiB "
+                "complete source. RGBA stays exact; missing G/B are 0 and missing A is 255. "
+                "WebP requires sRGB storage; other stored channels use PNG. No color, alpha or "
+                "normal conversion, source decode, import metadata or Scene "
+                "Undo. Existing files require replace:true. Poll capture.status/image/file.",
+                "capture.write",
+                automation_object(
+                    {{"asset", automation_uuid()},
+                     {"semantic",
+                      {{"type", "string"}, {"enum", {"automatic", "color", "data", "normal"}}}},
+                     {"mip", automation_integer(0, 31)},
+                     {"layer", automation_integer(0, 2047)},
+                     {"face", automation_integer(0, 5)},
+                     {"depth", automation_integer(0, 2047)},
+                     {"path", automation_text(2047, 1)},
+                     {"replace", {{"type", "boolean"}}}},
+                    {"asset", "path"}),
+                true,
+                [&owner, &files, providers, root, &message](const Json& request) {
+                    ready(files, providers, false);
+                    const auto file = image_destination(root, request);
+                    const auto usage = request.value("semantic", std::string("automatic"));
+                    std::optional<TextureSemantic> semantic;
+                    if (usage == "color")
+                        semantic = TextureSemantic::Color;
+                    else if (usage == "data")
+                        semantic = TextureSemantic::Data;
+                    else if (usage == "normal")
+                        semantic = TextureSemantic::Normal;
+                    else if (usage != "automatic")
+                        throw AuthoringError("invalid_arguments",
+                                             "Choose an available Texture semantic");
+                    const TextureImageSlice slice{
+                        request.value("mip", 0u), request.value("layer", 0u),
+                        request.value("face", 0u), request.value("depth", 0u)};
+                    auto input =
+                        providers.texture({request.at("asset").get<AssetId>()}, semantic, slice);
+                    if (!owner.selected_path(ui::ViewImageTask::View::Texture, file,
+                                             files.document.project(), {}, message, {},
+                                             std::move(input)))
+                        throw AuthoringError("capture_busy", owner.status());
+                    owner.preview_requested_ = true;
+                    return state(owner, files);
+                },
+                true));
         result.push_back(automation_method(
             "capture.preview",
             "Prepare a preview of this task's "

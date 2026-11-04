@@ -1,4 +1,5 @@
 #pragma once
+#include "image_pixels.hpp"
 #include <cstdint>
 #include <filesystem>
 #include <span>
@@ -10,6 +11,9 @@ const char* view_image_suffix(ViewImageFormat);
 const char* view_image_mime(ViewImageFormat);
 void save_view_image(const std::filesystem::path&, unsigned width, unsigned height,
                      std::span<const std::uint8_t> rgba);
+// PNG retains the producer's explicit sRGB label; unlabelled stored channels use
+// PNG. The supported WebP output profile requires sRGB bytes.
+void save_image_pixels(const std::filesystem::path&, const Rgba8Pixels&);
 // Detached display pixels; no device, Scene, catalog or project-writer ownership.
 void save_view_png(const std::filesystem::path&, unsigned width, unsigned height,
                    std::span<const std::uint8_t> rgba);
@@ -20,6 +24,6 @@ struct ViewImagePreview {
     std::vector<std::byte> png;
 };
 ViewImagePreview preview_view_pixels(unsigned width, unsigned height,
-                                     std::span<const std::uint8_t> rgba);
+                                     std::span<const std::uint8_t> rgba, bool srgb = true);
 ViewImagePreview read_view_preview(const std::filesystem::path&);
 } // namespace forge
