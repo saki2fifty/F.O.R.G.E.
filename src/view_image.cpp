@@ -10,6 +10,10 @@
 #include <cstring>
 #include <stdexcept>
 namespace forge {
+void ImageEncodingOptions::validate() const {
+    if (jpeg_quality < FORGE_JPEG_QUALITY_MIN || jpeg_quality > FORGE_JPEG_QUALITY_MAX)
+        throw std::runtime_error("JPEG quality must be between 1 and 100");
+}
 ViewImageFormat view_image_format(const std::filesystem::path& path) {
     auto extension = path.extension().u8string();
     for (auto& c : extension)
@@ -21,7 +25,10 @@ ViewImageFormat view_image_format(const std::filesystem::path& path) {
         return ViewImageFormat::Webp;
     if (extension == u8".hdr")
         return ViewImageFormat::Hdr;
-    throw std::runtime_error("Choose a PNG (.png), lossless WebP (.webp) or HDR (.hdr) filename");
+    if (extension == u8".jpg" || extension == u8".jpeg")
+        return ViewImageFormat::Jpeg;
+    throw std::runtime_error(
+        "Choose a PNG (.png), lossless WebP (.webp), JPEG (.jpg/.jpeg) or HDR (.hdr) filename");
 }
 const char* view_image_suffix(ViewImageFormat format) {
     switch (format) {
@@ -31,6 +38,8 @@ const char* view_image_suffix(ViewImageFormat format) {
         return ".webp";
     case ViewImageFormat::Hdr:
         return ".hdr";
+    case ViewImageFormat::Jpeg:
+        return ".jpg";
     }
     throw std::runtime_error("Unsupported view image format");
 }
@@ -42,12 +51,16 @@ const char* view_image_mime(ViewImageFormat format) {
         return "image/webp";
     case ViewImageFormat::Hdr:
         return "image/vnd.radiance";
+    case ViewImageFormat::Jpeg:
+        return "image/jpeg";
     }
     throw std::runtime_error("Unsupported view image format");
 }
 namespace {
 void save_image(const std::filesystem::path& path, unsigned width, unsigned height,
-                std::span<const std::uint8_t> rgba, ViewImageFormat format, bool srgb = true) {
+                std::span<const std::uint8_t> rgba, ViewImageFormat format, bool srgb = true,
+                const ImageEncodingOptions& options = {}) {
+    options.validate();
     struct Encoded : ForgeImageBytes {
         Encoded() : ForgeImageBytes{} {}
         ~Encoded() { forge_image_bytes_free(this); }
@@ -57,12 +70,16 @@ void save_image(const std::filesystem::path& path, unsigned width, unsigned heig
         throw std::runtime_error("View image requires complete RGBA8 display pixels");
     if (format == ViewImageFormat::Hdr)
         throw std::runtime_error("HDR output requires opaque linear HDR pixels");
-    if (format == ViewImageFormat::Webp && !srgb)
+    if ((format == ViewImageFormat::Webp || format == ViewImageFormat::Jpeg) && !srgb)
         throw std::runtime_error("Stored channels without an sRGB label require PNG output");
     const auto ok = format == ViewImageFormat::Png
                         ? forge_png_encode_rgba8_profile(rgba.data(), rgba.size(), width, height,
                                                          std::size_t(width) * 4, srgb,
                                                          FORGE_VIEW_IMAGE_ENCODED_LIMIT, &encoded)
+                    : format == ViewImageFormat::Jpeg
+                        ? forge_jpeg_encode_rgba8(rgba.data(), rgba.size(), width, height,
+                                                  std::size_t(width) * 4, options.jpeg_quality,
+                                                  FORGE_VIEW_IMAGE_ENCODED_LIMIT, &encoded)
                         : forge_webp_encode_rgba8(rgba.data(), rgba.size(), width, height,
                                                   std::size_t(width) * 4,
                                                   FORGE_VIEW_IMAGE_ENCODED_LIMIT, &encoded);
@@ -73,22 +90,26 @@ void save_image(const std::filesystem::path& path, unsigned width, unsigned heig
 }
 } // namespace
 void save_view_image(const std::filesystem::path& path, unsigned width, unsigned height,
-                     std::span<const std::uint8_t> rgba) {
-    save_image(path, width, height, rgba, view_image_format(path));
+                     std::span<const std::uint8_t> rgba, const ImageEncodingOptions& options) {
+    save_image(path, width, height, rgba, view_image_format(path), true, options);
 }
-void save_image_pixels(const std::filesystem::path& path, const Rgba8Pixels& pixels) {
-    save_image(path, pixels.width, pixels.height, pixels.rgba, view_image_format(path),
-               pixels.srgb);
+void save_image_pixels(const std::filesystem::path& path, const Rgba8Pixels& pixels,
+                       const ImageEncodingOptions& options) {
+    save_image(path, pixels.width, pixels.height, pixels.rgba, view_image_format(path), pixels.srgb,
+               options);
 }
-void save_image_pixels(const std::filesystem::path& path, const Rgb32Pixels& pixels) {
+void save_image_pixels(const std::filesystem::path& path, const Rgb32Pixels& pixels,
+                       const ImageEncodingOptions& options) {
+    options.validate();
     if (view_image_format(path) != ViewImageFormat::Hdr)
         throw std::runtime_error("Linear HDR pixels require an HDR (.hdr) destination");
     const auto bytes = encode_hdr_image(pixels);
     asset_storage::replace(
         path, std::string_view(reinterpret_cast<const char*>(bytes.data()), bytes.size()));
 }
-void save_image_pixels(const std::filesystem::path& path, const ImagePixels& pixels) {
-    std::visit([&](const auto& value) { save_image_pixels(path, value); }, pixels);
+void save_image_pixels(const std::filesystem::path& path, const ImagePixels& pixels,
+                       const ImageEncodingOptions& options) {
+    std::visit([&](const auto& value) { save_image_pixels(path, value, options); }, pixels);
 }
 void save_view_png(const std::filesystem::path& path, unsigned width, unsigned height,
                    std::span<const std::uint8_t> rgba) {
@@ -169,10 +190,23 @@ ViewImagePreview read_view_preview(const std::filesystem::path& path) {
     // encoded overhead separately without narrowing valid exported images.
     static_assert(std::uint64_t(FORGE_VIEW_IMAGE_MAX_EXTENT) * FORGE_VIEW_IMAGE_MAX_EXTENT * 4 <=
                   FORGE_VIEW_IMAGE_PIXEL_LIMIT);
-    const auto decode = webp ? forge_webp_decode : forge_png_decode;
+    const bool jpeg = bytes.size() >= 2 && bytes[0] == std::byte{255} && bytes[1] == std::byte{216};
+    const auto decode = webp ? forge_webp_decode : jpeg ? forge_jpeg_decode : forge_png_decode;
     if (!decode(bytes.data(), bytes.size(), FORGE_VIEW_IMAGE_MAX_EXTENT,
                 webp ? FORGE_VIEW_IMAGE_ENCODED_LIMIT : FORGE_VIEW_IMAGE_PIXEL_LIMIT, 0, &image))
         throw std::runtime_error(image.error);
+    if (jpeg) {
+        if ((image.channels != 1 && image.channels != 3) || image.component_bytes != 1 ||
+            image.stride != std::size_t(image.width) * image.channels ||
+            image.size != image.stride * image.height)
+            throw std::runtime_error("The owned JPEG artifact is not bounded gray/RGB bytes");
+        std::vector<std::uint8_t> rgba(std::size_t(image.width) * image.height * 4, 255);
+        for (std::size_t at = 0; at < rgba.size() / 4; ++at)
+            for (unsigned c = 0; c < 3; ++c)
+                rgba[at * 4 + c] =
+                    image.pixels[at * image.channels + (image.channels == 1 ? 0 : c)];
+        return preview_view_pixels(image.width, image.height, rgba, true);
+    }
     if (image.channels != 4 || image.component_bytes != 1 ||
         image.stride != std::size_t(image.width) * 4 || image.size > FORGE_VIEW_IMAGE_PIXEL_LIMIT)
         throw std::runtime_error("The owned view artifact is not RGBA8 PNG or WebP");

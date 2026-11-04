@@ -114,7 +114,7 @@ void files(const std::filesystem::path& root) {
           "WebP readback did not return an exact RGBA PNG protocol preview");
     rejects([&] { forge::save_view_image(path, 5, 3, pixels); });
     check(bytes(path) == encoded, "Invalid pixels replaced the existing image");
-    const auto unsupported = root / "preserved.jpg";
+    const auto unsupported = root / "preserved.tif";
     {
         std::ofstream file(unsupported);
         file << "keep previous file";

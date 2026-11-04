@@ -90,15 +90,27 @@ Flight speed applies to RMB+WASD, Space and Shift. Tool choice, grid visibility/
 
 In the Scene toolbar, open **View → Save image…**. In Game, click **Save image…**
 above the image. Choose **PNG image** with a **.png** filename, or **Lossless WebP image**
-with a **.webp** filename. PNG is the default. Change the filename suffix when
+with a **.webp** filename. For opaque images, choose **JPEG image** with **.jpg**
+or **.jpeg**. PNG is the default. Change the filename suffix when
 changing the file type; a conflicting suffix produces an error. Wait for
 **Image saved** in the status bar or Console. Keep the requested view open;
 Game needs an active camera.
 
-Both formats store the captured RGBA pixels losslessly, including transparency.
+PNG and WebP store the captured RGBA pixels losslessly, including transparency.
+JPEG requires every captured alpha value to be fully opaque. Its **JPEG quality**
+dialog accepts **1–100**, with **90** as the default. Higher values retain more
+detail; even 100 is lossy. Click **Save JPEG** to continue or **Cancel** to keep
+existing files. If adding a suffix names an existing file, confirm **Replace**
+after choosing quality. A rejected export preserves the previous file.
+
+![JPEG quality dialog above a published opaque texture, with quality and Save JPEG controls](../images/jpeg-image-export.png)
+
+Choose quality before capture or encoding starts. The same dialog serves Scene, Game and supported byte Texture exports.
+
 The image uses the view's current render size. Scene includes the visible grid;
 Game includes runtime UI drawn into its image. Selection handles, debug overlays
-and editor panels are excluded. Colors and transparency are preserved.
+and editor panels are excluded. PNG/WebP preserve colors and transparency; JPEG changes
+colors through lossy compression and cannot store transparency.
 
 One image saves at a time. Changing Scene before capture cancels the request.
 Once the image is captured, saving can finish in the background while you continue

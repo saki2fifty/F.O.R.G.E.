@@ -42,6 +42,9 @@ struct CaptureAutomation {
             value["view"] = "reflection";
             value["reflection"] = owner.work_->state();
         }
+        if (!owner.destination_.empty() &&
+            view_image_format(owner.destination_) == ViewImageFormat::Jpeg)
+            value["jpeg_quality"] = owner.encoding_.jpeg_quality;
         if (!owner.completed_image_.empty()) {
             value["file"] = path_utf8(owner.completed_image_);
             value["file_mime"] = view_image_mime(view_image_format(owner.completed_image_));
@@ -103,13 +106,26 @@ struct CaptureAutomation {
         const auto file = destination(root, request);
         try {
             if (view_image_format(file) == ViewImageFormat::Hdr && !hdr)
-                throw std::runtime_error("Rendered views support PNG or lossless WebP output");
+                throw std::runtime_error(
+                    "Rendered views support PNG, lossless WebP or opaque JPEG output");
         } catch (const std::exception& e) {
             throw AuthoringError("invalid_path", e.what());
         }
         if (std::filesystem::exists(file) && !request.value("replace", false))
             throw AuthoringError("output_exists", "Explicitly request replacement of this image");
         return file;
+    }
+    static ImageEncodingOptions encoding_options(const std::filesystem::path& file,
+                                                 const Json& request) {
+        if (request.contains("jpeg_quality") && view_image_format(file) != ViewImageFormat::Jpeg)
+            throw AuthoringError("invalid_arguments", "jpeg_quality requires a JPEG destination");
+        ImageEncodingOptions result{request.value("jpeg_quality", FORGE_JPEG_DEFAULT_QUALITY)};
+        try {
+            result.validate();
+        } catch (const std::exception& e) {
+            throw AuthoringError("invalid_arguments", e.what());
+        }
+        return result;
     }
     static std::vector<LiveAuthoringMethod> methods(ui::ViewImageTask& owner, Scene& scene,
                                                     EditorFiles& files,
@@ -250,23 +266,28 @@ struct CaptureAutomation {
         result.push_back(automation_method(
             "capture.start",
             "Capture the next rendered Scene or "
-            "Game view through the existing image task. Use .png or lossless .webp inside the "
+            "Game view through the existing image task. Use .png, lossless .webp or opaque sRGB "
+            "JPEG (.jpg/.jpeg); jpeg_quality is1–100, default90, JPEG only. JPEG previews show "
+            "decoded output. Save inside the "
             "approved "
             "folder. Existing files require replace:true. Poll status/image; this does not freeze "
             "the game or claim that a starting game already rendered a frame.",
             "capture.write",
             automation_object({{"view", {{"type", "string"}, {"enum", {"scene", "game"}}}},
                                {"path", automation_text(2047, 1)},
+                               {"jpeg_quality",
+                                automation_integer(FORGE_JPEG_QUALITY_MIN, FORGE_JPEG_QUALITY_MAX)},
                                {"replace", {{"type", "boolean"}}}},
                               {"view", "path"}),
             true,
             [&owner, &scene, &files, providers, root, &message](const Json& request) {
                 ready(files, providers, false);
                 const auto file = image_destination(root, request);
+                const auto encoding = encoding_options(file, request);
                 const auto view = request.at("view") == "scene" ? ui::ViewImageTask::View::Scene
                                                                 : ui::ViewImageTask::View::Game;
                 if (!owner.selected_path(view, file, files.document.project(), scene.asset_id(),
-                                         message))
+                                         message, {}, {}, encoding))
                     throw AuthoringError("capture_busy", owner.status());
                 owner.preview_requested_ = true;
                 providers.show(view);
@@ -278,12 +299,14 @@ struct CaptureAutomation {
                 "capture.texture",
                 "Export one published Texture mip/layer/face/depth slice inside the output root. "
                 "PNG/sRGB lossless WebP retain R8/RG8/RGBA8 stored bytes (128 MiB source,64 MiB "
-                "RGBA); missing G/B=0,A=255. HDR (.hdr) accepts HdrColor RGBA16/32Float, finite "
+                "RGBA); missing G/B=0,A=255. JPEG (.jpg/.jpeg) requires opaque sRGB bytes; "
+                "jpeg_quality is1–100, default90, JPEG only. JPEG is lossy and its preview shows "
+                "decoded output. HDR (.hdr) accepts HdrColor RGBA16/32Float, finite "
                 "nonnegative RGB and actual alpha1 (256 MiB source,192 MiB RGB float). RGBE "
                 "quantizes RGB without tone mapping; HDR has no alpha or inline image preview. "
                 "All profiles limit each axis to4096 and encoded output to68 MiB. No source "
                 "decode, import metadata or Scene Undo. Existing files require replace:true. "
-                "Poll capture.status for the written file path/MIME; PNG/WebP also support "
+                "Poll capture.status for the written file path/MIME; PNG/WebP/JPEG also support "
                 "capture.image.",
                 "capture.write",
                 automation_object({{"asset", automation_uuid()},
@@ -295,12 +318,15 @@ struct CaptureAutomation {
                                    {"face", automation_integer(0, 5)},
                                    {"depth", automation_integer(0, 2047)},
                                    {"path", automation_text(2047, 1)},
+                                   {"jpeg_quality", automation_integer(FORGE_JPEG_QUALITY_MIN,
+                                                                       FORGE_JPEG_QUALITY_MAX)},
                                    {"replace", {{"type", "boolean"}}}},
                                   {"asset", "path"}),
                 true,
                 [&owner, &files, providers, root, &message](const Json& request) {
                     ready(files, providers, false);
                     const auto file = image_destination(root, request, true);
+                    const auto encoding = encoding_options(file, request);
                     const auto usage = request.value("semantic", std::string("automatic"));
                     std::optional<TextureSemantic> semantic;
                     if (usage == "color")
@@ -321,7 +347,7 @@ struct CaptureAutomation {
                         providers.texture({request.at("asset").get<AssetId>()}, semantic, slice);
                     if (!owner.selected_path(ui::ViewImageTask::View::Texture, file,
                                              files.document.project(), {}, message, {},
-                                             std::move(input)))
+                                             std::move(input), encoding))
                         throw AuthoringError("capture_busy", owner.status());
                     owner.preview_requested_ = true;
                     return state(owner, files);
@@ -330,7 +356,7 @@ struct CaptureAutomation {
         result.push_back(automation_method(
             "capture.preview",
             "Prepare a preview of this task's "
-            "completed PNG/WebP, or an existing completed sequence frame. This reads only the "
+            "completed PNG/WebP/JPEG, or an existing completed sequence frame. This reads only the "
             "owned "
             "artifact; poll status then capture.image using the returned new operation.",
             "capture.write",

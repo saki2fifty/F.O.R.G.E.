@@ -86,6 +86,8 @@ for legacy in (False,True):
         badge=next(row for row in assets if row['source']=='Assets/Sprites/Badge.png')
         normal=next(row for row in assets if row['source']=='Assets/OcclusionNormals/RippleNormals.png')
         hdr_asset=next(row for row in assets if row['source']=='Assets/ReflectionCapture/Reflection.dds')
+        opaque=next(row for row in assets if row['source']=='Assets/ReflectionProbes/WarmRoom.png')
+        assert not (root/'Game'/opaque['source']).exists()
         assert not (root/'Game'/hdr_asset['source']).exists()
         assert not (root/'Game'/badge['source']).exists()
         assert not (root/'Game'/normal['source']).exists()
@@ -112,7 +114,7 @@ for legacy in (False,True):
         assert texture_png==(root/'Output/Texture.png').read_bytes()
         failed(mutate('forge_capture_texture',asset=badge['id'],path='Texture.png'),'output_exists')
         assert not mutate('forge_capture_texture',asset=badge['id'],path='../Escape.png')['ok']
-        assert not mutate('forge_capture_texture',asset=badge['id'],path='bad.jpg')['ok']
+        assert not mutate('forge_capture_texture',asset=badge['id'],path='bad.tif')['ok']
         assert not mutate('forge_capture_texture',asset=badge['id'],path='bad.png',mip=32)['ok']
         ok('forge_capture_texture',asset=badge['id'],path='Texture.png',replace=True,mip=31)
         failure=settled()
@@ -128,6 +130,40 @@ for legacy in (False,True):
         ok('forge_capture_texture',asset=normal['id'],semantic='normal',path='Texture.webp',replace=True)
         failure=settled()
         assert 'require PNG' in failure['error'] and (root/'Output/Texture.webp').read_bytes()==webp_file,failure
+        jpeg_schema=catalog['forge_capture_texture']['inputSchema']['properties']['jpeg_quality']
+        assert jpeg_schema['minimum']==1 and jpeg_schema['maximum']==100
+        for quality in (0,101,1.5):
+            assert not mutate('forge_capture_texture',asset=opaque['id'],path='Invalid.jpg',jpeg_quality=quality)['ok']
+        failed(mutate('forge_capture_texture',asset=opaque['id'],path='Invalid.png',jpeg_quality=90),'invalid_arguments')
+        assert not (root/'Output/Invalid.jpg').exists() and not (root/'Output/Invalid.png').exists()
+        jpeg_request=arguments(asset=opaque['id'],path='Opaque.JPEG',jpeg_quality=37,mip=0)
+        jpeg_job=client.tool('forge_capture_texture',**jpeg_request)
+        assert jpeg_job['ok'],jpeg_job
+        assert client.tool('forge_capture_texture',**jpeg_request)==jpeg_job
+        jpeg_complete=settled()
+        assert not jpeg_complete['error'] and jpeg_complete['preview_ready'],jpeg_complete
+        assert jpeg_complete['jpeg_quality']==37 and jpeg_complete['file_mime']=='image/jpeg'
+        jpeg=(root/'Output/Opaque.JPEG').read_bytes()
+        assert jpeg[:2]==b'\xff\xd8' and jpeg[-2:]==b'\xff\xd9'
+        _,jpeg_preview=image(jpeg_job['result']['operation'])
+        assert png_has_chunk(jpeg_preview,b'sRGB')
+        assert struct.unpack('>II',jpeg_preview[16:24])==(256,128)
+        ok('forge_capture_texture',asset=opaque['id'],path='Opaque.JPEG',replace=True,mip=1)
+        failure=settled()
+        assert 'opaque' in failure['error'] and (root/'Output/Opaque.JPEG').read_bytes()==jpeg,failure
+        jpeg_again=ok('forge_capture_texture',asset=opaque['id'],path='Opaque.JPEG',replace=True,jpeg_quality=37)
+        jpeg_complete=settled()
+        assert not jpeg_complete['error']
+        preview_job=ok('forge_capture_preview',artifact_operation=jpeg_again['artifact_operation'])
+        assert settled()['preview_ready']
+        assert image(preview_job['operation'])[1]==jpeg_preview
+        failed(mutate('forge_capture_texture',asset=opaque['id'],path='Opaque.JPEG'),'output_exists')
+        for asset,semantic,diagnostic in ((badge,None,'opaque'),(normal,'normal','require PNG'),(hdr_asset,'hdr','uncompressed')):
+            request=dict(asset=asset['id'],path='Opaque.JPEG',replace=True)
+            if semantic:request['semantic']=semantic
+            ok('forge_capture_texture',**request)
+            failure=settled()
+            assert diagnostic in failure['error'] and (root/'Output/Opaque.JPEG').read_bytes()==jpeg,failure
         normal_job=ok('forge_capture_texture',asset=normal['id'],semantic='normal',path='Normal.png')
         complete=settled();assert not complete['error'] and complete['preview_ready'],complete
         _,normal_image=image(normal_job['operation'])
@@ -185,6 +221,18 @@ for legacy in (False,True):
         selected=settled(); assert selected['preview_ready'],selected
         assert image(preview['operation'])[1]==png
 
+        failed(mutate('forge_capture_start',view='scene',path='Invalid.webp',jpeg_quality=50),'invalid_arguments')
+        jpeg_request=arguments(view='scene',path='Scene.jpg')
+        jpeg_job=client.tool('forge_capture_start',**jpeg_request)
+        assert jpeg_job['ok'],jpeg_job
+        assert client.tool('forge_capture_start',**jpeg_request)==jpeg_job
+        jpeg_complete=settled()
+        assert jpeg_complete['jpeg_quality']==90 and jpeg_complete['preview_ready'] and not jpeg_complete['error'],jpeg_complete
+        assert jpeg_complete['file_mime']=='image/jpeg'
+        assert (root/'Output/Scene.jpg').read_bytes()[:2]==b'\xff\xd8'
+        assert image(jpeg_job['result']['operation'])[0]['source_width']==4
+        failed(mutate('forge_capture_start',view='scene',path='Scene.jpg'),'output_exists')
+
         # Full files use the requested codec; agent image content stays PNG.
         webp_job=ok('forge_capture_start',view='scene',path='Screenshots/Scene.WEbP')
         webp_complete=settled()
@@ -195,7 +243,7 @@ for legacy in (False,True):
         assert image(webp_job['operation'])[1]==png
         failed(mutate('forge_capture_start',view='scene',path='Screenshots/Scene.WEbP'),'output_exists')
         assert not mutate('forge_capture_start',view='scene',path='../Escape.webp')['ok']
-        failed(mutate('forge_capture_start',view='scene',path='unsupported.jpg'),'invalid_path')
+        failed(mutate('forge_capture_start',view='scene',path='unsupported.tif'),'invalid_path')
         assert read('forge_capture_status')['artifact_operation']==webp_complete['artifact_operation']
         webp_preview=ok('forge_capture_preview',artifact_operation=webp_complete['artifact_operation'])
         assert settled()['preview_ready']

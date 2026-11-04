@@ -194,7 +194,7 @@ unavailable.
 ## View images, export and test
 
 Choose an existing output folder before enabling the connection. The agent can
-create child output folders, capture Scene/Game PNG or lossless WebP images and
+create child output folders, capture Scene/Game PNG, lossless WebP or opaque JPEG images and
 inspect bounded PNG previews through MCP. Full files keep rendered dimensions.
 `forge_capture_texture` exports a published Texture's selected mip/layer/face/depth
 slice through the same image task. The agent supplies the asset, variant and output
@@ -203,6 +203,12 @@ in [Texture image export](textures.md). HDR output uses supported opaque linear 
 textures and shared-exponent RGBE quantization; it provides a written file path and
 MIME through capture status, with no inline HDR image preview. Import drafts and preview display controls
 are excluded. Existing files require an explicit replacement request.
+
+For **.jpg/.jpeg**, the agent can set **jpeg_quality** from **1–100**; the default is
+**90**. This option is accepted only for JPEG destinations. Texture JPEG output
+requires opaque sRGB byte storage. JPEG is lossy even at 100; its PNG inspection
+preview shows decoded saved pixels. The same output grant, operation/revision
+checks and replacement rules apply. See [JPEG image export](textures.md).
 
 Timeline
 sequence export uses the existing preview/controller and writes sampled frames

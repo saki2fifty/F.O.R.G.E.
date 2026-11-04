@@ -1,5 +1,6 @@
 #pragma once
 #include "editor/view_image.hpp"
+#include "imgui_input_driver.hpp"
 #include "texture_decode.h"
 #include "view_image_capture_reference.hpp"
 #include <cstring>
@@ -118,7 +119,7 @@ inline void exercise(DiligentPresentation& presentation, Diligent::IDeviceContex
         check(equal, "Image task saved different pixels or dimensions");
     };
     const auto output = project / "render.png";
-    check(!task.selected_path(View::Scene, project / "bad.jpg", project, scene, message) &&
+    check(!task.selected_path(View::Scene, project / "bad.tif", project, scene, message) &&
               !task.busy() && message.find("failed") != std::string::npos,
           "Image task accepted a misleading file extension");
     const auto deliveries = FileDialog::fixture_deliveries;
@@ -206,6 +207,73 @@ inline void exercise(DiligentPresentation& presentation, Diligent::IDeviceContex
     task.poll(presentation, graphics, project, scene, message);
     check(!task.busy() && read(output) == previous && message.find(".webp") != std::string::npos,
           "Conflicting native filename/filter wrote a misleading format");
+    // The native JPEG quality modal owns pending capture and precedes appended
+    // suffix replacement. Its real controls must remain usable at every scale.
+    unsigned jpeg_loads = 0;
+    auto opaque = expected;
+    for (std::size_t i = 3; i < opaque.size(); i += 4)
+        opaque[i] = 255;
+    auto jpeg_input = [&] {
+        return ui::ViewImageTask::PixelInput{{{"fixture", true}},
+                                             [&](ViewImageFormat) -> ImagePixels {
+                                                 ++jpeg_loads;
+                                                 return Rgba8Pixels{2, 2, opaque};
+                                             }};
+    };
+    const auto jpg = project / "quality.jpg";
+    FileDialog::fixture_selection =
+        FileDialog::Result{FileDialog::Kind::SaveImage, path_utf8(project / "quality"), {}, {}, 2};
+    task.choose(View::Texture, nullptr, project, {}, jpeg_input());
+    task.poll(presentation, graphics, project, scene, message);
+    task.capture(View::Texture, presentation, graphics, view, message);
+    check(task.busy() && !jpeg_loads && !presentation.readback_pending(),
+          "JPEG options started a pixel producer or readback before confirmation");
+    test::ImGuiInputDriver input(frame);
+    input.type("jpeg-export:quality", "0");
+    frame();
+    check(!test::ui_targets.at("jpeg-export:save").enabled && !jpeg_loads,
+          "Invalid JPEG quality enabled publication");
+    input.type("jpeg-export:quality", "72");
+    input.click("jpeg-export:save");
+    task.poll(presentation, graphics, project, scene, message);
+    finish();
+    const auto jpeg_bytes = read(jpg);
+    check(jpeg_loads == 1 && jpeg_bytes[0] == 255 && jpeg_bytes[1] == 216,
+          "Native JPEG quality did not publish exactly one JPEG");
+    check(task.selected_path(View::Texture, project / "quality", project, {}, message,
+                             ViewImageFormat::Jpeg, jpeg_input()),
+          "JPEG appended overwrite was not admitted");
+    input.click("jpeg-export:save");
+    task.poll(presentation, graphics, project, scene, message);
+    check(jpeg_loads == 1 && read(jpg) == jpeg_bytes,
+          "JPEG quality confirmation bypassed appended overwrite");
+    input.click("button:Cancel");
+    check(!task.busy() && jpeg_loads == 1 && read(jpg) == jpeg_bytes,
+          "JPEG overwrite cancellation changed a file");
+    check(task.selected_path(View::Texture, project / "quality", project, {}, message,
+                             ViewImageFormat::Jpeg, jpeg_input()),
+          "JPEG overwrite could not reopen");
+    input.click("jpeg-export:save");
+    input.click("button:Replace");
+    task.poll(presentation, graphics, project, scene, message);
+    finish();
+    check(jpeg_loads == 2 && read(jpg) != jpeg_bytes,
+          "Confirmed JPEG overwrite ignored changed quality or failed to load");
+    check(task.selected_path(View::Texture, project / "cancelled.jpg", project, {}, message, {},
+                             jpeg_input()),
+          "JPEG cancellation case was not admitted");
+    input.click("jpeg-export:cancel");
+    check(!task.busy() && jpeg_loads == 2 && !std::filesystem::exists(project / "cancelled.jpg"),
+          "JPEG quality cancellation loaded pixels or changed a file");
+    check(task.selected_path(View::Texture, project / "stale.jpg", project, {}, message, {},
+                             jpeg_input()),
+          "Stale JPEG case was not admitted");
+    frame();
+    task.poll(presentation, graphics, project / "other", scene, message);
+    frame();
+    frame();
+    check(!task.busy() && jpeg_loads == 2 && !test::ui_targets.contains("jpeg-export:save"),
+          "Stale JPEG modal remained active or loaded pixels");
     check(
         task.selected_path(View::Scene, project / "absent" / "failed.png", project, scene, message),
         "Image task did not stage IO failure case");

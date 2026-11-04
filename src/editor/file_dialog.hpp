@@ -1,5 +1,7 @@
 #pragma once
+#include "../view_image.hpp"
 #include <SDL3/SDL.h>
+#include <array>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -30,6 +32,24 @@ class FileDialog {
     inline static std::optional<Result> fixture_selection;
     inline static unsigned fixture_deliveries = 0;
 #endif
+    // One ordered owner for the native filter array and returned index mapping.
+    struct ImageChoice {
+        SDL_DialogFileFilter filter;
+        ViewImageFormat format;
+    };
+    inline static constexpr std::array image_choices{
+        ImageChoice{{"PNG image", "png"}, ViewImageFormat::Png},
+        ImageChoice{{"Lossless WebP image", "webp"}, ViewImageFormat::Webp},
+        ImageChoice{{"JPEG image", "jpg;jpeg"}, ViewImageFormat::Jpeg}};
+    inline static constexpr ImageChoice hdr_choice{{"HDR image (Radiance RGBE)", "hdr"},
+                                                   ViewImageFormat::Hdr};
+    static std::optional<ViewImageFormat> image_format(int index, bool hdr) {
+        if (index == -1)
+            return {};
+        if (index < 0 || (hdr ? index != 0 : std::size_t(index) >= image_choices.size()))
+            throw std::runtime_error("The image dialog returned an unknown filter");
+        return hdr ? hdr_choice.format : image_choices[std::size_t(index)].format;
+    }
     bool busy() const { return busy_; }
     void show(Kind kind, SDL_Window* window, std::string location, bool hdr_image = false) {
         if (busy_)
@@ -50,9 +70,12 @@ class FileDialog {
 #endif
         auto* owned = new std::shared_ptr<State>(state_);
         static const SDL_DialogFileFilter filter{"FORGE scene", "json"};
-        static const SDL_DialogFileFilter image_filters[]{{"PNG image", "png"},
-                                                          {"Lossless WebP image", "webp"}};
-        static const SDL_DialogFileFilter hdr_filter{"HDR image (Radiance RGBE)", "hdr"};
+        static constexpr auto image_filters = [] {
+            std::array<SDL_DialogFileFilter, image_choices.size()> result{};
+            for (std::size_t i = 0; i < result.size(); ++i)
+                result[i] = image_choices[i].filter;
+            return result;
+        }();
         if (kind == Kind::ImportFiles)
             SDL_ShowOpenFileDialog(callback, owned, window, nullptr, 0, state_->location.c_str(),
                                    true);
@@ -62,8 +85,9 @@ class FileDialog {
         else if (kind == Kind::SaveScene)
             SDL_ShowSaveFileDialog(callback, owned, window, &filter, 1, state_->location.c_str());
         else if (kind == Kind::SaveImage)
-            SDL_ShowSaveFileDialog(callback, owned, window, hdr_image ? &hdr_filter : image_filters,
-                                   hdr_image ? 1 : 2, state_->location.c_str());
+            SDL_ShowSaveFileDialog(
+                callback, owned, window, hdr_image ? &hdr_choice.filter : image_filters.data(),
+                hdr_image ? 1 : int(image_filters.size()), state_->location.c_str());
         else
             SDL_ShowOpenFolderDialog(callback, owned, window, state_->location.c_str(), false);
     }

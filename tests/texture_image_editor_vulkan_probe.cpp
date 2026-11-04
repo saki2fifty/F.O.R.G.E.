@@ -14,15 +14,18 @@ namespace {
 using test_view_image_ui::check;
 void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* graphics,
               const std::filesystem::path& gallery, const std::filesystem::path& output,
-              float scale, bool narrow, bool hdr) {
+              float scale, bool narrow, ViewImageFormat preferred) {
+    const bool hdr = preferred == ViewImageFormat::Hdr;
+    const bool jpeg = preferred == ViewImageFormat::Jpeg;
     const auto root = output / AssetId::generate().str();
     SceneDocument::create_project(root, "Texture export");
     test::published_texture_fixture(gallery, root);
     const auto catalog = std::make_shared<const AssetCatalog>(AssetCatalog::open_project(root));
     const auto found =
         std::find_if(catalog->records().begin(), catalog->records().end(), [&](const auto& row) {
-            return row.second.source ==
-                   (hdr ? "Assets/ReflectionCapture/Reflection.dds" : "Assets/Sprites/Badge.png");
+            return row.second.source == (hdr    ? "Assets/ReflectionCapture/Reflection.dds"
+                                         : jpeg ? "Assets/ReflectionProbes/WarmRoom.png"
+                                                : "Assets/Sprites/Badge.png");
         });
     check(found != catalog->records().end(), "Missing cooked Texture fixture");
     const AssetRef<TextureAsset> asset{found->first};
@@ -33,7 +36,6 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* grap
         foreign = true;
     }
     check(foreign, "Texture pixel input admitted a catalog from another project");
-    const auto preferred = hdr ? ViewImageFormat::Hdr : ViewImageFormat::Png;
     const auto original = ui::texture_image_input(root, catalog, asset).load(preferred);
     const auto scene = AssetId::generate();
     const float width = (narrow ? 480 : 720) * scale;
@@ -84,6 +86,8 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* grap
         gui.Render(graphics);
         presentation.end_frame(graphics);
         graphics->Flush();
+        graphics->FinishFrame();
+        presentation.device()->ReleaseStaleResources();
     };
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(15);
     do {
@@ -108,12 +112,62 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* grap
     auto pixels = ui::texture_image_input(request->project, request->catalog, request->texture,
                                           request->semantic, request->slice, preferred);
     const auto target = root / (std::string("export") + view_image_suffix(preferred));
-    FileDialog::fixture_selection =
-        FileDialog::Result{FileDialog::Kind::SaveImage, path_utf8(target), {}, {}, hdr ? 0 : -1};
+    FileDialog::fixture_selection = FileDialog::Result{FileDialog::Kind::SaveImage,
+                                                       path_utf8(target),
+                                                       {},
+                                                       {},
+                                                       hdr    ? 0
+                                                       : jpeg ? 2
+                                                              : -1};
     task.choose(ui::ViewImageTask::View::Texture, nullptr, root, {}, std::move(pixels));
     task.poll(presentation, graphics, root, scene, message);
     check(task.busy() && !presentation.readback_pending(),
           "Texture picker did not use a detached CPU job");
+    if (jpeg) {
+        frame();
+        frame();
+        check(test::ui_targets.contains("jpeg-export:quality") && !std::filesystem::exists(target),
+              "Native JPEG picker skipped its options");
+        input.type("jpeg-export:quality", "72");
+        // Settle layout and font updates, then require actual geometry and pixels.
+        for (unsigned settle = 0; settle < 4; ++settle)
+            frame();
+        check(ImGui::GetDrawData() && ImGui::GetDrawData()->TotalVtxCount > 0,
+              "JPEG modal capture has no rendered UI geometry");
+        const auto& save = test::ui_targets.at("jpeg-export:save");
+        check(save.enabled && save.maximum.x <= save.clip_maximum.x &&
+                  save.maximum.y <= save.clip_maximum.y,
+              "JPEG save control is clipped");
+        test::ViewImageReference reference;
+        reference.queue(presentation.device(), graphics, srv);
+        const auto pixels = reference.read(graphics);
+        std::size_t varied = 0;
+        for (std::size_t at = 0; at < pixels.size(); at += 4)
+            varied += std::memcmp(pixels.data(), pixels.data() + at, 4) != 0;
+        if (varied <= 100) {
+            const auto* draw = ImGui::GetDrawData();
+            Json diagnostic{{"scale", scale},
+                            {"width", desc.Width},
+                            {"height", desc.Height},
+                            {"vertices", draw->TotalVtxCount},
+                            {"indices", draw->TotalIdxCount},
+                            {"display", {draw->DisplaySize.x, draw->DisplaySize.y}},
+                            {"origin", {draw->DisplayPos.x, draw->DisplayPos.y}},
+                            {"framebuffer", {draw->FramebufferScale.x, draw->FramebufferScale.y}},
+                            {"commands", Json::array()}};
+            for (const auto* list : draw->CmdLists)
+                for (const auto& command : list->CmdBuffer)
+                    diagnostic["commands"].push_back({{"elements", command.ElemCount},
+                                                      {"clip",
+                                                       {command.ClipRect.x, command.ClipRect.y,
+                                                        command.ClipRect.z, command.ClipRect.w}}});
+            throw std::runtime_error("JPEG modal capture is clear: " + diagnostic.dump());
+        }
+        save_view_png(output / (std::string("jpeg-quality-") + (narrow ? "narrow-" : "wide-") +
+                                std::to_string(int(scale * 100)) + ".png"),
+                      desc.Width, desc.Height, pixels);
+        input.click("jpeg-export:save");
+    }
     while (task.busy()) {
         task.poll(presentation, graphics, root, AssetId::generate(), message);
         check(std::chrono::steady_clock::now() < deadline, "Texture export stalled");
@@ -127,6 +181,17 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* grap
         check(!task.selected_path(ui::ViewImageTask::View::Scene, root / "display.hdr", root, scene,
                                   message),
               "Native display capture accepted an HDR filename");
+    } else if (jpeg) {
+        const auto saved = read_view_preview(target);
+        check(saved.width == std::get<Rgba8Pixels>(original).width &&
+                  saved.height == std::get<Rgba8Pixels>(original).height,
+              "Native JPEG output changed the selected Texture dimensions");
+        const auto file = asset_detail::read_bytes(target, FORGE_VIEW_IMAGE_ENCODED_LIMIT);
+        ForgeImagePixels decoded{};
+        check(forge_jpeg_decode(file.data(), file.size(), 4096, FORGE_VIEW_IMAGE_PIXEL_LIMIT, 0,
+                                &decoded),
+              decoded.error);
+        forge_image_pixels_free(&decoded);
     } else {
         const auto& rgba = std::get<Rgba8Pixels>(original);
         const auto saved = read_view_preview(target);
@@ -173,7 +238,9 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* grap
     reference.queue(presentation.device(), graphics, srv);
     const auto native_pixels = reference.read(graphics);
     save_view_png(output /
-                      (std::string(hdr ? "hdr-texture-export-" : "texture-export-") +
+                      (std::string(hdr    ? "hdr-texture-export-"
+                                   : jpeg ? "jpeg-texture-export-"
+                                          : "texture-export-") +
                        (narrow ? "narrow-" : "wide-") + std::to_string(int(scale * 100)) + ".png"),
                   desc.Width, desc.Height, native_pixels);
     test::observe_ui = false;
@@ -183,7 +250,8 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* grap
 } // namespace
 int main(int argc, char** argv) {
     try {
-        check(argc == 3, "Need Gallery and output paths");
+        check(argc == 3 || (argc == 4 && std::string_view(argv[3]) == "--jpeg-200"),
+              "Need Gallery and output paths, optional --jpeg-200");
         const auto output = std::filesystem::absolute(argv[2]);
         std::filesystem::create_directories(output);
         Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device;
@@ -194,8 +262,10 @@ int main(int argc, char** argv) {
         DiligentPresentation presentation(device);
         for (float scale : {1.f, 1.5f, 2.f})
             for (bool narrow : {false, true})
-                for (bool hdr : {false, true})
-                    exercise(presentation, graphics, argv[1], output, scale, narrow, hdr);
+                for (auto format :
+                     {ViewImageFormat::Png, ViewImageFormat::Hdr, ViewImageFormat::Jpeg})
+                    if (argc == 3 || (scale == 2.f && format == ViewImageFormat::Jpeg))
+                        exercise(presentation, graphics, argv[1], output, scale, narrow, format);
         std::cout << "Texture export controls, native chooser, stored pixels and project "
                      "cancellation passed\n";
     } catch (const std::exception& error) {

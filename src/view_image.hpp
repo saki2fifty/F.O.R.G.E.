@@ -1,22 +1,30 @@
 #pragma once
 #include "image_pixels.hpp"
+#include "view_image_limits.h"
 #include <cstdint>
 #include <filesystem>
 #include <span>
 #include <vector>
 namespace forge {
-enum class ViewImageFormat { Png, Webp, Hdr };
+enum class ViewImageFormat { Png, Webp, Hdr, Jpeg };
+struct ImageEncodingOptions {
+    int jpeg_quality = FORGE_JPEG_DEFAULT_QUALITY;
+    void validate() const;
+};
 ViewImageFormat view_image_format(const std::filesystem::path&);
 const char* view_image_suffix(ViewImageFormat);
 const char* view_image_mime(ViewImageFormat);
 void save_view_image(const std::filesystem::path&, unsigned width, unsigned height,
-                     std::span<const std::uint8_t> rgba);
+                     std::span<const std::uint8_t> rgba, const ImageEncodingOptions& = {});
 // PNG retains the producer's explicit sRGB label; unlabelled stored channels use
-// PNG. The supported WebP output profile requires sRGB bytes.
-void save_image_pixels(const std::filesystem::path&, const Rgba8Pixels&);
+// PNG. WebP requires sRGB bytes; JPEG requires opaque sRGB bytes and is lossy.
+void save_image_pixels(const std::filesystem::path&, const Rgba8Pixels&,
+                       const ImageEncodingOptions& = {});
 // Quantized RGBE .hdr only; opaque linear HDR values have no alpha or inline preview.
-void save_image_pixels(const std::filesystem::path&, const Rgb32Pixels&);
-void save_image_pixels(const std::filesystem::path&, const ImagePixels&);
+void save_image_pixels(const std::filesystem::path&, const Rgb32Pixels&,
+                       const ImageEncodingOptions& = {});
+void save_image_pixels(const std::filesystem::path&, const ImagePixels&,
+                       const ImageEncodingOptions& = {});
 // Detached display pixels; no device, Scene, catalog or project-writer ownership.
 void save_view_png(const std::filesystem::path&, unsigned width, unsigned height,
                    std::span<const std::uint8_t> rgba);

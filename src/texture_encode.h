@@ -20,6 +20,10 @@ int forge_png_encode_rgba8_profile(const void* pixels, size_t extent, unsigned w
 // integration; native encoding may allocate working memory beyond output bytes.
 int forge_webp_encode_rgba8(const void* pixels, size_t extent, unsigned width, unsigned height,
                             size_t stride, size_t byte_limit, ForgeImageBytes* result);
+// JPEG from opaque tightly packed RGBA8. The approved pinned writer runs in
+// the engine's required C++20 profile; quality is explicit, with no silent clamp.
+int forge_jpeg_encode_rgba8(const void* pixels, size_t extent, unsigned width, unsigned height,
+                            size_t stride, int quality, size_t byte_limit, ForgeImageBytes* result);
 void forge_image_bytes_free(ForgeImageBytes* result);
 #ifdef __cplusplus
 }

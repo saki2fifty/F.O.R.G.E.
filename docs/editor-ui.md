@@ -133,7 +133,7 @@ the first usable render of that view. Project/Scene changes before capture cance
 it; already captured pixels can finish independently. Hidden/unavailable views,
 missing Game cameras, unsupported targets and IO failures report through existing
 timestamped status/Problems owners. One request is admitted at a time. A filename
-without a suffix gains the selected image filter's `.png` or `.webp` suffix,
+without a suffix gains the selected image filter's `.png`, `.webp` or `.jpg` suffix,
 with PNG as the fallback when the picker reports no filter. An explicit suffix
 must match a reported filter. An existing appended filename requires explicit
 confirmation because the native chooser may have confirmed a different name.
@@ -151,6 +151,13 @@ existing atomic file storage. PNG uses the selected libpng C boundary containing
 longjmp and sRGB intent. Lossless WebP uses the pinned native advanced encoder
 with exact transparent RGB and single-threaded encoding. Both share one bounded
 callback buffer, cap encoded output at68MiB and preserve display RGBA8 bytes.
+JPEG is a separate lossy opaque sRGB profile using the private approved pinned
+stb callback writer at explicit quality1..100/default90. Native selection opens
+responsive JPEG quality controls before loading pixels or starting GPU readback;
+appended-name replacement follows quality confirmation. Invalid quality, cancel
+and stale-source paths cannot start the producer. Automation supplies the same
+validated options without opening a modal. JPEG previews decode the written file
+through the existing bounded decoder rather than displaying the lossless input.
 Native codec working allocations are additional to detached pixel/output buffers.
 Compression and disk writes do not run in the frame loop. Once committing, the
 IO job finishes before retirement; cancellation does not preempt a native encoder.

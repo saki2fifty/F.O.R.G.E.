@@ -305,7 +305,8 @@ class ViewImageTask {
     bool selected_path(View view, const std::filesystem::path& path,
                        const std::filesystem::path& project, AssetId scene, std::string& message,
                        std::optional<ViewImageFormat> picker_format = {},
-                       std::optional<PixelInput> input = {}) {
+                       std::optional<PixelInput> input = {},
+                       std::optional<ImageEncodingOptions> encoding = {}) {
         if (busy())
             return false;
         try {
@@ -320,9 +321,13 @@ class ViewImageTask {
             if (append)
                 destination_ += view_image_suffix(picker_format.value_or(ViewImageFormat::Png));
             const auto format = view_image_format(destination_);
+            encoding_ = encoding.value_or(ImageEncodingOptions{});
+            encoding_.validate();
+            jpeg_configuring_ = format == ViewImageFormat::Jpeg && !encoding;
             if (format == ViewImageFormat::Hdr) {
                 if (!input_ || !input_->allow_hdr)
-                    throw std::runtime_error("Rendered views support PNG or lossless WebP output");
+                    throw std::runtime_error(
+                        "Rendered views support PNG, lossless WebP or opaque JPEG output");
                 input_->source["profile"] = "linear_rgbe";
             }
             if (picker_format && *picker_format != format)
@@ -334,13 +339,15 @@ class ViewImageTask {
             // An appended suffix can name a file the native picker did not confirm.
             confirm_ = append && std::filesystem::exists(destination_);
             pending_ = true;
-            publish_status(confirm_ ? "Confirm replacing the image"
-                           : input_ ? "Waiting to export stored Texture pixels"
-                                    : "Waiting for the rendered view image",
+            publish_status(jpeg_configuring_ ? "Choose JPEG quality"
+                           : confirm_        ? "Confirm replacing the image"
+                           : input_          ? "Waiting to export stored Texture pixels"
+                                             : "Waiting for the rendered view image",
                            message);
             return true;
         } catch (const std::exception& e) {
-            pending_ = confirm_ = false;
+            pending_ = confirm_ = jpeg_configuring_ = false;
+            destination_.clear();
             fail(e.what(), message);
             return false;
         }
@@ -349,7 +356,7 @@ class ViewImageTask {
     // tooling can read owned image artifacts without a graphics device.
     bool poll_files(std::string& message) {
         try {
-            if (pending_ && !confirm_ && input_ && !job_.valid()) {
+            if (pending_ && !confirm_ && !jpeg_configuring_ && input_ && !job_.valid()) {
                 const auto format = view_image_format(destination_);
                 queue_image([load = std::move(input_->load), format] { return load(format); },
                             message);
@@ -454,13 +461,7 @@ class ViewImageTask {
                                        message);
                     else {
                         const bool hdr = input_ && input_->preferred_format == ViewImageFormat::Hdr;
-                        if (result->filter_index < -1 || result->filter_index > (hdr ? 0 : 1))
-                            throw std::runtime_error("The image dialog returned an unknown filter");
-                        std::optional<ViewImageFormat> format;
-                        if (result->filter_index >= 0)
-                            format = hdr                         ? ViewImageFormat::Hdr
-                                     : result->filter_index == 1 ? ViewImageFormat::Webp
-                                                                 : ViewImageFormat::Png;
+                        const auto format = FileDialog::image_format(result->filter_index, hdr);
                         selected_path(view_, std::filesystem::u8path(result->path), project, scene,
                                       message, format, std::move(input_));
                     }
@@ -518,7 +519,7 @@ class ViewImageTask {
                 frames_->ready_frames = 0;
             return;
         }
-        if (!pending_ || confirm_ || view != view_)
+        if (!pending_ || confirm_ || jpeg_configuring_ || view != view_)
             return;
         try {
             if (frames_) {
@@ -742,7 +743,56 @@ class ViewImageTask {
             }
             ImGui::EndPopup();
         }
-        if (confirm_)
+        if (jpeg_configuring_ && pending_)
+            ImGui::OpenPopup("JPEG quality");
+        if (ImGui::IsPopupOpen("JPEG quality")) {
+            ImGui::SetNextWindowPos(
+                {viewport->WorkPos.x + available.x * .5f, viewport->WorkPos.y + available.y * .5f},
+                ImGuiCond_Always, {.5f, .5f});
+            ImGui::SetNextWindowSizeConstraints(
+                {0, 0}, {std::max(240.f, available.x - 32), std::max(180.f, available.y - 32)});
+        }
+        if (ImGui::BeginPopupModal("JPEG quality", nullptr,
+                                   ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove)) {
+            if (!pending_ || !jpeg_configuring_) {
+                jpeg_configuring_ = false;
+                ImGui::CloseCurrentPopup();
+            } else {
+                ImGui::PushItemWidth(std::max(180.f, std::min(360.f * scale, available.x - 100)));
+                ImGui::TextWrapped("JPEG is lossy. Only opaque sRGB pixels can be saved. "
+                                   "Choose PNG or WebP to preserve transparency.");
+                ImGui::TextUnformatted("Quality");
+                ImGui::InputInt("##jpeg-quality", &encoding_.jpeg_quality);
+                FORGE_UI_PROBE("jpeg-export:quality");
+                ImGui::TextWrapped("1–100; default 90. Higher values retain more detail. "
+                                   "Even 100 is lossy.");
+                const bool valid = encoding_.jpeg_quality >= FORGE_JPEG_QUALITY_MIN &&
+                                   encoding_.jpeg_quality <= FORGE_JPEG_QUALITY_MAX;
+                if (!valid)
+                    ImGui::TextWrapped("Enter a quality between 1 and 100.");
+                ImGui::BeginDisabled(!valid);
+                if (button("Save JPEG", "Encode the image with this quality.")) {
+                    jpeg_configuring_ = false;
+                    publish_status(confirm_ ? "Confirm replacing the image"
+                                   : input_ ? "Waiting to export stored Texture pixels"
+                                            : "Waiting for the rendered view image",
+                                   message);
+                    ImGui::CloseCurrentPopup();
+                }
+                FORGE_UI_PROBE("jpeg-export:save");
+                ImGui::EndDisabled();
+                ImGui::SameLine();
+                if (button("Cancel", "Keep existing files without capturing an image.")) {
+                    pending_ = confirm_ = jpeg_configuring_ = false;
+                    publish_status("Image save cancelled", message);
+                    ImGui::CloseCurrentPopup();
+                }
+                FORGE_UI_PROBE("jpeg-export:cancel");
+                ImGui::PopItemWidth();
+            }
+            ImGui::EndPopup();
+        }
+        if (confirm_ && !jpeg_configuring_)
             ImGui::OpenPopup("Replace image?");
         if (ImGui::BeginPopupModal("Replace image?", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
             if (!confirm_) {
@@ -778,6 +828,8 @@ class ViewImageTask {
     std::string status_;
     View view_ = View::Scene;
     bool pending_ = false, copied_ = false, confirm_ = false;
+    bool jpeg_configuring_ = false;
+    ImageEncodingOptions encoding_;
     std::future<FileResult> job_;
     std::string operation_, artifact_operation_, preview_operation_, error_, preview_error_;
     std::filesystem::path completed_image_, preview_file_;
@@ -801,6 +853,9 @@ class ViewImageTask {
         error_.clear();
         preview_error_.clear();
         if (!keep_artifact) {
+            jpeg_configuring_ = false;
+            encoding_ = {};
+            destination_.clear();
             input_.reset();
             artifact_operation_ = operation_;
             completed_image_.clear();
@@ -822,29 +877,33 @@ class ViewImageTask {
         pending_ = confirm_ = false;
         const auto destination = destination_;
         const bool preview_requested = preview_requested_;
+        const auto encoding = encoding_;
         file_work_ = FileWork::Image;
-        job_ = std::async(std::launch::async,
-                          [load = std::move(load), destination, preview_requested]() mutable {
-                              auto pixels = load();
-                              save_image_pixels(destination, pixels);
-                              FileResult result{path_utf8(destination), {}};
-                              if (preview_requested) {
-                                  try {
-                                      result.preview = preview_image_pixels(pixels);
-                                  } catch (const std::exception& e) {
-                                      result.preview_error = e.what();
-                                  }
-                              }
-                              return result;
-                          });
-        publish_status(frames_ ? "Saving sequence frame " + std::to_string(frames_->completed + 1) +
-                                     " / " + std::to_string(frames_->plan.frame_count)
-                       : view_image_format(destination_) == ViewImageFormat::Hdr
-                           ? "Saving HDR image…"
-                       : view_image_format(destination_) == ViewImageFormat::Webp
-                           ? "Saving lossless WebP image…"
-                           : "Saving PNG image…",
-                       message);
+        job_ = std::async(std::launch::async, [load = std::move(load), destination,
+                                               preview_requested, encoding]() mutable {
+            auto pixels = load();
+            save_image_pixels(destination, pixels, encoding);
+            FileResult result{path_utf8(destination), {}};
+            if (preview_requested) {
+                try {
+                    result.preview = view_image_format(destination) == ViewImageFormat::Jpeg
+                                         ? read_view_preview(destination)
+                                         : preview_image_pixels(pixels);
+                } catch (const std::exception& e) {
+                    result.preview_error = e.what();
+                }
+            }
+            return result;
+        });
+        publish_status(
+            frames_ ? "Saving sequence frame " + std::to_string(frames_->completed + 1) + " / " +
+                          std::to_string(frames_->plan.frame_count)
+            : view_image_format(destination_) == ViewImageFormat::Hdr ? "Saving HDR image…"
+            : view_image_format(destination_) == ViewImageFormat::Webp
+                ? "Saving lossless WebP image…"
+            : view_image_format(destination_) == ViewImageFormat::Jpeg ? "Saving JPEG image…"
+                                                                       : "Saving PNG image…",
+            message);
     }
     void stop_frames(std::string reason) {
         frames_->cancelled = true;

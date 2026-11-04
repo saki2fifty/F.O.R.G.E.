@@ -381,6 +381,33 @@ and exact-current-operation read rules remain authoritative. No second agent-onl
 export path is maintained. See [the user guide](../manual/editor/textures.md).
 
 
+## JPEG still-image output
+
+The existing image transaction also supports opaque sRGB byte pixels as JPEG
+(.jpg/.jpeg, image/jpeg), quality1..100 with90default. The native chooser's filter
+array and returned index mapping share one owner. Its quality modal precedes pixel
+loading/readback and appended-suffix replacement; cancellation and stale project
+rules retain the existing ownership boundary. Programmatic requests use the same
+validated ImageEncodingOptions; jpeg_quality is rejected for other destinations.
+
+The private C++20 adapter calls the approved pinned stb_image_write public callback
+API without copied or modified encoder code. It validates packed RGBA8 extent,
+quality, actual alpha255 and output budget before publication. Alpha is never
+silently discarded and no matte/data/linear reinterpretation is provided. All
+selected pixels must be opaque, irrespective of the TextureAlpha hint. Existing
+4096-axis/64MiB RGBA/68MiB encoded limits and128MiB selected byte-source admission
+apply. Callback allocation/budget failure stays sticky, partial output is freed,
+and the atomic writer receives only a completed encoding.
+
+JPEG quantization/chroma sampling can change colors even at quality100. The file
+is an sRGB still-image convention without source ICC/EXIF/import metadata. Owned
+protocol previews decode the actual completed JPEG using the existing bounded
+private decoder, expand gray/RGB to opaque RGBA and return bounded sRGB PNG. No
+new arbitrary-file reader or source decoder owner is introduced. A preview error
+is separate from successful file publication. See [dependency selection](dependencies.md)
+and [the user guide](../manual/editor/textures.md).
+
+
 ## HDR texture image output
 
 The same selected Texture loader, slice/layout helper and ViewImageTask now accept
@@ -413,7 +440,7 @@ Native Texture preview emits an output-format hint for its current selected
 float HDR variant, opening the .hdr-only chooser with the proper filename.
 Unsupported selections still validate in the shared detached producer. Rendered
 Scene/Game display pixels cannot be relabelled as original HDR; their native and
-MCP paths retain PNG/WebP admission. The shared writer encodes before the existing
+MCP paths retain PNG/WebP/opaque JPEG admission. The shared writer encodes before the existing
 atomic file transaction, so failed samples/formats preserve a good destination.
 
 The HDR file exists on disk and status returns its path/MIME. Inline protocol PNG

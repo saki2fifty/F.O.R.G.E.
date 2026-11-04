@@ -515,3 +515,30 @@ carves, isolated Queries/Worlds, unchanged snapshots, off-mesh slot stress, boun
 failures, runtime rerouting/movement and recovery. Windows/physical acceptance is
 pending. See [Navigation](navigation.md) and [ADR027](decisions/027-navigation-obstacle-tiles.md)
 for format, ownership, SDK and finite profile limits.
+
+
+## Private JPEG image writer selection — 2026-11-04
+
+Image tools select the existing DiligentEngine coordinated snapshot
+`a279e5fa8593cbc758ec46ea1eba0b435cbc2f06`, bundled stb commit
+`46fcb30365c5f35425751d275eecd8e5f8efc786`, stb_image_write1.16 public
+`stbi_write_jpg_to_func` API. Header SHA256:
+`cbd5f0ad7a9cf4468affb36354a1d2338034f2c12473cf1a8e32053cb6914a05`.
+This is an additional API feature at the approved immutable pin, without a
+version change, vendored implementation copy, patch or ABI migration.
+
+The private adapter is C++20 under FORGE's existing required language profile,
+with documented static-inline linkage, no stdio and no-strict-aliasing for this
+translation unit on GNU/Clang. Original dependency symbols remain private and its
+stb notice remains installed by existing Runtime/NativeSdk rules. The legacy IJG
+encoder with known strict signed-shift findings is not used for this profile.
+Native alpha dropping/quality clamping are not product policy: FORGE validates
+opaque alpha and quality1..100 before calling the API. Callback output uses the
+shared bounded writer and sticky failure, with no exception crossing C.
+
+Exact-source API probes and the actual adapter exercise qualities1/50/90/100,
+small/non-block/4096-axis images, byte budgets and decoded previews. Selected
+CPU strict checks instrument this C++20 writer instance without vendor edits or
+sanitizer suppressions; other dependency objects remain normally compiled. This
+is not a general upstream repair or Windows/MSVC acceptance claim. No live-only
+API, new JPEG sequence encoder or arbitrary image/file capability is assumed.

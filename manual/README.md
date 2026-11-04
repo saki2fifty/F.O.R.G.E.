@@ -38,7 +38,7 @@ content may differ; use **Window** to open a panel mentioned in a guide.
 - [Editable Meshes and UVs](editor/editable-meshes.md)
 - [Shape terrain with height layers](editor/terrain.md)
 - [Place foliage on planes and heightfields](editor/foliage.md)
-- [Importing textures and exporting stored pixels or HDR images](editor/textures.md)
+- [Importing textures and exporting stored pixels, JPEG or HDR images](editor/textures.md)
 - [Materials](editor/materials.md)
 - [Show a live camera image on a Mesh](editor/render-textures.md)
 - [Blend overlapping transparent Meshes](editor/transparency.md)
@@ -95,7 +95,7 @@ content may differ; use **Window** to open a panel mentioned in a guide.
 
 ## Workspace and troubleshooting
 
-- [Viewport and PNG/WebP image export](editor/viewport.md)
+- [Viewport and PNG/WebP/JPEG image export](editor/viewport.md)
 - [Panels and windows](editor/panels-windows.md)
 - [Settings and appearance](editor/settings.md)
 - [Keyboard shortcuts](editor/shortcuts.md)

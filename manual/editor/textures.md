@@ -153,6 +153,28 @@ convention, other mips or asset identity. When importing it again, choose the
 appropriate settings for its stored channels; identical appearance is not implied.
 
 
+## Export a JPEG image
+
+Choose **JPEG image** with a **.jpg** or **.jpeg** filename when you want a smaller,
+lossy still image from an opaque sRGB byte texture. Select its published **Mip**,
+**Array layer**, **Cube face** or **Depth slice** first, then click **Export image...**.
+In **JPEG quality**, enter **1–100** (default **90**) and click **Save JPEG**. Higher
+values retain more detail; 100 is still lossy. **Cancel** stops before pixel loading
+or encoding begins. Confirm **Replace** if an appended filename already exists.
+See [Save an image](viewport.md) for the quality controls.
+
+The selected pixels must use sRGB byte storage and every alpha value must be 255.
+JPEG does not flatten transparency or reinterpret data, normal or HDR channels.
+A texture labelled opaque can still contain other alpha values, particularly in
+filtered mips; those selections are rejected. Choose PNG or WebP for transparency,
+PNG for other byte channels, or HDR for supported linear float textures.
+
+The byte export size limits above also apply to JPEG. The full file uses the
+selected stored resolution. Agent PNG previews show the decoded JPEG, including
+compression changes. JPEG carries no source/import metadata or lossless color
+promise. Failed exports leave an existing destination intact.
+
+
 ## Export an HDR image
 
 Open a published HDR texture and choose **HDR color** under **Variant**, or leave

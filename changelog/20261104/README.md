@@ -1,5 +1,22 @@
 # 2026-11-04
 
+## JPEG still-image export
+
+Scene/Game image capture and published opaque sRGB byte textures can save JPEG
+(.jpg/.jpeg) through the existing shared task. Native quality controls and the
+automation/MCP jpeg_quality field accept1..100/default90; even100 is lossy. Actual
+transparency, non-sRGB stored channels, invalid quality and output limits reject
+before atomic publication. The private approved pinned callback API retains its
+original third-party ownership; no codec/version change or vendor patch is made.
+
+The native chooser/filter mapping has one ordered owner. Quality/cancel controls
+precede pixel loading/readback and appended-name replacement. Agent previews
+decode the saved JPEG rather than substituting the original pixels. Shared output
+grants, operation/replay/revision, overwrite and project lifetime rules remain.
+Focused core, native and MCP checks and the illustrated manual cover the workflow;
+Windows/full-editor/physical-device acceptance remains pending. No numbered package
+or remote publication accompanies this local source change.
+
 ## HDR texture image export
 
 Published opaque HdrColor RGBA16Float/RGBA32Float textures can export one selected

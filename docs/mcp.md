@@ -909,12 +909,12 @@ A separately selected **Allow an output folder** grant permits output only insid
 that canonical root. `forge_output_folder_create` creates a new child with an
 existing parent. Root redirects and path aliases are rejected.
 
-`forge_capture_start` requests the next rendered Scene/Game image: **.png** or lossless **.webp** inside the granted output root. Existing files
-require `replace:true`. `capture_status` reports the native image task and completed `file_mime` (`image/png` or `image/webp`). Its ready
+`forge_capture_start` requests the next rendered Scene/Game image: **.png**, lossless **.webp** or opaque **.jpg/.jpeg** inside the granted output root. Existing files
+require `replace:true`. `capture_status` reports the native image task and completed `file_mime` (`image/png`, `image/webp` or `image/jpeg`). Its ready
 `capture_image` returns a bounded PNG **image content block** plus metadata; base64
 is not repeated in text or structured JSON. The preview fits1024 pixels, while the
 full PNG/WebP file retains rendered dimensions and exact captured RGBA, including transparent RGB. Only the task's exact current ready operation
-is readable. `capture_preview` prepares a completed owned PNG/WebP or PNG sequence frame;
+is readable. `capture_preview` prepares a completed owned PNG/WebP/JPEG or PNG sequence frame;
 there is no arbitrary filesystem image-read tool.
 
 `forge_capture_texture` exports a published Texture asset's stored pixels through
@@ -929,8 +929,18 @@ R8/RG8/RGBA8/sRGB byte storage, a complete128MiB selected texture and a4096-axis
 Missing G/B are0 and missingA255. Present bytes, including alpha/hidden RGB,
 remain exact, with no preview color/alpha/normal conversion or import metadata.
 
+For JPEG still output, use `.jpg/.jpeg` and optional `jpeg_quality`1..100
+(default90). Both `forge_capture_start` and `forge_capture_texture` accept this
+option only for JPEG destinations; other combinations reject before starting work.
+The actual byte image must be sRGB and have alpha255 throughout. Transparent,
+unlabelled data/normal and float HDR selections reject without replacing a good
+file. Output limits remain4096axis/64MiB RGBA/68MiB encoded. JPEG is lossy even at
+quality100. Status reports `jpeg_quality` and `file_mime:"image/jpeg"`; bounded
+PNG previews represent decoded written JPEG colors. Output grants, exact replay,
+revision/sequence and explicit overwrite rules are unchanged.
+
 The result reports `view:"texture"` and the owned requested asset/semantic/slice
-under `texture`. Poll capture status for the written file path and MIME; PNG/WebP
+under `texture`. Poll capture status for the written file path and MIME; PNG/WebP/JPEG
 inspection uses the existing image/preview operations. No file-download method is
 advertised. The published
 catalog/cache is required; source images are not read or rebuilt. Standalone and

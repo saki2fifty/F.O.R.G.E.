@@ -1701,3 +1701,28 @@ Twelve byte/HDR wide/narrow layout/input cases use1/1.5/2scale. Rebuilt consumer
 remain byte-identical after the final private declaration comment, so the exact
 attributable native test/capture result is reused. Windows/full Main/MSVC/D3D12,
 physical GPU/input/DPI, external clients and graphical EXE remain pending.
+
+
+## JPEG image export
+
+[JPEG quality](../../../manual/images/jpeg-image-export.png) is an authentic
+720×650 local source capture of the production TextureViewer and ViewImageTask
+quality modal, showing the published original Gallery WarmRoom texture with its
+editable source absent. The selected quality is72. The same dialog serves Scene /
+Game still capture and supported byte Texture output; native file picker delivery
+is injected at the existing boundary in this fixture.
+
+The original pinned Diligent ImGui renderer draws to a software Vulkan offscreen
+target. Independent RGBA readback is encoded directly as PNG, without retouching,
+cropping, resizing or fabricated controls. Source test:
+`tests/texture_image_editor_vulkan_probe.cpp`, `texture_image_editor_vulkan`, local
+unassigned build. Capture entry: `texture-image-editor-vulkan/jpeg-quality-wide-100.png`.
+PNG SHA256: `3274666be205ca4d47a693554804de9da4b82e44dd9d8c530277ae4776080ed3`.
+Native consumer SHA256: `4370f7968fb294602df6be28706ed82f1caa869a535bbe4bb2d7487df9448c58`.
+
+The complete fixture checks18byte/HDR/JPEG wide/narrow cases at1/1.5/2interface
+scale, including actual quality entry and clipped-control guards. JPEG screenshot
+readback also requires varied rendered pixels; frame retirement follows the
+existing offscreen host protocol. Existing byte/HDR canonical captures above
+remain unchanged and retain their original provenance. Windows/full Main/MSVC /
+D3D12, physical GPU/input/DPI, external clients and graphical EXE remain pending.
