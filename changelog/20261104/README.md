@@ -1,5 +1,15 @@
 # 2026-11-04
 
+## Native system dependency inspection
+
+The Profiler's Ordering links view inspects bounded native DependsOn targets,
+phase tags, owned-pair presence and referenced nodes through the existing
+post-tick runtime observation. Plan labels its legacy first target accurately.
+Automation/MCP reads share the same copy, bounds and lifecycle. Native scheduling
+remains authoritative; the view does not resolve phases or prove race freedom.
+The manual documents current controls and limits. Windows/full-editor/physical
+acceptance remains pending.
+
 ## Declared native system access
 
 The existing fixed-pipeline observation now copies bounded native query access,

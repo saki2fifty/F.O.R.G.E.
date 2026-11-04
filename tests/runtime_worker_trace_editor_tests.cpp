@@ -76,6 +76,22 @@ void exercise(const Json& captured, float scale, bool compact,
     input.click("profiler:game:plan-tab");
     check(test::ui_targets.contains("profiler:game:system:" + system),
           "Component-name filtering omitted the actual SDK system from Plan");
+    input.click("profiler:game:dependencies-tab");
+    check(test::ui_targets.contains("profiler:game:dependency:" + system + ":0"),
+          "Component filtering omitted the actual SDK ordering target");
+    input.type("profiler:game:system-filter", "ParallelMotion");
+    if (!compact && scale == 1 && !output.empty())
+        capture.save(output / "native-system-dependencies.png");
+    input.click("profiler:game:dependency-nodes");
+    check(test::ui_targets.contains("profiler:game:dependency-node:" + system),
+          "Node view omitted the actual SDK system");
+    input.click("profiler:game:dependency-nodes");
+    shown["ecs"]["dependencies"]["links"][0]["target"] = std::uint64_t(0);
+    frame();
+    check(!test::ui_targets.contains("profiler:game:dependencies-tab"),
+          "Malformed ordering target reached a native table");
+    shown = captured;
+    frame();
     input.type("profiler:game:system-filter", "ParallelMotion");
     input.click("profiler:game:overlaps-tab");
     for (const auto& pair : captured.at("ecs").at("access_diagnostics").at("pairs")) {
@@ -110,7 +126,8 @@ int main(int argc, char** argv) {
         for (float scale : {1.f, 1.5f, 2.f})
             for (bool compact : {false, true})
                 exercise(profile, scale, compact, argc == 3 ? argv[2] : "");
-        std::cout << "Production worker summary/Timeline/access views from actual SDK measurements "
+        std::cout << "Production worker summary/Timeline/access/dependency views from actual SDK "
+                     "measurements "
                      "passed six "
                      "layouts\n";
     } catch (const std::exception& error) {

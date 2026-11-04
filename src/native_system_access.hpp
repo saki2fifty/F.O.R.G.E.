@@ -3,6 +3,7 @@
 #include <forge/world.hpp>
 #include <string>
 namespace forge::detail {
+inline constexpr std::size_t native_system_plan_capacity = 256;
 inline constexpr std::size_t native_access_term_capacity = 512;
 inline constexpr std::size_t native_access_row_capacity = 32;
 inline constexpr std::size_t native_access_overlap_capacity = 128;

@@ -100,8 +100,8 @@ capture. Pause without Step does not run another fixed tick.
 
 1. Start Play and open **Window → Profiler → Play runtime → ECS systems**.
 2. Click **Start collection**. Run the game, or use Step while paused, to populate the table.
-3. Read **Order**, **System** and **Phase** to inspect the native fixed-pipeline plan. **Merge** marks a Flecs synchronization point. Systems with no matching entities are absent.
-4. Use **Filter system, phase or component...** to find a system. Order numbers keep their original positions when filtering; merge rows remain visible.
+3. Read **Order**, **System** and **First target** to inspect the native fixed-pipeline plan. The first target is the first native DependsOn lookup; it can name another system rather than a phase. **Merge** marks a Flecs synchronization point. Systems with no matching entities are absent.
+4. Use **Filter system, target or component...** to find a system. Order numbers keep their original positions when filtering; merge rows remain visible.
 5. Stop collection to retain the view. **Clear samples** discards it; another collected fixed tick can populate it again.
 
 **CPU lifetime ms** is the native system's cumulative CPU wall time since that system
@@ -130,7 +130,7 @@ does not execute gameplay to produce these observations.
 
 1. Open **Window → Profiler → Play runtime → ECS systems**. Start collection and run or Step a fixed tick, then stop collection to retain the view.
 2. Choose **Declared access**. Filter by a system or component name to read its declared fields, access mode, source and query operator.
-3. Use **Plan** to locate the system's current native order and phase. **Default (R/W)** permits changes to owned data; a default shared field is read only. **Compared** means this field participates in the limited overlap check.
+3. Use **Plan** to locate the system's current native order and first dependency target. **default (R/W)** permits changes to owned data; a default shared field is read only. **Compared** means this field participates in the limited overlap check.
 4. Choose **Access overlaps** to review possible read/write or write/write sharing between earlier and later systems. Check your C++ declarations and phase choices when their relative order matters.
 
 ![Profiler showing the actual ParallelMotion query's read-only data and owned writable translation](../images/native-declared-access.png)
@@ -158,6 +158,24 @@ rows with an 8192-comparison limit. A partial-observation notice identifies omit
 coverage. An empty list cannot establish independent access. The Plan's separate
 256-entry limit still applies. Clear discards these observations with the other
 collected system data; stopping Play or replacing the world requires fresh data.
+
+## Inspect native ordering targets
+
+1. Open **Window → Profiler → Play runtime → ECS systems**. Start collection and run or Step a fixed tick, then stop collection to retain the observation.
+2. Choose **Ordering links**. Read **Source** and **Depends on target** for each returned native lookup. **Slot** preserves that source's lookup index. Use the system, phase or component filter to narrow the rows.
+3. Read **Phase tag** to see whether the target has the native phase marker. **Owned pair** reports whether the source owns that relation pair. A lookup can resolve an inherited target; an unowned pair is not a missing dependency.
+4. Enable **Show nodes** to inspect names and temporary native IDs. **Copied plan** identifies systems copied from the plan; **More targets** identifies a source with omitted targets. Disable the option to return to links.
+5. Use **Plan** for the observed execution order. Clear discards both views; new data requires another collected fixed tick. Older runtime snapshots can show the plan without ordering targets.
+
+![Profiler showing the actual ParallelMotion system's native dependency target](../images/native-system-dependencies.png)
+
+The view follows native DependsOn lookups from copied plan systems, with limits
+of 512 nodes, 512 links and 8 targets per source. A partial-target notice reports
+omitted coverage; the plan's separate 256-entry limit still applies. It does not
+reconstruct every inheritance path, compute an effective phase, establish race
+freedom or edit system dependencies. Row position in this tab is lookup order,
+not execution order. Native IDs are temporary diagnostics for this runtime
+world. Scroll the panel or table when needed to reach rows and columns.
 
 ## Compare a repeatable CPU workload
 

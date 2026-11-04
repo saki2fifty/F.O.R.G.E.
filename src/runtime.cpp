@@ -2,6 +2,7 @@
 #include "flecs_system_trace.hpp"
 #include "input_message_runtime.hpp"
 #include "native_system_access.hpp"
+#include "native_system_dependencies.hpp"
 #include "particle_runtime.hpp"
 #include "runtime_entity_creation.hpp"
 #include "runtime_tile_map.hpp"
@@ -12,6 +13,7 @@
 #include <forge/runtime.hpp>
 #include <limits>
 #include <stdexcept>
+#include <vector>
 namespace forge {
 void RuntimeConfig::validate() const {
     if (!std::isfinite(simulation_hz) || simulation_hz < 1 || simulation_hz > 240 ||
@@ -487,10 +489,11 @@ void RuntimeSimulation::capture_system_profile() {
         // inspection, or reduce its history (including empty authoring pipelines).
         if (!ecs_pipeline_stats_get(world, pipeline_, &stats.value))
             throw std::runtime_error("Native fixed-pipeline statistics are unavailable");
-        constexpr int limit = 256;
+        constexpr int limit = int(detail::native_system_plan_capacity);
         const auto count = ecs_vec_count(&stats.value.systems);
         const auto* systems = ecs_vec_first_t(&stats.value.systems, ecs_entity_t);
         Json rows = Json::array();
+        std::vector<ecs_entity_t> dependency_roots;
         const auto name = [&world](ecs_entity_t id) {
             return detail::native_system_display_name(world, id);
         };
@@ -504,6 +507,7 @@ void RuntimeSimulation::capture_system_profile() {
             const auto* system = ecs_system_get(world, id);
             if (!system)
                 throw std::runtime_error("Native pipeline contains an unavailable system");
+            dependency_roots.push_back(id);
             const double seconds = system->time_spent;
             rows.push_back(
                 {{"kind", "system"},
@@ -518,14 +522,16 @@ void RuntimeSimulation::capture_system_profile() {
                  {"multi_threaded", system->multi_threaded},
                  {"access", detail::native_system_access(world, system->query, access_remaining)}});
         }
-        system_profile_ = {{"available", true},
-                           {"tick", input_tick_},
-                           {"timing", "native_system_lifetime"},
-                           {"capacity", limit},
-                           {"total_entries", count},
-                           {"truncated", count > limit},
-                           {"access_diagnostics", detail::native_system_access_overlaps(rows)},
-                           {"entries", std::move(rows)}};
+        system_profile_ = {
+            {"available", true},
+            {"tick", input_tick_},
+            {"timing", "native_system_lifetime"},
+            {"capacity", limit},
+            {"total_entries", count},
+            {"truncated", count > limit},
+            {"access_diagnostics", detail::native_system_access_overlaps(rows)},
+            {"dependencies", detail::native_system_dependencies(world, dependency_roots)},
+            {"entries", std::move(rows)}};
         if (context_.world().get_threads() > 1) {
             system_profile_["ecs_workers"] = context_.world().get_threads();
             system_profile_["native_system_timing"] = false;

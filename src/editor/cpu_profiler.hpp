@@ -2,6 +2,7 @@
 #include "../cpu_profile_trace.hpp"
 #include "../native_system_access.hpp"
 #include "event_time.hpp"
+#include "native_system_dependencies.hpp"
 #include "telemetry.hpp"
 #include "widgets.hpp"
 #include <forge/services.hpp>
@@ -143,6 +144,7 @@ class CpuProfiler {
     char filter_[128]{};
     std::map<std::string, std::string> local_errors_;
     std::map<std::string, bool> timeline_views_;
+    bool dependency_nodes_ = false;
     void draw_records(const char* owner, const nlohmann::json& status, bool ready, bool pending,
                       const std::string& error, const std::function<bool(bool, bool)>& submit,
                       bool gpu = false, bool systems = false,
@@ -198,7 +200,10 @@ class CpuProfiler {
         if (!error.empty() || !local_error.empty())
             ImGui::TextWrapped("%s", error.empty() ? local_error.c_str() : error.c_str());
         if (systems) {
-            draw_systems(status.value("ecs", nlohmann::json::object()));
+            if (status.contains("ecs"))
+                draw_systems(status.at("ecs"));
+            else
+                ImGui::TextWrapped("Waiting for native system data.");
             ImGui::PopID();
             return;
         }
@@ -556,7 +561,7 @@ class CpuProfiler {
                 return;
             }
             const auto& entries = status.at("entries");
-            if (!entries.is_array() || entries.size() > 256 ||
+            if (!entries.is_array() || entries.size() > detail::native_system_plan_capacity ||
                 status.at("timing") != "native_system_lifetime" ||
                 !status.at("tick").is_number_unsigned() || status.at("tick") == 0)
                 throw std::runtime_error("Invalid native system snapshot");
@@ -580,6 +585,15 @@ class CpuProfiler {
             const auto* diagnostics =
                 status.contains("access_diagnostics") ? &status.at("access_diagnostics") : nullptr;
             detail::validate_native_system_access(entries, diagnostics);
+            const auto* dependencies =
+                status.contains("dependencies") ? &status.at("dependencies") : nullptr;
+            if (dependencies) {
+                std::vector<ecs_entity_t> roots;
+                for (const auto& row : entries)
+                    if (row.at("kind") == "system")
+                        roots.push_back(row.at("id").get<ecs_entity_t>());
+                detail::validate_native_system_dependencies(roots, *dependencies);
+            }
             ImGui::Text("Native plan at tick %llu | %zu / %u entries",
                         static_cast<unsigned long long>(status.at("tick").get<std::uint64_t>()),
                         entries.size(), status.at("total_entries").get<unsigned>());
@@ -600,7 +614,7 @@ class CpuProfiler {
             if (status.at("truncated").get<bool>())
                 ImGui::TextWrapped("Showing the first 256 entries; the native plan is larger.");
             ImGui::SetNextItemWidth(-1);
-            ImGui::InputTextWithHint("##System filter", "Filter system, phase or component...",
+            ImGui::InputTextWithHint("##System filter", "Filter system, target or component...",
                                      filter_, sizeof(filter_));
             FORGE_UI_PROBE("profiler:game:system-filter");
             if (ImGui::BeginTabBar("Native ECS views")) {
@@ -613,7 +627,7 @@ class CpuProfiler {
                                           {0, std::max(80.f * interface_scale,
                                                        ImGui::GetContentRegionAvail().y)})) {
                         for (const char* column :
-                             {"Order", "System", "Phase", "CPU lifetime ms", "Mode"})
+                             {"Order", "System", "First target", "CPU lifetime ms", "Mode"})
                             ImGui::TableSetupColumn(
                                 column, ImGuiTableColumnFlags_WidthFixed,
                                 (std::string_view(column) == "System" ? 250.f : 145.f) *
@@ -625,13 +639,7 @@ class CpuProfiler {
                             const bool merge = row.at("kind") == "merge";
                             const auto name = merge ? "Merge" : row.at("name").get<std::string>();
                             const auto phase = merge ? "" : row.at("phase").get<std::string>();
-                            bool matches = name.find(filter_) != std::string::npos ||
-                                           phase.find(filter_) != std::string::npos;
-                            if (!matches && row.contains("access"))
-                                for (const auto& term : row.at("access").at("terms"))
-                                    matches |= term.at("name").get_ref<const std::string&>().find(
-                                                   filter_) != std::string::npos;
-                            if (*filter_ && !merge && !matches)
+                            if (!native_plan_row_matches(row, filter_))
                                 continue;
                             ImGui::TableNextRow();
                             ImGui::TableNextColumn();
@@ -667,6 +675,13 @@ class CpuProfiler {
                 FORGE_UI_PROBE("profiler:game:overlaps-tab");
                 if (overlaps) {
                     draw_system_access(entries, diagnostics, true);
+                    ImGui::EndTabItem();
+                }
+                const bool ordering = ImGui::BeginTabItem("Ordering links");
+                FORGE_UI_PROBE("profiler:game:dependencies-tab");
+                if (ordering) {
+                    draw_native_system_dependencies(entries, dependencies, filter_,
+                                                    dependency_nodes_);
                     ImGui::EndTabItem();
                 }
                 ImGui::EndTabBar();

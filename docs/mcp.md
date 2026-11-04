@@ -796,6 +796,17 @@ owners. `profile_refresh` requests one snapshot without taking over the Profiler
 window's watch. Its value includes `ecs`, the last requested/collected native fixed-pipeline plan, merge markers and cumulative native system CPU totals. Start collection and advance a fixed tick after requesting observations; Pause reads never run gameplay. Stop retains the plan, Clear invalidates its copy without resetting native lifetime counters, and replacement begins empty. The same bounded data feeds the Profiler's ECS systems view; native IDs are world-local diagnostic handles. UI commands go through the actual presenter's declared command
 list, ID queue and acknowledgements, never DOM/script injection.
 
+The copied `ecs.dependencies` observation follows bounded native DependsOn
+lookups from the copied plan systems:512nodes,512links,8targets per source.
+Nodes include plan membership, native phase tags and partial-target flags;
+links retain native slot indices and owned-pair presence. Lookup may resolve
+inherited targets. The legacy row `phase` names the first target; it does not
+resolve an execution phase. The native plan remains the order observation.
+These are diagnostic handles within the current profile's world/session scope,
+not persistent game entities or a complete dependency/race analysis. Older
+snapshots may omit `dependencies`. Refresh/collection/Clear use the same controls
+and permissions as the rest of the profile; reads do not progress gameplay.
+
 `forge_play_profile_trace` reads the cached isolated Play CPU profile as Trace Event
 JSON under `play.read`; it does not execute gameplay or require an execution grant.
 Start collection and request `profile_refresh` through the existing controls first.

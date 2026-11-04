@@ -95,6 +95,16 @@ def verify(runtime, module, gallery, capture=None):
                         diagnostic = plan['access_diagnostics']
                         assert diagnostic['copied_terms'] <= 512 and len(diagnostic['pairs']) <= 128
                         assert diagnostic['comparisons'] <= 8192
+                        dependencies = plan['dependencies']
+                        assert dependencies['lookup'] == 'native_depends_on_targets'
+                        assert (dependencies['node_capacity'], dependencies['link_capacity'], dependencies['target_capacity']) == (512, 512, 8)
+                        assert not dependencies['truncated']
+                        nodes = {row['id']: row for row in dependencies['nodes']}
+                        edge, = [row for row in dependencies['links'] if row['source'] == motion['id'] and row['slot'] == 0]
+                        assert edge['pair_owned'] and nodes[motion['id']]['root']
+                        assert not nodes[motion['id']]['phase_tag']
+                        target = nodes[edge['target']]
+                        assert target['phase_tag'] and target['name'] == motion['phase']
                         if count > 1:
                             assert not plan['native_system_timing'] and plan['system_trace_scope'] == 'native_stages'
                             assert all(row['cpu_seconds'] is None for row in plan['entries']

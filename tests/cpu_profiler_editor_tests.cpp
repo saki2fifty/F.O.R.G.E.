@@ -284,6 +284,10 @@ void interactions(float scale, ImVec2 display) {
     check(watch && test::ui_targets.contains("profiler:game:system:MissingGameplay") &&
               test::ui_targets.contains("profiler:game:system:Merge"),
           "Native system/merge table missing or watch not retained");
+    click("profiler:game:dependencies-tab");
+    check(!test::ui_targets.contains("profiler:game:dependency-nodes"),
+          "Legacy snapshot invented ordering target metadata");
+    click("profiler:game:plan-tab");
     game["ecs"]["entries"][0]["cpu_seconds"] = "invalid";
     frame();
     check(!test::ui_targets.contains("profiler:game:system:MissingGameplay"),
@@ -350,6 +354,49 @@ void interactions(float scale, ImVec2 display) {
     frame();
     check(test::ui_targets.contains("profiler:game:overlap:MissingGameplay:MissingReadback"),
           "Positive write/read overlap was absent from native controls");
+    declarations["dependencies"] = {{"lookup", "native_depends_on_targets"},
+                                    {"node_capacity", std::size_t(512)},
+                                    {"link_capacity", std::size_t(512)},
+                                    {"target_capacity", 8u},
+                                    {"truncated", false},
+                                    {"nodes", Json::array({{{"id", std::uint64_t(101)},
+                                                            {"name", "MissingGameplay"},
+                                                            {"root", true},
+                                                            {"phase_tag", false},
+                                                            {"truncated", false}},
+                                                           {{"id", std::uint64_t(102)},
+                                                            {"name", "MissingReadback"},
+                                                            {"root", true},
+                                                            {"phase_tag", false},
+                                                            {"truncated", false}},
+                                                           {{"id", std::uint64_t(103)},
+                                                            {"name", "MissingPhase"},
+                                                            {"root", false},
+                                                            {"phase_tag", true},
+                                                            {"truncated", false}}})},
+                                    {"links", Json::array({{{"source", std::uint64_t(101)},
+                                                            {"target", std::uint64_t(102)},
+                                                            {"slot", 0u},
+                                                            {"pair_owned", true}},
+                                                           {{"source", std::uint64_t(102)},
+                                                            {"target", std::uint64_t(103)},
+                                                            {"slot", 0u},
+                                                            {"pair_owned", false}}})}};
+    game["ecs"] = declarations;
+    click("profiler:game:dependencies-tab");
+    frame();
+    check(test::ui_targets.contains("profiler:game:dependency:MissingGameplay:0") &&
+              test::ui_targets.contains("profiler:game:dependency:MissingReadback:0"),
+          "System/phase target rows missing from native controls");
+    click("profiler:game:dependency-nodes");
+    check(test::ui_targets.contains("profiler:game:dependency-node:MissingPhase"),
+          "Referenced phase node missing from native controls");
+    click("profiler:game:dependency-nodes");
+    game["ecs"]["dependencies"]["links"][0]["target"] = std::uint64_t(9999);
+    frame();
+    check(!test::ui_targets.contains("profiler:game:dependencies-tab"),
+          "Dangling ordering target reached a native table");
+    game["ecs"] = declarations;
     game["ecs"]["access_diagnostics"]["pairs"][0]["second"] = 9999;
     frame();
     check(!test::ui_targets.contains("profiler:game:access-tab"),

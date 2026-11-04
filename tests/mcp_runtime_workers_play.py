@@ -47,6 +47,13 @@ def check_runtime_workers_play(read, ok, control, mutate, until, discovery):
         assert motion['access']['terms'][1]['reads'] and motion['access']['terms'][1]['writes'] and not motion['access']['truncated']
         assert ecs['access_diagnostics']['copied_terms'] <= 512
         assert len(ecs['access_diagnostics']['pairs']) <= 128
+        dependencies = ecs['dependencies']
+        assert dependencies['lookup'] == 'native_depends_on_targets' and not dependencies['truncated']
+        nodes = {row['id']: row for row in dependencies['nodes']}
+        edge, = [row for row in dependencies['links'] if row['source'] == motion['id'] and row['slot'] == 0]
+        assert edge['pair_owned'] and nodes[motion['id']]['root']
+        assert not nodes[motion['id']]['phase_tag']
+        assert nodes[edge['target']]['phase_tag'] and nodes[edge['target']]['name'] == motion['phase']
         exported = read('forge_play_profile_trace')
         assert exported['trace']['otherData']['native_stages'] == [0, 1, 2, 3]
         assert {row['args']['native_stage'] for row in exported['trace']['traceEvents']

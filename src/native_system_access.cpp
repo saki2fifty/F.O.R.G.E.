@@ -211,7 +211,7 @@ Json native_system_access_overlaps(const Json& entries) {
             {"pairs", std::move(pairs)}};
 }
 void validate_native_system_access(const Json& entries, const Json* overlaps) {
-    if (!entries.is_array() || entries.size() > 256)
+    if (!entries.is_array() || entries.size() > native_system_plan_capacity)
         throw std::runtime_error("Invalid native access plan");
     std::size_t count = 0, total = 0, unresolved = 0;
     bool terms_truncated = false;
@@ -262,7 +262,7 @@ void validate_native_system_access(const Json& entries, const Json* overlaps) {
     const auto& pairs = value.at("pairs");
     for (const char* key : {"term_capacity", "copied_terms", "total_terms", "unresolved_terms",
                             "capacity", "comparison_capacity", "comparisons"})
-        if (!integer(value.at(key), 256 * 127))
+        if (!integer(value.at(key), native_system_plan_capacity * 127))
             throw std::runtime_error("Invalid native access diagnostic counter");
     if (!pairs.is_array() || pairs.size() > native_access_overlap_capacity ||
         value.at("term_capacity") != native_access_term_capacity ||

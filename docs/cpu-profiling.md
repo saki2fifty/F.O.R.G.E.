@@ -175,7 +175,9 @@ gameplay. A partial native pipeline is never sampled after a failed progress.
 The `cpu_profile.ecs` object includes available, tick, timing
 `native_system_lifetime`, capacity256, total_entries, truncated and entries. A row
 is either kind=merge or kind=system with generation-bearing native id, bounded
-display name/phase, cpu_seconds (nullable), immediate and multi_threaded. IDs are
+display name/phase, cpu_seconds (nullable), immediate and multi_threaded. The
+legacy `phase` field retains the first native DependsOn target name for existing
+readers; the Profiler labels it **First target**, not an effective phase. IDs are
 world-local diagnostic handles, not persistent EntityIds. Ordered entries and zero
 merge markers come directly from pinned `ecs_pipeline_stats_get`; vectors are
 finalized immediately. No pipeline history reduction or parallel scheduler exists.
@@ -206,6 +208,37 @@ world_generation/session/launch. No scene/schema/ABI/SDK fingerprint change.
 The pinned native stats count/rebuild fields are not used: the implementation at
 fb55f3c populates its ordered vectors, not those struct summary fields. Native
 stats remain their own authority; FORGE does not invent history or totals.
+
+## Native dependency lookups
+
+The same post-progress observation includes `dependencies`, copied through
+`native_system_dependencies` beside declared-access extraction. It seeds the
+actual copied plan systems and follows public `ecs_get_target` DependsOn slots.
+It does not mutate relations, query matching entities, progress gameplay, rank
+phases or reproduce native scheduling. The selected library may resolve inherited
+targets; this is its lookup behavior, not a complete union of every IsA path.
+
+`lookup` is `native_depends_on_targets`. `nodes` contain positive native `id`,
+bounded `name`, `root` (copied plan membership), `phase_tag` and `truncated`.
+`links` contain `source`, `target`, zero-based native lookup `slot` and
+`pair_owned`, from `ecs_owns_id` for that source/pair. Owned-pair presence does
+not identify which inheritance path produced a duplicate lookup slot. Phase tags
+describe native entity metadata, not a resolved execution phase. IDs retain the
+outer snapshot's world/session/generation scope and are not persistent identities.
+
+Caps are512nodes,512links,8targets per source, reported as `node_capacity`,
+`link_capacity` and `target_capacity`. Each source with omitted targets is marked;
+the root `truncated` flag is their union. Plan truncation remains independent.
+The bounded validator checks roots, types, unique node IDs, contiguous source
+slots, references and reachability from roots before any native UI table begins.
+Reachability validates snapshot scope only; it is not a DAG or scheduling check.
+
+The Profiler's **Ordering links** view and **Show nodes** toggle consume this
+copy. Filtering also matches copied root component names. Plan remains the
+observed order. Older snapshots without `dependencies` retain their existing
+plan and display an unavailable-target explanation. Existing Play/MCP refresh
+and cached profile reads expose the same bounded data; no new write permission,
+authoring relation owner, ABI or SDK boundary is introduced.
 
 ## Declared native query access
 

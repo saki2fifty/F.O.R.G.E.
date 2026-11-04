@@ -662,7 +662,10 @@ struct PlayAutomation {
             "fixed-tick scope timing remains. Trace records identify actually observed stages. "
             "The copied plan includes bounded declared query access and possible component "
             "overlaps in native order, with unresolved/truncated coverage. These are not "
-            "measured races or complete ambiguity analysis.",
+            "measured races or complete ambiguity analysis. Bounded native DependsOn lookups "
+            "include target slots, phase tags and owned-pair presence; lookup may resolve "
+            "inherited targets. The legacy phase field names the first target, not a resolved "
+            "execution phase. Links are not a complete ordering graph.",
             "play.execute", automation_object(properties(), required()), true,
             [&files, &play, providers](const Json& request) {
                 current(play, files, providers, request);

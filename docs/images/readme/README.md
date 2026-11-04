@@ -1894,6 +1894,22 @@ Local capture provenance is in
 This graph-only image does not establish a full editor window, Windows cooked
 Shader, Game/export, hardware DPI or physical GPU acceptance.
 
+## Native system ordering targets
+
+`manual/images/native-system-dependencies.png` is the canonical unretouched
+1240x760 production Profiler control capture, personally viewed. It shows the
+actual original-SDK ParallelMotion system's returned DependsOn target, native
+phase tag, owned-pair presence and slot. The fixture replays a real four-stage
+runtime observation, drives Ordering links/Show nodes and component filters at
+six wide/compact100/150/200% layouts, and rejects malformed copied references.
+SDL software rendering supplies the pixels. A separate controlled data oracle
+checks legacy absence and system/phase/inherited-pair presentation; it supplies
+no manual image. Exact source/profile/binary/module/image hashes and receipts
+are recorded locally in
+`AgentFiles/build/phase253-native-dependency-inspection/capture-provenance.json`.
+This is measured-data replay in production controls, not full-editor, Windows,
+physical GPU/input/DPI or performance acceptance.
+
 ## Declared native system access
 
 `manual/images/native-declared-access.png` is the canonical unretouched1240x760
@@ -1901,12 +1917,12 @@ production Profiler capture. The control fixture replays actual original-SDK
 ParallelMotion runtime measurements and copied native query declarations at four
 stages. The writable translation is owned; its read-only data may traverse.
 Six wide/compact100/150/200% layouts and actual input cover worker summaries,
-Timeline and declared access/overlap tabs. A separate controlled copied-data test
+Timeline and declared access/overlap/ordering tabs. A separate controlled copied-data test
 covers a positive write/read overlap and malformed-reference rejection; it does
 not supply manual images. SDL software rendering supplies the control pixels.
 Exact source/profile/binary/image hashes, process/capture receipts and limits are
 recorded locally in
-`AgentFiles/build/phase252-ecs-access-diagnostics/capture-provenance.json`.
+`AgentFiles/build/phase253-native-dependency-inspection/capture-provenance.json`.
 This is actual measured-data replay in production controls, not a full running
 editor, Windows, physical input/GPU/DPI or performance acceptance capture.
 
