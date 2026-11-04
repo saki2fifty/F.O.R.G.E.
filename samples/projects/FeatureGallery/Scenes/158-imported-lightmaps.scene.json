@@ -1,0 +1,291 @@
+{
+  "asset_id": "87c6a461-f930-416f-a12d-83e9838dc9bb",
+  "entities": [
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -2.5,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "lightmap_gain",
+              "parameter": {
+                "type": 4,
+                "value": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "dc54b269-c5b2-45d2-b2a4-db9f7fc34ee7",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.tint": {
+          "b": 0.699999988079071,
+          "g": 0.6000000238418579,
+          "r": 0.20000000298023224
+        }
+      },
+      "id": "cecbe745-15c2-4c68-9979-3cea13911d1f",
+      "name": "Gain 0 - no baked contribution",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "lightmap_gain",
+              "parameter": {
+                "type": 4,
+                "value": [
+                  1.0,
+                  1.0,
+                  1.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "dc54b269-c5b2-45d2-b2a4-db9f7fc34ee7",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.tint": {
+          "b": 0.699999988079071,
+          "g": 0.6000000238418579,
+          "r": 0.20000000298023224
+        }
+      },
+      "id": "c152dc2e-1fef-470d-bff6-88abdeedec0f",
+      "name": "Gain 1 - imported irradiance",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 2.5,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "lightmap_gain",
+              "parameter": {
+                "type": 4,
+                "value": [
+                  2.0,
+                  2.0,
+                  2.0,
+                  0.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "dc54b269-c5b2-45d2-b2a4-db9f7fc34ee7",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.tint": {
+          "b": 0.699999988079071,
+          "g": 0.6000000238418579,
+          "r": 0.20000000298023224
+        }
+      },
+      "id": "59bd4df1-b177-496f-aa06-558e34492e60",
+      "name": "Gain 2 - stronger imported irradiance",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 1.7777777777777777,
+          "background_a": 1.0,
+          "background_b": 0.029999999329447746,
+          "background_g": 0.02500000037252903,
+          "background_r": 0.019999999552965164,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 1000.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 5.0,
+          "orthographic_width": 0.0,
+          "projection": 1,
+          "render_texture": null,
+          "vertical_fov": 1.0471975511965976,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": -7.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.tint": {
+          "b": 0.699999988079071,
+          "g": 0.6000000238418579,
+          "r": 0.20000000298023224
+        }
+      },
+      "id": "dae1623f-c9f5-48f3-ae56-543178fd6e2f",
+      "name": "Lightmap comparison Camera",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    }
+  ],
+  "rendering": {
+    "environment": {
+      "intensity": 0
+    },
+    "version": 1
+  },
+  "version": 3
+}

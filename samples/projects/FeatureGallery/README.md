@@ -1,5 +1,22 @@
 # Feature Gallery
 
+## Imported diffuse lightmaps
+
+Open `158-imported-lightmaps` to compare three cubes sharing one graph Material
+with object-local lightmap gains zero, one and two. The original small HDR image
+illustrates linear incident diffuse irradiance; it is not a bake of the scene.
+There are no Scene lights and environment intensity is zero, so the map supplies
+the diffuse contribution. Metallic surfaces have no diffuse response.
+
+The Windows package prepares this example's Shader and Material with its matching
+compiler before inclusion. In a source checkout, open
+`Assets/Lightmaps/Irradiance.shader.json`, choose **Save & Compile**, then open and
+save `Assets/Lightmaps/Shared.material.json` before Play or export. The source
+records deliberately contain no fabricated cooked Shader or Material artifact.
+Use the Material Graph's **Lightmap irradiance** input, HDR Texture usage and
+ordinary Material UV transforms to author another map. FORGE does not bake maps
+or generate lightmap UVs. See the manual's imported-lightmap guide.
+
 ## Signed block channel images
 
 Open **Assets/TextureBlocks/SignedChannel.dds** or **SignedPair.dds** in Content

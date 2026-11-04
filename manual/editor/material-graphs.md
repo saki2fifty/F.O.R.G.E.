@@ -59,7 +59,8 @@ each input accepts one connection. Right-click an input to disconnect it.
 Ports are typed. A color and a plain vector have different meanings even when they
 have the same number of channels. Add **Convert** when you intentionally change type.
 **Combine** assembles channels; **Component** extracts one. Surface Output accepts
-color/alpha, metallic, roughness, normal, emission and occlusion.
+color/alpha, metallic, roughness, normal, emission, occlusion and imported
+[lightmap irradiance](imported-lightmaps.md).
 
 Select a node header to see its properties beside the canvas. Labels sit above
 their controls so the properties remain readable in narrow workspaces. Drag the header to

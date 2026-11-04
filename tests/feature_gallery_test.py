@@ -618,6 +618,9 @@ try:
             renderer = row['components'].get('forge.mesh_renderer')
             if renderer is not None:
                 renderer.setdefault('material_parameters', [])
+                renderer.setdefault('wind', dict(enabled=False, amplitude=.2, height=1.6,
+                                                 direction_x=1., direction_z=0., frequency=.5,
+                                                 wavelength=8., phase=0.))
             region = row['components'].get('forge.navigation_region_2d')
             if region is not None:
                 region.setdefault('points', [])

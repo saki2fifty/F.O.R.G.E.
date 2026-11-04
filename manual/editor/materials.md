@@ -106,7 +106,8 @@ For overlapping transparent Meshes, see [Weighted transparency](transparency.md)
 
 Expand a role under **Texture slots** and choose a Texture asset, or drag a compatible
 asset from Content onto its picker. The texture needs the matching imported usage:
-color for surface colors, normal for normal maps, and data for numeric masks.
+color for surface colors, normal for normal maps, data for numeric masks, and HDR
+for linear floating irradiance in an [imported lightmap](imported-lightmaps.md).
 A cube environment texture cannot fill a two-dimensional surface texture slot.
 An incompatible selection fails publication instead of replacing the usable material.
 

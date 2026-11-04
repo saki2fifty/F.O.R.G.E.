@@ -846,15 +846,23 @@ class MaterialGraphCanvas {
             ui::help("Human-readable parameter name; does not rename its stable binding.");
         }
         if (kind.starts_with("texture")) {
-            static constexpr const char* semantics[]{"color", "data", "normal"};
+            static constexpr const char* semantics[]{"color", "data", "normal", "hdr"};
             const auto value = data.value("semantic", std::string("color"));
-            int index = value == "normal" ? 2 : value == "data" ? 1 : 0;
-            if (ImGui::Combo(control("Usage").c_str(), &index, semantics, 3)) {
-                data["semantic"] = semantics[index];
-                changed = true;
+            int index = value == "hdr" ? 3 : value == "normal" ? 2 : value == "data" ? 1 : 0;
+            if (ImGui::BeginCombo(control("Usage").c_str(), semantics[index])) {
+                for (int choice = 0; choice < 4; ++choice) {
+                    if (ImGui::Selectable(semantics[choice], choice == index)) {
+                        data["semantic"] = semantics[choice];
+                        changed = true;
+                    }
+                    FORGE_UI_PROBE(std::string("graph:node-usage:") + semantics[choice]);
+                }
+                ImGui::EndCombo();
             }
-            ui::help("Color selects the color texture variant; data and normal sampling use their "
-                     "matching cooked variants. Assign the texture in the material's slot.");
+            FORGE_UI_PROBE("graph:node-usage");
+            ui::help(
+                "Choose the matching cooked texture variant. HDR samples linear floating color "
+                "without tone mapping. Assign the texture in the material's slot.");
         }
         if (kind == "uv" || kind == "texture2d" || kind == "texture2d_array") {
             unsigned uv = data.value("uv_set", 0u);
@@ -862,6 +870,7 @@ class MaterialGraphCanvas {
                 data["uv_set"] = uv;
                 changed = true;
             }
+            FORGE_UI_PROBE("graph:node-uv");
             ui::help(
                 "Logical mesh UV-set number; the renderer resolves it to a dense varying slot.");
         }

@@ -1,5 +1,20 @@
 # 2026-11-04
 
+## Imported diffuse lightmaps
+
+Mesh Material graphs expose optional linear Lightmap irradiance, with zero
+default, HDR Texture usage and ordinary Material/UV/gain bindings. The shared
+renderer adds its material-dependent diffuse response to color and indirect
+lighting, independently of Scene environment gain. No editor baker or UV unwrap
+is introduced. Surface capability15, checked publication facts and runtime-kit
+admission protect cooked exports and retain compatible older artifacts.
+
+The manual and an original HDR Gallery comparison describe authoring, numeric
+and platform limits. Windows package preparation cooks the Gallery Shader and
+Material with the matching workers; packaging rejects unprepared sources.
+Local CPU, source-level native GPU, graph controls/history and MCP checks remain
+distinct from pending Windows cooked Shader and graphical game/export acceptance.
+
 ## Signed block Texture PNG16
 
 Published BC4/BC5 SNORM selections export through the existing Texture image

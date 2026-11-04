@@ -1875,3 +1875,18 @@ Actual input fixtures exercise wide/compact panels at 1x/1.5x/2x; these captures
 not establish full Main/Windows/MSVC/D3D12, hardware input/DPI or physical-GPU
 acceptance. Capture evidence and hashes are local in
 `AgentFiles/build/phase244-foliage-collision-filters/native-ui-captures.json`.
+
+## Imported lightmap graph
+
+`manual/images/imported-lightmap-graph.png` is the canonical unretouched 1360x880
+capture of the production MaterialGraphCanvas through
+`forge_material_graph_lightmap_editor_tests`. It shows HDR Texture usage and UV3,
+Convert, Multiply, a gain parameter and the Lightmap irradiance Surface Output
+input. The fixture uses the real ImGui controls and SDL software capture; input
+checks cover connecting the port, source history, read-only state and saving at
+100/150/200%. The image was personally reviewed after arranging its source nodes.
+SHA256: `087c5bead28d7f5785eb1ebbf64669e8201cc970c55c64ee188b219769e185f7`.
+Local capture provenance is in
+`AgentFiles/build/phase247-imported-lightmaps/capture-provenance.json`.
+This graph-only image does not establish a full editor window, Windows cooked
+Shader, Game/export, hardware DPI or physical GPU acceptance.

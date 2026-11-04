@@ -6,7 +6,9 @@ namespace forge {
 // Stages admitted by the initial D3D12 / FXC shader-model5.1 compiler profile.
 // Admission is not a claim that every renderer pass uses each stage.
 enum class ShaderStage { Vertex, Pixel, Compute, Geometry, Hull, Domain };
-inline constexpr unsigned current_surface_wrapper_version = 14;
+inline constexpr unsigned current_surface_wrapper_version = 15;
+// Earlier publications predate explicit runtime-kit surface profile metadata.
+inline constexpr unsigned first_explicit_surface_runtime_profile = 15;
 enum class ShaderEntryRole {
     Program,
     SurfaceColor,

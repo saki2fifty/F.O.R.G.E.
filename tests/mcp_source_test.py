@@ -12,6 +12,7 @@ from mcp_test_client import CAPTURE, Client, failed, write_capture, finish_host
 from mcp_prefab_workflow import check_prefab_workflow
 from mcp_terrain_foliage_workflow import check_terrain_foliage_workflow
 from mcp_render_texture_workflow import check_render_texture_workflow
+from mcp_lightmap_graph_workflow import check_lightmap_graph_workflow
 
 TOOLS, HOST, WORKER = map(str, map(Path, sys.argv[1:4]))
 TERRAIN_FOLIAGE_ONLY = "--terrain-foliage-only" in sys.argv[5:]
@@ -23,6 +24,7 @@ assert not SKIP_LARGE_PREFAB_READ or PREFAB_ONLY
 COLLISION_ONLY = "--tile-collision-only" in sys.argv[5:]
 ATLAS_ONLY = "--atlas-only" in sys.argv[5:]
 SPRITE_GRAPH_ONLY = "--sprite-graph-only" in sys.argv[5:]
+LIGHTMAP_GRAPH_ONLY = "--lightmap-graph-only" in sys.argv[5:]
 NAVIGATION_BEHAVIOR_ONLY = "--navigation-behavior-only" in sys.argv[5:]
 UI_LOCALIZATION_ONLY = "--ui-localization-only" in sys.argv[5:]
 UI_VALUES_ONLY = "--ui-values-only" in sys.argv[5:]
@@ -107,6 +109,9 @@ for legacy in (False, True):
 
         kinds = read('forge_asset_document_types')['editors']
         assert len(kinds) == 17 and all(not item['status']['open'] for item in kinds), kinds
+        if LIGHTMAP_GRAPH_ONLY:
+            check_lightmap_graph_workflow(read, mutate, edit, status, content, failed, root)
+            continue
         output_catalog = read('forge_asset_render_texture_catalog')
         assert output_catalog['editor'] == 'render_texture' and output_catalog['asset_type'] == 'render_texture'
         assert output_catalog['limits']['outputs'] == 4 and output_catalog['limits']['maximum_dimension'] == 2048

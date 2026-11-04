@@ -21,6 +21,7 @@
 #include "root_mesh_artifact.hpp"
 #include "runtime_document_package.hpp"
 #include "runtime_raw_assets.hpp"
+#include "shader_publication.hpp"
 #include "texture_bundle_validation.hpp"
 #include "tile_asset_resources.hpp"
 #include "ui_asset_catalog.hpp"
@@ -343,9 +344,8 @@ void admit_bundle(const AssetRecord& root, const CachedArtifact& artifact) {
         require(artifact.files.size() == 1 && artifact.files.front().name == "program.shader",
                 "Unexpected compiled shader bundle");
         const auto shader = decode_shader(artifact.files.front().bytes);
-        require(root.metadata.at("forge.shader").at("compiler_input_key") == shader.build_key &&
-                    root.metadata.at("forge.shader").at("layout") == shader.layout_digest(),
-                "Compiled shader/layout provenance differs from selection");
+        asset_detail::validate_shader_publication_metadata(root.metadata.at("forge.shader"),
+                                                           shader);
     } else
         throw std::runtime_error("No cooked runtime packaging adapter for " + root.type +
                                  "; asset " + root.id.str());

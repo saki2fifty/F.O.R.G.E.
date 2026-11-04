@@ -39,7 +39,7 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
         auto decoded = decode_shader(bytes);
         const auto realized = asset_detail::realize_diligent_shader(device, decoded);
         check(realized.stages.size() == 2 && decoded.surface->sprite_image &&
-                  decoded.surface_wrapper_version == 14,
+                  decoded.surface_wrapper_version == current_surface_wrapper_version,
               "Native Sprite cook/reload lost its image/domain or two output roles");
         for (const auto& stage : decoded.stages) {
             check(sprite_surface_role(stage.role), "Sprite program acquired a Mesh stage");

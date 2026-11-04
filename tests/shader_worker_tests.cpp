@@ -1,5 +1,6 @@
 #include "asset_bytes.hpp"
 #include "asset_import_service.hpp"
+#include "material_lightmap_fixture.hpp"
 #include "runtime_package.hpp"
 #include "shader_authoring.hpp"
 #include "shader_diligent.hpp"
@@ -185,7 +186,8 @@ float4 ps():SV_TARGET {return color();}
         require(resources.wait(sprite_ticket, 5s), "Sprite graph Shader resource did not load");
         const auto sprite_lease = resources.acquire(sprite_ticket);
         require(sprite_lease && sprite_lease->surface && sprite_lease->surface->sprite_image &&
-                    sprite_lease->stages.size() == 2 && sprite_lease->surface_wrapper_version == 14,
+                    sprite_lease->stages.size() == 2 &&
+                    sprite_lease->surface_wrapper_version == current_surface_wrapper_version,
                 "Sprite worker publication lost its typed domain or mip entry");
         submit_sprite();
         const auto sprite_cached = finish(service);
@@ -208,6 +210,66 @@ float4 ps():SV_TARGET {return color();}
                                              "sprite.shader.json"),
                 "Relocated Sprite Shader lost its exact cooked program or retained source");
         std::filesystem::remove_all(relocated_sprite);
+        // Real FXC worker output and source-free package admission for the
+        // imported-irradiance graph. CPU marker fixtures do not enter this path.
+        auto lightmap = MaterialGraphSource::create(AssetId::generate());
+        lightmap.document["graph"] = lightmap_test::graph();
+        write(root / "lightmap.shader.json", lightmap.document.dump(2));
+        catalog.add({lightmap.asset(), "shader", "lightmap.shader.json", 1, {}});
+        catalog.save(AssetCatalog::project_index(root));
+        service.submit(service.prepare("lightmap.shader.json"), prepare, no_live_consumers);
+        const auto lightmap_outcome = finish(service);
+        require(lightmap_outcome.published,
+                "Lightmap graph worker compilation failed: " + lightmap_outcome.diagnostic);
+        catalog = AssetCatalog::open_project(root);
+        require(catalog.records()
+                        .at(lightmap.asset())
+                        .metadata.at("forge.shader")
+                        .at("surface_wrapper_version") == current_surface_wrapper_version,
+                "Lightmap publication omitted its runtime surface capability");
+        const AssetRef<ShaderAsset> lightmap_ref{lightmap.asset()};
+        const auto lightmap_ticket = request_shader(resources, root, catalog, lightmap_ref);
+        require(resources.wait(lightmap_ticket, 5s), "Compiled lightmap graph did not load");
+        const auto lightmap_program = resources.acquire(lightmap_ticket);
+        require(lightmap_program && lightmap_program->surface &&
+                    lightmap_program->surface->textures.at("lightmap").semantic ==
+                        TextureSemantic::HdrColor &&
+                    lightmap_program->surface->uv_sets == std::vector<unsigned>{3} &&
+                    lightmap_program->surface_wrapper_version == current_surface_wrapper_version,
+                "Compiled lightmap lost its HDR, sparse UV or surface profile");
+        unsigned lightmap_generation = 1;
+        for (const auto& value : {Json(), Json(14), Json("15")}) {
+            auto changed = catalog;
+            auto record = changed.records().at(lightmap.asset());
+            record.metadata["forge.import"]["generation"] = ++lightmap_generation;
+            if (value.is_null())
+                record.metadata["forge.shader"].erase("surface_wrapper_version");
+            else
+                record.metadata["forge.shader"]["surface_wrapper_version"] = value;
+            changed.replace(record);
+            const auto failure = request_shader(resources, root, changed, lightmap_ref);
+            require(!resources.wait(failure, 5s) &&
+                        resources.current(lightmap_ref).identity() == lightmap_program.identity(),
+                    "Altered lightmap surface capability replaced the last-good native program");
+        }
+        const auto lightmap_package =
+            root.parent_path() / ("lightmap-content-" + AssetId::generate().str());
+        const std::array lightmap_roots{lightmap.asset()};
+        (void)package_runtime_content(root, lightmap_package, lightmap_roots, {"windows", "d3d12"});
+        const auto relocated_lightmap = lightmap_package.string() + "-relocated";
+        std::filesystem::rename(lightmap_package, relocated_lightmap);
+        const auto lightmap_catalog =
+            open_runtime_content(relocated_lightmap, {"windows", "d3d12"});
+        ResourcePool<ShaderAsset> lightmap_resources;
+        const auto packaged_lightmap =
+            request_shader(lightmap_resources, relocated_lightmap, lightmap_catalog, lightmap_ref);
+        require(lightmap_resources.wait(packaged_lightmap, 5s) &&
+                    encode_shader(lightmap_resources.acquire(packaged_lightmap).get()) ==
+                        encode_shader(lightmap_program.get()) &&
+                    !std::filesystem::exists(std::filesystem::path(relocated_lightmap) /
+                                             "lightmap.shader.json"),
+                "Relocated lightmap Shader lost its cooked program or retained graph source");
+        std::filesystem::remove_all(relocated_lightmap);
         const auto milliseconds = [](auto duration) {
             return std::chrono::duration<double, std::milli>(duration).count();
         };

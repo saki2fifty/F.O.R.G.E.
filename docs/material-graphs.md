@@ -71,7 +71,7 @@ expansion. Local source/editor and actual DXC probes cover their output; native
 Windows/FXC5.1 and physical GPU acceptance remain pending.
 
 Exactly one output chooses the domain. Surface Output defines base color/alpha, metallic, roughness, normal,
-emission and occlusion. Graph values feed the existing metallic/roughness PBR
+emission, occlusion and optional imported lightmap irradiance. Graph values feed the existing metallic/roughness PBR
 geometry/lighting helpers; this is not a copied BRDF or custom vertex deformation.
 Physical surface fields are bounded at their established shader boundary; output
 nonfinite checks provide the existing diagnostic color instead of nonfinite pixels.
@@ -80,6 +80,11 @@ planar-coordinate consumer does not require mesh UV channels; cube/volume coordi
 do not create an artificial UV0 requirement. An unconnected Normal Map UV input
 explicitly requires UV0. Texture2D
 implicit sampling respects Material UV transforms and overrides.
+
+The optional `lightmap_irradiance` port is linear `color3`, default zero. HDR
+texture nodes return `color4` and use an explicit Convert before this port.
+See [imported diffuse lightmaps](imported-lightmaps.md) for units, composition,
+numeric validation, existing Material bindings and runtime-kit admission.
 
 Sprite Output instead emits a final linear RGBA function over `ForgeSpriteInput`.
 Its `data.image` names a declared primary Color Texture2D binding by stable key;

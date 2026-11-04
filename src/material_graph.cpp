@@ -98,9 +98,13 @@ bool available_schema(const Json& node) {
 }
 MaterialGraphPort port(std::string key, Type t) { return {key, key, t}; }
 const std::vector<MaterialGraphPort> surface_ports{
-    port("base_color", Type::LinearColor4), port("metallic", Type::Scalar),
-    port("roughness", Type::Scalar),        port("normal", Type::Vector3),
-    port("emissive", Type::LinearColor3),   port("occlusion", Type::Scalar)};
+    port("base_color", Type::LinearColor4),
+    port("metallic", Type::Scalar),
+    port("roughness", Type::Scalar),
+    port("normal", Type::Vector3),
+    port("emissive", Type::LinearColor3),
+    port("occlusion", Type::Scalar),
+    {"lightmap_irradiance", "Lightmap irradiance", Type::LinearColor3}};
 const MaterialGraphPort& find_port(const std::vector<MaterialGraphPort>& ports,
                                    std::string_view key, GraphNodeId node) {
     const auto it =
@@ -185,10 +189,12 @@ class Compiler {
             result_.surface.labels[binding] = node.at("data").value("label", binding);
             MaterialTextureSlot slot;
             const auto semantic = node.at("data").value("semantic", std::string("color"));
-            require(semantic == "color" || semantic == "data" || semantic == "normal",
+            require(semantic == "color" || semantic == "data" || semantic == "normal" ||
+                        semantic == "hdr",
                     "Unknown texture semantic");
             slot.semantic = semantic == "color"    ? TextureSemantic::Color
                             : semantic == "normal" ? TextureSemantic::Normal
+                            : semantic == "hdr"    ? TextureSemantic::HdrColor
                                                    : TextureSemantic::Data;
             slot.dimension = key == "texturecube"         ? TextureDimension::Cube
                              : key == "texturecube_array" ? TextureDimension::CubeArray
@@ -398,8 +404,9 @@ class Compiler {
             }
             result_.surface.uv_sets = {0};
         }
-        const std::array<std::string, 6> defaults{"float4(0.8,0.8,0.8,1)", "0.0",           "0.5",
-                                                  "input.Normal",          "float3(0,0,0)", "1.0"};
+        const std::array<std::string, 7> defaults{"float4(0.8,0.8,0.8,1)", "0.0",           "0.5",
+                                                  "input.Normal",          "float3(0,0,0)", "1.0",
+                                                  "float3(0,0,0)"};
         std::vector<std::string> expressions;
         if (sprite_)
             expressions.push_back(
@@ -461,12 +468,13 @@ class Compiler {
                          "ddy(input.World),ddx(uv),ddy(uv));\n"
                          "float3 mapped=texel*2-1;mapped.xy*=strength;return "
                          "ForgePerturbNormal(frame,mapped); }\n";
-        result_.source += "struct ForgeGraphValues {float4 BaseColor;float Metallic;float "
-                          "Roughness;float3 Normal;float3 Emissive;float Occlusion;};\n"
-                          "ForgeGraphValues ForgeGraphSurface(ForgeSurfaceInput input) {\n" +
-                          body_ + "ForgeGraphValues result=(ForgeGraphValues)0;\n";
-        const std::array fields{"BaseColor", "Metallic", "Roughness",
-                                "Normal",    "Emissive", "Occlusion"};
+        result_.source +=
+            "struct ForgeGraphValues {float4 BaseColor;float Metallic;float "
+            "Roughness;float3 Normal;float3 Emissive;float Occlusion;float3 LightmapIrradiance;};\n"
+            "ForgeGraphValues ForgeGraphSurface(ForgeSurfaceInput input) {\n" +
+            body_ + "ForgeGraphValues result=(ForgeGraphValues)0;\n";
+        const std::array fields{"BaseColor", "Metallic",  "Roughness",         "Normal",
+                                "Emissive",  "Occlusion", "LightmapIrradiance"};
         for (size_t i = 0; i < fields.size(); ++i)
             result_.source += "result." + std::string(fields[i]) + "=" + expressions[i] + ";\n";
         result_.source += "return result; }\n";
@@ -484,7 +492,8 @@ MaterialGraphError::MaterialGraphError(MaterialGraphDiagnostic d)
 const std::vector<MaterialGraphNodeSchema>& material_graph_node_schemas() {
     static const std::vector<MaterialGraphNodeSchema> schemas{
         {"surface", "Surface Output", "Output",
-         "Lit surface color, metalness, roughness, world normal, emission and occlusion."},
+         "Lit surface color, metalness, roughness, world normal, emission, occlusion and optional "
+         "imported linear diffuse lightmap irradiance."},
         {"sprite_output", "Sprite Output", "Output",
          "Final Sprite color with one primary image binding and optional Inspector Tint. UV0 is "
          "the logical frame; Mesh normals and lighting are unavailable."},
@@ -763,7 +772,8 @@ std::vector<MaterialGraphPort> material_graph_outputs(const Json& node) {
     if (k == "surface" || k == "sprite_output" || k == "function_output")
         return {};
     if (k.starts_with("texture"))
-        return {port("out", node.at("data").value("semantic", std::string("color")) == "color"
+        return {port("out", (node.at("data").value("semantic", std::string("color")) == "color" ||
+                             node.at("data").value("semantic", std::string("color")) == "hdr")
                                 ? Type::LinearColor4
                                 : Type::Vector4)};
     if (k == "uv")

@@ -3,6 +3,7 @@
 #include "material_graph_geometry_tests.hpp"
 #include "material_graph_sprite_tests.hpp"
 #include "material_graph_threshold_tests.hpp"
+#include "material_lightmap_fixture.hpp"
 #include "mesh_draw_shader.hpp"
 #include <forge/material_graph.hpp>
 #include <limits>
@@ -30,7 +31,58 @@ inline Json edge(const Json& from, std::string out, const Json& to, std::string 
             {"from", {{"node", from.at("id")}, {"port", out}}},
             {"to", {{"node", to.at("id")}, {"port", in}}}};
 }
+inline void lightmap_tests() {
+    auto authored = lightmap_test::graph();
+    const auto before = authored;
+    const auto compiled = compile_material_graph(authored);
+    check(authored == before && compiled.surface.physically_based,
+          "Lightmap projection mutated its graph or lost physical surface ownership");
+    check(compiled.surface.uv_sets == std::vector<unsigned>{3} &&
+              compiled.surface.textures.at("lightmap").semantic == TextureSemantic::HdrColor &&
+              compiled.surface.textures.at("lightmap").uv_set == 3,
+          "Imported lightmap lost its HDR semantic or sparse UV declaration");
+    check(compiled.surface.parameters.at("lightmap_gain").type ==
+                  MaterialParameterType::LinearColor3 &&
+              compiled.source.find("result.LightmapIrradiance=") != std::string::npos,
+          "Lightmap gain or diffuse field is absent from the graph projection");
+    const auto plain = compile_material_graph(create_material_graph());
+    check(plain.source.find("result.LightmapIrradiance=float3(0,0,0)") != std::string::npos,
+          "Legacy unconnected lightmap port did not retain zero default");
+    const auto surface = std::find_if(authored["nodes"].begin(), authored["nodes"].end(),
+                                      [](const auto& n) { return n.at("type") == "surface"; });
+    const auto ports = material_graph_inputs(*surface);
+    const auto port = std::find_if(ports.begin(), ports.end(),
+                                   [](const auto& p) { return p.key == "lightmap_irradiance"; });
+    check(port != ports.end() && port->label == "Lightmap irradiance" &&
+              port->type == MaterialParameterType::LinearColor3,
+          "Lightmap discovery did not expose the shared typed port");
+    auto source = MaterialGraphSource::create(AssetId::generate());
+    source.document["graph"] = authored;
+    source.validate();
+    const auto bytes = source.document.dump();
+    check(MaterialGraphSource::parse(std::as_bytes(std::span(bytes))).document == source.document,
+          "Lightmap source roundtrip changed graph identities or bindings");
+    const auto pixel = material_graph_shader_wrapper(compiled.surface, "engine/forge.graph.hlsl",
+                                                     false),
+               indirect = material_graph_shader_wrapper(compiled.surface, "engine/forge.graph.hlsl",
+                                                        false, true),
+               depth =
+                   material_graph_shader_wrapper(compiled.surface, "engine/forge.graph.hlsl", true);
+    check(pixel.find("ForgeLightmapDiffuse(graph.LightmapIrradiance,s,") != std::string::npos &&
+              pixel.find("color+=lightmapDiffuse") != std::string::npos &&
+              indirect.find("(ForgeIndirectRadiance(s,lighting)+lightmapDiffuse)*") !=
+                  std::string::npos &&
+              depth.find("ForgeLightmapDiffuse") == std::string::npos,
+          "Lightmap failed shared color/indirect classification or changed depth semantics");
+    auto wrong_type = authored;
+    auto& target = wrong_type["edges"].back()["from"];
+    const auto scalar = create_material_graph_node("constant", {0, 0});
+    wrong_type["nodes"].push_back(scalar);
+    target["node"] = scalar.at("id");
+    rejects([&] { (void)compile_material_graph(wrong_type); }, "type_mismatch");
+}
 inline void run() {
+    lightmap_tests();
     sprite_tests();
     threshold_tests();
     geometry_tests();

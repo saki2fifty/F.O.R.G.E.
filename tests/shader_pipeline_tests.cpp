@@ -1,6 +1,7 @@
 #include "asset_bytes.hpp"
 #include "shader_authoring.hpp"
 #include "shader_pipeline.hpp"
+#include "surface_material_fixture.hpp"
 #include <forge/material_graph.hpp>
 #include <forge/project_lease.hpp>
 #include <forge/shader_resource.hpp>
@@ -137,15 +138,15 @@ int main(int argc, char** argv) {
         bad_import.asset = AssetId::generate();
         rejects([&] { importer->discover(bad_import, {}); });
         // CPU transport fixture only. These bytes never reach a native graphics API.
-        ShaderData shader{
-            decoded.build_key,
-            compiler.digest,
-            true,
-            false,
-            {{ShaderStage::Vertex,
-              "main",
-              {std::byte{1}},
-              {{"stage", "vertex"}, {"threads", {0, 0, 0}}, {"resources", Json::array()}}}}};
+        ShaderData shader;
+        shader.build_key = decoded.build_key;
+        shader.compiler_digest = compiler.digest;
+        shader.row_major = true;
+        shader.stages = {
+            {ShaderStage::Vertex,
+             "main",
+             {std::byte{1}},
+             {{"stage", "vertex"}, {"threads", {0, 0, 0}}, {"resources", Json::array()}}}};
         std::vector<ArtifactFile> files{{"program.shader", encode_shader(shader)}};
         DerivedDataCache cache(root);
         const auto validator = [&](const CachedArtifact& a) { importer->validate(a); };
@@ -168,7 +169,11 @@ int main(int argc, char** argv) {
         // Fixture bytecode remains opaque CPU test data, never supplied to a device.
         {
             AssetCatalog catalog(root);
-            catalog.add({id, "shader", import.source, 1, {}});
+            AssetRecord record;
+            record.id = id;
+            record.type = "shader";
+            record.source = import.source;
+            catalog.add(std::move(record));
             catalog.save(AssetCatalog::project_index(root));
             ProjectLease lease(root);
             AssetPublisher publisher(lease);
@@ -199,6 +204,49 @@ int main(int argc, char** argv) {
             rejects([&] { request_shader(pool, root, catalog, {AssetId::generate()}); });
             std::filesystem::rename(root / "HiddenSources", root / "Shaders");
             std::filesystem::rename(root / "source.hidden", root / "surface.shader.json");
+        }
+        // Admitted encoded CPU transport data, never executable native bytecode.
+        // Exercise the actual publication metadata and resource lease boundary.
+        {
+            auto catalog = AssetCatalog::open_project(root);
+            const auto surface_id = AssetId::generate();
+            SurfaceShaderDefinition explicit_surface;
+            explicit_surface.uv_sets = {0};
+            explicit_surface.sprite_image = "image";
+            explicit_surface.textures["image"].semantic = TextureSemantic::Color;
+            const auto cooked = test::publish_surface_fixture(
+                root, catalog, surface_id, explicit_surface, 1, current_surface_wrapper_version);
+            ResourcePool<ShaderAsset> pool;
+            const AssetRef<ShaderAsset> reference{surface_id};
+            const auto ticket = request_shader(pool, root, catalog, reference);
+            require(pool.wait(ticket, std::chrono::seconds(5)),
+                    "Explicit surface profile did not load its admitted cooked bytes");
+            const auto old = pool.acquire(ticket);
+            require(old && old->surface_wrapper_version == current_surface_wrapper_version &&
+                        encode_shader(old.get()) == encode_shader(cooked),
+                    "Explicit surface profile changed during resource admission");
+            unsigned generation = 1;
+            for (const auto& value : {Json(), Json("15"), Json(14), Json(15.5), Json(true)}) {
+                auto changed = catalog;
+                auto record = changed.records().at(surface_id);
+                record.metadata["forge.import"]["generation"] = ++generation;
+                if (value.is_null())
+                    record.metadata["forge.shader"].erase("surface_wrapper_version");
+                else
+                    record.metadata["forge.shader"]["surface_wrapper_version"] = value;
+                changed.replace(record);
+                const auto failure = request_shader(pool, root, changed, reference);
+                require(!pool.wait(failure, std::chrono::seconds(5)) &&
+                            pool.current(reference).identity() == old.identity(),
+                        "Missing/mismatched runtime profile replaced the last-good Shader");
+            }
+            auto metadata = asset_detail::shader_publication_metadata(cooked);
+            metadata["extension"] = {{"retain", 1}};
+            asset_detail::validate_shader_publication_metadata(metadata, cooked);
+            auto legacy = test::surface_fixture_program({});
+            auto legacy_metadata = asset_detail::shader_publication_metadata(legacy);
+            legacy_metadata.erase("surface_wrapper_version");
+            asset_detail::validate_shader_publication_metadata(legacy_metadata, legacy);
         }
         auto bad = doc;
         bad["source_root"] = "../Shaders";

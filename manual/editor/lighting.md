@@ -263,6 +263,15 @@ mask and authored lighting. Keep the probe outside solid surfaces. Check
 **Problems** and the import result for resource, range or publication errors;
 a failed capture/import preserves the previous assignment.
 
+## Use imported diffuse lighting
+
+A Mesh Material Graph can sample a prepared lightmap through **Lightmap
+irradiance** on Surface Output. Its diffuse contribution remains visible with
+Scene environment intensity zero. It adds to active direct and probe lighting;
+avoid counting the same baked lighting twice. Follow
+[Use an imported lightmap](imported-lightmaps.md) for linear image usage, UVs,
+gain controls, saving and export. FORGE does not bake maps or generate their UVs.
+
 ## Reflect visible surfaces
 
 1. Stop Play and open **Tools > Scene lighting...**.

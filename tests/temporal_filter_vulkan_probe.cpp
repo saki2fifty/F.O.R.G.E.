@@ -1,5 +1,6 @@
 #include "Graphics/GraphicsEngineVulkan/interface/EngineFactoryVk.h"
 #include "display_resolve.hpp"
+#include "material_lightmap_gpu_tests.hpp"
 #include "mesh_draw_shader.hpp"
 #include "mesh_wind_shadow_tests.hpp"
 #include "render_backend.hpp"
@@ -463,6 +464,11 @@ int main(int argc, char** argv) {
         GetEngineFactoryVk()->CreateDeviceAndContextsVk(info, &device, &context);
         check(device && context, "Vulkan device unavailable");
         forge::DiligentPresentation presentation(device);
+        if (argc == 2 && std::string_view(argv[1]) == "--lightmap-source") {
+            forge::lightmap_test::exercise_gpu(presentation, context);
+            context->WaitForIdle();
+            return 0;
+        }
         if (argc == 2 && std::string_view(argv[1]) == "--wind-geometry") {
             test_temporal_mesh_motion::exercise_wind(presentation, context);
             forge::test_wind_shadow::exercise(presentation, context);

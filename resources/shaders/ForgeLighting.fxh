@@ -2,6 +2,18 @@
 #define FORGE_LIGHTING_FXH
 #include "BasicStructures.fxh"
 #include "PBR_Shading.fxh"
+// Incident diffuse irradiance becomes Lambertian radiance through the prepared
+// material reflectance. It is additional indirect light, independent of Scene
+// environment gain, without emission or specular response.
+bool ForgeLightmapDiffuse(float3 irradiance, SurfaceShadingInfo shading, out float3 radiance) {
+    radiance = 0;
+    if (!all(isfinite(irradiance)) || any(irradiance < 0)) return false;
+    float3 candidate = irradiance * (1.0 / 3.14159265358979323846) *
+                       shading.BaseLayer.Srf.DiffuseColor * shading.Occlusion;
+    if (!all(isfinite(candidate)) || any(candidate < 0)) return false;
+    radiance = candidate;
+    return true;
+}
 bool ForgeAccumulatePunctualLighting(in SurfaceLightingInfo candidate,
                                      inout SurfaceLightingInfo Lighting) {
     float3 base = Lighting.Base.Punctual + candidate.Base.Punctual;

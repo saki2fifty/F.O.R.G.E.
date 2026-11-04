@@ -8,6 +8,7 @@
 #include <forge/native_sdk_identity.h>
 #include <forge/project.hpp>
 #include <forge/scene.hpp>
+#include <forge/shader_asset.hpp>
 #include <iostream>
 using namespace forge;
 int main(int argc, char** argv) {
@@ -102,6 +103,44 @@ int main(int argc, char** argv) {
                 reject(
                     [&] { validate_runtime_compatibility(features, {{"runtime_mesh_wind", 1}}); });
             }
+        }
+        {
+            // Metadata admission uses the existing typed graph, without realizing
+            // a graphics device or opening source files for a surface requirement.
+            AssetCatalog features(scratch / "surface-compatibility");
+            AssetRecord shader{AssetId::generate(), "shader", "Surface.shader.json", 1};
+            shader.metadata["forge.shader"] = {
+                {"surface_wrapper_version", current_surface_wrapper_version}};
+            features.add(shader);
+            validate_runtime_compatibility(
+                features, {{"runtime_surface_wrapper", current_surface_wrapper_version}});
+            validate_runtime_compatibility(
+                features, {{"runtime_surface_wrapper", current_surface_wrapper_version + 1}});
+            reject([&] { validate_runtime_compatibility(features, Json::object()); },
+                   "New surface accepted a kit without an advertised renderer profile");
+            for (const Json& profile :
+                 {Json(), Json(false), Json(0), Json(current_surface_wrapper_version - 1),
+                  Json(15.), Json("15")})
+                reject([&] {
+                    validate_runtime_compatibility(features,
+                                                   {{"runtime_surface_wrapper", profile}});
+                });
+            for (const Json& version : {Json(), Json(false), Json(-1), Json(0), Json(15.),
+                                        Json(current_surface_wrapper_version + 1), Json("15")}) {
+                shader.metadata["forge.shader"]["surface_wrapper_version"] = version;
+                features.replace(shader);
+                reject([&] {
+                    validate_runtime_compatibility(
+                        features, {{"runtime_surface_wrapper", current_surface_wrapper_version}});
+                });
+            }
+            shader.metadata["forge.shader"]["surface_wrapper_version"] =
+                first_explicit_surface_runtime_profile - 1;
+            features.replace(shader);
+            validate_runtime_compatibility(features, Json::object());
+            shader.metadata["forge.shader"].erase("surface_wrapper_version");
+            features.replace(shader);
+            validate_runtime_compatibility(features, Json::object());
         }
         {
             // Metadata admission uses the existing typed graph, without realizing

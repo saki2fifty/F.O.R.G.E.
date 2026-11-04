@@ -1,4 +1,5 @@
 #include "shader_authoring.hpp"
+#include "shader_publication.hpp"
 #include <forge/shader_asset.hpp>
 namespace forge {
 void prepare_shader_publication(AssetPublicationCandidate& candidate, const AssetImportPlan& plan) {
@@ -15,14 +16,11 @@ void prepare_shader_publication(AssetPublicationCandidate& candidate, const Asse
     identity.source = candidate.ticket.source;
     identity.source_digest = candidate.input.source_digest;
     identity.evidence_schema = "forge.shader.single.v1";
-    candidate.records = {{candidate.ticket.owner,
-                          "shader",
-                          candidate.ticket.source,
-                          1,
-                          {},
-                          {{"forge.shader",
-                            {{"version", 1},
-                             {"layout", shader.layout_digest()},
-                             {"compiler_input_key", shader.build_key}}}}}};
+    AssetRecord record;
+    record.id = candidate.ticket.owner;
+    record.type = "shader";
+    record.source = candidate.ticket.source;
+    record.metadata["forge.shader"] = asset_detail::shader_publication_metadata(shader);
+    candidate.records = {std::move(record)};
 }
 } // namespace forge

@@ -4349,6 +4349,35 @@
       "type": "model_node"
     },
     {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "3e2c10f2-32a4-48e8-bea5-4d417aebf8b4",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "ff0ac31462667857a91ee00061a1828c220c2c6c94562fa31431958104c8c298",
+          "backend": "none",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.texture.image",
+          "importer_revision": "42ae9a603bf7f3d9f2fd8bc41b9bc10fa2e320dfbd29c4ae5a54e4ecbb8f1973",
+          "key": "2687b62fcd01fd0e951ac3f759364e1838bbb1ecd7c1135b29c4c2d164e68a81",
+          "output_format": "forge.texture-bundle",
+          "output_version": 1,
+          "platform": "linux",
+          "profile": "cpu",
+          "settings_digest": "6e500d6e7e08e5b11f498e154d26275d6288d83ed4b295b9c56c95d747c76521",
+          "settings_version": 1,
+          "sidecar_digest": "ae33fa693547b9b952906c77d389239f9ab36bf48f650807372cf43c484b67ae",
+          "source_digest": "4f9d55aad7d6a42a4ec3b90dd59100687fcce0a8bbffe459508ac809d3e2cbaf",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Lightmaps/Example.hdr",
+      "source_dependencies": [],
+      "type": "texture"
+    },
+    {
       "dependencies": [
         "08e7e8fb-e562-43eb-84e2-da2617a5a983"
       ],
@@ -8985,6 +9014,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "87c6a461-f930-416f-a12d-83e9838dc9bb",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/158-imported-lightmaps.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "87dc7fe1-03a7-4bf9-ad9c-9370730bf68e",
       "metadata": {},
       "schema_version": 3,
@@ -13034,6 +13073,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "dc54b269-c5b2-45d2-b2a4-db9f7fc34ee7",
+      "metadata": {},
+      "schema_version": 2,
+      "source": "Assets/Lightmaps/Shared.material.json",
+      "source_dependencies": [],
+      "type": "material"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "dc6712eb-3cee-46c1-93c2-bfb52bcc45c2",
       "metadata": {
         "forge.ui_source": {
@@ -14849,6 +14898,16 @@
       "source": "Scenes/64-runtime-prefab-creation.scene.json",
       "source_dependencies": [],
       "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "fb40b6ce-1147-4e62-8855-c0012dbe4f78",
+      "metadata": {},
+      "schema_version": 1,
+      "source": "Assets/Lightmaps/Irradiance.shader.json",
+      "source_dependencies": [],
+      "type": "shader"
     },
     {
       "dependencies": [

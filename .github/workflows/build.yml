@@ -350,7 +350,7 @@ jobs:
         run: python tests/windows_example_packaging_test.py
       - name: Package Windows editor
         working-directory: ${{ runner.temp }}/forge-work/FORGE
-        run: python tools/package_windows.py --build ../AgentFiles/b --dependencies ../AgentFiles/d --gallery-preparer ../AgentFiles/b/forge_navigation_collision_gallery_tests.exe --gallery-preparer ../AgentFiles/b/forge_navigation_collection_gallery_tests.exe --output "../AgentFiles/packages/${env:FORGE_BUILD_ID}-FORGE-Windows-x64.zip"
+        run: python tools/package_windows.py --build ../AgentFiles/b --dependencies ../AgentFiles/d --gallery-preparer ../AgentFiles/b/forge_navigation_collision_gallery_tests.exe --gallery-preparer ../AgentFiles/b/forge_navigation_collection_gallery_tests.exe --gallery-preparer ../AgentFiles/b/forge_material_lightmap_gallery_tests.exe --output "../AgentFiles/packages/${env:FORGE_BUILD_ID}-FORGE-Windows-x64.zip"
       - name: Verify packaged runtime UI after relocation
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         shell: pwsh

@@ -7,6 +7,7 @@
 #include <forge/game_content.hpp>
 #include <forge/mesh_wind.hpp>
 #include <forge/project.hpp>
+#include <forge/shader_asset.hpp>
 #include <forge/ui_protocol.hpp>
 #include <set>
 namespace forge {
@@ -70,6 +71,22 @@ Json verify_distribution_files(const std::filesystem::path& root,
 void validate_runtime_compatibility(const AssetCatalog& catalog, const Json& engine) {
     for (const auto& [id, record] : catalog.records()) {
         (void)id;
+        if (record.type == ShaderAsset::type) {
+            const auto& metadata = record.metadata.at("forge.shader");
+            if (const auto wrapper = metadata.find("surface_wrapper_version");
+                wrapper != metadata.end()) {
+                require(wrapper->is_number_integer() && *wrapper >= 1 &&
+                            *wrapper <= current_surface_wrapper_version,
+                        "Invalid Shader runtime surface profile");
+                if (*wrapper >= first_explicit_surface_runtime_profile) {
+                    const auto support = engine.find("runtime_surface_wrapper");
+                    require(support != engine.end() && support->is_number_integer() &&
+                                *support >= *wrapper,
+                            "Shader surface requires a matching runtime kit; select the kit "
+                            "packaged with this editor");
+                }
+            }
+        }
         if (const auto document = record.metadata.find("forge.runtime_document");
             document != record.metadata.end()) {
             const auto features = document->find("runtime_features");

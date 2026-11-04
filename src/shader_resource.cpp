@@ -1,15 +1,14 @@
 #include "asset_bytes.hpp"
+#include "shader_publication.hpp"
 #include <forge/assets.hpp>
 #include <forge/derived_cache.hpp>
 #include <forge/shader_resource.hpp>
 namespace forge {
 namespace {
 ResourceCandidate<ShaderAsset> candidate(std::span<const std::byte> bytes,
-                                         const std::string& compiler_key, const std::string& layout,
-                                         std::stop_token stop) {
+                                         const nlohmann::json& selection, std::stop_token stop) {
     auto shader = std::make_unique<ShaderData>(decode_shader(bytes));
-    if (shader->build_key != compiler_key || shader->layout_digest() != layout)
-        throw std::runtime_error("Shader compiler/layout provenance differs from selection");
+    asset_detail::validate_shader_publication_metadata(selection, *shader);
     if (stop.stop_requested())
         throw std::runtime_error("Shader resource load cancelled");
     const auto memory = shader->resident_bytes();
@@ -35,9 +34,14 @@ ResourceTicket request_shader(ResourcePool<ShaderAsset>& pool, std::filesystem::
     resource_detail::valid_revision(key);
     resource_detail::valid_revision(compiler_key);
     resource_detail::valid_revision(layout);
+    nlohmann::json selection{
+        {"version", 1}, {"compiler_input_key", compiler_key}, {"layout", layout}};
+    if (shader.contains("surface_wrapper_version"))
+        selection["surface_wrapper_version"] = shader.at("surface_wrapper_version");
     return pool.request(
         ref, key, generation.get<std::uint64_t>(),
-        [project = std::move(project), key, compiler_key, layout](std::stop_token stop) {
+        [project = std::move(project), key,
+         selection = std::move(selection)](std::stop_token stop) {
             if (stop.stop_requested())
                 throw std::runtime_error("Shader resource load cancelled");
             DerivedDataCache cache(project, {20 * 1024 * 1024, 32 * 1024 * 1024, 2});
@@ -46,7 +50,7 @@ ResourceTicket request_shader(ResourcePool<ShaderAsset>& pool, std::filesystem::
                     a.manifest.at("inputs").at("importer") != "forge.shader.diligent")
                     throw std::runtime_error("Invalid selected shader artifact");
             });
-            return candidate(artifact.files.front().bytes, compiler_key, layout, stop);
+            return candidate(artifact.files.front().bytes, selection, stop);
         });
 }
 } // namespace forge

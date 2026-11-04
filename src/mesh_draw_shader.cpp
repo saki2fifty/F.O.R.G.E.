@@ -405,7 +405,8 @@ float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
               "if(!all(isfinite(graph.BaseColor)) || !isfinite(graph.Metallic) || "
               "!isfinite(graph.Roughness) || "
               "!all(isfinite(graph.Normal)) || !all(isfinite(graph.Emissive)) || "
-              "!isfinite(graph.Occlusion))return float4(1,0,1,1);\n";
+              "!isfinite(graph.Occlusion) || !all(isfinite(graph.LightmapIrradiance)) || "
+              "any(graph.LightmapIrradiance<0))return float4(1,0,1,1);\n";
     for (const auto& slot : material.textures) {
         ps += "bool ok_" + slot.role + ";float4 sample_" + slot.role + "=ForgeSample_" + slot.role +
               "(input.UV[" + std::to_string(slot.uv_slot) + "]," +
@@ -639,8 +640,13 @@ float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
                  lighting);
     }
     valid=ForgeApplyLocalIrradiance(input.World,g_Environment.x,s,lighting)&&valid;
-    float3 color=ResolveLighting(s,lighting);
 )";
+        if (graph)
+            ps += "float3 lightmapDiffuse;valid=ForgeLightmapDiffuse(graph.LightmapIrradiance,s,"
+                  "lightmapDiffuse)&&valid;\n";
+        ps += "float3 color=ResolveLighting(s,lighting);\n";
+        if (graph)
+            ps += "color+=lightmapDiffuse;\n";
         if (transmission) {
             ps += "float volumeThickness=ForgeParameter_thicknessFactor();\n";
             sample("thicknessTexture", "volumeThickness*=sample_thicknessTexture.g");
@@ -716,8 +722,14 @@ float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
             const auto light_at = ps.find(resolved);
             require(light_at != std::string::npos,
                     "Indirect Mesh color lost native lighting resolution");
-            std::string outputs = "\nindirect=ForgeIndirectRadiance(s,lighting)*"
-                                  "ForgeDistanceFogTransmittance(input.World);\n";
+            std::string outputs =
+                graph ? "\nfloat3 "
+                        "lightmapIndirect=(ForgeIndirectRadiance(s,lighting)+lightmapDiffuse)*"
+                        "ForgeDistanceFogTransmittance(input.World);\n"
+                        "bool indirectValid=all(isfinite(lightmapIndirect));"
+                        "valid=indirectValid&&valid;indirect=indirectValid?lightmapIndirect:0;\n"
+                      : "\nindirect=ForgeIndirectRadiance(s,lighting)*"
+                        "ForgeDistanceFogTransmittance(input.World);\n";
             if (reflection_output)
                 outputs += "reflection=ForgeBaseReflection(s,lighting,float3("
                            "dot(g_Object[6].xyz,s.BaseLayer.Normal),"

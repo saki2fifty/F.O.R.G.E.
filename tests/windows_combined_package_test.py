@@ -238,6 +238,33 @@ with tempfile.TemporaryDirectory(prefix='FORGE combined relocation ') as tempora
                              cwd=gallery_export, env=env, text=True,
                              capture_output=True, timeout=180)
     assert started.returncode == 0, (started.stdout, started.stderr)
+    # Matching native Gallery preparation must have cooked the graph and its
+    # dependent Material before a user exports the imported-lightmap Scene.
+    lightmap_scene = 'Scenes/158-imported-lightmaps.scene.json'
+    lightmap = json.loads((gallery/lightmap_scene).read_text())
+    gallery_settings['startup_scene'] = dict(asset=lightmap['asset_id'], source=lightmap_scene)
+    (gallery/'forge.project.json').write_text(json.dumps(gallery_settings))
+    lightmap_export = root/'Imported Lightmap Standalone'
+    options['destination'] = str(lightmap_export)
+    result = subprocess.run([str(tools), '--assets', 'export-game', str(gallery),
+                             json.dumps(options)], cwd=root, env=env, text=True,
+                            capture_output=True, timeout=180)
+    assert result.returncode == 0 and json.loads(result.stdout)['ok'], (result.stdout, result.stderr)
+    lightmap_catalog = json.loads((lightmap_export/'content/forge.assets.json').read_text())['assets']
+    shader_record = next(row for row in lightmap_catalog if row['type'] == 'shader')
+    assert shader_record['metadata']['forge.shader']['surface_wrapper_version'] >= 15
+    assert not list((lightmap_export/'content').rglob('*.shader.json'))
+    relocated_lightmap = root/'Relocated Imported Lightmap'
+    lightmap_export.rename(relocated_lightmap)
+    offline = gallery.with_name('Lightmap Sources Offline')
+    gallery.rename(offline)
+    try:
+        started = subprocess.run([str(relocated_lightmap/'forge_game.exe'), '--verify-startup'],
+                                 cwd=relocated_lightmap, env=env, text=True,
+                                 capture_output=True, timeout=180)
+        assert started.returncode == 0, (started.stdout, started.stderr)
+    finally:
+        offline.rename(gallery)
     # Authored grading uses the shipped exporter/runtime with its sources offline.
     color_scene = 'Scenes/69-scene-color-adjustments.scene.json'
     color = json.loads((gallery/color_scene).read_text())

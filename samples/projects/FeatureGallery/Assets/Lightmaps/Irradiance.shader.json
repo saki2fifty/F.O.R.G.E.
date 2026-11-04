@@ -1,0 +1,160 @@
+{
+  "asset_id": "fb40b6ce-1147-4e62-8855-c0012dbe4f78",
+  "format": "forge.shader",
+  "graph": {
+    "edges": [
+      {
+        "from": {
+          "node": "bd1c2aa6-b891-4f03-9221-881f9189d867",
+          "port": "out"
+        },
+        "id": "8f6b9c6a-08a4-459c-a4c7-0ac61b2e8a74",
+        "to": {
+          "node": "b03c6ee9-2a17-43f1-b7b8-1f9f62a7de93",
+          "port": "base_color"
+        }
+      },
+      {
+        "from": {
+          "node": "e17d7f1d-46a5-49ca-b694-278b673984c2",
+          "port": "out"
+        },
+        "id": "b93361a4-6ed0-4038-ac20-3044cc804611",
+        "to": {
+          "node": "0380a8be-3882-4614-a0e0-7b174c0a0257",
+          "port": "value"
+        }
+      },
+      {
+        "from": {
+          "node": "0380a8be-3882-4614-a0e0-7b174c0a0257",
+          "port": "out"
+        },
+        "id": "9e69c8b0-f73c-4ef3-8062-babbcc2c91a9",
+        "to": {
+          "node": "4a359cab-d8ca-4889-9888-b2739a7c2dbd",
+          "port": "a"
+        }
+      },
+      {
+        "from": {
+          "node": "4cdb9d2f-4365-4d21-90a0-a6a6481aab32",
+          "port": "out"
+        },
+        "id": "6dd1e16a-a21f-4b16-8490-7ea6ab4b8877",
+        "to": {
+          "node": "4a359cab-d8ca-4889-9888-b2739a7c2dbd",
+          "port": "b"
+        }
+      },
+      {
+        "from": {
+          "node": "4a359cab-d8ca-4889-9888-b2739a7c2dbd",
+          "port": "out"
+        },
+        "id": "eae1c86c-3f1c-4621-9d56-cab880e7b296",
+        "to": {
+          "node": "b03c6ee9-2a17-43f1-b7b8-1f9f62a7de93",
+          "port": "lightmap_irradiance"
+        }
+      }
+    ],
+    "format": "forge.material.graph",
+    "nodes": [
+      {
+        "data": {
+          "key": "p_bd1c2aa6b8914f039221881f9189d867",
+          "label": "Color",
+          "type": "color4",
+          "value": [
+            0.8,
+            0.8,
+            0.8,
+            1.0
+          ]
+        },
+        "id": "bd1c2aa6-b891-4f03-9221-881f9189d867",
+        "position": [
+          560,
+          -160
+        ],
+        "type": "parameter",
+        "version": 1
+      },
+      {
+        "data": {
+          "type": "scalar"
+        },
+        "id": "b03c6ee9-2a17-43f1-b7b8-1f9f62a7de93",
+        "position": [
+          840,
+          0
+        ],
+        "type": "surface",
+        "version": 1
+      },
+      {
+        "data": {
+          "key": "lightmap",
+          "label": "Imported irradiance",
+          "semantic": "hdr",
+          "type": "scalar",
+          "uv_set": 0
+        },
+        "id": "e17d7f1d-46a5-49ca-b694-278b673984c2",
+        "position": [
+          0.0,
+          120.0
+        ],
+        "type": "texture2d",
+        "version": 1
+      },
+      {
+        "data": {
+          "from": "color4",
+          "type": "color3"
+        },
+        "id": "0380a8be-3882-4614-a0e0-7b174c0a0257",
+        "position": [
+          280.0,
+          120.0
+        ],
+        "type": "convert",
+        "version": 1
+      },
+      {
+        "data": {
+          "key": "lightmap_gain",
+          "label": "Lightmap gain",
+          "type": "color3",
+          "value": [
+            1,
+            1,
+            1
+          ]
+        },
+        "id": "4cdb9d2f-4365-4d21-90a0-a6a6481aab32",
+        "position": [
+          280.0,
+          320.0
+        ],
+        "type": "parameter",
+        "version": 1
+      },
+      {
+        "data": {
+          "type": "color3"
+        },
+        "id": "4a359cab-d8ca-4889-9888-b2739a7c2dbd",
+        "position": [
+          560.0,
+          120.0
+        ],
+        "type": "multiply",
+        "version": 1
+      }
+    ],
+    "version": 1
+  },
+  "version": 3
+}

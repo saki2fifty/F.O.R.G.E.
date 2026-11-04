@@ -28,6 +28,14 @@ class GalleryPackageTest(unittest.TestCase):
         self.archive = self.root/'editor.zip'
         self.gallery = self.source/'samples/projects/FeatureGallery'
         shutil.copytree(SOURCE/'samples/projects/FeatureGallery', self.gallery)
+        # Synthetic package-writer facts only; no fixture here proves native
+        # Shader compilation or publication. Real preparers own that validation.
+        catalog_path = self.gallery/'forge.assets.json'
+        catalog = json.loads(catalog_path.read_text())
+        for record in catalog['assets']:
+            if record['type'] in ('shader', 'material') and not record.get('metadata', {}).get('forge.import'):
+                record.setdefault('metadata', {})['forge.import'] = dict(package_writer_fixture=True)
+        catalog_path.write_text(json.dumps(catalog), encoding='utf-8')
         # An unrecognized extension must survive without another allowlist change.
         self.write(self.gallery/'Assets/next-format.resource', b'\x00\x01\r\n\xff')
         for name in ('flecs', 'json', 'sdl', 'imgui_source', 'cpp_text_editor', 'diligent',
@@ -79,6 +87,8 @@ class GalleryPackageTest(unittest.TestCase):
         before = {p.relative_to(self.gallery): p.read_bytes()
                   for p in self.gallery.rglob('*') if p.is_file()}
         prepared = b'Matching native Tile selection and navigation\n'
+        prepared_catalog = json.dumps(json.loads((self.gallery/'forge.assets.json').read_text()) |
+                                     dict(package_writer_fixture='prepared')).encode()
         def run(arguments, **options):
             self.assertEqual(arguments[0:2], [str(preparer), '--prepare'])
             staged = Path(arguments[2])
@@ -86,7 +96,7 @@ class GalleryPackageTest(unittest.TestCase):
             self.assertEqual(staged.parent.parent, self.build)
             self.assertEqual(arguments[3], str(self.build/'forge_nav_build.exe'))
             self.assertEqual(options, dict(check=True, timeout=180))
-            self.write(staged/'forge.assets.json', prepared)
+            self.write(staged/'forge.assets.json', prepared_catalog)
             self.write(staged/'Assets/native-only.fnav', prepared)
             self.write(staged/'.forge/writer.lock', b'Released native fixture lease')
             self.write(staged/'.forge/cache/derived/cache.lock', b'Released cache lock')
@@ -100,8 +110,9 @@ class GalleryPackageTest(unittest.TestCase):
             manifest = json.loads(archive.read('manifest.json'))['files']
             for relative in ('forge.assets.json', 'Assets/native-only.fnav'):
                 name = 'Examples/FeatureGallery/'+relative
-                self.assertEqual(archive.read(name), prepared)
-                self.assertEqual(manifest[name], hashlib.sha256(prepared).hexdigest())
+                expected = prepared_catalog if relative == 'forge.assets.json' else prepared
+                self.assertEqual(archive.read(name), expected)
+                self.assertEqual(manifest[name], hashlib.sha256(expected).hexdigest())
             self.assertNotIn('Examples/FeatureGallery/.forge/writer.lock', manifest)
             self.assertNotIn('Examples/FeatureGallery/.forge/cache/derived/cache.lock', manifest)
             self.assertFalse(any(preparer.name in name for name in archive.namelist()))
@@ -118,6 +129,19 @@ class GalleryPackageTest(unittest.TestCase):
                 self.package(preparer)
         self.assertEqual(self.archive.read_bytes(), before)
         self.assertFalse(list(self.build.glob('gallery-package-*')))
+
+    def test_unpublished_surface_source_retains_previous_archive(self):
+        self.package()
+        before = self.archive.read_bytes()
+        path = self.gallery/'forge.assets.json'
+        catalog = json.loads(path.read_text())
+        for record in catalog['assets']:
+            if record['type'] == 'shader':
+                record['metadata'].pop('forge.import', None)
+        path.write_text(json.dumps(catalog), encoding='utf-8')
+        with self.assertRaisesRegex(ValueError, 'matching native preparation'):
+            self.package()
+        self.assertEqual(self.archive.read_bytes(), before)
 
     def test_multiple_preparers_share_one_private_gallery(self):
         preparers = [self.build/name for name in ('tile-preparer.exe', 'physical-preparer.exe')]

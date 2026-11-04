@@ -61,6 +61,11 @@ def package(build, dependencies, output, gallery_preparer=None):
 
 
 def _package(build, dependencies, output, gallery_root):
+    catalog = json.loads((gallery_root/'forge.assets.json').read_text(encoding='utf-8'))
+    for record in catalog['assets']:
+        if record['type'] in ('shader', 'material') and not record.get('metadata', {}).get('forge.import'):
+            raise ValueError('Gallery Shader/Material source requires matching native preparation: '
+                             + record['source'])
     build, dependencies, output = map(Path, (build, dependencies, output))
     metadata = json.loads((build/'build.json').read_text())
     build_id = validate_build_id(metadata['build_id'])
