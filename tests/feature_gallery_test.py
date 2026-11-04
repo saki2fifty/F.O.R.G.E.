@@ -384,6 +384,14 @@ assert shadow_hud['components']['forge.ui_document']['document'] == by_source['A
 assert shadow_hud['components']['forge.ui_values']['values'] == [dict(name='blur', value=4.0)]
 assert by_source['Assets/UI/Shadows/Lab.rml']['metadata']['forge.ui_source']['runtime_features'] == dict(filters=2)
 assert not {row['id'] for row in shadows['entities']} & {row['id'] for row in filters['entities']}
+backdrops = json.loads((project_root / 'Scenes/163-ui-backdrop-filters.scene.json').read_text())
+assert backdrops['asset_id'] == by_source['Scenes/163-ui-backdrop-filters.scene.json']['id']
+backdrop_hud = next(row for row in backdrops['entities'] if 'forge.ui_document' in row['components'])
+assert backdrop_hud['components']['forge.ui_document']['document'] == by_source['Assets/UI/Backdrops/Lab.rml']['id']
+assert backdrop_hud['components']['forge.ui_values']['values'] == [dict(name='blur', value=4)]
+assert by_source['Assets/UI/Backdrops/Lab.rml']['metadata']['forge.ui_source']['runtime_features'] == dict(filters=3)
+assert not {row['id'] for row in backdrops['entities']} & {row['id'] for row in shadows['entities']}
+
 
 
 scenes = sorted((project_root / 'Scenes').glob('*.scene.json'))

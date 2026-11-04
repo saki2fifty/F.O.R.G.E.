@@ -112,6 +112,9 @@ unsigned validate_text_profile(std::string_view text, bool markup) {
                     }
                     auto name = lower(std::string(attributes.substr(begin, a - begin)));
                     if (name == "data-style-filter")
+                        filter_profile =
+                            std::max(filter_profile, ui_filter_detail::shadow_profile_version);
+                    if (name == "data-style-backdrop-filter")
                         filter_profile = ui_filter_detail::profile_version;
                     while (a < attributes.size() && space(attributes[a]))
                         ++a;
@@ -174,7 +177,7 @@ unsigned validate_text_profile(std::string_view text, bool markup) {
         if (!markup) {
             char c = text[i];
             if (c == '(' && property == "filter" && token == "drop-shadow")
-                filter_profile = ui_filter_detail::profile_version;
+                filter_profile = std::max(filter_profile, ui_filter_detail::shadow_profile_version);
             // Retain identifier pieces across comments, as the stylesheet reader does.
             if (std::isalpha(static_cast<unsigned char>(c)) || c == '-')
                 token += char(std::tolower(static_cast<unsigned char>(c)));
@@ -185,9 +188,10 @@ unsigned validate_text_profile(std::string_view text, bool markup) {
                 if (property == "filter")
                     filter_profile =
                         std::max(filter_profile, ui_filter_detail::basic_profile_version);
-                require(property != "backdrop-filter" && property != "mask-image" &&
-                            property != "box-shadow",
-                        "UI backdrop filters, masks and box shadows are not supported");
+                if (property == "backdrop-filter")
+                    filter_profile = ui_filter_detail::profile_version;
+                require(property != "mask-image" && property != "box-shadow",
+                        "UI masks and box shadows are not supported");
                 require(property != "font", "Use explicit font-family and font-size properties");
             }
             if (c == '{' || c == ';' || c == '}')

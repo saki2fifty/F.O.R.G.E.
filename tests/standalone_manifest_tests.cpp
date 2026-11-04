@@ -246,13 +246,13 @@ int main(int argc, char** argv) {
             validate_runtime_compatibility(routed,
                                            {{"runtime_ui_protocol", 2}, {"runtime_ui_filters", 1}});
             reject([&] { validate_runtime_compatibility(routed, {{"runtime_ui_protocol", 2}}); });
-            for (const Json& profile : {Json(), Json(0), Json(1.0), Json("1"), Json(true), Json(3)})
+            for (const Json& profile : {Json(), Json(0), Json(1.0), Json("1"), Json(true), Json(4)})
                 reject([&] {
                     validate_runtime_compatibility(
                         routed, {{"runtime_ui_protocol", 2}, {"runtime_ui_filters", profile}});
                 });
             for (const Json& features : {Json(), Json::array(), Json{{"filters", 1.0}},
-                                         Json{{"filters", 3}}, Json{{"future_effect", 1}}}) {
+                                         Json{{"filters", 4}}, Json{{"future_effect", 1}}}) {
                 stylesheet.metadata["forge.ui_source"]["runtime_features"] = features;
                 routed.replace(stylesheet);
                 reject([&] {
@@ -272,6 +272,19 @@ int main(int argc, char** argv) {
                 validate_runtime_compatibility(
                     routed, {{"runtime_ui_protocol", 2}, {"runtime_ui_filters", 1}});
             });
+            for (unsigned required = 1; required <= 3; ++required) {
+                stylesheet.metadata["forge.ui_source"]["runtime_features"] = {
+                    {"filters", required}};
+                routed.replace(stylesheet);
+                for (unsigned supported = 1; supported <= 3; ++supported) {
+                    const auto engine =
+                        Json{{"runtime_ui_protocol", 2}, {"runtime_ui_filters", supported}};
+                    if (supported >= required)
+                        validate_runtime_compatibility(routed, engine);
+                    else
+                        reject([&] { validate_runtime_compatibility(routed, engine); });
+                }
+            }
         }
         // File-inventory fixture only, not executable/graphics acceptance.
         asset_storage::replace(out / "forge_game", "test executable bytes");

@@ -179,6 +179,13 @@ use current Play tuning and **Reload UI** through their existing tools. Failed
 source reload keeps the preceding usable UI. Export with the matching runtime kit.
 See [Runtime UI](runtime-ui.md) for the illustrated workflow.
 
+Use the same UI source tools for `backdrop-filter` and
+`data-style-backdrop-filter`. A declaration such as `backdrop-filter: blur(3px)`
+filters content already drawn behind a partly transparent panel. Its foreground
+stays sharp. Saved **UI Values**, current Play tuning, native keyframes and
+**Reload UI** use their ordinary tools. Save and export with the matching runtime
+kit. See [Runtime UI](runtime-ui.md) for clipping and shared layer limits.
+
 Navigation uses the existing static bake worker. Runtime dependency declarations
 use their existing reviewed draft and catalog Save. Flecs Script tools evaluate
 the existing isolated diagnostic data/world preview; they do not replace C++

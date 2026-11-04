@@ -256,7 +256,7 @@ presentation state or access to arbitrary DOM/script/engine files.
 
 Adopted: native RML/RCSS layout, styled text/buttons/forms, copied scalar expressions, local text editing, multiple ordered documents, PNG/JPEG/TGA images, project fonts, transforms, scissor and stencil masks, explicit reload. Documents sort by layer then stable incoming scene order; RmlUi manages normal DOM focus/z-order within that context.
 
-Deferred: browser JavaScript, Lua, debugger UI, SVG/Lottie/HarfBuzz, RCSS imports/templates, world-space UI, collections/two-way gameplay binding, public plugin APIs and a visual UI designer. Standalone gamepad navigation now routes through input actions to native RmlUi focus traversal and activation. Link stylesheets individually. Bounded blur/color filters use transient renderer-owned layers as described below. Backdrop filters, masks, shader decorators/gradients and box shadows remain unsupported and diagnosed. Drop-shadow filters use the profile below. Use explicit font-family/font-size rather than shorthand. This is the first screen-space integration, not a visual UI designer.
+Deferred: browser JavaScript, Lua, debugger UI, SVG/Lottie/HarfBuzz, RCSS imports/templates, world-space UI, collections/two-way gameplay binding, public plugin APIs and a visual UI designer. Standalone gamepad navigation now routes through input actions to native RmlUi focus traversal and activation. Link stylesheets individually. Bounded blur/color filters use transient renderer-owned layers as described below. Masks, shader decorators/gradients and box shadows remain unsupported and diagnosed. Drop-shadow and backdrop filters use the profile below. Use explicit font-family/font-size rather than shorthand. This is the first screen-space integration, not a visual UI designer.
 
 ## Upstream evidence
 
@@ -393,7 +393,8 @@ arbitrary transient DOM state.
 
 UiResources derives filter requirements during the same bounded source admission
 that retains immutable bytes. Declared `filter` properties, including keyframes,
-and `data-style-filter` bindings add `runtime_features:{filters:1 or2}` to the existing
+and dynamic style bindings add their required `runtime_features.filters` profile
+to the existing
 source details/`forge.ui_source` metadata. Inline styles containing character
 references conservatively require this profile because native attribute parsing
 expands them before interpreting CSS. Other comments and quoted ordinary text do
@@ -402,24 +403,25 @@ source bytes and evidence; inspection transport and cooked metadata retain it.
 This is a conservative declaration requirement, including `filter:none`, not a
 prediction of arbitrary future rich-text/DOM injection.
 
-Runtime kits advertise `engine.runtime_ui_filters:2` from the same profile header.
-Profile2 adds drop shadows to the complete profile1 blur/color contract. The
-existing export/distribution helper accepts known source requirements1/2 when
-covered by the kit's known profile1/2. Static basic filter declarations retain1;
-drop-shadow declarations require2. Dynamic `data-style-filter` bindings and
-encoded inline styles conservatively require2 because their native result may
-select any supported filter. Source read/snapshot/catalog refresh recomputes this
-evidence with the same stable logical IDs; existing profile1 content remains
-readable. A kit1 cannot satisfy requirement2. Unknown/fractional/noninteger source
-or kit versions reject. Unfiltered sources still add no requirement. Camera-output
-UI protocol2 is separate. The isolated non-graphical inspector uses the same typed
-payload admission without GPU objects; graphical readiness stays with the host.
+Runtime kits advertise `engine.runtime_ui_filters:3` from the same profile header.
+Known profiles are additive:1 blur/color,2 drop shadows,3 backdrop composition.
+The existing compatibility helper admits requirements1..3 covered by a known kit
+profile1..3. Static basic filters retain1. Shadow declarations and ordinary dynamic
+`data-style-filter` bindings retain2. `backdrop-filter` declarations (including
+none), `data-style-backdrop-filter` bindings and encoded inline styles require3.
+Encoded styles may expand any supported property before native parsing; their
+requirement is conservative. Source read/snapshot/catalog refresh recomputes
+this evidence with the same stable logical IDs. A requirement3 rejects kit1/2;
+unknown/fractional/noninteger source or kit profiles reject. Unfiltered sources
+add no requirement. Camera-output UI protocol2 remains separate. Non-drawing
+inspection uses the same typed payload admission; graphical readiness belongs
+to the host.
 
 Gallery155 provides original shape/color samples, Inspector-driven blur and a
 presentation-time filter pulse. Source editing/registration, live UI reload,
 UiValues tuning and export use their existing automation/MCP operations and guards.
 No effects database, authored DOM format, new game clock or plugin ABI is added.
-Backdrop/mask/box-shadow/gradient/shader effects, world-space UI and surface input
+Mask/box-shadow/gradient/shader effects, world-space UI and surface input
 remain outside this profile.
 
 ### Drop-shadow composition
@@ -450,3 +452,27 @@ hard/left/soft/stacked/model/animated comparisons through the same GamePresentat
 and source-hidden export test as Gallery155. Source authoring, tuning and reload
 continue through existing automation/MCP operations; no effect-specific mutation
 API is needed.
+
+### Backdrop filtering
+
+The exact native RmlUi ElementEffects walk supplies ordinary PushLayer and
+CompositeLayers callbacks for `backdrop-filter`. UiFilterLayers retains ownership
+of all images, kernels, handles, destination domains and alias handling. The
+source is the current parent layer, including image content drawn before the
+element. Native code supplies an extended read scissor and a final border-box/
+rounded clip before drawing the element's own contents. Existing ordinary filters
+on that element subsequently process the resulting combined layer. This reuses
+the current FORGE adapter; no backdrop framebuffer manager or source database is
+added, and no dependency rendering implementation is copied or adapted.
+
+Backdrop chains admit the same bounded native filter payloads, model updates and
+keyframes. Native temporary layers consume the existing4active-layer limit as
+well as the32image/256MiB pool. Ordinary filters and backdrop work can therefore
+reach the cap with fewer authored elements. Target-bound input/blur tails clip;
+this is not capture of off-target, later-drawn or hidden geometry. Main encoded
+RGBA8 and linearRGBA16F camera output use their existing destination domain.
+Opacity, clipping, candidate/last-good, output failure and retirement policies
+remain with the existing presenter/resource owners. Gallery163 supplies original
+foreground/background and live/presentation-time comparisons, authored and
+exported with the same source/model/MCP workflow. Masks, box shadows and shader
+decorators remain unsupported.

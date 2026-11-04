@@ -36,9 +36,9 @@ int main(int argc, char** argv) {
         const auto path = root / "Filtered.rml";
         const std::string original = R"rml(<rml><head><style>
 body, div, p {display:block;} body {margin:0; font-family:Lato; font-size:16px;}
-#outer {width:180px; height:100px; filter:blur(1px) contrast(1) drop-shadow(#45678980 -4px 8px 2px);}
+#outer {width:180px; height:100px; backdrop-filter:blur(0.5px); filter:blur(1px) contrast(1) drop-shadow(#45678980 -4px 8px 2px);}
 #panel {width:160px; height:80px; background-color:#459edc;}
-</style></head><body><div id="outer"><div id="panel" data-style-filter="'opacity(' + amount + ') drop-shadow(#456789 -4px 8px ' + amount + 'px)'">
+</style></head><body><div id="outer"><div id="panel" data-style-backdrop-filter="'blur(' + amount + 'px)'" data-style-filter="'opacity(' + amount + ') drop-shadow(#456789 -4px 8px ' + amount + 'px)'">
 <p>Tick: {{tick}}</p></div></div></body></rml>)rml";
         const auto write = [&](const std::string& source) { std::ofstream(path) << source; };
         write(original);
@@ -112,6 +112,11 @@ body, div, p {display:block;} body {margin:0; font-family:Lato; font-size:16px;}
                               }),
                   "A paused model binding did not update the typed shadow sigma");
 
+            check(std::any_of(renderer.filters.begin(), renderer.filters.end(),
+                              [](const auto& item) {
+                                  return item.second.first == "blur" && item.second.second == .25f;
+                              }),
+                  "Paused backdrop binding did not reach the native filter payload");
             const auto resources = presenter.asset_snapshot()->sources;
             const auto live_filters = renderer.filters.size();
             std::string deep = "<rml><head><style>body,div {display:block; "
@@ -136,7 +141,12 @@ body, div, p {display:block;} body {margin:0; font-family:Lato; font-size:16px;}
             invalid_blur.replace(invalid_blur.find("blur(1px)"), 9, "blur(17px)");
             auto invalid_shadow = original;
             invalid_shadow.replace(invalid_shadow.find("-4px 8px"), 8, "-129px 8px");
-            for (const auto& source : {deep, excessive, invalid_blur, invalid_shadow}) {
+            auto invalid_backdrop = original;
+            invalid_backdrop.replace(invalid_backdrop.find("backdrop-filter:blur(0.5px)"),
+                                     std::string("backdrop-filter:blur(0.5px)").size(),
+                                     "backdrop-filter:blur(17px)");
+            for (const auto& source :
+                 {deep, excessive, invalid_blur, invalid_shadow, invalid_backdrop}) {
                 const auto pushes = renderer.layer_pushes;
                 write(source);
                 check(!presenter.reload() && !presenter.diagnostic().empty(),

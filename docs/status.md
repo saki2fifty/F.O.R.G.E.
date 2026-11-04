@@ -37,11 +37,13 @@ hdr_reinhard_srgb. Current/later inspection reads the written RGBE; full linear
 HDR data and its interpretation remain separate. Windows/full-editor/physical
 acceptance and a numbered package remain pending. See [Texture assets](texture-assets.md).
 
-Local source also adds bounded native UI blur/color/drop-shadow filters, shared graphical /
+Local source also adds bounded native UI blur/color/drop-shadow/backdrop filters, shared graphical /
 non-graphical payload admission, model/keyframe updates and source-derived runtime
 kit requirements. Gallery155 has six original color/blur samples; Gallery162 adds
 hard/soft/offset/stacked shadows with paused Inspector blur. Additive kit filter
-profile2 retains basic profile1 support; new shadows/dynamic bindings require2.
+profile3 adds backdrops/encoded styles while preserving static basic1 and
+ordinary shadow/dynamic-filter2. Gallery163 compares filtered backgrounds with
+sharp foregrounds.
 Focused native and MCP proof is recorded with the current local validation batch;
 full-editor/Windows/physical acceptance remains pending. No new ZIP is implied.
 See [Runtime UI](runtime-ui.md).

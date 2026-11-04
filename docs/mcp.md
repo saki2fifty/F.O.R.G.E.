@@ -881,10 +881,17 @@ values; `forge_play_tune` changes them in the current launch through the ordinar
 runtime tuning/review owner. RCSS filter animation stays on presentation time.
 `forge_play_ui_reload` retains its current Play identity and execution permission.
 Export uses the existing project export service and requires a matching filter-
-capable runtime kit (profile2 for shadows, dynamic filter bindings and encoded
-inline styles; static basic profile1 remains supported). No separate agent filter
+capable runtime kit (profile3 for backdrops and encoded inline styles, profile2
+for shadows/ordinary dynamic filter bindings, profile1 for basic static filters;
+newer known profiles preserve the preceding profiles). No separate agent filter
 graph, DOM mutation or tool family
 is introduced. See [Runtime UI](runtime-ui.md) for rendering/resource limits.
+
+`backdrop-filter` and `data-style-backdrop-filter` use these same source, register,
+model/tune and reload operations. No new tool schema or DOM mutation entry point
+is required. Native candidate admission supplies the same kernel/numeric bounds,
+clipping and shared layer budgets. Backdrops require kit profile3. See
+[Runtime UI](runtime-ui.md) for ordering, transparency and output behavior.
 
 ## Raw UI/shader sources, recipes and navigation
 

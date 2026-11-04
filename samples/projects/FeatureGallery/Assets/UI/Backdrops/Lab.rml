@@ -1,0 +1,29 @@
+<rml><head><style>
+body,div,p,h1 {display:block;} body {margin:0;width:100%;height:100%;font-family:Lato;font-size:15px;color:#e5f2ff;pointer-events:none;}
+#lab {position:absolute;left:4%;top:2%;width:92%;}
+h1 {font-size:23px;margin:0 0 3px;color:#79e7cf;} p {margin:3px 0;}
+#grid {margin-top:6px;} .card {display:inline-block;width:30%;margin:0 2% 6px 0;vertical-align:top;}
+.label {height:19px;font-size:13px;} .sample {position:relative;height:56px;background-color:#1b3347;}
+.red,.green,.blue {position:absolute;top:0;width:34%;height:56px;}
+.red {left:0;background-color:#e96644;} .green {left:33%;background-color:#63cf89;} .blue {left:66%;background-color:#4e96df;}
+.glass {position:absolute;left:12%;top:9px;width:76%;height:38px;background-color:#ffffff10;border-radius:6px;}
+.word {position:absolute;left:20%;top:10px;font-size:14px;color:white;}
+#blur {backdrop-filter:blur(3px);} #gray {backdrop-filter:grayscale(1);}
+#contrast {backdrop-filter:brightness(0.6) contrast(0.9);} #front {filter:blur(3px);}
+#pulse {position:relative;width:100px;height:12px;margin-top:4px;}
+#pulseleft {position:absolute;left:0;top:0;width:50px;height:12px;background-color:#e96644;}
+#pulseright {position:absolute;left:50px;top:0;width:50px;height:12px;background-color:#4e96df;}
+#motion {position:absolute;left:0;top:0;width:100px;height:12px;animation:2s linear-in infinite alternate softness;}
+@keyframes softness {from {backdrop-filter:blur(0px);} to {backdrop-filter:blur(4px);}}
+button {display:inline-block;padding:5px 8px;margin:4px 5px 0 0;background-color:#30536e;pointer-events:auto;}
+button:hover,button:focus {background-color:#4c849e;} .hint {font-size:13px;color:#adc7db;}
+</style></head><body><div id="lab"><h1>UI backdrops</h1><p>Filter the background. Keep foreground text sharp.</p><div id="grid">
+<div class="card"><div class="label">Reference</div><div class="sample"><div class="red"/><div class="green"/><div class="blue"/><div class="glass"><div class="word">UI</div></div></div></div>
+<div class="card"><div class="label">Blur</div><div class="sample"><div class="red"/><div class="green"/><div class="blue"/><div id="blur" class="glass"><div class="word">UI</div></div></div></div>
+<div class="card"><div class="label">Grayscale</div><div class="sample"><div class="red"/><div class="green"/><div class="blue"/><div id="gray" class="glass"><div class="word">UI</div></div></div></div>
+<div class="card"><div class="label">Contrast</div><div class="sample"><div class="red"/><div class="green"/><div class="blue"/><div id="contrast" class="glass"><div class="word">UI</div></div></div></div>
+<div class="card"><div class="label">Foreground</div><div class="sample"><div class="red"/><div class="green"/><div class="blue"/><div id="front" class="glass"><div class="word">UI</div></div></div></div>
+<div class="card"><div class="label">Live / {{blur}} px</div><div class="sample"><div class="red"/><div class="green"/><div class="blue"/><div class="glass" data-style-backdrop-filter="'blur(' + blur + 'px)'"><div class="word">UI</div></div></div></div>
+</div><p class="hint">UI Values / blur: 0..16. Tick: {{tick}}</p><div id="pulse"><div id="pulseleft"/><div id="pulseright"/><div id="motion"/></div>
+<button id="pause" data-event-click="command('Pause')">Pause</button><button id="resume" data-event-click="command('Resume')">Resume</button><button id="step" data-event-click="command('Step')">Step</button>
+</div></body></rml>

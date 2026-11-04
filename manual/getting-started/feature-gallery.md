@@ -645,6 +645,17 @@ value; the small pulse keeps animating during Pause. Edit
 Choose this Scene as startup before export with the matching runtime kit. See
 [Runtime UI](../editor/runtime-ui.md) for shadow syntax, ranges and image-edge limits.
 
+## UI backdrop samples
+
+Open **163-ui-backdrop-filters** and press **Play**. Compare the reference colors
+with blur, grayscale, contrast and a foreground filter. Pause, select
+**Backdrop lab HUD**, and change **Live gameplay → UI Values → blur** from `0`
+to `16`. The live panel's background changes while its text stays sharp. The small
+color bar keeps animating during Pause. Edit **Assets/UI/Backdrops/Lab.rml** and
+use **Reload UI** for saved source changes. Select this Scene as startup before
+export with the matching runtime kit. See [Runtime UI](../editor/runtime-ui.md)
+for transparency, clipping, ranges and nesting limits.
+
 ## Export decoded texture blocks
 
 Open **Assets/TextureBlocks/BlockColors.dds** in Content. Its published BC1 sRGB

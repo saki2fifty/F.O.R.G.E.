@@ -1,3 +1,4 @@
+#include "ui_backdrop_render_tests.hpp"
 #include "ui_filter_render_tests.hpp"
 // Independent RmlUi/Diligent host: deliberately no ImGui/editor linkage.
 #include "Common/interface/Float16.hpp"
@@ -543,6 +544,13 @@ img {position:absolute;width:64px;height:64px;top:16px;} #png {left:16px;} #jpg 
         }
         forge::test_ui_filters::exercise(
             renderer, device, context,
+            [&](ITextureView* view) { return readback(device, context, view); },
+            [&](ITextureView* view) {
+                return readback_pixels<std::array<Diligent::Float16, 4>>(device, context, view,
+                                                                         TEX_FORMAT_RGBA16_FLOAT);
+            });
+        forge::test_ui_backdrop::exercise(
+            device, context, renderer, images / "backdrop", argv[2],
             [&](ITextureView* view) { return readback(device, context, view); },
             [&](ITextureView* view) {
                 return readback_pixels<std::array<Diligent::Float16, 4>>(device, context, view,

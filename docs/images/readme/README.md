@@ -2013,3 +2013,16 @@ or pixels were retouched. Capture/source/binary/pair/test hashes are recorded
 locally in `AgentFiles/build/phase256-ui-drop-shadows/capture-provenance.json`.
 This isolated Game renderer capture does not establish full Main/editor, Windows,
 physical GPU/input/DPI, graphical exported EXE or hardware performance acceptance.
+
+## Runtime UI backdrop filters
+
+`manual/images/ui-backdrop-gallery.png` is the canonical unretouched640x360 actual
+GamePresentation/RmlUi/Diligent software Vulkan capture of original Gallery163.
+The canonical and360x640 portrait were personally viewed. Four model/animation/
+resize checkpoints match source-hidden relocated content exactly. The image shows
+background blur/color effects, sharp foreground text and an ordinary foreground
+filter. PNG conversion preserves captured PPM RGB bytes exactly. Source, binary,
+image, pair and test hashes are recorded locally in
+`AgentFiles/build/phase257-ui-backdrop-filters/capture-provenance.json`.
+This isolated Game renderer capture does not establish full Main/editor, Windows,
+physical GPU/input/DPI, graphical exported EXE or hardware performance acceptance.

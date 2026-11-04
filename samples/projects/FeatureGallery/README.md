@@ -2120,3 +2120,13 @@ presentation time. Edit `Assets/UI/Shadows/Lab.rml` and Reload UI for saved sour
 changes. Drop-shadow uses color, signed x/y offsets within128pixels and sigma0..16.
 Set this Scene as startup and export with the supplied matching runtime kit.
 The same UI document/values, filter pool and presentation owners run in the game.
+
+## UI backdrop filters
+
+`Scenes/163-ui-backdrop-filters.scene.json` compares background blur, grayscale,
+contrast and foreground filtering over original color stripes. Pause, select
+Backdrop lab HUD, and tune Live UI Values / blur0..16. Stop restores the saved
+value. The small color bar animates during Pause. Edit
+`Assets/UI/Backdrops/Lab.rml` and Reload UI for saved source changes. Backdrops
+read earlier-drawn pixels within their rounded border and preserve foreground
+text. Shared layer/image limits apply; use the supplied matching runtime kit.

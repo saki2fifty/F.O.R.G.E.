@@ -189,7 +189,7 @@ int main(int argc, char** argv) {
                 "<rml><body style=\"font-family:Lato;fil&#116;er&#58;blur(2px)\">"
                 "Encoded inline filter</body></rml>");
             const auto encoded = inspect(filtered.id, {});
-            check(encoded.sources.front().details.at("runtime_features").at("filters") == 2,
+            check(encoded.sources.front().details.at("runtime_features").at("filters") == 3,
                   "Native encoded inline filters lost their runtime kit requirement");
             asset_storage::replace(
                 project / "filters.rml",
@@ -198,6 +198,17 @@ int main(int argc, char** argv) {
             const auto shadow = inspect(filtered.id, {});
             check(shadow.sources.front().details.at("runtime_features").at("filters") == 2,
                   "Native non-drawing inspector omitted the shadow capability profile");
+            asset_storage::replace(project / "filters.rml",
+                                   "<rml><body style=\"font-family:Lato;backdrop-filter:blur(2px) "
+                                   "grayscale(0.5)\">Backdrop export</body></rml>");
+            const auto backdrop = inspect(filtered.id, {});
+            check(backdrop.sources.front().details.at("runtime_features").at("filters") == 3,
+                  "Native export inspector omitted the backdrop requirement");
+            asset_storage::replace(
+                project / "filters.rml",
+                "<rml><body style=\"font-family:Lato;backdrop-filter:blur(17px)\">Bad "
+                "backdrop</body></rml>");
+            rejects([&] { inspect(filtered.id, {}); }, "UI filter parameter exceeds");
             asset_storage::replace(project / "filters.rml",
                                    "<rml><body style=\"font-family:Lato;filter:drop-shadow(#204080 "
                                    "-129px 6px 2px)\">Bad shadow</body></rml>");

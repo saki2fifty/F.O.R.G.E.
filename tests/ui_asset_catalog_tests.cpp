@@ -77,6 +77,16 @@ int main(int argc, char** argv) {
         for (const auto& [extension, text, profile] :
              std::vector<std::tuple<std::string, std::string, unsigned>>{
                  {"rcss", "body {filter:blur(1px);}", 1u},
+                 {"rcss", "body {backdrop-filter:blur(1px);}", 3u},
+                 {"rcss", "body {backdrop-/**/filter:none;}", 3u},
+                 {"rcss", "body {font-family:'backdrop-filter:blur(1px)';}", 0u},
+                 {"rcss", "/* backdrop-filter:blur(1px); */ body {filter:blur(1px);}", 1u},
+                 {"rml", "<rml><body data-style-backdrop-filter=\"effect\"></body></rml>", 3u},
+                 {"rml",
+                  "<rml><body data-style-backdrop-filter=\"effect\" "
+                  "data-style-filter=\"other\"></body></rml>",
+                  3u},
+                 {"rml", "<rml><body style=\"backdrop-filter:blur(1px)\"></body></rml>", 3u},
                  {"rcss", "body {filter:drop-shadow(#123456 -4px 8px 2px);}", 2u},
                  {"rcss", "body {filter:drop-/**/shadow(#123456 -4px 8px 2px);}", 2u},
                  {"rcss", "/* filter:drop-shadow(red 1px 2px); */ body {color:red;}", 0u},
@@ -85,8 +95,8 @@ int main(int argc, char** argv) {
                  {"rcss", "/* filter:blur(3px); */ body {color:red;}", 0u},
                  {"rcss", "body {font-family:'filter:blur(3px)';}", 0u},
                  {"rml", "<rml><body style=\"filter:blur(1px)\"></body></rml>", 1u},
-                 {"rml", "<rml><body style=\"fil&#116;er&#58;blur(2px)\"></body></rml>", 2u},
-                 {"rml", "<rml><body style=\"color:&#114;ed\"></body></rml>", 2u},
+                 {"rml", "<rml><body style=\"fil&#116;er&#58;blur(2px)\"></body></rml>", 3u},
+                 {"rml", "<rml><body style=\"color:&#114;ed\"></body></rml>", 3u},
                  {"rml", "<rml><head><style>body{filter:none;}</style></head><body/></rml>", 1u},
                  {"rml", "<rml><body data-style-filter=\"effect\"></body></rml>", 2u},
                  {"rml", "<rml><body><!-- filter:blur(2px); --></body></rml>", 0u},

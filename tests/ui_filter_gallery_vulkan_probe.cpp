@@ -18,7 +18,7 @@ namespace {
 using test_gallery_capture::check;
 using test_gallery_capture::Pixels;
 const char* scene_path = "Scenes/155-ui-filters.scene.json";
-bool shadows = false;
+bool shadows = false, backdrops = false;
 const char* ui_path = "Assets/UI/Filters/Lab.rml";
 Json read_scene(const std::filesystem::path& root) {
     const auto bytes = asset_detail::read_bytes(root / scene_path, 4 * 1024 * 1024);
@@ -35,7 +35,36 @@ void author(const std::filesystem::path& root, UiDiligentRenderer& renderer,
             const std::vector<std::byte>& font) {
     const bool fresh = !std::filesystem::exists(root / scene_path);
     std::filesystem::create_directories((root / ui_path).parent_path());
-    asset_storage::replace(root / ui_path, shadows ? R"rml(<rml><head><style>
+    asset_storage::replace(root / ui_path, backdrops ? R"rml(<rml><head><style>
+body,div,p,h1 {display:block;} body {margin:0;width:100%;height:100%;font-family:Lato;font-size:15px;color:#e5f2ff;pointer-events:none;}
+#lab {position:absolute;left:4%;top:2%;width:92%;}
+h1 {font-size:23px;margin:0 0 3px;color:#79e7cf;} p {margin:3px 0;}
+#grid {margin-top:6px;} .card {display:inline-block;width:30%;margin:0 2% 6px 0;vertical-align:top;}
+.label {height:19px;font-size:13px;} .sample {position:relative;height:56px;background-color:#1b3347;}
+.red,.green,.blue {position:absolute;top:0;width:34%;height:56px;}
+.red {left:0;background-color:#e96644;} .green {left:33%;background-color:#63cf89;} .blue {left:66%;background-color:#4e96df;}
+.glass {position:absolute;left:12%;top:9px;width:76%;height:38px;background-color:#ffffff10;border-radius:6px;}
+.word {position:absolute;left:20%;top:10px;font-size:14px;color:white;}
+#blur {backdrop-filter:blur(3px);} #gray {backdrop-filter:grayscale(1);}
+#contrast {backdrop-filter:brightness(0.6) contrast(0.9);} #front {filter:blur(3px);}
+#pulse {position:relative;width:100px;height:12px;margin-top:4px;}
+#pulseleft {position:absolute;left:0;top:0;width:50px;height:12px;background-color:#e96644;}
+#pulseright {position:absolute;left:50px;top:0;width:50px;height:12px;background-color:#4e96df;}
+#motion {position:absolute;left:0;top:0;width:100px;height:12px;animation:2s linear-in infinite alternate softness;}
+@keyframes softness {from {backdrop-filter:blur(0px);} to {backdrop-filter:blur(4px);}}
+button {display:inline-block;padding:5px 8px;margin:4px 5px 0 0;background-color:#30536e;pointer-events:auto;}
+button:hover,button:focus {background-color:#4c849e;} .hint {font-size:13px;color:#adc7db;}
+</style></head><body><div id="lab"><h1>UI backdrops</h1><p>Filter the background. Keep foreground text sharp.</p><div id="grid">
+<div class="card"><div class="label">Reference</div><div class="sample"><div class="red"/><div class="green"/><div class="blue"/><div class="glass"><div class="word">UI</div></div></div></div>
+<div class="card"><div class="label">Blur</div><div class="sample"><div class="red"/><div class="green"/><div class="blue"/><div id="blur" class="glass"><div class="word">UI</div></div></div></div>
+<div class="card"><div class="label">Grayscale</div><div class="sample"><div class="red"/><div class="green"/><div class="blue"/><div id="gray" class="glass"><div class="word">UI</div></div></div></div>
+<div class="card"><div class="label">Contrast</div><div class="sample"><div class="red"/><div class="green"/><div class="blue"/><div id="contrast" class="glass"><div class="word">UI</div></div></div></div>
+<div class="card"><div class="label">Foreground</div><div class="sample"><div class="red"/><div class="green"/><div class="blue"/><div id="front" class="glass"><div class="word">UI</div></div></div></div>
+<div class="card"><div class="label">Live / {{blur}} px</div><div class="sample"><div class="red"/><div class="green"/><div class="blue"/><div class="glass" data-style-backdrop-filter="'blur(' + blur + 'px)'"><div class="word">UI</div></div></div></div>
+</div><p class="hint">UI Values / blur: 0..16. Tick: {{tick}}</p><div id="pulse"><div id="pulseleft"/><div id="pulseright"/><div id="motion"/></div>
+<button id="pause" data-event-click="command('Pause')">Pause</button><button id="resume" data-event-click="command('Resume')">Resume</button><button id="step" data-event-click="command('Step')">Step</button>
+</div></body></rml>)rml"
+                                           : shadows ? R"rml(<rml><head><style>
 body,div,p,h1 {display:block;} body {margin:0;width:100%;height:100%;font-family:Lato;font-size:15px;color:#e5f2ff;pointer-events:none;}
 #lab {position:absolute;left:4%;top:2%;width:92%;}
 h1 {font-size:23px;margin:0 0 3px;color:#79e7cf;} p {margin:3px 0;}
@@ -61,7 +90,7 @@ button:hover,button:focus {background-color:#4c849e;} .hint {font-size:13px;colo
 </div><p class="hint">UI Values / blur: 0..16. Tick: {{tick}}</p><div id="motion"/>
 <button id="pause" data-event-click="command('Pause')">Pause</button><button id="resume" data-event-click="command('Resume')">Resume</button><button id="step" data-event-click="command('Step')">Step</button>
 </div></body></rml>)rml"
-                                                   : R"rml(<rml><head><style>
+                                                     : R"rml(<rml><head><style>
 body,div,p,h1 {display:block;} body {margin:0;width:100%;height:100%;font-family:Lato;font-size:15px;color:#e5f2ff;pointer-events:none;}
 #lab {position:absolute;left:4%;top:3%;width:92%;}
 h1 {font-size:25px;margin:0 0 5px;color:#79e7cf;} p {margin:4px 0;}
@@ -97,7 +126,9 @@ button:hover,button:focus {background-color:#4c849e;} .hint {font-size:13px;colo
         return entity;
     };
     if (fresh) {
-        create(shadows ? "Shadow lab HUD" : "Filter lab HUD")
+        create(backdrops ? "Backdrop lab HUD"
+               : shadows ? "Shadow lab HUD"
+                         : "Filter lab HUD")
             .set<UiDocument>({{ui.id}, true, true, 0})
             .set<UiValues>({{{"blur", 4}}});
         auto camera = create("Game Camera");
@@ -214,9 +245,16 @@ std::vector<Pixels> exercise(DiligentPresentation& presentation, IDeviceContext*
 } // namespace
 int main(int argc, char** argv) {
     try {
-        check(argc == 4 || (argc == 5 && std::string_view(argv[4]) == "--shadows"),
-              "Need Gallery, font and scratch; or --author Gallery font; optional --shadows");
-        shadows = argc == 5;
+        check(argc == 4 || (argc == 5 && (std::string_view(argv[4]) == "--shadows" ||
+                                          std::string_view(argv[4]) == "--backdrops")),
+              "Need Gallery, font and scratch; or --author Gallery font; optional "
+              "--shadows/--backdrops");
+        shadows = argc == 5 && std::string_view(argv[4]) == "--shadows";
+        backdrops = argc == 5 && std::string_view(argv[4]) == "--backdrops";
+        if (backdrops) {
+            scene_path = "Scenes/163-ui-backdrop-filters.scene.json";
+            ui_path = "Assets/UI/Backdrops/Lab.rml";
+        }
         if (shadows) {
             scene_path = "Scenes/162-ui-drop-shadows.scene.json";
             ui_path = "Assets/UI/Shadows/Lab.rml";

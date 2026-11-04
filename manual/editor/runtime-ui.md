@@ -192,7 +192,8 @@ Filters also work in UI assigned to a camera image. Save the sources and Scene,
 select the Scene as startup, and export with the runtime kit supplied with this
 editor. An older kit without filter support is rejected before replacing an
 existing export. No C++ module is needed. Drop shadows use the workflow below;
-backdrop filters, masks, box shadows, shader decorators and gradients are unavailable.
+backdrop filters use the workflow below; masks, box shadows, shader decorators
+and gradients are unavailable.
 
 ## Add a drop shadow
 
@@ -233,6 +234,54 @@ Scene, select it as startup, and export with the runtime kit supplied with this
 editor. An older incompatible kit rejects before replacing an existing export.
 The same saved UI Values and source animation run in the exported game.
 
+## Filter the background behind a panel
+
+Open **Scenes/163-ui-backdrop-filters.scene.json** in **Examples/FeatureGallery**
+and press **Play**. The cards compare reference colors, backdrop blur, grayscale,
+contrast, a foreground filter and a live backdrop. Text above a backdrop filter
+stays sharp. The **Foreground** card applies its blur to its own text and surface.
+
+![Colored stripes behind rounded panels with blur, grayscale, contrast and a live backdrop](../images/ui-backdrop-gallery.png)
+
+The colored bar beneath the cards animates its backdrop blur on presentation time.
+
+1. Pause, select **Backdrop lab HUD**, and change **Live gameplay → UI Values → blur** between `0` and `16`.
+2. Watch the **Live** card's background soften while its text stays sharp. `0` removes the blur.
+3. Stop to restore the saved value. Change **UI Values → blur** in Edit and save the Scene to keep a new initial value.
+4. Edit **Assets/UI/Backdrops/Lab.rml**, save, and use **Reload UI** during Play for source changes.
+
+Apply a backdrop filter to a transparent or partly transparent panel:
+
+```css
+#glass {
+    background-color: #ffffff10;
+    border-radius: 6px;
+    backdrop-filter: blur(3px) brightness(0.8);
+}
+```
+
+The panel samples content already drawn behind it in the current target. Its own
+background, border, text and children draw above that result. A fully opaque panel
+can cover the filtered background. Its border box and rounded corners constrain
+the backdrop result; parent clipping also applies. Objects drawn later are not
+part of that backdrop.
+
+Backdrop chains use the same supported filters and ranges as ordinary filters.
+Use `data-style-backdrop-filter="'blur(' + blur + 'px)'"` for a named UI Value.
+Keep bindings and keyframes for a property separate. An ordinary `filter` on the
+same panel processes the combined backdrop and panel contents afterward.
+
+Backdrop work consumes temporary layers from the shared image budget. A panel
+with both kinds of filter uses more layers; deep combinations can reach the
+four-active-layer limit with fewer than four panels. Reduce nesting or effects
+when admission reports a limit. Target-edge pixels and blur tails outside the
+current image remain unavailable. Correct an invalid source and **Reload UI**;
+a rejected replacement keeps the preceding usable presentation.
+
+Save the sources and Scene before export and use the runtime kit supplied with
+this editor. Older kits without backdrop support reject before replacing an
+existing export. Main Game UI and UI assigned to camera images use this workflow.
+
 ## Layout your document
 
 RmlUi does not supply a browser's default HTML layout. If a menu collapses into a
@@ -268,7 +317,7 @@ export artwork in the orientation and display colors you want.
 
 Use document-relative local resource paths. The supplied **Lato** font is packaged with FORGE, so it does not depend on installed system fonts. You may load project `.ttf`/`.otf` fonts using an RCSS `@font-face` declaration, with suitable redistribution rights. Use explicit `font-family` and `font-size`; font shorthand is not supported in this integration. When replacing a font using the same family name, restart Play to clear its font cache.
 
-Images support **PNG**, **JPEG** (`.jpg` or `.jpeg`) and uncompressed true-color **TGA** (24 or 32 bits), at most 2048×2048. Use PNG for transparent icons and JPEG for opaque artwork. Image bytes and decoded pixels have additional limits; very large or high-precision images can exceed them. SVG, remote URLs, templates and stylesheet imports are not supported yet. Link multiple stylesheets individually. Blur and the color filters described above use bounded temporary layers. Drop shadows use the filter workflow above. Backdrop filters, masks, shader gradients and box shadows are unavailable.
+Images support **PNG**, **JPEG** (`.jpg` or `.jpeg`) and uncompressed true-color **TGA** (24 or 32 bits), at most 2048×2048. Use PNG for transparent icons and JPEG for opaque artwork. Image bytes and decoded pixels have additional limits; very large or high-precision images can exceed them. SVG, remote URLs, templates and stylesheet imports are not supported yet. Link multiple stylesheets individually. Blur and the color filters described above use bounded temporary layers. Drop shadows use the filter workflow above. Backdrop filters use the workflow above. Masks, shader gradients and box shadows are unavailable.
 
 `px` means game render-target pixels; `dp` follows display density. The editor's interface scale remains separate. Check text input and sizing on the displays and input languages used by your game.
 

@@ -1,5 +1,11 @@
 # 2026-11-04
 
+Runtime UI adds backdrop filtering through the existing native layer compositor,
+source/candidate, kit and MCP owners. Additive profile3 preserves preceding basic
+and shadow profiles. Original Gallery163 compares foreground/background filtering,
+rounded panels, models and presentation-time animation; shared resource and
+clipping limits remain authoritative.
+
 Runtime UI adds bounded drop-shadow filters through existing typed native filter,
 scratch-pool, main/camera-output, source-candidate, export and MCP owners. Original
 Gallery162 demonstrates hard/soft/offset/stacked/model/animated shadows. Additive
