@@ -635,6 +635,16 @@ kit. See [Runtime UI](../editor/runtime-ui.md) for ranges, nesting and resource 
 The same editable document supplies every sample and the presentation-time pulse.
 
 
+## UI shadow samples
+
+Open **162-ui-drop-shadows** and press **Play** to compare hard, left-offset, soft,
+stacked and model-controlled shadows. Pause, select **Shadow lab HUD**, and change
+**Live gameplay → UI Values → blur** between `0` and `16`. Stop restores the saved
+value; the small pulse keeps animating during Pause. Edit
+**Assets/UI/Shadows/Lab.rml** and use **Reload UI** for saved source changes.
+Choose this Scene as startup before export with the matching runtime kit. See
+[Runtime UI](../editor/runtime-ui.md) for shadow syntax, ranges and image-edge limits.
+
 ## Export decoded texture blocks
 
 Open **Assets/TextureBlocks/BlockColors.dds** in Content. Its published BC1 sRGB

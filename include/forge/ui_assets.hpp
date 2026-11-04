@@ -55,7 +55,7 @@ class UiResources {
     std::set<std::filesystem::path> automatic_;
     struct File {
         std::vector<std::byte> bytes;
-        bool filters = false;
+        unsigned filter_profile = 0;
     };
     std::map<std::string, File> files_;
     std::map<AssetId, std::filesystem::path> documents_;

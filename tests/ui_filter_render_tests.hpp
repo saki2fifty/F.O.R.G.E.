@@ -164,6 +164,80 @@ void exercise(UiDiligentRenderer& renderer, Diligent::IRenderDevice* device,
               std::abs(float(center[2]) - 1.49804f) < .003f && float(center[3]) == 1,
           "HDR filtered layer was gamma-decoded twice or lost premultiplied alpha");
 
+    // Independent analytic silhouette oracle: integrate a Gaussian over the
+    // rectangle, then place its tinted alpha behind the original premultiplied
+    // image. This checks every target pixel in both destination color domains.
+    for (const auto displacement : {Rml::Vector2f{8, 4}, Rml::Vector2f{-8, -4}})
+        for (const auto sigma : {0.f, 1.f}) {
+            const auto shadow = r.CompileFilter(
+                "drop-shadow", {{"sigma", Rml::Variant(sigma)},
+                                {"offset", Rml::Variant(displacement)},
+                                {"color", Rml::Variant(Rml::Colourb{0, 128, 0, 128})}});
+            check(shadow != 0, "Typed native drop-shadow was not compiled");
+            for (const bool linear_target : {false, true}) {
+                auto image = linear_target ? hdr : color;
+                begin(image, {0, 0, 0, 0});
+                layer = r.PushLayer();
+                r.RenderGeometry(rectangle, {}, 0);
+                r.CompositeLayers(layer, 0, Rml::BlendMode::Replace, {&shadow, 1});
+                r.PopLayer();
+                renderer.end();
+                const auto bytes = linear_target
+                                       ? std::vector<std::array<unsigned char, 4>>{}
+                                       : read8(image->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET));
+                const auto halves =
+                    linear_target
+                        ? read16(image->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET))
+                        : decltype(read16(image->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET))){};
+                const int radius = sigma == 0 ? 0 : 3;
+                double normalization = 0;
+                for (int i = -radius; i <= radius; ++i)
+                    normalization += sigma == 0 ? 1 : std::exp(-.5 * i * i);
+                for (int y = 0; y < 32; ++y)
+                    for (int x = 0; x < 64; ++x) {
+                        const int sx = x - int(displacement.x), sy = y - int(displacement.y);
+                        double coverage = 0;
+                        if (sx >= 0 && sx < 64 && sy >= 0 && sy < 32)
+                            for (int dy = -radius; dy <= radius; ++dy)
+                                for (int dx = -radius; dx <= radius; ++dx)
+                                    if (sx + dx >= 16 && sx + dx < 48 && sy + dy >= 8 &&
+                                        sy + dy < 24)
+                                        coverage +=
+                                            sigma == 0 ? 1 : std::exp(-.5 * (dx * dx + dy * dy));
+                        constexpr double a = 128. / 255;
+                        const double foreground = x >= 16 && x < 48 && y >= 8 && y < 24 ? a : 0;
+                        const double shadow_alpha =
+                            coverage / (normalization * normalization) * a * a;
+                        const double tint = linear_target ? .2158605001 : a;
+                        const std::array<double, 4> expected{
+                            foreground, tint * shadow_alpha * (1 - foreground), 0,
+                            foreground + shadow_alpha * (1 - foreground)};
+                        for (unsigned c = 0; c < 4; ++c) {
+                            const auto at = std::size_t(y * 64 + x);
+                            const double actual =
+                                linear_target ? float(halves.at(at)[c]) : bytes.at(at)[c] / 255.;
+                            check(std::abs(actual - expected[c]) < (linear_target ? .002 : .012),
+                                  "Drop-shadow silhouette, tint, direction, blur or "
+                                  "original-over-shadow composition differs");
+                        }
+                    }
+            }
+            // A preceding scratch image and repeated shadow steps must stay live
+            // until each source-over operation completes, including in-place use.
+            const Rml::CompiledFilterHandle chain[]{opacity, shadow, shadow};
+            begin(color, {0, 0, 1, 1});
+            layer = r.PushLayer();
+            r.RenderGeometry(rectangle, {}, 0);
+            r.CompositeLayers(layer, layer, Rml::BlendMode::Replace, {chain, 3});
+            r.CompositeLayers(layer, 0, Rml::BlendMode::Blend, {});
+            r.PopLayer();
+            renderer.end();
+            check(read8(color->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET)).at(16 * 64 + 32)[0] >=
+                      63,
+                  "Shadow chain or in-place composition retired its original source too early");
+            r.ReleaseFilter(shadow);
+        }
+
     for (const bool filtered : {false, true}) {
         begin(color, {0, 0, 1, 1});
         layer = r.PushLayer();

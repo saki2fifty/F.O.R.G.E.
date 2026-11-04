@@ -35,9 +35,9 @@ Fixture author(const std::filesystem::path& root, bool filtered = false) {
         << R"rml(<rml><head><style>body {margin:0;} #marker {position:absolute;left:0;top:0;width:40px;height:20px;background-color:#ffff00;}</style></head><body><div id="marker"/></body></rml>)rml";
     if (filtered) {
         std::ofstream(root / "Assets/UiOutputProbe/Panel.rml")
-            << R"rml(<rml><head><style>body {margin:0;width:100%;height:100%;background-color:#00ff00;filter:brightness(0.5) blur(1px);}</style></head><body data-style-opacity="amount"></body></rml>)rml";
+            << R"rml(<rml><head><style>body {margin:0;width:100%;height:100%;background-color:#00ff00;filter:brightness(0.5) blur(1px) drop-shadow(#cc550080 4px 3px 2px);}</style></head><body data-style-opacity="amount"></body></rml>)rml";
         std::ofstream(root / "Assets/UiOutputProbe/Main.rml")
-            << R"rml(<rml><head><style>body {margin:0;} #marker {position:absolute;left:0;top:0;width:40px;height:20px;background-color:#ffff00;filter:contrast(1);}</style></head><body><div id="marker"/></body></rml>)rml";
+            << R"rml(<rml><head><style>body {margin:0;} #marker {position:absolute;left:0;top:0;width:40px;height:20px;background-color:#ffff00;filter:contrast(1) drop-shadow(#20408080 8px 6px 2px);}</style></head><body><div id="marker"/></body></rml>)rml";
     }
     const auto panel_asset = register_ui_document(root, "Assets/UiOutputProbe/Panel.rml");
     const auto main_asset = register_ui_document(root, "Assets/UiOutputProbe/Main.rml");
@@ -392,7 +392,7 @@ int main(int argc, char** argv) {
         if (argc == 5 && std::string_view(argv[4]) == "--filters") {
             runtime["engine"]["runtime_ui_protocol"] = ui_protocol::version;
             for (const Json& profile :
-                 {Json(), Json(0), Json("1"), Json(1.0), Json(true), Json(2)}) {
+                 {Json(), Json(0), Json("1"), Json(1.0), Json(true), Json(1), Json(3)}) {
                 if (profile.is_null())
                     runtime["engine"].erase("runtime_ui_filters");
                 else

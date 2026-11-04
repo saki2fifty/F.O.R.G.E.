@@ -2000,3 +2000,16 @@ Exact source, executable, image, publication and test receipt hashes are recorde
 locally in `AgentFiles/build/phase255-bc6-hdr-output/capture-provenance.json`.
 This is an isolated production control capture, not full-editor, Windows/MSVC,
 physical GPU/input/DPI, exported-game or hardware performance acceptance.
+
+## Runtime UI drop shadows
+
+`manual/images/ui-shadow-gallery.png` is the canonical unretouched640x360 actual
+GamePresentation/RmlUi/Diligent software Vulkan image of original Gallery162.
+A360x640 portrait was also personally viewed. Hard, left-offset, soft, stacked,
+model-driven and presentation-time shadows use the production filter owner.
+All four rendered checkpoints match source-hidden relocated content pixel for
+pixel. PNG conversion preserves the captured PPM RGB bytes exactly; no controls
+or pixels were retouched. Capture/source/binary/pair/test hashes are recorded
+locally in `AgentFiles/build/phase256-ui-drop-shadows/capture-provenance.json`.
+This isolated Game renderer capture does not establish full Main/editor, Windows,
+physical GPU/input/DPI, graphical exported EXE or hardware performance acceptance.

@@ -1,5 +1,12 @@
 # 2026-11-04
 
+Runtime UI adds bounded drop-shadow filters through existing typed native filter,
+scratch-pool, main/camera-output, source-candidate, export and MCP owners. Original
+Gallery162 demonstrates hard/soft/offset/stacked/model/animated shadows. Additive
+runtime filter profile2 preserves profile1 basic-filter support and rejects new
+shadow-capable content on older kits. No new effect database, dependency pin or
+native SDK ABI is introduced.
+
 ## BC6 HDR texture image output
 
 Published HdrColor BC6 unsigned/signed textures can export decoded texels as

@@ -54,6 +54,28 @@ int main() {
         reject([] { make_filter("grayscale", 1.001); });
         reject([] { make_filter("drop-shadow", 1); });
         reject([] { make_filter("custom", 1); });
+        for (const auto sigma : {0., .5, 16.}) {
+            const auto shadow = make_drop_shadow(sigma, -128, 128, {.2f, .4f, 1, .5f});
+            const auto blur = make_filter("blur", sigma);
+            check(shadow.kind == Kind::DropShadow && shadow.radius == blur.radius &&
+                      shadow.weights == blur.weights &&
+                      shadow.offset == std::array{-128.f, 128.f} &&
+                      shadow.color == std::array{.2f, .4f, 1.f, .5f},
+                  "Drop-shadow lost its bounded kernel, displacement or straight tint");
+        }
+        for (const auto value : {-129., 128.001, std::numeric_limits<double>::infinity(),
+                                 std::numeric_limits<double>::quiet_NaN()}) {
+            reject([&] { make_drop_shadow(1, value, 0, {0, 0, 0, 1}); });
+            reject([&] { make_drop_shadow(1, 0, value, {0, 0, 0, 1}); });
+        }
+        for (const auto sigma : {-1., 16.001, std::numeric_limits<double>::infinity()})
+            reject([&] { make_drop_shadow(sigma, 0, 0, {0, 0, 0, 1}); });
+        for (unsigned channel = 0; channel < 4; ++channel)
+            for (const auto value : {-0.001f, 1.001f, std::numeric_limits<float>::quiet_NaN()}) {
+                std::array<float, 4> color{0, 0, 0, 1};
+                color[channel] = value;
+                reject([&] { make_drop_shadow(1, 0, 0, color); });
+            }
         std::cout << "Bounded UI filter parameters and normalized symmetric blur kernels passed\n";
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

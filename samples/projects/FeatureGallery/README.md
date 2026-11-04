@@ -2110,3 +2110,13 @@ ordinary RCSS filter keyframes on presentation time. Stop restores saved values.
 changes. Select this Scene as startup and export with the matching runtime kit.
 No project C++ module or compiler is required. See the Runtime UI manual for
 filter ranges and temporary-layer limits.
+
+## UI drop shadows
+
+`Scenes/162-ui-drop-shadows.scene.json` compares original hard, left-offset, soft,
+stacked and live shadow samples. Pause, select Shadow lab HUD and change Live
+UI Values / blur from0to16; Stop restores the saved value. The small pulse uses
+presentation time. Edit `Assets/UI/Shadows/Lab.rml` and Reload UI for saved source
+changes. Drop-shadow uses color, signed x/y offsets within128pixels and sigma0..16.
+Set this Scene as startup and export with the supplied matching runtime kit.
+The same UI document/values, filter pool and presentation owners run in the game.

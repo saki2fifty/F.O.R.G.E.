@@ -171,6 +171,14 @@ registration and shader compilation use their existing tools. These raw files do
 not have Scene or document Undo. Typed material/mesh/animation/terrain/tile/particle
 sources continue to use their normal source documents and history.
 
+For UI drop shadows, read and edit the RML/RCSS through the source text tools,
+then register or refresh the UI source. Use `drop-shadow(#20408080 8px 6px 2px)`
+inside `filter`. Each offset is limited to `-128`..`128` resolved pixels and blur
+sigma to `0`..`16`. Saved **UI Values** can drive a `data-style-filter` binding;
+use current Play tuning and **Reload UI** through their existing tools. Failed
+source reload keeps the preceding usable UI. Export with the matching runtime kit.
+See [Runtime UI](runtime-ui.md) for the illustrated workflow.
+
 Navigation uses the existing static bake worker. Runtime dependency declarations
 use their existing reviewed draft and catalog Save. Flecs Script tools evaluate
 the existing isolated diagnostic data/world preview; they do not replace C++

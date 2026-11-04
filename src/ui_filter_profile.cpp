@@ -44,4 +44,18 @@ Filter make_filter(std::string_view name, double value) {
         result.weights[i] = float(result.weights[i] / total);
     return result;
 }
+Filter make_drop_shadow(double sigma, double x, double y, std::array<float, 4> color) {
+    if (!std::isfinite(x) || !std::isfinite(y) || std::abs(x) > 128 || std::abs(y) > 128)
+        throw std::runtime_error(
+            "UI drop-shadow offsets require finite values within -128..128 pixels");
+    for (const auto value : color)
+        if (!std::isfinite(value) || value < 0 || value > 1)
+            throw std::runtime_error(
+                "UI drop-shadow color requires finite straight RGBA within 0..1");
+    auto result = make_filter("blur", sigma);
+    result.kind = Kind::DropShadow;
+    result.offset = {float(x), float(y)};
+    result.color = color;
+    return result;
+}
 } // namespace forge::ui_filter_detail

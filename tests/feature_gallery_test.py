@@ -374,9 +374,17 @@ assert filters['asset_id'] == by_source['Scenes/155-ui-filters.scene.json']['id'
 filter_hud = next(row for row in filters['entities'] if 'forge.ui_document' in row['components'])
 assert filter_hud['components']['forge.ui_document']['document'] == by_source['Assets/UI/Filters/Lab.rml']['id']
 assert filter_hud['components']['forge.ui_values']['values'] == [dict(name='blur', value=4)]
-assert by_source['Assets/UI/Filters/Lab.rml']['metadata']['forge.ui_source']['runtime_features'] == dict(filters=1)
+assert by_source['Assets/UI/Filters/Lab.rml']['metadata']['forge.ui_source']['runtime_features'] == dict(filters=2)
 assert len([row for row in filters['entities'] if 'forge.camera' in row['components']]) == 1
 assert not {row['id'] for row in filters['entities']} & {row['id'] for row in camera_ui['entities']}
+shadows = json.loads((project_root / 'Scenes/162-ui-drop-shadows.scene.json').read_text())
+assert shadows['asset_id'] == by_source['Scenes/162-ui-drop-shadows.scene.json']['id']
+shadow_hud = next(row for row in shadows['entities'] if 'forge.ui_document' in row['components'])
+assert shadow_hud['components']['forge.ui_document']['document'] == by_source['Assets/UI/Shadows/Lab.rml']['id']
+assert shadow_hud['components']['forge.ui_values']['values'] == [dict(name='blur', value=4.0)]
+assert by_source['Assets/UI/Shadows/Lab.rml']['metadata']['forge.ui_source']['runtime_features'] == dict(filters=2)
+assert not {row['id'] for row in shadows['entities']} & {row['id'] for row in filters['entities']}
+
 
 scenes = sorted((project_root / 'Scenes').glob('*.scene.json'))
 assert {'71-world-sprites.scene.json', '72-sprite-frame-animation.scene.json',

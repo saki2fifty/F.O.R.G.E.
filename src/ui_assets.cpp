@@ -40,7 +40,7 @@ std::uint32_t be(std::span<const std::byte> b, std::size_t p, unsigned n) {
 unsigned le(std::span<const std::byte> b, std::size_t p) {
     return std::to_integer<unsigned>(b[p]) | (std::to_integer<unsigned>(b[p + 1]) << 8);
 }
-bool validate_text_profile(std::string_view text, bool markup) {
+unsigned validate_text_profile(std::string_view text, bool markup) {
     require(text.size() <= 256 * 1024, "RML/RCSS exceeds 256 KiB");
     require(text.find('\0') == std::string_view::npos, "RML/RCSS contains NUL");
     (void)nlohmann::json(std::string(text)).dump();
@@ -51,7 +51,7 @@ bool validate_text_profile(std::string_view text, bool markup) {
     std::size_t nodes = 0;
     unsigned braces = 0, parens = 0;
     std::string property, token;
-    bool filters = false;
+    unsigned filter_profile = 0;
     for (std::size_t i = 0; i < text.size();) {
         if (markup && text.substr(i, 4) == "<!--") {
             auto e = text.find("-->", i + 4);
@@ -111,7 +111,8 @@ bool validate_text_profile(std::string_view text, bool markup) {
                         continue;
                     }
                     auto name = lower(std::string(attributes.substr(begin, a - begin)));
-                    filters |= name == "data-style-filter";
+                    if (name == "data-style-filter")
+                        filter_profile = ui_filter_detail::profile_version;
                     while (a < attributes.size() && space(attributes[a]))
                         ++a;
                     if (a == attributes.size() || attributes[a] != '=')
@@ -135,8 +136,10 @@ bool validate_text_profile(std::string_view text, bool markup) {
                         const auto style = attributes.substr(begin, a - begin);
                         // Native attribute parsing expands character references.
                         // Encoded styles conservatively require the current filter kit.
-                        filters |= style.find('&') != style.npos;
-                        filters |= validate_text_profile(style, false);
+                        if (style.find('&') != style.npos)
+                            filter_profile = ui_filter_detail::profile_version;
+                        filter_profile =
+                            std::max(filter_profile, validate_text_profile(style, false));
                     }
                     if (a < attributes.size())
                         ++a;
@@ -158,7 +161,9 @@ bool validate_text_profile(std::string_view text, bool markup) {
                 if (tag == "style") {
                     auto close = text.find("</style>", end + 1);
                     require(close != text.npos, "Unterminated RML style");
-                    filters |= validate_text_profile(text.substr(end + 1, close - end - 1), false);
+                    filter_profile = std::max(
+                        filter_profile,
+                        validate_text_profile(text.substr(end + 1, close - end - 1), false));
                     i = close;
                     continue;
                 }
@@ -168,6 +173,8 @@ bool validate_text_profile(std::string_view text, bool markup) {
         }
         if (!markup) {
             char c = text[i];
+            if (c == '(' && property == "filter" && token == "drop-shadow")
+                filter_profile = ui_filter_detail::profile_version;
             // Retain identifier pieces across comments, as the stylesheet reader does.
             if (std::isalpha(static_cast<unsigned char>(c)) || c == '-')
                 token += char(std::tolower(static_cast<unsigned char>(c)));
@@ -175,10 +182,12 @@ bool validate_text_profile(std::string_view text, bool markup) {
                 token.clear();
             if (c == ':') {
                 property = std::exchange(token, {});
-                filters |= property == "filter";
+                if (property == "filter")
+                    filter_profile =
+                        std::max(filter_profile, ui_filter_detail::basic_profile_version);
                 require(property != "backdrop-filter" && property != "mask-image" &&
                             property != "box-shadow",
-                        "UI backdrop filters, masks and shadows are not supported");
+                        "UI backdrop filters, masks and box shadows are not supported");
                 require(property != "font", "Use explicit font-family and font-size properties");
             }
             if (c == '{' || c == ';' || c == '}')
@@ -233,7 +242,7 @@ bool validate_text_profile(std::string_view text, bool markup) {
     if (markup)
         require(nodes > 0 && text.find("<rml") != text.npos && text.find("<body") != text.npos,
                 "RML requires rml and body elements");
-    return filters;
+    return filter_profile;
 }
 } // namespace
 void validate_ui_text(std::string_view text, bool markup) {
@@ -356,9 +365,9 @@ const std::vector<std::byte>& UiResources::read(const std::string& name) {
             "Unsupported UI resource type");
     auto data = access_.read(locator, text ? 256 * 1024 : 16 * 1024 * 1024 + 274);
     require(bytes_ + data.size() <= 32 * 1024 * 1024, "UI resource bytes exceed 32 MiB");
-    bool filters = false;
+    unsigned filter_profile = 0;
     if (text)
-        filters = validate_text_profile(
+        filter_profile = validate_text_profile(
             std::string_view(reinterpret_cast<const char*>(data.data()), data.size()),
             ext == ".rml");
     else if (image_extension(ext)) {
@@ -373,7 +382,7 @@ const std::vector<std::byte>& UiResources::read(const std::string& name) {
     } else
         validate_ui_font(data);
     bytes_ += data.size();
-    return files_.emplace(key, File{std::move(data), filters}).first->second.bytes;
+    return files_.emplace(key, File{std::move(data), filter_profile}).first->second.bytes;
 }
 std::string UiResources::document(AssetRef<UiDocumentAsset> ref) {
     const auto resolved = AssetCatalog::open_project(paths_.root()).resolve(ref);
@@ -423,8 +432,8 @@ UiAssetSnapshot UiResources::snapshot() const {
                           asset_detail::content_digest(bytes),
                           bytes.size(),
                           {{"format", extension.substr(1)}}};
-        if (file.filters)
-            info.details["runtime_features"] = {{"filters", ui_filter_detail::profile_version}};
+        if (file.filter_profile)
+            info.details["runtime_features"] = {{"filters", file.filter_profile}};
         if (image_extension(extension)) {
             const auto [width, height] = image_dimensions(bytes);
             info.details["width"] = width;

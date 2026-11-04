@@ -191,8 +191,47 @@ the previous usable UI when a replacement fails. Correct the source and reload.
 Filters also work in UI assigned to a camera image. Save the sources and Scene,
 select the Scene as startup, and export with the runtime kit supplied with this
 editor. An older kit without filter support is rejected before replacing an
-existing export. No C++ module is needed. Backdrop filters, masks, shadows,
-shader decorators and gradients are unavailable.
+existing export. No C++ module is needed. Drop shadows use the workflow below;
+backdrop filters, masks, box shadows, shader decorators and gradients are unavailable.
+
+## Add a drop shadow
+
+Open **Scenes/162-ui-drop-shadows.scene.json** in **Examples/FeatureGallery** and
+press **Play**. Compare the reference, hard, left-offset, soft, stacked and live
+samples. Shadows follow the rendered alpha of the element and its descendants.
+The original content stays above its shadow.
+
+![Original UI shapes with hard, left-offset, soft, stacked and live shadows](../images/ui-shadow-gallery.png)
+
+The small shadow pulse animates on presentation time, including while Pause holds
+the fixed gameplay tick.
+
+1. Pause, then select **Shadow lab HUD** in Hierarchy.
+2. Under **Live gameplay → UI Values**, change **blur** between `0` and `16`. Watch the **Live** sample soften. `0` gives a hard shadow.
+3. Stop to restore the saved value. Set **UI Values → blur** in Edit and save the Scene to keep a new initial value.
+4. Edit **Assets/UI/Shadows/Lab.rml**, save it, and use **Reload UI** during Play to try source changes.
+
+A filter uses color, horizontal offset, vertical offset and blur sigma:
+
+```css
+#badge { filter: drop-shadow(#20408080 8px 6px 2px); }
+```
+
+This casts a partly transparent blue shadow, eight resolved pixels right and six
+down, with sigma two. Negative offsets move left or up. Each offset must stay
+between `-128` and `128`; sigma must stay between `0` and `16`. Color includes its
+own alpha. A transparent shadow adds nothing. Keep model-bound values in range.
+This is the `filter` effect; the `box-shadow` property is unavailable.
+
+Chain filters in the desired order. A second shadow receives the result of the
+first, including its shadow. Opacity before or after a shadow can therefore give
+different results. Filtered layers share the nesting, memory and image-edge
+limits above. Content and blur tails outside the target image are unavailable.
+
+Drop shadows also work in UI assigned to a camera image. Save the sources and
+Scene, select it as startup, and export with the runtime kit supplied with this
+editor. An older incompatible kit rejects before replacing an existing export.
+The same saved UI Values and source animation run in the exported game.
 
 ## Layout your document
 
@@ -229,7 +268,7 @@ export artwork in the orientation and display colors you want.
 
 Use document-relative local resource paths. The supplied **Lato** font is packaged with FORGE, so it does not depend on installed system fonts. You may load project `.ttf`/`.otf` fonts using an RCSS `@font-face` declaration, with suitable redistribution rights. Use explicit `font-family` and `font-size`; font shorthand is not supported in this integration. When replacing a font using the same family name, restart Play to clear its font cache.
 
-Images support **PNG**, **JPEG** (`.jpg` or `.jpeg`) and uncompressed true-color **TGA** (24 or 32 bits), at most 2048×2048. Use PNG for transparent icons and JPEG for opaque artwork. Image bytes and decoded pixels have additional limits; very large or high-precision images can exceed them. SVG, remote URLs, templates and stylesheet imports are not supported yet. Link multiple stylesheets individually. Blur and the color filters described above use bounded temporary layers. Backdrop filters, masks, shader gradients and shadows are unavailable.
+Images support **PNG**, **JPEG** (`.jpg` or `.jpeg`) and uncompressed true-color **TGA** (24 or 32 bits), at most 2048×2048. Use PNG for transparent icons and JPEG for opaque artwork. Image bytes and decoded pixels have additional limits; very large or high-precision images can exceed them. SVG, remote URLs, templates and stylesheet imports are not supported yet. Link multiple stylesheets individually. Blur and the color filters described above use bounded temporary layers. Drop shadows use the filter workflow above. Backdrop filters, masks, shader gradients and box shadows are unavailable.
 
 `px` means game render-target pixels; `dp` follows display density. The editor's interface scale remains separate. Check text input and sizing on the displays and input languages used by your game.
 

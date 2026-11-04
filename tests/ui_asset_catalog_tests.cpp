@@ -74,23 +74,28 @@ int main(int argc, char** argv) {
                    .metadata.at("forge.ui_source")
                    .contains("runtime_features"),
               "Unfiltered UI acquired a runtime filter requirement");
-        for (const auto& [extension, text, filtered] :
-             std::vector<std::tuple<std::string, std::string, bool>>{
-                 {"rcss", "body {filter:blur(1px);}", true},
-                 {"rcss", "body {fil/**/ter /* gap */ : opacity(0.5);}", true},
-                 {"rcss", "/* filter:blur(3px); */ body {color:red;}", false},
-                 {"rcss", "body {font-family:'filter:blur(3px)';}", false},
-                 {"rml", "<rml><body style=\"filter:blur(1px)\"></body></rml>", true},
-                 {"rml", "<rml><body style=\"fil&#116;er&#58;blur(2px)\"></body></rml>", true},
-                 {"rml", "<rml><body style=\"color:&#114;ed\"></body></rml>", true},
-                 {"rml", "<rml><head><style>body{filter:none;}</style></head><body/></rml>", true},
-                 {"rml", "<rml><body data-style-filter=\"effect\"></body></rml>", true},
-                 {"rml", "<rml><body><!-- filter:blur(2px); --></body></rml>", false},
-                 {"rml", "<rml><body title=\"filter:blur(2px)\"></body></rml>", false}}) {
+        for (const auto& [extension, text, profile] :
+             std::vector<std::tuple<std::string, std::string, unsigned>>{
+                 {"rcss", "body {filter:blur(1px);}", 1u},
+                 {"rcss", "body {filter:drop-shadow(#123456 -4px 8px 2px);}", 2u},
+                 {"rcss", "body {filter:drop-/**/shadow(#123456 -4px 8px 2px);}", 2u},
+                 {"rcss", "/* filter:drop-shadow(red 1px 2px); */ body {color:red;}", 0u},
+                 {"rcss", "body {font-family:'drop-shadow(red 1px 2px)';filter:blur(1px);}", 1u},
+                 {"rcss", "body {fil/**/ter /* gap */ : opacity(0.5);}", 1u},
+                 {"rcss", "/* filter:blur(3px); */ body {color:red;}", 0u},
+                 {"rcss", "body {font-family:'filter:blur(3px)';}", 0u},
+                 {"rml", "<rml><body style=\"filter:blur(1px)\"></body></rml>", 1u},
+                 {"rml", "<rml><body style=\"fil&#116;er&#58;blur(2px)\"></body></rml>", 2u},
+                 {"rml", "<rml><body style=\"color:&#114;ed\"></body></rml>", 2u},
+                 {"rml", "<rml><head><style>body{filter:none;}</style></head><body/></rml>", 1u},
+                 {"rml", "<rml><body data-style-filter=\"effect\"></body></rml>", 2u},
+                 {"rml", "<rml><body><!-- filter:blur(2px); --></body></rml>", 0u},
+                 {"rml", "<rml><body title=\"filter:blur(2px)\"></body></rml>", 0u}}) {
             const auto source = std::filesystem::path("Assets") / ("feature." + extension);
             asset_storage::replace(root / source, text);
             const auto feature = register_ui_source(writer, source);
-            check(feature.metadata.at("forge.ui_source").contains("runtime_features") == filtered,
+            check(feature.metadata.at("forge.ui_source").contains("runtime_features") ==
+                      (profile != 0),
                   "UI feature evidence ignored declarations/bindings or interpreted comments/text");
             UiResources evidence(root);
             evidence.document({document.id});
@@ -100,7 +105,10 @@ int main(int argc, char** argv) {
                 ui_inspection_detail::decode(ui_inspection_detail::encode(observed));
             check(transported.sources == observed.sources,
                   "UI filter source evidence changed across inspection transport");
-            if (filtered) {
+            if (profile) {
+                check(feature.metadata.at("forge.ui_source").at("runtime_features").at("filters") ==
+                          profile,
+                      "UI filter declaration requires the wrong capability profile");
                 auto forged = observed;
                 for (auto& info : forged.sources)
                     info.details.erase("runtime_features");

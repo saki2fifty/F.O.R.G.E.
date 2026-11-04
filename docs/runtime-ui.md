@@ -256,7 +256,7 @@ presentation state or access to arbitrary DOM/script/engine files.
 
 Adopted: native RML/RCSS layout, styled text/buttons/forms, copied scalar expressions, local text editing, multiple ordered documents, PNG/JPEG/TGA images, project fonts, transforms, scissor and stencil masks, explicit reload. Documents sort by layer then stable incoming scene order; RmlUi manages normal DOM focus/z-order within that context.
 
-Deferred: browser JavaScript, Lua, debugger UI, SVG/Lottie/HarfBuzz, RCSS imports/templates, world-space UI, collections/two-way gameplay binding, public plugin APIs and a visual UI designer. Standalone gamepad navigation now routes through input actions to native RmlUi focus traversal and activation. Link stylesheets individually. Bounded blur/color filters use transient renderer-owned layers as described below. Backdrop filters, masks, shader decorators/gradients and shadows remain unsupported and diagnosed. Use explicit font-family/font-size rather than shorthand. This is the first screen-space integration, not a visual UI designer.
+Deferred: browser JavaScript, Lua, debugger UI, SVG/Lottie/HarfBuzz, RCSS imports/templates, world-space UI, collections/two-way gameplay binding, public plugin APIs and a visual UI designer. Standalone gamepad navigation now routes through input actions to native RmlUi focus traversal and activation. Link stylesheets individually. Bounded blur/color filters use transient renderer-owned layers as described below. Backdrop filters, masks, shader decorators/gradients and box shadows remain unsupported and diagnosed. Drop-shadow filters use the profile below. Use explicit font-family/font-size rather than shorthand. This is the first screen-space integration, not a visual UI designer.
 
 ## Upstream evidence
 
@@ -362,7 +362,7 @@ an independent CSS pulse continues during Pause.
 ## Native filter profile
 
 RML inline styles and embedded/linked RCSS may use `filter` chains containing
-blur, opacity, brightness, contrast and grayscale. The native parser resolves
+blur, opacity, brightness, contrast, grayscale and drop-shadow. The native parser resolves
 units and interpolation; the shared FORGE profile admits finite nonnegative
 values: blur sigma0..16 resolved pixels (Gaussian truncated at3sigma/radius48),
 opacity/grayscale0..1 and brightness/contrast0..4. At most8filters per chain,
@@ -393,7 +393,7 @@ arbitrary transient DOM state.
 
 UiResources derives filter requirements during the same bounded source admission
 that retains immutable bytes. Declared `filter` properties, including keyframes,
-and `data-style-filter` bindings add `runtime_features:{filters:1}` to the existing
+and `data-style-filter` bindings add `runtime_features:{filters:1 or2}` to the existing
 source details/`forge.ui_source` metadata. Inline styles containing character
 references conservatively require this profile because native attribute parsing
 expands them before interpreting CSS. Other comments and quoted ordinary text do
@@ -402,16 +402,51 @@ source bytes and evidence; inspection transport and cooked metadata retain it.
 This is a conservative declaration requirement, including `filter:none`, not a
 prediction of arbitrary future rich-text/DOM injection.
 
-Runtime kits advertise `engine.runtime_ui_filters:1` from the same profile header.
-The existing export/distribution compatibility helper requires an exact integer
-match for cooked sources declaring filters, independently of camera-output UI
-protocol2. Unfiltered legacy sources/kits retain their compatibility. The isolated
-non-graphical export inspector uses the shared native payload admission without
-GPU objects; graphical readiness stays with the actual game host.
+Runtime kits advertise `engine.runtime_ui_filters:2` from the same profile header.
+Profile2 adds drop shadows to the complete profile1 blur/color contract. The
+existing export/distribution helper accepts known source requirements1/2 when
+covered by the kit's known profile1/2. Static basic filter declarations retain1;
+drop-shadow declarations require2. Dynamic `data-style-filter` bindings and
+encoded inline styles conservatively require2 because their native result may
+select any supported filter. Source read/snapshot/catalog refresh recomputes this
+evidence with the same stable logical IDs; existing profile1 content remains
+readable. A kit1 cannot satisfy requirement2. Unknown/fractional/noninteger source
+or kit versions reject. Unfiltered sources still add no requirement. Camera-output
+UI protocol2 is separate. The isolated non-graphical inspector uses the same typed
+payload admission without GPU objects; graphical readiness stays with the host.
 
 Gallery155 provides original shape/color samples, Inspector-driven blur and a
 presentation-time filter pulse. Source editing/registration, live UI reload,
 UiValues tuning and export use their existing automation/MCP operations and guards.
 No effects database, authored DOM format, new game clock or plugin ABI is added.
-Backdrop/mask/shadow/gradient/shader effects, world-space UI and surface input
+Backdrop/mask/box-shadow/gradient/shader effects, world-space UI and surface input
 remain outside this profile.
+
+### Drop-shadow composition
+
+The exact pinned native parser supplies `drop-shadow` with three dictionary
+entries: FLOAT sigma, VECTOR2 offset and straight display-space COLOURB color.
+Shared `admit_filter` validates exact names/types and `make_drop_shadow` admits
+sigma0..16, signed offsets -128..128 resolved pixels and finite straightRGBA0..1.
+It reuses the existing normalized Gaussian kernel and radius48 bound. The existing
+8chain/4active layers/256compiled filters/32images/256MiB logical image budget
+also governs shadows; no second pool or effect database is introduced.
+
+UiFilterLayers retains the incoming chain image active until source-over finishes,
+including a preceding scratch result. It applies the existing separable blur,
+samples displaced alpha, tints it, and composites the unblurred input over that
+shadow. Transparent shadow alpha skips work. A later shadow sees the earlier
+composite. Source/destination alias handling and exception retirement remain with
+the existing owner. Stencil/scissor still constrain final destination composition;
+intermediate Gaussian tails are limited to the target viewport. This is not
+recovery of off-target geometry or an unbounded convolution.
+
+The pinned Diligent SRGBToLinear helper converts straight shadow color exactly
+once for a linearRGBA16F destination before premultiplication; displayRGBA8 keeps
+display channels. Existing blurred layer pixels never undergo another gamma
+conversion. Native model/keyframe interpolation, source candidate/last-good,
+main/output errors and UI lifetime remain unchanged. Gallery162 supplies original
+hard/left/soft/stacked/model/animated comparisons through the same GamePresentation
+and source-hidden export test as Gallery155. Source authoring, tuning and reload
+continue through existing automation/MCP operations; no effect-specific mutation
+API is needed.

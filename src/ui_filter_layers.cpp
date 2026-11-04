@@ -3,6 +3,7 @@
 #include "Graphics/GraphicsEngine/interface/DeviceContext.h"
 #include "Graphics/GraphicsEngine/interface/RenderDevice.h"
 #include "Graphics/GraphicsTools/interface/MapHelper.hpp"
+#include "Utilities/interface/DiligentFXShaderSourceStreamFactory.hpp"
 #include "ui_filter_admission.hpp"
 #include <RmlUi/Core.h>
 #include <algorithm>
@@ -12,6 +13,7 @@
 #include <map>
 #include <optional>
 #include <stdexcept>
+#include <utility>
 #include <vector>
 
 using namespace Diligent;
@@ -26,6 +28,8 @@ struct UiFilterLayers::Impl {
     struct Constants {
         float viewport[4]{};
         float filter[4]{};
+        float offset[4]{};
+        float color[4]{};
         float weights[52]{};
     };
     RefCntAutoPtr<IRenderDevice> device;
@@ -49,6 +53,7 @@ struct UiFilterLayers::Impl {
         shader.SourceLanguage = SHADER_SOURCE_LANGUAGE_HLSL;
         shader.EntryPoint = "main";
         shader.Desc.UseCombinedTextureSamplers = True;
+        shader.pShaderSourceStreamFactory = &DiligentFXShaderSourceStreamFactory::GetInstance();
         shader.Desc.Name = "FORGE UI layer VS";
         shader.Desc.ShaderType = SHADER_TYPE_VERTEX;
         shader.Source = R"(float4 main(uint id:SV_VertexID):SV_POSITION {
@@ -59,7 +64,8 @@ float2 uv=float2((id<<1)&2,id&2);return float4(uv.x*2-1,1-uv.y*2,0,1);})";
         shader.Desc.ShaderType = SHADER_TYPE_PIXEL;
         // Layer pixels already have the destination color domain. They must not
         // pass through the geometry adapter's display-to-linear transfer again.
-        shader.Source = R"(cbuffer UiFilterData {float4 viewport;float4 filter;float4 weights[13];};
+        shader.Source = R"(#include "SRGBUtilities.fxh"
+cbuffer UiFilterData {float4 viewport;float4 filter;float4 offset;float4 shadow_color;float4 weights[13];};
 Texture2D input_image;SamplerState input_image_sampler;
 float4 sample_image(float2 uv) {
     return any(uv<0)||any(uv>1) ? float4(0,0,0,0) : input_image.SampleLevel(input_image_sampler,uv,0);
@@ -78,6 +84,12 @@ float4 main(float4 position:SV_POSITION):SV_TARGET {
     else if(kind==3) color.rgb*=value;
     else if(kind==4) color.rgb=max(float3(0,0,0),(color.rgb-.5*color.a)*value+.5*color.a);
     else if(kind==5) color.rgb=lerp(color.rgb,dot(color.rgb,float3(.2126,.7152,.0722)).xxx,value);
+    else if(kind==6) {
+        float4 tint=shadow_color;
+        if(viewport.z>0.5) tint.rgb=SRGBToLinear(tint.rgb);
+        tint.rgb*=tint.a;
+        color=tint*sample_image(uv-offset.xy/viewport.xy).a;
+    }
     return color;
 })";
         device->CreateShader(shader, &ps);
@@ -232,10 +244,13 @@ float4 main(float4 position:SV_POSITION):SV_TARGET {
             *cb = {};
             cb->viewport[0] = float(width);
             cb->viewport[1] = float(height);
+            cb->viewport[2] = float(format);
             cb->filter[0] = float(filter.kind);
             cb->filter[1] = filter.value;
             cb->filter[2] = float(filter.radius);
             cb->filter[3] = float(direction);
+            std::copy(filter.offset.begin(), filter.offset.end(), cb->offset);
+            std::copy(filter.color.begin(), filter.color.end(), cb->color);
             std::memcpy(cb->weights, filter.weights.data(), sizeof(cb->weights));
         }
         base_binding->GetVariableByName(SHADER_TYPE_PIXEL, "input_image")->Set(input);
@@ -324,12 +339,14 @@ void UiFilterLayers::composite(Rml::LayerHandle source, Rml::LayerHandle destina
     s.pipelines_ready();
     auto* input = s.image(source, TEXTURE_VIEW_SHADER_RESOURCE);
     auto* output = s.image(destination, TEXTURE_VIEW_RENDER_TARGET);
-    std::optional<std::size_t> temporary, writing;
+    std::optional<std::size_t> temporary, writing, retained;
     const auto release = [&] {
         if (temporary)
             s.images[*temporary].active = false;
         if (writing)
             s.images[*writing].active = false;
+        if (retained)
+            s.images[*retained].active = false;
     };
     try {
         const auto run = [&](const Filter& filter, unsigned direction) {
@@ -347,7 +364,28 @@ void UiFilterLayers::composite(Rml::LayerHandle source, Rml::LayerHandle destina
             const auto filter = s.filters.find(handle);
             if (filter == s.filters.end())
                 throw std::runtime_error("UI filter handle is stale");
-            if (filter->second.kind == Kind::Blur) {
+            if (filter->second.kind == Kind::DropShadow) {
+                if (filter->second.color[3] == 0)
+                    continue;
+                // Preserve the incoming chain image until it is composited over
+                // its blurred, displaced alpha silhouette. The pool owns every
+                // intermediate; keeping it active also prevents target aliasing.
+                auto* original = input;
+                retained = std::exchange(temporary, {});
+                auto blur = filter->second;
+                blur.kind = Kind::Blur;
+                if (blur.radius) {
+                    run(blur, 0);
+                    run(blur, 1);
+                }
+                run(filter->second, 0);
+                s.pass(original,
+                       s.images[*temporary].texture->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET),
+                       Filter{}, 0, Rml::BlendMode::Blend, stencil, 0, false, false, {});
+                if (retained)
+                    s.images[*retained].active = false;
+                retained.reset();
+            } else if (filter->second.kind == Kind::Blur) {
                 if (filter->second.radius) {
                     run(filter->second, 0);
                     run(filter->second, 1);

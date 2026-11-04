@@ -14,14 +14,31 @@ void check(bool ok, const char* message) {
 int main(int argc, char** argv) {
     try {
         check(argc == 3, "Need UI filter scratch and default font");
+        const Rml::Dictionary valid{{"sigma", Rml::Variant(2.f)},
+                                    {"offset", Rml::Variant(Rml::Vector2f{-4, 8})},
+                                    {"color", Rml::Variant(Rml::Colourb{30, 60, 90, 128})}};
+        for (const auto* key : {"sigma", "offset", "color", "extra"}) {
+            auto invalid = valid;
+            if (std::string_view(key) == "extra")
+                invalid["extra"] = Rml::Variant(0.f);
+            else
+                invalid[key] = Rml::Variant(Rml::String("wrong type"));
+            bool rejected = false;
+            try {
+                (void)ui_filter_detail::admit_filter("drop-shadow", invalid);
+            } catch (const std::exception&) {
+                rejected = true;
+            }
+            check(rejected, "Malformed native shadow payload was admitted");
+        }
         const auto root = std::filesystem::absolute(argv[1]) / AssetId::generate().str();
         std::filesystem::create_directories(root);
         const auto path = root / "Filtered.rml";
         const std::string original = R"rml(<rml><head><style>
 body, div, p {display:block;} body {margin:0; font-family:Lato; font-size:16px;}
-#outer {width:180px; height:100px; filter:blur(1px) contrast(1);}
+#outer {width:180px; height:100px; filter:blur(1px) contrast(1) drop-shadow(#45678980 -4px 8px 2px);}
 #panel {width:160px; height:80px; background-color:#459edc;}
-</style></head><body><div id="outer"><div id="panel" data-style-filter="'opacity(' + amount + ')'">
+</style></head><body><div id="outer"><div id="panel" data-style-filter="'opacity(' + amount + ') drop-shadow(#456789 -4px 8px ' + amount + 'px)'">
 <p>Tick: {{tick}}</p></div></div></body></rml>)rml";
         const auto write = [&](const std::string& source) { std::ofstream(path) << source; };
         write(original);
@@ -67,6 +84,12 @@ body, div, p {display:block;} body {margin:0; font-family:Lato; font-size:16px;}
             draw();
             check(renderer.layer_pushes >= 4 && renderer.composites >= 4,
                   "RML filters did not compose main and output documents");
+            check(std::any_of(renderer.filters.begin(), renderer.filters.end(),
+                              [](const auto& item) {
+                                  return item.second.first == "drop-shadow" &&
+                                         item.second.second == 2;
+                              }),
+                  "Native shadow parser did not produce its typed admitted payload");
             auto* first = Rml::GetContext(0);
             auto* second = Rml::GetContext(1);
             publish(.25);
@@ -82,6 +105,13 @@ body, div, p {display:block;} body {margin:0; font-family:Lato; font-size:16px;}
                                          item.second.second == .25f;
                               }),
                   "A paused model binding did not reach native filter parameters");
+            check(std::any_of(renderer.filters.begin(), renderer.filters.end(),
+                              [](const auto& item) {
+                                  return item.second.first == "drop-shadow" &&
+                                         item.second.second == .25f;
+                              }),
+                  "A paused model binding did not update the typed shadow sigma");
+
             const auto resources = presenter.asset_snapshot()->sources;
             const auto live_filters = renderer.filters.size();
             std::string deep = "<rml><head><style>body,div {display:block; "
@@ -93,14 +123,20 @@ body, div, p {display:block;} body {margin:0; font-family:Lato; font-size:16px;}
                 deep += "</div>";
             deep += "</body></rml>";
             auto excessive = original;
-            const auto at = excessive.find("filter:blur(1px) contrast(1);");
+            const auto at = excessive.find("filter:blur(1px) contrast(1)");
             std::string chain = "filter:";
             for (unsigned i = 0; i < 9; ++i)
                 chain += "opacity(.5) ";
-            excessive.replace(at, std::string("filter:blur(1px) contrast(1);").size(), chain + ';');
+            excessive.replace(
+                at,
+                std::string("filter:blur(1px) contrast(1) drop-shadow(#45678980 -4px 8px 2px);")
+                    .size(),
+                chain + ';');
             auto invalid_blur = original;
             invalid_blur.replace(invalid_blur.find("blur(1px)"), 9, "blur(17px)");
-            for (const auto& source : {deep, excessive, invalid_blur}) {
+            auto invalid_shadow = original;
+            invalid_shadow.replace(invalid_shadow.find("-4px 8px"), 8, "-129px 8px");
+            for (const auto& source : {deep, excessive, invalid_blur, invalid_shadow}) {
                 const auto pushes = renderer.layer_pushes;
                 write(source);
                 check(!presenter.reload() && !presenter.diagnostic().empty(),

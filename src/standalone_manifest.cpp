@@ -155,11 +155,12 @@ void validate_runtime_compatibility(const AssetCatalog& catalog, const Json& eng
         require(features->is_object(), "Invalid UI source runtime features");
         for (const auto& [name, version] : features->items()) {
             require(name == "filters" && version.is_number_integer() &&
-                        version == ui_filter_detail::profile_version,
+                        version >= ui_filter_detail::basic_profile_version &&
+                        version <= ui_filter_detail::profile_version,
                     "Unsupported UI source runtime feature/profile");
             const auto support = engine.find("runtime_ui_filters");
             require(support != engine.end() && support->is_number_integer() &&
-                        *support == ui_filter_detail::profile_version,
+                        *support >= version && *support <= ui_filter_detail::profile_version,
                     "UI filters require a matching runtime kit with UI filter support; "
                     "select the runtime kit packaged with this editor");
         }
