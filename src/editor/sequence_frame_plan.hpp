@@ -1,4 +1,5 @@
 #pragma once
+#include "../view_image_limits.h"
 #include <cmath>
 #include <cstddef>
 #include <cstdio>
@@ -7,7 +8,7 @@
 namespace forge::ui {
 // Editor-only sampling settings. AnimationRuntime remains the sequence time owner.
 struct SequenceFramePlan {
-    static constexpr int maximum_frames = 4096;
+    static constexpr int maximum_frames = int(FORGE_SEQUENCE_FRAME_MAX_COUNT);
     double start_seconds = 0, frames_per_second = 30;
     int frame_count = 180;
     double sample(std::size_t index) const {

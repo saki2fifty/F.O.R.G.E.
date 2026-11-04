@@ -3,6 +3,7 @@
 #define FORGE_VIEW_IMAGE_MAX_EXTENT 4096u
 #define FORGE_VIEW_IMAGE_PIXEL_LIMIT (64u * 1024u * 1024u)
 #define FORGE_VIEW_IMAGE_ENCODED_LIMIT (68u * 1024u * 1024u)
+#define FORGE_SEQUENCE_FRAME_MAX_COUNT 4096u
 
 // Detached linear RGB float storage at the same4096-axis limit (12bytes/pixel).
 #define FORGE_HDR_IMAGE_PIXEL_LIMIT (192u * 1024u * 1024u)

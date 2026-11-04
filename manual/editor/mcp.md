@@ -234,10 +234,15 @@ requires opaque sRGB byte storage. JPEG is lossy even at 100; its PNG inspection
 preview shows decoded saved pixels. The same output grant, operation/revision
 checks and replacement rules apply. See [JPEG image export](textures.md).
 
-Timeline
-sequence export uses the existing preview/controller and writes sampled frames
-plus their receipt into a new folder. Cancellation retains completed files and
-restores the preview cursor; an image already committing must finish.
+Timeline sequence export uses the existing preview/controller and writes sampled
+PNG frames and their receipt into a new folder. Set **format: webp** on
+**forge_capture_sequence_start** to add `animation.webp`; the default **png** keeps
+frames alone. WebP requires 2–4096 frames, the packaged asset worker and the
+[sequence export limits](animation-sequences.md). Status reports **encoding**
+while it runs, then the animation's path, bytes, duration and loop count when
+complete. Individual PNG frames remain available through the owned image preview.
+Cancellation retains completed files and restores the preview cursor; an image
+or animation already committing must finish.
 
 Export uses saved project content and the matching selected runtime/module kits.
 Save all authoring drafts first and set Game defaults and Startup Scene in Project

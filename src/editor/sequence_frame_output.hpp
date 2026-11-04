@@ -13,6 +13,7 @@ struct SequenceFrameExtent {
 struct SequenceFrameOutput {
     bool fixed = false;
     int width = 1280, height = 720;
+    bool webp = false;
     bool valid() const {
         return !fixed ||
                (width > 0 && height > 0 && width <= int(FORGE_VIEW_IMAGE_MAX_EXTENT) &&

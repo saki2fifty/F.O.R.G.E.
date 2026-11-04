@@ -1792,3 +1792,24 @@ Current/later image equality, explicit preview_profile, exact operation/read/out
 grants, damaged-preview artifact retention and both framings have focused proof.
 The earlier HDR Texture-viewer screenshot retains its original separate source
 and display-transform provenance.
+
+
+## WebP sequence export options
+
+[Sequence export](../../../manual/images/webp-sequence-export.png) shows the actual
+production Add WebP animation option, its retained-PNG explanation, scrollable
+settings and Start/Cancel controls. Authentic720x780 unassigned local capture:
+pinned Diligent ImGui renderer, offscreen software Vulkan target and independent
+RGBA readback encoded directly as PNG. No cropping, resizing, retouching or
+fabricated controls. Source tests/webp_sequence_editor_vulkan_probe.cpp;
+webp_sequence_editor_vulkan; webp-sequence-options-wide-100.png.
+PNG SHA256: a3f684509956eccedd3f8e04278a1dbaf4d026633424d227a5691c7b78c541f1.
+Native consumer SHA256: 649a634a77648d1a5db8afce2ecb010ce748847f1049e46f3bb7717f30b4ecac.
+
+Six wide/narrow layouts at1/1.5/2 interface scale exercise actual option input,
+new-folder selection, encoded GPU pixels and restoration; the encoding cancel
+control is checked enabled and cancellation retains completed PNGs/receipt.
+The UI fixture uses a controlled7x3 source. Separate camera_transition_webp_vulkan
+compares encoded frame pixels against independently sampled actual Timeline
+camera-transition rendering. This is not a full-editor, Windows/MSVC/D3D12,
+physical GPU/input/DPI/performance or external-player/client acceptance claim.

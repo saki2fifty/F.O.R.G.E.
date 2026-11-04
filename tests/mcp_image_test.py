@@ -347,6 +347,78 @@ for legacy in (False,True):
         assert settled()['preview_ready']
         first,thumb0=image(selected['operation'])
         assert first['file']=='Frames/frame-000000.png' and thumb0==thumb
+        schema=catalog['forge_capture_sequence_start']['inputSchema']['properties']['format']
+        assert schema['enum']==['png','webp']
+        current=read('forge_capture_sequence_read')
+        sequence_authored=read('forge_scene_read')
+        def webp_sequence(path,**extra):
+            observed=read('forge_capture_sequence_read')
+            return mutate('forge_capture_sequence_start',path=path,controller=observed['controller'],
+                source_revision=observed['source_revision'],preview_generation=observed['preview_generation'],
+                start_seconds=0,frames_per_second=30,frame_count=3,format='webp',
+                fixed_output=True,width=64,height=32,**extra)
+        rejected=mutate('forge_capture_sequence_start',path='OneWebP',controller=current['controller'],
+            source_revision=current['source_revision'],preview_generation=current['preview_generation'],
+            start_seconds=0,frames_per_second=30,frame_count=1,format='webp')
+        failed(rejected,'invalid_argument')
+        assert not (root/'Output/OneWebP').exists()
+        for invalid_format in ('mp4', 42):
+            observed=read('forge_capture_sequence_read')
+            invalid=mutate('forge_capture_sequence_start',path='BadFormat',controller=observed['controller'],
+                source_revision=observed['source_revision'],preview_generation=observed['preview_generation'],
+                start_seconds=0,frames_per_second=30,frame_count=3,format=invalid_format)
+            failed(invalid,'invalid_arguments')
+            assert not (root/'Output/BadFormat').exists()
+        movie=webp_sequence('WebPFrames')
+        assert movie['ok'],movie
+        encoded=settled()
+        assert not encoded['error'] and encoded['sequence']['state']=='complete',encoded
+        assert encoded['sequence']['format']=='webp' and encoded['sequence']['completed_frames']==3
+        animation=encoded['sequence']['animation']
+        webp_path=root/'Output/WebPFrames/animation.webp'
+        data=webp_path.read_bytes()
+        assert Path(animation['file'])==webp_path and animation['mime']=='image/webp'
+        assert animation['bytes']==len(data) and animation['duration_ms']==100 and animation['frames']==3
+        assert animation['loop_count']==0 and animation['profile']=='lossless-rgba8-full-frames-v1'
+        assert data[:4]==b'RIFF' and data[8:12]==b'WEBP' and int.from_bytes(data[4:8],'little')+8==len(data)
+        chunks=[];offset=12
+        while offset<len(data):
+            size=int.from_bytes(data[offset+4:offset+8],'little')
+            assert offset+8+size<=len(data)
+            chunks.append((data[offset:offset+4],data[offset+8:offset+8+size]))
+            offset+=8+size+(size&1)
+        assert offset==len(data)
+        anim=next(payload for kind,payload in chunks if kind==b'ANIM')
+        assert len(anim)==6 and anim[4:]==b'\0\0'
+        frame_chunks=[payload for kind,payload in chunks if kind==b'ANMF']
+        assert len(frame_chunks)==3
+        assert [int.from_bytes(frame[12:15],'little') for frame in frame_chunks]==[33,34,33]
+        assert all(int.from_bytes(frame[6:9],'little')+1==64 and
+                   int.from_bytes(frame[9:12],'little')+1==32 and frame[15]==2 for frame in frame_chunks)
+        receipt=json.loads((root/'Output/WebPFrames/frames.json').read_text())
+        assert receipt['output_format']=='webp' and receipt['state']=='complete'
+        assert receipt['animation']['file']=='animation.webp' and receipt['animation']['bytes']==len(data)
+        assert receipt['animation']['duration_ms']==100 and len(receipt['frames'])==3
+        assert read('forge_capture_sequence_read')['ready']
+        selected=ok('forge_capture_preview',artifact_operation=encoded['artifact_operation'],frame=2)
+        assert settled()['preview_ready']
+        frame_meta,frame_png=image(selected['operation'])
+        assert frame_meta['file']=='WebPFrames/frame-000002.png'
+        assert frame_png==(root/'Output/WebPFrames/frame-000002.png').read_bytes()
+        failed(webp_sequence('WebPFrames'),'output_exists')
+        assert webp_path.read_bytes()==data and read('forge_scene_read')==sequence_authored
+        (root/'fail_webp').touch()
+        failed_movie=webp_sequence('FailedWebP')
+        assert failed_movie['ok'],failed_movie
+        failure=settled()
+        assert failure['error'] and failure['sequence']['state']=='failed',failure
+        assert failure['sequence']['completed_frames']==3 and 'animation' not in failure['sequence']
+        assert not (root/'Output/FailedWebP/animation.webp').exists()
+        receipt=json.loads((root/'Output/FailedWebP/frames.json').read_text())
+        assert receipt['state']=='failed' and receipt['error']==failure['error']
+        assert receipt['completed_frames']==3 and read('forge_capture_sequence_read')['ready']
+        assert read('forge_scene_read')==sequence_authored
+        (root/'fail_webp').unlink()
         (root/'fail_restore').touch()
         current=read('forge_capture_sequence_read')
         ok('forge_capture_sequence_start',path='FailedFrames',controller=current['controller'],

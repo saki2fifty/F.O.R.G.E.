@@ -8,7 +8,8 @@ using namespace forge;
 using namespace Diligent;
 int main(int argc, char** argv) {
     try {
-        const bool frames = argc == 4 && std::string_view(argv[3]) == "--sequence-frames";
+        const bool webp = argc == 5 && std::string_view(argv[3]) == "--webp-sequence";
+        const bool frames = (argc == 4 && std::string_view(argv[3]) == "--sequence-frames") || webp;
         test_gallery_capture::check(argc == 3 || frames,
                                     "Need Gallery and transition capture scratch root");
         const auto scratch = std::filesystem::absolute(argv[2]) / AssetId::generate().str();
@@ -25,10 +26,11 @@ int main(int argc, char** argv) {
         test_gallery_capture::check(device && context, "Transition Vulkan device unavailable");
         DiligentPresentation presentation(device);
         if (frames) {
-            test_sequence_frame_render::exercise(presentation, context, root, scratch / "frames",
-                                                 true);
-            std::cout
-                << "Stopped Timeline transition display and exported PNG pixels match exactly\n";
+            test_sequence_frame_render::exercise(
+                presentation, context, root, scratch / "frames", true,
+                webp ? std::filesystem::u8path(argv[4]) : std::filesystem::path{});
+            std::cout << "Stopped Timeline transition display and exported sequence pixels match "
+                         "exactly\n";
             return 0;
         }
         const auto render = [&](const auto& project, const auto& output) {

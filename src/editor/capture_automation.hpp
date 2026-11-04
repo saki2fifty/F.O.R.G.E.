@@ -72,6 +72,18 @@ struct CaptureAutomation {
                                  {"state", frames->state},
                                  {"error", frames->error},
                                  {"reason", frames->reason}};
+        if (frames) {
+            value["sequence"]["format"] = frames->output.webp ? "webp" : "png";
+            if (frames->animation)
+                value["sequence"]["animation"] = {
+                    {"file", path_utf8(frames->folder / "animation.webp")},
+                    {"mime", "image/webp"},
+                    {"frames", frames->completed},
+                    {"bytes", frames->animation->bytes},
+                    {"duration_ms", frames->animation->duration_ms},
+                    {"loop_count", 0},
+                    {"profile", asset_detail::webp_sequence_profile}};
+        }
         return value;
     }
     static void ready(EditorFiles& files, const CaptureAutomationProviders& providers,
@@ -439,7 +451,12 @@ struct CaptureAutomation {
             "revision/generation. "
             "Choose a new folder inside the output grant. Samples are end-exclusive; fixed output "
             "uses real renderer pixels, not resized PNG files. Poll capture.status for "
-            "frames/receipt.",
+            "frames/receipt. Optional format:webp also writes lossless animation.webp in that "
+            "same folder after capture, retaining PNGs/receipt. It needs2..4096 sRGB RGBA8 "
+            "frames, loops indefinitely and uses nearest cumulative millisecond timing. "
+            "PNG inputs cap256 MiB aggregate, compressed frames64 MiB, output68 MiB; "
+            "supervised encoding has finite time/memory and can be cancelled before commit. "
+            "Image inspection still reads an explicitly selected completed PNG frame.",
             "capture.write",
             automation_object(
                 {{"path", automation_text(2047, 1)},
@@ -449,6 +466,7 @@ struct CaptureAutomation {
                  {"start_seconds", {{"type", "number"}, {"minimum", 0}}},
                  {"frames_per_second", {{"type", "number"}, {"minimum", 0}, {"maximum", 240}}},
                  {"frame_count", automation_integer(1, ui::SequenceFramePlan::maximum_frames)},
+                 {"format", {{"type", "string"}, {"enum", {"png", "webp"}}}},
                  {"fixed_output", {{"type", "boolean"}}},
                  {"width", automation_integer(1, 4096)},
                  {"height", automation_integer(1, 4096)}},
@@ -471,6 +489,15 @@ struct CaptureAutomation {
                                            request.at("frame_count")};
                 plan.validate(observed.at("duration"));
                 ui::SequenceFrameOutput output;
+                output.webp = request.value("format", std::string("png")) == "webp";
+                if (output.webp) {
+                    try {
+                        (void)asset_detail::webp_sequence_durations(plan.frames_per_second,
+                                                                    unsigned(plan.frame_count));
+                    } catch (const std::exception& error) {
+                        throw AuthoringError("invalid_argument", error.what());
+                    }
+                }
                 output.fixed = request.value("fixed_output", false);
                 if (output.fixed) {
                     if (!request.contains("width") || !request.contains("height"))

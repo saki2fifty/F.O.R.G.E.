@@ -2,6 +2,7 @@
 #include "editor/ui_probe.hpp"
 #include <functional>
 #include <imgui.h>
+#include <nlohmann/json.hpp>
 #include <stdexcept>
 namespace forge::test {
 // Drive actual ImGui input and scrolling through production control probe bounds.
@@ -35,11 +36,12 @@ class ImGuiInputDriver {
             throw std::runtime_error(
                 std::string(key) + " clipped/disabled at scale " +
                 std::to_string(io.DisplaySize.x) + ": " +
-                Json{{"box", {box.minimum.x, box.minimum.y, box.maximum.x, box.maximum.y}},
-                     {"clip",
-                      {box.clip_minimum.x, box.clip_minimum.y, box.clip_maximum.x,
-                       box.clip_maximum.y}},
-                     {"enabled", box.enabled}}
+                nlohmann::json{
+                    {"box", {box.minimum.x, box.minimum.y, box.maximum.x, box.maximum.y}},
+                    {"clip",
+                     {box.clip_minimum.x, box.clip_minimum.y, box.clip_maximum.x,
+                      box.clip_maximum.y}},
+                    {"enabled", box.enabled}}
                     .dump());
         io.AddMousePosEvent((box.minimum.x + box.maximum.x) / 2,
                             (box.minimum.y + box.maximum.y) / 2);

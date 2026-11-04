@@ -1,5 +1,16 @@
 # 2026-11-04
 
+## Lossless WebP sequence output
+
+Timeline **Export frames…** can add a repeating `animation.webp` while retaining
+numbered PNGs and the completion receipt. Native controls and automation/MCP share
+the existing sampling, new-folder, restoration and cancellation owners. Detached
+PNG snapshots enter the existing supervised worker; the already approved exact
+libwebp mux creates bounded lossless full-canvas RGBA8 frames with cumulative
+integer-millisecond timing. Encoding failure/cancellation preserves PNGs and an
+explicit receipt. No dependency upgrade, authored schema or SDK/ABI change.
+Windows/full-editor/physical-player review remains queued; no numbered delivery.
+
 ## Owned HDR inspection previews
 
 HDR still output now provides bounded PNG inspection through the existing owned

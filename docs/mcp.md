@@ -1000,6 +1000,25 @@ The existing task owns sampling, resource readiness, IO, cancellation, cursor
 restoration and `frames.json`. Completed/cancelled frames stay available. A single
 readback/file write already committing must finish rather than promise rollback.
 
+The optional `format:"webp"` on `capture_sequence_start` adds `animation.webp`
+beside retained PNG frames; the default is `"png"`. Schema enum, validation and
+native checkbox use the same task/plan/output owners. WebP requires2..4096frames
+and the packaged asset worker. `sequence.format` identifies the request; state
+`encoding` begins after Timeline restoration. Success adds `sequence.animation`
+with file path, MIME, frames, bytes, duration_ms, loop_count0 and
+profile`lossless-rgba8-full-frames-v1`. The same fields use a relative file in
+`frames.json`. PNG frame image inspection remains available; no animated-image
+block or arbitrary-file read authority is added.
+
+The fixed profile is lossless sRGB RGBA8 full-canvas/no-blend/no-disposal,
+infinite-loop, cumulative-rounded integer milliseconds. Scene sample times remain
+end-exclusive.2..4096frames/FPS>0..240, duration1..16777215ms each and total
+<=2147483647ms; snapshots256MiB/per-file68MiB, compressed frames64MiB/output68MiB,
+worker1GiB/120s. Native and MCP share invalid-profile, cancellation and failed
+receipt behavior. Existing output grant, new-folder, revision, replay and no-Undo
+rules remain. See[editor image ownership](editor-ui.md) and the
+[user workflow](../manual/editor/animation-sequences.md).
+
 `forge_export_start/status/cancel` borrows GameExportTask and the same native
 export service as the UI. Save drafts first. The selected runtime/module kits,
 closure validation, worker progress, staging, recognized-output replacement and

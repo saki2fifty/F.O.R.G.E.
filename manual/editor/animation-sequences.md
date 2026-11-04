@@ -107,8 +107,9 @@ participate; one controller with camera shots can direct each loaded Scene.
 
 1. Stop Game Play. Finish any pending Timeline fields, then choose **Refresh clips**.
 2. Choose **Export frames…** in the sequence Timeline. Game opens to show the sequence preview. Set **Start time**, **Frames per second** and **Frame count**.
-3. Leave the current Game size, or enable **Fixed output size** and choose 720p, 1080p, Square or your own width and height. Choose a parent folder and a new folder name. Check the output dimensions and sampled time range, keep Game open, then choose **Start export**.
-4. Wait for **Sequence frames saved** in the status bar or Console. Open the new folder to find the numbered PNGs and `frames.json` listing completed frames.
+3. Leave the current Game size, or enable **Fixed output size** and choose 720p, 1080p, Square or your own width and height. Choose a parent folder and a new folder name. Check the output dimensions and sampled time range, keep Game open.
+4. To create an animation too, enable **Add WebP animation**. Use at least two frames. Leave it off for PNG frames alone.
+5. Choose **Start export**. Wait for **Sequence frames saved** or **WebP animation and PNG frames saved** in the status bar or Console. Open the new folder to find the numbered PNGs and `frames.json` listing completed frames. With WebP enabled, it also contains `animation.webp`.
 
 Every sampled time must be before the sequence's end. For a six-second sequence,
 30 FPS and 180 frames sample 0 through 5.966667 seconds. Playback speed does not
@@ -124,6 +125,39 @@ return afterward, and Game returns to its normal panel resolution. Changing the
 Scene, sequence or assets stops export. Changing Game's render size also stops a
 current-size export. An existing output folder is preserved; choose a new name
 for each run.
+
+### Save a repeating WebP animation
+
+**Add WebP animation** makes a lossless, full-size animation from the same saved
+PNG frames. Transparency and frame order are preserved. It repeats indefinitely,
+with each frame replacing the whole canvas. Open `animation.webp` in a viewer
+that supports animated WebP. The PNG frames and receipt remain available for
+other tools or individual inspection.
+
+![Sequence export options with Add WebP animation enabled](../images/webp-sequence-export.png)
+
+Choose **Add WebP animation** in the export options to keep PNG frames and add a repeating animation.
+
+Use 2–4096 frames and a positive rate up to 240 FPS. Container durations use
+integer milliseconds rounded from cumulative frame times, so fractional FPS does
+not accumulate rounding drift. Players may clamp short delays; their displayed
+playback rate can differ from the saved timing. PNG sample times stay exact in
+the receipt. Each duration must fit 1–16777215 milliseconds, with at most
+2147483647 milliseconds in total.
+
+After the PNG frames finish, your previous Timeline preview returns and the status
+shows **Encoding lossless WebP animation…**. **Cancel export** can stop this stage.
+Cancellation or encoding failure keeps completed PNGs and records the outcome in
+`frames.json`. An animation that has already committed remains complete. Choose
+a new folder for another attempt.
+
+The packaged asset worker is required. Completed PNG snapshots must fit 256 MiB
+in total, with at most 68 MiB per frame. Compressed frame data is limited to
+64 MiB, the finished animation to 68 MiB, and encoding to 120 seconds. Larger
+exports can keep PNG frames alone, use smaller dimensions or fewer frames.
+This profile produces silent sRGB RGBA8 animation; it does not export HDR,
+16-bit animation or an audio/video movie. Importing the result as an animated
+Texture is a separate workflow and is not supported.
 
 These frames contain the silent sequence camera image. Gameplay C++, physics,
 runtime UI and sound do not run during this preview. For a single image while

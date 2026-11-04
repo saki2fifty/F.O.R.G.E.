@@ -225,10 +225,30 @@ exact times, dimensions, current/fixed size mode, source/catalog digests and
 complete/cancelled/failed state.
 Shutdown attempts the same receipt after its accepted file task has retired.
 
+**Add WebP animation** retains that PNG workflow and adds `animation.webp` in the
+same owned new folder. The shared task validates 2–4096 frames and container
+timing before admission. After restoring the Timeline, detached PNG snapshots
+enter the existing supervised asset worker's fixed `forge.image.webp-sequence`
+recipe. The existing exact lossless RGBA8 encoder feeds the approved native mux;
+full-canvas replacement, no disposal and infinite loop preserve alpha/hidden RGB
+and order. Nearest cumulative milliseconds avoid per-frame rounding drift; each
+is1..16777215ms, total<=2147483647ms. This does not change Scene sample times or
+guarantee a player's unclamped playback rate.
+
+Snapshots total256MiB/per-frame68MiB; cached encoded frames64MiB, output68MiB,
+axes4096/RGBA64MiB. The worker has1GiB address space,120s wall/110s CPU and250ms
+cancellation grace, with the existing lease/staging/transport. Native mux calls
+stay in the worker. Encoding is an explicit task state, cancellable before atomic
+publication. Failed/cancelled encoding retains PNGs and writes its outcome in the
+receipt; a committed animation remains complete. The version1 receipt gains
+`output_format` and optional `animation` metadata (file, MIME, frames, bytes,
+duration, loop count and fixed profile). This output receipt is not an authored
+Scene/asset schema. Native controls and automation/MCP share these owners.
+
 This captures sequence preview, without gameplay C++, physics, advancing particle
-simulation, runtime UI or sound. Movies, audio encoding and nested sequences remain
-separate consumers. This private editor operation changes no component, asset
-format, public SDK, runtime ABI or dependency.
+simulation, runtime UI or sound. Generic video/audio,16-bit/HDR animation and runtime
+animated-Texture import are unsupported. No component, published asset format,
+public SDK, runtime ABI or dependency version changes.
 
 ## Draft/history boundaries
 

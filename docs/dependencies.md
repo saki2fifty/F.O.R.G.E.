@@ -17,7 +17,7 @@ Official SDKs were reviewed; none is C++, and no SDK/reference code is included.
 | Draco | 1.5.7 / `8786740086a9f4d83f44aa83badfbea4dce7a1b5` | Private glTF mesh decompression | [Source](https://github.com/google/draco/tree/8786740086a9f4d83f44aa83badfbea4dce7a1b5) |
 | meshoptimizer | 1.2 / `9d9890c73011d75920af614485296d1e03e95448` | Private EXT buffer decode, Mikk-compatible tangents and coherent remapping | [Source](https://github.com/zeux/meshoptimizer/tree/9d9890c73011d75920af614485296d1e03e95448) |
 | KTX Software | 4.4.2 / `4d6fc70eaf62ad0558e63e8d97eb9766118327a6` | Private containers and Basis codecs | [Source](https://github.com/KhronosGroup/KTX-Software/tree/4d6fc70eaf62ad0558e63e8d97eb9766118327a6) |
-| libwebp | 1.6.0 / `4fa21912338357f89e4fd51cf2368325b59e9bd9` | Private still-image decode/demux and view-image encoding | [Source](https://chromium.googlesource.com/webm/libwebp/+/4fa21912338357f89e4fd51cf2368325b59e9bd9/) |
+| libwebp | 1.6.0 / `4fa21912338357f89e4fd51cf2368325b59e9bd9` | Private image decode/demux, still encoding and bounded sequence mux | [Source](https://chromium.googlesource.com/webm/libwebp/+/4fa21912338357f89e4fd51cf2368325b59e9bd9/) |
 | RmlUi | 6.3 / `ba95ffe8bfb6370efb2cdcca927eaad4710c5413` | Screen-space game documents, bindings and input; private Diligent adapter | [Official release](https://github.com/mikke89/RmlUi/releases/tag/6.3) |
 | FreeType | 2.14.3 / `0a0221a1347e2f1e07c395263540026e9a0aa7c7` | Pinned RmlUi font backend, FTL license option | [Official source](https://github.com/freetype/freetype/tree/0a0221a1347e2f1e07c395263540026e9a0aa7c7) |
 | Recast Navigation | v1.6.0 / `6dc1667f580357e8a2154c28b7867bea7e8ad3a7` | Static/tiled generation, private Detour queries, obstacle tile updates and local velocity sampling | [Official source](https://github.com/recastnavigation/recastnavigation/tree/v1.6.0) |
@@ -202,8 +202,9 @@ hardening/optimizations and follow1.3.2's lossless decoder security fix.
 
 BSD3-Clause plus PATENTS grant; package COPYING, PATENTS and AUTHORS. Private
 static worker codec with native SIMD dispatch, threading disabled. CLI tools,
-image-library discovery, animation utilities, mux, extras, JavaScript and fuzztest
-builds are off. Demux's native CMake link includes the codec/SharpYUV libraries;
+image-library discovery, animation utilities, extras, JavaScript and fuzztest
+builds are off. The selected native libwebpmux target is enabled for bounded
+full-canvas sequence assembly in the supervised asset worker. Demux's native CMake link includes the codec/SharpYUV libraries;
 FORGE does not patch that graph. Previous pins and runtime/SDK boundaries remain
 unchanged. Lossy/lossless still decode and lossless view-image encoding are selected.
 The existing ViewImageTask IO uses native advanced encoding with `lossless=1`,
@@ -211,8 +212,14 @@ The existing ViewImageTask IO uses native advanced encoding with `lossless=1`,
 convenience defaults that discard it. Callback output is budgeted before growth.
 Native working allocations are additional to that buffer. Full codec/demux links
 stay on private image tools; shared runtime UI codecs retain their existing PNG
-boundary. Animation and ICC conversion remain unavailable. See[image/texture
-contracts](texture-assets.md).
+boundary. Generic animation import and ICC conversion remain unavailable. The sequence
+profile uses WebPMuxSetCanvasSize/AnimationParams, copied PushFrame data and
+Assemble with WebPDataClear ownership. Exact pinned mux headers/CMake/source were
+reviewed; no codec source or vendor patch is added. The native format's ANMF
+integer-ms duration, replacement/disposal and loop semantics are described in the
+[official container specification](https://developers.google.com/speed/webp/docs/riff_container).
+This enables no new codec version or public SDK/runtime dependency. See[image/texture
+contracts](texture-assets.md) and[sequence output](editor-ui.md).
 
 ## Meshoptimizer geometry tooling — verified2026-09-20
 

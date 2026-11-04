@@ -5,6 +5,14 @@ The accepted local Windows package is **261024-000213**, source
 in the [README](../README.md#current-implementation). No new numbered Windows
 package accompanies the local source changes described here.
 
+Local source adds optional silent lossless WebP sequence animation alongside the
+existing PNG frame folder/receipt. Native export and automation/MCP share Timeline
+sampling/restoration, bounded worker mux and cancellation. Full-canvas RGBA8,
+2–4096frames, cumulative integer-ms timing and infinite looping form the first
+profile; generic video/audio and runtime animated-Texture import remain unsupported.
+See[sequence export](../manual/editor/animation-sequences.md). Windows/full editor /
+physical-device review remains pending; no new package is implied.
+
 Local source adds published Texture image export through the native preview and
 shared automation/MCP task, including selected mip/layer/face/depth and source-hidden
 cooked data. Byte storage supports PNG, sRGB lossless WebP and opaque sRGB JPEG.

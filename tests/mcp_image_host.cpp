@@ -71,6 +71,10 @@ struct RecordingFrames final : forge::ui::SequenceFrameSource {
             cursor = saved;
             if (forge::test::marker_present(root.parent_path() / "fail_restore"))
                 throw std::runtime_error("Deliberate recording-source restore failure");
+            if (forge::test::marker_present(root.parent_path() / "fail_webp"))
+                forge::asset_storage::replace(root.parent_path() /
+                                                  "Output/FailedWebP/frame-000002.png",
+                                              "deliberately damaged completed frame");
         }
     }
 };
@@ -93,7 +97,8 @@ int main(int argc, char** argv) {
             ImGui::CreateContext(), ImGui::DestroyContext);
         ImGui::GetIO().IniFilename = nullptr;
         RecordingFrames frames(scene, files.document.project());
-        forge::ui::ViewImageTask images;
+        forge::ui::ViewImageTask images(argc == 5 ? std::filesystem::u8path(argv[4])
+                                                  : std::filesystem::path{});
         std::string message;
         forge::CaptureAutomationProviders providers;
         providers.show = [](auto) {};

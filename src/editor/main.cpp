@@ -1083,7 +1083,8 @@ int main(int argc, char** argv) {
             return forge::ui::tile_map_layer_field(read_published_tile_map, components, layer);
         };
         prefab_editor.tile_map_layer = component_inspector.tile_map_layer;
-        forge::ui::ViewImageTask view_image; // Retires before its borrowed Timeline owner.
+        forge::ui::ViewImageTask view_image(std::filesystem::path(base) /
+                                            "forge_asset_build.exe"); // Retires before Timeline.
         forge::AnimationStatesEditor animation_states;
         forge::NavigationBehaviorEditor navigation_behavior;
         forge::UiLocalizationEditor ui_localization;

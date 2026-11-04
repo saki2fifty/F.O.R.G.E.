@@ -2,13 +2,14 @@
 #include "editor/animation_timeline.hpp"
 #include "frame_renderer.hpp"
 #include "view_image_editor_tests.hpp"
+#include "webp_sequence_check.hpp"
 #include <array>
 namespace forge::test_sequence_frame_render {
 using test_view_image_ui::check;
 using test_view_image_ui::read;
 inline void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* graphics,
                      const std::filesystem::path& gallery, const std::filesystem::path& scratch,
-                     bool transition = false) {
+                     bool transition = false, const std::filesystem::path& worker = {}) {
     const auto project_root = std::filesystem::absolute(scratch / AssetId::generate().str());
     std::filesystem::create_directories(project_root.parent_path());
     std::filesystem::copy(gallery, project_root, std::filesystem::copy_options::recursive);
@@ -106,7 +107,8 @@ inline void exercise(DiligentPresentation& presentation, Diligent::IDeviceContex
                                                 {true, 1920, 1080},
                                                 {true, 1024, 1024}};
     for (unsigned profile = 0; profile < (transition ? 1u : std::size(profiles)); ++profile) {
-        const auto output = profiles[profile];
+        auto output = profiles[profile];
+        output.webp = !worker.empty();
         width = output.fixed ? unsigned(output.width) : 384;
         height = output.fixed ? unsigned(output.height) : 216;
         // Independent synchronous display reads from explicit owner samples, before
@@ -143,7 +145,7 @@ inline void exercise(DiligentPresentation& presentation, Diligent::IDeviceContex
         // A held outgoing view can equal the exact incoming boundary (weight zero).
         // The incoming blend midpoint must still differ from that boundary.
 
-        ui::ViewImageTask task; // Borrowed Timeline and native presentation outlive it.
+        ui::ViewImageTask task(worker); // Borrowed Timeline and presentation outlive it.
         const auto folder = scratch / ("frames-" + AssetId::generate().str());
         check(task.begin_sequence(timeline, plan, folder, project_root, scene.asset_id(), message,
                                   output),
@@ -191,6 +193,20 @@ inline void exercise(DiligentPresentation& presentation, Diligent::IDeviceContex
             check(equal, "Actual Timeline PNG differs from independently sampled Game display");
             check(receipt.at("frames").at(i).at("time_seconds") == plan.sample(i),
                   "Actual Timeline receipt remapped explicit sequence times");
+        }
+        if (output.webp) {
+            const std::array<Rgba8Pixels, 3> frames{{{width, height, expected[0], true},
+                                                     {width, height, expected[1], true},
+                                                     {width, height, expected[2], true}}};
+            const auto durations = asset_detail::webp_sequence_durations(plan.frames_per_second, 3);
+            const auto animation =
+                asset_detail::read_bytes(folder / "animation.webp", FORGE_VIEW_IMAGE_ENCODED_LIMIT);
+            test_webp_sequence::inspect(animation, frames, durations);
+            check(receipt.at("output_format") == "webp" &&
+                      receipt.at("animation").at("frames") == 3 &&
+                      receipt.at("animation").at("duration_ms") ==
+                          asset_detail::validate_webp_sequence_durations(durations),
+                  "Actual Timeline WebP metadata differs from its source plan");
         }
     }
     check(scene.document() == original && scene.revision() == revision &&

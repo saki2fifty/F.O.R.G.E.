@@ -4,6 +4,7 @@
 #include "texture_image_process.hpp"
 #include "texture_importer.hpp"
 #include "tile_asset_worker.hpp"
+#include "webp_sequence.hpp"
 #include <chrono>
 #include <thread>
 int main(int argc, char** argv) {
@@ -31,10 +32,13 @@ int main(int argc, char** argv) {
         const bool tile =
             recipe == forge::tile_set_importer_id || recipe == forge::tile_map_importer_id;
         const bool image_decode = recipe == forge::asset_detail::texture_image_decode_recipe;
+        const bool webp_sequence = recipe == forge::asset_detail::webp_sequence_recipe;
         if (!model && !audio && !tile && !atlas && !atlas_recipe && !image_decode &&
-            recipe != "forge.texture.image" && recipe != "forge.texture.container")
+            !webp_sequence && recipe != "forge.texture.image" &&
+            recipe != "forge.texture.container")
             throw std::runtime_error("Unsupported import worker recipe");
-        const auto limits = image_decode ? forge::asset_detail::texture_image_worker_limits()
+        const auto limits = webp_sequence  ? forge::asset_detail::webp_sequence_worker_limits()
+                            : image_decode ? forge::asset_detail::texture_image_worker_limits()
                             : atlas || atlas_recipe
                                 ? forge::asset_detail::sprite_atlas_source_limits()
                             : model ? forge::asset_detail::model_worker_limits()
@@ -45,7 +49,9 @@ int main(int argc, char** argv) {
         if (request.payload.at("recipe") != recipe)
             throw std::runtime_error("Import recipe changed while reading snapshot");
         auto output =
-            image_decode   ? forge::asset_detail::execute_texture_image_recipe(
+            webp_sequence  ? forge::asset_detail::execute_webp_sequence_recipe(
+                                 std::move(request), cancellation.get_token())
+            : image_decode ? forge::asset_detail::execute_texture_image_recipe(
                                  request, cancellation.get_token())
             : atlas_recipe ? forge::asset_detail::execute_sprite_atlas_recipe(
                                  request, cancellation.get_token())
