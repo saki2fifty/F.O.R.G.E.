@@ -14,10 +14,13 @@ from mcp_input_messages_play import check_input_messages_play
 from mcp_ui_sequence_play import check_ui_sequence_play
 from mcp_camera_shot_play import check_camera_shot_play
 from mcp_mesh_wind_play import check_mesh_wind_play
+from mcp_fog_volume_play import check_fog_volume_play
 
 TOOLS, HOST, RUNTIME, KIT, NAV = sys.argv[1:6]
 MESH_WIND_SDK = sys.argv[7:] == ['--mesh-wind-sdk-only']
 MESH_WIND_ONLY = sys.argv[7:] == ['--mesh-wind-only'] or MESH_WIND_SDK
+FOG_VOLUMES_SDK = sys.argv[7:] == ['--fog-volumes-sdk-only']
+FOG_VOLUMES_ONLY = sys.argv[7:] == ['--fog-volumes-only'] or FOG_VOLUMES_SDK
 NAVIGATION_ONLY = sys.argv[7:] == ['--navigation-only']
 NAVIGATION_LINKS_ONLY = sys.argv[7:] == ['--navigation-links-only']
 NAVIGATION_COLLECTION_ONLY = sys.argv[7:] == ['--navigation-collection-only']
@@ -168,7 +171,7 @@ def editor(mode='full'):
             command.append(str(audio_profile_project_template(root)))
         elif SPRITE_FRAMES_ONLY or UI_LOCALIZATION_ONLY:
             command.append(str(Path(__file__).resolve().parents[1]/'samples/projects/FeatureGallery'))
-        if AUDIO_PAUSE_ONLY or LIFETIMES_ONLY or CONDITIONS_SDK or MESSAGES_ONLY or MESH_WIND_SDK:
+        if AUDIO_PAUSE_ONLY or LIFETIMES_ONLY or CONDITIONS_SDK or MESSAGES_ONLY or MESH_WIND_SDK or FOG_VOLUMES_SDK:
             command.append('--sdk')
         process = subprocess.Popen(command,
                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE,
@@ -258,6 +261,11 @@ for legacy in (False, True):
         assert {'forge_play_start', 'forge_play_ui_command', 'forge_export_start',
                 'forge_script_preview', 'forge_navigation_build', 'forge_navigation_overlay',
                 'forge_dependencies_save'} <= names
+        if FOG_VOLUMES_ONLY:
+            assert 'Fog Volume' in advertised['forge_play_tune']['description']
+            check_fog_volume_play(read, ok, control, mutate, until, discovery, FOG_VOLUMES_SDK)
+            print(('legacy' if legacy else 'current') + ': Fog Volume scoped native Play/tuning/review passed')
+            continue
         if MESH_WIND_ONLY:
             check_mesh_wind_play(read, ok, control, mutate, until, discovery, advertised, MESH_WIND_SDK)
             print(('legacy' if legacy else 'current') + ': Wind schema/authoring/scatter/history, scoped native Play/tuning/Step/review passed')

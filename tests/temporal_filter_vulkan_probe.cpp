@@ -452,6 +452,8 @@ static void boundaries(forge::DiligentPresentation& presentation, IDeviceContext
     context->FinishFrame();
     device->ReleaseStaleResources();
 }
+#include "fog_volume_frame_tests.hpp"
+#include "fog_volume_gpu_tests.hpp"
 #include "temporal_mesh_motion_tests.hpp"
 #include "temporal_scene_render_tests.hpp"
 #include "temporal_view_boundary_tests.hpp"
@@ -464,6 +466,17 @@ int main(int argc, char** argv) {
         GetEngineFactoryVk()->CreateDeviceAndContextsVk(info, &device, &context);
         check(device && context, "Vulkan device unavailable");
         forge::DiligentPresentation presentation(device);
+        if (argc == 3 && std::string_view(argv[1]) == "--fog-frame") {
+            forge::test_fog_frame::exercise(presentation, context,
+                                            std::filesystem::absolute(argv[2]));
+            context->WaitForIdle();
+            return 0;
+        }
+        if (argc == 2 && std::string_view(argv[1]) == "--fog-volumes") {
+            forge::test_fog_volume::exercise(presentation, context);
+            context->WaitForIdle();
+            return 0;
+        }
         if (argc == 2 && std::string_view(argv[1]) == "--lightmap-source") {
             forge::lightmap_test::exercise_gpu(presentation, context);
             context->WaitForIdle();

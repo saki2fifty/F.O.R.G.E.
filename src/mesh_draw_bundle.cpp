@@ -316,7 +316,8 @@ void MeshDrawBundle::draw_part(
     const MeshDraw::Motion* motion, bool indirect, bool reflection, bool normal,
     std::span<const MeshDraw::Decal> decals, bool weighted, const RenderBounds* decal_bounds,
     std::span<const MeshDraw::LightImage> images,
-    std::span<const EnvironmentProbe> local_irradiance) {
+    std::span<const EnvironmentProbe> local_irradiance,
+    std::span<const FogVolumeSample> local_fog) {
     const bool area_lights = std::any_of(lights.begin(), lights.end(), [](const auto& light) {
         return light.kind >= unsigned(LightKind::Rectangle);
     });
@@ -353,6 +354,6 @@ void MeshDrawBundle::draw_part(
                    shadows, shadow_slots, transmission,
                    pose ? std::span<const float>(pose->morph_weights) : std::span<const float>{},
                    skin, instances, parameters, slot(lod, part), sprite, fog, motion, decals,
-                   decal_bounds, images, local_irradiance, pose ? &pose->wind : nullptr);
+                   decal_bounds, images, local_irradiance, pose ? &pose->wind : nullptr, local_fog);
 }
 } // namespace forge

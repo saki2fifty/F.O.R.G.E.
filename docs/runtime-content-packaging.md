@@ -389,3 +389,15 @@ unrelated documents do not enter the closure. Only required discovered identitie
 are registered; reflected dependency edges remain detached preparation data. A
 failed preparation leaves the previous catalog intact. Packaged games use their
 sealed manifest/catalog and do not scan for source documents.
+
+### Fog Volume runtime support
+
+The existing authored-document feature projection records `fog_volumes:1` for
+saved `forge.fog_volume` component or property-override intent in Scene, Prefab
+and variant documents. Disabled intent also requires a reader that knows the type.
+The matching kit advertises `engine.runtime_fog_volumes:1`, extracted from the
+installed public value header during CMake configuration. Export admission rejects
+missing, malformed and future profiles before publishing a distribution. Documents
+without Fog acquire no new requirement. Custom surface16 cooks separately require
+supporting surface-wrapper metadata; rebuild retained Materials after Shader
+recooking. See [local fog volumes](local-fog-volumes.md).

@@ -15,10 +15,12 @@ from mcp_mesh_scatter_workflow import check_mesh_scatter_workflow
 from mcp_sequence_clip_workflow import check_sequence_clip_workflow
 from mcp_nested_sequence_workflow import check_nested_sequence_workflow
 from mcp_input_message_workflow import check_input_message_workflow
+from mcp_fog_volume_workflow import check_fog_volume_workflow
 
 TOOLS, HOST = map(str, map(Path, sys.argv[1:3]))
 NESTED_SEQUENCES_ONLY = "--nested-sequences-only" in sys.argv[4:]
 INPUT_MESSAGES_ONLY = "--input-messages-only" in sys.argv[4:]
+FOG_VOLUMES_ONLY = "--fog-volumes-only" in sys.argv[4:]
 SEQUENCE_CLIPS_ONLY = "--sequence-clips-only" in sys.argv[4:]
 FAST_AA_ONLY = "--fast-aa-only" in sys.argv[4:]
 MESH_SCATTER_ONLY = "--mesh-scatter-only" in sys.argv[4:]
@@ -146,6 +148,11 @@ for legacy in (False, True):
         exposure_schema = exposure_command['input_schema']['properties']['auto_exposure']
         exposure_tool = next(item for item in catalog
                              if item['name'] == 'forge_scene_rendering_set')
+        if FOG_VOLUMES_ONLY:
+            assert 'render.fog_volume' in create_command['input_schema']['properties']['recipe']['enum']
+            assert 'render.fog_volume' in create_tool['inputSchema']['properties']['arguments']['properties']['recipe']['enum']
+            check_fog_volume_workflow(client, discover, arguments, mutate, project)
+            continue
         if INPUT_MESSAGES_ONLY:
             check_input_message_workflow(client, discover, arguments, mutate, project)
             continue
@@ -663,6 +670,21 @@ for legacy in (False, True):
         (root / 'ui_project').touch()
         assert process.wait(timeout=4) == 0
         failed(client.tool('forge_discover'), 'connection_unavailable')
+
+if FOG_VOLUMES_ONLY:
+    for legacy in (False, True):
+        with editor('read') as (root, process, config), Client(config, legacy) as client:
+            state = client.tool('forge_discover')
+            assert not any(t['name'] == 'forge_property_set'
+                           for t in client.request('tools/list')['result']['tools'])
+            denied = native(config, dict(api=1, method='scene.apply', target=state['result']['target'],
+                expected_revision=state['revision'], commands=[dict(operation='property.set', arguments=dict(
+                    entity='8a4fe69d-5818-4cc6-b1ed-8510642d9e6f', component='forge.fog_volume',
+                    field='density', value=.5))]), state['next_sequence'])
+            assert not denied['ok'] and client.tool('forge_discover')['revision'] == state['revision']
+    write_capture(sys.argv[3])
+    print('MCP Fog Volumes: both framings, permissions, schema, replay, revisions, history and save/reopen passed')
+    raise SystemExit(0)
 
 if SEQUENCE_CLIPS_ONLY or NESTED_SEQUENCES_ONLY:
     with editor('read') as (root, process, config), Client(config) as client:

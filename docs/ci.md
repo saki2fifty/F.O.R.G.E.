@@ -2090,3 +2090,30 @@ restores the saved scene from runtime content and checks kit compatibility.
 legacy defaults, combined feature facts and malformed/missing kit profiles.
 Local portable checks do not establish Windows/MSVC/full Main, physical input,
 external MCP-client or graphical exported-game acceptance.
+
+## Local fog volume checks
+
+`fog_volume_values` covers native Meta/codec ranges, raw numeric admission,
+camera-relative geometry/packing, masks/priority/bounds, Scene history, extraction,
+snapshot recovery and live tuning. `fog_volume_editor` drives production controls,
+Keep values/history, box/ellipsoid guides and framing in six wide/compact layouts.
+`mcp_fog_volumes_stdio` covers both protocol framings, discovery/creation, permission,
+replay/revision/history and save/reopen. `mcp_fog_volumes_play_stdio` and
+`mcp_fog_volumes_sdk_stdio` exercise scoped ordinary/SDK Play, validation, stale
+generation rejection, paused values, source isolation and review/apply/Undo.
+
+`native_sdk_mesh_wind_installed` also compiles the public Fog Volume header and
+values from a relocated installed SDK, checking header bytes and runtime identity.
+`fog_volume_gallery` checks both authored shapes, hierarchical Prefab/chained
+variants, explicit zero overrides, snapshot recovery, source-free content and kit
+admission. `standalone_manifest` covers component/property-override channels in
+Scene/Prefab/variant intent, disabled values and malformed/missing/future profiles.
+
+Software Vulkan `fog_volume_source_vulkan` checks 24 independently derived analytic
+cases through the production shader helper and packing. `fog_volume_frame_vulkan`
+uses actual Game rendering, both projections, fog/empty/fog rebinding and layer
+masks. `fog_volume_surface_vulkan` checks generated Mesh/Sprite raw/mip/temporal
+color wrappers, alpha/discard/diagnostics and auxiliary targets; ordinary empty
+volume surface checks remain separate. Generated source does not establish a
+Vulkan loader for Windows-cooked Shader archives. Real Windows FXC/cooked surface,
+full-editor/physical GPU and graphical exported-game acceptance remain separate.

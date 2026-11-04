@@ -10844,6 +10844,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "b12d967b-d650-493a-855e-b2ab0c254952",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/160-local-fog-volumes.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "b1812660-54ef-4fc7-972c-c184e412ae31",
       "metadata": {
         "forge.import": {

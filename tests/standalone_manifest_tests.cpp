@@ -1,5 +1,6 @@
 #include "asset_bytes.hpp"
 #include "asset_storage.hpp"
+#include "fog_volume_package_tests.hpp"
 #include "game_export.hpp"
 #include "render_values.hpp"
 #include "runtime_document_package.hpp"
@@ -56,6 +57,7 @@ int main(int argc, char** argv) {
         const RuntimePackageTarget target{"linux", "none"};
         package_runtime_content(project, out / "content", roots, target);
         const auto catalog = open_runtime_content(out / "content", target);
+        test_fog_package::exercise(scratch, check, reject);
         {
             using package_detail::document_runtime_features;
             MeshWind wind;

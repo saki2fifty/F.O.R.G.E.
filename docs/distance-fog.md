@@ -1,5 +1,7 @@
 # Scene distance fog
 
+For entity-based boxes and ellipsoids, see [local fog volumes](local-fog-volumes.md).
+
 The optional `rendering.distance_fog` section in Scene rendering version 1 owns
 `enabled` (false), linear HDR `color` ([0.5,0.5,0.5]), `start` (0) and `end` (100).
 Distances are radial world metres from each camera position, including orthographic
@@ -45,7 +47,8 @@ is introduced. These bytes are buffer payload, not a physical VRAM bound.
 Shader recipe provenance includes the shared helper. Fog-capable cooked surfaces carry
 `surface_wrapper_version:2` or later in the existing Shader envelope and layout identity.
 Version 1 is implicit for older artifacts; its layout digest and serialized bytes
-remain unchanged. The engine admits versions 1, 2 and 3; version 3 adds the
+remain unchanged. The engine admits versions 1 through the current surface
+profile; version 3 adds the
 [temporal color role](temporal-antialiasing.md) without changing the ordinary fog behavior. This is engine-owned cook
 metadata, not a project HLSL declaration or a second capability database. It is
 necessary because optimization can legitimately remove a current wrapper's fog

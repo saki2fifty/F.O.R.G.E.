@@ -1,5 +1,6 @@
 #pragma once
 #include "Utilities/interface/DiligentFXShaderSourceStreamFactory.hpp"
+#include "fog_volume_geometry.hpp"
 #include "mesh_draw_shader.hpp"
 #include "sprite_draw_render_tests.hpp"
 #include <forge/material_graph.hpp>
@@ -10,7 +11,7 @@
 namespace forge::test_fog_surface {
 template <class Readback>
 void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* context,
-              Readback&& readback, bool sprite = false) {
+              Readback&& readback, bool sprite = false, bool local_volume = false) {
     using namespace Diligent;
     using test_sprite_draw::check;
     auto* device = presentation.device();
@@ -73,6 +74,18 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
         check(bool(result), "Fog surface constants failed");
         return result;
     };
+    FogVolume medium;
+    medium.color_r = .1f;
+    medium.color_g = .3f;
+    medium.color_b = .6f;
+    medium.density = std::log(2.f) / 2;
+    const std::array volume_samples{prepare_fog_volume(medium, {}, {})};
+    const auto packed = fog_volume_uniform(local_volume ? std::span(volume_samples)
+                                                        : std::span<const FogVolumeSample>{});
+    std::vector<float> volume_values;
+    for (const auto& row : packed)
+        volume_values.insert(volume_values.end(), row.begin(), row.end());
+    const auto volumes = buffer(volume_values);
     RefCntAutoPtr<ITexture> indirect_target;
     desc.Format = TEX_FORMAT_RGBA16_FLOAT;
     device->CreateTexture(desc, nullptr, &indirect_target);
@@ -92,13 +105,14 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
         const char* expression;
         float alpha_mode, enabled;
         std::array<float, 4> expected;
+        bool diagnostic = false;
     };
     for (const auto& item :
          std::array{Case{"float4(.8,.2,.1,.25)", 2, 1, {.45f, .3f, .4f, .25f}},
                     Case{"float4(.8,.2,.1,.25)", 0, 1, {.45f, .3f, .4f, 1}},
                     Case{"float4(.8,.2,.1,.25)", 1, 1, {0, 0, 0, 0}},
                     Case{"float4(.8,.2,.1,.25)", 2, 0, {.8f, .2f, .1f, .25f}},
-                    Case{"float4(asfloat(0x7fc00000),0,0,.25)", 2, 1, {1, 0, 1, 1}},
+                    Case{"float4(asfloat(0x7fc00000),0,0,.25)", 2, 1, {1, 0, 1, 1}, true},
                     Case{"float4(1,0,1,1)", 2, 1, {.55f, .2f, .85f, 1}}})
         for (const bool variant : {false, true})
             for (unsigned output = 0; output < 4; ++output) {
@@ -176,6 +190,8 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
                 // A constant invalid user function can optimize fog/state bindings out.
                 if (auto* var = binding->GetVariableByName(SHADER_TYPE_PIXEL, "ForgeDistanceFog"))
                     var->Set(fog);
+                if (auto* var = binding->GetVariableByName(SHADER_TYPE_PIXEL, "ForgeFogVolumes"))
+                    var->Set(volumes);
                 if (auto* var = binding->GetVariableByName(SHADER_TYPE_PIXEL, "ForgeSurfaceState"))
                     var->Set(state);
                 if (temporal) {
@@ -230,10 +246,17 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
                     }
                 context->FinishFrame();
                 device->ReleaseStaleResources();
+                auto expected_color = item.expected;
+                if (local_volume && !item.diagnostic && expected_color[3] != 0)
+                    for (unsigned lane = 0; lane < 3; ++lane)
+                        expected_color[lane] =
+                            (expected_color[lane] +
+                             std::array{medium.color_r, medium.color_g, medium.color_b}[lane]) *
+                            .5f;
                 for (const auto& value : pixels)
                     for (unsigned lane = 0; lane < 4; ++lane)
                         check(std::abs(int(value[lane]) -
-                                       int(std::lround(item.expected[lane] * 255))) <= 1,
+                                       int(std::lround(expected_color[lane] * 255))) <= 1,
                               "Custom surface fog, alpha or diagnostic pixels differ");
                 if (temporal) {
                     const auto value =

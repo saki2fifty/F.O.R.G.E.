@@ -435,7 +435,8 @@ std::string indirect_surface_wrapper(std::string helper, bool temporal, bool ref
 }
 namespace {
 SurfaceBindingLayout binding_layout(const SurfaceShaderDefinition& d, const Json& reflection,
-                                    bool area_lights, unsigned projection_version) {
+                                    bool area_lights, unsigned projection_version,
+                                    unsigned wrapper_version) {
     const bool projected_decals = projection_version >= 8;
     const bool projected_surface_channels = projection_version >= 10;
     const bool clustered = projection_version >= 11;
@@ -484,6 +485,21 @@ SurfaceBindingLayout binding_layout(const SurfaceShaderDefinition& d, const Json
                             field.at("members").empty(),
                         "Distance fog field differs from the engine declaration");
             }
+        } else if (name == "ForgeFogVolumes") {
+            require(wrapper_version >= 16 && kind == "constant_buffer" &&
+                        resource.at("array_size") == 1 &&
+                        resource.at("size") == sizeof(FogVolumeUniform),
+                    "Fog Volume buffer differs from the engine declaration");
+            const auto& fields = resource.at("variables");
+            require(fields.is_array() && fields.size() == 1,
+                    "Fog Volume buffer has incompatible fields");
+            const auto& field = fields[0];
+            require(field.at("name") == "g_ForgeFogVolumes" && field.at("offset") == 0 &&
+                        field.at("basic") == "float" && field.at("class") == "vector" &&
+                        field.at("rows") == 1 && field.at("columns") == 4 &&
+                        field.at("array_size") == fog_volume_uniform_rows &&
+                        field.at("members").empty(),
+                    "Fog Volume fields differ from the engine declaration");
         } else if (name == "ForgeDecals") {
             require(decal_capacity && kind == "constant_buffer" && resource.at("array_size") == 1 &&
                         resource.at("size") == decal_shader_rows(decal_capacity,
@@ -688,7 +704,8 @@ SurfaceBindingLayout surface_binding_layout(const SurfaceShaderDefinition& d,
                                             bool projected_decals,
                                             bool projected_surface_channels) {
     return binding_layout(d, reflection, area_lights,
-                          projected_decals ? (projected_surface_channels ? 10u : 8u) : 0u);
+                          projected_decals ? (projected_surface_channels ? 10u : 8u) : 0u,
+                          current_surface_wrapper_version);
 }
 SurfaceBindingLayout surface_binding_layout(const SurfaceShaderDefinition& d,
                                             const Json& reflection, ShaderEntryRole role,
@@ -701,9 +718,10 @@ SurfaceBindingLayout surface_binding_layout(const SurfaceShaderDefinition& d,
             "Surface binding role does not match its Mesh or Sprite domain");
     if (sprite_surface_role(role)) {
         require(wrapper_version >= 14, "Sprite bindings require their Sprite wrapper capability");
-        return binding_layout(d, reflection, false, 2);
+        return binding_layout(d, reflection, false, 2, wrapper_version);
     }
     return binding_layout(d, reflection, area_surface_role(role),
+                          role == ShaderEntryRole::SurfaceDepth ? 0u : wrapper_version,
                           role == ShaderEntryRole::SurfaceDepth ? 0u : wrapper_version);
 }
 std::vector<std::byte> surface_parameter_bytes(const MaterialData& m,

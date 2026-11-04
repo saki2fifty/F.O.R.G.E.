@@ -1,4 +1,4 @@
-"""Compile Wind values from a relocated installed SDK without private headers."""
+"""Compile public rendering values from a relocated SDK without private headers."""
 from pathlib import Path
 import hashlib
 import json
@@ -18,7 +18,7 @@ with tempfile.TemporaryDirectory(prefix='wind-installed-sdk-', dir=build) as tem
     stage, relocated, client = root / 'stage', root / 'relocated SDK', root / 'client'
     subprocess.run([cmake, '--install', build, '--prefix', stage, '--component', 'NativeSdk'], check=True)
     stage.rename(relocated)
-    for name in ('mesh_wind.hpp', 'render_components.hpp', 'material_parameter.hpp'):
+    for name in ('mesh_wind.hpp', 'fog_volume.hpp', 'render_components.hpp', 'material_parameter.hpp'):
         installed = relocated / 'sdk/include/forge' / name
         assert installed.read_bytes() == (source / 'include/forge' / name).read_bytes(), name
     assert not (relocated / 'sdk/include/forge/assets.hpp').exists()
@@ -30,6 +30,7 @@ add_executable(wind_client wind.cpp)
 target_link_libraries(wind_client PRIVATE ForgeNativeSdk::Client)
 ''', encoding='utf-8')
     (client / 'wind.cpp').write_text('''#include <forge/mesh_wind.hpp>
+#include <forge/fog_volume.hpp>
 #include <forge/render_components.hpp>
 #include <forge/native_sdk_identity.h>
 #include <iostream>
@@ -38,6 +39,17 @@ int main() {
     static_assert(std::is_standard_layout_v<forge::MeshWind>);
     static_assert(std::is_trivially_copyable_v<forge::MeshWind>);
     static_assert(forge::mesh_wind_profile_version == 1);
+    static_assert(forge::fog_volume_profile_version == 1);
+    static_assert(std::is_standard_layout_v<forge::FogVolume>);
+    static_assert(std::is_trivially_copyable_v<forge::FogVolume>);
+    forge::FogVolume fog;
+    fog.validate();
+    fog.shape = std::uint32_t(forge::FogVolumeShape::Sphere);
+    fog.density = .5f;
+    fog.validate();
+    fog.half_extent_x = 0;
+    try { fog.validate(); return 3; }
+    catch (const std::invalid_argument&) {}
     forge::MeshRenderer renderer;
     if (renderer.wind != forge::MeshWind{}) return 1;
     forge::validate_mesh_wind(renderer.wind);
@@ -65,6 +77,7 @@ int main() {
     assert fingerprint == json.loads(subprocess.check_output([runtime, '--sdk-info'], env=env, text=True))['fingerprint']
     commands = (configured / 'build.ninja').read_text()
     assert str(source / 'include') not in commands and str(source / 'src') not in commands
-    print(json.dumps(dict(scope='Installed-only, relocated SDK public Wind values, header closure and matching runtime identity',
+    print(json.dumps(dict(scope='Installed-only, relocated SDK public Wind and Fog Volume values, header closure and matching runtime identity',
                           fingerprint=fingerprint,
+                          fog_header_sha256=hashlib.sha256((relocated / 'sdk/include/forge/fog_volume.hpp').read_bytes()).hexdigest(),
                           wind_header_sha256=hashlib.sha256((relocated / 'sdk/include/forge/mesh_wind.hpp').read_bytes()).hexdigest())))

@@ -793,12 +793,14 @@ Json Scene::tune_runtime_property(const std::string& entity_id, const std::strin
     const bool sprite = RuntimePropertyTune::sprite_type(type_key),
                material = RuntimePropertyTune::mesh_renderer_type(type_key),
                probe = RuntimePropertyTune::probe_type(type_key),
+               fog = RuntimePropertyTune::fog_type(type_key),
                decal = RuntimePropertyTune::decal_type(type_key),
                light = RuntimePropertyTune::light_type(type_key),
                ui_values = RuntimePropertyTune::ui_values_type(type_key),
                localization = RuntimePropertyTune::ui_localization_type(type_key),
                condition = RuntimePropertyTune::state_condition_type(type_key);
-    if (sprite || material || probe || light || decal || localization || ui_values || condition) {
+    if (sprite || material || probe || fog || light || decal || localization || ui_values ||
+        condition) {
         if (ui_values &&
             (!RuntimePropertyTune::ui_values_property(property_key) || !target.has<UiValues>()))
             throw std::runtime_error("Only existing UI Values can be tuned live");
@@ -818,6 +820,8 @@ Json Scene::tune_runtime_property(const std::string& entity_id, const std::strin
         if (probe &&
             (!RuntimePropertyTune::probe_property(property_key) || !target.has<ReflectionProbe>()))
             throw std::runtime_error("Only existing reflection probe controls can be tuned live");
+        if (fog && (!RuntimePropertyTune::fog_property(property_key) || !target.has<FogVolume>()))
+            throw std::runtime_error("Only existing Fog Volume controls can be tuned live");
         if (decal &&
             (!RuntimePropertyTune::decal_property(property_key) || !target.has<DecalProjector>()))
             throw std::runtime_error(

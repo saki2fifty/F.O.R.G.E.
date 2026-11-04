@@ -1,5 +1,19 @@
 # 2026-11-04
 
+## Local fog volumes
+
+Fog Volume adds native box/ellipsoid geometry fog with linear HDR medium color,
+world-metre density, ordinary transforms and deterministic layer/priority selection.
+Shared surface and indirect helpers retain alpha and existing rendering owners.
+Native creation, Inspector/live tuning, Keep values, guides/framing and existing
+automation/MCP use the same component and history APIs. Surface profile16 and
+saved-document/runtime-kit Fog profile1 protect new content.
+
+Gallery160 supplies both shapes, camera/light and depth markers without project
+C++. The illustrated manual teaches the controls and current limits. Local
+source/software checks remain separate from pending Windows/cooked Shader,
+full-editor, physical GPU and exported-game execution acceptance.
+
 ## Input Message trigger modes
 
 Input Message adds Pressed, Released and Changed controls. Changed accepts fixed

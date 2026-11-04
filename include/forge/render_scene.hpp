@@ -1,4 +1,5 @@
 #pragma once
+#include <forge/fog_volume.hpp>
 #include <forge/reflection_probe.hpp>
 #include <forge/render_view.hpp>
 #include <forge/scene_render_settings.hpp>
@@ -41,6 +42,11 @@ struct RenderDecal {
 struct RenderReflectionProbe {
     EntityId entity;
     ReflectionProbe probe;
+    AffineTransform world;
+};
+struct RenderFogVolume {
+    EntityId entity;
+    FogVolume volume;
     AffineTransform world;
 };
 struct RenderMesh {
@@ -110,6 +116,7 @@ struct RenderScene {
     std::vector<RenderTileMap> tile_maps;
     std::vector<RenderReflectionProbe> reflection_probes;
     std::vector<RenderDecal> decals;
+    std::vector<RenderFogVolume> fog_volumes;
     // Borrowed fixed-clock sample. Edit snapshots omit it; capture may override it.
     std::optional<double> simulation_seconds;
 };

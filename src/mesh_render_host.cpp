@@ -1,5 +1,6 @@
 #include "mesh_render_host.hpp"
 #include "asset_bytes.hpp"
+#include "fog_volume_view.hpp"
 #include "material_parameter_overrides.hpp"
 #include "mesh_draw_shader.hpp"
 #include "mesh_pick.hpp"
@@ -1131,6 +1132,15 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
         throw std::runtime_error("Mesh draw scene differs from prepared scene");
     validate_scene_distance_fog(scene.settings.distance_fog);
     const auto diagnostics_before = diagnostics_.size(), omitted_before = omitted_;
+    const auto view_fog = prepare_fog_view(
+        scene.fog_volumes, camera.position, layers, [&](EntityId entity, std::string_view message) {
+            Diagnostic value{Severity::Error, "render.fog.view", std::string(message), {}};
+            value.context.asset = scene.scene;
+            value.context.entity = entity;
+            value.context.property = "forge.fog_volume";
+            value.context.source = "presentation";
+            report(std::move(value));
+        });
     std::vector<EntityId> view_decals;
     view_decals.reserve(decal_order_.size());
     for (const auto& id : decal_order_)
@@ -1766,6 +1776,30 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
     if (!needs_background)
         transmission_->clear();
     draw_stats_ = {};
+    std::map<std::uint32_t, FogVolumeSelection> fog_selections;
+    const auto local_fog = [&](const Object& object) -> std::span<const FogVolumeSample> {
+        if (view_fog.empty())
+            return {};
+        const auto mask = object.mesh->renderer.layers;
+        auto found = fog_selections.find(mask);
+        if (found == fog_selections.end()) {
+            found = fog_selections.emplace(mask, select_fog_volumes(view_fog, mask)).first;
+            if (found->second.overflow) {
+                Diagnostic value{Severity::Warning,
+                                 "render.fog.limit",
+                                 std::to_string(found->second.overflow) +
+                                     " additional Fog Volumes omitted for this layer mask; adjust "
+                                     "Priority or Layers.",
+                                 {}};
+                value.context.asset = scene.scene;
+                value.context.entity = object.mesh->entity;
+                value.context.property = "forge.fog_volume";
+                value.context.source = "presentation";
+                report(std::move(value));
+            }
+        }
+        return found->second.samples();
+    };
     const auto local_irradiance = [&](const Object& object,
                                       unsigned part) -> std::span<const EnvironmentProbe> {
         if (view_irradiance.empty() || !object.bundle->uses_lighting(object.lod, part))
@@ -1940,7 +1974,7 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                 accumulated && temporal->reflection_output,
                 accumulated && temporal->normal_only_output, decals,
                 weighted && item.key.alpha == MaterialAlpha::Blend, &batch_bounds, images,
-                local_irradiance(object, item.key.part));
+                local_irradiance(object, item.key.part), local_fog(object));
             ++draw_stats_.calls;
             draw_stats_.instances += count;
             draw_stats_.batched_calls += count > 1;
@@ -1971,7 +2005,7 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                         accumulated && temporal->reflection_output,
                         accumulated && temporal->normal_only_output, decals,
                         weighted && failed_item.key.alpha == MaterialAlpha::Blend, &single.bounds,
-                        images, local_irradiance(single, failed_item.key.part));
+                        images, local_irradiance(single, failed_item.key.part), local_fog(single));
                     ++draw_stats_.calls;
                     ++draw_stats_.instances;
                 } catch (const std::exception& error) {

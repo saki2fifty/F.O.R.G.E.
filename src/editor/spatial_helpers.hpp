@@ -3,6 +3,7 @@
 #include "../navigation_geometry.hpp"
 #include "authoring.hpp"
 #include "decal_guide.hpp"
+#include "fog_volume_guide.hpp"
 #include "light_emitter_view.hpp"
 #include "navigation_region_view.hpp"
 #include "reflection_probe_view.hpp"
@@ -23,7 +24,7 @@ struct SpatialMarker {
     std::string entity, name, note;
     Double3 position{};
     bool camera = false, audio = false, navigation = false, obstacle = false, probe = false;
-    bool decal = false;
+    bool decal = false, fog = false;
     bool enabled = true, selectable = true;
     float offset = 0;
     std::vector<std::pair<Double3, Double3>> lines;
@@ -46,15 +47,17 @@ spatial_markers(const Json& source, unsigned width, unsigned height, double exte
     const auto policies = extract_node_policies(source);
     for (const auto& row : source.at("entities")) {
         const auto& c = row.at("components");
-        for (unsigned kind = 0; kind < 6; ++kind) {
+        for (unsigned kind = 0; kind < 7; ++kind) {
             const bool is_camera = kind == 0, is_audio = kind == 2, is_region = kind == 3;
             const bool is_probe = kind == 4;
             const bool is_decal = kind == 5;
+            const bool is_fog = kind == 6;
             const auto component = is_camera   ? "forge.camera"
                                    : is_audio  ? "forge.audio_source"
                                    : is_region ? "forge.navigation_region_2d"
                                    : is_probe  ? "forge.reflection_probe"
                                    : is_decal  ? "forge.decal"
+                                   : is_fog    ? "forge.fog_volume"
                                                : "forge.light";
             if (!c.contains(component) || row.value("prefab", false) ||
                 !row.value("spatial_resolved", false))
@@ -70,6 +73,7 @@ spatial_markers(const Json& source, unsigned width, unsigned height, double exte
             marker.navigation = is_region;
             marker.probe = is_probe;
             marker.decal = is_decal;
+            marker.fog = is_fog;
             if (is_audio && (c.contains("forge.camera") || c.contains("forge.light")))
                 marker.offset = 1.4f;
             if (!is_audio && c.contains("forge.camera") && c.contains("forge.light"))
@@ -93,7 +97,27 @@ spatial_markers(const Json& source, unsigned width, unsigned height, double exte
                         previous = next;
                     }
                 };
-                if (is_decal) {
+                if (is_fog) {
+                    const auto guide = fog_volume_guide(row);
+                    if (!guide)
+                        continue;
+                    const auto& settings = guide->values;
+                    marker.enabled = settings.enabled && settings.density != 0 && settings.layers;
+                    if (settings.shape == std::uint32_t(FogVolumeShape::Box)) {
+                        for (unsigned index = 0; index < 8; ++index)
+                            for (unsigned axis = 0; axis < 3; ++axis)
+                                if ((index & (1u << axis)) == 0)
+                                    line(guide->outline[index],
+                                         guide->outline[index | (1u << axis)]);
+                    } else {
+                        ring(guide->center, guide->axes[0], guide->axes[1], 1);
+                        ring(guide->center, guide->axes[0], guide->axes[2], 1);
+                        ring(guide->center, guide->axes[1], guide->axes[2], 1);
+                    }
+                    marker.note = std::string(settings.shape ? "Sphere / ellipsoid" : "Box") +
+                                  " | Density " + helper_number(settings.density) +
+                                  " per m | Priority " + std::to_string(settings.priority);
+                } else if (is_decal) {
                     const auto guide = decal_guide(row);
                     if (!guide)
                         continue;
@@ -346,6 +370,7 @@ spatial_markers(const Json& source, unsigned width, unsigned height, double exte
                 marker.note = std::string("Invalid spatial helper: ") + error.what();
             }
             marker.note = std::string(is_decal    ? "Decal Projector | "
+                                      : is_fog    ? "Fog Volume | "
                                       : is_probe  ? "Reflection Probe | "
                                       : is_region ? "Navigation Region 2D | "
                                       : is_camera ? "Camera | "
@@ -353,7 +378,7 @@ spatial_markers(const Json& source, unsigned width, unsigned height, double exte
                                                   : "Light | ") +
                           marker.note;
             if (!marker.enabled)
-                marker.note += is_probe || is_decal ? " | Inactive" : " | Disabled";
+                marker.note += is_probe || is_decal || is_fog ? " | Inactive" : " | Disabled";
             if (!marker.selectable)
                 marker.note += " | Selection locked";
             result.push_back(std::move(marker));
@@ -514,6 +539,7 @@ class SpatialHelpers {
                                : marker.audio    ? IM_COL32(123, 226, 199, 240)
                                : marker.probe    ? IM_COL32(183, 163, 246, 240)
                                : marker.decal    ? IM_COL32(240, 155, 204, 240)
+                               : marker.fog      ? IM_COL32(153, 215, 231, 240)
                                                  : IM_COL32(241, 220, 139, 240);
             if (active)
                 for (const auto& [a, b] : marker.lines)
@@ -537,6 +563,9 @@ class SpatialHelpers {
                               color, 1.5f * interface_scale);
                 draw->AddLine(at(.55f, -.35f), at(.7f, 0), color, 1.5f * interface_scale);
                 draw->AddLine(at(.7f, 0), at(.55f, .35f), color, 1.5f * interface_scale);
+            } else if (marker.fog) {
+                for (float y : {-.45f, 0.f, .45f})
+                    draw->AddLine(at(-.65f, y), at(.65f, y), color, 1.5f * interface_scale);
             } else if (marker.decal) {
                 draw->AddRect(at(-.65f, -.55f), at(.65f, .2f), color, 0, 0, 1.5f * interface_scale);
                 draw->AddLine(at(0, -.15f), at(0, .7f), color, 1.5f * interface_scale);

@@ -2,6 +2,11 @@
 
 ## Input Message triggers
 
+Open `160-local-fog-volumes` to compare blue box mist and warm ellipsoid mist
+around depth markers. Change Shape, Density, local half extents or Enabled in
+Inspector. Camera and light are supplied. No project C++ module is required;
+save and export with the matching runtime kit.
+
 Open `159-input-message-triggers` to try digital Released and analog Changed
 sources. Create an empty C++ System named **InputMessageTriggers**, replace its
 source with `CodeExamples/InputMessageTriggers.cpp` and copy the matching

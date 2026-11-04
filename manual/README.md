@@ -46,7 +46,7 @@ content may differ; use **Window** to open a panel mentioned in a guide.
 - [Material Graph for Meshes and Sprites](editor/material-graphs.md)
 - [Use an imported diffuse lightmap](editor/imported-lightmaps.md)
 - [Shader import](editor/shaders.md)
-- [Scene lighting, light images, rectangular and spherical emitters, contact-hardening shadows, reflection-map capture, local reflection probes, roughness-filtered screen-space reflections, ambient occlusion with material normals, motion blur, depth of field, temporal and fast approximate anti-aliasing, distance fog, exposure and color](editor/lighting.md)
+- [Scene lighting, light images, rectangular and spherical emitters, contact-hardening shadows, reflection-map capture, local reflection probes, roughness-filtered screen-space reflections, ambient occlusion with material normals, motion blur, depth of field, temporal and fast approximate anti-aliasing, distance fog, local fog volumes, exposure and color](editor/lighting.md)
 - [Mesh particle effects](editor/particles.md)
 
 ## 2D scenes

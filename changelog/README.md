@@ -1,6 +1,6 @@
 # Changelog
 
-- [2026-11-04](20261104/README.md) — Input Message triggers/Gallery159, imported lightmaps/Gallery158, signed block images, wind/Gallery157, foliage clearance/Gallery156 and shared illustrated native/MCP workflows. Local source; Windows verification and delivery pending.
+- [2026-11-04](20261104/README.md) — Local fog volumes/Gallery160, Input Message triggers/Gallery159, imported lightmaps/Gallery158, signed block images, wind/Gallery157, foliage clearance/Gallery156 and shared illustrated native/MCP workflows. Local source; Windows verification and delivery pending.
 
 - [2026-11-03](20261103/README.md) — Seeded foliage placement/Gallery 144, shared Scene/editor/MCP authoring, original editable blade Mesh and illustrated workflow. Local source; Windows verification and delivery pending.
 

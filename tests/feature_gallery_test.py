@@ -299,6 +299,15 @@ for row in message_sources:
     assert message_actions[message['action']]['kind'] == 'digital'
     assert message_actions[message['action']]['bindings'] == [dict(control='key.space')]
 assert (project_root / 'CodeExamples/InputMessages.cpp').is_file()
+fog_path = 'Scenes/160-local-fog-volumes.scene.json'
+fog_scene = json.loads((project_root / fog_path).read_text())
+assert fog_scene['asset_id'] == by_source[fog_path]['id']
+fog_values = [row['components']['forge.fog_volume'] for row in fog_scene['entities']
+              if 'forge.fog_volume' in row['components']]
+assert len(fog_values) == 2 and {row['shape'] for row in fog_values} == {0, 1}
+assert all(row['enabled'] and row['density'] > 0 for row in fog_values)
+assert sum('forge.camera' in row['components'] for row in fog_scene['entities']) == 1
+
 trigger_scene = json.loads((project_root / 'Scenes/159-input-message-triggers.scene.json').read_text())
 assert trigger_scene['asset_id'] == by_source['Scenes/159-input-message-triggers.scene.json']['id']
 trigger_sources = [row for row in trigger_scene['entities'] if 'forge.input_message' in row['components']]

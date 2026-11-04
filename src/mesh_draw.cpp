@@ -280,6 +280,7 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
         surface_layout = surface_binding_layout(*surface->program.surface, stage->reflection, role,
                                                 surface->program.surface_wrapper_version);
         fog_supported_ = surface->program.surface_wrapper_version >= 2;
+        fog_volumes_supported_ = surface->program.surface_wrapper_version >= 16;
     } else
         pixel = compile(SHADER_TYPE_PIXEL, program.pixel);
     const bool lit = !shadow_pass_ && (surface ? surface->program.surface->physically_based
@@ -441,6 +442,13 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
     std::vector<ShaderResourceVariableDesc> resource_variables{
         {SHADER_TYPE_VERTEX, "g_MeshVertices", SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE,
          SHADER_VARIABLE_FLAG_NO_DYNAMIC_BUFFERS}};
+    for (Uint32 i = 0; i < pixel->GetResourceCount(); ++i) {
+        ShaderResourceDesc resource;
+        pixel->GetResourceDesc(i, resource);
+        if (resource.Name && std::strcmp(resource.Name, "ForgeFogVolumes") == 0)
+            resource_variables.push_back(
+                {SHADER_TYPE_PIXEL, "ForgeFogVolumes", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC});
+    }
     if (sprite_mips_ &&
         (!surface ||
          std::find(surface_layout.textures.begin(), surface_layout.textures.end(),
@@ -615,6 +623,15 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
             if (!fog_)
                 fog_ = buffer(device, "FORGE distance fog", 2 * sizeof(Row));
             bind(SHADER_TYPE_PIXEL, "ForgeDistanceFog", fog_);
+        }
+        if (!shadow_pass_ &&
+            bindings_[parity]->GetVariableByName(SHADER_TYPE_PIXEL, "ForgeFogVolumes")) {
+            if (!empty_fog_volumes_) {
+                const FogVolumeUniform empty{};
+                empty_fog_volumes_ =
+                    buffer(device, "FORGE empty fog volumes", sizeof(empty), empty.data());
+            }
+            bind(SHADER_TYPE_PIXEL, "ForgeFogVolumes", empty_fog_volumes_);
         }
         if (auto* variable =
                 bindings_[parity]->GetVariableByName(SHADER_TYPE_PIXEL, "ForgeLights")) {
@@ -967,8 +984,15 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
                     const SceneDistanceFog* fog, const Motion* motion,
                     std::span<const Decal> decals, const RenderBounds* decal_bounds,
                     std::span<const LightImage> images,
-                    std::span<const EnvironmentProbe> local_irradiance,
-                    const MeshWindSample* wind) {
+                    std::span<const EnvironmentProbe> local_irradiance, const MeshWindSample* wind,
+                    std::span<const FogVolumeSample> local_fog) {
+    require(shadow_pass_ || local_fog.empty() || fog_volumes_supported_,
+            "Local fog volumes require a current surface wrapper; reimport its Shader and rebuild "
+            "the Material");
+    const auto volume_values =
+        local_fog.empty()
+            ? std::optional<FogVolumeUniform>{}
+            : fog_volume_uniform(local_fog, view.projection[15] == 1 ? &view.forward : nullptr);
     require(local_irradiance.empty() || local_irradiance_,
             "receiver requires a current local irradiance Shader cook");
     std::optional<IrradianceValues> irradiance;
@@ -1170,6 +1194,22 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
         require(static_cast<Row*>(mapped) != nullptr, "distance fog upload allocation failed");
         mapped[0] = {value.color[0], value.color[1], value.color[2], value.enabled ? 1.f : 0.f};
         mapped[1] = {value.start, value.end, 0, 0};
+    }
+    if (empty_fog_volumes_) {
+        if (volume_values) {
+            if (!fog_volumes_)
+                fog_volumes_ = buffer(device_, "FORGE fog volumes", sizeof(*volume_values));
+            MapHelper<Row> mapped(context, fog_volumes_, MAP_WRITE, MAP_FLAG_DISCARD);
+            require(static_cast<Row*>(mapped), "fog volume upload allocation failed");
+            std::copy(volume_values->begin(), volume_values->end(), static_cast<Row*>(mapped));
+        }
+        if (fog_volumes_active_ != bool(volume_values)) {
+            for (const auto& binding : bindings_)
+                if (auto* variable =
+                        binding->GetVariableByName(SHADER_TYPE_PIXEL, "ForgeFogVolumes"))
+                    variable->Set(volume_values ? fog_volumes_ : empty_fog_volumes_);
+            fog_volumes_active_ = bool(volume_values);
+        }
     }
     std::array<Row, 15> object{};
     if (legacy_tint) {

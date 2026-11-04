@@ -44,6 +44,8 @@ inline const std::vector<EntityRecipe>& entity_recipes() {
                        "forge.reflection_probe"});
         out.push_back(
             {"render.decal", "Decal Projector", "Rendering", no_primitive, "forge.decal"});
+        out.push_back(
+            {"render.fog_volume", "Fog Volume", "Rendering", no_primitive, "forge.fog_volume"});
         return out;
     }();
     return recipes;

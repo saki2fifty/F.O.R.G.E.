@@ -108,6 +108,16 @@ struct. Native units/ranges/descriptions accompany its fields. `mesh.scatter`
 copies that renderer value into each independent child. It does not need a
 separate wind tool, asset or runtime placement operation.
 
+[Fog Volumes](local-fog-volumes.md) use `forge_entity_create` with recipe
+`render.fog_volume`, or `forge_component_add` with `forge.fog_volume` on an existing
+entity. Discovery supplies the eleven reflected fields and Box/Sphere choices.
+Use existing `forge_property_set` / `forge_property_set_many`, history and document
+tools for authored values. `forge_play_tune` accepts those same fields on an
+existing runtime Fog component; scope, generation, validation and authored
+isolation use the ordinary Play owner. Keep values uses the existing tuning
+review/apply tools after Stop. No separate fog tool, permission or source database
+is required. Saved Fog intent requires a matching runtime kit even when disabled.
+
 `forge_foliage_collision_start` binds `foliage.collision.start` as a read-only
 `asset.read` workflow. Pass ordinary scatter `arguments` or the arguments returned
 by terrain preparation. Optional settings: radius 0.001..100(default 0.25), offset

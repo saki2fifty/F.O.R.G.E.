@@ -96,7 +96,8 @@ class MeshDrawBundle {
                    std::span<const MeshDraw::Decal> decals = {}, bool weighted = false,
                    const RenderBounds* decal_bounds = nullptr,
                    std::span<const MeshDraw::LightImage> images = {},
-                   std::span<const EnvironmentProbe> local_irradiance = {});
+                   std::span<const EnvironmentProbe> local_irradiance = {},
+                   std::span<const FogVolumeSample> local_fog = {});
     std::string_view slot(unsigned lod, unsigned part) const {
         return prepared_.selection.bindings.at(info_.at(lod).at(part).binding).key;
     }

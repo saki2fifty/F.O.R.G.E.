@@ -4,6 +4,55 @@
 #include <forge/render_view.hpp>
 #include <stdexcept>
 namespace forge::detail {
+Json render_value(const FogVolume& value) {
+    return {{"enabled", value.enabled},
+            {"shape", value.shape},
+            {"color_r", value.color_r},
+            {"color_g", value.color_g},
+            {"color_b", value.color_b},
+            {"density", value.density},
+            {"half_extent_x", value.half_extent_x},
+            {"half_extent_y", value.half_extent_y},
+            {"half_extent_z", value.half_extent_z},
+            {"layers", value.layers},
+            {"priority", value.priority}};
+}
+FogVolume fog_volume_value(const Json& source) {
+    FogVolume value;
+    for (const auto* key : {"shape", "layers", "priority"}) {
+        const auto& raw = source.at(key);
+        const Json minimum = std::string_view(key) == "priority" ? Json(INT32_MIN) : Json(0);
+        const Json maximum = std::string_view(key) == "shape"    ? Json(1)
+                             : std::string_view(key) == "layers" ? Json(UINT32_MAX)
+                                                                 : Json(INT32_MAX);
+        if (!raw.is_number_integer() || raw < minimum || raw > maximum)
+            throw std::invalid_argument(std::string("Fog Volume integer is outside its profile: ") +
+                                        key);
+    }
+    const auto scalar = [&](const char* key, double maximum) {
+        const auto& raw = source.at(key);
+        if (!raw.is_number())
+            throw std::invalid_argument(std::string("Fog Volume requires a number: ") + key);
+        const double number = raw.get<double>();
+        if (!std::isfinite(number) || number < 0 || number > maximum)
+            throw std::invalid_argument(std::string("Fog Volume scalar is outside its profile: ") +
+                                        key);
+        return float(number);
+    };
+    value.enabled = source.at("enabled").get<bool>();
+    value.shape = source.at("shape").get<std::uint32_t>();
+    value.color_r = scalar("color_r", 65504);
+    value.color_g = scalar("color_g", 65504);
+    value.color_b = scalar("color_b", 65504);
+    value.density = scalar("density", 1000);
+    value.half_extent_x = source.at("half_extent_x").get<double>();
+    value.half_extent_y = source.at("half_extent_y").get<double>();
+    value.half_extent_z = source.at("half_extent_z").get<double>();
+    value.layers = source.at("layers").get<std::uint32_t>();
+    value.priority = source.at("priority").get<std::int32_t>();
+    value.validate();
+    return value;
+}
 Json render_value(const MeshWind& value) {
     validate_mesh_wind(value);
     return {{"enabled", value.enabled},         {"amplitude", value.amplitude},

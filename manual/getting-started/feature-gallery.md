@@ -1,5 +1,11 @@
 # Explore the Feature Gallery
 
+**160-local-fog-volumes** surrounds depth markers with a blue box and a warm
+ellipsoid. Select either mist entity and use **Inspector → Fog Volume** to change
+Shape, Density, half extents or Enabled. The center markers sit outside both
+volumes. Camera and light are included; save and export with the matching runtime
+kit. Project C++ is optional. See [Local fog controls](../editor/lighting.md).
+
 **159-input-message-triggers** has three cubes with Released/Changed messages.
 Build its supplied InputMessageTriggers C++ observer with the matching SDK, then
 capture Game input. Release Space to switch the orange cube's height; Q/E or the

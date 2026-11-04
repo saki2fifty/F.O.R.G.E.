@@ -598,13 +598,56 @@ columns at increasing distances. Try Start 12 and End 34, then disable fog to co
 Fog affects geometry before transparency, bloom and display exposure. Sky, camera
 background, editor overlays and the game HUD keep their own colors. Matching the
 camera background to Fog color can make distant geometry blend into a clear view.
-This effect provides distance fading; it does not simulate weather or volumes.
+Distance fog provides distance fading. For localized geometry fog, use the Fog
+Volume component below. Neither effect simulates weather or light scattering.
 
 Authored controls are read-only during Play. If **Problems** requests a current
 surface wrapper, reimport that custom Shader and rebuild its dependent Material
 before enabling fog or exporting the scene. Disable fog to keep using an older
 cook; an incompatible draw is omitted while fog is enabled. Invalid fields leave the previous
 Scene values in place; correct them and press Enter to continue.
+
+## Add a local fog volume
+
+1. Stop Play and choose **Entity > Create > Rendering > Fog Volume**.
+2. Select the new entity. In **Inspector → Fog Volume**, choose **Shape**: Box or Sphere.
+3. Set **Half extent X**, **Half extent Y** and **Half extent Z**. These are local box half sizes or sphere radii in metres; unequal sphere dimensions form an ellipsoid.
+4. Use the ordinary Transform controls to move, rotate or scale the entity. Select it in Scene View to see its outline. Frame Selected includes the volume's extent.
+5. Set **Color R**, **Color G**, **Color B** and **Density**. Color uses linear HDR RGB. Density controls how strongly geometry fades per metre travelled through the volume; try 0.15 initially.
+6. Save the scene. Press Play to compare Scene and Game views, then export with the runtime kit supplied with the editor.
+
+![Fog Volume Inspector with Sphere shape, density and local half extents](../images/fog-volume-inspector.png)
+
+The outline follows the entity transform. A sphere with unequal dimensions or
+nonuniform scale becomes an ellipsoid. A disabled volume keeps its settings;
+Density 0 or Layers 0 also removes its contribution. Color channels accept
+**0–65504**, Density **0–1000**, and half extents **0.001–1000000 metres**.
+
+Camera, Fog Volume and receiving Mesh Renderer must share a **Layers** bit.
+When more than **16 compatible volumes** affect a draw, higher **Priority** values
+are selected first; equal priorities use stable entity IDs. Priority does not
+control color layering. Overlapping colors mix according to their optical depth.
+Global distance fog applies first, then local fog. Sky, background, HUD and editor
+overlays retain their own colors. Local fog has no lighting or shadow scattering.
+
+During Play, select the volume and adjust its fields in the colored **Live
+gameplay** section. Changes affect the running world. Use **Keep values** to
+review them, Stop Play and apply the selected fields to retain them. The applied
+change supports ordinary Undo. Saving the authored scene does not save unkept
+runtime values. Move volumes through Transform animation when needed; Fog Volume
+fields do not have component keyframe tracks.
+
+Open **160-local-fog-volumes** in the Feature Gallery to compare a blue box and a
+warm ellipsoid around rows of depth markers. Select either mist entity, change
+Density or Enabled, and compare the center row outside both volumes. The scene
+includes its camera and light and requires no project C++ module.
+
+If geometry disappears and **Problems** requests a current Shader cook, reimport
+the custom Shader and rebuild the dependent Material. Keep the matching runtime
+kit selected for export, including when a saved Fog Volume is disabled. An invalid
+or singular transformed volume is skipped with a diagnostic; use finite dimensions
+and a nonsingular scale. Scene View uses its own camera, so its fog appearance can
+differ from the Game view.
 
 ## Add glow to bright surfaces
 

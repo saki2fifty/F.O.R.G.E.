@@ -198,7 +198,8 @@ class ComponentInspector {
                RuntimePropertyTune::particle_type(key) ||
                RuntimePropertyTune::mesh_renderer_type(key) ||
                RuntimePropertyTune::sprite_type(key) || RuntimePropertyTune::probe_type(key) ||
-               RuntimePropertyTune::decal_type(key) || RuntimePropertyTune::light_type(key) ||
+               RuntimePropertyTune::fog_type(key) || RuntimePropertyTune::decal_type(key) ||
+               RuntimePropertyTune::light_type(key) ||
                (type.value("custom", false) && type.contains("admission") &&
                 components.at(key).value("$forge", Json()) == type.at("admission"));
     }
@@ -241,6 +242,7 @@ class ComponentInspector {
                 RuntimePropertyTune::sprite_property(name)) &&
                (!RuntimePropertyTune::probe_type(key) ||
                 RuntimePropertyTune::probe_property(name)) &&
+               (!RuntimePropertyTune::fog_type(key) || RuntimePropertyTune::fog_property(name)) &&
                (!RuntimePropertyTune::decal_type(key) ||
                 RuntimePropertyTune::decal_property(name)) &&
                (!RuntimePropertyTune::light_type(key) ||
@@ -617,6 +619,14 @@ class ComponentInspector {
                              "Cube textures. Directional image size is in world metres; Tile image "
                              "uses the Texture sampler outside the image bounds.");
             }
+            if (RuntimePropertyTune::fog_type(key))
+                ui::help("Geometry fog inside a transformed box or sphere. Half extents are "
+                         "local box half sizes or sphere radii; unequal dimensions form an "
+                         "ellipsoid. Density is optical depth per world metre. Camera, volume "
+                         "and receiving geometry must share a layer. Up to 16 compatible volumes "
+                         "mix by optical depth; priority selects which fit. Sky and UI are "
+                         "unaffected. No light or shadow scattering. Custom surfaces need a "
+                         "current Shader cook.");
             if (RuntimePropertyTune::decal_type(key))
                 ui::help(
                     "Assign a built-in PBR or unlit Source Material. The +Z arrow projects "

@@ -2,6 +2,7 @@
 #include "decal_material.hpp"
 #include "environment_gpu.hpp"
 #include "environment_probe.hpp"
+#include "fog_volume_geometry.hpp"
 #include "material_shader.hpp"
 #include "mesh_draw_profile.hpp"
 #include "mesh_vertex_fetch.hpp"
@@ -94,7 +95,8 @@ class MeshDraw {
               std::span<const Decal> decals = {}, const RenderBounds* decal_bounds = nullptr,
               std::span<const LightImage> light_images = {},
               std::span<const EnvironmentProbe> local_irradiance = {},
-              const MeshWindSample* wind = nullptr);
+              const MeshWindSample* wind = nullptr,
+              std::span<const FogVolumeSample> local_fog = {});
 
   private:
     unsigned instance_rows() const;
@@ -106,7 +108,7 @@ class MeshDraw {
     std::array<Diligent::RefCntAutoPtr<Diligent::IPipelineState>, 3> pipelines_;
     std::array<Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding>, 3> bindings_;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> object_, lights_, environment_, shadows_,
-        transmission_, fog_;
+        transmission_, fog_, fog_volumes_, empty_fog_volumes_;
     Diligent::RefCntAutoPtr<Diligent::ITextureView> empty_shadow_;
     Diligent::RefCntAutoPtr<Diligent::ITextureView> black_environment_;
     Diligent::RefCntAutoPtr<Diligent::ITextureView> black_background_;
@@ -130,6 +132,7 @@ class MeshDraw {
     void bind_decal_storage(const DiligentPresentation::ProjectedBuffers&);
     bool shadow_pass_{};
     bool fog_supported_ = true;
+    bool fog_volumes_supported_ = true, fog_volumes_active_ = false;
     bool temporal_{};
     bool indirect_{};
     bool reflection_{};

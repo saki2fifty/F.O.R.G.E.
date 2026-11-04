@@ -4,6 +4,7 @@
 #include "native_io_path.hpp"
 #include "ui_filter_profile.hpp"
 #include <algorithm>
+#include <forge/fog_volume.hpp>
 #include <forge/game_content.hpp>
 #include <forge/input_message.hpp>
 #include <forge/mesh_wind.hpp>
@@ -94,6 +95,17 @@ void validate_runtime_compatibility(const AssetCatalog& catalog, const Json& eng
             if (features != document->end()) {
                 require(features->is_object(), "Invalid authored document runtime features");
                 for (const auto& [name, version] : features->items()) {
+                    if (name == "fog_volumes") {
+                        require(version.is_number_integer() &&
+                                    version == fog_volume_profile_version,
+                                "Unsupported authored document runtime feature/profile");
+                        const auto support = engine.find("runtime_fog_volumes");
+                        require(support != engine.end() && support->is_number_integer() &&
+                                    *support == fog_volume_profile_version,
+                                "Fog Volumes require a matching runtime kit; select the runtime "
+                                "kit packaged with this editor");
+                        continue;
+                    }
                     if (name == "input_message_triggers") {
                         require(version.is_number_integer() &&
                                     version == input_message_trigger_profile_version,

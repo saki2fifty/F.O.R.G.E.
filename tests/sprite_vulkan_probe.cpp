@@ -27,6 +27,12 @@ int main(int argc, char** argv) {
         const auto read = [&](ITexture* texture) {
             return forge::test_sprite_draw::read_pixels(device, context, texture);
         };
+        if (argc == 3 && std::string_view(argv[2]) == "--fog-surface-only") {
+            forge::test_fog_surface::exercise(presentation, context, read, false, true);
+            forge::test_fog_surface::exercise(presentation, context, read, true, true);
+            context->WaitForIdle();
+            return 0;
+        }
         if (argc == 3 && std::string_view(argv[2]) == "--surface-only") {
             forge::test_fog_surface::exercise(presentation, context, read);
             context->WaitForIdle();

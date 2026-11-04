@@ -1,5 +1,6 @@
 #pragma once
 #include <forge/decal.hpp>
+#include <forge/fog_volume.hpp>
 #include <forge/reflection_probe.hpp>
 #include <forge/render_components.hpp>
 #include <nlohmann/json.hpp>
@@ -10,6 +11,8 @@ Json render_value(const Light&);
 Json render_value(const DecalProjector&);
 DecalProjector decal_value(const Json&);
 Json render_value(const ReflectionProbe&);
+Json render_value(const FogVolume&);
+FogVolume fog_volume_value(const Json&);
 Json render_value(const ParticleEmitter&);
 Json render_value(const SpriteRenderer&);
 Json render_value(const TileMapRenderer&);

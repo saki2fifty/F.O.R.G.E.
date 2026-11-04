@@ -1,5 +1,6 @@
 #pragma once
 #include "decal_guide.hpp"
+#include "fog_volume_guide.hpp"
 #include "light_emitter_view.hpp"
 #include "navigation_region_view.hpp"
 #include "reflection_probe_view.hpp"
@@ -229,9 +230,16 @@ class EditorCamera {
                         bounds.first[i] = std::min(bounds.first[i], float(point[i]));
                         bounds.second[i] = std::max(bounds.second[i], float(point[i]));
                     }
+            const auto fog = ui::fog_volume_guide(e);
+            if (fog)
+                for (const auto& point : fog->outline)
+                    for (unsigned i = 0; i < 3; ++i) {
+                        bounds.first[i] = std::min(bounds.first[i], float(point[i]));
+                        bounds.second[i] = std::max(bounds.second[i], float(point[i]));
+                    }
             if (const auto emitter = ui::light_emitter_bounds(e))
                 for (unsigned i = 0; i < 3; ++i) {
-                    if (primitive_kind(e) == no_primitive && !region && !probe && !decal) {
+                    if (primitive_kind(e) == no_primitive && !region && !probe && !decal && !fog) {
                         bounds.first[i] = float(emitter->first[i]);
                         bounds.second[i] = float(emitter->second[i]);
                     } else {

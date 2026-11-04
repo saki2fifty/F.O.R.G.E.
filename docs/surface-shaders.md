@@ -139,6 +139,11 @@ layout/bytes and works with fog disabled. Reimport the Shader and rebuild depend
 Materials to use fog; embedded last-good programs remain the Material's authority.
 Only supported wrapper versions are admitted. New cooks need a matching engine.
 
+Surface profile 16 adds [local Fog Volumes](local-fog-volumes.md) through the same
+color helper and combined indirect transmittance. Box/ellipsoid intervals use the
+current camera rays; alpha, discard and depth roles retain their existing behavior.
+Older wrappers need recooking before they can receive local fog.
+
 ## Temporal color wrapper
 
 Capability 3 adds the [temporal color role](temporal-antialiasing.md) alongside

@@ -5,6 +5,7 @@
 #include <forge/audio_components.hpp>
 #include <forge/character_components.hpp>
 #include <forge/decal.hpp>
+#include <forge/fog_volume.hpp>
 #include <forge/input_message.hpp>
 #include <forge/navigation_components.hpp>
 #include <forge/physics_components.hpp>
@@ -27,7 +28,7 @@ using Value =
                  InputMessage, MeshRenderer, ModelSource, Camera, Light, NodeVisibility,
                  NodeSelectability, ParticleEmitter, AudioCue, SpriteRenderer, TileMapRenderer,
                  PhysicsBody2D, BoxCollider2D, CircleCollider2D, CapsuleCollider2D, PhysicsJoint2D,
-                 TileMapCollider2D, ReflectionProbe, DecalProjector>;
+                 TileMapCollider2D, ReflectionProbe, DecalProjector, FogVolume>;
 inline constexpr std::size_t builtin_count = std::variant_size_v<Value>;
 struct Builtin {
     const char* name;

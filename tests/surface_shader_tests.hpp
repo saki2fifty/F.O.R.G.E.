@@ -126,6 +126,40 @@ inline void check_surface_shader() {
         malformed["resources"][0]["variables"][1].update(bad);
         reject([&] { (void)surface_binding_layout(definition, malformed); });
     }
+    auto volume_field = fog_field("g_ForgeFogVolumes", 0);
+    volume_field["array_size"] = 81;
+    const Json volume_reflection{
+        {"stage", "pixel"},
+        {"resources", Json::array({{{"name", "ForgeFogVolumes"},
+                                    {"kind", "constant_buffer"},
+                                    {"array_size", 1},
+                                    {"size", 1296},
+                                    {"variables", Json::array({volume_field})}}})}};
+    (void)surface_binding_layout(definition, volume_reflection, ShaderEntryRole::SurfaceColor, 16);
+    reject([&] {
+        (void)surface_binding_layout(definition, volume_reflection, ShaderEntryRole::SurfaceDepth,
+                                     16);
+    });
+    reject([&] {
+        (void)surface_binding_layout(definition, volume_reflection, ShaderEntryRole::SurfaceColor,
+                                     15);
+    });
+    for (const auto& bad :
+         {Json{{"size", 1280}}, Json{{"kind", "texture_srv"}}, Json{{"array_size", 2}}}) {
+        auto wrong = volume_reflection;
+        wrong["resources"][0].update(bad);
+        reject([&] {
+            (void)surface_binding_layout(definition, wrong, ShaderEntryRole::SurfaceColor, 16);
+        });
+    }
+    for (const auto& bad : {Json{{"offset", 16}}, Json{{"basic", "uint"}}, Json{{"array_size", 80}},
+                            Json{{"name", "unknown"}}}) {
+        auto wrong = volume_reflection;
+        wrong["resources"][0]["variables"][0].update(bad);
+        reject([&] {
+            (void)surface_binding_layout(definition, wrong, ShaderEntryRole::SurfaceColor, 16);
+        });
+    }
     // Legacy cooks remain admissible without the optional new engine binding.
     reflection["resources"] = Json::array();
     (void)surface_binding_layout(definition, reflection);
@@ -140,6 +174,12 @@ inline void check_surface_shader() {
     sprite.textures["image"].semantic = TextureSemantic::Color;
     sprite.textures["detail"].offset = {.5f, 0};
     sprite.labels["image"] = "Main image";
+    (void)surface_binding_layout(sprite, volume_reflection, ShaderEntryRole::SurfaceSpriteColor,
+                                 16);
+    reject([&] {
+        (void)surface_binding_layout(sprite, volume_reflection, ShaderEntryRole::SurfaceSpriteColor,
+                                     14);
+    });
     const auto sprite_document = surface_definition_document(sprite);
     check(sprite_document.at("version") == 3 && sprite_document.at("domain") == "sprite" &&
               sprite_document.at("image") == "image" &&

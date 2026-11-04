@@ -209,6 +209,12 @@ RenderScene extract_render_scene(const Json& source) {
                 state.visible)
                 result.reflection_probes.push_back({id, probe, world_transform(row)});
         });
+        admit("forge.fog_volume", "render.fog.invalid", [&] {
+            const auto volume = component<FogVolume>(values, "forge.fog_volume");
+            if (volume.enabled && volume.density > 0 && volume.layers != 0 && state.valid &&
+                state.visible)
+                result.fog_volumes.push_back({id, volume, world_transform(row)});
+        });
         // Build-63 compatibility: explicit Mesh/Tile Map renderers own rendering
         // when present, including disabled/missing assignments. Do not create a cube
         // behind an intentionally invisible or invalid renderer.

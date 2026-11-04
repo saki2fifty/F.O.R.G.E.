@@ -1893,3 +1893,16 @@ Local capture provenance is in
 `AgentFiles/build/phase247-imported-lightmaps/capture-provenance.json`.
 This graph-only image does not establish a full editor window, Windows cooked
 Shader, Game/export, hardware DPI or physical GPU acceptance.
+
+## Local Fog Volume Inspector
+
+`manual/images/fog-volume-inspector.png` is the canonical unretouched 720x900
+production Inspector capture from `forge_fog_volume_editor_tests`. It shows Sphere
+shape, linear RGB, density, local half extents, layer mask and priority. Actual
+ImGui input tests cover wide/compact panels at 100/150/200%, live native tuning,
+Keep values review/history, detached guides and framing. SDL software rendering
+produces the pixels. The image was personally reviewed. Exact source/image hashes
+and build/test provenance are in local
+`AgentFiles/build/phase249-local-fog-volumes/capture-provenance.json`. This control
+capture does not establish full-editor, Windows/MSVC/D3D12, physical GPU/input/DPI,
+exported-game or hardware performance acceptance.

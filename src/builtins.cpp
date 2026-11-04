@@ -37,6 +37,8 @@ template <class T> Json encode(const T& p) {
         return render_value(p);
     else if constexpr (std::is_same_v<T, ReflectionProbe>)
         return render_value(p);
+    else if constexpr (std::is_same_v<T, FogVolume>)
+        return render_value(p);
     else if constexpr (std::is_same_v<T, SpriteRenderer>)
         return render_value(p);
     else if constexpr (std::is_same_v<T, TileMapRenderer>)
@@ -325,6 +327,8 @@ template <class T> Value decode(const Json& p) {
         return decal_value(p);
     else if constexpr (std::is_same_v<T, ReflectionProbe>)
         return reflection_probe_value(p);
+    else if constexpr (std::is_same_v<T, FogVolume>)
+        return fog_volume_value(p);
     else if constexpr (std::is_same_v<T, ModelSource>) {
         ModelSource value;
         if (!p.at("model").is_null())
@@ -863,6 +867,34 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             const auto* member = ecs_struct_get_member(w.c_ptr(), c.id(), field);
             if (!member || std::size_t(member->offset) != offset)
                 throw std::runtime_error("Decal native Meta disagrees with typed layout");
+        }
+    } else if constexpr (std::is_same_v<T, FogVolume>) {
+        c.template member<bool>("enabled")
+            .template member<std::uint32_t>("shape")
+            .template member<float>("color_r")
+            .template member<float>("color_g")
+            .template member<float>("color_b")
+            .template member<float>("density")
+            .template member<double>("half_extent_x")
+            .template member<double>("half_extent_y")
+            .template member<double>("half_extent_z")
+            .template member<std::uint32_t>("layers")
+            .template member<std::int32_t>("priority");
+        for (const auto& [field, offset] :
+             {std::pair{"enabled", offsetof(FogVolume, enabled)},
+              std::pair{"shape", offsetof(FogVolume, shape)},
+              std::pair{"color_r", offsetof(FogVolume, color_r)},
+              std::pair{"color_g", offsetof(FogVolume, color_g)},
+              std::pair{"color_b", offsetof(FogVolume, color_b)},
+              std::pair{"density", offsetof(FogVolume, density)},
+              std::pair{"half_extent_x", offsetof(FogVolume, half_extent_x)},
+              std::pair{"half_extent_y", offsetof(FogVolume, half_extent_y)},
+              std::pair{"half_extent_z", offsetof(FogVolume, half_extent_z)},
+              std::pair{"layers", offsetof(FogVolume, layers)},
+              std::pair{"priority", offsetof(FogVolume, priority)}}) {
+            const auto* member = ecs_struct_get_member(w.c_ptr(), c.id(), field);
+            if (!member || std::size_t(member->offset) != offset)
+                throw std::runtime_error("Fog Volume native Meta disagrees with typed layout");
         }
     } else if constexpr (std::is_same_v<T, ReflectionProbe>) {
         register_asset_ref<TextureAsset>(w, "forge.texture_ref");
@@ -1927,7 +1959,11 @@ const std::array<Builtin, builtin_count>& builtins() {
                    w) { return register_type<ReflectionProbe>(w, "forge.reflection_probe"); }),
         descriptor<DecalProjector>(
             "forge.decal", "Projected material channels inside a transformed box", "unitless", {},
-            {}, [](flecs::world& w) { return register_type<DecalProjector>(w, "forge.decal"); })};
+            {}, [](flecs::world& w) { return register_type<DecalProjector>(w, "forge.decal"); }),
+        descriptor<FogVolume>(
+            "forge.fog_volume", "Homogeneous linear-color fog inside a transformed box or sphere",
+            "unitless", {}, {},
+            [](flecs::world& w) { return register_type<FogVolume>(w, "forge.fog_volume"); })};
     return types;
 }
 Json registration_options(const Builtin& type, const std::string& field) {
@@ -1937,6 +1973,54 @@ Json registration_options(const Builtin& type, const std::string& field) {
     if (type.maximum)
         value["maximum"] = *type.maximum;
     const std::string name = type.name;
+    if (name == "forge.fog_volume") {
+        value["animatable"] = false;
+        if (field == "shape") {
+            value["display_name"] = "Shape";
+            value["description"] =
+                "0 Box; 1 Sphere. Nonuniform dimensions or scale make an ellipsoid.";
+            value["minimum"] = 0;
+            value["maximum"] = 1;
+        } else if (field.starts_with("color_")) {
+            value["display_name"] = field == "color_r"   ? "Color R"
+                                    : field == "color_g" ? "Color G"
+                                                         : "Color B";
+            value["description"] =
+                "Finite linear HDR medium color. No light-scattering simulation.";
+            value["minimum"] = 0;
+            value["maximum"] = 65504;
+        } else if (field == "density") {
+            value["display_name"] = "Density";
+            value["description"] =
+                "Optical depth per world metre inside the volume. Zero disables its contribution.";
+            value["unit"] = "inverse meters";
+            value["minimum"] = 0;
+            value["maximum"] = 1000;
+        } else if (field.starts_with("half_extent_")) {
+            value["display_name"] = field == "half_extent_x"   ? "Half extent X"
+                                    : field == "half_extent_y" ? "Half extent Y"
+                                                               : "Half extent Z";
+            value["description"] =
+                "Local box half size or ellipsoid radius before the ordinary entity transform.";
+            value["unit"] = "meters";
+            value["minimum"] = .001;
+            value["maximum"] = 1000000;
+        } else if (field == "layers") {
+            value["display_name"] = "Layers";
+            value["description"] = "Render layer mask shared with receiving geometry and camera.";
+            value["minimum"] = 0;
+            value["maximum"] = UINT32_MAX;
+        } else if (field == "priority") {
+            value["display_name"] = "Priority";
+            value["description"] = "Higher priorities select first when more than 16 compatible "
+                                   "volumes affect a draw.";
+            value["minimum"] = INT32_MIN;
+            value["maximum"] = INT32_MAX;
+        } else {
+            value["display_name"] = "Enabled";
+            value["description"] = "Contribute geometry fog during Scene and Game rendering.";
+        }
+    }
     if (name == "forge.mesh_renderer" && field == "wind")
         value["description"] =
             "Optional wind for static Mesh geometry without skin or morph targets. "
@@ -3406,6 +3490,9 @@ ecs_entity_t builtin_enum(flecs::world& world, const std::string& component,
     } else if (component == "forge.camera" && field == "projection") {
         type = "forge.CameraProjection";
         names = {"Perspective", "Orthographic"};
+    } else if (component == "forge.fog_volume" && field == "shape") {
+        type = "forge.FogVolumeShape";
+        names = {"Box", "Sphere"};
     } else if (component == "forge.sprite_renderer" && field == "image_mode") {
         type = "forge.SpriteImageMode";
         names = {"Simple", "Sliced", "Tiled"};
@@ -3742,7 +3829,8 @@ Json register_builtins(flecs::world& world, unsigned family) {
                   name == "forge.sprite_renderer" || name == "forge.tile_map_renderer" ||
                   name == "forge.camera" || name == "forge.light" ||
                   name == "forge.reflection_probe" || name == "forge.decal" ||
-                  name == "forge.node_visibility" || name == "forge.node_selectability"}});
+                  name == "forge.fog_volume" || name == "forge.node_visibility" ||
+                  name == "forge.node_selectability"}});
         if (name == "forge.ui_values") {
             // A builtin opts into the existing component-track admission explicitly.
             // Its stamp describes the reflected value shape, never a Scene instance.
