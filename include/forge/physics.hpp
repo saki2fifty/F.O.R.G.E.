@@ -59,6 +59,9 @@ class PhysicsRuntime : public PhysicsService {
     const std::vector<PhysicsContact>& contacts() const override;
     std::optional<PhysicsContact> contact_event(std::size_t) const override;
     std::vector<EntityRef> overlap_shape(const PhysicsOverlap&, PhysicsQueryFilter) const override;
+    // Host-only existence query through the same native shapes/filters. Does not
+    // collect a capped hit list or change the PhysicsService/SDK value boundary.
+    bool overlap_any(const PhysicsOverlap&, PhysicsQueryFilter = {}) const;
     void teleport_2d(EntityRef, Double2, double, bool) override;
     void move_kinematic_2d(EntityRef, Double2, double) override;
     void add_force_2d(EntityRef, Double2, std::optional<Double2> = {}) override;

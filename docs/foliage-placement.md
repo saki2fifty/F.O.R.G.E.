@@ -59,7 +59,7 @@ radius. Distance uses a scale-safe norm, including subnormal positive spacing;
 quantized duplicate world positions cannot pass a positive spacing request. The
 cell index uses bounded center-relative coordinates and a conservative neighborhood.
 It does not compare old groups, mesh bounds or colliders. There is no arbitrary
-surface painting, collision filter, brush stroke, wind simulation or world streaming.
+surface painting, brush stroke, wind simulation or world streaming. Optional collider clearance is a separate preparation step below.
 Without optional `world_heights`, the requested center Y is an origin plane and
 children have zero local Y. With that array, each generated origin uses the
 corresponding absolute world Y; the group pivot remains the requested center.
@@ -153,6 +153,56 @@ the same function as `asset.read`. Apply the returned arguments through ordinary
 sample; it is not an asset lock or a live placement recipe. UI **Check layout**
 and **Place foliage** prepare through that same owner, with publication/history
 still delegated to the existing authoring command.
+
+## Native collision clearance preparation
+
+`FoliageCollisionPreparation` owns one transient `world-sphere-v1` request. It
+captures the project lease, source snapshot/revision, published AssetCatalog and
+ProjectSettings, then composes the existing private RuntimeWorld/resource/physics
+owners. No gameplay modules, audio or UI are loaded and no simulation tick runs.
+The existing resource/application-state/TileMap readiness path is polled before
+`PhysicsRuntime::synchronize(0)`. Copied custom authored values remain source
+intent; project C++ code is not executed. Missing or invalid required resources
+fail preparation. Polling stays on the owning thread; existing loaders perform
+asset IO asynchronously. This is derived query state, not a collider database.
+
+The sphere radius is 0.001..100 meters, with an explicit world-axis offset up to
++/-1000 meters per axis (default 0,0.5,0). Each resulting query origin must be finite
+and within+/-1e9 meters. Radius does not inherit template scale or rotation. A
+uint32 layer mask defaults all; sensors default excluded. Canonical references
+exclude the template, optional surface and at most 14 distinct additional entities
+(up to 16 total). Exclusions name exact objects, not subtrees. Existing native
+query layer/sensor/retirement/generation validation remains authoritative.
+The host-only nonvirtual `PhysicsRuntime::overlap_any` uses native early-out
+existence queries, sharing the ordinary shape/settings/filter owners. All-hit
+query limits/semantics, PhysicsService virtual layout, SDK structs and ABI remain
+unchanged. Dense valid overlap is an occupied candidate, not an all-hit-list error.
+
+One task admits at most 512 candidates and performs at most 16 native queries per
+poll, with a 30-second wall deadline. Previously excluded candidates are skipped;
+query hits clear original-order mask entries. Heights, normals, seeded layout,
+yaw, scale and spacing retain correspondence. No resampling or pairwise new-plant
+collision is implied. An empty result fails before publication. The final copied
+arguments preflight through the existing detached mesh.scatter owner.
+
+Exact pending/ready retries reuse an operation only for the same project, source
+revision/snapshot, arguments, settings and asset selections. A different pending
+request requires cancellation. Project/Scene/revision changes cancel the task;
+asset/settings changes invalidate its result. At readiness, native retained
+Collision revisions must match captured catalog selections; catalog/settings are
+checked before/after queries and on explicit ready-result reads. No file or Scene
+changes occur. Ready results include arguments, scene_revision, candidate_count,
+retained_count, source/catalog digests, settings and physics_tick 0. Results are
+point-in-time data, not locks; restarting preparation checks current selections.
+
+Native Check/Place and automation/MCP start/read/cancel share this owner. Ordinary
+mesh.scatter is still the only publication/history owner. The native panel queues
+placement and revalidates readiness before applying at the captured Scene revision;
+closing its pending workflow or locking Scene authoring cancels it. Read-only MCP
+preparation can inspect authored source during Play; it neither queries nor tunes
+the live simulation. MCP application still requires ordinary mutation permission,
+revision and replay sequence. The source snapshot is retired after native world
+creation, and native loaders/world retire before project lease release.
 
 ## Evidence boundary
 

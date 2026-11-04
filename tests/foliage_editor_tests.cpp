@@ -2,8 +2,10 @@
 #include "imgui_input_driver.hpp"
 #include "imgui_software_capture.hpp"
 #include "terrain_authoring.hpp"
+#include <chrono>
 #include <imgui_internal.h>
 #include <iostream>
+#include <thread>
 using namespace forge;
 namespace {
 void check(bool v, const char* why) {
@@ -160,6 +162,96 @@ void exercise(float scale, bool compact, const std::filesystem::path& scratch) {
     check(on_surface == 8 && scene.undo() && scene.document() == before_projection &&
               scene.redo() && scene.document() == projected,
           "Terrain UI did not use one Scene history entry");
+    input.click("foliage:projected");
+    owner.selection.select_entity(source);
+    input.click("foliage:source");
+    input.type("foliage:count", "32");
+    input.type("foliage:radius", "3");
+    input.type("foliage:spacing", "0");
+    input.type("foliage:y", "0");
+    const auto obstacle = cube(scene);
+    for (auto type : {"forge.physics_body", "forge.box_collider"})
+        authoring_command(scene, "component.add", {{"entity", obstacle}, {"component", type}});
+    authoring_command(scene, "property.set",
+                      {{"entity", obstacle},
+                       {"component", "forge.physics_body"},
+                       {"field", "motion"},
+                       {"value", 0}});
+    authoring_command(
+        scene, "property.set",
+        {{"entity", obstacle}, {"component", "forge.box_collider"}, {"field", "z"}, {"value", 10}});
+    authoring_command(scene, "transform.position",
+                      {{"entity", obstacle}, {"value", {{"x", 0}, {"y", .5}, {"z", 0}}}});
+    const auto clearance_before = scene.document();
+    input.click("foliage:collision");
+    input.type("foliage:clearance_radius", ".25");
+    input.type("foliage:clearance_x", "0");
+    input.type("foliage:clearance_y", ".5");
+    input.type("foliage:clearance_z", "0");
+    input.click("foliage:sensors");
+    input.click("foliage:sensors");
+    auto settle = [&] {
+        const auto end = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+        while (panel.collision_task().busy()) {
+            check(std::chrono::steady_clock::now() < end, "UI clearance stalled");
+            frame();
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+        frame();
+    };
+    input.type("foliage:clearance_mask", "0");
+    input.click("foliage:check");
+    settle();
+    check(scene.document() == clearance_before &&
+              panel.collision_task().state().at("result").at("retained_count") == 32,
+          "Actual clearance layer mask did not use the shared native task");
+    input.type("foliage:clearance_mask", "4294967295");
+    owner.selection.select_entity(obstacle);
+    input.click("foliage:ignore");
+    input.click("foliage:check");
+    settle();
+    check(panel.collision_task().state().at("result").at("retained_count") == 32,
+          "Actual ignored-object control failed canonical exclusion");
+    input.click("foliage:ignore_clear");
+    input.click("foliage:place");
+    settle();
+    const auto cleared = scene.document();
+    const auto group_id = owner.selection.entity();
+    unsigned cleared_count = 0;
+    const auto cleared_effective = scene.effective_document();
+    for (const auto& row : cleared_effective.at("entities"))
+        if (row.value("parent", "") == group_id) {
+            check(std::abs(row.at("world_affine")[3].get<double>()) > .75,
+                  "Actual collision controls placed an overlapping candidate");
+            ++cleared_count;
+        }
+    check(cleared_count > 0 && cleared_count < 32 && owner.problems.size() == 0 && scene.undo() &&
+              scene.document() == clearance_before && scene.redo() && scene.document() == cleared,
+          "Actual collision placement did not use one normal filtered history entry");
+    detail::MeshScatterSettings pending;
+    pending.count = 512;
+    pending.radius = 30;
+    pending.spacing = 0;
+    panel.collision_task().start(
+        project.writer_guard(), scene,
+        detail::mesh_scatter_arguments(source, pending, "Cancelled check"));
+    input.click("foliage:cancel");
+    frame();
+    check(panel.collision_task().state().at("state") == "cancelled" &&
+              scene.document() == cleared && owner.problems.size() == 0,
+          "Actual Cancel clearance control changed the Scene or reported an intentional "
+          "cancellation as an error");
+    input.type("foliage:count", "512");
+    input.type("foliage:radius", "30");
+    input.click("foliage:place");
+    check(panel.collision_task().busy(), "Large pending placement finished before close test");
+    panel.open = false;
+    frame();
+    check(panel.collision_task().state().at("state") == "cancelled" &&
+              scene.document() == cleared && owner.problems.size() == 0,
+          "Closing a pending placement created objects or reported intentional cancellation as an "
+          "error");
+    panel.open = true;
     locked = true;
     frame();
     check(!test::ui_targets.at("foliage:place").enabled &&
@@ -176,12 +268,13 @@ void exercise(float scale, bool compact, const std::filesystem::path& scratch) {
           "Scene switch retained the old foliage template");
     test::observe_ui = false;
 }
-void capture(const std::filesystem::path& output, const std::filesystem::path& gallery = {}) {
+void capture(const std::filesystem::path& output, const std::filesystem::path& gallery = {},
+             bool clearance = false) {
     std::filesystem::create_directories(output);
     if (!SDL_Init(SDL_INIT_VIDEO))
         throw std::runtime_error(SDL_GetError());
     {
-        const float height = gallery.empty() ? 1100 : 1340;
+        const float height = clearance ? 1850 : (gallery.empty() ? 1100 : 1340);
         test::ImGuiSoftwareCapture capture(720, unsigned(height));
         ui::style(1);
         EngineContext engine;
@@ -194,7 +287,8 @@ void capture(const std::filesystem::path& output, const std::filesystem::path& g
             std::filesystem::copy(gallery, root, std::filesystem::copy_options::recursive);
             project = std::make_unique<SceneDocument>(scene);
             project->open_project(root);
-            project->open_scene("Scenes/147-terrain-foliage.scene.json");
+            project->open_scene(clearance ? "Scenes/156-foliage-clearance.scene.json"
+                                          : "Scenes/147-terrain-foliage.scene.json");
             const auto source = scene.snapshot();
             for (const auto& row : source.at("entities")) {
                 const auto name = row.at("name").get<std::string>();
@@ -242,7 +336,16 @@ void capture(const std::filesystem::path& output, const std::filesystem::path& g
             input.type("foliage:spacing", "0.55");
             input.type("foliage:scale_min", "0.65");
             input.type("foliage:scale_max", "1.15");
+            if (clearance)
+                input.click("foliage:collision");
             input.click("foliage:check");
+            const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(15);
+            while (panel.collision_task().busy()) {
+                check(std::chrono::steady_clock::now() < deadline,
+                      "Clearance controls capture stalled");
+                frame();
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            }
             for (unsigned i = 0; i < 4; ++i)
                 frame();
             check(scene.document() == before && owner.problems.size() == 0,
@@ -255,7 +358,21 @@ void capture(const std::filesystem::path& output, const std::filesystem::path& g
                           box.maximum.y <= box.clip_maximum.y,
                       "Terrain capture clipped a required control");
             }
-            capture.save(output / "terrain-foliage-controls.png");
+            if (clearance) {
+                check(panel.collision_task().state().at("state") == "ready",
+                      "Clearance capture preparation failed");
+                for (const char* key :
+                     {"foliage:collision", "foliage:clearance_radius", "foliage:clearance_x",
+                      "foliage:clearance_y", "foliage:clearance_z", "foliage:clearance_mask",
+                      "foliage:sensors", "foliage:ignore", "foliage:ignore_clear"}) {
+                    const auto& box = test::ui_targets.at(key);
+                    check(box.enabled && box.minimum.y >= box.clip_minimum.y &&
+                              box.maximum.y <= box.clip_maximum.y,
+                          "Clearance capture clipped a required control");
+                }
+            }
+            capture.save(output / (clearance ? "foliage-clearance-controls.png"
+                                             : "terrain-foliage-controls.png"));
         }
         test::observe_ui = false;
     }
@@ -266,6 +383,8 @@ int main(int argc, char** argv) {
     try {
         if (argc == 4 && std::string_view(argv[1]) == "--capture-gallery")
             capture(argv[3], argv[2]);
+        else if (argc == 4 && std::string_view(argv[1]) == "--capture-clearance")
+            capture(argv[3], argv[2], true);
         else if (argc == 2)
             capture(argv[1]);
         else if (argc == 3 && std::string_view(argv[1]) == "--test-root")

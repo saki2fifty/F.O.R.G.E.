@@ -112,3 +112,59 @@ def check_terrain_foliage_workflow(read, mutate, edit, content, save_published,
     subset = read('forge_scene_read')
     assert mutate('forge_history_undo')['ok'] and read('forge_scene_read') == after
     assert mutate('forge_history_redo')['ok'] and read('forge_scene_read') == subset
+
+    # Compose the same slope/normal result with real native collider clearance.
+    obstacle = create('Clearance obstacle')
+    for component in ('forge.physics_body', 'forge.box_collider'):
+        assert mutate('forge_component_add', arguments=dict(entity=obstacle, component=component))['ok']
+    for component, field, value in (('forge.physics_body', 'motion', 0),
+                                    ('forge.box_collider', 'x', 10),
+                                    ('forge.box_collider', 'y', 20),
+                                    ('forge.box_collider', 'z', 1.6)):
+        assert mutate('forge_property_set', arguments=dict(entity=obstacle, component=component, field=field, value=value))['ok']
+    assert mutate('forge_transform_position', arguments=dict(entity=obstacle, value=dict(x=2, y=5, z=2.8)))['ok']
+    selected = read('forge_foliage_terrain_prepare', terrain=surface, arguments=arguments,
+                    maximum_slope=10, align_to_slope=True)
+    before_clearance = read('forge_scene_read')
+    original_revision = discover()['revision']
+    started = read('forge_foliage_collision_start', arguments=selected['arguments'], surface=surface, offset=dict(x=0, y=.5, z=0))
+    operation = started['operation']
+    assert read('forge_foliage_collision_start', arguments=selected['arguments'], surface=surface)['operation'] == operation
+    import time
+    deadline = time.monotonic() + 15
+    while True:
+        checked = read('forge_foliage_collision_read', operation=operation)
+        if checked['state'] not in ('preparing', 'querying'):
+            break
+        assert time.monotonic() < deadline, checked
+        time.sleep(.01)
+    assert checked['state'] == 'ready', checked
+    clearance = checked['result']
+    assert clearance['physics_tick'] == 0
+    assert clearance['scene_revision'] == original_revision
+    assert clearance['arguments']['world_heights'] == selected['arguments']['world_heights']
+    assert clearance['arguments']['world_normals'] == selected['arguments']['world_normals']
+    combined = clearance['arguments']['placement_mask']
+    assert len(combined) == 12 and 0 < sum(combined) < sum(mask), checked
+    assert all(not combined[i] or selected['arguments']['placement_mask'][i] for i in range(12))
+    assert read('forge_scene_read') == before_clearance and discover()['revision'] == original_revision
+    read('forge_foliage_collision_read', operation=prototype, _expected_error='wrong_operation')
+    for extra in (dict(radius=0), dict(mask=True), dict(offset=dict(x=0, y=0)),
+                  dict(ignored=[obstacle, obstacle])):
+        bad = client.tool('forge_foliage_collision_start', target=discover()['result']['target'],
+                          **dict(dict(arguments=selected['arguments'], surface=surface), **extra))
+        failed(bad, 'invalid_arguments')
+        assert read('forge_scene_read') == before_clearance
+    state = discover()
+    request = dict(target=state['result']['target'], expected_revision=clearance['scene_revision'],
+                   sequence=state['next_sequence'], arguments=clearance['arguments'])
+    placed = client.tool('forge_mesh_scatter', **request)
+    assert placed['ok'] and client.tool('forge_mesh_scatter', **request) == placed, placed
+    assert placed['result']['results'][0]['placed_count'] == sum(combined)
+    cleared_scene = read('forge_scene_read')
+    assert mutate('forge_history_undo')['ok'] and read('forge_scene_read') == before_clearance
+    assert mutate('forge_history_redo')['ok'] and read('forge_scene_read') == cleared_scene
+    assert read('forge_foliage_collision_read', operation=operation)['state'] == 'cancelled'
+    cancel = read('forge_foliage_collision_start', arguments=selected['arguments'], surface=surface)
+    assert read('forge_foliage_collision_cancel', operation=cancel['operation'])['state'] == 'cancelled'
+    assert read('forge_scene_read') == cleared_scene

@@ -57,7 +57,7 @@ amber blades using one original editable Mesh. Normal objects, shared asset and
 rendering owners, Scene Save, Play and export remain authoritative. This workflow
 supports published-heightfield projection and optional world geometric slope
 filters and optional surface-frame alignment through the same native/preparation /
-MCP/Scene owners; it does not paint arbitrary surfaces, avoid colliders or stream worlds. See
+MCP/Scene owners. Optional native 3D sphere clearance uses staged resource preparation, original-order masks and shared editor/MCP start/read/cancel workflows. Gallery 156 includes 59 saved plants around a static collider from 96 candidates. Arbitrary surface painting and world streaming remain unavailable. See
 [the contract](foliage-placement.md) and [the user guide](../manual/editor/foliage.md).
 Windows/full-editor/physical acceptance remains pending.
 

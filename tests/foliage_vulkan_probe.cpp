@@ -1,6 +1,7 @@
 #include "Graphics/GraphicsEngineVulkan/interface/EngineFactoryVk.h"
 #include "editor/authoring.hpp"
 #include "editor/viewport.hpp"
+#include "foliage_collision.hpp"
 #include "gallery_game_capture.hpp"
 #include "mesh_scatter_authoring.hpp"
 #include "runtime_package.hpp"
@@ -12,11 +13,11 @@ using namespace forge;
 using namespace Diligent;
 namespace {
 Json prepare_slope_patch(const std::filesystem::path& root, const std::filesystem::path& path,
-                         const Json& source) {
+                         const Json& source, bool collisions = false) {
     EngineContext engine;
     Scene scene(engine.world());
     scene.reset(source);
-    ProjectLease lease(root);
+    auto lease = std::make_shared<ProjectLease>(root);
     std::string prototype, terrain;
     for (const auto& row : source.at("entities")) {
         const auto name = row.at("name").get<std::string>();
@@ -35,7 +36,7 @@ Json prepare_slope_patch(const std::filesystem::path& root, const std::filesyste
     settings.seed = 8128;
     const auto arguments =
         detail::mesh_scatter_arguments(prototype, settings, "Slope-aligned patch");
-    const auto observed = prepare_terrain_foliage(lease, scene, arguments, terrain, 0, {}, true);
+    const auto observed = prepare_terrain_foliage(*lease, scene, arguments, terrain, 0, {}, true);
     double minimum = 90, maximum = 0;
     for (const auto& value : observed.at("arguments").at("world_normals")) {
         const Double3 n{value.at("x"), value.at("y"), value.at("z")};
@@ -45,11 +46,52 @@ Json prepare_slope_patch(const std::filesystem::path& root, const std::filesyste
     }
     test_gallery_capture::check(maximum - minimum > 1e-6, "Gallery surface has no varied slopes");
     const auto cutoff = (minimum + maximum) * .5;
-    const auto plan =
-        prepare_terrain_foliage(lease, scene, arguments, terrain, 0, {0, cutoff}, true);
-    const auto retained = plan.at("retained_count").get<unsigned>();
+    auto plan = prepare_terrain_foliage(*lease, scene, arguments, terrain, 0, {0, cutoff}, true);
+    auto retained = plan.at("retained_count").get<unsigned>();
     test_gallery_capture::check(retained > 0 && retained < settings.count,
                                 "Native slope selection did not produce a proper subset");
+    const auto slope_count = retained;
+    if (collisions) {
+        const auto obstacle =
+            authoring_command(scene, "entity.create", {{"name", "Clearance volume"}})
+                .at("selected");
+        for (auto component : {"forge.physics_body", "forge.box_collider"})
+            authoring_command(scene, "component.add",
+                              {{"entity", obstacle}, {"component", component}});
+        for (auto [field, value] : {std::pair{"x", 2.}, {"y", 20.}, {"z", 12.}})
+            authoring_command(scene, "property.set",
+                              {{"entity", obstacle},
+                               {"component", "forge.box_collider"},
+                               {"field", field},
+                               {"value", value}});
+        authoring_command(scene, "property.set",
+                          {{"entity", obstacle},
+                           {"component", "forge.physics_body"},
+                           {"field", "motion"},
+                           {"value", 0}});
+        authoring_command(scene, "transform.position",
+                          {{"entity", obstacle}, {"value", {{"x", 0}, {"y", 4}, {"z", 0}}}});
+        FoliageCollisionPreparation task;
+        FoliageCollisionSettings config;
+        config.surface = EntityId::parse(terrain);
+        const auto before = scene.document();
+        task.start(lease, scene, plan.at("arguments"), config);
+        const auto end = std::chrono::steady_clock::now() + std::chrono::seconds(15);
+        while (task.busy()) {
+            task.poll(scene, root);
+            test_gallery_capture::check(std::chrono::steady_clock::now() < end,
+                                        "Native foliage clearance stalled");
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+        const auto ready = task.read(scene, root);
+        test_gallery_capture::check(ready.at("state") == "ready", ready.dump().c_str());
+        plan = ready.at("result");
+        retained = plan.at("retained_count");
+        test_gallery_capture::check(
+            retained > 0 && retained < slope_count && plan.at("physics_tick") == 0 &&
+                scene.document() == before,
+            "Native clearance failed to compose a read-only proper slope subset");
+    }
     const auto result =
         apply_authoring(
             scene,
@@ -62,15 +104,17 @@ Json prepare_slope_patch(const std::filesystem::path& root, const std::filesyste
                                 "Native slope preparation/Scene command disagree");
     scene.save(root / path);
     const std::array roots{scene.asset_id()};
-    prepare_runtime_content_catalog(lease, roots, {}, scene.schema());
+    prepare_runtime_content_catalog(*lease, roots, {}, scene.schema());
     return {{"candidate_count", settings.count},
             {"retained_count", retained},
+            {"slope_retained_count", slope_count},
+            {"collision_clearance", collisions},
             {"maximum_slope", cutoff},
             {"aligned_to_slope", true}};
 }
 Json scene_view(DiligentPresentation& presentation, IDeviceContext* context,
                 const std::filesystem::path& root, AssetId id, bool terrain,
-                unsigned added_instances = 0) {
+                unsigned added_instances = 0, unsigned saved_clearance_instances = 0) {
     EngineContext engine(WorldRole::Runtime, false);
     Scene scene(engine.world());
     scene.restore_snapshot(load_game_scene(root, {id}));
@@ -115,9 +159,12 @@ Json scene_view(DiligentPresentation& presentation, IDeviceContext* context,
                              {"calls", stats.calls}};
     const auto failure = "Foliage static Mesh draw counts: " + counts.dump();
     // Each of the terrain's two tile parts contributes a draw instance.
-    test_gallery_capture::check(stats.instances == (terrain ? 131u : 195u) + added_instances &&
-                                    stats.batched_calls > 0 && stats.calls < stats.instances,
-                                failure.c_str());
+    test_gallery_capture::check(
+        stats.instances ==
+                (saved_clearance_instances ? saved_clearance_instances : (terrain ? 131u : 195u)) +
+                    added_instances &&
+            stats.batched_calls > 0 && stats.calls < stats.instances,
+        failure.c_str());
     std::string prototype;
     AffineTransform prototype_transform;
     for (const auto& e : source.at("entities"))
@@ -141,9 +188,11 @@ int main(int argc, char** argv) {
     try {
         test_gallery_capture::check(
             argc == 3 || argc == 4 ||
-                (argc == 5 && std::string_view(argv[4]) == "--slope-placement"),
+                (argc == 5 && (std::string_view(argv[4]) == "--slope-placement" ||
+                               std::string_view(argv[4]) == "--collision-placement")),
             "Need Gallery/scratch, optional terrain Scene and --slope-placement");
         const bool terrain = argc >= 4, slopes = argc == 5;
+        const bool collisions = slopes && std::string_view(argv[4]) == "--collision-placement";
         const auto scratch = std::filesystem::absolute(argv[2]) / AssetId::generate().str();
         const auto root = scratch / "Gallery";
         std::filesystem::create_directories(root);
@@ -161,10 +210,21 @@ int main(int argc, char** argv) {
         const auto id = source.at("asset_id").get<AssetId>();
         Json slope_proof;
         if (slopes)
-            slope_proof = prepare_slope_patch(root, argv[3], source);
-        const auto stats =
-            scene_view(presentation, context, root, id, terrain,
-                       slopes ? slope_proof.at("retained_count").get<unsigned>() : 0);
+            slope_proof = prepare_slope_patch(root, argv[3], source, collisions);
+        unsigned saved_clearance_instances = 0;
+        if (terrain && std::string_view(argv[3]) == "Scenes/156-foliage-clearance.scene.json") {
+            unsigned plants = 0;
+            for (const auto& row : source.at("entities"))
+                plants += row.at("name").get<std::string>().starts_with("Cleared meadow ");
+            test_gallery_capture::check(plants > 0 && plants < 96,
+                                        "Saved clearance Gallery plant count invalid");
+            saved_clearance_instances = plants + 4;
+        }
+        const auto stats = scene_view(
+            presentation, context, root, id, terrain,
+            // The clearance volume also has the ordinary primitive draw.
+            slopes ? slope_proof.at("retained_count").get<unsigned>() + (collisions ? 1u : 0u) : 0,
+            saved_clearance_instances);
         const auto authored = test_gallery_capture::render(presentation, context, root, id,
                                                            scratch / "authored", 6, !terrain);
         unsigned green = 0, amber = 0;

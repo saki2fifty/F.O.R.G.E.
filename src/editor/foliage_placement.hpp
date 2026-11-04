@@ -1,4 +1,5 @@
 #pragma once
+#include "../foliage_collision.hpp"
 #include "../mesh_scatter_authoring.hpp"
 #include "../terrain_foliage_authoring.hpp"
 #include "document.hpp"
@@ -11,8 +12,66 @@ namespace forge::ui {
 class FoliagePlacement {
   public:
     bool open = false;
+    FoliageCollisionPreparation& collision_task() { return collision_task_; }
+    void poll(Scene& scene, EditorSelection& selection, bool locked, SceneDocument* project) {
+        if ((locked && !pending_operation_.empty()) || !project)
+            collision_task_.cancel("Scene authoring is unavailable");
+        else
+            collision_task_.poll(scene, project->project());
+        if (pending_operation_.empty())
+            return;
+        const auto state = project && !collision_task_.busy()
+                               ? collision_task_.read(scene, project->project())
+                               : collision_task_.state();
+        if (state.value("operation", "") != pending_operation_) {
+            pending_operation_.clear();
+            status_ = "Foliage clearance was replaced; check the layout again.";
+            return;
+        }
+        if (collision_task_.busy())
+            return;
+        pending_operation_.clear();
+        if (state.at("state") == "cancelled") {
+            status_ =
+                state.value("message", "Clearance cancelled") + ". No Scene objects were created.";
+            error_.clear();
+            return;
+        }
+        try {
+            if (state.at("state") != "ready")
+                throw std::runtime_error(state.value("message", "Clearance did not finish"));
+            const auto& result = state.at("result");
+            const auto counts =
+                std::to_string(result.at("retained_count").get<unsigned>()) + " of " +
+                std::to_string(result.at("candidate_count").get<unsigned>()) + " candidates";
+            if (pending_place_) {
+                const auto applied =
+                    apply_authoring(scene,
+                                    Json::array({{{"operation", "mesh.scatter"},
+                                                  {"arguments", result.at("arguments")}}}),
+                                    result.at("scene_revision").get<std::uint64_t>())
+                        .at("results")
+                        .at(0);
+                selection.select_entity(applied.at("selected"));
+                status_ = "Foliage placed: " + counts +
+                          ". Scene Undo removes the entire group. Save the Scene.";
+            } else
+                status_ = "Layout fits: " + counts + ". No Scene objects have been changed.";
+            error_.clear();
+            if (editor_context)
+                editor_context->problems.resolve("scene.foliage");
+        } catch (const std::exception& error) {
+            error_ = error.what();
+            status_.clear();
+            report_error("scene.foliage", error_);
+        }
+    }
     void draw(Scene& scene, EditorSelection& selection, bool locked,
               SceneDocument* project = nullptr) {
+        // Called every editor frame, including when the panel is closed.
+        if (!open && !pending_operation_.empty())
+            collision_task_.cancel("Foliage placement panel was closed");
+        poll(scene, selection, locked, project);
         if (!open)
             return;
         draft_window_size({520 * interface_scale, 760 * interface_scale});
@@ -27,6 +86,8 @@ class FoliagePlacement {
                 source_.clear();
                 terrain_.clear();
                 projected_ = false;
+                collision_enabled_ = false;
+                collision_settings_.ignored.clear();
                 status_.clear();
                 error_.clear();
             }
@@ -36,7 +97,7 @@ class FoliagePlacement {
                 "Renderer. Its local rotation, scale and renderer values are copied.");
             if (locked)
                 ImGui::TextWrapped("Stop Play and finish active tasks before placing foliage.");
-            ImGui::BeginDisabled(locked);
+            ImGui::BeginDisabled(locked || collision_task_.busy());
             const auto* selected = find_mesh(view, selection.entity());
             ImGui::BeginDisabled(!selected);
             if (button("Use selected Mesh Renderer", "Set the template and start the disk at its "
@@ -133,14 +194,16 @@ class FoliagePlacement {
             field("Radius (m)", "radius", settings_.radius,
                   "Horizontal disk radius, 0.01 to 1000 m.");
             field("Minimum spacing (m)", "spacing", settings_.spacing,
-                  "0 to 2000 m between new origins in this group. Mesh bounds, old objects and "
-                  "colliders are not tested. Dense requests can fail without creating objects.");
-            ImGui::TextUnformatted(projected_ ? "Candidate count" : "Count");
+                  "0 to 2000 m between new origins in this group. Mesh bounds are not tested. "
+                  "Optional collision clearance tests existing colliders separately. Dense "
+                  "requests can fail without creating objects.");
+            ImGui::TextUnformatted(projected_ || collision_enabled_ ? "Candidate count" : "Count");
             ImGui::SetNextItemWidth(-1);
             if (ImGui::InputInt("##count", &count_, 0, 0))
                 status_.clear();
             FORGE_UI_PROBE("foliage:count");
-            help("1 to 512 candidate origins. Terrain slope filtering can retain fewer objects. "
+            help("1 to 512 candidate origins. Slope and collision filtering can retain fewer "
+                 "objects. "
                  "The whole Scene remains limited to 10000 entities.");
             ImGui::TextUnformatted("Seed");
             ImGui::SetNextItemWidth(-1);
@@ -157,9 +220,59 @@ class FoliagePlacement {
                   "-360 to 360 degrees about world +Y, before the template's local rotation.");
             field("Maximum yaw (deg)", "yaw_max", settings_.yaw_max,
                   "At least the minimum and at most 360 degrees.");
+            ImGui::BeginDisabled(!project);
+            ImGui::Checkbox("Reject collisions", &collision_enabled_);
+            FORGE_UI_PROBE("foliage:collision");
+            ImGui::EndDisabled();
+            if (collision_enabled_) {
+                ImGui::TextWrapped(
+                    "Check a world-space sphere against authored 3D colliders. "
+                    "The template and projected terrain are ignored. No simulation runs. "
+                    "This does not test full mesh bounds or collisions between new objects.");
+                field("Clearance radius (m)", "clearance_radius", collision_settings_.radius,
+                      "Sphere radius, 0.001 to 100 m. This does not scale with the template.");
+                field("Clearance offset X (m)", "clearance_x", collision_settings_.offset[0],
+                      "World-space offset from each candidate origin, +/-1000 m.");
+                field("Clearance offset Y (m)", "clearance_y", collision_settings_.offset[1],
+                      "World-space offset from each candidate origin, +/-1000 m.");
+                field("Clearance offset Z (m)", "clearance_z", collision_settings_.offset[2],
+                      "World-space offset from each candidate origin, +/-1000 m.");
+                ImGui::TextUnformatted("Collision layer mask");
+                ImGui::SetNextItemWidth(-1);
+                ImGui::InputScalar("##clearance-mask", ImGuiDataType_U32,
+                                   &collision_settings_.mask);
+                FORGE_UI_PROBE("foliage:clearance_mask");
+                help("Unsigned 32-bit layer bits. 4294967295 selects all layers; 0 selects none.");
+                ImGui::Checkbox("Include sensors", &collision_settings_.include_sensors);
+                FORGE_UI_PROBE("foliage:sensors");
+                const auto selected_id = selection.entity();
+                ImGui::BeginDisabled(selected_id.empty() ||
+                                     collision_settings_.ignored.size() >= 14);
+                if (button("Ignore selected object", "Ignore this exact object, not its children. "
+                                                     "Up to 14 additional objects.")) {
+                    const auto id = EntityId::parse(selected_id);
+                    if (std::find(collision_settings_.ignored.begin(),
+                                  collision_settings_.ignored.end(),
+                                  id) == collision_settings_.ignored.end())
+                        collision_settings_.ignored.push_back(id);
+                }
+                FORGE_UI_PROBE("foliage:ignore");
+                ImGui::EndDisabled();
+                if (button("Clear ignored objects", "Remove additional exclusions; template and "
+                                                    "projected terrain stay ignored."))
+                    collision_settings_.ignored.clear();
+                FORGE_UI_PROBE("foliage:ignore_clear");
+                ImGui::TextWrapped("Additional ignored objects: %zu",
+                                   collision_settings_.ignored.size());
+                for (auto id : collision_settings_.ignored)
+                    for (const auto& row : view.at("entities"))
+                        if (row.at("id") == id.str())
+                            ImGui::TextWrapped("%s", row.at("name").get<std::string>().c_str());
+            }
             settings_.count = count_ > 0 ? std::uint32_t(count_) : 0;
             ImGui::BeginDisabled(!source ||
-                                 (projected_ && (!project || !find_mesh(view, terrain_))));
+                                 (projected_ && (!project || !find_mesh(view, terrain_))) ||
+                                 (collision_enabled_ && !project));
             auto perform = [&](bool place) {
                 try {
                     auto arguments =
@@ -173,6 +286,18 @@ class FoliagePlacement {
                         arguments = prepared.at("arguments");
                         revision = prepared.at("scene_revision");
                         retained = prepared.at("retained_count");
+                    }
+                    if (collision_enabled_) {
+                        auto config = collision_settings_;
+                        config.surface = projected_ ? EntityId::parse(terrain_) : EntityId{};
+                        const auto state = collision_task_.start(project->writer_guard(), scene,
+                                                                 arguments, config);
+                        pending_operation_ = state.at("operation");
+                        pending_place_ = place;
+                        status_ = "Preparing collision clearance; Cancel clearance leaves the "
+                                  "Scene unchanged.";
+                        error_.clear();
+                        return;
                     }
                     const auto count_text = std::to_string(retained) + " of " +
                                             std::to_string(settings_.count) + " candidates";
@@ -216,6 +341,16 @@ class FoliagePlacement {
             FORGE_UI_PROBE("foliage:place");
             ImGui::EndDisabled();
             ImGui::EndDisabled();
+            if (collision_task_.busy()) {
+                const auto state = collision_task_.state();
+                ImGui::TextWrapped("%s: %u checked, %u retained",
+                                   state.at("message").get<std::string>().c_str(),
+                                   state.at("checked_count").get<unsigned>(),
+                                   state.at("retained_count").get<unsigned>());
+                if (button("Cancel clearance", "Cancel preparation without creating objects."))
+                    collision_task_.cancel();
+                FORGE_UI_PROBE("foliage:cancel");
+            }
             if (!error_.empty())
                 field_error(error_);
             if (!status_.empty())
@@ -238,6 +373,10 @@ class FoliagePlacement {
         return nullptr;
     }
     AuthoringSnapshot snapshot_;
+    FoliageCollisionPreparation collision_task_;
+    FoliageCollisionSettings collision_settings_;
+    std::string pending_operation_;
+    bool collision_enabled_ = false, pending_place_ = false;
     const Scene* owner_ = nullptr;
     AssetId scene_;
     std::string source_, terrain_, status_, error_;

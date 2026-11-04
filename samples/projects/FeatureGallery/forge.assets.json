@@ -12678,6 +12678,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "d778f46c-79a1-43ed-91f6-b8979eb16c53",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/156-foliage-clearance.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "d7e017e1-47e6-4d0d-a3a8-0b7950bd99a7",
       "metadata": {
         "forge.import": {

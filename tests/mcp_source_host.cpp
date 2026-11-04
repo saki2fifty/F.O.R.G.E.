@@ -155,12 +155,14 @@ int main(int argc, char** argv) {
             return switching && documents.source_drafts_dirty() ? "Settle source drafts" : "";
         };
         forge::ui::AutomationWorkspace workspace;
+        forge::FoliageCollisionPreparation foliage_clearance;
         workspace.workflow_methods = [&](const auto& permissions) {
             auto methods = forge::source_document_automation_methods(documents, permissions);
             auto discovery = forge::asset_read_automation_methods(files.document, imports);
             methods.insert(methods.end(), std::make_move_iterator(discovery.begin()),
                            std::make_move_iterator(discovery.end()));
-            auto foliage = forge::foliage_automation_methods(scene, files.document);
+            auto foliage =
+                forge::foliage_automation_methods(scene, files.document, &foliage_clearance);
             methods.insert(methods.end(), std::make_move_iterator(foliage.begin()),
                            std::make_move_iterator(foliage.end()));
             auto settings = forge::import_document_automation_methods(documents, permissions);
@@ -183,6 +185,7 @@ int main(int argc, char** argv) {
                !forge::test::marker_present(root / "stop")) {
             files.changed = false;
             workspace.pump(files.document, "");
+            foliage_clearance.poll(scene, files.document.project());
             audio.poll(files.document, files.status);
             textures.poll(files.document, files.status);
             atlas.poll(files.document, files.status);

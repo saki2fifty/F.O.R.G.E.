@@ -1,5 +1,23 @@
 # 2026-11-04
 
+## Foliage collision clearance
+
+Optional world-space sphere clearance filters the original foliage candidate pool
+against authored native 3D colliders, composing with published terrain heights,
+slope masks and surface-frame alignment. Radius, world offset, layers, sensors and
+canonical object exclusions are shared by the editor and read-only MCP
+start/read/cancel workflow. Bounded preparation reuses private runtime resources,
+data-only copied schemas and native physics without running project C++ or
+advancing simulation. Source/revision and published selection guards reject stale
+results; ordinary mesh.scatter remains the publication/Undo owner.
+
+Gallery 156 adds 59 saved plants around a visible static collider from 96 candidates,
+using existing blade/terrain assets. The illustrated manual describes setup,
+progress/cancellation, limits and save/export. Native host boolean overlap keeps
+the existing all-hit query and SDK ABI unchanged. Local resource/state/custom-data,
+actual controls, MCP and software-rendered source-hidden export checks cover the
+workflow. Full editor/Windows/physical-device acceptance remains pending.
+
 ## Heightfield foliage slope filters and alignment
 
 Foliage placement and read-only terrain preparation accept an inclusive world

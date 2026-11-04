@@ -281,7 +281,7 @@ normal object and asset owners. Gallery 144 includes an original editable blade 
 and two patches for saving, Play and export. Gallery147 adds published-heightfield
 projection. Optional world-space slope ranges keep a subset of the seeded candidate
 pool through the same native and MCP preparation. Optional slope alignment tilts
-the placement frame while preserving relative template rotation, with ordinary Scene objects. See [the guide](manual/editor/foliage.md).
+the placement frame while preserving relative template rotation. Optional sphere clearance rejects candidates against existing authored 3D colliders through the same editor/MCP task. Gallery 156 provides a saved meadow around a box collider; the result remains ordinary Scene objects. See [the guide](manual/editor/foliage.md).
 
 ![Green and amber foliage patches in the Game view](manual/images/foliage-placement-game.png)
 

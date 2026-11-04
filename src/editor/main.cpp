@@ -2429,9 +2429,9 @@ int main(int argc, char** argv) {
                 throw std::runtime_error("Unknown runtime control");
         };
         automation.workflow_methods = [&](const forge::ui::AutomationPermissions& permissions) {
-            auto methods =
-                forge::asset_automation_methods(scene, files, content_imports, source_import,
-                                                scene_asset_drop, content_files, permissions);
+            auto methods = forge::asset_automation_methods(
+                scene, files, content_imports, source_import, scene_asset_drop, content_files,
+                permissions, &foliage_placement.collision_task());
             auto sources = forge::source_document_automation_methods(documents, permissions);
             methods.insert(methods.end(), std::make_move_iterator(sources.begin()),
                            std::make_move_iterator(sources.end()));

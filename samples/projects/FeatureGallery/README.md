@@ -47,6 +47,19 @@ every origin needs coverage. Later terrain edits do not move existing blades.
 Save, choose this Scene as startup and export without project C++.
 See [Place foliage](../../../manual/editor/foliage.md).
 
+## Foliage collision clearance
+
+Open **Scenes/156-foliage-clearance.scene.json** and press **Play → Game**. Saved,
+slope-aligned blades surround a large static box collider. Stop Play and select
+the blade template in **Tools > Foliage placement...**. Choose the layered terrain,
+center(0,0,0), radius5, spacing0.5, candidate count96, seed91, scale0.65..1.15 and
+**Align to terrain slope**. Enable **Reject collisions**, radius0.25 and world
+offset(0,0.5,0). Check and place the retained subset. Select the obstacle and use
+**Ignore selected object** to compare a layout that permits that volume. New plants
+have no copied collider. The Scene includes camera/light and uses existing blade
+and terrain assets. Save, choose it as startup and export without project C++.
+See [Place foliage](../../../manual/editor/foliage.md).
+
 ## Fast approximate anti-aliasing
 
 Open **Scenes/143-fast-approximate-antialiasing.scene.json** and press **Play**.

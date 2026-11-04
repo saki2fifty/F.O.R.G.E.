@@ -324,6 +324,12 @@ JPH::RefConst<JPH::Shape> shape(const Configuration& c) {
         throw std::runtime_error("Jolt collider: " + std::string(result.GetError().c_str()));
     return result.Get();
 }
+JPH::CollideShapeSettings overlap_settings() {
+    JPH::CollideShapeSettings settings;
+    settings.mActiveEdgeMode = JPH::EActiveEdgeMode::CollideWithAll;
+    settings.mBackFaceMode = JPH::EBackFaceMode::CollideWithBackFaces;
+    return settings;
+}
 JPH::RefConst<JPH::Shape> query_shape(PhysicsSweep::Shape kind, const Double3& dimensions) {
     if (unsigned(kind) > 3)
         throw std::runtime_error("Unsupported query shape");
@@ -2336,9 +2342,7 @@ std::vector<EntityRef> PhysicsRuntime::overlap_shape(const PhysicsOverlap& reque
             }
         }
     } collector;
-    JPH::CollideShapeSettings settings;
-    settings.mActiveEdgeMode = JPH::EActiveEdgeMode::CollideWithAll;
-    settings.mBackFaceMode = JPH::EBackFaceMode::CollideWithBackFaces;
+    const auto settings = overlap_settings();
     s.system.GetNarrowPhaseQuery().CollideShape(
         geometry, JPH::Vec3::sOne(), JPH::RMat44::sRotationTranslation(q, origin), settings, origin,
         collector, {}, {}, s.query_filter(filter));
@@ -2366,6 +2370,53 @@ std::vector<EntityRef> PhysicsRuntime::overlap_shape(const PhysicsOverlap& reque
     std::sort(result.begin(), result.end());
     result.erase(std::unique(result.begin(), result.end()), result.end());
     return result;
+}
+bool PhysicsRuntime::overlap_any(const PhysicsOverlap& request, PhysicsQueryFilter filter) const {
+    auto& s = *impl_;
+    s.check();
+    valid_position(request.origin);
+    const auto geometry = query_shape(request.shape, request.dimensions);
+    const auto q = rotation(request.rotation);
+    // Native callbacks only read copied retired tokens. Canonical target
+    // resolution remains on this owner thread, as in the all-hit query.
+    std::vector<std::uint32_t> retired;
+    for (const auto& [id, body] : s.bodies)
+        if (!s.has_realized_target(body.ref))
+            retired.push_back(body.id.GetIndexAndSequenceNumber());
+    for (const auto& [id, character] : s.characters)
+        if (!s.has_realized_target(character.ref))
+            retired.push_back(
+                character.owner->native().GetInnerBodyID().GetIndexAndSequenceNumber());
+    std::sort(retired.begin(), retired.end());
+    struct CurrentFilter final : JPH::BodyFilter {
+        QueryBodyFilter base;
+        std::span<const std::uint32_t> retired;
+        CurrentFilter(Impl& owner, PhysicsQueryFilter value, std::span<const std::uint32_t> tokens)
+            : base(owner.query_filter(value)), retired(tokens) {}
+        bool ShouldCollide(const JPH::BodyID& id) const override {
+            return base.ShouldCollide(id) && !std::binary_search(retired.begin(), retired.end(),
+                                                                 id.GetIndexAndSequenceNumber());
+        }
+        bool ShouldCollideLocked(const JPH::Body& body) const override {
+            return base.ShouldCollideLocked(body);
+        }
+    } current(s, filter, retired);
+    JPH::AnyHitCollisionCollector<JPH::CollideShapeCollector> collector;
+    const JPH::RVec3 origin(request.origin.x, request.origin.y, request.origin.z);
+    const auto settings = overlap_settings();
+    s.system.GetNarrowPhaseQuery().CollideShape(geometry, JPH::Vec3::sOne(),
+                                                JPH::RMat44::sRotationTranslation(q, origin),
+                                                settings, origin, collector, {}, {}, current);
+    if (!collector.HadHit())
+        return false;
+    const auto token = collector.mHit.mBodyID2.GetIndexAndSequenceNumber();
+    for (const auto& [id, body] : s.bodies)
+        if (body.id.GetIndexAndSequenceNumber() == token)
+            return s.has_realized_target(body.ref);
+    for (const auto& [id, character] : s.characters)
+        if (character.owner->native().GetInnerBodyID().GetIndexAndSequenceNumber() == token)
+            return s.has_realized_target(character.ref);
+    throw std::runtime_error("Physics overlap query hit an unowned native body");
 }
 std::uint64_t PhysicsRuntime::request_collision_asset(AssetId asset) {
     auto& s = *impl_;

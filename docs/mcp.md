@@ -102,6 +102,30 @@ Prefab links are not copied. Renderer values and template local
 rotation/scale are copied through the shared Scene command. See
 [foliage placement](foliage-placement.md) for exact bounds and current limits.
 
+`forge_foliage_collision_start` binds `foliage.collision.start` as a read-only
+`asset.read` workflow. Pass ordinary scatter `arguments` or the arguments returned
+by terrain preparation. Optional settings: radius 0.001..100(default 0.25), offset
+as `{x,y,z}` in world meters(each+/-1000, default 0,0.5,0), uint32 mask(default all),
+include_sensors(default false), surface(entityID) and ignored(up to14 distinct
+entityIDs). The template and surface are excluded automatically. It tests existing
+authored 3D colliders without running project code or simulation, using one private
+native/resource owner. It does not query live Play poses or full plant Mesh bounds.
+
+Start returns an operation UUID. Poll `forge_foliage_collision_read` with that
+exact `operation`; states are preparing/querying/ready/failed/cancelled. Ready
+`result` includes copied arguments with an original-order placement_mask,
+scene_revision, candidate_count/retained_count, digests, settings and physics_tick 0.
+At most512 candidates,16 native queries/poll and a 30-second deadline apply.
+Terrain masks/heights/normals remain aligned; excluded candidates are not
+resampled. Empty retention fails. Scene/project changes cancel the operation;
+asset/settings changes invalidate preparation and explicit ready reads. Exact
+same-input retries reuse the operation; a different busy request rejects.
+`forge_foliage_collision_cancel` cancels that exact transient operation. All three
+are available to read-only clients; none publishes files or changes Scene/history.
+Apply ready arguments with `forge_mesh_scatter` at scene_revision and the ordinary
+mutation sequence. Re-run start to check current asset/settings selections before
+applying a previously read result. Saved objects remain independent of the task.
+
 `forge_foliage_terrain_prepare` binds the read-only `foliage.terrain.prepare`
 workflow. Supply a `terrain` Scene entity ID, the ordinary scatter `arguments`
 without `world_heights`, `placement_mask` or `world_normals`, and optional `height_offset`

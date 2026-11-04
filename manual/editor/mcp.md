@@ -277,6 +277,20 @@ arguments include normals and status identifies **aligned_to_slope**. Seeded yaw
 and template rotation stay relative to the tilted frame. See
 [terrain slope filtering and alignment](foliage.md).
 
+For collision clearance, call **forge_foliage_collision_start** with the ordinary
+scatter arguments, or with the arguments from terrain preparation. Optional
+**radius**, **offset** as **{x,y,z}**, **mask**, **include_sensors**, **surface** and
+**ignored** control the sphere and exact object exclusions. Poll
+**forge_foliage_collision_read** using the returned **operation** until it is
+**ready**, **failed** or **cancelled**. **forge_foliage_collision_cancel** stops that
+operation. These tools change no Scene objects and are available to read-only
+connections. Ready results preserve heights, normals and the original candidate
+mask; use their **arguments** and **scene_revision** with **forge_mesh_scatter**
+to create one ordinary Undo entry. Source changes cancel preparation; changed
+assets/settings invalidate it. Check again before using an older result. These
+tools inspect authored 3D colliders without executing project code or advancing
+Play. See [collision clearance controls and limits](foliage.md).
+
 ## Keep control
 
 - **Stop connection** immediately revokes access. Committed scene edits remain, and saved files stay on disk.

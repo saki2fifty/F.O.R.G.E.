@@ -30,6 +30,13 @@ void physics_overlap_tests() {
         check(f.physics->overlap_shape(query, {}) == expected &&
                   f.physics->overlap_shape(query, {}) == expected,
               "Instantaneous overlap lost static/sensor identities, order or repeatability");
+        check(f.physics->overlap_any(query) && f.physics->overlap_any(query, {1u << 1, false}) &&
+                  !f.physics->overlap_any(query, {1u << 2, false}) &&
+                  !f.physics->overlap_any(query, {0, true}),
+              "Boolean overlap disagrees with native solid/sensor/layer semantics");
+        const std::array ignored{ar, br};
+        check(!f.physics->overlap_any(query, {UINT32_MAX, true, ignored}),
+              "Boolean overlap ignored canonical target exclusions");
         check(f.physics->overlap_shape(query, {UINT32_MAX, false}) == std::vector<EntityRef>{ar} &&
                   f.physics->overlap_shape(query, {1u << 1, true}) == std::vector<EntityRef>{ar} &&
                   f.physics->overlap_shape(query, {1u << 2, false}).empty() &&
@@ -43,10 +50,12 @@ void physics_overlap_tests() {
                 kind == PhysicsOverlap::Shape::Box ? Double3{1, 1, 1} : Double3{.25, 1, 0};
             check(f.physics->overlap_shape(primitive, {}) == expected,
                   "Volume primitive dimension conventions disagree with known solids");
+            check(f.physics->overlap_any(primitive), "Boolean overlap lost a supported primitive");
         }
         auto miss = query;
         miss.origin = {20, 0, 0};
         check(f.physics->overlap_shape(miss, {}).empty(), "Miss fabricated a volume target");
+        check(!f.physics->overlap_any(miss), "Boolean overlap fabricated a volume target");
         bool rejected = false;
         std::thread foreign([&] {
             try {
@@ -56,7 +65,17 @@ void physics_overlap_tests() {
             }
         });
         foreign.join();
-        check(rejected && f.physics->checkpoint() == before && f.scene.snapshot() == scene,
+        bool any_rejected = false;
+        std::thread foreign_any([&] {
+            try {
+                f.physics->overlap_any(query);
+            } catch (const std::exception&) {
+                any_rejected = true;
+            }
+        });
+        foreign_any.join();
+        check(rejected && any_rejected && f.physics->checkpoint() == before &&
+                  f.scene.snapshot() == scene,
               "Volume reads accepted foreign ownership or changed native/authored state");
         for (unsigned mode = 0; mode < 5; ++mode) {
             auto invalid = query;
@@ -71,6 +90,7 @@ void physics_overlap_tests() {
             else
                 invalid.rotation = {0, 0, 0, 0};
             reject([&] { f.physics->overlap_shape(invalid, {}); });
+            reject([&] { f.physics->overlap_any(invalid); });
         }
         Fixture recovered;
         recovered.physics->configure(config);
@@ -82,14 +102,19 @@ void physics_overlap_tests() {
         empty["entities"] = Json::array();
         f.scene.restore_snapshot(empty);
         check(f.physics->overlap_shape(query, {}).empty(), "Volume exposed retired targets");
+        check(!f.physics->overlap_any(query), "Boolean overlap exposed retired targets");
         f.scene.restore_snapshot(scene);
         check(f.physics->overlap_shape(query, {}).empty(),
               "Volume associated old native bodies with new same-UUID generations");
+        check(!f.physics->overlap_any(query),
+              "Boolean overlap associated old native bodies with new same-UUID generations");
         f.physics->synchronize(0);
         check(f.physics->overlap_shape(query, {}) == expected,
               "Volume lost newly realized canonical generations");
+        check(f.physics->overlap_any(query), "Boolean overlap lost a new canonical generation");
         f.physics->stop();
         reject([&] { f.physics->overlap_shape(query, {}); });
+        reject([&] { f.physics->overlap_any(query); });
     }
     {
         Fixture f;
@@ -165,6 +190,8 @@ void physics_overlap_tests() {
         query.dimensions = {1, 0, 0};
         const auto before = f.physics->checkpoint();
         reject([&] { f.physics->overlap_shape(query, {}); });
+        check(f.physics->overlap_any(query),
+              "Boolean overlap incorrectly depends on the complete-result hit budget");
         check(f.physics->checkpoint() == before,
               "Bounded overlap overflow mutated native state or returned partial success");
     }

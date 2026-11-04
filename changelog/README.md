@@ -1,6 +1,6 @@
 # Changelog
 
-- [2026-11-04](20261104/README.md) — Exact normalized16-bit PNG texture output, opaque JPEG still output, linear HDR texture output, shared native/MCP workflows and illustrated format/precision guides. Local source; Windows verification and delivery pending.
+- [2026-11-04](20261104/README.md) — Foliage collision clearance/Gallery156, normalized16-bit PNG, JPEG/HDR image output, shared native/MCP workflows and illustrated guides. Local source; Windows verification and delivery pending.
 
 - [2026-11-03](20261103/README.md) — Seeded foliage placement/Gallery 144, shared Scene/editor/MCP authoring, original editable blade Mesh and illustrated workflow. Local source; Windows verification and delivery pending.
 

@@ -37,7 +37,7 @@ content may differ; use **Window** to open a panel mentioned in a guide.
 - [Importing and placing models](editor/models.md)
 - [Editable Meshes and UVs](editor/editable-meshes.md)
 - [Shape terrain with height layers](editor/terrain.md)
-- [Place foliage on planes and heightfields with slope filters and alignment](editor/foliage.md)
+- [Place foliage with slope filters, alignment and collision clearance](editor/foliage.md)
 - [Importing textures, exporting stored samples or decoded blocks, and inspecting HDR images](editor/textures.md)
 - [Materials](editor/materials.md)
 - [Show a live camera image on a Mesh](editor/render-textures.md)

@@ -1,0 +1,4092 @@
+{
+  "asset_id": "d778f46c-79a1-43ed-91f6-b8979eb16c53",
+  "entities": [
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -16.0,
+          "y": 0.0,
+          "z": -8.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "32685545-b5d2-4e86-a1ad-00e8198accd0",
+          "receive_shadows": true,
+          "visible": true
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.tint": {
+          "b": 0.12999999523162842,
+          "g": 0.5799999833106995,
+          "r": 0.2199999988079071
+        }
+      },
+      "id": "2b614e63-d826-4f02-b8e8-51de86ce59b3",
+      "name": "Layered terrain - open source in Content",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 0.0,
+          "background_a": 1.0,
+          "background_b": 0.029999999329447746,
+          "background_g": 0.02500000037252903,
+          "background_r": 0.019999999552965164,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 1000.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 10.0,
+          "orthographic_width": 0.0,
+          "projection": 0,
+          "render_texture": null,
+          "vertical_fov": 1.0471975511965976,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 0.9612487554550171,
+          "x": 0.2756825089454651,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 16.0,
+          "z": -24.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "54ed29ae-baee-46d1-bd0d-e44bf8fa483e",
+      "name": "Camera",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.light": {
+          "basis": 0,
+          "cast_shadows": false,
+          "color_b": 1.0,
+          "color_g": 1.0,
+          "color_r": 1.0,
+          "emitter_height": 1.0,
+          "emitter_radius": 0.5,
+          "emitter_width": 1.0,
+          "enabled": true,
+          "image_height": 1.0,
+          "image_tiled": false,
+          "image_width": 1.0,
+          "inner_cone": 0.0,
+          "intensity": 1.0,
+          "kind": 0,
+          "layers": 4294967295,
+          "outer_cone": 0.7853981633974483,
+          "range": 0.0,
+          "shadow_angular_radius": 0.0,
+          "shadow_bias": 0.0010000000474974513,
+          "shadow_normal_bias": 0.019999999552965164,
+          "shadow_source_radius": 0.0,
+          "texture": null
+        },
+        "forge.local_rotation": {
+          "w": 0.8659851551055908,
+          "x": 0.45080333948135376,
+          "y": -0.19198428094387054,
+          "z": 0.0999406948685646
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 12.0,
+          "z": -8.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "683eea4d-5388-46db-829e-3eab5ee35890",
+      "name": "Directional light",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -7.005270889494568,
+          "y": 0.4223737683464075,
+          "z": -4.002614586525596
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "19b7faa0-f9ee-40da-80cd-0d525b6fde6d",
+      "name": "Blade template - select for terrain placement",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.box_collider": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 2.0,
+          "y": 8.0,
+          "z": 12.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 4.0,
+          "z": 0.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [],
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "9d087798-a173-48e0-938d-7607eed42f91",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        },
+        "forge.physics_body": {
+          "allow_sleeping": true,
+          "angular_damping": 0.05000000074505806,
+          "continuous_collision": false,
+          "density": 1000.0,
+          "enabled": true,
+          "friction": 0.5,
+          "gravity_factor": 1.0,
+          "layer": 0,
+          "linear_damping": 0.05000000074505806,
+          "mask": 4294967295,
+          "mass": 0.0,
+          "max_angular_velocity": 2700.0,
+          "max_linear_velocity": 500.0,
+          "motion": 0,
+          "restitution": 0.0,
+          "sensor": false
+        }
+      },
+      "id": "d743b3ff-92c1-413d-9db7-5ca58ae8d8f0",
+      "name": "Clearance obstacle - ignore to compare",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "0906f593-46f3-4ed3-927c-dcdbdd0f0e7f",
+      "name": "Cleared meadow",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9410723447799683,
+          "x": 0.04223603755235672,
+          "y": 0.10795570909976959,
+          "z": -0.31771761178970337
+        },
+        "forge.local_scale": {
+          "x": 0.7139932513237,
+          "y": 0.7139932513237,
+          "z": 0.7139932513237
+        },
+        "forge.local_translation": {
+          "x": -2.286647562868893,
+          "y": 2.0530740625418447,
+          "z": 0.32609538407996297
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "470627f2-0321-4413-99a7-76e9f25cbdf6",
+      "name": "Cleared meadow 1",
+      "parent": "0906f593-46f3-4ed3-927c-dcdbdd0f0e7f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9599946141242981,
+          "x": 0.2305331826210022,
+          "y": 0.030033593997359276,
+          "z": 0.1560857594013214
+        },
+        "forge.local_scale": {
+          "x": 0.9340479373931885,
+          "y": 0.9340479373931885,
+          "z": 0.9340479373931885
+        },
+        "forge.local_translation": {
+          "x": -4.674931722693145,
+          "y": 2.105825127589781,
+          "z": 1.6349639208056033
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "95238c81-47b6-40b4-b1fe-57d086301c6a",
+      "name": "Cleared meadow 2",
+      "parent": "0906f593-46f3-4ed3-927c-dcdbdd0f0e7f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9846068620681763,
+          "x": -0.02141491323709488,
+          "y": 0.17334961891174316,
+          "z": 0.006375884637236595
+        },
+        "forge.local_scale": {
+          "x": 0.6928797364234924,
+          "y": 0.6928797364234924,
+          "z": 0.6928797364234924
+        },
+        "forge.local_translation": {
+          "x": 3.008552431128919,
+          "y": 0.8240152213428189,
+          "z": 3.096104592550546
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "5c24e320-6b70-4c43-a733-a60a22ce40ca",
+      "name": "Cleared meadow 3",
+      "parent": "0906f593-46f3-4ed3-927c-dcdbdd0f0e7f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.47686630487442017,
+          "x": 0.009143255650997162,
+          "y": 0.8786599636077881,
+          "z": -0.021716423332691193
+        },
+        "forge.local_scale": {
+          "x": 0.9275909066200256,
+          "y": 0.9275909066200256,
+          "z": 0.9275909066200256
+        },
+        "forge.local_translation": {
+          "x": 1.447661998681724,
+          "y": 0.7522093464805615,
+          "z": 1.9490354252047837
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "55a8bd12-b5b4-4cb6-baea-ba0dc0419d0a",
+      "name": "Cleared meadow 5",
+      "parent": "0906f593-46f3-4ed3-927c-dcdbdd0f0e7f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.2605443000793457,
+          "x": 0.002027380745857954,
+          "y": 0.965225875377655,
+          "z": -0.021248891949653625
+        },
+        "forge.local_scale": {
+          "x": 0.9111583232879639,
+          "y": 0.9111583232879639,
+          "z": 0.9111583232879639
+        },
+        "forge.local_translation": {
+          "x": 1.9560999935492873,
+          "y": 0.6687562122090319,
+          "z": -0.29755764408037066
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "c12f7efd-5c4d-47c7-ba27-6dbb8a7e45cb",
+      "name": "Cleared meadow 7",
+      "parent": "0906f593-46f3-4ed3-927c-dcdbdd0f0e7f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.8636574149131775,
+          "x": -0.2565656304359436,
+          "y": 0.4007270336151123,
+          "z": -0.1663966178894043
+        },
+        "forge.local_scale": {
+          "x": 1.057519793510437,
+          "y": 1.057519793510437,
+          "z": 1.057519793510437
+        },
+        "forge.local_translation": {
+          "x": -3.502791649661958,
+          "y": 1.8467378300526627,
+          "z": -1.9099738425575197
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "df901c0d-1d05-426f-8e66-0c656daba964",
+      "name": "Cleared meadow 8",
+      "parent": "0906f593-46f3-4ed3-927c-dcdbdd0f0e7f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.2777431905269623,
+          "x": 0.33118879795074463,
+          "y": -0.8981841206550598,
+          "z": -0.08023685961961746
+        },
+        "forge.local_scale": {
+          "x": 0.7261215448379517,
+          "y": 0.7261215448379517,
+          "z": 0.7261215448379517
+        },
+        "forge.local_translation": {
+          "x": -4.6773114101961255,
+          "y": 2.740861577325113,
+          "z": 0.585623022634536
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "aba853b2-282d-4e24-b2f2-bf65dcdb9151",
+      "name": "Cleared meadow 9",
+      "parent": "0906f593-46f3-4ed3-927c-dcdbdd0f0e7f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.24300451576709747,
+          "x": -0.037666596472263336,
+          "y": -0.9691781997680664,
+          "z": 0.01495378091931343
+        },
+        "forge.local_scale": {
+          "x": 0.8953097462654114,
+          "y": 0.8953097462654114,
+          "z": 0.8953097462654114
+        },
+        "forge.local_translation": {
+          "x": 1.394612081348896,
+          "y": 0.6512005353646951,
+          "z": -0.9646130003966391
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "7eafc04d-3a2b-47f5-af8a-99973db1a20b",
+      "name": "Cleared meadow 11",
+      "parent": "0906f593-46f3-4ed3-927c-dcdbdd0f0e7f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.8114496469497681,
+          "x": 0.12430527806282043,
+          "y": 0.5692020654678345,
+          "z": 0.04589918628334999
+        },
+        "forge.local_scale": {
+          "x": 1.070566177368164,
+          "y": 1.070566177368164,
+          "z": 1.070566177368164
+        },
+        "forge.local_translation": {
+          "x": -2.507339217700064,
+          "y": 1.1179694155557311,
+          "z": 3.5493375291116536
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "19fc1cc9-1ecf-4f66-81cd-7500f52e1d1d",
+      "name": "Cleared meadow 12",
+      "parent": "0906f593-46f3-4ed3-927c-dcdbdd0f0e7f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.7944622039794922,
+          "x": 0.3557300567626953,
+          "y": 0.4891834855079651,
+          "z": 0.05463956296443939
+        },
+        "forge.local_scale": {
+          "x": 0.6542429327964783,
+          "y": 0.6542429327964783,
+          "z": 0.6542429327964783
+        },
+        "forge.local_translation": {
+          "x": -3.920963304117322,
+          "y": 2.7248628757971023,
+          "z": 0.9168938430957496
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "34cf485b-8beb-4e52-b0fe-e9ef01537744",
+      "name": "Cleared meadow 13",
+      "parent": "0906f593-46f3-4ed3-927c-dcdbdd0f0e7f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.8578227758407593,
+          "x": 0.17065632343292236,
+          "y": -0.45626309514045715,
+          "z": -0.16383084654808044
+        },
+        "forge.local_scale": {
+          "x": 0.8408543467521667,
+          "y": 0.8408543467521667,
+          "z": 0.8408543467521667
+        },
+        "forge.local_translation": {
+          "x": -3.204445643350482,
+          "y": 1.6323029576716437,
+          "z": 2.4761817674152553
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "619db199-2aed-4d7f-9a9a-e62ef75db8bf",
+      "name": "Cleared meadow 15",
+      "parent": "0906f593-46f3-4ed3-927c-dcdbdd0f0e7f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.6547901630401611,
+          "x": -0.020640313625335693,
+          "y": 0.7554803490638733,
+          "z": -0.008557465858757496
+        },
+        "forge.local_scale": {
+          "x": 0.8999649882316589,
+          "y": 0.8999649882316589,
+          "z": 0.8999649882316589
+        },
+        "forge.local_translation": {
+          "x": 3.6182209476828575,
+          "y": 0.7757092658777289,
+          "z": 1.583621536847204
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "dd6e85b9-9d87-4b21-b142-fd41f70bd2a2",
+      "name": "Cleared meadow 18",
+      "parent": "0906f593-46f3-4ed3-927c-dcdbdd0f0e7f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.1313188672065735,
+          "x": -0.10174735635519028,
+          "y": -0.960220992565155,
+          "z": 0.22445139288902283
+        },
+        "forge.local_scale": {
+          "x": 0.8162162899971008,
+          "y": 0.8162162899971008,
+          "z": 0.8162162899971008
+        },
+        "forge.local_translation": {
+          "x": -2.649990441277623,
+          "y": 1.087850761933673,
+          "z": -2.9785879072733223
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "6db76a20-e3d5-4494-9935-fb21325d3b48",
+      "name": "Cleared meadow 20",
+      "parent": "0906f593-46f3-4ed3-927c-dcdbdd0f0e7f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.8690360188484192,
+          "x": -0.012432055547833443,
+          "y": -0.4942440390586853,
+          "z": 0.018565945327281952
+        },
+        "forge.local_scale": {
+          "x": 1.019454836845398,
+          "y": 1.019454836845398,
+          "z": 1.019454836845398
+        },
+        "forge.local_translation": {
+          "x": 1.7133615911006927,
+          "y": 0.4967914992435909,
+          "z": -4.436893390957266
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "45b4021c-dceb-4e28-8d05-6f66d6f8083a",
+      "name": "Cleared meadow 21",
+      "parent": "0906f593-46f3-4ed3-927c-dcdbdd0f0e7f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.07796595990657806,
+          "x": -0.011520607396960258,
+          "y": 0.9967055916786194,
+          "z": -0.019144868478178978
+        },
+        "forge.local_scale": {
+          "x": 0.9840704798698425,
+          "y": 0.9840704798698425,
+          "z": 0.9840704798698425
+        },
+        "forge.local_translation": {
+          "x": 4.660510392859578,
+          "y": 0.6701043971563823,
+          "z": -1.5776456822641194
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "e3702ca9-8146-4b5e-a678-f565817bad26",
+      "name": "Cleared meadow 22",
+      "parent": "0906f593-46f3-4ed3-927c-dcdbdd0f0e7f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.513910710811615,
+          "x": 0.07002751529216766,
+          "y": 0.8282648324966431,
+          "z": -0.21205972135066986
+        },
+        "forge.local_scale": {
+          "x": 0.8251283764839172,
+          "y": 0.8251283764839172,
+          "z": 0.8251283764839172
+        },
+        "forge.local_translation": {
+          "x": -1.5216020308434963,
+          "y": 1.0984401089330489,
+          "z": -2.259710042271763
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "23020c80-c8ce-4e38-9702-60c7ecebda1f",
+      "name": "Cleared meadow 23",
+      "parent": "0906f593-46f3-4ed3-927c-dcdbdd0f0e7f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9632232785224915,
+          "x": 0.2624538242816925,
+          "y": 0.05631547048687935,
+          "z": -0.01214484591037035
+        },
+        "forge.local_scale": {
+          "x": 0.8253211379051208,
+          "y": 0.8253211379051208,
+          "z": 0.8253211379051208
+        },
+        "forge.local_translation": {
+          "x": -3.8427179399877787,
+          "y": 1.798921470535031,
+          "z": 2.281621571164578
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "bff03e47-ac66-48bd-8f2a-b8c0bbe02782",
+      "name": "Cleared meadow 24",
+      "parent": "0906f593-46f3-4ed3-927c-dcdbdd0f0e7f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.4163226783275604,
+          "x": 0.0007625884027220309,
+          "y": -0.9089423418045044,
+          "z": 0.02233089506626129
+        },
+        "forge.local_scale": {
+          "x": 1.0904401540756226,
+          "y": 1.0904401540756226,
+          "z": 1.0904401540756226
+        },
+        "forge.local_translation": {
+          "x": 2.1672676550224423,
+          "y": 0.8255115790629111,
+          "z": 3.5541559592820704
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "89108a39-7a26-4d6c-840d-91a2f329eb93",
+      "name": "Cleared meadow 25",
+      "parent": "0906f593-46f3-4ed3-927c-dcdbdd0f0e7f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.8104091286659241,
+          "x": -0.22272829711437225,
+          "y": -0.4745647609233856,
+          "z": -0.26156729459762573
+        },
+        "forge.local_scale": {
+          "x": 0.8080025911331177,
+          "y": 0.8080025911331177,
+          "z": 0.8080025911331177
+        },
+        "forge.local_translation": {
+          "x": -2.6206650864332914,
+          "y": 2.319471811576435,
+          "z": -0.19231564598158002
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "cdbadf24-78d4-4475-9b74-0327b7ff16d3",
+      "name": "Cleared meadow 28",
+      "parent": "0906f593-46f3-4ed3-927c-dcdbdd0f0e7f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.5059155821800232,
+          "x": 0.21879644691944122,
+          "y": 0.8330625295639038,
+          "z": 0.0467369519174099
+        },
+        "forge.local_scale": {
+          "x": 1.0401140451431274,
+          "y": 1.0401140451431274,
+          "z": 1.0401140451431274
+        },
+        "forge.local_translation": {
+          "x": -3.6967134289443493,
+          "y": 3.013741545765069,
+          "z": 0.4403661354444921
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "a694713e-f8fa-413a-9538-9c8fd2167620",
+      "name": "Cleared meadow 29",
+      "parent": "0906f593-46f3-4ed3-927c-dcdbdd0f0e7f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.7459630966186523,
+          "x": -0.02156458981335163,
+          "y": 0.6656123995780945,
+          "z": -0.005849688313901424
+        },
+        "forge.local_scale": {
+          "x": 0.769427478313446,
+          "y": 0.769427478313446,
+          "z": 0.769427478313446
+        },
+        "forge.local_translation": {
+          "x": 2.169811907224357,
+          "y": 0.6244183327589443,
+          "z": -1.4744476485066116
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "e7cbf120-f30a-4334-9698-f3cdaf957fe4",
+      "name": "Cleared meadow 30",
+      "parent": "0906f593-46f3-4ed3-927c-dcdbdd0f0e7f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9450274109840393,
+          "x": 0.14799076318740845,
+          "y": 0.2619566023349762,
+          "z": -0.12806522846221924
+        },
+        "forge.local_scale": {
+          "x": 0.9414705038070679,
+          "y": 0.9414705038070679,
+          "z": 0.9414705038070679
+        },
+        "forge.local_translation": {
+          "x": -1.3084093434736133,
+          "y": 1.196024019102798,
+          "z": 2.2982343123294413
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "0d5b58f8-6ece-4e04-bad4-bf77c705fd9b",
+      "name": "Cleared meadow 31",
+      "parent": "0906f593-46f3-4ed3-927c-dcdbdd0f0e7f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9107819199562073,
+          "x": 0.06620638817548752,
+          "y": -0.39358091354370117,
+          "z": -0.10576917231082916
+        },
+        "forge.local_scale": {
+          "x": 0.6844625473022461,
+          "y": 0.6844625473022461,
+          "z": 0.6844625473022461
+        },
+        "forge.local_translation": {
+          "x": -1.8535071332007647,
+          "y": 1.0628718368712144,
+          "z": 3.399788725655526
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "d4acc3cf-13ef-4a5c-8d70-11cf73b2ba1f",
+      "name": "Cleared meadow 33",
+      "parent": "0906f593-46f3-4ed3-927c-dcdbdd0f0e7f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.702122151851654,
+          "x": 0.013051517307758331,
+          "y": -0.6956133842468262,
+          "z": -0.1515791267156601
+        },
+        "forge.local_scale": {
+          "x": 0.7414214015007019,
+          "y": 0.7414214015007019,
+          "z": 0.7414214015007019
+        },
+        "forge.local_translation": {
+          "x": -1.520199179649353,
+          "y": 1.1428101366221757,
+          "z": 2.8211738890968263
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "3fe77867-30da-4feb-bcda-6c521413b6d1",
+      "name": "Cleared meadow 34",
+      "parent": "0906f593-46f3-4ed3-927c-dcdbdd0f0e7f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.8907598853111267,
+          "x": -0.3299795389175415,
+          "y": 0.22331731021404266,
+          "z": -0.21860864758491516
+        },
+        "forge.local_scale": {
+          "x": 0.9636422991752625,
+          "y": 0.9636422991752625,
+          "z": 0.9636422991752625
+        },
+        "forge.local_translation": {
+          "x": -3.9772084215655923,
+          "y": 3.0655500938480227,
+          "z": -0.4872267390601337
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "db8393f1-b507-4a7d-88c7-334edae624d8",
+      "name": "Cleared meadow 35",
+      "parent": "0906f593-46f3-4ed3-927c-dcdbdd0f0e7f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.6055554151535034,
+          "x": -0.004154122434556484,
+          "y": -0.7954894304275513,
+          "z": 0.021954435855150223
+        },
+        "forge.local_scale": {
+          "x": 1.0114363431930542,
+          "y": 1.0114363431930542,
+          "z": 1.0114363431930542
+        },
+        "forge.local_translation": {
+          "x": 4.633374172262847,
+          "y": 0.7128580975115151,
+          "z": -0.495234455447644
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "0858409f-980a-4e16-9aba-127e1801f33a",
+      "name": "Cleared meadow 37",
+      "parent": "0906f593-46f3-4ed3-927c-dcdbdd0f0e7f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.2720162868499756,
+          "x": -0.01505312230437994,
+          "y": 0.962033212184906,
+          "z": -0.01651223562657833
+        },
+        "forge.local_scale": {
+          "x": 0.880427360534668,
+          "y": 0.880427360534668,
+          "z": 0.880427360534668
+        },
+        "forge.local_translation": {
+          "x": 3.6909812502563,
+          "y": 0.8308701113322638,
+          "z": 2.926262596156448
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "9972f4ab-d8c9-47b4-9c52-b47b5e7ceef6",
+      "name": "Cleared meadow 39",
+      "parent": "0906f593-46f3-4ed3-927c-dcdbdd0f0e7f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.0411309078335762,
+          "x": -0.16762590408325195,
+          "y": -0.9554719924926758,
+          "z": -0.2393387109041214
+        },
+        "forge.local_scale": {
+          "x": 0.6535326242446899,
+          "y": 0.6535326242446899,
+          "z": 0.6535326242446899
+        },
+        "forge.local_translation": {
+          "x": -2.9876215290278196,
+          "y": 2.030728327348356,
+          "z": 1.635074696969241
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "a9a592db-438c-4464-a97c-3c7d03374d99",
+      "name": "Cleared meadow 41",
+      "parent": "0906f593-46f3-4ed3-927c-dcdbdd0f0e7f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.4191518723964691,
+          "x": 0.0006930018425919116,
+          "y": -0.9076411724090576,
+          "z": 0.022333217784762383
+        },
+        "forge.local_scale": {
+          "x": 1.0202624797821045,
+          "y": 1.0202624797821045,
+          "z": 1.0202624797821045
+        },
+        "forge.local_translation": {
+          "x": 1.591530223377049,
+          "y": 0.8400604591459302,
+          "z": 4.205746410880238
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "ab000aa8-78e5-4440-ab35-f67a86c2efce",
+      "name": "Cleared meadow 43",
+      "parent": "0906f593-46f3-4ed3-927c-dcdbdd0f0e7f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.5528029203414917,
+          "x": -0.00272455345839262,
+          "y": -0.8330124020576477,
+          "z": 0.022177258506417274
+        },
+        "forge.local_scale": {
+          "x": 0.6794319748878479,
+          "y": 0.6794319748878479,
+          "z": 0.6794319748878479
+        },
+        "forge.local_translation": {
+          "x": 2.3528573475778103,
+          "y": 0.7765433996928295,
+          "z": 2.237156683113426
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "85eb3549-96c8-45ed-a3ec-c3e3b0993197",
+      "name": "Cleared meadow 44",
+      "parent": "0906f593-46f3-4ed3-927c-dcdbdd0f0e7f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.11758299916982651,
+          "x": 0.2386718988418579,
+          "y": 0.9638189673423767,
+          "z": 0.016217952594161034
+        },
+        "forge.local_scale": {
+          "x": 1.0560288429260254,
+          "y": 1.0560288429260254,
+          "z": 1.0560288429260254
+        },
+        "forge.local_translation": {
+          "x": -1.3618306117132306,
+          "y": 1.3716527935830323,
+          "z": 1.2617177632637322
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "4d7717b3-8eb3-466c-9b68-689172338426",
+      "name": "Cleared meadow 45",
+      "parent": "0906f593-46f3-4ed3-927c-dcdbdd0f0e7f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.3551727831363678,
+          "x": 0.009543083608150482,
+          "y": 0.9287921190261841,
+          "z": -0.10538699477910995
+        },
+        "forge.local_scale": {
+          "x": 0.9348308444023132,
+          "y": 0.9348308444023132,
+          "z": 0.9348308444023132
+        },
+        "forge.local_translation": {
+          "x": -1.6022268263623118,
+          "y": 0.5490179025242123,
+          "z": -4.247470998670906
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "d7f4a435-bceb-4576-b78e-810bd306d181",
+      "name": "Cleared meadow 46",
+      "parent": "0906f593-46f3-4ed3-927c-dcdbdd0f0e7f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9836409687995911,
+          "x": -0.16680294275283813,
+          "y": -0.009494063444435596,
+          "z": -0.06735757738351822
+        },
+        "forge.local_scale": {
+          "x": 0.909319281578064,
+          "y": 0.909319281578064,
+          "z": 0.909319281578064
+        },
+        "forge.local_translation": {
+          "x": -1.8378790840506554,
+          "y": 0.8218332210781164,
+          "z": -3.3216996886767447
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "22513677-ac44-4909-a330-6cf5d90a9e16",
+      "name": "Cleared meadow 47",
+      "parent": "0906f593-46f3-4ed3-927c-dcdbdd0f0e7f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9585789442062378,
+          "x": -0.219090074300766,
+          "y": 0.17503206431865692,
+          "z": -0.0498974472284317
+        },
+        "forge.local_scale": {
+          "x": 0.6612406969070435,
+          "y": 0.6612406969070435,
+          "z": 0.6612406969070435
+        },
+        "forge.local_translation": {
+          "x": -3.6613542307168245,
+          "y": 1.0416314421099393,
+          "z": -3.290204193908721
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "516545f4-4d88-40db-a067-f31b53bb9322",
+      "name": "Cleared meadow 49",
+      "parent": "0906f593-46f3-4ed3-927c-dcdbdd0f0e7f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.3410857021808624,
+          "x": -0.016211263835430145,
+          "y": 0.9397665858268738,
+          "z": -0.01537677738815546
+        },
+        "forge.local_scale": {
+          "x": 0.8292475938796997,
+          "y": 0.8292475938796997,
+          "z": 0.8292475938796997
+        },
+        "forge.local_translation": {
+          "x": 4.0990833612158895,
+          "y": 0.6856819732316408,
+          "z": -0.9074923931621015
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "0acbc8cc-04ef-4bf7-b3f3-7378e232261b",
+      "name": "Cleared meadow 53",
+      "parent": "0906f593-46f3-4ed3-927c-dcdbdd0f0e7f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.7834005355834961,
+          "x": 0.06894078850746155,
+          "y": -0.5835736989974976,
+          "z": -0.20241659879684448
+        },
+        "forge.local_scale": {
+          "x": 1.1141178607940674,
+          "y": 1.1141178607940674,
+          "z": 1.1141178607940674
+        },
+        "forge.local_translation": {
+          "x": -2.196031794883311,
+          "y": 1.3895376751867743,
+          "z": 2.5373015855439007
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "0602f331-361d-42fe-9525-b3f5b5d60cdc",
+      "name": "Cleared meadow 54",
+      "parent": "0906f593-46f3-4ed3-927c-dcdbdd0f0e7f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.23682253062725067,
+          "x": 0.24848368763923645,
+          "y": 0.9121577143669128,
+          "z": 0.22391805052757263
+        },
+        "forge.local_scale": {
+          "x": 0.7085756063461304,
+          "y": 0.7085756063461304,
+          "z": 0.7085756063461304
+        },
+        "forge.local_translation": {
+          "x": -3.3651408972218633,
+          "y": 2.394308133135208,
+          "z": 1.208731506485492
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "128f2cc6-f9f8-4511-9a35-0b4efdd0f88f",
+      "name": "Cleared meadow 56",
+      "parent": "0906f593-46f3-4ed3-927c-dcdbdd0f0e7f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.4129173755645752,
+          "x": 0.07455942779779434,
+          "y": 0.9062871336936951,
+          "z": 0.05083055421710014
+        },
+        "forge.local_scale": {
+          "x": 0.7909733057022095,
+          "y": 0.7909733057022095,
+          "z": 0.7909733057022095
+        },
+        "forge.local_translation": {
+          "x": -1.9778304500505328,
+          "y": 0.9319917475015778,
+          "z": 4.13080936530605
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "0bfe6c96-2b98-446a-9382-9e472faf9270",
+      "name": "Cleared meadow 58",
+      "parent": "0906f593-46f3-4ed3-927c-dcdbdd0f0e7f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.5453246235847473,
+          "x": -0.037460461258888245,
+          "y": -0.8356143236160278,
+          "z": 0.054465409368276596
+        },
+        "forge.local_scale": {
+          "x": 1.0860223770141602,
+          "y": 1.0860223770141602,
+          "z": 1.0860223770141602
+        },
+        "forge.local_translation": {
+          "x": -1.3292063074186444,
+          "y": 0.4542875028065768,
+          "z": -4.7681762906722724
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "7590a1ad-6cce-4517-9bff-944b9974895b",
+      "name": "Cleared meadow 59",
+      "parent": "0906f593-46f3-4ed3-927c-dcdbdd0f0e7f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9734265208244324,
+          "x": -0.021736716851592064,
+          "y": 0.22790701687335968,
+          "z": 0.005173534154891968
+        },
+        "forge.local_scale": {
+          "x": 0.7330121994018555,
+          "y": 0.7330121994018555,
+          "z": 0.7330121994018555
+        },
+        "forge.local_translation": {
+          "x": 3.434312311001122,
+          "y": 0.7510922000199427,
+          "z": 1.060148871038109
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "81dbc8e3-7516-4c8e-8f14-65055bce198f",
+      "name": "Cleared meadow 60",
+      "parent": "0906f593-46f3-4ed3-927c-dcdbdd0f0e7f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.8485596776008606,
+          "x": -0.031198713928461075,
+          "y": -0.527824342250824,
+          "z": -0.01935490593314171
+        },
+        "forge.local_scale": {
+          "x": 0.8140658736228943,
+          "y": 0.8140658736228943,
+          "z": 0.8140658736228943
+        },
+        "forge.local_translation": {
+          "x": 1.3149987766519189,
+          "y": 0.7249716275231568,
+          "z": 0.6993862637318671
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "66925f74-6f4b-4af9-b08e-1e1dc0670e46",
+      "name": "Cleared meadow 61",
+      "parent": "0906f593-46f3-4ed3-927c-dcdbdd0f0e7f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.5999311804771423,
+          "x": -0.21367014944553375,
+          "y": -0.7633528709411621,
+          "z": -0.10825882107019424
+        },
+        "forge.local_scale": {
+          "x": 0.9340364336967468,
+          "y": 0.9340364336967468,
+          "z": 0.9340364336967468
+        },
+        "forge.local_translation": {
+          "x": -1.2992014409974217,
+          "y": 1.2936607354690852,
+          "z": -0.9178965049795806
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "041111bf-c3df-4025-83b1-f4ed015e37fe",
+      "name": "Cleared meadow 62",
+      "parent": "0906f593-46f3-4ed3-927c-dcdbdd0f0e7f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.5874657034873962,
+          "x": -0.0036581140011548996,
+          "y": -0.8089405298233032,
+          "z": 0.02204247936606407
+        },
+        "forge.local_scale": {
+          "x": 0.9243967533111572,
+          "y": 0.9243967533111572,
+          "z": 0.9243967533111572
+        },
+        "forge.local_translation": {
+          "x": 2.2031611716374755,
+          "y": 0.6524592061610148,
+          "z": -0.7901004026643932
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "2830edde-5d09-4ea4-bbfc-65106385b447",
+      "name": "Cleared meadow 63",
+      "parent": "0906f593-46f3-4ed3-927c-dcdbdd0f0e7f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9732373952865601,
+          "x": -0.021741066128015518,
+          "y": 0.2287130504846573,
+          "z": 0.005155575927346945
+        },
+        "forge.local_scale": {
+          "x": 1.0807132720947266,
+          "y": 1.0807132720947266,
+          "z": 1.0807132720947266
+        },
+        "forge.local_translation": {
+          "x": 2.963012154214084,
+          "y": 0.7059271580449105,
+          "z": 0.1666729268617928
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "815bb383-e25c-4068-a0ae-a1d876554161",
+      "name": "Cleared meadow 65",
+      "parent": "0906f593-46f3-4ed3-927c-dcdbdd0f0e7f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.963797390460968,
+          "x": -0.01661069504916668,
+          "y": -0.2656978666782379,
+          "z": 0.014944523572921753
+        },
+        "forge.local_scale": {
+          "x": 0.8520146012306213,
+          "y": 0.8520146012306213,
+          "z": 0.8520146012306213
+        },
+        "forge.local_translation": {
+          "x": 3.5078683961182833,
+          "y": 0.5902664832617155,
+          "z": -2.997271486092359
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "ddf12e1d-e2ac-4d4d-87db-e08706b0161b",
+      "name": "Cleared meadow 66",
+      "parent": "0906f593-46f3-4ed3-927c-dcdbdd0f0e7f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9450435042381287,
+          "x": -0.015631243586540222,
+          "y": -0.32618024945259094,
+          "z": 0.01596604660153389
+        },
+        "forge.local_scale": {
+          "x": 0.9718857407569885,
+          "y": 0.9718857407569885,
+          "z": 0.9718857407569885
+        },
+        "forge.local_translation": {
+          "x": 3.2525737304240465,
+          "y": 0.8110240285949746,
+          "z": 2.649313814472407
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "742d0870-a8bd-4179-b9b3-4f2486a9d961",
+      "name": "Cleared meadow 71",
+      "parent": "0906f593-46f3-4ed3-927c-dcdbdd0f0e7f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.15979626774787903,
+          "x": 0.23889489471912384,
+          "y": 0.9462342858314514,
+          "z": 0.14844194054603577
+        },
+        "forge.local_scale": {
+          "x": 1.1011404991149902,
+          "y": 1.1011404991149902,
+          "z": 1.1011404991149902
+        },
+        "forge.local_translation": {
+          "x": -2.138214106671512,
+          "y": 1.7186130017688255,
+          "z": 1.5247723297215998
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "b9d0b980-3b72-492a-9be2-0df0573df4cc",
+      "name": "Cleared meadow 73",
+      "parent": "0906f593-46f3-4ed3-927c-dcdbdd0f0e7f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.4098825752735138,
+          "x": -0.07911136001348495,
+          "y": -0.8736337423324585,
+          "z": 0.2500033974647522
+        },
+        "forge.local_scale": {
+          "x": 0.697712242603302,
+          "y": 0.697712242603302,
+          "z": 0.697712242603302
+        },
+        "forge.local_translation": {
+          "x": -4.112761840224266,
+          "y": 1.4480185607491083,
+          "z": -2.5414195680059493
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "3b58b4cf-16f3-4caa-bfd3-f4d1d7bd32c7",
+      "name": "Cleared meadow 75",
+      "parent": "0906f593-46f3-4ed3-927c-dcdbdd0f0e7f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.18918737769126892,
+          "x": -0.0077683888375759125,
+          "y": -0.9620436429977417,
+          "z": -0.19651930034160614
+        },
+        "forge.local_scale": {
+          "x": 0.9332283735275269,
+          "y": 0.9332283735275269,
+          "z": 0.9332283735275269
+        },
+        "forge.local_translation": {
+          "x": -3.4465383598580956,
+          "y": 1.374737070081724,
+          "z": 3.0972369317896664
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "517879f5-11e1-427e-ba32-3f9fd14c4a24",
+      "name": "Cleared meadow 76",
+      "parent": "0906f593-46f3-4ed3-927c-dcdbdd0f0e7f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.4304172694683075,
+          "x": 0.00041495542973279953,
+          "y": -0.9023534059524536,
+          "z": 0.022340111434459686
+        },
+        "forge.local_scale": {
+          "x": 0.8092073798179626,
+          "y": 0.8092073798179626,
+          "z": 0.8092073798179626
+        },
+        "forge.local_translation": {
+          "x": 2.9053823510184884,
+          "y": 0.8548480076387277,
+          "z": 3.918508777860552
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "c1d57f7a-8f5e-4b72-8c13-194e607e95eb",
+      "name": "Cleared meadow 77",
+      "parent": "0906f593-46f3-4ed3-927c-dcdbdd0f0e7f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.20829075574874878,
+          "x": 0.20137454569339752,
+          "y": -0.9247475266456604,
+          "z": -0.2467898279428482
+        },
+        "forge.local_scale": {
+          "x": 0.9153421521186829,
+          "y": 0.9153421521186829,
+          "z": 0.9153421521186829
+        },
+        "forge.local_translation": {
+          "x": -4.61693350225687,
+          "y": 2.4533097154903514,
+          "z": 1.1228356114588678
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "8ddc75db-92d6-4e87-8f88-6c37069c787d",
+      "name": "Cleared meadow 78",
+      "parent": "0906f593-46f3-4ed3-927c-dcdbdd0f0e7f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.8702216148376465,
+          "x": -0.33507752418518066,
+          "y": -0.36110857129096985,
+          "z": 0.006162889301776886
+        },
+        "forge.local_scale": {
+          "x": 1.1146507263183594,
+          "y": 1.1146507263183594,
+          "z": 1.1146507263183594
+        },
+        "forge.local_translation": {
+          "x": -3.2041776413097978,
+          "y": 2.1037367368203395,
+          "z": -1.4277214626781642
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "9998ab9b-d1da-41f0-939b-1262fa69018b",
+      "name": "Cleared meadow 79",
+      "parent": "0906f593-46f3-4ed3-927c-dcdbdd0f0e7f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.7156809568405151,
+          "x": 0.11179018020629883,
+          "y": 0.6397709250450134,
+          "z": -0.2568986415863037
+        },
+        "forge.local_scale": {
+          "x": 1.0951801538467407,
+          "y": 1.0951801538467407,
+          "z": 1.0951801538467407
+        },
+        "forge.local_translation": {
+          "x": -1.8121764855459332,
+          "y": 1.6370571865437484,
+          "z": -0.7039236160926521
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "c173b56c-f3e1-4212-a0b1-be57417c0695",
+      "name": "Cleared meadow 80",
+      "parent": "0906f593-46f3-4ed3-927c-dcdbdd0f0e7f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.7313624024391174,
+          "x": -0.021432748064398766,
+          "y": 0.6816229224205017,
+          "z": -0.0063156732358038425
+        },
+        "forge.local_scale": {
+          "x": 0.9238282442092896,
+          "y": 0.9238282442092896,
+          "z": 0.9238282442092896
+        },
+        "forge.local_translation": {
+          "x": 4.066774770617485,
+          "y": 0.7467651704069866,
+          "z": 0.6357417977415025
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "bde1ec8f-3f9b-406e-845b-14f9c278891d",
+      "name": "Cleared meadow 84",
+      "parent": "0906f593-46f3-4ed3-927c-dcdbdd0f0e7f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.02018052712082863,
+          "x": 0.2771143317222595,
+          "y": 0.9441525936126709,
+          "z": -0.1771334856748581
+        },
+        "forge.local_scale": {
+          "x": 0.980486273765564,
+          "y": 0.980486273765564,
+          "z": 0.980486273765564
+        },
+        "forge.local_translation": {
+          "x": -3.4929079795256257,
+          "y": 2.9647688950248066,
+          "z": -0.29394016368314624
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "3e23ae8c-2ad5-4010-ba94-e0841ffc51b0",
+      "name": "Cleared meadow 88",
+      "parent": "0906f593-46f3-4ed3-927c-dcdbdd0f0e7f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.06591791659593582,
+          "x": -0.22256126999855042,
+          "y": -0.9556219577789307,
+          "z": 0.18140552937984467
+        },
+        "forge.local_scale": {
+          "x": 0.6546170115470886,
+          "y": 0.6546170115470886,
+          "z": 0.6546170115470886
+        },
+        "forge.local_translation": {
+          "x": -2.472100821323693,
+          "y": 1.8781826923741107,
+          "z": -1.2589340913109481
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "2ac624c6-4b64-4e9f-b6b9-d09f80727375",
+      "name": "Cleared meadow 90",
+      "parent": "0906f593-46f3-4ed3-927c-dcdbdd0f0e7f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.3334084749221802,
+          "x": -0.24973496794700623,
+          "y": -0.8941827416419983,
+          "z": -0.16403813660144806
+        },
+        "forge.local_scale": {
+          "x": 1.1030333042144775,
+          "y": 1.1030333042144775,
+          "z": 1.1030333042144775
+        },
+        "forge.local_translation": {
+          "x": -3.045116146095097,
+          "y": 2.63093615670937,
+          "z": 0.4076007870025933
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "cb1d3122-631a-49c9-8b44-8197506cf7aa",
+      "name": "Cleared meadow 91",
+      "parent": "0906f593-46f3-4ed3-927c-dcdbdd0f0e7f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.5795208215713501,
+          "x": 0.26717281341552734,
+          "y": 0.7673493027687073,
+          "z": -0.0628439337015152
+        },
+        "forge.local_scale": {
+          "x": 0.7496155500411987,
+          "y": 0.7496155500411987,
+          "z": 0.7496155500411987
+        },
+        "forge.local_translation": {
+          "x": -2.6577080879360437,
+          "y": 2.2266525797821313,
+          "z": 0.805607985239476
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "94671b52-09da-42de-828e-188ccd740367",
+      "name": "Cleared meadow 92",
+      "parent": "0906f593-46f3-4ed3-927c-dcdbdd0f0e7f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.24341925978660583,
+          "x": -0.014557735994458199,
+          "y": 0.9696637392044067,
+          "z": -0.01695059798657894
+        },
+        "forge.local_scale": {
+          "x": 1.004752278327942,
+          "y": 1.004752278327942,
+          "z": 1.004752278327942
+        },
+        "forge.local_translation": {
+          "x": 4.167780703864992,
+          "y": 0.6248268383902662,
+          "z": -2.463219396304339
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.054999999701976776,
+                  0.550000011920929,
+                  0.11999999731779099,
+                  1.0
+                ]
+              },
+              "slot": "default"
+            },
+            {
+              "key": "roughnessFactor",
+              "parameter": {
+                "type": 0,
+                "value": [
+                  0.8999999761581421,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "slot": "default"
+            }
+          ],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "f4782b59-c27d-4b5f-a46d-c71fead3fb11",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "d0a339ec-03d7-4379-b01a-172f86141819",
+      "name": "Cleared meadow 94",
+      "parent": "0906f593-46f3-4ed3-927c-dcdbdd0f0e7f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    }
+  ],
+  "version": 3
+}

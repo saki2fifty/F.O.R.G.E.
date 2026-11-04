@@ -1471,9 +1471,9 @@ All controls, status and explanatory text are visible. Capture command:
 The production owner is also exercised with real input at 100/150/200 percent
 in full/compact layouts. These GPU-independent component captures do not establish
 full Main, physical Windows input or display/DPI acceptance.
-Plane PNG SHA256: `f4906fc5d6584f914a859a75eb25ec61ab56e647b84fc8a29f6d1448f0eb0fe9`.
-Heightfield PNG SHA256: `075f84ae494c54d2124d494178fa92d7893a945a0eade531b9e28867bb5f0b90`.
-Current capture consumer SHA256: `91249bb5265cdd861bf8c187e65e7c482281f794893b3abc1dbef5b5370e864f`.
+Plane PNG SHA256: `7c88bd4a1a64880247ff1ba6123ad4c7d4d325a000a29494820d6b630ead1469`.
+Heightfield PNG SHA256: `310d7ef492bf22e53d4c9ab3579990eab5a20abf1342e9ba356afd51852cc8ca`.
+Current capture consumer SHA256: `852c8dede984208f97445a5a9753f2203a201ab38a22f5286af3a1001597e711`.
 Local unassigned source; current control captures replace the earlier captures in
 their canonical assets. Game images below retain their separate unchanged proof.
 
@@ -1818,3 +1818,17 @@ The UI fixture uses a controlled7x3 source. Separate camera_transition_webp_vulk
 compares encoded frame pixels against independently sampled actual Timeline
 camera-transition rendering. This is not a full-editor, Windows/MSVC/D3D12,
 physical GPU/input/DPI/performance or external-player/client acceptance claim.
+
+## Foliage clearance controls
+
+`manual/images/foliage-clearance-controls.png` is the canonical authentic production
+ImGui panel capture from `forge_foliage_editor_tests --capture-clearance`, using
+Gallery 156 in an isolated project copy. It shows published heightfield projection,
+alignment, sphere radius/world offset, layers, sensor/exclusion controls and 88 of 128
+retained candidates. SDL software rendering captured the unretouched 720x1850 panel.
+The existing plane/terrain control images were recaptured through
+`--capture-gallery` at 720x1340 after the additional checkbox entered the workflow.
+Actual input fixtures exercise wide/compact panels at 1x/1.5x/2x; these captures do
+not establish full Main/Windows/MSVC/D3D12, hardware input/DPI or physical-GPU
+acceptance. Capture evidence and hashes are local in
+`AgentFiles/build/phase244-foliage-collision-filters/native-ui-captures.json`.

@@ -13,12 +13,12 @@ namespace forge {
 inline std::vector<LiveAuthoringMethod>
 asset_automation_methods(Scene& scene, EditorFiles& files, ContentImports& imports,
                          SourceImport& source, SceneAssetDrop& placement,
-                         ContentFiles& content_files,
-                         const ui::AutomationPermissions& permissions) {
+                         ContentFiles& content_files, const ui::AutomationPermissions& permissions,
+                         FoliageCollisionPreparation* clearance = nullptr) {
     auto methods =
         asset_file_automation_methods(files.document, content_files, imports, permissions.assets);
     auto catalog = [&files, &imports] { return automation_asset_catalog(files.document, imports); };
-    auto foliage = foliage_automation_methods(scene, files.document);
+    auto foliage = foliage_automation_methods(scene, files.document, clearance);
     methods.insert(methods.end(), std::make_move_iterator(foliage.begin()),
                    std::make_move_iterator(foliage.end()));
     auto reads = asset_read_automation_methods(files.document, imports);
