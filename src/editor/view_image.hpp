@@ -55,6 +55,7 @@ class ViewImageTask {
         unsigned component_bits = 0;
         bool block_decoded = false;
         bool snorm_block_decoded = false;
+        bool bc6_block_decoded = false;
         std::optional<FrameReceipt> frame_receipt = {};
     };
     struct FrameBatch : FrameReceipt {
@@ -399,9 +400,11 @@ class ViewImageTask {
                     completed_component_bits_ = result.component_bits;
                     completed_block_decoded_ = result.block_decoded;
                     completed_snorm_block_decoded_ = result.snorm_block_decoded;
+                    completed_bc6_block_decoded_ = result.bc6_block_decoded;
                     publish_status(
                         "Image saved: " + result.value +
-                            (result.snorm_block_decoded
+                            (result.bc6_block_decoded ? " (decoded BC6 HDR texels; RGBE)"
+                             : result.snorm_block_decoded
                                  ? " (PNG16, signed block channels mapped -1..1 to 0..65535)"
                              : result.component_bits == 16 ? " (16-bit PNG)"
                              : result.block_decoded        ? " (decoded block texels)"
@@ -882,6 +885,7 @@ class ViewImageTask {
     unsigned completed_component_bits_ = 0;
     bool completed_block_decoded_ = false;
     bool completed_snorm_block_decoded_ = false;
+    bool completed_bc6_block_decoded_ = false;
     std::optional<FrameReceipt> completed_frames_;
     std::optional<ViewImagePreview> preview_;
     bool preview_requested_ = false;
@@ -911,6 +915,7 @@ class ViewImageTask {
             completed_component_bits_ = 0;
             completed_block_decoded_ = false;
             completed_snorm_block_decoded_ = false;
+            completed_bc6_block_decoded_ = false;
             completed_frames_.reset();
         }
     }
@@ -943,6 +948,8 @@ class ViewImageTask {
                 result.block_decoded = rgba->block_decoded;
             if (const auto* rgba = std::get_if<Rgba16Pixels>(&pixels))
                 result.snorm_block_decoded = rgba->snorm_block_decoded;
+            if (const auto* rgb = std::get_if<Rgb32Pixels>(&pixels))
+                result.bc6_block_decoded = rgb->bc6_block_decoded;
             if (preview_requested) {
                 try {
                     const auto format = view_image_format(destination);

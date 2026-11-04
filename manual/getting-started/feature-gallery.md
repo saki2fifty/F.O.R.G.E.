@@ -643,3 +643,10 @@ mip. Use **Export image...** for PNG or lossless WebP; choose **Mip** 1 for JPEG
 The image contains decoded reference texels, so it cannot restore color detail
 lost during compression. No Scene or project C++ is required. See
 [compressed texture export](../editor/textures.md) for controls and limits.
+
+Open **Assets/TextureBlocks/HdrUnsigned.dds** or **HdrSigned.dds** and choose
+**Variant → HDR color** for BC6 HDR examples. Export **Mip** 0 as **.hdr** to
+inspect decoded linear HDR values through the shared-exponent file format.
+The signed example's **Mip** 1 contains negative red values and reports an error
+when exported to HDR, preserving any existing destination. See
+[HDR texture export](../editor/textures.md) for decoding, inspection and limits.

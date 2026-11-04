@@ -22,7 +22,10 @@ shows decoded saved pixels. No source/import-metadata roundtrip is implied.
 UNORM BC1/2/3/4/5/7 exports decoded reference texels through the existing isolated
 worker, with an original published Gallery pattern. Signed BC4/5 export mapped
 PNG16 reference channels through the same worker/task; two original Data Gallery
-textures show the fixed -1..1 to0..65535 mapping. BC6 image output remains unsupported.
+textures show the fixed -1..1 to0..65535 mapping. HdrColor BC6 unsigned/signed
+textures export decoded reference values as Radiance HDR through the same CPU
+worker; negative/nonfinite values reject, and RGBE quantizes the result. Two
+original HDR Gallery examples include a deliberately negative signed mip.
 Normalized R16/RG16/RGBA16 exports exact PNG16 with a
 separately quantized8-bit preview, shared native PNG-only hint, MCP precision and
 an original Gallery ramp.

@@ -6,7 +6,8 @@ namespace forge::asset_detail {
 inline constexpr std::string_view texture_image_decode_recipe = "forge.texture.image-decode";
 inline constexpr std::string_view texture_image_decode_profile = "bc-unorm-rgba8-v1";
 inline constexpr std::string_view texture_signed_image_decode_profile = "bc-snorm-rgba16-v1";
-WorkerLimits texture_image_worker_limits(bool signed_samples = false);
+inline constexpr std::string_view texture_hdr_image_decode_profile = "bc6-rgba16f-v1";
+WorkerLimits texture_image_worker_limits(bool wide_samples = false);
 // Transient decode of one checked immutable plane. No import, catalog write,
 // source-image access, GPU readback or publication selection occurs here.
 ImagePixels texture_compressed_pixels(const std::filesystem::path& worker,

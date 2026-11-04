@@ -1,5 +1,17 @@
 # 2026-11-04
 
+## BC6 HDR texture image output
+
+Published HdrColor BC6 unsigned/signed textures can export decoded texels as
+Radiance HDR through the existing isolated image worker and atomic file task.
+The independently authored standard-based decoder supports all fourteen modes
+and thirty-two partitions; typed half-float transport reuses existing HDR checks,
+RGBE writing and owned inspection. Native chooser/provenance and scoped MCP reads
+share the same output; negative/nonfinite values preserve a good destination.
+Original Gallery patterns retain their encoded blocks and demonstrate a negative
+signed mip. No dependency upgrade, source import/SDK boundary change or general
+BC6 encoder is introduced. Windows/full-editor/physical acceptance remains pending.
+
 ## Declared writes shared by native workers
 
 The existing native query observation now identifies bounded fixed-source write

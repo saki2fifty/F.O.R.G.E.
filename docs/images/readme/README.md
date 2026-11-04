@@ -1985,3 +1985,18 @@ and build/test provenance are in local
 `AgentFiles/build/phase249-local-fog-volumes/capture-provenance.json`. This control
 capture does not establish full-editor, Windows/MSVC/D3D12, physical GPU/input/DPI,
 exported-game or hardware performance acceptance.
+
+## BC6 HDR texture output
+
+`manual/images/bc6-hdr-texture-export.png` is the canonical unretouched720x650
+production Texture viewer capture. The original Gallery unsigned BC6 texture is
+published; its editable source is absent from the control fixture. Actual pointer
+input selects HDR color and the native HDR chooser/file task saves decoded texels.
+Twelve unsigned/signed wide/narrow100/150/200% layouts check output values, scoped
+operation behavior and completion provenance. Diligent software Vulkan supplies
+the viewer pixels; the file follows the independent CPU selected-artifact path.
+The canonical image and a signed compact200% capture were personally viewed.
+Exact source, executable, image, publication and test receipt hashes are recorded
+locally in `AgentFiles/build/phase255-bc6-hdr-output/capture-provenance.json`.
+This is an isolated production control capture, not full-editor, Windows/MSVC,
+physical GPU/input/DPI, exported-game or hardware performance acceptance.

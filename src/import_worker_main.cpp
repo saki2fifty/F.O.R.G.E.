@@ -42,7 +42,8 @@ int main(int argc, char** argv) {
             webp_sequence ? forge::asset_detail::webp_sequence_worker_limits()
             : image_decode
                 ? forge::asset_detail::texture_image_worker_limits(
-                      profile == forge::asset_detail::texture_signed_image_decode_profile)
+                      profile == forge::asset_detail::texture_signed_image_decode_profile ||
+                      profile == forge::asset_detail::texture_hdr_image_decode_profile)
             : atlas || atlas_recipe ? forge::asset_detail::sprite_atlas_source_limits()
             : model                 ? forge::asset_detail::model_worker_limits()
             : audio                 ? forge::asset_detail::audio_worker_limits()

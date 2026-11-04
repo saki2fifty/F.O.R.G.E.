@@ -33,7 +33,7 @@ target_link_libraries(forge_texture_ktx PUBLIC forge_texture PRIVATE ktx)
 if(WIN32)
  target_compile_definitions(forge_texture_ktx PRIVATE NOMINMAX)
 endif()
-add_library(forge_texture_block_decode STATIC src/texture_block_image.cpp)
+add_library(forge_texture_block_decode STATIC src/texture_block_image.cpp src/texture_bc6.cpp)
 target_include_directories(forge_texture_block_decode SYSTEM PRIVATE
  "${ktx_SOURCE_DIR}/external/basisu/encoder")
 target_compile_definitions(forge_texture_block_decode PRIVATE BASISD_SUPPORT_KTX2=1

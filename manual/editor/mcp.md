@@ -209,8 +209,16 @@ capture tool and selectors. The packaged asset worker decodes the selected block
 Status identifies **decoded_rgba8** and 8-bit components. PNG and sRGB WebP contain
 decoded reference texels; they cannot recover pixels lost during compression.
 JPEG additionally requires actual opaque sRGB texels. BC1 retains punch-through;
-BC4/5 do not reconstruct normal blue. BC6 rejects. See
+BC4/5 do not reconstruct normal blue. BC6 uses HDR output below. See
 [compressed texture export](textures.md) for limits and the Gallery example.
+
+For **BC6 unsigned/signed**, choose **semantic: hdr** and a **.hdr** destination.
+Use **Mip** 0 of the Gallery's **HdrUnsigned.dds** or **HdrSigned.dds** examples.
+Status identifies **texture.profile: decoded_bc6_linear_rgbe**. Decoding and RGBE
+quantization cannot recover pre-compression pixels. The signed example's mip 1
+has negative red; its export reports an error and preserves an existing file.
+Selected values must be finite and nonnegative. Preview display controls remain
+excluded; the saved HDR supports the same bounded owned PNG inspection.
 
 For **BC4/BC5 SNORM**, select the cooked variant explicitly when needed, such as
 **semantic: data** for the signed Gallery examples, and choose **.png**. Stored

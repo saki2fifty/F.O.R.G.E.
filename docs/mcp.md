@@ -1029,7 +1029,7 @@ format color label; WebP requires sRGB and JPEG requires actual opaque sRGB.
 Status reports component_bits8 and texture.profile decoded_rgba8. These are
 reference decoded texels, not original pre-compression samples or compressed
 payload. BC1 retains punch-through even with an opaque hint; BC4/5 supply absent
-G/B zero and A255 without normal-Z reconstruction. BC6 rejects.
+G/B zero and A255 without normal-Z reconstruction. BC6 uses the HDR profile below.
 Owned current/later previews and all output/revision/replay rules remain the same.
 
 BC4/BC5 SNORM uses the same Texture operation with a PNG destination. Choose its
@@ -1081,7 +1081,18 @@ is256MiB, detached RGB floats192MiB, extent4096axis and encoded68MiB. Shared-
 exponent RGBE quantization is not lossless, alpha is absent, and no tone mapping or
 exposure is applied. Native working primaries/D65 are explicit in the file.
 Status reports `file_mime:"image/vnd.radiance"` and requested
-`texture.profile:"linear_rgbe"`. Requested current and later `capture.image`
+`texture.profile:"linear_rgbe"`. HdrColor BC6Unsigned/BC6Signed instead decodes
+through the same isolated asset worker's fixed `bc6-rgba16f-v1` profile, then
+reuses the existing finite/nonnegative/alpha1 HDR projection and writer. Completed
+status identifies `texture.profile:"decoded_bc6_linear_rgbe"`; `component_bits`
+is absent for RGBE. Raw half-float output is bounded128MiB/136MiB transport;
+complete selected source256MiB, linear RGB192MiB,4096axes and HDR68MiB remain.
+Negative colors and negative infinity reject without replacing a good file;
+PNG/WebP/JPEG do not accept BC6 in this profile. Native source blocks remain
+unchanged and editable source files may be absent. Selectors, scoped permissions,
+revision checks, replay, cancellation and file publication retain their owners.
+This is reference decoding followed by RGBE quantization, not BC6 encoding or
+recovery of original pre-compression pixels. Requested current and later `capture.image`
 inspection returns bounded sRGB PNG8 of the actual quantized written RGBE, labeled
 `preview_profile:"hdr_reinhard_srgb"` in both status and image metadata. Fixed unit
 exposure applies per-channel c/(1+c), then standard sRGB encoding and nearest8-bit

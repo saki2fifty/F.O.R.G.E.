@@ -189,6 +189,38 @@ for legacy in (False,True):
             assert not complete['error'] and complete['texture']['profile']=='decoded_snorm_rgba16',complete
             assert (root/('Output/'+label+'.png')).read_bytes()!=encoded16
         assert read('forge_scene_read')==authored
+        for label in ('HdrUnsigned','HdrSigned'):
+            compressed_hdr=next(row for row in assets if row['source']==f'Assets/TextureBlocks/{label}.dds')
+            assert not (root/'Game'/compressed_hdr['source']).exists()
+            hdr_request=arguments(asset=compressed_hdr['id'],semantic='hdr',path=label+'.hdr')
+            accepted_hdr=client.tool('forge_capture_texture',**hdr_request)
+            assert accepted_hdr['ok'],accepted_hdr
+            assert client.tool('forge_capture_texture',**hdr_request)==accepted_hdr
+            complete=settled()
+            assert not complete['error'] and complete['preview_ready'],complete
+            assert complete['file_mime']=='image/vnd.radiance' and 'component_bits' not in complete,complete
+            assert complete['texture']['profile']=='decoded_bc6_linear_rgbe',complete
+            assert complete['preview_profile']=='hdr_reinhard_srgb',complete
+            full_hdr=(root/('Output/'+label+'.hdr')).read_bytes()
+            assert full_hdr.startswith(b'#?RADIANCE\n')
+            meta_hdr,png_hdr=image(accepted_hdr['result']['operation'])
+            assert (meta_hdr['source_width'],meta_hdr['source_height'])==(64,32)
+            assert png_hdr[24]==8 and png_has_chunk(png_hdr,b'sRGB')
+            failed(mutate('forge_capture_texture',asset=compressed_hdr['id'],semantic='hdr',path=label+'.hdr'),'output_exists')
+            ok('forge_capture_texture',asset=compressed_hdr['id'],semantic='hdr',path=label+'.png')
+            unsupported_hdr=settled()
+            assert 'require HDR' in unsupported_hdr['error'] and not (root/('Output/'+label+'.png')).exists(),unsupported_hdr
+            ok('forge_capture_texture',asset=compressed_hdr['id'],semantic='hdr',path=label+'.hdr',replace=True,mip=4)
+            invalid_hdr=settled()
+            assert invalid_hdr['error'] and (root/('Output/'+label+'.hdr')).read_bytes()==full_hdr,invalid_hdr
+            ok('forge_capture_texture',asset=compressed_hdr['id'],semantic='hdr',path=label+'.hdr',replace=True,mip=1)
+            mip_hdr=settled()
+            if label=='HdrSigned':
+                assert 'nonnegative' in mip_hdr['error'] and (root/('Output/'+label+'.hdr')).read_bytes()==full_hdr,mip_hdr
+            else:
+                assert not mip_hdr['error'] and mip_hdr['texture']['mip']==1,mip_hdr
+                assert (root/('Output/'+label+'.hdr')).read_bytes()!=full_hdr
+        assert read('forge_scene_read')==authored
         jpeg_schema=catalog['forge_capture_texture']['inputSchema']['properties']['jpeg_quality']
         assert jpeg_schema['minimum']==1 and jpeg_schema['maximum']==100
         for quality in (0,101,1.5):

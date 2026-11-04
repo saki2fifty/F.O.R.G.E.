@@ -1,4 +1,5 @@
 #include "texture_block_image.hpp"
+#include "texture_bc6.hpp"
 #include "view_image_limits.h"
 #include <algorithm>
 #include <array>
@@ -73,6 +74,36 @@ void four_color(std::array<std::uint8_t, 16>& block, basisu::color_rgba* pixels)
     (void)basisu::unpack_bc1(color, pixels, false);
 }
 } // namespace
+std::vector<std::byte> decode_texture_hdr_block_image(TextureFormat format, unsigned width,
+                                                      unsigned height,
+                                                      std::span<const std::byte> source,
+                                                      std::stop_token stop) {
+    cancelled(stop);
+    if (!texture_hdr_block_storage(format))
+        throw std::runtime_error("HDR block image decode requires BC6 storage");
+    const auto [columns, rows] = admit_plane(format, width, height, source, 2);
+    std::vector<std::byte> output(std::size_t(width) * height * 8);
+    for (unsigned row = 0; row < rows; ++row) {
+        cancelled(stop);
+        for (unsigned column = 0; column < columns; ++column) {
+            const auto* block = source.data() + (std::size_t(row) * columns + column) * 16;
+            const auto pixels = decode_bc6_block(std::span<const std::byte, 16>(block, 16),
+                                                 format == TextureFormat::BC6Signed);
+            for (unsigned y = 0; y < 4 && row * 4 + y < height; ++y)
+                for (unsigned x = 0; x < 4 && column * 4 + x < width; ++x) {
+                    const auto at = (std::size_t(row * 4 + y) * width + column * 4 + x) * 8;
+                    for (unsigned c = 0; c < 4; ++c) {
+                        const auto word =
+                            c == 3 ? std::uint16_t(0x3c00) : pixels[(y * 4 + x) * 3 + c];
+                        output[at + c * 2] = std::byte(word & 255);
+                        output[at + c * 2 + 1] = std::byte(word >> 8);
+                    }
+                }
+        }
+    }
+    cancelled(stop);
+    return output;
+}
 Rgba8Pixels decode_texture_block_image(TextureFormat format, unsigned width, unsigned height,
                                        std::span<const std::byte> source, std::stop_token stop) {
     cancelled(stop);

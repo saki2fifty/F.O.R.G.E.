@@ -1,0 +1,43 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [],
+    "importer": "forge.texture.container",
+    "importer_revision": "1e70ad8ca257f8bb17866d8b9a0a3672c53a47571710ba17fd07476b1769f508",
+    "key_version": 1,
+    "output_format": "forge.texture-bundle",
+    "output_version": 1,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {
+      "additional_usages": [],
+      "anisotropy": 1,
+      "filter": "linear",
+      "semantic": "hdr",
+      "wrap": "repeat"
+    },
+    "settings_version": 1,
+    "source": "e84270c4fb36b2bd702256ced54efb8a95aa9b0b40781e1f7fc4a9ef080ebf3c",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.texture.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "ccf38565-0fc9-4ec4-85a6-c2998944f23e",
+    "source": "Assets/TextureBlocks/HdrSigned.dds",
+    "source_digest": "e84270c4fb36b2bd702256ced54efb8a95aa9b0b40781e1f7fc4a9ef080ebf3c",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.texture.container",
+    "overrides": {
+      "semantic": "hdr"
+    },
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

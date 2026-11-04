@@ -180,7 +180,7 @@ Normal blue is not reconstructed. Color transfer, preview controls, alpha hints
 and material settings do not reinterpret the values. PNG labels only actual sRGB
 storage; WebP and JPEG require sRGB. JPEG also checks actual alpha.
 
-Signed BC4/BC5 use the PNG16 workflow below. BC6 HDR storage remains unsupported.
+Signed BC4/BC5 use the PNG16 workflow below. BC6 uses the HDR workflow below.
 The selected cooked
 texture must fit 128 MiB; output must fit 4096 pixels per axis and 64 MiB RGBA8.
 The packaged asset worker must be present. A failed decode keeps an existing
@@ -284,7 +284,7 @@ promise. Failed exports leave an existing destination intact.
 
 Open a published HDR texture and choose **HDR color** under **Variant**, or leave
 **Automatic** when that variant is present. HDR output requires HdrColor
-RGBA16Float or RGBA32Float storage. Choose one **Mip**, **Array layer**,
+RGBA16Float, RGBA32Float or BC6 storage. Choose one **Mip**, **Array layer**,
 **Cube face** or **Depth slice** under **View controls** as needed.
 
 ![Published HDR cube face with Automatic variant, Image zoom, Export image and a tone-mapped room preview](../images/hdr-texture-export.png)
@@ -307,7 +307,7 @@ Original source metadata and calibrated physical units are not preserved.
 RGB must be finite and nonnegative, every selected alpha must equal 1, and nonzero
 pixel magnitudes must fit the RGBE exponent range. Unsupported transparency,
 negative/nonfinite values or range produce an error without replacing a good file.
-RGBA bytes, compressed textures, normalized 16-bit data and other semantic usages
+RGBA bytes, compressed formats other than BC6, normalized 16-bit data and other semantic usages
 cannot use this HDR profile. No automatic color-space, transparency or data conversion
 is performed.
 
@@ -315,6 +315,36 @@ The complete selected HDR texture must fit 256 MiB, detached RGB floats 192 MiB,
 the selected image 4096 pixels per axis, and the encoded file 68 MiB. Existing cooked
 artifact limits also apply. The shared image-task, project cancellation and import /
 Scene-history behavior described above also applies to HDR.
+
+### Export decoded BC6 HDR texels
+
+1. Open **Assets/TextureBlocks/HdrUnsigned.dds** or **HdrSigned.dds** in the Feature Gallery.
+2. Choose **Variant → HDR color** and set **Mip** to 0 under **View controls** for the first export. Both examples have a positive-valued mip 0. A non-HDR variant cannot use BC6 HDR export.
+3. Read the BC6 export note above **Export image...**, then click the button. Choose a **.hdr** filename and confirm replacement when requested.
+4. Wait for **Image saved**, followed by **decoded BC6 HDR texels; RGBE** in the completion message. Inspect the full file in an HDR-capable reader or request the shared image preview.
+
+![Original published BC6 HDR pattern with HDR color selected and its export note above Export image](../images/bc6-hdr-texture-export.png)
+
+BC6 unsigned and signed formats decode into reference HDR values before RGBE
+encoding. Compression and RGBE quantization can both change values relative to
+the original image; this export does not recover pre-compression data. Preview
+exposure, signed display mapping, tone mapping, channels and crop stay separate.
+The packaged asset worker is required; no editable source image is needed after
+publication. This workflow reads BC6 textures and does not encode images into BC6.
+
+The signed example's **Mip** 1 deliberately contains negative red values. Its HDR
+export reports an error and preserves an existing destination. Signed storage
+alone does not prevent export: selected texels must be finite and nonnegative.
+The decoder also recognizes the format's negative-infinity value, which HDR output
+rejects. Choose another mip or prepare source values suitable for RGBE.
+
+The BC6 decode uses a bounded 128 MiB raw half-float plane before the existing
+192 MiB linear RGB limit. The complete selected texture remains limited to
+256 MiB, each image axis to 4096, and encoded HDR to 68 MiB. Alpha is one because
+BC6 has no stored alpha. A failed decode, invalid selector or unsupported filename
+does not replace a good image. BC6 does not use PNG, WebP or JPEG in this profile.
+
+### Inspect a saved HDR image
 
 An MCP agent can inspect a bounded PNG of the saved HDR image. Capture status and
 the image result label it **preview_profile: hdr_reinhard_srgb**. The full file

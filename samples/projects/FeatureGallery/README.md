@@ -52,6 +52,18 @@ Use the Material Graph's **Lightmap irradiance** input, HDR Texture usage and
 ordinary Material UV transforms to author another map. FORGE does not bake maps
 or generate lightmap UVs. See the manual's imported-lightmap guide.
 
+## BC6 HDR image output
+
+Open **Assets/TextureBlocks/HdrUnsigned.dds** or **HdrSigned.dds** in Content and
+choose **Variant → HDR color**. These original BC6 patterns preserve two authored
+mips in their cooked publications. **Export image...** writes decoded reference
+texels as Radiance HDR, with RGBE quantization and no preview display processing.
+Both mip0 images contain nonnegative HDR values. HdrSigned mip1 intentionally
+contains negative red, demonstrating an export error that preserves a good file.
+This is BC6 decoding/image output, not a general BC6 encoder. No Scene or project
+C++ is needed. Sources, import recipes and matching cooked artifacts are included.
+See [Texture export](../../../manual/editor/textures.md) for controls and limits.
+
 ## Signed block channel images
 
 Open **Assets/TextureBlocks/SignedChannel.dds** or **SignedPair.dds** in Content

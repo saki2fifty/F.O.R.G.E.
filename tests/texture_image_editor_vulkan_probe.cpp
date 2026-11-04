@@ -16,7 +16,7 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* grap
               const std::filesystem::path& gallery, const std::filesystem::path& output,
               float scale, bool narrow, ViewImageFormat preferred, bool precision = false,
               bool blocks = false, const std::filesystem::path& worker = {},
-              unsigned signed_channels = 0) {
+              unsigned signed_channels = 0, unsigned hdr_blocks = 0) {
     const bool hdr = preferred == ViewImageFormat::Hdr;
     const bool jpeg = preferred == ViewImageFormat::Jpeg;
     const auto root = output / AssetId::generate().str();
@@ -26,7 +26,9 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* grap
     const auto found =
         std::find_if(catalog->records().begin(), catalog->records().end(), [&](const auto& row) {
             return row.second.source ==
-                   (signed_channels == 1   ? "Assets/TextureBlocks/SignedChannel.dds"
+                   (hdr_blocks == 1        ? "Assets/TextureBlocks/HdrUnsigned.dds"
+                    : hdr_blocks == 2      ? "Assets/TextureBlocks/HdrSigned.dds"
+                    : signed_channels == 1 ? "Assets/TextureBlocks/SignedChannel.dds"
                     : signed_channels == 2 ? "Assets/TextureBlocks/SignedPair.dds"
                     : blocks               ? "Assets/TextureBlocks/BlockColors.dds"
                     : hdr                  ? "Assets/ReflectionCapture/Reflection.dds"
@@ -43,7 +45,9 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* grap
         foreign = true;
     }
     check(foreign, "Texture pixel input admitted a catalog from another project");
-    const auto semantic = signed_channels ? std::optional{TextureSemantic::Data} : std::nullopt;
+    const auto semantic = hdr_blocks        ? std::optional{TextureSemantic::HdrColor}
+                          : signed_channels ? std::optional{TextureSemantic::Data}
+                                            : std::nullopt;
     const auto original =
         ui::texture_image_input(root, catalog, asset, semantic, {}, {}, worker).load(preferred);
     const auto scene = AssetId::generate();
@@ -99,11 +103,11 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* grap
         presentation.device()->ReleaseStaleResources();
     };
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(15);
-    if (signed_channels) {
+    if (signed_channels || hdr_blocks) {
         frame();
         test::ImGuiInputDriver variant(frame);
         variant.click("texture:variant");
-        variant.click("texture:variant:Data");
+        variant.click(hdr_blocks ? "texture:variant:HDR color" : "texture:variant:Data");
     }
     do {
         frame();
@@ -195,6 +199,10 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* grap
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
     check(message.starts_with("Image saved:"), "Native Texture image export did not complete");
+    if (hdr_blocks)
+        check(std::get<Rgb32Pixels>(original).bc6_block_decoded &&
+                  message.find("decoded BC6 HDR texels") != std::string::npos,
+              "Native BC6 HDR export lost decoded provenance");
     if (hdr) {
         check(asset_detail::read_bytes(target, FORGE_VIEW_IMAGE_ENCODED_LIMIT) ==
                   encode_hdr_image(std::get<Rgb32Pixels>(original)),
@@ -278,7 +286,9 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* grap
     reference.queue(presentation.device(), graphics, srv);
     const auto native_pixels = reference.read(graphics);
     save_view_png(output /
-                      (std::string(signed_channels == 1   ? "signed-channel-export-"
+                      (std::string(hdr_blocks == 1        ? "bc6-unsigned-export-"
+                                   : hdr_blocks == 2      ? "bc6-signed-export-"
+                                   : signed_channels == 1 ? "signed-channel-export-"
                                    : signed_channels == 2 ? "signed-pair-export-"
                                    : blocks               ? "compressed-texture-export-"
                                    : hdr                  ? "hdr-texture-export-"
@@ -312,6 +322,15 @@ int main(int argc, char** argv) {
                                  ViewImageFormat::Png, false, false, argv[4], channels);
             std::cout << "Signed block Texture native chooser, mapping, PNG16 and twelve layouts "
                          "passed\n";
+            return 0;
+        }
+        if (argc == 5 && std::string_view(argv[3]) == "--bc6-blocks") {
+            for (float scale : {1.f, 1.5f, 2.f})
+                for (bool narrow : {false, true})
+                    for (unsigned mode : {1u, 2u})
+                        exercise(presentation, graphics, argv[1], output, scale, narrow,
+                                 ViewImageFormat::Hdr, false, false, argv[4], 0, mode);
+            std::cout << "BC6 HDR native chooser, values, provenance and twelve layouts passed\n";
             return 0;
         }
         for (float scale : {1.f, 1.5f, 2.f})

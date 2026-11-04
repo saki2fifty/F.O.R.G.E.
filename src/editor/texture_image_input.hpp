@@ -41,6 +41,12 @@ texture_image_input(std::filesystem::path project, std::shared_ptr<const AssetCa
                 if (texture_snorm_block_storage(selected.value->format) &&
                     format != ViewImageFormat::Png)
                     throw std::runtime_error("Signed block samples require PNG (.png) output");
+                if (texture_hdr_block_storage(selected.value->format)) {
+                    if (!hdr)
+                        throw std::runtime_error("BC6 samples require HDR (.hdr) output");
+                    return asset_detail::texture_compressed_pixels(worker, project, *selected.value,
+                                                                   slice);
+                }
                 if (hdr)
                     return texture_hdr_pixels(*selected.value, slice);
                 if (texture_format_info(selected.value->format).compressed)

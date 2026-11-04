@@ -11,7 +11,8 @@ std::vector<ArtifactFile> execute_texture_image_recipe(const ImportProcessReques
     if (!payload.is_object() || payload.size() != 5 ||
         payload.at("recipe") != texture_image_decode_recipe ||
         (payload.at("profile") != texture_image_decode_profile &&
-         payload.at("profile") != texture_signed_image_decode_profile) ||
+         payload.at("profile") != texture_signed_image_decode_profile &&
+         payload.at("profile") != texture_hdr_image_decode_profile) ||
         request.inputs.size() != 1 || request.inputs[0].name != "blocks.bin")
         throw std::runtime_error("Invalid compressed Texture image worker request");
     auto number = [&](const char* key, unsigned limit) {
@@ -22,9 +23,19 @@ std::vector<ArtifactFile> execute_texture_image_recipe(const ImportProcessReques
     };
     const auto format = TextureFormat(number("format", unsigned(TextureFormat::BC7Srgb)));
     const bool signed_samples = payload.at("profile") == texture_signed_image_decode_profile;
-    if (signed_samples != texture_snorm_block_storage(format))
-        throw std::runtime_error(
-            "Compressed Texture image profile differs from its signed storage");
+    const bool hdr = payload.at("profile") == texture_hdr_image_decode_profile;
+    if (signed_samples != texture_snorm_block_storage(format) ||
+        hdr != texture_hdr_block_storage(format))
+        throw std::runtime_error("Compressed Texture image profile differs from its storage");
+    if (hdr) {
+        std::vector<ArtifactFile> output;
+        output.push_back(
+            {"rgba16f-le.bin",
+             decode_texture_hdr_block_image(format, number("width", FORGE_VIEW_IMAGE_MAX_EXTENT),
+                                            number("height", FORGE_VIEW_IMAGE_MAX_EXTENT),
+                                            request.inputs[0].bytes, stop)});
+        return output;
+    }
     if (signed_samples) {
         auto pixels = decode_texture_signed_block_image(
             format, number("width", FORGE_VIEW_IMAGE_MAX_EXTENT),

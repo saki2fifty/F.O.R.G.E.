@@ -588,6 +588,9 @@ upstream header contract and ktx target. BC1 returns a punch-through indicator;
 BC7 returns validity. Initialize all RGBA channels before partial-channel APIs.
 The BC3 convenience API is not selected: BC2/3 always-four-color endpoint
 normalization composes the native BC1 primitive with explicit/natively decoded
-alpha. Signed BC4/5 and BC6 remain outside this image-output profile.
+alpha. Signed BC4/5 use FORGE's separate signed-channel mapping. The selected
+native headers provide no BC6 decoder. BC6 uses an independently authored FORGE
+decoder from published format facts, within the same isolated worker; no later
+Basis API, upstream implementation or dependency upgrade is used.
 See [texture image output](texture-assets.md) and [known API limits](dependency-known-issues.md).
 Existing Apache2.0/Binomial notices and packaged KTX notices remain authoritative.

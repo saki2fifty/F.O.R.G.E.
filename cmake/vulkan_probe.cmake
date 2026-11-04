@@ -9,6 +9,14 @@ if(NOT EXISTS "${FORGE_VULKAN_PROBE_DXC}")
  message(FATAL_ERROR "Set FORGE_VULKAN_PROBE_DXC to the verified DXC executable")
 endif()
 include(cmake/texture_formats.cmake)
+add_executable(forge_texture_bc6_vulkan_probe tests/texture_bc6_vulkan_probe.cpp)
+target_include_directories(forge_texture_bc6_vulkan_probe PRIVATE src "${diligent_SOURCE_DIR}/DiligentCore")
+target_link_libraries(forge_texture_bc6_vulkan_probe PRIVATE forge_texture_block_decode
+ Diligent-GraphicsEngineVk-static Diligent-BuildSettings ${CMAKE_DL_LIBS})
+add_test(NAME texture_bc6_vulkan COMMAND ${Python3_EXECUTABLE}
+ "${PROJECT_SOURCE_DIR}/tests/texture_bc6_vulkan_probe.py" $<TARGET_FILE:forge_texture_bc6_vulkan_probe>
+ "${FORGE_VULKAN_PROBE_DXC}" "${CMAKE_BINARY_DIR}/texture-bc6-vulkan")
+set_tests_properties(texture_bc6_vulkan PROPERTIES TIMEOUT 90)
 # Compile every shared rendering unit under the Linux/Vulkan build definitions.
 # This does not link or claim execution of the complete frame renderer.
 include(cmake/presentation_sources.cmake)
@@ -344,6 +352,8 @@ if(FORGE_BUILD_VULKAN_RENDERER_PROBE)
  set_tests_properties(texture_image_editor_vulkan PROPERTIES TIMEOUT 120)
  add_test(NAME texture_signed_image_editor_vulkan COMMAND forge_texture_image_editor_vulkan_probe "${PROJECT_SOURCE_DIR}/samples/projects/FeatureGallery" "${CMAKE_BINARY_DIR}/texture-signed-image-editor-vulkan" --signed-blocks $<TARGET_FILE:forge_asset_build_worker>)
  set_tests_properties(texture_signed_image_editor_vulkan PROPERTIES TIMEOUT 90)
+ add_test(NAME texture_hdr_block_image_editor_vulkan COMMAND forge_texture_image_editor_vulkan_probe "${PROJECT_SOURCE_DIR}/samples/projects/FeatureGallery" "${CMAKE_BINARY_DIR}/texture-hdr-block-image-editor-vulkan" --bc6-blocks $<TARGET_FILE:forge_asset_build_worker>)
+ set_tests_properties(texture_hdr_block_image_editor_vulkan PROPERTIES TIMEOUT 90)
  add_executable(forge_webp_sequence_editor_vulkan_probe tests/webp_sequence_editor_vulkan_probe.cpp
   "${diligent_SOURCE_DIR}/DiligentTools/Imgui/src/ImGuiImplDiligent.cpp"
   "${diligent_SOURCE_DIR}/DiligentTools/Imgui/src/ImGuiDiligentRenderer.cpp")

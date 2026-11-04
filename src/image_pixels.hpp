@@ -19,6 +19,8 @@ struct Rgba8Pixels {
 struct Rgb32Pixels {
     unsigned width = 0, height = 0;
     std::vector<float> rgb;
+    // BC6 reference decoding; final RGBE output still has its own quantization.
+    bool bc6_block_decoded = false;
 };
 // Normalized uint16 samples, with no invented color label.
 // The image encoder owns PNG byte order; source cooked bytes remain little endian.

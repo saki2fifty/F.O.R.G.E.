@@ -59,6 +59,8 @@ struct CaptureAutomation {
                     : owner.completed_component_bits_ == 16 ? "stored_rgba16"
                     : owner.completed_block_decoded_        ? "decoded_rgba8"
                                                             : "stored_rgba8";
+            if (owner.completed_bc6_block_decoded_ && value.contains("texture"))
+                value["texture"]["profile"] = "decoded_bc6_linear_rgbe";
         }
         const auto* frames =
             owner.frames_ ? static_cast<const ui::ViewImageTask::FrameReceipt*>(&*owner.frames_)
@@ -339,7 +341,11 @@ struct CaptureAutomation {
                 "signed channels map -1..1 to0..65535 with half-up rounding; missingG/B=0, "
                 "A=65535, no sRGB or normal-Z reconstruction. Completed texture.profile is "
                 "decoded_snorm_rgba16, component_bits16 (128 MiB selected source/RGBA16, "
-                "136 MiB encoded). Ambiguous -127/-128 endpoints and BC6 reject. "
+                "136 MiB encoded). Ambiguous -127/-128 endpoints reject. BC6 HDR color "
+                "variants require HDR output: all14modes decode in the packaged CPU worker "
+                "to raw RGBA16Float (128 MiB), then linear RGB (192 MiB); complete selected "
+                "source limit256 MiB. Negative/nonfinite decoded values reject. Completed "
+                "texture.profile is decoded_bc6_linear_rgbe; RGBE quantization still applies. "
                 "JPEG (.jpg/.jpeg) requires opaque sRGB bytes; "
                 "jpeg_quality is1–100, default90, JPEG only. JPEG is lossy and its preview shows "
                 "decoded output. HDR (.hdr) accepts HdrColor RGBA16/32Float, finite "

@@ -417,7 +417,7 @@ original compressed bytes. BC1 preserves encoded punch-through despite an opaque
 metadata hint. There is no transfer, alpha-convention conversion or normal-Z
 reconstruction. PNG retains the format's sRGB label; lossless WebP requires sRGB;
 JPEG also requires actual opaque alpha. Signed BC4/5 use the PNG16 profile below;
-both BC6 forms reject.
+BC6 uses the separate HDR profile below.
 No universal physical-GPU rounding match is claimed. Native completion identifies
 decoded block texels; automation/MCP reports component_bits8 and
 texture.profile decoded_rgba8. Current/later owned previews, permissions, revision,
@@ -576,6 +576,59 @@ and later owned previews use the written RGBE artifact. The existing image task,
 preview/read operation, output grant and exact-operation guards remain authoritative.
 A preview failure stays independent of successful file publication. Full-file
 download is not an MCP operation. See [the user guide](../manual/editor/textures.md).
+
+## BC6 reference HDR output
+
+The same selected-artifact CPU image path accepts HdrColor BC6Unsigned and
+BC6Signed storage for Radiance HDR output. `texture_bc6` independently implements
+the format's fourteen modes, thirty-two partitions, endpoint transforms,
+binary16 projection and reserved-mode black. Numeric field layouts, anchors and
+partition facts come from the published BPTC specification; no external decoder
+implementation is copied, translated or adapted. Compile-time layout checks
+require unique and complete endpoint bits. Byte-wise reads avoid alignment and
+host-endian assumptions. Signed negative zero and negative infinity retain their
+standard half-word meanings at the decoder boundary.
+
+Normative references are [BPTC in the published Data Format specification](https://registry.khronos.org/DataFormat/specs/1.4/dataformat.1.4.html#bptc_bc6h),
+[the official immutable format text](https://github.com/KhronosGroup/DataFormat/blob/661f4ef60a16c428fa1ed00e2e436b96bf7c51f7/bptc.txt)
+and [BC6H format rules](https://learn.microsoft.com/en-us/windows/win32/direct3d11/bc6h-format).
+These define interchange facts, not an imported implementation. The selected
+KTX/Basis revision has no BC6 decoder and remains unchanged.
+
+The existing asset worker admits fixed `bc6-rgba16f-v1` requests through the
+same bounded bootstrap/profile check, validates format/dimensions/encoded plane
+size and returns one `rgba16f-le.bin`. It writes raw little-endian RGBA16Float,
+with alpha1 and cropped partial edge blocks; it does not parse source containers
+or choose a different publication. At4096axis the selected compressed plane is
+at most16MiB and raw output128MiB. The existing wide128/136MiB file/total limits,
+512MiB address space and30s wall/25s CPU supervision apply. UNORM/SNORM profiles
+and their interpretations remain separate.
+
+The parent moves those bytes into a transient single-plane RGBA16Float value and
+reuses `texture_hdr_pixels` for all scalar conversion, actual alpha, finite and
+nonnegative checks. It neither imports that transient value nor creates an asset
+identity. Complete selected source remains256MiB; linear RGB192MiB and encoded
+HDR68MiB limits apply. Negative signed colors and negative infinity reject at
+the HDR output boundary, preserving an existing destination. No silent clamp,
+signed display mapping, normal reconstruction, preview processing or source
+metadata conversion occurs. RGBE still quantizes the decoded values.
+
+`Rgb32Pixels.bc6_block_decoded` carries provenance through the existing file task.
+Native completion identifies decoded BC6 HDR texels and the chooser selects HDR
+for a current HdrColor BC6 variant. Other variants cannot use that native export.
+Current scoped automation/MCP reports `texture.profile: decoded_bc6_linear_rgbe`;
+individual `component_bits` is absent for RGBE. The saved file uses the existing
+owned HDR inspection profile. Permissions, revisions, replay, cancellation,
+atomic replacement and project/source selection retain their current owners.
+This adds BC6 reading/image output, not a BC6 encoder or new rendering capability.
+
+Original Gallery HdrUnsigned/HdrSigned DDS patterns retain two mips and exact
+encoded blocks through ordinary publication. Both mip0 planes are nonnegative;
+the signed mip1 deliberately has negative red. Direct numeric tests and actual
+software Vulkan texture-load comparisons cover mode/partition/random/extreme
+vectors; worker tests exercise rawhalf wire, selectors, maximum output and error
+preservation. This is separate from Windows, physical GPU and universal driver
+acceptance, and does not establish lossless recovery of pre-compression images.
 
 ## Owned HDR inspection
 

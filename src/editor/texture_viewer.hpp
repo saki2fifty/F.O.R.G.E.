@@ -153,14 +153,20 @@ class TextureViewer {
             if (ImGui::SliderFloat("##Image zoom", &zoom_, .125f, 8.f, "%.3fx"))
                 fit_ = false;
             ui::help("Scale the image only. Ctrl+Plus/Minus still changes the complete editor UI.");
-            ImGui::BeginDisabled(!can_export || !preview_.current());
+            ImGui::BeginDisabled(!can_export || !preview_.current() ||
+                                 (texture_hdr_block_storage(data->format) &&
+                                  data->semantic != TextureSemantic::HdrColor));
             if (texture_snorm_block_storage(data->format))
                 ImGui::TextWrapped("Signed block export: PNG16. Stored channels map -1..1 to "
                                    "0..65535; display controls do not change this mapping.");
+            if (texture_hdr_block_storage(data->format))
+                ImGui::TextWrapped(
+                    "BC6 export: HDR color variant, Radiance HDR. Negative or "
+                    "nonfinite decoded values reject; display controls are excluded.");
             if (ui::button("Export image...",
                            "Save the published mip/layer/face/slice. Byte storage uses PNG, "
                            "sRGB lossless WebP or opaque sRGB JPEG; normalized16-bit storage "
-                           "uses exact PNG16. Opaque HdrColor float storage uses quantized "
+                           "uses exact PNG16. Opaque HdrColor float or BC6 storage uses quantized "
                            "Radiance HDR without tone mapping. Preview exposure, channels, crop "
                            "and checkerboard are excluded. Import settings are not carried into "
                            "the image. Maximum 4096 pixels per axis."))
@@ -172,7 +178,8 @@ class TextureViewer {
                                   {settings.mip, settings.layer, settings.face, settings.depth},
                                   data->semantic == TextureSemantic::HdrColor &&
                                           (data->format == TextureFormat::RGBA16Float ||
-                                           data->format == TextureFormat::RGBA32Float)
+                                           data->format == TextureFormat::RGBA32Float ||
+                                           texture_hdr_block_storage(data->format))
                                       ? std::optional{ViewImageFormat::Hdr}
                                   : texture_uint16_storage(data->format) ||
                                           texture_snorm_block_storage(data->format)

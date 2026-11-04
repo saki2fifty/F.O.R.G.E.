@@ -315,6 +315,131 @@ void signed_numeric() {
                   texture_image_worker_limits().memory_bytes,
           "Signed output changed unrelated worker limits");
 }
+Block hdr_maximum_block() {
+    Block block(16, std::byte(255));
+    block[0] = std::byte(227);
+    block[8] = std::byte(1);
+    std::fill(block.begin() + 9, block.end(), std::byte(0));
+    return block;
+}
+void hdr_numeric() {
+    const auto block = hdr_maximum_block();
+    const auto raw = decode_texture_hdr_block_image(TextureFormat::BC6Unsigned, 4, 4, block);
+    check(raw.size() == 128, "BC6 raw half extent differs");
+    for (unsigned pixel = 0; pixel < 16; ++pixel)
+        for (unsigned c = 0; c < 4; ++c) {
+            const unsigned word = std::to_integer<unsigned>(raw[pixel * 8 + c * 2]) |
+                                  (std::to_integer<unsigned>(raw[pixel * 8 + c * 2 + 1]) << 8);
+            check(word == (c == 3 ? 0x3c00u : 0x7bffu),
+                  "BC6 half endian order, channel or alpha differs");
+        }
+    Block black(16);
+    black[0] = std::byte(19);
+    const auto cropped =
+        decode_texture_hdr_block_image(TextureFormat::BC6Unsigned, 5, 3, joined(block, black));
+    check(cropped.size() == 120 && cropped[3 * 8] == std::byte(255) &&
+              cropped[4 * 8] == std::byte(0) && cropped[4 * 8 + 6] == std::byte(0) &&
+              cropped[4 * 8 + 7] == std::byte(60),
+          "BC6 partial block padding or row order differs");
+    reject([&] { decode_texture_hdr_block_image(TextureFormat::BC7, 4, 4, block); },
+           "requires BC6");
+    reject([&] { decode_texture_hdr_block_image(TextureFormat::BC6Unsigned, 0, 4, block); },
+           "axes");
+    reject([&] { decode_texture_hdr_block_image(TextureFormat::BC6Unsigned, 4097, 4, block); },
+           "axes");
+    reject([&] { decode_texture_hdr_block_image(TextureFormat::BC6Unsigned, 4, 4, Block(15)); },
+           "extent");
+    std::stop_source stopped;
+    stopped.request_stop();
+    reject(
+        [&] {
+            decode_texture_hdr_block_image(TextureFormat::BC6Unsigned, 4, 4, block,
+                                           stopped.get_token());
+        },
+        "cancelled");
+    ImportProcessRequest request{{{"recipe", texture_image_decode_recipe},
+                                  {"profile", texture_hdr_image_decode_profile},
+                                  {"format", unsigned(TextureFormat::BC6Unsigned)},
+                                  {"width", 4u},
+                                  {"height", 4u}},
+                                 {{"blocks.bin", block}}};
+    const auto output = execute_texture_image_recipe(request);
+    check(output.size() == 1 && output[0].name == "rgba16f-le.bin" && output[0].bytes == raw,
+          "BC6 typed worker recipe changed the raw half payload");
+    request.payload["profile"] = texture_image_decode_profile;
+    reject([&] { execute_texture_image_recipe(request); }, "profile differs");
+    request.payload["profile"] = texture_hdr_image_decode_profile;
+    request.payload["format"] = unsigned(TextureFormat::BC5Snorm);
+    reject([&] { execute_texture_image_recipe(request); }, "profile differs");
+}
+void hdr_process(const std::filesystem::path& worker, const std::filesystem::path& root) {
+    auto data = texture(TextureFormat::BC6Unsigned, 7, 5, hdr_maximum_block());
+    data.semantic = TextureSemantic::HdrColor;
+    const auto original = data.subresources;
+    const auto decoded = std::get<Rgb32Pixels>(texture_compressed_pixels(worker, root, data));
+    check(decoded.width == 7 && decoded.height == 5 && decoded.bc6_block_decoded &&
+              std::all_of(decoded.rgb.begin(), decoded.rgb.end(),
+                          [](float x) { return x == 65504; }) &&
+              data.subresources == original,
+          "BC6 process changed HDR values/source/provenance");
+    const auto file = root / "decoded-bc6.hdr";
+    save_image_pixels(file, decoded);
+    check(!read_view_preview(file).png.empty(), "BC6 HDR owned inspection unavailable");
+    const auto saved = read_bytes(file, 68 * 1024 * 1024);
+    data.format = TextureFormat::BC6Signed;
+    reject([&] { save_image_pixels(file, texture_compressed_pixels(worker, root, data)); },
+           "nonnegative");
+    check(read_bytes(file, 68 * 1024 * 1024) == saved, "Rejected signed BC6 replaced good HDR");
+    Block infinity(16);
+    infinity[0] = std::byte(15);
+    infinity[4] = std::byte(128);
+    infinity[6] = std::byte(2);
+    infinity[7] = std::byte(8);
+    auto invalid = texture(TextureFormat::BC6Signed, 4, 4, infinity);
+    invalid.semantic = TextureSemantic::HdrColor;
+    reject([&] { texture_compressed_pixels(worker, root, invalid); }, "finite");
+    invalid.semantic = TextureSemantic::Data;
+    reject([&] { texture_compressed_pixels(worker, root, invalid); }, "HdrColor");
+    reject([&] { texture_compressed_pixels({}, root, data); }, "packaged asset worker");
+    auto cube = texture(TextureFormat::BC6Unsigned, 8, 8, Block(16));
+    cube.semantic = TextureSemantic::HdrColor;
+    cube.dimension = TextureDimension::CubeArray;
+    cube.layers = 2;
+    cube.mips = 3;
+    cube.subresources.clear();
+    for (unsigned layer = 0; layer < 2; ++layer)
+        for (unsigned face = 0; face < 6; ++face)
+            for (unsigned mip = 0; mip < 3; ++mip) {
+                auto plane = texture(
+                    TextureFormat::BC6Unsigned, std::max(1u, 8u >> mip), std::max(1u, 8u >> mip),
+                    layer == 1 && face == 4 && mip == 2 ? hdr_maximum_block() : Block(16));
+                cube.subresources.push_back(std::move(plane.subresources[0]));
+            }
+    const auto selected =
+        std::get<Rgb32Pixels>(texture_compressed_pixels(worker, root, cube, {2, 1, 4, 0}));
+    check(selected.width == 2 && selected.height == 2 && selected.rgb.front() == 65504 &&
+              selected.rgb.back() == 65504,
+          "BC6 CubeArray mip/face/layer selection differs");
+    reject([&] { texture_compressed_pixels(worker, root, cube, {3, 1, 4, 0}); }, "out of range");
+    auto volume = texture(TextureFormat::BC6Unsigned, 4, 4, Block(16));
+    volume.semantic = TextureSemantic::HdrColor;
+    volume.dimension = TextureDimension::D3;
+    volume.depth = 2;
+    volume.subresources[0] = joined(Block(16), hdr_maximum_block());
+    const auto depth =
+        std::get<Rgb32Pixels>(texture_compressed_pixels(worker, root, volume, {0, 0, 0, 1}));
+    check(depth.rgb.front() == 65504 && depth.rgb.back() == 65504, "BC6 depth selector differs");
+    reject([&] { texture_compressed_pixels(worker, root, volume, {0, 0, 0, 2}); }, "out of range");
+    // Actual 128 MiB typed payload under the existing worker process limits.
+    auto maximum = texture(TextureFormat::BC6Unsigned, 4096, 4096, Block(16));
+    maximum.semantic = TextureSemantic::HdrColor;
+    const auto large = std::get<Rgb32Pixels>(texture_compressed_pixels(worker, root, maximum));
+    check(large.rgb.size() * sizeof(float) == 192ull * 1024 * 1024 && large.bc6_block_decoded &&
+              large.rgb.front() == 0 && large.rgb.back() == 0,
+          "Maximum BC6 raw half transport or linear RGB size differs");
+    for (const auto& entry : std::filesystem::directory_iterator(root / ".forge/jobs"))
+        check(!entry.is_directory(), "BC6 decode retained a staging payload");
+}
 void signed_process(const std::filesystem::path& worker, const std::filesystem::path& root) {
     for (const auto format : {TextureFormat::BC4Snorm, TextureFormat::BC5Snorm}) {
         const auto block = format == TextureFormat::BC4Snorm
@@ -456,10 +581,13 @@ int main(int argc, char** argv) {
         numeric();
         protocol();
         signed_numeric();
+        hdr_numeric();
         if (argc == 3)
             process(std::filesystem::u8path(argv[1]), std::filesystem::u8path(argv[2]));
         if (argc == 3)
             signed_process(std::filesystem::u8path(argv[1]), std::filesystem::u8path(argv[2]));
+        if (argc == 3)
+            hdr_process(std::filesystem::u8path(argv[1]), std::filesystem::u8path(argv[2]));
         std::cout << "Compressed Texture reference vectors, admission and worker path passed\n";
         return 0;
     } catch (const std::exception& error) {

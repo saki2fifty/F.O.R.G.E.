@@ -293,3 +293,9 @@ unpack_bc1, then decodes alpha independently. Equal endpoints select their share
 color. The native BC4/5 APIs populate only their respective channels, so the
 adapter initializes missing G/B zero and alpha255. BC7's bool is a validity result.
 This selects a bounded API subset without translating or copying upstream code.
+
+The selected KTX4.4.2/Basis headers expose no BC6 decoder. BC6 image output uses
+FORGE's independently authored standard-based block decoder in the existing
+isolated image worker; no later Basis HDR API or dependency upgrade is assumed.
+Signed BC4/5 likewise retain their separate FORGE mapping. See
+[BC6 HDR output](texture-assets.md) for typed transport and current limits.
