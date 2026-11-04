@@ -12,7 +12,7 @@ inline void published_texture_fixture(const std::filesystem::path& gallery,
     for (const char* locator :
          {"Assets/Sprites/Badge.png", "Assets/OcclusionNormals/RippleNormals.png",
           "Assets/ReflectionCapture/Reflection.dds", "Assets/ReflectionProbes/WarmRoom.png",
-          "Assets/TexturePrecision/Normalized16.png"}) {
+          "Assets/TexturePrecision/Normalized16.png", "Assets/TextureBlocks/BlockColors.dds"}) {
         const auto found =
             std::find_if(source.records().begin(), source.records().end(),
                          [&](const auto& row) { return row.second.source == locator; });

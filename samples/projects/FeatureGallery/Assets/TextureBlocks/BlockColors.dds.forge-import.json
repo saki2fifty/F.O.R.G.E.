@@ -1,0 +1,43 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [],
+    "importer": "forge.texture.container",
+    "importer_revision": "9e6642a37cc314aa2beafeb89ae2521049bc261cee0ca2b2f6b437bd7b621c7a",
+    "key_version": 1,
+    "output_format": "forge.texture-bundle",
+    "output_version": 1,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {
+      "additional_usages": [],
+      "anisotropy": 1,
+      "filter": "linear",
+      "semantic": "color",
+      "wrap": "repeat"
+    },
+    "settings_version": 1,
+    "source": "ea40e458c5e3ab28d4878eec7a9c1fb398f82811e8813b56de8ee295951e1529",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.texture.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "9383714a-0bc3-482c-a675-86f7cce41c0d",
+    "source": "Assets/TextureBlocks/BlockColors.dds",
+    "source_digest": "ea40e458c5e3ab28d4878eec7a9c1fb398f82811e8813b56de8ee295951e1529",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.texture.container",
+    "overrides": {
+      "semantic": "color"
+    },
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

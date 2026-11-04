@@ -2589,7 +2589,8 @@ int main(int argc, char** argv) {
                     files.document.project(),
                     std::make_shared<const forge::AssetCatalog>(
                         forge::AssetCatalog::open_project(files.document.project())),
-                    texture, semantic, slice);
+                    texture, semantic, slice, {},
+                    std::filesystem::path(base) / "forge_asset_build.exe");
             };
             capturing.reflection = [&](const std::string& entity,
                                        const forge::ui::ReflectionCaptureRequest& settings) {
@@ -2814,7 +2815,8 @@ int main(int argc, char** argv) {
                         throw std::runtime_error("Finish the current image export first");
                     auto input = forge::ui::texture_image_input(
                         request->project, std::move(request->catalog), request->texture,
-                        request->semantic, request->slice, request->only_format);
+                        request->semantic, request->slice, request->only_format,
+                        std::filesystem::path(base) / "forge_asset_build.exe");
                     view_image.choose(forge::ui::ViewImageTask::View::Texture, window.get(),
                                       request->project, {}, std::move(input));
                 } catch (const std::exception& error) {

@@ -204,6 +204,14 @@ textures and shared-exponent RGBE quantization; it provides a written file path 
 MIME through capture status, with no inline HDR image preview. Import drafts and preview display controls
 are excluded. Existing files require an explicit replacement request.
 
+For published **BC1/BC2/BC3/BC4/BC5/BC7 UNORM** selections, use the same texture
+capture tool and selectors. The packaged asset worker decodes the selected blocks.
+Status identifies **decoded_rgba8** and 8-bit components. PNG and sRGB WebP contain
+decoded reference texels; they cannot recover pixels lost during compression.
+JPEG additionally requires actual opaque sRGB texels. BC1 retains punch-through;
+BC4/5 do not reconstruct normal blue. Signed BC4/5 and BC6 reject. See
+[compressed texture export](textures.md) for limits and the Gallery example.
+
 Normalized **R16/RG16/RGBA16** textures use **.png** and preserve 16-bit samples in
 the full file. Capture status reports **component_bits: 16** and the completed
 texture profile **stored_rgba16**. The bounded PNG preview uses nearest 8-bit

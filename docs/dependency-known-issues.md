@@ -272,3 +272,24 @@ software Vulkan pixel tests and Windows/physical acceptance remain distinct from
 this open diagnostic. Reassess the raw baseline and affected consumers when the
 native stack or environment changes; a matching baseline is not permission to
 ignore a new or different report.
+
+
+## Pinned BC block helper selection — 2026-11-04
+
+At Diligent coordinated pin a279e5fa8593cbc758ec46ea1eba0b435cbc2f06,
+DiligentTools/TextureLoader/interface/BCTools.h declares DecompressBC5Block,
+while src/BCTools.cpp defines DecompressBC5lock. The selected interface symbol
+cannot be used as documented. The same BC1 helper leaves alpha untouched, expands
+565 by shifts, and has noncanonical three-color weighting; BC3 shares that color
+path. FORGE does not call these helpers for reference image decoding, invent an
+API, patch upstream or change existing native BC compression ownership.
+
+At the already approved KTX4.4.2 pin4d6fc70eaf62ad0558e63e8d97eb9766118327a6,
+Basis unpack_bc1 returns whether three-color/punch-through mode was used, not a
+success flag. Its convenience unpack_bc3 reports that mode unsupported and
+retains the BC1 color interpretation. The image-output worker instead normalizes
+a private BC2/3 color-block copy to enforce four-color semantics before calling
+unpack_bc1, then decodes alpha independently. Equal endpoints select their shared
+color. The native BC4/5 APIs populate only their respective channels, so the
+adapter initializes missing G/B zero and alpha255. BC7's bool is a validity result.
+This selects a bounded API subset without translating or copying upstream code.

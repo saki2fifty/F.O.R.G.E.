@@ -929,6 +929,16 @@ R8/RG8/RGBA8/sRGB byte storage, a complete128MiB selected texture and a4096-axis
 Missing G/B are0 and missingA255. Present bytes, including alpha/hidden RGB,
 remain exact, with no preview color/alpha/normal conversion or import metadata.
 
+UNORM BC1/2/3/4/5/7 and their current sRGB forms decode through the packaged
+asset worker using one selected immutable block plane. Complete selected Texture
+admission is128 MiB, decoded RGBA8 is64 MiB, each axis4096. PNG preserves the
+format color label; WebP requires sRGB and JPEG requires actual opaque sRGB.
+Status reports component_bits8 and texture.profile decoded_rgba8. These are
+reference decoded texels, not original pre-compression samples or compressed
+payload. BC1 retains punch-through even with an opaque hint; BC4/5 supply absent
+G/B zero and A255 without normal-Z reconstruction. Signed BC4/5 and BC6 reject.
+Owned current/later previews and all output/revision/replay rules remain the same.
+
 Normalized R16/RG16/RGBA16 selections also use `.png`, retaining exact16-bit
 samples in RGBA file layout without an invented sRGB label. MissingG/B are0 and
 missingA65535; RG16 green is not alpha. The selected source limit is256MiB, detached

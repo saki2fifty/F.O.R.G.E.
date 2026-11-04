@@ -1,6 +1,7 @@
 #pragma once
 #include "../model_render_resource.hpp"
 #include "../texture_image.hpp"
+#include "../texture_image_process.hpp"
 #include "view_image.hpp"
 #include <forge/texture_bundle.hpp>
 
@@ -10,7 +11,8 @@ namespace forge::ui {
 inline ViewImageTask::PixelInput
 texture_image_input(std::filesystem::path project, std::shared_ptr<const AssetCatalog> catalog,
                     AssetRef<TextureAsset> texture, std::optional<TextureSemantic> semantic = {},
-                    TextureImageSlice slice = {}, std::optional<ViewImageFormat> only_format = {}) {
+                    TextureImageSlice slice = {}, std::optional<ViewImageFormat> only_format = {},
+                    std::filesystem::path worker = {}) {
     if (!catalog)
         throw std::runtime_error("Texture image export needs a catalog selection");
     if (catalog->project_root() != std::filesystem::weakly_canonical(project))
@@ -28,8 +30,8 @@ texture_image_input(std::filesystem::path project, std::shared_ptr<const AssetCa
                 {"depth", slice.depth},
                 {"profile", "stored_samples"}};
     return {std::move(source),
-            [project = std::move(project), catalog = std::move(catalog), texture, semantic,
-             slice](ViewImageFormat format) -> ImagePixels {
+            [project = std::move(project), catalog = std::move(catalog), texture, semantic, slice,
+             worker = std::move(worker)](ViewImageFormat format) -> ImagePixels {
                 const bool hdr = format == ViewImageFormat::Hdr;
                 auto selected = asset_detail::load_texture_selection(
                     project, *catalog, texture, semantic,
@@ -38,6 +40,9 @@ texture_image_input(std::filesystem::path project, std::shared_ptr<const AssetCa
                                                       : texture_image_source_limit});
                 if (hdr)
                     return texture_hdr_pixels(*selected.value, slice);
+                if (texture_format_info(selected.value->format).compressed)
+                    return asset_detail::texture_compressed_pixels(worker, project, *selected.value,
+                                                                   slice);
                 if (texture_uint16_storage(selected.value->format)) {
                     if (format != ViewImageFormat::Png)
                         throw std::runtime_error(

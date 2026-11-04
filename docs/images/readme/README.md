@@ -1747,3 +1747,26 @@ The full native suite covers24byte/HDR/JPEG/normalized16-bit wide/narrow cases a
 1/1.5/2interface scale, with actual input, chooser hints and exact PNG16 samples.
 Windows/full Main/MSVC/D3D12/physical GPU/input/DPI/performance and external-client
 acceptance remain pending.
+
+
+## Compressed texture image export
+
+[Compressed Texture export](../../../manual/images/compressed-texture-export.png)
+shows the production TextureViewer and Export image command with the original
+published64x32 BC1 sRGB Gallery pattern. The editable DDS is absent from the
+fixture. Preview filtering and checkerboard do not alter exported reference
+texels. The source supplies two mips, including an opaque second mip for JPEG.
+
+Authentic720x650 local unassigned-build capture from the approved pinned
+Diligent ImGui renderer, software Vulkan offscreen target and independent RGBA
+readback encoded directly as PNG. No cropping, resizing, retouching or fabricated
+controls. Source tests/texture_image_editor_vulkan_probe.cpp;
+texture_image_editor_vulkan; texture-image-editor-vulkan/
+compressed-texture-export-wide-100.png.
+PNG SHA256: 8e50722353f4b52c594357710245b02d1153a59e2646da157fb260009256c583.
+Native consumer SHA256: 3f423f5e8bdc11eacd6bbd17424a1e17b0e043d00f1d969a3c5d473816505280.
+The native suite covers30 byte/HDR/JPEG/normalized16/compressed wide/narrow cases
+at1/1.5/2 interface scale, including actual input, chooser hints and exact exports.
+Windows/full Main/MSVC/D3D12/physical GPU/input/DPI/performance and independent
+external-client acceptance remain pending. Earlier captures retain their own
+unchanged provenance.

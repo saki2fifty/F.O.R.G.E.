@@ -10,6 +10,9 @@ struct Rgba8Pixels {
     unsigned width = 0, height = 0;
     std::vector<std::uint8_t> rgba;
     bool srgb = true; // Label only; the bytes are not converted.
+    // Decoded reference texels, rather than uncompressed stored samples. This
+    // provenance changes export status only, never encoding or color values.
+    bool block_decoded = false;
 };
 // Linear working RGB with sRGB/Rec.709 primaries. Alpha is deliberately absent;
 // callers must verify that a source can be represented as an opaque image.

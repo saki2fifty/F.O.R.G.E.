@@ -19,7 +19,7 @@ TOOLS, HOST = sys.argv[1:3]
 def editor(mode='output'):
     with tempfile.TemporaryDirectory(prefix='forge-mcp-image-') as temporary:
         root=Path(temporary)
-        process=subprocess.Popen([HOST,str(root),mode,str(Path(__file__).resolve().parents[1]/'samples/projects/FeatureGallery')],stdout=subprocess.PIPE,stderr=subprocess.PIPE,
+        process=subprocess.Popen([HOST,str(root),mode,str(Path(__file__).resolve().parents[1]/'samples/projects/FeatureGallery'),sys.argv[4]],stdout=subprocess.PIPE,stderr=subprocess.PIPE,
                                  text=True,encoding='utf-8')
         try:
             line=process.stdout.readline()
@@ -132,6 +132,35 @@ for legacy in (False,True):
         ok('forge_capture_texture',asset=normal['id'],semantic='normal',path='Texture.webp',replace=True)
         failure=settled()
         assert 'require PNG' in failure['error'] and (root/'Output/Texture.webp').read_bytes()==webp_file,failure
+        compressed=next(row for row in assets if row['source']=='Assets/TextureBlocks/BlockColors.dds')
+        assert not (root/'Game'/compressed['source']).exists()
+        compressed_request=arguments(asset=compressed['id'],path='Blocks.png')
+        admitted_blocks=client.tool('forge_capture_texture',**compressed_request)
+        assert admitted_blocks['ok'],admitted_blocks
+        assert client.tool('forge_capture_texture',**compressed_request)==admitted_blocks
+        complete=settled()
+        assert not complete['error'] and complete['component_bits']==8,complete
+        assert complete['texture']['profile']=='decoded_rgba8' and complete['preview_ready'],complete
+        block_meta,block_png=image(admitted_blocks['result']['operation'])
+        assert (block_meta['source_width'],block_meta['source_height'])==(64,32)
+        assert png_has_chunk(block_png,b'sRGB') and block_png==(root/'Output/Blocks.png').read_bytes()
+        failed(mutate('forge_capture_texture',asset=compressed['id'],path='Blocks.png'),'output_exists')
+        assert not mutate('forge_capture_texture',asset=compressed['id'],path='../Blocks.png')['ok']
+        ok('forge_capture_texture',asset=compressed['id'],path='Blocks.png',replace=True,mip=2)
+        failure=settled()
+        assert failure['error'] and (root/'Output/Blocks.png').read_bytes()==block_png,failure
+        ok('forge_capture_texture',asset=compressed['id'],path='Blocks.webp')
+        complete=settled()
+        assert not complete['error'] and complete['file_mime']=='image/webp',complete
+        assert complete['texture']['profile']=='decoded_rgba8',complete
+        ok('forge_capture_texture',asset=compressed['id'],path='Blocks.jpg',mip=1,jpeg_quality=76)
+        complete=settled()
+        assert not complete['error'] and complete['texture']['profile']=='decoded_rgba8',complete
+        block_jpeg=(root/'Output/Blocks.jpg').read_bytes()
+        ok('forge_capture_texture',asset=compressed['id'],path='Blocks.jpg',replace=True)
+        failure=settled()
+        assert 'opaque' in failure['error'] and (root/'Output/Blocks.jpg').read_bytes()==block_jpeg,failure
+        assert read('forge_scene_read')==authored
         jpeg_schema=catalog['forge_capture_texture']['inputSchema']['properties']['jpeg_quality']
         assert jpeg_schema['minimum']==1 and jpeg_schema['maximum']==100
         for quality in (0,101,1.5):

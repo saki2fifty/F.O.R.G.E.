@@ -42,6 +42,7 @@ class ViewImageTask {
         std::optional<ViewImagePreview> preview;
         std::string preview_error = {};
         unsigned component_bits = 0;
+        bool block_decoded = false;
     };
     struct FrameReceipt {
         SequenceFrameSourceInfo source;
@@ -379,8 +380,11 @@ class ViewImageTask {
                 } else if (!frames_) {
                     completed_image_ = std::filesystem::u8path(result.value);
                     completed_component_bits_ = result.component_bits;
+                    completed_block_decoded_ = result.block_decoded;
                     publish_status("Image saved: " + result.value +
-                                       (result.component_bits == 16 ? " (16-bit PNG)" : ""),
+                                       (result.component_bits == 16 ? " (16-bit PNG)"
+                                        : result.block_decoded      ? " (decoded block texels)"
+                                                                    : ""),
                                    message);
                     if (editor_context)
                         editor_context->problems.resolve("view-image");
@@ -842,6 +846,7 @@ class ViewImageTask {
     std::string operation_, artifact_operation_, preview_operation_, error_, preview_error_;
     std::filesystem::path completed_image_, preview_file_;
     unsigned completed_component_bits_ = 0;
+    bool completed_block_decoded_ = false;
     std::optional<FrameReceipt> completed_frames_;
     std::optional<ViewImagePreview> preview_;
     bool preview_requested_ = false;
@@ -869,6 +874,7 @@ class ViewImageTask {
             artifact_operation_ = operation_;
             completed_image_.clear();
             completed_component_bits_ = 0;
+            completed_block_decoded_ = false;
             completed_frames_.reset();
         }
     }
@@ -897,6 +903,8 @@ class ViewImageTask {
             result.component_bits = std::holds_alternative<Rgba16Pixels>(pixels)  ? 16
                                     : std::holds_alternative<Rgba8Pixels>(pixels) ? 8
                                                                                   : 0;
+            if (const auto* rgba = std::get_if<Rgba8Pixels>(&pixels))
+                result.block_decoded = rgba->block_decoded;
             if (preview_requested) {
                 try {
                     result.preview = view_image_format(destination) == ViewImageFormat::Jpeg

@@ -1,5 +1,15 @@
 # Feature Gallery
 
+## Compressed texture image export
+
+Open **Assets/TextureBlocks/BlockColors.dds** from Content. This original BC1 sRGB
+texture has color-selector stripes, punch-through transparency and two authored
+mips. Click **Export image...** and save PNG or lossless WebP to inspect the
+decoded reference texels. Select **Mip** 1 for opaque JPEG output. Preview color,
+channel and exposure controls do not alter export. Publication preserves the
+original compressed blocks; image export cannot recover pre-compression pixels.
+See [Texture image export](../../../manual/editor/textures.md).
+
 ## Normalized16-bit image export
 
 Open **Assets/TexturePrecision/Normalized16.png** from Content. This original

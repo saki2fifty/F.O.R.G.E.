@@ -33,3 +33,12 @@ target_link_libraries(forge_texture_ktx PUBLIC forge_texture PRIVATE ktx)
 if(WIN32)
  target_compile_definitions(forge_texture_ktx PRIVATE NOMINMAX)
 endif()
+add_library(forge_texture_block_decode STATIC src/texture_block_image.cpp)
+target_include_directories(forge_texture_block_decode SYSTEM PRIVATE
+ "${ktx_SOURCE_DIR}/external/basisu/encoder")
+target_compile_definitions(forge_texture_block_decode PRIVATE BASISD_SUPPORT_KTX2=1
+ BASISD_SUPPORT_KTX2_ZSTD=0 BASISU_SUPPORT_SSE=0 BASISU_SUPPORT_OPENCL=0
+ BASISD_USE_UNALIGNED_WORD_READS=0)
+# The pinned native block API requires this aliasing profile, as does ktx itself.
+target_compile_options(forge_texture_block_decode PRIVATE $<$<CXX_COMPILER_ID:GNU,Clang>:-fno-strict-aliasing>)
+target_link_libraries(forge_texture_block_decode PUBLIC forge_texture PRIVATE ktx)

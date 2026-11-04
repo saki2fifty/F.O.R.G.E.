@@ -134,7 +134,7 @@ storage in this export profile; choose PNG for other stored channels.
 
 The PNG/WebP stored-pixel profile supports uncompressed R8, RG8, RGBA8 and RGBA8
 sRGB. Compressed, 16-bit normalized and floating-point storage cannot use this
-profile. For normalized 16-bit storage, use PNG16 below. For supported floating-point HDR textures, use the HDR profile below. The complete
+profile. For supported compressed storage, use the decoded-texture workflow below. For normalized 16-bit storage, use PNG16 below. For supported floating-point HDR textures, use the HDR profile below. The complete
 selected texture must fit 128 MiB; the chosen image must fit 4096 pixels per axis
 and 64 MiB RGBA. Choose a smaller mip for an oversized image. The encoded file
 limit is 68 MiB. A rejected export keeps any existing destination file intact.
@@ -151,6 +151,39 @@ cancel a texture export. Export creates no Scene Undo entry and changes no impor
 settings. The file does not preserve sampler settings, semantic usage, alpha
 convention, other mips or asset identity. When importing it again, choose the
 appropriate settings for its stored channels; identical appearance is not implied.
+
+
+## Export a compressed texture
+
+Open a published **BC1**, **BC2**, **BC3**, **BC4**, **BC5** or **BC7** UNORM texture.
+Their sRGB forms are supported where available. In the Feature Gallery,
+**Assets/TextureBlocks/BlockColors.dds** contains an original BC1 sRGB pattern with
+color stripes, transparent regions and a second opaque mip.
+
+![Published compressed color-stripe texture with Export image above the filtered color and transparency preview](../images/compressed-texture-export.png)
+
+The viewer filters the published image for inspection. Export uses decoded texels
+at the selected mip's own resolution.
+
+1. Choose **Variant** and, under **View controls**, the desired **Mip**, **Array layer**, **Cube face** or **Depth slice**.
+2. Click **Export image...** and choose **PNG image** with a **.png** filename. For sRGB storage, **Lossless WebP image** is also available. Use JPEG only when every selected texel is opaque; the Gallery pattern's **Mip** 1 is opaque.
+3. Confirm replacement when requested. Wait for **Image saved**, followed by **decoded block texels** in the completion message.
+
+The file contains decoded RGBA8 reference texels at the selected mip's resolution.
+Compression has already changed the original pixels; decoding cannot restore them.
+It does not export the original compressed blocks. PNG/WebP preserve the decoded
+values; JPEG introduces additional loss. Edge blocks are cropped to the image size.
+
+BC1 retains encoded punch-through transparency. BC4 becomes red with green/blue
+zero and opaque alpha; BC5 retains red/green with blue zero and opaque alpha.
+Normal blue is not reconstructed. Color transfer, preview controls, alpha hints
+and material settings do not reinterpret the values. PNG labels only actual sRGB
+storage; WebP and JPEG require sRGB. JPEG also checks actual alpha.
+
+Signed BC4/BC5 and BC6 HDR storage are outside this profile. The selected cooked
+texture must fit 128 MiB; output must fit 4096 pixels per axis and 64 MiB RGBA8.
+The packaged asset worker must be present. A failed decode keeps an existing
+output file intact. The original editable source may be absent after publication.
 
 
 ## Export 16-bit stored samples

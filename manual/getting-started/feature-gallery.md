@@ -600,3 +600,13 @@ kit. See [Runtime UI](../editor/runtime-ui.md) for ranges, nesting and resource 
 ![Reference and filtered color samples with live blur and pause controls](../images/ui-filter-gallery.png)
 
 The same editable document supplies every sample and the presentation-time pulse.
+
+
+## Export decoded texture blocks
+
+Open **Assets/TextureBlocks/BlockColors.dds** in Content. Its published BC1 sRGB
+pattern includes color stripes, punch-through transparency and a second opaque
+mip. Use **Export image...** for PNG or lossless WebP; choose **Mip** 1 for JPEG.
+The image contains decoded reference texels, so it cannot restore color detail
+lost during compression. No Scene or project C++ is required. See
+[compressed texture export](../editor/textures.md) for controls and limits.

@@ -563,3 +563,24 @@ the PNG decoder's own endian transform. Focused checks cover low bits, padded ro
 selectors, budgets, source-hidden publication and separately quantized previews.
 Selected FORGE C/C++ boundaries receive strict/sanitizer checks; upstream codec
 objects remain normal. Windows/MSVC/physical acceptance is separate.
+
+
+## Private compressed Texture image decoder selection — 2026-11-04
+
+The existing exact KTX4.4.2/Basis pin also provides private unpack_bc1,
+unpack_bc4, unpack_bc5 and unpack_bc7 APIs in
+external/basisu/encoder/basisu_gpu_texture.h. The original native implementation
+remains in ktx; no dependency, upstream source patch or copied decoder is added.
+Only the packaged asset worker and direct tests link forge_texture_block_decode.
+The editor parent uses the existing isolated process transport, not native codec
+calls. Runtime/installed SDK Texture has no new codec dependency.
+
+Select the same byte-wise Basis definitions and disable OpenCL/SSE. The private
+adapter uses the required GCC/Clang -fno-strict-aliasing option, matching the
+upstream header contract and ktx target. BC1 returns a punch-through indicator;
+BC7 returns validity. Initialize all RGBA channels before partial-channel APIs.
+The BC3 convenience API is not selected: BC2/3 always-four-color endpoint
+normalization composes the native BC1 primitive with explicit/natively decoded
+alpha. Signed BC4/5 and BC6 remain outside this image-output profile.
+See [texture image output](texture-assets.md) and [known API limits](dependency-known-issues.md).
+Existing Apache2.0/Binomial notices and packaged KTX notices remain authoritative.

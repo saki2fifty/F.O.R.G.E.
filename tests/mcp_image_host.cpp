@@ -76,13 +76,13 @@ struct RecordingFrames final : forge::ui::SequenceFrameSource {
 };
 int main(int argc, char** argv) {
     try {
-        if (argc != 3 && argc != 4)
+        if (argc < 3 || argc > 5)
             return 2;
         const auto root = std::filesystem::u8path(argv[1]);
         const bool output = std::string(argv[2]) != "read";
         forge::SceneDocument::create_project(root / "Game", "Native image IO fixture");
         std::filesystem::create_directory(root / "Output");
-        if (argc == 4)
+        if (argc >= 4)
             forge::test::published_texture_fixture(std::filesystem::u8path(argv[3]), root / "Game");
         forge::EngineContext engine;
         forge::Scene scene(engine.world());
@@ -104,7 +104,8 @@ int main(int argc, char** argv) {
                 files.document.project(),
                 std::make_shared<const forge::AssetCatalog>(
                     forge::AssetCatalog::open_project(files.document.project())),
-                texture, semantic, slice);
+                texture, semantic, slice, {},
+                argc == 5 ? std::filesystem::u8path(argv[4]) : std::filesystem::path{});
         };
         providers.open_sequence = [&](const std::string& entity) {
             if (!scene.entity(entity).is_valid())

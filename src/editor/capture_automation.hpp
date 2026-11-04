@@ -51,8 +51,10 @@ struct CaptureAutomation {
             if (owner.completed_component_bits_)
                 value["component_bits"] = owner.completed_component_bits_;
             if (owner.completed_component_bits_ && value.contains("texture"))
-                value["texture"]["profile"] =
-                    owner.completed_component_bits_ == 16 ? "stored_rgba16" : "stored_rgba8";
+                value["texture"]["profile"] = owner.completed_component_bits_ == 16
+                                                  ? "stored_rgba16"
+                                              : owner.completed_block_decoded_ ? "decoded_rgba8"
+                                                                               : "stored_rgba8";
         }
         const auto* frames =
             owner.frames_ ? static_cast<const ui::ViewImageTask::FrameReceipt*>(&*owner.frames_)
@@ -307,6 +309,11 @@ struct CaptureAutomation {
                 "RGBA); missing G/B=0,A=255. PNG16 retains R16/RG16/RGBA16 samples without an "
                 "sRGB label (256 MiB source,128 MiB RGBA16,136 MiB encoded); missingA=65535. "
                 "Its PNG inspection preview quantizes to8-bit and component_bits reports16. "
+                "UNORM BC1/2/3/4/5/7 and their sRGB variants decode selected blocks in the "
+                "packaged asset worker (128 MiB selected source,64 MiB RGBA8). Completed "
+                "texture.profile is decoded_rgba8; these are reference texels, not original "
+                "pre-compression pixels. BC1 retains punch-through; BC4/5 have missingG/B=0 "
+                "and A=255, without normal reconstruction. Signed BC4/5 and BC6 reject. "
                 "JPEG (.jpg/.jpeg) requires opaque sRGB bytes; "
                 "jpeg_quality is1–100, default90, JPEG only. JPEG is lossy and its preview shows "
                 "decoded output. HDR (.hdr) accepts HdrColor RGBA16/32Float, finite "

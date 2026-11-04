@@ -14,7 +14,8 @@ namespace {
 using test_view_image_ui::check;
 void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* graphics,
               const std::filesystem::path& gallery, const std::filesystem::path& output,
-              float scale, bool narrow, ViewImageFormat preferred, bool precision = false) {
+              float scale, bool narrow, ViewImageFormat preferred, bool precision = false,
+              bool blocks = false, const std::filesystem::path& worker = {}) {
     const bool hdr = preferred == ViewImageFormat::Hdr;
     const bool jpeg = preferred == ViewImageFormat::Jpeg;
     const auto root = output / AssetId::generate().str();
@@ -23,7 +24,8 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* grap
     const auto catalog = std::make_shared<const AssetCatalog>(AssetCatalog::open_project(root));
     const auto found =
         std::find_if(catalog->records().begin(), catalog->records().end(), [&](const auto& row) {
-            return row.second.source == (hdr         ? "Assets/ReflectionCapture/Reflection.dds"
+            return row.second.source == (blocks      ? "Assets/TextureBlocks/BlockColors.dds"
+                                         : hdr       ? "Assets/ReflectionCapture/Reflection.dds"
                                          : precision ? "Assets/TexturePrecision/Normalized16.png"
                                          : jpeg      ? "Assets/ReflectionProbes/WarmRoom.png"
                                                      : "Assets/Sprites/Badge.png");
@@ -37,7 +39,8 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* grap
         foreign = true;
     }
     check(foreign, "Texture pixel input admitted a catalog from another project");
-    const auto original = ui::texture_image_input(root, catalog, asset).load(preferred);
+    const auto original =
+        ui::texture_image_input(root, catalog, asset, {}, {}, {}, worker).load(preferred);
     const auto scene = AssetId::generate();
     const float width = (narrow ? 480 : 720) * scale;
     Diligent::ImGuiImplDiligent gui(
@@ -113,8 +116,9 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* grap
                                                    : std::nullopt) &&
               !viewer.take_export(),
           "Texture button did not emit one owned published selection");
-    auto pixels = ui::texture_image_input(request->project, request->catalog, request->texture,
-                                          request->semantic, request->slice, request->only_format);
+    auto pixels =
+        ui::texture_image_input(request->project, request->catalog, request->texture,
+                                request->semantic, request->slice, request->only_format, worker);
     const auto target = root / (std::string("export") + view_image_suffix(preferred));
     FileDialog::fixture_selection = FileDialog::Result{FileDialog::Kind::SaveImage,
                                                        path_utf8(target),
@@ -220,6 +224,11 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* grap
         forge_image_pixels_free(&decoded);
         check(exact, "Texture image task changed the selected stored pixels");
     }
+    if (blocks) {
+        check(std::get<Rgba8Pixels>(original).block_decoded &&
+                  message.find("decoded block texels") != std::string::npos,
+              "Native compressed export did not identify decoded texels");
+    }
     unsigned loads = 0;
     const auto counted = [&] {
         return ui::ViewImageTask::PixelInput{{{"fixture", true}}, [&](ViewImageFormat) {
@@ -255,7 +264,8 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* grap
     reference.queue(presentation.device(), graphics, srv);
     const auto native_pixels = reference.read(graphics);
     save_view_png(output /
-                      (std::string(hdr         ? "hdr-texture-export-"
+                      (std::string(blocks      ? "compressed-texture-export-"
+                                   : hdr       ? "hdr-texture-export-"
                                    : precision ? "uint16-texture-export-"
                                    : jpeg      ? "jpeg-texture-export-"
                                                : "texture-export-") +
@@ -268,8 +278,8 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* grap
 } // namespace
 int main(int argc, char** argv) {
     try {
-        check(argc == 3 || (argc == 4 && std::string_view(argv[3]) == "--jpeg-200"),
-              "Need Gallery and output paths, optional --jpeg-200");
+        check(argc == 3 || (argc == 4 && std::string_view(argv[3]) == "--jpeg-200") || argc == 5,
+              "Need Gallery/output, optional --jpeg-200 or --blocks worker");
         const auto output = std::filesystem::absolute(argv[2]);
         std::filesystem::create_directories(output);
         Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device;
@@ -282,13 +292,20 @@ int main(int argc, char** argv) {
             for (bool narrow : {false, true})
                 for (auto format :
                      {ViewImageFormat::Png, ViewImageFormat::Hdr, ViewImageFormat::Jpeg})
-                    if (argc == 3 || (scale == 2.f && format == ViewImageFormat::Jpeg))
+                    if (argc != 4 || (scale == 2.f && format == ViewImageFormat::Jpeg))
                         exercise(presentation, graphics, argv[1], output, scale, narrow, format);
-        if (argc == 3)
+        if (argc != 4)
             for (float scale : {1.f, 1.5f, 2.f})
                 for (bool narrow : {false, true})
                     exercise(presentation, graphics, argv[1], output, scale, narrow,
                              ViewImageFormat::Png, true);
+        if (argc == 5) {
+            check(std::string_view(argv[3]) == "--blocks", "Unknown Texture export profile");
+            for (float scale : {1.f, 1.5f, 2.f})
+                for (bool narrow : {false, true})
+                    exercise(presentation, graphics, argv[1], output, scale, narrow,
+                             ViewImageFormat::Png, false, true, argv[4]);
+        }
         std::cout << "Texture export controls, native chooser, stored pixels and project "
                      "cancellation passed\n";
     } catch (const std::exception& error) {

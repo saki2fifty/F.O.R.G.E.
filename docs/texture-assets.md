@@ -345,12 +345,12 @@ a read-only central document. Neither view creates a Flecs world or authored dat
 ## Published texture image output
 
 The native Texture preview and `capture.texture` / `forge_capture_texture` compose
-`asset_detail::load_texture_selection` with `texture_stored_pixels` and the existing
+`asset_detail::load_texture_selection` with the checked Texture image projection and the existing
 ViewImageTask image IO transaction. Standalone and generated model members use the
 same selected-publication admission as runtime resources, including recipe/hash,
 semantic and family revision checks. A copied catalog and owned selection values
 outlive the UI; no borrowed GPU texture or preview pixels enter the encoder.
-There is no source decode, reimport, new cache owner, asset registration or Scene
+There is no editable-source decode, reimport, new cache owner, asset registration or Scene
 history entry. Original image bytes may be absent when the cooked selection exists.
 
 The first output profile accepts R8/RG8/RGBA8/RGBA8Srgb and one explicit mip,
@@ -361,7 +361,7 @@ bounded to4096 per axis and64MiB. Missing G/B are0, missingA255. All present byt
 including RGB under zero alpha and premultiplied/normal/data channels, remain exact.
 There is no color/alpha/normal conversion or source/import metadata roundtrip.
 The byte profile rejects block compression,16-bit and floating storage before
-publication. The separate normalized16-bit PNG and HDR output profiles are described below.
+publication. The compressed, normalized16-bit PNG and HDR output profiles are described below.
 
 The detached RGBA8 value records an sRGB label without changing bytes. PNG emits
 its sRGB chunk only for sRGB storage; otherwise no color-space label is invented.
@@ -379,6 +379,48 @@ bounded pixel/encoding job finishes before retirement, with no preemption promis
 The MCP output grant, canonical path checks, explicit replacement, revision/sequence
 and exact-current-operation read rules remain authoritative. No second agent-only
 export path is maintained. See [the user guide](../manual/editor/textures.md).
+
+
+## Decoded compressed Texture image output
+
+Published UNORM BC1/2/3/4/5/7 and their existing sRGB variants use the same
+selection and image-file transaction. The shared private texture_image_plane
+helper validates the complete selected Texture (128 MiB), selector ordering and
+4096-axis extent. The parent stages only that immutable tightly packed plane in
+the existing run_import_process transport. A fixed forge.texture.image-decode
+recipe with profile bc-unorm-rgba8-v1 runs in the packaged asset worker; it does
+not import, publish or select assets. Transport version1, OS lease, staging
+cleanup, input/output digests, fixed command and supervisor remain unchanged.
+Output admission requires exactly one rgba8.bin with width*height*4 bytes.
+
+Only the worker and direct codec tests link the pinned KTX/Basis block APIs.
+BC1 uses unpack_bc1 with alpha enabled; its return indicates punch-through,
+not validity. BC4/5 use the native unsigned channel primitives with G/B zero
+where absent and A255. BC7 uses native validity checking. BC2/3 RGB always has
+four palette colors: a local endpoint/selector normalization composes the native
+BC1 primitive without its conditional three-color interpretation. BC2 expands
+stored alpha nibbles by17; BC3 uses native BC4 for alpha. See the primary
+[S3TC format specification](https://registry.khronos.org/OpenGL/extensions/EXT/EXT_texture_compression_s3tc.txt)
+and [BC7 format layout](https://registry.khronos.org/DataFormat/specs/1.3/dataformat.1.3.html).
+No external implementation is copied into the adapter or patched upstream.
+
+Decoded RGBA8 is bounded to64 MiB and top-row-first; partial edge blocks are
+cropped to the logical plane. Native calls use aligned block scratch, the pinned
+byte-read definitions and required no-strict-aliasing profile. Stop is checked
+between block rows. The existing worker bounds are512 MiB address space,30 seconds
+wall/25 CPU,64 MiB per file and72 MiB output storage, with250 ms cooperative
+cancellation grace. These are independent bounds, not a process peak-memory claim.
+The existing image-file job still finishes before retirement once started.
+
+Results are decoded reference texels, not original pre-compression samples or
+original compressed bytes. BC1 preserves encoded punch-through despite an opaque
+metadata hint. There is no transfer, alpha-convention conversion or normal-Z
+reconstruction. PNG retains the format's sRGB label; lossless WebP requires sRGB;
+JPEG also requires actual opaque alpha. Signed BC4/5 and both BC6 forms reject.
+No universal physical-GPU rounding match is claimed. Native completion identifies
+decoded block texels; automation/MCP reports component_bits8 and
+texture.profile decoded_rgba8. Current/later owned previews, permissions, revision,
+replay, overwrite and last-good file rules use the existing owners.
 
 
 ## Normalized16-bit PNG output

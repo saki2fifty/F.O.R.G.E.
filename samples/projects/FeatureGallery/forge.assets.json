@@ -9379,6 +9379,35 @@
       "type": "model_node"
     },
     {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "9383714a-0bc3-482c-a675-86f7cce41c0d",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "2f9feb4afc7edfa681ef3cd8cd3079480358d52951ed80eee3f58f8d92ab4fa0",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.texture.container",
+          "importer_revision": "9e6642a37cc314aa2beafeb89ae2521049bc261cee0ca2b2f6b437bd7b621c7a",
+          "key": "3d4e6d7749dc1a9352724efefad02edce6fd27860e4f009080b88ac761051e7c",
+          "output_format": "forge.texture-bundle",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "5b5c37ab86f7df974152b3b6b826544dae6377f66f955368558853e15f35e5c0",
+          "settings_version": 1,
+          "sidecar_digest": "0de57927636badc66e8515cd535e89032610e0efad63da42ac03ad05c5aef7ba",
+          "source_digest": "ea40e458c5e3ab28d4878eec7a9c1fb398f82811e8813b56de8ee295951e1529",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/TextureBlocks/BlockColors.dds",
+      "source_dependencies": [],
+      "type": "texture"
+    },
+    {
       "dependencies": [
         "03f314d8-69d9-4650-9683-4c9a1ae0b87d"
       ],

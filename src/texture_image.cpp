@@ -1,4 +1,5 @@
 #include "texture_image.hpp"
+#include "texture_image_slice.hpp"
 #include "view_image_limits.h"
 #include <bit>
 #include <cmath>
@@ -11,12 +12,10 @@ void cancelled(std::stop_token stop) {
     if (stop.stop_requested())
         throw std::runtime_error("Texture image export cancelled");
 }
-struct ImageSlice {
-    TextureLayout layout;
-    std::span<const std::byte> bytes;
-};
-ImageSlice image_slice(const TextureData& texture, TextureImageSlice slice,
-                       std::size_t source_limit) {
+} // namespace
+asset_detail::TextureImagePlane asset_detail::texture_image_plane(const TextureData& texture,
+                                                                  TextureImageSlice slice,
+                                                                  std::size_t source_limit) {
     validate_texture(texture, {source_limit});
     const unsigned faces = texture.dimension == TextureDimension::Cube ||
                                    texture.dimension == TextureDimension::CubeArray
@@ -35,6 +34,7 @@ ImageSlice image_slice(const TextureData& texture, TextureImageSlice slice,
             std::span(texture.subresources.at(index))
                 .subspan(std::size_t(slice.depth) * layout.slice_bytes, layout.slice_bytes)};
 }
+namespace {
 float scalar(const std::byte* bytes, unsigned bits) {
     static_assert(sizeof(float) == 4 && std::numeric_limits<float>::is_iec559);
     std::uint32_t value = 0;
@@ -55,7 +55,8 @@ float scalar(const std::byte* bytes, unsigned bits) {
 Rgba8Pixels texture_stored_pixels(const TextureData& texture, TextureImageSlice slice,
                                   std::stop_token stop) {
     cancelled(stop);
-    const auto selected = image_slice(texture, slice, texture_image_source_limit);
+    const auto selected =
+        asset_detail::texture_image_plane(texture, slice, texture_image_source_limit);
     const auto format = texture_format_info(texture.format);
     if (texture.format != TextureFormat::R8 && texture.format != TextureFormat::RG8 &&
         texture.format != TextureFormat::RGBA8 && texture.format != TextureFormat::RGBA8Srgb)
@@ -85,7 +86,8 @@ Rgba8Pixels texture_stored_pixels(const TextureData& texture, TextureImageSlice 
 Rgba16Pixels texture_stored_uint16_pixels(const TextureData& texture, TextureImageSlice slice,
                                           std::stop_token stop) {
     cancelled(stop);
-    const auto selected = image_slice(texture, slice, texture_uint16_source_limit);
+    const auto selected =
+        asset_detail::texture_image_plane(texture, slice, texture_uint16_source_limit);
     if (!texture_uint16_storage(texture.format))
         throw std::runtime_error("Normalized16-bit export requires R16, RG16 or RGBA16 storage");
     const auto format = texture_format_info(texture.format);
@@ -115,7 +117,8 @@ Rgba16Pixels texture_stored_uint16_pixels(const TextureData& texture, TextureIma
 Rgb32Pixels texture_hdr_pixels(const TextureData& texture, TextureImageSlice slice,
                                std::stop_token stop) {
     cancelled(stop);
-    const auto selected = image_slice(texture, slice, texture_hdr_source_limit);
+    const auto selected =
+        asset_detail::texture_image_plane(texture, slice, texture_hdr_source_limit);
     if (texture.semantic != TextureSemantic::HdrColor ||
         (texture.format != TextureFormat::RGBA16Float &&
          texture.format != TextureFormat::RGBA32Float))

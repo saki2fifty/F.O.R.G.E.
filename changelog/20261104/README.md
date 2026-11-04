@@ -1,5 +1,22 @@
 # 2026-11-04
 
+## Compressed Texture still-image export
+
+Published UNORM BC1/2/3/4/5/7 textures and their current sRGB forms can export
+decoded reference texels through the existing native and automation/MCP image
+task. One checked mip/layer/face/depth plane is decoded by the packaged asset
+worker, then saved as PNG, sRGB lossless WebP or opaque sRGB JPEG. Status names
+decoded_rgba8 and the native completion identifies decoded block texels. These
+values are distinct from original pre-compression pixels and compressed payload.
+
+The approved pinned native decoder stays worker-only. BC1 punch-through, all
+BC2/3 endpoint orders, explicit alpha, missing channels and cropped block edges
+have defined behavior. Signed BC4/5 and BC6 reject. Selected source128 MiB, decoded
+RGBA8 64 MiB and4096-axis limits preserve existing output/overwrite guarantees.
+The original Gallery BlockColors.dds is published through the normal pipeline;
+source-hidden native/MCP checks use its immutable cooked data. Windows/full
+editor/physical-device review remains queued; no numbered delivery is created.
+
 ## Normalized16-bit texture image export
 
 Published R16/RG16/RGBA16 textures can save precision-preserving PNG16 through the
