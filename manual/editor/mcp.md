@@ -199,7 +199,9 @@ inspect bounded PNG previews through MCP. Full files keep rendered dimensions.
 `forge_capture_texture` exports a published Texture's selected mip/layer/face/depth
 slice through the same image task. The agent supplies the asset, variant and output
 filename; the stored-byte profile, PNG/sRGB WebP distinction and limits are described
-in [Export stored pixels](textures.md). Import drafts and preview display controls
+in [Texture image export](textures.md). HDR output uses supported opaque linear float
+textures and shared-exponent RGBE quantization; it provides a written file path and
+MIME through capture status, with no inline HDR image preview. Import drafts and preview display controls
 are excluded. Existing files require an explicit replacement request.
 
 Timeline

@@ -36,7 +36,7 @@ target_include_directories(forge_image_codecs PRIVATE "${diligent_SOURCE_DIR}/Di
 target_link_libraries(forge_image_codecs PRIVATE PNG::PNG)
 set_target_properties(forge_image_codecs PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_link_libraries(forge_ui_assets PRIVATE forge_image_codecs)
-add_library(forge_view_image STATIC src/view_image.cpp src/view_image_webp_encode.c src/texture_webp.c)
+add_library(forge_view_image STATIC src/view_image.cpp src/view_image_hdr.cpp src/view_image_webp_encode.c src/texture_webp.c)
 target_include_directories(forge_view_image PUBLIC src)
 # Keep the full WebP codec on the image-tool owner, outside shared runtime UI codecs.
 if(NOT TARGET webpdemux)

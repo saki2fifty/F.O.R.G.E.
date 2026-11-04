@@ -919,7 +919,7 @@ there is no arbitrary filesystem image-read tool.
 
 `forge_capture_texture` exports a published Texture asset's stored pixels through
 that same image task. Supply `asset` and an output-root-relative `path`, with
-optional `semantic` (`automatic`, `color`, `data`, `normal`), `mip`0..31,
+optional `semantic` (`automatic`, `color`, `data`, `normal`, `hdr`), `mip`0..31,
 `layer`/`depth`0..2047, `face`0..5 and `replace`. Actual dimensions and variants
 are validated by the selected-artifact owner; syntactically bounded unavailable
 selections fail without replacing a good image. Automatic prefers HDR color then
@@ -930,12 +930,29 @@ Missing G/B are0 and missingA255. Present bytes, including alpha/hidden RGB,
 remain exact, with no preview color/alpha/normal conversion or import metadata.
 
 The result reports `view:"texture"` and the owned requested asset/semantic/slice
-under `texture`. Poll the existing status/image/file operations. The published
+under `texture`. Poll capture status for the written file path and MIME; PNG/WebP
+inspection uses the existing image/preview operations. No file-download method is
+advertised. The published
 catalog/cache is required; source images are not read or rebuilt. Standalone and
 model-member selections use the existing CPU resource admission. This operation
 requires the output grant and normal target/revision/sequence guards, uses no Scene
 Undo, and is absent for read-only connections. Pending project changes cancel;
 a job already committing finishes. Existing view/sequence requests cannot overlap.
+
+For `.hdr`, the same tool selects the linear RGBE output profile. It admits HdrColor
+RGBA16Float/RGBA32Float, finite/nonnegative RGB and actual selected alpha1;
+`semantic:"hdr"` selects that variant explicitly. The complete selected source limit
+is256MiB, detached RGB floats192MiB, extent4096axis and encoded68MiB. Shared-
+exponent RGBE quantization is not lossless, alpha is absent, and no tone mapping or
+exposure is applied. Native working primaries/D65 are explicit in the file.
+Status reports `file_mime:"image/vnd.radiance"` and requested
+`texture.profile:"linear_rgbe"`. The written file is the result; HDR inline image
+previews are unavailable. `preview_error` describes that limit independently of
+successful file output. Later preview requests report the same unsupported profile
+without modifying the artifact. `capture.image` never returns a previous PNG for
+an HDR operation. Source images remain unused; source/subresource/output errors,
+old-file retention and the usual guards share the same native task. Scene/Game
+capture requests with an HDR suffix reject; their display pixels are tone-mapped.
 
 Timeline frame export uses `capture_sequence_open/read/start`, the actual sequence
 controller and observed source revision/preview generation. Start chooses a new

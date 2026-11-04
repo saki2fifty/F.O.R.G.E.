@@ -360,7 +360,8 @@ selected texture is bounded to128MiB; the projected top-row-first RGBA8 image is
 bounded to4096 per axis and64MiB. Missing G/B are0, missingA255. All present bytes,
 including RGB under zero alpha and premultiplied/normal/data channels, remain exact.
 There is no color/alpha/normal conversion or source/import metadata roundtrip.
-Block compression,16-bit/float/HDR storage reject before publication.
+The byte profile rejects block compression,16-bit and floating storage before
+publication. The separate HDR output profile is described below.
 
 The detached RGBA8 value records an sRGB label without changing bytes. PNG emits
 its sRGB chunk only for sRGB storage; otherwise no color-space label is invented.
@@ -378,3 +379,48 @@ bounded pixel/encoding job finishes before retirement, with no preemption promis
 The MCP output grant, canonical path checks, explicit replacement, revision/sequence
 and exact-current-operation read rules remain authoritative. No second agent-only
 export path is maintained. See [the user guide](../manual/editor/textures.md).
+
+
+## HDR texture image output
+
+The same selected Texture loader, slice/layout helper and ViewImageTask now accept
+a bounded Radiance RGBE .hdr profile. `texture_hdr_pixels` admits only HdrColor
+RGBA16Float/RGBA32Float with actual selected alpha1. Little-endian float32 and IEEE
+binary16 normal/subnormal scalars are projected into owned linear RGB float rows;
+RGB must be finite/nonnegative. No exposure, tone mapping, alpha/color conversion,
+source decoding or metadata roundtrip occurs. The full selected HDR texture limit
+is256MiB, detached RGB floats192MiB, extent4096axis and encoded output68MiB;
+existing cooked-artifact admission limits also apply. Byte output keeps its prior
+128MiB source/64MiB RGBA limits.
+
+`encode_hdr_image` is independently authored from the published numeric/container
+format. It uses one normalized shared exponent per RGB pixel; black is explicit,
+nonzero magnitudes outside exponents-127..127 reject, and mantissas quantize
+weaker channels. The writer declares working sRGB/Rec.709 primaries/D65 rather
+than inheriting the format's different default primaries. It makes no calibrated
+photometry or lossless-float claim. Widths below8 use flat pixels; other widths use
+bounded literal channel packets of at most127bytes. This keeps allocation/output
+bounds deterministic without a copied codec implementation. Existing pinned HDR
+import decoding verifies generated files and independent known-value vectors.
+
+The published format specification describes the header, orientation, shared
+exponent and scanline structure. [Radiance File Formats](https://floyd.lbl.gov/radiance/refer/filefmts.pdf).
+Working chromaticities follow the [ICC sRGB registry](https://registry.color.org/rgb-registry/srgb).
+The output MIME is the registered [image/vnd.radiance](https://www.iana.org/assignments/media-types/image/vnd.radiance).
+These references define interchange data, not an imported encoder implementation.
+
+Native Texture preview emits an output-format hint for its current selected
+float HDR variant, opening the .hdr-only chooser with the proper filename.
+Unsupported selections still validate in the shared detached producer. Rendered
+Scene/Game display pixels cannot be relabelled as original HDR; their native and
+MCP paths retain PNG/WebP admission. The shared writer encodes before the existing
+atomic file transaction, so failed samples/formats preserve a good destination.
+
+The HDR file exists on disk and status returns its path/MIME. Inline protocol PNG
+previews of HDR are explicitly unsupported, including later preview requests;
+no unsupervised HDR source decoder is added to editor image IO. Successful output
+retains a separate preview diagnostic and does not become a file failure. Existing
+PNG/WebP preview reads remain header-based, including owned files without a suffix.
+Full-file download is not an MCP operation; capture status describes the written
+artifact. A trusted external image application or ordinary authorized asset-import
+workflow can consume it. See [the user guide](../manual/editor/textures.md).

@@ -109,7 +109,7 @@ For numbered PNG sequence preview frames, use
 [Timeline → Export frames](animation-sequences.md).
 
 To export a published texture's stored channels, use
-[Texture preview → Export stored pixels...](textures.md).
+[Texture preview → Export image...](textures.md).
 
 ## Save a camera bookmark
 

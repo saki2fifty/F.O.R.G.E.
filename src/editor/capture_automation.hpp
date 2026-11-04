@@ -99,10 +99,11 @@ struct CaptureAutomation {
                 {"preview_generation", info.preview_generation}};
     }
     static std::filesystem::path image_destination(const std::filesystem::path& root,
-                                                   const Json& request) {
+                                                   const Json& request, bool hdr = false) {
         const auto file = destination(root, request);
         try {
-            (void)view_image_format(file);
+            if (view_image_format(file) == ViewImageFormat::Hdr && !hdr)
+                throw std::runtime_error("Rendered views support PNG or lossless WebP output");
         } catch (const std::exception& e) {
             throw AuthoringError("invalid_path", e.what());
         }
@@ -275,29 +276,31 @@ struct CaptureAutomation {
         if (providers.texture)
             result.push_back(automation_method(
                 "capture.texture",
-                "Export stored pixels from one published Texture mip/layer/face/depth slice "
-                "to PNG or lossless WebP inside the approved output root. Supports uncompressed "
-                "R8/RG8/RGBA8/sRGB byte storage, at most 4096 per axis, 64 MiB output and 128 MiB "
-                "complete source. RGBA stays exact; missing G/B are 0 and missing A is 255. "
-                "WebP requires sRGB storage; other stored channels use PNG. No color, alpha or "
-                "normal conversion, source decode, import metadata or Scene "
-                "Undo. Existing files require replace:true. Poll capture.status/image/file.",
+                "Export one published Texture mip/layer/face/depth slice inside the output root. "
+                "PNG/sRGB lossless WebP retain R8/RG8/RGBA8 stored bytes (128 MiB source,64 MiB "
+                "RGBA); missing G/B=0,A=255. HDR (.hdr) accepts HdrColor RGBA16/32Float, finite "
+                "nonnegative RGB and actual alpha1 (256 MiB source,192 MiB RGB float). RGBE "
+                "quantizes RGB without tone mapping; HDR has no alpha or inline image preview. "
+                "All profiles limit each axis to4096 and encoded output to68 MiB. No source "
+                "decode, import metadata or Scene Undo. Existing files require replace:true. "
+                "Poll capture.status for the written file path/MIME; PNG/WebP also support "
+                "capture.image.",
                 "capture.write",
-                automation_object(
-                    {{"asset", automation_uuid()},
-                     {"semantic",
-                      {{"type", "string"}, {"enum", {"automatic", "color", "data", "normal"}}}},
-                     {"mip", automation_integer(0, 31)},
-                     {"layer", automation_integer(0, 2047)},
-                     {"face", automation_integer(0, 5)},
-                     {"depth", automation_integer(0, 2047)},
-                     {"path", automation_text(2047, 1)},
-                     {"replace", {{"type", "boolean"}}}},
-                    {"asset", "path"}),
+                automation_object({{"asset", automation_uuid()},
+                                   {"semantic",
+                                    {{"type", "string"},
+                                     {"enum", {"automatic", "color", "data", "normal", "hdr"}}}},
+                                   {"mip", automation_integer(0, 31)},
+                                   {"layer", automation_integer(0, 2047)},
+                                   {"face", automation_integer(0, 5)},
+                                   {"depth", automation_integer(0, 2047)},
+                                   {"path", automation_text(2047, 1)},
+                                   {"replace", {{"type", "boolean"}}}},
+                                  {"asset", "path"}),
                 true,
                 [&owner, &files, providers, root, &message](const Json& request) {
                     ready(files, providers, false);
-                    const auto file = image_destination(root, request);
+                    const auto file = image_destination(root, request, true);
                     const auto usage = request.value("semantic", std::string("automatic"));
                     std::optional<TextureSemantic> semantic;
                     if (usage == "color")
@@ -306,6 +309,8 @@ struct CaptureAutomation {
                         semantic = TextureSemantic::Data;
                     else if (usage == "normal")
                         semantic = TextureSemantic::Normal;
+                    else if (usage == "hdr")
+                        semantic = TextureSemantic::HdrColor;
                     else if (usage != "automatic")
                         throw AuthoringError("invalid_arguments",
                                              "Choose an available Texture semantic");

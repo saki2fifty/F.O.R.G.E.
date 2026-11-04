@@ -31,7 +31,7 @@ class FileDialog {
     inline static unsigned fixture_deliveries = 0;
 #endif
     bool busy() const { return busy_; }
-    void show(Kind kind, SDL_Window* window, std::string location) {
+    void show(Kind kind, SDL_Window* window, std::string location, bool hdr_image = false) {
         if (busy_)
             return;
         busy_ = true;
@@ -52,6 +52,7 @@ class FileDialog {
         static const SDL_DialogFileFilter filter{"FORGE scene", "json"};
         static const SDL_DialogFileFilter image_filters[]{{"PNG image", "png"},
                                                           {"Lossless WebP image", "webp"}};
+        static const SDL_DialogFileFilter hdr_filter{"HDR image (Radiance RGBE)", "hdr"};
         if (kind == Kind::ImportFiles)
             SDL_ShowOpenFileDialog(callback, owned, window, nullptr, 0, state_->location.c_str(),
                                    true);
@@ -61,8 +62,8 @@ class FileDialog {
         else if (kind == Kind::SaveScene)
             SDL_ShowSaveFileDialog(callback, owned, window, &filter, 1, state_->location.c_str());
         else if (kind == Kind::SaveImage)
-            SDL_ShowSaveFileDialog(callback, owned, window, image_filters, 2,
-                                   state_->location.c_str());
+            SDL_ShowSaveFileDialog(callback, owned, window, hdr_image ? &hdr_filter : image_filters,
+                                   hdr_image ? 1 : 2, state_->location.c_str());
         else
             SDL_ShowOpenFolderDialog(callback, owned, window, state_->location.c_str(), false);
     }

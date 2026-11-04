@@ -9,7 +9,9 @@ Local source adds published Texture stored-pixel export through the native previ
 and shared automation/MCP image task. The bounded byte-storage profile supports
 PNG and sRGB lossless WebP, selected mip/layer/face/depth and source-hidden cooked
 assets. It performs no color/alpha/normal conversion or import-metadata roundtrip;
-compressed/16-bit/HDR storage remains unsupported. Windows/full-editor/physical
+compressed/normalized16-bit storage remains unsupported. A separate opaque linear
+HdrColor RGBA16/32Float profile writes quantized Radiance HDR without tone mapping;
+HDR inline image previews remain unsupported. Windows/full-editor/physical
 acceptance and a numbered package remain pending. See [Texture assets](texture-assets.md).
 
 Local source also adds bounded native UI blur/color filters, shared graphical /

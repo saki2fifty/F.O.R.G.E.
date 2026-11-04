@@ -6,6 +6,7 @@
 #include "imgui_input_driver.hpp"
 #include "published_texture_fixture.hpp"
 #include "view_image_editor_tests.hpp"
+#include "view_image_hdr.hpp"
 #include <iostream>
 
 using namespace forge;
@@ -13,14 +14,15 @@ namespace {
 using test_view_image_ui::check;
 void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* graphics,
               const std::filesystem::path& gallery, const std::filesystem::path& output,
-              float scale, bool narrow) {
+              float scale, bool narrow, bool hdr) {
     const auto root = output / AssetId::generate().str();
     SceneDocument::create_project(root, "Texture export");
     test::published_texture_fixture(gallery, root);
     const auto catalog = std::make_shared<const AssetCatalog>(AssetCatalog::open_project(root));
     const auto found =
-        std::find_if(catalog->records().begin(), catalog->records().end(), [](const auto& row) {
-            return row.second.source == "Assets/Sprites/Badge.png";
+        std::find_if(catalog->records().begin(), catalog->records().end(), [&](const auto& row) {
+            return row.second.source ==
+                   (hdr ? "Assets/ReflectionCapture/Reflection.dds" : "Assets/Sprites/Badge.png");
         });
     check(found != catalog->records().end(), "Missing cooked Texture fixture");
     const AssetRef<TextureAsset> asset{found->first};
@@ -31,7 +33,8 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* grap
         foreign = true;
     }
     check(foreign, "Texture pixel input admitted a catalog from another project");
-    const auto original = ui::texture_image_input(root, catalog, asset).load();
+    const auto preferred = hdr ? ViewImageFormat::Hdr : ViewImageFormat::Png;
+    const auto original = ui::texture_image_input(root, catalog, asset).load(preferred);
     const auto scene = AssetId::generate();
     const float width = (narrow ? 480 : 720) * scale;
     Diligent::ImGuiImplDiligent gui(
@@ -87,26 +90,26 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* grap
         frame();
         check(std::chrono::steady_clock::now() < deadline, "Texture viewer did not become ready");
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
-    } while (!test::ui_targets.contains("button:Export stored pixels...") ||
-             !test::ui_targets.at("button:Export stored pixels...").enabled);
+    } while (!test::ui_targets.contains("button:Export image...") ||
+             !test::ui_targets.at("button:Export image...").enabled);
     check(viewer.error().empty(), "Published Texture preview failed");
     can_export = false;
     frame();
-    check(!test::ui_targets.at("button:Export stored pixels...").enabled,
+    check(!test::ui_targets.at("button:Export image...").enabled,
           "Busy shared image task did not disable Texture export");
     can_export = true;
     test::ImGuiInputDriver input(frame);
-    input.click("button:Export stored pixels...");
+    input.click("button:Export image...");
     auto request = viewer.take_export();
     check(request && request->project == root && request->texture == asset &&
               request->catalog == catalog && !request->semantic && request->slice.mip == 0 &&
-              !viewer.take_export(),
+              request->hdr == hdr && !viewer.take_export(),
           "Texture button did not emit one owned published selection");
     auto pixels = ui::texture_image_input(request->project, request->catalog, request->texture,
-                                          request->semantic, request->slice);
-    const auto target = root / "export.png";
+                                          request->semantic, request->slice, preferred);
+    const auto target = root / (std::string("export") + view_image_suffix(preferred));
     FileDialog::fixture_selection =
-        FileDialog::Result{FileDialog::Kind::SaveImage, path_utf8(target), {}, {}};
+        FileDialog::Result{FileDialog::Kind::SaveImage, path_utf8(target), {}, {}, hdr ? 0 : -1};
     task.choose(ui::ViewImageTask::View::Texture, nullptr, root, {}, std::move(pixels));
     task.poll(presentation, graphics, root, scene, message);
     check(task.busy() && !presentation.readback_pending(),
@@ -117,17 +120,27 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* grap
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
     check(message.starts_with("Image saved:"), "Native Texture image export did not complete");
-    const auto saved = read_view_preview(target);
-    ForgeImagePixels decoded{};
-    const bool exact =
-        forge_png_decode(saved.png.data(), saved.png.size(), 4096, 64 * 1024 * 1024, 0, &decoded) &&
-        decoded.size == original.rgba.size() &&
-        std::memcmp(decoded.pixels, original.rgba.data(), decoded.size) == 0;
-    forge_image_pixels_free(&decoded);
-    check(exact, "Texture image task changed the selected stored pixels");
+    if (hdr) {
+        check(asset_detail::read_bytes(target, FORGE_VIEW_IMAGE_ENCODED_LIMIT) ==
+                  encode_hdr_image(std::get<Rgb32Pixels>(original)),
+              "Native HDR chooser/task changed the selected radiance");
+        check(!task.selected_path(ui::ViewImageTask::View::Scene, root / "display.hdr", root, scene,
+                                  message),
+              "Native display capture accepted an HDR filename");
+    } else {
+        const auto& rgba = std::get<Rgba8Pixels>(original);
+        const auto saved = read_view_preview(target);
+        ForgeImagePixels decoded{};
+        const bool exact = forge_png_decode(saved.png.data(), saved.png.size(), 4096,
+                                            64 * 1024 * 1024, 0, &decoded) &&
+                           decoded.size == rgba.rgba.size() &&
+                           std::memcmp(decoded.pixels, rgba.rgba.data(), decoded.size) == 0;
+        forge_image_pixels_free(&decoded);
+        check(exact, "Texture image task changed the selected stored pixels");
+    }
     unsigned loads = 0;
     const auto counted = [&] {
-        return ui::ViewImageTask::PixelInput{{{"fixture", true}}, [&] {
+        return ui::ViewImageTask::PixelInput{{{"fixture", true}}, [&](ViewImageFormat) {
                                                  ++loads;
                                                  return original;
                                              }};
@@ -153,14 +166,15 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* grap
           "Changed project queued pending Texture pixels before cancellation");
     frame();
     frame();
-    const auto& box = test::ui_targets.at("button:Export stored pixels...");
+    const auto& box = test::ui_targets.at("button:Export image...");
     check(box.maximum.y <= box.clip_maximum.y && box.maximum.x <= box.clip_maximum.x,
           "Texture export control is clipped");
     test::ViewImageReference reference;
     reference.queue(presentation.device(), graphics, srv);
     const auto native_pixels = reference.read(graphics);
-    save_view_png(output / (std::string("texture-export-") + (narrow ? "narrow-" : "wide-") +
-                            std::to_string(int(scale * 100)) + ".png"),
+    save_view_png(output /
+                      (std::string(hdr ? "hdr-texture-export-" : "texture-export-") +
+                       (narrow ? "narrow-" : "wide-") + std::to_string(int(scale * 100)) + ".png"),
                   desc.Width, desc.Height, native_pixels);
     test::observe_ui = false;
     test::ui_targets.clear();
@@ -180,7 +194,8 @@ int main(int argc, char** argv) {
         DiligentPresentation presentation(device);
         for (float scale : {1.f, 1.5f, 2.f})
             for (bool narrow : {false, true})
-                exercise(presentation, graphics, argv[1], output, scale, narrow);
+                for (bool hdr : {false, true})
+                    exercise(presentation, graphics, argv[1], output, scale, narrow, hdr);
         std::cout << "Texture export controls, native chooser, stored pixels and project "
                      "cancellation passed\n";
     } catch (const std::exception& error) {

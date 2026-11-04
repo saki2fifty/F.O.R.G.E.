@@ -107,16 +107,16 @@ Import settings are under the separate **Import settings** foldout.
 
 ## Export stored pixels
 
-Open a published texture in Content. In **Texture preview**, choose its **Variant**
+Open a published byte-storage texture in Content. In **Texture preview**, choose its **Variant**
 and expand **View controls** to select a **Mip**, **Array layer**, **Cube face** or
 **Depth slice**, when available. **Automatic** selects HDR color when present,
 otherwise color; choose data or normal explicitly for those variants.
 
-![Texture preview with Variant, Image zoom, Export stored pixels and the published badge over a checkerboard](../images/texture-export.png)
+![Texture preview with Variant, Image zoom, Export image and the published badge over a checkerboard](../images/texture-export.png)
 
 The export button sits above the published image. The checkerboard belongs to the preview.
 
-1. Click **Export stored pixels...** below **Image zoom**.
+1. Click **Export image...** below **Image zoom**.
 2. Choose **PNG image** and a **.png** filename. For sRGB byte storage, you can also choose **Lossless WebP image** and a **.webp** filename. A suffix that disagrees with the selected file type produces an error.
 3. Confirm replacement if the filename already exists. Wait for **Image saved** in the status bar or Console.
 
@@ -132,8 +132,9 @@ tone mapping, normal reconstruction or alpha conversion. PNG records sRGB only
 for sRGB storage; data and linear channels remain unlabelled. WebP requires sRGB
 storage in this export profile; choose PNG for other stored channels.
 
-Supported storage is uncompressed R8, RG8, RGBA8 and RGBA8 sRGB. Compressed,
-16-bit, floating-point and HDR storage cannot use this command. The complete
+The PNG/WebP stored-pixel profile supports uncompressed R8, RG8, RGBA8 and RGBA8
+sRGB. Compressed, 16-bit normalized and floating-point storage cannot use this
+profile. For supported floating-point HDR textures, use the HDR profile below. The complete
 selected texture must fit 128 MiB; the chosen image must fit 4096 pixels per axis
 and 64 MiB RGBA. Choose a smaller mip for an oversized image. The encoded file
 limit is 68 MiB. A rejected export keeps any existing destination file intact.
@@ -150,3 +151,45 @@ cancel a texture export. Export creates no Scene Undo entry and changes no impor
 settings. The file does not preserve sampler settings, semantic usage, alpha
 convention, other mips or asset identity. When importing it again, choose the
 appropriate settings for its stored channels; identical appearance is not implied.
+
+
+## Export an HDR image
+
+Open a published HDR texture and choose **HDR color** under **Variant**, or leave
+**Automatic** when that variant is present. HDR output requires HdrColor
+RGBA16Float or RGBA32Float storage. Choose one **Mip**, **Array layer**,
+**Cube face** or **Depth slice** under **View controls** as needed.
+
+![Published HDR cube face with Automatic variant, Image zoom, Export image and a tone-mapped room preview](../images/hdr-texture-export.png)
+
+The HDR preview shows one cube face using display tone mapping. The exported HDR file contains linear RGB before that display processing.
+
+1. Click **Export image...**. A supported HDR variant opens the **HDR image (Radiance RGBE)** picker with a **.hdr** filename.
+2. Choose a destination, keep the **.hdr** suffix and confirm any replacement.
+3. Wait for **Image saved**. Open the written file in an HDR-capable image application, or import it into FORGE with HDR color usage and linear storage.
+
+The file contains one 2D image from that published selection, with its top row
+first. A cube export contains one face per operation. Preview exposure, tone
+mapping, channels, checkerboard, zoom and crop do not enter the file.
+RGB values retain high dynamic range through shared-exponent RGBE encoding.
+This encoding quantizes color; weaker channels can lose precision or become zero.
+It is not lossless floating-point storage.
+
+The image uses FORGE's linear sRGB/Rec.709 primaries and D65 white point.
+Original source metadata and calibrated physical units are not preserved.
+RGB must be finite and nonnegative, every selected alpha must equal 1, and nonzero
+pixel magnitudes must fit the RGBE exponent range. Unsupported transparency,
+negative/nonfinite values or range produce an error without replacing a good file.
+RGBA bytes, compressed textures, normalized 16-bit data and other semantic usages
+cannot use this HDR profile. No automatic color-space, transparency or data conversion
+is performed.
+
+The complete selected HDR texture must fit 256 MiB, detached RGB floats 192 MiB,
+the selected image 4096 pixels per axis, and the encoded file 68 MiB. Existing cooked
+artifact limits also apply. The shared image-task, project cancellation and import /
+Scene-history behavior described above also applies to HDR.
+
+MCP writes the same HDR file and reports its path and MIME through capture status.
+Inline HDR image previews are unavailable in this profile; this does not prevent
+successful file output. Scene/Game view-image capture and Timeline frame export
+continue to save their rendered display images as PNG/WebP and PNG respectively.

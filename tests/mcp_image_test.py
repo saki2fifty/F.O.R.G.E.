@@ -85,6 +85,8 @@ for legacy in (False,True):
         assets=json.loads((root/'Game/forge.assets.json').read_text())['assets']
         badge=next(row for row in assets if row['source']=='Assets/Sprites/Badge.png')
         normal=next(row for row in assets if row['source']=='Assets/OcclusionNormals/RippleNormals.png')
+        hdr_asset=next(row for row in assets if row['source']=='Assets/ReflectionCapture/Reflection.dds')
+        assert not (root/'Game'/hdr_asset['source']).exists()
         assert not (root/'Game'/badge['source']).exists()
         assert not (root/'Game'/normal['source']).exists()
         authored=read('forge_scene_read')
@@ -130,6 +132,31 @@ for legacy in (False,True):
         complete=settled();assert not complete['error'] and complete['preview_ready'],complete
         _,normal_image=image(normal_job['operation'])
         assert not png_has_chunk(normal_image,b'sRGB')
+        failed(mutate('forge_capture_start',view='scene',path='Display.hdr'),'invalid_path')
+        hdr_request=arguments(asset=hdr_asset['id'],semantic='hdr',face=5,path='Radiance.hdr')
+        admitted_hdr=client.tool('forge_capture_texture',**hdr_request)
+        assert admitted_hdr['ok'],admitted_hdr
+        assert client.tool('forge_capture_texture',**hdr_request)==admitted_hdr
+        hdr_complete=settled()
+        assert not hdr_complete['error'] and not hdr_complete['preview_ready'],hdr_complete
+        assert hdr_complete['file_mime']=='image/vnd.radiance',hdr_complete
+        assert hdr_complete['texture']['profile']=='linear_rgbe' and hdr_complete['texture']['face']==5
+        assert 'Inline HDR previews' in hdr_complete['preview_error'],hdr_complete
+        hdr_file=(root/'Output/Radiance.hdr').read_bytes()
+        assert hdr_file.startswith(b'#?RADIANCE\n') and b'\n-Y 128 +X 128\n' in hdr_file
+        assert b'PRIMARIES=0.6400 0.3300 0.3000 0.6000 0.1500 0.0600 0.3127 0.3290' in hdr_file
+        failed(client.tool('forge_capture_image',target=discovery()['result']['target'],
+                                      operation=hdr_complete['operation']),'not_ready')
+        failed(mutate('forge_capture_texture',asset=hdr_asset['id'],path='Radiance.hdr'),'output_exists')
+        ok('forge_capture_texture',asset=badge['id'],path='Radiance.hdr',replace=True)
+        wrong=settled()
+        assert 'HdrColor' in wrong['error'] and (root/'Output/Radiance.hdr').read_bytes()==hdr_file,wrong
+        automatic_hdr=ok('forge_capture_texture',asset=hdr_asset['id'],path='Auto.hdr',face=5)
+        assert not settled()['error'] and (root/'Output/Auto.hdr').read_bytes()==hdr_file
+        ok('forge_capture_preview',artifact_operation=automatic_hdr['artifact_operation'])
+        unavailable=settled()
+        assert 'Inline HDR previews' in unavailable['error'] and not unavailable['preview_ready']
+        assert (root/'Output/Auto.hdr').read_bytes()==hdr_file
         assert read('forge_scene_read')==authored
 
         (root/'hold_pixels').touch()

@@ -67,7 +67,9 @@ class ViewImageTask {
     enum class View { Scene, Game, Texture };
     struct PixelInput {
         Json source;
-        std::function<Rgba8Pixels()> load;
+        std::function<ImagePixels(ViewImageFormat)> load;
+        bool allow_hdr = false;
+        ViewImageFormat preferred_format = ViewImageFormat::Png;
     };
     bool busy() const {
         return dialog_.busy() || pending_ || copied_ || job_.valid() || frames_ ||
@@ -294,7 +296,9 @@ class ViewImageTask {
         const char* filename = view == View::Texture ? "Texture.png"
                                : view == View::Scene ? "Scene.png"
                                                      : "Game.png";
-        dialog_.show(FileDialog::Kind::SaveImage, window, path_utf8(project / filename));
+        const bool hdr = input_ && input_->preferred_format == ViewImageFormat::Hdr;
+        dialog_.show(FileDialog::Kind::SaveImage, window,
+                     path_utf8(project / (hdr ? "Texture.hdr" : filename)), hdr);
     }
     // Completed picker selection. This adapter also accepts explicit editor requests;
     // an existing filename is already confirmed by the calling file picker.
@@ -316,6 +320,11 @@ class ViewImageTask {
             if (append)
                 destination_ += view_image_suffix(picker_format.value_or(ViewImageFormat::Png));
             const auto format = view_image_format(destination_);
+            if (format == ViewImageFormat::Hdr) {
+                if (!input_ || !input_->allow_hdr)
+                    throw std::runtime_error("Rendered views support PNG or lossless WebP output");
+                input_->source["profile"] = "linear_rgbe";
+            }
             if (picker_format && *picker_format != format)
                 throw std::runtime_error(std::string("Use a filename ending in ") +
                                          view_image_suffix(*picker_format) +
@@ -340,8 +349,11 @@ class ViewImageTask {
     // tooling can read owned image artifacts without a graphics device.
     bool poll_files(std::string& message) {
         try {
-            if (pending_ && !confirm_ && input_ && !job_.valid())
-                queue_image(std::move(input_->load), message);
+            if (pending_ && !confirm_ && input_ && !job_.valid()) {
+                const auto format = view_image_format(destination_);
+                queue_image([load = std::move(input_->load), format] { return load(format); },
+                            message);
+            }
             if (job_.valid() &&
                 job_.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
                 auto result = job_.get();
@@ -441,12 +453,14 @@ class ViewImageTask {
                                            : "Image save cancelled because the Scene changed",
                                        message);
                     else {
-                        if (result->filter_index < -1 || result->filter_index > 1)
+                        const bool hdr = input_ && input_->preferred_format == ViewImageFormat::Hdr;
+                        if (result->filter_index < -1 || result->filter_index > (hdr ? 0 : 1))
                             throw std::runtime_error("The image dialog returned an unknown filter");
                         std::optional<ViewImageFormat> format;
                         if (result->filter_index >= 0)
-                            format = result->filter_index == 1 ? ViewImageFormat::Webp
-                                                               : ViewImageFormat::Png;
+                            format = hdr                         ? ViewImageFormat::Hdr
+                                     : result->filter_index == 1 ? ViewImageFormat::Webp
+                                                                 : ViewImageFormat::Png;
                         selected_path(view_, std::filesystem::u8path(result->path), project, scene,
                                       message, format, std::move(input_));
                     }
@@ -809,23 +823,24 @@ class ViewImageTask {
         const auto destination = destination_;
         const bool preview_requested = preview_requested_;
         file_work_ = FileWork::Image;
-        job_ = std::async(std::launch::async, [load = std::move(load), destination,
-                                               preview_requested]() mutable {
-            auto pixels = load();
-            save_image_pixels(destination, pixels);
-            FileResult result{path_utf8(destination), {}};
-            if (preview_requested) {
-                try {
-                    result.preview =
-                        preview_view_pixels(pixels.width, pixels.height, pixels.rgba, pixels.srgb);
-                } catch (const std::exception& e) {
-                    result.preview_error = e.what();
-                }
-            }
-            return result;
-        });
+        job_ = std::async(std::launch::async,
+                          [load = std::move(load), destination, preview_requested]() mutable {
+                              auto pixels = load();
+                              save_image_pixels(destination, pixels);
+                              FileResult result{path_utf8(destination), {}};
+                              if (preview_requested) {
+                                  try {
+                                      result.preview = preview_image_pixels(pixels);
+                                  } catch (const std::exception& e) {
+                                      result.preview_error = e.what();
+                                  }
+                              }
+                              return result;
+                          });
         publish_status(frames_ ? "Saving sequence frame " + std::to_string(frames_->completed + 1) +
                                      " / " + std::to_string(frames_->plan.frame_count)
+                       : view_image_format(destination_) == ViewImageFormat::Hdr
+                           ? "Saving HDR image…"
                        : view_image_format(destination_) == ViewImageFormat::Webp
                            ? "Saving lossless WebP image…"
                            : "Saving PNG image…",

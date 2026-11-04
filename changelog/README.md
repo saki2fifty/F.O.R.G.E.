@@ -1,5 +1,7 @@
 # Changelog
 
+- [2026-11-04](20261104/README.md) — Published linear HDR texture image output, shared native/MCP task, bounded RGBE encoding and illustrated format/precision guide. Local source; Windows verification and delivery pending.
+
 - [2026-11-03](20261103/README.md) — Seeded foliage placement/Gallery 144, shared Scene/editor/MCP authoring, original editable blade Mesh and illustrated workflow. Local source; Windows verification and delivery pending.
 
 - [2026-11-02](20261102/README.md) — Fast approximate anti-aliasing/Gallery143, Prefab variants/Gallery142, static collision collection/Gallery141, authored links/Gallery140, behavior trees/Gallery139, named clearance profiles/shared avoidance/Gallery138, selected collision sources/Gallery137, polygon regions/Gallery136, State Conditions/Activity Lab/Gallery135, shared editor/MCP access and illustrated offline guides. Local source; Windows verification and delivery pending.

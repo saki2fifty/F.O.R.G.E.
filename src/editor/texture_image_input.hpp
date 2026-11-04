@@ -7,11 +7,11 @@
 namespace forge::ui {
 // Compose the selected-artifact reader with the existing detached image writer.
 // The copied catalog selects one immutable publication; no source decode occurs.
-inline ViewImageTask::PixelInput texture_image_input(std::filesystem::path project,
-                                                     std::shared_ptr<const AssetCatalog> catalog,
-                                                     AssetRef<TextureAsset> texture,
-                                                     std::optional<TextureSemantic> semantic = {},
-                                                     TextureImageSlice slice = {}) {
+inline ViewImageTask::PixelInput
+texture_image_input(std::filesystem::path project, std::shared_ptr<const AssetCatalog> catalog,
+                    AssetRef<TextureAsset> texture, std::optional<TextureSemantic> semantic = {},
+                    TextureImageSlice slice = {},
+                    ViewImageFormat preferred = ViewImageFormat::Png) {
     if (!catalog)
         throw std::runtime_error("Texture image export needs a catalog selection");
     if (catalog->project_root() != std::filesystem::weakly_canonical(project))
@@ -29,10 +29,16 @@ inline ViewImageTask::PixelInput texture_image_input(std::filesystem::path proje
                 {"depth", slice.depth},
                 {"profile", "stored_rgba8"}};
     return {std::move(source),
-            [project = std::move(project), catalog = std::move(catalog), texture, semantic, slice] {
+            [project = std::move(project), catalog = std::move(catalog), texture, semantic,
+             slice](ViewImageFormat format) -> ImagePixels {
+                const bool hdr = format == ViewImageFormat::Hdr;
                 auto selected = asset_detail::load_texture_selection(
-                    project, *catalog, texture, semantic, {texture_image_source_limit});
+                    project, *catalog, texture, semantic,
+                    {hdr ? texture_hdr_source_limit : texture_image_source_limit});
+                if (hdr)
+                    return texture_hdr_pixels(*selected.value, slice);
                 return texture_stored_pixels(*selected.value, slice);
-            }};
+            },
+            true, preferred};
 }
 } // namespace forge::ui

@@ -1674,21 +1674,30 @@ software-rendering evidence, not full Main/editor, Windows/MSVC/D3D12, physical
 GPU/input/DPI/performance, external MCP client or graphical-EXE acceptance.
 
 
-## Texture stored-pixel export
+## Texture image export
 
-[Texture export](../../../manual/images/texture-export.png) is an authentic720×650
-local source fixture capture, not a complete Windows editor or physical-device
-acceptance image. The actual production TextureViewer displays the original
-Feature Gallery Badge's published cooked texture with its editable source absent.
-The native input fixture uses the editor's pinned Diligent ImGui renderer and a
-software Vulkan offscreen target. An independent RGBA readback is encoded directly
-with the existing PNG writer; there is no cropping, resizing, retouching or fabricated
-control. The caption distinguishes the preview checkerboard from exported pixels.
+[Byte texture export](../../../manual/images/texture-export.png) and
+[HDR texture export](../../../manual/images/hdr-texture-export.png) are authentic
+720×650 local source fixture captures, not complete Windows editor or physical-
+device acceptance images. They show the actual production TextureViewer with the
+published original Gallery Badge and Reflection cube, with both editable sources
+absent. The HDR preview uses the existing display tone mapper; the HDR file writer
+consumes separate linear source pixels.
 
-Source: `texture-image-editor-vulkan/texture-export-wide-100.png` from
-`forge_texture_image_editor_vulkan_probe`, test `texture_image_editor_vulkan`,
-local unassigned build. PNG SHA256: `2e010c3aa3d93d3d5e2348339b091c77ea1368cfffeb41461c1c267cb8e573a6`.
-Exact source/consumer hashes and six layout/input cases are retained in the local
-validation owner. Windows/full Main/D3D12, physical GPU/input/DPI, graphical EXE
-and numbered delivery remain pending. The existing texture-import capture still
-teaches the separate import-settings workflow.
+The native fixture uses the same pinned Diligent ImGui renderer as the editor,
+real ImGui input and a software Vulkan offscreen target. Independent RGBA readback
+is directly encoded with the existing PNG writer, with no cropping, resizing,
+retouching or fabricated controls. Both pictures show the current Export image
+command; the prior texture-import image teaches the separate import-settings flow.
+
+Source test: `tests/texture_image_editor_vulkan_probe.cpp`,
+`texture_image_editor_vulkan`, local unassigned build. Source image entries:
+`texture-image-editor-vulkan/texture-export-wide-100.png` and
+`texture-image-editor-vulkan/hdr-texture-export-wide-100.png`.
+Byte PNG SHA256: `1ea102e738c54a12703a345d15eb558f5f970a9276f806588e70bdf3071ebbec`.
+HDR PNG SHA256: `84cdfc803db19c63514fe8ef42527947788c6e036a3b280e931b14809dcad5db`.
+Native consumer SHA256: `60449ceadf3aed4c6a153c5c30d100dcdf0469561fddd56be7c84004b9bd2174`.
+Twelve byte/HDR wide/narrow layout/input cases use1/1.5/2scale. Rebuilt consumers
+remain byte-identical after the final private declaration comment, so the exact
+attributable native test/capture result is reused. Windows/full Main/MSVC/D3D12,
+physical GPU/input/DPI, external clients and graphical EXE remain pending.

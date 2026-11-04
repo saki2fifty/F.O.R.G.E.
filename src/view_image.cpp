@@ -3,6 +3,7 @@
 #include "asset_storage.hpp"
 #include "texture_decode.h"
 #include "texture_encode.h"
+#include "view_image_hdr.hpp"
 #include "view_image_limits.h"
 #include <algorithm>
 #include <cmath>
@@ -18,7 +19,9 @@ ViewImageFormat view_image_format(const std::filesystem::path& path) {
         return ViewImageFormat::Png;
     if (extension == u8".webp")
         return ViewImageFormat::Webp;
-    throw std::runtime_error("Choose a PNG (.png) or lossless WebP (.webp) image filename");
+    if (extension == u8".hdr")
+        return ViewImageFormat::Hdr;
+    throw std::runtime_error("Choose a PNG (.png), lossless WebP (.webp) or HDR (.hdr) filename");
 }
 const char* view_image_suffix(ViewImageFormat format) {
     switch (format) {
@@ -26,6 +29,8 @@ const char* view_image_suffix(ViewImageFormat format) {
         return ".png";
     case ViewImageFormat::Webp:
         return ".webp";
+    case ViewImageFormat::Hdr:
+        return ".hdr";
     }
     throw std::runtime_error("Unsupported view image format");
 }
@@ -35,6 +40,8 @@ const char* view_image_mime(ViewImageFormat format) {
         return "image/png";
     case ViewImageFormat::Webp:
         return "image/webp";
+    case ViewImageFormat::Hdr:
+        return "image/vnd.radiance";
     }
     throw std::runtime_error("Unsupported view image format");
 }
@@ -48,6 +55,8 @@ void save_image(const std::filesystem::path& path, unsigned width, unsigned heig
     if (!width || !height || width > FORGE_VIEW_IMAGE_MAX_EXTENT ||
         height > FORGE_VIEW_IMAGE_MAX_EXTENT || rgba.size() != std::size_t(width) * height * 4)
         throw std::runtime_error("View image requires complete RGBA8 display pixels");
+    if (format == ViewImageFormat::Hdr)
+        throw std::runtime_error("HDR output requires opaque linear HDR pixels");
     if (format == ViewImageFormat::Webp && !srgb)
         throw std::runtime_error("Stored channels without an sRGB label require PNG output");
     const auto ok = format == ViewImageFormat::Png
@@ -70,6 +79,16 @@ void save_view_image(const std::filesystem::path& path, unsigned width, unsigned
 void save_image_pixels(const std::filesystem::path& path, const Rgba8Pixels& pixels) {
     save_image(path, pixels.width, pixels.height, pixels.rgba, view_image_format(path),
                pixels.srgb);
+}
+void save_image_pixels(const std::filesystem::path& path, const Rgb32Pixels& pixels) {
+    if (view_image_format(path) != ViewImageFormat::Hdr)
+        throw std::runtime_error("Linear HDR pixels require an HDR (.hdr) destination");
+    const auto bytes = encode_hdr_image(pixels);
+    asset_storage::replace(
+        path, std::string_view(reinterpret_cast<const char*>(bytes.data()), bytes.size()));
+}
+void save_image_pixels(const std::filesystem::path& path, const ImagePixels& pixels) {
+    std::visit([&](const auto& value) { save_image_pixels(path, value); }, pixels);
 }
 void save_view_png(const std::filesystem::path& path, unsigned width, unsigned height,
                    std::span<const std::uint8_t> rgba) {
@@ -125,9 +144,20 @@ ViewImagePreview preview_view_pixels(unsigned width, unsigned height,
     result.png.assign(first, first + encoded.size);
     return result;
 }
+ViewImagePreview preview_image_pixels(const Rgba8Pixels& pixels) {
+    return preview_view_pixels(pixels.width, pixels.height, pixels.rgba, pixels.srgb);
+}
+ViewImagePreview preview_image_pixels(const ImagePixels& pixels) {
+    if (const auto* rgba = std::get_if<Rgba8Pixels>(&pixels))
+        return preview_image_pixels(*rgba);
+    throw std::runtime_error("Inline HDR previews are unavailable; the full HDR file is saved");
+}
 ViewImagePreview read_view_preview(const std::filesystem::path& path) {
     asset_storage::ordinary(path);
     const auto bytes = asset_detail::read_bytes(path, FORGE_VIEW_IMAGE_ENCODED_LIMIT);
+    if ((bytes.size() >= 10 && std::memcmp(bytes.data(), "#?RADIANCE", 10) == 0) ||
+        (bytes.size() >= 6 && std::memcmp(bytes.data(), "#?RGBE", 6) == 0))
+        throw std::runtime_error("Inline HDR previews are unavailable; use the full HDR file");
     struct Decoded : ForgeImagePixels {
         Decoded() : ForgeImagePixels{} {}
         ~Decoded() { forge_image_pixels_free(this); }
