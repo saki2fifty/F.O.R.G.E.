@@ -229,15 +229,17 @@ for legacy in (False,True):
         assert admitted_hdr['ok'],admitted_hdr
         assert client.tool('forge_capture_texture',**hdr_request)==admitted_hdr
         hdr_complete=settled()
-        assert not hdr_complete['error'] and not hdr_complete['preview_ready'],hdr_complete
+        assert not hdr_complete['error'] and hdr_complete['preview_ready'] and not hdr_complete['preview_error'],hdr_complete
         assert hdr_complete['file_mime']=='image/vnd.radiance',hdr_complete
         assert hdr_complete['texture']['profile']=='linear_rgbe' and hdr_complete['texture']['face']==5
-        assert 'Inline HDR previews' in hdr_complete['preview_error'],hdr_complete
+        assert hdr_complete['preview_profile']=='hdr_reinhard_srgb',hdr_complete
         hdr_file=(root/'Output/Radiance.hdr').read_bytes()
         assert hdr_file.startswith(b'#?RADIANCE\n') and b'\n-Y 128 +X 128\n' in hdr_file
         assert b'PRIMARIES=0.6400 0.3300 0.3000 0.6000 0.1500 0.0600 0.3127 0.3290' in hdr_file
-        failed(client.tool('forge_capture_image',target=discovery()['result']['target'],
-                                      operation=hdr_complete['operation']),'not_ready')
+        hdr_meta,hdr_png=image(hdr_complete['operation'])
+        assert hdr_meta['preview_profile']=='hdr_reinhard_srgb'
+        assert (hdr_meta['source_width'],hdr_meta['source_height'])==(128,128)
+        assert png_has_chunk(hdr_png,b'sRGB') and hdr_png!=hdr_file
         failed(mutate('forge_capture_texture',asset=hdr_asset['id'],path='Radiance.hdr'),'output_exists')
         ok('forge_capture_texture',asset=badge['id'],path='Radiance.hdr',replace=True)
         wrong=settled()
@@ -245,9 +247,22 @@ for legacy in (False,True):
         automatic_hdr=ok('forge_capture_texture',asset=hdr_asset['id'],path='Auto.hdr',face=5)
         assert not settled()['error'] and (root/'Output/Auto.hdr').read_bytes()==hdr_file
         ok('forge_capture_preview',artifact_operation=automatic_hdr['artifact_operation'])
-        unavailable=settled()
-        assert 'Inline HDR previews' in unavailable['error'] and not unavailable['preview_ready']
+        later=settled()
+        assert not later['error'] and later['preview_ready'] and later['preview_profile']=='hdr_reinhard_srgb',later
+        later_meta,later_png=image(later['operation'])
+        assert later_png==hdr_png and later_meta['preview_profile']=='hdr_reinhard_srgb'
         assert (root/'Output/Auto.hdr').read_bytes()==hdr_file
+        tampered=hdr_file+b'\0'
+        (root/'Output/Auto.hdr').write_bytes(tampered)
+        ok('forge_capture_preview',artifact_operation=later['artifact_operation'])
+        rejected=settled()
+        assert rejected['error'] and not rejected['preview_ready'] and 'preview_profile' not in rejected,rejected
+        assert (root/'Output/Auto.hdr').read_bytes()==tampered and rejected['file'].endswith('Auto.hdr')
+        (root/'Output/Auto.hdr').write_bytes(hdr_file)
+        ok('forge_capture_preview',artifact_operation=rejected['artifact_operation'])
+        restored=settled()
+        assert not restored['error'] and restored['preview_ready'],restored
+        assert image(restored['operation'])[1]==hdr_png
         assert read('forge_scene_read')==authored
 
         (root/'hold_pixels').touch()

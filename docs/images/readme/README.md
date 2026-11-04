@@ -1770,3 +1770,25 @@ at1/1.5/2 interface scale, including actual input, chooser hints and exact expor
 Windows/full Main/MSVC/D3D12/physical GPU/input/DPI/performance and independent
 external-client acceptance remain pending. Earlier captures retain their own
 unchanged provenance.
+
+
+## Owned HDR PNG inspection
+
+[HDR inspection](../../../manual/images/hdr-inspection-preview.png) contains exact
+unmodified128x128 PNG bytes returned by capture.image through the actual MCP
+bridge. Source-hidden published Gallery Reflection.dds face5 was first exported
+to owned Radiance.hdr. This CPU image shows the fixed unit-exposure per-channel
+c/(1+c), sRGB/nearest8-bit inspection of the quantized written RGBE. It is an
+inspection image, not an editor screenshot, full radiance data, native-viewer
+display equivalence or physical GPU/Windows acceptance.
+
+Source tests/mcp_image_test.py and forge_mcp_image_host; mcp_image_stdio, current
+framing, protocol record339. The retained local transcript has SHA256
+85ce385e48825bdf51abb264052c429031cfb65b58701e69117be3fef1556a0d. Native MCP host SHA256:
+57c3c726417421b1f74d0cddb414d51558e085233444e5a5d156af247609e6ae.
+PNG SHA256: 341f38fa22db31a66b7a72f25ad6b849589b7fa089f0cbde99873731c59d0290.
+Local unassigned build. No resizing, retouching, cropping or fabricated controls.
+Current/later image equality, explicit preview_profile, exact operation/read/output
+grants, damaged-preview artifact retention and both framings have focused proof.
+The earlier HDR Texture-viewer screenshot retains its original separate source
+and display-transform provenance.

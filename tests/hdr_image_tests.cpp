@@ -1,4 +1,5 @@
 #include "asset_bytes.hpp"
+#include "texture_decode.h"
 #include "texture_image.hpp"
 #include "texture_import.hpp"
 #include "view_image.hpp"
@@ -51,6 +52,71 @@ float read_float(const std::byte* at) {
     else
         return std::bit_cast<float>(std::array<std::byte, 4>{at[3], at[2], at[1], at[0]});
 }
+std::vector<std::uint8_t> preview_bytes(const ViewImagePreview& preview) {
+    struct Decoded : ForgeImagePixels {
+        Decoded() : ForgeImagePixels{} {}
+        ~Decoded() { forge_image_pixels_free(this); }
+    } decoded;
+    check(forge_png_decode(preview.png.data(), preview.png.size(), 4096,
+                           FORGE_VIEW_IMAGE_PIXEL_LIMIT, 0, &decoded) &&
+              decoded.component_bytes == 1 && decoded.channels == 4 && decoded.srgb &&
+              decoded.width == preview.width && decoded.height == preview.height,
+          "HDR inspection is not bounded opaque sRGB PNG8");
+    return {decoded.pixels, decoded.pixels + decoded.size};
+}
+std::size_t payload_start(const std::vector<std::byte>& file) {
+    const std::string text(reinterpret_cast<const char*>(file.data()), file.size());
+    const auto resolution = text.find("\n-Y ");
+    check(resolution != std::string::npos, "Fixture resolution is missing");
+    return text.find('\n', resolution + 1) + 1;
+}
+void inspection_guards(const std::vector<std::byte>& flat) {
+    const auto payload = payload_start(flat);
+    auto invalid = flat;
+    invalid.push_back(std::byte{0});
+    reject([&] { preview_hdr_image(invalid); }, "Trailing");
+    invalid = flat;
+    invalid.pop_back();
+    reject([&] { preview_hdr_image(invalid); }, "Truncated");
+    invalid = flat;
+    invalid[10] = std::byte{'X'};
+    reject([&] { preview_hdr_image(invalid); }, "fixed working-primary");
+    invalid = flat;
+    invalid[payload + 3] = std::byte{0};
+    reject([&] { preview_hdr_image(invalid); }, "normalized RGBE");
+    auto resolution = [&](const std::string& replacement) {
+        std::string text(reinterpret_cast<const char*>(flat.data()), flat.size());
+        const auto start = text.find("-Y 1 +X 3\n");
+        text.replace(start, 10, replacement);
+        return std::vector<std::byte>(
+            reinterpret_cast<const std::byte*>(text.data()),
+            reinterpret_cast<const std::byte*>(text.data() + text.size()));
+    };
+    for (const auto& text :
+         {"-Y 0 +X 3\n", "-Y 1 +X 4097\n", "-Y -1 +X 3\n", "-Y 1 +X 3 trailing\n"}) {
+        const auto file = resolution(text);
+        reject([&] { preview_hdr_image(file); });
+    }
+    const auto absent_large_payload = resolution("-Y 4096 +X 4096\n");
+    reject([&] { preview_hdr_image(absent_large_payload); }, "Truncated");
+    const auto packet = encode_hdr_image({8, 1, std::vector<float>(24, 1)});
+    const auto at = payload_start(packet);
+    for (unsigned value : {0u, 9u, 128u, 255u}) {
+        invalid = packet;
+        invalid[at + 4] = std::byte(value);
+        reject([&] { preview_hdr_image(invalid); }, "literal packet");
+    }
+    invalid = packet;
+    invalid[at + 3] = std::byte{7};
+    reject([&] { preview_hdr_image(invalid); }, "scanline header");
+    for (std::size_t length = at; length < packet.size(); ++length)
+        reject([&] { preview_hdr_image(std::span(packet).first(length)); }, "Truncated");
+    std::stop_source stopped;
+    stopped.request_stop();
+    reject([&] { preview_hdr_image(flat, stopped.get_token()); }, "cancelled");
+    const std::vector<std::byte> oversized(FORGE_VIEW_IMAGE_ENCODED_LIMIT + 1);
+    reject([&] { preview_hdr_image(oversized); }, "encoded byte budget");
+}
 } // namespace
 int main() {
     try {
@@ -78,8 +144,20 @@ int main() {
         check(asset_detail::read_bytes(destination, FORGE_VIEW_IMAGE_ENCODED_LIMIT) == encoded,
               "Rejected HDR conversion or samples replaced an existing good image");
         reject([&] { save_image_pixels(directory / "wrong.png", known); }, ".hdr");
-        reject([&] { read_view_preview(destination); }, "Inline HDR previews");
-        reject([&] { preview_image_pixels(ImagePixels{known}); }, "Inline HDR previews");
+        const auto file_preview = read_view_preview(destination);
+        const auto typed_preview = preview_image_pixels(ImagePixels{known});
+        check(file_preview.png == typed_preview.png && file_preview.width == 3 &&
+                  file_preview.height == 1 && file_preview.profile == "hdr_reinhard_srgb" &&
+                  typed_preview.profile == file_preview.profile,
+              "Owned/typed HDR inspection disagrees or loses its interpretation label");
+        check(preview_bytes(file_preview) ==
+                  std::vector<std::uint8_t>{188, 156, 124, 255, 231, 124, 94, 255, 0, 0, 0, 255},
+              "HDR inspection differs from independent unit-exposure/sRGB numeric vectors");
+        const auto quantized =
+            preview_image_pixels(ImagePixels{Rgb32Pixels{1, 1, {1, .003f, .0001f}}});
+        check(preview_bytes(quantized) == std::vector<std::uint8_t>{188, 0, 0, 255},
+              "HDR inspection substituted unquantized source samples for the written artifact");
+        inspection_guards(encoded);
         const auto no_suffix = directory / "owned-bytes";
         save_view_png(no_suffix, 1, 1, std::array<std::uint8_t, 4>{255, 0, 0, 255});
         check(read_view_preview(no_suffix).width == 1,
@@ -106,6 +184,11 @@ int main() {
                     pixels.rgb[at + 2] = .001f * x;
                 }
             const auto file = encode_hdr_image(pixels);
+            const auto preview = preview_hdr_image(file);
+            check(preview.source_width == width && preview.source_height == 2 &&
+                      preview.width <= 1024 && preview.height <= 1024 &&
+                      preview.profile == "hdr_reinhard_srgb" && !preview.png.empty(),
+                  "HDR flat/packet inspection lost bounded extent or interpretation");
             asset_detail::validate_hdr_extent(file, 4096);
             asset_detail::TextureImportSettings settings;
             settings.srgb = false;
@@ -136,6 +219,9 @@ int main() {
         const auto limits = encode_hdr_image(range);
         check(limits[limits.size() - 5] == std::byte{1} && limits.back() == std::byte{255},
               "HDR valid exponent boundaries changed");
+        check(preview_bytes(preview_hdr_image(limits)) ==
+                  std::vector<std::uint8_t>{0, 0, 0, 255, 255, 0, 0, 255},
+              "HDR inspection changed extreme exponent handling");
         for (float invalid :
              {-1.f, std::numeric_limits<float>::infinity(), std::numeric_limits<float>::quiet_NaN(),
               std::ldexp(1.f, -129), std::ldexp(1.f, 127)})

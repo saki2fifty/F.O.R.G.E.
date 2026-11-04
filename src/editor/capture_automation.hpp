@@ -34,6 +34,9 @@ struct CaptureAutomation {
             {"view", owner.view_ == ui::ViewImageTask::View::Scene ? "scene" : "game"}};
         if (owner.scene_)
             value["scene"] = owner.scene_;
+        if (owner.preview_ && owner.preview_operation_ == owner.operation_ &&
+            !owner.preview_->profile.empty())
+            value["preview_profile"] = owner.preview_->profile;
         if (owner.view_ == ui::ViewImageTask::View::Texture && owner.input_) {
             value["view"] = "texture";
             value["texture"] = owner.input_->source;
@@ -244,7 +247,10 @@ struct CaptureAutomation {
             "capture.image",
             "Read this task's exact ready PNG "
             "preview as an MCP image block. The bounded preview fits1024 pixels; full PNG output "
-            "keeps its original dimensions. No arbitrary filesystem image path is accepted.",
+            "keeps its original dimensions. Owned HDR uses fixed unit-exposure per-channel "
+            "c/(1+c) and sRGB encoding; preview_profile hdr_reinhard_srgb labels this "
+            "8-bit inspection, distinct from full linear RGBE. No arbitrary filesystem "
+            "image path is accepted.",
             "capture.read", automation_object({{"operation", automation_uuid()}}, {"operation"}),
             false,
             [&owner, &files, root](const Json& request) {
@@ -259,7 +265,7 @@ struct CaptureAutomation {
                     throw AuthoringError("invalid_path", "The output grant changed");
                 const auto relative = output.relative(owner.preview_file_);
                 const auto& preview = *owner.preview_;
-                return Json{
+                Json result{
                     {"operation", owner.operation_},
                     {"file", path_utf8(relative)},
                     {"source_width", preview.source_width},
@@ -268,6 +274,9 @@ struct CaptureAutomation {
                     {"height", preview.height},
                     {"image",
                      {{"mimeType", "image/png"}, {"data", automation_image_base64(preview.png)}}}};
+                if (!preview.profile.empty())
+                    result["preview_profile"] = preview.profile;
+                return result;
             },
             false, "image/png"));
         result.push_back(automation_method(
@@ -318,11 +327,13 @@ struct CaptureAutomation {
                 "jpeg_quality is1–100, default90, JPEG only. JPEG is lossy and its preview shows "
                 "decoded output. HDR (.hdr) accepts HdrColor RGBA16/32Float, finite "
                 "nonnegative RGB and actual alpha1 (256 MiB source,192 MiB RGB float). RGBE "
-                "quantizes RGB without tone mapping; HDR has no alpha or inline image preview. "
+                "quantizes RGB without tone mapping and has no alpha. Its owned PNG inspection "
+                "uses fixed unit-exposure per-channel c/(1+c), then sRGB/8-bit output, labeled "
+                "preview_profile hdr_reinhard_srgb; full HDR remains linear RGBE. "
                 "All profiles limit each axis to4096; other profiles cap encoded output at68 MiB. "
                 "No source "
                 "decode, import metadata or Scene Undo. Existing files require replace:true. "
-                "Poll capture.status for the written file path/MIME; PNG/WebP/JPEG also support "
+                "Poll capture.status for the written file path/MIME; all current profiles support "
                 "capture.image.",
                 "capture.write",
                 automation_object({{"asset", automation_uuid()},

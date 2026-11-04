@@ -523,11 +523,43 @@ Scene/Game display pixels cannot be relabelled as original HDR; their native and
 MCP paths retain PNG/WebP/opaque JPEG admission. The shared writer encodes before the existing
 atomic file transaction, so failed samples/formats preserve a good destination.
 
-The HDR file exists on disk and status returns its path/MIME. Inline protocol PNG
-previews of HDR are explicitly unsupported, including later preview requests;
-no unsupervised HDR source decoder is added to editor image IO. Successful output
-retains a separate preview diagnostic and does not become a file failure. Existing
-PNG8/16, WebP and JPEG preview reads remain header-based, including owned files without a suffix.
-Full-file download is not an MCP operation; capture status describes the written
-artifact. A trusted external image application or ordinary authorized asset-import
-workflow can consume it. See [the user guide](../manual/editor/textures.md).
+The HDR file exists on disk and status returns its path/MIME. Requested current
+and later owned previews use the written RGBE artifact. The existing image task,
+preview/read operation, output grant and exact-operation guards remain authoritative.
+A preview failure stays independent of successful file publication. Full-file
+download is not an MCP operation. See [the user guide](../manual/editor/textures.md).
+
+## Owned HDR inspection
+
+The FORGE-owned bounded reader admits exactly the existing writer's fixed working
+primaries/profile, top-row-first resolution, flat pixels below8px width and bounded
+literal channel packets otherwise. One shared header prefix owns interpretation.
+It does not load imported HDR files or call a native source decoder in the editor.
+Changed primaries/profile, invalid dimensions, malformed/truncated/oversized
+packets, unnormalized RGBE and trailing bytes reject before returning an image.
+Encoded admission is68 MiB, each axis4096, detached RGBA8 64 MiB; only one row of
+RGBE scratch is needed, without allocating a full RGB-float decode. Common owned
+file reads may admit the existing PNG16 byte ceiling before format-specific
+validation; these are independent limits, not a process-memory ceiling.
+
+Decoded radiance follows the actual quantized mantissas: channel*2^(exponent-136),
+with canonical zero for black. Inspection applies fixed unit exposure and the
+per-channel curve c/(1+c), then standard sRGB encoding and nearest8-bit opaque
+samples. The existing1024-axis resampler and8 MiB PNG cap apply afterwards.
+This display inspection is distinct from linear/radiometric samples, the native
+Texture viewer's display processing, Scene/Game exposure and lossless full HDR.
+Working chromaticities and transfer follow the
+[ICC sRGB registry](https://registry.color.org/rgb-registry/srgb).
+No photographic calibration, cross-platform libm bit identity or full
+photographic tone-reproduction operator is claimed.
+
+ViewImagePreview carries profile hdr_reinhard_srgb. capture.status and
+capture.image expose it as preview_profile only for the exact ready inspection.
+The full artifact keeps texture.profile linear_rgbe and its image/vnd.radiance
+MIME. Current HDR capture reads its completed file, as JPEG already does; later
+inspection uses the same reader/transform. Typed RGB-float inspection canonicalizes
+through the existing writer and reader, so it cannot substitute unquantized
+source channels. Black, weak-channel quantization, exponent extremes, flat/packet
+boundaries, malformed input, current/later metadata and last-good artifact behavior
+have focused checks. PNG8/16, WebP, JPEG and compressed Texture inspection retain
+their existing interpretation and header-based owned-file admission.

@@ -5,16 +5,23 @@ The accepted local Windows package is **261024-000213**, source
 in the [README](../README.md#current-implementation). No new numbered Windows
 package accompanies the local source changes described here.
 
-Local source adds published Texture stored-pixel export through the native preview
-and shared automation/MCP image task. The bounded byte-storage profile supports
-PNG, sRGB lossless WebP and opaque sRGB JPEG, selected mip/layer/face/depth and source-hidden cooked
-assets. It performs no color/alpha/normal conversion or import-metadata roundtrip;
-compressed storage remains unsupported. Normalized R16/RG16/RGBA16 now exports
-exact PNG16 with a separately quantized8-bit preview, shared native PNG-only hint,
-MCP result precision and an original published Gallery ramp. A separate opaque linear
-HdrColor RGBA16/32Float profile writes quantized Radiance HDR without tone mapping;
-JPEG quality1..100/default90 is shared by native controls and MCP; its previews
-show decoded saved pixels. HDR inline image previews remain unsupported. Windows/full-editor/physical
+Local source adds published Texture image export through the native preview and
+shared automation/MCP task, including selected mip/layer/face/depth and source-hidden
+cooked data. Byte storage supports PNG, sRGB lossless WebP and opaque sRGB JPEG.
+JPEG quality1..100/default90 is shared by native controls and MCP; inspection
+shows decoded saved pixels. No source/import-metadata roundtrip is implied.
+
+UNORM BC1/2/3/4/5/7 exports decoded reference texels through the existing isolated
+worker, with an original published Gallery pattern. Signed BC4/5 and BC6 image
+output remain unsupported. Normalized R16/RG16/RGBA16 exports exact PNG16 with a
+separately quantized8-bit preview, shared native PNG-only hint, MCP precision and
+an original Gallery ramp.
+
+An opaque linear HdrColor RGBA16/32Float profile writes quantized Radiance HDR
+without tone mapping. Owned HDR PNG inspection applies fixed unit-exposure
+per-channel c/(1+c), then sRGB/nearest8-bit output, with preview_profile
+hdr_reinhard_srgb. Current/later inspection reads the written RGBE; full linear
+HDR data and its interpretation remain separate. Windows/full-editor/physical
 acceptance and a numbered package remain pending. See [Texture assets](texture-assets.md).
 
 Local source also adds bounded native UI blur/color filters, shared graphical /

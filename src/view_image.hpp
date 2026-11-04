@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <span>
+#include <string>
 #include <vector>
 namespace forge {
 enum class ViewImageFormat { Png, Webp, Hdr, Jpeg };
@@ -23,7 +24,7 @@ void save_image_pixels(const std::filesystem::path&, const Rgba8Pixels&,
 // Exact normalized16-bit PNG only; no color/alpha conversion or invented label.
 void save_image_pixels(const std::filesystem::path&, const Rgba16Pixels&,
                        const ImageEncodingOptions& = {});
-// Quantized RGBE .hdr only; opaque linear HDR values have no alpha or inline preview.
+// Quantized RGBE .hdr only; opaque linear HDR values have no alpha.
 void save_image_pixels(const std::filesystem::path&, const Rgb32Pixels&,
                        const ImageEncodingOptions& = {});
 void save_image_pixels(const std::filesystem::path&, const ImagePixels&,
@@ -36,6 +37,9 @@ void save_view_png(const std::filesystem::path&, unsigned width, unsigned height
 struct ViewImagePreview {
     unsigned source_width = 0, source_height = 0, width = 0, height = 0;
     std::vector<std::byte> png;
+    // Empty for the ordinary inspection path. Defined transforms label their
+    // result explicitly; this describes the preview, never the full artifact.
+    std::string profile = {};
 };
 ViewImagePreview preview_view_pixels(unsigned width, unsigned height,
                                      std::span<const std::uint8_t> rgba, bool srgb = true);

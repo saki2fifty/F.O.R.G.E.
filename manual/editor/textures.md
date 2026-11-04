@@ -282,7 +282,25 @@ the selected image 4096 pixels per axis, and the encoded file 68 MiB. Existing c
 artifact limits also apply. The shared image-task, project cancellation and import /
 Scene-history behavior described above also applies to HDR.
 
-MCP writes the same HDR file and reports its path and MIME through capture status.
-Inline HDR image previews are unavailable in this profile; this does not prevent
-successful file output. Scene/Game view-image capture uses PNG, lossless WebP or
-opaque JPEG. Timeline frame export uses PNG.
+An MCP agent can inspect a bounded PNG of the saved HDR image. Capture status and
+the image result label it **preview_profile: hdr_reinhard_srgb**. The full file
+remains linear RGBE; the PNG is an opaque 8-bit display inspection.
+
+![Actual MCP PNG inspection of the published HDR cube face, with cyan and amber walls and a compressed bright highlight](../images/hdr-inspection-preview.png)
+
+PNG inspection of one 128×128 Gallery cube face. The fixed display curve
+compresses its bright highlight for display.
+
+Inspection uses fixed unit exposure: each decoded channel c maps to c/(1+c), then
+to sRGB and the nearest 8-bit value. Preview **Exposure (stops)**, Scene exposure
+and the Texture viewer's display processing do not enter this inspection. It
+cannot retain HDR magnitudes or recover weaker channels lost to RGBE quantization.
+The existing 1024-pixel preview bound applies. Current and later inspection use
+the same saved RGBE bytes and transform.
+
+Only FORGE's fixed-working-primary HDR output profile is admitted by this owned
+inspection reader. An altered header, unsupported packet or damaged file reports
+a preview error and preserves the completed artifact. A successful HDR save is
+independent of preview success. Use the full **.hdr** file in an HDR-capable reader
+when inspecting radiance values. Scene/Game image capture uses PNG, lossless WebP
+or opaque JPEG. Timeline frame export uses PNG.

@@ -213,14 +213,14 @@ ViewImagePreview preview_image_pixels(const ImagePixels& pixels) {
         return preview_image_pixels(*rgba);
     if (const auto* rgba = std::get_if<Rgba16Pixels>(&pixels))
         return preview_image_pixels(*rgba);
-    throw std::runtime_error("Inline HDR previews are unavailable; the full HDR file is saved");
+    return preview_hdr_image(encode_hdr_image(std::get<Rgb32Pixels>(pixels)));
 }
 ViewImagePreview read_view_preview(const std::filesystem::path& path) {
     asset_storage::ordinary(path);
     const auto bytes = asset_detail::read_bytes(path, FORGE_UINT16_IMAGE_ENCODED_LIMIT);
     if ((bytes.size() >= 10 && std::memcmp(bytes.data(), "#?RADIANCE", 10) == 0) ||
         (bytes.size() >= 6 && std::memcmp(bytes.data(), "#?RGBE", 6) == 0))
-        throw std::runtime_error("Inline HDR previews are unavailable; use the full HDR file");
+        return preview_hdr_image(bytes);
     struct Decoded : ForgeImagePixels {
         Decoded() : ForgeImagePixels{} {}
         ~Decoded() { forge_image_pixels_free(this); }

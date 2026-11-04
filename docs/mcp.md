@@ -962,7 +962,7 @@ PNG previews represent decoded written JPEG colors. Output grants, exact replay,
 revision/sequence and explicit overwrite rules are unchanged.
 
 The result reports `view:"texture"` and the owned requested asset/semantic/slice
-under `texture`. Poll capture status for the written file path and MIME; PNG/WebP/JPEG
+under `texture`. Poll capture status for the written file path and MIME; image
 inspection uses the existing image/preview operations. No file-download method is
 advertised. The published
 catalog/cache is required; source images are not read or rebuilt. Standalone and
@@ -978,11 +978,18 @@ is256MiB, detached RGB floats192MiB, extent4096axis and encoded68MiB. Shared-
 exponent RGBE quantization is not lossless, alpha is absent, and no tone mapping or
 exposure is applied. Native working primaries/D65 are explicit in the file.
 Status reports `file_mime:"image/vnd.radiance"` and requested
-`texture.profile:"linear_rgbe"`. The written file is the result; HDR inline image
-previews are unavailable. `preview_error` describes that limit independently of
-successful file output. Later preview requests report the same unsupported profile
-without modifying the artifact. `capture.image` never returns a previous PNG for
-an HDR operation. Source images remain unused; source/subresource/output errors,
+`texture.profile:"linear_rgbe"`. Requested current and later `capture.image`
+inspection returns bounded sRGB PNG8 of the actual quantized written RGBE, labeled
+`preview_profile:"hdr_reinhard_srgb"` in both status and image metadata. Fixed unit
+exposure applies per-channel c/(1+c), then standard sRGB encoding and nearest8-bit
+samples before existing1024-axis preview sizing. This is a display inspection;
+full HDR remains linear RGBE and is not lossless float data. It does not use native
+Texture-viewer or Scene exposure/processing. The owned reader accepts only FORGE's
+fixed-primary writer profile with its flat/literal packets,68 MiB encoded,
+4096-axis/64 MiB RGBA8 bounds. Unsupported/malformed previews keep the completed
+artifact and a separate diagnostic. No arbitrary HDR source-reader tool is added.
+`capture.image` requires this exact ready operation and never substitutes an older
+PNG. Source images remain unused; source/subresource/output errors,
 old-file retention and the usual guards share the same native task. Scene/Game
 capture requests with an HDR suffix reject; their display pixels are tone-mapped.
 

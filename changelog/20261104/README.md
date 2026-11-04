@@ -1,5 +1,23 @@
 # 2026-11-04
 
+## Owned HDR inspection previews
+
+HDR still output now provides bounded PNG inspection through the existing owned
+image task and automation/MCP image operation. Both immediate and later inspection
+read the actual quantized written RGBE. A fixed unit-exposure per-channel c/(1+c)
+curve, sRGB transfer and nearest8-bit samples are explicitly labeled
+preview_profile hdr_reinhard_srgb; full HDR stays linear RGBE. Native Texture /
+Scene display processing and exposure are separate.
+
+An independently authored bounded reader admits only the existing FORGE writer's
+shared fixed-primary header and raw/literal profile. Invalid profile, extent,
+packets, normalization, trailing data and source budget fail without changing the
+completed HDR artifact. Typed float inspection reuses the same writer/reader.
+Existing output/permissions/revision/replay owners and PNG8/16/WebP/JPEG/compressed
+behavior remain. The manual includes actual unmodified MCP inspection pixels;
+Windows/physical/external-client review remains queued. No new dependency or
+numbered delivery accompanies this local source change.
+
 ## Compressed Texture still-image export
 
 Published UNORM BC1/2/3/4/5/7 textures and their current sRGB forms can export

@@ -201,7 +201,7 @@ slice through the same image task. The agent supplies the asset, variant and out
 filename; the stored-byte profile, PNG/sRGB WebP distinction and limits are described
 in [Texture image export](textures.md). HDR output uses supported opaque linear float
 textures and shared-exponent RGBE quantization; it provides a written file path and
-MIME through capture status, with no inline HDR image preview. Import drafts and preview display controls
+MIME through capture status. Its owned PNG inspection uses a fixed display transform. Import drafts and preview display controls
 are excluded. Existing files require an explicit replacement request.
 
 For published **BC1/BC2/BC3/BC4/BC5/BC7 UNORM** selections, use the same texture
@@ -217,6 +217,16 @@ the full file. Capture status reports **component_bits: 16** and the completed
 texture profile **stored_rgba16**. The bounded PNG preview uses nearest 8-bit
 samples and may reduce resolution; it cannot demonstrate full 16-bit precision.
 Its PNG16 limits and channel/alpha rules are described in [Texture image export](textures.md).
+
+For a written **.hdr**, the agent can request the current or later owned PNG
+inspection. Status and image metadata report **preview_profile: hdr_reinhard_srgb**.
+The PNG uses unit-exposure per-channel c/(1+c), standard sRGB encoding and nearest
+8-bit values, with the usual 1024-pixel bound. Full HDR remains quantized linear
+RGBE. The inspection ignores Scene and Texture-viewer exposure/processing and
+cannot recover HDR magnitudes or weaker channels discarded during encoding.
+Only FORGE's fixed-working-primary output profile is admitted. A malformed preview
+preserves the completed HDR file and reports its own error. See
+[HDR image export and inspection](textures.md).
 
 For **.jpg/.jpeg**, the agent can set **jpeg_quality** from **1–100**; the default is
 **90**. This option is accepted only for JPEG destinations. Texture JPEG output

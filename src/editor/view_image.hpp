@@ -907,9 +907,11 @@ class ViewImageTask {
                 result.block_decoded = rgba->block_decoded;
             if (preview_requested) {
                 try {
-                    result.preview = view_image_format(destination) == ViewImageFormat::Jpeg
-                                         ? read_view_preview(destination)
-                                         : preview_image_pixels(pixels);
+                    const auto format = view_image_format(destination);
+                    result.preview =
+                        format == ViewImageFormat::Jpeg || format == ViewImageFormat::Hdr
+                            ? read_view_preview(destination)
+                            : preview_image_pixels(pixels);
                 } catch (const std::exception& e) {
                     result.preview_error = e.what();
                 }
