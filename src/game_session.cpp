@@ -14,6 +14,7 @@ struct Mutation {
 GameSession::GameSession(GameSessionConfig config)
     : config_(std::move(config)), clock_(config_.clock) {
     config_.physics.validate();
+    config_.execution.validate();
     if (config_.controls)
         config_.modules.push_back(config_.controls->module());
     if (config_.ui && config_.content_root.empty())
@@ -45,8 +46,9 @@ std::uint64_t GameSession::prepare(const Json& snapshot,
     const auto ticket = ++generation_;
     loading_ = {ticket, superseded, "preparing", "structure", {}, {}, 0, 0, false};
     try {
-        auto next = std::make_unique<RuntimeWorld>(config_.modules, config_.physics, config_.audio,
-                                                   config_.content_root, config_.ui);
+        auto next =
+            std::make_unique<RuntimeWorld>(config_.modules, config_.physics, config_.audio,
+                                           config_.content_root, config_.ui, config_.execution);
         next->simulation.audio_paused(true);
         next->simulation.input().configure(config_.input);
         next->scene.restore_snapshot(snapshot);

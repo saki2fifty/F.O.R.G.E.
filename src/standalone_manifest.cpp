@@ -2,6 +2,7 @@
 #include "asset_bytes.hpp"
 #include "bounded_json.hpp"
 #include "native_io_path.hpp"
+#include "runtime_execution_values.hpp"
 #include "ui_filter_profile.hpp"
 #include <algorithm>
 #include <forge/fog_volume.hpp>
@@ -70,7 +71,15 @@ Json verify_distribution_files(const std::filesystem::path& root,
     require(found == expected, "Distribution file inventory differs from manifest");
     return result;
 }
-void validate_runtime_compatibility(const AssetCatalog& catalog, const Json& engine) {
+void validate_runtime_compatibility(const AssetCatalog& catalog, const Json& engine,
+                                    const Json* project) {
+    if (project && detail::read_runtime_execution(*project).ecs_workers > 1) {
+        const auto support = engine.find("runtime_ecs_workers");
+        require(support != engine.end() && support->is_number_integer() &&
+                    *support == runtime_ecs_worker_profile_version,
+                "Fixed ECS workers require a matching runtime kit; select the kit packaged "
+                "with this editor");
+    }
     for (const auto& [id, record] : catalog.records()) {
         (void)id;
         if (record.type == ShaderAsset::type) {
@@ -190,7 +199,7 @@ StandaloneDistribution open_standalone_distribution(const std::filesystem::path&
             "Standalone and game configuration profiles differ");
     const auto content = paths.resolve(content_locator);
     const auto catalog = open_runtime_content(content, target, {}, stop);
-    validate_runtime_compatibility(catalog, engine);
+    validate_runtime_compatibility(catalog, engine, &settings);
     const auto startup = settings.at("startup_scene").at("asset").get<AssetId>();
     (void)load_game_scene(content, {startup});
     require(manifest.at("assets") == runtime_asset_inventory(catalog),

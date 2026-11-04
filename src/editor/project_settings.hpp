@@ -38,6 +38,11 @@ class ProjectSettingsEditor {
         if (loaded_)
             draft_["simulation_hz"] = hz;
     }
+    void set_ecs_workers(unsigned workers) {
+        RuntimeExecutionConfig{workers}.validate();
+        if (loaded_)
+            draft_["ecs_workers"] = workers;
+    }
     bool resolve_close(ui::DraftResolution choice, SceneDocument& document, std::string& status) {
         if (choice == ui::DraftResolution::Cancel) {
             close_requested_ = false;
@@ -106,6 +111,21 @@ class ProjectSettingsEditor {
                 set_frequency(hz);
             ui::help("Shared project frequency, 1..240 Hz. Takes effect on the next Play. Catch-up "
                      "limits and interpolation policy remain unchanged.");
+            int workers = int(draft_.value("ecs_workers", 1u));
+            if (ImGui::InputInt("Fixed ECS workers", &workers)) {
+                try {
+                    set_ecs_workers(workers > 0 ? unsigned(workers) : 0);
+                    error_.clear();
+                } catch (const std::exception& error) {
+                    error_ = error.what();
+                }
+            }
+            FORGE_UI_PROBE("project-settings:ecs-workers");
+            ui::help("1..16 total ECS stages, including the owner thread. Only C++ systems "
+                     "explicitly marked multi_threaded use workers; engine services remain on "
+                     "their owner. Save Settings, then restart Play. Default 1 runs sequentially. "
+                     "Per-system CPU timings are unavailable with workers; whole fixed-tick "
+                     "timings remain available.");
             if (ui::button("Use saved current scene as startup",
                            "Store the saved scene's AssetId. Moving its file within this project "
                            "does not change its identity.")) {

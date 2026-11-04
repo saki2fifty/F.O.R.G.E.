@@ -134,6 +134,20 @@ int main(int argc, char** argv) {
             check(!timeline.spans.empty() && play.cpu_profile().contains("epoch"),
                   "Production Play transport lost measured starts or collection epoch");
             const auto retained_plan = play.cpu_profile().at("ecs");
+            play.watch_cpu_profile(false);
+            for (unsigned i = 0; i < 3; ++i) {
+                wait([&] { return play.control_ready(); });
+                const auto unprofiled_version = play.snapshot_version();
+                play.pause();
+                wait([&] {
+                    return play.snapshot_version() > unprofiled_version && play.control_ready();
+                });
+            }
+            check(play.cpu_profile().contains("samples") &&
+                      play.cpu_profile().at("samples") == retained &&
+                      play.cpu_profile().at("ecs") == retained_plan,
+                  "Unprofiled responses cleared the retained profile for its active generation");
+            play.watch_cpu_profile(true);
             for (int i = 0; i < 30; ++i) {
                 play.pump();
                 SDL_Delay(1);

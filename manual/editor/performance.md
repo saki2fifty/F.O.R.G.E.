@@ -86,6 +86,13 @@ samples and do not measure one tick, a rendered frame or GPU time. **Mode** show
 native Immediate, Deferred or Multi-threaded configuration, not actual processor
 utilization. A missing timing value appears as `--`.
 
+With **Fixed ECS workers** above 1, per-system lifetime timings are unavailable
+and appear as `--`. The plan still shows systems, access modes and merges.
+**Trace ECS systems** captures only dispatches on the owner thread; it does not
+capture worker-thread spans. **CPU scopes → FixedSimulationTick** still measures
+the owner waiting for the whole tick, including its worker synchronization.
+Compare identical scenes and settings rather than adding incomplete system rows.
+
 The displayed tick identifies when the native plan was captured. Watching the
 panel requests a new observation on the next collected fixed tick; inspecting a
 paused game does not advance it. The plan can change as systems gain or lose

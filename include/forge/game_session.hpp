@@ -27,6 +27,7 @@ struct GameSessionConfig {
     std::vector<EngineModule> modules;
     std::function<std::unique_ptr<GameScenePreparation>(std::uint64_t)> preparation;
     std::shared_ptr<GameControlQueue> controls;
+    RuntimeExecutionConfig execution;
 };
 // Owner-thread simulation session. Presentation/window and persistent saves remain
 // separate owners. One active scene and at most one unpublished candidate world.

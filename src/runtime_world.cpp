@@ -17,7 +17,8 @@
 namespace forge {
 RuntimeWorld::RuntimeWorld(std::vector<EngineModule> modules, PhysicsConfig physics,
                            const std::optional<AudioConfig>& audio,
-                           const std::filesystem::path& project, bool ui)
+                           const std::filesystem::path& project, bool ui,
+                           RuntimeExecutionConfig execution)
     : engine(WorldRole::Runtime, false,
              [&] {
                  if (!project.empty())
@@ -32,7 +33,7 @@ RuntimeWorld::RuntimeWorld(std::vector<EngineModule> modules, PhysicsConfig phys
                      modules.push_back(audio_module(*audio));
                  return std::move(modules);
              }()),
-      scene(engine.world()), simulation(engine.world(), scene) {}
+      scene(engine.world()), simulation(engine.world(), scene, execution) {}
 std::shared_ptr<PhysicsRuntime> RuntimeWorld::physics() {
     return std::static_pointer_cast<PhysicsRuntime>(engine.services().physics());
 }

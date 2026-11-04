@@ -1687,6 +1687,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "16100000-0161-4161-8161-000000000001",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/161-fixed-ecs-workers.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "16566c91-7ea8-442b-9738-9181a84ddfd7",
       "metadata": {
         "forge.import": {

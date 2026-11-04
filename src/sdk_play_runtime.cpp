@@ -176,6 +176,7 @@ struct SdkPlayRuntime::State {
         if (!config.defaults.is_object() || !config.defaults.contains("application_id"))
             throw std::runtime_error("sdk-play: Project game defaults must include application_id");
         config.runtime.validate();
+        config.execution.validate();
         if (config.input.source().dump().size() > 1024 * 1024)
             throw std::runtime_error("sdk-play: Input map exceeds 1 MiB");
         modules = std::move(config.modules);
@@ -188,6 +189,7 @@ struct SdkPlayRuntime::State {
 
         GameSessionConfig session_config;
         session_config.clock = config.runtime;
+        session_config.execution = config.execution;
         session_config.input = config.input;
         session_config.physics = config.physics;
         session_config.audio = config.audio;

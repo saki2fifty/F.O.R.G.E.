@@ -1,5 +1,16 @@
 # Feature Gallery
 
+## Fixed ECS worker example
+
+Open `161-fixed-ecs-workers` for sixteen colored cubes, camera and light. It is
+static until the supplied C++ component/system is built and attached. Follow
+[ParallelMotion setup](../../../manual/editor/native-gameplay.md) to create the
+managed Component/System, use the canonical `CodeExamples/ParallelMotion.hpp`
+and `.cpp`, then set **Fixed ECS workers** to 4 and save settings. Positive and
+negative speed move each attached cube along its owned local X. Compare with 1
+after restarting Play. Save the Scene and settings before exporting with matching
+module/runtime kits. This small example illustrates behavior, not speedup.
+
 ## Input Message triggers
 
 Open `160-local-fog-volumes` to compare blue box mist and warm ellipsoid mist

@@ -2,6 +2,7 @@
 #include <forge/input.hpp>
 #include <forge/physics_components.hpp>
 #include <forge/project_paths.hpp>
+#include <forge/runtime_execution.hpp>
 #include <optional>
 namespace forge {
 // Shared project behavior only. No user layout, machine tools or live tick state.
@@ -13,6 +14,7 @@ class ProjectSettings {
     static void validate(const nlohmann::json& data);
     const nlohmann::json& document() const { return data_; }
     double simulation_hz() const { return data_.value("simulation_hz", 60.0); }
+    RuntimeExecutionConfig execution() const { return {data_.value("ecs_workers", 1u)}; }
     bool requires_native_sdk() const {
         for (const auto& module : data_.value("modules", nlohmann::json::array()))
             if (module.is_object())

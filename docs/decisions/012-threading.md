@@ -18,6 +18,17 @@ engine services own external subsystem lifetimes, worker supervisors already iso
 converters. Fresh synthetic Flecs measurements show workload-dependent gains, not
 permission to multithread every engine callback.
 
+## Opt-in fixed ECS stages
+
+`RuntimeSimulation` owns the configured native fixed-pipeline stages for an
+explicit project count above one, including the caller. Default remains one;
+existing engine/provider systems retain their ownership. Only native systems
+marked multi-threaded distribute declared query data, and stages merge at native
+pipeline boundaries. They retire before runtime callbacks/providers and module
+leases. This implements the declared-stage decision without an engine task graph.
+See [Project Code](../native-modules.md) for the execution value, profiling limits,
+recovery and package compatibility contract.
+
 ## PlaySession transport: narrow transport-only owner
 
 The editor's `forge::PlaySession` runs an external FORGE runtime as a child
@@ -69,7 +80,7 @@ are subsystem boundaries, not ordinary ECS defer operations.
 
 The PlaySession transport worker is a single std::thread per active session. It is
 joined in `PlaySession::close_process()`; the worker thread is never detached. No
-engine-wide scheduler is introduced; no parallel fixed systems are added.
+engine-wide scheduler is introduced by transport; it does not schedule fixed systems.
 
 ## Deferred work and exact trigger
 

@@ -232,7 +232,8 @@ struct ProjectAutomation {
                 std::string("project.settings.") + action,
                 std::string(action) +
                     " the existing project settings draft at the exact observed "
-                    "digest. Edit supports name, simulation frequency, startup "
+                    "digest. Edit supports name, simulation frequency, ecs_workers (integer "
+                    "1..16 including the owner; explicitly parallel C++ systems only), startup "
                     "scene, input (including analog outer_deadzone and "
                     "response_exponent bindings), physics and game configuration. Save uses "
                     "ordinary baseline checks; settings have no Scene Undo.",
@@ -243,7 +244,8 @@ struct ProjectAutomation {
                         auto candidate =
                             AssetDocumentAutomation::patch(editor.draft_, request.at("patch"));
                         static const std::set<std::string> admitted{
-                            "name", "simulation_hz", "startup_scene", "input", "physics", "game"};
+                            "name",  "simulation_hz", "ecs_workers", "startup_scene",
+                            "input", "physics",       "game"};
                         const auto unchanged = [&](const Json& before, const Json& after) {
                             for (const auto& [key, value] : before.items())
                                 if (!admitted.contains(key) &&

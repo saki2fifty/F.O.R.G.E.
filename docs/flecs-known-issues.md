@@ -116,6 +116,25 @@ Verified2026-09-20 at the same exact pin.
 - **Removal:** re-evaluate the exact getter implementation in a future stable
   release, retaining full-width enum round-trip and invalid-value tests.
 
+## Per-system timing with native worker stages
+
+At pin `fb55f3c25660425cfe1bc4cf5e6bff8b3f18a9b8`,
+`src/addons/system/system.c` updates a shared system's `time_spent` with a
+non-atomic addition in each invocation when `EcsWorldMeasureSystemTime` is set.
+Parallel stages invoke that same system record. `FlecsStatsImport` enables this
+measurement, and WorldContext imports native statistics. This is a source-level
+concurrency finding, without a separate ThreadSanitizer capture.
+
+RuntimeSimulation suppresses native per-system measurement while worker stages
+can run, restores the previous flag on retirement, and reports unavailable
+per-system times rather than partial totals. Whole fixed-tick host scopes remain
+valid. The existing native trace adapter uses a thread-local capture and records
+the owner stage only. Pipeline plan/merge metadata remains native-owned. No
+dependency patch, replacement counters or alternate scheduler is introduced.
+Default single-stage native timing remains enabled as before. Keep the limitation
+explicit in Profiler/UI/API documentation and test worker-mode flag suppression,
+owner-stage execution and restoration before enabling the configuration in hosts.
+
 ## Capabilities absent from this pin
 
 `on_validate`, native Meta maps and Script template declaration inheritance are **UNAVAILABLE IN PINNED STABLE VERSION**.

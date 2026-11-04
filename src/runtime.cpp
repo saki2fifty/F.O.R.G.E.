@@ -174,10 +174,19 @@ std::map<std::uint64_t, EvaluatedTransform> PresentationPoses::evaluate(double a
     }
     return evaluate_transforms(nodes);
 }
-RuntimeSimulation::RuntimeSimulation(WorldContext& context, Scene& scene)
+RuntimeSimulation::RuntimeSimulation(WorldContext& context, Scene& scene,
+                                     RuntimeExecutionConfig execution)
     : context_(context), scene_(scene) {
+    execution.validate();
     if (context.role() != WorldRole::Runtime)
         throw std::runtime_error("Simulation requires a runtime WorldContext");
+    if (!context.on_owner_thread() || context.world().is_readonly())
+        throw std::runtime_error("Simulation requires the writable runtime owner thread");
+    if (execution.ecs_workers > 1 &&
+        (context.world().get_threads() != 1 || ecs_using_task_threads(context.world())))
+        throw std::runtime_error("Fixed ECS workers already have an external configuration owner");
+    if (execution.ecs_workers > 1 && !ecs_os_has_threading())
+        throw std::runtime_error("Native fixed ECS workers are unavailable on this host");
     animation_ = animation_runtime(context);
     particles_ = particle_runtime(context);
     if (context.services().available(Capability::Navigation)) {
@@ -323,6 +332,18 @@ RuntimeSimulation::RuntimeSimulation(WorldContext& context, Scene& scene)
     reset_presentation();
     previous_state_retirement_ = exchange_application_state_retirement_handler(
         world, [this] { reconcile_state_conditions(); });
+    // The pinned native per-system counter is shared across worker callbacks.
+    // Keep it disabled while stages can run concurrently; host scopes remain valid.
+    if (execution.ecs_workers > 1 || world.get_threads() > 1) {
+        previous_system_timing_ = (ecs_world_get_flags(world) & EcsWorldMeasureSystemTime) != 0;
+        if (ecs_os_has_time())
+            ecs_measure_system_time(world, false);
+        system_timing_suppressed_ = true;
+    }
+    if (execution.ecs_workers > 1) {
+        world.set_threads(static_cast<int>(execution.ecs_workers));
+        owns_workers_ = true;
+    }
 }
 void RuntimeSimulation::reconcile_state_conditions() {
     if (physics_)
@@ -331,6 +352,11 @@ void RuntimeSimulation::reconcile_state_conditions() {
         audio_->refresh_sources();
 }
 RuntimeSimulation::~RuntimeSimulation() {
+    // Join owned stages before retiring systems, providers or module code leases.
+    if (owns_workers_)
+        context_.world().set_threads(1);
+    if (system_timing_suppressed_ && ecs_os_has_time())
+        ecs_measure_system_time(context_.world(), previous_system_timing_);
     exchange_application_state_retirement_handler(context_.world(),
                                                   std::move(previous_state_retirement_));
     context_.world().set_pipeline(previous_pipeline_);
@@ -369,6 +395,10 @@ Json RuntimeSimulation::input_status() const {
     return status;
 }
 void RuntimeSimulation::tick(float dt) {
+    if (!context_.on_owner_thread() || context_.world().is_readonly())
+        throw std::runtime_error("Gameplay tick requires the writable runtime owner thread");
+    if (system_timing_suppressed_ && ecs_os_has_time())
+        ecs_measure_system_time(context_.world(), false);
     if (!std::isfinite(dt) || dt <= 0)
         throw std::runtime_error("Gameplay requires a positive fixed tick delta");
     // progress updates Flecs frame/time metadata from this explicit fixed delta.
@@ -477,16 +507,16 @@ void RuntimeSimulation::capture_system_profile() {
             if (!system)
                 throw std::runtime_error("Native pipeline contains an unavailable system");
             const double seconds = system->time_spent;
-            rows.push_back(
-                {{"kind", "system"},
-                 {"id", id},
-                 {"name", name(id)},
-                 {"phase", name(ecs_get_target(world, id, EcsDependsOn, 0))},
-                 {"cpu_seconds", ecs_os_has_time() && std::isfinite(seconds) && seconds >= 0
-                                     ? Json(seconds)
-                                     : Json(nullptr)},
-                 {"immediate", system->immediate},
-                 {"multi_threaded", system->multi_threaded}});
+            rows.push_back({{"kind", "system"},
+                            {"id", id},
+                            {"name", name(id)},
+                            {"phase", name(ecs_get_target(world, id, EcsDependsOn, 0))},
+                            {"cpu_seconds", !system_timing_suppressed_ && ecs_os_has_time() &&
+                                                    std::isfinite(seconds) && seconds >= 0
+                                                ? Json(seconds)
+                                                : Json(nullptr)},
+                            {"immediate", system->immediate},
+                            {"multi_threaded", system->multi_threaded}});
         }
         system_profile_ = {{"available", true},
                            {"tick", input_tick_},
@@ -495,6 +525,11 @@ void RuntimeSimulation::capture_system_profile() {
                            {"total_entries", count},
                            {"truncated", count > limit},
                            {"entries", std::move(rows)}};
+        if (context_.world().get_threads() > 1) {
+            system_profile_["ecs_workers"] = context_.world().get_threads();
+            system_profile_["native_system_timing"] = false;
+            system_profile_["system_trace_scope"] = "owner_thread";
+        }
     } catch (const std::exception& error) {
         system_profile_ = {{"available", false}, {"reason", error.what()}};
     }

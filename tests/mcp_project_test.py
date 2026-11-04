@@ -57,11 +57,18 @@ for legacy in (False, True):
         assert read('forge_project_list')['total'] == 0
         original = settings()
         assert not original['dirty']
+        for invalid in (None, False, 0, -1, 17, 4.0, '4', 2**32):
+            result = settings_edit('forge_project_settings_edit',
+                                  patch=[dict(op='add', path='/ecs_workers', value=invalid)])
+            assert not result['ok'] and settings()['state'] == original['state'], result
+        changed_workers = settings_edit('forge_project_settings_edit',
+                                       patch=[dict(op='add', path='/ecs_workers', value=4)])
+        assert changed_workers['ok'] and settings()['dirty'], changed_workers
         assert not settings_edit('forge_project_settings_edit', patch=[dict(op='replace', path='/simulation_hz', value=0)])['ok']
-        assert settings()['state'] == original['state']
+        assert settings()['state'] == changed_workers['result']['state']
         denied = settings_edit('forge_project_settings_edit', patch=[dict(op='add', path='/modules', value=[])])
         failed(denied, 'unsupported_setting')
-        assert settings()['state'] == original['state']
+        assert settings()['state'] == changed_workers['result']['state']
         changed = settings_edit('forge_project_settings_edit', patch=[dict(op='replace', path='/simulation_hz', value=120)])
         assert changed['ok'] and changed['result']['dirty'], changed
         failed(mutate('forge_project_settings_save', state=original['state']), 'stale_settings')
@@ -70,6 +77,7 @@ for legacy in (False, True):
         failed(settings_edit('forge_project_settings_close'), 'unsaved_document')
         assert settings_edit('forge_project_settings_save')['ok']
         assert json.loads((root / 'Initial/forge.project.json').read_text())['simulation_hz'] == 120
+        assert json.loads((root / 'Initial/forge.project.json').read_text())['ecs_workers'] == 4
         assert settings_edit('forge_project_settings_close')['ok']
 
         # The same settings editor baseline rejects external writes.

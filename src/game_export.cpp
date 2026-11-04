@@ -197,7 +197,7 @@ Json export_standalone_game(const ProjectLease& lease, const GameExportRequest& 
     // Only runtime-owned configuration crosses the distribution boundary.
     // Machine tools, editor/plugin settings and arbitrary project extensions do not.
     settings = Json::object();
-    for (const char* field : {"version", "name", "simulation_hz", "physics", "input",
+    for (const char* field : {"version", "name", "simulation_hz", "ecs_workers", "physics", "input",
                               "startup_scene", "game", "modules"})
         if (original_settings.contains(field))
             settings[field] = original_settings.at(field);
@@ -281,7 +281,7 @@ Json export_standalone_game(const ProjectLease& lease, const GameExportRequest& 
     package_runtime_content(source.root(), scratch / "content", roots, target, {}, stop,
                             reference_schema, inspect);
     const auto content = open_runtime_content(scratch / "content", target, {}, stop);
-    validate_runtime_compatibility(content, engine);
+    validate_runtime_compatibility(content, engine, &settings);
     settings["startup_scene"]["source"] = path_utf8(content.records().at(startup).source);
     progress("Collect runtime and native modules", 3);
     for (const auto& [file, info] : runtime.at("files").items()) {

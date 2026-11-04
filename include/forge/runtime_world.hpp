@@ -7,7 +7,7 @@ namespace forge {
 class RuntimeWorld {
   public:
     RuntimeWorld(std::vector<EngineModule>, PhysicsConfig, const std::optional<AudioConfig>&,
-                 const std::filesystem::path&, bool ui);
+                 const std::filesystem::path&, bool ui, RuntimeExecutionConfig execution = {});
     std::shared_ptr<PhysicsRuntime> physics();
     // Candidate CPU readiness before the first native realization. Map cells
     // stay owned by the existing Map/resource adapters; no gameplay time advances.

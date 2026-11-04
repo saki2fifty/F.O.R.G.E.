@@ -42,6 +42,53 @@ Runtime protocol 2 carries correlated JSON-line requests. The runtime owns its
 fixed clock; Step means one fixed tick. Editor FPS and transport polling never
 supply simulation time. Source save and scene save have separate document history.
 
+## Fixed ECS worker execution
+
+Project setting `ecs_workers` is a strict JSON integer in 1..16, including the
+calling owner stage. An absent value means 1; reading a legacy manifest does not
+rewrite it. Project Settings and `project.settings.edit` share the settings draft
+and validation owner. Save/restart applies the value to ordinary runtime hosts,
+exact-SDK Play and standalone `GameSession` construction. It is not a live worker
+resize control. `RuntimeExecutionConfig` exposes the same bounded value to C++.
+
+`RuntimeSimulation` configures native stages after composing its fixed pipeline.
+Only explicitly `multi_threaded()` systems distribute their declared-access
+queries. Immediate systems, providers, Scene/world ownership and external
+services retain their contracts. ECS-only callbacks must use iterator stages,
+owned writable query terms and safe local/read-only data. They must not mutate
+the root host world, call owner-thread services, share unsynchronized mutable
+state or throw through native worker dispatch. A read-only query does not make
+an arbitrary captured callback safe. Worker count and callback cost determine
+whether parallel execution helps; no automatic workload policy is introduced.
+
+Native workers join before runtime-owned systems/providers retire. World
+replacement constructs and retires complete worlds using the configured count.
+An explicit multi-stage request refuses an existing external thread/task-thread
+configuration owner. The default C++ config leaves external native configuration
+alone; callers must not reconfigure it while simulation is active. Existing
+fixed-clock Pause/Step and owner merge boundaries remain authoritative.
+
+The exact pin's per-system accumulated timing uses a shared non-atomic counter.
+Parallel runtime suppresses that measurement, restores its previous flag on
+retirement and reports `cpu_seconds:null`, `native_system_timing:false`,
+`system_trace_scope:"owner_thread"` and the actual `ecs_workers` in the ECS plan.
+Owner-thread scope timing still includes whole-tick synchronization. Native
+system traces omit worker spans. These limits also apply through automation/MCP;
+the plan is not a complete worker timeline. See [known issues](flecs-known-issues.md).
+
+Ordinary private recovery records nondefault worker counts and rejects a
+checkpoint at a different execution configuration. Legacy sequential checkpoints
+retain their default meaning. Exact-SDK Play checkpoint recovery remains
+unsupported. Export retains the saved value; counts above 1 require runtime kit
+`engine.runtime_ecs_workers:1` at export and distribution admission. This is a
+runtime feature profile, not a new Scene/manifest version or a C ABI revision.
+The installed execution header participates in the exact SDK fingerprint.
+
+The independently authored `ParallelMotion` example declares const data plus an
+owned writable translation, opts into native stages, and uses the iterator's
+entity for deferred `modified`. It has no host-service dependency. Installed SDK
+sample target `parallel_motion_gameplay` builds the same canonical Gallery source.
+
 ## Typed 2D physics
 
 The existing Physics permission includes distinct XY movement/load/velocity,

@@ -15,12 +15,15 @@ from mcp_ui_sequence_play import check_ui_sequence_play
 from mcp_camera_shot_play import check_camera_shot_play
 from mcp_mesh_wind_play import check_mesh_wind_play
 from mcp_fog_volume_play import check_fog_volume_play
+from mcp_runtime_workers_play import check_runtime_workers_play
 
 TOOLS, HOST, RUNTIME, KIT, NAV = sys.argv[1:6]
 MESH_WIND_SDK = sys.argv[7:] == ['--mesh-wind-sdk-only']
 MESH_WIND_ONLY = sys.argv[7:] == ['--mesh-wind-only'] or MESH_WIND_SDK
 FOG_VOLUMES_SDK = sys.argv[7:] == ['--fog-volumes-sdk-only']
 FOG_VOLUMES_ONLY = sys.argv[7:] == ['--fog-volumes-only'] or FOG_VOLUMES_SDK
+WORKERS_SDK = len(sys.argv) == 9 and sys.argv[7] == '--ecs-workers-sdk-only'
+WORKERS_ONLY = WORKERS_SDK
 NAVIGATION_ONLY = sys.argv[7:] == ['--navigation-only']
 NAVIGATION_LINKS_ONLY = sys.argv[7:] == ['--navigation-links-only']
 NAVIGATION_COLLECTION_ONLY = sys.argv[7:] == ['--navigation-collection-only']
@@ -140,6 +143,23 @@ def message_project_template(root):
     return output
 
 
+def workers_project_template(root):
+    output = root / 'Workers template'
+    output.mkdir()
+    gallery = Path(__file__).resolve().parents[1] / 'samples/projects/FeatureGallery'
+    settings = json.loads((gallery / 'forge.project.json').read_text())
+    settings['startup_scene'] = None
+    settings['ecs_workers'] = 1
+    module = Path(sys.argv[8]).resolve()
+    shutil.copy2(module, output / module.name)
+    fingerprint = json.loads(subprocess.check_output([RUNTIME, '--sdk-info'], text=True))['fingerprint']
+    settings['modules'] = [dict(id='project.parallel_motion', implementation='1', sdk='experimental-1',
+                               fingerprint=fingerprint, library=module.name, dependencies=['forge.transforms'])]
+    (output / 'forge.project.json').write_text(json.dumps(settings))
+    (output / 'forge.assets.json').write_text(json.dumps(dict(version=2, assets=[])))
+    return output
+
+
 def map_profile_project_template(root):
     return selected_project_template(root, (
         'Assets/Tiles/PaintedPlatforms.tilemap.json', 'Assets/Tiles/ContourTiles.tilemap.json'),
@@ -157,7 +177,9 @@ def editor(mode='full'):
         # State-only checks need the real packaged font, but no Windows export kit.
         host_resources = str(Path(__file__).resolve().parents[1]) if APPLICATION_STATES_ONLY else KIT
         command = [HOST, str(root), RUNTIME, host_resources, NAV, mode]
-        if CAMERA_TRANSITION_ONLY:
+        if WORKERS_ONLY:
+            command.append(str(workers_project_template(root)))
+        elif CAMERA_TRANSITION_ONLY:
             command.append(str(selected_project_template(root, ('Scenes/68-sequence-camera-shots.scene.json', 'Assets/Sequences/SlidingDoor.animation.json'), 'Camera transition template')))
         elif UI_SEQUENCE_ONLY:
             command.append(str(selected_project_template(root, ('Scenes/151-sequence-ui.scene.json', 'Assets/Sequences/UiValues.animation.json', 'Assets/UI/Sequence/hud.rml', 'Assets/UI/Sequence/hud.rcss'), 'UI sequence template')))
@@ -171,7 +193,7 @@ def editor(mode='full'):
             command.append(str(audio_profile_project_template(root)))
         elif SPRITE_FRAMES_ONLY or UI_LOCALIZATION_ONLY:
             command.append(str(Path(__file__).resolve().parents[1]/'samples/projects/FeatureGallery'))
-        if AUDIO_PAUSE_ONLY or LIFETIMES_ONLY or CONDITIONS_SDK or MESSAGES_ONLY or MESH_WIND_SDK or FOG_VOLUMES_SDK:
+        if AUDIO_PAUSE_ONLY or LIFETIMES_ONLY or CONDITIONS_SDK or MESSAGES_ONLY or MESH_WIND_SDK or FOG_VOLUMES_SDK or WORKERS_SDK:
             command.append('--sdk')
         process = subprocess.Popen(command,
                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE,
@@ -261,6 +283,10 @@ for legacy in (False, True):
         assert {'forge_play_start', 'forge_play_ui_command', 'forge_export_start',
                 'forge_script_preview', 'forge_navigation_build', 'forge_navigation_overlay',
                 'forge_dependencies_save'} <= names
+        if WORKERS_ONLY:
+            check_runtime_workers_play(read, ok, control, mutate, until, discovery)
+            print(('legacy' if legacy else 'current') + ': fixed-worker settings and original C++ module through native scoped Play passed')
+            continue
         if FOG_VOLUMES_ONLY:
             assert 'Fog Volume' in advertised['forge_play_tune']['description']
             check_fog_volume_play(read, ok, control, mutate, until, discovery, FOG_VOLUMES_SDK)

@@ -1,5 +1,6 @@
 #include "application_state_fixture.hpp"
 #include "asset_automation.hpp"
+#include "authored_components.hpp"
 #include "automation.hpp"
 #include "content.hpp"
 #include "dependency_automation.hpp"
@@ -82,6 +83,14 @@ int main(int argc, char** argv) {
         std::vector<std::string> recent;
         forge::EditorFiles files(scene, nullptr, recent);
         files.start(root / "Game");
+        forge::AuthoredComponents authored;
+        authored.project_changed(scene, files.document);
+        // A real native Inspect Components task admits the fixture's external
+        // module. Subsequent agent authoring uses its published scene schemas.
+        for (const auto& module :
+             files.document.settings().document().value("modules", forge::Json::array()))
+            if (module.at("id") == "project.parallel_motion")
+                authored.inspect(files.document, runtime);
         const std::unique_ptr<ImGuiContext, decltype(&ImGui::DestroyContext)> imgui(
             ImGui::CreateContext(), ImGui::DestroyContext);
         ImGui::GetIO().IniFilename = nullptr;
@@ -246,6 +255,14 @@ int main(int argc, char** argv) {
                                   mode == "ui_localization" || mode == "application_states";
         if (permissions.export_game)
             permissions.export_root = root / "Output";
+        const auto inspection_deadline =
+            std::chrono::steady_clock::now() + std::chrono::seconds(30);
+        while (authored.busy()) {
+            if (std::chrono::steady_clock::now() >= inspection_deadline)
+                throw std::runtime_error("Fixture component inspection timed out");
+            authored.poll(scene, files.document);
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
         workspace.start(scene, files, mode != "read", mode != "read", permissions);
         std::cout << workspace.connection().connection().dump() << std::endl;
         std::string message;
@@ -254,6 +271,7 @@ int main(int argc, char** argv) {
         while (workspace.active() && std::chrono::steady_clock::now() < end &&
                !forge::test::marker_present(root / "stop")) {
             files.changed = false;
+            authored.poll(scene, files.document);
             content.poll(files);
             if (!content.refreshing())
                 content.refresh(files);

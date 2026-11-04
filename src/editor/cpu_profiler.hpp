@@ -416,6 +416,11 @@ class CpuProfiler {
                         entries.size(), status.at("total_entries").get<unsigned>());
             ImGui::TextWrapped("Systems without matches are absent. Merge rows are native "
                                "synchronization points. This plan is not an execution trace.");
+            if (const auto workers = status.value("ecs_workers", 1u); workers > 1)
+                ImGui::TextWrapped("%u ECS stages. Per-system lifetime timings are unavailable "
+                                   "with workers. System trace scopes cover the owner thread; "
+                                   "whole fixed-tick timings remain available.",
+                                   workers);
             if (status.at("truncated").get<bool>())
                 ImGui::TextWrapped("Showing the first 256 entries; the native plan is larger.");
             ImGui::SetNextItemWidth(-1);

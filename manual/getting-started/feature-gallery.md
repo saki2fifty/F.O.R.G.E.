@@ -1,5 +1,12 @@
 # Explore the Feature Gallery
 
+**161-fixed-ecs-workers** provides sixteen colored cubes, camera and light for
+the supplied ParallelMotion C++ example. It stays static until you build the
+example and attach Parallel Motion to cubes. Compare saved **Fixed ECS workers**
+settings of 1 and 4, use Pause/Step, and tune positive or negative speed in Live
+gameplay. Save and export with the matching module and worker-capable runtime
+kit. Follow [Worker system setup](../editor/native-gameplay.md).
+
 **160-local-fog-volumes** surrounds depth markers with a blue box and a warm
 ellipsoid. Select either mist entity and use **Inspector → Fog Volume** to change
 Shape, Density, half extents or Enabled. The center markers sit outside both

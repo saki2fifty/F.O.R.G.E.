@@ -15,6 +15,7 @@ def validate_guides(stage):
                 assert resolved.is_relative_to(stage/'sdk') and resolved.is_file(), f'Broken installed guide link: {target}'
 
 focused_targets = {
+    '--ecs-workers-only': 'parallel_motion_gameplay',
     '--sequence-only': 'sequence_gameplay',
     '--prefab-only': 'prefab_gameplay',
     '--ui-localization-only': 'ui_localization_gameplay',
@@ -63,6 +64,18 @@ if len(sys.argv) == 5 and sys.argv[4] in focused_targets:
         stage.rename(moved)
         env=os.environ.copy()
         if not windows:env['LD_LIBRARY_PATH']=str(moved/'bin')+':'+env.get('LD_LIBRARY_PATH','')
+        if sys.argv[4] == '--ecs-workers-only':
+            source = Path(__file__).resolve().parents[1]
+            for name in ('runtime_execution.hpp',):
+                assert (moved/'sdk/include/forge'/name).read_bytes() == (source/'include/forge'/name).read_bytes()
+            for name in ('ParallelMotion.cpp', 'ParallelMotion.hpp'):
+                assert (moved/'sdk/sample'/name).read_bytes() == (source/'samples/projects/FeatureGallery/CodeExamples'/name).read_bytes()
+            subprocess.run([sys.executable, str(Path(__file__).with_name('runtime_workers_process_test.py')),
+                            str(moved/'bin'/('forge_runtime'+exe)), str(module),
+                            str(source/'samples/projects/FeatureGallery')],
+                            env=env, cwd=moved, check=True, timeout=120)
+            print('Installed-only original parallel system and relocated runtime worker policy passed')
+            sys.exit(0)
         if sys.argv[4] == '--sequence-only':
             source = Path(__file__).resolve().parents[1]
             assert (moved/'sdk/include/forge/animation_components.hpp').read_bytes() == (source/'include/forge/animation_components.hpp').read_bytes()

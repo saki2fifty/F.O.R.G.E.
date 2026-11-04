@@ -66,6 +66,33 @@ discarding it. Source files must be UTF-8 and at most 1 MiB; up to 32 tabs may
 be open. This editor does not include a debugger, full IDE completion or arbitrary
 in-place C++ reload.
 
+## Run an ECS system on worker stages
+
+Open **161-fixed-ecs-workers** in a writable Feature Gallery copy. Its sixteen
+cubes are a static setup stage until you build and attach the supplied component.
+The camera and light are ready for Play.
+
+1. Set up C++ code with the matching Native SDK and compiler as described above.
+2. Create a C++ Component named **ParallelMotion**. Replace `Native/Components/ParallelMotion.hpp` with `CodeExamples/ParallelMotion.hpp` from the Gallery.
+3. Create a C++ System named **ParallelMotion**, selecting **None (empty registration)**. Replace `Native/Systems/ParallelMotion.cpp` with `CodeExamples/ParallelMotion.cpp`. Change its first include to `#include "../Components/ParallelMotion.hpp"` so it finds your component header.
+4. Save both files and choose **Build Project Code**. Inspect components if the Build panel asks for it.
+5. Select a motion cube and add **Parallel Motion** in Inspector. Set **speed** to 1, or a negative value to move left. Attach it to more cubes to give the query more work. Save the Scene.
+6. Open **Tools → Project Settings**, set **Fixed ECS workers** to 4 and click **Save Settings**. Press Play, then use Pause and Step to inspect movement. Each fixed second moves an attached cube by its speed along local X.
+7. Compare with a saved setting of 1 after restarting Play. Cube motion should match. Sixteen cubes are a small demonstration, not a speed benchmark.
+
+The example declares read-only component data and a writable, owned translation.
+Only its explicit `multi_threaded()` system is distributed. Its modification
+notification uses the iterator's staged entity and publishes at the native merge.
+Do not call owner-thread services, manipulate the root world, change shared
+containers, or let exceptions escape a worker callback. Physics, audio, assets,
+rendering and editor documents keep their existing service contracts.
+
+Use the colored **Live gameplay** Inspector to change speed while playing. Those
+values remain temporary unless you capture and keep them after Stop. Save the
+Scene and worker setting, choose the Scene as startup, build the matching module
+and export with its module kit and a worker-capable runtime kit. Runtime-only
+motion does not overwrite the authored positions.
+
 ## Tune values while playing
 
 During Play, the Inspector has a **Live gameplay** section for admitted reflected

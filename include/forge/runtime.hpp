@@ -5,6 +5,7 @@
 #include <forge/input.hpp>
 #include <forge/navigation.hpp>
 #include <forge/physics.hpp>
+#include <forge/runtime_execution.hpp>
 #include <forge/scene.hpp>
 #include <functional>
 #include <optional>
@@ -80,7 +81,9 @@ class PresentationPoses {
 class ParticleRuntime;
 class RuntimeSimulation {
   public:
-    RuntimeSimulation(WorldContext& context, Scene& scene);
+    // Above-one requests own native stages until retirement. The default leaves
+    // a caller's preexisting native configuration untouched.
+    RuntimeSimulation(WorldContext& context, Scene& scene, RuntimeExecutionConfig execution = {});
     ~RuntimeSimulation();
     RuntimeSimulation(const RuntimeSimulation&) = delete;
     RuntimeSimulation& operator=(const RuntimeSimulation&) = delete;
@@ -135,6 +138,8 @@ class RuntimeSimulation {
     flecs::entity navigation_phase_, navigation_system_;
     std::function<void()> previous_state_retirement_;
     std::exception_ptr stage_error_;
+    bool owns_workers_ = false;
+    bool system_timing_suppressed_ = false, previous_system_timing_ = false;
     template <class F> void stage(F&& f) noexcept {
         if (stage_error_)
             return;

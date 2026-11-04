@@ -24,6 +24,7 @@ set(FORGE_SDK_HEADERS native_sdk.h sdk_client.hpp input_message.hpp identity.hpp
 list(APPEND FORGE_SDK_HEADERS application_state_components.hpp application_state_ecs.hpp application_state_key.hpp)
 list(APPEND FORGE_SDK_HEADERS mesh_wind.hpp)
 list(APPEND FORGE_SDK_HEADERS fog_volume.hpp)
+list(APPEND FORGE_SDK_HEADERS runtime_execution.hpp)
 set(FORGE_SDK_CONTRACT_HASHES "")
 foreach(header IN LISTS FORGE_SDK_HEADERS)
  set(path "${PROJECT_SOURCE_DIR}/include/forge/${header}")

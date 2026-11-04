@@ -207,6 +207,7 @@ int main(int argc, char** argv) {
         config.content_root = root;
         config.ui = true;
         config.clock.simulation_hz = project.simulation_hz();
+        config.execution = project.execution();
         config.physics = project.physics();
         config.input = InputMap(settings.at("input_map"));
         config.audio = AudioConfig{root, software ? AudioOutput::Offline : AudioOutput::Device,

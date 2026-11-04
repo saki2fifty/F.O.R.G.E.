@@ -1,4 +1,5 @@
 #include "json_document.hpp"
+#include "runtime_execution_values.hpp"
 #include <cmath>
 #include <forge/game_settings.hpp>
 #include <forge/native_sdk.hpp>
@@ -20,6 +21,7 @@ Json ProjectSettings::defaults(const std::string& name) {
     return {{"version", 2},
             {"name", name},
             {"simulation_hz", 60},
+            {"ecs_workers", 1},
             {"physics",
              {{"version", 1}, {"gravity", {0, -9.81, 0}}, {"layers", PhysicsConfig{}.layers}}},
             {"startup_scene", nullptr},
@@ -30,6 +32,7 @@ void ProjectSettings::validate(const Json& data) {
         !data.at("name").is_string() || data.at("name").get<std::string>().empty())
         throw std::runtime_error("Expected project version 2 and a name");
     const double hz = data.value("simulation_hz", 60.0);
+    (void)detail::read_runtime_execution(data);
     if (!std::isfinite(hz) || hz < 1 || hz > 240)
         throw std::runtime_error("Project simulation frequency must be 1..240 Hz");
     const InputMap input(data.at("input"));

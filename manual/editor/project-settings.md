@@ -16,6 +16,25 @@ Choose a saved startup scene and configure the game defaults before exporting.
 
 The default is 60 Hz. Step still advances exactly one tick; at 120 Hz that tick represents 1/120 second. Settings apply when you next start Play. Saving settings does not alter scene Undo/Redo or the authored scene.
 
+## Use fixed ECS workers
+
+![Project Settings with four fixed ECS stages selected](../images/fixed-ecs-workers-settings.png)
+
+1. Stop Play and open **Tools → Project Settings**.
+2. Set **Fixed ECS workers** to **1–16**. The count includes the calling owner thread; 4 means that thread plus three workers.
+3. Click **Save Settings**, then start Play again.
+
+The default is 1. Extra stages run only C++ systems explicitly declared
+`multi_threaded()`. Ordinary systems and engine services retain their thread
+ownership. Increasing this setting alone may add overhead without making a game
+faster. Compare the same workload and choose the lowest useful count.
+
+Step still advances one fixed tick, and Pause stops fixed gameplay. Live property
+edits apply between ticks. Save the setting before export and use a matching
+runtime kit; an older kit without worker support is rejected. Players do not
+need a compiler. See [Write a worker-safe system](native-gameplay.md) and
+[Profiling limits](performance.md).
+
 ## Choose the startup scene
 
 Save your current scene, then click **Use saved current scene as startup** and **Save Settings**. FORGE stores the scene's asset identity. Moving its file inside the project does not change that identity. Copying a scene file by hand can create duplicate identities and makes startup ambiguous; use the editor's Save scene As... workflow for an independent scene.

@@ -209,6 +209,12 @@ parallel ECS-only SDK workloads, not globally enabling four threads. Diligent,
 physics adoption, audio control, animation contexts and navigation provider calls
 keep their owner-thread contracts. Every entity in the threaded probe was checked against a sequential numeric reference. No default scheduling policy changes here.
 
+The runtime now offers explicit project `ecs_workers` configuration, default 1,
+for declared worker-safe fixed systems. See [Project Code contract](native-modules.md)
+for configuration, merges/lifetime, kit admission and profiling restrictions.
+The numeric figures above are earlier isolated library evidence; they are not
+measurements of an editor/game workload or a universal speedup guarantee.
+
 ## Modules and process-wide facilities
 
 Built-in ECS registration imports Flecs modules beneath EngineModule. The latter

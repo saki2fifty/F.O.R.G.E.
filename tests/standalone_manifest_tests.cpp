@@ -4,6 +4,7 @@
 #include "game_export.hpp"
 #include "render_values.hpp"
 #include "runtime_document_package.hpp"
+#include "runtime_workers_package_tests.hpp"
 #include "standalone_manifest.hpp"
 #include <forge/game_settings.hpp>
 #include <forge/input_message.hpp>
@@ -58,6 +59,7 @@ int main(int argc, char** argv) {
         package_runtime_content(project, out / "content", roots, target);
         const auto catalog = open_runtime_content(out / "content", target);
         test_fog_package::exercise(scratch, check, reject);
+        test_worker_package::exercise(scratch, check, reject);
         {
             using package_detail::document_runtime_features;
             MeshWind wind;
@@ -320,6 +322,32 @@ int main(int argc, char** argv) {
             check(result.at("ok") && std::filesystem::exists(exported / "forge_game"),
                   "Export assembly failed");
             const auto first = asset_storage::read(exported / "forge.standalone.json");
+            project_settings["ecs_workers"] = 4;
+            ProjectSettings(project).save(project_settings);
+            reject([&] { export_standalone_game(lease, request); });
+            check(asset_storage::read(exported / "forge.standalone.json") == first,
+                  "An unsupported worker profile replaced the last good export");
+            runtime["engine"]["runtime_ecs_workers"] = runtime_ecs_worker_profile_version;
+            asset_storage::replace(kit / "forge.runtime-kit.json", runtime.dump());
+            (void)export_standalone_game(lease, request);
+            const auto worker_export =
+                open_standalone_distribution(exported, target, "static-core", std::string(64, 'a'));
+            check(worker_export.settings.at("ecs_workers") == 4,
+                  "Worker export dropped its saved execution configuration");
+            const auto relocated_workers = scratch / "relocated-worker-export";
+            std::filesystem::copy(exported, relocated_workers,
+                                  std::filesystem::copy_options::recursive);
+            check(open_standalone_distribution(relocated_workers, target, "static-core",
+                                               std::string(64, 'a'))
+                          .settings.at("ecs_workers") == 4,
+                  "Relocated worker distribution lost its execution configuration");
+            project_settings["ecs_workers"] = 1;
+            ProjectSettings(project).save(project_settings);
+            runtime["engine"].erase("runtime_ecs_workers");
+            asset_storage::replace(kit / "forge.runtime-kit.json", runtime.dump());
+            (void)export_standalone_game(lease, request);
+            check(asset_storage::read(exported / "forge.standalone.json") == first,
+                  "Serial export did not retain its existing manifest shape");
             std::filesystem::create_directories(project / "Native");
             asset_storage::replace(project / "Native/gameplay.cpp",
                                    "// Retired movement-only source remains on disk.\n");

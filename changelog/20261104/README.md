@@ -1,5 +1,21 @@
 # 2026-11-04
 
+## Opt-in fixed ECS workers
+
+Project Settings now saves 1..16 native fixed ECS stages, defaulting to one and
+including the calling owner thread. Explicitly parallel, declared-access C++
+systems use native worker stages and merge boundaries; services retain their
+ownership. Ordinary/SDK runtime hosts, world replacement, private recovery,
+standalone settings and kit admission use the shared execution value. Existing
+project automation/MCP edits the same settings draft. The installed SDK includes
+the original ParallelMotion component/system and an editable Gallery161 stage.
+
+Parallel per-system CPU totals are explicitly unavailable and native trace
+capture remains owner-thread-only. Whole-tick scopes retain synchronization
+cost. The manual documents controls, callback constraints, setup/export and these
+limits with an authentic Project Settings capture. Local source checks are
+separate from pending Windows, full-editor and physical-hardware acceptance.
+
 ## Local fog volumes
 
 Fog Volume adds native box/ellipsoid geometry fog with linear HDR medium color,

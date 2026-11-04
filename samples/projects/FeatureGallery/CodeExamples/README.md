@@ -1,5 +1,21 @@
 # Optional C++ behaviors
 
+## Fixed ECS worker motion
+
+Use `ParallelMotion.hpp` and `ParallelMotion.cpp` with Scene161. Create a managed
+Component **ParallelMotion** and replace its header. Create an empty System of
+the same name, replace its source, and change its first include to
+`../Components/ParallelMotion.hpp`. Save/build with the matching SDK, then attach
+**Parallel Motion** to cubes and set speed. Save **Fixed ECS workers** as 1 or 4
+in Project Settings and restart Play to compare identical fixed-tick movement.
+The query uses native declared-access stages; its notification merges on the
+owner. It does not call engine services from a worker. See the complete
+[setup and export steps](../../../../manual/editor/native-gameplay.md).
+
+The installed SDK's `parallel_motion_gameplay` target compiles these same files.
+Its isolated descriptor identifies the sample module; managed projects keep
+their own generated module descriptor and component registration owner.
+
 ## Connected 2D bodies
 
 Scene76 runs its saved joints without an optional module. Include

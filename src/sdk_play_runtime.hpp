@@ -82,6 +82,7 @@ class SdkPlayRuntime {
         Json defaults;
         std::optional<AudioConfig> audio;
         bool ui = false;
+        RuntimeExecutionConfig execution;
     };
     struct EffectOffer;
     explicit SdkPlayRuntime(Config);

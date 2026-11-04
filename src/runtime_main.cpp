@@ -7,6 +7,7 @@
 #include "flecs_system_trace.hpp"
 #include "json_document.hpp"
 #include "runtime_entity_creation.hpp"
+#include "runtime_execution_values.hpp"
 #include "runtime_io.hpp"
 #include "runtime_property_tune.hpp"
 #include "runtime_tile_map.hpp"
@@ -203,6 +204,10 @@ int main(int argc, char** argv) {
                                                         bootstrap_services.access());
             startup_phase("native-modules-ready");
         }
+        const auto execution = sdk_project ? sdk_project->execution()
+                               : project_root.empty()
+                                   ? forge::RuntimeExecutionConfig{}
+                                   : forge::ProjectSettings(project_root).execution();
         if (sdk_play) {
             // Editor Play host path for exact-SDK projects. Requires
             // --sdk-project and an absolute --user-data directory supplied
@@ -229,6 +234,7 @@ int main(int argc, char** argv) {
             host_config.project = project_root;
             host_config.user_base = user_data_base;
             host_config.runtime = config;
+            host_config.execution = execution;
             host_config.physics = sdk_project ? sdk_project->physics() : forge::PhysicsConfig{};
             host_config.modules = sdk_modules;
             host_config.defaults = std::move(defaults);
@@ -266,7 +272,7 @@ int main(int argc, char** argv) {
         using Runtime = forge::RuntimeWorld;
         startup_phase("world-begin");
         auto runtime = std::make_unique<Runtime>(sdk_modules, physics_config, audio_config,
-                                                 project_root, ui_enabled);
+                                                 project_root, ui_enabled, execution);
         startup_phase("world-ready");
         forge::InputMap input_map = sdk_project ? sdk_project->input() : forge::InputMap{};
         forge::RuntimeIo io;
@@ -310,6 +316,8 @@ int main(int argc, char** argv) {
                                       {"scene", runtime->scene.snapshot()},
                                       {"physics", runtime->physics()->checkpoint()}};
             checkpoint["tile_maps"] = std::move(tile_maps);
+            if (execution.ecs_workers != 1)
+                checkpoint["ecs_workers"] = execution.ecs_workers;
             checkpoint["application_states"] =
                 forge::checkpoint_application_states(runtime->engine.world().world());
             checkpoint["runtime_entity_lifetimes"] =
@@ -433,8 +441,9 @@ int main(int argc, char** argv) {
                         trace_replacement = !replacement_seen && startup_log.is_open();
                         replacement_seen = true;
                         replacement_phase("replace-world-begin");
-                        auto candidate = std::make_unique<Runtime>(
-                            sdk_modules, physics_config, audio_config, project_root, ui_enabled);
+                        auto candidate =
+                            std::make_unique<Runtime>(sdk_modules, physics_config, audio_config,
+                                                      project_root, ui_enabled, execution);
                         replacement_phase("replace-world-ready");
                         candidate->simulation.input().configure(input_map);
                         std::uint64_t recovered_tick = 0;
@@ -446,6 +455,7 @@ int main(int argc, char** argv) {
                             auto checksum = recovery.at("integrity").get<std::string>();
                             recovery.erase("integrity");
                             if (integrity(recovery) != checksum || recovery.at("version") != 2 ||
+                                forge::detail::read_runtime_execution(recovery) != execution ||
                                 recovery.at("simulation_hz") !=
                                     clock.status().at("simulation_hz") ||
                                 recovery.at("scene") != request.at("scene") ||

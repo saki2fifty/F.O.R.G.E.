@@ -1116,10 +1116,14 @@ class PlaySession {
                     runtime_schema_ = response.value("schema", Json());
                     runtime_world_generation_ = response.value("world_generation", std::uint64_t{});
                     timing_ = response.at("timing");
+                    const auto profile_generation =
+                        sdk_game_ ? response.value("activation", Json::object())
+                                        .value("generation", std::uint64_t{})
+                                  : runtime_world_generation_;
                     if (response.contains("cpu_profile"))
                         cpu_profile_ = response.at("cpu_profile");
                     else if (cpu_profile_.value("world_generation", std::uint64_t{}) !=
-                             runtime_world_generation_)
+                             profile_generation)
                         cpu_profile_ = Json::object();
 
                     audio_status_ = response.value("audio", Json::object());

@@ -9,7 +9,8 @@ struct StandaloneDistribution {
 };
 // Inspect the existing cooked document graph and feature requirements, including
 // Prefab overrides. Default/off content retains earlier runtime-kit compatibility.
-void validate_runtime_compatibility(const AssetCatalog&, const nlohmann::json& engine);
+void validate_runtime_compatibility(const AssetCatalog&, const nlohmann::json& engine,
+                                    const nlohmann::json* project = nullptr);
 // Full read-only admission before loading gameplay code or opening a window.
 StandaloneDistribution open_standalone_distribution(const std::filesystem::path&,
                                                     const RuntimePackageTarget&,

@@ -1894,6 +1894,18 @@ Local capture provenance is in
 This graph-only image does not establish a full editor window, Windows cooked
 Shader, Game/export, hardware DPI or physical GPU acceptance.
 
+## Fixed ECS worker settings
+
+`manual/images/fixed-ecs-workers-settings.png` is the canonical unretouched
+720x720 capture of production Project Settings with four stages saved. The
+`forge_runtime_workers_editor_tests` fixture drives real ImGui controls and
+the ordinary project Save owner, validation and Play lock at six wide/compact
+100/150/200% layouts. SDL software rendering supplies the pixels. Capture source,
+binary and image hashes are recorded locally in
+`AgentFiles/build/phase250-fixed-ecs-workers/capture-provenance.json`.
+This isolated control capture does not establish full-editor, Windows/MSVC,
+physical GPU/input/DPI, exported-game or hardware performance acceptance.
+
 ## Local Fog Volume Inspector
 
 `manual/images/fog-volume-inspector.png` is the canonical unretouched 720x900
