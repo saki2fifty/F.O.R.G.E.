@@ -5,13 +5,14 @@
 #include <string_view>
 
 namespace forge::ui_filter_detail {
-inline constexpr unsigned profile_version = 6;
+inline constexpr unsigned profile_version = 7;
 inline constexpr unsigned basic_profile_version = 1;
 inline constexpr unsigned shadow_profile_version = 2;
 inline constexpr unsigned backdrop_profile_version = 3;
 inline constexpr unsigned mask_profile_version = 4;
 inline constexpr unsigned box_shadow_profile_version = 5;
 inline constexpr unsigned luminance_profile_version = 6;
+inline constexpr unsigned shadow_motion_profile_version = 7;
 inline constexpr unsigned max_saved_textures = 24;
 inline constexpr unsigned max_layers = 4, max_chain = 8, max_filters = 256;
 inline constexpr unsigned max_images = 32;

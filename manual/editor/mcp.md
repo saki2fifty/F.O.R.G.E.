@@ -353,7 +353,7 @@ Play. See [collision clearance controls and limits](foliage.md).
 
 For box shadows, edit `box-shadow` or `data-style-box-shadow` through the same
 source tools, register the source, set **UI Values**, and use live tuning/reload.
-Keep blur radius within `0..32` pixels. Box-shadow keyframes/transitions are
+Keep blur radius within `0..32` pixels. Direct box-shadow list keyframes/transitions are
 unavailable; an invalid reload keeps the usable UI. Save the authored Scene and
 source before exporting with the supplied kit. See [Runtime UI](runtime-ui.md)
 for viewport and cached-texture limits.
@@ -406,3 +406,12 @@ revision. `forge_asset_document_cancel_pixels` cancels pending work.
 ordinary document Undo/Redo and Save / Publish workflow. These operations require
 asset-write access and retain the normal project, revision and retry rules.
 See [Paint a texture](texture-painting.md) for the equivalent controls and limits.
+
+
+For animated panel shadows, use the same source tools to create a
+`forge-shadow-panel` and its six `forge-shadow-*` controls. Use native keyframes
+or transitions, or bind a named UI Value to a control. Register the source, assign
+UI Document, save, and use the existing Play reload/tuning workflow. Keep blur
+within `0` to `32` resolved pixels and export with the supplied compatible kit. Direct
+`box-shadow` list animation is unsupported; see [Animate a panel shadow](runtime-ui.md)
+for syntax and shared resource limits.

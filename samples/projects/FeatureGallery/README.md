@@ -2224,3 +2224,13 @@ Use Live sound to pause/resume, restart or add a one-shot; check stream reservat
 and backing in Live audio mix. Save before exporting with the matching runtime kit.
 See the [audio guide](../../../manual/editor/audio.md#choose-resident-or-streamed-playback)
 for eight-voice, temporary-storage and import limits.
+
+
+## Animated UI shadows
+
+Open **173-ui-shadow-motion** and press **Play**. Color/offset keyframes, hover
+transitions, inset motion and a discrete inset switch share the existing native
+UI presentation path. Pause, then tune **Animated shadow lab HUD → UI Values →
+blur** from0..32 for the Live card. Stop, set authored values and save to keep
+them. Source edits live in **Assets/UI/ShadowMotion/Lab.rml**. Export the saved
+startup Scene with the matching supplied runtime kit.

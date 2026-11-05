@@ -705,7 +705,7 @@ See [Runtime UI](../editor/runtime-ui.md) for alpha, resource and chain limits.
 Open **167-ui-box-shadows** and press **Play**. Compare reference, hard offset,
 soft offset, spread, inset and live panels. Pause and tune **Box shadow lab HUD →
 UI Values → blur** between `0` and `32`. The small bar pulses opacity while
-simulation is paused; box-shadow keyframes are unavailable. Stop and save the
+simulation is paused. For animated shadow controls, use **173-ui-shadow-motion**. Stop and save the
 authored value to keep it. Export the saved startup Scene with the supplied kit.
 See [Runtime UI](../editor/runtime-ui.md) for syntax, shared resource limits and
 viewport clipping.
@@ -764,3 +764,12 @@ resume and restart the source in Play. Live audio mix separates resident PCM,
 stream page budgets and temporary disk backing. Save before exporting with the
 matching runtime kit. See [Audio](../editor/audio.md)
 for preparation, eight-voice and import limits.
+
+## Animated UI shadow samples
+
+Open **173-ui-shadow-motion** and press **Play**. Compare color/offset keyframes,
+hover/focus transitions, inner-shadow motion and a discrete inset switch. Pause,
+then tune **Animated shadow lab HUD → UI Values → blur** between `0` and `32` to
+change the Live card. Shadow motion continues while gameplay is paused. Stop,
+set authored starting values and save to keep them; export the saved startup
+Scene with the supplied runtime kit. See [Animate a panel shadow](../editor/runtime-ui.md).

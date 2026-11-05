@@ -405,15 +405,16 @@ source bytes and evidence; inspection transport and cooked metadata retain it.
 This is a conservative declaration requirement, including `filter:none`, not a
 prediction of arbitrary future rich-text/DOM injection.
 
-Runtime kits advertise `engine.runtime_ui_filters:6` from the same profile header.
+Runtime kits advertise `engine.runtime_ui_filters:7` from the same profile header.
 Known profiles are additive:1 blur/color,2 drop shadows,3 backdrop composition,
-4 alpha masks,5 box-shadow snapshots,6 luminance conversion.
-The existing compatibility helper admits requirements1..6 covered by a known kit
-profile1..6. Static basic filters retain1. Shadow declarations and ordinary dynamic
+4 alpha masks,5 box-shadow snapshots,6 luminance conversion,7 shadow-panel motion.
+The existing compatibility helper admits requirements1..7 covered by a known kit
+profile1..7. Static basic filters retain1. Shadow declarations and ordinary dynamic
 `data-style-filter` bindings retain2. `backdrop-filter` declarations (including
 none), `data-style-backdrop-filter` bindings require3. Static alpha masks require4;
-box-shadow declarations/bindings require5. Luminance declarations, dynamic mask/
-decorator bindings and encoded inline styles require6.
+box-shadow declarations/bindings require5. Luminance declarations and dynamic mask/decorator bindings require6.
+`forge-shadow-panel` tags and their six custom property declarations/bindings
+require7. Encoded inline styles conservatively require7.
 Encoded styles may expand any supported property before native parsing; their
 requirement is conservative. Source read/snapshot/catalog refresh recomputes
 this evidence with the same stable logical IDs. A requirement3 rejects kit1/2;
@@ -633,13 +634,53 @@ Native shadow canvases are intersected with the viewport and can clip when
 oversized. No expanded off-target canvas or substitute shape algorithm is added.
 
 Literal and model-bound box-shadow properties require5; encoded inline styles
-conservatively require6. Static masks4/backdrops3/drop shadows2/basic filters1
-retain their prior meanings. Known kit1..6 is additive; older1..4 reject a
+conservatively require7. Static masks4/backdrops3/drop shadows2/basic filters1
+retain their prior meanings. Known kit1..7 is additive; older1..4 reject a
 requirement5 before export promotion. Gradient profiles remain1/2. Source
 registration/preparation, camera outputs, MCP, live reload and source-hidden
 packages use existing owners. Original Gallery167 demonstrates the workflow.
 See [capture provenance](images/readme/README.md) for local evidence and
 platform limits. Windows/full-editor/physical review remains queued.
+
+## Animated shadow panels
+
+The `forge-shadow-panel` native element derives one ordinary native box shadow
+from six registered native styles: `forge-shadow-x`, `forge-shadow-y`,
+`forge-shadow-blur`, `forge-shadow-spread`, `forge-shadow-color` and
+`forge-shadow-inset`. The first four use native length parsing; color uses the
+native color parser; inset accepts `outset` (default) or `inset`. Length defaults
+are0px and color defaults transparent. Set `display:block` where a block panel is
+intended. The panel owns its `box-shadow` value; author its shadow through these
+six controls, rather than assigning `box-shadow` on this element. Ordinary
+static/model-bound box shadows on other elements retain the preceding contract.
+
+Native keyframes/transitions interpolate these numeric/color/keyword controls.
+Inset switches discretely; color uses the pinned library's gamma-aware
+interpolation. Native presentation time, long-frame clamp, pause behavior and
+model/class/pseudo-class owners remain authoritative. Avoid simultaneous binding
+and animation writers on one control. Each existing candidate/main/output
+Context.Update is followed by deriving the shadow and refreshing only this
+native element's computed properties before rendering. There is no second
+context update, clock, interpolator, stylesheet parser or renderer. Direct
+BOXSHADOWLIST keyframes/transitions remain unsupported.
+
+Resolved lengths must be finite and within +/-8192px; blur must resolve0..32px.
+Percentages are unsupported. Native font-relative and density-relative units
+resolve against the current element/view. A view admits at most24 shadow panels;
+all contexts and ordinary shadows still share the24 cached snapshots,
+32-image/256MiB pool and existing layer/texture bounds. Mixtures may reach shared
+limits earlier. Changed shadows replace native cache references, rather than
+accumulating snapshots. Candidate admission performs no framebuffer capture;
+failed reload preserves the usable document. Live binding/animation faults are
+diagnosed through the existing presenter and do not roll back arbitrary DOM state.
+Native oversized-canvas viewport clipping remains unchanged.
+
+Private filter7 is required for the component tag or any of its six styles or
+`data-style-*` bindings. It covers preceding profiles1..6; older kits reject a
+requirement7 through the existing export compatibility owner. UI source evidence,
+inspection transport, catalog refresh, runtime packaging, source/model authoring
+and MCP use their existing paths. No public SDK/ABI or Scene format change.
+Gallery173 demonstrates keyframes, hover transitions, inset motion and live blur.
 
 ## Native luminance-mask extension
 

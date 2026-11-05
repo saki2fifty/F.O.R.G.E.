@@ -2,6 +2,7 @@
 #include "asset_bytes.hpp"
 #include "asset_storage.hpp"
 #include "fixtures/ui_luminance_gallery.hpp"
+#include "fixtures/ui_shadow_motion_gallery.hpp"
 #include "gallery_game_capture.hpp"
 #include "game_presentation.hpp"
 #include "runtime_dependencies.hpp"
@@ -21,7 +22,8 @@ using test_gallery_capture::check;
 using test_gallery_capture::Pixels;
 const char* scene_path = "Scenes/155-ui-filters.scene.json";
 bool shadows = false, backdrops = false, gradient_gallery = false, curved_gallery = false,
-     masks_gallery = false, box_gallery = false, luminance_gallery = false;
+     masks_gallery = false, box_gallery = false, luminance_gallery = false,
+     shadow_motion_gallery = false;
 const char* parameter = "blur";
 const char* ui_path = "Assets/UI/Filters/Lab.rml";
 Json read_scene(const std::filesystem::path& root) {
@@ -39,8 +41,9 @@ void author(const std::filesystem::path& root, UiDiligentRenderer& renderer,
             const std::vector<std::byte>& font) {
     const bool fresh = !std::filesystem::exists(root / scene_path);
     std::filesystem::create_directories((root / ui_path).parent_path());
-    asset_storage::replace(root / ui_path, luminance_gallery  ? test::luminance_gallery
-                                           : box_gallery      ? R"rml(<rml><head><style>
+    asset_storage::replace(root / ui_path, shadow_motion_gallery ? test::shadow_motion_gallery
+                                           : luminance_gallery   ? test::luminance_gallery
+                                           : box_gallery         ? R"rml(<rml><head><style>
 body,div,p,h1 {display:block;} body {margin:0;width:100%;height:100%;font-family:Lato;font-size:15px;color:#e5f2ff;pointer-events:none;}
 #lab {position:absolute;left:4%;top:2%;width:92%;}
 h1 {font-size:23px;margin:0 0 3px;color:#79e7cf;} p {margin:3px 0;}
@@ -65,7 +68,7 @@ button:hover,button:focus {background-color:#4c849e;} .hint {font-size:13px;colo
 </div><p class="hint">UI Values / blur: 0..32. Tick: {{tick}}</p><div id="motion"/>
 <button id="pause" data-event-click="command('Pause')">Pause</button><button id="resume" data-event-click="command('Resume')">Resume</button><button id="step" data-event-click="command('Step')">Step</button>
 </div></body></rml>)rml"
-                                           : masks_gallery    ? R"rml(<rml><head><style>
+                                           : masks_gallery       ? R"rml(<rml><head><style>
 body,div,p,h1 {display:block;} body {margin:0;width:100%;height:100%;font-family:Lato;font-size:15px;color:#e5f2ff;pointer-events:none;}
 #lab {position:absolute;left:4%;top:2%;width:92%;}
 h1 {font-size:23px;margin:0 0 3px;color:#79e7cf;} p {margin:3px 0;}
@@ -90,7 +93,7 @@ button:hover,button:focus {background-color:#4c849e;} .hint {font-size:13px;colo
 </div><p class="hint">UI Values / angle: 0..360. Tick: {{tick}}</p><div id="motion"/>
 <button id="pause" data-event-click="command('Pause')">Pause</button><button id="resume" data-event-click="command('Resume')">Resume</button><button id="step" data-event-click="command('Step')">Step</button>
 </div></body></rml>)rml"
-                                           : curved_gallery   ? R"rml(<rml><head><style>
+                                           : curved_gallery      ? R"rml(<rml><head><style>
 body,div,p,h1 {display:block;} body {margin:0;width:100%;height:100%;font-family:Lato;font-size:15px;color:#e5f2ff;pointer-events:none;}
 #lab {position:absolute;left:4%;top:2%;width:92%;}
 h1 {font-size:23px;margin:0 0 3px;color:#79e7cf;} p {margin:3px 0;}
@@ -116,7 +119,7 @@ button:hover,button:focus {background-color:#4c849e;} .hint {font-size:13px;colo
 </div><p class="hint">UI Values / angle: 0..360. Tick: {{tick}}</p><div id="motion"/>
 <button id="pause" data-event-click="command('Pause')">Pause</button><button id="resume" data-event-click="command('Resume')">Resume</button><button id="step" data-event-click="command('Step')">Step</button>
 </div></body></rml>)rml"
-                                           : gradient_gallery ? R"rml(<rml><head><style>
+                                           : gradient_gallery    ? R"rml(<rml><head><style>
 body,div,p,h1 {display:block;} body {margin:0;width:100%;height:100%;font-family:Lato;font-size:15px;color:#e5f2ff;pointer-events:none;}
 #lab {position:absolute;left:4%;top:2%;width:92%;}
 h1 {font-size:23px;margin:0 0 3px;color:#79e7cf;} p {margin:3px 0;}
@@ -144,7 +147,7 @@ button:hover,button:focus {background-color:#4c849e;} .hint {font-size:13px;colo
 </div><p class="hint">UI Values / angle: 0..360. Tick: {{tick}}</p><div id="motion"/>
 <button id="pause" data-event-click="command('Pause')">Pause</button><button id="resume" data-event-click="command('Resume')">Resume</button><button id="step" data-event-click="command('Step')">Step</button>
 </div></body></rml>)rml"
-                                           : backdrops        ? R"rml(<rml><head><style>
+                                           : backdrops           ? R"rml(<rml><head><style>
 body,div,p,h1 {display:block;} body {margin:0;width:100%;height:100%;font-family:Lato;font-size:15px;color:#e5f2ff;pointer-events:none;}
 #lab {position:absolute;left:4%;top:2%;width:92%;}
 h1 {font-size:23px;margin:0 0 3px;color:#79e7cf;} p {margin:3px 0;}
@@ -173,7 +176,7 @@ button:hover,button:focus {background-color:#4c849e;} .hint {font-size:13px;colo
 </div><p class="hint">UI Values / blur: 0..16. Tick: {{tick}}</p><div id="pulse"><div id="pulseleft"/><div id="pulseright"/><div id="motion"/></div>
 <button id="pause" data-event-click="command('Pause')">Pause</button><button id="resume" data-event-click="command('Resume')">Resume</button><button id="step" data-event-click="command('Step')">Step</button>
 </div></body></rml>)rml"
-                                           : shadows          ? R"rml(<rml><head><style>
+                                           : shadows             ? R"rml(<rml><head><style>
 body,div,p,h1 {display:block;} body {margin:0;width:100%;height:100%;font-family:Lato;font-size:15px;color:#e5f2ff;pointer-events:none;}
 #lab {position:absolute;left:4%;top:2%;width:92%;}
 h1 {font-size:23px;margin:0 0 3px;color:#79e7cf;} p {margin:3px 0;}
@@ -199,7 +202,7 @@ button:hover,button:focus {background-color:#4c849e;} .hint {font-size:13px;colo
 </div><p class="hint">UI Values / blur: 0..16. Tick: {{tick}}</p><div id="motion"/>
 <button id="pause" data-event-click="command('Pause')">Pause</button><button id="resume" data-event-click="command('Resume')">Resume</button><button id="step" data-event-click="command('Step')">Step</button>
 </div></body></rml>)rml"
-                                                              : R"rml(<rml><head><style>
+                                                                 : R"rml(<rml><head><style>
 body,div,p,h1 {display:block;} body {margin:0;width:100%;height:100%;font-family:Lato;font-size:15px;color:#e5f2ff;pointer-events:none;}
 #lab {position:absolute;left:4%;top:3%;width:92%;}
 h1 {font-size:25px;margin:0 0 5px;color:#79e7cf;} p {margin:4px 0;}
@@ -235,13 +238,14 @@ button:hover,button:focus {background-color:#4c849e;} .hint {font-size:13px;colo
         return entity;
     };
     if (fresh) {
-        create(luminance_gallery  ? "Luminance mask lab HUD"
-               : box_gallery      ? "Box shadow lab HUD"
-               : masks_gallery    ? "Mask lab HUD"
-               : gradient_gallery ? "Gradient lab HUD"
-               : backdrops        ? "Backdrop lab HUD"
-               : shadows          ? "Shadow lab HUD"
-                                  : "Filter lab HUD")
+        create(shadow_motion_gallery ? "Animated shadow lab HUD"
+               : luminance_gallery   ? "Luminance mask lab HUD"
+               : box_gallery         ? "Box shadow lab HUD"
+               : masks_gallery       ? "Mask lab HUD"
+               : gradient_gallery    ? "Gradient lab HUD"
+               : backdrops           ? "Backdrop lab HUD"
+               : shadows             ? "Shadow lab HUD"
+                                     : "Filter lab HUD")
             .set<UiDocument>({{ui.id}, true, true, 0})
             .set<UiValues>({{{parameter, gradient_gallery ? 45. : 4.}}});
         auto camera = create("Game Camera");
@@ -384,6 +388,7 @@ std::vector<Pixels> exercise(DiligentPresentation& presentation, IDeviceContext*
 int main(int argc, char** argv) {
     try {
         check(argc == 4 || (argc == 5 && (std::string_view(argv[4]) == "--luminance" ||
+                                          std::string_view(argv[4]) == "--shadow-motion" ||
                                           std::string_view(argv[4]) == "--box-shadows" ||
                                           std::string_view(argv[4]) == "--shadows" ||
                                           (std::string_view(argv[4]) == "--backdrops" ||
@@ -391,7 +396,9 @@ int main(int argc, char** argv) {
                                             (std::string_view(argv[4]) == "--curved" ||
                                              std::string_view(argv[4]) == "--masks"))))),
               "Need Gallery, font and scratch; or --author Gallery font; optional "
-              "--shadows/--backdrops/--gradients/--curved/--masks/--box-shadows/--luminance");
+              "--shadows/--backdrops/--gradients/--curved/--masks/--box-shadows/--luminance/"
+              "--shadow-motion");
+        shadow_motion_gallery = argc == 5 && std::string_view(argv[4]) == "--shadow-motion";
         luminance_gallery = argc == 5 && std::string_view(argv[4]) == "--luminance";
         box_gallery = argc == 5 && std::string_view(argv[4]) == "--box-shadows";
         shadows = argc == 5 && std::string_view(argv[4]) == "--shadows";
@@ -434,6 +441,10 @@ int main(int argc, char** argv) {
             parameter = "blur";
             scene_path = "Scenes/167-ui-box-shadows.scene.json";
             ui_path = "Assets/UI/BoxShadows/Lab.rml";
+        }
+        if (shadow_motion_gallery) {
+            scene_path = "Scenes/173-ui-shadow-motion.scene.json";
+            ui_path = "Assets/UI/ShadowMotion/Lab.rml";
         }
         const bool editing = std::string_view(argv[1]) == "--author";
         const auto root = std::filesystem::absolute(editing ? argv[2] : argv[3]);

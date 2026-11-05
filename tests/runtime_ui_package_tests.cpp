@@ -189,7 +189,7 @@ int main(int argc, char** argv) {
                 "<rml><body style=\"font-family:Lato;fil&#116;er&#58;blur(2px)\">"
                 "Encoded inline filter</body></rml>");
             const auto encoded = inspect(filtered.id, {});
-            check(encoded.sources.front().details.at("runtime_features").at("filters") == 6,
+            check(encoded.sources.front().details.at("runtime_features").at("filters") == 7,
                   "Native encoded inline filters lost their runtime kit requirement");
             asset_storage::replace(
                 project / "filters.rml",
@@ -207,6 +207,16 @@ int main(int argc, char** argv) {
             const auto box = inspect(filtered.id, {});
             check(box.sources.front().details.at("runtime_features") == Json{{"filters", 5}},
                   "Non-drawing box-shadow inspection lost its source capability");
+            asset_storage::replace(
+                project / "filters.rml",
+                "<rml><head><style>body,forge-shadow-panel{display:block;}body{font-family:Lato;}"
+                "forge-shadow-panel{width:80px;height:40px;background-color:red;"
+                "forge-shadow-color:#0008;animation:1s linear-in infinite glow;}"
+                "@keyframes glow{from{forge-shadow-blur:0px;}to{forge-shadow-blur:16px;}}"
+                "</style></head><body><forge-shadow-panel/></body></rml>");
+            const auto motion = inspect(filtered.id, {});
+            check(motion.sources.front().details.at("runtime_features") == Json{{"filters", 7}},
+                  "Non-drawing shadow panel inspection lost its runtime requirement");
             asset_storage::replace(
                 project / "filters.rml",
                 "<rml><head><style>body,div{display:block;}body{font-family:Lato;}"

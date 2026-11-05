@@ -125,11 +125,13 @@ void present(const std::filesystem::path& root, const Json& source,
             const auto sources = presenter.asset_snapshot()->sources;
             for (const auto* invalid :
                  {"#fill {transition:opacity 0.4s linear;}",
-                  "@keyframes bad {from {backdrop-filter:blur(3px);} to {opacity:1;}}",
+                  "#fill {animation:1s linear-in bad;} @keyframes bad {from "
+                  "{box-shadow:#0008 2px 2px;} to {box-shadow:#0008 8px 8px;}}",
                   "@keyframes broken {from {width:40px;}"}) {
                 write(path, original + invalid);
-                check(!presenter.reload() && !presenter.diagnostic().empty(),
-                      "Invalid animated replacement published");
+                if (presenter.reload() || presenter.diagnostic().empty())
+                    throw std::runtime_error(
+                        std::string("Invalid animated replacement published: ") + invalid);
                 check(presenter.presentation_revision() == previous &&
                           Rml::GetContext(0)->GetDocument(0) == doc &&
                           presenter.asset_snapshot()->sources == sources,

@@ -2135,3 +2135,23 @@ metadata or widgets. Source/binary/image hashes and limits are recorded in
 `AgentFiles/build/phase266-audio-streaming/capture-provenance.json`. These captures
 do not establish full Windows Main, physical device playback, physical input/DPI
 or hardware performance acceptance.
+
+
+## Animated UI shadow panels
+
+[Animated shadow gallery](../../../manual/images/ui-shadow-motion-gallery.png)
+shows the authentic640x360 shared Game UI renderer in Gallery173 at presentation
+time1.1s with gameplay paused (tick0). The Color / offset card has interpolated
+shadow controls; the Live card retains its saved blur4. The unretouched RGB PPM
+readback is losslessly transcoded to PNG with every pixel and dimension retained.
+The640x360 and360x640 layouts were personally reviewed. Four source/source-hidden
+relocated export captures match exactly, covering paused motion, live tuning and
+portrait resize. Independent144case main/output SDR/HDR/scaled numerical checks
+use sharp rectangle/color oracles and ordinary native static-shadow references
+for blurred composition.
+
+Local unassigned source is based on5ad842f. Exact source, executable, original
+readback, PNG and relocated-pair hashes are owned by
+`AgentFiles/build/phase267-ui-shadow-animation/capture-provenance.json`.
+This software Vulkan evidence does not establish full Main/Windows/MSVC/D3D12,
+physical GPU/input/DPI, graphical EXE, external-client or performance acceptance.

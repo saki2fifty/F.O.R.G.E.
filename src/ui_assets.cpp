@@ -3,6 +3,7 @@
 #include "ui_filter_profile.hpp"
 #include "ui_gradient_profile.hpp"
 #include "ui_localization_admission.hpp"
+#include "ui_shadow_motion.hpp"
 #include <algorithm>
 #include <cctype>
 #include <charconv>
@@ -82,6 +83,9 @@ TextProfile validate_text_profile(std::string_view text, bool markup) {
                 ++i;
             require(i > start, "Unsupported RML declaration or malformed tag");
             auto tag = lower(std::string(text.substr(start, i - start)));
+            if (!closing && tag == ui_shadow_detail::tag)
+                filter_profile =
+                    std::max(filter_profile, ui_filter_detail::shadow_motion_profile_version);
             require(tag != "script" && tag != "iframe" && tag != "object" && tag != "template",
                     "RML scripts, embedded objects and templates are not supported");
             require(++nodes <= 8192, "RML node limit exceeded");
@@ -117,6 +121,13 @@ TextProfile validate_text_profile(std::string_view text, bool markup) {
                         continue;
                     }
                     auto name = lower(std::string(attributes.substr(begin, a - begin)));
+                    if (name.starts_with("data-style-") &&
+                        std::find(ui_shadow_detail::properties.begin(),
+                                  ui_shadow_detail::properties.end(),
+                                  std::string_view(name).substr(11)) !=
+                            ui_shadow_detail::properties.end())
+                        filter_profile = std::max(filter_profile,
+                                                  ui_filter_detail::shadow_motion_profile_version);
                     if (name == "data-style-filter")
                         filter_profile =
                             std::max(filter_profile, ui_filter_detail::shadow_profile_version);
@@ -133,7 +144,8 @@ TextProfile validate_text_profile(std::string_view text, bool markup) {
                     }
                     if (name == "data-style-decorator") {
                         gradients = ui_gradient_detail::profile_version;
-                        filter_profile = ui_filter_detail::luminance_profile_version;
+                        filter_profile =
+                            std::max(filter_profile, ui_filter_detail::luminance_profile_version);
                     }
                     while (a < attributes.size() && space(attributes[a]))
                         ++a;
@@ -205,7 +217,8 @@ TextProfile validate_text_profile(std::string_view text, bool markup) {
                  (c == '(' || c == ';' || c == '}')) ||
                 (c == '{' && !property.empty())) {
                 if (token == "luminance")
-                    filter_profile = ui_filter_detail::luminance_profile_version;
+                    filter_profile =
+                        std::max(filter_profile, ui_filter_detail::luminance_profile_version);
                 if (token == "radial-gradient" || token == "repeating-radial-gradient" ||
                     token == "conic-gradient" || token == "repeating-conic-gradient")
                     gradients = ui_gradient_detail::profile_version;
@@ -235,6 +248,11 @@ TextProfile validate_text_profile(std::string_view text, bool markup) {
                 if (property == "box-shadow")
                     filter_profile =
                         std::max(filter_profile, ui_filter_detail::box_shadow_profile_version);
+                if (std::find(ui_shadow_detail::properties.begin(),
+                              ui_shadow_detail::properties.end(),
+                              property) != ui_shadow_detail::properties.end())
+                    filter_profile =
+                        std::max(filter_profile, ui_filter_detail::shadow_motion_profile_version);
                 require(property != "font", "Use explicit font-family and font-size properties");
             }
             if (c == '{' || c == ';' || c == '}')

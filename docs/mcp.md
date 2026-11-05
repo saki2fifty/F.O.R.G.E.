@@ -881,7 +881,7 @@ values; `forge_play_tune` changes them in the current launch through the ordinar
 runtime tuning/review owner. RCSS filter animation stays on presentation time.
 `forge_play_ui_reload` retains its current Play identity and execution permission.
 Export uses the existing project export service and requires a matching filter-
-capable runtime kit (profile5 for box shadows and encoded inline styles, profile4 for alpha masks, profile3 for backdrops, profile2
+capable runtime kit (profile7 for shadow panels/encoded inline styles, profile6 for luminance and dynamic mask/decorator bindings, profile5 for box shadows, profile4 for alpha masks, profile3 for backdrops, profile2
 for shadows/ordinary dynamic filter bindings, profile1 for basic static filters;
 newer known profiles preserve the preceding profiles). No separate agent filter
 graph, DOM mutation or tool family
@@ -1739,3 +1739,24 @@ nested wrappers, named inner decorators and inner lists reject before candidate
 promotion. Both stdio framings preserve source revision/digest/replay, permissions,
 Edit-only writes, Play identities and last-good presentation. No new agent-only
 mask behavior or mutation endpoint is introduced. See [Runtime UI](runtime-ui.md).
+
+
+## Animated shadow-panel authoring
+
+Use `forge_source_text_read/write` for a `forge-shadow-panel` RML element and its
+six `forge-shadow-*` styles, then `forge_source_ui_register` and the existing
+component/property operations to assign UI Document and UI Values. Native numeric,
+color and keyword keyframes/transitions run on presentation time. Use
+`data-style-forge-shadow-blur="blur + 'px'"` for a copied named value; Play tuning
+and review use the existing UI Values operation. Keep a binding and animation
+off the same control. The element owns its derived `box-shadow`; direct native
+shadow-list animations remain unsupported.
+
+Existing source read/edit permissions, digest/revision guards, replay, Undo,
+Edit-only writes, Play identity scopes and non-drawing inspection remain in force.
+`forge_play_ui_reload` rebuilds a candidate and retains last-good UI on invalid
+resolved blur/length values or resource limits. Scalar blur resolves0..32px; other
+lengths are finite within +/-8192px; each view permits at most24 panels, subject to
+shared snapshot/layer budgets. Percentages are unsupported. Export uses the
+existing service and requires private filter7. There is no separate agent shadow
+API. See [the manual](../manual/editor/runtime-ui.md#animate-a-panel-shadow).

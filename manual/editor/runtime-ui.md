@@ -545,8 +545,9 @@ value during Play:
 <div data-style-box-shadow="'#0008 6px 5px ' + blur + 'px 0px'" />
 ```
 
-Box-shadow keyframes and transitions are unavailable. Animate another compatible
-property, such as opacity, or update a model-bound value. The gallery’s small bar
+Direct `box-shadow` keyframes and transitions are unavailable. For animated
+shadow controls, use a shadow panel as described below. You can also animate another
+compatible property, such as opacity, or update a model-bound value. The gallery’s small bar
 uses an opacity animation; it continues while Pause holds the gameplay tick.
 
 Shadows share the 32-image, 256 MiB logical filter pool and four-active-layer
@@ -562,6 +563,72 @@ Main Game UI and camera-image UI use the same sources and model controls. Save
 the source and Scene, select the saved Scene as startup, and export with the
 runtime kit supplied with this editor. Older kits without box-shadow support
 reject before replacing an existing export. No project C++ module is needed.
+
+## Animate a panel shadow
+
+Open **Scenes/173-ui-shadow-motion.scene.json** in **Examples/FeatureGallery** and
+press **Play**. The cards show changing color, offset, blur and spread; an inner
+shadow; a discrete inset switch; a hover/focus transition; and a live blur value.
+Point at **Hover / focus** to change its shadow. Pause gameplay: the UI motion
+continues while the simulation tick holds.
+
+![Six Game UI cards showing animated outer and inner shadows, hover transitions and a live blur value](../images/ui-shadow-motion-gallery.png)
+
+The Color / offset card changes its shadow while the Live card follows UI Values.
+
+1. Select **Animated shadow lab HUD** in Hierarchy.
+2. In **Live gameplay → UI Values**, set **blur** between `0` and `32`. The **Live** card changes softness.
+3. Stop to restore the saved value. To keep a starting value, set **UI Values → blur** in Edit and save the Scene.
+4. Edit **Assets/UI/ShadowMotion/Lab.rml**, save it, then choose **Reload UI** during Play. Successful replacement restarts native animation. An invalid replacement keeps the usable UI.
+5. Set this Scene as the saved startup Scene and export with the supplied runtime kit.
+
+Use a `forge-shadow-panel` element with the ordinary native layout and child
+content controls:
+
+```html
+<forge-shadow-panel id="glow"><p>Ready</p></forge-shadow-panel>
+```
+
+```css
+forge-shadow-panel { display: block; }
+#glow {
+    width: 160px; height: 60px; background-color: #30536e;
+    forge-shadow-color: #79e7cf80;
+    animation: 2s linear-in infinite alternate glow;
+}
+@keyframes glow {
+    from { forge-shadow-blur: 2px; forge-shadow-y: 0px; }
+    to   { forge-shadow-blur: 14px; forge-shadow-y: 8px; }
+}
+```
+
+The controls are **forge-shadow-x**, **forge-shadow-y**, **forge-shadow-blur**,
+**forge-shadow-spread**, **forge-shadow-color** and **forge-shadow-inset**.
+Lengths default to zero, color to transparent, and inset to `outset`. Set inset to
+`inset` for an inner shadow. An inset animation switches discretely. Colors use
+native gamma-aware interpolation. Add a native `transition` for these controls
+to animate a class, hover or focus change. Keep timing names such as `linear-in`;
+plain `linear` is unsupported.
+
+Use ordinary native length units such as `px`, `dp` and `em`; percentages are
+unsupported. Resolved lengths must stay within `-8192` to `8192` pixels, and blur
+within `0` to `32` pixels. At most 24 shadow panels are admitted per view, subject
+to the shared image, snapshot and layer limits above. Reduce distinct shadows or
+resolution when those limits are reported. Oversized shadow canvases can clip at
+the view edge.
+
+Bind a named UI Value through the existing model:
+
+```html
+<forge-shadow-panel data-style-forge-shadow-blur="blur + 'px'" />
+```
+
+Use either a binding or animation for a given control. On this element, author
+the shadow through these six controls; the element derives its `box-shadow`
+value. Ordinary `div` box shadows retain the preceding workflow. Source edits and
+saved UI Values are included in export; temporary Live gameplay changes require
+the normal tuning review if you want to keep them. Older runtime kits without
+shadow-panel support reject the export before replacing its destination.
 
 ## Layout your document
 

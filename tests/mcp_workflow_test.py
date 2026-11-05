@@ -699,9 +699,20 @@ for legacy in (False, True):
         if UI_ANIMATION_ONLY:
             assert 'forge_play_ui_reload' in names
             hud = ok('forge_source_ui_example')
+            markup = text(hud['path'])['text']
+            motion_markup = markup.replace('</body>', '<forge-shadow-panel id="shadow_motion"/></body>')
+            assert motion_markup != markup
+            write(hud['path'], motion_markup)
+            ok('forge_source_ui_register', path=hud['path'])
             path = str(Path(hud['path']).with_suffix('.rcss')).replace('\\', '/')
             saved = text(path)
             animated = saved['text'] + '\n@keyframes breathe { from {opacity:0.3;mask-image:luminance(linear-gradient(90deg,#000,#fff));decorator:radial-gradient(circle 40px,#204080,#40c080),conic-gradient(from 0deg,#20408080,#40c08080);backdrop-filter:blur(0px);filter:blur(0px) drop-shadow(#20408080 -4px 6px 1px);} to {opacity:1;mask-image:luminance(linear-gradient(180deg,#000,#fff));decorator:radial-gradient(circle 80px,#204080,#40c080),conic-gradient(from 180deg,#20408080,#40c08080);backdrop-filter:blur(2px);filter:blur(2px) drop-shadow(#20408080 4px 6px 3px);} }\n#panel {box-shadow:#20408080 4px 6px 4px 1px;filter:contrast(1.1);animation:1s linear-in infinite alternate breathe;}\n'
+            animated += ('\n#shadow_motion {display:block;position:absolute;left:440px;top:40px;'
+                         'width:40px;height:40px;background-color:#204080;forge-shadow-color:#e9664480;'
+                         'animation:1s linear-in infinite alternate shadow_motion;}\n'
+                         '@keyframes shadow_motion {from {forge-shadow-x:0px;forge-shadow-blur:0px;'
+                         'forge-shadow-color:#e9664480;} to {forge-shadow-x:8px;forge-shadow-blur:16px;'
+                         'forge-shadow-color:#79e7cfc0;}}\n')
             stale = arguments(path=path, state=saved['state'], text=animated)
             write(path, animated)
             assert client.tool('forge_source_text_write', **stale)['ok']  # Exact receipt replay.
@@ -725,6 +736,10 @@ for legacy in (False, True):
             failed(mutate('forge_play_ui_reload', **wrong), 'stale_play')
             assert control('forge_play_ui_reload')['reloaded']
             failed(mutate('forge_source_text_write', path=path, state=text(path)['state'], text=animated), 'busy')
+            (root/'Game'/path).write_text(animated + '\n#shadow_motion {animation:none;forge-shadow-blur:33px;}', encoding='utf-8')
+            state = read('forge_play_status')
+            failed(mutate('forge_play_ui_reload', launch=state['launch'], session=state['session'], generation=state['generation']), 'ui_reload_failed')
+            assert read('forge_play_status')['timing']['tick'] == before['timing']['tick']
             # Filter bounds use the same native candidate/last-good path as
             # other source rejection, without introducing an agent effects API.
             (root/'Game'/path).write_text(animated + '\n#panel {animation:none;filter:blur(17px);}', encoding='utf-8')

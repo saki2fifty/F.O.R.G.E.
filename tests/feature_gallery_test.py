@@ -432,6 +432,16 @@ assert any(edge['target'] == by_source['Assets/UI/BitmapFormats/health.png']['id
 assert not {row['id'] for row in luminance['entities']} & {row['id'] for row in masked['entities']}
 
 
+shadow_motion = json.loads((project_root / 'Scenes/173-ui-shadow-motion.scene.json').read_text())
+assert shadow_motion['asset_id'] == by_source['Scenes/173-ui-shadow-motion.scene.json']['id']
+shadow_motion_hud = next(row for row in shadow_motion['entities'] if 'forge.ui_document' in row['components'])
+shadow_motion_doc = by_source['Assets/UI/ShadowMotion/Lab.rml']
+assert shadow_motion_hud['components']['forge.ui_document']['document'] == shadow_motion_doc['id']
+assert shadow_motion_hud['components']['forge.ui_values']['values'] == [dict(name='blur', value=4)]
+assert shadow_motion_doc['metadata']['forge.ui_source']['runtime_features'] == dict(filters=7)
+assert not {row['id'] for row in shadow_motion['entities']} & {row['id'] for row in luminance['entities']}
+
+
 
 
 

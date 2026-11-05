@@ -1,6 +1,7 @@
 #include "asset_bytes.hpp"
 #include "ui_filter_profile.hpp"
 #include "ui_luminance_mask.hpp"
+#include "ui_shadow_motion.hpp"
 #include <RmlUi/Core.h>
 #include <RmlUi/Core/ElementText.h>
 #include <algorithm>
@@ -290,6 +291,7 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
     float density = 1;
     bool initialized = false;
     std::unique_ptr<Rml::DecoratorInstancer> luminance_instancer;
+    std::unique_ptr<Rml::ElementInstancer> shadow_instancer;
     void check() const {
         if (std::this_thread::get_id() != thread)
             throw std::logic_error("UI presenter used off its owning thread");
@@ -312,6 +314,7 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
                 throw std::runtime_error("RmlUi initialization failed");
             initialized = true;
             luminance_instancer = register_ui_luminance_mask();
+            shadow_instancer = register_ui_shadow_motion();
             if (!Rml::LoadFontFace({reinterpret_cast<const Rml::byte*>(font.data()), font.size()},
                                    "Lato", Rml::Style::FontStyle::Normal,
                                    Rml::Style::FontWeight::Normal, true))
@@ -744,9 +747,11 @@ body { width:100%; height:100%; z-index:65536; }
             if (!static_inspection)
                 update_frame_statistics(*candidate);
             candidate->context->Update();
+            synchronize_ui_shadow_motion(*candidate->context);
             for (const auto& [output, context] : candidate->outputs) {
                 (void)output;
                 context->Update();
+                synchronize_ui_shadow_motion(*context);
             }
             if (!error.empty())
                 throw std::runtime_error(error);
@@ -1040,7 +1045,12 @@ void UiPresenter::update(double t, int w, int h, float dp) {
     if (s.live) {
         s.live->context->SetDimensions({w, h});
         s.live->context->SetDensityIndependentPixelRatio(dp);
-        s.renderer.checked([&] { s.live->context->Update(); }, false);
+        s.renderer.checked(
+            [&] {
+                s.live->context->Update();
+                synchronize_ui_shadow_motion(*s.live->context);
+            },
+            false);
     }
 }
 void UiPresenter::update_output(AssetRef<RenderTextureAsset> output, int w, int h, float dp) {
@@ -1060,7 +1070,10 @@ void UiPresenter::update_output(AssetRef<RenderTextureAsset> output, int w, int 
     context->SetDimensions({w, h});
     context->SetDensityIndependentPixelRatio(dp);
     if (s.prepared_outputs.insert(output.id).second || resized)
-        s.renderer.checked([&] { context->Update(); });
+        s.renderer.checked([&] {
+            context->Update();
+            synchronize_ui_shadow_motion(*context);
+        });
 }
 
 void UiPresenter::frame_statistics(const std::string& text) {

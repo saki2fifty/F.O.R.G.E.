@@ -3,6 +3,7 @@
 #include "ui_filter_render_tests.hpp"
 #include "ui_gradient_render_tests.hpp"
 #include "ui_luminance_render_tests.hpp"
+#include "ui_shadow_motion_render_tests.hpp"
 #include "ui_snapshot_render_tests.hpp"
 // Independent RmlUi/Diligent host: deliberately no ImGui/editor linkage.
 #include "Common/interface/Float16.hpp"
@@ -97,7 +98,10 @@ int main(int argc, char** argv) {
         const bool conditions_only =
             argc == 5 && std::string_view(argv[4]) == "--state-conditions-only";
         const bool luminance_only = argc == 5 && std::string_view(argv[4]) == "--luminance-only";
-        require(argc == 3 || argc == 4 || states_only || conditions_only || luminance_only,
+        const bool shadow_motion_only =
+            argc == 5 && std::string_view(argv[4]) == "--shadow-motion-only";
+        require(argc == 3 || argc == 4 || states_only || conditions_only || luminance_only ||
+                    shadow_motion_only,
                 "Need image output, font, optional Gallery and application-state profile");
         const std::filesystem::path images(argv[1]);
         std::filesystem::create_directories(images);
@@ -135,6 +139,18 @@ int main(int argc, char** argv) {
 #endif
 
         forge::UiDiligentRenderer renderer(device);
+        if (shadow_motion_only) {
+            forge::test_ui_shadow_motion::exercise(
+                device, context, renderer, images / "shadow-motion", argv[2],
+                [&](ITextureView* view) { return readback(device, context, view); },
+                [&](ITextureView* view) {
+                    return readback_pixels<std::array<Diligent::Float16, 4>>(
+                        device, context, view, TEX_FORMAT_RGBA16_FLOAT);
+                });
+            context->WaitForIdle();
+            std::cout << "144 native shadow motion main/output/SDR/HDR/resize cases passed\n";
+            return 0;
+        }
         if (luminance_only) {
             forge::test_ui_luminance::exercise(
                 device, context, renderer, images / "luminance", argv[2],
@@ -597,6 +613,13 @@ img {position:absolute;width:64px;height:64px;top:16px;} #png {left:16px;} #jpg 
             });
         forge::test_ui_luminance::exercise(
             device, context, renderer, images / "luminance", argv[2],
+            [&](ITextureView* view) { return readback(device, context, view); },
+            [&](ITextureView* view) {
+                return readback_pixels<std::array<Diligent::Float16, 4>>(device, context, view,
+                                                                         TEX_FORMAT_RGBA16_FLOAT);
+            });
+        forge::test_ui_shadow_motion::exercise(
+            device, context, renderer, images / "shadow-motion", argv[2],
             [&](ITextureView* view) { return readback(device, context, view); },
             [&](ITextureView* view) {
                 return readback_pixels<std::array<Diligent::Float16, 4>>(device, context, view,
