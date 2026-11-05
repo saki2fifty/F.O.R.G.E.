@@ -5,6 +5,41 @@
 #include "render_projection.hpp"
 namespace forge {
 using namespace Diligent;
+namespace {
+// Overlapping camera composition has no single geometric input view. Keep the
+// first profile explicit while allowing ordinary separate split-screen views.
+const PreparedCamera* surface_camera(std::span<const PreparedCamera> cameras, double x, double y) {
+    const PreparedCamera* result = nullptr;
+    for (const auto& camera : cameras) {
+        const auto& viewport = camera.view.viewport;
+        if (x < viewport.x || y < viewport.y || x >= double(viewport.x) + viewport.width ||
+            y >= double(viewport.y) + viewport.height)
+            continue;
+        if (result)
+            return nullptr;
+        result = &camera;
+    }
+    return result;
+}
+} // namespace
+std::optional<UiSurfaceHit>
+FrameRenderer::pick_ui_surface(int x, int y, std::optional<UiSurfaceHit> retained) const {
+    if (!meshes_ || !game_scene_)
+        return {};
+    const auto* camera = surface_camera(cameras_, x, y);
+    return camera ? meshes_->pick_ui_surface(*game_scene_, *camera, x, y, retained) : std::nullopt;
+}
+std::optional<Double2> FrameRenderer::project_ui_surface(const UiSurfaceHit& hit) const {
+    if (!meshes_ || !game_scene_)
+        return {};
+    const auto camera = std::find_if(cameras_.begin(), cameras_.end(),
+                                     [&](const auto& value) { return value.entity == hit.view; });
+    if (camera == cameras_.end())
+        return {};
+    const auto pixel = meshes_->project_ui_surface(*game_scene_, *camera, hit);
+    return pixel && surface_camera(cameras_, (*pixel)[0], (*pixel)[1]) == &*camera ? pixel
+                                                                                   : std::nullopt;
+}
 std::optional<Double3> FrameRenderer::pick_point(const RenderScene& scene, const CameraView& view,
                                                  double x, double y) const {
     if (!meshes_ || pending())
@@ -164,6 +199,11 @@ ITextureView* FrameRenderer::game(IDeviceContext* context, RenderScene scene, un
     for (const auto& error : cameras.diagnostics)
         report(error);
     omitted_ += cameras.omitted_diagnostics;
+    // Surface interaction belongs to Game input, never producer image rendering.
+    // An invalid input profile must not poison an otherwise valid camera image.
+    if (meshes_)
+        for (const auto& error : meshes_->ui_surface_diagnostics(scene))
+            report(error);
     game_scene_ = std::move(scene);
     return result;
 }

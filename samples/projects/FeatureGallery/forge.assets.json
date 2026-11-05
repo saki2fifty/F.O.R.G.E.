@@ -5723,6 +5723,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "54038bc0-2e5f-4cf7-8ec6-3f29117cd0d4",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/174-interactive-ui-surfaces.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "54c3337f-87fa-4f06-a3a4-221bfcce4530",
       "metadata": {},
       "schema_version": 3,
@@ -6310,6 +6320,28 @@
       "source": "Scenes/168-morphological-antialiasing.scene.json",
       "source_dependencies": [],
       "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "5d542f8a-bc55-4e90-aca8-7a9058f3b0a8",
+      "metadata": {
+        "forge.ui_source": {
+          "bytes": 1035,
+          "digest": "05fe2dc03dea6235b795eed6f933fb97631e2e65152c44cc26561fcf523e6656",
+          "format": "rml"
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/UI/SceneSurface/Panel.rml",
+      "source_dependencies": [
+        {
+          "revision": "05fe2dc03dea6235b795eed6f933fb97631e2e65152c44cc26561fcf523e6656",
+          "role": "ui.source",
+          "source": "Assets/UI/SceneSurface/Panel.rml"
+        }
+      ],
+      "type": "ui_document"
     },
     {
       "dependencies": [],
@@ -7381,6 +7413,28 @@
       "source": "Assets/TexturePrecision/Normalized16.png",
       "source_dependencies": [],
       "type": "texture"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "6f0b0bcc-d5cf-43a7-b060-c5a735c0e3b1",
+      "metadata": {
+        "forge.ui_source": {
+          "bytes": 642,
+          "digest": "913b2f546b34b980f7f5458c50aaedc1b3908ad27a39155ec68a57a56b528fc4",
+          "format": "rml"
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/UI/SceneSurface/Guide.rml",
+      "source_dependencies": [
+        {
+          "revision": "913b2f546b34b980f7f5458c50aaedc1b3908ad27a39155ec68a57a56b528fc4",
+          "role": "ui.source",
+          "source": "Assets/UI/SceneSurface/Guide.rml"
+        }
+      ],
+      "type": "ui_document"
     },
     {
       "dependencies": [],

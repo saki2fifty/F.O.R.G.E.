@@ -271,6 +271,12 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
     RenderGate renderer;
     UiPlatformCallbacks platform;
     std::set<int> held_keys;
+    std::set<int> held_buttons;
+    UiSurfaceCallbacks surface_callbacks;
+    AssetId pointer_output, focus_output, captured_output;
+    std::optional<UiSurfaceHit> hovered_surface, focused_surface, captured_surface;
+    std::optional<std::array<int, 2>> last_pointer;
+    int pointer_modifiers = 0;
     std::set<std::string> admitted_fonts;
     std::size_t font_bytes = 0;
     std::filesystem::path project;
@@ -295,6 +301,146 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
     void check() const {
         if (std::this_thread::get_id() != thread)
             throw std::logic_error("UI presenter used off its owning thread");
+    }
+    Rml::Context* input_context(AssetId output = {}) const {
+        if (!live)
+            return nullptr;
+        if (!output)
+            return live->context;
+        const auto at = live->outputs.find(output);
+        return at == live->outputs.end() ? nullptr : at->second;
+    }
+    void clear_input_state() {
+        held_keys.clear();
+        held_buttons.clear();
+        pointer_output = focus_output = captured_output = {};
+        hovered_surface.reset();
+        focused_surface.reset();
+        captured_surface.reset();
+        last_pointer.reset();
+    }
+    void release_native_input() {
+        if (live) {
+            const auto release = [&](Rml::Context* context) {
+                context->ProcessMouseLeave();
+                for (int button = 0; button < 5; ++button)
+                    context->ProcessMouseButtonUp(button, 0);
+                if (context == input_context(focus_output))
+                    for (const int key : held_keys)
+                        context->ProcessKeyUp(static_cast<Rml::Input::KeyIdentifier>(key), 0);
+                if (auto* element = context->GetFocusElement())
+                    element->Blur();
+            };
+            release(live->context);
+            for (const auto& [output, context] : live->outputs) {
+                (void)output;
+                release(context);
+            }
+        }
+        clear_input_state();
+    }
+    void pointer_target(AssetId output) {
+        if (pointer_output != output) {
+            // Main keeps its hover probe active so newly visible main controls
+            // can take precedence over a surface without a physical mouse move.
+            if (pointer_output)
+                if (auto* previous = input_context(pointer_output))
+                    previous->ProcessMouseLeave();
+        }
+        pointer_output = output;
+    }
+    void focus_target(AssetId output, std::optional<UiSurfaceHit> surface) {
+        if (focus_output != output) {
+            if (auto* previous = input_context(focus_output)) {
+                for (const int key : held_keys)
+                    previous->ProcessKeyUp(static_cast<Rml::Input::KeyIdentifier>(key), 0);
+                if (auto* element = previous->GetFocusElement())
+                    element->Blur();
+            }
+            held_keys.clear();
+        }
+        focus_output = output;
+        focused_surface = std::move(surface);
+    }
+    std::optional<UiSurfaceHit> pick_surface(int x, int y,
+                                             std::optional<UiSurfaceHit> retained = {}) {
+        if (!surface_callbacks.pick)
+            return {};
+        try {
+            auto hit = surface_callbacks.pick(x, y, retained);
+            if (!hit)
+                return {};
+            if (!hit->surface || !hit->output.id || !input_context(hit->output.id) ||
+                !std::isfinite(hit->uv[0]) || !std::isfinite(hit->uv[1]) ||
+                (retained && (hit->surface != retained->surface || hit->view != retained->view)))
+                throw std::runtime_error("UI surface hit has invalid scope or coordinates");
+            return hit;
+        } catch (const std::exception& e) {
+            error = e.what();
+            return {};
+        }
+    }
+    bool surface_mouse(const UiSurfaceHit& hit, int modifiers) {
+        auto* context = input_context(hit.output.id);
+        const auto dimensions = context->GetDimensions();
+        // Outside coordinates preserve native leave/drag behavior without narrowing overflow.
+        const auto pixel = [](double uv, int size) {
+            return int(std::floor(std::clamp(uv * size, -8193., double(size) + 8193)));
+        };
+        pointer_target(hit.output.id);
+        hovered_surface = hit;
+        const std::array<int, 2> position{pixel(hit.uv[0], dimensions.x),
+                                          pixel(hit.uv[1], dimensions.y)};
+        return !context->ProcessMouseMove(position[0], position[1], modifiers);
+    }
+    bool surface_available(const UiSurfaceHit& hit) {
+        try {
+            if (!surface_callbacks.project || !input_context(hit.output.id))
+                return false;
+            const auto point = surface_callbacks.project(hit);
+            return point && std::isfinite((*point)[0]) && std::isfinite((*point)[1]);
+        } catch (const std::exception& e) {
+            error = e.what();
+            return false;
+        }
+    }
+    void validate_surface_focus() {
+        if (focused_surface && !surface_available(*focused_surface))
+            release_native_input();
+    }
+    bool route_mouse(int x, int y, int modifiers) {
+        last_pointer = std::array{x, y};
+        pointer_modifiers = modifiers;
+        if (!live)
+            return false;
+        if (!held_buttons.empty()) {
+            if (captured_surface) {
+                const auto hit = pick_surface(x, y, captured_surface);
+                if (!hit || hit->output != captured_surface->output) {
+                    release_native_input();
+                    return true;
+                }
+                surface_mouse(*hit, modifiers);
+                captured_surface = hit;
+            } else if (auto* context = input_context(captured_output)) {
+                context->ProcessMouseMove(x, y, modifiers);
+            }
+            return true;
+        }
+        const bool main_consumed = !live->context->ProcessMouseMove(x, y, modifiers);
+        if (!main_consumed)
+            if (const auto hit = pick_surface(x, y))
+                return surface_mouse(*hit, modifiers);
+        pointer_target({});
+        hovered_surface.reset();
+        return main_consumed;
+    }
+    void refresh_surface_pointer() {
+        validate_surface_focus();
+        if (last_pointer && surface_callbacks.pick) {
+            const auto position = *last_pointer;
+            route_mouse(position[0], position[1], pointer_modifiers);
+        }
     }
     Impl(Rml::RenderInterface& r, std::filesystem::path p, std::vector<std::byte> f,
          UiPlatformCallbacks hooks, Rml::TextInputHandler* text_handler)
@@ -356,9 +502,35 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
                 out.clear();
         }
     }
-    void ActivateKeyboard(Rml::Vector2f pos, float height) override {
-        if (platform.activate_text)
-            platform.activate_text(pos.x, pos.y, height);
+    void ActivateKeyboard(Rml::Vector2f position, float height) override {
+        if (!platform.activate_text)
+            return;
+        if (!focused_surface) {
+            platform.activate_text(position.x, position.y, height);
+            return;
+        }
+        try {
+            auto* context = input_context(focused_surface->output.id);
+            if (!context || !surface_callbacks.project)
+                throw std::runtime_error("UI text surface is unavailable");
+            const auto dimensions = context->GetDimensions();
+            auto anchor = *focused_surface;
+            anchor.uv = {position.x / dimensions.x, position.y / dimensions.y};
+            const auto top = surface_callbacks.project(anchor);
+            anchor.uv[1] += height / dimensions.y;
+            const auto bottom = surface_callbacks.project(anchor);
+            if (!top || !bottom || !std::isfinite((*top)[0]) || !std::isfinite((*top)[1]) ||
+                !std::isfinite((*bottom)[0]) || !std::isfinite((*bottom)[1]))
+                throw std::runtime_error("UI text surface cannot project its input anchor");
+            const auto extent = std::hypot((*bottom)[0] - (*top)[0], (*bottom)[1] - (*top)[1]);
+            platform.activate_text(float(std::clamp((*top)[0], 0., double(width - 1))),
+                                   float(std::clamp((*top)[1], 0., double(this->height - 1))),
+                                   float(std::clamp(extent, 1., double(this->height))));
+        } catch (const std::exception& e) {
+            error = e.what();
+            if (platform.deactivate_text)
+                platform.deactivate_text();
+        }
     }
     void DeactivateKeyboard() override {
         if (platform.deactivate_text)
@@ -783,7 +955,7 @@ body { width:100%; height:100%; z-index:65536; }
         auto next = build(current);
         if (!next)
             return false;
-        held_keys.clear();
+        clear_input_state();
         auto previous = std::move(live);
         retire(previous);
         live = std::move(next);
@@ -832,7 +1004,7 @@ void UiPresenter::reset(std::string session, std::uint64_t generation) {
         s.retire(s.staged->set);
     s.staged.reset();
     s.retire(s.live);
-    s.held_keys.clear();
+    s.clear_input_state();
     s.pending.clear();
     s.cancel_loading.reset();
     s.command_id = 0;
@@ -887,7 +1059,7 @@ bool UiPresenter::activate_prepared(std::uint64_t ticket) noexcept {
     s.generation = s.staged->generation;
     s.cancel_loading.reset();
     s.staged.reset();
-    s.held_keys.clear();
+    s.clear_input_state();
     s.pending.clear();
     s.command_id = 0;
     s.failed_structure.clear();
@@ -1038,6 +1210,9 @@ void UiPresenter::update(double t, int w, int h, float dp) {
         !std::isfinite(dp) || dp < .5f || dp > 4)
         throw std::runtime_error("Invalid UI presentation dimensions/time");
     s.prepared_outputs.clear();
+    if ((s.width != w || s.height != h || s.density != dp) &&
+        (s.focused_surface || s.captured_surface))
+        s.release_native_input();
     s.time = t;
     s.width = w;
     s.height = h;
@@ -1049,6 +1224,7 @@ void UiPresenter::update(double t, int w, int h, float dp) {
             [&] {
                 s.live->context->Update();
                 synchronize_ui_shadow_motion(*s.live->context);
+                s.refresh_surface_pointer();
             },
             false);
     }
@@ -1073,6 +1249,10 @@ void UiPresenter::update_output(AssetRef<RenderTextureAsset> output, int w, int 
         s.renderer.checked([&] {
             context->Update();
             synchronize_ui_shadow_motion(*context);
+            if (resized && s.hovered_surface && s.hovered_surface->output == output) {
+                const auto hit = *s.hovered_surface;
+                s.surface_mouse(hit, s.pointer_modifiers);
+            }
         });
 }
 
@@ -1131,28 +1311,70 @@ void UiPresenter::render() {
         s.renderer.render(*s.live->context, false);
     }
 }
-bool UiPresenter::mouse_move(int x, int y, int m) {
+void UiPresenter::surface_input(UiSurfaceCallbacks callbacks) {
     auto& s = *impl_;
     s.check();
-    return s.live && !s.live->context->ProcessMouseMove(x, y, m);
+    if (bool(callbacks.pick) != bool(callbacks.project))
+        throw std::invalid_argument("UI surface input requires pick and projection callbacks");
+    s.release_native_input();
+    s.surface_callbacks = std::move(callbacks);
 }
-bool UiPresenter::mouse_button(int b, bool down, int m) {
+bool UiPresenter::mouse_move(int x, int y, int modifiers) {
     auto& s = *impl_;
     s.check();
-    if (!s.live)
+    const bool captured = !s.held_buttons.empty();
+    s.validate_surface_focus();
+    const bool consumed = s.route_mouse(x, y, modifiers);
+    return consumed || captured;
+}
+bool UiPresenter::mouse_button(int button, bool down, int modifiers) {
+    auto& s = *impl_;
+    s.check();
+    if (button < 0 || button >= 5)
         return false;
-    return !(down ? s.live->context->ProcessMouseButtonDown(b, m)
-                  : s.live->context->ProcessMouseButtonUp(b, m));
+    const bool captured = !s.held_buttons.empty();
+    const auto& surface = captured ? s.captured_surface : s.hovered_surface;
+    if (surface && !s.surface_available(*surface)) {
+        s.release_native_input();
+        return captured;
+    }
+    const auto output = captured ? s.captured_output : s.pointer_output;
+    auto* context = s.input_context(output);
+    if (!context)
+        return false;
+    if (down)
+        s.focus_target(output, captured ? s.captured_surface : s.hovered_surface);
+    const bool consumed = !(down ? context->ProcessMouseButtonDown(button, modifiers)
+                                 : context->ProcessMouseButtonUp(button, modifiers));
+    if (down && consumed) {
+        if (!captured) {
+            s.captured_output = output;
+            s.captured_surface = s.hovered_surface;
+        }
+        s.held_buttons.insert(button);
+    } else if (!down) {
+        const bool owned = s.held_buttons.erase(button) != 0;
+        if (s.held_buttons.empty()) {
+            s.captured_output = {};
+            s.captured_surface.reset();
+        }
+        return consumed || owned;
+    }
+    return consumed;
 }
-bool UiPresenter::wheel(float x, float y, int m) {
+bool UiPresenter::wheel(float x, float y, int modifiers) {
     auto& s = *impl_;
     s.check();
-    return s.live && !s.live->context->ProcessMouseWheel({x, y}, m);
+    s.validate_surface_focus();
+    auto* context = s.input_context(s.held_buttons.empty() ? s.pointer_output : s.captured_output);
+    return context && !context->ProcessMouseWheel({x, y}, modifiers);
 }
 bool UiPresenter::key(int k, bool down, int m) {
     auto& s = *impl_;
     s.check();
-    if (!s.live)
+    s.validate_surface_focus();
+    auto* context = s.input_context(s.focus_output);
+    if (!context)
         return false;
     if (down)
         s.held_keys.insert(k);
@@ -1161,29 +1383,31 @@ bool UiPresenter::key(int k, bool down, int m) {
     // Documents are shown without stealing pointer/text focus. The first Tab
     // (including a controller next/previous action) deliberately enters the
     // highest visible document, then native RmlUi owns control traversal.
-    auto* focused = s.live->context->GetFocusElement();
+    auto* focused = context->GetFocusElement();
     if (down && k == Rml::Input::KI_TAB && (!focused || !focused->GetOwnerDocument())) {
         for (auto it = s.live->docs.rbegin(); it != s.live->docs.rend(); ++it)
-            if ((*it)->document->IsVisible()) {
+            if ((*it)->context == context && (*it)->document->IsVisible()) {
                 (*it)->document->Focus();
                 break;
             }
     }
     const bool capture = wants_text();
-    return !(down ? s.live->context->ProcessKeyDown(static_cast<Rml::Input::KeyIdentifier>(k), m)
-                  : s.live->context->ProcessKeyUp(static_cast<Rml::Input::KeyIdentifier>(k), m)) ||
+    return !(down ? context->ProcessKeyDown(static_cast<Rml::Input::KeyIdentifier>(k), m)
+                  : context->ProcessKeyUp(static_cast<Rml::Input::KeyIdentifier>(k), m)) ||
            capture;
 }
 bool UiPresenter::text(const std::string& t) {
     auto& s = *impl_;
     s.check();
+    s.validate_surface_focus();
     try {
         ui_protocol::validate_value(t);
     } catch (const std::exception& e) {
         s.error = e.what();
         return true;
     }
-    return s.live && !s.live->context->ProcessTextInput(t);
+    auto* context = s.input_context(s.focus_output);
+    return context && !context->ProcessTextInput(t);
 }
 void UiPresenter::navigate(const std::string& direction) {
     if (direction != "next" && direction != "previous" && direction != "accept")
@@ -1196,25 +1420,18 @@ void UiPresenter::navigate(const std::string& direction) {
 bool UiPresenter::wants_text() const {
     auto& s = *impl_;
     s.check();
-    if (!s.live)
+    if (s.focused_surface && !s.surface_available(*s.focused_surface))
         return false;
-    auto* e = s.live->context->GetFocusElement();
-    return e && (e->GetTagName() == "input" || e->GetTagName() == "textarea");
+    auto* context = s.input_context(s.focus_output);
+    if (!context)
+        return false;
+    auto* element = context->GetFocusElement();
+    return element && (element->GetTagName() == "input" || element->GetTagName() == "textarea");
 }
 void UiPresenter::release_input() {
     auto& s = *impl_;
     s.check();
-    if (!s.live)
-        return;
-    auto* c = s.live->context;
-    for (int k : s.held_keys)
-        c->ProcessKeyUp(static_cast<Rml::Input::KeyIdentifier>(k), 0);
-    s.held_keys.clear();
-    if (auto* e = c->GetFocusElement())
-        e->Blur();
-    c->ProcessMouseLeave();
-    for (int b = 0; b < 5; ++b)
-        c->ProcessMouseButtonUp(b, 0);
+    s.release_native_input();
 }
 bool UiPresenter::command(const std::string& instance, const std::string& name,
                           const std::optional<std::string>& value) {

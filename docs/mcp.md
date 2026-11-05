@@ -379,6 +379,16 @@ Scene Undo. Separate producer/screen layers; conservative selected reads reject
 feedback even when a screen is outside the frustum. After resizing an output,
 republish dependent Materials before export. See [the complete contract](render-textures.md).
 
+For interactive output panels, discover `forge.ui_surface_input` in the shared
+component schema. Add it to an Engine / Quad Mesh entity and set `render_texture`
+to the same image, plus `enabled`. Use `forge_component_add`, `forge_property_set`
+and the ordinary Scene save/history operations. Its Material must meet the
+[UI surface input profile](runtime-ui.md#interactive-scene-surfaces). UI Document
+source/model authoring and semantic Play commands retain their existing tools.
+MCP does not inject a raw ray or pointer gesture; graphical native focus and
+capture are owned by the running presenter.
+
+
 `forge_asset_localization_catalog` describes bounded literal-message catalogs,
 locale tags, fallback, source limits and RML bindings. Use editor
 `ui_localization` for the same source template/create/read/patch/history/save/close

@@ -1,4 +1,5 @@
 #include "builtins.hpp"
+#include "ui_surface_limits.hpp"
 #include <algorithm>
 #include <cmath>
 #include <forge/content_digest.hpp>
@@ -245,6 +246,7 @@ RenderScene extract_render_scene(const Json& source) {
                                           "forge.primitive"));
             }
         }
+        const auto mesh_start = result.meshes.size();
         admit("forge.mesh_renderer", "render.mesh.invalid", [&] {
             auto mesh = component<MeshRenderer>(values, "forge.mesh_renderer");
             if (mesh.enabled) {
@@ -253,6 +255,22 @@ RenderScene extract_render_scene(const Json& source) {
                 result.meshes.push_back(
                     {id, mesh, world_transform(row), {}, state.valid && state.selectable});
             }
+        });
+        admit("forge.ui_surface_input", "render.ui_surface.invalid", [&] {
+            const auto input = component<UiSurfaceInput>(values, "forge.ui_surface_input");
+            if (!input.enabled || !input.render_texture.id || !state.valid || !state.visible)
+                return;
+            require(values.contains("forge.mesh_renderer"),
+                    "UI Surface Input requires a Mesh Renderer with Engine / Quad");
+            const auto mesh = component<MeshRenderer>(values, "forge.mesh_renderer");
+            if (!mesh.enabled || !mesh.visible)
+                return;
+            require(mesh.mesh == engine_primitive(8), "UI Surface Input requires Engine / Quad");
+            require(result.meshes.size() > mesh_start && result.meshes.back().entity == id,
+                    "UI Surface Input Mesh Renderer is invalid");
+            require(result.ui_surfaces.size() < ui_surface_detail::max_surfaces,
+                    "Scene exceeds 64 interactive UI surfaces");
+            result.ui_surfaces.push_back({id, input, std::uint32_t(result.meshes.size() - 1)});
         });
         admit("forge.sprite_renderer", "render.sprite.invalid", [&] {
             auto sprite = component<SpriteRenderer>(values, "forge.sprite_renderer");
@@ -407,6 +425,13 @@ RenderScene extract_render_scene(const Json& source) {
               [](const auto& a, const auto& b) { return a.entity < b.entity; });
     std::sort(result.meshes.begin(), result.meshes.end(),
               [](const auto& a, const auto& b) { return a.entity < b.entity; });
+    // Indices belong to the final detached ordering, not authoring/ECS traversal.
+    for (auto& surface : result.ui_surfaces) {
+        const auto mesh =
+            std::lower_bound(result.meshes.begin(), result.meshes.end(), surface.entity,
+                             [](const auto& row, EntityId id) { return row.entity < id; });
+        surface.mesh_index = std::uint32_t(mesh - result.meshes.begin());
+    }
     return result;
 }
 CameraComposition prepare_game_cameras(const RenderScene& scene, std::uint32_t width,

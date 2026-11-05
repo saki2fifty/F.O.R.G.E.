@@ -12,6 +12,7 @@ class GamePresentation {
     GamePresentation(DiligentPresentation&, Diligent::IDeviceContext*, std::filesystem::path,
                      std::vector<std::byte> font, UiPlatformCallbacks = {},
                      Rml::TextInputHandler* = nullptr);
+    ~GamePresentation();
     void dimensions(unsigned width, unsigned height, float density);
     std::unique_ptr<GameScenePreparation> prepare(std::uint64_t);
     Diligent::ITextureView* draw(GameSession&, double time);

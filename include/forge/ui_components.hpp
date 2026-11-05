@@ -1,4 +1,5 @@
 #pragma once
+#include <array>
 #include <forge/asset_ref.hpp>
 #include <string>
 namespace forge {
@@ -20,5 +21,17 @@ struct UiDocument {
     // Null draws on the main Game display. Camera retains output-image ownership.
     AssetRef<RenderTextureAsset> render_texture{};
     bool operator==(const UiDocument&) const = default;
+};
+struct UiSurfaceInput {
+    AssetRef<RenderTextureAsset> render_texture;
+    bool enabled = true;
+    bool operator==(const UiSurfaceInput&) const = default;
+};
+// Transient host/presenter input value; never registered or persisted as component data.
+struct UiSurfaceHit {
+    EntityId surface;
+    AssetRef<RenderTextureAsset> output;
+    std::array<double, 2> uv{};
+    EntityId view; // Optional host view identity, retained through a pointer gesture.
 };
 } // namespace forge

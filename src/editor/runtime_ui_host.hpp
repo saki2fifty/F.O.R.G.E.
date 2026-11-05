@@ -15,6 +15,7 @@ class RuntimeUiHost {
     TextInputMethodEditor_SDL ime_; // Must outlive the presenter/context.
     std::unique_ptr<UiDiligentRenderer> renderer_;
     std::unique_ptr<UiPresenter> presenter_;
+    UiSurfaceCallbacks surface_callbacks_;
     std::string session_;
     std::uint64_t generation_ = 0, submitted_ = 0;
     // Staged UI bookkeeping. The host (not the presenter) tracks the
@@ -62,9 +63,16 @@ class RuntimeUiHost {
         presenter_ = std::make_unique<UiPresenter>(renderer_->render_interface(), project_,
                                                    asset_detail::read_bytes(font_, 4 * 1024 * 1024),
                                                    std::move(platform), &ime_);
+        if (surface_callbacks_.pick)
+            presenter_->surface_input(surface_callbacks_);
     }
 
   public:
+    void detach_surface_input() {
+        if (presenter_)
+            presenter_->surface_input({});
+        surface_callbacks_ = {};
+    }
     bool reload(PlaySession& play) {
         if (!play.ready() || suspended_ || !presenter_ || prepared_ticket_) {
             error_ = "Runtime UI is unavailable or preparing a scene";
@@ -102,8 +110,10 @@ class RuntimeUiHost {
     std::string diagnostic() const {
         return !error_.empty() ? error_ : presenter_ ? presenter_->diagnostic() : std::string{};
     }
-    RuntimeUiHost(SDL_Window* w, Diligent::IRenderDevice* d, std::filesystem::path font)
-        : window_(w), device_(d), font_(std::move(font)) {}
+    RuntimeUiHost(SDL_Window* w, Diligent::IRenderDevice* d, std::filesystem::path font,
+                  UiSurfaceCallbacks surface_callbacks = {})
+        : window_(w), device_(d), font_(std::move(font)),
+          surface_callbacks_(std::move(surface_callbacks)) {}
     void clear(PlaySession& play) {
         if (presenter_)
             presenter_->release_input();

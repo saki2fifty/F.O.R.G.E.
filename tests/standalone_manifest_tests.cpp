@@ -7,6 +7,7 @@
 #include "runtime_document_package.hpp"
 #include "runtime_workers_package_tests.hpp"
 #include "standalone_manifest.hpp"
+#include "ui_surface_limits.hpp"
 #include <forge/game_settings.hpp>
 #include <forge/input_message.hpp>
 #include <forge/native_sdk_identity.h>
@@ -83,6 +84,46 @@ int main(int argc, char** argv) {
         const auto catalog = open_runtime_content(out / "content", target);
         test_fog_package::exercise(scratch, check, reject);
         test_worker_package::exercise(scratch, check, reject);
+        {
+            const Json required{{"ui_surface_input", ui_surface_detail::profile_version}};
+            for (const char* channel : {"components", "property_overrides"})
+                for (const char* rows : {"entities", "members", "overrides"}) {
+                    Json entry{
+                        {channel,
+                         {{"forge.ui_surface_input", {{"render_texture", AssetId::generate()}}}}}};
+                    Json document{{rows, Json::array({entry})}};
+                    if (std::string_view(rows) == "overrides")
+                        document["base"] = AssetId::generate();
+                    check(package_detail::document_runtime_features(document) == required,
+                          "Scene/Prefab surface input omitted its kit requirement");
+                    document[rows][0][channel]["forge.ui_surface_input"] = nullptr;
+                    check(package_detail::document_runtime_features(document).empty(),
+                          "Removed surface input required a kit extension");
+                }
+            AssetCatalog features(scratch / "surface-compatibility");
+            AssetRecord record{AssetId::generate(), "scene", "surface.scene.json", 5};
+            features.add(record);
+            validate_runtime_compatibility(features, Json::object());
+            record.metadata["forge.runtime_document"] = {{"runtime_features", required}};
+            features.replace(record);
+            validate_runtime_compatibility(
+                features, {{"runtime_ui_surface_input", ui_surface_detail::profile_version}});
+            reject([&] { validate_runtime_compatibility(features, Json::object()); });
+            for (const Json& version : {Json(), Json(false), Json(0), Json(1.), Json("1"), Json(2)})
+                reject([&] {
+                    validate_runtime_compatibility(features,
+                                                   {{"runtime_ui_surface_input", version}});
+                });
+            for (const Json& version :
+                 {Json(), Json(false), Json(0), Json(1.), Json("1"), Json(2)}) {
+                record.metadata["forge.runtime_document"]["runtime_features"]["ui_surface_input"] =
+                    version;
+                features.replace(record);
+                reject([&] {
+                    validate_runtime_compatibility(features, {{"runtime_ui_surface_input", 1}});
+                });
+            }
+        }
         {
             using package_detail::document_runtime_features;
             MeshWind wind;

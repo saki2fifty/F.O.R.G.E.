@@ -209,17 +209,21 @@ EntityId MeshSceneRenderer::pick(const RenderScene& scene, const CameraView& cam
 }
 std::optional<std::pair<EntityId, double>>
 MeshSceneRenderer::pick_depth(const RenderScene& scene, const CameraView& camera, double x,
-                              double y, std::uint32_t layers, double radius) const {
+                              double y, std::uint32_t layers, double radius,
+                              MeshPickMode mode) const {
     host_->check_thread();
     MeshPickBudget budget;
     EntityId selected;
     double nearest = 2;
     std::int64_t selected_order = 0;
     auto visit = [&](const RenderMesh& mesh, DrawScope draw_scope) {
-        if (!mesh.selectable || !(mesh.renderer.layers & layers))
+        if (!(mesh.renderer.layers & layers) ||
+            (mode == MeshPickMode::EditorSelection
+                 ? !mesh.selectable
+                 : !mesh.renderer.enabled || !mesh.renderer.visible))
             return;
         const auto found = entries_.find({mesh.entity, draw_scope});
-        if (found == entries_.end() || !found->second.ready)
+        if (found == entries_.end() || !found->second.ready || !found->second.pose)
             return;
         const auto& entry = found->second;
         const auto order = entry.sprite && entry.sprite->ready ? entry.sprite->admitted.order : 0;
@@ -266,7 +270,9 @@ MeshSceneRenderer::pick_depth(const RenderScene& scene, const CameraView& camera
     for (const auto& mesh : sprites_)
         visit(mesh, DrawScope::Sprite);
     for (const auto& map : scene.tile_maps) {
-        if (!map.selectable || !map.renderer.enabled || !(map.renderer.layers & layers))
+        if ((mode == MeshPickMode::EditorSelection && !map.selectable) || !map.renderer.enabled ||
+            (mode == MeshPickMode::VisibleGeometry && !map.renderer.visible) ||
+            !(map.renderer.layers & layers))
             continue;
         const auto found = tile_sources_.find(map.entity);
         if (found == tile_sources_.end() || !found->second.cells)

@@ -87,8 +87,7 @@ to output pixels, independently of editor/window scale. Higher **Layer** values
 place documents above lower ones on the same output. One UI Document chooses one
 output; use another entity to display another copy.
 
-Output images are display surfaces. Clicking a Mesh does not send pointer,
-keyboard or focus events to its UI. Put interactive controls on the main Game HUD.
+Output images become interactive when their display Quad has **UI Surface Input**. Without that component they remain display-only.
 The output must have an enabled Camera producer; assigning UI alone creates no
 image. Runtime UI draws during Play and standalone gameplay; it is not drawn in
 the stopped Scene view or stopped animation frame exports.
@@ -99,6 +98,40 @@ support is rejected. The exported game includes the reachable RML resources and
 recreates the image. UI focus, animation progress and live values are not saved
 unless an existing save/review workflow explicitly retains them.
 
+
+## Interact with UI on a scene surface
+
+1. Set up a Camera output and UI Document as described above. Keep the producer Camera's layers separate from the display surface to avoid feedback.
+2. Display that output using **Engine / Quad**. Assign an ordinary unlit Material with **Opaque**, **Double sided**, **Depth test** and **Depth write** enabled. Its only texture must be the output in **baseColorTexture**, using **Color**, **2D** and **UV0**.
+3. Use identity UVs, or a complete axis flip: scale `-1` with offset `1` on the flipped axis. For an upright panel, set Y scale to `-1` and Y offset to `1`. Cropping, rotation, repeating image regions, programmable Materials and deformed geometry are outside this interaction profile.
+4. Select the Quad, click **+ Add Component**, choose **UI Surface Input** under **Runtime UI**, and assign the same output in **Render Texture**. Leave **Enabled** checked. Save the Scene and published resources.
+5. Press **Play**, open **Game**, and capture gameplay input. Click the displayed controls. A focused text field accepts keyboard text; navigation acts on the focused output. Main-window UI takes precedence over surfaces under an uncaptured pointer.
+
+![A scene Quad with Pause, Resume, Step and a text field, beside a display-only relay](../images/ui-surface-gallery.png)
+
+The left panel accepts native UI input; the right monitor relays its current image.
+
+The surface uses the output's pixel dimensions. Pointer coordinates follow the
+retained displayed pose, Material UV flip and Game Camera viewport. A pressed
+control keeps its surface through dragging outside the Quad, until release.
+Removing or hiding the surface, losing its output producer, replacing the Scene
+or leaving the Game view cancels its input. Native focus and field text are
+transient; save authored UI Values or gameplay state through their normal owners.
+
+Geometric Mesh, Sprite and Tile Map blockers prevent a new surface hit. This is a
+geometric query: transparent holes, one-sided culling and transient particles do
+not provide pixel-accurate hit masks. Editor selectability does not disable Game
+UI input. Separate split-screen Game viewports are supported; overlapping Camera
+viewports reject ambiguous surface input. The profile supports up to64 enabled
+surfaces per Scene. General mesh UV picking and free-space3D UI layout are unavailable.
+
+If a control does not respond, check **UI Surface Input → Render Texture** against
+the Material and UI Document output, producer Camera layers, the supported
+Material settings and **Problems**. UI Source documents use native RCSS
+`pointer-events` and keyboard focus rules; use `tab-index:auto` on navigable
+buttons. Runtime UI is interactive during Play and in exported games. Save the Scene and sources, select the intended startup Scene in Project
+Settings, and export with the runtime kit packaged with this editor; old kits without surface
+input support are rejected.
 
 ## Animate your HUD
 

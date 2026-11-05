@@ -9,6 +9,7 @@
 #include "temporal_geometry.hpp"
 #include "tile_asset_resources.hpp"
 #include "tile_draw_values.hpp"
+#include "ui_surface_profile.hpp"
 #include "weighted_transparency.hpp"
 #include <forge/render_scene.hpp>
 #include <functional>
@@ -100,6 +101,7 @@ class MeshResourceHost {
 };
 // One visual scene's derived revision selections. Flecs/extraction owns entities,
 // transforms and values; this cache only retains complete draw-resource bundles.
+enum class MeshPickMode { EditorSelection, VisibleGeometry };
 class MeshSceneRenderer {
   public:
     explicit MeshSceneRenderer(std::shared_ptr<MeshResourceHost>,
@@ -161,10 +163,16 @@ class MeshSceneRenderer {
     std::uint64_t material_payload_bytes() const;
     EntityId pick(const RenderScene&, const CameraView&, double x, double y,
                   std::uint32_t layers = UINT32_MAX, double point_line_radius = 5) const;
-    std::optional<std::pair<EntityId, double>> pick_depth(const RenderScene&, const CameraView&,
-                                                          double x, double y,
-                                                          std::uint32_t layers = UINT32_MAX,
-                                                          double point_line_radius = 5) const;
+    std::optional<std::pair<EntityId, double>>
+    pick_depth(const RenderScene&, const CameraView&, double x, double y,
+               std::uint32_t layers = UINT32_MAX, double point_line_radius = 5,
+               MeshPickMode = MeshPickMode::EditorSelection) const;
+    std::optional<UiSurfaceHit> pick_ui_surface(const RenderScene&, const PreparedCamera&, double x,
+                                                double y,
+                                                std::optional<UiSurfaceHit> retained = {}) const;
+    std::optional<Double2> project_ui_surface(const RenderScene&, const PreparedCamera&,
+                                              const UiSurfaceHit&) const;
+    std::vector<Diagnostic> ui_surface_diagnostics(const RenderScene&) const;
     const EnvironmentLease& environment() const { return environment_.ready; }
     bool has_reflection_probes() const {
         for (const auto& probe : lighting_probes_)
@@ -227,6 +235,13 @@ class MeshSceneRenderer {
         std::uint64_t pose_bytes() const;
         std::uint64_t material_bytes() const;
     };
+    struct UiSurfaceSelection {
+        const RenderUiSurface* surface;
+        const Entry* entry;
+        UiSurfaceImageMapping mapping;
+    };
+    std::optional<UiSurfaceSelection> ui_surface_selection(const RenderScene&, EntityId,
+                                                           std::uint32_t layers) const;
     std::shared_ptr<MeshDrawBundle> prepare_bundle(const asset_detail::PreparedModelDraw&, bool,
                                                    std::shared_ptr<const MeshPoseGeometry>,
                                                    MeshDrawProfile = MeshDrawProfile::Mesh,

@@ -129,8 +129,9 @@ positive output within each live/staged Set. Documents, model values, commands,
 localization, application-state transforms, resource snapshots and preparation
 remain under that same presenter. Complete preparation/cancel/activation and
 retirement include every context. No output registry or second presenter exists.
-Layer sorting is stable within each group. Native input/focus and private FPS
-statistics use main only; explicit semantic commands still identify their document.
+Layer sorting is stable within each group. Private FPS statistics use main only.
+Native input can also reach an explicitly enabled scene surface through the
+existing presenter; semantic commands continue to identify their document.
 Changing the saved output renews the runtime document incarnation and rejects its
 old command immediately, before the next copied snapshot.
 
@@ -141,8 +142,9 @@ shared UiDiligent draw_output lays out that context at the pass dimensions and
 renders it without advancing simulation or another clock. A failed composition
 cannot publish stale current pixels. Main UI draws after the Game display as before.
 Density is1 for outputs; main density retains the existing window policy. An output
-without an enabled producer has no draw pass. No pointer/raycast surface input,
-world-space layout, stopped Scene overlay or stopped Timeline UI export is added.
+without an enabled producer has no draw pass. Scene-surface interaction uses the
+bounded profile below. Free-space3D layout, stopped Scene overlay and stopped
+Timeline UI export remain unavailable.
 
 The graphics adapter retains RGBA8 display-encoded blending. Its RGBA16_FLOAT
 variant unpremultiplies combined UI color, decodes straight RGB through the pinned
@@ -158,6 +160,65 @@ header. Export/distribution admission reads the existing cooked document graph,
 including Prefab overrides, and requires matching support for a positive UI output
 edge. A main-only project can still use a legacy kit. Scene/Prefab default admission
 keeps missing outputs null; exact C++ modules require the updated header fingerprint.
+
+## Interactive scene surfaces
+
+`UiSurfaceInput` is optional authored data on a Mesh entity: typed nullable
+`AssetRef<RenderTextureAsset> render_texture` and `bool enabled=true`. Reflected
+Scene/Prefab authoring, references, history, schema and MCP use the builtin
+component owner. Detached RenderScene stores bounded surface-to-mesh indices
+within that same snapshot; it introduces no persistent identity or separate
+registry. At most64 admitted surfaces are supported. An absent output, disabled
+component or invisible/disabled node/Mesh supplies no surface.
+
+The first profile is the immutable Engine / Quad, one complete ordinary unlit
+Material part, opaque/two-sided/depth-tested/depth-writing, with exactly one
+Color2D UV0 `baseColorTexture` matching the component's Render Texture. Identity
+or complete per-axis flips (scale -1, offset1) are admitted; rotation, crop,
+programmable geometry, skin/morph/wind deformation are unsupported. The shader's
+existing texture-transform rows map local XY to image UV and back. Renderer
+validation reports `render.ui_surface.profile` against the component. Existing
+last-good resource/pose selection remains authoritative; interaction requires
+that exact selected image to have current completed producers.
+
+FrameRenderer borrows its last Game snapshot, retained Mesh draw/pose and Game
+Camera views for input queries. Shared camera-relative plane math supports
+perspective/orthographic projections, reflections, shear, rank-two XY planes and
+finite/infinite far. New uncaptured hits choose the nearest eligible Quad and use
+the existing bounded geometry query for Mesh/Sprite/Tile blockers, ignoring editor
+selectability while honoring visibility and Camera layers. This is geometric
+occlusion, not a rasterized alpha/culling/particle hit mask. Separate camera
+viewports are supported; a point covered by overlapping Game Camera viewports is
+ambiguous and rejected. Producer Cameras are not Game input views.
+
+UiPresenter owns focus, pointer capture, keys/buttons, navigation, text and IME
+through its existing native contexts. Shared host callbacks query FrameRenderer
+at call time; there is no native-context pointer in a hit, secondary input queue,
+world mutation or second presentation clock. Main UI takes uncaptured pointer
+precedence. Capture retains surface/output/view identity and permits local XY
+outside the Quad until release; loss of geometry/output/view cancels safely.
+Normalized UV maps into current output pixels. Reverse camera-relative projection
+maps native text caret anchors into main physical pixels. Resizing or replacing
+the main presentation releases native input, and native output resizing updates
+pointer coordinates without rebuilding the document. Stationary pointers refresh
+against displayed scene motion during the existing presenter update.
+
+Runtime document metadata records `ui_surface_input:1` for present Scene/Prefab
+component or property-override intent. Export and runtime compatibility require
+integer `engine.runtime_ui_surface_input:1` from the kit, generated from the same
+private profile header. Ordinary image-only documents add no requirement. The
+public typed component changes the exact SDK fingerprint; stable plugin ABI and
+Scene envelope versions are unchanged.
+
+GamePresentation and editor RuntimeUiHost install the same callback composition;
+standalone button events refresh physical pointer coordinates before dispatch.
+Callbacks are released while the geometry provider still exists. Gameplay input
+capture, relative mouse and editor focus gates retain their existing owners.
+Native UI commands, semantic automation/MCP and output incarnation guards are
+unchanged. MCP can author all component/source/value assignments and call the
+existing semantic commands; raw pointer/ray injection is not a tool capability.
+The [manual](../manual/editor/runtime-ui.md#interact-with-ui-on-a-scene-surface)
+describes setup, native focus and current limits.
 
 ## Time, input and density
 
@@ -256,7 +317,7 @@ presentation state or access to arbitrary DOM/script/engine files.
 
 Adopted: native RML/RCSS layout, styled text/buttons/forms, copied scalar expressions, local text editing, multiple ordered documents, PNG/JPEG/TGA images, project fonts, transforms, scissor and stencil masks, explicit reload. Documents sort by layer then stable incoming scene order; RmlUi manages normal DOM focus/z-order within that context.
 
-Deferred: browser JavaScript, Lua, debugger UI, SVG/Lottie/HarfBuzz, RCSS imports/templates, world-space UI, collections/two-way gameplay binding, public plugin APIs and a visual UI designer. Standalone gamepad navigation now routes through input actions to native RmlUi focus traversal and activation. Link stylesheets individually. Bounded blur/color filters use transient renderer-owned layers as described below. Other shader decorators remain unsupported and diagnosed. Box shadows use the extension below. Alpha masks use the profile below. Bounded linear gradients use the profile below. Drop-shadow and backdrop filters use the profile below. Use explicit font-family/font-size rather than shorthand. This is the first screen-space integration, not a visual UI designer.
+Deferred: browser JavaScript, Lua, debugger UI, SVG/Lottie/HarfBuzz, RCSS imports/templates, free-space3D UI layout, collections/two-way gameplay binding, public plugin APIs and a visual UI designer. Standalone gamepad navigation now routes through input actions to native RmlUi focus traversal and activation. Link stylesheets individually. Bounded blur/color filters use transient renderer-owned layers as described below. Other shader decorators remain unsupported and diagnosed. Box shadows use the extension below. Alpha masks use the profile below. Bounded linear gradients use the profile below. Drop-shadow and backdrop filters use the profile below. Use explicit font-family/font-size rather than shorthand. This is the first screen-space integration, not a visual UI designer.
 
 ## Upstream evidence
 
@@ -427,7 +488,7 @@ Gallery155 provides original shape/color samples, Inspector-driven blur and a
 presentation-time filter pulse. Source editing/registration, live UI reload,
 UiValues tuning and export use their existing automation/MCP operations and guards.
 No effects database, authored DOM format, new game clock or plugin ABI is added.
-Other shader effects, world-space UI and surface input remain outside this profile. Box shadows use the extension below.
+Other shader effects, free-space3D UI layout remains outside this filter profile. Box shadows use the extension below.
 
 ### Drop-shadow composition
 
@@ -555,7 +616,7 @@ non-drawing inspection, automation/MCP and export retain their existing owners.
 Source requirements1/2 and runtime-kit2 preserve static linear1 compatibility;
 oldkit1 rejects radial/conic/dynamic2. Existing Gallery164 dynamic metadata is
 refreshed through source registration/preparation with unchanged source and IDs.
-Original Gallery165 demonstrates the new forms. Alpha masks use the extension below. Arbitrary shaders, visual UI authoring and world-space UI remain outside this profile. Box shadows use the extension below.
+Original Gallery165 demonstrates the new forms. Alpha masks use the extension below. Arbitrary shaders, visual UI authoring and free-space3D UI layout remain outside this profile. Box shadows use the extension below.
 
 
 ## Native alpha-mask extension
@@ -600,7 +661,7 @@ through the existing declare_runtime_dependencies owner and a required typed
 edge. Optional ui.observed edges are not silently promoted; no stylesheet parser
 or second dependency owner is added.
 Luminance masks use the extension below. Arbitrary shaders, visual authoring and
-world-space UI remain outside this subset. Windows/full-editor/physical review is queued.
+free-space3D UI layout remains outside this subset. Windows/full-editor/physical review is queued.
 
 ## Native box-shadow snapshots
 

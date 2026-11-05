@@ -9,6 +9,9 @@ def check_render_texture_workflow(read, mutate, edit, status, content, save_publ
         return result['result']
 
     catalog = read('forge_asset_render_texture_catalog')
+    assert catalog['surface_input']['component'] == 'forge.ui_surface_input'
+    assert catalog['surface_input']['profile'] == 1
+    assert catalog['surface_input']['maximum_surfaces'] == 64
     binding = json.loads(json.dumps(catalog['material']['binding_template']))
     assert binding['render_texture'] is None and isinstance(binding['slot'], dict)
     binding['render_texture'] = output
@@ -48,6 +51,29 @@ def check_render_texture_workflow(read, mutate, edit, status, content, save_publ
     ok('forge_property_set', arguments=dict(entity=screen, component='forge.mesh_renderer', field='materials',
                                           value=[dict(slot='surface', material=material)]))
     assert component(screen, 'forge.mesh_renderer')['materials'] == [dict(slot='surface', material=material)]
+    surface_schema = next(row for row in discovery()['result']['schema']['components']
+                          if row['id'] == 'forge.ui_surface_input')
+    assert surface_schema['display_name'] == 'UI Surface Input'
+    target = next(row for row in surface_schema['fields'] if row['id'] == 'render_texture')
+    assert target['asset_type'] == 'render_texture' and target['nullable']
+    ok('forge_component_add', arguments=dict(entity=screen, component='forge.ui_surface_input'))
+    assert component(screen, 'forge.ui_surface_input') == dict(render_texture=None, enabled=True)
+    revision = discovery()['revision']
+    rejected = mutate('forge_property_set', arguments=dict(entity=screen,
+        component='forge.ui_surface_input', field='render_texture', value=42))
+    assert not rejected['ok'] and discovery()['revision'] == revision
+    ok('forge_property_set', arguments=dict(entity=screen, component='forge.ui_surface_input',
+                                           field='render_texture', value=output))
+    assert component(screen, 'forge.ui_surface_input')['render_texture'] == output
+    ok('forge_history_undo')
+    assert component(screen, 'forge.ui_surface_input')['render_texture'] is None
+    ok('forge_history_redo')
+    assert component(screen, 'forge.ui_surface_input')['render_texture'] == output
+    ok('forge_property_set', arguments=dict(entity=screen, component='forge.ui_surface_input',
+                                           field='enabled', value=False))
+    assert not component(screen, 'forge.ui_surface_input')['enabled']
+    ok('forge_history_undo')
+    assert component(screen, 'forge.ui_surface_input')['enabled']
     # Runtime UI uses the same reflected assignment/history owners as Cameras.
     schema = next(row for row in discovery()['result']['schema']['components']
                   if row['id'] == 'forge.ui_document')

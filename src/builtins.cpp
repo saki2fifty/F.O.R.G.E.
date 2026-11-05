@@ -77,6 +77,9 @@ template <class T> Json encode(const T& p) {
                 {"visible", p.visible},
                 {"layer", p.layer},
                 {"render_texture", p.render_texture.id ? Json(p.render_texture.id) : Json()}};
+    else if constexpr (std::is_same_v<T, UiSurfaceInput>)
+        return {{"render_texture", p.render_texture.id ? Json(p.render_texture.id) : Json()},
+                {"enabled", p.enabled}};
     else if constexpr (std::is_same_v<T, UiLocalization>)
         return {{"catalog", p.catalog.id ? Json(p.catalog.id) : Json()}, {"locale", p.locale}};
     else if constexpr (std::is_same_v<T, UiValues>)
@@ -399,6 +402,12 @@ template <class T> Value decode(const Json& p) {
         if (const auto output = p.value("render_texture", Json()); !output.is_null())
             v.render_texture.id = output.get<AssetId>();
         return v;
+    } else if constexpr (std::is_same_v<T, UiSurfaceInput>) {
+        UiSurfaceInput value;
+        if (!p.at("render_texture").is_null())
+            value.render_texture.id = p.at("render_texture").get<AssetId>();
+        value.enabled = p.at("enabled").get<bool>();
+        return value;
     } else if constexpr (std::is_same_v<T, UiLocalization>) {
         UiLocalization value;
         if (!p.at("catalog").is_null())
@@ -1253,6 +1262,10 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<bool>("visible")
             .template member<std::uint32_t>("layer")
             .template member<AssetRef<RenderTextureAsset>>("render_texture");
+    } else if constexpr (std::is_same_v<T, UiSurfaceInput>) {
+        register_asset_ref<RenderTextureAsset>(w, "forge.render_texture_ref");
+        c.template member<AssetRef<RenderTextureAsset>>("render_texture")
+            .template member<bool>("enabled");
     } else if constexpr (std::is_same_v<T, UiLocalization>) {
         register_asset_ref<UiLocalizationAsset>(w, "forge.ui_localization_ref");
         w.component<std::string>("forge.authored_string").opaque(reflected_string);
@@ -1963,7 +1976,13 @@ const std::array<Builtin, builtin_count>& builtins() {
         descriptor<FogVolume>(
             "forge.fog_volume", "Homogeneous linear-color fog inside a transformed box or sphere",
             "unitless", {}, {},
-            [](flecs::world& w) { return register_type<FogVolume>(w, "forge.fog_volume"); })};
+            [](flecs::world& w) { return register_type<FogVolume>(w, "forge.fog_volume"); }),
+        descriptor<UiSurfaceInput>(
+            "forge.ui_surface_input",
+            "Pointer and keyboard input for UI displayed on an Engine / Quad", "unitless", {}, {},
+            [](flecs::world& w) {
+                return register_type<UiSurfaceInput>(w, "forge.ui_surface_input");
+            })};
     return types;
 }
 Json registration_options(const Builtin& type, const std::string& field) {
@@ -3141,6 +3160,17 @@ Json registration_options(const Builtin& type, const std::string& field) {
                                        ? "Repeat the clip at its duration"
                                        : "Begin playback when this Animator is realized";
     }
+    if (name == "forge.ui_surface_input") {
+        value["animatable"] = false;
+        if (field == "render_texture") {
+            value["display_name"] = "Render Texture";
+            value["asset_type"] = RenderTextureAsset::type;
+            value["nullable"] = true;
+            value["description"] = "Camera image used by this Quad's unlit base color Material";
+        } else {
+            value["description"] = "Allow pointer, keyboard and text input on this UI surface";
+        }
+    }
     if (name == "forge.ui_document") {
         if (field == "document") {
             value["asset_type"] = UiDocumentAsset::type;
@@ -3621,6 +3651,7 @@ void annotate_type(flecs::world& world, flecs::entity component, const Builtin& 
     const std::string id = type.name;
     auto display = id == "forge.application_state_gate" ? std::string("State Condition")
                    : id == "forge.ui_document"          ? std::string("UI Document")
+                   : id == "forge.ui_surface_input"     ? std::string("UI Surface Input")
                    : id == "forge.ui_values"            ? std::string("UI Values")
                    : id == "forge.ui_localization"      ? std::string("UI Localization")
                    : id == "forge.two_bone_ik"          ? std::string("Two Bone IK")
@@ -3669,7 +3700,7 @@ Json register_builtins(flecs::world& world, unsigned family) {
         const std::string name = type.name;
         const unsigned category =
             (name == "forge.ui_document" || name == "forge.ui_localization" ||
-             name == "forge.ui_values")
+             name == "forge.ui_values" || name == "forge.ui_surface_input")
                 ? 5u
             : name.starts_with("forge.navigation_") ? 4u
             : (name == "forge.animator" || name == "forge.transform_animator" ||

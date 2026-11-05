@@ -4,6 +4,7 @@
 #include <forge/render_view.hpp>
 #include <forge/scene_render_settings.hpp>
 #include <forge/services.hpp>
+#include <forge/ui_components.hpp>
 #include <map>
 #include <memory>
 #include <optional>
@@ -101,6 +102,11 @@ struct RenderModelAnimation {
     bool ready = false;
     std::map<AssetId, std::vector<float>> morphs;
 };
+struct RenderUiSurface {
+    EntityId entity;
+    UiSurfaceInput input;
+    std::uint32_t mesh_index = 0; // Derived reference within this same detached scene.
+};
 struct RenderScene {
     AssetId scene;
     SceneRenderSettings settings;
@@ -117,6 +123,7 @@ struct RenderScene {
     std::vector<RenderReflectionProbe> reflection_probes;
     std::vector<RenderDecal> decals;
     std::vector<RenderFogVolume> fog_volumes;
+    std::vector<RenderUiSurface> ui_surfaces;
     // Borrowed fixed-clock sample. Edit snapshots omit it; capture may override it.
     std::optional<double> simulation_seconds;
 };

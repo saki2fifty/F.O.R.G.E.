@@ -773,3 +773,22 @@ then tune **Animated shadow lab HUD → UI Values → blur** between `0` and `32
 change the Live card. Shadow motion continues while gameplay is paused. Stop,
 set authored starting values and save to keep them; export the saved startup
 Scene with the supplied runtime kit. See [Animate a panel shadow](../editor/runtime-ui.md).
+
+
+## Interactive scene surface samples
+
+Open **174-interactive-ui-surfaces**, press **Play**, open **Game**, and capture
+gameplay input. Click **Pause**, **Step** or **Resume** on the left monitor. Click
+its text field and type; Tab navigates its controls after focus. The right monitor
+relays the same camera image and remains display-only.
+
+![Interactive controls on the left scene panel and its display-only camera relay on the right](../images/ui-surface-gallery.png)
+
+The same camera image feeds both monitors; input is enabled on the left Quad.
+
+The left Quad's **UI Surface Input → Render Texture** matches its unlit Material
+and output UI Document. Edit the documents in **Assets/UI/SceneSurface**. Save the
+Scene and source resources, publish changes, select this startup Scene in Project
+Settings, and export with the runtime kit packaged with this editor. Focus and
+typed field text are transient. See
+[UI surface setup and limits](../editor/runtime-ui.md).

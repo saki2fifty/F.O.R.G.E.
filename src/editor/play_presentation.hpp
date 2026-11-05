@@ -23,6 +23,12 @@ namespace forge {
 class PlayPresentation {
   public:
     PlayPresentation() = default;
+    ~PlayPresentation() {
+        // The UI host outlives this adapter; detach its borrowed geometry
+        // callbacks before destroying the renderer behind the active alias.
+        if (active_ui_)
+            active_ui_->detach_surface_input();
+    }
     PlayPresentation(const PlayPresentation&) = delete;
     PlayPresentation& operator=(const PlayPresentation&) = delete;
 

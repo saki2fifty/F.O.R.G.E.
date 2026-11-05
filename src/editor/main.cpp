@@ -1,6 +1,7 @@
 #include "../flecs_system_trace.hpp"
 #include "../json_document.hpp"
 #include "../tile_asset_reimport_routes.hpp"
+#include "../ui_surface_input.hpp"
 #include "batch_authoring.hpp"
 #include "batch_inspector.hpp"
 #ifdef FORGE_UI_FIXTURE
@@ -757,7 +758,8 @@ int main(int argc, char** argv) {
         // the UI host pointer and must not outlive it. Both `play` and
         // the rest of the editor lifetime are still above this scope.
         forge::RuntimeUiHost runtime_ui(window.get(), device,
-                                        install_root / "resources/ui/LatoLatin-Regular.ttf");
+                                        install_root / "resources/ui/LatoLatin-Regular.ttf",
+                                        forge::ui_surface_callbacks([&] { return game_viewport; }));
 #ifdef FORGE_UI_FIXTURE
         // Probe install for the safe RmlUi-context enumeration helper
         // (tests/editor_sdk_workflow.hpp::find_live_visible_context).

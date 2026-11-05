@@ -356,6 +356,13 @@ int main(int argc, char** argv) {
                     }
                 } else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN ||
                            event.type == SDL_EVENT_MOUSE_BUTTON_UP) {
+                    if (!listening && !cursor.captured()) {
+                        int lw = 1, lh = 1, pw = 1, ph = 1;
+                        SDL_GetWindowSize(window.get(), &lw, &lh);
+                        SDL_GetWindowSizeInPixels(window.get(), &pw, &ph);
+                        ui.mouse_move(int(event.button.x * pw / std::max(lw, 1)),
+                                      int(event.button.y * ph / std::max(lh, 1)), modifiers);
+                    }
                     const bool consumed =
                         !listening && !cursor.captured() &&
                         ui.mouse_button(RmlSDL::ConvertMouseButton(event.button.button),

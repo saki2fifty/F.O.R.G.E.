@@ -48,6 +48,9 @@ class FrameRenderer {
     Diligent::ITextureView* output() const { return output_; }
     std::optional<Double3> pick_point(const RenderScene&, const CameraView&, double x,
                                       double y) const;
+    std::optional<UiSurfaceHit> pick_ui_surface(int x, int y,
+                                                std::optional<UiSurfaceHit> retained = {}) const;
+    std::optional<Double2> project_ui_surface(const UiSurfaceHit&) const;
     std::uint64_t frames = 0;
     std::optional<RenderBounds> bounds() const {
         return meshes_ ? meshes_->bounds() : std::nullopt;

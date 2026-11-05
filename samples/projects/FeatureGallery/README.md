@@ -2234,3 +2234,19 @@ UI presentation path. Pause, then tune **Animated shadow lab HUD â†’ UI Values â
 blur** from0..32 for the Live card. Stop, set authored values and save to keep
 them. Source edits live in **Assets/UI/ShadowMotion/Lab.rml**. Export the saved
 startup Scene with the matching supplied runtime kit.
+
+
+## Interactive scene surfaces
+
+Open **174-interactive-ui-surfaces**, press **Play**, open **Game** and capture
+gameplay input. The left Quad has **UI Surface Input** targeting its camera image.
+Click **Pause**, **Step** and **Resume**, or click its text field and type. After
+focusing the panel, Tab selects controls. The right monitor displays the same
+image through a relay; it is display-only. Main-window UI has pointer precedence.
+
+Select the left monitor to inspect its component and matching unlit Material.
+Source documents are in **Assets/UI/SceneSurface**. Save the Scene and UI sources,
+publish resources, select this startup Scene in Project Settings, and export with
+the matching supplied runtime kit. Native focus
+and typed field contents are transient. See the [surface guide](../../../manual/editor/runtime-ui.md#interact-with-ui-on-a-scene-surface)
+for Material/UV requirements, geometric blockers, Camera views and current limits.

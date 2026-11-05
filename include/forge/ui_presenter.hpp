@@ -1,7 +1,9 @@
 #pragma once
+#include <array>
 #include <forge/loading_state.hpp>
 #include <forge/ui_assets.hpp>
 #include <forge/ui_protocol.hpp>
+#include <functional>
 #include <memory>
 #include <optional>
 namespace Rml {
@@ -16,6 +18,14 @@ struct UiPlatformCallbacks {
     std::function<void(const std::string&)> set_clipboard;
     std::function<void(float, float, float)> activate_text;
     std::function<void()> deactivate_text;
+};
+// A host hit borrows the current rendered scene. The native presenter retains
+// identities and normalized image coordinates, never a scene or geometry pointer.
+struct UiSurfaceCallbacks {
+    // A retained surface is supplied while an owned pointer press is active.
+    std::function<std::optional<UiSurfaceHit>(int, int, std::optional<UiSurfaceHit>)> pick;
+    // Project image coordinates back to host pixels, including native IME anchors.
+    std::function<std::optional<std::array<double, 2>>(const UiSurfaceHit&)> project;
 };
 class UiPresenter {
   public:
@@ -57,6 +67,9 @@ class UiPresenter {
     bool has_output(AssetRef<RenderTextureAsset>) const;
     void render();
     void render_output(AssetRef<RenderTextureAsset>);
+    // Transient owner-thread routing. Both callbacks or neither are required.
+    // Replacing callbacks releases native input before borrowing the new host.
+    void surface_input(UiSurfaceCallbacks);
     bool mouse_move(int x, int y, int modifiers);
     bool mouse_button(int button, bool down, int modifiers);
     bool wheel(float x, float y, int modifiers);

@@ -77,6 +77,34 @@ void projections() {
               "Grid picking changed floor addressing at a cell boundary");
     }
 }
+void surface_coordinates() {
+    for (const bool infinite : {false, true})
+        for (const bool flip_x : {false, true})
+            for (const bool flip_y : {false, true}) {
+                Camera lens;
+                lens.infinite_far = infinite;
+                lens.flip_x = flip_x;
+                lens.flip_y = flip_y;
+                lens.near_plane = .1;
+                lens.far_plane = 100;
+                const auto view = camera_view(lens, {}, 640, 480);
+                AffineTransform world;
+                world.m = {-2, .25, 0, 0, .5, 3, 0, 0, .25, -.5, 0, 5};
+                for (const Double2 local : {Double2{-.3, .2}, {.25, -.1}, {0, 0}}) {
+                    const auto pixel = project_render_point(view, point(world, local));
+                    check(bool(pixel), "Known surface coordinate did not project");
+                    const auto surface = pick_render_plane(world, view, (*pixel)[0], (*pixel)[1]);
+                    check(
+                        surface && std::abs(surface->local[0] - local[0]) < 1e-7 &&
+                            std::abs(surface->local[1] - local[1]) < 1e-7,
+                        "Surface UV coordinates differ across mirrors/infinite far/rank-two plane");
+                    const auto tile = pick_tile_grid({1, 1}, world, view, (*pixel)[0], (*pixel)[1]);
+                    check(tile && tile->local == surface->local && tile->depth == surface->depth,
+                          "Tile selection did not reuse the same plane projection");
+                }
+            }
+}
+
 void rejection() {
     const auto view = view_at({0, 0, 0}, false);
     const double x = view.viewport.x + view.viewport.width * .5;
@@ -107,6 +135,7 @@ void rejection() {
 int main() {
     try {
         projections();
+        surface_coordinates();
         rejection();
         std::cout << "Sparse tile grid picking, transforms, clipping and signed limits passed\n";
     } catch (const std::exception& e) {

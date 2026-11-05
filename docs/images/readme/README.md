@@ -2155,3 +2155,24 @@ readback, PNG and relocated-pair hashes are owned by
 `AgentFiles/build/phase267-ui-shadow-animation/capture-provenance.json`.
 This software Vulkan evidence does not establish full Main/Windows/MSVC/D3D12,
 physical GPU/input/DPI, graphical EXE, external-client or performance acceptance.
+
+
+## Interactive scene UI surfaces
+
+[Scene surface controls](../../../manual/images/ui-surface-gallery.png) shows the
+actual640x360 GamePresentation output in Gallery174, paused at tick1 after a
+native Step click on the left Quad. The right monitor displays the same output
+through its Camera relay. The native control focus, tick text, field, guide and
+rendered scene are unretouched. The RGB PPM readback was losslessly transcoded to
+PNG with every pixel and dimension retained. The capture was personally reviewed.
+PNG SHA256: `e9099dc0f237e9f4aebab75af0d04b276f581b15a5d08606d8b1ade8740b7e93`.
+
+Local unassigned source is based on58dfdb6. Exact source, executable, original
+readback, PNG and three source-hidden relocated Game image-pair hashes are owned
+by `AgentFiles/build/phase268-ui-surface-input/capture-provenance.json`. The actual
+GamePresentation fixture verifies one fixed Step, native field text and identical
+relocated pixels. Low-level retained geometry tests separately cover UV mapping,
+Camera flips/layers, capture, blockers, producer loss and large-world projection.
+This software Vulkan capture does not establish full editor Main/Windows/MSVC/
+D3D12, physical GPU/input/DPI, graphical EXE, external-client or hardware
+performance acceptance. Those platform checks remain queued.

@@ -6,6 +6,7 @@
 #include "runtime_execution_values.hpp"
 #include "ui_filter_profile.hpp"
 #include "ui_gradient_profile.hpp"
+#include "ui_surface_limits.hpp"
 #include <algorithm>
 #include <forge/audio_components.hpp>
 #include <forge/fog_volume.hpp>
@@ -118,6 +119,17 @@ void validate_runtime_compatibility(const AssetCatalog& catalog, const Json& eng
             if (features != document->end()) {
                 require(features->is_object(), "Invalid authored document runtime features");
                 for (const auto& [name, version] : features->items()) {
+                    if (name == "ui_surface_input") {
+                        require(version.is_number_integer() &&
+                                    version == ui_surface_detail::profile_version,
+                                "Unsupported authored document runtime feature/profile");
+                        const auto support = engine.find("runtime_ui_surface_input");
+                        require(support != engine.end() && support->is_number_integer() &&
+                                    *support == ui_surface_detail::profile_version,
+                                "UI Surface Input requires a matching runtime kit; select the "
+                                "runtime kit packaged with this editor");
+                        continue;
+                    }
                     if (name == "fog_volumes") {
                         require(version.is_number_integer() &&
                                     version == fog_volume_profile_version,

@@ -415,3 +415,17 @@ UI Document, save, and use the existing Play reload/tuning workflow. Keep blur
 within `0` to `32` resolved pixels and export with the supplied compatible kit. Direct
 `box-shadow` list animation is unsupported; see [Animate a panel shadow](runtime-ui.md)
 for syntax and shared resource limits.
+
+
+## Author an interactive scene panel
+
+1. Create and publish a Render Texture and an ordinary unlit Material sampling it. Keep producer Camera layers separate from display Mesh layers.
+2. Create an **Engine / Quad** Mesh entity and assign the Material. Discover `forge.ui_surface_input` in the component schema, then use `forge_component_add` and `forge_property_set` to set its `render_texture` to that output and keep `enabled` true.
+3. Register an RML document, assign it through `forge.ui_document` on a UI entity, and set that document's `render_texture` to the same output. Author its source, UI Values and commands with their existing tools.
+4. Save the Scene and resources, publish pending asset changes, and export with the matching supplied runtime kit. Use ordinary history and revision checks for Scene changes.
+
+In Play, use the existing semantic document-command tools for declared actions.
+MCP does not inject raw pointer or ray gestures. The running presenter owns
+native focus, pointer capture, text and keyboard navigation. See
+[the supported surface profile](runtime-ui.md)
+for Material settings, UV flips, geometric blockers and Camera view limits.

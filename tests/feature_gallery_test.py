@@ -445,6 +445,21 @@ assert not {row['id'] for row in shadow_motion['entities']} & {row['id'] for row
 
 
 
+surface = json.loads((project_root / 'Scenes/174-interactive-ui-surfaces.scene.json').read_text())
+assert surface['asset_id'] == by_source['Scenes/174-interactive-ui-surfaces.scene.json']['id']
+surface_mesh, = [row for row in surface['entities'] if 'forge.ui_surface_input' in row['components']]
+output = surface_mesh['components']['forge.ui_surface_input']['render_texture']
+assert surface_mesh['components']['forge.ui_surface_input']['enabled']
+assert surface_mesh['components']['forge.mesh_renderer']['layers'] == 4
+surface_ui = [row['components']['forge.ui_document'] for row in surface['entities']
+              if 'forge.ui_document' in row['components']]
+assert any(row['document'] == by_source['Assets/UI/SceneSurface/Panel.rml']['id']
+           and row['render_texture'] == output for row in surface_ui)
+assert any(row['document'] == by_source['Assets/UI/SceneSurface/Guide.rml']['id']
+           and row['render_texture'] is None for row in surface_ui)
+assert not {row['id'] for row in surface['entities']} & {row['id'] for row in shadow_motion['entities']}
+
+
 scenes = sorted((project_root / 'Scenes').glob('*.scene.json'))
 assert {'71-world-sprites.scene.json', '72-sprite-frame-animation.scene.json',
         '73-sprite-image-fill.scene.json', '74-tile-maps.scene.json',

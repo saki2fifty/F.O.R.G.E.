@@ -1,5 +1,6 @@
 #include "game_presentation.hpp"
 #include "runtime_tile_map.hpp"
+#include "ui_surface_input.hpp"
 #include <forge/navigation.hpp>
 namespace forge {
 namespace {
@@ -89,6 +90,11 @@ GamePresentation::GamePresentation(DiligentPresentation& p, Diligent::IDeviceCon
       resources_(std::make_shared<MeshResourceHost>(p, context, root_)), ui_renderer_(p.device()),
       ui_(ui_renderer_.render_interface(), root_, std::move(font), std::move(callbacks), ime) {
     resources_->catalog(std::make_shared<const AssetCatalog>(AssetCatalog::open_project(root_)));
+    ui_.surface_input(ui_surface_callbacks([this] { return active_.get(); }));
+}
+GamePresentation::~GamePresentation() {
+    // Release native focus/capture while the geometry provider still exists.
+    ui_.surface_input({});
 }
 void GamePresentation::dimensions(unsigned width, unsigned height, float density) {
     width_ = width;
