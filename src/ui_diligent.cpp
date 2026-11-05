@@ -1,6 +1,7 @@
 #include "Common/interface/RefCntAutoPtr.hpp"
 #include "Graphics/GraphicsEngine/interface/DeviceContext.h"
 #include "Graphics/GraphicsEngine/interface/RenderDevice.h"
+#include "Graphics/GraphicsEngine/interface/Sampler.h"
 #include "Graphics/GraphicsTools/interface/MapHelper.hpp"
 #include "Utilities/interface/DiligentFXShaderSourceStreamFactory.hpp"
 #include "ui_filter_layers.hpp"
@@ -25,7 +26,9 @@ struct UiDiligentRenderer::Impl final : Rml::RenderInterface {
     struct Texture {
         RefCntAutoPtr<ITexture> texture;
         RefCntAutoPtr<IShaderResourceBinding> bindings;
-        std::size_t bytes;
+        std::size_t bytes = 0;
+        std::uintptr_t snapshot = 0;
+        bool linear = false;
     };
     struct Constants {
         float matrix[16];
@@ -45,6 +48,7 @@ struct UiDiligentRenderer::Impl final : Rml::RenderInterface {
     RefCntAutoPtr<ITexture> stencil;
     RefCntAutoPtr<IBuffer> constants;
     RefCntAutoPtr<IBuffer> gradient_constants;
+    RefCntAutoPtr<ISampler> image_sampler, snapshot_sampler;
     std::array<std::array<RefCntAutoPtr<IPipelineState>, 4>, 2> pipelines;
     unsigned output_format = 0;
     std::uint64_t stencil_allocations = 0;
@@ -151,7 +155,15 @@ float4 gradient_color(float2 uv,float kind) {
 }
 float4 main(float4 p:SV_POSITION,float4 color:COLOR0,float2 uv:TEXCOORD0,
             nointerpolation float2 flags:TEXCOORD1):SV_TARGET {
-    float4 value=color*(flags.y>0.5 ? gradient_color(uv,flags.y) : ui_texture.Sample(ui_texture_sampler,uv));
+    float4 sample=flags.y>0.5 ? gradient_color(uv,flags.y) : ui_texture.Sample(ui_texture_sampler,uv);
+    if(flags.y<-.5) {
+        if(flags.x>0.5)
+            color.rgb=color.a>0 ? SRGBToLinear(color.rgb/color.a)*color.a : float3(0,0,0);
+        else
+            sample.rgb=sample.a>0 ? LinearToSRGB(sample.rgb/sample.a)*sample.a : float3(0,0,0);
+        return color*sample;
+    }
+    float4 value=color*sample;
     if(flags.x>0.5)
         value.rgb=value.a>0 ? SRGBToLinear(value.rgb/value.a)*value.a : float3(0,0,0);
     return value;
@@ -183,7 +195,11 @@ float4 main(float4 p:SV_POSITION,float4 color:COLOR0,float2 uv:TEXCOORD0,
         sampler.MagFilter = FILTER_TYPE_LINEAR;
         sampler.MipFilter = FILTER_TYPE_LINEAR;
         sampler.AddressU = sampler.AddressV = sampler.AddressW = TEXTURE_ADDRESS_WRAP;
-        ImmutableSamplerDesc immutable{SHADER_TYPE_PIXEL, "ui_texture", sampler};
+        device->CreateSampler(sampler, &image_sampler);
+        sampler.AddressU = sampler.AddressV = sampler.AddressW = TEXTURE_ADDRESS_CLAMP;
+        device->CreateSampler(sampler, &snapshot_sampler);
+        if (!image_sampler || !snapshot_sampler)
+            throw std::runtime_error("Runtime UI sampler allocation failed");
         for (unsigned format = 0; format < pipelines.size(); ++format) {
             for (unsigned mode = 0; mode < 4; ++mode) {
                 GraphicsPipelineStateCreateInfo p;
@@ -222,8 +238,6 @@ float4 main(float4 p:SV_POSITION,float4 color:COLOR0,float2 uv:TEXCOORD0,
                 blend.RenderTargetWriteMask = mode >= 2 ? COLOR_MASK_NONE : COLOR_MASK_ALL;
                 p.PSODesc.ResourceLayout.Variables = &variable;
                 p.PSODesc.ResourceLayout.NumVariables = 1;
-                p.PSODesc.ResourceLayout.ImmutableSamplers = &immutable;
-                p.PSODesc.ResourceLayout.NumImmutableSamplers = 1;
                 device->CreateGraphicsPipelineState(p, &pipelines[format][mode]);
                 if (!pipelines[format][mode])
                     throw std::runtime_error("Runtime UI pipeline creation failed");
@@ -305,6 +319,7 @@ float4 main(float4 p:SV_POSITION,float4 color:COLOR0,float2 uv:TEXCOORD0,
         device->CreateTexture(desc, &initial, &t.texture);
         if (!t.texture)
             return 0;
+        t.texture->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE)->SetSampler(image_sampler);
         pipelines[0][0]->CreateShaderResourceBinding(&t.bindings, true);
         t.bindings->GetVariableByName(SHADER_TYPE_PIXEL, "ui_texture")
             ->Set(t.texture->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE));
@@ -333,6 +348,8 @@ float4 main(float4 p:SV_POSITION,float4 color:COLOR0,float2 uv:TEXCOORD0,
         auto it = textures.find(h);
         if (it != textures.end()) {
             texture_bytes -= it->second.bytes;
+            if (it->second.snapshot)
+                layers.release_texture(it->second.snapshot);
             textures.erase(it);
         }
     }
@@ -352,6 +369,32 @@ float4 main(float4 p:SV_POSITION,float4 color:COLOR0,float2 uv:TEXCOORD0,
         return layers.compile(name, parameters);
     }
     void ReleaseFilter(Rml::CompiledFilterHandle filter) override { layers.release(filter); }
+    Rml::TextureHandle SaveLayerAsTexture() override {
+        if (!scissor || textures.size() >= 512)
+            throw std::runtime_error(
+                "UI texture snapshot requires scissor and a free texture handle");
+        const auto saved = layers.save_texture(region);
+        try {
+            Texture item{};
+            item.texture = saved.texture;
+            item.snapshot = saved.token;
+            item.linear = saved.texture->GetDesc().Format == TEX_FORMAT_RGBA16_FLOAT;
+            auto* view = item.texture->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+            view->SetSampler(snapshot_sampler);
+            pipelines[0][0]->CreateShaderResourceBinding(&item.bindings, true);
+            if (!item.bindings)
+                throw std::runtime_error("UI snapshot binding allocation failed");
+            item.bindings->GetVariableByName(SHADER_TYPE_PIXEL, "ui_texture")->Set(view);
+            const auto handle = next++;
+            textures.emplace(handle, std::move(item));
+            bind_current();
+            return handle;
+        } catch (...) {
+            layers.release_texture(saved.token);
+            bind_current();
+            throw;
+        }
+    }
     Rml::CompiledFilterHandle SaveLayerAsMaskImage() override {
         const auto handle = layers.save_mask();
         bind_current();
@@ -423,7 +466,7 @@ float4 main(float4 p:SV_POSITION,float4 color:COLOR0,float2 uv:TEXCOORD0,
             cb->screen[0] = float(width);
             cb->screen[1] = float(height);
             cb->screen[2] = float(output_format);
-            cb->screen[3] = gradient ? float(gradient->kind) : 0.f;
+            cb->screen[3] = gradient ? float(gradient->kind) : t->second.linear ? -1.f : 0.f;
             cb->translation[0] = offset.x;
             cb->translation[1] = offset.y;
             cb->translation[2] = cb->translation[3] = 0;

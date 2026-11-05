@@ -20,6 +20,8 @@ using namespace Diligent;
 namespace forge {
 using namespace ui_filter_detail;
 struct UiFilterLayers::Impl {
+    static_assert(unsigned(Kind::DropShadow) == 6 && unsigned(Kind::AlphaMask) == 7 &&
+                  unsigned(Kind::CropCopy) == 8);
     struct Image {
         RefCntAutoPtr<ITexture> texture;
         std::uint64_t bytes = 0, used = 0;
@@ -46,6 +48,7 @@ struct UiFilterLayers::Impl {
     };
     std::map<Rml::CompiledFilterHandle, CompiledFilter> filters;
     std::map<Rml::LayerHandle, std::size_t> layers;
+    std::map<std::uintptr_t, std::size_t> saved_textures;
     std::vector<Rml::LayerHandle> stack;
     std::vector<Image> images;
     std::uint64_t bytes = 0, allocations = 0, use = 0, frame = 0;
@@ -78,7 +81,7 @@ float4 sample_image(float2 uv) {
     return any(uv<0)||any(uv>1) ? float4(0,0,0,0) : input_image.SampleLevel(input_image_sampler,uv,0);
 }
 float4 main(float4 position:SV_POSITION):SV_TARGET {
-    float2 uv=position.xy/viewport.xy;
+    float2 uv=(position.xy+(int(filter.x)==8 ? offset.xy : float2(0,0)))/viewport.xy;
     int kind=int(filter.x);float value=filter.y;
     float4 color=sample_image(uv);
     if(kind==1) {
@@ -167,15 +170,19 @@ float4 main(float4 position:SV_POSITION):SV_TARGET {
         bytes -= image.bytes;
         image = {};
     }
-    std::size_t acquire() {
+    std::size_t acquire(unsigned requested_width = 0, unsigned requested_height = 0) {
+        const auto image_width = requested_width ? requested_width : width;
+        const auto image_height = requested_height ? requested_height : height;
+        if (!image_width || !image_height || image_width > 8192 || image_height > 8192)
+            throw std::runtime_error("Invalid UI scratch image dimensions");
         const auto wanted = format ? TEX_FORMAT_RGBA16_FLOAT : TEX_FORMAT_RGBA8_UNORM;
-        const auto size = std::uint64_t(width) * height * (format ? 8 : 4);
+        const auto size = std::uint64_t(image_width) * image_height * (format ? 8 : 4);
         if (size > image_budget)
             throw std::runtime_error("UI filter image exceeds its 256 MiB logical budget");
         for (std::size_t i = 0; i < images.size(); ++i)
             if (const auto& d = images[i].texture ? images[i].texture->GetDesc() : TextureDesc{};
-                !images[i].active && !images[i].pins && images[i].texture && d.Width == width &&
-                d.Height == height && d.Format == wanted) {
+                !images[i].active && !images[i].pins && images[i].texture &&
+                d.Width == image_width && d.Height == image_height && d.Format == wanted) {
                 images[i].active = true;
                 images[i].used = ++use;
                 return i;
@@ -207,8 +214,8 @@ float4 main(float4 position:SV_POSITION):SV_TARGET {
         TextureDesc desc;
         desc.Name = "FORGE UI filter layer";
         desc.Type = RESOURCE_DIM_TEX_2D;
-        desc.Width = width;
-        desc.Height = height;
+        desc.Width = image_width;
+        desc.Height = image_height;
         desc.Format = wanted;
         desc.BindFlags = BIND_RENDER_TARGET | BIND_SHADER_RESOURCE;
         Image candidate;
@@ -234,26 +241,28 @@ float4 main(float4 position:SV_POSITION):SV_TARGET {
               Rml::BlendMode blend, ITextureView* stencil, unsigned stencil_ref, bool clip,
               bool scissor, Rml::Rectanglei region, ITextureView* mask = nullptr) {
         context->SetRenderTargets(1, &output, stencil, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        const auto& destination = output->GetTexture()->GetDesc();
+        const auto& source = input->GetTexture()->GetDesc();
         Viewport viewport;
-        viewport.Width = float(width);
-        viewport.Height = float(height);
+        viewport.Width = float(destination.Width);
+        viewport.Height = float(destination.Height);
         context->SetViewports(1, &viewport, width, height);
-        Rect rect{0, 0, Int32(width), Int32(height)};
+        Rect rect{0, 0, Int32(destination.Width), Int32(destination.Height)};
         if (scissor) {
-            rect.left = std::clamp(region.Left(), 0, int(width));
-            rect.top = std::clamp(region.Top(), 0, int(height));
-            rect.right = std::clamp(region.Right(), rect.left, int(width));
-            rect.bottom = std::clamp(region.Bottom(), rect.top, int(height));
+            rect.left = std::clamp(region.Left(), 0, int(destination.Width));
+            rect.top = std::clamp(region.Top(), 0, int(destination.Height));
+            rect.right = std::clamp(region.Right(), rect.left, int(destination.Width));
+            rect.bottom = std::clamp(region.Bottom(), rect.top, int(destination.Height));
         }
-        context->SetScissorRects(1, &rect, width, height);
+        context->SetScissorRects(1, &rect, destination.Width, destination.Height);
         context->SetStencilRef(stencil_ref);
         const unsigned mode = (clip ? 2 : 0) + (blend == Rml::BlendMode::Blend ? 1 : 0);
         context->SetPipelineState(pipelines[format][mode]);
         {
             MapHelper<Constants> cb(context, constants, MAP_WRITE, MAP_FLAG_DISCARD);
             *cb = {};
-            cb->viewport[0] = float(width);
-            cb->viewport[1] = float(height);
+            cb->viewport[0] = float(source.Width);
+            cb->viewport[1] = float(source.Height);
             cb->viewport[2] = float(format);
             cb->filter[0] = float(filter.kind);
             cb->filter[1] = filter.value;
@@ -340,6 +349,43 @@ Rml::CompiledFilterHandle UiFilterLayers::save_mask() {
         s.images[slot].active = false;
         throw;
     }
+}
+UiFilterLayers::SavedTexture UiFilterLayers::save_texture(Rml::Rectanglei region) {
+    auto& s = *impl_;
+    if (!s.context || !s.base || region.Left() < 0 || region.Top() < 0 ||
+        region.Right() > int(s.width) || region.Bottom() > int(s.height) ||
+        region.Left() >= region.Right() || region.Top() >= region.Bottom())
+        throw std::runtime_error(
+            "UI texture snapshot requires a nonempty scissor inside the active target");
+    if (s.saved_textures.size() >= max_saved_textures)
+        throw std::runtime_error(
+            "UI cached texture snapshots exceed 24; reduce distinct box shadows");
+    s.pipelines_ready();
+    const auto slot = s.acquire(unsigned(region.Width()), unsigned(region.Height()));
+    try {
+        Filter copy;
+        copy.kind = Kind::CropCopy;
+        copy.offset = {float(region.Left()), float(region.Top())};
+        s.pass(s.image(s.stack.empty() ? 0 : s.stack.back(), TEXTURE_VIEW_SHADER_RESOURCE),
+               s.images[slot].texture->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET), copy, 0,
+               Rml::BlendMode::Replace, nullptr, 0, false, false, {});
+        const auto token = s.next++;
+        s.saved_textures.emplace(token, slot);
+        ++s.images[slot].pins;
+        s.images[slot].active = false;
+        return {s.images[slot].texture, token};
+    } catch (...) {
+        s.images[slot].active = false;
+        throw;
+    }
+}
+void UiFilterLayers::release_texture(std::uintptr_t token) {
+    auto& s = *impl_;
+    const auto found = s.saved_textures.find(token);
+    if (found == s.saved_textures.end())
+        return;
+    --s.images.at(found->second).pins;
+    s.saved_textures.erase(found);
 }
 Rml::LayerHandle UiFilterLayers::push() {
     auto& s = *impl_;

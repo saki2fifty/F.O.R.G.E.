@@ -220,8 +220,15 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
             call([&] { target.ReleaseFilter(filter); });
         }
         Rml::TextureHandle SaveLayerAsTexture() override {
-            fail("UI layer snapshots and shadow decorators are not supported");
-            return 0;
+            // At the exact native pin, a successful callback with handle zero
+            // remains uncaptured and retries on the next Render. Never cache a
+            // blank placeholder or read a framebuffer during preparation.
+            if (preparing)
+                return 0;
+            const auto handle = call([&] { return target.SaveLayerAsTexture(); });
+            if (!handle)
+                fail("UI layer texture snapshot could not be captured");
+            return handle;
         }
         Rml::CompiledFilterHandle SaveLayerAsMaskImage() override {
             // The pinned native producer keeps this filter local to one Render.

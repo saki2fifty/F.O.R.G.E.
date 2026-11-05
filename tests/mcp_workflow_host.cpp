@@ -139,6 +139,7 @@ int main(int argc, char** argv) {
         renderer.filters_supported = true;
         renderer.gradients_supported = true;
         renderer.masks_supported = true;
+        renderer.snapshots_supported = true;
         std::unique_ptr<forge::UiPresenter> presenter;
         std::string presenter_session;
         std::uint64_t presenter_generation = 0, submitted = 0;

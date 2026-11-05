@@ -1,6 +1,8 @@
 #include "ui_backdrop_render_tests.hpp"
+#include "ui_box_shadow_render_tests.hpp"
 #include "ui_filter_render_tests.hpp"
 #include "ui_gradient_render_tests.hpp"
+#include "ui_snapshot_render_tests.hpp"
 // Independent RmlUi/Diligent host: deliberately no ImGui/editor linkage.
 #include "Common/interface/Float16.hpp"
 #include "Common/interface/RefCntAutoPtr.hpp"
@@ -559,6 +561,20 @@ img {position:absolute;width:64px;height:64px;top:16px;} #png {left:16px;} #jpg 
             });
         forge::test_ui_gradients::exercise(
             device, context, renderer, images / "gradient", argv[2],
+            [&](ITextureView* view) { return readback(device, context, view); },
+            [&](ITextureView* view) {
+                return readback_pixels<std::array<Diligent::Float16, 4>>(device, context, view,
+                                                                         TEX_FORMAT_RGBA16_FLOAT);
+            });
+        forge::test_ui_snapshots::exercise(
+            device, context, renderer,
+            [&](ITextureView* view) { return readback(device, context, view); },
+            [&](ITextureView* view) {
+                return readback_pixels<std::array<Diligent::Float16, 4>>(device, context, view,
+                                                                         TEX_FORMAT_RGBA16_FLOAT);
+            });
+        forge::test_ui_box_shadows::exercise(
+            device, context, renderer, images / "box-shadow", argv[2],
             [&](ITextureView* view) { return readback(device, context, view); },
             [&](ITextureView* view) {
                 return readback_pixels<std::array<Diligent::Float16, 4>>(device, context, view,

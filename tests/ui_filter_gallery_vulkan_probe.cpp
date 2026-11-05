@@ -20,7 +20,7 @@ using test_gallery_capture::check;
 using test_gallery_capture::Pixels;
 const char* scene_path = "Scenes/155-ui-filters.scene.json";
 bool shadows = false, backdrops = false, gradient_gallery = false, curved_gallery = false,
-     masks_gallery = false;
+     masks_gallery = false, box_gallery = false;
 const char* parameter = "blur";
 const char* ui_path = "Assets/UI/Filters/Lab.rml";
 Json read_scene(const std::filesystem::path& root) {
@@ -38,7 +38,32 @@ void author(const std::filesystem::path& root, UiDiligentRenderer& renderer,
             const std::vector<std::byte>& font) {
     const bool fresh = !std::filesystem::exists(root / scene_path);
     std::filesystem::create_directories((root / ui_path).parent_path());
-    asset_storage::replace(root / ui_path, masks_gallery      ? R"rml(<rml><head><style>
+    asset_storage::replace(root / ui_path, box_gallery        ? R"rml(<rml><head><style>
+body,div,p,h1 {display:block;} body {margin:0;width:100%;height:100%;font-family:Lato;font-size:15px;color:#e5f2ff;pointer-events:none;}
+#lab {position:absolute;left:4%;top:2%;width:92%;}
+h1 {font-size:23px;margin:0 0 3px;color:#79e7cf;} p {margin:3px 0;}
+#grid {margin-top:6px;} .card {display:inline-block;width:29%;margin:0 3% 12px 0;vertical-align:top;}
+.label {height:22px;font-size:13px;} .sample {position:relative;height:44px;border-radius:7px;background-color:#30536e;}
+.word {position:absolute;left:18%;top:13px;font-size:14px;color:white;}
+#hard {box-shadow:#000a 6px 5px 0px 0px;}
+#soft {box-shadow:#000c 6px 5px 8px 0px;}
+#spread {box-shadow:#79e7cf80 0px 0px 4px 3px;}
+#inset {box-shadow:#000c 5px 5px 8px 2px inset;}
+#motion {width:100px;height:8px;margin-top:5px;background-color:#79e7cf;box-shadow:#79e7cf80 4px 4px 4px 0px;animation:2s linear-in infinite alternate lift;}
+@keyframes lift {from {opacity:0.3;} to {opacity:1;}}
+button {display:inline-block;padding:5px 8px;margin:8px 5px 0 0;background-color:#30536e;pointer-events:auto;}
+button:hover,button:focus {background-color:#4c849e;} .hint {font-size:13px;color:#adc7db;}
+</style></head><body><div id="lab"><h1>UI box shadows</h1><p>Shape, softness, spread and inset lighting.</p><div id="grid">
+<div class="card"><div class="label">Reference</div><div class="sample"><div class="word">UI</div></div></div>
+<div class="card"><div class="label">Hard offset</div><div id="hard" class="sample"><div class="word">UI</div></div></div>
+<div class="card"><div class="label">Soft offset</div><div id="soft" class="sample"><div class="word">UI</div></div></div>
+<div class="card"><div class="label">Spread</div><div id="spread" class="sample"><div class="word">UI</div></div></div>
+<div class="card"><div class="label">Inset</div><div id="inset" class="sample"><div class="word">UI</div></div></div>
+<div class="card"><div class="label">Live / {{blur}} px</div><div class="sample" data-style-box-shadow="'#000c 6px 5px ' + blur + 'px 0px'"><div class="word">UI</div></div></div>
+</div><p class="hint">UI Values / blur: 0..32. Tick: {{tick}}</p><div id="motion"/>
+<button id="pause" data-event-click="command('Pause')">Pause</button><button id="resume" data-event-click="command('Resume')">Resume</button><button id="step" data-event-click="command('Step')">Step</button>
+</div></body></rml>)rml"
+                                           : masks_gallery    ? R"rml(<rml><head><style>
 body,div,p,h1 {display:block;} body {margin:0;width:100%;height:100%;font-family:Lato;font-size:15px;color:#e5f2ff;pointer-events:none;}
 #lab {position:absolute;left:4%;top:2%;width:92%;}
 h1 {font-size:23px;margin:0 0 3px;color:#79e7cf;} p {margin:3px 0;}
@@ -208,7 +233,8 @@ button:hover,button:focus {background-color:#4c849e;} .hint {font-size:13px;colo
         return entity;
     };
     if (fresh) {
-        create(masks_gallery      ? "Mask lab HUD"
+        create(box_gallery        ? "Box shadow lab HUD"
+               : masks_gallery    ? "Mask lab HUD"
                : gradient_gallery ? "Gradient lab HUD"
                : backdrops        ? "Backdrop lab HUD"
                : shadows          ? "Shadow lab HUD"
@@ -354,13 +380,15 @@ std::vector<Pixels> exercise(DiligentPresentation& presentation, IDeviceContext*
 } // namespace
 int main(int argc, char** argv) {
     try {
-        check(argc == 4 || (argc == 5 && (std::string_view(argv[4]) == "--shadows" ||
+        check(argc == 4 || (argc == 5 && (std::string_view(argv[4]) == "--box-shadows" ||
+                                          std::string_view(argv[4]) == "--shadows" ||
                                           (std::string_view(argv[4]) == "--backdrops" ||
                                            (std::string_view(argv[4]) == "--gradients" ||
                                             (std::string_view(argv[4]) == "--curved" ||
                                              std::string_view(argv[4]) == "--masks"))))),
               "Need Gallery, font and scratch; or --author Gallery font; optional "
-              "--shadows/--backdrops/--gradients/--curved/--masks");
+              "--shadows/--backdrops/--gradients/--curved/--masks/--box-shadows");
+        box_gallery = argc == 5 && std::string_view(argv[4]) == "--box-shadows";
         shadows = argc == 5 && std::string_view(argv[4]) == "--shadows";
         backdrops = argc == 5 && std::string_view(argv[4]) == "--backdrops";
         masks_gallery = argc == 5 && std::string_view(argv[4]) == "--masks";
@@ -389,6 +417,12 @@ int main(int argc, char** argv) {
         if (shadows) {
             scene_path = "Scenes/162-ui-drop-shadows.scene.json";
             ui_path = "Assets/UI/Shadows/Lab.rml";
+        }
+        if (box_gallery) {
+            gradient_gallery = false;
+            parameter = "blur";
+            scene_path = "Scenes/167-ui-box-shadows.scene.json";
+            ui_path = "Assets/UI/BoxShadows/Lab.rml";
         }
         const bool editing = std::string_view(argv[1]) == "--author";
         const auto root = std::filesystem::absolute(editing ? argv[2] : argv[3]);

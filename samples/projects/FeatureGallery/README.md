@@ -2157,3 +2157,13 @@ from the bitmap-format example. Tune **Mask lab HUD / UI Values / angle** while
 paused; the small bar keeps animating on presentation time. Source refresh,
 Reload UI, save and supplied-kit export use the ordinary UI workflow. The Runtime
 UI manual explains alpha coverage and shared image/layer/filter-chain bounds.
+
+## UI box shadows
+
+`Scenes/167-ui-box-shadows.scene.json` compares a reference panel with hard,
+soft, spread, inset and live shadows. Select **Box shadow lab HUD → UI Values →
+blur** and tune `0..32` during Play. The small bar animates opacity while paused;
+box-shadow keyframes are unavailable. Save authored values after stopping to keep
+them. Save the startup Scene and export with the supplied runtime kit. The
+[Runtime UI manual](../../../manual/editor/runtime-ui.md) covers syntax,
+viewport clipping and shared resource limits.

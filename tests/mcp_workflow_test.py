@@ -699,7 +699,7 @@ for legacy in (False, True):
             hud = ok('forge_source_ui_example')
             path = str(Path(hud['path']).with_suffix('.rcss')).replace('\\', '/')
             saved = text(path)
-            animated = saved['text'] + '\n@keyframes breathe { from {opacity:0.3;mask-image:linear-gradient(90deg,#0000,#ffff);decorator:radial-gradient(circle 40px,#204080,#40c080),conic-gradient(from 0deg,#20408080,#40c08080);backdrop-filter:blur(0px);filter:blur(0px) drop-shadow(#20408080 -4px 6px 1px);} to {opacity:1;mask-image:linear-gradient(180deg,#0000,#ffff);decorator:radial-gradient(circle 80px,#204080,#40c080),conic-gradient(from 180deg,#20408080,#40c08080);backdrop-filter:blur(2px);filter:blur(2px) drop-shadow(#20408080 4px 6px 3px);} }\n#panel {filter:contrast(1.1);animation:1s linear-in infinite alternate breathe;}\n'
+            animated = saved['text'] + '\n@keyframes breathe { from {opacity:0.3;mask-image:linear-gradient(90deg,#0000,#ffff);decorator:radial-gradient(circle 40px,#204080,#40c080),conic-gradient(from 0deg,#20408080,#40c08080);backdrop-filter:blur(0px);filter:blur(0px) drop-shadow(#20408080 -4px 6px 1px);} to {opacity:1;mask-image:linear-gradient(180deg,#0000,#ffff);decorator:radial-gradient(circle 80px,#204080,#40c080),conic-gradient(from 180deg,#20408080,#40c08080);backdrop-filter:blur(2px);filter:blur(2px) drop-shadow(#20408080 4px 6px 3px);} }\n#panel {box-shadow:#20408080 4px 6px 4px 1px;filter:contrast(1.1);animation:1s linear-in infinite alternate breathe;}\n'
             stale = arguments(path=path, state=saved['state'], text=animated)
             write(path, animated)
             assert client.tool('forge_source_text_write', **stale)['ok']  # Exact receipt replay.
@@ -734,6 +734,14 @@ for legacy in (False, True):
             failed(mutate('forge_play_ui_reload', launch=state['launch'], session=state['session'], generation=state['generation']), 'ui_reload_failed')
             assert read('forge_play_status')['timing']['tick'] == before['timing']['tick']
             (root/'Game'/path).write_text(animated + '\n#panel {animation:none;backdrop-filter:blur(17px);}', encoding='utf-8')
+            state = read('forge_play_status')
+            failed(mutate('forge_play_ui_reload', launch=state['launch'], session=state['session'], generation=state['generation']), 'ui_reload_failed')
+            assert read('forge_play_status')['timing']['tick'] == before['timing']['tick']
+            (root/'Game'/path).write_text(animated + '\n#panel {animation:none;box-shadow:#204080 4px 6px 40px 0px;}', encoding='utf-8')
+            state = read('forge_play_status')
+            failed(mutate('forge_play_ui_reload', launch=state['launch'], session=state['session'], generation=state['generation']), 'ui_reload_failed')
+            assert read('forge_play_status')['timing']['tick'] == before['timing']['tick']
+            (root/'Game'/path).write_text(animated + '\n@keyframes shadow {from {box-shadow:#0008 0px 0px 0px 0px;} to {box-shadow:#0008 4px 6px 4px 0px;}} #panel {animation:1s linear-in shadow;}', encoding='utf-8')
             state = read('forge_play_status')
             failed(mutate('forge_play_ui_reload', launch=state['launch'], session=state['session'], generation=state['generation']), 'ui_reload_failed')
             assert read('forge_play_status')['timing']['tick'] == before['timing']['tick']

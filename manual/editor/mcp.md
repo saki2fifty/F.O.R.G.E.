@@ -347,6 +347,13 @@ assets/settings invalidate it. Check again before using an older result. These
 tools inspect authored 3D colliders without executing project code or advancing
 Play. See [collision clearance controls and limits](foliage.md).
 
+For box shadows, edit `box-shadow` or `data-style-box-shadow` through the same
+source tools, register the source, set **UI Values**, and use live tuning/reload.
+Keep blur radius within `0..32` pixels. Box-shadow keyframes/transitions are
+unavailable; an invalid reload keeps the usable UI. Save the authored Scene and
+source before exporting with the supplied kit. See [Runtime UI](runtime-ui.md)
+for viewport and cached-texture limits.
+
 ## Keep control
 
 - **Stop connection** immediately revokes access. Committed scene edits remain, and saved files stay on disk.

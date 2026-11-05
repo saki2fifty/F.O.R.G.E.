@@ -699,3 +699,13 @@ linear, radial, conic, PNG and live-angle masks. Select **Mask lab HUD → UI Va
 small bar continues animating while paused. Stop and save authored values to keep
 them; export the saved startup Scene with the supplied runtime kit.
 See [Runtime UI](../editor/runtime-ui.md) for alpha, resource and chain limits.
+
+## UI box-shadow samples
+
+Open **167-ui-box-shadows** and press **Play**. Compare reference, hard offset,
+soft offset, spread, inset and live panels. Pause and tune **Box shadow lab HUD →
+UI Values → blur** between `0` and `32`. The small bar pulses opacity while
+simulation is paused; box-shadow keyframes are unavailable. Stop and save the
+authored value to keep it. Export the saved startup Scene with the supplied kit.
+See [Runtime UI](../editor/runtime-ui.md) for syntax, shared resource limits and
+viewport clipping.

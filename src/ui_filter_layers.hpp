@@ -1,11 +1,13 @@
 #pragma once
 #include <RmlUi/Core/RenderInterface.h>
+#include <cstdint>
 #include <memory>
 
 namespace Diligent {
 struct IRenderDevice;
 struct IDeviceContext;
 struct ITextureView;
+struct ITexture;
 } // namespace Diligent
 namespace forge {
 // Private facet of UiDiligentRenderer. These are transient UI drawing images,
@@ -19,6 +21,12 @@ class UiFilterLayers {
     Rml::CompiledFilterHandle compile(const Rml::String&, const Rml::Dictionary&);
     void release(Rml::CompiledFilterHandle);
     Rml::CompiledFilterHandle save_mask();
+    struct SavedTexture {
+        Diligent::ITexture* texture = nullptr;
+        std::uintptr_t token = 0;
+    };
+    SavedTexture save_texture(Rml::Rectanglei);
+    void release_texture(std::uintptr_t);
     Rml::LayerHandle push();
     void pop();
     Diligent::ITextureView* current_color() const;

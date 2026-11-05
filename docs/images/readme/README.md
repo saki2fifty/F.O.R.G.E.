@@ -2074,3 +2074,17 @@ hashes and receipts are recorded outside the product repository in
 This is isolated local Game rendering, not full-editor, Windows/MSVC, physical
 GPU/input/DPI or hardware performance acceptance. Numeric rounded-edge/angular
 seam limits from the preceding gradient oracle remain in effect.
+
+## Runtime UI box-shadow gallery
+
+`manual/images/ui-box-shadow-gallery.png` is the canonical, unretouched640x360
+GamePresentation/RmlUi/Diligent software Vulkan capture of original Gallery167.
+The360x640 portrait capture is separately reviewed. Lossless PPM-to-PNG conversion
+preserves decoded RGB. Source-hidden relocated content is compared at four
+checkpoints: initial, presentation opacity pulse, live blur zero and portrait.
+The pulse animates opacity; native box-shadow keyframes/transitions are unavailable.
+Local source/executable hashes and receipts live in
+`AgentFiles/build/phase261-ui-box-shadows/capture-provenance.json`.
+This is isolated Game rendering, not full-editor, Windows/MSVC, physical
+GPU/input/DPI or performance acceptance. Native rounded-boundary numeric tests
+exclude a1.25-pixel edge band to avoid assuming a particular tessellation convention.

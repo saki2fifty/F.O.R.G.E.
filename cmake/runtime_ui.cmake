@@ -30,6 +30,12 @@ add_executable(forge_ui_inspect src/ui_inspection_main.cpp)
 target_link_libraries(forge_ui_inspect PRIVATE forge_ui_presenter forge_file_storage forge_asset_bytes RmlUi::Core)
 
 if(BUILD_TESTING)
+ add_executable(forge_ui_box_shadow_presenter_tests tests/ui_box_shadow_presenter_tests.cpp)
+ target_include_directories(forge_ui_box_shadow_presenter_tests PRIVATE src)
+ target_link_libraries(forge_ui_box_shadow_presenter_tests PRIVATE forge_runtime_ui forge_ui_presenter RmlUi::Core)
+ add_test(NAME ui_box_shadow_presenter COMMAND forge_ui_box_shadow_presenter_tests "${CMAKE_BINARY_DIR}/ui-box-shadow-presenter" "${PROJECT_SOURCE_DIR}/resources/ui/LatoLatin-Regular.ttf")
+ set_tests_properties(ui_box_shadow_presenter PROPERTIES TIMEOUT 120)
+
  add_executable(forge_ui_gradient_profile_tests tests/ui_gradient_profile_tests.cpp)
  target_include_directories(forge_ui_gradient_profile_tests PRIVATE src)
  target_link_libraries(forge_ui_gradient_profile_tests PRIVATE forge_ui_presenter RmlUi::Core)

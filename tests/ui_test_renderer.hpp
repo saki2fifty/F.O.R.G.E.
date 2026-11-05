@@ -18,7 +18,9 @@ struct UiTestRenderer final : Rml::RenderInterface {
     std::uintptr_t next = 1;
     unsigned draws = 0, clips = 0, transforms = 0;
     bool filters_supported = false, fail_layer = false;
-    bool gradients_supported = false, masks_supported = false;
+    bool gradients_supported = false, masks_supported = false, snapshots_supported = false;
+    unsigned snapshot_saves = 0;
+    std::set<std::uintptr_t> snapshot_textures;
     unsigned mask_saves = 0;
     unsigned gradient_draws = 0;
     std::map<Rml::CompiledShaderHandle, forge::ui_gradient_detail::Gradient> gradients;
@@ -81,6 +83,7 @@ struct UiTestRenderer final : Rml::RenderInterface {
     }
     void ReleaseTexture(Rml::TextureHandle t) override {
         check(textures.erase(t) == 1, "Texture retired once");
+        snapshot_textures.erase(t);
     }
     Rml::CompiledFilterHandle CompileFilter(const Rml::String& name,
                                             const Rml::Dictionary& parameters) override {
@@ -93,6 +96,16 @@ struct UiTestRenderer final : Rml::RenderInterface {
     }
     void ReleaseFilter(Rml::CompiledFilterHandle handle) override {
         check(filters.erase(handle) == 1, "Filter retired once");
+    }
+    Rml::TextureHandle SaveLayerAsTexture() override {
+        if (!snapshots_supported)
+            return 0;
+        check(!layers.empty() && textures.size() < 512, "Bounded live snapshot layer");
+        const auto handle = next++;
+        textures.insert(handle);
+        snapshot_textures.insert(handle);
+        ++snapshot_saves;
+        return handle;
     }
     Rml::CompiledFilterHandle SaveLayerAsMaskImage() override {
         check(masks_supported && !layers.empty(), "Supported live mask layer");

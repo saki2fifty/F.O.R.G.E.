@@ -881,7 +881,7 @@ values; `forge_play_tune` changes them in the current launch through the ordinar
 runtime tuning/review owner. RCSS filter animation stays on presentation time.
 `forge_play_ui_reload` retains its current Play identity and execution permission.
 Export uses the existing project export service and requires a matching filter-
-capable runtime kit (profile3 for backdrops and encoded inline styles, profile2
+capable runtime kit (profile5 for box shadows and encoded inline styles, profile4 for alpha masks, profile3 for backdrops, profile2
 for shadows/ordinary dynamic filter bindings, profile1 for basic static filters;
 newer known profiles preserve the preceding profiles). No separate agent filter
 graph, DOM mutation or tool family
@@ -1654,3 +1654,11 @@ and apply it with the ordinary Scene history owner. Stopping Play preserves sour
 Both current and legacy stdio framing use the same native descriptor and operation.
 See [camera-shot behavior](transform-animation.md#sequence-camera-shots) and the
 [manual workflow](../manual/editor/animation-sequences.md#camera-shots).
+
+Box shadows use the existing source-write/register, named UiValues, guarded
+live-tuning, reload and export operations. Static/model-bound box-shadow declarations
+require filter5; blur radius resolves to native sigma at half its value and must
+stay0..32. Native box-shadow keyframes/transitions reject during candidate
+preparation and preserve the last usable UI. Existing source permissions,
+revision/digest/replay, Edit-only write and Play identity rules apply. No agent
+shadow graph or parallel authoring API is introduced.

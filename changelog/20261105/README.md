@@ -35,3 +35,16 @@ rejects masks on older kits before destination replacement. Original Gallery166
 and the illustrated manual cover live tuning, alpha semantics and shared limits.
 No dependency, installed SDK, scene-schema or asset-identity change is introduced.
 Windows/full-editor and physical acceptance remain pending.
+
+## Runtime UI box shadows
+
+Runtime UI supports bounded box shadows with offsets, spread, inset, rounded
+corners and live model-bound blur through existing source, renderer and package
+owners. Cropped snapshots share the existing bounded layer pool and native cache
+lifetimes. Non-drawing preparation defers capture until the first actual render.
+Filter profile5 preserves prior profiles; older kits reject required5 before
+export replacement. Original Gallery167 and the illustrated manual demonstrate
+the workflow and viewport/resource limits. Native box-shadow keyframes and
+transitions remain unavailable. No dependency, installed SDK ABI, scene-schema
+or asset-identity change is introduced. Windows/full-editor/physical review is
+pending.

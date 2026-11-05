@@ -123,8 +123,11 @@ TextProfile validate_text_profile(std::string_view text, bool markup) {
                     if (name == "data-style-backdrop-filter")
                         filter_profile =
                             std::max(filter_profile, ui_filter_detail::backdrop_profile_version);
-                    if (name == "data-style-mask-image") {
+                    if (name == "data-style-box-shadow")
                         filter_profile = ui_filter_detail::profile_version;
+                    if (name == "data-style-mask-image") {
+                        filter_profile =
+                            std::max(filter_profile, ui_filter_detail::mask_profile_version);
                         gradients = ui_gradient_detail::profile_version;
                     }
                     if (name == "data-style-decorator")
@@ -222,8 +225,10 @@ TextProfile validate_text_profile(std::string_view text, bool markup) {
                     filter_profile =
                         std::max(filter_profile, ui_filter_detail::backdrop_profile_version);
                 if (property == "mask-image")
+                    filter_profile =
+                        std::max(filter_profile, ui_filter_detail::mask_profile_version);
+                if (property == "box-shadow")
                     filter_profile = ui_filter_detail::profile_version;
-                require(property != "box-shadow", "UI box shadows are not supported");
                 require(property != "font", "Use explicit font-family and font-size properties");
             }
             if (c == '{' || c == ';' || c == '}')

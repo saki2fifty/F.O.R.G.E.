@@ -256,7 +256,7 @@ presentation state or access to arbitrary DOM/script/engine files.
 
 Adopted: native RML/RCSS layout, styled text/buttons/forms, copied scalar expressions, local text editing, multiple ordered documents, PNG/JPEG/TGA images, project fonts, transforms, scissor and stencil masks, explicit reload. Documents sort by layer then stable incoming scene order; RmlUi manages normal DOM focus/z-order within that context.
 
-Deferred: browser JavaScript, Lua, debugger UI, SVG/Lottie/HarfBuzz, RCSS imports/templates, world-space UI, collections/two-way gameplay binding, public plugin APIs and a visual UI designer. Standalone gamepad navigation now routes through input actions to native RmlUi focus traversal and activation. Link stylesheets individually. Bounded blur/color filters use transient renderer-owned layers as described below. Other shader decorators and box shadows remain unsupported and diagnosed. Alpha masks use the profile below. Bounded linear gradients use the profile below. Drop-shadow and backdrop filters use the profile below. Use explicit font-family/font-size rather than shorthand. This is the first screen-space integration, not a visual UI designer.
+Deferred: browser JavaScript, Lua, debugger UI, SVG/Lottie/HarfBuzz, RCSS imports/templates, world-space UI, collections/two-way gameplay binding, public plugin APIs and a visual UI designer. Standalone gamepad navigation now routes through input actions to native RmlUi focus traversal and activation. Link stylesheets individually. Bounded blur/color filters use transient renderer-owned layers as described below. Other shader decorators remain unsupported and diagnosed. Box shadows use the extension below. Alpha masks use the profile below. Bounded linear gradients use the profile below. Drop-shadow and backdrop filters use the profile below. Use explicit font-family/font-size rather than shorthand. This is the first screen-space integration, not a visual UI designer.
 
 ## Upstream evidence
 
@@ -405,14 +405,13 @@ source bytes and evidence; inspection transport and cooked metadata retain it.
 This is a conservative declaration requirement, including `filter:none`, not a
 prediction of arbitrary future rich-text/DOM injection.
 
-Runtime kits advertise `engine.runtime_ui_filters:4` from the same profile header.
+Runtime kits advertise `engine.runtime_ui_filters:5` from the same profile header.
 Known profiles are additive:1 blur/color,2 drop shadows,3 backdrop composition,
-4 alpha masks.
-The existing compatibility helper admits requirements1..3 covered by a known kit
-profile1..4. Static basic filters retain1. Shadow declarations and ordinary dynamic
+4 alpha masks,5 box-shadow snapshots.
+The existing compatibility helper admits requirements1..5 covered by a known kit
+profile1..5. Static basic filters retain1. Shadow declarations and ordinary dynamic
 `data-style-filter` bindings retain2. `backdrop-filter` declarations (including
-none), `data-style-backdrop-filter` bindings require3. Mask declarations/bindings and
-encoded inline styles require4.
+none), `data-style-backdrop-filter` bindings require3. Mask declarations/bindings require4; box-shadow declarations/bindings and encoded inline styles require5.
 Encoded styles may expand any supported property before native parsing; their
 requirement is conservative. Source read/snapshot/catalog refresh recomputes
 this evidence with the same stable logical IDs. A requirement3 rejects kit1/2;
@@ -425,8 +424,7 @@ Gallery155 provides original shape/color samples, Inspector-driven blur and a
 presentation-time filter pulse. Source editing/registration, live UI reload,
 UiValues tuning and export use their existing automation/MCP operations and guards.
 No effects database, authored DOM format, new game clock or plugin ABI is added.
-Box-shadow/other shader effects, world-space UI and surface input
-remain outside this profile.
+Other shader effects, world-space UI and surface input remain outside this profile. Box shadows use the extension below.
 
 ### Drop-shadow composition
 
@@ -478,8 +476,7 @@ RGBA8 and linearRGBA16F camera output use their existing destination domain.
 Opacity, clipping, candidate/last-good, output failure and retirement policies
 remain with the existing presenter/resource owners. Gallery163 supplies original
 foreground/background and live/presentation-time comparisons, authored and
-exported with the same source/model/MCP workflow. Box shadows and other shader
-decorators remain unsupported; linear gradients use the profile below.
+exported with the same source/model/MCP workflow. Other shader decorators remain unsupported; linear gradients and box shadows use the profiles below.
 
 
 ## Native linear-gradient profile
@@ -555,8 +552,7 @@ non-drawing inspection, automation/MCP and export retain their existing owners.
 Source requirements1/2 and runtime-kit2 preserve static linear1 compatibility;
 oldkit1 rejects radial/conic/dynamic2. Existing Gallery164 dynamic metadata is
 refreshed through source registration/preparation with unchanged source and IDs.
-Original Gallery165 demonstrates the new forms. Alpha masks use the extension below. Arbitrary shaders, box
-shadows, visual UI authoring and world-space UI remain outside this profile.
+Original Gallery165 demonstrates the new forms. Alpha masks use the extension below. Arbitrary shaders, visual UI authoring and world-space UI remain outside this profile. Box shadows use the extension below.
 
 
 ## Native alpha-mask extension
@@ -591,15 +587,54 @@ Actual rendering calls SaveLayerAsMaskImage. Non-drawing inspection and recordin
 tests validate admission/lifecycle only. Masks remain presentation effects; no new
 DOM mutation, gameplay binding or shader-authoring tool is introduced.
 
-UiResources derives filter4 for mask-image/data-style-mask-image and encoded
-inline styles; ordinary static filters1, shadows2 and backdrops3 retain their
+UiResources derives filter4 for mask-image/data-style-mask-image; encoded inline styles conservatively require current filter5; ordinary static filters1, shadows2 and backdrops3 retain their
 requirements. Gradient mask declarations use the existing gradient1/2 lexer and
-dynamic mask bindings conservatively require2. Known kit filter1..4 remains
+dynamic mask bindings conservatively require2. Known kit filter1..5 remains
 additive; old1..3 reject required4 before export promotion. Sources, values,
 keyframes, reload, automation/MCP, main/camera-output and source-hidden packages
 share established owners. Original Gallery166 reuses the canonical health PNG
 through the existing declare_runtime_dependencies owner and a required typed
 edge. Optional ui.observed edges are not silently promoted; no stylesheet parser
 or second dependency owner is added.
-Luminance masks, box shadows, arbitrary shaders, visual authoring and world-space
+Luminance masks, arbitrary shaders, visual authoring and world-space
 UI remain outside this subset. Windows/full-editor/physical review is queued.
+
+## Native box-shadow snapshots
+
+Filter profile5 implements the pinned native SaveLayerAsTexture callback through
+UiFilterLayers and the existing renderer Texture handle table. The layer owner
+copies the active scissor rectangle into a cropped image in its32-image/256MiB
+logical pool. A pin prevents reuse/eviction until native texture release; unlike
+mask filters these textures may span frames. At most24 such snapshots remain
+live, reserving eight slots for active layers and intermediate work. Existing
+four-layer, eight-filter,256-filter and512-renderer-texture bounds still apply.
+Snapshot SRVs clamp; ordinary source images retain wrap sampling. The geometry
+adapter explicitly handles RGBA8 display/HDR linear snapshot source/destination
+domains, retaining premultiplication and HDR values. Shared approved transfer
+functions remain authoritative. No framebuffer alias, second resource manager,
+asset identity or installed SDK/ABI change is introduced.
+
+At RmlUi6.3 ba95ffe8bfb6370efb2cdcca927eaad4710c5413, the box-shadow callback
+returns true after SaveLayerAsTexture even when its returned handle is zero.
+TextureDatabase retries an uncaptured callback on the next use. The preparation
+Gate returns zero without drawing or faulting; the first actual Render creates
+the snapshot. It never publishes a blank proxy texture, globally invalidates
+textures or adds a second context renderer. Candidate cancellation/retirement
+uses native context/texture lifetimes and the same pool pins.
+
+Native geometry supplies offset, spread, inset, rounded corners and background
+composition. FORGE independently implements only the existing blur/copy/texture
+rendering callbacks. Native sigma is half the CSS blur radius: sigma0..16 permits
+resolved radius0..32. Native box-shadow keyframes/transitions are rejected;
+static and model-bound values work through existing presenter/model owners.
+Native shadow canvases are intersected with the viewport and can clip when
+oversized. No expanded off-target canvas or substitute shape algorithm is added.
+
+Literal and model-bound box-shadow properties require5; encoded inline styles
+conservatively require5. Static masks4/backdrops3/drop shadows2/basic filters1
+retain their prior meanings. Known kit1..5 is additive; older1..4 reject a
+requirement5 before export promotion. Gradient profiles remain1/2. Source
+registration/preparation, camera outputs, MCP, live reload and source-hidden
+packages use existing owners. Original Gallery167 demonstrates the workflow.
+See [capture provenance](images/readme/README.md) for local evidence and
+platform limits. Windows/full-editor/physical review remains queued.

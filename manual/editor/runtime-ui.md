@@ -192,8 +192,7 @@ Filters also work in UI assigned to a camera image. Save the sources and Scene,
 select the Scene as startup, and export with the runtime kit supplied with this
 editor. An older kit without filter support is rejected before replacing an
 existing export. No C++ module is needed. Drop shadows use the workflow below;
-backdrop filters and linear gradients use the workflows below. Alpha masks use the workflow below. Box shadows
-and other shader decorators are unavailable.
+backdrop filters and linear gradients use the workflows below. Alpha masks and box shadows use the workflows below. Other shader decorators are unavailable.
 
 ## Add a drop shadow
 
@@ -222,7 +221,7 @@ This casts a partly transparent blue shadow, eight resolved pixels right and six
 down, with sigma two. Negative offsets move left or up. Each offset must stay
 between `-128` and `128`; sigma must stay between `0` and `16`. Color includes its
 own alpha. A transparent shadow adds nothing. Keep model-bound values in range.
-This is the `filter` effect; the `box-shadow` property is unavailable.
+This `filter` follows the rendered alpha, including descendants. To shadow the element’s border box, use the box-shadow workflow below.
 
 Chain filters in the desired order. A second shadow receives the result of the
 first, including its shadow. Opacity before or after a shadow can therefore give
@@ -457,7 +456,57 @@ Ordinary filters on the element run before its final alpha mask. Main Game UI
 and UI assigned to camera images use the same source workflow. Save the source
 and Scene before exporting with the runtime kit supplied with this editor. Older
 kits without mask support reject before replacing a preceding export. No C++
-module is needed. Luminance masks, box shadows and arbitrary shaders are unavailable.
+module is needed. Luminance masks and arbitrary shaders are unavailable. Box shadows use the workflow below.
+
+## Shadow a panel’s box
+
+Open **Scenes/167-ui-box-shadows.scene.json** in **Examples/FeatureGallery** and
+press **Play**. Compare the reference, hard offset, soft offset, spread, inset and
+live samples. Box shadows follow the panel’s border box and rounded corners.
+Text remains sharp.
+
+![Six panel samples comparing reference, offset, soft, spread, inset and live box shadows](../images/ui-box-shadow-gallery.png)
+
+1. Pause, then select **Box shadow lab HUD** in Hierarchy.
+2. Under **Live gameplay → UI Values**, change **blur** between `0` and `32`. The **Live** card changes softness; `0` produces a hard shadow.
+3. Stop to restore the saved value. Set **UI Values → blur** in Edit and save the Scene to keep a different starting value.
+4. Edit **Assets/UI/BoxShadows/Lab.rml**, save, and use **Reload UI** during Play. An invalid replacement keeps the preceding usable UI.
+
+Write color, horizontal offset, vertical offset, blur radius and spread:
+
+```css
+#panel { box-shadow: #0008 6px 5px 8px 2px; border-radius: 7px; }
+#inset { box-shadow: #000a 5px 5px 8px 2px inset; }
+```
+
+Positive offsets move right/down. Positive spread expands an outer shadow and
+shrinks the opening of an inset shadow; negative spread reverses that effect.
+Keep the resolved blur radius between `0` and `32` pixels. This radius is twice
+the blur sigma used by the `filter: blur()` and `drop-shadow()` controls.
+Use `inset` to place the shadow inside the panel. A model binding can change the
+value during Play:
+
+```html
+<div data-style-box-shadow="'#0008 6px 5px ' + blur + 'px 0px'" />
+```
+
+Box-shadow keyframes and transitions are unavailable. Animate another compatible
+property, such as opacity, or update a model-bound value. The gallery’s small bar
+uses an opacity animation; it continues while Pause holds the gameplay tick.
+
+Shadows share the 32-image, 256 MiB logical filter pool and four-active-layer
+limit. At most 24 cached shadow textures may remain live across all UI contexts;
+distinct shapes and live values can require different textures. Reduce the number
+of distinct shadows, document copies, resolution or nesting if a resource limit
+is reported. Cached textures retire with their native document/cache references.
+A shadow’s internal canvas must fit the current UI viewport: oversized canvases
+can be clipped, including in small camera images. Content beyond the image edge
+is unavailable. Leave space around panels and check every intended output size.
+
+Main Game UI and camera-image UI use the same sources and model controls. Save
+the source and Scene, select the saved Scene as startup, and export with the
+runtime kit supplied with this editor. Older kits without box-shadow support
+reject before replacing an existing export. No project C++ module is needed.
 
 ## Layout your document
 
@@ -494,7 +543,7 @@ export artwork in the orientation and display colors you want.
 
 Use document-relative local resource paths. The supplied **Lato** font is packaged with FORGE, so it does not depend on installed system fonts. You may load project `.ttf`/`.otf` fonts using an RCSS `@font-face` declaration, with suitable redistribution rights. Use explicit `font-family` and `font-size`; font shorthand is not supported in this integration. When replacing a font using the same family name, restart Play to clear its font cache.
 
-Images support **PNG**, **JPEG** (`.jpg` or `.jpeg`) and uncompressed true-color **TGA** (24 or 32 bits), at most 2048×2048. Use PNG for transparent icons and JPEG for opaque artwork. Image bytes and decoded pixels have additional limits; very large or high-precision images can exceed them. SVG, remote URLs, templates and stylesheet imports are not supported yet. Link multiple stylesheets individually. Blur and the color filters described above use bounded temporary layers. Drop shadows use the filter workflow above. Backdrop filters use the workflow above. Linear, radial and conic gradients use the workflows above. Alpha masks use the workflow above. Other shader decorators and box shadows are unavailable.
+Images support **PNG**, **JPEG** (`.jpg` or `.jpeg`) and uncompressed true-color **TGA** (24 or 32 bits), at most 2048×2048. Use PNG for transparent icons and JPEG for opaque artwork. Image bytes and decoded pixels have additional limits; very large or high-precision images can exceed them. SVG, remote URLs, templates and stylesheet imports are not supported yet. Link multiple stylesheets individually. Blur and the color filters described above use bounded temporary layers. Drop shadows use the filter workflow above. Backdrop filters use the workflow above. Linear, radial and conic gradients use the workflows above. Alpha masks use the workflow above. Box shadows use the workflow above. Other shader decorators are unavailable.
 
 `px` means game render-target pixels; `dp` follows display density. The editor's interface scale remains separate. Check text input and sizing on the displays and input languages used by your game.
 
