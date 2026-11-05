@@ -2,6 +2,7 @@
 #include "asset_storage.hpp"
 #include "bounded_json.hpp"
 #include "ui_filter_admission.hpp"
+#include "ui_gradient_admission.hpp"
 #include "ui_inspection_transport.hpp"
 #include <RmlUi/Core.h>
 #include <forge/ui_presenter.hpp>
@@ -11,7 +12,19 @@ namespace {
 // without allocating GPU objects; graphical readiness remains the game host's job.
 struct InspectionRenderer final : Rml::RenderInterface {
     std::uintptr_t next = 1;
-    std::set<std::uintptr_t> geometry, textures, filters;
+    std::set<std::uintptr_t> geometry, textures, filters, gradients;
+    Rml::CompiledShaderHandle CompileShader(const Rml::String& name,
+                                            const Rml::Dictionary& parameters) override {
+        (void)forge::ui_gradient_detail::admit_gradient(name, parameters);
+        if (gradients.size() >= forge::ui_gradient_detail::max_shaders)
+            throw std::runtime_error("export.ui.limit: Compiled gradient count exceeds 256");
+        const auto id = next++;
+        gradients.insert(id);
+        return id;
+    }
+    void ReleaseShader(Rml::CompiledShaderHandle shader) override { gradients.erase(shader); }
+    void RenderShader(Rml::CompiledShaderHandle, Rml::CompiledGeometryHandle, Rml::Vector2f,
+                      Rml::TextureHandle) override {}
     Rml::CompiledFilterHandle CompileFilter(const Rml::String& name,
                                             const Rml::Dictionary& parameters) override {
         (void)forge::ui_filter_detail::admit_filter(name, parameters);

@@ -74,38 +74,53 @@ int main(int argc, char** argv) {
                    .metadata.at("forge.ui_source")
                    .contains("runtime_features"),
               "Unfiltered UI acquired a runtime filter requirement");
-        for (const auto& [extension, text, profile] :
-             std::vector<std::tuple<std::string, std::string, unsigned>>{
-                 {"rcss", "body {filter:blur(1px);}", 1u},
-                 {"rcss", "body {backdrop-filter:blur(1px);}", 3u},
-                 {"rcss", "body {backdrop-/**/filter:none;}", 3u},
-                 {"rcss", "body {font-family:'backdrop-filter:blur(1px)';}", 0u},
-                 {"rcss", "/* backdrop-filter:blur(1px); */ body {filter:blur(1px);}", 1u},
-                 {"rml", "<rml><body data-style-backdrop-filter=\"effect\"></body></rml>", 3u},
+        for (const auto& [extension, text, profile, gradient] :
+             std::vector<std::tuple<std::string, std::string, unsigned, bool>>{
+                 {"rcss", "body {filter:blur(1px);}", 1u, false},
+                 {"rcss", "body {decorator:linear-gradient(90deg,#f00,#00f);}", 0u, true},
+                 {"rcss",
+                  "@decorator named : linear-gradient {angle:90deg;color-stops:#f00,#00f;} body "
+                  "{decorator:named;}",
+                  0u, true},
+                 {"rcss", "body {decorator:repeating-linear-gradient(90deg,#f00,#00f);}", 0u, true},
+                 {"rcss", "body {decorator:horizontal-gradient(#f00 #00f);}", 0u, true},
+                 {"rcss", "body {decorator:image(test.tga);}", 0u, false},
+                 {"rcss", "/* decorator:linear-gradient(90deg,#f00,#00f); */ body{color:red;}", 0u,
+                  false},
+                 {"rcss", "body {font-family:'linear-gradient(90deg,#f00,#00f)';}", 0u, false},
+                 {"rml", "<rml><body data-style-decorator=\"effect\"></body></rml>", 0u, true},
+                 {"rcss", "body {backdrop-filter:blur(1px);}", 3u, false},
+                 {"rcss", "body {backdrop-/**/filter:none;}", 3u, false},
+                 {"rcss", "body {font-family:'backdrop-filter:blur(1px)';}", 0u, false},
+                 {"rcss", "/* backdrop-filter:blur(1px); */ body {filter:blur(1px);}", 1u, false},
+                 {"rml", "<rml><body data-style-backdrop-filter=\"effect\"></body></rml>", 3u,
+                  false},
                  {"rml",
                   "<rml><body data-style-backdrop-filter=\"effect\" "
                   "data-style-filter=\"other\"></body></rml>",
-                  3u},
-                 {"rml", "<rml><body style=\"backdrop-filter:blur(1px)\"></body></rml>", 3u},
-                 {"rcss", "body {filter:drop-shadow(#123456 -4px 8px 2px);}", 2u},
-                 {"rcss", "body {filter:drop-/**/shadow(#123456 -4px 8px 2px);}", 2u},
-                 {"rcss", "/* filter:drop-shadow(red 1px 2px); */ body {color:red;}", 0u},
-                 {"rcss", "body {font-family:'drop-shadow(red 1px 2px)';filter:blur(1px);}", 1u},
-                 {"rcss", "body {fil/**/ter /* gap */ : opacity(0.5);}", 1u},
-                 {"rcss", "/* filter:blur(3px); */ body {color:red;}", 0u},
-                 {"rcss", "body {font-family:'filter:blur(3px)';}", 0u},
-                 {"rml", "<rml><body style=\"filter:blur(1px)\"></body></rml>", 1u},
-                 {"rml", "<rml><body style=\"fil&#116;er&#58;blur(2px)\"></body></rml>", 3u},
-                 {"rml", "<rml><body style=\"color:&#114;ed\"></body></rml>", 3u},
-                 {"rml", "<rml><head><style>body{filter:none;}</style></head><body/></rml>", 1u},
-                 {"rml", "<rml><body data-style-filter=\"effect\"></body></rml>", 2u},
-                 {"rml", "<rml><body><!-- filter:blur(2px); --></body></rml>", 0u},
-                 {"rml", "<rml><body title=\"filter:blur(2px)\"></body></rml>", 0u}}) {
+                  3u, false},
+                 {"rml", "<rml><body style=\"backdrop-filter:blur(1px)\"></body></rml>", 3u, false},
+                 {"rcss", "body {filter:drop-shadow(#123456 -4px 8px 2px);}", 2u, false},
+                 {"rcss", "body {filter:drop-/**/shadow(#123456 -4px 8px 2px);}", 2u, false},
+                 {"rcss", "/* filter:drop-shadow(red 1px 2px); */ body {color:red;}", 0u, false},
+                 {"rcss", "body {font-family:'drop-shadow(red 1px 2px)';filter:blur(1px);}", 1u,
+                  false},
+                 {"rcss", "body {fil/**/ter /* gap */ : opacity(0.5);}", 1u, false},
+                 {"rcss", "/* filter:blur(3px); */ body {color:red;}", 0u, false},
+                 {"rcss", "body {font-family:'filter:blur(3px)';}", 0u, false},
+                 {"rml", "<rml><body style=\"filter:blur(1px)\"></body></rml>", 1u, false},
+                 {"rml", "<rml><body style=\"fil&#116;er&#58;blur(2px)\"></body></rml>", 3u, true},
+                 {"rml", "<rml><body style=\"color:&#114;ed\"></body></rml>", 3u, true},
+                 {"rml", "<rml><head><style>body{filter:none;}</style></head><body/></rml>", 1u,
+                  false},
+                 {"rml", "<rml><body data-style-filter=\"effect\"></body></rml>", 2u, false},
+                 {"rml", "<rml><body><!-- filter:blur(2px); --></body></rml>", 0u, false},
+                 {"rml", "<rml><body title=\"filter:blur(2px)\"></body></rml>", 0u, false}}) {
             const auto source = std::filesystem::path("Assets") / ("feature." + extension);
             asset_storage::replace(root / source, text);
             const auto feature = register_ui_source(writer, source);
             check(feature.metadata.at("forge.ui_source").contains("runtime_features") ==
-                      (profile != 0),
+                      (profile != 0 || gradient),
                   "UI feature evidence ignored declarations/bindings or interpreted comments/text");
             UiResources evidence(root);
             evidence.document({document.id});
@@ -115,10 +130,19 @@ int main(int argc, char** argv) {
                 ui_inspection_detail::decode(ui_inspection_detail::encode(observed));
             check(transported.sources == observed.sources,
                   "UI filter source evidence changed across inspection transport");
-            if (profile) {
-                check(feature.metadata.at("forge.ui_source").at("runtime_features").at("filters") ==
-                          profile,
-                      "UI filter declaration requires the wrong capability profile");
+            if (profile || gradient) {
+                nlohmann::json required = nlohmann::json::object();
+                if (profile)
+                    required["filters"] = profile;
+                if (gradient)
+                    required["gradients"] = 1;
+                check(feature.metadata.at("forge.ui_source").at("runtime_features") == required,
+                      "UI source capability requirements differ from its actual declarations");
+                if (profile)
+                    check(feature.metadata.at("forge.ui_source")
+                                  .at("runtime_features")
+                                  .at("filters") == profile,
+                          "UI filter declaration requires the wrong capability profile");
                 auto forged = observed;
                 for (auto& info : forged.sources)
                     info.details.erase("runtime_features");

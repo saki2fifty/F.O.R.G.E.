@@ -18,7 +18,8 @@ namespace {
 using test_gallery_capture::check;
 using test_gallery_capture::Pixels;
 const char* scene_path = "Scenes/155-ui-filters.scene.json";
-bool shadows = false, backdrops = false;
+bool shadows = false, backdrops = false, gradient_gallery = false;
+const char* parameter = "blur";
 const char* ui_path = "Assets/UI/Filters/Lab.rml";
 Json read_scene(const std::filesystem::path& root) {
     const auto bytes = asset_detail::read_bytes(root / scene_path, 4 * 1024 * 1024);
@@ -35,7 +36,35 @@ void author(const std::filesystem::path& root, UiDiligentRenderer& renderer,
             const std::vector<std::byte>& font) {
     const bool fresh = !std::filesystem::exists(root / scene_path);
     std::filesystem::create_directories((root / ui_path).parent_path());
-    asset_storage::replace(root / ui_path, backdrops ? R"rml(<rml><head><style>
+    asset_storage::replace(root / ui_path, gradient_gallery ? R"rml(<rml><head><style>
+body,div,p,h1 {display:block;} body {margin:0;width:100%;height:100%;font-family:Lato;font-size:15px;color:#e5f2ff;pointer-events:none;}
+#lab {position:absolute;left:4%;top:2%;width:92%;}
+h1 {font-size:23px;margin:0 0 3px;color:#79e7cf;} p {margin:3px 0;}
+#grid {margin-top:6px;} .card {display:inline-block;width:30%;margin:0 2% 6px 0;vertical-align:top;}
+.label {height:19px;font-size:13px;} .sample {position:relative;height:56px;background-color:#1b3347;border-radius:6px;}
+.word {position:absolute;left:18%;top:20px;font-size:14px;color:white;}
+#horizontal {decorator:horizontal-gradient(#e96644 #4e96df);}
+#vertical {decorator:vertical-gradient(#63cf89 #4e96df);}
+#stops {decorator:linear-gradient(90deg,#e96644 0%,#79e7cf 45%,#4e96df 100%);}
+#repeat {decorator:repeating-linear-gradient(90deg,#e96644 0%,#4e96df 25%);}
+#light,#dark {position:absolute;top:0;width:50%;height:56px;}
+#light {left:0;background-color:#82a4c3;} #dark {left:50%;background-color:#173c50;}
+#alpha {position:absolute;left:0;top:0;width:100%;height:56px;decorator:linear-gradient(90deg,#ff400000,#ff4000ff);}
+#motion {width:100px;height:12px;margin-top:4px;animation:2s linear-in infinite alternate anglepulse;}
+@keyframes anglepulse {from {decorator:linear-gradient(0deg,#e96644,#4e96df);} to {decorator:linear-gradient(180deg,#e96644,#4e96df);}}
+button {display:inline-block;padding:5px 8px;margin:4px 5px 0 0;background-color:#30536e;pointer-events:auto;}
+button:hover,button:focus {background-color:#4c849e;} .hint {font-size:13px;color:#adc7db;}
+</style></head><body><div id="lab"><h1>UI gradients</h1><p>Angle, colors, alpha and repeating stops.</p><div id="grid">
+<div class="card"><div class="label">Horizontal</div><div id="horizontal" class="sample"><div class="word">UI</div></div></div>
+<div class="card"><div class="label">Vertical</div><div id="vertical" class="sample"><div class="word">UI</div></div></div>
+<div class="card"><div class="label">Stops</div><div id="stops" class="sample"><div class="word">UI</div></div></div>
+<div class="card"><div class="label">Alpha</div><div class="sample"><div id="light"/><div id="dark"/><div id="alpha"/><div class="word">UI</div></div></div>
+<div class="card"><div class="label">Repeat</div><div id="repeat" class="sample"><div class="word">UI</div></div></div>
+<div class="card"><div class="label">Live / {{angle}}</div><div class="sample" data-style-decorator="'linear-gradient(' + angle + 'deg,#e96644,#4e96df)'"><div class="word">UI</div></div></div>
+</div><p class="hint">UI Values / angle: 0..360. Tick: {{tick}}</p><div id="motion"/>
+<button id="pause" data-event-click="command('Pause')">Pause</button><button id="resume" data-event-click="command('Resume')">Resume</button><button id="step" data-event-click="command('Step')">Step</button>
+</div></body></rml>)rml"
+                                           : backdrops      ? R"rml(<rml><head><style>
 body,div,p,h1 {display:block;} body {margin:0;width:100%;height:100%;font-family:Lato;font-size:15px;color:#e5f2ff;pointer-events:none;}
 #lab {position:absolute;left:4%;top:2%;width:92%;}
 h1 {font-size:23px;margin:0 0 3px;color:#79e7cf;} p {margin:3px 0;}
@@ -64,7 +93,7 @@ button:hover,button:focus {background-color:#4c849e;} .hint {font-size:13px;colo
 </div><p class="hint">UI Values / blur: 0..16. Tick: {{tick}}</p><div id="pulse"><div id="pulseleft"/><div id="pulseright"/><div id="motion"/></div>
 <button id="pause" data-event-click="command('Pause')">Pause</button><button id="resume" data-event-click="command('Resume')">Resume</button><button id="step" data-event-click="command('Step')">Step</button>
 </div></body></rml>)rml"
-                                           : shadows ? R"rml(<rml><head><style>
+                                           : shadows        ? R"rml(<rml><head><style>
 body,div,p,h1 {display:block;} body {margin:0;width:100%;height:100%;font-family:Lato;font-size:15px;color:#e5f2ff;pointer-events:none;}
 #lab {position:absolute;left:4%;top:2%;width:92%;}
 h1 {font-size:23px;margin:0 0 3px;color:#79e7cf;} p {margin:3px 0;}
@@ -90,7 +119,7 @@ button:hover,button:focus {background-color:#4c849e;} .hint {font-size:13px;colo
 </div><p class="hint">UI Values / blur: 0..16. Tick: {{tick}}</p><div id="motion"/>
 <button id="pause" data-event-click="command('Pause')">Pause</button><button id="resume" data-event-click="command('Resume')">Resume</button><button id="step" data-event-click="command('Step')">Step</button>
 </div></body></rml>)rml"
-                                                     : R"rml(<rml><head><style>
+                                                            : R"rml(<rml><head><style>
 body,div,p,h1 {display:block;} body {margin:0;width:100%;height:100%;font-family:Lato;font-size:15px;color:#e5f2ff;pointer-events:none;}
 #lab {position:absolute;left:4%;top:3%;width:92%;}
 h1 {font-size:25px;margin:0 0 5px;color:#79e7cf;} p {margin:4px 0;}
@@ -126,11 +155,12 @@ button:hover,button:focus {background-color:#4c849e;} .hint {font-size:13px;colo
         return entity;
     };
     if (fresh) {
-        create(backdrops ? "Backdrop lab HUD"
-               : shadows ? "Shadow lab HUD"
-                         : "Filter lab HUD")
+        create(gradient_gallery ? "Gradient lab HUD"
+               : backdrops      ? "Backdrop lab HUD"
+               : shadows        ? "Shadow lab HUD"
+                                : "Filter lab HUD")
             .set<UiDocument>({{ui.id}, true, true, 0})
-            .set<UiValues>({{{"blur", 4}}});
+            .set<UiValues>({{{parameter, gradient_gallery ? 45. : 4.}}});
         auto camera = create("Game Camera");
         Camera view;
         view.background_r = .025f;
@@ -234,8 +264,9 @@ std::vector<Pixels> exercise(DiligentPresentation& presentation, IDeviceContext*
     check(row != source.at("entities").end(), "Filter Gallery value controller missing");
     session.active().tune_property(
         {source.at("asset_id").get<AssetId>(), row->at("id").get<EntityId>()}, "forge.ui_values",
-        "values", Json::array({{{"name", "blur"}, {"value", 0.}}}));
-    result.push_back(capture(1.1, 640, 360, "live-blur-zero"));
+        "values", Json::array({{{"name", parameter}, {"value", 0.}}}));
+    result.push_back(
+        capture(1.1, 640, 360, gradient_gallery ? "live-angle-zero" : "live-blur-zero"));
     check(changed(result[1], result[2]) > 200, "Inspector model did not alter actual blur pixels");
     check(visual.ui().presentation_revision() == revision,
           "Live filter value replaced UI contexts");
@@ -246,11 +277,18 @@ std::vector<Pixels> exercise(DiligentPresentation& presentation, IDeviceContext*
 int main(int argc, char** argv) {
     try {
         check(argc == 4 || (argc == 5 && (std::string_view(argv[4]) == "--shadows" ||
-                                          std::string_view(argv[4]) == "--backdrops")),
+                                          (std::string_view(argv[4]) == "--backdrops" ||
+                                           std::string_view(argv[4]) == "--gradients"))),
               "Need Gallery, font and scratch; or --author Gallery font; optional "
-              "--shadows/--backdrops");
+              "--shadows/--backdrops/--gradients");
         shadows = argc == 5 && std::string_view(argv[4]) == "--shadows";
         backdrops = argc == 5 && std::string_view(argv[4]) == "--backdrops";
+        gradient_gallery = argc == 5 && std::string_view(argv[4]) == "--gradients";
+        if (gradient_gallery) {
+            scene_path = "Scenes/164-ui-linear-gradients.scene.json";
+            ui_path = "Assets/UI/Gradients/Lab.rml";
+            parameter = "angle";
+        }
         if (backdrops) {
             scene_path = "Scenes/163-ui-backdrop-filters.scene.json";
             ui_path = "Assets/UI/Backdrops/Lab.rml";

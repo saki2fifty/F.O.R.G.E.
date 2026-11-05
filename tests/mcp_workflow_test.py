@@ -699,7 +699,7 @@ for legacy in (False, True):
             hud = ok('forge_source_ui_example')
             path = str(Path(hud['path']).with_suffix('.rcss')).replace('\\', '/')
             saved = text(path)
-            animated = saved['text'] + '\n@keyframes breathe { from {opacity:0.3;backdrop-filter:blur(0px);filter:blur(0px) drop-shadow(#20408080 -4px 6px 1px);} to {opacity:1;backdrop-filter:blur(2px);filter:blur(2px) drop-shadow(#20408080 4px 6px 3px);} }\n#panel {filter:contrast(1.1);animation:1s linear-in infinite alternate breathe;}\n'
+            animated = saved['text'] + '\n@keyframes breathe { from {opacity:0.3;decorator:linear-gradient(90deg,#204080,#40c080);backdrop-filter:blur(0px);filter:blur(0px) drop-shadow(#20408080 -4px 6px 1px);} to {opacity:1;decorator:linear-gradient(180deg,#204080,#40c080);backdrop-filter:blur(2px);filter:blur(2px) drop-shadow(#20408080 4px 6px 3px);} }\n#panel {filter:contrast(1.1);animation:1s linear-in infinite alternate breathe;}\n'
             stale = arguments(path=path, state=saved['state'], text=animated)
             write(path, animated)
             assert client.tool('forge_source_text_write', **stale)['ok']  # Exact receipt replay.

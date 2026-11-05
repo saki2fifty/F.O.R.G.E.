@@ -285,6 +285,31 @@ int main(int argc, char** argv) {
                         reject([&] { validate_runtime_compatibility(routed, engine); });
                 }
             }
+            stylesheet.metadata["forge.ui_source"]["runtime_features"] = {{"gradients", 1}};
+            routed.replace(stylesheet);
+            validate_runtime_compatibility(
+                routed, {{"runtime_ui_protocol", 2}, {"runtime_ui_gradients", 1}});
+            reject([&] { validate_runtime_compatibility(routed, {{"runtime_ui_protocol", 2}}); });
+            for (const Json& profile : {Json(), Json(0), Json(1.0), Json("1"), Json(true), Json(2)})
+                reject([&] {
+                    validate_runtime_compatibility(
+                        routed, {{"runtime_ui_protocol", 2}, {"runtime_ui_gradients", profile}});
+                });
+            for (const Json& invalid : {Json(0), Json(1.0), Json("1"), Json(true), Json(2)}) {
+                stylesheet.metadata["forge.ui_source"]["runtime_features"] = {
+                    {"gradients", invalid}};
+                routed.replace(stylesheet);
+                reject([&] {
+                    validate_runtime_compatibility(
+                        routed, {{"runtime_ui_protocol", 2}, {"runtime_ui_gradients", 1}});
+                });
+            }
+            stylesheet.metadata["forge.ui_source"]["runtime_features"] = {{"filters", 3},
+                                                                          {"gradients", 1}};
+            routed.replace(stylesheet);
+            validate_runtime_compatibility(routed, {{"runtime_ui_protocol", 2},
+                                                    {"runtime_ui_filters", 3},
+                                                    {"runtime_ui_gradients", 1}});
         }
         // File-inventory fixture only, not executable/graphics acceptance.
         asset_storage::replace(out / "forge_game", "test executable bytes");

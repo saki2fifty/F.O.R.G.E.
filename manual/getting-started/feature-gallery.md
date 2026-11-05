@@ -671,3 +671,13 @@ inspect decoded linear HDR values through the shared-exponent file format.
 The signed example's **Mip** 1 contains negative red values and reports an error
 when exported to HDR, preserving any existing destination. See
 [HDR texture export](../editor/textures.md) for decoding, inspection and limits.
+
+## UI linear-gradient samples
+
+Open **164-ui-linear-gradients** and press **Play**. Compare horizontal, vertical,
+multiple-stop, transparent and repeating gradients. Pause and change **Gradient lab
+HUD → UI Values → angle** in the live tuning controls. The small animated bar
+continues on presentation time. Stop and save an authored angle to keep it.
+Export the saved startup Scene with the supplied runtime kit.
+See [Runtime UI](../editor/runtime-ui.md) for source syntax,
+limits and the illustrated workflow.

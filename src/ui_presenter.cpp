@@ -227,10 +227,20 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
             fail("UI mask images are not supported");
             return 0;
         }
-        Rml::CompiledShaderHandle CompileShader(const Rml::String&,
-                                                const Rml::Dictionary&) override {
-            fail("UI shader decorators are not supported in this integration");
-            return 0;
+        Rml::CompiledShaderHandle CompileShader(const Rml::String& name,
+                                                const Rml::Dictionary& parameters) override {
+            const auto handle = call([&] { return target.CompileShader(name, parameters); });
+            if (!handle)
+                fail("UI gradient could not be admitted by this renderer");
+            return handle;
+        }
+        void ReleaseShader(Rml::CompiledShaderHandle shader) override {
+            call([&] { target.ReleaseShader(shader); });
+        }
+        void RenderShader(Rml::CompiledShaderHandle shader, Rml::CompiledGeometryHandle geometry,
+                          Rml::Vector2f translation, Rml::TextureHandle texture) override {
+            if (!preparing && !blocked())
+                call([&] { target.RenderShader(shader, geometry, translation, texture); });
         }
     };
     std::string session, error, loading_prefix, failed_structure;

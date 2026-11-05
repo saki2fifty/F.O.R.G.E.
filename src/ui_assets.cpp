@@ -1,6 +1,7 @@
 #include "asset_bytes.hpp"
 #include "texture_decode.h"
 #include "ui_filter_profile.hpp"
+#include "ui_gradient_profile.hpp"
 #include "ui_localization_admission.hpp"
 #include <algorithm>
 #include <cctype>
@@ -40,7 +41,11 @@ std::uint32_t be(std::span<const std::byte> b, std::size_t p, unsigned n) {
 unsigned le(std::span<const std::byte> b, std::size_t p) {
     return std::to_integer<unsigned>(b[p]) | (std::to_integer<unsigned>(b[p + 1]) << 8);
 }
-unsigned validate_text_profile(std::string_view text, bool markup) {
+struct TextProfile {
+    unsigned filters = 0;
+    bool gradients = false;
+};
+TextProfile validate_text_profile(std::string_view text, bool markup) {
     require(text.size() <= 256 * 1024, "RML/RCSS exceeds 256 KiB");
     require(text.find('\0') == std::string_view::npos, "RML/RCSS contains NUL");
     (void)nlohmann::json(std::string(text)).dump();
@@ -52,6 +57,7 @@ unsigned validate_text_profile(std::string_view text, bool markup) {
     unsigned braces = 0, parens = 0;
     std::string property, token;
     unsigned filter_profile = 0;
+    bool gradients = false;
     for (std::size_t i = 0; i < text.size();) {
         if (markup && text.substr(i, 4) == "<!--") {
             auto e = text.find("-->", i + 4);
@@ -116,6 +122,8 @@ unsigned validate_text_profile(std::string_view text, bool markup) {
                             std::max(filter_profile, ui_filter_detail::shadow_profile_version);
                     if (name == "data-style-backdrop-filter")
                         filter_profile = ui_filter_detail::profile_version;
+                    if (name == "data-style-decorator")
+                        gradients = true;
                     while (a < attributes.size() && space(attributes[a]))
                         ++a;
                     if (a == attributes.size() || attributes[a] != '=')
@@ -139,10 +147,13 @@ unsigned validate_text_profile(std::string_view text, bool markup) {
                         const auto style = attributes.substr(begin, a - begin);
                         // Native attribute parsing expands character references.
                         // Encoded styles conservatively require the current filter kit.
-                        if (style.find('&') != style.npos)
+                        if (style.find('&') != style.npos) {
                             filter_profile = ui_filter_detail::profile_version;
-                        filter_profile =
-                            std::max(filter_profile, validate_text_profile(style, false));
+                            gradients = true;
+                        }
+                        const auto nested = validate_text_profile(style, false);
+                        filter_profile = std::max(filter_profile, nested.filters);
+                        gradients |= nested.gradients;
                     }
                     if (a < attributes.size())
                         ++a;
@@ -164,9 +175,10 @@ unsigned validate_text_profile(std::string_view text, bool markup) {
                 if (tag == "style") {
                     auto close = text.find("</style>", end + 1);
                     require(close != text.npos, "Unterminated RML style");
-                    filter_profile = std::max(
-                        filter_profile,
-                        validate_text_profile(text.substr(end + 1, close - end - 1), false));
+                    const auto nested =
+                        validate_text_profile(text.substr(end + 1, close - end - 1), false);
+                    filter_profile = std::max(filter_profile, nested.filters);
+                    gradients |= nested.gradients;
                     i = close;
                     continue;
                 }
@@ -176,6 +188,13 @@ unsigned validate_text_profile(std::string_view text, bool markup) {
         }
         if (!markup) {
             char c = text[i];
+            // Anonymous functions and named @decorator type declarations share
+            // this evidence. Quoted ordinary text/comments stay excluded.
+            if ((property == "decorator" && (c == '(' || c == ';' || c == '}')) ||
+                (c == '{' && !property.empty()))
+                gradients |= token == "linear-gradient" || token == "repeating-linear-gradient" ||
+                             token == "horizontal-gradient" || token == "vertical-gradient" ||
+                             token == "gradient";
             if (c == '(' && property == "filter" && token == "drop-shadow")
                 filter_profile = std::max(filter_profile, ui_filter_detail::shadow_profile_version);
             // Retain identifier pieces across comments, as the stylesheet reader does.
@@ -246,7 +265,7 @@ unsigned validate_text_profile(std::string_view text, bool markup) {
     if (markup)
         require(nodes > 0 && text.find("<rml") != text.npos && text.find("<body") != text.npos,
                 "RML requires rml and body elements");
-    return filter_profile;
+    return {filter_profile, gradients};
 }
 } // namespace
 void validate_ui_text(std::string_view text, bool markup) {
@@ -369,9 +388,9 @@ const std::vector<std::byte>& UiResources::read(const std::string& name) {
             "Unsupported UI resource type");
     auto data = access_.read(locator, text ? 256 * 1024 : 16 * 1024 * 1024 + 274);
     require(bytes_ + data.size() <= 32 * 1024 * 1024, "UI resource bytes exceed 32 MiB");
-    unsigned filter_profile = 0;
+    TextProfile profile;
     if (text)
-        filter_profile = validate_text_profile(
+        profile = validate_text_profile(
             std::string_view(reinterpret_cast<const char*>(data.data()), data.size()),
             ext == ".rml");
     else if (image_extension(ext)) {
@@ -386,7 +405,8 @@ const std::vector<std::byte>& UiResources::read(const std::string& name) {
     } else
         validate_ui_font(data);
     bytes_ += data.size();
-    return files_.emplace(key, File{std::move(data), filter_profile}).first->second.bytes;
+    return files_.emplace(key, File{std::move(data), profile.filters, profile.gradients})
+        .first->second.bytes;
 }
 std::string UiResources::document(AssetRef<UiDocumentAsset> ref) {
     const auto resolved = AssetCatalog::open_project(paths_.root()).resolve(ref);
@@ -436,8 +456,13 @@ UiAssetSnapshot UiResources::snapshot() const {
                           asset_detail::content_digest(bytes),
                           bytes.size(),
                           {{"format", extension.substr(1)}}};
+        Json features = Json::object();
         if (file.filter_profile)
-            info.details["runtime_features"] = {{"filters", file.filter_profile}};
+            features["filters"] = file.filter_profile;
+        if (file.gradients)
+            features["gradients"] = ui_gradient_detail::profile_version;
+        if (!features.empty())
+            info.details["runtime_features"] = std::move(features);
         if (image_extension(extension)) {
             const auto [width, height] = image_dimensions(bytes);
             info.details["width"] = width;

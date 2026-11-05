@@ -256,7 +256,7 @@ presentation state or access to arbitrary DOM/script/engine files.
 
 Adopted: native RML/RCSS layout, styled text/buttons/forms, copied scalar expressions, local text editing, multiple ordered documents, PNG/JPEG/TGA images, project fonts, transforms, scissor and stencil masks, explicit reload. Documents sort by layer then stable incoming scene order; RmlUi manages normal DOM focus/z-order within that context.
 
-Deferred: browser JavaScript, Lua, debugger UI, SVG/Lottie/HarfBuzz, RCSS imports/templates, world-space UI, collections/two-way gameplay binding, public plugin APIs and a visual UI designer. Standalone gamepad navigation now routes through input actions to native RmlUi focus traversal and activation. Link stylesheets individually. Bounded blur/color filters use transient renderer-owned layers as described below. Masks, shader decorators/gradients and box shadows remain unsupported and diagnosed. Drop-shadow and backdrop filters use the profile below. Use explicit font-family/font-size rather than shorthand. This is the first screen-space integration, not a visual UI designer.
+Deferred: browser JavaScript, Lua, debugger UI, SVG/Lottie/HarfBuzz, RCSS imports/templates, world-space UI, collections/two-way gameplay binding, public plugin APIs and a visual UI designer. Standalone gamepad navigation now routes through input actions to native RmlUi focus traversal and activation. Link stylesheets individually. Bounded blur/color filters use transient renderer-owned layers as described below. Masks, radial/conic gradients, other shader decorators and box shadows remain unsupported and diagnosed. Bounded linear gradients use the profile below. Drop-shadow and backdrop filters use the profile below. Use explicit font-family/font-size rather than shorthand. This is the first screen-space integration, not a visual UI designer.
 
 ## Upstream evidence
 
@@ -421,7 +421,7 @@ Gallery155 provides original shape/color samples, Inspector-driven blur and a
 presentation-time filter pulse. Source editing/registration, live UI reload,
 UiValues tuning and export use their existing automation/MCP operations and guards.
 No effects database, authored DOM format, new game clock or plugin ABI is added.
-Mask/box-shadow/gradient/shader effects, world-space UI and surface input
+Mask/box-shadow/other shader effects, world-space UI and surface input
 remain outside this profile.
 
 ### Drop-shadow composition
@@ -474,5 +474,49 @@ RGBA8 and linearRGBA16F camera output use their existing destination domain.
 Opacity, clipping, candidate/last-good, output failure and retirement policies
 remain with the existing presenter/resource owners. Gallery163 supplies original
 foreground/background and live/presentation-time comparisons, authored and
-exported with the same source/model/MCP workflow. Masks, box shadows and shader
-decorators remain unsupported.
+exported with the same source/model/MCP workflow. Masks, box shadows and other shader
+decorators remain unsupported; linear gradients use the profile below.
+
+
+## Native linear-gradient profile
+
+The pinned RmlUi parser owns angle, units, automatic stop positions and native
+animation interpolation. FORGE's shared `ui_gradient_detail` admission validates
+and copies the resolved `linear-gradient` payload: exactly `p0`/`p1` VECTOR2,
+`length` FLOAT, `repeating` BOOL and `color_stop_list` COLORSTOPLIST. Stops must
+use NUMBER positions and premultiplied byte colors. No native pointers survive
+compilation. Drawing, non-drawing inspection and source candidates share this
+admission; radial/conic and other compiled shader names reject.
+
+Profile1 accepts2..16 ordered stops, finite pixel-local endpoint coordinates and
+normalized stop-position magnitudes<=65536,
+consistent line length>=1e-4 and repeating period>=1e-6. Colors must be finite
+premultiplied RGBA. Coincident stops are allowed in nonrepeating gradients. A
+maximum256 copied compiled records spans live contexts; release retires the row.
+Legacy `horizontal-gradient`/`vertical-gradient` use ordinary native geometry.
+They share source capability metadata with shader-backed linear gradients.
+
+The existing Diligent adapter owns one352-byte pixel constant buffer and reuses
+its geometry, clipping, transform, viewport, texture SRBs and draw path. Existing
+96-byte vertex constants carry destination-domain and gradient flags. The original
+FORGE shader projects pixel-local UVs, interpolates premultiplied stops and wraps
+repeat intervals. Encoded RGBA8 retains display values; linearRGBA16F uses the
+existing pinned sRGB transfer helper and premultiplies again before source-over.
+No per-gradient GPU resources, arbitrary shader authoring API, parallel renderer
+or asset-identity system is introduced.
+
+UiResources derives `runtime_features.gradients:1` in the existing source snapshot
+for recognized gradient declarations/factories, dynamic decorator bindings and
+encoded inline styles. Ordinary/image-only source does not acquire this flag.
+Runtime kits advertise integer `engine.runtime_ui_gradients:1` from the same
+private profile header. Missing, fractional, boolean or unknown versions reject
+required content before export promotion. Filter profiles1..3 are unchanged.
+The installed native SDK value-header list, C ABI1, identity and scene schema are
+unchanged. Source text/register/refresh, saved models, live Play tuning, keyframes,
+reload, automation/MCP, camera outputs and source-hidden packages use their
+established owners. No separate gradient mutation tool is necessary.
+
+Gallery164 contains original gradient source and a saved angle model. See the
+user manual for the illustrated workflow. Validation/capture provenance records
+local software-rendering evidence separately from pending Windows/full-editor
+and physical-hardware acceptance.

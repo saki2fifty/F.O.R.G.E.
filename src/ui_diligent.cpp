@@ -4,6 +4,7 @@
 #include "Graphics/GraphicsTools/interface/MapHelper.hpp"
 #include "Utilities/interface/DiligentFXShaderSourceStreamFactory.hpp"
 #include "ui_filter_layers.hpp"
+#include "ui_gradient_admission.hpp"
 #include <RmlUi/Core.h>
 #include <algorithm>
 #include <array>
@@ -31,11 +32,19 @@ struct UiDiligentRenderer::Impl final : Rml::RenderInterface {
         float screen[4];
         float translation[4];
     };
+    static_assert(ui_gradient_detail::max_stops == 16);
+    struct GradientConstants {
+        float line[4]{};
+        float info[4]{};
+        float positions[16]{};
+        float colors[64]{};
+    };
     UiFilterLayers layers;
     RefCntAutoPtr<IRenderDevice> device;
     RefCntAutoPtr<IDeviceContext> context;
     RefCntAutoPtr<ITexture> stencil;
     RefCntAutoPtr<IBuffer> constants;
+    RefCntAutoPtr<IBuffer> gradient_constants;
     std::array<std::array<RefCntAutoPtr<IPipelineState>, 4>, 2> pipelines;
     unsigned output_format = 0;
     std::uint64_t stencil_allocations = 0;
@@ -85,6 +94,7 @@ struct UiDiligentRenderer::Impl final : Rml::RenderInterface {
     }
     std::map<Rml::CompiledGeometryHandle, Geometry> geometry;
     std::map<Rml::TextureHandle, Texture> textures;
+    std::map<Rml::CompiledShaderHandle, ui_gradient_detail::Gradient> gradients;
     std::size_t geometry_bytes = 0, texture_bytes = 0;
     std::uintptr_t next = 1;
     Rml::TextureHandle white = 0;
@@ -102,8 +112,8 @@ struct UiDiligentRenderer::Impl final : Rml::RenderInterface {
         shader.Desc.ShaderType = SHADER_TYPE_VERTEX;
         shader.Source =
             R"(cbuffer UiData {column_major float4x4 transform;float4 screen;float4 translation;};
-struct Out {float4 p:SV_POSITION;float4 color:COLOR0;float2 uv:TEXCOORD0;nointerpolation float linear_target:TEXCOORD1;};
-Out main(float2 v:ATTRIB0,float4 color:ATTRIB1,float2 uv:ATTRIB2){Out o;float4 p=mul(transform,float4(v+translation.xy,0,1));o.p=float4(2*p.x/screen.x-p.w,p.w-2*p.y/screen.y,0,p.w);o.color=color;o.uv=uv;o.linear_target=screen.z;return o;})";
+struct Out {float4 p:SV_POSITION;float4 color:COLOR0;float2 uv:TEXCOORD0;nointerpolation float2 flags:TEXCOORD1;};
+Out main(float2 v:ATTRIB0,float4 color:ATTRIB1,float2 uv:ATTRIB2){Out o;float4 p=mul(transform,float4(v+translation.xy,0,1));o.p=float4(2*p.x/screen.x-p.w,p.w-2*p.y/screen.y,0,p.w);o.color=color;o.uv=uv;o.flags=screen.zw;return o;})";
         RefCntAutoPtr<IShader> vs, ps;
         device->CreateShader(shader, &vs);
         shader.Desc.Name = "FORGE runtime UI PS";
@@ -113,10 +123,30 @@ Out main(float2 v:ATTRIB0,float4 color:ATTRIB1,float2 uv:ATTRIB2){Out o;float4 p
         // premultiply again for blending into a linear camera image.
         shader.Source = R"(#include "SRGBUtilities.fxh"
 Texture2D ui_texture;SamplerState ui_texture_sampler;
+cbuffer UiGradientData {float4 gradient_line;float4 gradient_info;
+float4 gradient_positions[4];float4 gradient_colors[16];};
+float stop_position(int i) {return gradient_positions[i/4][i%4];}
+float4 gradient_color(float2 uv) {
+    float t=dot(uv-gradient_line.xy,gradient_line.zw);
+    int count=clamp(int(gradient_info.x),2,16);
+    if(gradient_info.y>0.5) {
+        float period=gradient_info.w-gradient_info.z;
+        t=gradient_info.z+frac((t-gradient_info.z)/period)*period;
+    }
+    if(t<stop_position(0)) return gradient_colors[0];
+    for(int i=1;i<count;++i) {
+        float right=stop_position(i);
+        if(t<right) {
+            float left=stop_position(i-1);
+            return lerp(gradient_colors[i-1],gradient_colors[i],saturate((t-left)/(right-left)));
+        }
+    }
+    return gradient_colors[count-1];
+}
 float4 main(float4 p:SV_POSITION,float4 color:COLOR0,float2 uv:TEXCOORD0,
-            nointerpolation float linear_target:TEXCOORD1):SV_TARGET {
-    float4 value=color*ui_texture.Sample(ui_texture_sampler,uv);
-    if(linear_target>0.5)
+            nointerpolation float2 flags:TEXCOORD1):SV_TARGET {
+    float4 value=color*(flags.y>0.5 ? gradient_color(uv) : ui_texture.Sample(ui_texture_sampler,uv));
+    if(flags.x>0.5)
         value.rgb=value.a>0 ? SRGBToLinear(value.rgb/value.a)*value.a : float3(0,0,0);
     return value;
 })";
@@ -132,6 +162,11 @@ float4 main(float4 p:SV_POSITION,float4 color:COLOR0,float2 uv:TEXCOORD0,
         device->CreateBuffer(cb, nullptr, &constants);
         if (!constants)
             throw std::runtime_error("Runtime UI constant allocation failed");
+        cb.Name = "FORGE UI gradient constants";
+        cb.Size = sizeof(GradientConstants);
+        device->CreateBuffer(cb, nullptr, &gradient_constants);
+        if (!gradient_constants)
+            throw std::runtime_error("Runtime UI gradient constant allocation failed");
         LayoutElement layout[] = {
             {0, 0, 2, VT_FLOAT32, False}, {1, 0, 4, VT_UINT8, True}, {2, 0, 2, VT_FLOAT32, False}};
         static_assert(sizeof(Rml::Vertex) == 20);
@@ -189,6 +224,9 @@ float4 main(float4 p:SV_POSITION,float4 color:COLOR0,float2 uv:TEXCOORD0,
                 pipelines[format][mode]
                     ->GetStaticVariableByName(SHADER_TYPE_VERTEX, "UiData")
                     ->Set(constants);
+                pipelines[format][mode]
+                    ->GetStaticVariableByName(SHADER_TYPE_PIXEL, "UiGradientData")
+                    ->Set(gradient_constants);
             }
         }
         SetTransform(nullptr);
@@ -308,6 +346,23 @@ float4 main(float4 p:SV_POSITION,float4 color:COLOR0,float2 uv:TEXCOORD0,
         return layers.compile(name, parameters);
     }
     void ReleaseFilter(Rml::CompiledFilterHandle filter) override { layers.release(filter); }
+    Rml::CompiledShaderHandle CompileShader(const Rml::String& name,
+                                            const Rml::Dictionary& parameters) override {
+        const auto gradient = ui_gradient_detail::admit_gradient(name, parameters);
+        if (gradients.size() >= ui_gradient_detail::max_shaders)
+            throw std::runtime_error("UI compiled gradient shader count exceeds 256");
+        const auto handle = next++;
+        gradients.emplace(handle, gradient);
+        return handle;
+    }
+    void ReleaseShader(Rml::CompiledShaderHandle shader) override { gradients.erase(shader); }
+    void RenderShader(Rml::CompiledShaderHandle shader, Rml::CompiledGeometryHandle geometry,
+                      Rml::Vector2f translation, Rml::TextureHandle texture) override {
+        const auto found = gradients.find(shader);
+        if (found == gradients.end() || texture)
+            throw std::runtime_error("UI linear gradient requires a live untextured shader handle");
+        draw(geometry, translation, 0, clip ? 1 : 0, &found->second);
+    }
     Rml::LayerHandle PushLayer() override {
         const auto handle = layers.push();
         bind_current();
@@ -343,7 +398,7 @@ float4 main(float4 p:SV_POSITION,float4 color:COLOR0,float2 uv:TEXCOORD0,
     }
     void EnableClipMask(bool enabled) override { clip = enabled; }
     void draw(Rml::CompiledGeometryHandle h, Rml::Vector2f offset, Rml::TextureHandle tex,
-              unsigned mode) {
+              unsigned mode, const ui_gradient_detail::Gradient* gradient = nullptr) {
         if (!context)
             return;
         auto g = geometry.find(h);
@@ -357,10 +412,21 @@ float4 main(float4 p:SV_POSITION,float4 color:COLOR0,float2 uv:TEXCOORD0,
             cb->screen[0] = float(width);
             cb->screen[1] = float(height);
             cb->screen[2] = float(output_format);
-            cb->screen[3] = 0;
+            cb->screen[3] = gradient ? 1.f : 0.f;
             cb->translation[0] = offset.x;
             cb->translation[1] = offset.y;
             cb->translation[2] = cb->translation[3] = 0;
+        }
+        if (gradient) {
+            MapHelper<GradientConstants> cb(context, gradient_constants, MAP_WRITE,
+                                            MAP_FLAG_DISCARD);
+            std::copy(gradient->line.begin(), gradient->line.end(), cb->line);
+            cb->info[0] = float(gradient->count);
+            cb->info[1] = gradient->repeating ? 1.f : 0.f;
+            cb->info[2] = gradient->positions[0];
+            cb->info[3] = gradient->positions[gradient->count - 1];
+            std::memcpy(cb->positions, gradient->positions.data(), sizeof(cb->positions));
+            std::memcpy(cb->colors, gradient->colors.data(), sizeof(cb->colors));
         }
         Rect rect{0, 0, Int32(width), Int32(height)};
         if (scissor) {
@@ -424,6 +490,16 @@ void UiDiligentRenderer::begin(IDeviceContext* c, ITextureView* color, unsigned 
         throw std::runtime_error("Runtime UI needs a display RGBA8 or linear HDR RGBA16 target");
     s.output_format = target->GetDesc().Format == TEX_FORMAT_RGBA16_FLOAT ? 1u : 0u;
     s.context = c;
+    {
+        // Keep this dynamic binding valid for ordinary UI frames as well. Only
+        // gradient draws replace its copied row; ordinary geometry stays on the
+        // existing small vertex constants and texture path.
+        MapHelper<UiDiligentRenderer::Impl::GradientConstants> cb(c, s.gradient_constants,
+                                                                  MAP_WRITE, MAP_FLAG_DISCARD);
+        *cb = {};
+        cb->info[0] = 2;
+        cb->info[3] = cb->positions[1] = 1;
+    }
     s.layers.begin(c, target, w, h);
     s.clipping(w, h);
     s.width = w;

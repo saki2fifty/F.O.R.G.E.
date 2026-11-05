@@ -1,5 +1,6 @@
 #pragma once
 #include "../src/ui_filter_admission.hpp"
+#include "../src/ui_gradient_admission.hpp"
 #include <RmlUi/Core.h>
 #include <algorithm>
 #include <forge/ui_presenter.hpp>
@@ -17,6 +18,28 @@ struct UiTestRenderer final : Rml::RenderInterface {
     std::uintptr_t next = 1;
     unsigned draws = 0, clips = 0, transforms = 0;
     bool filters_supported = false, fail_layer = false;
+    bool gradients_supported = false;
+    unsigned gradient_draws = 0;
+    std::map<Rml::CompiledShaderHandle, forge::ui_gradient_detail::Gradient> gradients;
+    Rml::CompiledShaderHandle CompileShader(const Rml::String& name,
+                                            const Rml::Dictionary& parameters) override {
+        if (!gradients_supported)
+            return 0;
+        const auto value = forge::ui_gradient_detail::admit_gradient(name, parameters);
+        check(gradients.size() < forge::ui_gradient_detail::max_shaders, "Bounded gradient count");
+        const auto id = next++;
+        gradients.emplace(id, value);
+        return id;
+    }
+    void ReleaseShader(Rml::CompiledShaderHandle shader) override {
+        check(gradients.erase(shader) == 1, "Gradient retired once");
+    }
+    void RenderShader(Rml::CompiledShaderHandle shader, Rml::CompiledGeometryHandle h,
+                      Rml::Vector2f, Rml::TextureHandle texture) override {
+        check(gradients.contains(shader) && geometry.contains(h) && !texture,
+              "Live native gradient geometry");
+        ++gradient_draws;
+    }
     unsigned layer_pushes = 0, composites = 0;
     std::map<Rml::CompiledFilterHandle, std::pair<std::string, float>> filters;
     std::vector<Rml::LayerHandle> layers;

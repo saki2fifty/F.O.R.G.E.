@@ -2130,3 +2130,12 @@ value. The small color bar animates during Pause. Edit
 `Assets/UI/Backdrops/Lab.rml` and Reload UI for saved source changes. Backdrops
 read earlier-drawn pixels within their rounded border and preserve foreground
 text. Shared layer/image limits apply; use the supplied matching runtime kit.
+
+## UI linear gradients
+
+`Scenes/164-ui-linear-gradients.scene.json` compares horizontal, vertical,
+multiple-stop, alpha, repeating and live-angle gradients. Select **Gradient lab
+HUD** and tune **UI Values / angle** while paused. The small bar keeps animating
+on presentation time. Authored values and RML/RCSS save and export through the
+normal UI workflow; use the supplied runtime kit. See the Runtime UI manual for
+stop, resource and clipping limits.

@@ -2026,3 +2026,17 @@ image, pair and test hashes are recorded locally in
 `AgentFiles/build/phase257-ui-backdrop-filters/capture-provenance.json`.
 This isolated Game renderer capture does not establish full Main/editor, Windows,
 physical GPU/input/DPI, graphical exported EXE or hardware performance acceptance.
+
+
+## Runtime UI linear-gradient gallery
+
+`manual/images/ui-gradient-gallery.png` is the canonical, unretouched640x360
+GamePresentation/RmlUi/Diligent capture of original Gallery164. The isolated
+software Vulkan probe renders the same saved Scene/UI source as runtime content.
+Lossless PPM-to-PNG conversion preserves decoded RGB exactly. Its portrait360x640
+capture was also visually reviewed; controls remain inside both layouts. Four
+source checkpoints exactly match a relocated package with source files hidden.
+Local capture, executable/source hashes and test receipts are recorded in
+`AgentFiles/build/phase258-ui-linear-gradients/capture-provenance.json` outside
+the product repository. This is local software-rendering evidence, not full
+editor, Windows/MSVC, physical GPU/input/DPI or hardware performance acceptance.

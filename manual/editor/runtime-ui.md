@@ -192,8 +192,8 @@ Filters also work in UI assigned to a camera image. Save the sources and Scene,
 select the Scene as startup, and export with the runtime kit supplied with this
 editor. An older kit without filter support is rejected before replacing an
 existing export. No C++ module is needed. Drop shadows use the workflow below;
-backdrop filters use the workflow below; masks, box shadows, shader decorators
-and gradients are unavailable.
+backdrop filters and linear gradients use the workflows below. Masks, box shadows
+and other shader decorators are unavailable.
 
 ## Add a drop shadow
 
@@ -282,6 +282,60 @@ Save the sources and Scene before export and use the runtime kit supplied with
 this editor. Older kits without backdrop support reject before replacing an
 existing export. Main Game UI and UI assigned to camera images use this workflow.
 
+## Add a linear gradient
+
+Open **Scenes/164-ui-linear-gradients.scene.json** in **Examples/FeatureGallery**
+and press **Play**. The cards show horizontal, vertical, multiple-stop,
+transparent, repeating and live-angle gradients. The small bar below them changes
+angle on presentation time, including while simulation is paused.
+
+![Six colored UI gradient samples, including transparency and a live angle](../images/ui-gradient-gallery.png)
+
+Apply a gradient with the `decorator` property:
+
+```css
+.panel {
+    width: 240px;
+    height: 80px;
+    decorator: linear-gradient(90deg, #e96644 0%, #79e7cf 45%, #4e96df 100%);
+}
+.stripes {
+    decorator: repeating-linear-gradient(90deg, #e96644 0%, #4e96df 25%);
+}
+```
+
+An angle of `90deg` runs left to right; `180deg` runs top to bottom. Supply two
+through sixteen stops, with optional positions. Alpha in a color fades into the
+content already behind the panel. Rounded borders and parent clipping apply.
+For a two-color alternative, use `horizontal-gradient(#e96644 #4e96df)` or
+`vertical-gradient(#e96644 #4e96df)`; these forms separate colors with a space.
+
+In the gallery, select **Gradient lab HUD** and change **UI Values → angle**.
+During Play, use its live tuning controls to try `0`, `45`, `90` and `180`.
+The source binds that value with:
+
+```html
+<div data-style-decorator="'linear-gradient(' + angle + 'deg,#e96644,#4e96df)'" />
+```
+
+Live tuning affects the current session. Stop Play and edit the authored value to
+keep it, then save the Scene. Source keyframes can animate compatible gradient
+angles and stops; keep a binding and keyframes off the same property.
+Register or refresh edited RML/RCSS through **Content**, then **Reload UI**.
+An invalid replacement keeps the last usable UI and reports a problem.
+
+Use finite stop positions in nondecreasing order. Resolved endpoints
+use finite coordinates within ±65,536 pixels. Resolved stop positions, measured
+relative to the gradient line, are bounded to ±65,536. The line must have nonzero
+length, and a repeating gradient needs a nonzero repeat interval. At most 256 compiled gradient records
+can be live across UI contexts. Reduce stops or elements if admission reports a
+limit. Radial and conic gradients, masks and arbitrary shaders are unavailable.
+
+Main Game UI and UI assigned to camera images use the same gradient source.
+Save the sources and Scene, select the startup Scene, then export with the runtime
+kit supplied with this editor. An older incompatible kit rejects before replacing
+an existing export. No C++ module is needed.
+
 ## Layout your document
 
 RmlUi does not supply a browser's default HTML layout. If a menu collapses into a
@@ -317,7 +371,7 @@ export artwork in the orientation and display colors you want.
 
 Use document-relative local resource paths. The supplied **Lato** font is packaged with FORGE, so it does not depend on installed system fonts. You may load project `.ttf`/`.otf` fonts using an RCSS `@font-face` declaration, with suitable redistribution rights. Use explicit `font-family` and `font-size`; font shorthand is not supported in this integration. When replacing a font using the same family name, restart Play to clear its font cache.
 
-Images support **PNG**, **JPEG** (`.jpg` or `.jpeg`) and uncompressed true-color **TGA** (24 or 32 bits), at most 2048×2048. Use PNG for transparent icons and JPEG for opaque artwork. Image bytes and decoded pixels have additional limits; very large or high-precision images can exceed them. SVG, remote URLs, templates and stylesheet imports are not supported yet. Link multiple stylesheets individually. Blur and the color filters described above use bounded temporary layers. Drop shadows use the filter workflow above. Backdrop filters use the workflow above. Masks, shader gradients and box shadows are unavailable.
+Images support **PNG**, **JPEG** (`.jpg` or `.jpeg`) and uncompressed true-color **TGA** (24 or 32 bits), at most 2048×2048. Use PNG for transparent icons and JPEG for opaque artwork. Image bytes and decoded pixels have additional limits; very large or high-precision images can exceed them. SVG, remote URLs, templates and stylesheet imports are not supported yet. Link multiple stylesheets individually. Blur and the color filters described above use bounded temporary layers. Drop shadows use the filter workflow above. Backdrop filters use the workflow above. Linear gradients use the workflow above. Masks, radial/conic gradients, other shader decorators and box shadows are unavailable.
 
 `px` means game render-target pixels; `dp` follows display density. The editor's interface scale remains separate. Check text input and sizing on the displays and input languages used by your game.
 

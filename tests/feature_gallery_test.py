@@ -391,6 +391,13 @@ assert backdrop_hud['components']['forge.ui_document']['document'] == by_source[
 assert backdrop_hud['components']['forge.ui_values']['values'] == [dict(name='blur', value=4)]
 assert by_source['Assets/UI/Backdrops/Lab.rml']['metadata']['forge.ui_source']['runtime_features'] == dict(filters=3)
 assert not {row['id'] for row in backdrops['entities']} & {row['id'] for row in shadows['entities']}
+gradients = json.loads((project_root / 'Scenes/164-ui-linear-gradients.scene.json').read_text())
+assert gradients['asset_id'] == by_source['Scenes/164-ui-linear-gradients.scene.json']['id']
+gradient_hud = next(row for row in gradients['entities'] if 'forge.ui_document' in row['components'])
+assert gradient_hud['components']['forge.ui_document']['document'] == by_source['Assets/UI/Gradients/Lab.rml']['id']
+assert gradient_hud['components']['forge.ui_values']['values'] == [dict(name='angle', value=45)]
+assert by_source['Assets/UI/Gradients/Lab.rml']['metadata']['forge.ui_source']['runtime_features'] == dict(gradients=1)
+assert not {row['id'] for row in gradients['entities']} & {row['id'] for row in backdrops['entities']}
 
 
 

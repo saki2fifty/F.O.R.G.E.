@@ -198,6 +198,19 @@ int main(int argc, char** argv) {
             const auto shadow = inspect(filtered.id, {});
             check(shadow.sources.front().details.at("runtime_features").at("filters") == 2,
                   "Native non-drawing inspector omitted the shadow capability profile");
+            asset_storage::replace(
+                project / "filters.rml",
+                "<rml><head><style>body,div{display:block;}body{font-family:Lato;}div{width:80px;"
+                "height:40px;decorator:linear-gradient(90deg,#ff000080,#0000ff);}</style></"
+                "head><body><div/></body></rml>");
+            const auto gradient = inspect(filtered.id, {});
+            check(gradient.sources.front().details.at("runtime_features") == Json{{"gradients", 1}},
+                  "Non-drawing native inspector omitted the gradient capability");
+            asset_storage::replace(project / "filters.rml",
+                                   "<rml><head><style>body,div{display:block;}body{font-family:"
+                                   "Lato;}div{width:80px;height:40px;decorator:radial-gradient(#"
+                                   "ff0000,#0000ff);}</style></head><body><div/></body></rml>");
+            rejects([&] { inspect(filtered.id, {}); }, "Unsupported UI shader decorator");
             asset_storage::replace(project / "filters.rml",
                                    "<rml><body style=\"font-family:Lato;backdrop-filter:blur(2px) "
                                    "grayscale(0.5)\">Backdrop export</body></rml>");

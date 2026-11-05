@@ -4,6 +4,7 @@
 #include "native_io_path.hpp"
 #include "runtime_execution_values.hpp"
 #include "ui_filter_profile.hpp"
+#include "ui_gradient_profile.hpp"
 #include <algorithm>
 #include <forge/fog_volume.hpp>
 #include <forge/game_content.hpp>
@@ -154,6 +155,17 @@ void validate_runtime_compatibility(const AssetCatalog& catalog, const Json& eng
             continue;
         require(features->is_object(), "Invalid UI source runtime features");
         for (const auto& [name, version] : features->items()) {
+            if (name == "gradients") {
+                require(version.is_number_integer() &&
+                            version == ui_gradient_detail::profile_version,
+                        "Unsupported UI gradient runtime profile");
+                const auto support = engine.find("runtime_ui_gradients");
+                require(support != engine.end() && support->is_number_integer() &&
+                            *support == ui_gradient_detail::profile_version,
+                        "UI gradients require a matching runtime kit with UI gradient support; "
+                        "select the runtime kit packaged with this editor");
+                continue;
+            }
             require(name == "filters" && version.is_number_integer() &&
                         version >= ui_filter_detail::basic_profile_version &&
                         version <= ui_filter_detail::profile_version,

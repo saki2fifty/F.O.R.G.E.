@@ -186,6 +186,14 @@ stays sharp. Saved **UI Values**, current Play tuning, native keyframes and
 **Reload UI** use their ordinary tools. Save and export with the matching runtime
 kit. See [Runtime UI](runtime-ui.md) for clipping and shared layer limits.
 
+For linear gradients, edit RML/RCSS through the same source tools and register or
+refresh the source. Use `decorator: linear-gradient(90deg,#e96644,#4e96df)` or
+`repeating-linear-gradient` with two through sixteen stops. Saved **UI Values**
+can drive `data-style-decorator`; current Play tuning, native keyframes and
+**Reload UI** use their existing tools. Invalid source reload preserves the
+preceding usable presentation. Export with the matching supplied runtime kit.
+See [Runtime UI](runtime-ui.md) for syntax and limits.
+
 Navigation uses the existing static bake worker. Runtime dependency declarations
 use their existing reviewed draft and catalog Save. Flecs Script tools evaluate
 the existing isolated diagnostic data/world preview; they do not replace C++
