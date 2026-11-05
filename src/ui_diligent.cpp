@@ -126,8 +126,14 @@ Texture2D ui_texture;SamplerState ui_texture_sampler;
 cbuffer UiGradientData {float4 gradient_line;float4 gradient_info;
 float4 gradient_positions[4];float4 gradient_colors[16];};
 float stop_position(int i) {return gradient_positions[i/4][i%4];}
-float4 gradient_color(float2 uv) {
+float4 gradient_color(float2 uv,float kind) {
     float t=dot(uv-gradient_line.xy,gradient_line.zw);
+    if(kind>2.5) {
+        float2 delta=uv-gradient_line.xy;
+        t=dot(delta,delta)>0 ? frac(atan2(delta.x,-delta.y)*0.15915494309189535-gradient_line.z) : 0;
+    } else if(kind>1.5) {
+        t=length((uv-gradient_line.xy)*gradient_line.zw);
+    }
     int count=clamp(int(gradient_info.x),2,16);
     if(gradient_info.y>0.5) {
         float period=gradient_info.w-gradient_info.z;
@@ -145,7 +151,7 @@ float4 gradient_color(float2 uv) {
 }
 float4 main(float4 p:SV_POSITION,float4 color:COLOR0,float2 uv:TEXCOORD0,
             nointerpolation float2 flags:TEXCOORD1):SV_TARGET {
-    float4 value=color*(flags.y>0.5 ? gradient_color(uv) : ui_texture.Sample(ui_texture_sampler,uv));
+    float4 value=color*(flags.y>0.5 ? gradient_color(uv,flags.y) : ui_texture.Sample(ui_texture_sampler,uv));
     if(flags.x>0.5)
         value.rgb=value.a>0 ? SRGBToLinear(value.rgb/value.a)*value.a : float3(0,0,0);
     return value;
@@ -360,7 +366,7 @@ float4 main(float4 p:SV_POSITION,float4 color:COLOR0,float2 uv:TEXCOORD0,
                       Rml::Vector2f translation, Rml::TextureHandle texture) override {
         const auto found = gradients.find(shader);
         if (found == gradients.end() || texture)
-            throw std::runtime_error("UI linear gradient requires a live untextured shader handle");
+            throw std::runtime_error("UI gradient requires a live untextured shader handle");
         draw(geometry, translation, 0, clip ? 1 : 0, &found->second);
     }
     Rml::LayerHandle PushLayer() override {
@@ -412,7 +418,7 @@ float4 main(float4 p:SV_POSITION,float4 color:COLOR0,float2 uv:TEXCOORD0,
             cb->screen[0] = float(width);
             cb->screen[1] = float(height);
             cb->screen[2] = float(output_format);
-            cb->screen[3] = gradient ? 1.f : 0.f;
+            cb->screen[3] = gradient ? float(gradient->kind) : 0.f;
             cb->translation[0] = offset.x;
             cb->translation[1] = offset.y;
             cb->translation[2] = cb->translation[3] = 0;

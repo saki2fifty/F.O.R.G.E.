@@ -2139,3 +2139,12 @@ HUD** and tune **UI Values / angle** while paused. The small bar keeps animating
 on presentation time. Authored values and RML/RCSS save and export through the
 normal UI workflow; use the supplied runtime kit. See the Runtime UI manual for
 stop, resource and clipping limits.
+
+## UI radial and conic gradients
+
+`Scenes/165-ui-radial-conic-gradients.scene.json` compares circles, offset
+ellipses, repeating rings, conic colors, transparent wedges and live angle tuning.
+Select **Gradient lab HUD → UI Values / angle** during Play. The small bar animates
+on presentation time while simulation is paused. Use the ordinary source refresh,
+Reload UI, save and matching-kit export workflow. The Runtime UI manual explains
+size, stop, shared-record and clipping limits.

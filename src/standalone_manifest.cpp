@@ -157,11 +157,12 @@ void validate_runtime_compatibility(const AssetCatalog& catalog, const Json& eng
         for (const auto& [name, version] : features->items()) {
             if (name == "gradients") {
                 require(version.is_number_integer() &&
-                            version == ui_gradient_detail::profile_version,
+                            version >= ui_gradient_detail::basic_profile_version &&
+                            version <= ui_gradient_detail::profile_version,
                         "Unsupported UI gradient runtime profile");
                 const auto support = engine.find("runtime_ui_gradients");
                 require(support != engine.end() && support->is_number_integer() &&
-                            *support == ui_gradient_detail::profile_version,
+                            *support >= version && *support <= ui_gradient_detail::profile_version,
                         "UI gradients require a matching runtime kit with UI gradient support; "
                         "select the runtime kit packaged with this editor");
                 continue;

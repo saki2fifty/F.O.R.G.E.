@@ -56,7 +56,7 @@ class UiResources {
     struct File {
         std::vector<std::byte> bytes;
         unsigned filter_profile = 0;
-        bool gradients = false;
+        unsigned gradients = 0;
     };
     std::map<std::string, File> files_;
     std::map<AssetId, std::filesystem::path> documents_;

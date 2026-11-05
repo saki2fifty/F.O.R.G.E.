@@ -75,47 +75,60 @@ int main(int argc, char** argv) {
                    .contains("runtime_features"),
               "Unfiltered UI acquired a runtime filter requirement");
         for (const auto& [extension, text, profile, gradient] :
-             std::vector<std::tuple<std::string, std::string, unsigned, bool>>{
-                 {"rcss", "body {filter:blur(1px);}", 1u, false},
-                 {"rcss", "body {decorator:linear-gradient(90deg,#f00,#00f);}", 0u, true},
+             std::vector<std::tuple<std::string, std::string, unsigned, unsigned>>{
+                 {"rcss", "body {filter:blur(1px);}", 1u, 0u},
+                 {"rcss", "body {decorator:linear-gradient(90deg,#f00,#00f);}", 0u, 1u},
                  {"rcss",
                   "@decorator named : linear-gradient {angle:90deg;color-stops:#f00,#00f;} body "
                   "{decorator:named;}",
-                  0u, true},
-                 {"rcss", "body {decorator:repeating-linear-gradient(90deg,#f00,#00f);}", 0u, true},
-                 {"rcss", "body {decorator:horizontal-gradient(#f00 #00f);}", 0u, true},
-                 {"rcss", "body {decorator:image(test.tga);}", 0u, false},
+                  0u, 1u},
+                 {"rcss", "body {decorator:repeating-linear-gradient(90deg,#f00,#00f);}", 0u, 1u},
+                 {"rcss", "body {decorator:horizontal-gradient(#f00 #00f);}", 0u, 1u},
+                 {"rcss", "body {decorator:radial-gradient(circle,#f00,#00f);}", 0u, 2u},
+                 {"rcss", "body {decorator:repeating-radial-gradient(circle,#f00,#00f);}", 0u, 2u},
+                 {"rcss", "body {decorator:conic-gradient(from 45deg,#f00,#00f);}", 0u, 2u},
+                 {"rcss", "body {decorator:repeating-conic-gradient(#f00,#00f);}", 0u, 2u},
+                 {"rcss",
+                  "@decorator named : radial-gradient {color-stops:#f00,#00f;} body "
+                  "{decorator:named;}",
+                  0u, 2u},
+                 {"rcss",
+                  "@decorator named : conic-gradient {color-stops:#f00,#00f;} body "
+                  "{decorator:named;}",
+                  0u, 2u},
+                 {"rcss", "/* decorator:radial-gradient(#f00,#00f); */ body {color:red;}", 0u, 0u},
+                 {"rcss", "body {font-family:'conic-gradient(#f00,#00f)';}", 0u, 0u},
+                 {"rcss", "body {decorator:image(test.tga);}", 0u, 0u},
                  {"rcss", "/* decorator:linear-gradient(90deg,#f00,#00f); */ body{color:red;}", 0u,
-                  false},
-                 {"rcss", "body {font-family:'linear-gradient(90deg,#f00,#00f)';}", 0u, false},
-                 {"rml", "<rml><body data-style-decorator=\"effect\"></body></rml>", 0u, true},
-                 {"rcss", "body {backdrop-filter:blur(1px);}", 3u, false},
-                 {"rcss", "body {backdrop-/**/filter:none;}", 3u, false},
-                 {"rcss", "body {font-family:'backdrop-filter:blur(1px)';}", 0u, false},
-                 {"rcss", "/* backdrop-filter:blur(1px); */ body {filter:blur(1px);}", 1u, false},
-                 {"rml", "<rml><body data-style-backdrop-filter=\"effect\"></body></rml>", 3u,
-                  false},
+                  0u},
+                 {"rcss", "body {font-family:'linear-gradient(90deg,#f00,#00f)';}", 0u, 0u},
+                 {"rml", "<rml><body data-style-decorator=\"effect\"></body></rml>", 0u, 2u},
+                 {"rcss", "body {backdrop-filter:blur(1px);}", 3u, 0u},
+                 {"rcss", "body {backdrop-/**/filter:none;}", 3u, 0u},
+                 {"rcss", "body {font-family:'backdrop-filter:blur(1px)';}", 0u, 0u},
+                 {"rcss", "/* backdrop-filter:blur(1px); */ body {filter:blur(1px);}", 1u, 0u},
+                 {"rml", "<rml><body data-style-backdrop-filter=\"effect\"></body></rml>", 3u, 0u},
                  {"rml",
                   "<rml><body data-style-backdrop-filter=\"effect\" "
                   "data-style-filter=\"other\"></body></rml>",
-                  3u, false},
-                 {"rml", "<rml><body style=\"backdrop-filter:blur(1px)\"></body></rml>", 3u, false},
-                 {"rcss", "body {filter:drop-shadow(#123456 -4px 8px 2px);}", 2u, false},
-                 {"rcss", "body {filter:drop-/**/shadow(#123456 -4px 8px 2px);}", 2u, false},
-                 {"rcss", "/* filter:drop-shadow(red 1px 2px); */ body {color:red;}", 0u, false},
+                  3u, 0u},
+                 {"rml", "<rml><body style=\"backdrop-filter:blur(1px)\"></body></rml>", 3u, 0u},
+                 {"rcss", "body {filter:drop-shadow(#123456 -4px 8px 2px);}", 2u, 0u},
+                 {"rcss", "body {filter:drop-/**/shadow(#123456 -4px 8px 2px);}", 2u, 0u},
+                 {"rcss", "/* filter:drop-shadow(red 1px 2px); */ body {color:red;}", 0u, 0u},
                  {"rcss", "body {font-family:'drop-shadow(red 1px 2px)';filter:blur(1px);}", 1u,
-                  false},
-                 {"rcss", "body {fil/**/ter /* gap */ : opacity(0.5);}", 1u, false},
-                 {"rcss", "/* filter:blur(3px); */ body {color:red;}", 0u, false},
-                 {"rcss", "body {font-family:'filter:blur(3px)';}", 0u, false},
-                 {"rml", "<rml><body style=\"filter:blur(1px)\"></body></rml>", 1u, false},
-                 {"rml", "<rml><body style=\"fil&#116;er&#58;blur(2px)\"></body></rml>", 3u, true},
-                 {"rml", "<rml><body style=\"color:&#114;ed\"></body></rml>", 3u, true},
+                  0u},
+                 {"rcss", "body {fil/**/ter /* gap */ : opacity(0.5);}", 1u, 0u},
+                 {"rcss", "/* filter:blur(3px); */ body {color:red;}", 0u, 0u},
+                 {"rcss", "body {font-family:'filter:blur(3px)';}", 0u, 0u},
+                 {"rml", "<rml><body style=\"filter:blur(1px)\"></body></rml>", 1u, 0u},
+                 {"rml", "<rml><body style=\"fil&#116;er&#58;blur(2px)\"></body></rml>", 3u, 2u},
+                 {"rml", "<rml><body style=\"color:&#114;ed\"></body></rml>", 3u, 2u},
                  {"rml", "<rml><head><style>body{filter:none;}</style></head><body/></rml>", 1u,
-                  false},
-                 {"rml", "<rml><body data-style-filter=\"effect\"></body></rml>", 2u, false},
-                 {"rml", "<rml><body><!-- filter:blur(2px); --></body></rml>", 0u, false},
-                 {"rml", "<rml><body title=\"filter:blur(2px)\"></body></rml>", 0u, false}}) {
+                  0u},
+                 {"rml", "<rml><body data-style-filter=\"effect\"></body></rml>", 2u, 0u},
+                 {"rml", "<rml><body><!-- filter:blur(2px); --></body></rml>", 0u, 0u},
+                 {"rml", "<rml><body title=\"filter:blur(2px)\"></body></rml>", 0u, 0u}}) {
             const auto source = std::filesystem::path("Assets") / ("feature." + extension);
             asset_storage::replace(root / source, text);
             const auto feature = register_ui_source(writer, source);
@@ -135,7 +148,7 @@ int main(int argc, char** argv) {
                 if (profile)
                     required["filters"] = profile;
                 if (gradient)
-                    required["gradients"] = 1;
+                    required["gradients"] = gradient;
                 check(feature.metadata.at("forge.ui_source").at("runtime_features") == required,
                       "UI source capability requirements differ from its actual declarations");
                 if (profile)

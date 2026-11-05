@@ -1,0 +1,26 @@
+<rml><head><style>
+body,div,p,h1 {display:block;} body {margin:0;width:100%;height:100%;font-family:Lato;font-size:15px;color:#e5f2ff;pointer-events:none;}
+#lab {position:absolute;left:4%;top:2%;width:92%;}
+h1 {font-size:23px;margin:0 0 3px;color:#79e7cf;} p {margin:3px 0;}
+#grid {margin-top:6px;} .card {display:inline-block;width:30%;margin:0 2% 6px 0;vertical-align:top;}
+.label {height:19px;font-size:13px;} .sample {position:relative;height:56px;border-radius:6px;background-color:#1b3347;}
+.word {position:absolute;left:18%;top:20px;font-size:14px;color:white;}
+#circle {decorator:radial-gradient(circle 48px,#79e7cf,#4e96df);}
+#ellipse {decorator:radial-gradient(70px 24px at 35% 50%,#e96644,#4e96df);}
+#rings {decorator:repeating-radial-gradient(circle 24px,#e96644 0%,#4e96df 50%);}
+#conic {decorator:conic-gradient(#e96644,#79e7cf,#4e96df,#e96644);}
+#wedges {decorator:repeating-conic-gradient(from 45deg,#e9664480 0deg,#4e96df 90deg);}
+#motion {width:100px;height:12px;margin-top:4px;animation:2s linear-in infinite alternate turn;}
+@keyframes turn {from {decorator:conic-gradient(from 0deg,#e96644,#4e96df);} to {decorator:conic-gradient(from 180deg,#e96644,#4e96df);}}
+button {display:inline-block;padding:5px 8px;margin:4px 5px 0 0;background-color:#30536e;pointer-events:auto;}
+button:hover,button:focus {background-color:#4c849e;} .hint {font-size:13px;color:#adc7db;}
+</style></head><body><div id="lab"><h1>Radial and conic UI</h1><p>Circles, ellipses, rings and angular color.</p><div id="grid">
+<div class="card"><div class="label">Circle</div><div id="circle" class="sample"><div class="word">UI</div></div></div>
+<div class="card"><div class="label">Ellipse / offset</div><div id="ellipse" class="sample"><div class="word">UI</div></div></div>
+<div class="card"><div class="label">Repeating rings</div><div id="rings" class="sample"><div class="word">UI</div></div></div>
+<div class="card"><div class="label">Conic colors</div><div id="conic" class="sample"><div class="word">UI</div></div></div>
+<div class="card"><div class="label">Alpha wedges</div><div id="wedges" class="sample"><div class="word">UI</div></div></div>
+<div class="card"><div class="label">Live / {{angle}}</div><div class="sample" data-style-decorator="'conic-gradient(from ' + angle + 'deg,#e96644,#4e96df)'"><div class="word">UI</div></div></div>
+</div><p class="hint">UI Values / angle: 0..360. Tick: {{tick}}</p><div id="motion"/>
+<button id="pause" data-event-click="command('Pause')">Pause</button><button id="resume" data-event-click="command('Resume')">Resume</button><button id="step" data-event-click="command('Step')">Step</button>
+</div></body></rml>

@@ -329,12 +329,69 @@ use finite coordinates within ±65,536 pixels. Resolved stop positions, measured
 relative to the gradient line, are bounded to ±65,536. The line must have nonzero
 length, and a repeating gradient needs a nonzero repeat interval. At most 256 compiled gradient records
 can be live across UI contexts. Reduce stops or elements if admission reports a
-limit. Radial and conic gradients, masks and arbitrary shaders are unavailable.
+limit. Radial and conic gradients use the workflow below. Masks and arbitrary shaders are unavailable.
 
 Main Game UI and UI assigned to camera images use the same gradient source.
 Save the sources and Scene, select the startup Scene, then export with the runtime
 kit supplied with this editor. An older incompatible kit rejects before replacing
 an existing export. No C++ module is needed.
+
+## Add radial and conic gradients
+
+Open **Scenes/165-ui-radial-conic-gradients.scene.json** in
+**Examples/FeatureGallery** and press **Play**. Compare the circle, offset ellipse,
+repeating rings, conic colors, transparent wedges and live-angle card.
+
+![Six radial and conic gradient cards with a live angle and pause controls](../images/ui-curved-gradient-gallery.png)
+
+Use `radial-gradient` for circular or elliptical color bands and `conic-gradient`
+for color around a center. The following declarations use explicit sizes and
+positions:
+
+```css
+.circle {
+    decorator: radial-gradient(circle 48px, #79e7cf, #4e96df);
+}
+.ellipse {
+    decorator: radial-gradient(70px 24px at 35% 50%, #e96644, #4e96df);
+}
+.cone {
+    decorator: conic-gradient(from 90deg at 50% 50%, #e96644, #4e96df);
+}
+.rings {
+    decorator: repeating-radial-gradient(circle 24px, #e96644 0%, #4e96df 50%);
+}
+.wedges {
+    decorator: repeating-conic-gradient(from 45deg, #e9664480 0deg, #4e96df 90deg);
+}
+```
+
+A conic angle starts at the top and increases clockwise. `from` rotates that
+start, while `at` moves the center. Radial stop percentages are relative to the
+resolved radius; conic stops can use angles or percentages of a full turn.
+Repeating variants repeat the interval between the first and last stop.
+Transparent stops reveal the content behind the element. Parent and rounded
+border clipping still apply; narrow or very frequent bands can alias.
+
+Select **Gradient lab HUD** and change **UI Values → angle** in live Play tuning.
+Pause to keep simulation fixed while observing the small animated bar. Bind a
+saved value through `data-style-decorator`, for example:
+
+```html
+<div data-style-decorator="'conic-gradient(from ' + angle + 'deg,#e96644,#4e96df)'" />
+```
+
+Use the same register/refresh, **Reload UI**, live tuning, Stop/save and export
+workflow as linear gradients. Live tuning changes only the current session.
+Main Game UI and camera-image UI share this source path. Export with the supplied
+runtime kit; an older kit without these gradient types rejects before replacing
+an existing export.
+
+The shared two-to-sixteen-stop and 256-live-record bounds apply across all
+shader-backed gradient types. Both resolved radial radii must be between `0.0001`
+and `65,536` pixels, centers must stay within ±65,536 pixels, and the resolved
+conic angle must be within ±65,536 radians. A repeating interval must be nonzero.
+Invalid source or excessive values keep the last usable UI when reloaded.
 
 ## Layout your document
 
@@ -371,7 +428,7 @@ export artwork in the orientation and display colors you want.
 
 Use document-relative local resource paths. The supplied **Lato** font is packaged with FORGE, so it does not depend on installed system fonts. You may load project `.ttf`/`.otf` fonts using an RCSS `@font-face` declaration, with suitable redistribution rights. Use explicit `font-family` and `font-size`; font shorthand is not supported in this integration. When replacing a font using the same family name, restart Play to clear its font cache.
 
-Images support **PNG**, **JPEG** (`.jpg` or `.jpeg`) and uncompressed true-color **TGA** (24 or 32 bits), at most 2048×2048. Use PNG for transparent icons and JPEG for opaque artwork. Image bytes and decoded pixels have additional limits; very large or high-precision images can exceed them. SVG, remote URLs, templates and stylesheet imports are not supported yet. Link multiple stylesheets individually. Blur and the color filters described above use bounded temporary layers. Drop shadows use the filter workflow above. Backdrop filters use the workflow above. Linear gradients use the workflow above. Masks, radial/conic gradients, other shader decorators and box shadows are unavailable.
+Images support **PNG**, **JPEG** (`.jpg` or `.jpeg`) and uncompressed true-color **TGA** (24 or 32 bits), at most 2048×2048. Use PNG for transparent icons and JPEG for opaque artwork. Image bytes and decoded pixels have additional limits; very large or high-precision images can exceed them. SVG, remote URLs, templates and stylesheet imports are not supported yet. Link multiple stylesheets individually. Blur and the color filters described above use bounded temporary layers. Drop shadows use the filter workflow above. Backdrop filters use the workflow above. Linear, radial and conic gradients use the workflows above. Masks, other shader decorators and box shadows are unavailable.
 
 `px` means game render-target pixels; `dp` follows display density. The editor's interface scale remains separate. Check text input and sizing on the displays and input languages used by your game.
 

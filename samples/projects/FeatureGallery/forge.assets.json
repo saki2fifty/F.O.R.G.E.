@@ -873,6 +873,31 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "0ca3a68f-568e-41d1-9360-b2132a051174",
+      "metadata": {
+        "forge.ui_source": {
+          "bytes": 2655,
+          "digest": "3c2e00592623873468ba130338a35a2a9ce64d3765e2bbaae0b12505590e4c29",
+          "format": "rml",
+          "runtime_features": {
+            "gradients": 2
+          }
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/UI/CurvedGradients/Lab.rml",
+      "source_dependencies": [
+        {
+          "revision": "3c2e00592623873468ba130338a35a2a9ce64d3765e2bbaae0b12505590e4c29",
+          "role": "ui.source",
+          "source": "Assets/UI/CurvedGradients/Lab.rml"
+        }
+      ],
+      "type": "ui_document"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "0cc18cd9-e1ed-41b6-8823-052a442b52a8",
       "metadata": {
         "forge.import": {
@@ -11741,7 +11766,7 @@
           "digest": "5bf02f45bb312cf2ceba29680de0ff5d87c7c0423eeb7df5afa408a6b37190fe",
           "format": "rml",
           "runtime_features": {
-            "gradients": 1
+            "gradients": 2
           }
         }
       },
@@ -14277,6 +14302,16 @@
       "source": "Assets/Navigation/Generated/f2f39093-b1a1-435e-8d2b-ee705983b324/bf586f2e-5388-4802-882e-0e1e23c5edd2.fnav",
       "source_dependencies": [],
       "type": "navmesh"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "f2f87329-acbd-4dba-b4d6-9cf5726064cb",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/165-ui-radial-conic-gradients.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
     },
     {
       "dependencies": [],

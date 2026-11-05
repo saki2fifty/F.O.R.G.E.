@@ -256,7 +256,7 @@ presentation state or access to arbitrary DOM/script/engine files.
 
 Adopted: native RML/RCSS layout, styled text/buttons/forms, copied scalar expressions, local text editing, multiple ordered documents, PNG/JPEG/TGA images, project fonts, transforms, scissor and stencil masks, explicit reload. Documents sort by layer then stable incoming scene order; RmlUi manages normal DOM focus/z-order within that context.
 
-Deferred: browser JavaScript, Lua, debugger UI, SVG/Lottie/HarfBuzz, RCSS imports/templates, world-space UI, collections/two-way gameplay binding, public plugin APIs and a visual UI designer. Standalone gamepad navigation now routes through input actions to native RmlUi focus traversal and activation. Link stylesheets individually. Bounded blur/color filters use transient renderer-owned layers as described below. Masks, radial/conic gradients, other shader decorators and box shadows remain unsupported and diagnosed. Bounded linear gradients use the profile below. Drop-shadow and backdrop filters use the profile below. Use explicit font-family/font-size rather than shorthand. This is the first screen-space integration, not a visual UI designer.
+Deferred: browser JavaScript, Lua, debugger UI, SVG/Lottie/HarfBuzz, RCSS imports/templates, world-space UI, collections/two-way gameplay binding, public plugin APIs and a visual UI designer. Standalone gamepad navigation now routes through input actions to native RmlUi focus traversal and activation. Link stylesheets individually. Bounded blur/color filters use transient renderer-owned layers as described below. Masks, other shader decorators and box shadows remain unsupported and diagnosed. Bounded linear gradients use the profile below. Drop-shadow and backdrop filters use the profile below. Use explicit font-family/font-size rather than shorthand. This is the first screen-space integration, not a visual UI designer.
 
 ## Upstream evidence
 
@@ -486,7 +486,8 @@ and copies the resolved `linear-gradient` payload: exactly `p0`/`p1` VECTOR2,
 `length` FLOAT, `repeating` BOOL and `color_stop_list` COLORSTOPLIST. Stops must
 use NUMBER positions and premultiplied byte colors. No native pointers survive
 compilation. Drawing, non-drawing inspection and source candidates share this
-admission; radial/conic and other compiled shader names reject.
+admission. Other compiled shader names reject; radial/conic types use the extension
+below.
 
 Profile1 accepts2..16 ordered stops, finite pixel-local endpoint coordinates and
 normalized stop-position magnitudes<=65536,
@@ -506,11 +507,13 @@ No per-gradient GPU resources, arbitrary shader authoring API, parallel renderer
 or asset-identity system is introduced.
 
 UiResources derives `runtime_features.gradients:1` in the existing source snapshot
-for recognized gradient declarations/factories, dynamic decorator bindings and
-encoded inline styles. Ordinary/image-only source does not acquire this flag.
-Runtime kits advertise integer `engine.runtime_ui_gradients:1` from the same
-private profile header. Missing, fractional, boolean or unknown versions reject
-required content before export promotion. Filter profiles1..3 are unchanged.
+for recognized static linear declarations/factories. The extension below uses
+profile2 for radial/conic and dynamic declarations. Ordinary/image-only source does not acquire this flag.
+Runtime kits advertise integer `engine.runtime_ui_gradients:2` from the same
+private profile header. Known requirements1..2 are additive; static linear
+declarations retain1. Radial/conic declarations, dynamic decorator bindings and
+encoded inline styles require2. Missing, fractional, boolean, too-old or unknown
+versions reject required content before export promotion. Filter profiles1..3 are unchanged.
 The installed native SDK value-header list, C ABI1, identity and scene schema are
 unchanged. Source text/register/refresh, saved models, live Play tuning, keyframes,
 reload, automation/MCP, camera outputs and source-hidden packages use their
@@ -520,3 +523,33 @@ Gallery164 contains original gradient source and a saved angle model. See the
 user manual for the illustrated workflow. Validation/capture provenance records
 local software-rendering evidence separately from pending Windows/full-editor
 and physical-hardware acceptance.
+
+
+## Native radial/conic gradient extension
+
+Gradient profile2 extends the existing shared admission and copied record rather
+than adding a second effect owner. Native radial payloads have exactly `center`
+VECTOR2, `radius` VECTOR2, `repeating` BOOL and `color_stop_list` COLORSTOPLIST.
+Conic payloads substitute FLOAT `angle` in radians for radius. The approved native
+parser owns shape keywords, relative sizes/positions, automatic stop positions
+and angle/length resolution. All variants share copied2..16 NUMBER/premultiplied
+stops,256live records, ordered finite positions, nonzero repeat period and release.
+
+Original FORGE radial projection measures Euclidean distance after scaling by
+inverse resolved radii. Original conic projection measures clockwise angle from
+the top, subtracts the normalized starting angle and wraps one turn. The common
+stop interpolation/repeat/color/clip/draw path is unchanged. The shape uses the
+existing four floats and vertex mode flags: no352-byte PS or96-byte VS buffer
+size change and no per-shape GPU resource. Radius components must be finite and
+within1e-4..65536 pixels; centers within±65536 pixels and angle magnitude<=65536
+radians. The conic center's undefined direction uses normalized position0 before stop repetition. Exact angular
+repeat seams can select either adjacent side after floating-point rounding;
+small/frequent bands are not analytically antialiased.
+
+Native models/keyframes, candidate retention/cancel/retirement, main/camera output,
+non-drawing inspection, automation/MCP and export retain their existing owners.
+Source requirements1/2 and runtime-kit2 preserve static linear1 compatibility;
+oldkit1 rejects radial/conic/dynamic2. Existing Gallery164 dynamic metadata is
+refreshed through source registration/preparation with unchanged source and IDs.
+Original Gallery165 demonstrates the new forms. Masks, arbitrary shaders, box
+shadows, visual UI authoring and world-space UI remain outside this profile.

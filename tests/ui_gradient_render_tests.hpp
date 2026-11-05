@@ -23,7 +23,7 @@ void exercise(Diligent::IRenderDevice* device, Diligent::IDeviceContext* context
     using namespace Diligent;
     std::filesystem::create_directories(root);
     const auto font = asset_detail::read_bytes(font_path, 4 * 1024 * 1024);
-    for (unsigned kind = 0; kind < 8; ++kind) {
+    for (unsigned kind = 0; kind < 14; ++kind) {
         std::string declaration;
         switch (kind) {
         case 0:
@@ -51,8 +51,26 @@ void exercise(Diligent::IRenderDevice* device, Diligent::IDeviceContext* context
                                std::to_string(i * 100. / 15) + "%";
             declaration += ')';
             break;
-        default:
+        case 7:
             declaration = "linear-gradient(90deg,#ff0000 50%,#0000ff 50%)";
+            break;
+        case 8:
+            declaration = "radial-gradient(circle 20px,#ff0000,#0000ff)";
+            break;
+        case 9:
+            declaration = "radial-gradient(20px 10px at 25% 75%,#ff0000,#0000ff)";
+            break;
+        case 10:
+            declaration = "repeating-radial-gradient(circle 12px,#ff000080 25%,#0000ff 75%)";
+            break;
+        case 11:
+            declaration = "conic-gradient(#ff0000,#0000ff)";
+            break;
+        case 12:
+            declaration = "conic-gradient(from 90deg at 25% 75%,#ff0000,#0000ff)";
+            break;
+        default:
+            declaration = "repeating-conic-gradient(from -45deg,#ff000080 0deg,#0000ff 90deg)";
             break;
         }
         std::ofstream(root / "Gradient.rml")
@@ -124,7 +142,36 @@ void exercise(Diligent::IRenderDevice* device, Diligent::IDeviceContext* context
                             t = (t - .25) / .5 - std::floor((t - .25) / .5);
                         if (kind == 5)
                             t = ((x - 8 + .5) - (y - 4 + .5) + 24) / 72;
-                        const double first_alpha = kind == 2 ? 128. / 255 : 1;
+                        if (kind >= 8 && kind <= 10) {
+                            const double cx = kind == 9 ? 12 : 24, cy = kind == 9 ? 18 : 12;
+                            const double rx = kind == 8 ? 20 : kind == 9 ? 20 : 12;
+                            const double ry = kind == 9 ? 10 : rx;
+                            t = std::hypot((x - 8 + .5 - cx) / rx, (y - 4 + .5 - cy) / ry);
+                            if (kind == 10) {
+                                t = (t - .25) / .5;
+                                t -= std::floor(t);
+                            } else
+                                t = std::clamp(t, 0., 1.);
+                        }
+                        if (kind >= 11) {
+                            const double cx = kind == 12 ? 12 : 24, cy = kind == 12 ? 18 : 12;
+                            const double degrees = std::atan2(x - 8 + .5 - cx, -(y - 4 + .5 - cy)) *
+                                                   (180 / std::acos(-1.));
+                            t = (degrees - (kind == 12 ? 90 : kind == 13 ? -45 : 0)) / 360;
+                            t -= std::floor(t);
+                            if (kind == 13) {
+                                t *= 4;
+                                // atan2 rounding can select either side at an exact
+                                // discontinuous repeat seam. Compare its interiors;
+                                // keep the foreground marker check on those pixels.
+                                if (std::abs(t - std::round(t)) < 1e-5 &&
+                                    !(x >= 30 && x < 34 && y >= 14 && y < 18))
+                                    continue;
+                                t -= std::floor(t);
+                            }
+                        }
+                        const double first_alpha =
+                            (kind == 2 || kind == 10 || kind == 13) ? 128. / 255 : 1;
                         const double alpha = first_alpha * (1 - t) + t;
                         std::array<double, 3> rgb{(kind == 1 || kind == 4) ? 0
                                                                            : first_alpha * (1 - t),
@@ -151,9 +198,13 @@ void exercise(Diligent::IRenderDevice* device, Diligent::IDeviceContext* context
                     for (unsigned c = 0; c < 4; ++c) {
                         const double actual =
                             linear ? float(halves.at(at)[c]) : bytes.at(at)[c] / 255.;
-                        check(std::abs(actual - expected[c]) < (linear ? .004 : .01),
-                              "Native linear gradient projection/repeat/premultiplied color/domain "
-                              "or ordinary draw restoration differs");
+                        if (std::abs(actual - expected[c]) >= (linear ? .004 : .01))
+                            throw std::runtime_error(
+                                "Native gradient oracle differs: kind=" + std::to_string(kind) +
+                                " linear=" + std::to_string(linear) + " x=" + std::to_string(x) +
+                                " y=" + std::to_string(y) + " channel=" + std::to_string(c) +
+                                " actual=" + std::to_string(actual) +
+                                " expected=" + std::to_string(expected[c]));
                     }
                 }
         }
@@ -162,7 +213,10 @@ void exercise(Diligent::IRenderDevice* device, Diligent::IDeviceContext* context
     std::vector<Rml::CompiledShaderHandle> handles;
     for (unsigned i = 0; i < 256; ++i)
         handles.push_back(
-            native.CompileShader("linear-gradient", test::linear_gradient_parameters()));
+            i % 3 == 0 ? native.CompileShader("linear-gradient", test::linear_gradient_parameters())
+            : i % 3 == 1
+                ? native.CompileShader("radial-gradient", test::radial_gradient_parameters())
+                : native.CompileShader("conic-gradient", test::conic_gradient_parameters()));
     bool rejected = false;
     try {
         native.CompileShader("linear-gradient", test::linear_gradient_parameters());

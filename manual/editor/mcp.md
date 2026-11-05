@@ -194,6 +194,13 @@ can drive `data-style-decorator`; current Play tuning, native keyframes and
 preceding usable presentation. Export with the matching supplied runtime kit.
 See [Runtime UI](runtime-ui.md) for syntax and limits.
 
+Radial and conic gradients use the same tools: write `radial-gradient`,
+`repeating-radial-gradient`, `conic-gradient` or `repeating-conic-gradient` in
+`decorator`, then register/refresh the source. Model-driven radii or conic angles
+use **UI Values** and `data-style-decorator`; native keyframes, current Play
+tuning, Reload UI and matching-kit export retain their ordinary behavior. See
+[Runtime UI](runtime-ui.md) for the illustrated radial/conic workflow and bounds.
+
 Navigation uses the existing static bake worker. Runtime dependency declarations
 use their existing reviewed draft and catalog Save. Flecs Script tools evaluate
 the existing isolated diagnostic data/world preview; they do not replace C++

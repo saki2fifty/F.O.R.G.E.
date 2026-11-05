@@ -681,3 +681,12 @@ continues on presentation time. Stop and save an authored angle to keep it.
 Export the saved startup Scene with the supplied runtime kit.
 See [Runtime UI](../editor/runtime-ui.md) for source syntax,
 limits and the illustrated workflow.
+
+## UI radial and conic samples
+
+Open **165-ui-radial-conic-gradients** and press **Play**. Compare circles,
+ellipses, repeating rings, conic colors and transparent wedges. Tune **Gradient
+lab HUD → UI Values → angle** while paused. The small bar animates on presentation
+time; save an authored value after stopping to keep it. Export the saved startup
+Scene with the supplied runtime kit. See [Runtime UI](../editor/runtime-ui.md)
+for syntax, limits and the illustrated workflow.

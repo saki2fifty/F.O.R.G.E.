@@ -43,7 +43,7 @@ unsigned le(std::span<const std::byte> b, std::size_t p) {
 }
 struct TextProfile {
     unsigned filters = 0;
-    bool gradients = false;
+    unsigned gradients = 0;
 };
 TextProfile validate_text_profile(std::string_view text, bool markup) {
     require(text.size() <= 256 * 1024, "RML/RCSS exceeds 256 KiB");
@@ -57,7 +57,7 @@ TextProfile validate_text_profile(std::string_view text, bool markup) {
     unsigned braces = 0, parens = 0;
     std::string property, token;
     unsigned filter_profile = 0;
-    bool gradients = false;
+    unsigned gradients = 0;
     for (std::size_t i = 0; i < text.size();) {
         if (markup && text.substr(i, 4) == "<!--") {
             auto e = text.find("-->", i + 4);
@@ -123,7 +123,7 @@ TextProfile validate_text_profile(std::string_view text, bool markup) {
                     if (name == "data-style-backdrop-filter")
                         filter_profile = ui_filter_detail::profile_version;
                     if (name == "data-style-decorator")
-                        gradients = true;
+                        gradients = ui_gradient_detail::profile_version;
                     while (a < attributes.size() && space(attributes[a]))
                         ++a;
                     if (a == attributes.size() || attributes[a] != '=')
@@ -149,11 +149,11 @@ TextProfile validate_text_profile(std::string_view text, bool markup) {
                         // Encoded styles conservatively require the current filter kit.
                         if (style.find('&') != style.npos) {
                             filter_profile = ui_filter_detail::profile_version;
-                            gradients = true;
+                            gradients = ui_gradient_detail::profile_version;
                         }
                         const auto nested = validate_text_profile(style, false);
                         filter_profile = std::max(filter_profile, nested.filters);
-                        gradients |= nested.gradients;
+                        gradients = std::max(gradients, nested.gradients);
                     }
                     if (a < attributes.size())
                         ++a;
@@ -178,7 +178,7 @@ TextProfile validate_text_profile(std::string_view text, bool markup) {
                     const auto nested =
                         validate_text_profile(text.substr(end + 1, close - end - 1), false);
                     filter_profile = std::max(filter_profile, nested.filters);
-                    gradients |= nested.gradients;
+                    gradients = std::max(gradients, nested.gradients);
                     i = close;
                     continue;
                 }
@@ -191,10 +191,15 @@ TextProfile validate_text_profile(std::string_view text, bool markup) {
             // Anonymous functions and named @decorator type declarations share
             // this evidence. Quoted ordinary text/comments stay excluded.
             if ((property == "decorator" && (c == '(' || c == ';' || c == '}')) ||
-                (c == '{' && !property.empty()))
-                gradients |= token == "linear-gradient" || token == "repeating-linear-gradient" ||
-                             token == "horizontal-gradient" || token == "vertical-gradient" ||
-                             token == "gradient";
+                (c == '{' && !property.empty())) {
+                if (token == "radial-gradient" || token == "repeating-radial-gradient" ||
+                    token == "conic-gradient" || token == "repeating-conic-gradient")
+                    gradients = ui_gradient_detail::profile_version;
+                else if (token == "linear-gradient" || token == "repeating-linear-gradient" ||
+                         token == "horizontal-gradient" || token == "vertical-gradient" ||
+                         token == "gradient")
+                    gradients = std::max(gradients, ui_gradient_detail::basic_profile_version);
+            }
             if (c == '(' && property == "filter" && token == "drop-shadow")
                 filter_profile = std::max(filter_profile, ui_filter_detail::shadow_profile_version);
             // Retain identifier pieces across comments, as the stylesheet reader does.
@@ -460,7 +465,7 @@ UiAssetSnapshot UiResources::snapshot() const {
         if (file.filter_profile)
             features["filters"] = file.filter_profile;
         if (file.gradients)
-            features["gradients"] = ui_gradient_detail::profile_version;
+            features["gradients"] = file.gradients;
         if (!features.empty())
             info.details["runtime_features"] = std::move(features);
         if (image_extension(extension)) {

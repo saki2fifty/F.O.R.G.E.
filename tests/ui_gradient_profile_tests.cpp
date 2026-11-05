@@ -82,6 +82,44 @@ int main() {
         reject([&] { admit_gradient("linear-gradient", unresolved); });
         for (const char* name : {"radial-gradient", "conic-gradient", "shader", "custom"})
             reject([&] { admit_gradient(name, forge::test::linear_gradient_parameters()); });
+        const auto radial =
+            admit_gradient("radial-gradient", forge::test::radial_gradient_parameters());
+        const auto conic =
+            admit_gradient("conic-gradient", forge::test::conic_gradient_parameters());
+        check(radial.kind == Kind::Radial && radial.line == std::array{12.f, 16.f, .05f, .025f} &&
+                  conic.kind == Kind::Conic && std::abs(conic.line[2] - .25f) < 1e-7,
+              "Radial radii or conic start angle were not copied and normalized");
+        for (const auto value : {0.f, -1.f, 65537.f, std::numeric_limits<float>::infinity(),
+                                 std::numeric_limits<float>::quiet_NaN()}) {
+            reject([&] { make_radial_gradient({0, 0}, {value, 20}, false, stops); });
+            reject([&] { make_radial_gradient({0, 0}, {20, value}, false, stops); });
+        }
+        for (const auto value : {65537.f, std::numeric_limits<float>::infinity(),
+                                 std::numeric_limits<float>::quiet_NaN()}) {
+            reject([&] { make_radial_gradient({value, 0}, {20, 20}, false, stops); });
+            reject([&] { make_conic_gradient({0, value}, 0, false, stops); });
+            reject([&] { make_conic_gradient({0, 0}, value, false, stops); });
+        }
+        const auto turned = make_conic_gradient({0, 0}, -6.283185307179586, true, stops);
+        check(std::abs(turned.line[2]) < 1e-7 && turned.count == 16 && turned.repeating,
+              "Conic full-turn normalization or shared maximum stops differ");
+        reject([&] { make_radial_gradient({0, 0}, {1, 1}, true, collapsed); });
+        reject([&] { make_conic_gradient({0, 0}, 0, true, collapsed); });
+        for (const bool is_radial : {false, true}) {
+            const char* name = is_radial ? "radial-gradient" : "conic-gradient";
+            const auto original = is_radial ? forge::test::radial_gradient_parameters()
+                                            : forge::test::conic_gradient_parameters();
+            for (const char* key : {"center", is_radial ? "radius" : "angle", "repeating",
+                                    "color_stop_list", "extra"}) {
+                auto invalid = original;
+                invalid[key] = Rml::Variant(Rml::String("wrong type"));
+                reject([&] { admit_gradient(name, invalid); });
+                invalid = original;
+                invalid.erase(key);
+                if (std::string_view(key) != "extra")
+                    reject([&] { admit_gradient(name, invalid); });
+            }
+        }
         std::cout << "Bounded typed linear gradient projection, copied stops, premultiplied color "
                      "and rejection checks passed\n";
     } catch (const std::exception& error) {

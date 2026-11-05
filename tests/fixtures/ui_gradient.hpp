@@ -11,4 +11,19 @@ inline Rml::Dictionary linear_gradient_parameters() {
             {"repeating", Rml::Variant(false)},
             {"color_stop_list", Rml::Variant(std::move(stops))}};
 }
+inline Rml::Dictionary radial_gradient_parameters() {
+    auto parameters = linear_gradient_parameters();
+    parameters.erase("p0");
+    parameters.erase("p1");
+    parameters.erase("length");
+    parameters["center"] = Rml::Variant(Rml::Vector2f{12, 16});
+    parameters["radius"] = Rml::Variant(Rml::Vector2f{20, 40});
+    return parameters;
+}
+inline Rml::Dictionary conic_gradient_parameters() {
+    auto parameters = radial_gradient_parameters();
+    parameters.erase("radius");
+    parameters["angle"] = Rml::Variant(1.5707963267948966f);
+    return parameters;
+}
 } // namespace forge::test

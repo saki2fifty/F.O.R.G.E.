@@ -396,8 +396,16 @@ assert gradients['asset_id'] == by_source['Scenes/164-ui-linear-gradients.scene.
 gradient_hud = next(row for row in gradients['entities'] if 'forge.ui_document' in row['components'])
 assert gradient_hud['components']['forge.ui_document']['document'] == by_source['Assets/UI/Gradients/Lab.rml']['id']
 assert gradient_hud['components']['forge.ui_values']['values'] == [dict(name='angle', value=45)]
-assert by_source['Assets/UI/Gradients/Lab.rml']['metadata']['forge.ui_source']['runtime_features'] == dict(gradients=1)
+assert by_source['Assets/UI/Gradients/Lab.rml']['metadata']['forge.ui_source']['runtime_features'] == dict(gradients=2)
 assert not {row['id'] for row in gradients['entities']} & {row['id'] for row in backdrops['entities']}
+curved = json.loads((project_root / 'Scenes/165-ui-radial-conic-gradients.scene.json').read_text())
+assert curved['asset_id'] == by_source['Scenes/165-ui-radial-conic-gradients.scene.json']['id']
+curved_hud = next(row for row in curved['entities'] if 'forge.ui_document' in row['components'])
+assert curved_hud['components']['forge.ui_document']['document'] == by_source['Assets/UI/CurvedGradients/Lab.rml']['id']
+assert curved_hud['components']['forge.ui_values']['values'] == [dict(name='angle', value=45)]
+assert by_source['Assets/UI/CurvedGradients/Lab.rml']['metadata']['forge.ui_source']['runtime_features'] == dict(gradients=2)
+assert not {row['id'] for row in curved['entities']} & {row['id'] for row in gradients['entities']}
+
 
 
 

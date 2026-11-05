@@ -79,7 +79,8 @@ body,div {display:block;} body {margin:0;font-family:Lato;}
             const auto count = renderer.gradients.size();
             const std::string unsupported =
                 "<rml><head><style>body,div{display:block;}body{font-family:Lato;}div{width:160px;"
-                "height:80px;decorator:radial-gradient(#ff0000,#0000ff);}</style></head><body><div/"
+                "height:80px;decorator:radial-gradient(circle "
+                "70000px,#ff0000,#0000ff);}</style></head><body><div/"
                 "></body></rml>";
             std::string many = "linear-gradient(90deg";
             for (unsigned i = 0; i < 17; ++i)
@@ -101,6 +102,47 @@ body,div {display:block;} body {margin:0;font-family:Lato;}
             }
             write(original);
             check(presenter.reload(), "Corrected gradient source did not reload");
+            draw();
+            for (const bool radial : {false, true}) {
+                for (const bool repeating : {false, true}) {
+                    auto curved = original;
+                    const std::string expression =
+                        "'linear-gradient(' + angle + 'deg, #ff0000, #0000ff)'";
+                    const auto position = curved.find(expression);
+                    check(position != curved.npos, "Gradient model fixture expression missing");
+                    const auto name = std::string(repeating ? "repeating-" : "") +
+                                      (radial ? "radial-gradient(circle " : "conic-gradient(from ");
+                    curved.replace(
+                        position, expression.size(),
+                        "'" + name + "' + angle + '" +
+                            (radial ? "px, #ff0000, #0000ff)'" : "deg, #ff0000, #0000ff)'"));
+                    write(curved);
+                    check(presenter.reload(), "Curved gradient source failed native admission");
+                    draw();
+                    auto* main_context = Rml::GetContext(0);
+                    auto* output_context = Rml::GetContext(1);
+                    publish(45);
+                    const bool tuned = presenter.accept(snapshot());
+                    check(tuned, presenter.diagnostic().c_str());
+                    draw();
+                    check(
+                        Rml::GetContext(0) == main_context &&
+                            Rml::GetContext(1) == output_context &&
+                            renderer.gradients.size() == 2 &&
+                            std::all_of(renderer.gradients.begin(), renderer.gradients.end(),
+                                        [&](const auto& row) {
+                                            return row.second.kind ==
+                                                       (radial ? ui_gradient_detail::Kind::Radial
+                                                               : ui_gradient_detail::Kind::Conic) &&
+                                                   row.second.repeating == repeating &&
+                                                   std::abs(row.second.line[2] -
+                                                            (radial ? 1.f / 45 : .125f)) < 1e-6;
+                                        }),
+                        "Curved paused model update rebuilt contexts or lost shape/repeat values");
+                }
+            }
+            write(original);
+            check(presenter.reload(), "Linear source did not reload after curved gradients");
             draw();
             auto candidate = snapshot();
             candidate["revision"] = candidate.at("revision").get<unsigned>() + 1;

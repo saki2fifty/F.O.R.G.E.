@@ -290,12 +290,12 @@ int main(int argc, char** argv) {
             validate_runtime_compatibility(
                 routed, {{"runtime_ui_protocol", 2}, {"runtime_ui_gradients", 1}});
             reject([&] { validate_runtime_compatibility(routed, {{"runtime_ui_protocol", 2}}); });
-            for (const Json& profile : {Json(), Json(0), Json(1.0), Json("1"), Json(true), Json(2)})
+            for (const Json& profile : {Json(), Json(0), Json(1.0), Json("1"), Json(true), Json(3)})
                 reject([&] {
                     validate_runtime_compatibility(
                         routed, {{"runtime_ui_protocol", 2}, {"runtime_ui_gradients", profile}});
                 });
-            for (const Json& invalid : {Json(0), Json(1.0), Json("1"), Json(true), Json(2)}) {
+            for (const Json& invalid : {Json(0), Json(1.0), Json("1"), Json(true), Json(3)}) {
                 stylesheet.metadata["forge.ui_source"]["runtime_features"] = {
                     {"gradients", invalid}};
                 routed.replace(stylesheet);
@@ -303,6 +303,19 @@ int main(int argc, char** argv) {
                     validate_runtime_compatibility(
                         routed, {{"runtime_ui_protocol", 2}, {"runtime_ui_gradients", 1}});
                 });
+            }
+            for (int required = 1; required <= 2; ++required) {
+                stylesheet.metadata["forge.ui_source"]["runtime_features"] = {
+                    {"gradients", required}};
+                routed.replace(stylesheet);
+                for (int supported = 1; supported <= 2; ++supported) {
+                    const auto engine =
+                        Json{{"runtime_ui_protocol", 2}, {"runtime_ui_gradients", supported}};
+                    if (supported >= required)
+                        validate_runtime_compatibility(routed, engine);
+                    else
+                        reject([&] { validate_runtime_compatibility(routed, engine); });
+                }
             }
             stylesheet.metadata["forge.ui_source"]["runtime_features"] = {{"filters", 3},
                                                                           {"gradients", 1}};

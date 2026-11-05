@@ -2040,3 +2040,20 @@ Local capture, executable/source hashes and test receipts are recorded in
 `AgentFiles/build/phase258-ui-linear-gradients/capture-provenance.json` outside
 the product repository. This is local software-rendering evidence, not full
 editor, Windows/MSVC, physical GPU/input/DPI or hardware performance acceptance.
+
+
+## Runtime UI radial/conic gallery
+
+`manual/images/ui-curved-gradient-gallery.png` is the canonical, unretouched
+640x360 GamePresentation/RmlUi/Diligent software Vulkan capture of original
+Gallery165. Lossless PPM-to-PNG conversion preserves decoded RGB exactly. Its
+360x640 portrait capture was also visually reviewed; controls remain inside both
+layouts. Four checkpoints from each of Gallery164/165 exactly match relocated
+content with sources hidden. The previous linear-gradient canonical pixels are
+unchanged. Local source/executable hashes and receipts are recorded outside the
+product repository in
+`AgentFiles/build/phase259-ui-radial-conic-gradients/capture-provenance.json`.
+This is isolated local Game rendering, not full-editor, Windows/MSVC, physical
+GPU/input/DPI or hardware performance acceptance. The numeric oracle excludes
+exact discontinuous angular repeat seams and other rounded raster edges; it does
+not assert device-independent seam antialiasing.
