@@ -45,12 +45,27 @@ RefCntAutoPtr<ITexture> input(IRenderDevice* device, unsigned width, unsigned he
     check(bool(texture), "Spatial AA fixture allocation failed");
     return texture;
 }
-void exercise(forge::DiligentPresentation& presentation, IDeviceContext* context) {
+void exercise(forge::DiligentPresentation& presentation, IDeviceContext* context,
+              bool morphological = false) {
+    struct Controls {
+        bool enabled = false;
+        float detail = .5f;
+        unsigned steps = 12;
+        float threshold = .1f;
+    };
     auto* device = presentation.device();
     forge::DisplayResolve display(presentation);
-    const auto render = [&](ITexture* image, forge::SceneFastApproximateAntiAliasing settings) {
-        auto* result = display.resolve(context, image->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE),
-                                       0, {}, {}, 0, false, settings);
+    const auto render = [&](ITexture* image, Controls settings) {
+        auto* result = display.resolve(
+            context, image->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE), 0, {}, {}, 0, false,
+            morphological
+                ? forge::SceneFastApproximateAntiAliasing{}
+                : forge::SceneFastApproximateAntiAliasing{settings.enabled, settings.detail,
+                                                          settings.steps},
+            morphological
+                ? forge::SceneMorphologicalAntiAliasing{settings.enabled, settings.threshold,
+                                                        settings.steps, settings.detail}
+                : forge::SceneMorphologicalAntiAliasing{});
         check(result->GetTexture() == display.target()->GetTexture(),
               "Post-filter UI target differs from returned display image");
         return forge::test_sprite_draw::read_pixels(device, context, result->GetTexture());
@@ -70,7 +85,7 @@ void exercise(forge::DiligentPresentation& presentation, IDeviceContext* context
     // Independent coverage oracle: integrate an analytic edge over each display
     // pixel. This compares LDR edge reconstruction, not physical GPU performance.
     for (bool transpose : {false, true})
-        for (double slope : {.3, -.6, 1.7})
+        for (double slope : {.3, -.6, 1.7, 1., -1.})
             for (unsigned channel : {0u, 2u})
                 for (float radiance : {1.f, 16.f}) {
                     const unsigned width = transpose ? 64 : 96, height = transpose ? 96 : 64;
@@ -135,9 +150,62 @@ void exercise(forge::DiligentPresentation& presentation, IDeviceContext* context
         original_energy += dot_baseline[i][0];
         filtered_energy += dot_filtered[i][0];
     }
-    check(dot_filtered != dot_baseline && filtered_energy > original_energy * .65 &&
-              filtered_energy < original_energy * 1.35,
+    check(morphological ? dot_filtered == dot_baseline
+                        : dot_filtered != dot_baseline && filtered_energy > original_energy * .65 &&
+                              filtered_energy < original_energy * 1.35,
           "Default subpixel smoothing erased or amplified isolated fine details");
+    if (morphological) {
+        for (bool thin : {false, true}) {
+            const auto image = input(device, 64, 48, [&](auto x, auto y) {
+                const float value =
+                    x >= 16 && x < 48 && y >= 12 && y < (thin ? 13u : 36u) ? 1.f : 0.f;
+                return Color{value, value, value, 1};
+            });
+            const auto baseline = render(image, {});
+            check(render(image, {true, 0, 16}) == baseline,
+                  "Morphological reconstruction rounded a sharp box or erased one-pixel detail");
+            if (!thin)
+                check(render(image, {true, 1, 16}) != baseline,
+                      "Morphological corner rounding control did not affect detected corners");
+        }
+    }
+    if (morphological) {
+        const auto inside = [](double x, double y) { return y < .3 * x + 15.25; };
+        const auto image = input(device, 64, 48, [&](auto x, auto y) {
+            const float value = inside(x + .5, y + .5) ? .22f : .18f;
+            return Color{value, value, value, 1};
+        });
+        const auto baseline = render(image, {});
+        check(render(image, {true, 0, 32, .1f}) == baseline,
+              "Morphological threshold did not reject low contrast");
+        const auto detailed = render(image, {true, 0, 32, .01f});
+        check(detailed != baseline,
+              "Lower morphological threshold did not reveal low-contrast contours");
+        double before = 0, after = 0;
+        const double bright = baseline[0][0], dark = baseline[47 * 64][0];
+        for (unsigned y = 0; y < 48; ++y)
+            for (unsigned x = 0; x < 64; ++x) {
+                unsigned covered = 0;
+                for (unsigned sy = 0; sy < 16; ++sy)
+                    for (unsigned sx = 0; sx < 16; ++sx)
+                        covered += inside(x + (sx + .5) / 16, y + (sy + .5) / 16);
+                const double expected = dark + (bright - dark) * covered / 256.;
+                before += std::pow(baseline[y * 64 + x][0] - expected, 2);
+                after += std::pow(detailed[y * 64 + x][0] - expected, 2);
+            }
+        check(after < before * .95,
+              "Low-contrast morphological output did not improve integrated coverage");
+        bool conflict = false;
+        try {
+            display.resolve(context, image->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE), 0, {}, {},
+                            0, false, {true}, {true});
+        } catch (const std::exception&) {
+            conflict = true;
+        }
+        check(conflict && forge::test_sprite_draw::read_pixels(
+                              device, context, display.output()->GetTexture()) == detailed,
+              "Competing native spatial methods replaced the last usable output");
+    }
     const auto alpha_image = input(device, 31, 19, [](auto x, auto y) {
         const float v = (x + y) % 2 ? 1.f : 0.f;
         return Color{v, v, v, (x + y) % 2 ? .25f : .75f};
@@ -180,18 +248,29 @@ int main(int argc, char** argv) {
         check(device && context, "Spatial AA Vulkan device unavailable");
         forge::DiligentPresentation presentation(device);
 #ifdef FORGE_FAST_AA_UI_TEST
-        if (argc == 4 && std::string_view(argv[1]) == "--ui") {
+        if (argc == 4 && (std::string_view(argv[1]) == "--ui" ||
+                          std::string_view(argv[1]) == "--morphological-ui")) {
             const auto image =
                 input(device, 640, 320, [](auto, auto) { return Color{.1f, .2f, .3f, 1}; });
             forge::test_fast_aa_ui::exercise(
                 presentation, context, image->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE),
-                std::filesystem::absolute(argv[2]), std::filesystem::absolute(argv[3]));
+                std::filesystem::absolute(argv[2]), std::filesystem::absolute(argv[3]),
+                std::string_view(argv[1]) == "--morphological-ui");
             std::cout << "Spatial AA: real native Game UI remains byte-identical after display "
                          "filtering\n";
             return 0;
         }
 #endif
-        exercise(presentation, context);
+        const bool morphological = argc >= 2 && std::string_view(argv[1]) == "--morphological";
+        exercise(presentation, context, morphological);
+        if (morphological) {
+            if (argc == 3)
+                forge::test_fast_aa_scene::exercise(presentation, context,
+                                                    std::filesystem::absolute(argv[2]), true);
+            else
+                check(argc == 2, "Expected optional morphological Scene fixture");
+            return 0;
+        }
         if (argc == 2)
             forge::test_fast_aa_scene::exercise(presentation, context,
                                                 std::filesystem::absolute(argv[1]));

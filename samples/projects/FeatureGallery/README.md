@@ -2167,3 +2167,14 @@ box-shadow keyframes are unavailable. Save authored values after stopping to kee
 them. Save the startup Scene and export with the supplied runtime kit. The
 [Runtime UI manual](../../../manual/editor/runtime-ui.md) covers syntax,
 viewport clipping and shared resource limits.
+
+## Morphological anti-aliasing
+
+`Scenes/168-morphological-antialiasing.scene.json` reuses original edge-laboratory
+geometry and the shared transform clip with an independently authored spatial
+filter. Play to view motion. Stop and use **Tools > Scene lighting... →
+Morphological anti-aliasing** to compare threshold 0.01..0.5, search 1..32 and corner
+rounding 0..1. The defaults are 0.1, 16, 0. One spatial method is active at a time;
+temporal anti-aliasing remains independent. Save and export the startup Scene with
+the supplied kit. The [lighting manual](../../../manual/editor/lighting.md) covers
+controls and resource/current-image limits.

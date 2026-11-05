@@ -11,6 +11,7 @@ import time
 
 from mcp_test_client import CAPTURE, Client, failed, write_capture, finish_host
 from mcp_fast_aa_workflow import check_fast_aa_workflow
+from mcp_morphological_aa_workflow import check_morphological_aa_workflow
 from mcp_mesh_scatter_workflow import check_mesh_scatter_workflow
 from mcp_sequence_clip_workflow import check_sequence_clip_workflow
 from mcp_nested_sequence_workflow import check_nested_sequence_workflow
@@ -22,6 +23,7 @@ NESTED_SEQUENCES_ONLY = "--nested-sequences-only" in sys.argv[4:]
 INPUT_MESSAGES_ONLY = "--input-messages-only" in sys.argv[4:]
 FOG_VOLUMES_ONLY = "--fog-volumes-only" in sys.argv[4:]
 SEQUENCE_CLIPS_ONLY = "--sequence-clips-only" in sys.argv[4:]
+MORPHOLOGICAL_AA_ONLY = "--morphological-aa-only" in sys.argv[4:]
 FAST_AA_ONLY = "--fast-aa-only" in sys.argv[4:]
 MESH_SCATTER_ONLY = "--mesh-scatter-only" in sys.argv[4:]
 
@@ -164,6 +166,10 @@ for legacy in (False, True):
             continue
         if MESH_SCATTER_ONLY:
             check_mesh_scatter_workflow(client, discover, arguments, mutate, project, catalog)
+            continue
+        if MORPHOLOGICAL_AA_ONLY:
+            check_morphological_aa_workflow(client, discover, arguments, mutate, project,
+                                            exposure_command, exposure_tool)
             continue
         if FAST_AA_ONLY:
             check_fast_aa_workflow(client, discover, arguments, mutate, project,
@@ -713,6 +719,19 @@ if MESH_SCATTER_ONLY:
         assert not denied['ok'] and client.tool('forge_discover')['revision'] == state['revision']
     write_capture(sys.argv[3])
     print('MCP mesh scatter: both framings, schema, permissions, replay, revisions, history, save and graceful exits passed')
+    raise SystemExit(0)
+
+if MORPHOLOGICAL_AA_ONLY:
+    for legacy in (False, True):
+        with editor('read') as (root, process, config), Client(config, legacy) as client:
+            state = client.tool('forge_discover')
+            assert not any(t['name'] == 'forge_scene_rendering_set' for t in client.request('tools/list')['result']['tools'])
+            denied = native(config, dict(api=1, method='scene.apply', target=state['result']['target'],
+                expected_revision=state['revision'], commands=[dict(operation='scene.rendering.set',
+                    arguments=dict(morphological_anti_aliasing=dict(enabled=True)))]), state['next_sequence'])
+            assert not denied['ok'] and client.tool('forge_discover')['revision'] == state['revision']
+    write_capture(sys.argv[3])
+    print('MCP morphological AA: both framings, shared schemas, permission denial, replay/revisions, explicit method switch, history/save and graceful exits passed')
     raise SystemExit(0)
 
 if FAST_AA_ONLY:

@@ -72,6 +72,15 @@ struct SceneFastApproximateAntiAliasing {
     bool operator==(const SceneFastApproximateAntiAliasing&) const = default;
 };
 void validate_scene_fast_approximate_anti_aliasing(const SceneFastApproximateAntiAliasing&);
+// Current composed display image only; independent of temporal history.
+struct SceneMorphologicalAntiAliasing {
+    bool enabled = false;
+    float edge_threshold = .1f;
+    unsigned search_steps = 16;
+    float corner_rounding = 0;
+    bool operator==(const SceneMorphologicalAntiAliasing&) const = default;
+};
+void validate_scene_morphological_anti_aliasing(const SceneMorphologicalAntiAliasing&);
 struct SceneDepthOfField {
     bool enabled = false;
     float focus_distance = 10;
@@ -122,6 +131,7 @@ struct SceneRenderSettings {
     // Optional approximate order-independent alpha composition for eligible Mesh views.
     bool weighted_transparency = false;
     SceneFastApproximateAntiAliasing fast_approximate_anti_aliasing;
+    SceneMorphologicalAntiAliasing morphological_anti_aliasing;
     bool operator==(const SceneRenderSettings&) const = default;
 };
 SceneRenderSettings scene_render_settings(const nlohmann::json& scene);

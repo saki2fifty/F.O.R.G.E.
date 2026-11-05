@@ -8,7 +8,8 @@ and HDR composition. It adds no depth/motion history or post-processing targets.
 FORGE supplies independently authored [spatial HDR bloom](hdr-bloom.md),
 [automatic exposure](scene-auto-exposure.md), [local reflection probes](local-reflection-probes.md), [screen-space reflections](screen-space-reflections.md), [ambient occlusion](ambient-occlusion.md), [spatial depth of field](depth-of-field.md), [motion blur](motion-blur.md) and
 [temporal anti-aliasing](temporal-antialiasing.md), plus display-space
-[fast approximate anti-aliasing](fast-approximate-antialiasing.md), through the existing rendering
+[fast approximate anti-aliasing](fast-approximate-antialiasing.md) or
+[morphological anti-aliasing](morphological-antialiasing.md), through the existing rendering
 owners. Fast approximate filtering consumes the tone-mapped, display-encoded composite
 before Game UI/editor overlays and does not enter temporal history or linear HDR
 output. Bloom uses color only. Automatic exposure meters composed Game HDR into

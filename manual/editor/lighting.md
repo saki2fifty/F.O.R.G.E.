@@ -537,7 +537,7 @@ its dependent Materials before comparing the result or exporting.
 3. Start with **Subpixel smoothing** at **0.5** and **Edge search steps** at **12**. Press **Enter** to commit a typed value.
 4. Save the scene. Scene preview, Play and exported games use these settings.
 
-This filter smooths the current scene image after tone mapping. It needs no
+Enabling this spatial method disables morphological anti-aliasing in the same Undo step. This filter smooths the current scene image after tone mapping. It needs no
 previous frame, depth or motion information. It can run independently or alongside
 temporal anti-aliasing. Game UI and editor guides are drawn afterward and keep
 their original appearance.
@@ -823,3 +823,46 @@ See [Play mode](play-mode.md).
 The resizable lighting window keeps labels beside or above their fields as space
 allows. At larger interface zoom, scroll to reach the shadow settings. Changing
 window size or interface zoom does not change the scene.
+
+## Reconstruct edges with morphological anti-aliasing
+
+1. Stop Play and open **Tools > Scene lighting...**.
+2. Expand **Morphological anti-aliasing** and select **Enable morphological anti-aliasing**. This selects the spatial method and disables fast approximate anti-aliasing in one Undo step.
+3. Start with **Edge threshold** `0.1`, **Contour search steps** `16` and **Corner rounding** `0`. Press **Enter** to commit a typed value.
+4. Save the Scene. Scene preview, Play and exported games use the saved settings.
+
+![Scene lighting with morphological anti-aliasing enabled, threshold 0.100, 16 contour steps and zero corner rounding](../images/morphological-aa-controls.png)
+
+The filter reconstructs edges in the current scene image after tone mapping.
+Game UI and editor guides are drawn afterward and stay sharp. It can accompany
+**Temporal anti-aliasing**; it does not use or replace image history itself.
+Only one spatial method is active at a time. Enabling **Fast approximate
+anti-aliasing** switches back in one Undo step.
+
+**Edge threshold** accepts `0.01..0.5`. Lower it to detect smaller color changes;
+higher values leave more edges untouched. **Contour search steps** accepts `1..32`
+and limits how far the filter follows contours in each direction. **Corner
+rounding** accepts `0..1`: zero conservatively preserves detected sharp corners;
+higher values allow smoothing. Compare the result with the effect disabled at the
+output size you intend to use. Some one-pixel detail and long contours remain
+conservatively unchanged. Alpha discontinuities retain original pixels.
+
+**Reset morphological anti-aliasing** disables it and restores the three defaults
+in one Undo step. Invalid values leave the previous settings intact; correct the
+value and press **Enter**. Authored controls are read-only during Play. The filter
+supports up to 8,388,608 output pixels, including 3840×2160. At maximum size its
+optional cached images use 128 MiB of logical pixel storage, in addition to other
+render targets; reducing output resolution reduces that storage. Cached images
+can remain allocated after switching methods until the view closes.
+
+Open **168-morphological-antialiasing** in **Examples/FeatureGallery** and press
+**Play**. The pink bar moves past thin cyan/amber lines and tilted cubes. Stop to
+change the filter controls, save, then Play again. This uses the same original edge
+laboratory content as **143-fast-approximate-antialiasing** for comparison.
+
+![The morphological edge laboratory showing moving foreground, thin lines and tilted cubes](../images/morphological-aa-gallery.png)
+
+The example includes a camera, light and shared transform clip; it needs no
+project C++ module. Save the Scene and select it as the startup Scene before
+exporting with the runtime kit supplied with this editor. Keep the saved Scene
+and all required content together when moving the exported game.

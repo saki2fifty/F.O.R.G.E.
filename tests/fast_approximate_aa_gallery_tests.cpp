@@ -15,7 +15,8 @@
 
 using namespace forge;
 namespace {
-constexpr auto scene_path = "Scenes/143-fast-approximate-antialiasing.scene.json";
+bool morphological = false;
+const char* scene_path = "Scenes/143-fast-approximate-antialiasing.scene.json";
 void check(bool value, const char* why) {
     if (!value)
         throw std::runtime_error(why);
@@ -34,16 +35,23 @@ void author(const std::filesystem::path& root) {
     // existing original edge geometry and its shared animation clip as content.
     scene.reset(duplicate_scene_asset(read(root / "Scenes/102-temporal-antialiasing.scene.json"),
                                       AssetId::generate(), scene.schema()));
-    authoring_command(scene, "scene.rendering.set",
-                      {{"temporal_anti_aliasing", {{"enabled", false}}},
-                       {"fast_approximate_anti_aliasing",
-                        {{"enabled", true}, {"subpixel_strength", .5}, {"search_steps", 12}}}});
+    Json controls = {
+        {"temporal_anti_aliasing", {{"enabled", false}}},
+        {"fast_approximate_anti_aliasing",
+         {{"enabled", !morphological}, {"subpixel_strength", .5}, {"search_steps", 12}}}};
+    if (morphological)
+        controls["morphological_anti_aliasing"] = {{"enabled", true},
+                                                   {"edge_threshold", .1},
+                                                   {"search_steps", 16},
+                                                   {"corner_rounding", 0}};
+    authoring_command(scene, "scene.rendering.set", controls);
     const auto authored = scene.document();
     for (const auto& row : authored.at("entities"))
         if (row.at("components").contains("forge.camera"))
-            authoring_command(
-                scene, "entity.rename",
-                {{"entity", row.at("id")}, {"name", "Camera - spatial edge laboratory"}});
+            authoring_command(scene, "entity.rename",
+                              {{"entity", row.at("id")},
+                               {"name", morphological ? "Camera - morphological edge laboratory"
+                                                      : "Camera - spatial edge laboratory"}});
     scene.save(root / scene_path);
     auto catalog = AssetCatalog::open_project(root);
     const auto selected = catalog.add_scene(scene_path);
@@ -88,18 +96,24 @@ void exercise(const std::filesystem::path& root, AssetId scene_id) {
               .01,
           "Spatial AA Gallery foreground did not move");
     const auto render = extract_render_scene(world.simulation.presentation(1));
-    check(render.settings.fast_approximate_anti_aliasing ==
-                  SceneFastApproximateAntiAliasing{true, .5f, 12} &&
-              !render.settings.temporal_anti_aliasing.enabled && render.meshes.size() >= 20 &&
-              render.cameras.size() == 1 && !render.lights.empty(),
+    const bool selected = morphological ? render.settings.morphological_anti_aliasing ==
+                                              SceneMorphologicalAntiAliasing{true, .1f, 16, 0}
+                                        : render.settings.fast_approximate_anti_aliasing ==
+                                              SceneFastApproximateAntiAliasing{true, .5f, 12};
+    check(selected && !render.settings.temporal_anti_aliasing.enabled &&
+              render.meshes.size() >= 20 && render.cameras.size() == 1 && !render.lights.empty(),
           "Spatial AA Gallery lost authored display settings or actual presentation");
-    check(scene_render_settings(world.scene.snapshot()).fast_approximate_anti_aliasing ==
-              render.settings.fast_approximate_anti_aliasing,
+    check(scene_render_settings(world.scene.snapshot()) == render.settings,
           "Runtime snapshot lost spatial AA settings");
 }
 } // namespace
 int main(int argc, char** argv) {
     try {
+        morphological = argc == 4 && std::string_view(argv[3]) == "--morphological";
+        if (morphological) {
+            --argc;
+            scene_path = "Scenes/168-morphological-antialiasing.scene.json";
+        }
         if (argc == 3 && std::string_view(argv[1]) == "--author") {
             author(std::filesystem::absolute(argv[2]));
             return 0;

@@ -6198,6 +6198,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "5cd198a0-faf9-487f-ab7c-5d5269747cad",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/168-morphological-antialiasing.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "5dcd6572-980f-4b97-9a26-e63ca2666af4",
       "metadata": {},
       "schema_version": 3,

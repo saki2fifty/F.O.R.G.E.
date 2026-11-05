@@ -41,7 +41,7 @@ allocation failure retain the prior target pair. Native draw/device failures ret
 their existing presentation error semantics.
 
 The filter admits at most 8,388,608 output pixels per display owner, including 4K
-3840×2160. Its additional cached texture is at most 32 MiB; ordinary HDR/depth targets,
+3840×2160. Its shared spatial output is at most32MiB; ordinary HDR/depth targets,
 native allocation overhead and other views are separate. The cached target can be
 reused after toggling the effect and is released with the display owner. No new
 asset, resource database, material cook, source identity or render manager is added.
@@ -77,3 +77,9 @@ are compared separately.
 Software Vulkan results do not establish Windows/MSVC/FXC/D3D12, physical GPU/input /
 DPI or graphical standalone acceptance. Those reviews remain separate. The user
 workflow is in the [lighting guide](../manual/editor/lighting.md).
+
+Morphological anti-aliasing is an alternative spatial method through the same
+DisplayResolve owner and output. Only one may be enabled; Scene lighting switches
+methods with one explicit reversible patch. Morphological edge/coverage images can
+remain cached after switching back. See [that profile](morphological-antialiasing.md)
+for its separate storage bounds. Temporal anti-aliasing remains independent.

@@ -180,14 +180,15 @@ struct Inspect {
                         key != "temporal_anti_aliasing" && key != "depth_of_field" &&
                         key != "motion_blur" && key != "ambient_occlusion" &&
                         key != "screen_space_reflections" && key != "weighted_transparency" &&
-                        key != "fast_approximate_anti_aliasing")
+                        key != "fast_approximate_anti_aliasing" &&
+                        key != "morphological_anti_aliasing")
                         unknown("rendering." + key);
                 }
                 for (const auto* section :
                      {"environment", "shadows", "bloom", "color_adjustments", "auto_exposure",
                       "distance_fog", "temporal_anti_aliasing", "depth_of_field", "motion_blur",
                       "ambient_occlusion", "screen_space_reflections",
-                      "fast_approximate_anti_aliasing"}) {
+                      "fast_approximate_anti_aliasing", "morphological_anti_aliasing"}) {
                     if (!doc.at("rendering").contains(section))
                         continue;
                     const std::set<std::string> known =
@@ -202,6 +203,9 @@ struct Inspect {
                             ? std::set<std::string>{"enabled", "color", "start", "end"}
                         : std::string_view(section) == "temporal_anti_aliasing"
                             ? std::set<std::string>{"enabled", "stability"}
+                        : std::string_view(section) == "morphological_anti_aliasing"
+                            ? std::set<std::string>{"enabled", "edge_threshold", "search_steps",
+                                                    "corner_rounding"}
                         : std::string_view(section) == "fast_approximate_anti_aliasing"
                             ? std::set<std::string>{"enabled", "subpixel_strength", "search_steps"}
                         : std::string_view(section) == "depth_of_field"

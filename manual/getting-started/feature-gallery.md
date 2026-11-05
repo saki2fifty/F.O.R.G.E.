@@ -709,3 +709,14 @@ simulation is paused; box-shadow keyframes are unavailable. Stop and save the
 authored value to keep it. Export the saved startup Scene with the supplied kit.
 See [Runtime UI](../editor/runtime-ui.md) for syntax, shared resource limits and
 viewport clipping.
+
+## Morphological anti-aliasing sample
+
+Open **168-morphological-antialiasing** and press **Play**. The moving pink bar,
+thin lines and tilted cubes reuse the edge laboratory layout for comparison with
+**143-fast-approximate-antialiasing**. Stop and open **Tools > Scene lighting... →
+Morphological anti-aliasing** to compare thresholds, search distance and corner
+rounding. Enabling a spatial method disables the other in one Undo step; temporal
+anti-aliasing remains independent. Save and export the selected startup Scene with
+the supplied runtime kit. See [Lighting](../editor/lighting.md) for the illustrated
+controls and current bounds.

@@ -10,7 +10,7 @@
 namespace forge::test_fast_aa_ui {
 inline void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* context,
                      Diligent::ITextureView* source, const std::filesystem::path& project,
-                     const std::filesystem::path& font_path) {
+                     const std::filesystem::path& font_path, bool morphological = false) {
     using test_sprite_draw::check;
     std::filesystem::create_directories(project);
     std::ifstream file(font_path, std::ios::binary);
@@ -32,7 +32,8 @@ inline void exercise(DiligentPresentation& presentation, Diligent::IDeviceContex
     double time = 0;
     const auto draw = [&](bool enabled) {
         presentation.begin_frame();
-        auto* image = display.resolve(context, source, 0, {}, {}, 0, false, {enabled});
+        auto* image = display.resolve(context, source, 0, {}, {}, 0, false,
+                                      {enabled && !morphological}, {enabled && morphological});
         presenter.update(++time, int(desc.Width), int(desc.Height), 1);
         renderer.begin(context, display.target(), desc.Width, desc.Height);
         presenter.render();
@@ -41,7 +42,7 @@ inline void exercise(DiligentPresentation& presentation, Diligent::IDeviceContex
         return test_sprite_draw::read_pixels(presentation.device(), context, image->GetTexture());
     };
     const auto background = draw(false);
-    presenter.frame_statistics("FXAA HUD | 12345");
+    presenter.frame_statistics("Spatial AA HUD | 12345");
     const auto ordinary_ui = draw(false);
     const auto filtered_ui = draw(true);
     check(ordinary_ui == filtered_ui && draw(false) == ordinary_ui,

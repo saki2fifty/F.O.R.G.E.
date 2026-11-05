@@ -336,3 +336,13 @@ RGBA8 and already-linear RGBA16 layers use their destination color domain.
 Existing cooked UI source metadata records the required filter profile, and the
 shared export/distribution gate checks the kit independently of routing protocol.
 See [Runtime UI](../runtime-ui.md) for limits and failure semantics.
+
+## Morphological spatial extension
+
+The [bounded morphological profile](../morphological-antialiasing.md) follows the
+existing DisplayResolve spatial boundary. It reuses the optional display output,
+adds bounded edge/coverage scratch, and stages all requested targets before
+publication. Only one spatial method may be enabled; authoring switches both
+flags in one validated history operation. Scene/Game, HDR/temporal history,
+UI ordering, installed SDK boundaries and resource ownership above are unchanged.
+No lookup asset, second renderer, material program or parallel registry is added.

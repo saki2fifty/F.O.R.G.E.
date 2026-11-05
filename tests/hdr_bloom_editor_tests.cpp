@@ -10,7 +10,7 @@ void check(bool value, const char* why) {
     if (!value)
         throw std::runtime_error(why);
 }
-void interactions(float scale, ImVec2 display) {
+void interactions(float scale, ImVec2 display, bool morphological_only = false) {
     EngineContext engine;
     Scene scene(engine.world());
     auto extended = scene.document();
@@ -18,6 +18,7 @@ void interactions(float scale, ImVec2 display) {
     extended["rendering"]["auto_exposure"] = {{"extension", "retain"}};
     extended["rendering"]["temporal_anti_aliasing"] = {{"extension", "retain"}};
     extended["rendering"]["fast_approximate_anti_aliasing"] = {{"extension", "retain"}};
+    extended["rendering"]["morphological_anti_aliasing"] = {{"extension", "retain"}};
     extended["rendering"]["depth_of_field"] = {{"extension", "retain"}};
     scene.reset(extended);
     const auto original = scene.document();
@@ -40,6 +41,7 @@ void interactions(float scale, ImVec2 display) {
     bool fog_controls = false;
     bool temporal_controls = false;
     bool fast_aa_controls = false;
+    bool morphological_controls = false;
     bool focus_controls = false;
     bool motion_controls = false;
     bool occlusion_controls = false;
@@ -77,6 +79,9 @@ void interactions(float scale, ImVec2 display) {
                     ui::scene_motion_controls(settings.motion_blur, locked, commit);
                 else if (focus_controls)
                     ui::scene_focus_controls(settings.depth_of_field, locked, commit);
+                else if (morphological_controls)
+                    ui::scene_morphological_aa_controls(settings.morphological_anti_aliasing,
+                                                        locked, commit);
                 else if (fast_aa_controls)
                     ui::scene_fast_aa_controls(settings.fast_approximate_anti_aliasing, locked,
                                                commit);
@@ -103,212 +108,281 @@ void interactions(float scale, ImVec2 display) {
     auto type = [&](const char* key, const char* value) { input.type(key, value); };
     for (unsigned i = 0; i < 4; ++i)
         frame();
-    click("bloom:enabled");
-    check(commits == 1 && scene_render_settings(scene.document()).bloom.enabled,
-          "Bloom checkbox did not commit");
-    check(scene.undo() && scene.document() == original && scene.redo(),
-          "Bloom checkbox Undo failed");
-    type("bloom:threshold", "2.5");
-    type("bloom:intensity", "1.5");
-    type("bloom:radius", "3.25");
-    check(commits == 4 &&
-              scene_render_settings(scene.document()).bloom ==
-                  SceneBloom{true, 2.5f, 1.5f, 3.25f} &&
-              scene.document()["rendering"]["bloom"]["extension"] == "retain",
-          "Typed bloom fields did not preserve intent/extensions");
-    const auto good = scene.document();
-    type("bloom:radius", "100");
-    check(!error.empty() && commits == 4 && scene.document() == good,
-          "Invalid typed bloom settings changed Scene");
-    // Rejection unwinds nested disabled/ID stacks; subsequent valid interaction works.
-    type("bloom:radius", "4");
-    check(error.empty() && commits == 5 &&
-              scene_render_settings(scene.document()).bloom.radius == 4,
-          "Bloom UI did not recover after rejected input");
-    check(scene.undo() && scene.document() == good && scene.redo(), "Bloom field Undo failed");
-    locked = true;
-    frame();
-    for (const char* key : {"bloom:enabled", "bloom:threshold", "bloom:intensity", "bloom:radius"})
-        check(!test::ui_targets.at(key).enabled, "Bloom authored control enabled during Play");
-    locked = false;
-    color_controls = true;
-    const auto before_color = scene.document();
-    click("color:enabled");
-    check(scene_render_settings(scene.document()).color_adjustments.enabled,
-          "Color checkbox did not enable authored grading");
-    type("color:saturation", "0");
-    type("color:contrast", "1.5");
-    type("color:filter", "0.5"); // Center lane of the real RGB field is green.
-    const auto adjusted = scene.document();
-    check(scene_render_settings(adjusted).color_adjustments ==
-                  SceneColorAdjustments{true, {1, .5f, 1}, 0, 1.5f} &&
-              adjusted["rendering"]["bloom"] == before_color["rendering"]["bloom"],
-          "Typed color controls lost values or changed bloom");
-    type("color:saturation", "3");
-    check(!error.empty() && scene.document() == adjusted,
-          "Rejected color input changed authored values");
-    type("color:saturation", "0.5");
-    check(error.empty() &&
-              scene_render_settings(scene.document()).color_adjustments.saturation == .5f,
-          "Color UI did not recover after rejected input");
-    const auto before_reset = scene.document();
-    click("color:reset");
-    check(scene_render_settings(scene.document()).color_adjustments == SceneColorAdjustments{} &&
-              scene.undo() && scene.document() == before_reset && scene.redo(),
-          "Reset color adjustments did not use one reversible Scene operation");
-    locked = true;
-    frame();
-    for (const char* key :
-         {"color:enabled", "color:filter", "color:saturation", "color:contrast", "color:reset"})
-        check(!test::ui_targets.at(key).enabled, "Authored color control enabled during Play");
-    locked = false;
-    automatic_controls = true;
-    frame();
-    click("exposure:section");
-    const auto before_auto = scene.document();
-    click("exposure:enabled");
-    const auto enabled_auto = scene.document();
-    check(scene_render_settings(enabled_auto).auto_exposure.enabled && scene.undo() &&
-              scene.document() == before_auto && scene.redo(),
-          "Automatic exposure checkbox bypassed Scene history");
-    for (const auto& [key, text] :
-         std::vector<std::pair<const char*, const char*>>{{"exposure:min_ev", "-4"},
-                                                          {"exposure:max_ev", "4"},
-                                                          {"exposure:low_percentile", "10"},
-                                                          {"exposure:high_percentile", "90"},
-                                                          {"exposure:target_gray", "0.2"},
-                                                          {"exposure:speed_up", "2"},
-                                                          {"exposure:speed_down", "5"}})
-        type(key, text);
-    check(error.empty() &&
-              scene_render_settings(scene.document()).auto_exposure ==
-                  SceneAutoExposure{true, -4, 4, .1f, .9f, .2f, 2, 5} &&
-              scene.document()["rendering"]["auto_exposure"]["extension"] == "retain",
-          "Automatic controls lost percent conversion, known fields or opaque data");
-    const auto before_bad_auto = scene.document();
-    type("exposure:low_percentile", "95");
-    check(!error.empty() && scene.document() == before_bad_auto,
-          "An inverted percentile edit mutated the Scene");
-    type("exposure:low_percentile", "5");
-    check(error.empty() &&
-              scene_render_settings(scene.document()).auto_exposure.low_percentile == .05f,
-          "Automatic input did not recover after rejected percentiles");
-    const auto before_auto_reset = scene.document();
-    click("exposure:reset");
-    check(scene_render_settings(scene.document()).auto_exposure == SceneAutoExposure{} &&
-              scene.undo() && scene.document() == before_auto_reset && scene.redo(),
-          "Reset automatic exposure was not one reversible operation");
-    locked = true;
-    frame();
-    for (const auto* key :
-         {"exposure:enabled", "exposure:min_ev", "exposure:max_ev", "exposure:low_percentile",
-          "exposure:high_percentile", "exposure:target_gray", "exposure:speed_up",
-          "exposure:speed_down", "exposure:reset"})
-        check(!test::ui_targets.at(key).enabled, "Automatic authoring control enabled during Play");
-    locked = false;
-    click("exposure:section");
-    fog_controls = true;
-    frame();
-    click("fog:section");
-    const auto before_fog = scene.document();
-    click("fog:enabled");
-    check(scene_render_settings(scene.document()).distance_fog.enabled && scene.undo() &&
-              scene.document() == before_fog && scene.redo(),
-          "Fog checkbox bypassed Scene history");
-    type("fog:start", "5");
-    type("fog:end", "30");
-    type("fog:color", "0.25"); // Center lane of the real RGB field is green.
-    const auto fogged = scene.document();
-    check(error.empty() && scene_render_settings(fogged).distance_fog ==
-                               SceneDistanceFog{true, {.5f, .25f, .5f}, 5, 30},
-          "Typed fog controls lost distances or color");
-    type("fog:end", "4");
-    check(!error.empty() && scene.document() == fogged,
-          "Rejected fog distance changed authored settings");
-    type("fog:end", "40");
-    check(error.empty() && scene_render_settings(scene.document()).distance_fog.end == 40,
-          "Fog UI failed to recover after a rejected range");
-    const auto before_fog_reset = scene.document();
-    click("fog:reset");
-    check(scene_render_settings(scene.document()).distance_fog == SceneDistanceFog{} &&
-              scene.undo() && scene.document() == before_fog_reset && scene.redo(),
-          "Reset fog was not one reversible operation");
-    locked = true;
-    frame();
-    for (const auto* key : {"fog:enabled", "fog:color", "fog:start", "fog:end", "fog:reset"})
-        check(!test::ui_targets.at(key).enabled, "Fog authored control enabled during Play");
-    locked = false;
-    click("fog:section");
-    fog_controls = false;
-    temporal_controls = true;
-    frame();
-    click("temporal:section");
-    const auto before_temporal = scene.document();
-    click("temporal:enabled");
-    check(scene_render_settings(scene.document()).temporal_anti_aliasing.enabled && scene.undo() &&
-              scene.document() == before_temporal && scene.redo(),
-          "Temporal checkbox bypassed Scene history");
-    type("temporal:stability", "0.9");
-    const auto stable = scene.document();
-    check(error.empty() &&
-              scene_render_settings(stable).temporal_anti_aliasing ==
-                  SceneTemporalAntiAliasing{true, .9f} &&
-              stable["rendering"]["temporal_anti_aliasing"]["extension"] == "retain",
-          "Temporal controls lost stability or opaque extensions");
-    type("temporal:stability", "1");
-    check(!error.empty() && scene.document() == stable, "Invalid temporal input changed Scene");
-    type("temporal:stability", "0.7");
-    check(error.empty() &&
-              scene_render_settings(scene.document()).temporal_anti_aliasing.stability == .7f,
-          "Temporal control failed to recover after rejected input");
-    const auto before_temporal_reset = scene.document();
-    click("temporal:reset");
-    check(scene_render_settings(scene.document()).temporal_anti_aliasing ==
-                  SceneTemporalAntiAliasing{} &&
-              scene.undo() && scene.document() == before_temporal_reset && scene.redo(),
-          "Temporal reset was not one reversible operation");
-    locked = true;
-    frame();
-    for (const auto* key : {"temporal:enabled", "temporal:stability", "temporal:reset"})
-        check(!test::ui_targets.at(key).enabled, "Temporal authored control enabled during Play");
-    locked = false;
-    click("temporal:section");
-    temporal_controls = false;
-    fast_aa_controls = true;
-    frame();
-    click("fast-aa:section");
-    const auto before_fast_aa = scene.document();
-    click("fast-aa:enabled");
-    check(scene_render_settings(scene.document()).fast_approximate_anti_aliasing.enabled &&
-              scene.undo() && scene.document() == before_fast_aa && scene.redo(),
-          "Spatial AA checkbox bypassed Scene history");
-    type("fast-aa:subpixel", "0.75");
-    type("fast-aa:steps", "8");
-    const auto fast_aa = scene.document();
-    check(error.empty() &&
-              scene_render_settings(fast_aa).fast_approximate_anti_aliasing ==
-                  SceneFastApproximateAntiAliasing{true, .75f, 8} &&
-              fast_aa["rendering"]["fast_approximate_anti_aliasing"]["extension"] == "retain",
-          "Spatial AA controls lost values or opaque metadata");
-    type("fast-aa:steps", "17");
-    check(!error.empty() && scene.document() == fast_aa,
-          "Invalid spatial AA input changed Scene values");
-    type("fast-aa:steps", "12");
-    check(error.empty(), "Spatial AA input did not recover after rejection");
-    const auto before_fast_reset = scene.document();
-    click("fast-aa:reset");
-    check(scene_render_settings(scene.document()).fast_approximate_anti_aliasing ==
-                  SceneFastApproximateAntiAliasing{} &&
-              scene.undo() && scene.document() == before_fast_reset && scene.redo(),
-          "Spatial AA reset was not one reversible operation");
-    locked = true;
-    frame();
-    for (const auto* key :
-         {"fast-aa:enabled", "fast-aa:subpixel", "fast-aa:steps", "fast-aa:reset"})
-        check(!test::ui_targets.at(key).enabled, "Spatial AA authored control enabled during Play");
-    locked = false;
-    click("fast-aa:section");
+    if (!morphological_only) {
+        click("bloom:enabled");
+        check(commits == 1 && scene_render_settings(scene.document()).bloom.enabled,
+              "Bloom checkbox did not commit");
+        check(scene.undo() && scene.document() == original && scene.redo(),
+              "Bloom checkbox Undo failed");
+        type("bloom:threshold", "2.5");
+        type("bloom:intensity", "1.5");
+        type("bloom:radius", "3.25");
+        check(commits == 4 &&
+                  scene_render_settings(scene.document()).bloom ==
+                      SceneBloom{true, 2.5f, 1.5f, 3.25f} &&
+                  scene.document()["rendering"]["bloom"]["extension"] == "retain",
+              "Typed bloom fields did not preserve intent/extensions");
+        const auto good = scene.document();
+        type("bloom:radius", "100");
+        check(!error.empty() && commits == 4 && scene.document() == good,
+              "Invalid typed bloom settings changed Scene");
+        // Rejection unwinds nested disabled/ID stacks; subsequent valid interaction works.
+        type("bloom:radius", "4");
+        check(error.empty() && commits == 5 &&
+                  scene_render_settings(scene.document()).bloom.radius == 4,
+              "Bloom UI did not recover after rejected input");
+        check(scene.undo() && scene.document() == good && scene.redo(), "Bloom field Undo failed");
+        locked = true;
+        frame();
+        for (const char* key :
+             {"bloom:enabled", "bloom:threshold", "bloom:intensity", "bloom:radius"})
+            check(!test::ui_targets.at(key).enabled, "Bloom authored control enabled during Play");
+        locked = false;
+        color_controls = true;
+        const auto before_color = scene.document();
+        click("color:enabled");
+        check(scene_render_settings(scene.document()).color_adjustments.enabled,
+              "Color checkbox did not enable authored grading");
+        type("color:saturation", "0");
+        type("color:contrast", "1.5");
+        type("color:filter", "0.5"); // Center lane of the real RGB field is green.
+        const auto adjusted = scene.document();
+        check(scene_render_settings(adjusted).color_adjustments ==
+                      SceneColorAdjustments{true, {1, .5f, 1}, 0, 1.5f} &&
+                  adjusted["rendering"]["bloom"] == before_color["rendering"]["bloom"],
+              "Typed color controls lost values or changed bloom");
+        type("color:saturation", "3");
+        check(!error.empty() && scene.document() == adjusted,
+              "Rejected color input changed authored values");
+        type("color:saturation", "0.5");
+        check(error.empty() &&
+                  scene_render_settings(scene.document()).color_adjustments.saturation == .5f,
+              "Color UI did not recover after rejected input");
+        const auto before_reset = scene.document();
+        click("color:reset");
+        check(scene_render_settings(scene.document()).color_adjustments ==
+                      SceneColorAdjustments{} &&
+                  scene.undo() && scene.document() == before_reset && scene.redo(),
+              "Reset color adjustments did not use one reversible Scene operation");
+        locked = true;
+        frame();
+        for (const char* key :
+             {"color:enabled", "color:filter", "color:saturation", "color:contrast", "color:reset"})
+            check(!test::ui_targets.at(key).enabled, "Authored color control enabled during Play");
+        locked = false;
+        automatic_controls = true;
+        frame();
+        click("exposure:section");
+        const auto before_auto = scene.document();
+        click("exposure:enabled");
+        const auto enabled_auto = scene.document();
+        check(scene_render_settings(enabled_auto).auto_exposure.enabled && scene.undo() &&
+                  scene.document() == before_auto && scene.redo(),
+              "Automatic exposure checkbox bypassed Scene history");
+        for (const auto& [key, text] :
+             std::vector<std::pair<const char*, const char*>>{{"exposure:min_ev", "-4"},
+                                                              {"exposure:max_ev", "4"},
+                                                              {"exposure:low_percentile", "10"},
+                                                              {"exposure:high_percentile", "90"},
+                                                              {"exposure:target_gray", "0.2"},
+                                                              {"exposure:speed_up", "2"},
+                                                              {"exposure:speed_down", "5"}})
+            type(key, text);
+        check(error.empty() &&
+                  scene_render_settings(scene.document()).auto_exposure ==
+                      SceneAutoExposure{true, -4, 4, .1f, .9f, .2f, 2, 5} &&
+                  scene.document()["rendering"]["auto_exposure"]["extension"] == "retain",
+              "Automatic controls lost percent conversion, known fields or opaque data");
+        const auto before_bad_auto = scene.document();
+        type("exposure:low_percentile", "95");
+        check(!error.empty() && scene.document() == before_bad_auto,
+              "An inverted percentile edit mutated the Scene");
+        type("exposure:low_percentile", "5");
+        check(error.empty() &&
+                  scene_render_settings(scene.document()).auto_exposure.low_percentile == .05f,
+              "Automatic input did not recover after rejected percentiles");
+        const auto before_auto_reset = scene.document();
+        click("exposure:reset");
+        check(scene_render_settings(scene.document()).auto_exposure == SceneAutoExposure{} &&
+                  scene.undo() && scene.document() == before_auto_reset && scene.redo(),
+              "Reset automatic exposure was not one reversible operation");
+        locked = true;
+        frame();
+        for (const auto* key :
+             {"exposure:enabled", "exposure:min_ev", "exposure:max_ev", "exposure:low_percentile",
+              "exposure:high_percentile", "exposure:target_gray", "exposure:speed_up",
+              "exposure:speed_down", "exposure:reset"})
+            check(!test::ui_targets.at(key).enabled,
+                  "Automatic authoring control enabled during Play");
+        locked = false;
+        click("exposure:section");
+        fog_controls = true;
+        frame();
+        click("fog:section");
+        const auto before_fog = scene.document();
+        click("fog:enabled");
+        check(scene_render_settings(scene.document()).distance_fog.enabled && scene.undo() &&
+                  scene.document() == before_fog && scene.redo(),
+              "Fog checkbox bypassed Scene history");
+        type("fog:start", "5");
+        type("fog:end", "30");
+        type("fog:color", "0.25"); // Center lane of the real RGB field is green.
+        const auto fogged = scene.document();
+        check(error.empty() && scene_render_settings(fogged).distance_fog ==
+                                   SceneDistanceFog{true, {.5f, .25f, .5f}, 5, 30},
+              "Typed fog controls lost distances or color");
+        type("fog:end", "4");
+        check(!error.empty() && scene.document() == fogged,
+              "Rejected fog distance changed authored settings");
+        type("fog:end", "40");
+        check(error.empty() && scene_render_settings(scene.document()).distance_fog.end == 40,
+              "Fog UI failed to recover after a rejected range");
+        const auto before_fog_reset = scene.document();
+        click("fog:reset");
+        check(scene_render_settings(scene.document()).distance_fog == SceneDistanceFog{} &&
+                  scene.undo() && scene.document() == before_fog_reset && scene.redo(),
+              "Reset fog was not one reversible operation");
+        locked = true;
+        frame();
+        for (const auto* key : {"fog:enabled", "fog:color", "fog:start", "fog:end", "fog:reset"})
+            check(!test::ui_targets.at(key).enabled, "Fog authored control enabled during Play");
+        locked = false;
+        click("fog:section");
+        fog_controls = false;
+        temporal_controls = true;
+        frame();
+        click("temporal:section");
+        const auto before_temporal = scene.document();
+        click("temporal:enabled");
+        check(scene_render_settings(scene.document()).temporal_anti_aliasing.enabled &&
+                  scene.undo() && scene.document() == before_temporal && scene.redo(),
+              "Temporal checkbox bypassed Scene history");
+        type("temporal:stability", "0.9");
+        const auto stable = scene.document();
+        check(error.empty() &&
+                  scene_render_settings(stable).temporal_anti_aliasing ==
+                      SceneTemporalAntiAliasing{true, .9f} &&
+                  stable["rendering"]["temporal_anti_aliasing"]["extension"] == "retain",
+              "Temporal controls lost stability or opaque extensions");
+        type("temporal:stability", "1");
+        check(!error.empty() && scene.document() == stable, "Invalid temporal input changed Scene");
+        type("temporal:stability", "0.7");
+        check(error.empty() &&
+                  scene_render_settings(scene.document()).temporal_anti_aliasing.stability == .7f,
+              "Temporal control failed to recover after rejected input");
+        const auto before_temporal_reset = scene.document();
+        click("temporal:reset");
+        check(scene_render_settings(scene.document()).temporal_anti_aliasing ==
+                      SceneTemporalAntiAliasing{} &&
+                  scene.undo() && scene.document() == before_temporal_reset && scene.redo(),
+              "Temporal reset was not one reversible operation");
+        locked = true;
+        frame();
+        for (const auto* key : {"temporal:enabled", "temporal:stability", "temporal:reset"})
+            check(!test::ui_targets.at(key).enabled,
+                  "Temporal authored control enabled during Play");
+        locked = false;
+        click("temporal:section");
+        temporal_controls = false;
+        fast_aa_controls = true;
+        frame();
+        click("fast-aa:section");
+        const auto before_fast_aa = scene.document();
+        click("fast-aa:enabled");
+        check(scene_render_settings(scene.document()).fast_approximate_anti_aliasing.enabled &&
+                  scene.undo() && scene.document() == before_fast_aa && scene.redo(),
+              "Spatial AA checkbox bypassed Scene history");
+        type("fast-aa:subpixel", "0.75");
+        type("fast-aa:steps", "8");
+        const auto fast_aa = scene.document();
+        check(error.empty() &&
+                  scene_render_settings(fast_aa).fast_approximate_anti_aliasing ==
+                      SceneFastApproximateAntiAliasing{true, .75f, 8} &&
+                  fast_aa["rendering"]["fast_approximate_anti_aliasing"]["extension"] == "retain",
+              "Spatial AA controls lost values or opaque metadata");
+        type("fast-aa:steps", "17");
+        check(!error.empty() && scene.document() == fast_aa,
+              "Invalid spatial AA input changed Scene values");
+        type("fast-aa:steps", "12");
+        check(error.empty(), "Spatial AA input did not recover after rejection");
+        const auto before_fast_reset = scene.document();
+        click("fast-aa:reset");
+        check(scene_render_settings(scene.document()).fast_approximate_anti_aliasing ==
+                      SceneFastApproximateAntiAliasing{} &&
+                  scene.undo() && scene.document() == before_fast_reset && scene.redo(),
+              "Spatial AA reset was not one reversible operation");
+        locked = true;
+        frame();
+        for (const auto* key :
+             {"fast-aa:enabled", "fast-aa:subpixel", "fast-aa:steps", "fast-aa:reset"})
+            check(!test::ui_targets.at(key).enabled,
+                  "Spatial AA authored control enabled during Play");
+        locked = false;
+        click("fast-aa:section");
+    }
     fast_aa_controls = false;
+    morphological_controls = true;
+    authoring_command(scene, "scene.rendering.set",
+                      {{"fast_approximate_anti_aliasing", {{"enabled", true}}}});
+    const auto before_morphological = scene.document();
+    frame();
+    click("morphological-aa:section");
+    click("morphological-aa:enabled");
+    check(scene_render_settings(scene.document()).morphological_anti_aliasing.enabled &&
+              !scene_render_settings(scene.document()).fast_approximate_anti_aliasing.enabled &&
+              scene.undo() && scene.document() == before_morphological && scene.redo(),
+          "Morphological checkbox did not switch the spatial method in one reversible Scene edit");
+    type("morphological-aa:threshold", "0.125");
+    type("morphological-aa:steps", "24");
+    type("morphological-aa:rounding", "0.25");
+    const auto morphological = scene.document();
+    check(error.empty() &&
+              scene_render_settings(morphological).morphological_anti_aliasing ==
+                  SceneMorphologicalAntiAliasing{true, .125f, 24, .25f} &&
+              morphological["rendering"]["morphological_anti_aliasing"]["extension"] == "retain",
+          "Morphological controls lost settings or unrelated metadata");
+    type("morphological-aa:threshold", "0.6");
+    check(!error.empty() && scene.document() == morphological,
+          "Invalid morphological input changed Scene");
+    type("morphological-aa:threshold", "0.2");
+    check(error.empty(), "Morphological input did not recover");
+    type("morphological-aa:threshold", "0.01");
+    check(error.empty() &&
+              scene_render_settings(scene.document()).morphological_anti_aliasing.edge_threshold ==
+                  .01f,
+          "Valid morphological minimum was rejected after float narrowing");
+    const auto minimum = scene.document();
+    type("morphological-aa:threshold", "0.00999999999");
+    check(!error.empty() && scene.document() == minimum,
+          "Morphological input rounded an invalid double into range");
+    type("morphological-aa:threshold", "0.01");
+    check(error.empty(), "Morphological minimum did not recover from a rejected value");
+    type("morphological-aa:threshold", "0.5");
+    check(error.empty() &&
+              scene_render_settings(scene.document()).morphological_anti_aliasing.edge_threshold ==
+                  .5f,
+          "Valid morphological maximum was rejected");
+    const auto before_morphological_reset = scene.document();
+    click("morphological-aa:reset");
+    check(scene_render_settings(scene.document()).morphological_anti_aliasing ==
+                  SceneMorphologicalAntiAliasing{} &&
+              scene.undo() && scene.document() == before_morphological_reset && scene.redo(),
+          "Morphological reset was not one reversible Scene edit");
+    locked = true;
+    frame();
+    for (const auto* key :
+         {"morphological-aa:enabled", "morphological-aa:threshold", "morphological-aa:steps",
+          "morphological-aa:rounding", "morphological-aa:reset"})
+        check(!test::ui_targets.at(key).enabled,
+              "Morphological authored control enabled during Play");
+    locked = false;
+    click("morphological-aa:section");
+    morphological_controls = false;
+    if (morphological_only) {
+        test::observe_ui = false;
+        ImGui::DestroyContext();
+        return;
+    }
     focus_controls = true;
     frame();
     click("focus:section");
@@ -574,20 +648,21 @@ void interactions(float scale, ImVec2 display) {
     ImGui::DestroyContext();
 }
 void capture(const std::filesystem::path& root, std::string_view kind = {}) {
-    const bool fast = kind == "--fast-aa", fog = kind == "--fog", temporal = kind == "--temporal",
-               focus = kind == "--focus", motion = kind == "--motion",
-               occlusion = kind == "--occlusion", reflection = kind == "--reflection",
-               weighted = kind == "--weighted";
+    const bool morphological = kind == "--morphological-aa", fast = kind == "--fast-aa",
+               fog = kind == "--fog", temporal = kind == "--temporal", focus = kind == "--focus",
+               motion = kind == "--motion", occlusion = kind == "--occlusion",
+               reflection = kind == "--reflection", weighted = kind == "--weighted";
     std::filesystem::create_directories(root);
-    const int capture_height = fast         ? 340
-                               : weighted   ? 240
-                               : reflection ? 520
-                               : fog        ? 360
-                               : temporal   ? 420
-                               : focus      ? 440
-                               : motion     ? 400
-                               : occlusion  ? 460
-                                            : 900;
+    const int capture_height = morphological ? 460
+                               : fast        ? 340
+                               : weighted    ? 240
+                               : reflection  ? 520
+                               : fog         ? 360
+                               : temporal    ? 420
+                               : focus       ? 440
+                               : motion      ? 400
+                               : occlusion   ? 460
+                                             : 900;
     const std::unique_ptr<SDL_Surface, decltype(&SDL_DestroySurface)> surface(
         SDL_CreateSurface(900, capture_height, SDL_PIXELFORMAT_RGBA32), SDL_DestroySurface);
     check(bool(surface), SDL_GetError());
@@ -616,10 +691,11 @@ void capture(const std::filesystem::path& root, std::string_view kind = {}) {
     Scene scene(engine.world());
     authoring_command(
         scene, "scene.rendering.set",
-        fast         ? Json{{"fast_approximate_anti_aliasing", {{"enabled", true}}}}
-        : weighted   ? Json{{"weighted_transparency", true}}
-        : reflection ? Json{{"screen_space_reflections", {{"enabled", true}}}}
-        : occlusion  ? Json{{"ambient_occlusion", {{"enabled", true}, {"normal_influence", .7}}}}
+        morphological ? Json{{"morphological_anti_aliasing", {{"enabled", true}}}}
+        : fast        ? Json{{"fast_approximate_anti_aliasing", {{"enabled", true}}}}
+        : weighted    ? Json{{"weighted_transparency", true}}
+        : reflection  ? Json{{"screen_space_reflections", {{"enabled", true}}}}
+        : occlusion   ? Json{{"ambient_occlusion", {{"enabled", true}, {"normal_influence", .7}}}}
         : motion   ? Json{{"motion_blur", {{"enabled", true}, {"shutter", .5}, {"max_pixels", 32}}}}
         : focus    ? Json{{"depth_of_field",
                            {{"enabled", true},
@@ -641,7 +717,10 @@ void capture(const std::filesystem::path& root, std::string_view kind = {}) {
         const auto commit = [&](const Json& patch) {
             authoring_command(scene, "scene.rendering.set", patch);
         };
-        if (fast)
+        if (morphological)
+            ui::scene_morphological_aa_controls(
+                scene_render_settings(scene.document()).morphological_anti_aliasing, false, commit);
+        else if (fast)
             ui::scene_fast_aa_controls(
                 scene_render_settings(scene.document()).fast_approximate_anti_aliasing, false,
                 commit);
@@ -676,8 +755,9 @@ void capture(const std::filesystem::path& root, std::string_view kind = {}) {
         ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData(), renderer.get());
         SDL_RenderPresent(renderer.get());
     }
-    check(SDL_SavePNG(surface.get(), (root / (fast         ? "fast-approximate-aa-controls.png"
-                                              : weighted   ? "weighted-transparency-controls.png"
+    check(SDL_SavePNG(surface.get(), (root / (morphological ? "morphological-aa-controls.png"
+                                              : fast        ? "fast-approximate-aa-controls.png"
+                                              : weighted    ? "weighted-transparency-controls.png"
                                               : reflection ? "screen-space-reflections-controls.png"
                                               : occlusion  ? "ambient-occlusion-controls.png"
                                               : motion     ? "motion-blur-controls.png"
@@ -692,22 +772,27 @@ void capture(const std::filesystem::path& root, std::string_view kind = {}) {
 } // namespace
 int main(int argc, char** argv) {
     try {
-        if (argc == 2 ||
-            (argc == 3 &&
-             (std::string_view(argv[2]) == "--fog" || std::string_view(argv[2]) == "--temporal" ||
-              std::string_view(argv[2]) == "--focus" || std::string_view(argv[2]) == "--motion" ||
-              std::string_view(argv[2]) == "--occlusion" ||
-              std::string_view(argv[2]) == "--reflection" ||
-              std::string_view(argv[2]) == "--weighted" ||
-              std::string_view(argv[2]) == "--fast-aa"))) {
+        const bool morphological_only =
+            argc == 2 && std::string_view(argv[1]) == "--morphological-only";
+        if (!morphological_only &&
+            (argc == 2 ||
+             (argc == 3 &&
+              (std::string_view(argv[2]) == "--fog" || std::string_view(argv[2]) == "--temporal" ||
+               std::string_view(argv[2]) == "--focus" || std::string_view(argv[2]) == "--motion" ||
+               std::string_view(argv[2]) == "--occlusion" ||
+               std::string_view(argv[2]) == "--reflection" ||
+               std::string_view(argv[2]) == "--weighted" ||
+               std::string_view(argv[2]) == "--fast-aa" ||
+               std::string_view(argv[2]) == "--morphological-aa")))) {
             capture(std::filesystem::absolute(argv[1]),
                     argc == 3 ? std::string_view(argv[2]) : std::string_view{});
             return 0;
         }
-        check(argc == 1, "Expected optional native lighting capture directory");
+        check(argc == 1 || morphological_only,
+              "Expected optional native lighting capture directory");
         for (float scale : {1.f, 1.5f, 2.f})
             for (const auto display : {ImVec2{2400, 1700}, ImVec2{960, 640}})
-                interactions(scale, display);
+                interactions(scale, display, morphological_only);
         std::cout << "Bloom/color/automatic exposure actual input, rejection/recovery, read-only "
                      "and Scene Undo PASS\n";
         return 0;

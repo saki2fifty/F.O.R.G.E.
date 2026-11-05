@@ -492,7 +492,8 @@ ITextureView* FrameRenderer::render(IDeviceContext* context, const RenderScene& 
         result =
             display_.resolve(context, result, exposure, scene.settings.color_adjustments,
                              automatic ? *automatic : SceneAutoExposure{}, exposure_timing.delta,
-                             reset_exposure, scene.settings.fast_approximate_anti_aliasing);
+                             reset_exposure, scene.settings.fast_approximate_anti_aliasing,
+                             scene.settings.morphological_anti_aliasing);
     }
     if (adaptive) {
         exposure_views_.resize(cameras.size());

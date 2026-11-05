@@ -48,3 +48,15 @@ the workflow and viewport/resource limits. Native box-shadow keyframes and
 transitions remain unavailable. No dependency, installed SDK ABI, scene-schema
 or asset-identity change is introduced. Windows/full-editor/physical review is
 pending.
+
+## Morphological anti-aliasing
+
+Scene and Game display support an independently authored bounded 1x morphological
+filter through existing DisplayResolve and Scene owners. Contrast-adapted edges,
+analytic contour areas, sharp/fine-detail protection and connected diagonals use
+no supplied shader/code/lookup assets. Scene lighting, shared authoring/MCP schema,
+atomic method switching, history/save and Gallery168 use existing integrations.
+UI follows filtering; linear HDR and temporal history retain their paths. Default
+disabled output remains unchanged. Resource/current-image limits and authentic
+controls/gallery captures are documented. Windows/full-editor/physical review is
+pending; reference shader parity and multisample/temporal variants are not claimed.

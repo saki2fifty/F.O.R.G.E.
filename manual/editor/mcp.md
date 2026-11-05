@@ -354,6 +354,13 @@ unavailable; an invalid reload keeps the usable UI. Save the authored Scene and
 source before exporting with the supplied kit. See [Runtime UI](runtime-ui.md)
 for viewport and cached-texture limits.
 
+For morphological anti-aliasing, use **forge_scene_rendering_set** with
+`morphological_anti_aliasing`. Stop Play before changing authored settings. To
+switch methods, set its **enabled** to true and
+`fast_approximate_anti_aliasing.enabled` to false in the same operation. Threshold
+accepts 0.01..0.5, search steps 1..32 and corner rounding 0..1. The scene command uses
+normal revisions, Undo and Save. See [Lighting](lighting.md) for defaults and limits.
+
 ## Keep control
 
 - **Stop connection** immediately revokes access. Committed scene edits remain, and saved files stay on disk.

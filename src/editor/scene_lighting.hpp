@@ -211,8 +211,12 @@ inline void scene_fast_aa_controls(const SceneFastApproximateAntiAliasing& setti
         return;
     DisabledScope disabled(locked);
     bool enabled = settings.enabled;
-    if (ImGui::Checkbox("Enable fast approximate anti-aliasing", &enabled))
-        commit({{"fast_approximate_anti_aliasing", {{"enabled", enabled}}}});
+    if (ImGui::Checkbox("Enable fast approximate anti-aliasing", &enabled)) {
+        Json patch = {{"fast_approximate_anti_aliasing", {{"enabled", enabled}}}};
+        if (enabled)
+            patch["morphological_anti_aliasing"] = {{"enabled", false}};
+        commit(patch);
+    }
     FORGE_UI_PROBE("fast-aa:enabled");
     float strength = settings.subpixel_strength;
     property_label_row("Subpixel smoothing", "From 0 to 1. Edge smoothing remains active at 0.");
@@ -235,6 +239,60 @@ inline void scene_fast_aa_controls(const SceneFastApproximateAntiAliasing& setti
                        "Higher smoothing can soften fine details. Scene Save and Undo include "
                        "these settings.");
 }
+inline void scene_morphological_aa_controls(const SceneMorphologicalAntiAliasing& settings,
+                                            bool locked,
+                                            const std::function<void(const Json&)>& commit) {
+    IdScope scope("morphological_anti_aliasing");
+    const bool open = ImGui::CollapsingHeader("Morphological anti-aliasing");
+    FORGE_UI_PROBE("morphological-aa:section");
+    if (!open)
+        return;
+    DisabledScope disabled(locked);
+    bool enabled = settings.enabled;
+    if (ImGui::Checkbox("Enable morphological anti-aliasing", &enabled)) {
+        Json patch = {{"morphological_anti_aliasing", {{"enabled", enabled}}}};
+        if (enabled)
+            patch["fast_approximate_anti_aliasing"] = {{"enabled", false}};
+        commit(patch);
+    }
+    FORGE_UI_PROBE("morphological-aa:enabled");
+    double threshold = std::max(double(settings.edge_threshold), .01);
+    property_label_row(
+        "Edge threshold",
+        "Display-color difference from 0.01 to 0.5. Lower values detect more edges.");
+    if (ImGui::InputDouble("##threshold", &threshold, 0, 0, "%.3f",
+                           ImGuiInputTextFlags_EnterReturnsTrue))
+        commit({{"morphological_anti_aliasing", {{"edge_threshold", threshold}}}});
+    FORGE_UI_PROBE("morphological-aa:threshold");
+    int steps = int(settings.search_steps);
+    property_label_row(
+        "Contour search steps",
+        "From 1 to 32 pixels per direction. Longer searches can resolve longer contours.");
+    if (ImGui::InputInt("##steps", &steps, 0, 0, ImGuiInputTextFlags_EnterReturnsTrue))
+        commit({{"morphological_anti_aliasing", {{"search_steps", steps}}}});
+    FORGE_UI_PROBE("morphological-aa:steps");
+    float rounding = settings.corner_rounding;
+    property_label_row(
+        "Corner rounding",
+        "From 0 to 1. Zero preserves detected sharp corners; larger values allow smoothing.");
+    if (ImGui::InputFloat("##rounding", &rounding, 0, 0, "%.3f",
+                          ImGuiInputTextFlags_EnterReturnsTrue))
+        commit({{"morphological_anti_aliasing", {{"corner_rounding", rounding}}}});
+    FORGE_UI_PROBE("morphological-aa:rounding");
+    if (button("Reset morphological anti-aliasing",
+               "Disable and restore threshold 0.1, 16 search steps and zero corner rounding."))
+        commit({{"morphological_anti_aliasing",
+                 {{"enabled", false},
+                  {"edge_threshold", .1},
+                  {"search_steps", 16},
+                  {"corner_rounding", 0}}}});
+    FORGE_UI_PROBE("morphological-aa:reset");
+    ImGui::TextWrapped(
+        "Reconstructs edges in the current display image before UI and guides. Enabling selects "
+        "this spatial method; temporal anti-aliasing remains independent. Up to 8,388,608 pixels; "
+        "optional cached images use up to 128 MiB of logical pixel storage.");
+}
+
 inline void scene_temporal_controls(const SceneTemporalAntiAliasing& settings, bool locked,
                                     const std::function<void(const Json&)>& commit) {
     IdScope scope("temporal_anti_aliasing");
@@ -508,6 +566,7 @@ inline void scene_lighting(bool& open, Scene& scene, const AssetCatalog* catalog
             scene_focus_controls(settings.depth_of_field, locked, commit);
             scene_temporal_controls(settings.temporal_anti_aliasing, locked, commit);
             scene_fast_aa_controls(settings.fast_approximate_anti_aliasing, locked, commit);
+            scene_morphological_aa_controls(settings.morphological_anti_aliasing, locked, commit);
             scene_distance_fog_controls(settings.distance_fog, locked, commit);
             scene_bloom_controls(settings.bloom, locked, commit);
             scene_color_controls(settings.color_adjustments, locked, commit);

@@ -44,6 +44,15 @@ void validate_scene_fast_approximate_anti_aliasing(const SceneFastApproximateAnt
         throw std::runtime_error("Fast approximate anti-aliasing requires finite subpixel "
                                  "strength from 0 to 1 and 1 to 16 edge search steps");
 }
+void validate_scene_morphological_anti_aliasing(const SceneMorphologicalAntiAliasing& value) {
+    if (!std::isfinite(value.edge_threshold) || value.edge_threshold < .01f ||
+        value.edge_threshold > .5f || value.search_steps < 1 || value.search_steps > 32 ||
+        !std::isfinite(value.corner_rounding) || value.corner_rounding < 0 ||
+        value.corner_rounding > 1)
+        throw std::runtime_error(
+            "Morphological anti-aliasing requires finite edge threshold from 0.01 to 0.5, 1 to 32 "
+            "search steps and corner rounding from 0 to 1");
+}
 void validate_scene_distance_fog(const SceneDistanceFog& value) {
     for (const auto channel : value.color)
         if (!std::isfinite(channel) || channel < 0 || channel > 65504)
@@ -224,6 +233,33 @@ SceneRenderSettings scene_render_settings(const nlohmann::json& scene) {
         value.search_steps = unsigned(steps);
         validate_scene_fast_approximate_anti_aliasing(value);
     }
+    if (settings.contains("morphological_anti_aliasing")) {
+        const auto& section = settings.at("morphological_anti_aliasing");
+        if (!section.is_object())
+            throw std::runtime_error("Scene morphological anti-aliasing must be an object");
+        auto& value = result.morphological_anti_aliasing;
+        if (section.contains("enabled")) {
+            if (!section.at("enabled").is_boolean())
+                throw std::runtime_error("Morphological anti-aliasing enabled must be boolean");
+            value.enabled = section.at("enabled").get<bool>();
+        }
+        const auto threshold = number(section, "edge_threshold", value.edge_threshold);
+        const auto rounding = number(section, "corner_rounding", value.corner_rounding);
+        if (section.contains("search_steps") && !section.at("search_steps").is_number_integer())
+            throw std::runtime_error("Morphological anti-aliasing search steps must be integer");
+        const auto steps = number(section, "search_steps", value.search_steps);
+        if (threshold < .01 || threshold > .5 || rounding < 0 || rounding > 1 || steps < 1 ||
+            steps > 32 || std::floor(steps) != steps)
+            throw std::runtime_error("Morphological anti-aliasing threshold, steps or corner "
+                                     "rounding are outside their supported range");
+        value.edge_threshold = float(threshold);
+        value.corner_rounding = float(rounding);
+        value.search_steps = unsigned(steps);
+        validate_scene_morphological_anti_aliasing(value);
+    }
+    if (result.fast_approximate_anti_aliasing.enabled && result.morphological_anti_aliasing.enabled)
+        throw std::runtime_error("Choose one spatial anti-aliasing method; disable the other "
+                                 "method in the same Scene edit");
     if (settings.contains("temporal_anti_aliasing")) {
         const auto& temporal = settings.at("temporal_anti_aliasing");
         if (!temporal.is_object())

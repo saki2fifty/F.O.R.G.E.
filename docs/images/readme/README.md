@@ -2088,3 +2088,17 @@ Local source/executable hashes and receipts live in
 This is isolated Game rendering, not full-editor, Windows/MSVC, physical
 GPU/input/DPI or performance acceptance. Native rounded-boundary numeric tests
 exclude a1.25-pixel edge band to avoid assuming a particular tessellation convention.
+
+## Morphological anti-aliasing
+
+`manual/images/morphological-aa-controls.png` is the unretouched native Scene
+lighting control capture from the actual shared controls on the isolated SDL3
+software fixture. It is not a capture of the full editor. The canonical
+`manual/images/morphological-aa-gallery.png` is actual 640x360 Game rendering on
+software Vulkan; a 360x640 letterboxed portrait is separately reviewed. Lossless
+PPM-to-PNG preserves decoded RGB. Four animated source/relocated pairs match with
+sources hidden. Hashes, binaries and receipts live in
+`AgentFiles/build/phase262-morphological-antialiasing/capture-provenance.json`.
+Offline manual pages are checked separately at wide/narrow widths. These captures
+do not establish Windows/MSVC/FXC/D3D12, physical GPU/input/DPI, graphical EXE,
+full-editor or hardware performance acceptance.

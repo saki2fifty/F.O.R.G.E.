@@ -253,7 +253,8 @@ Json execute(detail::SceneDraft& scene, const std::string& op, const Json& a) {
             if (key == "environment" || key == "shadows" || key == "bloom" ||
                 key == "color_adjustments" || key == "auto_exposure" || key == "distance_fog" ||
                 key == "temporal_anti_aliasing" || key == "fast_approximate_anti_aliasing" ||
-                key == "depth_of_field" || key == "motion_blur" || key == "ambient_occlusion" ||
+                key == "morphological_anti_aliasing" || key == "depth_of_field" ||
+                key == "motion_blur" || key == "ambient_occlusion" ||
                 key == "screen_space_reflections") {
                 auto& env = rendering[key];
                 if (env.is_null())
@@ -634,6 +635,11 @@ Json authoring_commands() {
           object({{"enabled", {{"type", "boolean"}}},
                   {"subpixel_strength", number(0, 1)},
                   {"search_steps", {{"type", "integer"}, {"minimum", 1}, {"maximum", 16}}}})},
+         {"morphological_anti_aliasing",
+          object({{"enabled", {{"type", "boolean"}}},
+                  {"edge_threshold", number(.01, .5)},
+                  {"search_steps", {{"type", "integer"}, {"minimum", 1}, {"maximum", 32}}},
+                  {"corner_rounding", number(0, 1)}})},
          {"distance_fog",
           object(
               {{"enabled", {{"type", "boolean"}}},

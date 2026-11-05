@@ -565,7 +565,9 @@ ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsig
                 mesh_scene_ ? mesh_scene_->settings.color_adjustments : SceneColorAdjustments{}, {},
                 0, false,
                 mesh_scene_ ? mesh_scene_->settings.fast_approximate_anti_aliasing
-                            : SceneFastApproximateAntiAliasing{});
+                            : SceneFastApproximateAntiAliasing{},
+                mesh_scene_ ? mesh_scene_->settings.morphological_anti_aliasing
+                            : SceneMorphologicalAntiAliasing{});
         }
         auto* display_target = display_->target();
         context->SetRenderTargets(1, &display_target, dsv,

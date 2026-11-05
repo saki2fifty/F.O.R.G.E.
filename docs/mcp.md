@@ -1662,3 +1662,13 @@ stay0..32. Native box-shadow keyframes/transitions reject during candidate
 preparation and preserve the last usable UI. Existing source permissions,
 revision/digest/replay, Edit-only write and Play identity rules apply. No agent
 shadow graph or parallel authoring API is introduced.
+
+`forge_scene_rendering_set` includes `morphological_anti_aliasing`:
+`enabled` Boolean, `edge_threshold` finite 0.01..0.5, `search_steps` integer 1..32,
+`corner_rounding` finite 0..1. Defaults false/0.1/16/0. Source values are checked
+before float narrowing. Enable only one spatial method; switch explicitly by
+patching the other method's `enabled:false` in the same operation. Conflicting
+methods, bad bounds/types or stale revisions preserve Scene/revision. Existing
+permissions, receipt replay, partial-patch extension retention, Undo/Redo, Save,
+Play locks and export owners apply; no additional MCP tool is introduced.
+See [the rendering contract](morphological-antialiasing.md).
