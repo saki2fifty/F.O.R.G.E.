@@ -7,6 +7,7 @@ texture_import_registry(const std::filesystem::path& worker) {
     auto registry = std::make_shared<AssetImporterRegistry>();
     registry->add(asset_detail::texture_importer(worker, false));
     registry->add(asset_detail::texture_importer(worker, true));
+    registry->add(asset_detail::paint_texture_importer(worker));
     registry->add(asset_detail::sprite_atlas_importer(worker));
     registry->seal();
     return registry;
@@ -25,11 +26,19 @@ void prepare_texture_publication(AssetPublicationCandidate& c, const AssetImport
     }
     if (plan.input.output_format != "forge.texture-bundle" || !c.sidecar.identity.entries.empty())
         throw std::runtime_error("Texture publication cannot replace another asset family");
+    if (plan.input.importer == asset_detail::paint_texture_importer_id &&
+        plan.data.at("asset_id") != c.ticket.owner.str())
+        throw std::runtime_error("Paint texture publication identity mismatch");
     auto& identity = c.sidecar.identity;
     identity.owner = c.ticket.owner;
     identity.source = c.ticket.source;
     identity.source_digest = c.input.source_digest;
     identity.evidence_schema = "forge.texture.single.v1";
-    c.records = {{c.ticket.owner, "texture", c.ticket.source, 1, {}}};
+    AssetRecord record;
+    record.id = c.ticket.owner;
+    record.type = "texture";
+    record.source = c.ticket.source;
+    record.schema_version = 1;
+    c.records = {std::move(record)};
 }
 } // namespace forge

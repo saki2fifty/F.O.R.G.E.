@@ -44,6 +44,13 @@ int main(int argc, char** argv) {
                 std::filesystem::remove_all(root, ec);
             }
         } cleanup{scratch};
+        const auto painting = scratch / "paint-sources";
+        write(painting / "Assets/Canvas.PAINT-TEXTURE.JSON", "not yet parsed");
+        const auto paint_sources = scan_asset_sources(painting);
+        require(paint_sources.complete && paint_sources.files.size() == 1 &&
+                    paint_sources.files.at("Assets/Canvas.PAINT-TEXTURE.JSON").source_kind ==
+                        "paint_texture",
+                "Paint source discovery must recognize the full suffix independently of admission");
         const auto project = scratch / "project";
         std::filesystem::create_directories(project);
         require(scan_asset_sources(project).files.empty(), "Missing Assets is not empty");

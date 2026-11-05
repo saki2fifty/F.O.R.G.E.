@@ -58,6 +58,43 @@ int main() {
                     color.alpha == TextureAlpha::Opaque && channel(color, 1, 0) >= 185 &&
                     channel(color, 1, 0) <= 190,
                 "sRGB mip filtering is not linear-light");
+        TextureData raw;
+        raw.width = raw.height = 2;
+        raw.format = TextureFormat::RGBA8Srgb;
+        raw.subresources.emplace_back(
+            reinterpret_cast<const std::byte*>(pixels.data()),
+            reinterpret_cast<const std::byte*>(pixels.data() + pixels.size()));
+        // The raw and encoded entry points share processing, but admission differs.
+        // Check the independent expected native mip values above as well as parity.
+        for (unsigned mode = 0; mode < 16; ++mode) {
+            auto variant = settings;
+            variant.srgb = (mode & 1) != 0;
+            variant.generate_mips = (mode & 2) != 0;
+            variant.flip_vertical = (mode & 4) != 0;
+            variant.compression =
+                (mode & 8) ? TextureCompression::NativeBc : TextureCompression::None;
+            const auto decoded = import_texture_image(png, "fixture.png", variant);
+            const auto prepared = prepare_texture_pixels(raw, variant);
+            require(encode_texture(decoded) == encode_texture(prepared),
+                    "Raw/encoded image processing disagrees");
+        }
+        auto invalid_raw = raw;
+        invalid_raw.alpha = TextureAlpha::Opaque;
+        invalid_raw.sprite_frames.push_back({1, {}});
+        validate_texture(invalid_raw);
+        rejects([&] { prepare_texture_pixels(invalid_raw, settings); });
+        invalid_raw = raw;
+        invalid_raw.layers = 2;
+        rejects([&] { prepare_texture_pixels(invalid_raw, settings); });
+        invalid_raw = raw;
+        invalid_raw.subresources[0].pop_back();
+        rejects([&] { prepare_texture_pixels(invalid_raw, settings); });
+        TextureLimits raw_budget;
+        raw_budget.bytes = 16;
+        rejects([&] { prepare_texture_pixels(raw, settings, raw_budget); });
+        std::stop_source raw_stop;
+        raw_stop.request_stop();
+        rejects([&] { prepare_texture_pixels(raw, settings, {}, raw_stop.get_token()); });
         settings.srgb = false;
         auto linear = import_texture_image(png, "fixture.png", settings);
         require(channel(linear, 1, 0) >= 127 && channel(linear, 1, 0) <= 128,

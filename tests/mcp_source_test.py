@@ -12,6 +12,7 @@ from mcp_test_client import CAPTURE, Client, failed, write_capture, finish_host
 from mcp_prefab_workflow import check_prefab_workflow
 from mcp_terrain_foliage_workflow import check_terrain_foliage_workflow
 from mcp_render_texture_workflow import check_render_texture_workflow
+from mcp_paint_texture_workflow import check_paint_texture_workflow
 from mcp_lightmap_graph_workflow import check_lightmap_graph_workflow
 
 TOOLS, HOST, WORKER = map(str, map(Path, sys.argv[1:4]))
@@ -28,6 +29,7 @@ LIGHTMAP_GRAPH_ONLY = "--lightmap-graph-only" in sys.argv[5:]
 NAVIGATION_BEHAVIOR_ONLY = "--navigation-behavior-only" in sys.argv[5:]
 UI_LOCALIZATION_ONLY = "--ui-localization-only" in sys.argv[5:]
 UI_VALUES_ONLY = "--ui-values-only" in sys.argv[5:]
+PAINT_TEXTURE_ONLY = "--paint-texture-only" in sys.argv[5:]
 RENDER_TEXTURE_ONLY = "--render-texture-only" in sys.argv[5:]
 APPLICATION_STATES_ONLY = "--application-states-only" in sys.argv[5:]
 
@@ -62,7 +64,7 @@ for legacy in (False, True):
         assert 'forge_asset_document_types' in names
         assert 'forge_prefab_source_read' in names
         assert not {'forge_prefab_variant_create', 'forge_prefab_duplicate', 'forge_prefab_source_rebase', 'forge_prefab_source_revert'} & names
-        assert not any('forge_asset_document_' + name in names for name in ('create', 'patch', 'save', 'paint', 'close', 'tile_collision', 'tile_animation', 'tile_autotile'))
+        assert not any('forge_asset_document_' + name in names for name in ('create', 'patch', 'save', 'paint', 'stroke', 'fill', 'copy_pixels', 'cancel_pixels', 'close', 'tile_collision', 'tile_animation', 'tile_autotile'))
 
     with editor() as (root, process, config), Client(config, legacy) as client:
         declared_tools = client.request('tools/list')['result']['tools']
@@ -108,7 +110,10 @@ for legacy in (False, True):
                         document_session=state['session'])['value']
 
         kinds = read('forge_asset_document_types')['editors']
-        assert len(kinds) == 17 and all(not item['status']['open'] for item in kinds), kinds
+        assert len(kinds) == 18 and all(not item['status']['open'] for item in kinds), kinds
+        if PAINT_TEXTURE_ONLY:
+            check_paint_texture_workflow(read, mutate, edit, status, content, failed, root, client, discovery)
+            continue
         if LIGHTMAP_GRAPH_ONLY:
             check_lightmap_graph_workflow(read, mutate, edit, status, content, failed, root)
             continue

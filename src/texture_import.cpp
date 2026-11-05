@@ -144,15 +144,7 @@ TextureAlpha alpha_of(const TextureData& t, bool premultiply) {
     }
     return TextureAlpha::Opaque;
 }
-} // namespace
-TextureData import_texture_image(std::span<const std::byte> bytes, std::string_view name_hint,
-                                 const TextureImportSettings& settings, TextureLimits limits,
-                                 std::stop_token stop) {
-    cancelled(stop);
-    require(!bytes.empty() && bytes.size() <= limits.bytes && bytes.size() <= INT32_MAX,
-            "Image source exceeds bounds");
-    require(name_hint.size() <= 1024 && name_hint.find('\0') == std::string_view::npos,
-            "Invalid image name hint");
+void validate_image_settings(const TextureImportSettings& settings, TextureLimits limits) {
     require(settings.max_size && settings.max_size <= limits.dimension &&
                 unsigned(settings.compression) <= 2,
             "Invalid image import settings");
@@ -164,43 +156,15 @@ TextureData import_texture_image(std::span<const std::byte> bytes, std::string_v
                 settings.semantic == TextureSemantic::HdrColor,
             "Premultiplication requires color semantic");
     validate_sampler(settings.sampler);
-    const std::string hint(name_hint);
-    const bool webp = bytes.size() >= 12 && std::memcmp(bytes.data(), "RIFF", 4) == 0 &&
-                      std::memcmp(bytes.data() + 8, "WEBP", 4) == 0;
-    const bool bmp = bytes.size() >= 2 && bytes[0] == std::byte{'B'} && bytes[1] == std::byte{'M'};
-    const auto format =
-        (bmp || webp)
-            ? Diligent::IMAGE_FILE_FORMAT_UNKNOWN
-            : Diligent::Image::GetFileFormat(reinterpret_cast<const Diligent::Uint8*>(bytes.data()),
-                                             bytes.size(), hint.c_str());
-    require(bmp || webp || format == Diligent::IMAGE_FILE_FORMAT_PNG ||
-                format == Diligent::IMAGE_FILE_FORMAT_JPEG ||
-                format == Diligent::IMAGE_FILE_FORMAT_TGA ||
-                format == Diligent::IMAGE_FILE_FORMAT_HDR,
-            "Source format needs a supported image decoder or the container importer");
-    if (format == Diligent::IMAGE_FILE_FORMAT_TGA)
-        validate_tga_extent(bytes, limits.dimension);
-    if (bmp)
-        validate_bmp_extent(bytes, limits.dimension);
-    if (format == Diligent::IMAGE_FILE_FORMAT_HDR)
-        validate_hdr_extent(bytes, limits.dimension);
+}
+struct ImagePreparation {
     Diligent::ImageDesc desc;
-    const auto bounded_decoder = webp                                         ? forge_webp_decode
-                                 : bmp                                        ? forge_bmp_decode
-                                 : format == Diligent::IMAGE_FILE_FORMAT_PNG  ? forge_png_decode
-                                 : format == Diligent::IMAGE_FILE_FORMAT_JPEG ? forge_jpeg_decode
-                                                                              : nullptr;
-    if (bounded_decoder) {
-        ForgeImagePixels header{};
-        require(
-            bounded_decoder(bytes.data(), bytes.size(), limits.dimension, limits.bytes, 1, &header),
-            header.error);
-        desc.Width = header.width;
-        desc.Height = header.height;
-        desc.NumComponents = header.channels;
-        desc.ComponentType = header.component_bytes == 2 ? Diligent::VT_UINT16 : Diligent::VT_UINT8;
-    } else
-        desc = Diligent::Image::GetDesc(format, bytes.data(), bytes.size());
+    Diligent::TextureLoadInfo load;
+    unsigned component_bytes;
+    bool hdr, color;
+};
+ImagePreparation plan_image(const Diligent::ImageDesc& desc, const TextureImportSettings& settings,
+                            TextureLimits limits) {
     require(desc.Width && desc.Height && desc.NumComponents && desc.NumComponents <= 4 &&
                 desc.Width <= limits.dimension && desc.Height <= limits.dimension,
             "Decoded image dimensions exceed bounds");
@@ -242,28 +206,15 @@ TextureData import_texture_image(std::span<const std::byte> bytes, std::string_v
         width = std::max(1u, width / 2);
         height = std::max(1u, height / 2);
     }
-    Diligent::RefCntAutoPtr<Diligent::Image> image;
-    Diligent::ImageLoadInfo image_info;
-    image_info.Format = format;
-    image_info.PermultiplyAlpha = false;
-    image_info.IsSRGB = settings.srgb;
-    if (bounded_decoder) {
-        ForgeImagePixels decoded{};
-        require(bounded_decoder(bytes.data(), bytes.size(), limits.dimension, limits.bytes, 0,
-                                &decoded),
-                decoded.error);
-        struct Cleanup {
-            ForgeImagePixels* value;
-            ~Cleanup() { forge_image_pixels_free(value); }
-        } cleanup{&decoded};
-        require(decoded.width == desc.Width && decoded.height == desc.Height &&
-                    decoded.channels == desc.NumComponents,
-                "Image decode/header mismatch");
-        desc.RowStride = static_cast<Diligent::Uint32>(decoded.stride);
-        auto data = Diligent::DataBlobImpl::Create(decoded.size, decoded.pixels);
-        Diligent::Image::CreateFromPixels(desc, std::move(data), &image);
-    } else
-        Diligent::Image::CreateFromMemory(bytes.data(), bytes.size(), image_info, &image);
+    return {desc, load, component_bytes, hdr, color};
+}
+TextureData finish_image(Diligent::RefCntAutoPtr<Diligent::Image> image,
+                         const ImagePreparation& plan, const TextureImportSettings& settings,
+                         TextureLimits limits, std::stop_token stop) {
+    const auto& desc = plan.desc;
+    const auto& load = plan.load;
+    const auto component_bytes = plan.component_bytes;
+    const auto hdr = plan.hdr, color = plan.color;
     require(bool(image), "Native image decode failed");
     if (color && image->GetDesc().NumComponents < 3) {
         const auto source = image->GetDesc();
@@ -382,4 +333,104 @@ TextureData import_texture_image(std::span<const std::byte> bytes, std::string_v
     cancelled(stop);
     return result;
 }
+} // namespace
+TextureData import_texture_image(std::span<const std::byte> bytes, std::string_view name_hint,
+                                 const TextureImportSettings& settings, TextureLimits limits,
+                                 std::stop_token stop) {
+    cancelled(stop);
+    require(!bytes.empty() && bytes.size() <= limits.bytes && bytes.size() <= INT32_MAX,
+            "Image source exceeds bounds");
+    require(name_hint.size() <= 1024 && name_hint.find('\0') == std::string_view::npos,
+            "Invalid image name hint");
+    validate_image_settings(settings, limits);
+    const std::string hint(name_hint);
+    const bool webp = bytes.size() >= 12 && std::memcmp(bytes.data(), "RIFF", 4) == 0 &&
+                      std::memcmp(bytes.data() + 8, "WEBP", 4) == 0;
+    const bool bmp = bytes.size() >= 2 && bytes[0] == std::byte{'B'} && bytes[1] == std::byte{'M'};
+    const auto format =
+        (bmp || webp)
+            ? Diligent::IMAGE_FILE_FORMAT_UNKNOWN
+            : Diligent::Image::GetFileFormat(reinterpret_cast<const Diligent::Uint8*>(bytes.data()),
+                                             bytes.size(), hint.c_str());
+    require(bmp || webp || format == Diligent::IMAGE_FILE_FORMAT_PNG ||
+                format == Diligent::IMAGE_FILE_FORMAT_JPEG ||
+                format == Diligent::IMAGE_FILE_FORMAT_TGA ||
+                format == Diligent::IMAGE_FILE_FORMAT_HDR,
+            "Source format needs a supported image decoder or the container importer");
+    if (format == Diligent::IMAGE_FILE_FORMAT_TGA)
+        validate_tga_extent(bytes, limits.dimension);
+    if (bmp)
+        validate_bmp_extent(bytes, limits.dimension);
+    if (format == Diligent::IMAGE_FILE_FORMAT_HDR)
+        validate_hdr_extent(bytes, limits.dimension);
+    Diligent::ImageDesc desc;
+    const auto bounded_decoder = webp                                         ? forge_webp_decode
+                                 : bmp                                        ? forge_bmp_decode
+                                 : format == Diligent::IMAGE_FILE_FORMAT_PNG  ? forge_png_decode
+                                 : format == Diligent::IMAGE_FILE_FORMAT_JPEG ? forge_jpeg_decode
+                                                                              : nullptr;
+    if (bounded_decoder) {
+        ForgeImagePixels header{};
+        require(
+            bounded_decoder(bytes.data(), bytes.size(), limits.dimension, limits.bytes, 1, &header),
+            header.error);
+        desc.Width = header.width;
+        desc.Height = header.height;
+        desc.NumComponents = header.channels;
+        desc.ComponentType = header.component_bytes == 2 ? Diligent::VT_UINT16 : Diligent::VT_UINT8;
+    } else
+        desc = Diligent::Image::GetDesc(format, bytes.data(), bytes.size());
+    const auto plan = plan_image(desc, settings, limits);
+    Diligent::RefCntAutoPtr<Diligent::Image> image;
+    Diligent::ImageLoadInfo image_info;
+    image_info.Format = format;
+    image_info.PermultiplyAlpha = false;
+    image_info.IsSRGB = settings.srgb;
+    if (bounded_decoder) {
+        ForgeImagePixels decoded{};
+        require(bounded_decoder(bytes.data(), bytes.size(), limits.dimension, limits.bytes, 0,
+                                &decoded),
+                decoded.error);
+        struct Cleanup {
+            ForgeImagePixels* value;
+            ~Cleanup() { forge_image_pixels_free(value); }
+        } cleanup{&decoded};
+        require(decoded.width == desc.Width && decoded.height == desc.Height &&
+                    decoded.channels == desc.NumComponents,
+                "Image decode/header mismatch");
+        desc.RowStride = static_cast<Diligent::Uint32>(decoded.stride);
+        auto data = Diligent::DataBlobImpl::Create(decoded.size, decoded.pixels);
+        Diligent::Image::CreateFromPixels(desc, std::move(data), &image);
+    } else
+        Diligent::Image::CreateFromMemory(bytes.data(), bytes.size(), image_info, &image);
+    return finish_image(std::move(image), plan, settings, limits, stop);
+}
+TextureData prepare_texture_pixels(const TextureData& pixels, const TextureImportSettings& settings,
+                                   TextureLimits limits, std::stop_token stop) {
+    cancelled(stop);
+    validate_image_settings(settings, limits);
+    validate_texture(pixels, limits);
+    require(
+        pixels.dimension == TextureDimension::D2 && pixels.mips == 1 && pixels.layers == 1 &&
+            pixels.depth == 1 && pixels.sprite_frames.empty() &&
+            (pixels.format == TextureFormat::RGBA8 || pixels.format == TextureFormat::RGBA8Srgb),
+        "Pixel preparation requires one 2D RGBA8 image without frame metadata");
+    Diligent::ImageDesc desc;
+    desc.Width = pixels.width;
+    desc.Height = pixels.height;
+    desc.NumComponents = 4;
+    desc.ComponentType = Diligent::VT_UINT8;
+    const auto plan = plan_image(desc, settings, limits);
+    desc.RowStride = desc.Width * 4;
+    const auto& bytes = pixels.subresources.front();
+    auto blob = Diligent::DataBlobImpl::Create(bytes.size(), bytes.data());
+    Diligent::RefCntAutoPtr<Diligent::Image> image;
+    Diligent::Image::CreateFromPixels(desc, std::move(blob), &image);
+    auto result = finish_image(std::move(image), plan, settings, limits, stop);
+    if (settings.semantic == TextureSemantic::Data && pixels.alpha == TextureAlpha::Custom)
+        result.alpha = TextureAlpha::Custom;
+    validate_texture(result, limits);
+    return result;
+}
+
 } // namespace forge::asset_detail

@@ -1,0 +1,278 @@
+{
+  "asset_id": "5e72c902-09c0-4d5a-a2f1-ea0ac385df68",
+  "entities": [
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 2.0,
+          "y": 2.0,
+          "z": 2.0
+        },
+        "forge.local_translation": {
+          "x": -2.0,
+          "y": 0.0,
+          "z": 2.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [],
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "21cd36e2-63d9-4009-9bac-8354f01c2673",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.transform_animator": {
+          "clip": "edfad17f-2421-46fd-b04d-2d6a5a9a46c8",
+          "enabled": true,
+          "loop": true,
+          "play_on_start": true,
+          "playback_speed": 1.0,
+          "sequence": null,
+          "sequence_next_clip": null,
+          "sequence_next_start_seconds": 0.0,
+          "sequence_start_seconds": 0.0
+        }
+      },
+      "id": "e64da989-a833-4f3b-b374-e5fc24592aed",
+      "name": "Painted cube - shared spin clip",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 2.0,
+          "y": 0.0,
+          "z": 2.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sprite_renderer": {
+          "border_bottom": 0,
+          "border_left": 0,
+          "border_right": 0,
+          "border_top": 0,
+          "columns": 1,
+          "enabled": true,
+          "flip_x": false,
+          "flip_y": false,
+          "frame": 0,
+          "frame_regions": [],
+          "height": 3.0,
+          "image_mode": 0,
+          "layers": 4294967295,
+          "margin_x": 0,
+          "margin_y": 0,
+          "material": "21cd36e2-63d9-4009-9bac-8354f01c2673",
+          "mip_filter": 0,
+          "order": 0,
+          "pivot_x": 0.5,
+          "pivot_y": 0.5,
+          "pixels_per_meter": 100.0,
+          "region_enabled": false,
+          "region_height": 0,
+          "region_width": 0,
+          "region_x": 0,
+          "region_y": 0,
+          "rows": 1,
+          "spacing_x": 0,
+          "spacing_y": 0,
+          "texture_frames": false,
+          "tint_a": 1.0,
+          "tint_b": 1.0,
+          "tint_g": 1.0,
+          "tint_r": 1.0,
+          "visible": true,
+          "width": 3.0
+        }
+      },
+      "id": "538dadf9-7abd-4b10-8e31-e4131a89afef",
+      "name": "Painted Sprite - same Texture and Material",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 14.0,
+          "y": 0.20000000298023224,
+          "z": 12.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": -1.7,
+          "z": 3.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.23999999463558197,
+          "g": 0.18000000715255737,
+          "r": 0.14000000059604645
+        }
+      },
+      "id": "0b60cdfe-5a43-4459-bd4a-b0fa09d6b619",
+      "name": "Floor",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 1.7777777777777777,
+          "background_a": 1.0,
+          "background_b": 0.029999999329447746,
+          "background_g": 0.02500000037252903,
+          "background_r": 0.019999999552965164,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 100.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 10.0,
+          "orthographic_width": 0.0,
+          "projection": 0,
+          "render_texture": null,
+          "vertical_fov": 1.0471975511965976,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 0.9993908405303955,
+          "x": 0.03489949554204941,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 1.0,
+          "z": -9.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "13168ab1-ddfc-42f6-813a-827a396b141e",
+      "name": "Game camera",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.light": {
+          "basis": 0,
+          "cast_shadows": false,
+          "color_b": 1.0,
+          "color_g": 1.0,
+          "color_r": 1.0,
+          "emitter_height": 1.0,
+          "emitter_radius": 0.5,
+          "emitter_width": 1.0,
+          "enabled": true,
+          "image_height": 1.0,
+          "image_tiled": false,
+          "image_width": 1.0,
+          "inner_cone": 0.0,
+          "intensity": 2.0,
+          "kind": 0,
+          "layers": 4294967295,
+          "outer_cone": 0.7853981633974483,
+          "range": 0.0,
+          "shadow_angular_radius": 0.0,
+          "shadow_bias": 0.0010000000474974513,
+          "shadow_normal_bias": 0.019999999552965164,
+          "shadow_source_radius": 0.0,
+          "texture": null
+        },
+        "forge.local_rotation": {
+          "w": 0.9311100244522095,
+          "x": 0.2935778796672821,
+          "y": -0.2064221352338791,
+          "z": 0.06508464366197586
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 5.0,
+          "z": -4.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "ee71df39-cfc8-4960-93a2-ff976a1fdff9",
+      "name": "Directional light",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    }
+  ],
+  "version": 3
+}

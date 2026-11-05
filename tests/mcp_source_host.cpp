@@ -15,6 +15,7 @@
 #include "material_graph_editor.hpp"
 #include "mcp_test_marker.hpp"
 #include "navigation_behavior_editor.hpp"
+#include "paint_texture_editor.hpp"
 #include "particle_effect_editor.hpp"
 #include "prefab_automation.hpp"
 #include "render_texture_editor.hpp"
@@ -80,6 +81,7 @@ int main(int argc, char** argv) {
         forge::NavigationBehaviorEditor behavior;
         forge::UiLocalizationEditor localization;
         forge::RenderTextureEditor render_texture;
+        forge::PaintTextureEditor paint_texture(worker);
         forge::ApplicationStatesEditor application_states;
         forge::AnimationBlendSpaceEditor blend;
         forge::AnimationMaskEditor mask;
@@ -106,6 +108,7 @@ int main(int argc, char** argv) {
         bind("navigation_behavior", behavior);
         bind("ui_localization", localization);
         bind("render_texture", render_texture);
+        bind("paint_texture", paint_texture);
         bind("application_states", application_states);
         bind("animation_blend_space", blend);
         bind("animation_mask", mask);
@@ -203,6 +206,9 @@ int main(int argc, char** argv) {
             states.poll(files.document, files.status);
             behavior.poll(files.document, files.status);
             localization.poll(files.document, files.status);
+            paint_texture.poll(files.document, files.status);
+            if (auto catalog = paint_texture.take_catalog())
+                imports.catalog_changed(std::move(catalog));
             render_texture.poll(files.document, files.status);
             if (auto catalog = render_texture.take_catalog())
                 imports.catalog_changed(std::move(catalog));
@@ -234,6 +240,7 @@ int main(int argc, char** argv) {
             behavior.draw(files.document, scene, false);
             localization.draw(files.document, scene, false);
             render_texture.draw(files.document, scene, false);
+            paint_texture.draw(files.document, scene, false);
             application_states.draw(files.document, scene, false);
             blend.draw(files.document, scene, false);
             mask.draw(files.document, scene, false);

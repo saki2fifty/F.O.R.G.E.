@@ -2190,3 +2190,16 @@ example with ordinary drawing; the image should remain consistent. Save before
 export. This profile accelerates eligible built-in opaque rigid triangle Meshes;
 mask/blend, custom, skin/morph/wind and uncertain bounds retain ordinary submission.
 See [Occlusion culling](../../../manual/editor/occlusion-culling.md) for the safety bias and bounds.
+
+## Texture painting
+
+`Scenes/170-texture-painting.scene.json` shares the original painted
+`Assets/Painting/Signal.paint-texture.json` Texture and
+`Assets/Painting/Signal.material.json` between a cube and Sprite. The cube uses the
+existing shared Spin transform clip. Press Play, then stop and open the paint
+source in Content to try brush color/radius/hardness/opacity, erase, fill and
+stroke Undo/Redo. Choose **Save / Publish** to prepare the ordinary Texture used
+by both objects. For an imported image, create a canvas of matching dimensions and
+Color/Data usage, then use **Copy published pixels**; the original stays unchanged.
+Save the consuming Material and Scene before export. See the
+[painting guide](../../../manual/editor/texture-painting.md) for controls and limits.

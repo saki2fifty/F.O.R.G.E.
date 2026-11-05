@@ -16,9 +16,11 @@ class TextureAssetPreview {
     TexturePreviewSettings settings;
     void select(std::shared_ptr<const AssetCatalog> catalog, AssetRef<TextureAsset> asset,
                 std::optional<TextureSemantic> semantic = {}) {
-        if (catalog == catalog_ && asset == asset_ && semantic == semantic_)
+        if (!draft_ && catalog == catalog_ && asset == asset_ && semantic == semantic_)
             return;
-        if (asset != asset_ || semantic != semantic_) {
+        const bool was_draft = draft_;
+        draft_ = false;
+        if (was_draft || asset != asset_ || semantic != semantic_) {
             if (ticket_ || ready_cpu_)
                 pool_.unload(asset_, ticket_ ? ticket_.inspect().identity.variant
                                              : ready_cpu_.identity().variant);
@@ -40,12 +42,50 @@ class TextureAssetPreview {
             error_ = e.what();
         }
     }
+    // An explicit unsaved source view uses the same CPU preparation, GPU upload
+    // and retirement owners. It cannot replace catalog selection or publication.
+    void select_draft(AssetRef<TextureAsset> asset, std::string revision, std::uint64_t generation,
+                      ResourcePool<TextureAsset>::Loader loader) {
+        if (draft_ && asset == asset_ && draft_revision_ == revision &&
+            draft_generation_ == generation)
+            return;
+        if (asset != asset_ || !draft_) {
+            if (ticket_ || ready_cpu_)
+                pool_.unload(asset_, ticket_ ? ticket_.inspect().identity.variant
+                                             : ready_cpu_.identity().variant);
+            ready_cpu_ = {};
+            ready_gpu_ = {};
+            settings = {};
+            reset_display_ = true;
+            output_valid_ = false;
+        }
+        draft_ = true;
+        catalog_.reset();
+        asset_ = asset;
+        semantic_.reset();
+        draft_revision_ = std::move(revision);
+        draft_generation_ = generation;
+        error_.clear();
+        attempted_.reset();
+        ticket_ = {};
+        try {
+            ticket_ = pool_.request(asset, draft_revision_, generation, std::move(loader), {}, 0,
+                                    "source-preview");
+        } catch (const std::exception& error) {
+            error_ = error.what();
+        }
+    }
     void cancel() {
         if (ticket_)
             pool_.cancel(asset_, ticket_.inspect().identity.variant);
         catalog_.reset();
+        draft_ = false;
     }
     void retry() {
+        if (draft_) {
+            draft_revision_.clear(); // The next immutable source selection retries.
+            return;
+        }
         auto catalog = catalog_;
         catalog_.reset();
         select(std::move(catalog), asset_, semantic_);
@@ -117,7 +157,7 @@ class TextureAssetPreview {
     // Existing viewers may show the previous good image during replacement.
     // A selection control must require the exact selected revision instead.
     bool current() const {
-        if (!catalog_ || !ticket_ || !ready_cpu_ || !ready_gpu_ || !error_.empty())
+        if ((!catalog_ && !draft_) || !ticket_ || !ready_cpu_ || !ready_gpu_ || !error_.empty())
             return false;
         const auto selected = ticket_.inspect();
         return selected.state == ResourceState::Ready && selected.identity == ready_cpu_.identity();
@@ -147,6 +187,9 @@ class TextureAssetPreview {
     std::optional<TexturePreviewSettings> rendered_;
     unsigned width_ = 0, height_ = 0;
     bool reset_display_ = true, output_valid_ = false;
+    bool draft_ = false;
+    std::string draft_revision_;
+    std::uint64_t draft_generation_ = 0;
     std::string error_;
 };
 } // namespace forge

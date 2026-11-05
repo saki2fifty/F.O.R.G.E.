@@ -19,6 +19,7 @@
 #include "import_authoring.hpp"
 #include "material_authoring.hpp"
 #include "navigation_behavior_authoring.hpp"
+#include "paint_texture_source.hpp"
 #include "particle_effect_authoring.hpp"
 #include "render_texture_authoring.hpp"
 #include "self_executable.hpp"
@@ -226,12 +227,13 @@ int asset_tools_cli(int argc, char** argv) {
             const bool editable_mesh = path_utf8(source).ends_with(".mesh.json");
             const bool terrain = path_utf8(source).ends_with(".terrain.json");
             const bool particle_effect = path_utf8(source).ends_with(".particles.json");
-            auto tile_name = path_utf8(source);
-            for (auto& c : tile_name)
+            auto source_name = path_utf8(source);
+            for (auto& c : source_name)
                 if (c >= 'A' && c <= 'Z')
                     c = char(c - 'A' + 'a');
-            const bool tile_set = tile_name.ends_with(".tileset.json");
-            const bool tile_map = tile_name.ends_with(".tilemap.json");
+            const bool paint_texture = source_name.ends_with(".paint-texture.json");
+            const bool tile_set = source_name.ends_with(".tileset.json");
+            const bool tile_map = source_name.ends_with(".tilemap.json");
             auto registry = tile_set || tile_map    ? tile_asset_import_registry(worker)
                             : terrain               ? terrain_import_registry()
                             : particle_effect       ? particle_effect_import_registry()
@@ -317,6 +319,11 @@ int asset_tools_cli(int argc, char** argv) {
                 identity = UiLocalizationSource::parse(
                                asset_detail::read_bytes(ProjectPaths(project).resolve(source),
                                                         ui_localization_byte_limit))
+                               .asset();
+            else if (paint_texture)
+                identity = PaintTextureSource::parse(
+                               asset_detail::read_bytes(ProjectPaths(project).resolve(source),
+                                                        paint_texture_source_byte_limit))
                                .asset();
             else if (render_texture)
                 identity = RenderTextureSource::parse(

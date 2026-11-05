@@ -75,7 +75,7 @@ The agent should inspect progress rather than treating a queued request as done.
 ## Edit reusable assets
 
 Project authoring also exposes the existing material, material graph, mesh,
-collision, terrain, tile, Sprite atlas, particle and animation source editors. The agent can
+collision, terrain, tile, Sprite atlas, paint texture, particle and animation source editors. The agent can
 create or open a source, inspect its format, edit validated fields, and use that
 source document's Undo and Redo. You see the same draft in the editor.
 
@@ -384,3 +384,21 @@ authored settings. Use the current document target and expected revision, then
 save the Scene before export. **forge_history_undo** and **forge_history_redo**
 use the same history as the editor. See [Occlusion culling](occlusion-culling.md)
 for supported geometry and limits.
+
+## Paint texture pixels
+
+Use `forge_asset_paint_texture_catalog` to inspect brush math and current limits.
+Create a `paint_texture` source with `forge_asset_document_create`, a
+`.paint-texture.json` project path and optional `canvas` dimensions, Color/Data
+semantic and byte background. Read metadata with `forge_asset_document_read` and
+query stored RGBA bytes with `forge_asset_document_pixels`.
+
+`forge_asset_document_stroke` prepares a pixel path and brush;
+`forge_asset_document_copy_pixels` copies a matching published Texture into the
+canvas. Both return while pixel preparation is pending. Poll document status until
+`transient_draft` is false, inspect its diagnostic, then refresh the document
+revision. `forge_asset_document_cancel_pixels` cancels pending work.
+`forge_asset_document_fill` fills with exact byte RGBA. Completed edits use the
+ordinary document Undo/Redo and Save / Publish workflow. These operations require
+asset-write access and retain the normal project, revision and retry rules.
+See [Paint a texture](texture-painting.md) for the equivalent controls and limits.

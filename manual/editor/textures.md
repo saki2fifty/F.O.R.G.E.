@@ -3,7 +3,9 @@
 Import prepares an image for use as a texture and gives it a durable asset identity.
 The original image stays unchanged. Assign textures to surface roles in the [Material editor](materials.md);
 its surface preview shows them on geometry. The Texture import document also displays
-the last published texture.
+the last published texture. To create editable artwork or a numeric image, use
+[Paint Texture](texture-painting.md). Imported and model-generated images can be
+copied into a separate paint canvas; the original image stays unchanged.
 
 ![Texture import settings and image preview](../images/texture-import.png)
 
@@ -54,8 +56,10 @@ container's declared color space is rejected.
 
 ## Change settings later
 
-Double-click a texture in Content, or select it and choose **Open texture** in
-Inspector. The same Texture import document opens with its saved settings.
+Double-click an imported texture in Content, or select it and choose **Open texture**
+in Inspector. Its Texture import document opens with the saved settings.
+A `.paint-texture.json` source opens [Paint Texture](texture-painting.md), where
+**Save / Publish** saves and cooks the editable pixels.
 
 Edits stay in this draft until **Import / Reimport** succeeds. **Use default** removes
 one explicit setting override. **Reset to defaults** resets the draft's known
@@ -82,7 +86,8 @@ create a different logical asset with the same ID.
 
 ## Inspect the published texture
 
-Double-click a standalone texture in Content to open its import document and preview.
+Double-click a standalone imported image in Content to open its import document and preview.
+Editable paint sources open the Paint Texture canvas instead.
 Textures generated inside a model open a read-only **Texture** tab. Change those
 textures through the owning model source/import rather than importing the model as an image.
 

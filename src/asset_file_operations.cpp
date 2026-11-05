@@ -3,6 +3,7 @@
 #include "asset_storage.hpp"
 #include "bounded_json.hpp"
 #include "gltf_container.hpp"
+#include "paint_texture_source.hpp"
 #include "sprite_atlas_recipe.hpp"
 #include "tile_asset_types.hpp"
 #include "tile_map_source.hpp"
@@ -211,6 +212,20 @@ static std::string rewrite_authored_with_schema(const AssetRecord& record, std::
                                                 const std::map<AssetId, AssetId>& identities,
                                                 const Json& schema) {
     if (record.type == TextureAsset::type &&
+        lower(path_utf8(record.source)).ends_with(".paint-texture.json")) {
+        if (!lower(path_utf8(destination)).ends_with(".paint-texture.json"))
+            throw std::runtime_error(
+                "Paint textures must retain the .paint-texture.json source suffix");
+        auto source = PaintTextureSource::parse(std::as_bytes(std::span(bytes)));
+        if (source.asset() != record.id)
+            throw std::runtime_error("Paint texture source/catalog identity mismatch");
+        if (identities.empty())
+            return std::string(bytes);
+        auto metadata = source.document.metadata();
+        metadata["asset_id"] = identities.at(record.id);
+        return source.document.with_metadata(std::move(metadata)).dump();
+    }
+    if (record.type == TextureAsset::type &&
         lower(path_utf8(record.source)).ends_with(".atlas.json")) {
         if (!lower(path_utf8(destination)).ends_with(".atlas.json"))
             throw std::runtime_error("Sprite atlases must retain the .atlas.json source suffix");
@@ -354,7 +369,8 @@ AssetSourceRewrite project_asset_file_rewriter(const std::filesystem::path& proj
             return gltf_detail::relocate_gltf_source(paths, record.source, destination,
                                                      std::as_bytes(std::span(bytes)));
         if ((record.type == "texture" &&
-             !lower(path_utf8(record.source)).ends_with(".atlas.json")) ||
+             !lower(path_utf8(record.source)).ends_with(".atlas.json") &&
+             !lower(path_utf8(record.source)).ends_with(".paint-texture.json")) ||
             record.type == "audio_clip")
             return std::string(bytes); // Catalog-owned identity; no UUID in pixels/WAV.
         return rewrite_authored_with_schema(record, bytes, destination, identities, schema);

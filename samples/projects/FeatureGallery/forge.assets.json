@@ -2330,6 +2330,53 @@
       "type": "model_node"
     },
     {
+      "dependencies": [
+        "3f78a814-5256-415a-b681-479a93c03721"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "0eae6df7e3814486efe75635bf018609daf7947e8bfba376bf21f8b40bb49ada",
+          "role": "material.texture:baseColorTexture",
+          "target": "3f78a814-5256-415a-b681-479a93c03721",
+          "type": "texture"
+        }
+      ],
+      "id": "21cd36e2-63d9-4009-9bac-8354f01c2673",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "762e617e1e97c26cededdeeae0ed9be2c1d2c6d89272d7b29aa1223f73c83e63",
+          "backend": "d3d12",
+          "dependency_digest": "a4e4c09ec70786f81a0376a98dc8e2c4fd5a1259c4d8e6d5feb7bf68be687ac6",
+          "generation": 1,
+          "importer": "forge.material.builtin",
+          "importer_revision": "4b474eaedf3412c825c5acc4506e6714440bca925023df84bfb28f0125da81a4",
+          "key": "a548b7fc2b15ed5cfcc91ce1ea1d75b92c767ac3a419d34b2d122b8d931a2234",
+          "output_format": "forge.material-bundle",
+          "output_version": 3,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "239a229508c34bc14c8652478ce76abda09c3be7c67eb019035e193e2f4aaa1d",
+          "source_digest": "ce36f3a0d340f6cdefa961d6d5f76ae7dad21ff41320b5590bb20403c057925c",
+          "version": 1
+        },
+        "forge.material": {
+          "render_textures": {},
+          "shader": null,
+          "textures": {
+            "baseColorTexture": "3f78a814-5256-415a-b681-479a93c03721"
+          },
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Painting/Signal.material.json",
+      "source_dependencies": [],
+      "type": "material"
+    },
+    {
       "dependencies": [],
       "dependency_edges": [],
       "id": "2216a6b8-966d-443c-889f-e12cdecbffda",
@@ -4515,6 +4562,35 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "3f78a814-5256-415a-b681-479a93c03721",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "2144833a3cab3d25f3001749f8c85405dcdc26de047d7e4ae857b3a1b370e494",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.texture.paint",
+          "importer_revision": "eb3ed5583105e3bb79406f340f600b2f3c78e89173b2e88c6d5882d663758ece",
+          "key": "0eae6df7e3814486efe75635bf018609daf7947e8bfba376bf21f8b40bb49ada",
+          "output_format": "forge.texture-bundle",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "6e500d6e7e08e5b11f498e154d26275d6288d83ed4b295b9c56c95d747c76521",
+          "settings_version": 1,
+          "sidecar_digest": "16b1e5adde76b76b58a134d14252f74ec851232cf98be005a6be18aa5a1db514",
+          "source_digest": "f22bb9f312deeb756797a0f3a0e2ee5c5b88edf8eff230a65c20a50ffed839dd",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Painting/Signal.paint-texture.json",
+      "source_dependencies": [],
+      "type": "texture"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "3f95b972-aa2a-4fab-999a-8857a5a35e11",
       "metadata": {},
       "schema_version": 3,
@@ -6265,6 +6341,16 @@
         "removed": false
       },
       "type": "skeleton"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "5e72c902-09c0-4d5a-a2f1-ea0ac385df68",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/170-texture-painting.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
     },
     {
       "dependencies": [],

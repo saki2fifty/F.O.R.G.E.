@@ -15,6 +15,7 @@
 #include <backends/imgui_impl_sdl3.h>
 #endif
 #include "../install_paths.hpp"
+#include "../paint_texture_preview.hpp"
 #include "../tile_asset_authoring.hpp"
 #include "Graphics/GraphicsEngineD3D12/interface/EngineFactoryD3D12.h"
 #include "ImGuiImplSDL3.hpp"
@@ -76,6 +77,7 @@
 #include "navigation_behavior_editor.hpp"
 #include "navigation_tools.hpp"
 #include "orientation.hpp"
+#include "paint_texture_editor.hpp"
 #include "particle_effect_editor.hpp"
 #include "particle_effect_preview.hpp"
 #include "performance.hpp"
@@ -1089,6 +1091,22 @@ int main(int argc, char** argv) {
         forge::NavigationBehaviorEditor navigation_behavior;
         forge::UiLocalizationEditor ui_localization;
         forge::RenderTextureEditor render_texture;
+        forge::PaintTextureEditor paint_texture(std::filesystem::path(base) /
+                                                "forge_asset_build.exe");
+        std::unique_ptr<forge::PaintTexturePreview> paint_preview;
+        bool release_paint_preview = false;
+        paint_texture.draw_preview = [&](const auto& value, std::uint64_t session,
+                                         std::uint64_t revision, unsigned width, unsigned height) {
+            const auto& project = paint_texture.document()->project();
+            if (!paint_preview || paint_preview->project() != project)
+                paint_preview =
+                    std::make_unique<forge::PaintTexturePreview>(presentation, context, project);
+            release_paint_preview = false;
+            auto* image = paint_preview->render(value, session, revision, width, height);
+            return forge::PaintCanvasImage{reinterpret_cast<ImTextureID>(image),
+                                           paint_preview->current(), paint_preview->error()};
+        };
+        paint_texture.release_preview = [&] { release_paint_preview = true; };
         forge::ApplicationStatesEditor application_states;
         forge::AnimationMaskEditor animation_mask;
         forge::ParticleEffectEditor particle_editor;
@@ -1503,6 +1521,9 @@ int main(int argc, char** argv) {
             } else if (kind == "ui_localization") {
                 if (open)
                     ui_localization.open(files.document, path);
+            } else if (kind == "paint_texture") {
+                if (open)
+                    paint_texture.open(files.document, path);
             } else if (kind == "render_texture") {
                 if (open)
                     render_texture.open(files.document, path);
@@ -1753,6 +1774,8 @@ int main(int argc, char** argv) {
         asset_editors.add({"texture", "Open texture", [&](const forge::AssetRecord& asset) {
                                if (forge::path_utf8(asset.source).ends_with(".atlas.json"))
                                    sprite_atlas_editor.open(files.document, asset.source);
+                               else if (forge::PaintTextureEditor::handles(asset))
+                                   paint_texture.open(files.document, asset.source);
                                else if (asset.subasset)
                                    texture_view_document.open(files.document.project(), asset.id);
                                else
@@ -1892,6 +1915,24 @@ int main(int argc, char** argv) {
             {"ui_localization", "Open UI localization", [&](const forge::AssetRecord& asset) {
                  ui_localization.open(files.document, asset.source);
              }});
+        documents.add({"paint_texture",
+                       "Paint Texture",
+                       "Paint Texture###Paint Texture",
+                       true,
+                       [&] { return paint_texture.is_open(); },
+                       [&] { return paint_texture.dirty(); },
+                       [&] {
+                           paint_texture.draw(files.document, scene,
+                                              asset_document_locked || play.active());
+                       },
+                       [&] { paint_texture.request_save(); },
+                       [&] { paint_texture.undo(); },
+                       [&] { paint_texture.redo(); },
+                       [&] { paint_texture.request_close(); },
+                       [&] { return paint_texture.can_undo(); },
+                       [&] { return paint_texture.can_redo(); },
+                       {},
+                       [&] { return std::exchange(paint_texture.close_cancelled, false); }});
         documents.add({"render_texture",
                        "Render Texture",
                        "Render Texture###Render Texture",
@@ -2324,6 +2365,8 @@ int main(int argc, char** argv) {
                                                          navigation_behavior, files.document));
         documents.bind_source("ui_localization", forge::AssetDocumentAutomation::bind(
                                                      ui_localization, files.document));
+        documents.bind_source("paint_texture",
+                              forge::AssetDocumentAutomation::bind(paint_texture, files.document));
         documents.bind_source("render_texture",
                               forge::AssetDocumentAutomation::bind(render_texture, files.document));
         documents.bind_source("application_states", forge::AssetDocumentAutomation::bind(
@@ -2663,6 +2706,8 @@ int main(int argc, char** argv) {
             fixture.graphics_context(window.get(), 0);
 #endif
             presentation.begin_frame();
+            if (std::exchange(release_paint_preview, false))
+                paint_preview.reset();
             if (std::exchange(release_particle_preview, false))
                 particle_preview.reset();
             if (std::exchange(release_terrain_preview, false))
@@ -5545,6 +5590,14 @@ int main(int argc, char** argv) {
                     play.model_assets_changed();
                     content.refresh(files);
                 }
+                paint_texture.poll(files.document, message);
+                if (auto catalog = paint_texture.take_catalog()) {
+                    content_imports.catalog_changed(catalog);
+                    if (mesh_resources)
+                        mesh_resources->catalog(catalog);
+                    play.model_assets_changed();
+                    content.refresh(files);
+                }
                 render_texture.poll(files.document, message);
                 if (auto catalog = render_texture.take_catalog()) {
                     content_imports.catalog_changed(catalog);
@@ -6791,6 +6844,7 @@ int main(int argc, char** argv) {
                         navigation_behavior.content(files.document, edit_locked);
                         ui_localization.content(files.document, edit_locked);
                         render_texture.content(files.document, edit_locked);
+                        paint_texture.content(files.document, edit_locked);
                         application_states.content(files.document, edit_locked);
                         animation_mask.content(files.document, edit_locked);
                         animation_blend_space.content(files.document, edit_locked);

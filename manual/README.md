@@ -40,6 +40,7 @@ content may differ; use **Window** to open a panel mentioned in a guide.
 - [Place foliage with slope filters, alignment, collision clearance and wind](editor/foliage.md)
 - [Importing textures, exporting stored/block samples, signed PNG16, BC6 HDR and image inspection](editor/textures.md)
 - [Materials](editor/materials.md)
+- [Paint a texture, copy published pixels and publish for Materials](editor/texture-painting.md)
 - [Show a live camera image on a Mesh](editor/render-textures.md)
 - [Blend overlapping transparent Meshes](editor/transparency.md)
 - [Project color, normals and roughness onto a Mesh](editor/decals.md)

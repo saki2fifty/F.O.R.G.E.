@@ -731,3 +731,14 @@ a child of an animated pivot using a shared transform clip. Save and export this
 Scene to keep its culling setting and animation. See
 [Occlusion culling](../editor/occlusion-culling.md) for the illustrated controls,
 safety bias, supported geometry and limits.
+
+## Texture painting sample
+
+Open **170-texture-painting** and press **Play**. The rotating cube and Sprite
+share one painted Texture and Material. Stop Play, then open
+`Assets/Painting/Signal.paint-texture.json` in Content. Change the brush color and
+drag on the canvas. Release to apply one stroke, then try Undo and Redo.
+Choose **Save / Publish** to update the image used by both objects. Save the
+consuming Material and Scene before export. See
+[Paint a texture](../editor/texture-painting.md) for Color/Data interpretation,
+copying published images, controls and limits.

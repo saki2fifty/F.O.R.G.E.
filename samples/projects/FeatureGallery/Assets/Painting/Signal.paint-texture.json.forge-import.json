@@ -1,0 +1,48 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [],
+    "importer": "forge.texture.paint",
+    "importer_revision": "eb3ed5583105e3bb79406f340f600b2f3c78e89173b2e88c6d5882d663758ece",
+    "key_version": 1,
+    "output_format": "forge.texture-bundle",
+    "output_version": 1,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {
+      "additional_usages": [],
+      "anisotropy": 1,
+      "compression": "none",
+      "filter": "linear",
+      "flip_green": false,
+      "flip_vertical": false,
+      "max_size": 16384,
+      "mips": true,
+      "premultiply": false,
+      "semantic": "auto",
+      "transfer": "auto",
+      "wrap": "repeat"
+    },
+    "settings_version": 1,
+    "source": "f22bb9f312deeb756797a0f3a0e2ee5c5b88edf8eff230a65c20a50ffed839dd",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.texture.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "3f78a814-5256-415a-b681-479a93c03721",
+    "source": "Assets/Painting/Signal.paint-texture.json",
+    "source_digest": "f22bb9f312deeb756797a0f3a0e2ee5c5b88edf8eff230a65c20a50ffed839dd",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.texture.paint",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

@@ -664,3 +664,89 @@ source channels. Black, weak-channel quantization, exponent extremes, flat/packe
 boundaries, malformed input, current/later metadata and last-good artifact behavior
 have focused checks. PNG8/16, WebP, JPEG and compressed Texture inspection retain
 their existing interpretation and header-based owned-file admission.
+
+
+## Editable paint textures
+
+The private `forge.paint-texture` source1 and `.paint-texture.json` suffix store a
+bounded2D RGBA8 Color/Data canvas. `PaintTextureValue` shares immutable32×32 pixel
+pages; `AssetSourceDocument<PaintTextureDocumentTraits>` owns the source UUID,
+revisions, weighted history, disk baseline and Save. `PaintTextureEditor` uses
+`SourceDocumentPanel` for publication and document lifecycle. There is no separate
+pixel catalog or Undo manager.
+
+Color brushes blend linear RGB with straight-alpha source-over and store sRGB
+bytes; Data brushes interpolate each raw normalized channel. Color erase only
+reduces alpha. Data erase returns toward the stored background. A continuous
+capsule path uses maximum coverage per stroke; sample overlaps and retracing do
+not repeatedly accumulate opacity. Separate strokes can layer. Pages outside odd
+canvas dimensions retain background padding. Root and page extension fields
+survive paint, fill, copy and source serialization.
+
+The canvas admits1..1024pixels per axis,0.5..256pixel radii,1..256finite path
+points within±1,000,000pixels, and64Mi pixel-segment visits per stroke. Source
+bytes are bounded to16MiB. Existing history limits remain64entries/8MiB weighted
+retention; callers preflight both Undo and Redo before adopting an edit.
+Dimensions and interpretation stay fixed after source creation. Identity remaps
+belong to the existing reviewed file Duplicate owner; ordinary source edits
+retain their UUID.
+
+`PaintTextureTask` prepares detached strokes or published pixel copies. Cancellation
+checks coverage rows/page chunks, and copied resource reads forward the stop token
+to the existing selection/worker owners. The editor adopts only the captured
+session/revision through the source document; stale results and failed history
+admission cannot replace a draft. Held paths use an explicitly labeled guide;
+they do not pretend to show final brush coverage. Release prepares one edit.
+
+`PaintTexturePreview` adapts source snapshots to `TextureAssetPreview`'s existing
+ResourcePool, GpuResidency and TexturePreviewRenderer. It advances transient
+resource generations for source-session/revision changes, including Undo and
+reopening; these generations are not durable asset identities. Pixel expansion
+runs in the existing pool and native upload/rendering stays on the device owner.
+Preview bindings retain their resource leases through submission and retirement.
+
+`forge.texture.paint` shares TextureImporter's discovery, supervised worker,
+texture-bundle validation and publication. Embedded source UUIDs must match
+request, worker snapshot and publication ticket. The raw `prepare_texture_pixels`
+entry point reuses the admitted raster image's native mip/resize/compression
+processing without an image encode/decode round trip. Ordinary TextureAsset
+consumers and runtime packaging require no paint-source parser. Auto usage retains
+the source Color/Data interpretation; optional explicit Color/Data imports use
+the existing settings owner. Normal/HDR painting is outside this source profile.
+
+Explicit pixel copy reads one immutable published Texture selection and leaves the
+original asset/source/model unchanged. It selects the paint canvas's matching
+Color/Data usage, requires matching dimensions and a single2D base image, bounds
+selected decoded texture data to6MiB, and reuses stored-sample projection or the
+existing unsigned LDR block worker. Color requires Straight/Opaque alpha. Signed,
+HDR, higher precision, premultiplied/unknown Color alpha, arrays, cubes and volumes
+reject. Linear Color byte samples encode to sRGB; alpha and Data channels keep
+sample meaning. Opaque source/page extensions stay owned by the destination canvas.
+
+Shared automation/MCP expose the actual source editor with optional creation
+`canvas`, metadata read/patch, exact pixel queries, asynchronous `stroke` and
+`copy_pixels`, byte `fill`, `cancel_pixels`, history and Save/close. Clients poll
+`transient_draft`, inspect diagnostics and refresh document revision after pixel
+preparation. The normal outer permissions/revision/sequence receipt rules remain
+in force; agents use the same computation, source history and publication owners.
+See the [painting guide](../manual/editor/texture-painting.md) for controls and
+current limits. Platform acceptance and capture provenance are recorded separately.
+
+### Painting capture provenance
+
+`manual/images/paint-texture-canvas.png` is a direct native capture of production
+PaintTextureEditor/SourceDocumentPanel/PaintTexturePreview controls from
+`tests/paint_texture_editor_vulkan_probe.cpp`. It uses the pinned ImGui/Diligent
+renderer, Linux Release/GCC12 and software Vulkan. The fixture drives actual ImGui
+input and checks100/150/200percent wide/narrow layouts, pixel/history/publication
+and selection controls. It is a subsystem fixture, rather than the complete
+Windows editor host or physical input/DPI acceptance.
+
+`manual/images/texture-painting-game.png` captures Gallery170 at simulation tick60,
+640×360, through the ordinary Game frame renderer in
+`tests/navigation_polygon_gallery_vulkan_probe.cpp`. RGB PPM readback is encoded
+losslessly as PNG without pixel editing. Four moving/portrait frame pairs are
+byte-identical after Windows-target content is relocated and original source
+files are hidden. This establishes software-backend content/rendering behavior;
+Windows/MSVC/D3D12/full-editor/graphical-EXE and physical GPU/input acceptance
+remain separate.

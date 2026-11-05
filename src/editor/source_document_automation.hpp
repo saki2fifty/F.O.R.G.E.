@@ -1,5 +1,6 @@
 #pragma once
 #include "../navigation_behavior_authoring.hpp"
+#include "../paint_texture_source.hpp"
 #include "../sprite_atlas_recipe.hpp"
 #include "../tile_map_source.hpp"
 #include "../tile_set_source.hpp"
@@ -37,6 +38,16 @@ struct AssetDocumentAutomation {
                 "textures_required",
                 "Sprite atlas creation/templates require 1 to 512 Texture UUIDs in textures");
         return request.at("textures").get<std::vector<AssetId>>();
+    }
+    static PaintTextureSource paint_source(AssetId id, const Json& request) {
+        const auto canvas = request.value("canvas", Json::object());
+        const auto interpretation = canvas.value("semantic", std::string("color"));
+        if (interpretation != "color" && interpretation != "data")
+            throw AuthoringError("invalid_argument", "Paint canvas semantic must be color or data");
+        return {PaintTextureValue::create(
+            id, canvas.value("width", 256u), canvas.value("height", 256u),
+            interpretation == "color" ? TextureSemantic::Color : TextureSemantic::Data,
+            canvas.value("background", PaintPixel{}))};
     }
     template <class Editor> static bool transient(const Editor& editor) {
         bool active = false;
@@ -142,6 +153,7 @@ struct AssetDocumentAutomation {
         using Document = std::remove_cv_t<std::remove_pointer_t<decltype(editor.document())>>;
         using Source = std::remove_cvref_t<decltype(std::declval<Document>().source())>;
         constexpr bool tiles = std::is_same_v<Source, TileMapSource>;
+        constexpr bool paint_texture = std::is_same_v<Source, PaintTextureSource>;
         constexpr bool atlas = std::is_same_v<Source, SpriteAtlasRecipe>;
         constexpr bool graph = std::is_same_v<Source, MaterialGraphSource>;
         constexpr bool behavior = std::is_same_v<Source, NavigationBehaviorSource>;
@@ -151,6 +163,11 @@ struct AssetDocumentAutomation {
                 project.check_ownership();
                 if (action == "status")
                     return status(editor, project);
+                if constexpr (!paint_texture)
+                    if (request.contains("canvas"))
+                        throw AuthoringError(
+                            "invalid_argument",
+                            "canvas applies to paint texture creation/templates only");
                 if (action == "template") {
                     if constexpr (!behavior)
                         if (request.contains("behavior_profile"))
@@ -177,7 +194,9 @@ struct AssetDocumentAutomation {
                                                  "Tile Map templates require a Tile Set UUID");
                         return TileMapValue::create(id, request.at("tile_set").get<AssetId>())
                             .metadata();
-                    } else if constexpr (atlas)
+                    } else if constexpr (paint_texture)
+                        return paint_source(id, request).document.metadata();
+                    else if constexpr (atlas)
                         return Source::create(id, atlas_images(request)).document;
                     else if constexpr (graph)
                         return graph_source(id, request).document;
@@ -202,7 +221,7 @@ struct AssetDocumentAutomation {
                     if (action == "open" &&
                         (request.contains("patch") || request.contains("tile_set") ||
                          request.contains("textures") || request.contains("domain") ||
-                         request.contains("behavior_profile")))
+                         request.contains("behavior_profile") || request.contains("canvas")))
                         throw AuthoringError(
                             "invalid_argument",
                             "Initial patch/tile_set/textures/domain/profile options apply "
@@ -227,7 +246,13 @@ struct AssetDocumentAutomation {
                     if (action == "create") {
                         auto created =
                             Document::create(project.writer_guard(), path, [&](AssetId id) {
-                                if constexpr (tiles) {
+                                if constexpr (paint_texture) {
+                                    auto source = paint_source(id, request);
+                                    if (request.contains("patch"))
+                                        source.document = source.document.with_metadata(
+                                            patch(source.document.metadata(), request.at("patch")));
+                                    return source;
+                                } else if constexpr (tiles) {
                                     if (!request.contains("tile_set"))
                                         throw AuthoringError(
                                             "tile_set_required",
@@ -260,11 +285,12 @@ struct AssetDocumentAutomation {
                     editor.load(project, path);
                     return status(editor, project);
                 }
-                check(editor, project, request, action != "read" && action != "cells");
+                check(editor, project, request,
+                      action != "read" && action != "cells" && action != "pixels");
                 auto& doc = *editor.document_;
                 if (action == "read") {
                     Json value;
-                    if constexpr (tiles)
+                    if constexpr (tiles || paint_texture)
                         value = doc.source().document.metadata();
                     else
                         value = doc.source().document;
@@ -282,6 +308,18 @@ struct AssetDocumentAutomation {
                     } else
                         result["value"] = std::move(value);
                     return result;
+                }
+                if (action == "pixels") {
+                    if constexpr (!paint_texture)
+                        throw AuthoringError("wrong_document_type",
+                                             "Pixel queries require a paint texture");
+                    else {
+                        Json pixels = Json::array();
+                        for (const auto& point : request.at("points"))
+                            pixels.push_back(doc.source().document.pixel(
+                                point.at(0).get<unsigned>(), point.at(1).get<unsigned>()));
+                        return {{"pixels", std::move(pixels)}, {"revision", doc.revision()}};
+                    }
                 }
                 if (action == "cells") {
                     if constexpr (!tiles)
@@ -302,6 +340,14 @@ struct AssetDocumentAutomation {
                         return {{"cells", std::move(cells)}, {"revision", doc.revision()}};
                     }
                 }
+                if (action == "cancel_pixels") {
+                    if constexpr (paint_texture) {
+                        editor.cancel_gesture();
+                        return status(editor, project);
+                    } else
+                        throw AuthoringError("wrong_document_type",
+                                             "Stroke cancellation requires a paint texture");
+                }
                 if (publishing(editor) || editor.save_ || editor.close_ || transient(editor))
                     throw AuthoringError(
                         "document_busy",
@@ -311,7 +357,7 @@ struct AssetDocumentAutomation {
                     doc.edit_source(previous,
                                     request.value("label", std::string("MCP source edit")),
                                     [&](Source& source) {
-                                        if constexpr (tiles)
+                                        if constexpr (tiles || paint_texture)
                                             source.document = source.document.with_metadata(patch(
                                                 source.document.metadata(), request.at("patch")));
                                         else {
@@ -326,6 +372,43 @@ struct AssetDocumentAutomation {
                                     });
                     if (doc.revision() != previous)
                         changed(editor);
+                } else if (action == "copy_pixels") {
+                    if constexpr (!paint_texture)
+                        throw AuthoringError("wrong_document_type",
+                                             "Pixel copy requires a paint texture");
+                    else
+                        editor.prepare_copy(request.at("texture").get<AssetId>(), doc.revision());
+                } else if (action == "stroke" || action == "fill") {
+                    if constexpr (!paint_texture)
+                        throw AuthoringError("wrong_document_type",
+                                             "Pixel painting requires a paint texture");
+                    else {
+                        if (action == "fill") {
+                            const auto previous = doc.revision();
+                            doc.edit_source(previous, "Fill paint texture", [&](Source& source) {
+                                source.document =
+                                    source.document.fill(request.at("rgba").get<PaintPixel>());
+                                if (!doc.retains_history(source))
+                                    throw AuthoringError("history_limit",
+                                                         "Fill exceeds the Undo and Redo budget");
+                            });
+                            if (doc.revision() != previous)
+                                changed(editor);
+                        } else {
+                            PaintBrush brush;
+                            const auto& specification = request.at("brush");
+                            brush.color = specification.at("color").get<std::array<double, 4>>();
+                            brush.radius = specification.value("radius", 16.);
+                            brush.hardness = specification.value("hardness", .75);
+                            brush.opacity = specification.value("opacity", 1.);
+                            brush.erase = specification.value("erase", false);
+                            std::vector<PaintPoint> points;
+                            for (const auto& point : request.at("points"))
+                                points.push_back(
+                                    {point.at(0).get<double>(), point.at(1).get<double>()});
+                            editor.prepare_stroke(std::move(points), brush, doc.revision());
+                        }
+                    }
                 } else if (action == "tile_collision" || action == "tile_animation" ||
                            action == "tile_autotile") {
                     if constexpr (std::is_same_v<Source, TileSetSource>) {

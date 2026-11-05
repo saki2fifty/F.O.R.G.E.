@@ -1,4 +1,5 @@
 #include "view_image_hdr.hpp"
+#include "color_transfer.hpp"
 #include "view_image.hpp"
 #include <algorithm>
 #include <array>
@@ -161,8 +162,7 @@ ViewImagePreview preview_hdr_image(std::span<const std::byte> source, std::stop_
                 const double linear =
                     pixel[3] ? std::ldexp(double(pixel[channel]), int(pixel[3]) - 136) : 0.;
                 const double mapped = linear / (1. + linear);
-                const double encoded =
-                    mapped <= .0031308 ? 12.92 * mapped : 1.055 * std::pow(mapped, 1. / 2.4) - .055;
+                const double encoded = linear_to_srgb(mapped);
                 rgba[(std::size_t(y) * width + x) * 4 + channel] =
                     std::uint8_t(std::clamp(std::lround(encoded * 255), 0l, 255l));
             }

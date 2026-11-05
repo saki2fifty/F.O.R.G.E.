@@ -51,6 +51,16 @@ Real Windows editor captures using small validation scenes. Click an image to op
 move between adjacent camera views and lenses while preserving animated camera rigs.
 Gallery153 includes an incoming blend, a return blend and an overview gap.
 
+## Texture painting
+
+Author Color or Data pixels with brush, erase, fill, published-image copy and
+stroke Undo/Redo. Save / Publish prepares an ordinary Texture for Materials,
+Sprites and game export.
+
+[![A painted Texture shared by a rotating cube and Sprite](manual/images/texture-painting-game.png)](manual/editor/texture-painting.md)
+
+See [Paint a texture](manual/editor/texture-painting.md) for controls and limits.
+
 ## Live camera images
 
 [Render textures](manual/editor/render-textures.md) display a Camera's live scene

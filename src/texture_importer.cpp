@@ -1,5 +1,6 @@
 #include "texture_importer.hpp"
 #include "asset_bytes.hpp"
+#include "paint_texture_source.hpp"
 #include "texture_bundle_validation.hpp"
 #include <algorithm>
 #include <forge/texture_asset.hpp>
@@ -10,9 +11,13 @@ namespace forge::asset_detail {
 namespace {
 using Json = nlohmann::json;
 constexpr std::size_t source_limit = 256 * 1024 * 1024;
-std::string importer_id(bool container) {
-    return container ? "forge.texture.container" : "forge.texture.image";
+enum class TextureKind { Image, Container, Paint };
+std::string importer_id(TextureKind kind) {
+    return kind == TextureKind::Paint       ? paint_texture_importer_id
+           : kind == TextureKind::Container ? "forge.texture.container"
+                                            : "forge.texture.image";
 }
+ImportSettingsSchema settings_schema(TextureKind kind);
 void require(bool ok, const char* why) {
     if (!ok)
         throw std::runtime_error(why);
@@ -26,24 +31,34 @@ std::string extension(const std::filesystem::path& p) {
 }
 ImportSettingRule choice(std::string key, std::string label, std::string help, std::string value,
                          std::vector<std::string> choices) {
-    ImportSettingRule rule{std::move(key), std::move(label), std::move(help),
-                           ImportSettingType::Choice, std::move(value)};
+    ImportSettingRule rule{std::move(key),
+                           std::move(label),
+                           std::move(help),
+                           ImportSettingType::Choice,
+                           std::move(value),
+                           {},
+                           {},
+                           {}};
     rule.choices = std::move(choices);
     return rule;
 }
-AssetImporterDescriptor descriptor(bool container) {
+AssetImporterDescriptor descriptor(TextureKind kind) {
+    const bool container = kind == TextureKind::Container, paint = kind == TextureKind::Paint;
     AssetImporterDescriptor d;
-    d.id = importer_id(container);
+    d.id = importer_id(kind);
     d.revision = texture_recipe_revision();
-    d.label = container ? "Texture container" : "Image texture";
+    d.label = paint ? "Paint texture" : container ? "Texture container" : "Image texture";
     d.description =
-        container ? "Preserve admitted DDS/KTX mip chains and dimensions."
-                  : "Prepare bounded image pixels, semantic mips and optional BC compression.";
-    d.extensions = container ? std::vector<std::string>{".dds", ".ktx", ".ktx2"}
-                             : std::vector<std::string>{".png", ".jpg", ".jpeg", ".tga",
-                                                        ".bmp", ".hdr", ".rgbe", ".webp"};
-    d.source_kinds = container ? std::vector<std::string>{"dds", "ktx", "ktx2"}
-                               : std::vector<std::string>{"image", "hdr"};
+        paint       ? "Prepare editable RGBA8 paint pixels, mips and optional BC compression."
+        : container ? "Preserve admitted DDS/KTX mip chains and dimensions."
+                    : "Prepare bounded image pixels, semantic mips and optional BC compression.";
+    d.extensions = paint       ? std::vector<std::string>{".json"}
+                   : container ? std::vector<std::string>{".dds", ".ktx", ".ktx2"}
+                               : std::vector<std::string>{".png", ".jpg", ".jpeg", ".tga",
+                                                          ".bmp", ".hdr", ".rgbe", ".webp"};
+    d.source_kinds = paint       ? std::vector<std::string>{"forge.paint-texture"}
+                     : container ? std::vector<std::string>{"dds", "ktx", "ktx2"}
+                                 : std::vector<std::string>{"image", "hdr"};
     d.output_types = {"texture"};
     d.output_format = "forge.texture-bundle";
     d.limits.output_files = 16;
@@ -52,12 +67,12 @@ AssetImporterDescriptor descriptor(bool container) {
 }
 class TextureImporter final : public AssetImporter {
     std::filesystem::path worker_;
-    bool container_;
+    TextureKind kind_;
 
   public:
-    TextureImporter(std::filesystem::path worker, bool container)
-        : AssetImporter(asset_detail::descriptor(container), texture_settings(container)),
-          worker_(std::move(worker)), container_(container) {}
+    TextureImporter(std::filesystem::path worker, TextureKind kind)
+        : AssetImporter(asset_detail::descriptor(kind), settings_schema(kind)),
+          worker_(std::move(worker)), kind_(kind) {}
     ImportProbeResult probe(const ImportProbe& p) const override {
         const auto ext = extension(p.source);
         auto magic = [&](std::string_view value) {
@@ -68,7 +83,17 @@ class TextureImporter final : public AssetImporter {
                                          std::to_integer<unsigned char>(b);
                               });
         };
-        if (container_) {
+        if (kind_ == TextureKind::Paint) {
+            auto name = p.source.filename().string();
+            std::transform(name.begin(), name.end(), name.begin(), [](unsigned char c) {
+                return c >= 'A' && c <= 'Z' ? char(c - 'A' + 'a') : char(c);
+            });
+            return name.ends_with(".paint-texture.json")
+                       ? ImportProbeResult{ImportProbeMatch::Possible, "forge.paint-texture",
+                                           "Editable paint source requires full admission"}
+                       : ImportProbeResult{};
+        }
+        if (kind_ == TextureKind::Container) {
             if (magic("DDS "))
                 return {ImportProbeMatch::Strong, "dds", "DDS container signature"};
             if (magic(std::string_view("\xABKTX 11\xBB\r\n\x1A\n", 12)))
@@ -96,7 +121,9 @@ class TextureImporter final : public AssetImporter {
         require(!stop.stop_requested(), "Texture discovery cancelled");
         const auto locator = ProjectPaths::normalize(request.source);
         const ProjectPaths paths(request.project);
-        auto bytes = read_bytes(paths.resolve(locator), source_limit);
+        auto bytes = read_bytes(paths.resolve(locator), kind_ == TextureKind::Paint
+                                                            ? paint_texture_source_byte_limit
+                                                            : source_limit);
         const auto kind =
             probe({locator, std::span(bytes).first(std::min<std::size_t>(65536, bytes.size()))});
         require(kind.match != ImportProbeMatch::No, "Texture source does not match importer");
@@ -123,6 +150,11 @@ class TextureImporter final : public AssetImporter {
         input.backend = request.target.backend;
         input.profile = request.target.profile;
         plan.data = {{"source_kind", kind.source_kind}, {"extension", extension(locator)}};
+        if (kind_ == TextureKind::Paint) {
+            const auto source = PaintTextureSource::parse(bytes);
+            require(source.asset() == request.asset, "Paint texture source identity mismatch");
+            plan.data["asset_id"] = source.asset().str();
+        }
         require(!stop.stop_requested(), "Texture discovery cancelled");
         return plan;
     }
@@ -133,19 +165,22 @@ class TextureImporter final : public AssetImporter {
         const auto current = discover(request, stop);
         require(current.input.document() == plan.input.document() && current.data == plan.data,
                 "Texture source/settings changed after discovery");
-        auto bytes =
-            read_bytes(ProjectPaths(request.project).resolve(request.source), source_limit);
+        auto bytes = read_bytes(ProjectPaths(request.project).resolve(request.source),
+                                kind_ == TextureKind::Paint ? paint_texture_source_byte_limit
+                                                            : source_limit);
         require(content_digest(bytes) == plan.input.source_digest,
                 "Texture source changed while capturing snapshot");
         if (progress)
             progress(.15, "Preparing texture in isolated worker");
-        const Json payload{{"recipe", AssetImporter::descriptor().id},
-                           {"revision", texture_recipe_revision()},
-                           {"settings", request.settings},
-                           {"kind", plan.data.at("source_kind")},
-                           {"extension", plan.data.at("extension")},
-                           {"source_digest", plan.input.source_digest},
-                           {"backend", request.target.backend}};
+        Json payload{{"recipe", AssetImporter::descriptor().id},
+                     {"revision", texture_recipe_revision()},
+                     {"settings", request.settings},
+                     {"kind", plan.data.at("source_kind")},
+                     {"extension", plan.data.at("extension")},
+                     {"source_digest", plan.input.source_digest},
+                     {"backend", request.target.backend}};
+        if (kind_ == TextureKind::Paint)
+            payload["asset_id"] = plan.data.at("asset_id");
         auto files = run_import_process(worker_, request.project,
                                         {payload, {{"source.bin", std::move(bytes)}}},
                                         texture_worker_limits(), stop);
@@ -175,26 +210,41 @@ WorkerLimits texture_worker_limits() {
     limits.cancellation_grace_ms = 250;
     return limits;
 }
-ImportSettingsSchema texture_settings(bool container) {
+namespace {
+ImportSettingsSchema settings_schema(TextureKind kind) {
+    const bool container = kind == TextureKind::Container, paint = kind == TextureKind::Paint;
     std::vector<ImportSettingRule> rules;
-    rules.push_back(choice("semantic", "Usage",
-                           "Controls color-space and normal-map interpretation.", "auto",
-                           {"auto", "color", "data", "normal", "hdr"}));
+    rules.push_back(
+        choice("semantic", "Usage", "Controls color-space and normal-map interpretation.", "auto",
+               paint ? std::vector<std::string>{"auto", "color", "data"}
+                     : std::vector<std::string>{"auto", "color", "data", "normal", "hdr"}));
     ImportSettingRule additional{
-        "additional_usages", "Additional usages",
-        "Cook additional color/data/normal/HDR variants under the same Texture AssetId.",
-        ImportSettingType::StringList, Json::array()};
-    additional.choices = {"color", "data", "normal", "hdr"};
-    additional.max_entries = 3;
+        "additional_usages",
+        "Additional usages",
+        paint ? "Cook additional color/data variants under the same Texture AssetId."
+              : "Cook additional color/data/normal/HDR variants under the same Texture AssetId.",
+        ImportSettingType::StringList,
+        Json::array(),
+        {},
+        {},
+        {}};
+    additional.choices = paint ? std::vector<std::string>{"color", "data"}
+                               : std::vector<std::string>{"color", "data", "normal", "hdr"};
+    additional.max_entries = paint ? 2 : 3;
     additional.max_length = 16;
     rules.push_back(additional);
     rules.push_back(choice("wrap", "Wrap", "Sampling beyond the texture edges.", "repeat",
                            {"repeat", "mirror", "clamp"}));
     rules.push_back(choice("filter", "Filtering", "Nearest or linear texture sampling.", "linear",
                            {"nearest", "linear"}));
-    ImportSettingRule aniso{"anisotropy", "Anisotropy",
+    ImportSettingRule aniso{"anisotropy",
+                            "Anisotropy",
                             "Requested anisotropy; requires linear filtering and device support.",
-                            ImportSettingType::Integer, 1};
+                            ImportSettingType::Integer,
+                            1,
+                            {},
+                            {},
+                            {}};
     aniso.minimum = 1;
     aniso.maximum = std::numeric_limits<unsigned>::max();
     rules.push_back(aniso);
@@ -205,26 +255,52 @@ ImportSettingsSchema texture_settings(bool container) {
         rules.push_back(choice("compression", "Compression",
                                "Native BC encoding is for 8-bit normalized images.", "none",
                                {"none", "bc", "bc-high-quality"}));
-        rules.push_back({"mips", "Generate mips", "Prepare filtered smaller levels.",
-                         ImportSettingType::Boolean, true});
-        rules.push_back({"flip_vertical", "Flip vertically",
-                         "Flip pixel rows before mip preparation.", ImportSettingType::Boolean,
-                         false});
-        rules.push_back({"flip_green", "Flip normal green",
+        rules.push_back({"mips",
+                         "Generate mips",
+                         "Prepare filtered smaller levels.",
+                         ImportSettingType::Boolean,
+                         true,
+                         {},
+                         {},
+                         {}});
+        rules.push_back({"flip_vertical",
+                         "Flip vertically",
+                         "Flip pixel rows before mip preparation.",
+                         ImportSettingType::Boolean,
+                         false,
+                         {},
+                         {},
+                         {}});
+        rules.push_back({"flip_green",
+                         "Flip normal green",
                          "Convert the opposite tangent-space Y convention.",
-                         ImportSettingType::Boolean, false});
-        rules.push_back({"premultiply", "Premultiply alpha",
+                         ImportSettingType::Boolean,
+                         false,
+                         {},
+                         {},
+                         {}});
+        rules.push_back({"premultiply",
+                         "Premultiply alpha",
                          "Prepare premultiplied color before filtering.",
-                         ImportSettingType::Boolean, false});
-        ImportSettingRule maximum{"max_size", "Maximum dimension",
+                         ImportSettingType::Boolean,
+                         false,
+                         {},
+                         {},
+                         {}});
+        ImportSettingRule maximum{"max_size",
+                                  "Maximum dimension",
                                   "Select the first standard mip that fits.",
-                                  ImportSettingType::Integer, 16384};
+                                  ImportSettingType::Integer,
+                                  16384,
+                                  {},
+                                  {},
+                                  {}};
         maximum.minimum = 1;
         maximum.maximum = 16384;
         rules.push_back(maximum);
     }
     return ImportSettingsSchema(
-        importer_id(container), 1, std::move(rules), [container](const Json& j) {
+        importer_id(kind), 1, std::move(rules), [container, paint](const Json& j) {
             std::set<std::string> usages;
             for (const auto& value : j.at("additional_usages")) {
                 const auto usage = value.get<std::string>();
@@ -235,6 +311,12 @@ ImportSettingsSchema texture_settings(bool container) {
             }
             require(j.at("filter") == "linear" || j.at("anisotropy") == 1,
                     "Anisotropy requires linear filtering");
+            if (paint) {
+                require(j.at("semantic") != "normal" && j.at("semantic") != "hdr" &&
+                            !usages.contains("normal") && !usages.contains("hdr") &&
+                            j.at("flip_green") == false,
+                        "Paint textures support color/data interpretation");
+            }
             if (!container) {
                 require(j.at("semantic") == "normal" || usages.contains("normal") ||
                             j.at("flip_green") == false,
@@ -246,8 +328,17 @@ ImportSettingsSchema texture_settings(bool container) {
             }
         });
 }
+} // namespace
+ImportSettingsSchema texture_settings(bool container) {
+    return settings_schema(container ? TextureKind::Container : TextureKind::Image);
+}
+ImportSettingsSchema paint_texture_settings() { return settings_schema(TextureKind::Paint); }
+std::shared_ptr<const AssetImporter> paint_texture_importer(std::filesystem::path worker) {
+    return std::make_shared<TextureImporter>(std::move(worker), TextureKind::Paint);
+}
 std::shared_ptr<const AssetImporter> texture_importer(std::filesystem::path worker,
                                                       bool container) {
-    return std::make_shared<TextureImporter>(std::move(worker), container);
+    return std::make_shared<TextureImporter>(std::move(worker), container ? TextureKind::Container
+                                                                          : TextureKind::Image);
 }
 } // namespace forge::asset_detail

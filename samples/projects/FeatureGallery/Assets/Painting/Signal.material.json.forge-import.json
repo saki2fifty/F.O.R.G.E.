@@ -1,0 +1,43 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [
+      {
+        "kind": "runtime",
+        "revision": "0eae6df7e3814486efe75635bf018609daf7947e8bfba376bf21f8b40bb49ada",
+        "role": "material.texture:baseColorTexture",
+        "target": "3f78a814-5256-415a-b681-479a93c03721",
+        "type": "texture"
+      }
+    ],
+    "importer": "forge.material.builtin",
+    "importer_revision": "4b474eaedf3412c825c5acc4506e6714440bca925023df84bfb28f0125da81a4",
+    "key_version": 1,
+    "output_format": "forge.material-bundle",
+    "output_version": 3,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {},
+    "settings_version": 1,
+    "source": "ce36f3a0d340f6cdefa961d6d5f76ae7dad21ff41320b5590bb20403c057925c",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.material.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "21cd36e2-63d9-4009-9bac-8354f01c2673",
+    "source": "Assets/Painting/Signal.material.json",
+    "source_digest": "ce36f3a0d340f6cdefa961d6d5f76ae7dad21ff41320b5590bb20403c057925c",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.material.builtin",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

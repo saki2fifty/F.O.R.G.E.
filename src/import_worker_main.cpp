@@ -36,7 +36,8 @@ int main(int argc, char** argv) {
         const bool webp_sequence = recipe == forge::asset_detail::webp_sequence_recipe;
         if (!model && !audio && !tile && !atlas && !atlas_recipe && !image_decode &&
             !webp_sequence && recipe != "forge.texture.image" &&
-            recipe != "forge.texture.container")
+            recipe != "forge.texture.container" &&
+            recipe != forge::asset_detail::paint_texture_importer_id)
             throw std::runtime_error("Unsupported import worker recipe");
         const auto limits =
             webp_sequence ? forge::asset_detail::webp_sequence_worker_limits()

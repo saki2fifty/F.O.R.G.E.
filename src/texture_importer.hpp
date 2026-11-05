@@ -2,6 +2,9 @@
 #include "import_process.hpp"
 #include <forge/asset_importer.hpp>
 namespace forge::asset_detail {
+inline constexpr auto paint_texture_importer_id = "forge.texture.paint";
+std::shared_ptr<const AssetImporter> paint_texture_importer(std::filesystem::path worker);
+ImportSettingsSchema paint_texture_settings();
 std::shared_ptr<const AssetImporter> texture_importer(std::filesystem::path worker, bool container);
 ImportSettingsSchema texture_settings(bool container);
 std::string texture_recipe_revision();

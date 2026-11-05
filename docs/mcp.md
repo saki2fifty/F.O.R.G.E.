@@ -1679,3 +1679,42 @@ input schema and native `scene.rendering.set` share the same owner. The operatio
 preserves existing revision checks, permissions, receipt replay, partial patches,
 Undo/Redo, Play locks and Save. `mcp_occlusion_culling_stdio` covers both framing
 formats and direct read-only denial. See [the rendering contract](occlusion-culling.md).
+
+
+### Editable texture pixels
+
+`forge_asset_paint_texture_catalog` describes the bounded source, brush math and
+copy limits. `forge_asset_document_types` advertises `paint_texture` when its
+actual editor is registered. Create with a `.paint-texture.json` project path and
+optional `canvas={width,height,semantic,background}`; dimensions are1..1024,
+semantic is `color` or `data`, and background is four byte channels. Defaults are
+256×256transparent Color. Template creation only returns metadata and a preview
+UUID; ordinary source creation allocates the actual identity.
+
+`forge_asset_document_read` returns metadata for this typed source. Query up to
+4096exact stored pixels with `forge_asset_document_pixels` and `points=[[x,y],…]`.
+Queries carry the document session; mutating operations also carry its revision.
+Metadata patch preserves the pixel pages and cannot change the canvas or identity.
+
+`forge_asset_document_stroke` accepts1..256pixel-coordinate pairs and
+`brush={color:[r,g,b,a],radius,hardness,opacity,erase}`. Color is required and its
+channels lie in0..1; omitted controls use radius16,hardness0.75,opacity1,erasefalse.
+Color RGB is linear, Data channels raw. Pixel centers are atx+0.5,y+0.5 from the
+top left. Continuous path overlap uses maximum coverage per stroke.
+
+`forge_asset_document_copy_pixels` accepts a published Texture UUID in `texture`.
+Its base image must match the canvas's dimensions and Color/Data usage. Normalized
+byte and unsigned LDR block samples are supported; signed/HDR, higher precision,
+layered/volume/cube and premultiplied/unknown Color-alpha selections reject.
+Linear Color bytes encode to sRGB for the destination. Originals stay unchanged.
+
+Stroke and copy prepare asynchronously. The initial receipt reports
+`transient_draft=true`; poll `forge_asset_document_status` until settled, inspect
+`diagnostic`, and refresh the document revision. An identical outer request retry
+returns its receipt and cannot apply the operation twice. Cancellation uses
+`forge_asset_document_cancel_pixels`; it discards pending work without history.
+`forge_asset_document_fill` replaces pixels with exact byte `rgba=[r,g,b,a]` in
+one Undo step. Existing document Undo/Redo/Save/close apply. Save publishes an
+ordinary Texture through the supervised importer; poll publication status before
+assigning/exporting. The tools require the existing asset-write permission and
+preserve project scope, document identity, source baselines and retained history.

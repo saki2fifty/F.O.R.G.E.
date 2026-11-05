@@ -36,7 +36,50 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
          {"tile", automation_integer()},
          {"flags", automation_integer(0, UINT32_MAX)}},
         {"layer", "x", "y"});
+    const Json channel{{"type", "number"}, {"minimum", 0}, {"maximum", 1}};
+    const auto rgba = automation_array(automation_integer(0, 255), 4, 4);
+    const auto canvas =
+        automation_object({{"width", automation_integer(1, paint_texture_dimension_limit)},
+                           {"height", automation_integer(1, paint_texture_dimension_limit)},
+                           {"semantic", {{"type", "string"}, {"enum", {"color", "data"}}}},
+                           {"background", rgba}});
+    const Json coordinate{{"type", "number"}, {"minimum", -1000000}, {"maximum", 1000000}};
+    const auto paint_point = automation_array(coordinate, 2, 2);
     std::vector<LiveAuthoringMethod> methods;
+    methods.push_back(automation_method(
+        "asset.paint_texture.catalog",
+        "Describe editable pixel textures, brush math, source and publication limits.",
+        "asset.read", automation_object(), false, [](const Json&) {
+            return Json{
+                {"editor", "paint_texture"},
+                {"format", "forge.paint-texture"},
+                {"version", 1},
+                {"suffix", ".paint-texture.json"},
+                {"asset_type", "texture"},
+                {"limits",
+                 {{"dimension", paint_texture_dimension_limit},
+                  {"stroke_points", paint_texture_stroke_point_limit},
+                  {"source_bytes", paint_texture_source_byte_limit},
+                  {"history_entries", 64},
+                  {"history_bytes", 8388608}}},
+                {"coordinates", "Pixel XY from the top left; centers at x+0.5,y+0.5. Continuous "
+                                "capsules are clipped to the canvas. One stroke uses maximum path "
+                                "coverage; separate strokes layer."},
+                {"color", "Brush RGB is linear, alpha is straight opacity. Color pixels store sRGB "
+                          "bytes with straight alpha and use linear source-over. Erase reduces "
+                          "alpha and preserves hidden RGB."},
+                {"data", "Brush channels are independent raw normalized values. Paint blends "
+                         "toward them; erase blends toward the canvas background."},
+                {"workflow",
+                 "Create with optional canvas dimensions/semantic/background; size and "
+                 "interpretation stay fixed. Read returns metadata; pixels queries return byte "
+                 "RGBA. Patch preserves pixel storage and edits admitted metadata. Fill replaces "
+                 "pixels with exact RGBA bytes. Stroke prepares asynchronously; poll status until "
+                 "transient_draft is false, then refresh revision and inspect diagnostics. Save "
+                 "publishes through the normal texture worker. One admitted stroke/fill is one "
+                 "Undo step; oversized history rejects without losing the draft. Save/Publish and "
+                 "save the consuming Scene before export."}};
+        }));
     methods.push_back(automation_method(
         "asset.render_texture.catalog",
         "Describe saved camera output images, typed material bindings, pass ordering and limits. "
@@ -341,7 +384,8 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
              {"tile_set", automation_uuid()},
              {"domain", {{"type", "string"}, {"enum", {"mesh", "sprite"}}}},
              {"behavior_profile", {{"type", "string"}, {"enum", {"state_graph", "tree"}}}},
-             {"textures", automation_array(automation_uuid(), 512, 1)}},
+             {"textures", automation_array(automation_uuid(), 512, 1)},
+             {"canvas", canvas}},
             {"editor"}),
         false, [invoke](const Json& request) { return invoke("template", request); }));
     methods.push_back(automation_method(
@@ -352,7 +396,8 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
     methods.push_back(automation_method(
         "asset.document.read",
         "Read the shared source draft at a JSON Pointer. Arrays are paged. Tile Maps return "
-        "metadata; query cells separately.",
+        "metadata; query cells separately. Paint textures return metadata; query pixels "
+        "separately.",
         "asset.read",
         automation_object({{"editor", editor_schema},
                            {"document_session", automation_integer(1)},
@@ -370,6 +415,19 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                            {"cells", automation_array(cell, 4096, 1)}},
                           {"editor", "document_session", "cells"}),
         false, [invoke](const Json& request) { return invoke("cells", request); }));
+    methods.push_back(automation_method(
+        "asset.document.pixels",
+        "Query exact byte RGBA pixels of the current paint source without changing history.",
+        "asset.read",
+        automation_object(
+            {{"editor", {{"type", "string"}, {"const", "paint_texture"}}},
+             {"document_session", automation_integer(1)},
+             {"points",
+              automation_array(
+                  automation_array(automation_integer(0, paint_texture_dimension_limit - 1), 2, 2),
+                  4096, 1)}},
+            {"editor", "document_session", "points"}),
+        false, [invoke](const Json& request) { return invoke("pixels", request); }));
     if (!permissions.assets)
         return methods;
     for (const auto* action : {"open", "create"}) {
@@ -382,6 +440,7 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
             properties["behavior_profile"] = {{"type", "string"},
                                               {"enum", {"state_graph", "tree"}}};
             properties["patch"] = patch;
+            properties["canvas"] = canvas;
         }
         methods.push_back(automation_method(
             std::string("asset.document.") + action,
@@ -399,8 +458,9 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                        {"document_session", automation_integer(1)},
                        {"document_revision", automation_integer(1)}};
     const Json required = {"editor", "document_session", "document_revision"};
-    for (const auto* action : {"patch", "paint", "tile_collision", "tile_animation",
-                               "tile_autotile", "undo", "redo", "save", "close"}) {
+    for (const auto* action :
+         {"patch", "paint", "tile_collision", "tile_animation", "tile_autotile", "stroke", "fill",
+          "copy_pixels", "cancel_pixels", "undo", "redo", "save", "close"}) {
         auto properties = fields;
         auto needed = required;
         if (std::string_view(action) == "patch") {
@@ -413,6 +473,29 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
             properties["cells"] = automation_array(write_cell, 4096, 1);
             properties["label"] = automation_text(256, 1);
             needed.push_back("cells");
+        } else if (std::string_view(action) == "stroke") {
+            properties["editor"] = {{"type", "string"}, {"const", "paint_texture"}};
+            properties["points"] =
+                automation_array(paint_point, paint_texture_stroke_point_limit, 1);
+            properties["brush"] = automation_object(
+                {{"color", automation_array(channel, 4, 4)},
+                 {"radius", {{"type", "number"}, {"minimum", .5}, {"maximum", 256}}},
+                 {"hardness", channel},
+                 {"opacity", channel},
+                 {"erase", {{"type", "boolean"}}}},
+                {"color"});
+            needed.push_back("points");
+            needed.push_back("brush");
+        } else if (std::string_view(action) == "copy_pixels") {
+            properties["editor"] = {{"type", "string"}, {"const", "paint_texture"}};
+            properties["texture"] = automation_uuid();
+            needed.push_back("texture");
+        } else if (std::string_view(action) == "cancel_pixels") {
+            properties["editor"] = {{"type", "string"}, {"const", "paint_texture"}};
+        } else if (std::string_view(action) == "fill") {
+            properties["editor"] = {{"type", "string"}, {"const", "paint_texture"}};
+            properties["rgba"] = rgba;
+            needed.push_back("rgba");
         } else if (std::string_view(action) == "tile_collision") {
             const Json coordinate{{"type", "number"}, {"minimum", 0}, {"maximum", 1}};
             const auto pair = automation_array(coordinate, 2, 2);
@@ -480,7 +563,12 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                 "RFC6902 add/remove/replace/test in one Undo step; Tile Map patch edits metadata "
                 "and paint edits cells. Save checks the disk baseline then admits ordinary "
                 "publication; poll status for completion. Close requires discard for "
-                "unsaved/unpublished drafts." +
+                "unsaved/unpublished drafts. Paint textures accept optional canvas on "
+                "create/template; "
+                "stroke prepares asynchronously and returns transient_draft=true. cancel_pixels "
+                "discards pending work without changing history. Poll status until settled, "
+                "refresh document_revision and inspect diagnostics. Fill uses exact byte RGBA; "
+                "pixels reads exact stored bytes." +
                 (std::string_view(action) == "tile_collision"
                      ? " Tile Sets only: apply full_cell, none, convex, polygon or contours. Loops "
                        "need "

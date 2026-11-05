@@ -17,6 +17,10 @@ struct TextureImportSettings {
 TextureData import_texture_image(std::span<const std::byte> bytes, std::string_view name_hint,
                                  const TextureImportSettings& settings, TextureLimits limits = {},
                                  std::stop_token stop = {});
+// Worker-only processing of admitted raw RGBA8 pixels through the same native
+// mip/resize/compression path. Settings select storage interpretation.
+TextureData prepare_texture_pixels(const TextureData& pixels, const TextureImportSettings& settings,
+                                   TextureLimits limits = {}, std::stop_token stop = {});
 // Container metadata and supplied mips are retained. DX10 transfer/alpha metadata
 // is authoritative; legacy DDS does not declare sRGB.
 TextureData import_texture_dds(std::span<const std::byte> bytes, TextureSemantic semantic,

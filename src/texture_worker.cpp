@@ -1,8 +1,10 @@
 #include "asset_bytes.hpp"
+#include "paint_texture_source.hpp"
 #include "texture_import.hpp"
 #include "texture_importer.hpp"
 #include "texture_ktx.hpp"
 #include <forge/texture_bundle.hpp>
+#include <optional>
 namespace forge::asset_detail {
 std::vector<ArtifactFile> execute_texture_recipe(const ImportProcessRequest& request,
                                                  std::stop_token stop) {
@@ -14,7 +16,9 @@ std::vector<ArtifactFile> execute_texture_recipe(const ImportProcessRequest& req
     const auto& p = request.payload;
     const auto recipe = p.at("recipe").get<std::string>();
     const bool container = recipe == "forge.texture.container";
-    require(container || recipe == "forge.texture.image", "Unsupported native texture recipe");
+    const bool paint = recipe == paint_texture_importer_id;
+    require(paint || container || recipe == "forge.texture.image",
+            "Unsupported native texture recipe");
     require(p.at("revision").get<std::string>() == texture_recipe_revision(),
             "Texture worker/toolchain revision mismatch");
     require(request.inputs.size() == 1 && request.inputs[0].name == "source.bin" &&
@@ -23,20 +27,29 @@ std::vector<ArtifactFile> execute_texture_recipe(const ImportProcessRequest& req
     const auto& source = request.inputs[0].bytes;
     require(content_digest(source) == p.at("source_digest").get<std::string>(),
             "Texture source snapshot digest changed");
-    const auto settings =
-        texture_settings(container).effective(p.at("settings").get<ImportSettingsDocument>());
+    const auto settings = (paint ? paint_texture_settings() : texture_settings(container))
+                              .effective(p.at("settings").get<ImportSettingsDocument>());
     const auto kind = p.at("kind").get<std::string>();
     const auto backend = p.at("backend").get<std::string>();
     require(backend == "none" || backend == "d3d12", "Unsupported texture preparation backend");
     TextureLimits limits;
     // Leave room in the supervised per-file limit for the cooked metadata envelope.
     limits.bytes = 252ull * 1024 * 1024;
+    std::optional<PaintTextureSource> painted;
+    if (paint) {
+        require(kind == "forge.paint-texture", "Invalid paint texture source kind");
+        painted = PaintTextureSource::parse(source);
+        require(painted->asset().str() == p.at("asset_id").get<std::string>(),
+                "Paint texture snapshot identity mismatch");
+    }
     auto prepare = [&](const std::string& usage) {
         TextureSemantic semantic = usage == "data"     ? TextureSemantic::Data
                                    : usage == "normal" ? TextureSemantic::Normal
                                    : usage == "hdr" || (usage == "auto" && kind == "hdr")
                                        ? TextureSemantic::HdrColor
                                        : TextureSemantic::Color;
+        if (paint && usage == "auto")
+            semantic = painted->document.semantic();
         TextureData result;
         if (container) {
             if (kind == "dds")
@@ -55,7 +68,7 @@ std::vector<ArtifactFile> execute_texture_recipe(const ImportProcessRequest& req
                                     result.format == TextureFormat::BC6Signed))
                 result.semantic = TextureSemantic::HdrColor;
         } else {
-            require(kind == "image" || kind == "hdr", "Invalid raster source kind");
+            require(paint || kind == "image" || kind == "hdr", "Invalid raster source kind");
             TextureImportSettings s;
             s.semantic = semantic;
             const auto transfer = settings.at("transfer").get<std::string>();
@@ -78,7 +91,8 @@ std::vector<ArtifactFile> execute_texture_recipe(const ImportProcessRequest& req
             require(ext.size() <= 8 && ext.starts_with('.') &&
                         ext.find_first_of("/\\:") == std::string::npos,
                     "Invalid image source extension hint");
-            result = import_texture_image(source, "source" + ext, s, limits, stop);
+            result = paint ? prepare_texture_pixels(painted->document.texture(), s, limits, stop)
+                           : import_texture_image(source, "source" + ext, s, limits, stop);
         }
         const auto wrap = settings.at("wrap").get<std::string>();
         result.sampler.u = result.sampler.v = result.sampler.w =

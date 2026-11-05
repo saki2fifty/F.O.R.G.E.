@@ -72,3 +72,20 @@ moving occluder and shared transform clip, with illustrated manual instructions.
 Focused native bounds/indirect/work/pixel checks, Scene/Game temporal/HDR consumers,
 shared controls/MCP and source-hidden relocated content are tested on Linux;
 Windows/physical acceptance and delivery remain pending. No new numbered ZIP.
+
+## Editable texture painting
+
+Paint Texture authors bounded2D RGBA8 Color/Data canvases with brush color,
+radius, hardness, opacity, erase, fill, zoom and one-stroke Undo/Redo. Pixel
+preparation is cancellable and preserves the owning document's session, revision,
+history and Save baseline. Explicit copy reads compatible published byte or
+unsigned LDR block images without changing the original asset or model.
+
+The new authored source publishes an ordinary Texture through the existing
+supervised import/catalog owner and shares native image mip/compression processing.
+Content, source discovery, reviewed Duplicate/Move, automation and MCP use the same
+source and publication APIs. Source1 does not change installed SDK headers, C ABI,
+existing asset identities or dependency pins. Original Gallery170 shares the
+painted result on a Mesh and Sprite and supports source-hidden runtime packaging.
+The illustrated painting guide covers controls, copy limits and publishing.
+Windows/full-editor and physical acceptance remain pending.
