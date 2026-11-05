@@ -189,7 +189,7 @@ int main(int argc, char** argv) {
                 "<rml><body style=\"font-family:Lato;fil&#116;er&#58;blur(2px)\">"
                 "Encoded inline filter</body></rml>");
             const auto encoded = inspect(filtered.id, {});
-            check(encoded.sources.front().details.at("runtime_features").at("filters") == 5,
+            check(encoded.sources.front().details.at("runtime_features").at("filters") == 6,
                   "Native encoded inline filters lost their runtime kit requirement");
             asset_storage::replace(
                 project / "filters.rml",
@@ -207,6 +207,16 @@ int main(int argc, char** argv) {
             const auto box = inspect(filtered.id, {});
             check(box.sources.front().details.at("runtime_features") == Json{{"filters", 5}},
                   "Non-drawing box-shadow inspection lost its source capability");
+            asset_storage::replace(
+                project / "filters.rml",
+                "<rml><head><style>body,div{display:block;}body{font-family:Lato;}"
+                "div{width:80px;height:40px;background-color:red;"
+                "mask-image:luminance(linear-gradient(90deg,#000,#fff));}</style>"
+                "</head><body><div/></body></rml>");
+            const auto luminance = inspect(filtered.id, {});
+            check(luminance.sources.front().details.at("runtime_features") ==
+                      Json{{"filters", 6}, {"gradients", 1}},
+                  "Non-drawing luminance inspection lost its runtime requirement");
             asset_storage::replace(
                 project / "filters.rml",
                 "<rml><head><style>body,div{display:block;}body{font-family:Lato;}div{width:80px;"

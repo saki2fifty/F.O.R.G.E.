@@ -1,5 +1,6 @@
 #include "asset_bytes.hpp"
 #include "ui_filter_profile.hpp"
+#include "ui_luminance_mask.hpp"
 #include <RmlUi/Core.h>
 #include <RmlUi/Core/ElementText.h>
 #include <algorithm>
@@ -288,6 +289,7 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
     int width = 1280, height = 720;
     float density = 1;
     bool initialized = false;
+    std::unique_ptr<Rml::DecoratorInstancer> luminance_instancer;
     void check() const {
         if (std::this_thread::get_id() != thread)
             throw std::logic_error("UI presenter used off its owning thread");
@@ -309,6 +311,7 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
             if (!Rml::Initialise())
                 throw std::runtime_error("RmlUi initialization failed");
             initialized = true;
+            luminance_instancer = register_ui_luminance_mask();
             if (!Rml::LoadFontFace({reinterpret_cast<const Rml::byte*>(font.data()), font.size()},
                                    "Lato", Rml::Style::FontStyle::Normal,
                                    Rml::Style::FontWeight::Normal, true))

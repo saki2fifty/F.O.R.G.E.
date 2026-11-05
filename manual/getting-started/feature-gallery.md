@@ -742,3 +742,13 @@ Choose **Save / Publish** to update the image used by both objects. Save the
 consuming Material and Scene before export. See
 [Paint a texture](../editor/texture-painting.md) for Color/Data interpretation,
 copying published images, controls and limits.
+
+## UI luminance-mask samples
+
+Open **171-ui-luminance-masks** and press **Play**. Compare opaque gray in an
+alpha mask and a luminance mask, then try the brightness fade, color weights,
+PNG image and live angle. Select **Luminance mask lab HUD → UI Values → angle**
+in live Play tuning. The mask affects the panel and its text; the small bar keeps
+its presentation animation while simulation is paused. The image dependency is
+already declared. Save an authored angle and the Scene before exporting with the
+current runtime kit. See the runtime UI guide for syntax and shared layer limits.

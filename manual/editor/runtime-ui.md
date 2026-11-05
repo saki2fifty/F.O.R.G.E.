@@ -416,7 +416,7 @@ Use `mask-image` with a supported gradient or local image decorator:
 ```
 
 Opaque mask pixels keep the content; transparent pixels hide it. Intermediate
-alpha fades the content into what is behind it. Mask RGB does not determine
+alpha fades the content into what is behind it. With an ordinary alpha mask, RGB does not determine
 coverage: opaque black and opaque white both keep content. Use image alpha,
 rather than a black-and-white picture without transparency, to cut out a shape.
 Local PNG, JPEG and supported TGA images use the existing UI image rules; JPEG
@@ -456,7 +456,62 @@ Ordinary filters on the element run before its final alpha mask. Main Game UI
 and UI assigned to camera images use the same source workflow. Save the source
 and Scene before exporting with the runtime kit supplied with this editor. Older
 kits without mask support reject before replacing a preceding export. No C++
-module is needed. Luminance masks and arbitrary shaders are unavailable. Box shadows use the workflow below.
+module is needed. Luminance masks use the workflow below. Arbitrary shaders are unavailable.
+
+## Mask with image brightness
+
+Open **Scenes/171-ui-luminance-masks.scene.json** in **Examples/FeatureGallery**
+and press **Play**. Compare **Alpha / gray** with **Luminance / gray**. The same
+opaque gray keeps an alpha-masked panel fully visible and fades a luminance-masked
+panel. The other samples show a black-to-white fade, color weights, a PNG mask
+and a live angle.
+
+![Six Game UI samples comparing alpha, luminance, a brightness fade, color weights, an image and a live angle](../images/ui-luminance-mask-gallery.png)
+
+The mask affects each panel and its text. Select **Luminance mask lab HUD** and
+adjust **UI Values → angle** in live Play tuning. Pause to keep simulation fixed;
+the small bar continues its presentation animation. Stop Play and save an authored
+angle to keep that value in the Scene.
+
+In a registered RML or RCSS source, wrap one supported image or gradient in
+`luminance(...)`:
+
+```css
+.fade {
+    mask-image: luminance(linear-gradient(90deg, #000, #fff));
+}
+.image-mask {
+    mask-image: luminance(image("icons/shape.png" contain));
+}
+```
+
+Black hides the content, white keeps it, and intermediate brightness fades it.
+Coverage uses linear RGB brightness multiplied by image alpha. Red, green and
+blue contribute different amounts; an opaque display-gray value of 128 gives
+about 22% coverage. Fully transparent pixels always hide content. This behavior
+is consistent in ordinary and linear-color camera outputs. A normal `mask-image`
+without the wrapper continues to use alpha alone.
+
+The wrapper accepts one anonymous image, linear, radial, conic or repeating
+gradient. Its inner declaration may contain up to 4096 bytes. Named inner
+decorators, a comma-separated inner group and nested `luminance(...)` wrappers
+are unsupported. Existing image sizes and gradient limits apply. The wrapper adds
+one active drawing layer to the ordinary mask's layers; combined effects can
+reach the shared four-layer limit. Reduce nesting or effects when admission fails.
+
+Saved values can drive a mask with the existing model binding:
+
+```html
+<div data-style-mask-image="'luminance(linear-gradient(' + angle + 'deg,#000,#fff))'" />
+```
+
+Use the usual source editing, register/refresh and **Reload UI** controls.
+An invalid replacement preserves the preceding usable UI. For an image mask,
+register its image and declare the required runtime dependency on the UI document
+using [Runtime content](runtime-content.md). Gallery171 already declares its PNG.
+Save the source and Scene before exporting with the current runtime kit. Older
+kits without luminance support reject the export before replacing its destination.
+No C++ module is required.
 
 ## Shadow a panel’s box
 
@@ -543,7 +598,7 @@ export artwork in the orientation and display colors you want.
 
 Use document-relative local resource paths. The supplied **Lato** font is packaged with FORGE, so it does not depend on installed system fonts. You may load project `.ttf`/`.otf` fonts using an RCSS `@font-face` declaration, with suitable redistribution rights. Use explicit `font-family` and `font-size`; font shorthand is not supported in this integration. When replacing a font using the same family name, restart Play to clear its font cache.
 
-Images support **PNG**, **JPEG** (`.jpg` or `.jpeg`) and uncompressed true-color **TGA** (24 or 32 bits), at most 2048×2048. Use PNG for transparent icons and JPEG for opaque artwork. Image bytes and decoded pixels have additional limits; very large or high-precision images can exceed them. SVG, remote URLs, templates and stylesheet imports are not supported yet. Link multiple stylesheets individually. Blur and the color filters described above use bounded temporary layers. Drop shadows use the filter workflow above. Backdrop filters use the workflow above. Linear, radial and conic gradients use the workflows above. Alpha masks use the workflow above. Box shadows use the workflow above. Other shader decorators are unavailable.
+Images support **PNG**, **JPEG** (`.jpg` or `.jpeg`) and uncompressed true-color **TGA** (24 or 32 bits), at most 2048×2048. Use PNG for transparent icons and JPEG for opaque artwork. Image bytes and decoded pixels have additional limits; very large or high-precision images can exceed them. SVG, remote URLs, templates and stylesheet imports are not supported yet. Link multiple stylesheets individually. Blur and the color filters described above use bounded temporary layers. Drop shadows use the filter workflow above. Backdrop filters use the workflow above. Linear, radial and conic gradients use the workflows above. Alpha and luminance masks use the workflows above. Box shadows use the workflow above. Other shader decorators are unavailable.
 
 `px` means game render-target pixels; `dp` follows display density. The editor's interface scale remains separate. Check text input and sizing on the displays and input languages used by your game.
 

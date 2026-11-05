@@ -5703,6 +5703,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "5375ebcb-acd6-4865-8947-26dbf72d826b",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/171-ui-luminance-masks.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "54c3337f-87fa-4f06-a3a4-221bfcce4530",
       "metadata": {},
       "schema_version": 3,
@@ -9670,6 +9680,60 @@
         "removed": false
       },
       "type": "mesh"
+    },
+    {
+      "dependencies": [
+        "47ee8b5e-3172-4caf-b1e7-bfdddf364aca"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "",
+          "role": "declared:ui-mask-image",
+          "target": "47ee8b5e-3172-4caf-b1e7-bfdddf364aca",
+          "type": "texture"
+        },
+        {
+          "kind": "optional",
+          "revision": "",
+          "role": "ui.observed",
+          "target": "47ee8b5e-3172-4caf-b1e7-bfdddf364aca",
+          "type": "texture"
+        }
+      ],
+      "id": "9247d171-693c-42a1-9f75-494943101d52",
+      "metadata": {
+        "forge.runtime_declarations": {
+          "sources": {
+            "Assets/UI/LuminanceMasks/Lab.rml": "089fb4ce0abf5b1136f88fc645b8a2add4d6bedf3d8b2edc0f2ddcc7a3644d7b"
+          },
+          "version": 1
+        },
+        "forge.ui_source": {
+          "bytes": 2696,
+          "digest": "089fb4ce0abf5b1136f88fc645b8a2add4d6bedf3d8b2edc0f2ddcc7a3644d7b",
+          "format": "rml",
+          "runtime_features": {
+            "filters": 6,
+            "gradients": 2
+          }
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/UI/LuminanceMasks/Lab.rml",
+      "source_dependencies": [
+        {
+          "revision": "9a469631cc59c01a8ae44599ac79f53f2ed9780fa79fd4d87d4268fcaa25f0bb",
+          "role": "ui.observed",
+          "source": "Assets/UI/BitmapFormats/health.png"
+        },
+        {
+          "revision": "089fb4ce0abf5b1136f88fc645b8a2add4d6bedf3d8b2edc0f2ddcc7a3644d7b",
+          "role": "ui.source",
+          "source": "Assets/UI/LuminanceMasks/Lab.rml"
+        }
+      ],
+      "type": "ui_document"
     },
     {
       "dependencies": [],

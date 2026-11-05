@@ -405,13 +405,15 @@ source bytes and evidence; inspection transport and cooked metadata retain it.
 This is a conservative declaration requirement, including `filter:none`, not a
 prediction of arbitrary future rich-text/DOM injection.
 
-Runtime kits advertise `engine.runtime_ui_filters:5` from the same profile header.
+Runtime kits advertise `engine.runtime_ui_filters:6` from the same profile header.
 Known profiles are additive:1 blur/color,2 drop shadows,3 backdrop composition,
-4 alpha masks,5 box-shadow snapshots.
-The existing compatibility helper admits requirements1..5 covered by a known kit
-profile1..5. Static basic filters retain1. Shadow declarations and ordinary dynamic
+4 alpha masks,5 box-shadow snapshots,6 luminance conversion.
+The existing compatibility helper admits requirements1..6 covered by a known kit
+profile1..6. Static basic filters retain1. Shadow declarations and ordinary dynamic
 `data-style-filter` bindings retain2. `backdrop-filter` declarations (including
-none), `data-style-backdrop-filter` bindings require3. Mask declarations/bindings require4; box-shadow declarations/bindings and encoded inline styles require5.
+none), `data-style-backdrop-filter` bindings require3. Static alpha masks require4;
+box-shadow declarations/bindings require5. Luminance declarations, dynamic mask/
+decorator bindings and encoded inline styles require6.
 Encoded styles may expand any supported property before native parsing; their
 requirement is conservative. Source read/snapshot/catalog refresh recomputes
 this evidence with the same stable logical IDs. A requirement3 rejects kit1/2;
@@ -587,17 +589,17 @@ Actual rendering calls SaveLayerAsMaskImage. Non-drawing inspection and recordin
 tests validate admission/lifecycle only. Masks remain presentation effects; no new
 DOM mutation, gameplay binding or shader-authoring tool is introduced.
 
-UiResources derives filter4 for mask-image/data-style-mask-image; encoded inline styles conservatively require current filter5; ordinary static filters1, shadows2 and backdrops3 retain their
+UiResources derives filter4 for mask-image; dynamic mask/decorator bindings and encoded inline styles conservatively require current filter6; ordinary static filters1, shadows2 and backdrops3 retain their
 requirements. Gradient mask declarations use the existing gradient1/2 lexer and
-dynamic mask bindings conservatively require2. Known kit filter1..5 remains
+dynamic mask bindings conservatively require gradient2. Known kit filter1..6 remains
 additive; old1..3 reject required4 before export promotion. Sources, values,
 keyframes, reload, automation/MCP, main/camera-output and source-hidden packages
 share established owners. Original Gallery166 reuses the canonical health PNG
 through the existing declare_runtime_dependencies owner and a required typed
 edge. Optional ui.observed edges are not silently promoted; no stylesheet parser
 or second dependency owner is added.
-Luminance masks, arbitrary shaders, visual authoring and world-space
-UI remain outside this subset. Windows/full-editor/physical review is queued.
+Luminance masks use the extension below. Arbitrary shaders, visual authoring and
+world-space UI remain outside this subset. Windows/full-editor/physical review is queued.
 
 ## Native box-shadow snapshots
 
@@ -631,10 +633,57 @@ Native shadow canvases are intersected with the viewport and can clip when
 oversized. No expanded off-target canvas or substitute shape algorithm is added.
 
 Literal and model-bound box-shadow properties require5; encoded inline styles
-conservatively require5. Static masks4/backdrops3/drop shadows2/basic filters1
-retain their prior meanings. Known kit1..5 is additive; older1..4 reject a
+conservatively require6. Static masks4/backdrops3/drop shadows2/basic filters1
+retain their prior meanings. Known kit1..6 is additive; older1..4 reject a
 requirement5 before export promotion. Gradient profiles remain1/2. Source
 registration/preparation, camera outputs, MCP, live reload and source-hidden
 packages use existing owners. Original Gallery167 demonstrates the workflow.
 See [capture provenance](images/readme/README.md) for local evidence and
 platform limits. Windows/full-editor/physical review remains queued.
+
+## Native luminance-mask extension
+
+Filter profile6 adds an independently authored `luminance(...)` DecoratorInstancer
+through the pinned public API. A presenter owns registration from initialization
+through native shutdown. A bounded string property delegates one anonymous inner
+declaration to the existing native mask-image parser. Instancing admits native
+image and supported gradient types, rejects names/lists/nested wrappers before
+delegating, and retains ordinary native element data. No dependency code, separate
+stylesheet parser, asset identity or image manager is introduced. The inner source
+is bounded to4096bytes; existing source/image/gradient limits remain authoritative.
+Named outer decorators may set this wrapper's `source` property.
+
+The wrapper compiles a normal internal filter through RenderManager and draws the
+inner decorator into one additional shared layer. UiFilterLayers converts encoded
+premultiplied SDR RGB back to straight linear RGB, or uses premultiplied linear HDR
+RGB directly. Dot weights0.2126/0.7152/0.0722 yield relative luminance times alpha;
+saturation bounds coverage, and transparent pixels yield zero. A white premultiplied
+coverage result is composed into the native mask layer. Existing alpha snapshot,
+frame stamps, pool pins, image budget, compiled-filter map, clipping, composition,
+retirement and failure handling stay unchanged. No framebuffer readback is used.
+
+One extra active layer counts against the existing four-layer limit. The normal
+wrapper filter counts against256compiled filters, its composition against the
+8filter chain bound, and every scratch allocation against32images/256MiB logical
+pixel storage. Candidate preparation validates through RenderGate without drawing;
+invalid sources or deep combined masks preserve the preceding usable contexts.
+Live source bindings/keyframes and main/camera-output UI reuse native presentation.
+
+Static luminance declarations, including named definitions, require filter6.
+Static alpha masks4 and box shadows5 retain their profiles. Dynamic decorator/mask
+bindings and encoded inline styles conservatively require6; dynamic gradients
+retain their gradient2 requirement. Existing runtime-kit negotiation advertises6
+and rejects missing/older support before export promotion. Existing source editing,
+registration, inspection, runtime-dependency review, revision/history, automation/
+MCP, reload and source-hidden packaging owners supply the workflow. Gallery171
+shares the canonical health PNG through an explicit required runtime edge.
+
+Local numerical coverage includes28whole-image SDR/HDR cases: independent constant
+black/white/primary/gray/transparent and partial-alpha oracles, continuous fades,
+local-image placement, child content, named wrappers and unchanged alpha masks.
+Recording and isolated native inspection cover admission/lifetime/main/camera-output;
+both MCP framings cover authoring/replay/stale/source guards/reload/rejected nesting.
+Four animated/live/portrait Game source/export pairs run on software Vulkan.
+The authentic `manual/images/ui-luminance-mask-gallery.png` is a lossless encoding
+of that native Game capture. Windows/MSVC/D3D12/full Main/physical input/GPU review
+is queued; these local fixtures do not establish that acceptance.

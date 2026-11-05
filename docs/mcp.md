@@ -1718,3 +1718,11 @@ one Undo step. Existing document Undo/Redo/Save/close apply. Save publishes an
 ordinary Texture through the supervised importer; poll publication status before
 assigning/exporting. The tools require the existing asset-write permission and
 preserve project scope, document identity, source baselines and retained history.
+
+Luminance UI masks use the existing source text read/write/register operations,
+UiValues authoring/live tuning, Play-scoped reload and runtime-dependency review.
+The explicit `luminance(<anonymous image or gradient>)` wrapper needs filter6;
+nested wrappers, named inner decorators and inner lists reject before candidate
+promotion. Both stdio framings preserve source revision/digest/replay, permissions,
+Edit-only writes, Play identities and last-good presentation. No new agent-only
+mask behavior or mutation endpoint is introduced. See [Runtime UI](runtime-ui.md).

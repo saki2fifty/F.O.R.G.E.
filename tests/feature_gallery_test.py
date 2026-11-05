@@ -419,6 +419,18 @@ assert any(edge['target'] == by_source['Assets/UI/BitmapFormats/health.png']['id
 
 assert not {row['id'] for row in masked['entities']} & {row['id'] for row in curved['entities']}
 
+luminance = json.loads((project_root / 'Scenes/171-ui-luminance-masks.scene.json').read_text())
+assert luminance['asset_id'] == by_source['Scenes/171-ui-luminance-masks.scene.json']['id']
+luminance_hud = next(row for row in luminance['entities'] if 'forge.ui_document' in row['components'])
+luminance_doc = by_source['Assets/UI/LuminanceMasks/Lab.rml']
+assert luminance_hud['components']['forge.ui_document']['document'] == luminance_doc['id']
+assert luminance_hud['components']['forge.ui_values']['values'] == [dict(name='angle', value=45)]
+assert luminance_doc['metadata']['forge.ui_source']['runtime_features'] == dict(filters=6, gradients=2)
+assert any(edge['target'] == by_source['Assets/UI/BitmapFormats/health.png']['id']
+           and edge['kind'] == 'runtime' and edge['role'] == 'declared:ui-mask-image'
+           for edge in luminance_doc['dependency_edges'])
+assert not {row['id'] for row in luminance['entities']} & {row['id'] for row in masked['entities']}
+
 
 
 

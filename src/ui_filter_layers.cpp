@@ -21,7 +21,7 @@ namespace forge {
 using namespace ui_filter_detail;
 struct UiFilterLayers::Impl {
     static_assert(unsigned(Kind::DropShadow) == 6 && unsigned(Kind::AlphaMask) == 7 &&
-                  unsigned(Kind::CropCopy) == 8);
+                  unsigned(Kind::CropCopy) == 8 && unsigned(Kind::LuminanceToAlpha) == 9);
     struct Image {
         RefCntAutoPtr<ITexture> texture;
         std::uint64_t bytes = 0, used = 0;
@@ -101,6 +101,15 @@ float4 main(float4 position:SV_POSITION):SV_TARGET {
         color=tint*sample_image(uv-offset.xy/viewport.xy).a;
     }
     else if(kind==7) color*=mask_image.SampleLevel(mask_image_sampler,uv,0).a;
+    else if(kind==9) {
+        // Relative luminance in linear RGB, multiplied by straight alpha.
+        // SDR layers store encoded premultiplied RGB; HDR layers are linear.
+        float3 linear_rgb=color.rgb;
+        if(viewport.z<0.5)
+            linear_rgb=color.a>0 ? SRGBToLinear(saturate(color.rgb/color.a))*color.a : float3(0,0,0);
+        float coverage=saturate(dot(linear_rgb,float3(.2126,.7152,.0722)));
+        color=coverage.xxxx;
+    }
     return color;
 })";
         device->CreateShader(shader, &ps);

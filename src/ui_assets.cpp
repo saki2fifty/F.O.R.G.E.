@@ -124,14 +124,17 @@ TextProfile validate_text_profile(std::string_view text, bool markup) {
                         filter_profile =
                             std::max(filter_profile, ui_filter_detail::backdrop_profile_version);
                     if (name == "data-style-box-shadow")
-                        filter_profile = ui_filter_detail::profile_version;
+                        filter_profile =
+                            std::max(filter_profile, ui_filter_detail::box_shadow_profile_version);
                     if (name == "data-style-mask-image") {
                         filter_profile =
-                            std::max(filter_profile, ui_filter_detail::mask_profile_version);
+                            std::max(filter_profile, ui_filter_detail::luminance_profile_version);
                         gradients = ui_gradient_detail::profile_version;
                     }
-                    if (name == "data-style-decorator")
+                    if (name == "data-style-decorator") {
                         gradients = ui_gradient_detail::profile_version;
+                        filter_profile = ui_filter_detail::luminance_profile_version;
+                    }
                     while (a < attributes.size() && space(attributes[a]))
                         ++a;
                     if (a == attributes.size() || attributes[a] != '=')
@@ -198,9 +201,11 @@ TextProfile validate_text_profile(std::string_view text, bool markup) {
             char c = text[i];
             // Anonymous functions and named @decorator type declarations share
             // this evidence. Quoted ordinary text/comments stay excluded.
-            if (((property == "decorator" || property == "mask-image") &&
+            if (((property == "decorator" || property == "mask-image" || property == "source") &&
                  (c == '(' || c == ';' || c == '}')) ||
                 (c == '{' && !property.empty())) {
+                if (token == "luminance")
+                    filter_profile = ui_filter_detail::luminance_profile_version;
                 if (token == "radial-gradient" || token == "repeating-radial-gradient" ||
                     token == "conic-gradient" || token == "repeating-conic-gradient")
                     gradients = ui_gradient_detail::profile_version;
@@ -228,7 +233,8 @@ TextProfile validate_text_profile(std::string_view text, bool markup) {
                     filter_profile =
                         std::max(filter_profile, ui_filter_detail::mask_profile_version);
                 if (property == "box-shadow")
-                    filter_profile = ui_filter_detail::profile_version;
+                    filter_profile =
+                        std::max(filter_profile, ui_filter_detail::box_shadow_profile_version);
                 require(property != "font", "Use explicit font-family and font-size properties");
             }
             if (c == '{' || c == ';' || c == '}')

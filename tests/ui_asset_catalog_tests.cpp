@@ -91,7 +91,17 @@ int main(int argc, char** argv) {
                   0u, 0u},
                  {"rcss", "body {font-family:'mask-image:linear-gradient(90deg,#0000,#ffff)';}", 0u,
                   0u},
-                 {"rml", "<rml><body data-style-mask-image=\"effect\"></body></rml>", 4u, 2u},
+                 {"rml", "<rml><body data-style-mask-image=\"effect\"></body></rml>", 6u, 2u},
+                 {"rcss", "body {mask-image:luminance(linear-gradient(90deg,#000,#fff));}", 6u, 1u},
+                 {"rcss", "body {mask-image:luminance(image(test.tga));}", 6u, 0u},
+                 {"rcss", "body {mask-image:lu/**/minance(radial-gradient(circle,#000,#fff));}", 6u,
+                  2u},
+                 {"rcss",
+                  "@decorator shade : luminance {source:radial-gradient(circle,#000,#fff);} "
+                  "body{mask-image:shade;}",
+                  6u, 2u},
+                 {"rcss", "/* mask-image:luminance(image(test.tga)); */ body{color:red;}", 0u, 0u},
+                 {"rcss", "body{font-family:'luminance(image(test.tga))';}", 0u, 0u},
 
                  {"rcss", "body {decorator:linear-gradient(90deg,#f00,#00f);}", 0u, 1u},
                  {"rcss",
@@ -118,7 +128,7 @@ int main(int argc, char** argv) {
                  {"rcss", "/* decorator:linear-gradient(90deg,#f00,#00f); */ body{color:red;}", 0u,
                   0u},
                  {"rcss", "body {font-family:'linear-gradient(90deg,#f00,#00f)';}", 0u, 0u},
-                 {"rml", "<rml><body data-style-decorator=\"effect\"></body></rml>", 0u, 2u},
+                 {"rml", "<rml><body data-style-decorator=\"effect\"></body></rml>", 6u, 2u},
                  {"rcss", "body {backdrop-filter:blur(1px);}", 3u, 0u},
                  {"rcss", "body {backdrop-/**/filter:none;}", 3u, 0u},
                  {"rcss", "body {font-family:'backdrop-filter:blur(1px)';}", 0u, 0u},
@@ -138,8 +148,8 @@ int main(int argc, char** argv) {
                  {"rcss", "/* filter:blur(3px); */ body {color:red;}", 0u, 0u},
                  {"rcss", "body {font-family:'filter:blur(3px)';}", 0u, 0u},
                  {"rml", "<rml><body style=\"filter:blur(1px)\"></body></rml>", 1u, 0u},
-                 {"rml", "<rml><body style=\"fil&#116;er&#58;blur(2px)\"></body></rml>", 5u, 2u},
-                 {"rml", "<rml><body style=\"color:&#114;ed\"></body></rml>", 5u, 2u},
+                 {"rml", "<rml><body style=\"fil&#116;er&#58;blur(2px)\"></body></rml>", 6u, 2u},
+                 {"rml", "<rml><body style=\"color:&#114;ed\"></body></rml>", 6u, 2u},
                  {"rml", "<rml><head><style>body{filter:none;}</style></head><body/></rml>", 1u,
                   0u},
                  {"rml", "<rml><body data-style-filter=\"effect\"></body></rml>", 2u, 0u},
@@ -165,8 +175,11 @@ int main(int argc, char** argv) {
                     required["filters"] = profile;
                 if (gradient)
                     required["gradients"] = gradient;
-                check(feature.metadata.at("forge.ui_source").at("runtime_features") == required,
-                      "UI source capability requirements differ from its actual declarations");
+                if (feature.metadata.at("forge.ui_source").at("runtime_features") != required)
+                    throw std::runtime_error(
+                        "UI source requirements differ for " + text + ": " +
+                        feature.metadata.at("forge.ui_source").at("runtime_features").dump() +
+                        " expected " + required.dump());
                 if (profile)
                     check(feature.metadata.at("forge.ui_source")
                                   .at("runtime_features")

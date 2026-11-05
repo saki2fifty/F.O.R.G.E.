@@ -6,6 +6,13 @@
 namespace forge::ui_filter_detail {
 // Native parser payload admission shared by drawing and non-drawing hosts.
 inline Filter admit_filter(const Rml::String& name, const Rml::Dictionary& parameters) {
+    if (name == "forge-luminance-mask") {
+        if (!parameters.empty())
+            throw std::runtime_error("UI luminance conversion takes no parameters");
+        Filter result;
+        result.kind = Kind::LuminanceToAlpha;
+        return result;
+    }
     if (name == "drop-shadow") {
         const auto sigma = parameters.find("sigma"), offset = parameters.find("offset"),
                    color = parameters.find("color");

@@ -89,3 +89,16 @@ existing asset identities or dependency pins. Original Gallery170 shares the
 painted result on a Mesh and Sprite and supports source-hidden runtime packaging.
 The illustrated painting guide covers controls, copy limits and publishing.
 Windows/full-editor and physical acceptance remain pending.
+
+## Runtime UI luminance masks
+
+An original luminance decorator delegates image/gradient production to the pinned
+native UI extension API, then uses the existing compositor to convert linear RGB
+brightness and alpha to coverage. Existing alpha-mask behavior and ownership stay
+intact. Bounded anonymous image/gradient syntax, live bindings, keyframes, reload,
+main/camera-output UI, automation/MCP and source-hidden exports share existing paths.
+Additive filter profile6 preserves static filter1..5 requirements; dynamic mask/
+decorator bindings and encoded inline styles conservatively require6. Gallery171
+and the illustrated manual cover the workflow. No dependency, installed SDK, C ABI,
+Scene schema or asset-identity change is introduced. Windows/full-editor/physical
+review remains pending.

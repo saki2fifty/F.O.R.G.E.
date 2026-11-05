@@ -1,6 +1,7 @@
 #include "Graphics/GraphicsEngineVulkan/interface/EngineFactoryVk.h"
 #include "asset_bytes.hpp"
 #include "asset_storage.hpp"
+#include "fixtures/ui_luminance_gallery.hpp"
 #include "gallery_game_capture.hpp"
 #include "game_presentation.hpp"
 #include "runtime_dependencies.hpp"
@@ -20,7 +21,7 @@ using test_gallery_capture::check;
 using test_gallery_capture::Pixels;
 const char* scene_path = "Scenes/155-ui-filters.scene.json";
 bool shadows = false, backdrops = false, gradient_gallery = false, curved_gallery = false,
-     masks_gallery = false, box_gallery = false;
+     masks_gallery = false, box_gallery = false, luminance_gallery = false;
 const char* parameter = "blur";
 const char* ui_path = "Assets/UI/Filters/Lab.rml";
 Json read_scene(const std::filesystem::path& root) {
@@ -38,7 +39,8 @@ void author(const std::filesystem::path& root, UiDiligentRenderer& renderer,
             const std::vector<std::byte>& font) {
     const bool fresh = !std::filesystem::exists(root / scene_path);
     std::filesystem::create_directories((root / ui_path).parent_path());
-    asset_storage::replace(root / ui_path, box_gallery        ? R"rml(<rml><head><style>
+    asset_storage::replace(root / ui_path, luminance_gallery  ? test::luminance_gallery
+                                           : box_gallery      ? R"rml(<rml><head><style>
 body,div,p,h1 {display:block;} body {margin:0;width:100%;height:100%;font-family:Lato;font-size:15px;color:#e5f2ff;pointer-events:none;}
 #lab {position:absolute;left:4%;top:2%;width:92%;}
 h1 {font-size:23px;margin:0 0 3px;color:#79e7cf;} p {margin:3px 0;}
@@ -233,7 +235,8 @@ button:hover,button:focus {background-color:#4c849e;} .hint {font-size:13px;colo
         return entity;
     };
     if (fresh) {
-        create(box_gallery        ? "Box shadow lab HUD"
+        create(luminance_gallery  ? "Luminance mask lab HUD"
+               : box_gallery      ? "Box shadow lab HUD"
                : masks_gallery    ? "Mask lab HUD"
                : gradient_gallery ? "Gradient lab HUD"
                : backdrops        ? "Backdrop lab HUD"
@@ -263,7 +266,7 @@ button:hover,button:focus {background-color:#4c849e;} .hint {font-size:13px;colo
     const auto lease = std::make_shared<ProjectLease>(root);
     const std::array roots{scene.asset_id()};
     prepare_runtime_content_catalog(*lease, roots, inspector(renderer, root, font), scene.schema());
-    if (masks_gallery) {
+    if (masks_gallery || luminance_gallery) {
         const auto catalog = AssetCatalog::open_project(root);
         const auto image =
             std::find_if(catalog.records().begin(), catalog.records().end(), [](const auto& row) {
@@ -380,14 +383,16 @@ std::vector<Pixels> exercise(DiligentPresentation& presentation, IDeviceContext*
 } // namespace
 int main(int argc, char** argv) {
     try {
-        check(argc == 4 || (argc == 5 && (std::string_view(argv[4]) == "--box-shadows" ||
+        check(argc == 4 || (argc == 5 && (std::string_view(argv[4]) == "--luminance" ||
+                                          std::string_view(argv[4]) == "--box-shadows" ||
                                           std::string_view(argv[4]) == "--shadows" ||
                                           (std::string_view(argv[4]) == "--backdrops" ||
                                            (std::string_view(argv[4]) == "--gradients" ||
                                             (std::string_view(argv[4]) == "--curved" ||
                                              std::string_view(argv[4]) == "--masks"))))),
               "Need Gallery, font and scratch; or --author Gallery font; optional "
-              "--shadows/--backdrops/--gradients/--curved/--masks/--box-shadows");
+              "--shadows/--backdrops/--gradients/--curved/--masks/--box-shadows/--luminance");
+        luminance_gallery = argc == 5 && std::string_view(argv[4]) == "--luminance";
         box_gallery = argc == 5 && std::string_view(argv[4]) == "--box-shadows";
         shadows = argc == 5 && std::string_view(argv[4]) == "--shadows";
         backdrops = argc == 5 && std::string_view(argv[4]) == "--backdrops";
@@ -409,6 +414,12 @@ int main(int argc, char** argv) {
             parameter = "angle";
             scene_path = "Scenes/166-ui-alpha-masks.scene.json";
             ui_path = "Assets/UI/Masks/Lab.rml";
+        }
+        if (luminance_gallery) {
+            gradient_gallery = true;
+            parameter = "angle";
+            scene_path = "Scenes/171-ui-luminance-masks.scene.json";
+            ui_path = "Assets/UI/LuminanceMasks/Lab.rml";
         }
         if (backdrops) {
             scene_path = "Scenes/163-ui-backdrop-filters.scene.json";

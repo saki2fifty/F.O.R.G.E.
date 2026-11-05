@@ -2,6 +2,7 @@
 #include "ui_box_shadow_render_tests.hpp"
 #include "ui_filter_render_tests.hpp"
 #include "ui_gradient_render_tests.hpp"
+#include "ui_luminance_render_tests.hpp"
 #include "ui_snapshot_render_tests.hpp"
 // Independent RmlUi/Diligent host: deliberately no ImGui/editor linkage.
 #include "Common/interface/Float16.hpp"
@@ -95,7 +96,8 @@ int main(int argc, char** argv) {
             argc == 5 && std::string_view(argv[4]) == "--application-states-only";
         const bool conditions_only =
             argc == 5 && std::string_view(argv[4]) == "--state-conditions-only";
-        require(argc == 3 || argc == 4 || states_only || conditions_only,
+        const bool luminance_only = argc == 5 && std::string_view(argv[4]) == "--luminance-only";
+        require(argc == 3 || argc == 4 || states_only || conditions_only || luminance_only,
                 "Need image output, font, optional Gallery and application-state profile");
         const std::filesystem::path images(argv[1]);
         std::filesystem::create_directories(images);
@@ -133,6 +135,19 @@ int main(int argc, char** argv) {
 #endif
 
         forge::UiDiligentRenderer renderer(device);
+        if (luminance_only) {
+            forge::test_ui_luminance::exercise(
+                device, context, renderer, images / "luminance", argv[2],
+                [&](ITextureView* view) { return readback(device, context, view); },
+                [&](ITextureView* view) {
+                    return readback_pixels<std::array<Diligent::Float16, 4>>(
+                        device, context, view, TEX_FORMAT_RGBA16_FLOAT);
+                });
+            context->WaitForIdle();
+            std::cout
+                << "28 native luminance/alpha mask image/gradient/color-domain cases passed\n";
+            return 0;
+        }
         if (states_only || conditions_only) {
             forge::test_state_gallery_pixels::exercise(device, context, renderer, images, argv[2],
                                                        argv[3], readback, save, conditions_only);
@@ -575,6 +590,13 @@ img {position:absolute;width:64px;height:64px;top:16px;} #png {left:16px;} #jpg 
             });
         forge::test_ui_box_shadows::exercise(
             device, context, renderer, images / "box-shadow", argv[2],
+            [&](ITextureView* view) { return readback(device, context, view); },
+            [&](ITextureView* view) {
+                return readback_pixels<std::array<Diligent::Float16, 4>>(device, context, view,
+                                                                         TEX_FORMAT_RGBA16_FLOAT);
+            });
+        forge::test_ui_luminance::exercise(
+            device, context, renderer, images / "luminance", argv[2],
             [&](ITextureView* view) { return readback(device, context, view); },
             [&](ITextureView* view) {
                 return readback_pixels<std::array<Diligent::Float16, 4>>(device, context, view,

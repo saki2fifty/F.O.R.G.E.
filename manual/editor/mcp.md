@@ -208,7 +208,11 @@ Dependencies review/save tools on the UI document; an observed file alone is not
 a required package resource. Saved values can drive `data-style-mask-image`; current Play tuning, keyframes,
 Reload UI and matching-kit export retain their existing tools. Invalid reload
 preserves the preceding presentation. See [Runtime UI](runtime-ui.md) for alpha
-semantics and shared layer, image and filter-chain limits.
+semantics and shared layer, image and filter-chain limits. For brightness-based
+coverage, use `mask-image:luminance(linear-gradient(90deg,#000,#fff))` or wrap a
+supported image. The same source, runtime-dependency, live-value and reload tools
+apply. Nested wrappers reject and preserve the usable UI; use a current runtime
+kit when exporting luminance masks.
 
 Navigation uses the existing static bake worker. Runtime dependency declarations
 use their existing reviewed draft and catalog Save. Flecs Script tools evaluate

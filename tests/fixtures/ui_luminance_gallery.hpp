@@ -1,0 +1,30 @@
+#pragma once
+#include <string_view>
+namespace forge::test {
+inline constexpr std::string_view luminance_gallery = R"rml(<rml><head><style>
+body,div,p,h1 {display:block;} body {margin:0;width:100%;height:100%;font-family:Lato;font-size:15px;color:#e5f2ff;pointer-events:none;}
+#lab {position:absolute;left:4%;top:2%;width:92%;}
+h1 {font-size:23px;margin:0 0 3px;color:#79e7cf;} p {margin:3px 0;}
+#grid {margin-top:6px;} .card {display:inline-block;width:30%;margin:0 2% 6px 0;vertical-align:top;}
+.label {height:19px;font-size:13px;} .sample {position:relative;height:56px;border-radius:6px;background-color:#e96644;}
+.word {position:absolute;left:18%;top:20px;font-size:14px;color:white;}
+#alpha {mask-image:linear-gradient(90deg,#808080,#808080);}
+#gray {mask-image:luminance(linear-gradient(90deg,#808080,#808080));}
+#fade {mask-image:luminance(linear-gradient(90deg,#000,#fff));}
+#colors {mask-image:luminance(linear-gradient(90deg,#f00 0%,#f00 33%,#0f0 33%,#0f0 66%,#00f 66%,#00f 100%));}
+#image {mask-image:luminance(image("../BitmapFormats/health.png" contain));}
+#motion {width:100px;height:12px;margin-top:4px;background-color:#79e7cf;animation:2s linear-in infinite alternate reveal;}
+@keyframes reveal {from {mask-image:luminance(linear-gradient(0deg,#000,#fff));} to {mask-image:luminance(linear-gradient(180deg,#000,#fff));}}
+button {display:inline-block;padding:5px 8px;margin:4px 5px 0 0;background-color:#30536e;pointer-events:auto;}
+button:hover,button:focus {background-color:#4c849e;} .hint {font-size:13px;color:#adc7db;}
+</style></head><body><div id="lab"><h1>UI luminance masks</h1><p>Brightness and alpha control what remains visible.</p><div id="grid">
+<div class="card"><div class="label">Alpha / gray</div><div id="alpha" class="sample"><div class="word">UI</div></div></div>
+<div class="card"><div class="label">Luminance / gray</div><div id="gray" class="sample"><div class="word">UI</div></div></div>
+<div class="card"><div class="label">Black to white</div><div id="fade" class="sample"><div class="word">UI</div></div></div>
+<div class="card"><div class="label">Color weights</div><div id="colors" class="sample"><div class="word">UI</div></div></div>
+<div class="card"><div class="label">PNG image</div><div id="image" class="sample"><div class="word">UI</div></div></div>
+<div class="card"><div class="label">Live / {{angle}}</div><div class="sample" data-style-mask-image="'luminance(linear-gradient(' + angle + 'deg,#000,#fff))'"><div class="word">UI</div></div></div>
+</div><p class="hint">UI Values / angle: 0..360. Tick: {{tick}}</p><div id="motion"/>
+<button id="pause" data-event-click="command('Pause')">Pause</button><button id="resume" data-event-click="command('Resume')">Resume</button><button id="step" data-event-click="command('Step')">Step</button>
+</div></body></rml>)rml";
+}
