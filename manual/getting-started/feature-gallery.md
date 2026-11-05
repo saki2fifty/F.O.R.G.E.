@@ -690,3 +690,12 @@ lab HUD → UI Values → angle** while paused. The small bar animates on presen
 time; save an authored value after stopping to keep it. Export the saved startup
 Scene with the supplied runtime kit. See [Runtime UI](../editor/runtime-ui.md)
 for syntax, limits and the illustrated workflow.
+
+## UI alpha-mask samples
+
+Open **166-ui-alpha-masks** and press **Play**. Compare a reference card with
+linear, radial, conic, PNG and live-angle masks. Select **Mask lab HUD → UI Values
+→ angle** in live Play tuning. The mask fades both the surface and its text. The
+small bar continues animating while paused. Stop and save authored values to keep
+them; export the saved startup Scene with the supplied runtime kit.
+See [Runtime UI](../editor/runtime-ui.md) for alpha, resource and chain limits.

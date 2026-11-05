@@ -256,7 +256,7 @@ presentation state or access to arbitrary DOM/script/engine files.
 
 Adopted: native RML/RCSS layout, styled text/buttons/forms, copied scalar expressions, local text editing, multiple ordered documents, PNG/JPEG/TGA images, project fonts, transforms, scissor and stencil masks, explicit reload. Documents sort by layer then stable incoming scene order; RmlUi manages normal DOM focus/z-order within that context.
 
-Deferred: browser JavaScript, Lua, debugger UI, SVG/Lottie/HarfBuzz, RCSS imports/templates, world-space UI, collections/two-way gameplay binding, public plugin APIs and a visual UI designer. Standalone gamepad navigation now routes through input actions to native RmlUi focus traversal and activation. Link stylesheets individually. Bounded blur/color filters use transient renderer-owned layers as described below. Masks, other shader decorators and box shadows remain unsupported and diagnosed. Bounded linear gradients use the profile below. Drop-shadow and backdrop filters use the profile below. Use explicit font-family/font-size rather than shorthand. This is the first screen-space integration, not a visual UI designer.
+Deferred: browser JavaScript, Lua, debugger UI, SVG/Lottie/HarfBuzz, RCSS imports/templates, world-space UI, collections/two-way gameplay binding, public plugin APIs and a visual UI designer. Standalone gamepad navigation now routes through input actions to native RmlUi focus traversal and activation. Link stylesheets individually. Bounded blur/color filters use transient renderer-owned layers as described below. Other shader decorators and box shadows remain unsupported and diagnosed. Alpha masks use the profile below. Bounded linear gradients use the profile below. Drop-shadow and backdrop filters use the profile below. Use explicit font-family/font-size rather than shorthand. This is the first screen-space integration, not a visual UI designer.
 
 ## Upstream evidence
 
@@ -292,8 +292,10 @@ this is not a filesystem-wide lock or cross-document transaction.
 Logical types are ui_document, ui_stylesheet, ui_font and the existing Texture
 type for PNG/JPEG/TGA images. An image can also use the ordinary Texture importer;
 a previously imported Texture retains its identity and cooked selection. Metadata is under `forge.ui_source`; source edges use ui.source and
-ui.observed. Documents have typed Runtime edges to supporting resources from their
-successfully loaded set. Multiple roots conservatively reference all non-document
+ui.observed. Native reliable static roots/literal image attributes create
+ui.automatic Runtime edges; other observed resources remain Optional. Image
+and mask-image decorators require explicit Runtime Dependencies declarations
+when their files are needed in exported content. Multiple roots conservatively reference all non-document
 resources in that set, avoiding invented document cycles. The graph remains the
 one catalog-owned graph. Engine default font, future dynamically requested files,
 and parser-free static discovery are not advertised as complete project edges.
@@ -403,12 +405,14 @@ source bytes and evidence; inspection transport and cooked metadata retain it.
 This is a conservative declaration requirement, including `filter:none`, not a
 prediction of arbitrary future rich-text/DOM injection.
 
-Runtime kits advertise `engine.runtime_ui_filters:3` from the same profile header.
-Known profiles are additive:1 blur/color,2 drop shadows,3 backdrop composition.
+Runtime kits advertise `engine.runtime_ui_filters:4` from the same profile header.
+Known profiles are additive:1 blur/color,2 drop shadows,3 backdrop composition,
+4 alpha masks.
 The existing compatibility helper admits requirements1..3 covered by a known kit
-profile1..3. Static basic filters retain1. Shadow declarations and ordinary dynamic
+profile1..4. Static basic filters retain1. Shadow declarations and ordinary dynamic
 `data-style-filter` bindings retain2. `backdrop-filter` declarations (including
-none), `data-style-backdrop-filter` bindings and encoded inline styles require3.
+none), `data-style-backdrop-filter` bindings require3. Mask declarations/bindings and
+encoded inline styles require4.
 Encoded styles may expand any supported property before native parsing; their
 requirement is conservative. Source read/snapshot/catalog refresh recomputes
 this evidence with the same stable logical IDs. A requirement3 rejects kit1/2;
@@ -421,7 +425,7 @@ Gallery155 provides original shape/color samples, Inspector-driven blur and a
 presentation-time filter pulse. Source editing/registration, live UI reload,
 UiValues tuning and export use their existing automation/MCP operations and guards.
 No effects database, authored DOM format, new game clock or plugin ABI is added.
-Mask/box-shadow/other shader effects, world-space UI and surface input
+Box-shadow/other shader effects, world-space UI and surface input
 remain outside this profile.
 
 ### Drop-shadow composition
@@ -474,7 +478,7 @@ RGBA8 and linearRGBA16F camera output use their existing destination domain.
 Opacity, clipping, candidate/last-good, output failure and retirement policies
 remain with the existing presenter/resource owners. Gallery163 supplies original
 foreground/background and live/presentation-time comparisons, authored and
-exported with the same source/model/MCP workflow. Masks, box shadows and other shader
+exported with the same source/model/MCP workflow. Box shadows and other shader
 decorators remain unsupported; linear gradients use the profile below.
 
 
@@ -513,7 +517,7 @@ Runtime kits advertise integer `engine.runtime_ui_gradients:2` from the same
 private profile header. Known requirements1..2 are additive; static linear
 declarations retain1. Radial/conic declarations, dynamic decorator bindings and
 encoded inline styles require2. Missing, fractional, boolean, too-old or unknown
-versions reject required content before export promotion. Filter profiles1..3 are unchanged.
+versions reject required content before export promotion. Filter profiles1..3 retain their meanings; mask support adds4.
 The installed native SDK value-header list, C ABI1, identity and scene schema are
 unchanged. Source text/register/refresh, saved models, live Play tuning, keyframes,
 reload, automation/MCP, camera outputs and source-hidden packages use their
@@ -551,5 +555,51 @@ non-drawing inspection, automation/MCP and export retain their existing owners.
 Source requirements1/2 and runtime-kit2 preserve static linear1 compatibility;
 oldkit1 rejects radial/conic/dynamic2. Existing Gallery164 dynamic metadata is
 refreshed through source registration/preparation with unchanged source and IDs.
-Original Gallery165 demonstrates the new forms. Masks, arbitrary shaders, box
+Original Gallery165 demonstrates the new forms. Alpha masks use the extension below. Arbitrary shaders, box
 shadows, visual UI authoring and world-space UI remain outside this profile.
+
+
+## Native alpha-mask extension
+
+Filter profile4 implements the pinned native SaveLayerAsMaskImage callback. The
+native ElementEffects producer creates a mask layer during each Render, draws its
+decorators, stores a local compiled mask filter, pops the layer, composites content
+with ordinary filters followed by that mask, and retires the local filter. Native
+syntax, decorator placement and gradient/image resolution remain dependency-owned.
+
+The existing UiFilterLayers owner copies the current layer into an image from its
+32image/256MiB logical pool. A pin on that pool slot prevents reuse or eviction
+until ReleaseFilter. The copied snapshot preserves alpha if the original target
+is subsequently modified. The existing compiled-filter map and handle issuer own
+both typed filters and masks; no mask asset identity or image manager is added.
+A frame stamp rejects use after a later begin. End clears transient bindings and
+layer activity; outstanding pins retain their charged pool images until release.
+
+An independently authored extension to the existing compositor samples mask alpha
+and multiplies all premultiplied content channels by it. Both encodedRGBA8 and
+linearRGBA16F retain the destination domain; alpha is not decoded as color and no
+luminance conversion is applied. Snapshot/copy/intermediate passes use existing
+clipping/composition and buffers, with one additional bound image sampler. The
+four-active-layer and eight-filter chain bounds include mask work; saved masks
+also count toward256compiled filters and the shared image budget.
+
+Candidate preparation remains non-drawing. Because the pinned mask filter is local
+to one native Render, RenderGate uses a typed opacity1 placeholder through the
+existing filter owner while preparing. This validates chain counts and native
+release without reading/drawing the framebuffer or inventing opaque handles.
+Actual rendering calls SaveLayerAsMaskImage. Non-drawing inspection and recording
+tests validate admission/lifecycle only. Masks remain presentation effects; no new
+DOM mutation, gameplay binding or shader-authoring tool is introduced.
+
+UiResources derives filter4 for mask-image/data-style-mask-image and encoded
+inline styles; ordinary static filters1, shadows2 and backdrops3 retain their
+requirements. Gradient mask declarations use the existing gradient1/2 lexer and
+dynamic mask bindings conservatively require2. Known kit filter1..4 remains
+additive; old1..3 reject required4 before export promotion. Sources, values,
+keyframes, reload, automation/MCP, main/camera-output and source-hidden packages
+share established owners. Original Gallery166 reuses the canonical health PNG
+through the existing declare_runtime_dependencies owner and a required typed
+edge. Optional ui.observed edges are not silently promoted; no stylesheet parser
+or second dependency owner is added.
+Luminance masks, box shadows, arbitrary shaders, visual authoring and world-space
+UI remain outside this subset. Windows/full-editor/physical review is queued.

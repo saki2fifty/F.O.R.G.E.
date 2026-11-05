@@ -246,7 +246,7 @@ int main(int argc, char** argv) {
             validate_runtime_compatibility(routed,
                                            {{"runtime_ui_protocol", 2}, {"runtime_ui_filters", 1}});
             reject([&] { validate_runtime_compatibility(routed, {{"runtime_ui_protocol", 2}}); });
-            for (const Json& profile : {Json(), Json(0), Json(1.0), Json("1"), Json(true), Json(4)})
+            for (const Json& profile : {Json(), Json(0), Json(1.0), Json("1"), Json(true), Json(5)})
                 reject([&] {
                     validate_runtime_compatibility(
                         routed, {{"runtime_ui_protocol", 2}, {"runtime_ui_filters", profile}});
@@ -272,11 +272,11 @@ int main(int argc, char** argv) {
                 validate_runtime_compatibility(
                     routed, {{"runtime_ui_protocol", 2}, {"runtime_ui_filters", 1}});
             });
-            for (unsigned required = 1; required <= 3; ++required) {
+            for (unsigned required = 1; required <= 4; ++required) {
                 stylesheet.metadata["forge.ui_source"]["runtime_features"] = {
                     {"filters", required}};
                 routed.replace(stylesheet);
-                for (unsigned supported = 1; supported <= 3; ++supported) {
+                for (unsigned supported = 1; supported <= 4; ++supported) {
                     const auto engine =
                         Json{{"runtime_ui_protocol", 2}, {"runtime_ui_filters", supported}};
                     if (supported >= required)

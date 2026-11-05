@@ -224,8 +224,16 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
             return 0;
         }
         Rml::CompiledFilterHandle SaveLayerAsMaskImage() override {
-            fail("UI mask images are not supported");
-            return 0;
+            // The pinned native producer keeps this filter local to one Render.
+            // Preparation validates its count/lifetime through the existing
+            // filter owner; it must never read or draw a host framebuffer.
+            const auto handle = preparing ? call([&] {
+                return target.CompileFilter("opacity", {{"value", Rml::Variant(1.f)}});
+            })
+                                          : call([&] { return target.SaveLayerAsMaskImage(); });
+            if (!handle)
+                fail("UI alpha mask could not be admitted by this renderer");
+            return handle;
         }
         Rml::CompiledShaderHandle CompileShader(const Rml::String& name,
                                                 const Rml::Dictionary& parameters) override {

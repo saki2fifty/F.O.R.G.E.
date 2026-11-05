@@ -201,6 +201,15 @@ use **UI Values** and `data-style-decorator`; native keyframes, current Play
 tuning, Reload UI and matching-kit export retain their ordinary behavior. See
 [Runtime UI](runtime-ui.md) for the illustrated radial/conic workflow and bounds.
 
+For alpha masks, edit `mask-image` in the same RML/RCSS source tools and
+register/refresh the source. Use a supported gradient or local image decorator.
+For image decorators, add the registered image through the existing Runtime
+Dependencies review/save tools on the UI document; an observed file alone is not
+a required package resource. Saved values can drive `data-style-mask-image`; current Play tuning, keyframes,
+Reload UI and matching-kit export retain their existing tools. Invalid reload
+preserves the preceding presentation. See [Runtime UI](runtime-ui.md) for alpha
+semantics and shared layer, image and filter-chain limits.
+
 Navigation uses the existing static bake worker. Runtime dependency declarations
 use their existing reviewed draft and catalog Save. Flecs Script tools evaluate
 the existing isolated diagnostic data/world preview; they do not replace C++

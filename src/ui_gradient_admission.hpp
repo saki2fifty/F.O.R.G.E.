@@ -23,7 +23,7 @@ inline Gradient admit_gradient(const Rml::String& name, const Rml::Dictionary& p
     const auto& colors = field("color_stop_list", Rml::Variant::COLORSTOPLIST);
     const auto& native = colors.GetReference<Rml::ColorStopList>();
     if (native.size() < 2 || native.size() > max_stops)
-        throw std::runtime_error("UI linear gradients require 2..16 resolved color stops");
+        throw std::runtime_error("UI gradients require 2..16 resolved color stops");
     std::array<Stop, max_stops> stops{};
     for (std::size_t i = 0; i < native.size(); ++i) {
         if (native[i].position.unit != Rml::Unit::NUMBER)

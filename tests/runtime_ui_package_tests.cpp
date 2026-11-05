@@ -189,7 +189,7 @@ int main(int argc, char** argv) {
                 "<rml><body style=\"font-family:Lato;fil&#116;er&#58;blur(2px)\">"
                 "Encoded inline filter</body></rml>");
             const auto encoded = inspect(filtered.id, {});
-            check(encoded.sources.front().details.at("runtime_features").at("filters") == 3,
+            check(encoded.sources.front().details.at("runtime_features").at("filters") == 4,
                   "Native encoded inline filters lost their runtime kit requirement");
             asset_storage::replace(
                 project / "filters.rml",
@@ -218,6 +218,16 @@ int main(int argc, char** argv) {
                           Json{{"gradients", 2}},
                       "Native inspector omitted the radial/conic gradient profile");
             }
+            asset_storage::replace(
+                project / "filters.rml",
+                "<rml><head><style>body,div{display:block;}body{font-family:Lato;}"
+                "div{width:80px;height:40px;background-color:red;mask-image:radial-gradient(circle "
+                "20px,#0000,#ffff);}</style>"
+                "</head><body><div/></body></rml>");
+            const auto masked = inspect(filtered.id, {});
+            check(masked.sources.front().details.at("runtime_features") ==
+                      Json{{"filters", 4}, {"gradients", 2}},
+                  "Non-drawing inspector omitted mask and gradient requirements");
             asset_storage::replace(project / "filters.rml",
                                    "<rml><body style=\"font-family:Lato;backdrop-filter:blur(2px) "
                                    "grayscale(0.5)\">Backdrop export</body></rml>");

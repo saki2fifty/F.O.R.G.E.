@@ -141,8 +141,53 @@ body,div {display:block;} body {margin:0;font-family:Lato;}
                         "Curved paused model update rebuilt contexts or lost shape/repeat values");
                 }
             }
+            renderer.filters_supported = true;
+            renderer.masks_supported = true;
+            for (const auto* shape :
+                 {"linear-gradient(", "radial-gradient(circle ", "conic-gradient(from "}) {
+                publish(45);
+                auto masked = original;
+                masked.replace(masked.find("data-style-decorator"),
+                               std::string("data-style-decorator").size(), "data-style-mask-image");
+                masked.replace(masked.find("#panel {"), std::string("#panel {").size(),
+                               "#panel {background-color:#ff0000;");
+                const auto start = masked.find("linear-gradient(");
+                masked.replace(start, std::string("linear-gradient(").size(), shape);
+                if (std::string_view(shape).starts_with("radial"))
+                    masked.replace(masked.find("deg, #ff0000"), 3, "px");
+                const auto saves = renderer.mask_saves;
+                write(masked);
+                check(presenter.reload() && renderer.mask_saves == saves &&
+                          renderer.filters.empty(),
+                      "Mask preparation captured a framebuffer or retained its temporary filter");
+                draw();
+                check(renderer.mask_saves >= saves + 2 && renderer.filters.empty() &&
+                          renderer.layers.empty(),
+                      "Main/output alpha masks did not draw and retire their filters/layers");
+                auto* context = Rml::GetContext(0);
+                publish(90);
+                check(presenter.accept(snapshot()), "Live mask model was not accepted");
+                draw();
+                check(Rml::GetContext(0) == context && renderer.filters.empty(),
+                      "Live mask model replaced a context or retained an ephemeral filter");
+            }
+            auto excessive_mask = original;
+            excessive_mask.replace(excessive_mask.find("data-style-decorator"),
+                                   std::string("data-style-decorator").size(),
+                                   "data-style-mask-image");
+            excessive_mask.replace(excessive_mask.find("#panel {"), std::string("#panel {").size(),
+                                   "#panel {filter:opacity(1) opacity(1) opacity(1) opacity(1) "
+                                   "opacity(1) opacity(1) opacity(1) opacity(1);");
+            const auto mask_context = Rml::GetContext(0);
+            const auto mask_saves = renderer.mask_saves;
+            write(excessive_mask);
+            check(!presenter.reload() && !presenter.diagnostic().empty() &&
+                      Rml::GetContext(0) == mask_context && renderer.mask_saves == mask_saves &&
+                      renderer.filters.empty(),
+                  "Mask plus eight filters bypassed chain admission or replaced the last good "
+                  "source");
             write(original);
-            check(presenter.reload(), "Linear source did not reload after curved gradients");
+            check(presenter.reload(), "Linear source did not reload after masked gradients");
             draw();
             auto candidate = snapshot();
             candidate["revision"] = candidate.at("revision").get<unsigned>() + 1;

@@ -23,7 +23,7 @@ void exercise(Diligent::IRenderDevice* device, Diligent::IDeviceContext* context
     using namespace Diligent;
     std::filesystem::create_directories(root);
     const auto font = asset_detail::read_bytes(font_path, 4 * 1024 * 1024);
-    for (unsigned kind = 0; kind < 14; ++kind) {
+    for (unsigned kind = 0; kind < 18; ++kind) {
         std::string declaration;
         switch (kind) {
         case 0:
@@ -69,16 +69,27 @@ void exercise(Diligent::IRenderDevice* device, Diligent::IDeviceContext* context
         case 12:
             declaration = "conic-gradient(from 90deg at 25% 75%,#ff0000,#0000ff)";
             break;
-        default:
+        case 13:
             declaration = "repeating-conic-gradient(from -45deg,#ff000080 0deg,#0000ff 90deg)";
+            break;
+        case 14:
+            declaration = "linear-gradient(90deg,#00000000,#ffffffff)";
+            break;
+        case 15:
+            declaration = "radial-gradient(circle 20px,#00000000,#ffffffff)";
+            break;
+        case 16:
+            declaration = "conic-gradient(#00000000,#ffffffff)";
+            break;
+        default:
+            declaration = "linear-gradient(90deg,#00000080,#ffffff80)";
             break;
         }
         std::ofstream(root / "Gradient.rml")
             << "<rml><head><style>body,div {display:block;} body {margin:0;font-family:Lato;}"
                "#gradient "
                "{position:absolute;left:8px;top:4px;width:48px;height:24px;border-radius:4px;"
-               "decorator:"
-            << declaration
+            << (kind >= 14 ? "background-color:#ff0000;mask-image:" : "decorator:") << declaration
             << ";} #marker "
                "{position:absolute;left:30px;top:14px;width:4px;height:4px;background-color:#"
                "00ff00;}"
@@ -153,7 +164,7 @@ void exercise(Diligent::IRenderDevice* device, Diligent::IDeviceContext* context
                             } else
                                 t = std::clamp(t, 0., 1.);
                         }
-                        if (kind >= 11) {
+                        if (kind >= 11 && kind <= 13) {
                             const double cx = kind == 12 ? 12 : 24, cy = kind == 12 ? 18 : 12;
                             const double degrees = std::atan2(x - 8 + .5 - cx, -(y - 4 + .5 - cy)) *
                                                    (180 / std::acos(-1.));
@@ -172,7 +183,7 @@ void exercise(Diligent::IRenderDevice* device, Diligent::IDeviceContext* context
                         }
                         const double first_alpha =
                             (kind == 2 || kind == 10 || kind == 13) ? 128. / 255 : 1;
-                        const double alpha = first_alpha * (1 - t) + t;
+                        double alpha = first_alpha * (1 - t) + t;
                         std::array<double, 3> rgb{(kind == 1 || kind == 4) ? 0
                                                                            : first_alpha * (1 - t),
                                                   (kind == 1 || kind == 4) ? 1 - t : 0, t};
@@ -186,6 +197,18 @@ void exercise(Diligent::IRenderDevice* device, Diligent::IDeviceContext* context
                         }
                         if (kind == 7)
                             rgb = t < .5 ? std::array{1., 0., 0.} : std::array{0., 0., 1.};
+                        if (kind >= 14) {
+                            if (kind == 15)
+                                t = std::clamp(std::hypot(x - 8 + .5 - 24, y - 4 + .5 - 12) / 20,
+                                               0., 1.);
+                            if (kind == 16) {
+                                t = std::atan2(x - 8 + .5 - 24, -(y - 4 + .5 - 12)) /
+                                    (2 * std::acos(-1.));
+                                t -= std::floor(t);
+                            }
+                            alpha = kind == 17 ? 128. / 255 : t;
+                            rgb = {alpha, 0., 0.};
+                        }
                         for (unsigned c = 0; c < 3; ++c) {
                             if (linear)
                                 rgb[c] = transfer(rgb[c] / alpha) * alpha;
@@ -227,5 +250,73 @@ void exercise(Diligent::IRenderDevice* device, Diligent::IDeviceContext* context
           "Compiled gradient count exceeded its bound or native contexts retained shader rows");
     for (const auto handle : handles)
         native.ReleaseShader(handle);
+    TextureDesc mask_target;
+    mask_target.Name = "FORGE UI mask snapshot and pool oracle";
+    mask_target.Type = RESOURCE_DIM_TEX_2D;
+    mask_target.Width = 64;
+    mask_target.Height = 32;
+    mask_target.Format = TEX_FORMAT_RGBA8_UNORM;
+    mask_target.BindFlags = BIND_RENDER_TARGET | BIND_SHADER_RESOURCE;
+    RefCntAutoPtr<ITexture> mask_texture;
+    device->CreateTexture(mask_target, nullptr, &mask_texture);
+    check(bool(mask_texture), "Mask snapshot test target unavailable");
+    auto* mask_view = mask_texture->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET);
+    renderer.begin(context, mask_view, 64, 32);
+    const float opaque[] = {0, 0, 0, 1}, transparent[] = {0, 0, 0, 0};
+    context->ClearRenderTarget(mask_view, opaque, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    const auto snapshot = native.SaveLayerAsMaskImage();
+    context->ClearRenderTarget(mask_view, transparent, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    const Rml::Vertex vertices[] = {{{16, 8}, {255, 0, 0, 255}, {0, 0}},
+                                    {{48, 8}, {255, 0, 0, 255}, {1, 0}},
+                                    {{48, 24}, {255, 0, 0, 255}, {1, 1}},
+                                    {{16, 24}, {255, 0, 0, 255}, {0, 1}}};
+    const int indices[] = {0, 1, 2, 0, 2, 3};
+    const auto geometry = native.CompileGeometry({vertices, 4}, {indices, 6});
+    const auto layer = native.PushLayer();
+    native.RenderGeometry(geometry, {0, 0}, 0);
+    const Rml::CompiledFilterHandle chain[] = {snapshot};
+    native.CompositeLayers(layer, 0, Rml::BlendMode::Blend, {chain, 1});
+    native.PopLayer();
+    native.ReleaseGeometry(geometry);
+    native.ReleaseFilter(snapshot);
+    renderer.end();
+    const auto copied = read8(mask_view);
+    check(copied.at(16 * 64 + 32)[0] > 250 && copied.at(16 * 64 + 32)[3] > 250 &&
+              copied.at(0)[3] == 0,
+          "Saved mask changed with its source or escaped its content coverage");
+    check(renderer.filter_stats().filters == 0 && renderer.filter_stats().active_layers == 0,
+          "Mask snapshot retained filter/layer ownership");
+    renderer.begin(context, mask_view, 64, 32);
+    std::vector<Rml::CompiledFilterHandle> masks;
+    for (unsigned i = 0; i < 32; ++i)
+        masks.push_back(native.SaveLayerAsMaskImage());
+    const auto full = renderer.filter_stats();
+    rejected = false;
+    try {
+        native.SaveLayerAsMaskImage();
+    } catch (const std::exception&) {
+        rejected = true;
+    }
+    check(rejected && full.cached_images == 32 && full.filters == 32 &&
+              renderer.filter_stats().allocations == full.allocations,
+          "Pinned mask snapshots were evicted or exceeded the shared pool");
+    for (const auto handle : masks)
+        native.ReleaseFilter(handle);
+    const auto stale = native.SaveLayerAsMaskImage();
+    check(renderer.filter_stats().allocations == full.allocations,
+          "Released mask snapshots did not return to the existing pool");
+    renderer.end();
+    renderer.begin(context, mask_view, 64, 32);
+    rejected = false;
+    try {
+        const Rml::CompiledFilterHandle earlier[] = {stale};
+        native.CompositeLayers(0, 0, Rml::BlendMode::Replace, {earlier, 1});
+    } catch (const std::exception&) {
+        rejected = true;
+    }
+    check(rejected, "Mask snapshot from an earlier frame was admitted");
+    native.ReleaseFilter(stale);
+    renderer.end();
+    check(renderer.filter_stats().filters == 0, "Mask retirement retained compiled records");
 }
 } // namespace forge::test_ui_gradients

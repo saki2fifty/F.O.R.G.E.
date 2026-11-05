@@ -78,7 +78,7 @@ content may differ; use **Window** to open a panel mentioned in a guide.
 - [Navigation profiles, authored links, polygon regions, static collision collection, moving obstacles and destinations](editor/navigation.md)
 - [Create patrol, wait and chase graphs and behavior trees](editor/navigation-behavior.md)
 - [Audio: import, preview, filters, echo, reverb, mixing and music/UI pause](editor/audio.md)
-- [Runtime UI: HUDs, camera-image panels, menus, animation, filters, shadows, backdrops and gradients](editor/runtime-ui.md)
+- [Runtime UI: HUDs, camera-image panels, menus, animation, filters, shadows, backdrops, gradients and masks](editor/runtime-ui.md)
 - [Animate named UI values with a Scene sequence](editor/sequence-ui.md)
 - [Translate a game's menus and HUD](editor/ui-localization.md)
 - [Flecs Script](editor/flecs-script.md)

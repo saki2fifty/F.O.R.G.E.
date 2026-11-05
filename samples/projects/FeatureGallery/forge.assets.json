@@ -5049,6 +5049,60 @@
       "type": "transform_animation"
     },
     {
+      "dependencies": [
+        "47ee8b5e-3172-4caf-b1e7-bfdddf364aca"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "",
+          "role": "declared:ui-mask-image",
+          "target": "47ee8b5e-3172-4caf-b1e7-bfdddf364aca",
+          "type": "texture"
+        },
+        {
+          "kind": "optional",
+          "revision": "",
+          "role": "ui.observed",
+          "target": "47ee8b5e-3172-4caf-b1e7-bfdddf364aca",
+          "type": "texture"
+        }
+      ],
+      "id": "4a4e1e4f-0718-4091-8469-4348026e2b86",
+      "metadata": {
+        "forge.runtime_declarations": {
+          "sources": {
+            "Assets/UI/Masks/Lab.rml": "ee7d42781dd6c8487cb230438365f48ece9e1bc0a3a7bb257b837de9ff32ce64"
+          },
+          "version": 1
+        },
+        "forge.ui_source": {
+          "bytes": 2540,
+          "digest": "ee7d42781dd6c8487cb230438365f48ece9e1bc0a3a7bb257b837de9ff32ce64",
+          "format": "rml",
+          "runtime_features": {
+            "filters": 4,
+            "gradients": 2
+          }
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/UI/Masks/Lab.rml",
+      "source_dependencies": [
+        {
+          "revision": "9a469631cc59c01a8ae44599ac79f53f2ed9780fa79fd4d87d4268fcaa25f0bb",
+          "role": "ui.observed",
+          "source": "Assets/UI/BitmapFormats/health.png"
+        },
+        {
+          "revision": "ee7d42781dd6c8487cb230438365f48ece9e1bc0a3a7bb257b837de9ff32ce64",
+          "role": "ui.source",
+          "source": "Assets/UI/Masks/Lab.rml"
+        }
+      ],
+      "type": "ui_document"
+    },
+    {
       "dependencies": [],
       "dependency_edges": [],
       "id": "4ab91f02-df69-47c5-a626-3b6c7504e954",
@@ -6140,6 +6194,16 @@
       "source": "Assets/AnimationTiming/SmoothParticleAppearance.animation.json",
       "source_dependencies": [],
       "type": "transform_animation"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "5dcd6572-980f-4b97-9a26-e63ca2666af4",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/166-ui-alpha-masks.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
     },
     {
       "dependencies": [],

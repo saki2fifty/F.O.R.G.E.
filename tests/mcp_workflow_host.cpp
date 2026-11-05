@@ -138,6 +138,7 @@ int main(int argc, char** argv) {
         UiTestRenderer renderer;
         renderer.filters_supported = true;
         renderer.gradients_supported = true;
+        renderer.masks_supported = true;
         std::unique_ptr<forge::UiPresenter> presenter;
         std::string presenter_session;
         std::uint64_t presenter_generation = 0, submitted = 0;

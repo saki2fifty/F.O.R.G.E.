@@ -3,6 +3,7 @@
 #include "asset_storage.hpp"
 #include "gallery_game_capture.hpp"
 #include "game_presentation.hpp"
+#include "runtime_dependencies.hpp"
 #include "runtime_package.hpp"
 #include <RmlUi/Core.h>
 #include <forge/authoring.hpp>
@@ -18,7 +19,8 @@ namespace {
 using test_gallery_capture::check;
 using test_gallery_capture::Pixels;
 const char* scene_path = "Scenes/155-ui-filters.scene.json";
-bool shadows = false, backdrops = false, gradient_gallery = false, curved_gallery = false;
+bool shadows = false, backdrops = false, gradient_gallery = false, curved_gallery = false,
+     masks_gallery = false;
 const char* parameter = "blur";
 const char* ui_path = "Assets/UI/Filters/Lab.rml";
 Json read_scene(const std::filesystem::path& root) {
@@ -36,7 +38,32 @@ void author(const std::filesystem::path& root, UiDiligentRenderer& renderer,
             const std::vector<std::byte>& font) {
     const bool fresh = !std::filesystem::exists(root / scene_path);
     std::filesystem::create_directories((root / ui_path).parent_path());
-    asset_storage::replace(root / ui_path, curved_gallery     ? R"rml(<rml><head><style>
+    asset_storage::replace(root / ui_path, masks_gallery      ? R"rml(<rml><head><style>
+body,div,p,h1 {display:block;} body {margin:0;width:100%;height:100%;font-family:Lato;font-size:15px;color:#e5f2ff;pointer-events:none;}
+#lab {position:absolute;left:4%;top:2%;width:92%;}
+h1 {font-size:23px;margin:0 0 3px;color:#79e7cf;} p {margin:3px 0;}
+#grid {margin-top:6px;} .card {display:inline-block;width:30%;margin:0 2% 6px 0;vertical-align:top;}
+.label {height:19px;font-size:13px;} .sample {position:relative;height:56px;border-radius:6px;background-color:#e96644;}
+.word {position:absolute;left:18%;top:20px;font-size:14px;color:white;}
+#linear {mask-image:linear-gradient(90deg,#0000,#ffff);}
+#radial {mask-image:radial-gradient(circle closest-side,#000f 45%,#0000 100%);}
+#conic {mask-image:repeating-conic-gradient(from 45deg,#000f 0deg,#0000 90deg);}
+#image {mask-image:image("../BitmapFormats/health.png" contain);}
+#motion {width:100px;height:12px;margin-top:4px;background-color:#79e7cf;animation:2s linear-in infinite alternate reveal;}
+@keyframes reveal {from {mask-image:linear-gradient(0deg,#0000,#ffff);} to {mask-image:linear-gradient(180deg,#0000,#ffff);}}
+button {display:inline-block;padding:5px 8px;margin:4px 5px 0 0;background-color:#30536e;pointer-events:auto;}
+button:hover,button:focus {background-color:#4c849e;} .hint {font-size:13px;color:#adc7db;}
+</style></head><body><div id="lab"><h1>UI alpha masks</h1><p>Alpha controls the surface and its contents.</p><div id="grid">
+<div class="card"><div class="label">Reference</div><div class="sample"><div class="word">UI</div></div></div>
+<div class="card"><div class="label">Linear fade</div><div id="linear" class="sample"><div class="word">UI</div></div></div>
+<div class="card"><div class="label">Radial fade</div><div id="radial" class="sample"><div class="word">UI</div></div></div>
+<div class="card"><div class="label">Conic fade</div><div id="conic" class="sample"><div class="word">UI</div></div></div>
+<div class="card"><div class="label">PNG alpha</div><div id="image" class="sample"><div class="word">UI</div></div></div>
+<div class="card"><div class="label">Live / {{angle}}</div><div class="sample" data-style-mask-image="'linear-gradient(' + angle + 'deg,#0000,#ffff)'"><div class="word">UI</div></div></div>
+</div><p class="hint">UI Values / angle: 0..360. Tick: {{tick}}</p><div id="motion"/>
+<button id="pause" data-event-click="command('Pause')">Pause</button><button id="resume" data-event-click="command('Resume')">Resume</button><button id="step" data-event-click="command('Step')">Step</button>
+</div></body></rml>)rml"
+                                           : curved_gallery   ? R"rml(<rml><head><style>
 body,div,p,h1 {display:block;} body {margin:0;width:100%;height:100%;font-family:Lato;font-size:15px;color:#e5f2ff;pointer-events:none;}
 #lab {position:absolute;left:4%;top:2%;width:92%;}
 h1 {font-size:23px;margin:0 0 3px;color:#79e7cf;} p {margin:3px 0;}
@@ -181,10 +208,11 @@ button:hover,button:focus {background-color:#4c849e;} .hint {font-size:13px;colo
         return entity;
     };
     if (fresh) {
-        create(gradient_gallery ? "Gradient lab HUD"
-               : backdrops      ? "Backdrop lab HUD"
-               : shadows        ? "Shadow lab HUD"
-                                : "Filter lab HUD")
+        create(masks_gallery      ? "Mask lab HUD"
+               : gradient_gallery ? "Gradient lab HUD"
+               : backdrops        ? "Backdrop lab HUD"
+               : shadows          ? "Shadow lab HUD"
+                                  : "Filter lab HUD")
             .set<UiDocument>({{ui.id}, true, true, 0})
             .set<UiValues>({{{parameter, gradient_gallery ? 45. : 4.}}});
         auto camera = create("Game Camera");
@@ -195,11 +223,35 @@ button:hover,button:focus {background-color:#4c849e;} .hint {font-size:13px;colo
         camera.set(view).set<LocalTranslation>({0, 0, -8});
     } else {
         scene.load(root / scene_path);
+        if (masks_gallery) {
+            const auto existing = read_scene(root);
+            for (const auto& row : existing.at("entities")) {
+                const auto found = row.at("components").find("forge.ui_values");
+                if (found != row.at("components").end() &&
+                    found->at("values") == Json::array({{{"name", "blur"}, {"value", 4.}}}))
+                    scene.entity(row.at("id").get<std::string>()).set<UiValues>({{{"angle", 45.}}});
+            }
+        }
     }
     scene.save(root / scene_path);
     const auto lease = std::make_shared<ProjectLease>(root);
     const std::array roots{scene.asset_id()};
     prepare_runtime_content_catalog(*lease, roots, inspector(renderer, root, font), scene.schema());
+    if (masks_gallery) {
+        const auto catalog = AssetCatalog::open_project(root);
+        const auto image =
+            std::find_if(catalog.records().begin(), catalog.records().end(), [](const auto& row) {
+                return row.second.source == "Assets/UI/BitmapFormats/health.png";
+            });
+        check(image != catalog.records().end(), "Canonical PNG mask asset missing");
+        std::vector<AssetDependency> declared;
+        for (const auto& edge : catalog.records().at(ui.id).dependency_edges)
+            if (declared_runtime_edge(edge))
+                declared.push_back(edge);
+        declared.push_back(
+            {image->first, "texture", AssetDependencyKind::Runtime, "declared:ui-mask-image", {}});
+        declare_runtime_dependencies(*lease, ui.id, std::move(declared), catalog.document());
+    }
 }
 std::vector<Pixels> exercise(DiligentPresentation& presentation, IDeviceContext* context,
                              const std::filesystem::path& root, const Json& source,
@@ -305,11 +357,13 @@ int main(int argc, char** argv) {
         check(argc == 4 || (argc == 5 && (std::string_view(argv[4]) == "--shadows" ||
                                           (std::string_view(argv[4]) == "--backdrops" ||
                                            (std::string_view(argv[4]) == "--gradients" ||
-                                            std::string_view(argv[4]) == "--curved")))),
+                                            (std::string_view(argv[4]) == "--curved" ||
+                                             std::string_view(argv[4]) == "--masks"))))),
               "Need Gallery, font and scratch; or --author Gallery font; optional "
-              "--shadows/--backdrops/--gradients/--curved");
+              "--shadows/--backdrops/--gradients/--curved/--masks");
         shadows = argc == 5 && std::string_view(argv[4]) == "--shadows";
         backdrops = argc == 5 && std::string_view(argv[4]) == "--backdrops";
+        masks_gallery = argc == 5 && std::string_view(argv[4]) == "--masks";
         curved_gallery = argc == 5 && std::string_view(argv[4]) == "--curved";
         gradient_gallery =
             curved_gallery || (argc == 5 && std::string_view(argv[4]) == "--gradients");
@@ -321,6 +375,12 @@ int main(int argc, char** argv) {
         if (curved_gallery) {
             scene_path = "Scenes/165-ui-radial-conic-gradients.scene.json";
             ui_path = "Assets/UI/CurvedGradients/Lab.rml";
+        }
+        if (masks_gallery) {
+            gradient_gallery = true;
+            parameter = "angle";
+            scene_path = "Scenes/166-ui-alpha-masks.scene.json";
+            ui_path = "Assets/UI/Masks/Lab.rml";
         }
         if (backdrops) {
             scene_path = "Scenes/163-ui-backdrop-filters.scene.json";

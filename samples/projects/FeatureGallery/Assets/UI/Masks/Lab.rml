@@ -1,0 +1,25 @@
+<rml><head><style>
+body,div,p,h1 {display:block;} body {margin:0;width:100%;height:100%;font-family:Lato;font-size:15px;color:#e5f2ff;pointer-events:none;}
+#lab {position:absolute;left:4%;top:2%;width:92%;}
+h1 {font-size:23px;margin:0 0 3px;color:#79e7cf;} p {margin:3px 0;}
+#grid {margin-top:6px;} .card {display:inline-block;width:30%;margin:0 2% 6px 0;vertical-align:top;}
+.label {height:19px;font-size:13px;} .sample {position:relative;height:56px;border-radius:6px;background-color:#e96644;}
+.word {position:absolute;left:18%;top:20px;font-size:14px;color:white;}
+#linear {mask-image:linear-gradient(90deg,#0000,#ffff);}
+#radial {mask-image:radial-gradient(circle closest-side,#000f 45%,#0000 100%);}
+#conic {mask-image:repeating-conic-gradient(from 45deg,#000f 0deg,#0000 90deg);}
+#image {mask-image:image("../BitmapFormats/health.png" contain);}
+#motion {width:100px;height:12px;margin-top:4px;background-color:#79e7cf;animation:2s linear-in infinite alternate reveal;}
+@keyframes reveal {from {mask-image:linear-gradient(0deg,#0000,#ffff);} to {mask-image:linear-gradient(180deg,#0000,#ffff);}}
+button {display:inline-block;padding:5px 8px;margin:4px 5px 0 0;background-color:#30536e;pointer-events:auto;}
+button:hover,button:focus {background-color:#4c849e;} .hint {font-size:13px;color:#adc7db;}
+</style></head><body><div id="lab"><h1>UI alpha masks</h1><p>Alpha controls the surface and its contents.</p><div id="grid">
+<div class="card"><div class="label">Reference</div><div class="sample"><div class="word">UI</div></div></div>
+<div class="card"><div class="label">Linear fade</div><div id="linear" class="sample"><div class="word">UI</div></div></div>
+<div class="card"><div class="label">Radial fade</div><div id="radial" class="sample"><div class="word">UI</div></div></div>
+<div class="card"><div class="label">Conic fade</div><div id="conic" class="sample"><div class="word">UI</div></div></div>
+<div class="card"><div class="label">PNG alpha</div><div id="image" class="sample"><div class="word">UI</div></div></div>
+<div class="card"><div class="label">Live / {{angle}}</div><div class="sample" data-style-mask-image="'linear-gradient(' + angle + 'deg,#0000,#ffff)'"><div class="word">UI</div></div></div>
+</div><p class="hint">UI Values / angle: 0..360. Tick: {{tick}}</p><div id="motion"/>
+<button id="pause" data-event-click="command('Pause')">Pause</button><button id="resume" data-event-click="command('Resume')">Resume</button><button id="step" data-event-click="command('Step')">Step</button>
+</div></body></rml>

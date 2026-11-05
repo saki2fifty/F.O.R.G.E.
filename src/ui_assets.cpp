@@ -121,7 +121,12 @@ TextProfile validate_text_profile(std::string_view text, bool markup) {
                         filter_profile =
                             std::max(filter_profile, ui_filter_detail::shadow_profile_version);
                     if (name == "data-style-backdrop-filter")
+                        filter_profile =
+                            std::max(filter_profile, ui_filter_detail::backdrop_profile_version);
+                    if (name == "data-style-mask-image") {
                         filter_profile = ui_filter_detail::profile_version;
+                        gradients = ui_gradient_detail::profile_version;
+                    }
                     if (name == "data-style-decorator")
                         gradients = ui_gradient_detail::profile_version;
                     while (a < attributes.size() && space(attributes[a]))
@@ -190,7 +195,8 @@ TextProfile validate_text_profile(std::string_view text, bool markup) {
             char c = text[i];
             // Anonymous functions and named @decorator type declarations share
             // this evidence. Quoted ordinary text/comments stay excluded.
-            if ((property == "decorator" && (c == '(' || c == ';' || c == '}')) ||
+            if (((property == "decorator" || property == "mask-image") &&
+                 (c == '(' || c == ';' || c == '}')) ||
                 (c == '{' && !property.empty())) {
                 if (token == "radial-gradient" || token == "repeating-radial-gradient" ||
                     token == "conic-gradient" || token == "repeating-conic-gradient")
@@ -213,9 +219,11 @@ TextProfile validate_text_profile(std::string_view text, bool markup) {
                     filter_profile =
                         std::max(filter_profile, ui_filter_detail::basic_profile_version);
                 if (property == "backdrop-filter")
+                    filter_profile =
+                        std::max(filter_profile, ui_filter_detail::backdrop_profile_version);
+                if (property == "mask-image")
                     filter_profile = ui_filter_detail::profile_version;
-                require(property != "mask-image" && property != "box-shadow",
-                        "UI masks and box shadows are not supported");
+                require(property != "box-shadow", "UI box shadows are not supported");
                 require(property != "font", "Use explicit font-family and font-size properties");
             }
             if (c == '{' || c == ';' || c == '}')

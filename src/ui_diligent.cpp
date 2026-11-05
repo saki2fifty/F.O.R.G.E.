@@ -352,6 +352,11 @@ float4 main(float4 p:SV_POSITION,float4 color:COLOR0,float2 uv:TEXCOORD0,
         return layers.compile(name, parameters);
     }
     void ReleaseFilter(Rml::CompiledFilterHandle filter) override { layers.release(filter); }
+    Rml::CompiledFilterHandle SaveLayerAsMaskImage() override {
+        const auto handle = layers.save_mask();
+        bind_current();
+        return handle;
+    }
     Rml::CompiledShaderHandle CompileShader(const Rml::String& name,
                                             const Rml::Dictionary& parameters) override {
         const auto gradient = ui_gradient_detail::admit_gradient(name, parameters);

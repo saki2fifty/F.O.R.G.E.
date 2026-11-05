@@ -2057,3 +2057,20 @@ This is isolated local Game rendering, not full-editor, Windows/MSVC, physical
 GPU/input/DPI or hardware performance acceptance. The numeric oracle excludes
 exact discontinuous angular repeat seams and other rounded raster edges; it does
 not assert device-independent seam antialiasing.
+
+
+## Runtime UI alpha-mask gallery
+
+`manual/images/ui-alpha-mask-gallery.png` is the canonical, unretouched640x360
+GamePresentation/RmlUi/Diligent software Vulkan capture of original Gallery166.
+Its360x640 portrait capture was also visually reviewed; controls remain inside
+both layouts. Lossless PPM-to-PNG conversion preserves decoded RGB exactly.
+Four source checkpoints exactly match relocated content with sources hidden,
+including the canonical health PNG required by an explicit Runtime Dependencies
+declaration. Snapshot isolation, shared-pool pressure and stale-frame checks are
+separate numeric/native tests, not editor screenshots. Local source/executable
+hashes and receipts are recorded outside the product repository in
+`AgentFiles/build/phase260-ui-alpha-masks/capture-provenance.json`.
+This is isolated local Game rendering, not full-editor, Windows/MSVC, physical
+GPU/input/DPI or hardware performance acceptance. Numeric rounded-edge/angular
+seam limits from the preceding gradient oracle remain in effect.

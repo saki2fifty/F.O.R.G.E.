@@ -192,7 +192,7 @@ Filters also work in UI assigned to a camera image. Save the sources and Scene,
 select the Scene as startup, and export with the runtime kit supplied with this
 editor. An older kit without filter support is rejected before replacing an
 existing export. No C++ module is needed. Drop shadows use the workflow below;
-backdrop filters and linear gradients use the workflows below. Masks, box shadows
+backdrop filters and linear gradients use the workflows below. Alpha masks use the workflow below. Box shadows
 and other shader decorators are unavailable.
 
 ## Add a drop shadow
@@ -329,7 +329,7 @@ use finite coordinates within ±65,536 pixels. Resolved stop positions, measured
 relative to the gradient line, are bounded to ±65,536. The line must have nonzero
 length, and a repeating gradient needs a nonzero repeat interval. At most 256 compiled gradient records
 can be live across UI contexts. Reduce stops or elements if admission reports a
-limit. Radial and conic gradients use the workflow below. Masks and arbitrary shaders are unavailable.
+limit. Radial and conic gradients use the workflow below. Alpha masks use the workflow below. Arbitrary shaders are unavailable.
 
 Main Game UI and UI assigned to camera images use the same gradient source.
 Save the sources and Scene, select the startup Scene, then export with the runtime
@@ -393,6 +393,72 @@ and `65,536` pixels, centers must stay within ±65,536 pixels, and the resolved
 conic angle must be within ±65,536 radians. A repeating interval must be nonzero.
 Invalid source or excessive values keep the last usable UI when reloaded.
 
+## Fade or cut out UI with an alpha mask
+
+Open **Scenes/166-ui-alpha-masks.scene.json** in **Examples/FeatureGallery** and
+press **Play**. Compare the reference card with linear, radial, conic, PNG and
+live-angle masks. The mask applies to both the card and its **UI** text.
+
+![Reference card and five alpha-mask examples with pause controls](../images/ui-alpha-mask-gallery.png)
+
+Use `mask-image` with a supported gradient or local image decorator:
+
+```css
+.panel {
+    background-color: #e96644;
+    mask-image: linear-gradient(90deg, #0000, #000f);
+}
+.round-fade {
+    mask-image: radial-gradient(circle closest-side, #000f 45%, #0000 100%);
+}
+.icon-mask {
+    mask-image: image("icons/health.png" contain);
+}
+```
+
+Opaque mask pixels keep the content; transparent pixels hide it. Intermediate
+alpha fades the content into what is behind it. Mask RGB does not determine
+coverage: opaque black and opaque white both keep content. Use image alpha,
+rather than a black-and-white picture without transparency, to cut out a shape.
+Local PNG, JPEG and supported TGA images use the existing UI image rules; JPEG
+has no alpha and therefore does not make transparent holes. Paths are relative
+to the RML document. Rounded borders and parent clipping still apply.
+
+For an image decorator, register the image, then select the UI document in
+**Content**. In **Inspector → Runtime Dependencies**, add the image with expected
+type **Texture** and a reason, then **Save declarations**. Observing a file during
+preview does not by itself make it required runtime content. Review declarations
+again after editing the source. Gallery166 already declares its PNG mask.
+See [Runtime content](runtime-content.md) for the complete declaration workflow.
+
+In the gallery, select **Mask lab HUD** and tune **UI Values → angle** during Play.
+Pause to keep simulation fixed while the small bar continues its presentation
+animation. A source binding can drive the mask with a saved value:
+
+```html
+<div data-style-mask-image="'linear-gradient(' + angle + 'deg,#0000,#ffff)'" />
+```
+
+Use either a binding or compatible native keyframes for the same property.
+Live tuning affects the current session; Stop, edit the authored value and save
+the Scene to keep it. Register/refresh edited sources through **Content**, then
+**Reload UI**. An invalid replacement keeps the preceding usable UI.
+
+Masks share the filter image budget of 32 cached images and 256 MiB of logical
+pixel storage. A mask needs content and mask drawing layers, a retained snapshot
+and an intermediate image. They consume the existing four-active-layer bound;
+nested masks and combined effects can reach it quickly. A mask also counts as
+one entry in the eight-filter chain. Reduce nesting, resolution or effects when
+admission reports a limit. The supported gradient stop/radius/angle limits still
+apply to a gradient mask. Mask snapshots stay local to one presentation frame;
+there is no reusable mask-snapshot asset.
+
+Ordinary filters on the element run before its final alpha mask. Main Game UI
+and UI assigned to camera images use the same source workflow. Save the source
+and Scene before exporting with the runtime kit supplied with this editor. Older
+kits without mask support reject before replacing a preceding export. No C++
+module is needed. Luminance masks, box shadows and arbitrary shaders are unavailable.
+
 ## Layout your document
 
 RmlUi does not supply a browser's default HTML layout. If a menu collapses into a
@@ -428,7 +494,7 @@ export artwork in the orientation and display colors you want.
 
 Use document-relative local resource paths. The supplied **Lato** font is packaged with FORGE, so it does not depend on installed system fonts. You may load project `.ttf`/`.otf` fonts using an RCSS `@font-face` declaration, with suitable redistribution rights. Use explicit `font-family` and `font-size`; font shorthand is not supported in this integration. When replacing a font using the same family name, restart Play to clear its font cache.
 
-Images support **PNG**, **JPEG** (`.jpg` or `.jpeg`) and uncompressed true-color **TGA** (24 or 32 bits), at most 2048×2048. Use PNG for transparent icons and JPEG for opaque artwork. Image bytes and decoded pixels have additional limits; very large or high-precision images can exceed them. SVG, remote URLs, templates and stylesheet imports are not supported yet. Link multiple stylesheets individually. Blur and the color filters described above use bounded temporary layers. Drop shadows use the filter workflow above. Backdrop filters use the workflow above. Linear, radial and conic gradients use the workflows above. Masks, other shader decorators and box shadows are unavailable.
+Images support **PNG**, **JPEG** (`.jpg` or `.jpeg`) and uncompressed true-color **TGA** (24 or 32 bits), at most 2048×2048. Use PNG for transparent icons and JPEG for opaque artwork. Image bytes and decoded pixels have additional limits; very large or high-precision images can exceed them. SVG, remote URLs, templates and stylesheet imports are not supported yet. Link multiple stylesheets individually. Blur and the color filters described above use bounded temporary layers. Drop shadows use the filter workflow above. Backdrop filters use the workflow above. Linear, radial and conic gradients use the workflows above. Alpha masks use the workflow above. Other shader decorators and box shadows are unavailable.
 
 `px` means game render-target pixels; `dp` follows display density. The editor's interface scale remains separate. Check text input and sizing on the displays and input languages used by your game.
 

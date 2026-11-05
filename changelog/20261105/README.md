@@ -24,3 +24,14 @@ existing source owner without changing asset identity. Shared buffers, stop,
 resource, clipping, package and MCP owners remain authoritative. No dependency,
 installed SDK, C ABI or scene-schema change is introduced. Windows/full-editor
 and physical acceptance remain pending.
+
+## Runtime UI alpha masks
+
+Runtime UI supports bounded gradient/image alpha masks through existing layer,
+source, candidate, model/MCP and package owners. The shared scratch pool retains
+copied snapshots for compiled-filter lifetime and rejects stale-frame use. Native
+preparation remains non-drawing. Additive filter profile4 preserves prior1..3 and
+rejects masks on older kits before destination replacement. Original Gallery166
+and the illustrated manual cover live tuning, alpha semantics and shared limits.
+No dependency, installed SDK, scene-schema or asset-identity change is introduced.
+Windows/full-editor and physical acceptance remain pending.

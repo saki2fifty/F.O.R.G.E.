@@ -405,6 +405,20 @@ assert curved_hud['components']['forge.ui_document']['document'] == by_source['A
 assert curved_hud['components']['forge.ui_values']['values'] == [dict(name='angle', value=45)]
 assert by_source['Assets/UI/CurvedGradients/Lab.rml']['metadata']['forge.ui_source']['runtime_features'] == dict(gradients=2)
 assert not {row['id'] for row in curved['entities']} & {row['id'] for row in gradients['entities']}
+masked = json.loads((project_root / 'Scenes/166-ui-alpha-masks.scene.json').read_text())
+assert masked['asset_id'] == by_source['Scenes/166-ui-alpha-masks.scene.json']['id']
+mask_hud = next(row for row in masked['entities'] if 'forge.ui_document' in row['components'])
+mask_doc = by_source['Assets/UI/Masks/Lab.rml']
+assert mask_hud['components']['forge.ui_document']['document'] == mask_doc['id']
+assert mask_hud['components']['forge.ui_values']['values'] == [dict(name='angle', value=45)]
+assert mask_doc['metadata']['forge.ui_source']['runtime_features'] == dict(filters=4, gradients=2)
+assert by_source['Assets/UI/BitmapFormats/health.png']['id'] in mask_doc['dependencies']
+assert any(edge['target'] == by_source['Assets/UI/BitmapFormats/health.png']['id']
+           and edge['kind'] == 'runtime' and edge['role'] == 'declared:ui-mask-image'
+           for edge in mask_doc['dependency_edges'])
+
+assert not {row['id'] for row in masked['entities']} & {row['id'] for row in curved['entities']}
+
 
 
 

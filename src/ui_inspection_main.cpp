@@ -35,6 +35,13 @@ struct InspectionRenderer final : Rml::RenderInterface {
         return id;
     }
     void ReleaseFilter(Rml::CompiledFilterHandle h) override { filters.erase(h); }
+    Rml::CompiledFilterHandle SaveLayerAsMaskImage() override {
+        if (filters.size() >= forge::ui_filter_detail::max_filters)
+            throw std::runtime_error("export.ui.limit: Compiled filter count exceeds 256");
+        const auto id = next++;
+        filters.insert(id);
+        return id;
+    }
     Rml::CompiledGeometryHandle CompileGeometry(Rml::Span<const Rml::Vertex> vertices,
                                                 Rml::Span<const int> indices) override {
         if (geometry.size() >= 32768 || vertices.size() > 1000000 || indices.size() > 3000000)

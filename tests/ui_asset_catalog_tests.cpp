@@ -77,6 +77,16 @@ int main(int argc, char** argv) {
         for (const auto& [extension, text, profile, gradient] :
              std::vector<std::tuple<std::string, std::string, unsigned, unsigned>>{
                  {"rcss", "body {filter:blur(1px);}", 1u, 0u},
+                 {"rcss", "body {mask-image:linear-gradient(90deg,#0000,#ffff);}", 4u, 1u},
+                 {"rcss", "body {mask-image:radial-gradient(circle,#0000,#ffff);}", 4u, 2u},
+                 {"rcss", "body {mask-image:image(test.tga);}", 4u, 0u},
+                 {"rcss", "body {mask-image:none;}", 4u, 0u},
+                 {"rcss", "/* mask-image:linear-gradient(90deg,#0000,#ffff); */ body {color:red;}",
+                  0u, 0u},
+                 {"rcss", "body {font-family:'mask-image:linear-gradient(90deg,#0000,#ffff)';}", 0u,
+                  0u},
+                 {"rml", "<rml><body data-style-mask-image=\"effect\"></body></rml>", 4u, 2u},
+
                  {"rcss", "body {decorator:linear-gradient(90deg,#f00,#00f);}", 0u, 1u},
                  {"rcss",
                   "@decorator named : linear-gradient {angle:90deg;color-stops:#f00,#00f;} body "
@@ -122,8 +132,8 @@ int main(int argc, char** argv) {
                  {"rcss", "/* filter:blur(3px); */ body {color:red;}", 0u, 0u},
                  {"rcss", "body {font-family:'filter:blur(3px)';}", 0u, 0u},
                  {"rml", "<rml><body style=\"filter:blur(1px)\"></body></rml>", 1u, 0u},
-                 {"rml", "<rml><body style=\"fil&#116;er&#58;blur(2px)\"></body></rml>", 3u, 2u},
-                 {"rml", "<rml><body style=\"color:&#114;ed\"></body></rml>", 3u, 2u},
+                 {"rml", "<rml><body style=\"fil&#116;er&#58;blur(2px)\"></body></rml>", 4u, 2u},
+                 {"rml", "<rml><body style=\"color:&#114;ed\"></body></rml>", 4u, 2u},
                  {"rml", "<rml><head><style>body{filter:none;}</style></head><body/></rml>", 1u,
                   0u},
                  {"rml", "<rml><body data-style-filter=\"effect\"></body></rml>", 2u, 0u},

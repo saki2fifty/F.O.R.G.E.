@@ -2148,3 +2148,12 @@ Select **Gradient lab HUD → UI Values / angle** during Play. The small bar ani
 on presentation time while simulation is paused. Use the ordinary source refresh,
 Reload UI, save and matching-kit export workflow. The Runtime UI manual explains
 size, stop, shared-record and clipping limits.
+
+## UI alpha masks
+
+`Scenes/166-ui-alpha-masks.scene.json` compares a reference card with linear,
+radial, conic, PNG and live-angle alpha masks. It reuses the canonical health PNG
+from the bitmap-format example. Tune **Mask lab HUD / UI Values / angle** while
+paused; the small bar keeps animating on presentation time. Source refresh,
+Reload UI, save and supplied-kit export use the ordinary UI workflow. The Runtime
+UI manual explains alpha coverage and shared image/layer/filter-chain bounds.

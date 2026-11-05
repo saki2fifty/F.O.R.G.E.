@@ -18,7 +18,8 @@ struct UiTestRenderer final : Rml::RenderInterface {
     std::uintptr_t next = 1;
     unsigned draws = 0, clips = 0, transforms = 0;
     bool filters_supported = false, fail_layer = false;
-    bool gradients_supported = false;
+    bool gradients_supported = false, masks_supported = false;
+    unsigned mask_saves = 0;
     unsigned gradient_draws = 0;
     std::map<Rml::CompiledShaderHandle, forge::ui_gradient_detail::Gradient> gradients;
     Rml::CompiledShaderHandle CompileShader(const Rml::String& name,
@@ -92,6 +93,14 @@ struct UiTestRenderer final : Rml::RenderInterface {
     }
     void ReleaseFilter(Rml::CompiledFilterHandle handle) override {
         check(filters.erase(handle) == 1, "Filter retired once");
+    }
+    Rml::CompiledFilterHandle SaveLayerAsMaskImage() override {
+        check(masks_supported && !layers.empty(), "Supported live mask layer");
+        check(filters.size() < forge::ui_filter_detail::max_filters, "Bounded mask filter count");
+        const auto handle = next++;
+        filters.emplace(handle, std::pair{std::string("alpha-mask"), 1.f});
+        ++mask_saves;
+        return handle;
     }
     Rml::LayerHandle PushLayer() override {
         if (fail_layer)

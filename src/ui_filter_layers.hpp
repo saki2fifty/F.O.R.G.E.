@@ -18,6 +18,7 @@ class UiFilterLayers {
     void end();
     Rml::CompiledFilterHandle compile(const Rml::String&, const Rml::Dictionary&);
     void release(Rml::CompiledFilterHandle);
+    Rml::CompiledFilterHandle save_mask();
     Rml::LayerHandle push();
     void pop();
     Diligent::ITextureView* current_color() const;

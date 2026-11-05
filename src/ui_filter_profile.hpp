@@ -5,9 +5,10 @@
 #include <string_view>
 
 namespace forge::ui_filter_detail {
-inline constexpr unsigned profile_version = 3;
+inline constexpr unsigned profile_version = 4;
 inline constexpr unsigned basic_profile_version = 1;
 inline constexpr unsigned shadow_profile_version = 2;
+inline constexpr unsigned backdrop_profile_version = 3;
 inline constexpr unsigned max_layers = 4, max_chain = 8, max_filters = 256;
 inline constexpr unsigned max_images = 32;
 inline constexpr std::uint64_t image_budget = 256ull * 1024 * 1024;
@@ -19,7 +20,8 @@ enum class Kind : std::uint32_t {
     Brightness,
     Contrast,
     Grayscale,
-    DropShadow
+    DropShadow,
+    AlphaMask
 };
 struct Filter {
     Kind kind = Kind::Copy;

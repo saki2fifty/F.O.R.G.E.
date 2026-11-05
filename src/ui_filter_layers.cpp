@@ -24,6 +24,7 @@ struct UiFilterLayers::Impl {
         RefCntAutoPtr<ITexture> texture;
         std::uint64_t bytes = 0, used = 0;
         bool active = false;
+        unsigned pins = 0;
     };
     struct Constants {
         float viewport[4]{};
@@ -38,11 +39,16 @@ struct UiFilterLayers::Impl {
     RefCntAutoPtr<IBuffer> constants;
     std::array<std::array<RefCntAutoPtr<IPipelineState>, 4>, 2> pipelines;
     RefCntAutoPtr<IShaderResourceBinding> base_binding;
-    std::map<Rml::CompiledFilterHandle, Filter> filters;
+    struct CompiledFilter {
+        Filter effect;
+        std::optional<std::size_t> mask;
+        std::uint64_t frame = 0;
+    };
+    std::map<Rml::CompiledFilterHandle, CompiledFilter> filters;
     std::map<Rml::LayerHandle, std::size_t> layers;
     std::vector<Rml::LayerHandle> stack;
     std::vector<Image> images;
-    std::uint64_t bytes = 0, allocations = 0, use = 0;
+    std::uint64_t bytes = 0, allocations = 0, use = 0, frame = 0;
     std::uintptr_t next = 1;
     unsigned width = 0, height = 0, format = 0;
     explicit Impl(IRenderDevice* d) : device(d) {}
@@ -67,6 +73,7 @@ float2 uv=float2((id<<1)&2,id&2);return float4(uv.x*2-1,1-uv.y*2,0,1);})";
         shader.Source = R"(#include "SRGBUtilities.fxh"
 cbuffer UiFilterData {float4 viewport;float4 filter;float4 offset;float4 shadow_color;float4 weights[13];};
 Texture2D input_image;SamplerState input_image_sampler;
+Texture2D mask_image;SamplerState mask_image_sampler;
 float4 sample_image(float2 uv) {
     return any(uv<0)||any(uv>1) ? float4(0,0,0,0) : input_image.SampleLevel(input_image_sampler,uv,0);
 }
@@ -90,6 +97,7 @@ float4 main(float4 position:SV_POSITION):SV_TARGET {
         tint.rgb*=tint.a;
         color=tint*sample_image(uv-offset.xy/viewport.xy).a;
     }
+    else if(kind==7) color*=mask_image.SampleLevel(mask_image_sampler,uv,0).a;
     return color;
 })";
         device->CreateShader(shader, &ps);
@@ -105,12 +113,14 @@ float4 main(float4 position:SV_POSITION):SV_TARGET {
         device->CreateBuffer(buffer, nullptr, &candidate);
         if (!candidate)
             throw std::runtime_error("UI filter constant allocation failed");
-        ShaderResourceVariableDesc variable{SHADER_TYPE_PIXEL, "input_image",
-                                            SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC};
+        const ShaderResourceVariableDesc variables[] = {
+            {SHADER_TYPE_PIXEL, "input_image", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC},
+            {SHADER_TYPE_PIXEL, "mask_image", SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC}};
         SamplerDesc sampler;
         sampler.MinFilter = sampler.MagFilter = sampler.MipFilter = FILTER_TYPE_LINEAR;
         sampler.AddressU = sampler.AddressV = sampler.AddressW = TEXTURE_ADDRESS_CLAMP;
-        ImmutableSamplerDesc immutable{SHADER_TYPE_PIXEL, "input_image", sampler};
+        const ImmutableSamplerDesc immutable[] = {{SHADER_TYPE_PIXEL, "input_image", sampler},
+                                                  {SHADER_TYPE_PIXEL, "mask_image", sampler}};
         for (unsigned f = 0; f < 2; ++f)
             for (unsigned mode = 0; mode < 4; ++mode) {
                 GraphicsPipelineStateCreateInfo p;
@@ -137,10 +147,10 @@ float4 main(float4 position:SV_POSITION):SV_TARGET {
                 blend.BlendEnable = (mode & 1) != 0;
                 blend.SrcBlend = blend.SrcBlendAlpha = BLEND_FACTOR_ONE;
                 blend.DestBlend = blend.DestBlendAlpha = BLEND_FACTOR_INV_SRC_ALPHA;
-                p.PSODesc.ResourceLayout.Variables = &variable;
-                p.PSODesc.ResourceLayout.NumVariables = 1;
-                p.PSODesc.ResourceLayout.ImmutableSamplers = &immutable;
-                p.PSODesc.ResourceLayout.NumImmutableSamplers = 1;
+                p.PSODesc.ResourceLayout.Variables = variables;
+                p.PSODesc.ResourceLayout.NumVariables = 2;
+                p.PSODesc.ResourceLayout.ImmutableSamplers = immutable;
+                p.PSODesc.ResourceLayout.NumImmutableSamplers = 2;
                 device->CreateGraphicsPipelineState(p, &pipelines[f][mode]);
                 if (!pipelines[f][mode])
                     throw std::runtime_error("UI filter pipeline creation failed");
@@ -164,8 +174,8 @@ float4 main(float4 position:SV_POSITION):SV_TARGET {
             throw std::runtime_error("UI filter image exceeds its 256 MiB logical budget");
         for (std::size_t i = 0; i < images.size(); ++i)
             if (const auto& d = images[i].texture ? images[i].texture->GetDesc() : TextureDesc{};
-                !images[i].active && images[i].texture && d.Width == width && d.Height == height &&
-                d.Format == wanted) {
+                !images[i].active && !images[i].pins && images[i].texture && d.Width == width &&
+                d.Height == height && d.Format == wanted) {
                 images[i].active = true;
                 images[i].used = ++use;
                 return i;
@@ -173,7 +183,7 @@ float4 main(float4 position:SV_POSITION):SV_TARGET {
         while (size > image_budget - bytes) {
             auto oldest = images.end();
             for (auto at = images.begin(); at != images.end(); ++at)
-                if (!at->active && at->texture &&
+                if (!at->active && !at->pins && at->texture &&
                     (oldest == images.end() || at->used < oldest->used))
                     oldest = at;
             if (oldest == images.end())
@@ -184,7 +194,7 @@ float4 main(float4 position:SV_POSITION):SV_TARGET {
                                  [](const auto& image) { return !image.texture; });
         if (slot == images.end() && images.size() >= max_images) {
             for (auto at = images.begin(); at != images.end(); ++at)
-                if (!at->active && (slot == images.end() || at->used < slot->used))
+                if (!at->active && !at->pins && (slot == images.end() || at->used < slot->used))
                     slot = at;
             if (slot == images.end())
                 throw std::runtime_error("UI filter scratch image count exceeded");
@@ -222,7 +232,7 @@ float4 main(float4 position:SV_POSITION):SV_TARGET {
     }
     void pass(ITextureView* input, ITextureView* output, const Filter& filter, unsigned direction,
               Rml::BlendMode blend, ITextureView* stencil, unsigned stencil_ref, bool clip,
-              bool scissor, Rml::Rectanglei region) {
+              bool scissor, Rml::Rectanglei region, ITextureView* mask = nullptr) {
         context->SetRenderTargets(1, &output, stencil, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         Viewport viewport;
         viewport.Width = float(width);
@@ -254,6 +264,7 @@ float4 main(float4 position:SV_POSITION):SV_TARGET {
             std::memcpy(cb->weights, filter.weights.data(), sizeof(cb->weights));
         }
         base_binding->GetVariableByName(SHADER_TYPE_PIXEL, "input_image")->Set(input);
+        base_binding->GetVariableByName(SHADER_TYPE_PIXEL, "mask_image")->Set(mask ? mask : input);
         context->CommitShaderResources(base_binding, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         context->Draw(DrawAttribs(3, DRAW_FLAG_VERIFY_ALL));
     }
@@ -264,6 +275,7 @@ void UiFilterLayers::begin(IDeviceContext* context, ITextureView* base, unsigned
                            unsigned height) {
     end();
     auto& s = *impl_;
+    ++s.frame;
     s.context = context;
     s.base = base;
     s.width = width;
@@ -274,8 +286,10 @@ void UiFilterLayers::end() {
     auto& s = *impl_;
     for (auto& image : s.images)
         image.active = false;
-    if (s.base_binding)
+    if (s.base_binding) {
         s.base_binding->GetVariableByName(SHADER_TYPE_PIXEL, "input_image")->Set(nullptr);
+        s.base_binding->GetVariableByName(SHADER_TYPE_PIXEL, "mask_image")->Set(nullptr);
+    }
     s.stack.clear();
     s.layers.clear();
     s.context.Release();
@@ -289,10 +303,44 @@ Rml::CompiledFilterHandle UiFilterLayers::compile(const Rml::String& name,
         throw std::runtime_error("UI compiled filter count exceeds 256");
     s.pipelines_ready();
     const auto handle = s.next++;
-    s.filters.emplace(handle, filter);
+    s.filters.emplace(handle, Impl::CompiledFilter{filter, {}, 0});
     return handle;
 }
-void UiFilterLayers::release(Rml::CompiledFilterHandle filter) { impl_->filters.erase(filter); }
+void UiFilterLayers::release(Rml::CompiledFilterHandle filter) {
+    auto& s = *impl_;
+    const auto found = s.filters.find(filter);
+    if (found == s.filters.end())
+        return;
+    if (found->second.mask)
+        --s.images.at(*found->second.mask).pins;
+    s.filters.erase(found);
+}
+Rml::CompiledFilterHandle UiFilterLayers::save_mask() {
+    auto& s = *impl_;
+    if (!s.context || !s.base)
+        throw std::runtime_error("UI mask capture requires an active UI frame");
+    if (s.filters.size() >= max_filters)
+        throw std::runtime_error("UI compiled filter count exceeds 256");
+    s.pipelines_ready();
+    const auto slot = s.acquire();
+    try {
+        // Snapshot isolation: subsequent drawing to the original layer cannot
+        // change this alpha image. The existing pool owns and budgets the copy.
+        s.pass(s.image(s.stack.empty() ? 0 : s.stack.back(), TEXTURE_VIEW_SHADER_RESOURCE),
+               s.images[slot].texture->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET), Filter{}, 0,
+               Rml::BlendMode::Replace, nullptr, 0, false, false, {});
+        Filter effect;
+        effect.kind = Kind::AlphaMask;
+        const auto handle = s.next++;
+        s.filters.emplace(handle, Impl::CompiledFilter{effect, slot, s.frame});
+        ++s.images[slot].pins;
+        s.images[slot].active = false;
+        return handle;
+    } catch (...) {
+        s.images[slot].active = false;
+        throw;
+    }
+}
 Rml::LayerHandle UiFilterLayers::push() {
     auto& s = *impl_;
     if (!s.context || s.stack.size() >= max_layers)
@@ -349,11 +397,12 @@ void UiFilterLayers::composite(Rml::LayerHandle source, Rml::LayerHandle destina
             s.images[*retained].active = false;
     };
     try {
-        const auto run = [&](const Filter& filter, unsigned direction) {
+        const auto run = [&](const Filter& filter, unsigned direction,
+                             ITextureView* mask = nullptr) {
             writing = s.acquire();
             auto& image = s.images[*writing];
             s.pass(input, image.texture->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET), filter,
-                   direction, Rml::BlendMode::Replace, stencil, 0, false, false, {});
+                   direction, Rml::BlendMode::Replace, stencil, 0, false, false, {}, mask);
             input = image.texture->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
             if (temporary)
                 s.images[*temporary].active = false;
@@ -364,34 +413,40 @@ void UiFilterLayers::composite(Rml::LayerHandle source, Rml::LayerHandle destina
             const auto filter = s.filters.find(handle);
             if (filter == s.filters.end())
                 throw std::runtime_error("UI filter handle is stale");
-            if (filter->second.kind == Kind::DropShadow) {
-                if (filter->second.color[3] == 0)
+            if (filter->second.mask) {
+                if (filter->second.frame != s.frame)
+                    throw std::runtime_error("UI mask filter belongs to an earlier frame");
+                auto* mask = s.images.at(*filter->second.mask)
+                                 .texture->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);
+                run(filter->second.effect, 0, mask);
+            } else if (filter->second.effect.kind == Kind::DropShadow) {
+                if (filter->second.effect.color[3] == 0)
                     continue;
                 // Preserve the incoming chain image until it is composited over
                 // its blurred, displaced alpha silhouette. The pool owns every
                 // intermediate; keeping it active also prevents target aliasing.
                 auto* original = input;
                 retained = std::exchange(temporary, {});
-                auto blur = filter->second;
+                auto blur = filter->second.effect;
                 blur.kind = Kind::Blur;
                 if (blur.radius) {
                     run(blur, 0);
                     run(blur, 1);
                 }
-                run(filter->second, 0);
+                run(filter->second.effect, 0);
                 s.pass(original,
                        s.images[*temporary].texture->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET),
                        Filter{}, 0, Rml::BlendMode::Blend, stencil, 0, false, false, {});
                 if (retained)
                     s.images[*retained].active = false;
                 retained.reset();
-            } else if (filter->second.kind == Kind::Blur) {
-                if (filter->second.radius) {
-                    run(filter->second, 0);
-                    run(filter->second, 1);
+            } else if (filter->second.effect.kind == Kind::Blur) {
+                if (filter->second.effect.radius) {
+                    run(filter->second.effect, 0);
+                    run(filter->second.effect, 1);
                 }
             } else {
-                run(filter->second, 0);
+                run(filter->second.effect, 0);
             }
         }
         if (input->GetTexture() == output->GetTexture())
