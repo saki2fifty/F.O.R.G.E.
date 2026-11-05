@@ -16,10 +16,16 @@ inline void draw_audio_details(const AssetRecord& record) {
         ImGui::Text("Duration: %.3f s", value.at("duration").get<double>());
         ui::help("Duration of the successfully published clip, in seconds.");
         ImGui::Text("Channels: %u", value.at("channels").get<unsigned>());
-        ui::help("One channel is mono; two channels are stereo. This importer preserves the source "
-                 "channel count.");
+        ui::help("One channel is mono; two channels are stereo. Force mono combines stereo "
+                 "channels during import.");
         ImGui::Text("Sample rate: %u Hz", value.at("sample_rate").get<unsigned>());
-        ui::help("Samples per second in each channel; the importer preserves the source rate.");
+        ui::help("Samples per second in each cooked channel. Streamed clips use 48000 Hz; "
+                 "resident clips preserve the source rate.");
+        const bool stream = value.value("playback_storage", std::string("resident")) == "stream";
+        ImGui::Text("Playback storage: %s", stream ? "Stream" : "Resident");
+        ui::help("Resident keeps the clip's decoded PCM in memory. Stream prepares an owned "
+                 "temporary copy and reads bounded pages on worker threads. Stream requires "
+                 "at least one second and supports eight simultaneous voices.");
         const auto format = value.at("source_format").get<std::string>();
         const char* label = format == "wav"    ? "WAV"
                             : format == "flac" ? "FLAC"

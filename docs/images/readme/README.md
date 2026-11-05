@@ -2118,3 +2118,20 @@ wide/narrow offline manual captures are recorded in
 The offline renderer uses its existing 260915-000006 synthetic test identity; it
 is not a new release. These captures do not establish Windows/MSVC/FXC/D3D12,
 full-Main, graphical EXE, physical GPU/input/DPI or hardware performance acceptance.
+
+## Audio streaming controls
+
+`manual/images/audio-streaming.png` is an unretouched760x1020 capture of the
+production AudioImportEditor, AudioPreviewEditor, shared typed import controls
+and Clip details widgets. The isolated fixture uses the pinned ImGui SDL3 software
+backend and the original Gallery172 clip. It opens the actual Import settings
+header through ordinary input. Companion wide/narrow100/150/200percent captures
+and actual runtime Live sound/mix Pause/Resume checks remain in local validation
+evidence; they are not additional canonical manual assets.
+
+The canonical capture shows published stereo48000Hz metadata and the `stream`
+choice. Later selection of the Windows/D3D12 cook target changes no visible
+metadata or widgets. Source/binary/image hashes and limits are recorded in
+`AgentFiles/build/phase266-audio-streaming/capture-provenance.json`. These captures
+do not establish full Windows Main, physical device playback, physical input/DPI
+or hardware performance acceptance.

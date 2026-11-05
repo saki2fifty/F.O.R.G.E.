@@ -4,11 +4,11 @@
 
 ## Build and ownership
 
-Windows output explicitly selects WASAPI; Linux selects PulseAudio/ALSA with upstream dynamic backend loading. Null backend is enabled only for explicit internal tests, never an automatic physical-device fallback. WAV, FLAC and MP3 decoding, engine mixing/spatialization and threading are enabled; encoding and waveform generation remain disabled. No external codec framework is linked. The default engine resource manager remains private. AudioRuntime owns the existing typed ResourcePool<AudioClipAsset>; voices retain immutable PCM leases and supply miniaudio buffer references. No loaded handle enters saved components or the gameplay ABI.
+Windows output explicitly selects WASAPI; Linux selects PulseAudio/ALSA with upstream dynamic backend loading. Null backend is enabled only for explicit internal tests, never an automatic physical-device fallback. WAV, FLAC and MP3 decoding, engine mixing/spatialization and threading are enabled; encoding and waveform generation remain disabled. No external codec framework is linked. The default engine resource manager remains private. AudioRuntime owns the existing typed ResourcePool<AudioClipAsset>; voices retain immutable selected-clip leases and supply resident buffer references or privately owned native streams. No loaded handle enters saved components or the gameplay ABI.
 
-Each active Runtime WorldContext owns one AudioRuntime through EngineModule state. It owns stable-address context, engine, gameplay group, source voices and decoded clip data. Each voice maps a generation-bearing Flecs entity plus EntityRef to one miniaudio sound/buffer reference. Schema-only Authoring/Validation/default headless composition opens no device. `forge_audio` uses the private miniaudio engine and shared WAV decoder. The isolated asset worker links that decoder; authoring validates cooked PCM without opening a device. Core and authoring do not require an audio backend.
+Each active Runtime WorldContext owns one AudioRuntime through EngineModule state. It owns stable-address context, engine, gameplay group, source voices and decoded clip data. Each voice maps a generation-bearing Flecs entity plus EntityRef to one miniaudio sound and its selected resident or stream source. Schema-only Authoring/Validation/default headless composition opens no device. `forge_audio` uses the private miniaudio engine and shared WAV decoder. The isolated asset worker links that decoder; authoring validates cooked PCM without opening a device. Core and authoring do not require an audio backend.
 
-Shutdown stops the device and waits for callback completion, then destroys voices, group, engine/resource manager and context. Decoded vectors outlive their voices. Module/code leases follow the existing world-finalization contract. Device notifications only set an atomic bit field; the owner consumes it into ordinary structured diagnostics. The callback never reads Flecs, EngineServices, editor state or gameplay code.
+Shutdown stops the device and waits for callback completion, detaches voices, joins loaders and deferred stream/file cleanup, then destroys groups, engine/resource manager and context. Immutable clip resources outlive their attached native sources. Module/code leases follow the existing world-finalization contract. Device notifications only set an atomic bit field; the owner consumes it into ordinary structured diagnostics. The callback never reads Flecs, EngineServices, editor state or gameplay code.
 
 ## ECS and assets
 
@@ -16,7 +16,7 @@ AudioSource holds `AssetRef<AudioClipAsset>`, autoplay/loop/spatialized flags, l
 
 AssetCatalog owns metadata in version1 `forge.assets.json`; ProjectPaths resolves contained project-relative locators. Registration is UI-independent and idempotent for a locator. UI calls require project writer ownership; a detected external index edit prevents publication. Metadata persistence is separate from scene Undo; no cross-document atomicity claim. The shared Phase7 importer/publication and source-watcher workflow below also supports AudioClip. Existing registered-only records remain readable without automatic migration.
 
-Sources are decoded once into bounded immutable PCM. Limits:256 voices including primary, pending and transient sources,16 one-shots per source,1024 queued commands,16MiB source,64MiB decoded clip,256MiB managed resident PCM,2 workers,256 pending requests and4096 selected asset slots. Worker decoding uses bounded temporary memory in addition to resident PCM. Mono/stereo WAV, FLAC and MP3 sources; executable sample checks cover PCM16 at24/48kHz, including resampling. Native invalid configuration and resource failures disable the affected voice with entity/clip/source/module/tick diagnostics. Failed unchanged configurations, including native NaNs, do not retry every frame. Configuration corrections can recover a source; a failed immutable clip request requires restarting Play to retry file admission. Cache lives until runtime teardown. New imports select immutable cooked revisions; an active runtime keeps its cached/playing revision until teardown. Restart Play adopts a newer selection. Reimport does not hot-swap a live waveform.
+Sources are cooked into bounded immutable PCM; playback selects resident storage or bounded streaming as described below. Limits:256 voices including primary, pending and transient sources,16 one-shots per source,1024 queued commands,16MiB source,64MiB decoded clip,256MiB managed resident PCM,2 workers,256 pending requests and4096 selected asset slots. Worker decoding uses bounded temporary memory in addition to resident PCM. Mono/stereo WAV, FLAC and MP3 sources; executable sample checks cover PCM16 at24/48kHz, including resampling. Native invalid configuration and resource failures disable the affected voice with entity/clip/source/module/tick diagnostics. Failed unchanged configurations, including native NaNs, do not retry every frame. Configuration corrections can recover a source; a failed immutable clip request requires restarting Play to retry file admission. Resident cache follows its byte bound until runtime teardown; unused stream snapshots are unloaded through the same pool. New imports select immutable cooked revisions; an active runtime keeps its cached/playing revision until teardown. Restart Play adopts a newer selection. Reimport does not hot-swap a live waveform.
 
 ### Loading boundaries
 
@@ -292,7 +292,7 @@ Project Settings owns shared defaults; Inspector owns each source route and its
 independent prefab mask. Gallery33 uses the original tone at three pitches for
 separate audible channels, with relocated source-free PCM proof. SDK component
 layout/fingerprint changes require matching C++ rebuild; ABI1 remains unchanged.
-This batch supplies four common channels. Custom buses, shared effects, streaming and
+Four common channels are available. Custom buses, shared effects, unbounded streaming and
 separate custom bus graphs remain future capabilities.
 
 ## Per-source reverberation
@@ -406,7 +406,7 @@ release or waveform click and preserves pause. Private AudioPreviewAccess admits
 only the preview's single nonspatial pitch1/bus0 source. It detaches/uninitializes
 that sound node before seeking its buffer, then recreates the node to discard old
 resampler/processing cache. Exact miniaudio sound uninit waits graph readers; the
-decoded PCM and output device remain retained. It never reads the live mutable
+resident PCM or immutable stream backing and the output device remain retained. Stream seeking prepares a replacement native source asynchronously. It never reads the live mutable
 data-source cursor from the editor. End seeking clamps to the final source frame.
 The UI time is source seek offset plus the atomically read sound output-node time
 divided by engine sample rate, modulo duration when looping. It measures mixed
@@ -446,7 +446,7 @@ extreme motion is a safe bounded effect, not supersonic acoustic simulation.
 ### Overlapping source effects
 
 `AudioService::play_one_shot` queues an independent, nonlooping playback of the
-current AudioSource clip. It shares that source's immutable PCM lease and retains
+current AudioSource clip. It shares that source's immutable selected-clip lease and retains
 its own cursor; it does not restart the primary sound. Source looping applies to
 the primary only. Each transient follows the source's validated current transform,
 gain, pitch, attenuation, cone, Doppler and mix bus. Master/channel updates and the
@@ -546,7 +546,7 @@ generations, routing and voices. Seek and stopped Timeline preview request no
 sound. Existing effects retain their ordinary audio lifetime. Private animation
 recovery preserves cue intent without recovering or replaying audio cursors.
 
-Later work includes streaming music, voice stealing, custom buses, cue graphs, shared effect buses, impulse responses, acoustic room simulation, multiple listeners, sample-accurate recovery continuity and device selection.
+Later work includes unbounded music streaming, voice stealing, custom buses, cue graphs, shared effect buses, impulse responses, acoustic room simulation, multiple listeners, sample-accurate recovery continuity and device selection.
 
 
 ## AudioClip import and selected revisions
@@ -572,7 +572,8 @@ FLAC matches independent original PCM exactly in the tested profile; MP3 is loss
 Encoder delay/padding metadata affects MP3 length; absent metadata can leave
 padding. Decoder admission is not universal bitstream validation: a shorter stream
 with no declared missing frames can be valid shortened audio. Ogg/Vorbis,
-streaming, arbitrary multichannel audio and source encoding remain unsupported.
+arbitrary multichannel audio and source encoding remain unsupported. Bounded
+cooked-PCM streaming is described below.
 
 Original mono48kHz and stereo24kHz fixtures cover native decoding, cross-format
 rejection, processed shared recipes, actual supervised workers, stable publication,
@@ -657,3 +658,86 @@ reimport, corrupt selected output, source-absent runtime playback, Content
 move/duplicate and public CLI publication. Sanitizers cover the decoder and
 in-process admission path. Windows and physical-speaker acceptance are recorded
 separately from these Linux/offline checks.
+
+
+## Bounded cooked-PCM streaming
+
+The Audio clip import schema has `playback_storage`, an explicit string choice
+`resident` (default) or `stream`. Resident metadata omits the field, preserving
+existing selected bundles. Stream metadata adds `playback_storage:"stream"` to
+format1 and requires at least48000frames at48000Hz after processing. The pinned
+native resampler converts other admitted rates during cooking, with cancellation,
+finite-value validation and the existing64MiB decoded bound. Exact48000Hz input
+is retained. Normalization is a cook operation, not a live mixer conversion.
+
+`AudioClipResource` is the private ResourcePool realization: immutable resident
+PCM or an owned `AudioStreamFile`. The existing catalog, selected artifact digest,
+metadata validation and revision identity remain authoritative. Stream loads copy
+validated cooked bytes directly into a proper float WAVEFORMATEX/fact backing,
+without constructing a second full PCM vector. Source recordings and DDC files
+may disappear after admission. `WorkerStaging` and `WorkerStageLease` own locked
+`audio-stream` stages beneath the operating-system temporary root; recognized
+orphans use the existing maintenance rules. Live and unknown stages are retained.
+This is not a project/cache locator borrowed by the mixer or another asset registry.
+
+The existing engine-owned miniaudio resource manager prepares `STREAM|ASYNC`
+sources without `WAIT_INIT`. Each private native source has two one-second pages.
+Eight source slots include preparation and retirement. Mono/stereo page reservation
+is384000/768000bytes per voice; eight stereo reservations are6144000bytes. These
+are page budgets, not total process-memory measurements. Temporary immutable
+backing has separate64-file/256MiB quotas. Unused streamed selections are unloaded
+through the same ResourcePool rather than retained as zero-resident-byte cache
+entries. Resident cache policy remains byte-bounded at256MiB.
+
+Voices and one-shots use the existing map with a pending phase. Their headers,
+format and initial pages must be prepared before sound attachment/start. Commands
+retain intent through preparation, including Stop suppressing autoplay. Pause/
+Resume keeps the same native position. Restart, Stop/reset and preview seeks detach
+the sound, retire its old source and request a new source with an explicit initial
+frame. Readiness is acknowledged through normal asynchronous preparation; available
+frames alone do not acknowledge a native seek. Resident preview seek retains its
+existing pause-group routing. Preview reports the target position while loading
+and retains paused transport. Waveform generation is independent and may transiently
+decode the full clip before retaining only its bounded envelope.
+
+An adapter composes the public native data-source APIs. Mixer reads only record
+atomic starvation/read-error observations. Owner servicing emits at most one
+starvation and one read-error diagnostic per source incarnation; no callback
+fileIO, logging, World access, FORGE work allocation or worker wait is introduced.
+The explicit offline consumer alone gates page readiness and reads bounded256frame
+quanta outside the callback. The page gate covers authored pitch and the existing
+bounded native Doppler profile. Offline checks do not establish physical-device
+latency, audio quality or acceptance.
+
+Native stream uninitialization can join IO. `AudioRetirement` therefore owns one
+bounded joined cleanup thread per runtime with stream-capable catalog content.
+Only detached native sources and copied immutable backing cross this boundary;
+World, ResourceLease, ma_engine and device graph ownership remain on the provider.
+The fixed72-job queue follows the8source/64backing limits. Shutdown stops callbacks,
+detaches sounds, joins ResourcePool loaders, drains native/file cleanup, then
+uninitializes groups and the engine/resource manager. No live source is destroyed
+on the fixed synchronization or mixer path.
+
+Status separates `decoded_bytes` (resident payload), `stream_page_bytes` (attached
+or preparing page budget), `stream_reserved_page_bytes` (including retirement),
+`stream_backing_bytes/files`, preparing/reserved/retiring counts and current-voice
+`stream_underruns`. Backing counters describe disk, not RAM. Live audio mix exposes
+these categories. Existing source-editor, automation and MCP settings tools borrow
+the same schema, draft revision checks, publication owner and current catalog.
+
+Generated kits advertise `engine.runtime_audio_streaming:1` from
+`audio_stream_profile.hpp`. Export requires this exact integer profile for a
+reachable streamed AudioClip before promoting a destination. Older resident
+projects remain compatible with existing kits. Packaged content includes immutable
+cooked PCM, never the development recording or temporary backing. Gallery172
+contains an original twelve-second stereo44100Hz source cooked for streamed48k
+playback and an ordinary rotating cube, camera and light. The supplied runtime
+kit is required for export.
+
+Focused checks compare actual mixed samples with resident playback across pages,
+mono/stereo, pitch, looping, initial offsets, pending commands, live loop/pitch/
+filters, spatial/Doppler/effects, source/cache removal and preview seeks. Controlled
+native worker starvation/failure checks cover counters, resumed output, IO thread
+ownership, slot limits and joined cleanup. MCP exercises both framings through
+actual settings and worker publication. Platform and physical review remain
+separate from these no-device checks.

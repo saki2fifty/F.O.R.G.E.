@@ -8947,6 +8947,47 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "83100425-d9af-4ae7-9d31-2e652505afa0",
+      "metadata": {
+        "forge.audio": {
+          "channels": 2,
+          "duration": 12.0,
+          "encoding": "pcm-f32-le",
+          "format": "forge.audio-clip",
+          "frames": 576000,
+          "playback_storage": "stream",
+          "sample_rate": 48000,
+          "source_digest": "c15189c4dca880ab7513c3513eef13b4a0c86f791d29ed86b7e843fabe8390ba",
+          "source_format": "wav",
+          "version": 1
+        },
+        "forge.import": {
+          "artifact_digest": "ce45599611667ed294cecb99b2376007ee8d7ba39089b95335e0cf2a3e4d2188",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 4,
+          "importer": "forge.audio.wav",
+          "importer_revision": "2ff1d07f040cf8c85d3d919c1c5640b066a2261462bf5c048013b8f6f6feef6c",
+          "key": "32051ddf54faa30233c58c9724abfadec2dcb2e86b13bc5f19a4d0dbf33650fa",
+          "output_format": "forge.audio-clip",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "117ac662a9fc8c78d1ebf01d5dfc73f6e18dcb69c80ada0fffc403348d5ae31d",
+          "settings_version": 1,
+          "sidecar_digest": "9d69a530916060f7dd4c7ea3a8405bd0589a675d8e435a660f4d9c1c89f795a9",
+          "source_digest": "c15189c4dca880ab7513c3513eef13b4a0c86f791d29ed86b7e843fabe8390ba",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/AudioStreaming/PagePulse.wav",
+      "source_dependencies": [],
+      "type": "audio_clip"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "8433ffa4-e1a1-44f9-b48c-1e0e1ea0d6af",
       "metadata": {
         "forge.import": {
@@ -11466,6 +11507,16 @@
         "removed": false
       },
       "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "b4e9c40b-cab7-45eb-bb6c-b7dd9a75076c",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/172-audio-streaming.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
     },
     {
       "dependencies": [],

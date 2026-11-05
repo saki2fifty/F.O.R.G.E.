@@ -38,7 +38,8 @@ PROFILE_ONLY = sys.argv[7:] == ['--profile-only']
 GESTURES_ONLY = sys.argv[7:] == ['--gestures-only']
 TOUCH_ONLY = sys.argv[7:] == ['--touch-only']
 ANALOG_ONLY = sys.argv[7:] == ['--analog-only']
-AUDIO_PAUSE_ONLY = sys.argv[7:] == ['--audio-pause-only']
+AUDIO_STREAMING_ONLY = sys.argv[7:] == ['--audio-streaming-only']
+AUDIO_PAUSE_ONLY = AUDIO_STREAMING_ONLY or sys.argv[7:] == ['--audio-pause-only']
 GAMEPADS_ONLY = sys.argv[7:] == ['--gamepads-only']
 MESSAGES_ONLY = len(sys.argv) == 9 and sys.argv[7] == '--input-messages-only'
 UI_SEQUENCE_ONLY = sys.argv[7:] == ['--ui-sequence-only']
@@ -167,7 +168,8 @@ def map_profile_project_template(root):
 
 
 def audio_profile_project_template(root):
-    return selected_project_template(root, ('Assets/FalloffTone.wav',), 'Audio template')
+    source = 'Assets/AudioStreaming/PagePulse.wav' if AUDIO_STREAMING_ONLY else 'Assets/FalloffTone.wav'
+    return selected_project_template(root, (source,), 'Audio template')
 
 
 @contextmanager
@@ -1091,8 +1093,9 @@ for legacy in (False, True):
         if AUDIO_PAUSE_ONLY:
             actor = ok('forge_entity_create', arguments=dict(kind=0, name='Independent audio'))['results'][0]['selected']
             ok('forge_component_add', arguments=dict(entity=actor, component='forge.audio_source'))
+            clip_source = 'Assets/AudioStreaming/PagePulse.wav' if AUDIO_STREAMING_ONLY else 'Assets/FalloffTone.wav'
             clip = next(a for a in json.loads((root/'Game/forge.assets.json').read_text())['assets']
-                        if a['source'] == 'Assets/FalloffTone.wav')['id']
+                        if a['source'] == clip_source)['id']
             ok('forge_property_set_many', arguments=dict(entity=actor, component='forge.audio_source',
                 values=dict(clip=clip, spatialized=False, loop=True, play_on_start=True,
                             low_pass_enabled=True, low_pass_hz=800.,
@@ -1111,6 +1114,9 @@ for legacy in (False, True):
             control('forge_play_pause')
             control('forge_play_watch', entity=actor)
             observed = until(lambda: read('forge_play_audio'), lambda row: (row.get('source') or {}).get('available'))
+            if AUDIO_STREAMING_ONLY:
+                assert observed['source']['playback_storage'] == 'stream', observed
+                assert observed['value']['decoded_bytes'] == 0 and observed['value']['stream_voices'] == 1, observed
             assert observed['source']['paused'] and observed['source']['pause_with_game'], observed
             tick = read('forge_play_status')['timing']['tick']
             control('forge_play_tune', entity=actor, component='forge.audio_source', property='pause_with_game', value=False)

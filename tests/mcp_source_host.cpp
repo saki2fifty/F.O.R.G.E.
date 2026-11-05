@@ -190,6 +190,8 @@ int main(int argc, char** argv) {
             workspace.pump(files.document, "");
             foliage_clearance.poll(scene, files.document.project());
             audio.poll(files.document, files.status);
+            if (auto catalog = audio.take_catalog())
+                imports.catalog_changed(std::move(catalog));
             textures.poll(files.document, files.status);
             atlas.poll(files.document, files.status);
             if (auto catalog = textures.take_catalog())

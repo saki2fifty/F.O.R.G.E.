@@ -401,3 +401,20 @@ missing, malformed and future profiles before publishing a distribution. Documen
 without Fog acquire no new requirement. Custom surface16 cooks separately require
 supporting surface-wrapper metadata; rebuild retained Materials after Shader
 recooking. See [local fog volumes](local-fog-volumes.md).
+
+
+### Streamed audio runtime compatibility
+
+A reachable AudioClip with `forge.audio.playback_storage:"stream"` requires
+`engine.runtime_audio_streaming:1` in the selected runtime kit. The integer profile
+is defined by the private `audio_stream_profile.hpp`; generated kit manifests
+extract it from that owner. Export validates compatibility before destination
+promotion. Resident clips and legacy records do not require this flag.
+
+Streamed clips retain the ordinary selected-artifact target, hash and closure
+checks. The package contains immutable cooked PCM and metadata, without the
+development recording or private playback backing. At runtime, the shared Audio
+resource owner prepares bounded temporary copies and worker-loaded pages. A
+relocated package supplies all audio bytes; no path to the authoring project or
+DDC is borrowed by the native stream. See [Audio](audio.md#bounded-cooked-pcm-streaming)
+for page, backing, voice and import limits.

@@ -111,20 +111,49 @@ class AudioImporter final : public AssetImporter {
 ImportSettingsSchema audio_settings(std::string_view importer) {
     require(audio_source_profile(importer) != nullptr, "Unsupported audio importer");
     std::vector<ImportSettingRule> rules{
-        {"force_mono", "Force mono",
+        {"force_mono",
+         "Force mono",
          "Average stereo channels into one channel during import. The source audio is unchanged.",
-         ImportSettingType::Boolean, false},
-        {"normalize_peak", "Normalize peak",
+         ImportSettingType::Boolean,
+         false,
+         {},
+         {},
+         {}},
+        {"normalize_peak",
+         "Normalize peak",
          "Scale the imported peak to 1 before trimming. This is peak, not loudness, normalization.",
-         ImportSettingType::Boolean, false},
-        {"trim_silence", "Trim silence",
+         ImportSettingType::Boolean,
+         false,
+         {},
+         {},
+         {}},
+        {"trim_silence",
+         "Trim silence",
          "Remove quiet leading/trailing frames and soften removed edges with a 5 ms fade. Entirely "
          "quiet clips become one silent frame.",
-         ImportSettingType::Boolean, false}};
-    ImportSettingRule threshold{"trim_threshold_db", "Trim threshold (dB)",
+         ImportSettingType::Boolean,
+         false,
+         {},
+         {},
+         {}},
+        {"playback_storage",
+         "Playback storage",
+         "Resident keeps decoded PCM in memory. Stream prepares 48000 Hz PCM for bounded disk "
+         "playback; clips must be at least one second. The source is unchanged.",
+         ImportSettingType::Choice,
+         "resident",
+         {},
+         {},
+         {"resident", "stream"}}};
+    ImportSettingRule threshold{"trim_threshold_db",
+                                "Trim threshold (dB)",
                                 "Used only when Trim silence is enabled. Any channel above this "
                                 "level keeps its frame. Normalization runs first.",
-                                ImportSettingType::Number, -60.};
+                                ImportSettingType::Number,
+                                -60.,
+                                {},
+                                {},
+                                {}};
     threshold.minimum = -96;
     threshold.maximum = -6;
     rules.push_back(std::move(threshold));

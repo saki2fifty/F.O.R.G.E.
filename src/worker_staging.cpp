@@ -23,6 +23,7 @@ constexpr Layout layouts[]{
     {"script", ".forge/cache/script", "forge.worker-stage"},
     {"schema", ".forge/schema-jobs", "forge.worker-stage"},
     {"ui-inspection", ".forge/ui-inspection", "forge.worker-stage"},
+    {"audio-stream", ".forge/audio-streams", "forge.worker-stage"},
 };
 const Layout& layout(std::string_view kind) {
     for (const auto& value : layouts)
@@ -134,6 +135,8 @@ Json cleanup_job(const std::filesystem::path& job, Budget& budget, std::stop_tok
             else
                 for (unsigned i = 0; i < 16; ++i)
                     root_files.insert("buffer-" + std::to_string(i) + ".bin");
+        } else if (kind == "audio-stream") {
+            root_files = {"audio.wav"};
         } else if (kind == "navigation") {
             root_files = {"source.json", "navigation.fnav", "error.txt"};
         } else {

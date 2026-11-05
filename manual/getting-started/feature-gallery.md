@@ -752,3 +752,15 @@ in live Play tuning. The mask affects the panel and its text; the small bar keep
 its presentation animation while simulation is paused. The image dependency is
 already declared. Save an authored angle and the Scene before exporting with the
 current runtime kit. See the runtime UI guide for syntax and shared layer limits.
+
+## Audio streaming sample
+
+Open **172-audio-streaming** and press **Play**. A blue cube rotates while a
+quiet twelve-second stereo pulse loops. In Content, open
+`Assets/AudioStreaming/PagePulse.wav`, expand **Import settings** and inspect
+**Playback storage: stream**. Clip details show the cooked 48000 Hz rate; the
+original source is 44100 Hz. Try preview seeking, then use Live sound to pause,
+resume and restart the source in Play. Live audio mix separates resident PCM,
+stream page budgets and temporary disk backing. Save before exporting with the
+matching runtime kit. See [Audio](../editor/audio.md)
+for preparation, eight-voice and import limits.

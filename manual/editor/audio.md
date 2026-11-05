@@ -55,8 +55,8 @@ path, then choose **Review settings** and **Import / Reimport**.
 
 All three formats use the same preview, waveform, import settings and Audio
 Source controls. Exported games use cooked PCM rather than decoding the source
-recording. Compressed sources therefore still count toward the decoded-memory
-limit; this is not streaming music support. Ogg/Vorbis and multichannel recordings
+recording. Choose Resident or Stream playback storage during import. Both retain
+the source and cooked-clip size limits. Ogg/Vorbis and multichannel recordings
 are not supported.
 
 To compare formats, open **83 — Audio source codecs** in the Feature Gallery.
@@ -67,7 +67,7 @@ other speaker, then Play again. You can also preview each clip from Content.
 ## Process a clip during import
 
 Open an AudioClip from **Content**, then expand **Import settings** below its
-preview. All processing is off by default.
+preview. Processing is off and **Playback storage** is **resident** by default.
 
 - **Force mono** combines the Left and Right channels. Opposite-phase stereo sounds can cancel when combined.
 - **Normalize peak** raises or lowers the clip so its largest sample reaches full scale. It does not make different sounds equally loud.
@@ -85,6 +85,48 @@ to hear the new revision in a running scene. Scene Undo does not undo an import.
 Try **34 — Audio import processing** in the Feature Gallery. Its two WAV sources
 contain identical original tones: one keeps stereo and quiet edges; the other
 uses mono, normalization and trimming. Preview either clip to compare.
+
+## Choose resident or streamed playback
+
+![Audio clip details and import settings showing stream playback storage and 48000 Hz output](../images/audio-streaming.png)
+
+Open Import settings to choose playback storage and publish the cooked clip.
+
+1. Open an AudioClip from **Content** and expand **Import settings**.
+2. Set **Playback storage** to **resident** for ordinary effects, or **stream** for longer recordings whose complete decoded PCM should not stay in the runtime cache.
+3. Click **Import / Reimport**. Stream requires at least one second after trimming. It converts the cooked clip to 48000 Hz while preserving mono or stereo channels.
+4. Preview it, or assign it to an Audio Source. Save the Scene and restart Play after publishing a different revision.
+
+Stream plays the immutable cooked PCM through worker-loaded pages. It needs a
+writable operating-system temporary folder for a private backing copy. Export
+includes the cooked clip; the original recording is not needed by the game.
+Streams use the same gain, pitch, spatial controls, filters, effects and mix channels.
+Preview seeks and **Play / Restart** may briefly show a loading state while pages
+at the new position prepare. Stop also resets the position; Resume continues a
+paused source without seeking.
+**Live sound** keeps existing one-shots and their tails controllable while the main
+source reloads. Pause, Resume and Stop also apply during that loading state.
+
+Each runtime supports eight prepared, preparing or retiring stream voices,
+including stopped sources and overlapping one-shots. Several sources can share
+one backing copy, but each voice uses its own pages. Resident voices use the
+ordinary 256-voice limit. Temporary copies are limited to 64 files and 256 MiB;
+each source recording remains limited to 16 MiB and each cooked clip to 64 MiB.
+Streaming does not remove these import limits or provide unbounded music playback.
+The waveform can briefly decode the whole clip to build its compact overview.
+
+During Play, **Live audio mix** shows resident PCM, reserved stream voices,
+stream page budgets and temporary disk backing separately. A stream starvation
+message in Console means pages arrived too late and playback may contain silence.
+Reduce the number of streams or choose Resident for time-critical sounds. If a
+stream cannot prepare, inspect its error and check temporary-folder space and
+permissions before restarting Play.
+
+Open **172 — Audio streaming** in the Feature Gallery. Its blue cube rotates
+while a quiet, twelve-second stereo pulse loops. Open
+**Assets/AudioStreaming/PagePulse.wav** to inspect **Playback storage**, preview
+seeking and the converted sample rate. Save and export using the runtime kit
+packaged with the current editor.
 
 ## Hear your first sound
 
@@ -339,8 +381,9 @@ Use mono or stereo WAV, FLAC or MP3 files. For WAV, start with 16-bit PCM at 24,
 unsupported or invalid encodings report an import error.
 
 Audio supports up to 256 voices, mono/stereo source files up to 16 MiB, up to
-64 MiB decoded per clip and 256 MiB of decoded clip data per runtime. Repeated
-sources share loaded clip data. Imported clips load in the background; a source
+64 MiB decoded per clip and 256 MiB of resident decoded clip data per runtime.
+Stream pages and temporary backing have the separate limits described above.
+Repeated sources share loaded clip data. Imported clips load in the background; a source
 can remain silent while its first load finishes. Import older registered-only
 WAVs to prepare them for this loading workflow.
 
@@ -348,8 +391,8 @@ Missing clips, invalid files and unavailable devices appear in the existing Play
 log in **Console**. Optional device failure allows the game to continue silently.
 Restart Play after fixing files/device selection if the operating system does not
 recover playback. Use the Audio clip document to audition a sound and the mixer
-controls to balance buses. Device selection, automatic voice stealing,
-streaming music and replacement of an already playing waveform are unavailable.
+controls to balance buses. Device selection, automatic voice stealing, unbounded
+music streaming and replacement of an already playing waveform are unavailable.
 Check the mix through the speakers or headphones your players will use.
 
 ## Compare the included falloff scene

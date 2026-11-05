@@ -89,10 +89,10 @@ void controlled_pool(const std::filesystem::path& root, const AssetRecord& recor
                 blocked.inspect().state != ResourceState::Ready,
             "Late cancelled completion replaced the current audio selection");
     auto lease = pool.acquire(replacement);
-    require(lease && lease->frames > 0, "Selected audio lease has no admitted PCM");
+    require(lease && lease->info().frames > 0, "Selected audio lease has no admitted PCM");
     pool.unload(AssetRef<AudioClipAsset>{record.id});
     pool.collect();
-    require(lease->frames > 0 && pool.statistics().memory.cpu_asset > 0,
+    require(lease->info().frames > 0 && pool.statistics().memory.cpu_asset > 0,
             "Retirement freed PCM still pinned by a consumer");
     lease = {};
     pool.collect();

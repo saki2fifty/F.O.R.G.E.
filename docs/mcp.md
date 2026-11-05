@@ -1330,6 +1330,19 @@ processing, publication and runtime PCM owner with WAV. No codec-specific MCP to
 or bypass is required. Source-copy grants, reviewed digests, project revisions,
 last-good publication and Scene Undo boundaries remain unchanged.
 
+Audio settings also expose `playback_storage` through
+`forge_asset_settings_schema` with exact string choices `resident` and `stream`.
+Use `forge_asset_settings_edit` with `editor:"audio_import"` and current
+session/state, then `forge_asset_settings_publish`. Stream requires one second
+after trimming, cooks48000Hz PCM, and retains the ordinary import size bounds.
+Invalid choices preserve the draft. Publication updates ordinary asset discovery
+and metadata; it does not change Scene Undo. The same Play/source control tools
+handle pending streams, restart, pause/resume, one-shots and live values. Audio
+status separates resident payload, stream pages, temporary disk backing and
+reserved/preparing/retiring counts. Eight native stream slots include pending,
+stopped and retiring voices. Export requires the matching streaming-capable kit.
+See [Audio](audio.md#bounded-cooked-pcm-streaming) for ownership and limits.
+
 Audio Source discovery includes the saved bool `pause_with_game` (defaulttrue),
 labelled Pause with game. Existing component/property operations own authored
 changes and Undo/Prefab persistence. SDK Play uses `forge_play_tune` for transient

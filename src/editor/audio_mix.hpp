@@ -45,9 +45,23 @@ class AudioMixEditor {
             status.value("paused", true) ? "paused" : "playing",
             static_cast<unsigned long long>(status.value("playing_sources", std::uint64_t{})),
             static_cast<unsigned long long>(status.value("voices", std::uint64_t{})));
-        ImGui::Text("Clip cache: %llu clips | %.2f MiB",
+        ImGui::Text("Clip cache: %llu clips | %.2f MiB resident PCM",
                     static_cast<unsigned long long>(status.value("clips", std::uint64_t{})),
                     status.value("decoded_bytes", std::uint64_t{}) / (1024. * 1024.));
+        if (status.value("stream_backing_files", 0u)) {
+            ImGui::TextWrapped("Streams: %u / 8 reserved (%u preparing, %u retiring)",
+                               status.value("reserved_streams", 0u),
+                               status.value("preparing_streams", 0u),
+                               status.value("retiring_streams", 0u));
+            ImGui::TextWrapped(
+                "Stream page budget: %.2f MiB | Temporary backing: %.2f MiB",
+                status.value("stream_reserved_page_bytes", std::uint64_t{}) / (1024. * 1024.),
+                status.value("stream_backing_bytes", std::uint64_t{}) / (1024. * 1024.));
+            ui::help(
+                "The page budget includes active, preparing and retiring voices. Retiring "
+                "voices retain their slot until worker cleanup finishes. Temporary backing is disk "
+                "storage, bounded separately from resident PCM.");
+        }
         ImGui::BeginDisabled(!ready || pending);
         const std::array labels{"Master", "Music", "Effects", "Dialogue"};
         for (unsigned i = 0; i < labels.size(); ++i) {

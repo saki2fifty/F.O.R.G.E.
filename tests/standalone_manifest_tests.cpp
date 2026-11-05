@@ -1,5 +1,6 @@
 #include "asset_bytes.hpp"
 #include "asset_storage.hpp"
+#include "audio_stream_profile.hpp"
 #include "fog_volume_package_tests.hpp"
 #include "game_export.hpp"
 #include "render_values.hpp"
@@ -33,6 +34,28 @@ int main(int argc, char** argv) {
         };
         const auto scratch = std::filesystem::absolute(argv[1]) / AssetId::generate().str();
         const auto project = scratch / "source", out = scratch / "game";
+        {
+            AssetCatalog features(scratch / "streaming-compatibility");
+            AssetRecord record{AssetId::generate(), "audio_clip", "tone.wav", 1};
+            features.add(record);
+            validate_runtime_compatibility(features, Json::object());
+            record.metadata["forge.audio"] = {{"playback_storage", "stream"}};
+            features.replace(record);
+            reject([&] { validate_runtime_compatibility(features, Json::object()); },
+                   "Streamed clips accepted a runtime without streaming support");
+            for (const Json& invalid : {Json(), Json(false), Json(-1), Json(0), Json(1.), Json("1"),
+                                        Json(2), Json(std::uint64_t{1} << 32)})
+                reject([&] {
+                    validate_runtime_compatibility(features,
+                                                   {{"runtime_audio_streaming", invalid}});
+                });
+            validate_runtime_compatibility(
+                features,
+                {{"runtime_audio_streaming", asset_detail::audio_streaming_profile_version}});
+            record.metadata["forge.audio"].erase("playback_storage");
+            features.replace(record);
+            validate_runtime_compatibility(features, Json::object());
+        }
         std::filesystem::create_directories(project);
         std::filesystem::create_directories(out / "resources/ui");
         struct Cleanup {

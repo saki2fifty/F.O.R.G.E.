@@ -48,6 +48,70 @@ def editor(mode='edit'):
             finish_host(process, root)
 
 
+def check_audio_settings(read, mutate, root):
+    # Typed importer settings use the shared draft, schema and native worker.
+    with wave.open(str(root / 'Game/Assets/Settings.wav'), 'wb') as wav:
+        wav.setnchannels(2); wav.setsampwidth(2); wav.setframerate(8000)
+        wav.writeframes(b'\x01\x00\x02\x00' * 8000)
+    assert mutate('forge_asset_settings_open', editor='audio_import', path='Assets/Settings.wav')['ok']
+    schema = read('forge_asset_settings_schema', editor='audio_import')
+    assert {'force_mono', 'normalize_peak', 'playback_storage'} <= {rule['key'] for rule in schema['rules']}
+    initial = read('forge_asset_settings_status', editor='audio_import')
+    def import_edit(tool, **extra):
+        current = read('forge_asset_settings_status', editor='audio_import')
+        return mutate(tool, editor='audio_import', session=current['session'], state=current['state'], **extra)
+    # Invalid second field must not adopt the otherwise valid first field.
+    invalid = import_edit('forge_asset_settings_edit', changes=[dict(key='force_mono', value=True),
+                          dict(key='missing_setting', value=True)])
+    assert not invalid['ok']
+    assert read('forge_asset_settings_status', editor='audio_import')['state'] == initial['state']
+    for invalid_storage in ('unlimited', True, 1):
+        assert not import_edit('forge_asset_settings_edit', changes=[
+            dict(key='playback_storage', value=invalid_storage)])['ok']
+    assert read('forge_asset_settings_status', editor='audio_import')['state'] == initial['state']
+    assert import_edit('forge_asset_settings_edit', changes=[dict(key='force_mono', value=True),
+        dict(key='playback_storage', value='stream')])['ok']
+    failed(mutate('forge_asset_settings_publish', editor='audio_import', session=initial['session'],
+                  state=initial['state']), 'stale_import')
+    assert import_edit('forge_asset_settings_publish')['ok']
+    end = time.monotonic() + 35
+    while True:
+        imported = read('forge_asset_settings_status', editor='audio_import')
+        if not imported['job']: break
+        assert time.monotonic() < end, imported
+        time.sleep(.02)
+    assert not imported['dirty'] and not imported['diagnostic'], imported
+    assert imported['effective']['force_mono']
+    assert imported['effective']['playback_storage'] == 'stream'
+    clips = read('forge_asset_search', include_engine=False, type='audio_clip', text='Settings.wav')['assets']
+    clip = next(row for row in clips if row['source'] == 'Assets/Settings.wav')
+    selected_audio = read('forge_asset_read', asset=clip['asset'])['metadata']['forge.audio']
+    assert selected_audio['playback_storage'] == 'stream'
+    assert selected_audio['sample_rate'] == 48000 and selected_audio['frames'] == 48000
+    assert import_edit('forge_asset_settings_close')['ok']
+
+    # MP3/FLAC share the existing typed settings owner, revision checks and worker.
+    fixtures = Path(__file__).resolve().parents[1] / 'samples/projects/FeatureGallery/Assets/AudioCodecs'
+    for extension in ('flac', 'mp3'):
+        source_name = 'Stereo.' + extension
+        (root / 'Game/Assets' / source_name).write_bytes((fixtures / source_name).read_bytes())
+        assert mutate('forge_asset_settings_open', editor='audio_import', path='Assets/' + source_name)['ok']
+        initial = read('forge_asset_settings_status', editor='audio_import')
+        assert initial['effective']['force_mono'] is False
+        assert import_edit('forge_asset_settings_edit', changes=[dict(key='force_mono', value=True)])['ok']
+        assert import_edit('forge_asset_settings_publish')['ok']
+        end = time.monotonic() + 35
+        while True:
+            imported = read('forge_asset_settings_status', editor='audio_import')
+            if not imported['job']: break
+            assert time.monotonic() < end, imported
+            time.sleep(.02)
+        assert not imported['dirty'] and not imported['diagnostic'], imported
+        assert imported['effective']['force_mono']
+        assert import_edit('forge_asset_settings_close')['ok']
+
+
+
 for legacy in (False, True):
     with editor('read') as (root, process, config), Client(config, legacy) as client:
         readonly_tools = client.request('tools/list')['result']['tools']
@@ -90,6 +154,10 @@ for legacy in (False, True):
             state = discovery()
             return client.tool(tool, target=state['result']['target'],
                                expected_revision=state['revision'], sequence=state['next_sequence'], **extra)
+
+        if sys.argv[5:] == ['--audio-streaming-only']:
+            check_audio_settings(read, mutate, root)
+            continue
 
         if PREFAB_ONLY:
             check_prefab_workflow(read, mutate, failed, root,
@@ -788,55 +856,7 @@ for legacy in (False, True):
         if COLLISION_ONLY or ATLAS_ONLY or SPRITE_GRAPH_ONLY or NAVIGATION_BEHAVIOR_ONLY or UI_LOCALIZATION_ONLY or APPLICATION_STATES_ONLY or UI_VALUES_ONLY or RENDER_TEXTURE_ONLY:
             continue
 
-        # Typed importer settings use the shared draft, schema and native worker.
-        with wave.open(str(root / 'Game/Assets/Settings.wav'), 'wb') as wav:
-            wav.setnchannels(2); wav.setsampwidth(2); wav.setframerate(8000)
-            wav.writeframes(b'\x01\x00\x02\x00' * 80)
-        assert mutate('forge_asset_settings_open', editor='audio_import', path='Assets/Settings.wav')['ok']
-        schema = read('forge_asset_settings_schema', editor='audio_import')
-        assert {'force_mono', 'normalize_peak'} <= {rule['key'] for rule in schema['rules']}
-        initial = read('forge_asset_settings_status', editor='audio_import')
-        def import_edit(tool, **extra):
-            current = read('forge_asset_settings_status', editor='audio_import')
-            return mutate(tool, editor='audio_import', session=current['session'], state=current['state'], **extra)
-        # Invalid second field must not adopt the otherwise valid first field.
-        invalid = import_edit('forge_asset_settings_edit', changes=[dict(key='force_mono', value=True),
-                              dict(key='missing_setting', value=True)])
-        assert not invalid['ok']
-        assert read('forge_asset_settings_status', editor='audio_import')['state'] == initial['state']
-        assert import_edit('forge_asset_settings_edit', changes=[dict(key='force_mono', value=True)])['ok']
-        failed(mutate('forge_asset_settings_publish', editor='audio_import', session=initial['session'],
-                      state=initial['state']), 'stale_import')
-        assert import_edit('forge_asset_settings_publish')['ok']
-        end = time.monotonic() + 35
-        while True:
-            imported = read('forge_asset_settings_status', editor='audio_import')
-            if not imported['job']: break
-            assert time.monotonic() < end, imported
-            time.sleep(.02)
-        assert not imported['dirty'] and not imported['diagnostic'], imported
-        assert imported['effective']['force_mono']
-        assert import_edit('forge_asset_settings_close')['ok']
-
-        # MP3/FLAC share the existing typed settings owner, revision checks and worker.
-        fixtures = Path(__file__).resolve().parents[1] / 'samples/projects/FeatureGallery/Assets/AudioCodecs'
-        for extension in ('flac', 'mp3'):
-            source_name = 'Stereo.' + extension
-            (root / 'Game/Assets' / source_name).write_bytes((fixtures / source_name).read_bytes())
-            assert mutate('forge_asset_settings_open', editor='audio_import', path='Assets/' + source_name)['ok']
-            initial = read('forge_asset_settings_status', editor='audio_import')
-            assert initial['effective']['force_mono'] is False
-            assert import_edit('forge_asset_settings_edit', changes=[dict(key='force_mono', value=True)])['ok']
-            assert import_edit('forge_asset_settings_publish')['ok']
-            end = time.monotonic() + 35
-            while True:
-                imported = read('forge_asset_settings_status', editor='audio_import')
-                if not imported['job']: break
-                assert time.monotonic() < end, imported
-                time.sleep(.02)
-            assert not imported['dirty'] and not imported['diagnostic'], imported
-            assert imported['effective']['force_mono']
-            assert import_edit('forge_asset_settings_close')['ok']
+        check_audio_settings(read, mutate, root)
 
         check_prefab_workflow(read, mutate, failed, root)
 

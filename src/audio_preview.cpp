@@ -164,14 +164,18 @@ void AudioClipPreview::seek(double seconds) {
         throw std::runtime_error("Preview position must be within the clip duration");
     try {
         world_->seek_offset = AudioPreviewAccess::seek(*world_->audio, world_->ref(), seconds);
+        if (world_->audio->status().at("pending_sources") != 0)
+            world_->prepared = false;
     } catch (...) {
         stop();
         throw;
     }
 }
 double AudioClipPreview::position() const {
-    if (!world_ || !world_->prepared)
+    if (!world_)
         return 0;
+    if (!world_->prepared)
+        return world_->seek_offset;
     const auto duration = waveform_.duration();
     const double seconds =
         world_->seek_offset + AudioPreviewAccess::elapsed(*world_->audio, world_->ref());

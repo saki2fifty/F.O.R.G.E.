@@ -96,8 +96,12 @@ std::vector<ArtifactFile> execute_audio_recipe(const ImportProcessRequest& reque
     if (stop.stop_requested())
         throw std::runtime_error("Audio import cancelled after decode");
     process(decoded, settings, stop);
+    const auto storage = audio_playback_storage(settings.at("playback_storage").get<std::string>());
+    if (storage == AudioPlaybackStorage::Stream)
+        prepare_streaming_audio(decoded, stop);
     const auto text =
-        audio_clip_metadata(decoded, digest, std::string(profile->extension.substr(1))).dump();
+        audio_clip_metadata(decoded, digest, std::string(profile->extension.substr(1)), storage)
+            .dump();
     const auto span = std::as_bytes(std::span(text));
     return {{"audio.fpcm", encode_audio_clip(decoded)}, {"audio.json", {span.begin(), span.end()}}};
 }

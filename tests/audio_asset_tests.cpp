@@ -146,6 +146,14 @@ void processing_tests(const std::filesystem::path& root, bool direct,
             {{"source.wav", source}}};
         auto output = direct ? execute_audio_recipe(request)
                              : run_import_process(worker, root, request, audio_worker_limits());
+        const auto metadata = validate_audio_bundle(output);
+        if (overrides.value("playback_storage", std::string("resident")) == "stream")
+            check(metadata.at("playback_storage") == "stream" &&
+                      metadata.at("sample_rate") == audio_stream_sample_rate,
+                  "Streamed audio cook lost its explicit storage or normalized frame clock");
+        else
+            check(!metadata.contains("playback_storage"),
+                  "Default resident audio changed the legacy bundle metadata");
         return audio_bundle_clip(output);
     };
     const AudioClipData stereo{{.5f, .25f, -.25f, .5f, 0, 0}, 3, 2, 48000};
@@ -213,6 +221,67 @@ void processing_tests(const std::filesystem::path& root, bool direct,
     ImportSettingsDocument invalid{"forge.audio.wav"};
     invalid.overrides["trim_threshold_db"] = std::numeric_limits<double>::quiet_NaN();
     rejects([&] { (void)schema.effective(invalid); });
+    for (const Json& choice : {Json("automatic"), Json(1), Json(true), Json(nullptr)})
+        rejects([&] { (void)schema.edit({"forge.audio.wav"}, "playback_storage", choice); });
+    rejects([&] { (void)cook(stereo, {{"playback_storage", "stream"}}); });
+    for (const unsigned rate : {4000u, 24000u, 44100u, 48000u, 96000u})
+        for (const unsigned channels : {1u, 2u}) {
+            AudioClipData tone;
+            tone.rate = rate;
+            tone.channels = channels;
+            tone.frames = rate + rate / 10;
+            tone.pcm.resize(tone.frames * channels);
+            for (std::uint64_t frame = 0; frame < tone.frames; ++frame)
+                for (unsigned channel = 0; channel < channels; ++channel)
+                    tone.pcm[frame * channels + channel] =
+                        float((channel ? .25 : .5) *
+                              std::sin(2 * 3.141592653589793 * 440 * frame / rate));
+            const auto resident = cook(tone, Json::object());
+            check(resident.rate == rate && resident.frames == tone.frames &&
+                      resident.pcm == tone.pcm,
+                  "Resident playback no longer preserves original decoded PCM/rate");
+            const auto streamed = cook(tone, {{"playback_storage", "stream"}});
+            check(streamed.rate == 48000 && streamed.channels == channels &&
+                      streamed.frames == (tone.frames * 48000 + rate - 1) / rate,
+                  "Streaming normalization changed channel count or duration");
+            if (rate == 48000)
+                check(streamed.pcm == tone.pcm,
+                      "Native-rate streaming changed the original samples");
+            for (unsigned channel = 0; channel < channels; ++channel) {
+                unsigned crossings = 0;
+                double energy = 0;
+                const auto begin = 4800u;
+                const auto end = unsigned(streamed.frames - 480);
+                for (unsigned frame = begin; frame < end; ++frame) {
+                    const auto sample = streamed.pcm[frame * channels + channel];
+                    const auto previous = streamed.pcm[(frame - 1) * channels + channel];
+                    check(std::isfinite(sample), "Streaming resampler produced a nonfinite sample");
+                    crossings += previous <= 0 && sample > 0;
+                    energy += double(sample) * sample;
+                }
+                const auto frequency = double(crossings) * 48000 / (end - begin);
+                const auto rms = std::sqrt(energy / (end - begin));
+                const auto interpolation =
+                    rate < 48000 ? std::sqrt((2 + std::cos(2 * 3.141592653589793 * 440 / rate)) / 3)
+                                 : 1.;
+                const auto expected_rms = (channel ? .25 : .5) / std::sqrt(2.) * interpolation;
+                if (std::abs(frequency - 440) >= 2 || std::abs(rms - expected_rms) >= .005)
+                    throw std::runtime_error(
+                        "Streaming tone differs: rate=" + std::to_string(rate) +
+                        " channels=" + std::to_string(channels) +
+                        " frequency=" + std::to_string(frequency) + " RMS=" + std::to_string(rms) +
+                        " expected=" + std::to_string(expected_rms));
+            }
+        }
+    AudioClipData cancelled;
+    cancelled.frames = cancelled.rate = 24000;
+    cancelled.channels = 1;
+    cancelled.pcm.assign(24000, .25f);
+    std::stop_source cancellation;
+    cancellation.request_stop();
+    rejects([&] { prepare_streaming_audio(cancelled, cancellation.get_token()); });
+    check(cancelled.rate == 24000 && cancelled.pcm == std::vector<float>(24000, .25f),
+          "Cancelled streaming preparation modified its input");
 }
 #include "audio_codec_tests.hpp"
 } // namespace

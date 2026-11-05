@@ -6,7 +6,7 @@
 #include <stdexcept>
 namespace forge::asset_detail {
 namespace {
-constexpr std::size_t header_bytes = 32;
+constexpr std::size_t header_bytes = audio_pcm_header_bytes;
 constexpr char signature[8] = {'F', 'O', 'R', 'G', 'E', 'A', 'U', 'D'};
 void require(bool ok, const char* why) {
     if (!ok)
@@ -30,6 +30,9 @@ std::size_t sample_count(std::uint64_t frames, unsigned channels, unsigned rate)
     return std::size_t(frames * channels);
 }
 } // namespace
+void validate_audio_info(const AudioClipInfo& info) {
+    (void)sample_count(info.frames, info.channels, info.rate);
+}
 void validate_audio_clip(const AudioClipData& clip) {
     require(clip.pcm.size() == sample_count(clip.frames, clip.channels, clip.rate),
             "AudioClip frame/channel count disagrees with PCM length");
@@ -51,25 +54,35 @@ std::vector<std::byte> encode_audio_clip(const AudioClipData& clip) {
         put(bytes, header_bytes + i * 4, std::bit_cast<std::uint32_t>(clip.pcm[i]), 4);
     return bytes;
 }
-AudioClipData decode_audio_clip(std::span<const std::byte> bytes) {
+AudioClipInfo validate_audio_clip_bytes(std::span<const std::byte> bytes) {
     require(bytes.size() >= header_bytes && bytes.size() <= header_bytes + max_audio_pcm_bytes,
             "Cooked AudioClip is truncated or exceeds its byte limit");
     for (unsigned i = 0; i < 8; ++i)
         require(bytes[i] == std::byte(signature[i]), "Invalid cooked AudioClip signature");
     require(get(bytes, 8, 4) == 1 && get(bytes, 20, 4) == 0,
             "Unsupported cooked AudioClip version or flags");
-    AudioClipData clip;
+    AudioClipInfo clip;
     clip.channels = unsigned(get(bytes, 12, 4));
     clip.rate = unsigned(get(bytes, 16, 4));
     clip.frames = get(bytes, 24, 8);
     const auto count = sample_count(clip.frames, clip.channels, clip.rate);
     require(bytes.size() == header_bytes + count * sizeof(float),
             "Cooked AudioClip length does not match its frames");
-    clip.pcm.resize(count);
     for (std::size_t i = 0; i < count; ++i) {
-        clip.pcm[i] = std::bit_cast<float>(std::uint32_t(get(bytes, header_bytes + i * 4, 4)));
-        require(std::isfinite(clip.pcm[i]), "Nonfinite cooked AudioClip sample");
+        const auto value = std::bit_cast<float>(std::uint32_t(get(bytes, header_bytes + i * 4, 4)));
+        require(std::isfinite(value), "Nonfinite cooked AudioClip sample");
     }
+    return clip;
+}
+AudioClipData decode_audio_clip(std::span<const std::byte> bytes) {
+    const auto info = validate_audio_clip_bytes(bytes);
+    AudioClipData clip;
+    clip.frames = info.frames;
+    clip.channels = info.channels;
+    clip.rate = info.rate;
+    clip.pcm.resize(std::size_t(info.frames * info.channels));
+    for (std::size_t i = 0; i < clip.pcm.size(); ++i)
+        clip.pcm[i] = std::bit_cast<float>(std::uint32_t(get(bytes, header_bytes + i * 4, 4)));
     return clip;
 }
 } // namespace forge::asset_detail

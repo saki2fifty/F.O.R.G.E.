@@ -37,13 +37,13 @@ class AudioSourceEditor {
         ImGui::TextColored({.61f, .93f, .89f, 1}, "PLAY — runtime only");
         const bool available = status.is_object() && status.value("available", false);
         const bool loading = status.is_object() && status.value("pending", false);
+        const bool admitted = available || loading;
         const bool effect_tail =
-            available && status.value("effects_tails", status.value("echo_tails", 0u)) > 0;
-        const bool playing =
-            available && (status.value("playing", false) ||
-                          status.value("playing_one_shots", 0u) > 0 || effect_tail);
-        const bool source_paused = available && (status.value("source_paused", false) ||
-                                                 status.value("paused_one_shots", 0u) > 0);
+            admitted && status.value("effects_tails", status.value("echo_tails", 0u)) > 0;
+        const bool playing = admitted && (status.value("playing", false) ||
+                                          status.value("playing_one_shots", 0u) > 0 || effect_tail);
+        const bool source_paused = admitted && (status.value("source_paused", false) ||
+                                                status.value("paused_one_shots", 0u) > 0);
         if (available)
             ImGui::Text("%s | %.2f seconds | %s",
                         source_paused                  ? "Source paused"
@@ -60,7 +60,7 @@ class AudioSourceEditor {
                                status.is_object()
                                    ? status.value("error", "Waiting for source status...").c_str()
                                    : "Waiting for source status...");
-        if (available)
+        if (admitted)
             ImGui::Text("Overlapping effects: %u / 16", status.value("one_shots", 0u));
         ImGui::BeginDisabled(!ready || pending || (!available && !loading));
         auto button = [&](const char* label, [[maybe_unused]] const char* key,

@@ -1,11 +1,13 @@
 #include "standalone_manifest.hpp"
 #include "asset_bytes.hpp"
+#include "audio_stream_profile.hpp"
 #include "bounded_json.hpp"
 #include "native_io_path.hpp"
 #include "runtime_execution_values.hpp"
 #include "ui_filter_profile.hpp"
 #include "ui_gradient_profile.hpp"
 #include <algorithm>
+#include <forge/audio_components.hpp>
 #include <forge/fog_volume.hpp>
 #include <forge/game_content.hpp>
 #include <forge/input_message.hpp>
@@ -83,6 +85,17 @@ void validate_runtime_compatibility(const AssetCatalog& catalog, const Json& eng
     }
     for (const auto& [id, record] : catalog.records()) {
         (void)id;
+        if (record.type == AudioClipAsset::type) {
+            const auto metadata = record.metadata.find("forge.audio");
+            if (metadata != record.metadata.end() &&
+                metadata->value("playback_storage", std::string("resident")) == "stream") {
+                const auto support = engine.find("runtime_audio_streaming");
+                require(support != engine.end() && support->is_number_integer() &&
+                            *support == asset_detail::audio_streaming_profile_version,
+                        "Streamed Audio Clips require a matching runtime kit; select the kit "
+                        "packaged with this editor");
+            }
+        }
         if (record.type == ShaderAsset::type) {
             const auto& metadata = record.metadata.at("forge.shader");
             if (const auto wrapper = metadata.find("surface_wrapper_version");
