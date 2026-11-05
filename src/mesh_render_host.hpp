@@ -1,5 +1,6 @@
 #pragma once
 #include "mesh_draw_bundle.hpp"
+#include "mesh_occlusion.hpp"
 #include "particle_effect_resource.hpp"
 #include "render_bounds.hpp"
 #include "shadow_renderer.hpp"
@@ -145,6 +146,8 @@ class MeshSceneRenderer {
     bool pending() const;
     struct DrawStats {
         std::size_t calls{}, instances{}, batched_calls{};
+        // CPU submission counts, never a readback estimate of hidden geometry.
+        std::size_t occluder_calls{}, occlusion_queries{}, indirect_calls{};
     };
     DrawStats draw_stats() const { return draw_stats_; }
     std::size_t bundle_count() const;
@@ -255,6 +258,7 @@ class MeshSceneRenderer {
     std::unique_ptr<ShadowRenderer> shadows_;
     std::unique_ptr<TransmissionBackground> transmission_;
     std::unique_ptr<WeightedTransparency> weighted_;
+    std::unique_ptr<MeshOcclusion> occlusion_;
     Diligent::TEXTURE_FORMAT color_;
     const std::uint64_t pose_budget_;
     const std::size_t draw_part_limit_;

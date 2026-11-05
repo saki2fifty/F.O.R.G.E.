@@ -10,6 +10,7 @@
 #include "scene_fast_aa_settings_tests.hpp"
 #include "scene_morphological_aa_settings_tests.hpp"
 #include "scene_motion_blur_tests.hpp"
+#include "scene_occlusion_culling_tests.hpp"
 #include "scene_reflection_settings_tests.hpp"
 #include "scene_temporal_settings_tests.hpp"
 #include "scene_weighted_transparency_tests.hpp"
@@ -146,6 +147,7 @@ int main() {
         test_scene_temporal_settings();
         test_scene_fast_aa_settings();
         test_scene_morphological_aa_settings();
+        test_scene_occlusion_culling();
         test_scene_depth_of_field();
         test_scene_motion_blur();
         test_scene_weighted_transparency();

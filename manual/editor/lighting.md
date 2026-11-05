@@ -2,7 +2,7 @@
 
 Use **Tools > Scene lighting...**, or search for **Scene / Lighting** in the Command
 Palette, to change the scene's environment, shadows, screen-space reflections, ambient occlusion, motion blur, focus blur, edge smoothing,
-distance fog, [weighted transparency](transparency.md) and display brightness. These settings
+distance fog, [occlusion culling](occlusion-culling.md), [weighted transparency](transparency.md) and display brightness. These settings
 belong to the scene: **Save** keeps them, and **Undo / Redo** reverses each committed
 change. Opening this window keeps Scene as the active editing task.
 

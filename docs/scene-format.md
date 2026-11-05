@@ -12,6 +12,12 @@ It selects the [weighted Mesh blending profile](weighted-transparency.md) withou
 changing Scene document versions. Save/history retain authored intent and unrelated
 rendering extensions; invalid scalar types reject before mutation.
 
+The optional `rendering.occlusion_culling` object defaults to
+`{"enabled":false,"depth_bias":0.0001}`. Bias is finite normalized depth 0..0.01;
+strict booleans and source-precision checks apply before mutation. It extends
+rendering version 1 through the existing Scene/history/reference/automation owner.
+See [current-view culling](occlusion-culling.md).
+
 ```json
 {
   "version": 3,

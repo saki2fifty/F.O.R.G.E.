@@ -10,7 +10,8 @@ void check(bool value, const char* why) {
     if (!value)
         throw std::runtime_error(why);
 }
-void interactions(float scale, ImVec2 display, bool morphological_only = false) {
+void interactions(float scale, ImVec2 display, bool morphological_only = false,
+                  bool culling_only = false) {
     EngineContext engine;
     Scene scene(engine.world());
     auto extended = scene.document();
@@ -19,6 +20,7 @@ void interactions(float scale, ImVec2 display, bool morphological_only = false) 
     extended["rendering"]["temporal_anti_aliasing"] = {{"extension", "retain"}};
     extended["rendering"]["fast_approximate_anti_aliasing"] = {{"extension", "retain"}};
     extended["rendering"]["morphological_anti_aliasing"] = {{"extension", "retain"}};
+    extended["rendering"]["occlusion_culling"] = {{"extension", "retain"}};
     extended["rendering"]["depth_of_field"] = {{"extension", "retain"}};
     scene.reset(extended);
     const auto original = scene.document();
@@ -42,6 +44,7 @@ void interactions(float scale, ImVec2 display, bool morphological_only = false) 
     bool temporal_controls = false;
     bool fast_aa_controls = false;
     bool morphological_controls = false;
+    bool culling_controls = false;
     bool focus_controls = false;
     bool motion_controls = false;
     bool occlusion_controls = false;
@@ -68,7 +71,10 @@ void interactions(float scale, ImVec2 display, bool morphological_only = false) 
                     ++commits;
                     error.clear();
                 };
-                if (transparency_controls)
+                if (culling_controls)
+                    ui::scene_occlusion_culling_controls(settings.occlusion_culling, locked,
+                                                         commit);
+                else if (transparency_controls)
                     ui::scene_transparency_controls(settings.weighted_transparency, locked, commit);
                 else if (reflection_controls)
                     ui::scene_reflection_controls(settings.screen_space_reflections, locked,
@@ -108,6 +114,56 @@ void interactions(float scale, ImVec2 display, bool morphological_only = false) 
     auto type = [&](const char* key, const char* value) { input.type(key, value); };
     for (unsigned i = 0; i < 4; ++i)
         frame();
+    if (!morphological_only) {
+        culling_controls = true;
+        frame();
+        click("occlusion-culling:section");
+        const auto before = scene.document();
+        click("occlusion-culling:enabled");
+        check(scene_render_settings(scene.document()).occlusion_culling.enabled && scene.undo() &&
+                  scene.document() == before && scene.redo(),
+              "Occlusion checkbox bypassed Scene history");
+        type("occlusion-culling:bias", "0.002");
+        check(error.empty() &&
+                  scene_render_settings(scene.document()).occlusion_culling.depth_bias == .002f &&
+                  scene.document()["rendering"]["occlusion_culling"]["extension"] == "retain",
+              "Occlusion input lost values or extension metadata");
+        const auto valid = scene.document();
+        type("occlusion-culling:bias", "0.01000000001");
+        check(!error.empty() && scene.document() == valid,
+              "Occlusion input narrowed an invalid source double into range");
+        type("occlusion-culling:bias", "0");
+        check(error.empty() &&
+                  scene_render_settings(scene.document()).occlusion_culling.depth_bias == 0,
+              "Occlusion minimum did not recover after rejection");
+        type("occlusion-culling:bias", "0.01");
+        check(error.empty() &&
+                  scene_render_settings(scene.document()).occlusion_culling.depth_bias == .01f,
+              "Occlusion maximum rejected");
+        const auto before_reset = scene.document();
+        click("occlusion-culling:reset");
+        check(scene_render_settings(scene.document()).occlusion_culling ==
+                      SceneOcclusionCulling{} &&
+                  scene.undo() && scene.document() == before_reset && scene.redo(),
+              "Occlusion reset bypassed atomic Scene history");
+        locked = true;
+        frame();
+        for (const auto* key :
+             {"occlusion-culling:enabled", "occlusion-culling:bias", "occlusion-culling:reset"})
+            check(!test::ui_targets.at(key).enabled,
+                  "Occlusion authored controls enabled during Play");
+        locked = false;
+        click("occlusion-culling:section");
+        culling_controls = false;
+        scene.reset(original);
+        commits = 0;
+        if (culling_only) {
+            test::observe_ui = false;
+            ImGui::DestroyContext();
+            return;
+        }
+        frame();
+    }
     if (!morphological_only) {
         click("bloom:enabled");
         check(commits == 1 && scene_render_settings(scene.document()).bloom.enabled,
@@ -648,21 +704,23 @@ void interactions(float scale, ImVec2 display, bool morphological_only = false) 
     ImGui::DestroyContext();
 }
 void capture(const std::filesystem::path& root, std::string_view kind = {}) {
-    const bool morphological = kind == "--morphological-aa", fast = kind == "--fast-aa",
+    const bool culling = kind == "--occlusion-culling",
+               morphological = kind == "--morphological-aa", fast = kind == "--fast-aa",
                fog = kind == "--fog", temporal = kind == "--temporal", focus = kind == "--focus",
                motion = kind == "--motion", occlusion = kind == "--occlusion",
                reflection = kind == "--reflection", weighted = kind == "--weighted";
     std::filesystem::create_directories(root);
-    const int capture_height = morphological ? 460
-                               : fast        ? 340
-                               : weighted    ? 240
-                               : reflection  ? 520
-                               : fog         ? 360
-                               : temporal    ? 420
-                               : focus       ? 440
-                               : motion      ? 400
-                               : occlusion   ? 460
-                                             : 900;
+    const int capture_height = culling         ? 350
+                               : morphological ? 460
+                               : fast          ? 340
+                               : weighted      ? 240
+                               : reflection    ? 520
+                               : fog           ? 360
+                               : temporal      ? 420
+                               : focus         ? 440
+                               : motion        ? 400
+                               : occlusion     ? 460
+                                               : 900;
     const std::unique_ptr<SDL_Surface, decltype(&SDL_DestroySurface)> surface(
         SDL_CreateSurface(900, capture_height, SDL_PIXELFORMAT_RGBA32), SDL_DestroySurface);
     check(bool(surface), SDL_GetError());
@@ -691,11 +749,12 @@ void capture(const std::filesystem::path& root, std::string_view kind = {}) {
     Scene scene(engine.world());
     authoring_command(
         scene, "scene.rendering.set",
-        morphological ? Json{{"morphological_anti_aliasing", {{"enabled", true}}}}
-        : fast        ? Json{{"fast_approximate_anti_aliasing", {{"enabled", true}}}}
-        : weighted    ? Json{{"weighted_transparency", true}}
-        : reflection  ? Json{{"screen_space_reflections", {{"enabled", true}}}}
-        : occlusion   ? Json{{"ambient_occlusion", {{"enabled", true}, {"normal_influence", .7}}}}
+        culling         ? Json{{"occlusion_culling", {{"enabled", true}}}}
+        : morphological ? Json{{"morphological_anti_aliasing", {{"enabled", true}}}}
+        : fast          ? Json{{"fast_approximate_anti_aliasing", {{"enabled", true}}}}
+        : weighted      ? Json{{"weighted_transparency", true}}
+        : reflection    ? Json{{"screen_space_reflections", {{"enabled", true}}}}
+        : occlusion     ? Json{{"ambient_occlusion", {{"enabled", true}, {"normal_influence", .7}}}}
         : motion   ? Json{{"motion_blur", {{"enabled", true}, {"shutter", .5}, {"max_pixels", 32}}}}
         : focus    ? Json{{"depth_of_field",
                            {{"enabled", true},
@@ -717,7 +776,10 @@ void capture(const std::filesystem::path& root, std::string_view kind = {}) {
         const auto commit = [&](const Json& patch) {
             authoring_command(scene, "scene.rendering.set", patch);
         };
-        if (morphological)
+        if (culling)
+            ui::scene_occlusion_culling_controls(
+                scene_render_settings(scene.document()).occlusion_culling, false, commit);
+        else if (morphological)
             ui::scene_morphological_aa_controls(
                 scene_render_settings(scene.document()).morphological_anti_aliasing, false, commit);
         else if (fast)
@@ -755,9 +817,10 @@ void capture(const std::filesystem::path& root, std::string_view kind = {}) {
         ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData(), renderer.get());
         SDL_RenderPresent(renderer.get());
     }
-    check(SDL_SavePNG(surface.get(), (root / (morphological ? "morphological-aa-controls.png"
-                                              : fast        ? "fast-approximate-aa-controls.png"
-                                              : weighted    ? "weighted-transparency-controls.png"
+    check(SDL_SavePNG(surface.get(), (root / (culling         ? "occlusion-culling-controls.png"
+                                              : morphological ? "morphological-aa-controls.png"
+                                              : fast          ? "fast-approximate-aa-controls.png"
+                                              : weighted      ? "weighted-transparency-controls.png"
                                               : reflection ? "screen-space-reflections-controls.png"
                                               : occlusion  ? "ambient-occlusion-controls.png"
                                               : motion     ? "motion-blur-controls.png"
@@ -772,9 +835,11 @@ void capture(const std::filesystem::path& root, std::string_view kind = {}) {
 } // namespace
 int main(int argc, char** argv) {
     try {
+        const bool culling_only =
+            argc == 2 && std::string_view(argv[1]) == "--occlusion-culling-only";
         const bool morphological_only =
             argc == 2 && std::string_view(argv[1]) == "--morphological-only";
-        if (!morphological_only &&
+        if (!morphological_only && !culling_only &&
             (argc == 2 ||
              (argc == 3 &&
               (std::string_view(argv[2]) == "--fog" || std::string_view(argv[2]) == "--temporal" ||
@@ -783,16 +848,17 @@ int main(int argc, char** argv) {
                std::string_view(argv[2]) == "--reflection" ||
                std::string_view(argv[2]) == "--weighted" ||
                std::string_view(argv[2]) == "--fast-aa" ||
-               std::string_view(argv[2]) == "--morphological-aa")))) {
+               std::string_view(argv[2]) == "--morphological-aa" ||
+               std::string_view(argv[2]) == "--occlusion-culling")))) {
             capture(std::filesystem::absolute(argv[1]),
                     argc == 3 ? std::string_view(argv[2]) : std::string_view{});
             return 0;
         }
-        check(argc == 1 || morphological_only,
+        check(argc == 1 || morphological_only || culling_only,
               "Expected optional native lighting capture directory");
         for (float scale : {1.f, 1.5f, 2.f})
             for (const auto display : {ImVec2{2400, 1700}, ImVec2{960, 640}})
-                interactions(scale, display, morphological_only);
+                interactions(scale, display, morphological_only, culling_only);
         std::cout << "Bloom/color/automatic exposure actual input, rejection/recovery, read-only "
                      "and Scene Undo PASS\n";
         return 0;

@@ -377,3 +377,10 @@ uncertain action with a fresh sequence can create duplicate objects.
 
 The precise capability checklist and integration contract are maintained in
 **docs/mcp.md** in the source repository.
+
+For occlusion culling, call **forge_scene_rendering_set** with
+`occlusion_culling:{"enabled":true,"depth_bias":0.0001}`. Stop Play before changing
+authored settings. Use the current document target and expected revision, then
+save the Scene before export. **forge_history_undo** and **forge_history_redo**
+use the same history as the editor. See [Occlusion culling](occlusion-culling.md)
+for supported geometry and limits.

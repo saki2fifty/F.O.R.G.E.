@@ -41,6 +41,13 @@ class MeshDraw {
         const MeshWindSample* previous_wind = nullptr;
     };
     bool supports_instances() const { return bool(instances_); }
+    struct IndirectArguments {
+        Diligent::IBuffer* buffer{};
+        std::uint64_t offset{};
+    };
+    std::array<std::uint32_t, 5> indirect_command(unsigned instances) const {
+        return {mesh_.indices ? mesh_.index_count : mesh_.vertex_count, instances, 0, 0, 0};
+    }
     struct ProjectedTexture {
         Diligent::ITextureView* view{};
         Diligent::ISampler* sampler{};
@@ -95,8 +102,8 @@ class MeshDraw {
               std::span<const Decal> decals = {}, const RenderBounds* decal_bounds = nullptr,
               std::span<const LightImage> light_images = {},
               std::span<const EnvironmentProbe> local_irradiance = {},
-              const MeshWindSample* wind = nullptr,
-              std::span<const FogVolumeSample> local_fog = {});
+              const MeshWindSample* wind = nullptr, std::span<const FogVolumeSample> local_fog = {},
+              const IndirectArguments* visibility = nullptr);
 
   private:
     unsigned instance_rows() const;

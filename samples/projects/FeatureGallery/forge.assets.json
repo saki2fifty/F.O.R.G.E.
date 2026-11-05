@@ -3890,6 +3890,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "3318f779-a2ad-4756-9059-dac42178e3bb",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/169-occlusion-culling.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "335b042d-c9a3-4aa2-8f33-dd91f40a60ae",
       "metadata": {
         "forge.import": {

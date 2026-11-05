@@ -720,3 +720,14 @@ rounding. Enabling a spatial method disables the other in one Undo step; tempora
 anti-aliasing remains independent. Save and export the selected startup Scene with
 the supplied runtime kit. See [Lighting](../editor/lighting.md) for the illustrated
 controls and current bounds.
+
+## Occlusion culling sample
+
+Open **169-occlusion-culling** and press **Play**. A blue wall moves and turns in
+front of a grid of 32 spheres while the two side landmarks remain visible. Stop
+Play and open **Tools > Scene lighting... > Occlusion culling** to compare enabled
+and disabled rendering. The picture should remain consistent. The moving wall is
+a child of an animated pivot using a shared transform clip. Save and export this
+Scene to keep its culling setting and animation. See
+[Occlusion culling](../editor/occlusion-culling.md) for the illustrated controls,
+safety bias, supported geometry and limits.

@@ -239,6 +239,35 @@ inline void scene_fast_aa_controls(const SceneFastApproximateAntiAliasing& setti
                        "Higher smoothing can soften fine details. Scene Save and Undo include "
                        "these settings.");
 }
+inline void scene_occlusion_culling_controls(const SceneOcclusionCulling& settings, bool locked,
+                                             const std::function<void(const Json&)>& commit) {
+    IdScope scope("occlusion_culling");
+    const bool open = ImGui::CollapsingHeader("Occlusion culling");
+    FORGE_UI_PROBE("occlusion-culling:section");
+    if (!open)
+        return;
+    DisabledScope disabled(locked);
+    bool enabled = settings.enabled;
+    if (ImGui::Checkbox("Enable occlusion culling", &enabled))
+        commit({{"occlusion_culling", {{"enabled", enabled}}}});
+    FORGE_UI_PROBE("occlusion-culling:enabled");
+    double bias = settings.depth_bias;
+    property_label_row(
+        "Depth safety bias",
+        "Normalized depth from 0 to 0.01. Larger values keep more geometry visible.");
+    if (ImGui::InputDouble("##bias", &bias, 0, 0, "%.6f", ImGuiInputTextFlags_EnterReturnsTrue))
+        commit({{"occlusion_culling", {{"depth_bias", bias}}}});
+    FORGE_UI_PROBE("occlusion-culling:bias");
+    if (button("Reset occlusion culling", "Disable culling and restore depth safety bias 0.0001."))
+        commit({{"occlusion_culling", {{"enabled", false}, {"depth_bias", .0001}}}});
+    FORGE_UI_PROBE("occlusion-culling:reset");
+    ImGui::TextWrapped(
+        "Uses up to 32 simple opaque depth occluders and 4096 compatible batches per view. "
+        "Masked, transparent, skinned, morphed, wind-deformed and custom surfaces keep "
+        "ordinary submission. Uncertain bounds or unsupported targets retain geometry. "
+        "The depth hierarchy is rebuilt for each camera; no previous-frame visibility. "
+        "Scene Save and Undo include these settings.");
+}
 inline void scene_morphological_aa_controls(const SceneMorphologicalAntiAliasing& settings,
                                             bool locked,
                                             const std::function<void(const Json&)>& commit) {
@@ -561,6 +590,7 @@ inline void scene_lighting(bool& open, Scene& scene, const AssetCatalog* catalog
             scene_auto_exposure_controls(settings.auto_exposure, locked, commit);
             scene_reflection_controls(settings.screen_space_reflections, locked, commit);
             scene_transparency_controls(settings.weighted_transparency, locked, commit);
+            scene_occlusion_culling_controls(settings.occlusion_culling, locked, commit);
             scene_occlusion_controls(settings.ambient_occlusion, locked, commit);
             scene_motion_controls(settings.motion_blur, locked, commit);
             scene_focus_controls(settings.depth_of_field, locked, commit);

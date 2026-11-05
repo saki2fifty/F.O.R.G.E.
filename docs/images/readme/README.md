@@ -2005,7 +2005,7 @@ physical GPU/input/DPI, exported-game or hardware performance acceptance.
 
 `manual/images/ui-shadow-gallery.png` is the canonical unretouched640x360 actual
 GamePresentation/RmlUi/Diligent software Vulkan image of original Gallery162.
-A360x640 portrait was also personally viewed. Hard, left-offset, soft, stacked,
+A 360x640 portrait was also personally viewed. Hard, left-offset, soft, stacked,
 model-driven and presentation-time shadows use the production filter owner.
 All four rendered checkpoints match source-hidden relocated content pixel for
 pixel. PNG conversion preserves the captured PPM RGB bytes exactly; no controls
@@ -2102,3 +2102,19 @@ sources hidden. Hashes, binaries and receipts live in
 Offline manual pages are checked separately at wide/narrow widths. These captures
 do not establish Windows/MSVC/FXC/D3D12, physical GPU/input/DPI, graphical EXE,
 full-editor or hardware performance acceptance.
+
+
+## Current-view occlusion culling
+
+The canonical `manual/images/occlusion-culling-controls.png` captures the actual
+shared Scene lighting controls through the isolated SDL3 software fixture; it is
+not the full editor. The canonical `manual/images/occlusion-culling-gallery.png`
+is actual 640x360 Game rendering of Gallery169 on software Vulkan. A 360x640
+letterboxed portrait is separately reviewed. PPM-to-PNG conversion preserves
+all decoded RGB bytes without retouching. Four moving source/relocated pairs are
+exact with the source project hidden. Receipts, binary/source hashes and the
+wide/narrow offline manual captures are recorded in
+`AgentFiles/build/phase263-hierarchical-occlusion-culling/capture-provenance.json`.
+The offline renderer uses its existing 260915-000006 synthetic test identity; it
+is not a new release. These captures do not establish Windows/MSVC/FXC/D3D12,
+full-Main, graphical EXE, physical GPU/input/DPI or hardware performance acceptance.

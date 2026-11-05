@@ -103,9 +103,13 @@ MeshDrawBundle::MeshDrawBundle(
                                   ? nullptr
                                   : prepare_draw(context, unsigned(l), unsigned(p),
                                                  Diligent::TEX_FORMAT_UNKNOWN, profile));
-            info.push_back({values->alpha, material_ref.id, part.bounds, transmits,
-                            bindings.at(part.material_slot),
-                            values->depth_test && values->depth_write});
+            info.push_back(
+                {values->alpha, material_ref.id, part.bounds, transmits,
+                 bindings.at(part.material_slot), values->depth_test && values->depth_write,
+                 !surface && !skinned && !wind && part.morph_targets.empty() &&
+                     part.topology == Diligent::PRIMITIVE_TOPOLOGY_TRIANGLE_LIST &&
+                     values->alpha == MaterialAlpha::Opaque && !transmits && values->depth_test &&
+                     values->depth_write && !sprite_draw_profile(profile)});
         }
     }
 }
@@ -242,6 +246,15 @@ void MeshDrawBundle::draw_shadow(Diligent::IDeviceContext* context, const Affine
                            nullptr, {}, {}, pose ? &pose->wind : nullptr);
         }
 }
+void MeshDrawBundle::draw_occluder(Diligent::IDeviceContext* context, const AffineTransform& world,
+                                   const CameraView& camera, unsigned lod, unsigned part) {
+    if (!info_.at(lod).at(part).occlusion_depth || !shadow_lods_.at(lod).at(part))
+        throw std::invalid_argument("Mesh part cannot supply conservative opaque depth");
+    (void)mesh_.get();
+    // The built-in opaque depth role shares the exact geometry/projector and
+    // winding owner with the color draw. It has no alpha discard or depth bias.
+    shadow_lods_[lod][part]->draw(context, world, camera, {});
+}
 void MeshDrawBundle::environment(const EnvironmentLease& lease) {
     const auto* maps = lease ? &lease.get() : nullptr;
     // Replace every parity/LOD binding, including currently invisible parts,
@@ -316,8 +329,8 @@ void MeshDrawBundle::draw_part(
     const MeshDraw::Motion* motion, bool indirect, bool reflection, bool normal,
     std::span<const MeshDraw::Decal> decals, bool weighted, const RenderBounds* decal_bounds,
     std::span<const MeshDraw::LightImage> images,
-    std::span<const EnvironmentProbe> local_irradiance,
-    std::span<const FogVolumeSample> local_fog) {
+    std::span<const EnvironmentProbe> local_irradiance, std::span<const FogVolumeSample> local_fog,
+    const MeshDraw::IndirectArguments* visibility) {
     const bool area_lights = std::any_of(lights.begin(), lights.end(), [](const auto& light) {
         return light.kind >= unsigned(LightKind::Rectangle);
     });
@@ -354,6 +367,7 @@ void MeshDrawBundle::draw_part(
                    shadows, shadow_slots, transmission,
                    pose ? std::span<const float>(pose->morph_weights) : std::span<const float>{},
                    skin, instances, parameters, slot(lod, part), sprite, fog, motion, decals,
-                   decal_bounds, images, local_irradiance, pose ? &pose->wind : nullptr, local_fog);
+                   decal_bounds, images, local_irradiance, pose ? &pose->wind : nullptr, local_fog,
+                   visibility);
 }
 } // namespace forge

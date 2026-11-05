@@ -60,3 +60,15 @@ UI follows filtering; linear HDR and temporal history retain their paths. Defaul
 disabled output remains unchanged. Resource/current-image limits and authentic
 controls/gallery captures are documented. Windows/full-editor/physical review is
 pending; reference shader parity and multisample/temporal variants are not claimed.
+
+## Current-view occlusion culling
+
+Adds optional Scene culling controls through the existing editor, automation,
+MCP/history and export owners. Current-view opaque depth, conservative GPU-float
+bounds and a bounded hierarchy suppress hidden rigid Mesh batch instances through
+native indirect commands while retaining queue/instancing ownership. Unsupported
+materials/deformation/targets retain ordinary drawing. OriginalGallery169 adds a
+moving occluder and shared transform clip, with illustrated manual instructions.
+Focused native bounds/indirect/work/pixel checks, Scene/Game temporal/HDR consumers,
+shared controls/MCP and source-hidden relocated content are tested on Linux;
+Windows/physical acceptance and delivery remain pending. No new numbered ZIP.

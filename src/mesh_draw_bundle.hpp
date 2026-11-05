@@ -17,6 +17,7 @@ class MeshDrawBundle {
         bool transmission{};
         std::size_t binding{};
         bool depth_write = true;
+        bool occlusion_depth = false;
     };
     MeshDrawBundle(DiligentPresentation&, Diligent::IDeviceContext*,
                    const asset_detail::PreparedModelDraw&, GpuResidency<MeshAsset>&,
@@ -78,6 +79,12 @@ class MeshDrawBundle {
     void draw_shadow(Diligent::IDeviceContext*, const AffineTransform&, const CameraView&,
                      unsigned lod = 0, const MeshInstancePose* pose = nullptr,
                      std::span<const MaterialParameterOverride> parameters = {});
+    void draw_occluder(Diligent::IDeviceContext*, const AffineTransform&, const CameraView&,
+                       unsigned lod, unsigned part);
+    std::array<std::uint32_t, 5> indirect_command(unsigned lod, unsigned part,
+                                                  unsigned instances) const {
+        return lods_.at(lod).at(part)->indirect_command(instances);
+    }
     void draw(Diligent::IDeviceContext*, const AffineTransform&, const CameraView&,
               std::span<const LightView>, const EnvironmentLighting* = nullptr, unsigned lod = 0);
     void draw_part(Diligent::IDeviceContext*, const AffineTransform&, const CameraView&,
@@ -97,7 +104,8 @@ class MeshDrawBundle {
                    const RenderBounds* decal_bounds = nullptr,
                    std::span<const MeshDraw::LightImage> images = {},
                    std::span<const EnvironmentProbe> local_irradiance = {},
-                   std::span<const FogVolumeSample> local_fog = {});
+                   std::span<const FogVolumeSample> local_fog = {},
+                   const MeshDraw::IndirectArguments* visibility = nullptr);
     std::string_view slot(unsigned lod, unsigned part) const {
         return prepared_.selection.bindings.at(info_.at(lod).at(part).binding).key;
     }

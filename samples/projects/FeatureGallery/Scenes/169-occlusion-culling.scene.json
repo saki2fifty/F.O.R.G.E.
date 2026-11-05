@@ -1,0 +1,1367 @@
+{
+  "asset_id": "3318f779-a2ad-4756-9059-dac42178e3bb",
+  "entities": [
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 18.0,
+          "y": 0.30000001192092896,
+          "z": 16.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": -0.45,
+          "z": 3.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.25,
+          "g": 0.20000000298023224,
+          "r": 0.1599999964237213
+        }
+      },
+      "id": "1de9d848-bb5e-420c-8010-3026490ee17d",
+      "name": "Floor",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.tint": {
+          "b": 1.0,
+          "g": 1.0,
+          "r": 1.0
+        },
+        "forge.transform_animator": {
+          "clip": "399c3c5e-f4e9-4ccb-94b3-bc0e518c1ece",
+          "enabled": true,
+          "loop": true,
+          "play_on_start": true,
+          "playback_speed": 0.3499999940395355,
+          "sequence": null,
+          "sequence_next_clip": null,
+          "sequence_next_start_seconds": 0.0,
+          "sequence_start_seconds": 0.0
+        }
+      },
+      "id": "9d40adce-c50e-4dc7-8c4d-7aa2b5eae11f",
+      "name": "Animated occluder pivot - shared transform clip",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 3.200000047683716,
+          "y": 9.0,
+          "z": 0.3499999940395355
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.75,
+          "g": 0.44999998807907104,
+          "r": 0.15000000596046448
+        }
+      },
+      "id": "60e018eb-4de9-47a1-91ae-5461a9fdb7e4",
+      "name": "Moving opaque wall - reveals hidden spheres",
+      "parent": "9d40adce-c50e-4dc7-8c4d-7aa2b5eae11f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.699999988079071,
+          "y": 0.699999988079071,
+          "z": 0.699999988079071
+        },
+        "forge.local_translation": {
+          "x": -4.9,
+          "y": 0.7,
+          "z": 3.0
+        },
+        "forge.primitive": {
+          "kind": 1
+        },
+        "forge.tint": {
+          "b": 0.8999999761581421,
+          "g": 0.6499999761581421,
+          "r": 0.25
+        }
+      },
+      "id": "fe41b0c6-5e03-447b-9ec5-10ba3c7e8ae4",
+      "name": "Rigid sphere 1",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.699999988079071,
+          "y": 0.699999988079071,
+          "z": 0.699999988079071
+        },
+        "forge.local_translation": {
+          "x": -3.5000000000000004,
+          "y": 0.7,
+          "z": 3.0
+        },
+        "forge.primitive": {
+          "kind": 1
+        },
+        "forge.tint": {
+          "b": 0.20000000298023224,
+          "g": 0.6499999761581421,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "953bd914-3039-4bba-91a3-ee6f74e01d6c",
+      "name": "Rigid sphere 2",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.699999988079071,
+          "y": 0.699999988079071,
+          "z": 0.699999988079071
+        },
+        "forge.local_translation": {
+          "x": -2.1000000000000005,
+          "y": 0.7,
+          "z": 3.0
+        },
+        "forge.primitive": {
+          "kind": 1
+        },
+        "forge.tint": {
+          "b": 0.8999999761581421,
+          "g": 0.6499999761581421,
+          "r": 0.25
+        }
+      },
+      "id": "d1f42d18-a296-44d9-a147-a3ec38fb8306",
+      "name": "Rigid sphere 3",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.699999988079071,
+          "y": 0.699999988079071,
+          "z": 0.699999988079071
+        },
+        "forge.local_translation": {
+          "x": -0.7000000000000011,
+          "y": 0.7,
+          "z": 3.0
+        },
+        "forge.primitive": {
+          "kind": 1
+        },
+        "forge.tint": {
+          "b": 0.20000000298023224,
+          "g": 0.6499999761581421,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "a3b780f5-1e96-41f9-8318-832e25ba64fe",
+      "name": "Rigid sphere 4",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.699999988079071,
+          "y": 0.699999988079071,
+          "z": 0.699999988079071
+        },
+        "forge.local_translation": {
+          "x": 0.6999999999999993,
+          "y": 0.7,
+          "z": 3.0
+        },
+        "forge.primitive": {
+          "kind": 1
+        },
+        "forge.tint": {
+          "b": 0.8999999761581421,
+          "g": 0.6499999761581421,
+          "r": 0.25
+        }
+      },
+      "id": "43a94f04-be48-443e-b1e0-c7f748979638",
+      "name": "Rigid sphere 5",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.699999988079071,
+          "y": 0.699999988079071,
+          "z": 0.699999988079071
+        },
+        "forge.local_translation": {
+          "x": 2.0999999999999996,
+          "y": 0.7,
+          "z": 3.0
+        },
+        "forge.primitive": {
+          "kind": 1
+        },
+        "forge.tint": {
+          "b": 0.20000000298023224,
+          "g": 0.6499999761581421,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "35fcbf27-ca7c-44d8-9a79-d31e5e863658",
+      "name": "Rigid sphere 6",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.699999988079071,
+          "y": 0.699999988079071,
+          "z": 0.699999988079071
+        },
+        "forge.local_translation": {
+          "x": 3.4999999999999982,
+          "y": 0.7,
+          "z": 3.0
+        },
+        "forge.primitive": {
+          "kind": 1
+        },
+        "forge.tint": {
+          "b": 0.8999999761581421,
+          "g": 0.6499999761581421,
+          "r": 0.25
+        }
+      },
+      "id": "afabe471-34d3-4571-8127-472410213457",
+      "name": "Rigid sphere 7",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.699999988079071,
+          "y": 0.699999988079071,
+          "z": 0.699999988079071
+        },
+        "forge.local_translation": {
+          "x": 4.899999999999999,
+          "y": 0.7,
+          "z": 3.0
+        },
+        "forge.primitive": {
+          "kind": 1
+        },
+        "forge.tint": {
+          "b": 0.20000000298023224,
+          "g": 0.6499999761581421,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "6c2467da-8c81-4ced-858b-4e598a4f60be",
+      "name": "Rigid sphere 8",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.699999988079071,
+          "y": 0.699999988079071,
+          "z": 0.699999988079071
+        },
+        "forge.local_translation": {
+          "x": -4.9,
+          "y": 0.7,
+          "z": 4.4
+        },
+        "forge.primitive": {
+          "kind": 1
+        },
+        "forge.tint": {
+          "b": 0.8999999761581421,
+          "g": 0.6499999761581421,
+          "r": 0.25
+        }
+      },
+      "id": "72a1264f-455b-4bd2-80bc-53abd86962a5",
+      "name": "Rigid sphere 9",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.699999988079071,
+          "y": 0.699999988079071,
+          "z": 0.699999988079071
+        },
+        "forge.local_translation": {
+          "x": -3.5000000000000004,
+          "y": 0.7,
+          "z": 4.4
+        },
+        "forge.primitive": {
+          "kind": 1
+        },
+        "forge.tint": {
+          "b": 0.20000000298023224,
+          "g": 0.6499999761581421,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "605e72f9-2c07-452b-b25e-82c4dae827bf",
+      "name": "Rigid sphere 10",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.699999988079071,
+          "y": 0.699999988079071,
+          "z": 0.699999988079071
+        },
+        "forge.local_translation": {
+          "x": -2.1000000000000005,
+          "y": 0.7,
+          "z": 4.4
+        },
+        "forge.primitive": {
+          "kind": 1
+        },
+        "forge.tint": {
+          "b": 0.8999999761581421,
+          "g": 0.6499999761581421,
+          "r": 0.25
+        }
+      },
+      "id": "5e3ee0b3-fac4-41f8-bb50-6c52cbeeb843",
+      "name": "Rigid sphere 11",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.699999988079071,
+          "y": 0.699999988079071,
+          "z": 0.699999988079071
+        },
+        "forge.local_translation": {
+          "x": -0.7000000000000011,
+          "y": 0.7,
+          "z": 4.4
+        },
+        "forge.primitive": {
+          "kind": 1
+        },
+        "forge.tint": {
+          "b": 0.20000000298023224,
+          "g": 0.6499999761581421,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "44fb60ca-6f6f-48d6-875d-12cf7e17fddc",
+      "name": "Rigid sphere 12",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.699999988079071,
+          "y": 0.699999988079071,
+          "z": 0.699999988079071
+        },
+        "forge.local_translation": {
+          "x": 0.6999999999999993,
+          "y": 0.7,
+          "z": 4.4
+        },
+        "forge.primitive": {
+          "kind": 1
+        },
+        "forge.tint": {
+          "b": 0.8999999761581421,
+          "g": 0.6499999761581421,
+          "r": 0.25
+        }
+      },
+      "id": "90d22176-3290-4a10-aa48-af1776bfb742",
+      "name": "Rigid sphere 13",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.699999988079071,
+          "y": 0.699999988079071,
+          "z": 0.699999988079071
+        },
+        "forge.local_translation": {
+          "x": 2.0999999999999996,
+          "y": 0.7,
+          "z": 4.4
+        },
+        "forge.primitive": {
+          "kind": 1
+        },
+        "forge.tint": {
+          "b": 0.20000000298023224,
+          "g": 0.6499999761581421,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "7db00c2d-cdde-4b8e-98f7-dade65ba9552",
+      "name": "Rigid sphere 14",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.699999988079071,
+          "y": 0.699999988079071,
+          "z": 0.699999988079071
+        },
+        "forge.local_translation": {
+          "x": 3.4999999999999982,
+          "y": 0.7,
+          "z": 4.4
+        },
+        "forge.primitive": {
+          "kind": 1
+        },
+        "forge.tint": {
+          "b": 0.8999999761581421,
+          "g": 0.6499999761581421,
+          "r": 0.25
+        }
+      },
+      "id": "02c66be2-cb3d-46e9-9063-54ae7800bdc1",
+      "name": "Rigid sphere 15",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.699999988079071,
+          "y": 0.699999988079071,
+          "z": 0.699999988079071
+        },
+        "forge.local_translation": {
+          "x": 4.899999999999999,
+          "y": 0.7,
+          "z": 4.4
+        },
+        "forge.primitive": {
+          "kind": 1
+        },
+        "forge.tint": {
+          "b": 0.20000000298023224,
+          "g": 0.6499999761581421,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "f31cccc3-32e0-4eac-90e1-73364303275d",
+      "name": "Rigid sphere 16",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.699999988079071,
+          "y": 0.699999988079071,
+          "z": 0.699999988079071
+        },
+        "forge.local_translation": {
+          "x": -4.9,
+          "y": 0.7,
+          "z": 5.8
+        },
+        "forge.primitive": {
+          "kind": 1
+        },
+        "forge.tint": {
+          "b": 0.8999999761581421,
+          "g": 0.6499999761581421,
+          "r": 0.25
+        }
+      },
+      "id": "e49c38cb-7376-4c05-82e2-f8b86a59ad0a",
+      "name": "Rigid sphere 17",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.699999988079071,
+          "y": 0.699999988079071,
+          "z": 0.699999988079071
+        },
+        "forge.local_translation": {
+          "x": -3.5000000000000004,
+          "y": 0.7,
+          "z": 5.8
+        },
+        "forge.primitive": {
+          "kind": 1
+        },
+        "forge.tint": {
+          "b": 0.20000000298023224,
+          "g": 0.6499999761581421,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "c81c211b-934c-421a-af64-0241641e157d",
+      "name": "Rigid sphere 18",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.699999988079071,
+          "y": 0.699999988079071,
+          "z": 0.699999988079071
+        },
+        "forge.local_translation": {
+          "x": -2.1000000000000005,
+          "y": 0.7,
+          "z": 5.8
+        },
+        "forge.primitive": {
+          "kind": 1
+        },
+        "forge.tint": {
+          "b": 0.8999999761581421,
+          "g": 0.6499999761581421,
+          "r": 0.25
+        }
+      },
+      "id": "cae22ac2-13a0-4d9e-8f02-a443e87d544d",
+      "name": "Rigid sphere 19",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.699999988079071,
+          "y": 0.699999988079071,
+          "z": 0.699999988079071
+        },
+        "forge.local_translation": {
+          "x": -0.7000000000000011,
+          "y": 0.7,
+          "z": 5.8
+        },
+        "forge.primitive": {
+          "kind": 1
+        },
+        "forge.tint": {
+          "b": 0.20000000298023224,
+          "g": 0.6499999761581421,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "1ab51d3c-5491-4af7-bcc3-e0110afec410",
+      "name": "Rigid sphere 20",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.699999988079071,
+          "y": 0.699999988079071,
+          "z": 0.699999988079071
+        },
+        "forge.local_translation": {
+          "x": 0.6999999999999993,
+          "y": 0.7,
+          "z": 5.8
+        },
+        "forge.primitive": {
+          "kind": 1
+        },
+        "forge.tint": {
+          "b": 0.8999999761581421,
+          "g": 0.6499999761581421,
+          "r": 0.25
+        }
+      },
+      "id": "68bc70e1-fedf-4cef-bd6f-f33e908203e3",
+      "name": "Rigid sphere 21",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.699999988079071,
+          "y": 0.699999988079071,
+          "z": 0.699999988079071
+        },
+        "forge.local_translation": {
+          "x": 2.0999999999999996,
+          "y": 0.7,
+          "z": 5.8
+        },
+        "forge.primitive": {
+          "kind": 1
+        },
+        "forge.tint": {
+          "b": 0.20000000298023224,
+          "g": 0.6499999761581421,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "f5687911-96b3-458c-966e-4f41bdd0d2c9",
+      "name": "Rigid sphere 22",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.699999988079071,
+          "y": 0.699999988079071,
+          "z": 0.699999988079071
+        },
+        "forge.local_translation": {
+          "x": 3.4999999999999982,
+          "y": 0.7,
+          "z": 5.8
+        },
+        "forge.primitive": {
+          "kind": 1
+        },
+        "forge.tint": {
+          "b": 0.8999999761581421,
+          "g": 0.6499999761581421,
+          "r": 0.25
+        }
+      },
+      "id": "2f04ee5d-d0ff-42ec-91d9-478add2aa8e6",
+      "name": "Rigid sphere 23",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.699999988079071,
+          "y": 0.699999988079071,
+          "z": 0.699999988079071
+        },
+        "forge.local_translation": {
+          "x": 4.899999999999999,
+          "y": 0.7,
+          "z": 5.8
+        },
+        "forge.primitive": {
+          "kind": 1
+        },
+        "forge.tint": {
+          "b": 0.20000000298023224,
+          "g": 0.6499999761581421,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "eb75410f-a9d7-4ef9-a0c6-ee26fa1aa4b5",
+      "name": "Rigid sphere 24",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.699999988079071,
+          "y": 0.699999988079071,
+          "z": 0.699999988079071
+        },
+        "forge.local_translation": {
+          "x": -4.9,
+          "y": 0.7,
+          "z": 7.199999999999999
+        },
+        "forge.primitive": {
+          "kind": 1
+        },
+        "forge.tint": {
+          "b": 0.8999999761581421,
+          "g": 0.6499999761581421,
+          "r": 0.25
+        }
+      },
+      "id": "5db8e39d-a2e9-438d-8c12-6cf42937c21a",
+      "name": "Rigid sphere 25",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.699999988079071,
+          "y": 0.699999988079071,
+          "z": 0.699999988079071
+        },
+        "forge.local_translation": {
+          "x": -3.5000000000000004,
+          "y": 0.7,
+          "z": 7.199999999999999
+        },
+        "forge.primitive": {
+          "kind": 1
+        },
+        "forge.tint": {
+          "b": 0.20000000298023224,
+          "g": 0.6499999761581421,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "a94b47ee-1aa7-4b8a-b8eb-3ac288ab09a7",
+      "name": "Rigid sphere 26",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.699999988079071,
+          "y": 0.699999988079071,
+          "z": 0.699999988079071
+        },
+        "forge.local_translation": {
+          "x": -2.1000000000000005,
+          "y": 0.7,
+          "z": 7.199999999999999
+        },
+        "forge.primitive": {
+          "kind": 1
+        },
+        "forge.tint": {
+          "b": 0.8999999761581421,
+          "g": 0.6499999761581421,
+          "r": 0.25
+        }
+      },
+      "id": "60c10e2a-d70b-462f-8ef4-510c40134033",
+      "name": "Rigid sphere 27",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.699999988079071,
+          "y": 0.699999988079071,
+          "z": 0.699999988079071
+        },
+        "forge.local_translation": {
+          "x": -0.7000000000000011,
+          "y": 0.7,
+          "z": 7.199999999999999
+        },
+        "forge.primitive": {
+          "kind": 1
+        },
+        "forge.tint": {
+          "b": 0.20000000298023224,
+          "g": 0.6499999761581421,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "3d143cff-3298-45d7-aa08-d5d6769ad154",
+      "name": "Rigid sphere 28",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.699999988079071,
+          "y": 0.699999988079071,
+          "z": 0.699999988079071
+        },
+        "forge.local_translation": {
+          "x": 0.6999999999999993,
+          "y": 0.7,
+          "z": 7.199999999999999
+        },
+        "forge.primitive": {
+          "kind": 1
+        },
+        "forge.tint": {
+          "b": 0.8999999761581421,
+          "g": 0.6499999761581421,
+          "r": 0.25
+        }
+      },
+      "id": "a73d9743-b11b-4fe9-9399-dabd001f45ec",
+      "name": "Rigid sphere 29",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.699999988079071,
+          "y": 0.699999988079071,
+          "z": 0.699999988079071
+        },
+        "forge.local_translation": {
+          "x": 2.0999999999999996,
+          "y": 0.7,
+          "z": 7.199999999999999
+        },
+        "forge.primitive": {
+          "kind": 1
+        },
+        "forge.tint": {
+          "b": 0.20000000298023224,
+          "g": 0.6499999761581421,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "c9e104de-4bd8-43f2-8da9-aa599cc9579d",
+      "name": "Rigid sphere 30",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.699999988079071,
+          "y": 0.699999988079071,
+          "z": 0.699999988079071
+        },
+        "forge.local_translation": {
+          "x": 3.4999999999999982,
+          "y": 0.7,
+          "z": 7.199999999999999
+        },
+        "forge.primitive": {
+          "kind": 1
+        },
+        "forge.tint": {
+          "b": 0.8999999761581421,
+          "g": 0.6499999761581421,
+          "r": 0.25
+        }
+      },
+      "id": "c8d878f8-4111-4768-983f-167d34c37bc4",
+      "name": "Rigid sphere 31",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.699999988079071,
+          "y": 0.699999988079071,
+          "z": 0.699999988079071
+        },
+        "forge.local_translation": {
+          "x": 4.899999999999999,
+          "y": 0.7,
+          "z": 7.199999999999999
+        },
+        "forge.primitive": {
+          "kind": 1
+        },
+        "forge.tint": {
+          "b": 0.20000000298023224,
+          "g": 0.6499999761581421,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "1c68507f-46e4-46dd-b6bd-b75d88f73589",
+      "name": "Rigid sphere 32",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.2000000476837158,
+          "y": 1.2000000476837158,
+          "z": 1.2000000476837158
+        },
+        "forge.local_translation": {
+          "x": -6.5,
+          "y": 1.1,
+          "z": -1.0
+        },
+        "forge.primitive": {
+          "kind": 11
+        },
+        "forge.tint": {
+          "b": 0.4000000059604645,
+          "g": 0.30000001192092896,
+          "r": 0.8999999761581421
+        }
+      },
+      "id": "dba3fbb5-0e8c-4d47-9f92-feb4593e6ccf",
+      "name": "Visible left landmark",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.2000000476837158,
+          "y": 1.2000000476837158,
+          "z": 1.2000000476837158
+        },
+        "forge.local_translation": {
+          "x": 6.5,
+          "y": 1.1,
+          "z": -1.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.44999998807907104,
+          "g": 0.8500000238418579,
+          "r": 0.30000001192092896
+        }
+      },
+      "id": "f6e697e9-b0f4-493f-a68e-340d56bb76e3",
+      "name": "Visible right landmark",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 1.7777777777777777,
+          "background_a": 1.0,
+          "background_b": 0.029999999329447746,
+          "background_g": 0.02500000037252903,
+          "background_r": 0.019999999552965164,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 100.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 10.0,
+          "orthographic_width": 0.0,
+          "projection": 0,
+          "render_texture": null,
+          "vertical_fov": 1.0471975511965976,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 0.9986295104026794,
+          "x": 0.0523359552025795,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 3.0,
+          "z": -14.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.tint": {
+          "b": 1.0,
+          "g": 1.0,
+          "r": 1.0
+        }
+      },
+      "id": "daf53ac8-c024-47c4-9a73-04ef3e6abb7f",
+      "name": "Game camera - moving occluder laboratory",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.light": {
+          "basis": 0,
+          "cast_shadows": false,
+          "color_b": 1.0,
+          "color_g": 1.0,
+          "color_r": 1.0,
+          "emitter_height": 1.0,
+          "emitter_radius": 0.5,
+          "emitter_width": 1.0,
+          "enabled": true,
+          "image_height": 1.0,
+          "image_tiled": false,
+          "image_width": 1.0,
+          "inner_cone": 0.0,
+          "intensity": 3.0,
+          "kind": 0,
+          "layers": 4294967295,
+          "outer_cone": 0.7853981633974483,
+          "range": 0.0,
+          "shadow_angular_radius": 0.0,
+          "shadow_bias": 0.0010000000474974513,
+          "shadow_normal_bias": 0.019999999552965164,
+          "shadow_source_radius": 0.0,
+          "texture": null
+        },
+        "forge.local_rotation": {
+          "w": 0.9311100244522095,
+          "x": 0.2935778796672821,
+          "y": -0.2064221352338791,
+          "z": 0.06508464366197586
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 6.0,
+          "z": -4.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.tint": {
+          "b": 1.0,
+          "g": 1.0,
+          "r": 1.0
+        }
+      },
+      "id": "9ad6f6ca-9ffa-4826-8de4-19af65dc7b78",
+      "name": "Directional light",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    }
+  ],
+  "rendering": {
+    "occlusion_culling": {
+      "depth_bias": 0.0001,
+      "enabled": true
+    },
+    "shadows": {
+      "enabled": false
+    },
+    "version": 1
+  },
+  "version": 3
+}

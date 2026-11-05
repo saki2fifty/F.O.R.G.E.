@@ -53,6 +53,10 @@ void validate_scene_morphological_anti_aliasing(const SceneMorphologicalAntiAlia
             "Morphological anti-aliasing requires finite edge threshold from 0.01 to 0.5, 1 to 32 "
             "search steps and corner rounding from 0 to 1");
 }
+void validate_scene_occlusion_culling(const SceneOcclusionCulling& value) {
+    if (!std::isfinite(value.depth_bias) || value.depth_bias < 0 || value.depth_bias > .01f)
+        throw std::runtime_error("Occlusion culling depth bias must be finite from 0 to 0.01");
+}
 void validate_scene_distance_fog(const SceneDistanceFog& value) {
     for (const auto channel : value.color)
         if (!std::isfinite(channel) || channel < 0 || channel > 65504)
@@ -232,6 +236,22 @@ SceneRenderSettings scene_render_settings(const nlohmann::json& scene) {
         value.subpixel_strength = float(strength);
         value.search_steps = unsigned(steps);
         validate_scene_fast_approximate_anti_aliasing(value);
+    }
+    if (settings.contains("occlusion_culling")) {
+        const auto& section = settings.at("occlusion_culling");
+        if (!section.is_object())
+            throw std::runtime_error("Scene occlusion culling must be an object");
+        auto& value = result.occlusion_culling;
+        if (section.contains("enabled")) {
+            if (!section.at("enabled").is_boolean())
+                throw std::runtime_error("Occlusion culling enabled must be boolean");
+            value.enabled = section.at("enabled").get<bool>();
+        }
+        const auto bias = number(section, "depth_bias", value.depth_bias);
+        if (bias < 0 || bias > .01)
+            throw std::runtime_error("Occlusion culling depth bias must be from 0 to 0.01");
+        value.depth_bias = float(bias);
+        validate_scene_occlusion_culling(value);
     }
     if (settings.contains("morphological_anti_aliasing")) {
         const auto& section = settings.at("morphological_anti_aliasing");

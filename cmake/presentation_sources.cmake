@@ -15,6 +15,7 @@ set(forge_presentation_sources
  src/weighted_transparency.cpp
  src/display_resolve.cpp
  src/auto_exposure.cpp
+ src/mesh_occlusion.cpp
  src/hdr_bloom.cpp
  src/depth_of_field.cpp
  src/motion_blur.cpp

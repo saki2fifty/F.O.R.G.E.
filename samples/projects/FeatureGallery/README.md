@@ -2178,3 +2178,15 @@ rounding 0..1. The defaults are 0.1, 16, 0. One spatial method is active at a ti
 temporal anti-aliasing remains independent. Save and export the startup Scene with
 the supplied kit. The [lighting manual](../../../manual/editor/lighting.md) covers
 controls and resource/current-image limits.
+
+## Occlusion culling
+
+`Scenes/169-occlusion-culling.scene.json` contains a moving blue wall,32 rigid
+spheres, two visible side landmarks, a floor and an authored game camera/light.
+The wall follows the existing shared Platform transform clip on its parent.
+Press Play to see geometry revealed as the wall moves and turns. Stop Play and
+use **Tools > Scene lighting... > Occlusion culling** to compare the default-on
+example with ordinary drawing; the image should remain consistent. Save before
+export. This profile accelerates eligible built-in opaque rigid triangle Meshes;
+mask/blend, custom, skin/morph/wind and uncertain bounds retain ordinary submission.
+See [Occlusion culling](../../../manual/editor/occlusion-culling.md) for the safety bias and bounds.

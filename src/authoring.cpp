@@ -255,7 +255,7 @@ Json execute(detail::SceneDraft& scene, const std::string& op, const Json& a) {
                 key == "temporal_anti_aliasing" || key == "fast_approximate_anti_aliasing" ||
                 key == "morphological_anti_aliasing" || key == "depth_of_field" ||
                 key == "motion_blur" || key == "ambient_occlusion" ||
-                key == "screen_space_reflections") {
+                key == "screen_space_reflections" || key == "occlusion_culling") {
                 auto& env = rendering[key];
                 if (env.is_null())
                     env = Json::object();
@@ -635,6 +635,8 @@ Json authoring_commands() {
           object({{"enabled", {{"type", "boolean"}}},
                   {"subpixel_strength", number(0, 1)},
                   {"search_steps", {{"type", "integer"}, {"minimum", 1}, {"maximum", 16}}}})},
+         {"occlusion_culling",
+          object({{"enabled", {{"type", "boolean"}}}, {"depth_bias", number(0, .01)}})},
          {"morphological_anti_aliasing",
           object({{"enabled", {{"type", "boolean"}}},
                   {"edge_threshold", number(.01, .5)},

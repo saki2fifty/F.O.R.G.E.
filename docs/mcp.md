@@ -1672,3 +1672,10 @@ methods, bad bounds/types or stale revisions preserve Scene/revision. Existing
 permissions, receipt replay, partial-patch extension retention, Undo/Redo, Save,
 Play locks and export owners apply; no additional MCP tool is introduced.
 See [the rendering contract](morphological-antialiasing.md).
+
+`forge_scene_rendering_set` exposes optional `occlusion_culling` with strict
+boolean `enabled` and finite numeric `depth_bias` from 0 to 0.01. Discovery, the MCP
+input schema and native `scene.rendering.set` share the same owner. The operation
+preserves existing revision checks, permissions, receipt replay, partial patches,
+Undo/Redo, Play locks and Save. `mcp_occlusion_culling_stdio` covers both framing
+formats and direct read-only denial. See [the rendering contract](occlusion-culling.md).

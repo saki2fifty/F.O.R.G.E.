@@ -499,6 +499,7 @@ MeshSceneRenderer::MeshSceneRenderer(std::shared_ptr<MeshResourceHost> host,
     shadows_ = std::make_unique<ShadowRenderer>(host_->presentation_);
     transmission_ = std::make_unique<TransmissionBackground>(host_->presentation_);
     weighted_ = std::make_unique<WeightedTransparency>(host_->presentation_);
+    occlusion_ = std::make_unique<MeshOcclusion>(host_->presentation_);
 }
 std::shared_ptr<const MeshInstancePose>
 MeshSceneRenderer::Entry::stage_pose(MeshInstancePose value) const {
@@ -1695,6 +1696,169 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
     } else {
         weighted_->clear();
     }
+    // One batching rule serves visibility queries and the ordinary draw loop.
+    // Derived visibility never changes queue ordering or compatibility.
+    const auto batch_end = [&](std::size_t start) {
+        const auto& item = queue[start];
+        const auto& object = objects[item.object];
+        auto cursor = start + 1;
+        const bool eligible = (item.key.alpha != MaterialAlpha::Blend || object.sprite) &&
+                              !item.transmission &&
+                              object.bundle->supports_instances(object.lod, item.key.part);
+        while (eligible && cursor < queue.size() && cursor - start < MeshDraw::instance_limit) {
+            const auto& next_item = queue[cursor];
+            const auto& next = objects[next_item.object];
+            if (((temporal || post_mesh) && temporal_item(next_item) != temporal_item(item)) ||
+                next.bundle != object.bundle || next.lod != object.lod ||
+                bool(next.mip) != bool(object.mip) ||
+                (object.mip && next.mip->source() != object.mip->source()) ||
+                next_item.key.part != item.key.part || next_item.key.parity != item.key.parity ||
+                next_item.key.alpha != item.key.alpha || next_item.transmission ||
+                next.mesh->renderer.layers != object.mesh->renderer.layers ||
+                next.decals != object.decals ||
+                next.mesh->renderer.receive_shadows != object.mesh->renderer.receive_shadows ||
+                !detail::same_material_parameter_values(
+                    slot_parameters(object.parameters,
+                                    object.bundle->slot(object.lod, item.key.part)),
+                    slot_parameters(next.parameters,
+                                    next.bundle->slot(next.lod, next_item.key.part))))
+                break;
+            ++cursor;
+        }
+        return cursor;
+    };
+    draw_stats_ = {};
+    std::vector<std::size_t> visibility_starts;
+    bool visibility_ready = false;
+    const auto restore_camera_target = [&] {
+        auto* target = color->GetDefaultView(Diligent::TEXTURE_VIEW_RENDER_TARGET);
+        host_->context_->SetRenderTargets(1, &target, depth,
+                                          Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        const auto& v = camera.viewport;
+        Diligent::Viewport area{float(v.x), float(v.y), float(v.width), float(v.height), 0, 1};
+        host_->context_->SetViewports(1, &area, color->GetDesc().Width, color->GetDesc().Height);
+    };
+    if (scene.settings.occlusion_culling.enabled && color && depth && !queue.empty()) {
+        try {
+            validate_scene_occlusion_culling(scene.settings.occlusion_culling);
+            const auto& desc = color->GetDesc();
+            const auto& query_view = temporal ? temporal->current : camera;
+            const auto& v = query_view.viewport;
+            if (desc.SampleCount != 1 || std::uint64_t(v.x) + v.width > desc.Width ||
+                std::uint64_t(v.y) + v.height > desc.Height)
+                throw std::runtime_error("Occlusion view requires a single-sample fitted target");
+            struct Occluder {
+                std::size_t item;
+                double usefulness;
+            };
+            std::vector<Occluder> occluders;
+            std::vector<MeshOcclusionQuery> queries;
+            std::vector<MeshOcclusionCommand> commands;
+            const auto limit = std::min(queue.size(), std::size_t(mesh_occlusion_query_limit));
+            queries.reserve(limit);
+            commands.reserve(limit);
+            std::vector<std::size_t> starts;
+            starts.reserve(limit);
+            for (std::size_t start = 0; start < queue.size() && queries.size() < limit;) {
+                const auto end = batch_end(start);
+                const auto& first = queue[start];
+                const auto& object = objects[first.object];
+                MeshOcclusionQuery query;
+                query.nearest_depth = 1;
+                query.depth_bias = scene.settings.occlusion_culling.depth_bias;
+                bool admitted = true;
+                for (auto at = start; at < end; ++at) {
+                    const auto& item = queue[at];
+                    const auto& member = objects[item.object];
+                    const auto& part = member.bundle->parts(member.lod)[item.key.part];
+                    if (member.scope != DrawScope::Mesh || !part.occlusion_depth ||
+                        member.pose->skinned || member.pose->wind.enabled ||
+                        !member.pose->morph_weights.empty()) {
+                        admitted = false;
+                        break;
+                    }
+                    const auto bounds =
+                        mesh_occlusion_bounds(part.bounds, *member.world, query_view);
+                    if (!bounds) {
+                        admitted = false;
+                        break;
+                    }
+                    if (at == start)
+                        query.rectangle = bounds->rectangle;
+                    else {
+                        for (unsigned axis = 0; axis < 2; ++axis) {
+                            query.rectangle[axis] =
+                                std::min(query.rectangle[axis], bounds->rectangle[axis]);
+                            query.rectangle[axis + 2] =
+                                std::max(query.rectangle[axis + 2], bounds->rectangle[axis + 2]);
+                        }
+                    }
+                    query.nearest_depth = std::min(query.nearest_depth, bounds->nearest_depth);
+                    const auto elements =
+                        member.bundle->indirect_command(member.lod, item.key.part, 1)[0];
+                    const double area = double(bounds->rectangle[2] - bounds->rectangle[0]) *
+                                        (bounds->rectangle[3] - bounds->rectangle[1]);
+                    if (elements && elements <= 8192 && area >= double(v.width) * v.height / 64) {
+                        const Occluder candidate{at, area / elements};
+                        if (occluders.size() < 32)
+                            occluders.push_back(candidate);
+                        else {
+                            const auto least =
+                                std::min_element(occluders.begin(), occluders.end(),
+                                                 [](const auto& a, const auto& b) {
+                                                     return a.usefulness < b.usefulness;
+                                                 });
+                            if (candidate.usefulness > least->usefulness)
+                                *least = candidate;
+                        }
+                    }
+                }
+                if (admitted) {
+                    query.enabled = 1;
+                    queries.push_back(query);
+                    commands.push_back({object.bundle->indirect_command(object.lod, first.key.part,
+                                                                        unsigned(end - start))});
+                    starts.push_back(start);
+                }
+                start = end;
+            }
+            if (!queries.empty() && !occluders.empty()) {
+                if (auto* target = occlusion_->prepare_depth(desc.Width, desc.Height)) {
+                    auto* dsv = target->GetDefaultView(Diligent::TEXTURE_VIEW_DEPTH_STENCIL);
+                    host_->context_->SetRenderTargets(
+                        0, nullptr, dsv, Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+                    host_->context_->ClearDepthStencil(
+                        dsv, Diligent::CLEAR_DEPTH_FLAG, 1, 0,
+                        Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+                    Diligent::Viewport area{float(v.x),      float(v.y), float(v.width),
+                                            float(v.height), 0,          1};
+                    host_->context_->SetViewports(1, &area, desc.Width, desc.Height);
+                    for (const auto& selected : occluders) {
+                        const auto& item = queue[selected.item];
+                        const auto& member = objects[item.object];
+                        member.bundle->draw_occluder(host_->context_, *member.world, query_view,
+                                                     member.lod, item.key.part);
+                        ++draw_stats_.occluder_calls;
+                    }
+                    visibility_ready = occlusion_->build(
+                        host_->context_,
+                        target->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE), v, queries,
+                        commands);
+                    if (visibility_ready) {
+                        visibility_starts = std::move(starts);
+                        draw_stats_.occlusion_queries = queries.size();
+                    }
+                    restore_camera_target();
+                }
+            }
+        } catch (const std::exception& error) {
+            visibility_ready = false;
+            visibility_starts.clear();
+            restore_camera_target();
+            unavailable("render.occlusion.unavailable", "Occlusion culling", error.what(),
+                        "rendering.occlusion_culling");
+        }
+    }
     bool weighted_started = false;
     const auto draw_diagnostics_start = diagnostics_.size(), draw_omitted_start = omitted_;
     if (temporal) {
@@ -1775,7 +1939,6 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
     clear_bindings();
     if (!needs_background)
         transmission_->clear();
-    draw_stats_ = {};
     std::map<std::uint32_t, FogVolumeSelection> fog_selections;
     const auto local_fog = [&](const Object& object) -> std::span<const FogVolumeSample> {
         if (view_fog.empty())
@@ -1917,28 +2080,10 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                 has_previous_part(object, item.key.part) ? &object.previous_pose->world : nullptr,
                 &object.pose->wind,
                 has_previous_part(object, item.key.part) ? &object.previous_pose->wind : nullptr};
-            const bool eligible = (item.key.alpha != MaterialAlpha::Blend || object.sprite) &&
-                                  !item.transmission &&
-                                  object.bundle->supports_instances(object.lod, item.key.part);
-            while (eligible && cursor < queue.size() && count < batch.size()) {
+            const auto end = batch_end(batch_start);
+            while (cursor < end) {
                 const auto& next_item = queue[cursor];
                 const auto& next = objects[next_item.object];
-                if (((temporal || post_mesh) && temporal_item(next_item) != temporal_item(item)) ||
-                    next.bundle != object.bundle || next.lod != object.lod ||
-                    bool(next.mip) != bool(object.mip) ||
-                    (object.mip && next.mip->source() != object.mip->source()) ||
-                    next_item.key.part != item.key.part ||
-                    next_item.key.parity != item.key.parity ||
-                    next_item.key.alpha != item.key.alpha || next_item.transmission ||
-                    next.mesh->renderer.layers != object.mesh->renderer.layers ||
-                    next.decals != object.decals ||
-                    next.mesh->renderer.receive_shadows != object.mesh->renderer.receive_shadows ||
-                    !detail::same_material_parameter_values(
-                        slot_parameters(object.parameters,
-                                        object.bundle->slot(object.lod, item.key.part)),
-                        slot_parameters(next.parameters,
-                                        next.bundle->slot(next.lod, next_item.key.part))))
-                    break;
                 batch[count++] = {
                     *next.world,
                     next.mesh->legacy_tint,
@@ -1955,6 +2100,16 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                         std::max(batch_bounds.maximum[axis], next.bounds.maximum[axis]);
                 }
                 ++cursor;
+            }
+            MeshDraw::IndirectArguments visibility;
+            const auto selected =
+                std::lower_bound(visibility_starts.begin(), visibility_starts.end(), batch_start);
+            const bool masked =
+                visibility_ready && selected != visibility_starts.end() && *selected == batch_start;
+            if (masked) {
+                visibility.buffer = occlusion_->arguments();
+                visibility.offset = std::uint64_t(selected - visibility_starts.begin()) *
+                                    sizeof(MeshOcclusionCommand);
             }
             const auto motion = motion_for(object, item.key.part);
             std::span<const MeshDraw::LightImage> images;
@@ -1974,7 +2129,9 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                 accumulated && temporal->reflection_output,
                 accumulated && temporal->normal_only_output, decals,
                 weighted && item.key.alpha == MaterialAlpha::Blend, &batch_bounds, images,
-                local_irradiance(object, item.key.part), local_fog(object));
+                local_irradiance(object, item.key.part), local_fog(object),
+                masked ? &visibility : nullptr);
+            draw_stats_.indirect_calls += masked;
             ++draw_stats_.calls;
             draw_stats_.instances += count;
             draw_stats_.batched_calls += count > 1;

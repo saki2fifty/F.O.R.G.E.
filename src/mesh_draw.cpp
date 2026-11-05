@@ -985,7 +985,15 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
                     std::span<const Decal> decals, const RenderBounds* decal_bounds,
                     std::span<const LightImage> images,
                     std::span<const EnvironmentProbe> local_irradiance, const MeshWindSample* wind,
-                    std::span<const FogVolumeSample> local_fog) {
+                    std::span<const FogVolumeSample> local_fog,
+                    const IndirectArguments* visibility) {
+    if (visibility)
+        require(visibility->buffer && visibility->offset % 4 == 0 &&
+                    (visibility->buffer->GetDesc().BindFlags & BIND_INDIRECT_DRAW_ARGS) != 0 &&
+                    visibility->offset <= visibility->buffer->GetDesc().Size &&
+                    visibility->buffer->GetDesc().Size - visibility->offset >=
+                        (mesh_.indices ? 20u : 16u),
+                "Invalid derived visibility command");
     require(shadow_pass_ || local_fog.empty() || fog_volumes_supported_,
             "Local fog volumes require a current surface wrapper; reimport its Shader and rebuild "
             "the Material");
@@ -1587,6 +1595,17 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
     context->CommitShaderResources(bindings_[index], RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     if (mesh_.indices) {
         context->SetIndexBuffer(mesh_.indices, 0, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        if (visibility) {
+            DrawIndexedIndirectAttribs draw;
+            draw.IndexType = mesh_.index_type;
+            draw.pAttribsBuffer = visibility->buffer;
+            draw.DrawArgsOffset = visibility->offset;
+            draw.DrawArgsStride = 20;
+            draw.AttribsBufferStateTransitionMode = RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
+            draw.Flags = DRAW_FLAG_VERIFY_ALL;
+            context->DrawIndexedIndirect(draw);
+            return;
+        }
         DrawIndexedAttribs draw;
         draw.NumIndices = mesh_.index_count;
         draw.NumInstances = instances.empty() ? 1 : Uint32(instances.size());
@@ -1594,6 +1613,16 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
         draw.Flags = DRAW_FLAG_VERIFY_ALL;
         context->DrawIndexed(draw);
     } else {
+        if (visibility) {
+            DrawIndirectAttribs draw;
+            draw.pAttribsBuffer = visibility->buffer;
+            draw.DrawArgsOffset = visibility->offset;
+            draw.DrawArgsStride = 20;
+            draw.AttribsBufferStateTransitionMode = RESOURCE_STATE_TRANSITION_MODE_TRANSITION;
+            draw.Flags = DRAW_FLAG_VERIFY_ALL;
+            context->DrawIndirect(draw);
+            return;
+        }
         DrawAttribs draw;
         draw.NumVertices = mesh_.vertex_count;
         draw.NumInstances = instances.empty() ? 1 : Uint32(instances.size());
