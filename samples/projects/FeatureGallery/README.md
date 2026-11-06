@@ -2362,4 +2362,16 @@ strength** defaults. Save / Publish before using the graph on a matching Animato
 Animator override checkboxes select per-object values; stopped preview and Live
 gameplay can tune declared slots. Keep values after Stop stages an ordinary Scene
 review. Save the Scene, choose its Startup Scene and export with the matching kit.
+
+## Export a silent sequence movie
+
+`Scenes/181-sequence-movies.scene.json` contains a moving gold panel, three colored
+props and a six-second sequence with a camera transition. It reuses existing
+Gallery motion and materials and has no Audio Sources or Audio Cues. Select
+`Movie preview - open Timeline, then Export frames`, open Timeline, refresh clips
+and choose **Export frames…**. Choose **AVI movie (Motion JPEG)** under **Additional
+output**, set JPEG quality and a short frame range, then choose a new folder and
+start export. `animation.avi` is silent, with lossy opaque sRGB frames; the original
+PNG frames and `frames.json` remain available. The capture worker is required.
+See the packaged manual's sequence export guide for timing, cancellation and limits.
 No C++ module is required. See the [graph guide](../../../manual/editor/animation-graphs.md).

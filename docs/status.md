@@ -29,7 +29,10 @@ Local source adds optional silent lossless WebP sequence animation alongside the
 existing PNG frame folder/receipt. Native export and automation/MCP share Timeline
 sampling/restoration, bounded worker mux and cancellation. Full-canvas RGBA8,
 2–4096frames, cumulative integer-ms timing and infinite looping form the first
-profile; generic video/audio and runtime animated-Texture import remain unsupported.
+profile. Silent Motion JPEG AVI export now shares the same frame snapshots, worker,
+cancellation, receipts and native/automation output choice; it retains PNGs and uses
+explicit JPEG quality and rational timing. Gameplay/synchronized audio capture and
+runtime animated-Texture import remain unsupported.
 See[sequence export](../manual/editor/animation-sequences.md). Windows/full editor /
 physical-device review remains pending; no new package is implied.
 

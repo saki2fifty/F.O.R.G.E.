@@ -215,7 +215,9 @@ isolates the selected controller from its parent only after the existing provide
 validates its original active binding, so preview cannot hide an active cycle.
 Automation/MCP must expose the same native fields/operations and ownership.
 Multiple placements of one controller, independent child rate/loop overrides,
-property/skeletal crossfades and movie encoding are outside this first profile.
+property/skeletal crossfades and movie encoding are outside this controller-runtime
+profile. [Silent movie export](../sequence-movie-export.md) belongs to the existing
+preview capture owner and does not change controller clocks or simulation authority.
 
 ## Scene-owned UI values through reflected builtin admission
 

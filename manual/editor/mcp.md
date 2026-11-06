@@ -327,7 +327,7 @@ preserves the completed HDR file and reports its own error. See
 [HDR image export and inspection](textures.md).
 
 For **.jpg/.jpeg**, the agent can set **jpeg_quality** from **1–100**; the default is
-**90**. This option is accepted only for JPEG destinations. Texture JPEG output
+**90**. In still-image export, this option is accepted only for JPEG destinations. Texture JPEG output
 requires opaque sRGB byte storage. JPEG is lossy even at 100; its PNG inspection
 preview shows decoded saved pixels. The same output grant, operation/revision
 checks and replacement rules apply. See [JPEG image export](textures.md).
@@ -341,6 +341,16 @@ while it runs, then the animation's path, bytes, duration and loop count when
 complete. Individual PNG frames remain available through the owned image preview.
 Cancellation retains completed files and restores the preview cursor; an image
 or animation already committing must finish.
+
+Set **format: avi** on **forge_capture_sequence_start** for a silent Motion JPEG
+movie alongside its PNG frames. Set **jpeg_quality** from 1–100 if needed; it defaults
+to 90 and is accepted only with the AVI format on this tool. AVI needs opaque sRGB
+frames, 1–4096 frames, 0.001–240 FPS and the packaged asset worker. Status and
+`frames.json` report the AVI path, byte count, rational rate/scale, duration, quality
+and that audio is absent. Encoding failure keeps the PNGs and restores the preview.
+Scene values and sample times remain unchanged; see the [movie export controls and
+limits](animation-sequences.md). This captures the sequence preview; it does not run
+gameplay or record sound.
 
 Export uses saved project content and the matching selected runtime/module kits.
 Save all authoring drafts first and set Game defaults and Startup Scene in Project

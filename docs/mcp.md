@@ -1145,13 +1145,22 @@ readback/file write already committing must finish rather than promise rollback.
 
 The optional `format:"webp"` on `capture_sequence_start` adds `animation.webp`
 beside retained PNG frames; the default is `"png"`. Schema enum, validation and
-native checkbox use the same task/plan/output owners. WebP requires2..4096frames
+native format choice use the same task/plan/output owners. WebP requires2..4096frames
 and the packaged asset worker. `sequence.format` identifies the request; state
 `encoding` begins after Timeline restoration. Success adds `sequence.animation`
 with file path, MIME, frames, bytes, duration_ms, loop_count0 and
 profile`lossless-rgba8-full-frames-v1`. The same fields use a relative file in
 `frames.json`. PNG frame image inspection remains available; no animated-image
 block or arbitrary-file read authority is added.
+
+`format:"avi"` uses that same task for a silent Motion JPEG movie. Optional integer
+`jpeg_quality` is1–100/default90 and rejects for other sequence formats. AVI supports
+1–4096 opaque sRGB frames and FPS0.001–240 with a bounded reduced rational; snapshots
+cap256MiB aggregate and AVI output256MiB. State and receipt use the shared encoded
+metadata owner: file/MIME/bytes/frames/profile plus codec `mjpeg`, `audio:false`, rate,
+scale, duration_seconds and jpeg_quality. No loop directive or movie image block is
+invented. Existing source revision/generation, output grants, cancellation, retained
+PNGs and preview restoration apply. See [the exact profile](sequence-movie-export.md).
 
 The fixed profile is lossless sRGB RGBA8 full-canvas/no-blend/no-disposal,
 infinite-loop, cumulative-rounded integer milliseconds. Scene sample times remain

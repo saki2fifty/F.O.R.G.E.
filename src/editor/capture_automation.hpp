@@ -76,16 +76,12 @@ struct CaptureAutomation {
                                  {"error", frames->error},
                                  {"reason", frames->reason}};
         if (frames) {
-            value["sequence"]["format"] = frames->output.webp ? "webp" : "png";
-            if (frames->animation)
-                value["sequence"]["animation"] = {
-                    {"file", path_utf8(frames->folder / "animation.webp")},
-                    {"mime", "image/webp"},
-                    {"frames", frames->completed},
-                    {"bytes", frames->animation->bytes},
-                    {"duration_ms", frames->animation->duration_ms},
-                    {"loop_count", 0},
-                    {"profile", asset_detail::webp_sequence_profile}};
+            value["sequence"]["format"] = frames->output.format();
+            auto encoded = frames->encoded_document();
+            if (!encoded.is_null()) {
+                encoded["file"] = path_utf8(frames->folder / encoded.at("file").get<std::string>());
+                value["sequence"]["animation"] = std::move(encoded);
+            }
         }
         return value;
     }
@@ -483,6 +479,9 @@ struct CaptureAutomation {
             "same folder after capture, retaining PNGs/receipt. It needs2..4096 sRGB RGBA8 "
             "frames, loops indefinitely and uses nearest cumulative millisecond timing. "
             "PNG inputs cap256 MiB aggregate, compressed frames64 MiB, output68 MiB; "
+            "format:avi instead writes a silent Motion JPEG animation.avi from1..4096 opaque "
+            "sRGB frames, FPS0.001..240, rational timing and JPEG quality1..100 (default90). "
+            "AVI output is lossy and bounded to256MiB; PNGs stay exact. "
             "supervised encoding has finite time/memory and can be cancelled before commit. "
             "Image inspection still reads an explicitly selected completed PNG frame.",
             "capture.write",
@@ -494,7 +493,8 @@ struct CaptureAutomation {
                  {"start_seconds", {{"type", "number"}, {"minimum", 0}}},
                  {"frames_per_second", {{"type", "number"}, {"minimum", 0}, {"maximum", 240}}},
                  {"frame_count", automation_integer(1, ui::SequenceFramePlan::maximum_frames)},
-                 {"format", {{"type", "string"}, {"enum", {"png", "webp"}}}},
+                 {"format", {{"type", "string"}, {"enum", {"png", "webp", "avi"}}}},
+                 {"jpeg_quality", automation_integer(1, 100)},
                  {"fixed_output", {{"type", "boolean"}}},
                  {"width", automation_integer(1, 4096)},
                  {"height", automation_integer(1, 4096)}},
@@ -518,10 +518,22 @@ struct CaptureAutomation {
                 plan.validate(observed.at("duration"));
                 ui::SequenceFrameOutput output;
                 output.webp = request.value("format", std::string("png")) == "webp";
+                output.avi = request.value("format", std::string("png")) == "avi";
+                if (request.contains("jpeg_quality") && !output.avi)
+                    throw AuthoringError("invalid_argument",
+                                         "jpeg_quality is available for AVI movies");
+                output.jpeg_quality = request.value("jpeg_quality", FORGE_JPEG_DEFAULT_QUALITY);
                 if (output.webp) {
                     try {
                         (void)asset_detail::webp_sequence_durations(plan.frames_per_second,
                                                                     unsigned(plan.frame_count));
+                    } catch (const std::exception& error) {
+                        throw AuthoringError("invalid_argument", error.what());
+                    }
+                }
+                if (output.avi) {
+                    try {
+                        (void)asset_detail::avi_movie_frame_rate(plan.frames_per_second);
                     } catch (const std::exception& error) {
                         throw AuthoringError("invalid_argument", error.what());
                     }

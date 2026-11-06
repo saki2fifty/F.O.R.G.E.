@@ -408,7 +408,9 @@ for legacy in (False,True):
         first,thumb0=image(selected['operation'])
         assert first['file']=='Frames/frame-000000.png' and thumb0==thumb
         schema=catalog['forge_capture_sequence_start']['inputSchema']['properties']['format']
-        assert schema['enum']==['png','webp']
+        assert schema['enum']==['png','webp','avi']
+        quality_schema=catalog['forge_capture_sequence_start']['inputSchema']['properties']['jpeg_quality']
+        assert quality_schema['type']=='integer' and quality_schema['minimum']==1 and quality_schema['maximum']==100
         current=read('forge_capture_sequence_read')
         sequence_authored=read('forge_scene_read')
         def webp_sequence(path,**extra):
@@ -467,6 +469,79 @@ for legacy in (False,True):
         assert frame_png==(root/'Output/WebPFrames/frame-000002.png').read_bytes()
         failed(webp_sequence('WebPFrames'),'output_exists')
         assert webp_path.read_bytes()==data and read('forge_scene_read')==sequence_authored
+        def avi_sequence(path, **extra):
+            observed=read('forge_capture_sequence_read')
+            values=dict(path=path,controller=observed['controller'],
+                source_revision=observed['source_revision'],preview_generation=observed['preview_generation'],
+                start_seconds=0,frames_per_second=30000/1001,frame_count=3,format='avi',jpeg_quality=78,
+                fixed_output=True,width=64,height=32)
+            values.update(extra)
+            return mutate('forge_capture_sequence_start',**values)
+        for quality in (0, 101, True, 1.5):
+            failed(avi_sequence('InvalidAVIQuality',jpeg_quality=quality),'invalid_arguments')
+            assert not (root/'Output/InvalidAVIQuality').exists()
+        failed(avi_sequence('InvalidAVIRate',frames_per_second=.0009,frame_count=1),'invalid_argument')
+        assert not (root/'Output/InvalidAVIRate').exists()
+        failed(webp_sequence('InvalidWebPQuality',jpeg_quality=70),'invalid_argument')
+        assert not (root/'Output/InvalidWebPQuality').exists()
+        accepted=avi_sequence('AVIMovie')
+        assert accepted['ok'],accepted
+        avi=settled()
+        assert not avi['error'] and avi['sequence']['state']=='complete',avi
+        assert avi['sequence']['format']=='avi' and avi['sequence']['completed_frames']==3
+        metadata=avi['sequence']['animation']
+        avi_path=root/'Output/AVIMovie/animation.avi'
+        avi_bytes=avi_path.read_bytes()
+        assert Path(metadata['file'])==avi_path and metadata['mime']=='video/vnd.avi'
+        assert metadata['codec']=='mjpeg' and metadata['audio'] is False and metadata['jpeg_quality']==78
+        assert metadata['rate']==30000 and metadata['scale']==1001 and metadata['frames']==3
+        assert metadata['bytes']==len(avi_bytes) and abs(metadata['duration_seconds']-.1001)<1e-12
+        assert metadata['profile']=='mjpeg-opaque-srgb8-v1' and 'loop_count' not in metadata
+        assert avi_bytes[:4]==b'RIFF' and avi_bytes[8:12]==b'AVI '
+        assert int.from_bytes(avi_bytes[4:8],'little')+8==len(avi_bytes)
+        def avi_chunks(body):
+            offset=0
+            while offset<len(body):
+                assert offset+8<=len(body)
+                size=int.from_bytes(body[offset+4:offset+8],'little')
+                assert offset+8+size<=len(body)
+                yield body[offset:offset+4],body[offset+8:offset+8+size]
+                offset+=8+size+(size&1)
+            assert offset==len(body)
+        avi_parts=list(avi_chunks(avi_bytes[12:]))
+        hdrl=next(value[4:] for kind,value in avi_parts if kind==b'LIST' and value[:4]==b'hdrl')
+        stream=next(value[4:] for kind,value in avi_chunks(hdrl) if kind==b'LIST' and value[:4]==b'strl')
+        description=next(value for kind,value in avi_chunks(stream) if kind==b'strh')
+        assert description[:8]==b'vidsMJPG'
+        assert struct.unpack_from('<II',description,20)==(1001,30000)
+        frames=next(value[4:] for kind,value in avi_parts if kind==b'LIST' and value[:4]==b'movi')
+        packets=list(avi_chunks(frames))
+        assert len(packets)==3 and all(kind==b'00dc' and value[:2]==b'\xff\xd8' and
+            value[-2:]==b'\xff\xd9' for kind,value in packets)
+        assert len(next(value for kind,value in avi_parts if kind==b'idx1'))==3*16
+        avi_receipt=json.loads((root/'Output/AVIMovie/frames.json').read_text())
+        assert avi_receipt['output_format']=='avi' and avi_receipt['state']=='complete'
+        assert avi_receipt['animation']['file']=='animation.avi' and avi_receipt['animation']['jpeg_quality']==78
+        assert avi_receipt['animation']['bytes']==len(avi_bytes) and len(avi_receipt['frames'])==3
+        assert read('forge_capture_sequence_read')['ready'] and read('forge_scene_read')==sequence_authored
+        failed(avi_sequence('AVIMovie'),'output_exists')
+        assert avi_path.read_bytes()==avi_bytes
+        frame=ok('forge_capture_preview',artifact_operation=avi['artifact_operation'],frame=1)
+        assert settled()['preview_ready']
+        frame_meta,frame_png=image(frame['operation'])
+        assert frame_meta['file']=='AVIMovie/frame-000001.png'
+        assert frame_png==(root/'Output/AVIMovie/frame-000001.png').read_bytes()
+        (root/'fail_avi').touch()
+        assert avi_sequence('FailedAVI')['ok']
+        failure=settled()
+        assert failure['error'] and failure['sequence']['state']=='failed',failure
+        assert failure['sequence']['completed_frames']==3 and 'animation' not in failure['sequence']
+        assert not (root/'Output/FailedAVI/animation.avi').exists()
+        failed_receipt=json.loads((root/'Output/FailedAVI/frames.json').read_text())
+        assert failed_receipt['state']=='failed' and failed_receipt['completed_frames']==3
+        assert failed_receipt['error']==failure['error'] and read('forge_capture_sequence_read')['ready']
+        assert avi_path.read_bytes()==avi_bytes and read('forge_scene_read')==sequence_authored
+        (root/'fail_avi').unlink()
         (root/'fail_webp').touch()
         failed_movie=webp_sequence('FailedWebP')
         assert failed_movie['ok'],failed_movie

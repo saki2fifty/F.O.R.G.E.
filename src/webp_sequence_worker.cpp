@@ -1,4 +1,4 @@
-#include "texture_decode.h"
+#include "sequence_frame_pixels.hpp"
 #include "texture_encode.h"
 #include "webp_sequence.hpp"
 #include <memory>
@@ -39,15 +39,7 @@ std::vector<ArtifactFile> execute_webp_sequence_recipe(ImportProcessRequest requ
         durations.push_back(value.get<unsigned>());
     }
     (void)validate_webp_sequence_durations(durations);
-    std::size_t source_bytes = 0;
-    for (std::size_t i = 0; i < request.inputs.size(); ++i) {
-        const auto& input = request.inputs[i];
-        require(input.name == "frame-" + std::to_string(i) + ".png" &&
-                    input.bytes.size() <= FORGE_VIEW_IMAGE_ENCODED_LIMIT &&
-                    input.bytes.size() <= webp_sequence_source_limit - source_bytes,
-                "WebP animation source snapshot exceeds its profile or byte budget");
-        source_bytes += input.bytes.size();
-    }
+    validate_sequence_snapshots(request.inputs, "WebP animation");
     const std::unique_ptr<WebPMux, decltype(&WebPMuxDelete)> mux(WebPMuxNew(), WebPMuxDelete);
     require(bool(mux), "WebP animation mux initialization failed");
     require(WebPMuxSetCanvasSize(mux.get(), int(width), int(height)) == WEBP_MUX_OK,
@@ -59,18 +51,7 @@ std::vector<ArtifactFile> execute_webp_sequence_recipe(ImportProcessRequest requ
     for (std::size_t i = 0; i < request.inputs.size(); ++i) {
         cancelled();
         auto png = std::move(request.inputs[i].bytes);
-        struct Decoded : ForgeImagePixels {
-            Decoded() : ForgeImagePixels{} {}
-            ~Decoded() { forge_image_pixels_free(this); }
-        } pixels;
-        require(forge_png_decode(png.data(), png.size(), FORGE_VIEW_IMAGE_MAX_EXTENT,
-                                 FORGE_VIEW_IMAGE_PIXEL_LIMIT, 0, &pixels),
-                pixels.error);
-        require(pixels.width == width && pixels.height == height && pixels.channels == 4 &&
-                    pixels.component_bytes == 1 && pixels.srgb &&
-                    pixels.stride == std::size_t(width) * 4 &&
-                    pixels.size == pixels.stride * height,
-                "WebP animation requires consistent sRGB RGBA8 PNG frames");
+        auto pixels = decode_sequence_frame(png, width, height, "WebP animation");
         struct Encoded : ForgeImageBytes {
             Encoded() : ForgeImageBytes{} {}
             ~Encoded() { forge_image_bytes_free(this); }

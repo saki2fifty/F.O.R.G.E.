@@ -9,7 +9,8 @@ using test_view_image_ui::check;
 using test_view_image_ui::read;
 inline void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* graphics,
                      const std::filesystem::path& gallery, const std::filesystem::path& scratch,
-                     bool transition = false, const std::filesystem::path& worker = {}) {
+                     bool transition = false, const std::filesystem::path& worker = {},
+                     bool movie = false) {
     const auto project_root = std::filesystem::absolute(scratch / AssetId::generate().str());
     std::filesystem::create_directories(project_root.parent_path());
     std::filesystem::copy(gallery, project_root, std::filesystem::copy_options::recursive);
@@ -17,7 +18,8 @@ inline void exercise(DiligentPresentation& presentation, Diligent::IDeviceContex
     Scene scene(engine.world());
     SceneDocument project(scene);
     project.open_project(project_root);
-    project.open_scene("Scenes/70-sequence-audio-cues.scene.json");
+    project.open_scene(movie ? "Scenes/181-sequence-movies.scene.json"
+                             : "Scenes/70-sequence-audio-cues.scene.json");
     EntityRef controller;
     EntityId front, side;
     const auto snapshot = scene.snapshot();
@@ -33,7 +35,7 @@ inline void exercise(DiligentPresentation& presentation, Diligent::IDeviceContex
     }
     check(bool(controller.entity) && bool(front) && bool(side),
           "Sequence render Gallery source is incomplete");
-    if (transition) {
+    if (transition && !movie) {
         auto incoming = scene.entity(side.str());
         auto lens = scene.entity(front.str()).get<Camera>();
         lens.enabled = false;
@@ -108,7 +110,9 @@ inline void exercise(DiligentPresentation& presentation, Diligent::IDeviceContex
                                                 {true, 1024, 1024}};
     for (unsigned profile = 0; profile < (transition ? 1u : std::size(profiles)); ++profile) {
         auto output = profiles[profile];
-        output.webp = !worker.empty();
+        output.webp = !worker.empty() && !movie;
+        output.avi = !worker.empty() && movie;
+        output.jpeg_quality = 95;
         width = output.fixed ? unsigned(output.width) : 384;
         height = output.fixed ? unsigned(output.height) : 216;
         // Independent synchronous display reads from explicit owner samples, before
@@ -207,6 +211,22 @@ inline void exercise(DiligentPresentation& presentation, Diligent::IDeviceContex
                       receipt.at("animation").at("duration_ms") ==
                           asset_detail::validate_webp_sequence_durations(durations),
                   "Actual Timeline WebP metadata differs from its source plan");
+        }
+        if (output.avi) {
+            const auto movie_bytes = asset_detail::read_bytes(folder / "animation.avi",
+                                                              asset_detail::avi_movie_byte_limit);
+            const auto rate = asset_detail::avi_movie_frame_rate(plan.frames_per_second);
+            check(receipt.at("output_format") == "avi" &&
+                      receipt.at("animation").at("frames") == 3 &&
+                      receipt.at("animation").at("audio") == false &&
+                      receipt.at("animation").at("rate") == rate.rate &&
+                      receipt.at("animation").at("scale") == rate.scale &&
+                      receipt.at("animation").at("jpeg_quality") == 95 &&
+                      receipt.at("animation").at("bytes") == movie_bytes.size(),
+                  "Actual Timeline movie metadata differs from its source plan");
+            check(movie_bytes.size() > 224 && std::memcmp(movie_bytes.data(), "RIFF", 4) == 0 &&
+                      std::memcmp(movie_bytes.data() + 8, "AVI ", 4) == 0,
+                  "Actual Timeline did not publish its movie");
         }
     }
     check(scene.document() == original && scene.revision() == revision &&

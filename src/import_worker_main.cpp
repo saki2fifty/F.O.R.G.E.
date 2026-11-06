@@ -36,13 +36,16 @@ int main(int argc, char** argv) {
             recipe == forge::tile_set_importer_id || recipe == forge::tile_map_importer_id;
         const bool image_decode = recipe == forge::asset_detail::texture_image_decode_recipe;
         const bool webp_sequence = recipe == forge::asset_detail::webp_sequence_recipe;
+        const bool avi_sequence = recipe == forge::asset_detail::avi_sequence_recipe;
         if (!model && !audio && !tile && !atlas && !atlas_recipe && !image_decode &&
-            !webp_sequence && recipe != "forge.texture.image" &&
+            !webp_sequence && !avi_sequence && recipe != "forge.texture.image" &&
             recipe != "forge.texture.container" &&
             recipe != forge::asset_detail::paint_texture_importer_id)
             throw std::runtime_error("Unsupported import worker recipe");
         const auto limits =
-            webp_sequence ? forge::asset_detail::webp_sequence_worker_limits()
+            webp_sequence  ? forge::asset_detail::webp_sequence_worker_limits()
+            : avi_sequence ? forge::asset_detail::sequence_encoding_worker_limits(
+                                 forge::asset_detail::SequenceEncoding::AviMjpeg)
             : image_decode
                 ? forge::asset_detail::texture_image_worker_limits(
                       profile == forge::asset_detail::texture_signed_image_decode_profile ||
@@ -59,6 +62,8 @@ int main(int argc, char** argv) {
             throw std::runtime_error("Image profile changed while reading snapshot");
         auto output =
             webp_sequence  ? forge::asset_detail::execute_webp_sequence_recipe(
+                                 std::move(request), cancellation.get_token())
+            : avi_sequence ? forge::asset_detail::execute_avi_sequence_recipe(
                                  std::move(request), cancellation.get_token())
             : image_decode ? forge::asset_detail::execute_texture_image_recipe(
                                  request, cancellation.get_token())

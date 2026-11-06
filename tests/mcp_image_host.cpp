@@ -75,6 +75,10 @@ struct RecordingFrames final : forge::ui::SequenceFrameSource {
                 forge::asset_storage::replace(root.parent_path() /
                                                   "Output/FailedWebP/frame-000002.png",
                                               "deliberately damaged completed frame");
+            if (forge::test::marker_present(root.parent_path() / "fail_avi"))
+                forge::asset_storage::replace(root.parent_path() /
+                                                  "Output/FailedAVI/frame-000002.png",
+                                              "deliberately damaged completed movie frame");
         }
     }
 };

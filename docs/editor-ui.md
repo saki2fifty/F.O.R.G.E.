@@ -225,7 +225,7 @@ exact times, dimensions, current/fixed size mode, source/catalog digests and
 complete/cancelled/failed state.
 Shutdown attempts the same receipt after its accepted file task has retired.
 
-**Add WebP animation** retains that PNG workflow and adds `animation.webp` in the
+Choosing **WebP animation** under **Additional output** retains that PNG workflow and adds `animation.webp` in the
 same owned new folder. The shared task validates 2–4096 frames and container
 timing before admission. After restoring the Timeline, detached PNG snapshots
 enter the existing supervised asset worker's fixed `forge.image.webp-sequence`
@@ -246,8 +246,10 @@ duration, loop count and fixed profile). This output receipt is not an authored
 Scene/asset schema. Native controls and automation/MCP share these owners.
 
 This captures sequence preview, without gameplay C++, physics, advancing particle
-simulation, runtime UI or sound. Generic video/audio,16-bit/HDR animation and runtime
-animated-Texture import are unsupported. No component, published asset format,
+simulation, runtime UI or sound. [Silent AVI movies](sequence-movie-export.md) extend
+this same capture task with opaque Motion JPEG frames and rational timing. Gameplay
+video/synchronized audio,16-bit/HDR animation and runtime animated-Texture import
+remain unsupported. No component, published asset format,
 public SDK, runtime ABI or dependency version changes.
 
 ## Draft/history boundaries

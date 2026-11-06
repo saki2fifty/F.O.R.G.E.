@@ -1,5 +1,19 @@
 # 2026-11-06
 
+## Export silent sequence movies
+
+Timeline preview export can add a Motion JPEG AVI alongside retained PNG frames and
+its receipt. Native controls and automation/MCP share output selection, JPEG quality,
+rational timing, snapshot admission, worker supervision, cancellation and publication.
+PNG/WebP workflows remain supported through the shared encoding owner. The profile
+accepts opaque sRGB frames and does not run gameplay or record sound.
+
+Gallery181 provides a silent six-second sequence using existing motion/materials,
+a moving panel and a camera transition. Native controls, actual Timeline/FrameRenderer
+output, independent movie decoding and usage guides cover the workflow. Windows/full
+editor, physical hardware and external-player review remain pending; no numbered
+Windows delivery is implied.
+
 ## Compose animation clips and layers
 
 Animation Graphs compose Clip, Blend and Additive nodes with shared paths, exact

@@ -68,7 +68,7 @@ struct Host {
     std::array<std::vector<std::uint8_t>, 3> pixels;
     Diligent::RefCntAutoPtr<Diligent::ITexture> resized, unsupported;
     Host(DiligentPresentation& owner, Diligent::IDeviceContext* context,
-         const std::filesystem::path& root)
+         const std::filesystem::path& root, bool opaque = false)
         : presentation(owner), graphics(context),
           project(std::filesystem::absolute(root / AssetId::generate().str())), source(project) {
         std::filesystem::create_directories(project);
@@ -78,10 +78,11 @@ struct Host {
             // sample order and accidental reuse of an earlier GPU image.
             for (unsigned y = 0; y < 3; ++y)
                 for (unsigned x = 0; x < 7; ++x)
-                    pixels[i].insert(pixels[i].end(), {static_cast<std::uint8_t>(20 + i * 70 + x),
-                                                       static_cast<std::uint8_t>(y * 80 + x),
-                                                       static_cast<std::uint8_t>(240 - i * 60 - y),
-                                                       static_cast<std::uint8_t>((x + y) * 25)});
+                    pixels[i].insert(pixels[i].end(),
+                                     {static_cast<std::uint8_t>(20 + i * 70 + x),
+                                      static_cast<std::uint8_t>(y * 80 + x),
+                                      static_cast<std::uint8_t>(240 - i * 60 - y),
+                                      static_cast<std::uint8_t>(opaque ? 255 : (x + y) * 25)});
             Diligent::TextureDesc desc;
             desc.Name = "FORGE numbered-frame pixel oracle";
             desc.Type = Diligent::RESOURCE_DIM_TEX_2D;

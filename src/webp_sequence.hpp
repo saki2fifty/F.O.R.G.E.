@@ -1,12 +1,12 @@
 #pragma once
-#include "import_process.hpp"
+#include "sequence_encoding.hpp"
 #include "view_image_limits.h"
 #include <span>
 
 namespace forge::asset_detail {
 inline constexpr std::string_view webp_sequence_recipe = "forge.image.webp-sequence";
 inline constexpr std::string_view webp_sequence_profile = "lossless-rgba8-full-frames-v1";
-inline constexpr std::size_t webp_sequence_source_limit = 256ull * 1024 * 1024;
+inline constexpr std::size_t webp_sequence_source_limit = sequence_snapshot_byte_limit;
 inline constexpr std::size_t webp_sequence_frame_bytes_limit = 64ull * 1024 * 1024;
 struct WebpSequenceInfo {
     std::size_t bytes = 0;

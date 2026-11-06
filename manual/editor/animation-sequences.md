@@ -108,8 +108,8 @@ participate; one controller with camera shots can direct each loaded Scene.
 1. Stop Game Play. Finish any pending Timeline fields, then choose **Refresh clips**.
 2. Choose **Export frames…** in the sequence Timeline. Game opens to show the sequence preview. Set **Start time**, **Frames per second** and **Frame count**.
 3. Leave the current Game size, or enable **Fixed output size** and choose 720p, 1080p, Square or your own width and height. Choose a parent folder and a new folder name. Check the output dimensions and sampled time range, keep Game open.
-4. To create an animation too, enable **Add WebP animation**. Use at least two frames. Leave it off for PNG frames alone.
-5. Choose **Start export**. Wait for **Sequence frames saved** or **WebP animation and PNG frames saved** in the status bar or Console. Open the new folder to find the numbered PNGs and `frames.json` listing completed frames. With WebP enabled, it also contains `animation.webp`.
+4. Under **Additional output**, choose **PNG frames only**, **WebP animation** or **AVI movie (Motion JPEG)**. WebP needs at least two frames. AVI also supports one frame and exposes **JPEG quality**.
+5. Choose **Start export**. Wait for the saved status in the status bar or Console. Open the new folder to find the numbered PNGs and `frames.json` listing completed frames. The selected additional output is `animation.webp` or `animation.avi`.
 
 Every sampled time must be before the sequence's end. For a six-second sequence,
 30 FPS and 180 frames sample 0 through 5.966667 seconds. Playback speed does not
@@ -121,22 +121,22 @@ Start and Cancel remain below it.
 
 **Cancel export** keeps completed images and stops further frames after any
 already accepted file finishes. Your previous preview position and playing state
-return afterward, and Game returns to its normal panel resolution. Changing the
-Scene, sequence or assets stops export. Changing Game's render size also stops a
+return afterward, and Game returns to its normal panel resolution. While frames
+are being captured, changing the Scene, sequence or assets stops export. Changing Game's render size also stops a
 current-size export. An existing output folder is preserved; choose a new name
 for each run.
 
 ### Save a repeating WebP animation
 
-**Add WebP animation** makes a lossless, full-size animation from the same saved
+Choosing **WebP animation** under **Additional output** makes a lossless, full-size animation from the same saved
 PNG frames. Transparency and frame order are preserved. It repeats indefinitely,
 with each frame replacing the whole canvas. Open `animation.webp` in a viewer
 that supports animated WebP. The PNG frames and receipt remain available for
 other tools or individual inspection.
 
-![Sequence export options with Add WebP animation enabled](../images/webp-sequence-export.png)
+![Sequence export options with WebP animation selected](../images/webp-sequence-export.png)
 
-Choose **Add WebP animation** in the export options to keep PNG frames and add a repeating animation.
+Choose **WebP animation** under **Additional output** to keep PNG frames and add a repeating animation.
 
 Use 2–4096 frames and a positive rate up to 240 FPS. Container durations use
 integer milliseconds rounded from cumulative frame times, so fractional FPS does
@@ -156,8 +156,42 @@ in total, with at most 68 MiB per frame. Compressed frame data is limited to
 64 MiB, the finished animation to 68 MiB, and encoding to 120 seconds. Larger
 exports can keep PNG frames alone, use smaller dimensions or fewer frames.
 This profile produces silent sRGB RGBA8 animation; it does not export HDR,
-16-bit animation or an audio/video movie. Importing the result as an animated
-Texture is a separate workflow and is not supported.
+16-bit animation or audio. Importing the result as an animated Texture is a
+separate workflow and is not supported.
+
+### Save an AVI movie
+
+Choose **AVI movie (Motion JPEG)** under **Additional output** to write
+`animation.avi` alongside the PNG frames. It is a silent movie of the sequence
+preview. Open the AVI in a player that supports Motion JPEG. FORGE's image preview
+continues to show an individual PNG frame.
+
+![Sequence export options with an AVI movie selected and JPEG quality control](../images/avi-sequence-export.png)
+
+Set **JPEG quality** from 1 to 100; the default is 90. Higher quality usually
+makes a larger file. JPEG is lossy and requires opaque sRGB frames. PNG frames
+retain the original pixels; use PNG or WebP to keep transparency.
+
+AVI supports 1–4096 frames at 0.001–240 FPS. Common fractional rates are retained
+as a rational frame rate. The movie starts at its first captured frame; `frames.json`
+keeps the original sequence sample times. If a custom rate cannot fit the supported
+precision, choose a common rate such as 24, 25, 30, 60 or 29.97 FPS.
+
+The packaged asset worker is required. Completed PNGs must fit 256 MiB in total,
+with at most 68 MiB per frame. The AVI can be at most 256 MiB, and encoding has a
+120-second limit. Reduce the size or frame count if an export exceeds these limits.
+
+After the PNGs finish, the Timeline preview is restored and the status shows
+**Encoding AVI movie…**. **Cancel export** can stop encoding before publication.
+A failed or cancelled encoding keeps completed PNGs and records its outcome in
+`frames.json`. A movie that has already committed remains complete. Choose a new
+folder to try again.
+
+For an example, open the Feature Gallery's **181-sequence-movies** Scene and its
+sequence Timeline, refresh clips, then export a short range. The movie follows the
+sequence's moving panel and camera transition. This example has no audio cues.
+
+![An exported Gallery movie frame with colored props and the moving gold panel](../images/sequence-movie-frame.png)
 
 These frames contain the silent sequence camera image. Gameplay C++, physics,
 runtime UI and sound do not run during this preview. For a single image while
@@ -249,8 +283,9 @@ stay stored for when they are removed from the sequence.
 **Remove from sequence** keeps the primary clip and clears its controller and next
 clip. Each object supports one primary clip and one optional next transform clip.
 Camera shots support cuts and compatible view/lens transitions. This sequence mode
-does not crossfade rendered images or property curves, edit bones or encode a movie. Each controller has at most one parent
-placement; place a copy of a complete linked group to reuse it independently.
+does not crossfade rendered images or property curves or edit bones. Use the
+preview export options above to save a silent movie. Each controller has at most one
+parent placement; place a copy of a complete linked group to reuse it independently.
 
 Pause, Step and simulation Speed work as they do for other animations. C++ can use
 the existing animation playback/control/seek operations on the controller. Bound

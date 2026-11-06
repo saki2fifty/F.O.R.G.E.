@@ -888,3 +888,13 @@ clip, mapped Swing, Blend/Additive nodes, upper-chain mask and two named input s
 The selected model root's Animator can override either input. See
 [Compose an animation graph](../editor/animation-graphs.md) for preview, live tuning,
 saving and export.
+
+## Export a sequence movie
+
+Open **181-sequence-movies**, select **Movie preview - open Timeline, then Export
+frames**, and open its Timeline. The moving gold panel and two camera shots share a
+six-second sequence. Stop Game Play, refresh clips, choose **Export frames…**, then
+select **AVI movie (Motion JPEG)** under **Additional output**. Choose a short frame
+range and a new output folder, then start export. Open `animation.avi` in a compatible
+player. The PNG frames and receipt remain in the same folder. This example is silent
+and reuses existing Gallery motion and materials. See [sequence movie export](../editor/animation-sequences.md).

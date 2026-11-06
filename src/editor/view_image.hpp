@@ -47,6 +47,32 @@ class ViewImageTask {
         std::string source_digest, state, error, reason;
         unsigned completed = 0, width = 0, height = 0;
         std::optional<asset_detail::WebpSequenceInfo> animation = {};
+        std::optional<asset_detail::AviSequenceInfo> movie = {};
+        Json encoded_document() const {
+            if (!animation && !movie)
+                return nullptr;
+            const auto format = movie ? asset_detail::SequenceEncoding::AviMjpeg
+                                      : asset_detail::SequenceEncoding::Webp;
+            const auto& profile = asset_detail::sequence_encoding_profile(format);
+            Json value{{"file", profile.filename},
+                       {"mime", profile.mime},
+                       {"profile", profile.profile},
+                       {"frames", completed},
+                       {"bytes", movie ? movie->bytes : animation->bytes}};
+            if (movie) {
+                value["codec"] = "mjpeg";
+                value["audio"] = false;
+                value["rate"] = movie->frame_rate.rate;
+                value["scale"] = movie->frame_rate.scale;
+                value["duration_seconds"] =
+                    double(completed) * movie->frame_rate.scale / movie->frame_rate.rate;
+                value["jpeg_quality"] = output.jpeg_quality;
+            } else {
+                value["duration_ms"] = animation->duration_ms;
+                value["loop_count"] = 0;
+            }
+            return value;
+        }
     };
     struct FileResult {
         std::string value;
@@ -132,7 +158,7 @@ class ViewImageTask {
         if (!frames_)
             return;
         try {
-            if (frames_->finishing && frames_->output.webp)
+            if (frames_->finishing && frames_->output.encoded())
                 frames_->encoder_stop.request_stop();
             if (job_.valid()) {
                 try {
@@ -250,9 +276,9 @@ class ViewImageTask {
     void cancel_sequence(std::string& message) {
         if (frames_) {
             if (frames_->finishing) {
-                if (frames_->output.webp) {
+                if (frames_->output.encoded()) {
                     frames_->encoder_stop.request_stop();
-                    publish_status("Cancelling WebP animation encoding…", message);
+                    publish_status("Cancelling sequence encoding…", message);
                 }
             } else {
                 stop_frames("Cancelled by user");
@@ -420,11 +446,14 @@ class ViewImageTask {
                     const auto reason = frames_->reason;
                     const bool cancelled = frames_->state == "cancelled";
                     const bool webp = bool(frames_->animation);
+                    const bool avi = bool(frames_->movie);
                     const auto count = frames_->completed;
                     completed_frames_ = static_cast<const FrameReceipt&>(*frames_);
                     frames_.reset();
                     publish_status(!error.empty() ? "Frame export failed: " + error
                                    : cancelled    ? "Frame export cancelled: " + reason
+                                   : avi  ? "AVI movie and PNG frames saved: " + result.value +
+                                                " (" + std::to_string(count) + " frames)"
                                    : webp ? "WebP animation and PNG frames saved: " + result.value +
                                                 " (" + std::to_string(count) + " frames)"
                                           : "Sequence frames saved: " + result.value + " (" +
@@ -648,12 +677,38 @@ class ViewImageTask {
                 ImGui::TextUnformatted("Frame count");
                 changed |= ImGui::InputInt("##frame-count", &frames_->plan.frame_count);
                 FORGE_UI_PROBE("frame-export:count");
-                ImGui::Checkbox("Add WebP animation", &frames_->output.webp);
-                FORGE_UI_PROBE("frame-export:webp");
+                ImGui::TextUnformatted("Additional output");
+                const char* formats[]{"PNG frames only", "WebP animation",
+                                      "AVI movie (Motion JPEG)"};
+                const int selected_format = frames_->output.avi ? 2 : frames_->output.webp ? 1 : 0;
+                const bool format_open =
+                    ImGui::BeginCombo("##frame-output", formats[selected_format]);
+                FORGE_UI_PROBE("frame-export:format");
+                if (format_open) {
+                    for (int i = 0; i < 3; ++i) {
+                        if (ImGui::Selectable(formats[i], selected_format == i)) {
+                            frames_->output.webp = i == 1;
+                            frames_->output.avi = i == 2;
+                        }
+                        FORGE_UI_PROBE(i == 0   ? "frame-export:png"
+                                       : i == 1 ? "frame-export:webp"
+                                                : "frame-export:avi");
+                    }
+                    ImGui::EndCombo();
+                }
                 if (frames_->output.webp)
                     ImGui::TextWrapped("Also save animation.webp after the PNG frames finish. "
                                        "Lossless, repeating playback, two or more frames. "
                                        "PNG frames and the receipt remain in the folder.");
+                if (frames_->output.avi) {
+                    ImGui::TextUnformatted("JPEG quality");
+                    ImGui::SliderInt("##movie-quality", &frames_->output.jpeg_quality, 1, 100);
+                    FORGE_UI_PROBE("frame-export:movie-quality");
+                    ImGui::TextWrapped(
+                        "Also save animation.avi after the PNG frames finish. "
+                        "Lossy, opaque sRGB frames; no sound or gameplay simulation. "
+                        "PNG frames and the receipt remain in the folder.");
+                }
                 bool output_changed = ImGui::Checkbox("Fixed output size", &frames_->output.fixed);
                 FORGE_UI_PROBE("frame-export:fixed-size");
                 if (frames_->output.fixed) {
@@ -747,8 +802,8 @@ class ViewImageTask {
                 else
                     ImGui::TextUnformatted("Output: waiting for Game preview");
                 ImGui::BeginDisabled(!valid || dialog_.busy() || frames_->ready_frames < 3);
-                if (button("Start export", "Save sampled PNG frames and any selected WebP "
-                                           "animation in the new folder.")) {
+                if (button("Start export", "Save sampled PNG frames and the selected additional "
+                                           "output in the new folder.")) {
                     try {
                         auto authored = frames_->timeline->frame_export_document();
                         frames_->folder = folder;
@@ -1021,6 +1076,11 @@ class ViewImageTask {
             (void)asset_detail::webp_sequence_durations(plan.frames_per_second,
                                                         unsigned(plan.frame_count));
         }
+        if (output.avi) {
+            if (sequence_worker_.empty())
+                throw std::runtime_error("AVI movie needs the packaged asset worker");
+            (void)asset_detail::avi_movie_frame_rate(plan.frames_per_second);
+        }
     }
     static void write_frame_receipt(const FrameReceipt& receipt) {
         const auto catalog = receipt.source.catalog->document().dump();
@@ -1046,15 +1106,10 @@ class ViewImageTask {
                       {"error", receipt.error},
                       {"reason", receipt.reason},
                       {"frames", Json::array()}};
-        document["output_format"] = receipt.output.webp ? "webp" : "png";
-        if (receipt.animation)
-            document["animation"] = {{"file", "animation.webp"},
-                                     {"mime", "image/webp"},
-                                     {"frames", receipt.completed},
-                                     {"bytes", receipt.animation->bytes},
-                                     {"duration_ms", receipt.animation->duration_ms},
-                                     {"loop_count", 0},
-                                     {"profile", asset_detail::webp_sequence_profile}};
+        document["output_format"] = receipt.output.format();
+        const auto encoded = receipt.encoded_document();
+        if (!encoded.is_null())
+            document["animation"] = encoded;
         for (unsigned i = 0; i < receipt.completed; ++i)
             document["frames"].push_back(
                 {{"file", receipt.plan.filename(i)}, {"time_seconds", receipt.plan.sample(i)}});
@@ -1086,35 +1141,41 @@ class ViewImageTask {
         const auto worker = sequence_worker_;
         const auto project = project_;
         const auto stop = frames_->encoder_stop.get_token();
-        const bool encoding = receipt.output.webp && receipt.state == "complete";
+        const bool encoding = receipt.output.encoded() && receipt.state == "complete";
         if (encoding)
             frames_->state = "encoding";
-        job_ = std::async(
-            std::launch::async, [receipt = std::move(receipt), worker, project, stop]() mutable {
-                if (receipt.output.webp && receipt.state == "complete") {
-                    try {
-                        std::vector<std::string> names;
-                        for (unsigned i = 0; i < receipt.completed; ++i)
-                            names.push_back(receipt.plan.filename(i));
+        job_ = std::async(std::launch::async, [receipt = std::move(receipt), worker, project,
+                                               stop]() mutable {
+            if (receipt.output.encoded() && receipt.state == "complete") {
+                try {
+                    std::vector<std::string> names;
+                    for (unsigned i = 0; i < receipt.completed; ++i)
+                        names.push_back(receipt.plan.filename(i));
+                    if (receipt.output.webp)
                         receipt.animation = asset_detail::write_webp_sequence(
                             worker, project, receipt.folder, names, receipt.width, receipt.height,
                             receipt.plan.frames_per_second, stop);
-                    } catch (const std::exception& error) {
-                        if (stop.stop_requested()) {
-                            receipt.state = "cancelled";
-                            receipt.reason = "Cancelled while encoding WebP animation";
-                        } else {
-                            receipt.state = "failed";
-                            receipt.error = error.what();
-                        }
+                    else
+                        receipt.movie = asset_detail::write_avi_sequence(
+                            worker, project, receipt.folder, names, receipt.width, receipt.height,
+                            receipt.plan.frames_per_second, receipt.output.jpeg_quality, stop);
+                } catch (const std::exception& error) {
+                    if (stop.stop_requested()) {
+                        receipt.state = "cancelled";
+                        receipt.reason = "Cancelled while encoding sequence";
+                    } else {
+                        receipt.state = "failed";
+                        receipt.error = error.what();
                     }
                 }
-                write_frame_receipt(receipt);
-                FileResult result{path_utf8(receipt.folder), {}};
-                result.frame_receipt = std::move(receipt);
-                return result;
-            });
-        publish_status(encoding ? "Encoding lossless WebP animation…"
+            }
+            write_frame_receipt(receipt);
+            FileResult result{path_utf8(receipt.folder), {}};
+            result.frame_receipt = std::move(receipt);
+            return result;
+        });
+        publish_status(encoding ? (frames_->output.webp ? "Encoding lossless WebP animation…"
+                                                        : "Encoding AVI movie…")
                                 : "Writing sequence frame receipt…",
                        message);
     }

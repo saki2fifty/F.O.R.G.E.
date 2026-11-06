@@ -9,7 +9,9 @@ using namespace Diligent;
 int main(int argc, char** argv) {
     try {
         const bool webp = argc == 5 && std::string_view(argv[3]) == "--webp-sequence";
-        const bool frames = (argc == 4 && std::string_view(argv[3]) == "--sequence-frames") || webp;
+        const bool movie = argc == 5 && std::string_view(argv[3]) == "--avi-sequence";
+        const bool frames =
+            (argc == 4 && std::string_view(argv[3]) == "--sequence-frames") || webp || movie;
         test_gallery_capture::check(argc == 3 || frames,
                                     "Need Gallery and transition capture scratch root");
         const auto scratch = std::filesystem::absolute(argv[2]) / AssetId::generate().str();
@@ -28,7 +30,8 @@ int main(int argc, char** argv) {
         if (frames) {
             test_sequence_frame_render::exercise(
                 presentation, context, root, scratch / "frames", true,
-                webp ? std::filesystem::u8path(argv[4]) : std::filesystem::path{});
+                (webp || movie) ? std::filesystem::u8path(argv[4]) : std::filesystem::path{},
+                movie);
             std::cout << "Stopped Timeline transition display and exported sequence pixels match "
                          "exactly\n";
             return 0;

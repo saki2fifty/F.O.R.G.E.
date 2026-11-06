@@ -15,7 +15,7 @@ namespace {
 using test_view_image_ui::check;
 void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* graphics,
               const std::filesystem::path& worker, const std::filesystem::path& output, float scale,
-              bool narrow) {
+              bool narrow, bool movie) {
     Diligent::ImGuiImplDiligent gui(
         {presentation.device(), Diligent::TEX_FORMAT_RGBA8_UNORM, Diligent::TEX_FORMAT_UNKNOWN});
     ImGui::GetIO().IniFilename = nullptr;
@@ -25,7 +25,7 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* grap
     ui::EditorUiContext editor;
     ui::ContextScope scope(editor);
     test::observe_ui = true;
-    test_sequence_frame_image::Host host(presentation, graphics, output);
+    test_sequence_frame_image::Host host(presentation, graphics, output, movie);
     ui::ViewImageTask task(worker);
     Diligent::TextureDesc desc;
     desc.Name = "FORGE sequence export options capture";
@@ -80,10 +80,13 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* grap
     FileDialog::fixture_selection =
         FileDialog::Result{FileDialog::Kind::SequenceFramesParent, path_utf8(host.project), {}, {}};
     input.click("frame-export:browse");
-    input.click("frame-export:webp");
+    input.click("frame-export:format");
+    input.select(movie ? "frame-export:avi" : "frame-export:webp");
+    if (movie)
+        input.click("frame-export:movie-quality");
     for (unsigned i = 0; i < 4; ++i)
         frame();
-    for (const char* id : {"frame-export:webp", "frame-export:start", "frame-export:cancel"}) {
+    for (const char* id : {"frame-export:format", "frame-export:start", "frame-export:cancel"}) {
         const auto& box = test::ui_targets.at(id);
         check(box.enabled && box.minimum.x >= box.clip_minimum.x &&
                   box.maximum.x <= box.clip_maximum.x && box.minimum.y >= box.clip_minimum.y &&
@@ -99,7 +102,8 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* grap
     check(varied > 100, "Sequence options capture has no visible UI pixels");
     const auto suffix =
         std::string(narrow ? "narrow-" : "wide-") + std::to_string(int(scale * 100)) + ".png";
-    save_view_png(output / ("webp-sequence-options-" + suffix), desc.Width, desc.Height, rgba);
+    save_view_png(output / ((movie ? "avi-sequence-options-" : "webp-sequence-options-") + suffix),
+                  desc.Width, desc.Height, rgba);
     input.click("frame-export:start");
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(40);
     while (task.busy()) {
@@ -109,19 +113,37 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* grap
     }
     const auto folder = host.project / "SequenceFrames";
     const auto receipt = host.receipt(folder, "complete", 3);
-    check(receipt.at("output_format") == "webp" &&
-              receipt.at("animation").at("duration_ms") == 3000 &&
-              host.message.starts_with("WebP animation and PNG frames saved:"),
-          "Native format choice did not produce the animation/receipt/status");
+    if (movie)
+        check(receipt.at("output_format") == "avi" && receipt.at("animation").at("rate") == 1 &&
+                  receipt.at("animation").at("scale") == 1 &&
+                  receipt.at("animation").at("audio") == false &&
+                  receipt.at("animation").at("jpeg_quality").get<int>() >= 40 &&
+                  receipt.at("animation").at("jpeg_quality").get<int>() <= 60 &&
+                  host.message.starts_with("AVI movie and PNG frames saved:"),
+              "Native movie format/quality did not reach the encoder/receipt/status");
+    else
+        check(receipt.at("output_format") == "webp" &&
+                  receipt.at("animation").at("duration_ms") == 3000 &&
+                  host.message.starts_with("WebP animation and PNG frames saved:"),
+              "Native format choice did not produce the animation/receipt/status");
     std::array<Rgba8Pixels, 3> expected;
     for (unsigned i = 0; i < 3; ++i) {
         host.exact(folder / ui::SequenceFramePlan{0, 1, 3}.filename(i), i);
         expected[i] = {7, 3, host.pixels[i], true};
     }
-    const auto encoded =
-        asset_detail::read_bytes(folder / "animation.webp", FORGE_VIEW_IMAGE_ENCODED_LIMIT);
-    const std::array<unsigned, 3> durations{1000, 1000, 1000};
-    test_webp_sequence::inspect(encoded, expected, durations);
+    if (movie) {
+        const auto encoded =
+            asset_detail::read_bytes(folder / "animation.avi", asset_detail::avi_movie_byte_limit);
+        check(encoded.size() > 224 && std::memcmp(encoded.data(), "RIFF", 4) == 0 &&
+                  std::memcmp(encoded.data() + 8, "AVI ", 4) == 0 &&
+                  receipt.at("animation").at("bytes") == encoded.size(),
+              "Native movie file and receipt differ");
+    } else {
+        const auto encoded =
+            asset_detail::read_bytes(folder / "animation.webp", FORGE_VIEW_IMAGE_ENCODED_LIMIT);
+        const std::array<unsigned, 3> durations{1000, 1000, 1000};
+        test_webp_sequence::inspect(encoded, expected, durations);
+    }
     check(host.source.cursor == 1.25 && host.source.playing && !host.source.held &&
               host.source.begins == host.source.ends,
           "WebP finalization did not restore its sequence source");
@@ -130,7 +152,8 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* grap
     graphics->WaitForIdle();
 }
 void cancel_encoding(DiligentPresentation& presentation, Diligent::IDeviceContext* graphics,
-                     const std::filesystem::path& worker, const std::filesystem::path& output) {
+                     const std::filesystem::path& worker, const std::filesystem::path& output,
+                     bool movie) {
     Diligent::ImGuiImplDiligent gui(
         {presentation.device(), Diligent::TEX_FORMAT_RGBA8_UNORM, Diligent::TEX_FORMAT_UNKNOWN});
     ImGui::GetIO().IniFilename = nullptr;
@@ -139,13 +162,17 @@ void cancel_encoding(DiligentPresentation& presentation, Diligent::IDeviceContex
     ui::EditorUiContext editor;
     ui::ContextScope scope(editor);
     test::observe_ui = true;
-    test_sequence_frame_image::Host host(presentation, graphics, output);
+    test_sequence_frame_image::Host host(presentation, graphics, output, movie);
     ui::ViewImageTask task(worker);
     ui::SequenceFrameOutput format;
-    format.webp = true;
+    format.webp = !movie;
+    format.avi = movie;
     const auto folder = host.project / "CancelledAnimation";
     host.start(task, folder, {0, 1, 3}, format);
-    host.until(task, [&] { return task.status() == "Encoding lossless WebP animation…"; });
+    host.until(task, [&] {
+        return task.status() ==
+               (movie ? "Encoding AVI movie…" : "Encoding lossless WebP animation…");
+    });
     check(!host.source.held && host.source.cursor == 1.25 && host.source.playing,
           "Source was not restored before animation encoding");
     gui.NewFrame(720, 780, Diligent::SURFACE_TRANSFORM_IDENTITY);
@@ -159,7 +186,8 @@ void cancel_encoding(DiligentPresentation& presentation, Diligent::IDeviceContex
     test::observe_ui = false;
     test::ui_targets.clear();
     const auto receipt = host.receipt(folder, "cancelled", 3);
-    check(!receipt.contains("animation") && !std::filesystem::exists(folder / "animation.webp") &&
+    check(!receipt.contains("animation") &&
+              !std::filesystem::exists(folder / (movie ? "animation.avi" : "animation.webp")) &&
               host.message.starts_with("Frame export cancelled:"),
           "Cancelled encoding published an animation or lost cancellation status");
     for (unsigned i = 0; i < 3; ++i)
@@ -168,7 +196,9 @@ void cancel_encoding(DiligentPresentation& presentation, Diligent::IDeviceContex
 } // namespace
 int main(int argc, char** argv) {
     try {
-        check(argc == 3, "Need asset worker and output directory");
+        check(argc == 3 || (argc == 4 && std::string_view(argv[3]) == "--avi-sequence"),
+              "Need asset worker and output directory");
+        const bool movie = argc == 4;
         const auto output = std::filesystem::absolute(argv[2]);
         std::filesystem::create_directories(output);
         Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device;
@@ -177,12 +207,14 @@ int main(int argc, char** argv) {
         Diligent::GetEngineFactoryVk()->CreateDeviceAndContextsVk(info, &device, &graphics);
         check(device && graphics, "Sequence options Vulkan device unavailable");
         DiligentPresentation presentation(device);
-        test_sequence_frame_image::exercise(presentation, graphics, output / "existing-task");
-        cancel_encoding(presentation, graphics, argv[1], output / "cancel-encoding");
+        if (!movie) {
+            test_sequence_frame_image::exercise(presentation, graphics, output / "existing-task");
+        }
+        cancel_encoding(presentation, graphics, argv[1], output / "cancel-encoding", movie);
         for (float scale : {1.f, 1.5f, 2.f})
             for (bool narrow : {false, true})
-                exercise(presentation, graphics, argv[1], output, scale, narrow);
-        std::cout << "Native WebP sequence option, GPU frames, encoded pixels and restore passed\n";
+                exercise(presentation, graphics, argv[1], output, scale, narrow, movie);
+        std::cout << "Native sequence format/quality, GPU frames, output and restore passed\n";
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';
         return 1;

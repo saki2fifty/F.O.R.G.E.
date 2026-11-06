@@ -1860,25 +1860,42 @@ The earlier HDR Texture-viewer screenshot retains its original separate source
 and display-transform provenance.
 
 
-## WebP sequence export options
+## Sequence export options and movie output
 
-[Sequence export](../../../manual/images/webp-sequence-export.png) shows the actual
-production Add WebP animation option, its retained-PNG explanation, scrollable
-settings and Start/Cancel controls. Authentic720x780 unassigned local capture:
-pinned Diligent ImGui renderer, offscreen software Vulkan target and independent
-RGBA readback encoded directly as PNG. No cropping, resizing, retouching or
-fabricated controls. Source tests/webp_sequence_editor_vulkan_probe.cpp;
-webp_sequence_editor_vulkan; webp-sequence-options-wide-100.png.
-PNG SHA256: a3f684509956eccedd3f8e04278a1dbaf4d026633424d227a5691c7b78c541f1.
-Native consumer SHA256: 649a634a77648d1a5db8afce2ecb010ce748847f1049e46f3bb7717f30b4ecac.
+[WebP options](../../../manual/images/webp-sequence-export.png) and
+[AVI options](../../../manual/images/avi-sequence-export.png) show the actual
+production Additional output selector, retained-PNG explanation, scrollable settings
+and Start/Cancel controls. AVI also shows actual JPEG-quality input. Both canonical
+images are unretouched480x780 narrow100percent captures through the pinned Diligent
+ImGui renderer and offscreen software Vulkan target, with independent RGBA readback
+encoded as PNG. The controlled source is7x3; screenshots illustrate native controls,
+not physical display or a full Main window. No cropping, resizing or fabricated controls.
+Source: tests/webp_sequence_editor_vulkan_probe.cpp. Native fixtures exercise wide/
+narrow100/150/200percent, actual format/quality input, cancellation, output metadata
+and restoration. PNGs stay exact; JPEG movies are lossy.
 
-Six wide/narrow layouts at1/1.5/2 interface scale exercise actual option input,
-new-folder selection, encoded GPU pixels and restoration; the encoding cancel
-control is checked enabled and cancellation retains completed PNGs/receipt.
-The UI fixture uses a controlled7x3 source. Separate camera_transition_webp_vulkan
-compares encoded frame pixels against independently sampled actual Timeline
-camera-transition rendering. This is not a full-editor, Windows/MSVC/D3D12,
-physical GPU/input/DPI/performance or external-player/client acceptance claim.
+WebP capture source: movie-final-graphics-build/movie-final-graphics-check; input
+SHA2567954ecee1a2475e471269ed9d9896dc51df14952fbc17efb69ce6d6d0fe58942.
+AVI capture source: movie-graphics-probe-build/movie-probe-native-check; input
+SHA25641cbb9b08019dc20664975c2f95085f7406364897195965c77b495b6c9c3746a.
+WebP PNG SHA256: 2109bf3d481efb7482d78c87d92924e0e329e9d65fc7e532af0312ab052f822d.
+AVI PNG SHA256: 30fdab1b583c35db005d10bf51c1f1f11229a6e8e884b8174465e0053c1af903.
+
+[Movie frame](../../../manual/images/sequence-movie-frame.png) is an unretouched
+384x216 frame decoded from the actual exported Gallery181 AVI. The native Timeline/
+FrameRenderer fixture captures its original Scene, camera transition and existing
+motion/material assets. The retained source PNGs match independent display samples
+exactly. Existing local FFmpeg7.0.2 independently demuxes/decodes all six native-control
+movies and the Gallery movie, checking dimensions/count/order/rational timestamps
+and expected lossy image agreement. This frame is output index2 from the Gallery
+movie, not an editor screenshot or a physical-platform acceptance rendering.
+PNG SHA256: ab4e4dbee81f8eb98f9dd8200fef8f6535e0b6303c1af12683b3428798c0a044.
+
+Canonical local evidence: AgentFiles/build/phase277-sequence-movies/
+{capture-provenance.json,independent-movies.json,movie-final-graphics-check.json}.
+Windows/full Main/MSVC/D3D12, physical GPU/input/DPI/performance and external-player/
+client acceptance remain separate. Runtime gameplay and audio recording are outside
+this silent-preview profile.
 
 ## Foliage clearance controls
 
