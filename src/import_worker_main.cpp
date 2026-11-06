@@ -1,4 +1,5 @@
 #include "audio_importer.hpp"
+#include "fbx_importer.hpp"
 #include "model_importer.hpp"
 #include "sprite_atlas_source.hpp"
 #include "texture_image_process.hpp"
@@ -26,7 +27,8 @@ int main(int argc, char** argv) {
         });
         std::string profile;
         const auto recipe = forge::asset_detail::read_import_process_recipe(staging, &profile);
-        const bool model = recipe == "forge.model.gltf";
+        const bool fbx = recipe == forge::asset_detail::fbx_importer_id;
+        const bool model = recipe == "forge.model.gltf" || fbx;
         const bool atlas = recipe == forge::asset_detail::sprite_atlas_source_recipe;
         const bool atlas_recipe = recipe == forge::asset_detail::sprite_atlas_importer_id;
         const bool audio = forge::asset_detail::audio_source_profile(recipe) != nullptr;
@@ -64,6 +66,8 @@ int main(int argc, char** argv) {
                                  request, cancellation.get_token())
             : atlas ? forge::asset_detail::execute_sprite_atlas_source(request,
                                                                        cancellation.get_token())
+            : fbx   ? forge::asset_detail::execute_fbx_recipe(std::move(request),
+                                                              cancellation.get_token())
             : model ? forge::asset_detail::execute_model_recipe(std::move(request),
                                                                 cancellation.get_token())
             : audio ? forge::asset_detail::execute_audio_recipe(request, cancellation.get_token())

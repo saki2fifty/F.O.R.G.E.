@@ -18,6 +18,17 @@ std::vector<ArtifactFile> execute_model_recipe(ImportProcessRequest request, std
     auto source = decode_gltf_snapshot(std::move(request.inputs), {}, stop);
     require(source.source_digest == p.at("source_digest").get<std::string>(),
             "Model source snapshot digest mismatch");
+    return cook_model_interchange(std::move(source), settings, backend, stop);
+}
+std::vector<ArtifactFile> cook_model_interchange(GltfSourceBundle source,
+                                                 const nlohmann::json& settings,
+                                                 std::string_view backend, std::stop_token stop) {
+    const auto require = [](bool ok, const char* why) {
+        if (!ok)
+            throw std::runtime_error(why);
+    };
+    require(!stop.stop_requested(), "Model cooking cancelled");
+    require(backend == "none" || backend == "d3d12", "Unsupported model worker backend");
     for (const auto& required :
          source.document.value("extensionsRequired", nlohmann::json::array()))
         require(model_cook_extensions().contains(required.get<std::string>()),

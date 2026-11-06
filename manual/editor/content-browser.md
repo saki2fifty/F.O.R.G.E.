@@ -105,7 +105,7 @@ Other asset types belong on their compatible [Inspector fields](inspector.md). A
 6. Choose **Copy sources**. Each selection gets its own `Source-1`, `Source-2`, and so on inside the new folder.
 7. Check each result, then choose **Close**. Successfully imported assets appear in Content; copied-only or failed sources remain available through **Open import / source**.
 
-This workflow accepts supported glTF models, texture sources and mono/stereo WAV, FLAC or MP3 audio. It copies glTF buffers and images beneath the selected model's own folder while retaining their relative paths. A model that refers outside that folder must first be organized into a self-contained source folder, or copied into the project manually for the existing model import workflow. Network references and symbolic links are rejected.
+This workflow accepts supported glTF/FBX models, texture sources and mono/stereo WAV, FLAC or MP3 audio. It copies referenced model buffers and images beneath the selected model's own folder while retaining their relative paths. A model that refers outside that folder must first be organized into a self-contained source folder, or copied into the project manually for the existing model import workflow. Network references and symbolic links are rejected.
 
 Existing destinations are never replaced. If source bytes change after review, prepare again. FORGE does not copy project catalogs, import sidecars or authored Scene/Prefab/Material/Shader identities through this workflow; use their own creation or duplication actions.
 
@@ -119,7 +119,7 @@ Open **Create / Register**:
 
 - **New Particle Effect...** creates a reusable [mesh particle effect](particles.md) with isolated preview, source history and Save / Publish.
 
-- **Import model...** opens [Model import](models.md) for glTF settings, identity review, scene/animation selection and placement.
+- **Import model...** opens [Model import](models.md) for model settings, identity review, scene/animation selection and placement.
 - **Import texture...** opens the [Texture import](textures.md) document for image/container settings and safe reimport.
 - **New collision...** creates a reusable [Collision asset](physics.md) with its own source document, shape settings and Save/history. A selected Mesh also offers **Assets → Create Collision from Mesh...**.
 - **New editable Mesh...** starts a reusable cube source in the central [Editable Mesh](editable-meshes.md) document.
@@ -134,7 +134,7 @@ See [Application States](application-states.md), [Audio](audio.md), [Animation](
 
 ## Current limits
 
-Content combines registered assets with recognized import sources and C++ project files. Texture and glTF sources have supported import/cook workflows. Model documents provide explicit placement into the Scene. The source operations below cover supported formats; unsupported formats still require their existing registration workflows. A failed registration leaves existing good assets intact. Problems retains errors; the operation also displays its error locally.
+Content combines registered assets with recognized import sources and C++ project files. Texture and supported glTF/FBX sources have import/cook workflows. Model documents provide explicit placement into the Scene. The source operations below cover supported formats; unsupported formats still require their existing registration workflows. A failed registration leaves existing good assets intact. Problems retains errors; the operation also displays its error locally.
 
 Scene discovery skips `.forge`, `.git` and symbolic links. Optional scene discovery is bounded to 64 directory levels, 110,000 directory/file entries and 64 MiB of JSON reads, with an 8 MiB per-file limit. Registered non-scene sources, the catalog, project metadata and import sidecars are excluded from those JSON reads. Use **File → Open scene...** if a scan exceeds these limits. Package metadata and project manifests are not scenes.
 
@@ -224,7 +224,7 @@ automation writes and other authoring actions wait. **Cancel job** requests safe
 cancellation; an already completed disk commit remains completed. Changed references
 or source bytes invalidate the review and require preparing it again.
 
-Current source adapters cover Scene, Prefab, Material, Shader program, glTF model/
+Current source adapters cover Scene, Prefab, Material, Shader program, glTF/FBX model/
 animation source, Texture, AudioClip, Collision, terrain, particles, Tile Set/Map and
 transform/state/blend-space/mask animation sources. An open supported source
 document follows its moved path; Duplicate keeps the original document open.

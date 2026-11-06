@@ -1,0 +1,100 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [],
+    "importer": "forge.model.fbx",
+    "importer_revision": "195d494d0deeaa99c7cd2b3529e458ecda2951edbb145442c88e3173be279976",
+    "key_version": 2,
+    "output_format": "forge.model-bundle",
+    "output_version": 5,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {
+      "animation_optimize": true,
+      "animation_sampling_rate": 30,
+      "compression": "none",
+      "max_texture_size": 16384,
+      "normals": "missing",
+      "skin_influences": "reject",
+      "tangents": "missing",
+      "vertex_fetch": true,
+      "weld_exact": true
+    },
+    "settings_version": 1,
+    "source": "b84adefd328ff51149d5810e32448cd1466758e1edd7c59380e363abd3a2b113",
+    "source_dependencies": {},
+    "tool_revisions": {
+      "gltf2ozz": "926bdc6fc10a172db721343174e12820d99f2b3c9ac13446993f67732962d1a0",
+      "ufbx": "452a4c558f54fac89fea76d2387efa66627253f324f0b85ed6678f4e3eed27b5"
+    }
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [
+      {
+        "content_digest": "184aebcdc92b8affc983a9cc9ab2f42f56be3a22fc8f09a4b63ba11b13035b2f",
+        "display_name": "Move",
+        "exporter_key": "fbx:clip:2000",
+        "id": "1773cf37-7829-45a8-9d09-e041b3d6d2ea",
+        "key": "member/1773cf37-7829-45a8-9d09-e041b3d6d2ea",
+        "removed": false,
+        "semantic_digest": "143d534ea850285d43fbb67eb36c6c408dce4c49a00b9ed99d445b4f6912fcee",
+        "type": "animation_clip"
+      },
+      {
+        "content_digest": "68265802890a8787f36ee5374de7dca3dc85750bcb8f59e6e2ae9866045b2a1c",
+        "display_name": "Triangle",
+        "exporter_key": "fbx:mesh:1001",
+        "id": "2a41b161-1112-435d-8b15-d8142e43c778",
+        "key": "member/2a41b161-1112-435d-8b15-d8142e43c778",
+        "removed": false,
+        "semantic_digest": "dcc5756a51c07c1731b5093592f897595e880360cd103cf6b60639677baf7e4d",
+        "type": "mesh"
+      },
+      {
+        "content_digest": "a9f200739e48c7c808ce3d4a9fd48a8daaba2d27b644bf307e0b7c4c92ac2590",
+        "display_name": "Triangle",
+        "exporter_key": "fbx:node:1002",
+        "id": "4d440e50-237f-4e24-a095-a7f04a8601d1",
+        "key": "member/4d440e50-237f-4e24-a095-a7f04a8601d1",
+        "removed": false,
+        "semantic_digest": "17a85c95377395993a75f30ee860263d76d4579af15da13f4365e363531166c8",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "74ed0f0c1332b485ce7dee54556b57f77f00737cba9f4dfaa4cad5e852fa50ff",
+        "display_name": "FBX root",
+        "exporter_key": "fbx:root",
+        "id": "8301b3fa-6737-491f-88a8-d5b75c3081f5",
+        "key": "member/8301b3fa-6737-491f-88a8-d5b75c3081f5",
+        "removed": false,
+        "semantic_digest": "31f32d7caae39cc588e000ddb48410332167e775088cc46908d4162f563020c9",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "6da6e3f09ed37d6226a6be94571379292388d304f4488251813ccfc47c6085aa",
+        "display_name": "Model skeleton",
+        "exporter_key": "fbx:combined-rig",
+        "id": "a41dd585-9c44-4992-b0dd-0de91a05472b",
+        "key": "member/a41dd585-9c44-4992-b0dd-0de91a05472b",
+        "removed": false,
+        "semantic_digest": "97edb6223910b54d1757f05b9a3dcaab02d9aa50068ddb179a6df47ee536db0a",
+        "type": "skeleton"
+      }
+    ],
+    "evidence_schema": "forge.fbx-model.v1",
+    "format": "forge.subasset-identity",
+    "owner": "34e51616-baf1-41f0-a9ff-d597f09eda9a",
+    "source": "Assets/FBX/Moving.fbx",
+    "source_digest": "b84adefd328ff51149d5810e32448cd1466758e1edd7c59380e363abd3a2b113",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.model.fbx",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

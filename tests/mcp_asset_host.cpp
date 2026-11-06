@@ -1,11 +1,13 @@
 #include "asset_automation.hpp"
 #include "automation.hpp"
+#include "fbx_fixture.hpp"
 #include "import_authoring.hpp"
 #include "material_editor.hpp"
 #include "mcp_test_marker.hpp"
 #include "source_workflow_automation.hpp"
 #include "texture_authoring.hpp"
 #include <chrono>
+#include <fstream>
 #include <iostream>
 #include <thread>
 
@@ -20,6 +22,13 @@ int main(int argc, char** argv) {
         const bool read_only = std::string(argv[4]) == "read";
         forge::SceneDocument::create_project(root / "Game", "MCP Assets");
         std::filesystem::create_directory(root / "Sources");
+        for (const auto& [name, text] :
+             {std::pair{"native.fbx", forge::test::fbx_animated_triangle(true)},
+              std::pair{"native-texture.fbx", forge::test::fbx_textured_triangle("wide.png")}}) {
+            std::ofstream output(root / "Sources" / name, std::ios::binary);
+            if (!output.write(text.data(), std::streamsize(text.size())) || !output.flush())
+                throw std::runtime_error("Cannot write original FBX MCP fixture");
+        }
         forge::EngineContext engine;
         forge::Scene scene(engine.world());
         std::vector<std::string> recent;

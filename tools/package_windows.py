@@ -83,7 +83,7 @@ def _package(build, dependencies, output, gallery_root):
         check_pe64(image)
     converter = build/'tools/gltf2ozz.exe'
     check_pe64(converter)
-    source_names = ('flecs-src', 'json-src', 'sdl-src', 'imgui_source-src', 'cpp_text_editor-src', 'diligent-src', 'jolt-src', 'box2d-src', 'miniaudio-src', 'ozz-src', 'recast-src', 'rmlui-src', 'freetype-src', 'ktx-src', 'webp-src', 'meshoptimizer-src', 'draco-src')
+    source_names = ('flecs-src', 'json-src', 'sdl-src', 'imgui_source-src', 'cpp_text_editor-src', 'diligent-src', 'jolt-src', 'box2d-src', 'miniaudio-src', 'ozz-src', 'recast-src', 'rmlui-src', 'freetype-src', 'ktx-src', 'webp-src', 'meshoptimizer-src', 'draco-src', 'ufbx-src')
     notices = []
     for name in source_names:
         source = dependencies/name

@@ -2,6 +2,7 @@
 #include "asset_bytes.hpp"
 #include "audio_stream_profile.hpp"
 #include "bounded_json.hpp"
+#include "fbx_profile.hpp"
 #include "native_io_path.hpp"
 #include "runtime_execution_values.hpp"
 #include "ui_filter_profile.hpp"
@@ -13,6 +14,7 @@
 #include <forge/game_content.hpp>
 #include <forge/input_message.hpp>
 #include <forge/mesh_wind.hpp>
+#include <forge/model_asset.hpp>
 #include <forge/project.hpp>
 #include <forge/shader_asset.hpp>
 #include <forge/ui_protocol.hpp>
@@ -86,6 +88,17 @@ void validate_runtime_compatibility(const AssetCatalog& catalog, const Json& eng
     }
     for (const auto& [id, record] : catalog.records()) {
         (void)id;
+        if (record.type == ModelAsset::type) {
+            const auto imported = record.metadata.find("forge.import");
+            if (imported != record.metadata.end() &&
+                imported->value("importer", std::string{}) == asset_detail::fbx_importer_id) {
+                const auto support = engine.find("runtime_model_fbx");
+                require(support != engine.end() && support->is_number_integer() &&
+                            *support == model_fbx_runtime_profile_version,
+                        "FBX Models require a matching runtime kit; select the kit packaged "
+                        "with this editor");
+            }
+        }
         if (record.type == AudioClipAsset::type) {
             const auto metadata = record.metadata.find("forge.audio");
             if (metadata != record.metadata.end() &&

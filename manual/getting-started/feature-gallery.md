@@ -792,3 +792,22 @@ Scene and source resources, publish changes, select this startup Scene in Projec
 Settings, and export with the runtime kit packaged with this editor. Focus and
 typed field text are transient. See
 [UI surface setup and limits](../editor/runtime-ui.md).
+
+## FBX models, materials and animation
+
+![Three imported FBX triangles, with two animated placements and a checker-textured static placement](../images/fbx-import-gallery.png)
+
+The static placement keeps its imported checker Material while the other two animate.
+
+Open **175-fbx-model-import** and press **Play**. Inspect the textured static
+triangle, the triangle driven by a transform clip, and the linearly skinned
+triangle whose bone moves. Both animated models rise and return; the static
+model stays on the platform.
+
+The original FBX files and checker image are in **Assets/FBX**. Select a Model
+asset in Content and choose **Import settings / Place** to inspect its family
+and preview. Edit a source, reimport it, then save the Scene. To export this
+example, select it as the startup Scene in Project Settings and use the matching
+runtime kit packaged with this editor. Meshes, textures and animation travel with
+the exported game. See [FBX importing](../editor/models.md)
+for supported source versions, materials, skinning and clip limits.

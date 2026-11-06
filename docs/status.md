@@ -5,6 +5,15 @@ The accepted local Windows package is **261024-000213**, source
 in the [README](../README.md#current-implementation). No new numbered Windows
 package accompanies the local source changes described here.
 
+Local source adds bounded ASCII/binary FBX7 model import through the existing
+Content, Model, reimport, placement and automation/MCP owners. Supported meshes,
+basic materials and PNG/JPEG images, linear skins and baked transform clips use
+the shared cooked resources. Gallery175 provides three original editable examples.
+Focused native/MCP and source-hidden software-Vulkan checks cover the workflow;
+Windows/full-editor/MSVC/D3D12, physical-device and graphical-EXE acceptance remain
+pending. Export requires the matching FBX-capable runtime kit. See
+[the import profile](model-import.md) and [the model guide](../manual/editor/models.md).
+
 Local source adds optional silent lossless WebP sequence animation alongside the
 existing PNG frame folder/receipt. Native export and automation/MCP share Timeline
 sampling/restoration, bounded worker mux and cancellation. Full-canvas RGBA8,

@@ -36,6 +36,27 @@ int main(int argc, char** argv) {
         const auto scratch = std::filesystem::absolute(argv[1]) / AssetId::generate().str();
         const auto project = scratch / "source", out = scratch / "game";
         {
+            AssetCatalog features(scratch / "fbx-compatibility");
+            AssetRecord record{};
+            record.id = AssetId::generate();
+            record.type = "model";
+            record.source = "Assets/model.fbx";
+            record.metadata["forge.import"] = {{"importer", "forge.model.fbx"}};
+            features.add(record);
+            reject([&] { validate_runtime_compatibility(features, Json::object()); });
+            validate_runtime_compatibility(
+                features, {{"runtime_model_fbx", model_fbx_runtime_profile_version}});
+            for (const Json& version :
+                 {Json(), Json(false), Json(-1), Json(0), Json(1.), Json("1"), Json(2)})
+                reject([&] {
+                    validate_runtime_compatibility(features, {{"runtime_model_fbx", version}});
+                });
+            record.source = "Assets/model.gltf";
+            record.metadata["forge.import"]["importer"] = "forge.model.gltf";
+            features.replace(record);
+            validate_runtime_compatibility(features, Json::object());
+        }
+        {
             AssetCatalog features(scratch / "streaming-compatibility");
             AssetRecord record{AssetId::generate(), "audio_clip", "tone.wav", 1};
             features.add(record);

@@ -1,0 +1,110 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [],
+    "importer": "forge.model.fbx",
+    "importer_revision": "195d494d0deeaa99c7cd2b3529e458ecda2951edbb145442c88e3173be279976",
+    "key_version": 2,
+    "output_format": "forge.model-bundle",
+    "output_version": 5,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {
+      "animation_optimize": true,
+      "animation_sampling_rate": 30,
+      "compression": "none",
+      "max_texture_size": 16384,
+      "normals": "missing",
+      "skin_influences": "reject",
+      "tangents": "missing",
+      "vertex_fetch": true,
+      "weld_exact": true
+    },
+    "settings_version": 1,
+    "source": "37b7fc37b24a1dd765817ece90278c91b64d0ec9d1d6fdb6c29839774c9b318c",
+    "source_dependencies": {},
+    "tool_revisions": {
+      "gltf2ozz": "926bdc6fc10a172db721343174e12820d99f2b3c9ac13446993f67732962d1a0",
+      "ufbx": "452a4c558f54fac89fea76d2387efa66627253f324f0b85ed6678f4e3eed27b5"
+    }
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [
+      {
+        "content_digest": "6429a12d52f9857974b98c3aa11357a0f10a483ab6415db76614f29f0b3897b0",
+        "display_name": "Triangle",
+        "exporter_key": "fbx:mesh:1001",
+        "id": "184de8f0-b030-4cdd-a4bc-a5737f8c10f3",
+        "key": "member/184de8f0-b030-4cdd-a4bc-a5737f8c10f3",
+        "removed": false,
+        "semantic_digest": "dcc5756a51c07c1731b5093592f897595e880360cd103cf6b60639677baf7e4d",
+        "type": "mesh"
+      },
+      {
+        "content_digest": "641ceeddb8003a064e0d889987b8931553445058043a5271d0760edc69ac86d9",
+        "display_name": "Joint",
+        "exporter_key": "fbx:node:3000",
+        "id": "301621f4-ecd6-483a-8bd3-511031feacd0",
+        "key": "member/301621f4-ecd6-483a-8bd3-511031feacd0",
+        "removed": false,
+        "semantic_digest": "61abe898cca99432fbab6b7ffe3b368468a20448e46c5869dd33a186c9626104",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "deade2f246ce034ed518f02d8357ec815bb10eeed0598d16b4b21bd4eb67bf19",
+        "display_name": "Move",
+        "exporter_key": "fbx:clip:2000",
+        "id": "54ee14fd-b188-4c57-99a6-3318555149cf",
+        "key": "member/54ee14fd-b188-4c57-99a6-3318555149cf",
+        "removed": false,
+        "semantic_digest": "97a57dbacb81e878be12912bc7706693ad3e2a08163863803b69a8533bb8bf60",
+        "type": "animation_clip"
+      },
+      {
+        "content_digest": "bcf4fa484ba2df86c25f2fbf457ac0f7e70b1d3d92fd2afdea738ad18811f706",
+        "display_name": "FBX root",
+        "exporter_key": "fbx:root",
+        "id": "676507d7-c90f-49d4-b9e3-821ddff0a217",
+        "key": "member/676507d7-c90f-49d4-b9e3-821ddff0a217",
+        "removed": false,
+        "semantic_digest": "99ce62db5dc0dd066505fed8ba00ec67c5ba68b89967a82b9935afaf1d83bb2e",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "bda2721cd5d1a968dff38a70df321752aef135ed56058bf4c7c835cfcc5a4217",
+        "display_name": "Model skeleton",
+        "exporter_key": "fbx:combined-rig",
+        "id": "95277526-2587-4d0b-a395-d39700a93dd4",
+        "key": "member/95277526-2587-4d0b-a395-d39700a93dd4",
+        "removed": false,
+        "semantic_digest": "97edb6223910b54d1757f05b9a3dcaab02d9aa50068ddb179a6df47ee536db0a",
+        "type": "skeleton"
+      },
+      {
+        "content_digest": "b6a0098b79359e6b12c181bdc6915203eee4541710f878f633be5260a1d8b55e",
+        "display_name": "Triangle",
+        "exporter_key": "fbx:node:1002",
+        "id": "af851ab1-266e-45e9-b6b9-fe31473f134a",
+        "key": "member/af851ab1-266e-45e9-b6b9-fe31473f134a",
+        "removed": false,
+        "semantic_digest": "e06339893c7d7fa23c9cba7c2c2b32dd1e54b462b84fdf8bdc2f1b3e7020fc6b",
+        "type": "model_node"
+      }
+    ],
+    "evidence_schema": "forge.fbx-model.v1",
+    "format": "forge.subasset-identity",
+    "owner": "8e04781e-bac1-4607-9344-70ebbf91b343",
+    "source": "Assets/FBX/Skin.fbx",
+    "source_digest": "37b7fc37b24a1dd765817ece90278c91b64d0ec9d1d6fdb6c29839774c9b318c",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.model.fbx",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

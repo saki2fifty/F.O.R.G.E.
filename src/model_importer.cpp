@@ -49,36 +49,11 @@ class ModelImporter final : public AssetImporter {
                                    stop);
     }
     AssetImportPlan plan(const AssetImportRequest& request, const GltfSourceBundle& source) const {
-        AssetImportPlan result;
-        auto& input = result.input;
-        const auto& d = AssetImporter::descriptor();
-        input.source_digest = source.source_digest;
-        input.importer = d.id;
-        input.importer_revision = d.revision;
-        input.settings_version = settings().version();
-        input.settings = settings().effective(request.settings);
-        input.output_format = d.output_format;
-        input.output_version = d.output_version;
-        input.platform = request.target.platform;
-        input.backend = request.target.backend;
-        input.profile = request.target.profile;
-        for (const auto& dep : source.dependencies) {
-            const auto [at, added] =
-                input.source_dependencies.emplace(path_utf8(dep.source), dep.revision);
-            require(added || at->second == dep.revision,
-                    "Conflicting captured source dependency revisions");
-        }
-        result.sources = source.dependencies;
         const bool animated = !source.document.value("skins", Json::array()).empty() ||
                               !source.document.value("animations", Json::array()).empty();
-        const auto converter_digest =
-            animated ? content_digest(read_bytes(converter_, 64 * 1024 * 1024)) : std::string{};
-        if (animated)
-            input.tool_revisions.emplace("gltf2ozz", converter_digest);
-        result.data = {{"version", 1},
-                       {"binary", source.binary_container},
-                       {"animation", animated},
-                       {"converter_sha256", converter_digest}};
+        auto result = make_model_import_plan(request, *this, source.source_digest,
+                                             source.dependencies, animated, converter_);
+        result.data["binary"] = source.binary_container;
         return result;
     }
 
@@ -148,6 +123,41 @@ class ModelImporter final : public AssetImporter {
     }
 };
 } // namespace
+AssetImportPlan make_model_import_plan(const AssetImportRequest& request,
+                                       const AssetImporter& importer,
+                                       const std::string& source_digest,
+                                       std::span<const AssetSourceDependency> dependencies,
+                                       bool animated, const std::filesystem::path& converter) {
+    require((request.target.backend == "none" && request.target.profile == "cpu") ||
+                (request.target.backend == "d3d12" && request.target.profile == "desktop"),
+            "Unsupported model preparation target");
+    AssetImportPlan result;
+    auto& input = result.input;
+    const auto& descriptor = importer.descriptor();
+    input.source_digest = source_digest;
+    input.importer = descriptor.id;
+    input.importer_revision = descriptor.revision;
+    input.settings_version = importer.settings().version();
+    input.settings = importer.settings().effective(request.settings);
+    input.output_format = descriptor.output_format;
+    input.output_version = descriptor.output_version;
+    input.platform = request.target.platform;
+    input.backend = request.target.backend;
+    input.profile = request.target.profile;
+    for (const auto& dependency : dependencies) {
+        const auto [at, added] =
+            input.source_dependencies.emplace(path_utf8(dependency.source), dependency.revision);
+        require(added || at->second == dependency.revision,
+                "Conflicting captured source dependency revisions");
+        result.sources.push_back(dependency);
+    }
+    const auto digest =
+        animated ? content_digest(read_bytes(converter, 64 * 1024 * 1024)) : std::string{};
+    if (animated)
+        input.tool_revisions.emplace("gltf2ozz", digest);
+    result.data = {{"version", 1}, {"animation", animated}, {"converter_sha256", digest}};
+    return result;
+}
 std::string model_recipe_revision() {
     return asset_build_digest({{"sources_toolchain", FORGE_MODEL_RECIPE_FINGERPRINT},
                                {"configuration", FORGE_MODEL_RECIPE_CONFIGURATION}});
@@ -182,12 +192,18 @@ const std::set<std::string>& model_cook_extensions() {
         "KHR_animation_pointer"};
     return extensions;
 }
-ImportSettingsSchema model_settings() {
+ImportSettingsSchema model_settings(std::string importer) {
     std::vector<ImportSettingRule> rules;
     auto choice = [&](std::string key, std::string label, std::string help, std::string value,
                       std::vector<std::string> choices) {
-        ImportSettingRule r{std::move(key), std::move(label), std::move(help),
-                            ImportSettingType::Choice, std::move(value)};
+        ImportSettingRule r{std::move(key),
+                            std::move(label),
+                            std::move(help),
+                            ImportSettingType::Choice,
+                            std::move(value),
+                            {},
+                            {},
+                            {}};
         r.choices = std::move(choices);
         rules.push_back(std::move(r));
     };
@@ -197,19 +213,34 @@ ImportSettingsSchema model_settings() {
     choice("tangents", "Tangents",
            "Generate tangent frames using each material's normal-map UV set.", "missing",
            {"preserve", "missing", "recalculate"});
-    rules.push_back({"weld_exact", "Merge identical vertices",
+    rules.push_back({"weld_exact",
+                     "Merge identical vertices",
                      "Merge only vertices whose complete streams and morph data match.",
-                     ImportSettingType::Boolean, true});
-    rules.push_back({"vertex_fetch", "Optimize vertex fetch",
+                     ImportSettingType::Boolean,
+                     true,
+                     {},
+                     {},
+                     {}});
+    rules.push_back({"vertex_fetch",
+                     "Optimize vertex fetch",
                      "Reorder vertex storage without changing triangle order.",
-                     ImportSettingType::Boolean, true});
+                     ImportSettingType::Boolean,
+                     true,
+                     {},
+                     {},
+                     {}});
     choice(
         "compression", "Image compression",
         "BC processing for PNG/JPEG/WebP; supplied Basis images use the target transcode profile.",
         "none", {"none", "bc", "bc-high-quality"});
-    ImportSettingRule maximum{"max_texture_size", "Maximum texture dimension",
+    ImportSettingRule maximum{"max_texture_size",
+                              "Maximum texture dimension",
                               "Select or generate a mip that fits the dimension limit.",
-                              ImportSettingType::Integer, 16384};
+                              ImportSettingType::Integer,
+                              16384,
+                              {},
+                              {},
+                              {}};
     maximum.minimum = 1;
     maximum.maximum = 16384;
     rules.push_back(maximum);
@@ -217,17 +248,26 @@ ImportSettingsSchema model_settings() {
            "Reject more than four positive influences, or explicitly keep the strongest four and "
            "renormalize.",
            "reject", {"reject", "reduce-to-four"});
-    ImportSettingRule rate{
-        "animation_sampling_rate", "Animation sampling rate",
-        "Official Ozz converter rate for curves requiring resampling, in samples per second.",
-        ImportSettingType::Integer, 30};
+    ImportSettingRule rate{"animation_sampling_rate",
+                           "Animation sampling rate",
+                           "Samples per second for model curve baking and official Ozz conversion.",
+                           ImportSettingType::Integer,
+                           30,
+                           {},
+                           {},
+                           {}};
     rate.minimum = 1;
     rate.maximum = 240;
     rules.push_back(rate);
-    rules.push_back({"animation_optimize", "Optimize animation",
+    rules.push_back({"animation_optimize",
+                     "Optimize animation",
                      "Use the pinned official converter's animation optimization.",
-                     ImportSettingType::Boolean, true});
-    return ImportSettingsSchema("forge.model.gltf", 1, std::move(rules));
+                     ImportSettingType::Boolean,
+                     true,
+                     {},
+                     {},
+                     {}});
+    return ImportSettingsSchema(std::move(importer), 1, std::move(rules));
 }
 std::shared_ptr<const AssetImporter> model_importer(std::filesystem::path worker,
                                                     std::filesystem::path converter) {

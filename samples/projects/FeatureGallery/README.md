@@ -2250,3 +2250,19 @@ publish resources, select this startup Scene in Project Settings, and export wit
 the matching supplied runtime kit. Native focus
 and typed field contents are transient. See the [surface guide](../../../manual/editor/runtime-ui.md#interact-with-ui-on-a-scene-surface)
 for Material/UV requirements, geometric blockers, Camera views and current limits.
+
+## Imported FBX models
+
+Open **175-fbx-model-import** and press **Play**. Three original FBX models show a
+textured polygon mesh, a mesh with a transform clip, and a linearly skinned mesh
+whose bone moves. The textured model stays still; the other two rise and return
+with their looping clips. The platform, camera and directional light are ordinary
+Scene entities.
+
+The editable sources are **Assets/FBX/Static.fbx**, **Moving.fbx**, **Skin.fbx** and
+**Checker.png**. Select an imported Model in Content and open **Import settings /
+Place** to inspect its meshes, Material, Texture, Skeleton and Clip members.
+Reimport after editing a source, then save the Scene before exporting. Select
+this startup Scene in Project Settings and use the runtime kit packaged with this
+editor. See [FBX importing](../../../manual/editor/models.md#import-an-fbx-model)
+for file/skin/animation limits and image-folder preparation.

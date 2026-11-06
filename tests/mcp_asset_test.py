@@ -418,6 +418,42 @@ for legacy in (False, True):
         assert outcome['placement']['state'] == 'failed', outcome
         assert not read('forge_scene_read')['entities']
 
+        # FBX uses the same source-copy review, worker, catalog and placement owners.
+        # The actual host authors these original ASCII fixtures; no external model is used.
+        for source_name, folder, animated, file_count in (
+                ('native.fbx', 'NativeRig', True, 1),
+                ('native-texture.fbx', 'NativeTexture', False, 2)):
+            prepared = mutate('forge_asset_import_prepare', sources=[source_name], root='import',
+                              destination='Assets/' + folder)
+            assert prepared['ok'], prepared
+            review = wait_for(lambda: read('forge_asset_import_review'),
+                              lambda value: value['state'] in ('review', 'failed'), 60)
+            assert review['state'] == 'review' and review['file_count'] == file_count, review
+            batch = review['batch']
+            assert mutate('forge_asset_import_commit', batch=batch, review=review['review'])['ok']
+            imported = wait_for(jobs, lambda value: value['source_import']['state'] in ('done', 'failed'), 60)
+            assert imported['source_import']['published'] == 1, imported
+            assert mutate('forge_asset_import_close', batch=batch)['ok']
+            models = read('forge_asset_search', type='model', include_engine=False)['assets']
+            model = next(item['asset'] for item in models if item['source'].endswith('/' + source_name))
+            metadata = read('forge_asset_read', asset=model)['metadata']
+            assert metadata['forge.import']['importer'] == 'forge.model.fbx', metadata
+            options = dict(asset=model, position=[0, 0, 0], source_scene=0, name='MCP FBX')
+            if animated:
+                clips = [item for item in read('forge_asset_search', type='animation_clip', include_engine=False)['assets']
+                         if item.get('subasset', {}).get('owner') == model]
+                assert len(clips) == 1, clips
+                options['clip'] = clips[0]['asset']
+            assert mutate('forge_asset_place', **options)['ok']
+            outcome = wait_for(jobs, lambda value: value['placement']['state'] in ('succeeded', 'failed'), 30)
+            assert outcome['placement']['state'] == 'succeeded', outcome
+            snapshot = read('forge_scene_read')
+            assert any(entity['name'] == 'MCP FBX' for entity in snapshot['entities']), snapshot
+            if animated:
+                assert options['clip'] in json.dumps(snapshot), snapshot
+            assert mutate('forge_history_undo')['result']['changed']
+            assert not read('forge_scene_read')['entities']
+
 with editor('read') as (root, process, config), Client(config) as client:
     catalog = client.request('tools/list')['result']['tools']
     assert 'forge_asset_search' in {tool['name'] for tool in catalog}

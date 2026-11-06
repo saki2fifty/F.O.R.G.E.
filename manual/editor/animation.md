@@ -41,7 +41,8 @@ existing prefab **Revert** controls to follow the source again.
 Use a small animation-only **glTF2 `.gltf`** file with named clips and skeletal translation, rotation or scale channels. Morph-weight channels are rejected. Embedded buffers
 and relative buffer files inside the project are supported. Keep all dependencies
 inside the project. Images, glTF extensions, FBX, mesh/material import and arbitrary
-`.ozz` imports are not supported by this initial workflow.
+`.ozz` imports are not supported by this animation-only workflow. Use
+[Model import](models.md) for supported FBX meshes, skins and clips.
 
 Conversion runs outside the editor with resource limits. A failed conversion leaves
 the previously registered skeleton and clips selected. The Console explains failure,

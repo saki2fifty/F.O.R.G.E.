@@ -34,7 +34,7 @@ content may differ; use **Window** to open a panel mentioned in a guide.
 
 ## Models and appearance
 
-- [Importing and placing models](editor/models.md)
+- [Importing and placing models, including FBX](editor/models.md)
 - [Editable Meshes and UVs](editor/editable-meshes.md)
 - [Shape terrain with height layers](editor/terrain.md)
 - [Place foliage with slope filters, alignment, collision clearance and wind](editor/foliage.md)

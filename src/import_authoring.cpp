@@ -1,6 +1,7 @@
 #include "import_authoring.hpp"
 #include "audio_authoring.hpp"
 #include "audio_importer.hpp"
+#include "fbx_importer.hpp"
 #include "model_authoring.hpp"
 #include "model_importer.hpp"
 #include "sprite_atlas_importer.hpp"
@@ -16,6 +17,7 @@ asset_import_registry(const std::filesystem::path& worker,
     registry->add(asset_detail::paint_texture_importer(worker));
     registry->add(asset_detail::sprite_atlas_importer(worker));
     registry->add(asset_detail::model_importer(worker, animation_converter));
+    registry->add(asset_detail::fbx_importer(worker, animation_converter));
     for (const auto& profile : asset_detail::audio_source_profiles)
         registry->add(asset_detail::audio_importer(worker, profile));
     registry->seal();
@@ -24,7 +26,8 @@ asset_import_registry(const std::filesystem::path& worker,
 void prepare_asset_publication(AssetPublicationCandidate& candidate, const AssetImportPlan& plan,
                                const AssetCatalog& previous_catalog,
                                std::span<const SubassetIdentityDecision> decisions) {
-    if (plan.input.importer == "forge.model.gltf")
+    if (plan.input.importer == "forge.model.gltf" ||
+        plan.input.importer == asset_detail::fbx_importer_id)
         prepare_model_publication(candidate, plan, previous_catalog, decisions);
     else if (plan.input.importer == "forge.texture.image" ||
              plan.input.importer == "forge.texture.container" ||

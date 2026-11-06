@@ -11,7 +11,16 @@ std::vector<ArtifactFile>
 finish_model_recipe(std::vector<ArtifactFile> files, const std::filesystem::path& converter,
                     const std::filesystem::path& project, std::string_view source_digest,
                     std::string_view converter_digest, std::stop_token stop = {});
-ImportSettingsSchema model_settings();
+ImportSettingsSchema model_settings(std::string importer = "forge.model.gltf");
+AssetImportPlan make_model_import_plan(const AssetImportRequest& request,
+                                       const AssetImporter& importer,
+                                       const std::string& source_digest,
+                                       std::span<const AssetSourceDependency> dependencies,
+                                       bool animated, const std::filesystem::path& converter);
+std::vector<ArtifactFile> cook_model_interchange(GltfSourceBundle source,
+                                                 const nlohmann::json& settings,
+                                                 std::string_view backend,
+                                                 std::stop_token stop = {});
 std::string model_recipe_revision();
 WorkerLimits model_worker_limits();
 const std::set<std::string>& model_cook_extensions();

@@ -1,0 +1,40 @@
+include_guard(GLOBAL)
+# Official stable ufbx0.23.1, unmodified C parser. FORGE's private worker owns
+# source admission, cancellation, limits and conversion into existing model cooks.
+FetchContent_Declare(ufbx
+ URL https://codeload.github.com/ufbx/ufbx/tar.gz/26a482ae66871d7de36eb722aa060bce95bce274
+ URL_HASH SHA256=18d5a7849378e3fe247b0df67cf845cb593c73172cbac0de99b5aba130542667
+ EXCLUDE_FROM_ALL)
+FetchContent_GetProperties(ufbx)
+if(NOT ufbx_POPULATED)
+ cmake_policy(PUSH)
+ cmake_policy(SET CMP0169 OLD)
+ FetchContent_Populate(ufbx)
+ cmake_policy(POP)
+endif()
+file(SHA256 "${ufbx_SOURCE_DIR}/ufbx.c" _forge_ufbx_source_sha256)
+file(SHA256 "${ufbx_SOURCE_DIR}/ufbx.h" _forge_ufbx_header_sha256)
+if(NOT _forge_ufbx_source_sha256 STREQUAL "4a956c26a708e40d82ecb0aeaee54da709d5ba7c144c9642174970059bda7e1d"
+ OR NOT _forge_ufbx_header_sha256 STREQUAL "f787be529af577efc04f3e3e735844a08556718dbb613d1211c2b313d72895dc")
+ message(FATAL_ERROR "The selected FBX parser source/header differ from the exact immutable pin")
+endif()
+add_library(forge_ufbx STATIC "${ufbx_SOURCE_DIR}/ufbx.c")
+target_include_directories(forge_ufbx SYSTEM PUBLIC "${ufbx_SOURCE_DIR}")
+set_target_properties(forge_ufbx PROPERTIES POSITION_INDEPENDENT_CODE ON)
+if(NOT WIN32)
+ target_link_libraries(forge_ufbx PRIVATE m)
+endif()
+set(_forge_ufbx_components Runtime)
+if(FORGE_ENABLE_NATIVE_SDK)
+ list(APPEND _forge_ufbx_components NativeSdk)
+endif()
+foreach(component IN LISTS _forge_ufbx_components)
+ set(_forge_ufbx_notice_destination share/forge/licenses)
+ if(component STREQUAL "NativeSdk")
+  set(_forge_ufbx_notice_destination licenses)
+ endif()
+ install(FILES "${ufbx_SOURCE_DIR}/LICENSE" DESTINATION ${_forge_ufbx_notice_destination}
+  COMPONENT ${component} RENAME ufbx.txt)
+endforeach()
+unset(_forge_ufbx_components)
+unset(_forge_ufbx_notice_destination)

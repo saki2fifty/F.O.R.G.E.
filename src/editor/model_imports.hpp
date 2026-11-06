@@ -1,4 +1,5 @@
 #pragma once
+#include "../fbx_importer.hpp"
 #include "../model_authoring.hpp"
 #include "../model_importer.hpp"
 #include "../model_placement.hpp"
@@ -170,7 +171,8 @@ class ModelImportEditor : public AssetImportEditor {
         return {"model_import",
                 "Model import",
                 "Assets/model.glb",
-                "Project-contained .gltf or .glb with contained buffers/images. Native preparation "
+                "Project-contained .gltf, .glb or .fbx with contained buffers/images. Native "
+                "preparation "
                 "runs in a separate worker; animation uses the packaged official Ozz converter.",
                 "Import one complete model family. Its meshes, materials, textures and animation "
                 "retain typed logical asset identities.",
@@ -179,6 +181,7 @@ class ModelImportEditor : public AssetImportEditor {
                 [worker = std::move(worker), converter = std::move(converter)] {
                     auto registry = std::make_shared<AssetImporterRegistry>();
                     registry->add(asset_detail::model_importer(worker, converter));
+                    registry->add(asset_detail::fbx_importer(worker, converter));
                     registry->seal();
                     return registry;
                 },

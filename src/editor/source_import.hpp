@@ -2,6 +2,7 @@
 #include "../asset_bytes.hpp"
 #include "../asset_storage.hpp"
 #include "../audio_importer.hpp"
+#include "../fbx_importer.hpp"
 #include "../model_importer.hpp"
 #include "../source_copy.hpp"
 #include "../sprite_atlas_source.hpp"
@@ -180,6 +181,7 @@ class SourceImport {
         // graphs. Their document/file workflows, not raw source copying, own duplication.
         std::erase_if(profiles_, [](const auto& profile) {
             return profile.importer != "forge.model.gltf" &&
+                   profile.importer != asset_detail::fbx_importer_id &&
                    !asset_detail::audio_source_profile(profile.importer) &&
                    profile.importer != "forge.texture.image" &&
                    profile.importer != "forge.texture.container";
@@ -384,8 +386,11 @@ class SourceImport {
                     prefix.resize(std::size_t(stream.gcount()));
                     result.route_indices.push_back(match_source(profiles, path, prefix));
                 }
-                result.plan = prepare_source_copy(project, folder, paths,
-                                                  asset_detail::model_cook_extensions(), stop);
+                result.plan = prepare_source_copy(
+                    project, folder, paths, asset_detail::model_cook_extensions(), stop,
+                    [worker](const auto& source, auto token) {
+                        return asset_detail::fbx_source_dependencies(worker, source, token);
+                    });
             }
             Json manifest = {{"destination", path_utf8(result.plan.destination)},
                              {"files", Json::array()},

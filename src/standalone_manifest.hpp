@@ -1,6 +1,7 @@
 #pragma once
 #include "runtime_package.hpp"
 namespace forge {
+inline constexpr unsigned model_fbx_runtime_profile_version = 1;
 // Physical distribution metadata, not another logical asset graph. Content keeps
 // its existing AssetCatalog and immutable artifact/identity contracts.
 struct StandaloneDistribution {

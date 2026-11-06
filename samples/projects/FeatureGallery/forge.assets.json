@@ -1545,6 +1545,57 @@
       "type": "scene"
     },
     {
+      "dependencies": [
+        "f3d41a4f-e932-48e6-b876-df3c279147c7"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "d93264d55d43b2042ed2f9a829a33ac8b121e38dce6a7f337b0afa52f2952263",
+          "role": "material.1",
+          "target": "f3d41a4f-e932-48e6-b876-df3c279147c7",
+          "type": "material"
+        }
+      ],
+      "id": "143d9810-120e-40f7-b8ad-d9f8d575fcc0",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "9d3b0273b87c1770c6867f9a797af9aff0cb46348f88037d69a1222ee925419f",
+          "backend": "d3d12",
+          "dependency_digest": "adfc5d2193b19acb9f0bbda952fc0c201f8a102edea43c908c173361aca1efb5",
+          "generation": 3,
+          "importer": "forge.model.fbx",
+          "importer_revision": "195d494d0deeaa99c7cd2b3529e458ecda2951edbb145442c88e3173be279976",
+          "key": "d93264d55d43b2042ed2f9a829a33ac8b121e38dce6a7f337b0afa52f2952263",
+          "output_format": "forge.model-bundle",
+          "output_version": 5,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "658ddf1926c7ccff661ba6ec25b8d35037b7bca6ccca5b6a97eb6f3d5c688e69",
+          "source_digest": "61f622a1d056e03d93310a0b71ed94fe7972b81ac1cebc21ef511884689de8fc",
+          "version": 1
+        },
+        "forge.model": {
+          "bytes": 736,
+          "file": "mesh-0.fmesh",
+          "name": "Triangle",
+          "sha256": "4cde9eda2e9063fa1515a67fd9799ba29e3c453ddf0076d75596bdbef9c566d1",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/FBX/Static.fbx",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/143d9810-120e-40f7-b8ad-d9f8d575fcc0",
+        "owner": "9539378f-6c5f-4c63-a076-657b35ec420c",
+        "removed": false
+      },
+      "type": "mesh"
+    },
+    {
       "dependencies": [],
       "dependency_edges": [],
       "id": "15100000-1510-4151-8151-151000000000",
@@ -1854,6 +1905,57 @@
       "type": "material"
     },
     {
+      "dependencies": [
+        "a41dd585-9c44-4992-b0dd-0de91a05472b"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "857db415f46c72fb12a2503ad8f665dc9a4769c4bc214fe56d6d7f40d9dd8594",
+          "role": "skeleton",
+          "target": "a41dd585-9c44-4992-b0dd-0de91a05472b",
+          "type": "skeleton"
+        }
+      ],
+      "id": "1773cf37-7829-45a8-9d09-e041b3d6d2ea",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "76a387aea92e7b5cd6fcb9ad891b4b4221bd207b8c6d0124cb9883b71931ff2e",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 3,
+          "importer": "forge.model.fbx",
+          "importer_revision": "195d494d0deeaa99c7cd2b3529e458ecda2951edbb145442c88e3173be279976",
+          "key": "857db415f46c72fb12a2503ad8f665dc9a4769c4bc214fe56d6d7f40d9dd8594",
+          "output_format": "forge.model-bundle",
+          "output_version": 5,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "0ec087598ac334126c17cc02accb59f601a589a25052332c46c7575ff90e58aa",
+          "source_digest": "b84adefd328ff51149d5810e32448cd1466758e1edd7c59380e363abd3a2b113",
+          "version": 1
+        },
+        "forge.model": {
+          "bytes": 319,
+          "file": "clip-0.ozz",
+          "name": "Move",
+          "sha256": "c98b8e09f22164176addcc5e7724cc35e5548a08f8ecfec8d3920feb360f053a",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/FBX/Moving.fbx",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/1773cf37-7829-45a8-9d09-e041b3d6d2ea",
+        "owner": "34e51616-baf1-41f0-a9ff-d597f09eda9a",
+        "removed": false
+      },
+      "type": "animation_clip"
+    },
+    {
       "dependencies": [],
       "dependency_edges": [],
       "id": "177b3d5b-f5a7-41df-a1f8-f36ab10ac6e0",
@@ -1907,6 +2009,47 @@
       "source": "Scenes/118-local-diffuse-irradiance.scene.json",
       "source_dependencies": [],
       "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "184de8f0-b030-4cdd-a4bc-a5737f8c10f3",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "401ab2c2a065726e0dd378010aafcd1574eefb644ea97942ee31a9faa485e2fa",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 2,
+          "importer": "forge.model.fbx",
+          "importer_revision": "195d494d0deeaa99c7cd2b3529e458ecda2951edbb145442c88e3173be279976",
+          "key": "1c5291ad7771ecf2f8c9fe80aa2dfb05691af4844b21ad772cf5683ae1c3ebb1",
+          "output_format": "forge.model-bundle",
+          "output_version": 5,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "5bab57490b0963063304c5741c06bbdd753a2f098a80cc58c308e4c8a95bbadf",
+          "source_digest": "37b7fc37b24a1dd765817ece90278c91b64d0ec9d1d6fdb6c29839774c9b318c",
+          "version": 1
+        },
+        "forge.model": {
+          "bytes": 1005,
+          "file": "mesh-0.fmesh",
+          "name": "Triangle",
+          "sha256": "9b881b6901e9ada5e851a2e99d3e9545385ef592ebf6bbf52e5c7c974aeab846",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/FBX/Skin.fbx",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/184de8f0-b030-4cdd-a4bc-a5737f8c10f3",
+        "owner": "8e04781e-bac1-4607-9344-70ebbf91b343",
+        "removed": false
+      },
+      "type": "mesh"
     },
     {
       "dependencies": [
@@ -3255,6 +3398,47 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "2a41b161-1112-435d-8b15-d8142e43c778",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "76a387aea92e7b5cd6fcb9ad891b4b4221bd207b8c6d0124cb9883b71931ff2e",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 3,
+          "importer": "forge.model.fbx",
+          "importer_revision": "195d494d0deeaa99c7cd2b3529e458ecda2951edbb145442c88e3173be279976",
+          "key": "857db415f46c72fb12a2503ad8f665dc9a4769c4bc214fe56d6d7f40d9dd8594",
+          "output_format": "forge.model-bundle",
+          "output_version": 5,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "0ec087598ac334126c17cc02accb59f601a589a25052332c46c7575ff90e58aa",
+          "source_digest": "b84adefd328ff51149d5810e32448cd1466758e1edd7c59380e363abd3a2b113",
+          "version": 1
+        },
+        "forge.model": {
+          "bytes": 736,
+          "file": "mesh-0.fmesh",
+          "name": "Triangle",
+          "sha256": "f696931b70b5f8fd1b3ea3c5afe892a488bf09f9817f9793754564fc26f69427",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/FBX/Moving.fbx",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/2a41b161-1112-435d-8b15-d8142e43c778",
+        "owner": "34e51616-baf1-41f0-a9ff-d597f09eda9a",
+        "removed": false
+      },
+      "type": "mesh"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "2a74e25e-8622-4f05-9fc9-3c76bdec7c82",
       "metadata": {
         "forge.import": {
@@ -3519,6 +3703,45 @@
       "type": "particle_effect"
     },
     {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "301621f4-ecd6-483a-8bd3-511031feacd0",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "401ab2c2a065726e0dd378010aafcd1574eefb644ea97942ee31a9faa485e2fa",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 2,
+          "importer": "forge.model.fbx",
+          "importer_revision": "195d494d0deeaa99c7cd2b3529e458ecda2951edbb145442c88e3173be279976",
+          "key": "1c5291ad7771ecf2f8c9fe80aa2dfb05691af4844b21ad772cf5683ae1c3ebb1",
+          "output_format": "forge.model-bundle",
+          "output_version": 5,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "5bab57490b0963063304c5741c06bbdd753a2f098a80cc58c308e4c8a95bbadf",
+          "source_digest": "37b7fc37b24a1dd765817ece90278c91b64d0ec9d1d6fdb6c29839774c9b318c",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "Joint",
+          "node": 2,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/FBX/Skin.fbx",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/301621f4-ecd6-483a-8bd3-511031feacd0",
+        "owner": "8e04781e-bac1-4607-9344-70ebbf91b343",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
       "dependencies": [
         "cd8aad7c-0d7b-4092-a533-6d46fcf0bfd6"
       ],
@@ -3668,6 +3891,47 @@
       "source": "Assets/Tiles/CollisionProfiles.material.json",
       "source_dependencies": [],
       "type": "material"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "31801385-5df1-4acb-94c6-cd28b98cef5c",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "9d3b0273b87c1770c6867f9a797af9aff0cb46348f88037d69a1222ee925419f",
+          "backend": "d3d12",
+          "dependency_digest": "adfc5d2193b19acb9f0bbda952fc0c201f8a102edea43c908c173361aca1efb5",
+          "generation": 3,
+          "importer": "forge.model.fbx",
+          "importer_revision": "195d494d0deeaa99c7cd2b3529e458ecda2951edbb145442c88e3173be279976",
+          "key": "d93264d55d43b2042ed2f9a829a33ac8b121e38dce6a7f337b0afa52f2952263",
+          "output_format": "forge.model-bundle",
+          "output_version": 5,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "658ddf1926c7ccff661ba6ec25b8d35037b7bca6ccca5b6a97eb6f3d5c688e69",
+          "source_digest": "61f622a1d056e03d93310a0b71ed94fe7972b81ac1cebc21ef511884689de8fc",
+          "version": 1
+        },
+        "forge.model": {
+          "bytes": 209,
+          "file": "image-0.json",
+          "name": "Color",
+          "sha256": "9959b5464b67e53d79a3e90a53152fe3dfd3aaa9ab7bcad587ef8c34ebe2f4d5",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/FBX/Static.fbx",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/31801385-5df1-4acb-94c6-cd28b98cef5c",
+        "owner": "9539378f-6c5f-4c63-a076-657b35ec420c",
+        "removed": false
+      },
+      "type": "texture"
     },
     {
       "dependencies": [
@@ -4041,6 +4305,83 @@
         "removed": false
       },
       "type": "model_node"
+    },
+    {
+      "dependencies": [
+        "1773cf37-7829-45a8-9d09-e041b3d6d2ea",
+        "2a41b161-1112-435d-8b15-d8142e43c778",
+        "4d440e50-237f-4e24-a095-a7f04a8601d1",
+        "8301b3fa-6737-491f-88a8-d5b75c3081f5",
+        "a41dd585-9c44-4992-b0dd-0de91a05472b"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "857db415f46c72fb12a2503ad8f665dc9a4769c4bc214fe56d6d7f40d9dd8594",
+          "role": "model.member:/animations/0",
+          "target": "1773cf37-7829-45a8-9d09-e041b3d6d2ea",
+          "type": "animation_clip"
+        },
+        {
+          "kind": "runtime",
+          "revision": "857db415f46c72fb12a2503ad8f665dc9a4769c4bc214fe56d6d7f40d9dd8594",
+          "role": "model.member:/meshes/0",
+          "target": "2a41b161-1112-435d-8b15-d8142e43c778",
+          "type": "mesh"
+        },
+        {
+          "kind": "runtime",
+          "revision": "857db415f46c72fb12a2503ad8f665dc9a4769c4bc214fe56d6d7f40d9dd8594",
+          "role": "model.member:/nodes/1",
+          "target": "4d440e50-237f-4e24-a095-a7f04a8601d1",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "857db415f46c72fb12a2503ad8f665dc9a4769c4bc214fe56d6d7f40d9dd8594",
+          "role": "model.member:/nodes/0",
+          "target": "8301b3fa-6737-491f-88a8-d5b75c3081f5",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "857db415f46c72fb12a2503ad8f665dc9a4769c4bc214fe56d6d7f40d9dd8594",
+          "role": "model.member:/rig/skeleton",
+          "target": "a41dd585-9c44-4992-b0dd-0de91a05472b",
+          "type": "skeleton"
+        }
+      ],
+      "id": "34e51616-baf1-41f0-a9ff-d597f09eda9a",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "76a387aea92e7b5cd6fcb9ad891b4b4221bd207b8c6d0124cb9883b71931ff2e",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 3,
+          "importer": "forge.model.fbx",
+          "importer_revision": "195d494d0deeaa99c7cd2b3529e458ecda2951edbb145442c88e3173be279976",
+          "key": "857db415f46c72fb12a2503ad8f665dc9a4769c4bc214fe56d6d7f40d9dd8594",
+          "output_format": "forge.model-bundle",
+          "output_version": 5,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "0ec087598ac334126c17cc02accb59f601a589a25052332c46c7575ff90e58aa",
+          "source_digest": "b84adefd328ff51149d5810e32448cd1466758e1edd7c59380e363abd3a2b113",
+          "version": 1
+        },
+        "forge.model": {
+          "bytes": 4569,
+          "file": "model.json",
+          "sha256": "dc07d2ae701e555db4461ea40b8a0f99f8e5646043c660e06c964affb9718a9d",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/FBX/Moving.fbx",
+      "source_dependencies": [],
+      "type": "model"
     },
     {
       "dependencies": [],
@@ -5380,6 +5721,55 @@
       "type": "model_node"
     },
     {
+      "dependencies": [
+        "2a41b161-1112-435d-8b15-d8142e43c778"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "857db415f46c72fb12a2503ad8f665dc9a4769c4bc214fe56d6d7f40d9dd8594",
+          "role": "mesh",
+          "target": "2a41b161-1112-435d-8b15-d8142e43c778",
+          "type": "mesh"
+        }
+      ],
+      "id": "4d440e50-237f-4e24-a095-a7f04a8601d1",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "76a387aea92e7b5cd6fcb9ad891b4b4221bd207b8c6d0124cb9883b71931ff2e",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 3,
+          "importer": "forge.model.fbx",
+          "importer_revision": "195d494d0deeaa99c7cd2b3529e458ecda2951edbb145442c88e3173be279976",
+          "key": "857db415f46c72fb12a2503ad8f665dc9a4769c4bc214fe56d6d7f40d9dd8594",
+          "output_format": "forge.model-bundle",
+          "output_version": 5,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "0ec087598ac334126c17cc02accb59f601a589a25052332c46c7575ff90e58aa",
+          "source_digest": "b84adefd328ff51149d5810e32448cd1466758e1edd7c59380e363abd3a2b113",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "Triangle",
+          "node": 1,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/FBX/Moving.fbx",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/4d440e50-237f-4e24-a095-a7f04a8601d1",
+        "owner": "34e51616-baf1-41f0-a9ff-d597f09eda9a",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
       "dependencies": [],
       "dependency_edges": [],
       "id": "4da62f96-178e-400a-b7eb-b41a579804e3",
@@ -5739,6 +6129,57 @@
       "source": "Scenes/83-audio-source-codecs.scene.json",
       "source_dependencies": [],
       "type": "scene"
+    },
+    {
+      "dependencies": [
+        "95277526-2587-4d0b-a395-d39700a93dd4"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "1c5291ad7771ecf2f8c9fe80aa2dfb05691af4844b21ad772cf5683ae1c3ebb1",
+          "role": "skeleton",
+          "target": "95277526-2587-4d0b-a395-d39700a93dd4",
+          "type": "skeleton"
+        }
+      ],
+      "id": "54ee14fd-b188-4c57-99a6-3318555149cf",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "401ab2c2a065726e0dd378010aafcd1574eefb644ea97942ee31a9faa485e2fa",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 2,
+          "importer": "forge.model.fbx",
+          "importer_revision": "195d494d0deeaa99c7cd2b3529e458ecda2951edbb145442c88e3173be279976",
+          "key": "1c5291ad7771ecf2f8c9fe80aa2dfb05691af4844b21ad772cf5683ae1c3ebb1",
+          "output_format": "forge.model-bundle",
+          "output_version": 5,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "5bab57490b0963063304c5741c06bbdd753a2f098a80cc58c308e4c8a95bbadf",
+          "source_digest": "37b7fc37b24a1dd765817ece90278c91b64d0ec9d1d6fdb6c29839774c9b318c",
+          "version": 1
+        },
+        "forge.model": {
+          "bytes": 319,
+          "file": "clip-0.ozz",
+          "name": "Move",
+          "sha256": "7e4a23a4fdb53bbcf0b856d1315eb4f8b3c29e99ec9f313df413f900066f4629",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/FBX/Skin.fbx",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/54ee14fd-b188-4c57-99a6-3318555149cf",
+        "owner": "8e04781e-bac1-4607-9344-70ebbf91b343",
+        "removed": false
+      },
+      "type": "animation_clip"
     },
     {
       "dependencies": [],
@@ -6435,6 +6876,55 @@
     },
     {
       "dependencies": [
+        "143d9810-120e-40f7-b8ad-d9f8d575fcc0"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "d93264d55d43b2042ed2f9a829a33ac8b121e38dce6a7f337b0afa52f2952263",
+          "role": "mesh",
+          "target": "143d9810-120e-40f7-b8ad-d9f8d575fcc0",
+          "type": "mesh"
+        }
+      ],
+      "id": "6012d9be-9ed6-4813-8ac6-a5abb3ad911f",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "9d3b0273b87c1770c6867f9a797af9aff0cb46348f88037d69a1222ee925419f",
+          "backend": "d3d12",
+          "dependency_digest": "adfc5d2193b19acb9f0bbda952fc0c201f8a102edea43c908c173361aca1efb5",
+          "generation": 3,
+          "importer": "forge.model.fbx",
+          "importer_revision": "195d494d0deeaa99c7cd2b3529e458ecda2951edbb145442c88e3173be279976",
+          "key": "d93264d55d43b2042ed2f9a829a33ac8b121e38dce6a7f337b0afa52f2952263",
+          "output_format": "forge.model-bundle",
+          "output_version": 5,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "658ddf1926c7ccff661ba6ec25b8d35037b7bca6ccca5b6a97eb6f3d5c688e69",
+          "source_digest": "61f622a1d056e03d93310a0b71ed94fe7972b81ac1cebc21ef511884689de8fc",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "Triangle",
+          "node": 1,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/FBX/Static.fbx",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/6012d9be-9ed6-4813-8ac6-a5abb3ad911f",
+        "owner": "9539378f-6c5f-4c63-a076-657b35ec420c",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [
         "0c07b499-c865-4e5b-838d-8021bb7a99d3",
         "999ec7fe-b465-485a-b380-d1cd255109ad",
         "a2d9387a-fce3-4f4d-b617-77e05cfb3abf"
@@ -6632,6 +7122,45 @@
         "removed": false
       },
       "type": "material"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "676507d7-c90f-49d4-b9e3-821ddff0a217",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "401ab2c2a065726e0dd378010aafcd1574eefb644ea97942ee31a9faa485e2fa",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 2,
+          "importer": "forge.model.fbx",
+          "importer_revision": "195d494d0deeaa99c7cd2b3529e458ecda2951edbb145442c88e3173be279976",
+          "key": "1c5291ad7771ecf2f8c9fe80aa2dfb05691af4844b21ad772cf5683ae1c3ebb1",
+          "output_format": "forge.model-bundle",
+          "output_version": 5,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "5bab57490b0963063304c5741c06bbdd753a2f098a80cc58c308e4c8a95bbadf",
+          "source_digest": "37b7fc37b24a1dd765817ece90278c91b64d0ec9d1d6fdb6c29839774c9b318c",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "FBX root",
+          "node": 0,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/FBX/Skin.fbx",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/676507d7-c90f-49d4-b9e3-821ddff0a217",
+        "owner": "8e04781e-bac1-4607-9344-70ebbf91b343",
+        "removed": false
+      },
+      "type": "model_node"
     },
     {
       "dependencies": [],
@@ -8075,6 +8604,16 @@
       "type": "model_node"
     },
     {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "7c306ba6-e8af-4625-8fdc-37c3f639c7d1",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/175-fbx-model-import.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
       "dependencies": [
         "f0fa5e11-4161-4731-aeb4-a2a0e308d2e0"
       ],
@@ -9011,6 +9550,45 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "8301b3fa-6737-491f-88a8-d5b75c3081f5",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "76a387aea92e7b5cd6fcb9ad891b4b4221bd207b8c6d0124cb9883b71931ff2e",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 3,
+          "importer": "forge.model.fbx",
+          "importer_revision": "195d494d0deeaa99c7cd2b3529e458ecda2951edbb145442c88e3173be279976",
+          "key": "857db415f46c72fb12a2503ad8f665dc9a4769c4bc214fe56d6d7f40d9dd8594",
+          "output_format": "forge.model-bundle",
+          "output_version": 5,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "0ec087598ac334126c17cc02accb59f601a589a25052332c46c7575ff90e58aa",
+          "source_digest": "b84adefd328ff51149d5810e32448cd1466758e1edd7c59380e363abd3a2b113",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "FBX root",
+          "node": 0,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/FBX/Moving.fbx",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/8301b3fa-6737-491f-88a8-d5b75c3081f5",
+        "owner": "34e51616-baf1-41f0-a9ff-d597f09eda9a",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "83100425-d9af-4ae7-9d31-2e652505afa0",
       "metadata": {
         "forge.audio": {
@@ -9691,6 +10269,91 @@
       "type": "scene"
     },
     {
+      "dependencies": [
+        "184de8f0-b030-4cdd-a4bc-a5737f8c10f3",
+        "301621f4-ecd6-483a-8bd3-511031feacd0",
+        "54ee14fd-b188-4c57-99a6-3318555149cf",
+        "676507d7-c90f-49d4-b9e3-821ddff0a217",
+        "95277526-2587-4d0b-a395-d39700a93dd4",
+        "af851ab1-266e-45e9-b6b9-fe31473f134a"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "1c5291ad7771ecf2f8c9fe80aa2dfb05691af4844b21ad772cf5683ae1c3ebb1",
+          "role": "model.member:/meshes/0",
+          "target": "184de8f0-b030-4cdd-a4bc-a5737f8c10f3",
+          "type": "mesh"
+        },
+        {
+          "kind": "runtime",
+          "revision": "1c5291ad7771ecf2f8c9fe80aa2dfb05691af4844b21ad772cf5683ae1c3ebb1",
+          "role": "model.member:/nodes/2",
+          "target": "301621f4-ecd6-483a-8bd3-511031feacd0",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "1c5291ad7771ecf2f8c9fe80aa2dfb05691af4844b21ad772cf5683ae1c3ebb1",
+          "role": "model.member:/animations/0",
+          "target": "54ee14fd-b188-4c57-99a6-3318555149cf",
+          "type": "animation_clip"
+        },
+        {
+          "kind": "runtime",
+          "revision": "1c5291ad7771ecf2f8c9fe80aa2dfb05691af4844b21ad772cf5683ae1c3ebb1",
+          "role": "model.member:/nodes/0",
+          "target": "676507d7-c90f-49d4-b9e3-821ddff0a217",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "1c5291ad7771ecf2f8c9fe80aa2dfb05691af4844b21ad772cf5683ae1c3ebb1",
+          "role": "model.member:/rig/skeleton",
+          "target": "95277526-2587-4d0b-a395-d39700a93dd4",
+          "type": "skeleton"
+        },
+        {
+          "kind": "runtime",
+          "revision": "1c5291ad7771ecf2f8c9fe80aa2dfb05691af4844b21ad772cf5683ae1c3ebb1",
+          "role": "model.member:/nodes/1",
+          "target": "af851ab1-266e-45e9-b6b9-fe31473f134a",
+          "type": "model_node"
+        }
+      ],
+      "id": "8e04781e-bac1-4607-9344-70ebbf91b343",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "401ab2c2a065726e0dd378010aafcd1574eefb644ea97942ee31a9faa485e2fa",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 2,
+          "importer": "forge.model.fbx",
+          "importer_revision": "195d494d0deeaa99c7cd2b3529e458ecda2951edbb145442c88e3173be279976",
+          "key": "1c5291ad7771ecf2f8c9fe80aa2dfb05691af4844b21ad772cf5683ae1c3ebb1",
+          "output_format": "forge.model-bundle",
+          "output_version": 5,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "5bab57490b0963063304c5741c06bbdd753a2f098a80cc58c308e4c8a95bbadf",
+          "source_digest": "37b7fc37b24a1dd765817ece90278c91b64d0ec9d1d6fdb6c29839774c9b318c",
+          "version": 1
+        },
+        "forge.model": {
+          "bytes": 5482,
+          "file": "model.json",
+          "sha256": "81ef66a50477f6edbf32e3e4c6acc89861572b243d9d8fa0d7b18d88f08b8ee2",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/FBX/Skin.fbx",
+      "source_dependencies": [],
+      "type": "model"
+    },
+    {
       "dependencies": [],
       "dependency_edges": [],
       "id": "8e4f9375-8d84-4251-9dbe-31f51cc8dbcd",
@@ -9958,6 +10621,130 @@
         "removed": false
       },
       "type": "animation_clip"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "95277526-2587-4d0b-a395-d39700a93dd4",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "401ab2c2a065726e0dd378010aafcd1574eefb644ea97942ee31a9faa485e2fa",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 2,
+          "importer": "forge.model.fbx",
+          "importer_revision": "195d494d0deeaa99c7cd2b3529e458ecda2951edbb145442c88e3173be279976",
+          "key": "1c5291ad7771ecf2f8c9fe80aa2dfb05691af4844b21ad772cf5683ae1c3ebb1",
+          "output_format": "forge.model-bundle",
+          "output_version": 5,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "5bab57490b0963063304c5741c06bbdd753a2f098a80cc58c308e4c8a95bbadf",
+          "source_digest": "37b7fc37b24a1dd765817ece90278c91b64d0ec9d1d6fdb6c29839774c9b318c",
+          "version": 1
+        },
+        "forge.model": {
+          "bytes": 234,
+          "file": "skeleton.ozz",
+          "name": "Model skeleton",
+          "sha256": "d7650cb41d1cc3887edd7553f4619da0e24a02f9d6832c399a7faad62f17b7fa",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/FBX/Skin.fbx",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/95277526-2587-4d0b-a395-d39700a93dd4",
+        "owner": "8e04781e-bac1-4607-9344-70ebbf91b343",
+        "removed": false
+      },
+      "type": "skeleton"
+    },
+    {
+      "dependencies": [
+        "143d9810-120e-40f7-b8ad-d9f8d575fcc0",
+        "31801385-5df1-4acb-94c6-cd28b98cef5c",
+        "6012d9be-9ed6-4813-8ac6-a5abb3ad911f",
+        "cb1f9efd-e917-4609-88d5-6aaa19b7224e",
+        "f3d41a4f-e932-48e6-b876-df3c279147c7"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "d93264d55d43b2042ed2f9a829a33ac8b121e38dce6a7f337b0afa52f2952263",
+          "role": "model.member:/meshes/0",
+          "target": "143d9810-120e-40f7-b8ad-d9f8d575fcc0",
+          "type": "mesh"
+        },
+        {
+          "kind": "runtime",
+          "revision": "d93264d55d43b2042ed2f9a829a33ac8b121e38dce6a7f337b0afa52f2952263",
+          "role": "model.member:/images/0",
+          "target": "31801385-5df1-4acb-94c6-cd28b98cef5c",
+          "type": "texture"
+        },
+        {
+          "kind": "runtime",
+          "revision": "d93264d55d43b2042ed2f9a829a33ac8b121e38dce6a7f337b0afa52f2952263",
+          "role": "model.member:/nodes/1",
+          "target": "6012d9be-9ed6-4813-8ac6-a5abb3ad911f",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "d93264d55d43b2042ed2f9a829a33ac8b121e38dce6a7f337b0afa52f2952263",
+          "role": "model.member:/nodes/0",
+          "target": "cb1f9efd-e917-4609-88d5-6aaa19b7224e",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "d93264d55d43b2042ed2f9a829a33ac8b121e38dce6a7f337b0afa52f2952263",
+          "role": "model.member:/materials/0",
+          "target": "f3d41a4f-e932-48e6-b876-df3c279147c7",
+          "type": "material"
+        }
+      ],
+      "id": "9539378f-6c5f-4c63-a076-657b35ec420c",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "9d3b0273b87c1770c6867f9a797af9aff0cb46348f88037d69a1222ee925419f",
+          "backend": "d3d12",
+          "dependency_digest": "adfc5d2193b19acb9f0bbda952fc0c201f8a102edea43c908c173361aca1efb5",
+          "generation": 3,
+          "importer": "forge.model.fbx",
+          "importer_revision": "195d494d0deeaa99c7cd2b3529e458ecda2951edbb145442c88e3173be279976",
+          "key": "d93264d55d43b2042ed2f9a829a33ac8b121e38dce6a7f337b0afa52f2952263",
+          "output_format": "forge.model-bundle",
+          "output_version": 5,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "658ddf1926c7ccff661ba6ec25b8d35037b7bca6ccca5b6a97eb6f3d5c688e69",
+          "source_digest": "61f622a1d056e03d93310a0b71ed94fe7972b81ac1cebc21ef511884689de8fc",
+          "version": 1
+        },
+        "forge.model": {
+          "bytes": 2792,
+          "file": "model.json",
+          "sha256": "c4af4f8e9463aeb535fb4a480a863468314cd96ed683a941d6df0f41d9117385",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/FBX/Static.fbx",
+      "source_dependencies": [
+        {
+          "revision": "9d1026a078ec09881594d50ed1442777d9b3c6bc64420d2c99203633cfc7b5e9",
+          "role": "import.source",
+          "source": "Assets/FBX/Checker.png"
+        }
+      ],
+      "type": "model"
     },
     {
       "dependencies": [],
@@ -10723,6 +11510,47 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "a41dd585-9c44-4992-b0dd-0de91a05472b",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "76a387aea92e7b5cd6fcb9ad891b4b4221bd207b8c6d0124cb9883b71931ff2e",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 3,
+          "importer": "forge.model.fbx",
+          "importer_revision": "195d494d0deeaa99c7cd2b3529e458ecda2951edbb145442c88e3173be279976",
+          "key": "857db415f46c72fb12a2503ad8f665dc9a4769c4bc214fe56d6d7f40d9dd8594",
+          "output_format": "forge.model-bundle",
+          "output_version": 5,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "0ec087598ac334126c17cc02accb59f601a589a25052332c46c7575ff90e58aa",
+          "source_digest": "b84adefd328ff51149d5810e32448cd1466758e1edd7c59380e363abd3a2b113",
+          "version": 1
+        },
+        "forge.model": {
+          "bytes": 218,
+          "file": "skeleton.ozz",
+          "name": "Model skeleton",
+          "sha256": "a4a603f578fb88d9e5c4183816f603db77fb730c85208ac308fe6ccbbe465ba7",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/FBX/Moving.fbx",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/a41dd585-9c44-4992-b0dd-0de91a05472b",
+        "owner": "34e51616-baf1-41f0-a9ff-d597f09eda9a",
+        "removed": false
+      },
+      "type": "skeleton"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "a4c29e00-c3d6-4534-83c2-87146bcc5fbb",
       "metadata": {},
       "schema_version": 3,
@@ -11210,6 +12038,55 @@
       "subasset": {
         "key": "member/af64d6ab-bc61-4000-861e-065712610ac8",
         "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [
+        "184de8f0-b030-4cdd-a4bc-a5737f8c10f3"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "1c5291ad7771ecf2f8c9fe80aa2dfb05691af4844b21ad772cf5683ae1c3ebb1",
+          "role": "mesh",
+          "target": "184de8f0-b030-4cdd-a4bc-a5737f8c10f3",
+          "type": "mesh"
+        }
+      ],
+      "id": "af851ab1-266e-45e9-b6b9-fe31473f134a",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "401ab2c2a065726e0dd378010aafcd1574eefb644ea97942ee31a9faa485e2fa",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 2,
+          "importer": "forge.model.fbx",
+          "importer_revision": "195d494d0deeaa99c7cd2b3529e458ecda2951edbb145442c88e3173be279976",
+          "key": "1c5291ad7771ecf2f8c9fe80aa2dfb05691af4844b21ad772cf5683ae1c3ebb1",
+          "output_format": "forge.model-bundle",
+          "output_version": 5,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "5bab57490b0963063304c5741c06bbdd753a2f098a80cc58c308e4c8a95bbadf",
+          "source_digest": "37b7fc37b24a1dd765817ece90278c91b64d0ec9d1d6fdb6c29839774c9b318c",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "Triangle",
+          "node": 1,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/FBX/Skin.fbx",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/af851ab1-266e-45e9-b6b9-fe31473f134a",
+        "owner": "8e04781e-bac1-4607-9344-70ebbf91b343",
         "removed": false
       },
       "type": "model_node"
@@ -12627,6 +13504,45 @@
       "source": "Scenes/123-tile-collision-contours.scene.json",
       "source_dependencies": [],
       "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "cb1f9efd-e917-4609-88d5-6aaa19b7224e",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "9d3b0273b87c1770c6867f9a797af9aff0cb46348f88037d69a1222ee925419f",
+          "backend": "d3d12",
+          "dependency_digest": "adfc5d2193b19acb9f0bbda952fc0c201f8a102edea43c908c173361aca1efb5",
+          "generation": 3,
+          "importer": "forge.model.fbx",
+          "importer_revision": "195d494d0deeaa99c7cd2b3529e458ecda2951edbb145442c88e3173be279976",
+          "key": "d93264d55d43b2042ed2f9a829a33ac8b121e38dce6a7f337b0afa52f2952263",
+          "output_format": "forge.model-bundle",
+          "output_version": 5,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "658ddf1926c7ccff661ba6ec25b8d35037b7bca6ccca5b6a97eb6f3d5c688e69",
+          "source_digest": "61f622a1d056e03d93310a0b71ed94fe7972b81ac1cebc21ef511884689de8fc",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "FBX root",
+          "node": 0,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/FBX/Static.fbx",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/cb1f9efd-e917-4609-88d5-6aaa19b7224e",
+        "owner": "9539378f-6c5f-4c63-a076-657b35ec420c",
+        "removed": false
+      },
+      "type": "model_node"
     },
     {
       "dependencies": [],
@@ -14784,6 +15700,57 @@
       "source": "Assets/Particles/Shapes/DiscOrigins.particles.json",
       "source_dependencies": [],
       "type": "particle_effect"
+    },
+    {
+      "dependencies": [
+        "31801385-5df1-4acb-94c6-cd28b98cef5c"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "d93264d55d43b2042ed2f9a829a33ac8b121e38dce6a7f337b0afa52f2952263",
+          "role": "baseColorTexture",
+          "target": "31801385-5df1-4acb-94c6-cd28b98cef5c",
+          "type": "texture"
+        }
+      ],
+      "id": "f3d41a4f-e932-48e6-b876-df3c279147c7",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "9d3b0273b87c1770c6867f9a797af9aff0cb46348f88037d69a1222ee925419f",
+          "backend": "d3d12",
+          "dependency_digest": "adfc5d2193b19acb9f0bbda952fc0c201f8a102edea43c908c173361aca1efb5",
+          "generation": 3,
+          "importer": "forge.model.fbx",
+          "importer_revision": "195d494d0deeaa99c7cd2b3529e458ecda2951edbb145442c88e3173be279976",
+          "key": "d93264d55d43b2042ed2f9a829a33ac8b121e38dce6a7f337b0afa52f2952263",
+          "output_format": "forge.model-bundle",
+          "output_version": 5,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "658ddf1926c7ccff661ba6ec25b8d35037b7bca6ccca5b6a97eb6f3d5c688e69",
+          "source_digest": "61f622a1d056e03d93310a0b71ed94fe7972b81ac1cebc21ef511884689de8fc",
+          "version": 1
+        },
+        "forge.model": {
+          "bytes": 978,
+          "file": "material-0.fmat",
+          "name": "Surface",
+          "sha256": "9965fbb547d1cdddfeb564d7ecb86b6ca89c189cbda9514da96b20d299c03f79",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/FBX/Static.fbx",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/f3d41a4f-e932-48e6-b876-df3c279147c7",
+        "owner": "9539378f-6c5f-4c63-a076-657b35ec420c",
+        "removed": false
+      },
+      "type": "material"
     },
     {
       "dependencies": [],

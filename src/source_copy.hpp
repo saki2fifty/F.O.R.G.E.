@@ -1,5 +1,6 @@
 #pragma once
 #include <cstddef>
+#include <forge/asset_build.hpp>
 #include <forge/project_lease.hpp>
 #include <memory>
 #include <set>
@@ -27,14 +28,17 @@ struct SourceCopyPlan {
 // repeats this check at prepare and commit; preflight does not reserve a folder.
 std::filesystem::path validate_source_copy_destination(const std::filesystem::path& project,
                                                        const std::filesystem::path& new_folder);
-// Copies only explicitly selected raw sources and admitted glTF dependencies.
+using SourceCopyInspector = std::function<std::vector<AssetSourceDependency>(
+    const std::filesystem::path&, std::stop_token)>;
+// Copies only explicitly selected raw sources and admitted model dependencies.
 // Each selection gets its own subfolder; no sidecar/AssetId is copied. Preparation
 // is read-only and cancellable, bounded to256 roots/8192 files/2GiB aggregate.
 SourceCopyPlan prepare_source_copy(const std::filesystem::path& project,
                                    const std::filesystem::path& new_folder,
                                    const std::vector<std::filesystem::path>& files,
                                    const std::set<std::string>& gltf_extensions = {},
-                                   std::stop_token stop = {});
+                                   std::stop_token stop = {},
+                                   const SourceCopyInspector& fbx_inspector = {});
 SourceCopyPlan prepare_generated_source_copy(const std::filesystem::path& project,
                                              const std::filesystem::path& new_folder,
                                              const std::filesystem::path& name,

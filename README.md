@@ -24,6 +24,7 @@ Native ECS game editor under development. Windows/D3D12 is the first editor targ
 | Audio | miniaudio | WAV/FLAC/MP3 decoding, resident or bounded streamed playback, spatial sound and mixing. |
 | Serialization | nlohmann/json | Authored JSON documents and process messages. |
 | Mesh processing | meshoptimizer and Draco | Geometry processing and glTF compression decoding. |
+| FBX model parsing | ufbx | Private supervised FBX parsing, coordinate conversion, triangulation and animation baking feeding the shared model cooks. |
 | Texture and image processing | KTX Software/Basis, libpng, libwebp and stb | Texture import, image decoding, lossless PNG/WebP and opaque JPEG still output, bounded silent WebP sequence animation, stored8/16-bit PNG texture export, decoded BC texture still output, bounded Radiance HDR output with labelled PNG inspection and cooked texture processing. |
 | Build tools | CMake and Ninja | Dependency configuration, incremental builds and packaging. |
 | Compilers | MSVC and GCC | Windows builds and portable core validation. |

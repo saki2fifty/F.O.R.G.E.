@@ -1,5 +1,6 @@
 #include "model_authoring.hpp"
 #include "asset_bytes.hpp"
+#include "fbx_importer.hpp"
 #include "model_bundle.hpp"
 #include "model_importer.hpp"
 #include "model_selection.hpp"
@@ -35,9 +36,10 @@ selected_correspondence(const AssetPublicationCandidate& c,
             throw std::runtime_error("Selected model correspondence disagrees with "
                                      "catalog/sidecar; restore consistent import metadata");
     };
-    require(std::count_if(owner.dependency_edges.begin(), owner.dependency_edges.end(),
-                          [](const auto& edge) { return !is_declared_runtime_dependency(edge); }) ==
-            bundle.members.size());
+    require(static_cast<std::size_t>(std::count_if(
+                owner.dependency_edges.begin(), owner.dependency_edges.end(), [](const auto& edge) {
+                    return !is_declared_runtime_dependency(edge);
+                })) == bundle.members.size());
     std::map<std::string, AssetId> selected;
     for (const auto& edge : owner.dependency_edges) {
         if (is_declared_runtime_dependency(edge))
@@ -211,12 +213,20 @@ void prepare_model_publication(AssetPublicationCandidate& c, const AssetImportPl
     const auto bundle = asset_detail::validate_model_bundle(c.files);
     if (bundle.source_digest != c.input.source_digest || bundle.version != c.input.output_version)
         throw std::runtime_error("Model candidate belongs to another source revision");
-    if (bundle.version != 5 || bundle.evidence_schema != "forge.gltf-model.v2")
-        throw std::runtime_error("New model publications require source identity evidence v2");
+    const bool fbx = c.input.importer == asset_detail::fbx_importer_id;
+    if (bundle.version != 5 ||
+        bundle.evidence_schema != (fbx ? asset_detail::fbx_evidence_schema : "forge.gltf-model.v2"))
+        throw std::runtime_error(
+            "New model publication requires its current source identity profile");
+    if (fbx && (c.input.importer_revision != asset_detail::fbx_recipe_revision() ||
+                !c.input.tool_revisions.contains("ufbx") ||
+                c.input.tool_revisions.at("ufbx") != asset_detail::fbx_parser_tool_revision()))
+        throw std::runtime_error("FBX parser provenance differs from the prepared recipe");
     if (bundle.hierarchy.contains("animation")) {
         const auto digest =
             bundle.hierarchy.at("animation").at("provenance").at("converter_sha256");
-        if (c.input.importer_revision != asset_detail::model_recipe_revision() ||
+        if (c.input.importer_revision != (fbx ? asset_detail::fbx_recipe_revision()
+                                              : asset_detail::model_recipe_revision()) ||
             !c.input.tool_revisions.contains("gltf2ozz") ||
             digest != c.input.tool_revisions.at("gltf2ozz") ||
             !plan.data.at("animation").get<bool>() || digest != plan.data.at("converter_sha256"))
@@ -269,7 +279,10 @@ void prepare_model_publication(AssetPublicationCandidate& c, const AssetImportPl
     }
     const auto key = c.input.key();
     std::vector<AssetRecord> records;
-    AssetRecord owner{c.ticket.owner, ModelAsset::type, c.ticket.source, 1, {}};
+    AssetRecord owner{};
+    owner.id = c.ticket.owner;
+    owner.type = ModelAsset::type;
+    owner.source = c.ticket.source;
     for (const auto& file : c.files)
         if (file.name == "model.json")
             owner.metadata["forge.model"] = {{"version", 1},
@@ -286,7 +299,10 @@ void prepare_model_publication(AssetPublicationCandidate& c, const AssetImportPl
                                           "model.member:" + member.identity.address, key});
     }
     for (const auto& entry : reconciled.document->entries) {
-        AssetRecord record{entry.id, entry.type, c.ticket.source, 1, {}};
+        AssetRecord record{};
+        record.id = entry.id;
+        record.type = entry.type;
+        record.source = c.ticket.source;
         record.subasset = AssetSubasset{c.ticket.owner, entry.key, entry.removed};
         if (!entry.removed) {
             const auto& member = *by_id.at(entry.id);

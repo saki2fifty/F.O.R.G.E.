@@ -59,8 +59,9 @@ morph weights and non-transform channels are rejected. Source JSON is limited to
 base64 or project-contained relative buffer files are supported, with16MiB total
 source/dependency staging. Network/absolute/escaping/percent-encoded dependencies,
 extensions and image assets are rejected. This is an animation-only bridge, not
-universal glTF import. FBX is unsupported. Model/mesh/material/image import uses the separate
-[model pipeline](model-import.md), not this legacy bridge.
+universal glTF import. This animation-only bridge does not accept FBX.
+Model/mesh/material/image import and supported FBX clips use the separate
+[model pipeline](model-import.md).
 The source must contain one complete JSON record. Raw NUL bytes, trailing
 non-whitespace bytes and additional values are rejected before source rewriting
 or converter launch. Rejection retains the source, catalog and published

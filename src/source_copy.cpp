@@ -86,7 +86,8 @@ SourceCopyPlan prepare_shared_generated_source_copy(
 SourceCopyPlan prepare_source_copy(const std::filesystem::path& project,
                                    const std::filesystem::path& new_folder,
                                    const std::vector<std::filesystem::path>& files,
-                                   const std::set<std::string>& extensions, std::stop_token stop) {
+                                   const std::set<std::string>& extensions, std::stop_token stop,
+                                   const SourceCopyInspector& fbx_inspector) {
     const ProjectPaths paths(project);
     (void)destination(paths, new_folder);
     require(!files.empty() && files.size() <= 256, "Select between1 and256 source files");
@@ -110,6 +111,17 @@ SourceCopyPlan prepare_source_copy(const std::filesystem::path& project,
             dependencies.emplace(path.filename(), bundle.source_digest);
             for (const auto& dependency : bundle.dependencies)
                 dependencies.emplace(dependency.source, dependency.revision);
+        } else if (extension == ".fbx") {
+            require(bool(fbx_inspector),
+                    "FBX source copying requires the supervised model inspector");
+            for (const auto& dependency : fbx_inspector(path, stop)) {
+                const auto [at, added] =
+                    dependencies.emplace(dependency.source, dependency.revision);
+                require(added || at->second == dependency.revision,
+                        "Conflicting FBX source-copy revisions");
+            }
+            require(dependencies.contains(path.filename()),
+                    "FBX inspector omitted its source revision");
         } else {
             const auto bytes = asset_detail::read_bytes(path, file_limit);
             dependencies.emplace(path.filename(), asset_detail::content_digest(bytes));

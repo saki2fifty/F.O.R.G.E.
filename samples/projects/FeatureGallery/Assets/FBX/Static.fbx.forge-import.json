@@ -1,0 +1,101 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [],
+    "importer": "forge.model.fbx",
+    "importer_revision": "195d494d0deeaa99c7cd2b3529e458ecda2951edbb145442c88e3173be279976",
+    "key_version": 2,
+    "output_format": "forge.model-bundle",
+    "output_version": 5,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {
+      "animation_optimize": true,
+      "animation_sampling_rate": 30,
+      "compression": "none",
+      "max_texture_size": 16384,
+      "normals": "missing",
+      "skin_influences": "reject",
+      "tangents": "missing",
+      "vertex_fetch": true,
+      "weld_exact": true
+    },
+    "settings_version": 1,
+    "source": "61f622a1d056e03d93310a0b71ed94fe7972b81ac1cebc21ef511884689de8fc",
+    "source_dependencies": {
+      "Assets/FBX/Checker.png": "9d1026a078ec09881594d50ed1442777d9b3c6bc64420d2c99203633cfc7b5e9"
+    },
+    "tool_revisions": {
+      "ufbx": "452a4c558f54fac89fea76d2387efa66627253f324f0b85ed6678f4e3eed27b5"
+    }
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [
+      {
+        "content_digest": "68265802890a8787f36ee5374de7dca3dc85750bcb8f59e6e2ae9866045b2a1c",
+        "display_name": "Triangle",
+        "exporter_key": "fbx:mesh:1001",
+        "id": "143d9810-120e-40f7-b8ad-d9f8d575fcc0",
+        "key": "member/143d9810-120e-40f7-b8ad-d9f8d575fcc0",
+        "removed": false,
+        "semantic_digest": "dcc5756a51c07c1731b5093592f897595e880360cd103cf6b60639677baf7e4d",
+        "type": "mesh"
+      },
+      {
+        "content_digest": "9d1026a078ec09881594d50ed1442777d9b3c6bc64420d2c99203633cfc7b5e9",
+        "display_name": "Color",
+        "exporter_key": "fbx:image:4001",
+        "id": "31801385-5df1-4acb-94c6-cd28b98cef5c",
+        "key": "member/31801385-5df1-4acb-94c6-cd28b98cef5c",
+        "removed": false,
+        "semantic_digest": "5caf4e1cacce31c4e45197c88186bb5a841c5d77acc691128cdded81d7e6709a",
+        "type": "texture"
+      },
+      {
+        "content_digest": "799c61b64fb238384fe5a6231fbf0b25f1770ec342b32dca7a2b577999d07496",
+        "display_name": "Triangle",
+        "exporter_key": "fbx:node:1002",
+        "id": "6012d9be-9ed6-4813-8ac6-a5abb3ad911f",
+        "key": "member/6012d9be-9ed6-4813-8ac6-a5abb3ad911f",
+        "removed": false,
+        "semantic_digest": "63bffcb855114c26f7f08f52c1cc13ecbdbcd86324310bfa3f92807b3110ae9c",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "6b18eb335baa15da2a169fa4e5830cde3e95009a6ecbb20fac695b4c5e5d63a8",
+        "display_name": "FBX root",
+        "exporter_key": "fbx:root",
+        "id": "cb1f9efd-e917-4609-88d5-6aaa19b7224e",
+        "key": "member/cb1f9efd-e917-4609-88d5-6aaa19b7224e",
+        "removed": false,
+        "semantic_digest": "862bdace54724b4ca37d1a72f2076efa040af9d9997ad480381d14f66d0cb21c",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "95d11722cdc4e532105dc59d22218df806591e18fcd2c0abad9a6b325108b348",
+        "display_name": "Surface",
+        "exporter_key": "fbx:material:4000",
+        "id": "f3d41a4f-e932-48e6-b876-df3c279147c7",
+        "key": "member/f3d41a4f-e932-48e6-b876-df3c279147c7",
+        "removed": false,
+        "semantic_digest": "d5b78897773f3a9cea5262cf18516e9b49260b7b8e83e2408ad5acf88e2525a7",
+        "type": "material"
+      }
+    ],
+    "evidence_schema": "forge.fbx-model.v1",
+    "format": "forge.subasset-identity",
+    "owner": "9539378f-6c5f-4c63-a076-657b35ec420c",
+    "source": "Assets/FBX/Static.fbx",
+    "source_digest": "61f622a1d056e03d93310a0b71ed94fe7972b81ac1cebc21ef511884689de8fc",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.model.fbx",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

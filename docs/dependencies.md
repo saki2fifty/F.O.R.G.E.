@@ -14,6 +14,7 @@ Official SDKs were reviewed; none is C++, and no SDK/reference code is included.
 
 | Dependency | Baseline | Used capabilities | Official reference |
 |---|---|---|---|
+| ufbx | 0.23.1 / `26a482ae66871d7de36eb722aa060bce95bce274` | Private supervised FBX parsing, transform conversion, triangulation and animation baking | [Official release](https://github.com/ufbx/ufbx/releases/tag/v0.23.1) |
 | Draco | 1.5.7 / `8786740086a9f4d83f44aa83badfbea4dce7a1b5` | Private glTF mesh decompression | [Source](https://github.com/google/draco/tree/8786740086a9f4d83f44aa83badfbea4dce7a1b5) |
 | meshoptimizer | 1.2 / `9d9890c73011d75920af614485296d1e03e95448` | Private EXT buffer decode, Mikk-compatible tangents and coherent remapping | [Source](https://github.com/zeux/meshoptimizer/tree/9d9890c73011d75920af614485296d1e03e95448) |
 | KTX Software | 4.4.2 / `4d6fc70eaf62ad0558e63e8d97eb9766118327a6` | Private containers and Basis codecs | [Source](https://github.com/KhronosGroup/KTX-Software/tree/4d6fc70eaf62ad0558e63e8d97eb9766118327a6) |
@@ -108,6 +109,43 @@ Jolt is now pinned and integrated. See [Physics build/lifetime contract](physics
 
 miniaudio0.11.25 is the pinned audio implementation. See [Audio](audio.md) for enabled backends, tested PCM WAV formats, compile switches, threading/lifetime, bounds, paused playback and deferred capabilities. AudioClip identity uses the existing asset catalog. Phase7 adds a shared supervised WAV import/cook/reimport route and immutable PCM selection; runtime voices retain their existing cache/lifetime. Generic asynchronous AudioClip handles remain deferred. Exact source rechecked2026-09-21: WAV-specific decoder selection, frame-length/read/uninit and384000Hz upstream admission bound. No pin/build-option change. Automated offline/null testing is distinct from physical speaker/headphone acceptance.
 
+## FBX parser selection
+
+Verified2026-11-06 against official stable0.23.1, annotated tag object
+`35a37776ee1163a74609f4ee75d162b7ada099ac` and peeled commit
+`26a482ae66871d7de36eb722aa060bce95bce274`. The immutable official archive SHA256 is
+`18d5a7849378e3fe247b0df67cf845cb593c73172cbac0de99b5aba130542667`.
+`cmake/ufbx.cmake` also checks source and header SHA256, including local
+FetchContent source overrides. The source and header remain unmodified.
+
+The selected linkage is a private static C17 library with default double scalars;
+no SDK header, system FBX SDK, parser executable or runtime model decoder is
+installed. The worker loads captured bytes with external file opening disabled
+and denied, explicit allocation/depth/index/Unicode limits and cancellation.
+Native scene objects never become authored or gameplay authority. FORGE's adapter
+is independently written and uses existing model/mesh/material/Ozz/publication
+owners. The generated internal interchange is separate from the authored FBX.
+
+The MIT license option is selected. The full original dual-license notice is
+installed as `ufbx.txt` with Runtime and NativeSdk licenses. Keep its ownership
+and notices; it is a third-party parser, not FORGE-authored code. No dependency
+upgrade or vendor patch is part of this integration.
+
+Matching exact-revision API48, mesh56, transform63, material43, animation81,
+skin39, triangulation12 and coordinate-conversion34 tests pass on Linux/GCC12.
+The upstream runner requires GNU99 for its POSIX timing declarations; the
+unmodified parser also passed a separate C11 compile and original API probes.
+FORGE's selected library uses the normal C17 build. Original FORGE fixtures cover
+ASCII, binary7400/7500, source ordering, metre geometry/transforms, image UVs,
+materials, linear skinning, baked clips and worker publication. These are focused
+claims, not complete FBX conformance or Windows/physical acceptance.
+
+The exact header/source is authoritative. Live reference text was checked against
+the pin; older default-branch introductory wording is not release evidence.
+Source `element_id`/`typed_id` values are parser indices, not FBX source identities.
+Retained original numeric UIDs provide identity evidence. See
+[the model contract](model-import.md) for the supported profile and limits.
+
 ## Phase6D animation dependency
 
 Ozz Animation **0.17.0**, exact commit `744eb9d99f606eda849acb0b1204f7a3dc20bca1`.
@@ -118,9 +156,9 @@ are installed in the gameplay SDK. SIMD follows the upstream portable baseline.
 
 Adopted: runtime Skeleton/Animation, SamplingJob reusable contexts, LocalToModelJob,
 official glTF conversion. FORGE owns safe archive admission and provenance. Optional
-seek iframes are disabled; no arbitrary .ozz imports. Graphs/controllers/renderer/mesh
-import are not provided by this integration. Root-motion extraction, blending/IK,
-FBX and sample skinning remain deferred. See [Animation contract](animation.md) for
+seek iframes are disabled; no arbitrary .ozz imports. Graphs/controllers, rendering
+and mesh import have separate FORGE owners. The Ozz FBX SDK converter remains
+disabled; supported FBX preparation uses the separate pinned ufbx adapter. See [Animation contract](animation.md) for
 format limits, ownership, conversion settings, compatibility and upgrade gates.
 
 ## Navigation adoption (Phase 6E)

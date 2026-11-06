@@ -460,6 +460,21 @@ assert any(row['document'] == by_source['Assets/UI/SceneSurface/Guide.rml']['id'
 assert not {row['id'] for row in surface['entities']} & {row['id'] for row in shadow_motion['entities']}
 
 
+fbx = json.loads((project_root / 'Scenes/175-fbx-model-import.scene.json').read_text())
+assert fbx['asset_id'] == by_source['Scenes/175-fbx-model-import.scene.json']['id']
+fbx_models = {row['source']: row for row in assets if row['type'] == 'model'
+              and row['source'].startswith('Assets/FBX/')}
+assert set(fbx_models) == {'Assets/FBX/Static.fbx', 'Assets/FBX/Moving.fbx', 'Assets/FBX/Skin.fbx'}
+assert all(row['metadata']['forge.import']['importer'] == 'forge.model.fbx'
+           for row in fbx_models.values())
+fbx_roots = [row['components']['forge.model_source'] for row in fbx['entities']
+             if 'forge.model_source' in row['components']
+             and row['components']['forge.model_source']['node'] is None]
+assert len(fbx_roots) == 3 and {row['model'] for row in fbx_roots} == {row['id'] for row in fbx_models.values()}
+assert len([row for row in fbx['entities'] if 'forge.animator' in row['components']]) == 2
+assert (project_root / 'Assets/FBX/Checker.png').is_file()
+assert not {row['id'] for row in fbx['entities']} & {row['id'] for row in surface['entities']}
+
 scenes = sorted((project_root / 'Scenes').glob('*.scene.json'))
 assert {'71-world-sprites.scene.json', '72-sprite-frame-animation.scene.json',
         '73-sprite-image-fill.scene.json', '74-tile-maps.scene.json',

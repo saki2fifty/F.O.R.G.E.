@@ -1,9 +1,9 @@
 # Importing and placing models
 
-FORGE imports `.gltf` and `.glb` models as a complete asset family: meshes,
+FORGE imports `.gltf`, `.glb` and supported `.fbx` models as a complete asset family: meshes,
 materials, referenced textures and, when present, a skeleton and animation clips.
-Models can contain points, lines and triangles, with indexed or nonindexed source
-geometry. FORGE chooses compact index storage automatically; no import setting is
+glTF models can contain points, lines and triangles, with indexed or nonindexed source
+geometry. FBX polygon meshes are triangulated during import. FORGE chooses compact index storage automatically; no import setting is
 needed for that choice. Original source files stay unchanged. Importing prepares assets; **Place model**
 creates ordinary entities in your current scene.
 
@@ -12,6 +12,53 @@ creates ordinary entities in your current scene.
 Preview an imported model, then place the selected scene in your authored scene.
 
 For files outside the project, use **Content → Import files** or drop them onto Content. The [Content import review](content-browser.md) copies sources into a new folder and can import them with default settings. Turn off automatic import there to review the settings below before cooking.
+
+## Import an FBX model
+
+![Original FBX models with a checker Material, transform animation and linear skinning](../images/fbx-import-gallery.png)
+
+Open **175-fbx-model-import** in the Feature Gallery to run these prepared placements.
+
+1. Export an FBX7.x model from your modelling application. Include the mesh, hierarchy and any required linear-weight skin and transform-animation clips.
+2. Keep referenced PNG/JPEG images beside the FBX or beneath its folder. Embedded PNG/JPEG images can remain inside the FBX. For an external file, choose **Content → Import files** or drop it onto Content, then review the copied files and destination before committing the import.
+3. Open **Import model...** to review import settings, or let the Content import review prepare the model with its default settings. Choose **Import / Reimport** when using the model document.
+4. Inspect **3D preview**, choose the source scene and an animation clip when wanted, then use **Place model**. Save your scene and press **Play** to test it.
+
+Materials, referenced textures, meshes, skeleton and clips appear as members of
+the imported Model in Content. Importing does not create a separate editable
+Material source file for every surface. Reimport the model after changing its
+source; the previous usable family remains selected if preparation fails.
+
+FBX units and axes are converted automatically. Up to four UV sets and basic
+base-color, normal and emission image bindings are supported. Named UV sets must
+exist consistently on every mesh using that material. Use ordinary file textures
+without texture-coordinate transforms; bake layered or procedural shading into
+PNG/JPEG images before exporting. Review notices for material maps outside this
+profile. Materials without transparency properties import as opaque. Neutral
+legacy transparency can become scalar alpha; colored legacy transparency requires
+a different source preparation or an authored Material.
+
+Use linear or rigid skinning with one skin per mesh. The normal import setting
+rejects vertices with more than four positive influences; choose the explicit
+reduction setting to retain the strongest four and normalize them. A skin can
+contain up to1024 joints, with at most256 active joints in a draw. Dual-quaternion
+skins, morph/cache deformers and differing material assignments on instances of
+the same source mesh require a different export preparation.
+
+Transform-animation stacks become named clips. **Animation sampling rate** controls
+curve baking and conversion. Clip ranges start at zero and retain their declared
+duration; nonlinear curves are resampled and stepped curves use short interpolated
+transitions. Bake constraints into transform keys in the source application.
+Animated material, visibility and other properties are outside this FBX clip
+profile. Imported FBX camera/light attachments remain transforms: add FORGE Camera
+and Light components when needed. Use Model import for FBX clips; the separate
+animation-only conversion window accepts its documented glTF profile.
+
+Older FBX formats, polygon holes, line/point-only meshes and nonrepresentable
+transforms reject with a diagnostic. For images outside the selected external
+source folder, reorganize that source folder before copying, or place the source
+and images inside the project and import them there. Network and escaping paths
+are rejected.
 
 ## Try the packaged walkthrough
 

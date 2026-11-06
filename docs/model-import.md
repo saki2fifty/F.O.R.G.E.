@@ -74,6 +74,84 @@ semantic-suffix mismatches reject.
 
 ## Format boundaries
 
+### FBX source profile
+
+The separate `forge.model.fbx` importer accepts ASCII and binary FBX7 sources.
+The supervised worker uses the unmodified pinned ufbx parser; source capture and
+publication remain FORGE-owned. The same Content, source-copy/reimport, model
+placement, automation/MCP and cooked runtime owners are used. Original source
+files are retained. No authored glTF file, parser scene or second asset database
+is introduced.
+
+An inspection process reads only the captured FBX and returns bounded image
+locators. The parent resolves relative dependencies through `ProjectPaths`,
+captures their bytes/digests and checks them again before cooking/publication.
+The parser cannot open external paths. Network, drive-qualified, escaping,
+null-containing and invalid dependency locators reject. For external source copy,
+dependencies must be beneath the selected FBX file's folder. Embedded image bytes
+remain inside the supervised stage.
+
+The adapter creates a generated, private glTF-shaped interchange and feeds the
+existing native mesh/material/texture cooks and official Ozz converter. A digest identifies its generated document and geometry; captured image
+dependencies and cooked member digests remain separate. The published Model retains the
+original FBX source digest, explicit `forge.fbx-model.v1` evidence and parser
+revision, with no reinterpretation of existing glTF evidence. Original numeric
+FBX UIDs identify meshes, materials, images, nodes and clips. Parser
+`element_id`/`typed_id` indices never become source identities. Synthetic root,
+transform-helper and combined-rig keys have explicit owner-local roles. Durable
+UUID allocation, correspondence review, tombstones and last-good publication stay
+with the existing identity owners.
+
+Supported preparation includes metre/right-handed-Y-up conversion, local TRS and
+geometry/inheritance helper nodes, triangulated polygons, normals, four UV sets,
+primary colors and repeated mesh instances with matching material assignments.
+Image V coordinates are converted to the existing image convention. Basic PBR
+values and PNG/JPEG base-color, normal and emission bindings use the same material
+and texture cooks, semantic variants and compression settings. Named UV sets must
+resolve consistently across material uses. Other material texture roles and
+non-mesh camera/light attachments emit bounded notices; they are not silently
+described as evaluated shading or placed cameras/lights.
+
+Unspecified values use opaque, white-base, nonmetallic, fully rough defaults.
+Explicit PBR opacity remains authoritative. Neutral legacy transparency uses its
+color/factor to produce scalar alpha; colored legacy transparency rejects instead
+of being silently reduced. Emission colors without an explicit factor retain unit
+strength. Missing map values are distinct from explicit zero.
+
+Linear/rigid skinning supports one skin per mesh, up to1024 joints per skin and
+64 source influences per vertex. Existing skin processing owns the selected
+reject/reduce-to-four policy, normalization and256-joint draw palettes. Original
+inverse binds remain mesh-to-bone transforms in the converted coordinate system.
+Up to64 transform-animation stacks are baked through the pinned parser with the
+selected1..240Hz sampling rate; clip ranges are cropped and shifted to zero while
+retaining their declared endpoint. The existing official converter admits the
+runtime Skeleton/Clip archives before complete publication. Nonlinear Euler curves
+become linear/quaternion keys; constant steps have bounded transition keys.
+
+The profile rejects pre-FBX7/missing original numeric UIDs, point/line/empty meshes,
+polygon holes, faces larger than65536 corners, morph/cache deformers, multiple skin
+deformers, dual-quaternion skinning, per-instance material differences, layered/
+procedural textures and texture UV transforms. It does not claim every FBX
+material, constraint, animation property, camera/light or exporter variant.
+Unsupported or nonrepresentable data must remain an explicit rejection/notice.
+
+Parser temporary/result allocations are separately capped at512MiB; animation
+bake temporary/result allocations at128MiB each. Node depth is256, native node
+count100000, mesh/material/texture aggregate4096, clips64, duration one hour,
+expanded geometry eight million triangle corners and256MiB interchange storage,
+and animation scalar storage16MiB. Source capture is512MiB/file and1GiB aggregate.
+These are additional bounds within the existing4GiB/240s supervised model worker,
+not larger process permissions. Index/source/header hashes and tool identities
+participate in the existing recipe/cache contract. Runtime reads only validated
+cooked Model/Mesh/Material/Texture/Skeleton/Clip data.
+
+The FBX recipe hashes common model inputs plus its adapter/parser inputs. The
+glTF recipe hashes common/glTF inputs, so FBX-only parser/adapter edits do not
+invalidate unrelated glTF selections. Both use the same settings, source capture
+and animation-tool build-plan owner.
+
+### glTF source profile
+
 Core glTF image bindings require PNG/JPEG signatures; WebP and Basis bindings
 require their corresponding declared extension and bytes. A declared MIME type
 must match the bytes. The standalone image importer's wider format support does
@@ -92,10 +170,10 @@ See[glTF admission](gltf-admission.md),[subasset identity](subasset-identity.md)
 
 ## Model worker and publication
 
-The fixed `forge.model.gltf` recipe now runs through `forge_asset_build`, the same
-supervised executable used for textures. Its registry entry is available to the
+The fixed `forge.model.gltf` and `forge.model.fbx` recipes run through `forge_asset_build`, the same
+supervised executable used for textures. Their registry entries are available to the
 shared import service and headless `forge_tools --assets import` command. The
-recipe includes skin/animation conversion when needed. Camera/light and variant
+recipe includes skin/animation conversion when needed. glTF camera/light and variant
 data feed the existing ECS placement and rendering consumers described below.
 Source parsing remains in tools/workers, outside presentation.
 
@@ -746,3 +824,32 @@ canonical float transport and leaves the converter source/version unchanged.
 The [core/extension matrix](gltf-features.md) accounts for every currently ratified
 extension and the in-progress registry entries. Unsupported optional extensions
 produce published import notes visible in the central model document and Problems.
+
+## FBX runtime-kit compatibility
+
+A runtime kit must advertise integer `engine.runtime_model_fbx:1` to export
+a catalog containing FBX Models. The value is generated from the existing
+standalone-manifest owner constant. An absent, noninteger or differing value
+rejects before destination replacement. Ordinary existing glTF content retains
+its prior kit compatibility. This private cooked-consumer capability does not
+change Scene containers, the C ABI or the exact public C++ SDK contract.
+
+## FBX Gallery capture provenance
+
+The canonical [FBX Gallery image](../manual/images/fbx-import-gallery.png) is a
+lossless PNG encoding of the640×360 native framebuffer at simulation tick18
+(1/60-second ticks). Its source is the original editable
+[Scene175](../samples/projects/FeatureGallery/Scenes/175-fbx-model-import.scene.json),
+AssetId `7c306ba6-e8af-4625-8fdc-37c3f639c7d1`, through the shared production
+RuntimeWorld/FrameRenderer and
+[native capture fixture](../tests/fbx_gallery_vulkan_probe.cpp). No UI controls,
+labels, geometry or pixels were retouched or composited.
+
+The selected software Vulkan device enables the existing required geometry-shader
+profile. Three landscape captures and one portrait capture match their relocated,
+source-hidden runtime-content counterparts byte for byte. The figure's PNG SHA256
+is `c020946020a092071b8a5c5b619a270cf577872a96420df0ec8baef1469c7ab2`;
+its original PPM SHA256 is
+`9fa5ec2ad6f4e1a24406711dd7c854da7ccb28e6a0095d8f30cc4d4dc32d4610`.
+This is native software-rendered runtime evidence. Full Windows editor/D3D12,
+physical-device and graphical-EXE acceptance remain separate checks.

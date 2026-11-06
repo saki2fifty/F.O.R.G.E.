@@ -40,7 +40,7 @@ class GalleryPackageTest(unittest.TestCase):
         self.write(self.gallery/'Assets/next-format.resource', b'\x00\x01\r\n\xff')
         for name in ('flecs', 'json', 'sdl', 'imgui_source', 'cpp_text_editor', 'diligent',
                      'jolt', 'box2d', 'miniaudio', 'ozz', 'recast', 'rmlui', 'freetype', 'ktx',
-                     'webp', 'meshoptimizer', 'draco'):
+                     'webp', 'meshoptimizer', 'draco', 'ufbx'):
             self.write(self.dependencies/(name+'-src')/'LICENSE.txt', b'Packaging test notice\n')
         metadata = dict(build_id='260101-000001', source_commit='1'*40)
         self.write(self.build/'build.json', json.dumps(metadata).encode())
@@ -58,9 +58,11 @@ class GalleryPackageTest(unittest.TestCase):
         self.write(self.source/'docs/licenses/diligentfx-shader-patch.txt', b'Shader test notice\n')
         self.write(self.source/'resources/ui/font.txt', b'UI resource fixture\n')
         self.write(self.source/'manual/README.md',
-                   b'# Package test\n\n![Editor](images/scene-editor.png)\n')
+                   b'# Package test\n\n![Editor](images/scene-editor.png)\n\n![FBX models](images/fbx-import-gallery.png)\n')
         self.manual_image = (SOURCE/'manual/images/scene-editor.png').read_bytes()
         self.write(self.source/'manual/images/scene-editor.png', self.manual_image)
+        self.fbx_image = (SOURCE/'manual/images/fbx-import-gallery.png').read_bytes()
+        self.write(self.source/'manual/images/fbx-import-gallery.png', self.fbx_image)
         self.manual_links = re.findall(r'\]\((\.\./\.\./\.\./manual/[^)]+\.md)\)',
                                        (self.gallery/'README.md').read_text(encoding='utf-8'))
         self.assertTrue(self.manual_links)
@@ -218,6 +220,13 @@ class GalleryPackageTest(unittest.TestCase):
             self.assertEqual(archive.read(image), self.manual_image)
             self.assertEqual(manifest[image], hashlib.sha256(self.manual_image).hexdigest())
             self.assertIn(b'src="images/scene-editor.png"', archive.read('manual/index.html'))
+            notice = 'licenses/ufbx-src/LICENSE.txt'
+            self.assertEqual(archive.read(notice), b'Packaging test notice\n')
+            self.assertEqual(manifest[notice], hashlib.sha256(archive.read(notice)).hexdigest())
+            image = 'manual/images/fbx-import-gallery.png'
+            self.assertEqual(archive.read(image), self.fbx_image)
+            self.assertEqual(manifest[image], hashlib.sha256(self.fbx_image).hexdigest())
+            self.assertIn(b'src="images/fbx-import-gallery.png"', archive.read('manual/index.html'))
 
     def test_default_packaging_excludes_runtime_locks_and_keeps_source_files(self):
         locks = ('.forge/writer.lock', '.forge/cache/derived/cache.lock')

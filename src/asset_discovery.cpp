@@ -87,6 +87,7 @@ std::string source_kind(const std::filesystem::path& path) {
              {".shader.json", "shader_program"},
              {".gltf", "model"},
              {".glb", "model"},
+             {".fbx", "model"},
              {".png", "image"},
              {".jpg", "image"},
              {".jpeg", "image"},

@@ -1,6 +1,7 @@
 #include "model_bundle.hpp"
 #include "asset_bytes.hpp"
 #include "bounded_json.hpp"
+#include "fbx_profile.hpp"
 #include "gltf_transform.hpp"
 #include "model_animation.hpp"
 #include "model_scene_values.hpp"
@@ -179,8 +180,21 @@ void hierarchy(const Json& h, const std::map<std::string, const ModelImportMembe
 }
 void validate(const ModelBundleIndex& index) {
     require(index.version >= 1 && index.version <= 5, "Unsupported model bundle version");
-    require(index.version < 5 || index.evidence_schema == "forge.gltf-model.v2",
+    require(index.version < 5 || index.evidence_schema == "forge.gltf-model.v2" ||
+                index.evidence_schema == fbx_evidence_schema,
             "Unsupported model evidence schema");
+    if (index.evidence_schema == fbx_evidence_schema) {
+        const auto& profile = index.hierarchy.at("fbx");
+        require(index.version == 5 && profile.at("version") == 1 &&
+                    profile.at("parser_revision") == fbx_parser_revision &&
+                    valid_content_digest(profile.at("interchange_sha256").get<std::string>()),
+                "Invalid FBX preparation provenance");
+        std::set<std::string> keys;
+        for (const auto& member : index.members)
+            require(member.identity.evidence.exporter_key.starts_with("fbx:") &&
+                        keys.insert(member.identity.evidence.exporter_key).second,
+                    "FBX member requires a unique original source key");
+    }
     require(valid_content_digest(index.source_digest) && index.members.size() <= 100000 &&
                 index.diagnostics.size() <= 4096,
             "Invalid model index source/counts");
@@ -611,6 +625,8 @@ std::vector<ArtifactFile> complete_model_animation(std::vector<ArtifactFile> geo
                            std::move(name),
                            {"", evidence.at("content_evidence").get<std::string>(),
                             evidence.at("semantic_evidence").get<std::string>()}};
+        if (index.evidence_schema == fbx_evidence_schema)
+            member.identity.evidence.exporter_key = evidence.at("source_key").get<std::string>();
         member.artifact = {filename, content_digest(found->bytes), found->bytes.size()};
         if (member.identity.type == "animation_clip")
             member.bindings.emplace("skeleton", skeleton_address);
