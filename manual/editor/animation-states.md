@@ -24,7 +24,7 @@ They come from Quaternius under CC0; the Gallery includes its license.
 1. Import a GLB or glTF character that contains its skeleton and animations.
 2. In **Content → Create / Register**, choose **New animation states...**. Create a file such as `Assets/Character.states.json`.
 3. In the central **Animation States** document, choose the imported **Skeleton**. Choose **New state clip** and press **Add state** for each animation.
-4. Select a state card or its row. Set its **Name**, **Clip**, **Loop**, **State speed** and **Fade in (seconds)**. A fade of `.25` blends into that state over a quarter of a second. Zero changes immediately. Clip choices come from this character import.
+4. Select a state card or its row. Set its **Name**, **Clip**, **Loop**, **State speed** and **Fade in (seconds)**. A fade of `.25` blends into that state over a quarter of a second. Zero changes immediately. Clip choices include this character import and published [retargeted clips](animation-retargeting.md) bound to its exact skeleton.
 5. Choose **Make entry state** for the starting animation. Reordering or renaming keeps each row's **Stable ID**. Removing a row invalidates code or scenes that use that ID.
 6. Press **Save / Publish**. Select the character root with an Animator, then **Attach to selected Animator**. This assigns the set and its entry as one Scene Undo step. Save the scene.
 
@@ -61,8 +61,9 @@ one simulation tick. A short nonlooping clip holds its last pose until the fade
 finishes.
 
 After an editor/SDK update, rebuild your C++ project with the matching SDK. State
-sets select clips and fade timing; C++ or a timed exit decides when to switch. Layers,
-retargeting and automatic condition graphs are not available in this feature.
+sets select clips and fade timing; C++ or a timed exit decides when to switch.
+Publish [retargeted motion](animation-retargeting.md) before selecting it in a state.
+Automatic condition graphs are not available in this feature.
 
 ## Advance automatically
 

@@ -30,6 +30,13 @@ Logical AssetIds remain independent of source paths, cooked files and backend pr
 
 ## Cooked data and shipping
 
+[Skeletal retargeting](animation-retargeting.md) adds a `.retarget.json` Source
+recipe and `forge.animation.retarget` trusted CPU importer. Explicit source/target
+joint pairs produce a root AnimationClip with `forge.skeletal-clip` version1
+descriptor and bounded native archive. Imported model formats and identities remain
+unchanged. Runtime retains the exact target skeleton; source rig/clip Build inputs
+and editable recipe are omitted from the export closure when otherwise unused.
+
 [Layered heightfield terrain](terrain-authoring.md) adds a `.terrain.json`
 `forge.heightfield` source and `forge.terrain.heightfield` trusted CPU importer.
 It publishes ordinary root MeshData with stable tile/layer UUIDs, additive masks,

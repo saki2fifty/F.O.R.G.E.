@@ -33,6 +33,13 @@ template <class Traits> class SourceDocumentPanel {
         return document_ && !pending() && !gesture_dirty() && document_->can_redo();
     }
     const Document* document() const { return document_.get(); }
+    void asset_catalog_changed(std::shared_ptr<const AssetCatalog> catalog) {
+        if (document_ && catalog && catalog->project_root() == document_->project() &&
+            catalog != catalog_) {
+            catalog_ = std::move(catalog);
+            catalog_changed();
+        }
+    }
     std::shared_ptr<const AssetCatalog> take_catalog() { return std::exchange(published_, {}); }
     void request_save() { save_ = true; }
     void request_close() {

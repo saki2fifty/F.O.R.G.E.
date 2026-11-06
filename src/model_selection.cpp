@@ -1,5 +1,6 @@
 #include "model_selection.hpp"
 #include "asset_bytes.hpp"
+#include <algorithm>
 #include <forge/model_asset.hpp>
 namespace forge::asset_detail {
 namespace {
@@ -28,7 +29,7 @@ std::span<const std::byte> ModelSelection::bytes(const ModelImportMember& member
 }
 ModelSelection load_model_selection(const std::filesystem::path& project,
                                     const AssetCatalog& catalog, AssetId model,
-                                    std::stop_token stop) {
+                                    std::stop_token stop, std::uint64_t byte_limit) {
     auto cancelled = [&] { require(!stop.stop_requested(), "Model resource load cancelled"); };
     cancelled();
     const auto owner = catalog.records().find(model);
@@ -49,7 +50,11 @@ ModelSelection load_model_selection(const std::filesystem::path& project,
     require(generation.is_number_unsigned() && generation.get<std::uint64_t>() > 0,
             "Invalid selected model publication generation");
     result.generation = generation.get<std::uint64_t>();
-    DerivedDataCache cache(project, {256 * 1024 * 1024, 512 * 1024 * 1024, 4096});
+    require(byte_limit > 0 && byte_limit <= 512 * 1024 * 1024,
+            "Model resource byte limit must be within its admitted cache profile");
+    auto cache = DerivedDataCache::open_existing(
+        project,
+        {std::size_t(std::min<std::uint64_t>(256 * 1024 * 1024, byte_limit)), byte_limit, 4096});
     auto artifact = cache.load_selected(result.revision, [&](const auto& candidate) {
         cancelled();
         result.index = validate_model_bundle(candidate.files);

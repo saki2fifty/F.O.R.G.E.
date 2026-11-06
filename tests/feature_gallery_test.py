@@ -485,6 +485,24 @@ for primitive in original_model['meshes'][0]['primitives']:
 assert not {row['id'] for row in mesh_ui['entities']} & {row['id'] for row in surface['entities']}
 
 mesh_paint_path = 'Scenes/178-mesh-texture-painting.scene.json'
+retarget_path = 'Scenes/179-animation-retargeting.scene.json'
+retarget_scene = json.loads((project_root / retarget_path).read_text())
+assert retarget_scene['asset_id'] == by_source[retarget_path]['id']
+retarget_recipe = json.loads((project_root / 'Assets/AnimationRetarget/Swing.retarget.json').read_text())
+retarget_asset = by_source['Assets/AnimationRetarget/Swing.retarget.json']
+assert retarget_recipe['format'] == 'forge.animation-retarget' and retarget_recipe['version'] == 1
+assert retarget_recipe['asset_id'] == retarget_asset['id'] and len(retarget_recipe['entries']) == 3
+assert len({pair['source'] for pair in retarget_recipe['entries']}) == 3
+assert len({pair['target'] for pair in retarget_recipe['entries']}) == 3
+assert retarget_asset['type'] == 'animation_clip' and not retarget_asset.get('subasset')
+assert retarget_asset['metadata']['forge.animation_clip']['skeleton'] == retarget_recipe['target_skeleton']
+retarget_animators = [row['components']['forge.animator'] for row in retarget_scene['entities']
+                     if 'forge.animator' in row['components']]
+assert len(retarget_animators) == 2
+assert sum(config['clip'] == retarget_asset['id'] for config in retarget_animators) == 1
+assert sum('forge.camera' in row['components'] for row in retarget_scene['entities']) == 1
+retarget_cooked = project_root / '.forge/cache/derived' / retarget_asset['metadata']['forge.import']['key']
+assert (retarget_cooked / 'clip.json').is_file() and (retarget_cooked / 'clip.ozz').is_file()
 mesh_paint = json.loads((project_root / mesh_paint_path).read_text())
 assert mesh_paint['asset_id'] == by_source[mesh_paint_path]['id']
 paint_image_path = 'Assets/Painting/MeshSurface.paint-texture.json'

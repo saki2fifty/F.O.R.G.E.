@@ -22,7 +22,7 @@ Official SDKs were reviewed; none is C++, and no SDK/reference code is included.
 | RmlUi | 6.3 / `ba95ffe8bfb6370efb2cdcca927eaad4710c5413` | Screen-space game documents, bindings and input; private Diligent adapter | [Official release](https://github.com/mikke89/RmlUi/releases/tag/6.3) |
 | FreeType | 2.14.3 / `0a0221a1347e2f1e07c395263540026e9a0aa7c7` | Pinned RmlUi font backend, FTL license option | [Official source](https://github.com/freetype/freetype/tree/0a0221a1347e2f1e07c395263540026e9a0aa7c7) |
 | Recast Navigation | v1.6.0 / `6dc1667f580357e8a2154c28b7867bea7e8ad3a7` | Static/tiled generation, private Detour queries, obstacle tile updates and local velocity sampling | [Official source](https://github.com/recastnavigation/recastnavigation/tree/v1.6.0) |
-| Ozz Animation | v0.17.0 / `744eb9d99f606eda849acb0b1204f7a3dc20bca1` | Private skeletal sampling/local blending/local-to-model, validated runtime archives, official gltf2ozz conversion | [Official source](https://github.com/guillaumeblanc/ozz-animation/tree/744eb9d99f606eda849acb0b1204f7a3dc20bca1) |
+| Ozz Animation | v0.17.0 / `744eb9d99f606eda849acb0b1204f7a3dc20bca1` | Private skeletal sampling/local blending/local-to-model, validated runtime archives, official gltf2ozz conversion and offline clip building | [Official source](https://github.com/guillaumeblanc/ozz-animation/tree/744eb9d99f606eda849acb0b1204f7a3dc20bca1) |
 | miniaudio | v0.11.25 / `9634bedb5b5a2ca38c1ee7108a9358a4e233f14d` | WAV/FLAC/MP3 decoding, engine/group mixing, spatialization, WASAPI/PulseAudio/ALSA, offline tests | [Official source](https://github.com/mackron/miniaudio/tree/9634bedb5b5a2ca38c1ee7108a9358a4e233f14d) |
 | Jolt Physics | v5.6.0 / `e77f175595e64cb44218cc9d9d56fc365ad0e36a` | CPU rigid bodies, primitive shapes, queries, distance/hinge/point/fixed constraints, body loads, state recording | [Official source](https://github.com/jrouwe/JoltPhysics/tree/v5.6.0) |
 | Box2D | v3.2.0 / `178495ba35695aefe9c321e569d2277f06db3b90` | Private XY bodies, joints, queries, sensors, painted collision, character movement and recovery | [Official source](https://github.com/erincatto/box2d/tree/178495ba35695aefe9c321e569d2277f06db3b90) |
@@ -155,7 +155,9 @@ tools; disable FBX SDK, upstream samples/howtos/tests/data generation. No Ozz he
 are installed in the gameplay SDK. SIMD follows the upstream portable baseline.
 
 Adopted: runtime Skeleton/Animation, SamplingJob reusable contexts, LocalToModelJob,
-official glTF conversion. FORGE owns safe archive admission and provenance. Optional
+official glTF conversion and private offline RawAnimation/AnimationBuilder compression
+for [retarget baking](animation-retargeting.md). Offline compression remains in
+authoring; runtime does not link it. FORGE owns safe archive admission and provenance. Optional
 seek iframes are disabled; no arbitrary .ozz imports. Graphs/controllers, rendering
 and mesh import have separate FORGE owners. The Ozz FBX SDK converter remains
 disabled; supported FBX preparation uses the separate pinned ufbx adapter. See [Animation contract](animation.md) for

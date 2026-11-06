@@ -2327,3 +2327,23 @@ reports an outdated dependency, republish the Material and retry. Set this Scene
 as Startup Scene to export the same artwork and animation; no C++ module is needed.
 See the [painting guide](../../../manual/editor/texture-painting.md) for other image
 slots, copied images, supported mappings, cancellation and current limits.
+
+## Transfer animation between imported skeletons
+
+Open **Scenes/179-animation-retargeting.scene.json**, press Play and open Game.
+The short blue articulated model plays its original Swing animation. The taller
+gold model plays the retargeted clip while retaining different rest rotations and
+bone lengths. Both original models, bind matrices and motion were authored for FORGE.
+
+Stop Play and open **Assets/AnimationRetarget/Swing.retarget.json** in Content.
+Inspect Source skeleton/clip, Target skeleton and the three explicit joint pairs.
+Change **Samples per second** and press Enter, or select a pair and use **Remove**;
+Undo restores the mapping. **Save / Publish** bakes the target-bound clip. Select
+the gold model's root and use **Use on selected Animator** for direct assignment.
+
+Save the Scene, select it as Startup Scene and export with the runtime kit packaged
+with the matching editor. The runtime uses published skeletons/clips and needs no
+editable recipe or source converter. The blue example still uses its own source
+model; a game using only the gold target omits that unused model. No C++ module is
+required. See the [retargeting guide](../../../manual/editor/animation-retargeting.md)
+for root displacement, alignment, compatible States/Blend Spaces and current limits.

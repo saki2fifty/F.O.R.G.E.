@@ -1,4 +1,5 @@
 #include "asset_file_operations.hpp"
+#include "animation_retarget.hpp"
 #include "asset_bytes.hpp"
 #include "asset_storage.hpp"
 #include "bounded_json.hpp"
@@ -268,16 +269,19 @@ static std::string rewrite_authored_with_schema(const AssetRecord& record, std::
     }
     const bool terrain =
         record.type == MeshAsset::type && path_utf8(record.source).ends_with(".terrain.json");
+    const bool retarget = is_animation_retarget_source(record);
     if (record.type != "scene" && record.type != "prefab" && record.type != "material" &&
         record.type != "shader" && record.type != "collision" &&
         record.type != "transform_animation" && record.type != "animation_states" &&
         record.type != NavigationBehaviorAsset::type && record.type != UiLocalizationAsset::type &&
         record.type != ApplicationStatesAsset::type && record.type != RenderTextureAsset::type &&
         record.type != "animation_mask" && record.type != "animation_blend_space" &&
-        record.type != ParticleEffectAsset::type && !terrain)
+        record.type != ParticleEffectAsset::type && !terrain && !retarget)
         throw std::runtime_error("No authored-document copy adapter for this source format");
     if (terrain && !path_utf8(destination).ends_with(".terrain.json"))
         throw std::runtime_error("Terrain files must retain the .terrain.json suffix");
+    if (retarget && !path_utf8(destination).ends_with(".retarget.json"))
+        throw std::runtime_error("Retarget recipes must retain the .retarget.json suffix");
     if (record.type == ParticleEffectAsset::type &&
         !path_utf8(destination).ends_with(".particles.json"))
         throw std::runtime_error("Particle Effect files must retain the .particles.json suffix");
@@ -328,7 +332,10 @@ static std::string rewrite_authored_with_schema(const AssetRecord& record, std::
         }
         if (terrain)
             TerrainSource{value}.validate();
-        else if (record.type == "material")
+        else if (retarget) {
+            const auto serialized = value.dump();
+            (void)AnimationRetargetSource::parse(std::as_bytes(std::span(serialized)));
+        } else if (record.type == "material")
             MaterialSource{value}.validate();
         else if (record.type == "collision")
             CollisionSource{value}.validate();

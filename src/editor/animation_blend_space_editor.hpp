@@ -1,6 +1,7 @@
 #pragma once
 #include "../animation_blend_space_authoring.hpp"
 #include "../animation_blend_space_geometry.hpp"
+#include "../animation_clip_selection.hpp"
 #include "../texture_authoring.hpp"
 #include "document.hpp"
 #include "property_drawer.hpp"
@@ -49,6 +50,13 @@ class AnimationBlendSpaceEditor {
         } catch (const std::exception& e) {
             error_ = e.what();
             open_error_ = true;
+        }
+    }
+    void asset_catalog_changed(std::shared_ptr<const AssetCatalog> catalog) {
+        if (document_ && catalog && catalog->project_root() == document_->project() &&
+            catalog != catalog_) {
+            catalog_ = std::move(catalog);
+            refresh_owner();
         }
     }
     void content(SceneDocument& project, bool locked) {
@@ -249,8 +257,8 @@ class AnimationBlendSpaceEditor {
                                          ? "Missing clip"
                                          : asset_display(found->second);
                             if (found != catalog_->records().end() &&
-                                !asset_picker_scope_matches(found->second, owner_))
-                                label += " (different model)";
+                                !clips_.contains(found->first))
+                                label += " (incompatible skeleton)";
                         }
                         if (ImGui::Selectable((label + "##" + id.str()).c_str(), selected_ == id))
                             selected_ = id;
@@ -283,7 +291,7 @@ class AnimationBlendSpaceEditor {
                     }
                     auto clip = sample.at("clip");
                     if (asset_ref_picker(*catalog_, clip, AnimationClipAsset::type, "Sample clip",
-                                         false, owner_))
+                                         false, {}, &clips_))
                         mutate_entry("Choose blend-space clip", "clip", clip);
                     if (ui::button(
                             "Remove sample",
@@ -352,7 +360,7 @@ class AnimationBlendSpaceEditor {
     std::unique_ptr<AssetImportService> service_;
     std::shared_ptr<const AssetCatalog> catalog_, published_;
     std::optional<std::filesystem::path> next_source_;
-    std::optional<AssetId> owner_;
+    std::set<AssetId> clips_;
     AssetJobId job_ = 0;
     AssetId selected_;
     bool needs_publish_ = false, save_ = false, close_ = false, open_error_ = false;
@@ -401,7 +409,7 @@ class AnimationBlendSpaceEditor {
         document_.reset();
         service_.reset();
         catalog_.reset();
-        owner_ = AssetId{};
+        clips_.clear();
         job_ = 0;
         selected_ = {};
         needs_publish_ = save_ = close_ = open_error_ = false;
@@ -434,7 +442,7 @@ class AnimationBlendSpaceEditor {
             selected_ = document_->source().document.at("samples").front().at("id").get<AssetId>();
     }
     void refresh_owner() {
-        owner_ = AssetId{};
+        clips_.clear();
         const auto& skeleton = document_->source().document.at("skeleton");
         if (skeleton.is_null())
             return;
@@ -443,7 +451,7 @@ class AnimationBlendSpaceEditor {
             const auto resolved = catalog_->resolve(id, SkeletonAsset::type);
             if (resolved.state != AssetState::Available || !resolved.record->subasset)
                 throw std::runtime_error("Choose a current skeleton from an imported model");
-            owner_ = resolved.record->subasset->owner;
+            clips_ = animation_detail::compatible_animation_clips(*catalog_, {id});
         } catch (const std::exception& e) {
             error_ = e.what();
         }

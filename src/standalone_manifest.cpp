@@ -1,4 +1,5 @@
 #include "standalone_manifest.hpp"
+#include "animation_clip_selection.hpp"
 #include "asset_bytes.hpp"
 #include "audio_stream_profile.hpp"
 #include "bounded_json.hpp"
@@ -99,6 +100,14 @@ void validate_runtime_compatibility(const AssetCatalog& catalog, const Json& eng
                         "FBX Models require a matching runtime kit; select the kit packaged "
                         "with this editor");
             }
+        }
+        if (record.type == AnimationClipAsset::type &&
+            record.metadata.contains("forge.animation_clip")) {
+            const auto support = engine.find("runtime_skeletal_clip");
+            require(support != engine.end() && support->is_number_integer() &&
+                        *support == animation_detail::baked_clip_profile_version,
+                    "Baked skeletal clips require a matching runtime kit; select the kit "
+                    "packaged with this editor");
         }
         if (record.type == AudioClipAsset::type) {
             const auto metadata = record.metadata.find("forge.audio");

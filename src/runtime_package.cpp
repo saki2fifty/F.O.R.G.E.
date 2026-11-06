@@ -1,6 +1,6 @@
 #include "runtime_package.hpp"
 #include "animation_blend_space_resource.hpp"
-#include "animation_mask_binding.hpp"
+#include "animation_clip_selection.hpp"
 #include "animation_mask_resource.hpp"
 #include "application_state_resource.hpp"
 #include "asset_bytes.hpp"
@@ -12,6 +12,7 @@
 #include "model_draw_candidate.hpp"
 #include "model_instance_pose.hpp"
 #include "model_render_resource.hpp"
+#include "model_skeleton_binding.hpp"
 #include "native_io_path.hpp"
 #include "navigation_asset.hpp"
 #include "navigation_behavior_admission.hpp"
@@ -200,6 +201,7 @@ AssetRecord runtime_record(AssetRecord record) {
                              "forge.ui_source",
                              "forge.collision",
                              "forge.transform_animation",
+                             "forge.animation_clip",
                              "forge.animation_states",
                              "forge.animation_mask",
                              "forge.animation_blend_space",
@@ -247,6 +249,8 @@ void admit_bundle(const AssetRecord& root, const CachedArtifact& artifact) {
         (void)admit_tile_map_archive(artifact, root);
     else if (root.type == ModelAsset::type && format == "forge.model-bundle")
         (void)validate_model_bundle(artifact.files);
+    else if (root.type == AnimationClipAsset::type && format == animation_detail::baked_clip_format)
+        (void)animation_detail::admit_baked_animation_clip(artifact, root);
     else if (root.type == AnimationBlendSpaceAsset::type &&
              format == "forge.animation-blend-space") {
         require(
@@ -487,15 +491,8 @@ void validate_selections(const std::filesystem::path& root, const AssetCatalog& 
                         selected.member(space->space.skeleton).identity.type == SkeletonAsset::type,
                     "Animation Blend Space package mixes model revisions");
             for (const auto& sample : space->space.samples) {
-                const auto clip = catalog.resolve(sample.clip);
-                require(
-                    clip.state == AssetState::Available && clip.record->subasset &&
-                        clip.record->subasset->owner == selected.owner &&
-                        clip.record->metadata.at("forge.import").at("key") == selected.revision &&
-                        clip.record->metadata.at("forge.import").at("generation") ==
-                            selected.generation &&
-                        selected.member(sample.clip.id).identity.type == AnimationClipAsset::type,
-                    "Animation Blend Space package clip differs from the admitted model selection");
+                (void)animation_detail::select_animation_clip(catalog, {space->space.skeleton},
+                                                              sample.clip);
             }
         } else if (record.type == AnimationMaskAsset::type) {
             ResourcePool<AnimationMaskAsset> pool;
@@ -511,8 +508,16 @@ void validate_selections(const std::filesystem::path& root, const AssetCatalog& 
                 load_model_selection(root, catalog, skeleton.record->subasset->owner, stop);
             require(selected.revision == mask->skeleton_revision,
                     "Animation Mask package mixes model revisions");
-            const auto joints = animation_mask_joints(selected, mask->mask.skeleton);
+            const auto joints = model_skeleton_joints(selected, mask->mask.skeleton);
             (void)mask->mask.weights(mask->mask.skeleton, joints.assets, joints.parents);
+        } else if (record.type == AnimationClipAsset::type && !record.subasset &&
+                   record.metadata.contains("forge.animation_clip")) {
+            const auto skeleton_id =
+                record.metadata.at("forge.animation_clip").at("skeleton").get<AssetId>();
+            const auto binding =
+                animation_detail::select_animation_clip(catalog, {skeleton_id}, {record.id});
+            const auto model = load_model_selection(root, catalog, binding.model, stop);
+            (void)animation_detail::load_baked_animation_clip(root, record, model, stop);
         } else if (record.type == ModelAsset::type)
             (void)load_model_selection(root, catalog, id, stop);
         else if (record.type == MaterialAsset::type) {

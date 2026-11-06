@@ -1,5 +1,21 @@
 # 2026-11-06
 
+## Bake motion for another skeleton
+
+Animation Retarget maps durable imported joint identities, transfers rest-relative
+rotations with alignment and optional scaled root displacement, and publishes a new
+target-bound clip through existing asset owners. Target proportions and unmapped
+local rests remain fixed. Native controls and automation/MCP share Source history,
+bounded background inspection, validation and publication. Direct Animator, States,
+Blend Spaces, recovery and source-free export consume the same admitted result.
+
+The bounded profile supports unit-scale rigs,256 joints,60 seconds,1–120Hz and32768
+sampled joint poses per rig. Gallery179 contains original source and target models
+with different rest rotations and proportions. The illustrated guide covers mapping,
+controls, saving, assignment, export and limits. Public SDK contracts remain
+unchanged; baked clips require the matching runtime_skeletal_clip1 kit. Windows,
+full-editor and physical verification remain pending.
+
 ## Paint textures on a selected Mesh
 
 Paint Texture can place its brush through the Scene view on a selected Mesh's

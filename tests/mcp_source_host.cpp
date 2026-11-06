@@ -1,5 +1,6 @@
 #include "animation_blend_space_editor.hpp"
 #include "animation_mask_editor.hpp"
+#include "animation_retarget_editor.hpp"
 #include "animation_states_editor.hpp"
 #include "animation_timeline.hpp"
 #include "application_states_editor.hpp"
@@ -14,6 +15,7 @@
 #include "material_editor.hpp"
 #include "material_graph_editor.hpp"
 #include "mcp_test_marker.hpp"
+#include "model_imports.hpp"
 #include "navigation_behavior_editor.hpp"
 #include "paint_texture_editor.hpp"
 #include "particle_effect_editor.hpp"
@@ -64,6 +66,9 @@ int main(int argc, char** argv) {
         io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
         forge::ui::EditorUiContext context;
         forge::ui::ContextScope scope(context);
+        const auto converter = worker.parent_path() / "tools" /
+                               (std::string("gltf2ozz") + worker.extension().string());
+        forge::ModelImportEditor models(worker, converter, scene, context.selection);
         forge::PrefabEditor prefab;
         forge::AudioImportEditor audio(worker);
         forge::TextureImportEditor textures(worker);
@@ -85,6 +90,7 @@ int main(int argc, char** argv) {
         forge::ApplicationStatesEditor application_states;
         forge::AnimationBlendSpaceEditor blend;
         forge::AnimationMaskEditor mask;
+        forge::AnimationRetargetEditor retarget;
         forge::AnimationTimelineEditor timeline;
         forge::ui::DocumentWorkspace documents;
         auto bind = [&](const char* id, auto& owner) {
@@ -112,6 +118,7 @@ int main(int argc, char** argv) {
         bind("application_states", application_states);
         bind("animation_blend_space", blend);
         bind("animation_mask", mask);
+        bind("animation_retarget", retarget);
         bind("animation_timeline", timeline);
         forge::ui::WorkspaceDocument audio_entry;
         audio_entry.id = audio_entry.title = "audio_import";
@@ -123,6 +130,11 @@ int main(int argc, char** argv) {
         texture_entry.dirty = [&] { return textures.dirty(); };
         texture_entry.importer = forge::ImportDocumentAutomation::bind(textures, files.document);
         documents.add(std::move(texture_entry));
+        forge::ui::WorkspaceDocument model_entry;
+        model_entry.id = model_entry.title = "model_import";
+        model_entry.dirty = [&] { return models.dirty(); };
+        model_entry.importer = forge::ImportDocumentAutomation::bind(models, files.document);
+        documents.add(std::move(model_entry));
         if (publication) {
             test_source_publication(documents, files.document);
             test_import_publication(documents, files.document, audio);
@@ -183,7 +195,7 @@ int main(int argc, char** argv) {
         std::cout << workspace.connection().connection().dump() << std::endl;
         // The complete source suite exercises every real owner before the
         // client closes it; keep this watchdog within the outer CTest budget.
-        const auto end = std::chrono::steady_clock::now() + std::chrono::minutes(5);
+        const auto end = std::chrono::steady_clock::now() + std::chrono::minutes(10);
         while (workspace.active() && std::chrono::steady_clock::now() < end &&
                !forge::test::marker_present(root / "stop")) {
             files.changed = false;
@@ -218,11 +230,20 @@ int main(int argc, char** argv) {
                 imports.catalog_changed(std::move(catalog));
             application_states.poll(files.document, files.status);
             blend.poll(files.document, files.status);
+            retarget.asset_catalog_changed(imports.catalog());
+            states.asset_catalog_changed(imports.catalog());
+            blend.asset_catalog_changed(imports.catalog());
+            retarget.poll(files.document, files.status);
+            if (auto catalog = retarget.take_catalog())
+                imports.catalog_changed(std::move(catalog));
             mask.poll(files.document, files.status);
             timeline.poll(files.document, scene, false, 0, files.status);
             if (auto catalog = mesh.take_catalog())
                 imports.catalog_changed(std::move(catalog));
             if (auto catalog = timeline.take_catalog())
+                imports.catalog_changed(std::move(catalog));
+            models.poll(files.document, files.status);
+            if (auto catalog = models.take_catalog())
                 imports.catalog_changed(std::move(catalog));
             imports.poll(files.document, files.status);
             // No renderer/shader worker profile: graph source/history is exercised,
@@ -232,6 +253,7 @@ int main(int argc, char** argv) {
             textures.draw(files.document, false);
             atlas.draw(files.document, false);
             material.draw(files.document, false);
+            models.draw(files.document, false);
             collision.draw(files.document, false);
             mesh.draw(files.document, false);
             particles.draw(files.document, scene, false);
@@ -246,6 +268,7 @@ int main(int argc, char** argv) {
             application_states.draw(files.document, scene, false);
             blend.draw(files.document, scene, false);
             mask.draw(files.document, scene, false);
+            retarget.draw(files.document, scene, false);
             timeline.draw(files.document, scene, false);
             ImGui::Render();
             std::this_thread::sleep_for(std::chrono::milliseconds(2));

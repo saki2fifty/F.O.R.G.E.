@@ -14,6 +14,9 @@ struct ArchiveInfo {
     std::uint32_t tracks = 0;
     float duration = 0;
     std::vector<std::int16_t> parents;
+    // Derived during animation admission, across every compressed scale key.
+    // It does not restrict ordinary playback or change the archive format.
+    bool unit_scales = false;
 };
 class ArchiveError : public std::runtime_error {
   public:

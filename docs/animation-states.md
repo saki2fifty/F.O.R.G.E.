@@ -3,8 +3,9 @@
 Animation States is a reusable list of named clips. C++ selects an integer ID on
 an existing `forge::Animator`; the incoming state's fade duration controls the change.
 A state can also advance automatically at a normalized exit time.
-It has no condition language, layers, masks, retargeting,
-rig editor or runtime editor. Existing single-clip and two-clip Animators retain
+It has no condition language, rig editor or runtime editor. Compatible
+[retargeted clips](animation-retargeting.md) may be selected after publication;
+mapping and baking remain with their Source owner. Existing single-clip and two-clip Animators retain
 their behavior when `states` is empty.
 
 ## Source, identity and ownership
@@ -30,8 +31,10 @@ revision guards and history. Existing `AssetImportService` publishes one bounded
 document as `document`, omitting recognized editor layout; source version and cooked version are independent.
 Legacy raw cooked version 1 remains readable. Source remains bounded to 256 KiB;
 the cooked envelope permits 128 additional bytes. Skeleton and every state clip are typed Runtime
-dependencies with selected recipe revisions. They must belong to one imported
-model owner and exact publication generation. Source discovery, copy/rename,
+dependencies with selected recipe revisions. Imported clips must belong to the
+selected skeleton's imported model owner and exact publication generation. Baked
+retargeted clips instead prove that exact target skeleton binding while retaining
+their own immutable clip revision. Source discovery, copy/rename,
 reference-impact review and runtime export use their existing owners. Unknown
 source extensions stay opaque and are marked uninspected during reference review.
 The runtime resource pool validates the selected recipe, artifact hash, size, version

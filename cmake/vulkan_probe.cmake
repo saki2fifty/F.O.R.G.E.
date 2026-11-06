@@ -419,6 +419,11 @@ if(FORGE_BUILD_VULKAN_RENDERER_PROBE)
  add_test(NAME mesh_texture_surface_vulkan COMMAND forge_mesh_texture_surface_vulkan_probe $<TARGET_FILE:forge_asset_build_worker> "${CMAKE_BINARY_DIR}/mesh-texture-surface-vulkan")
  set_tests_properties(mesh_texture_surface_vulkan PROPERTIES TIMEOUT 120)
  add_test(NAME mesh_texture_paint_gallery_vulkan COMMAND forge_mesh_texture_surface_vulkan_probe --gallery "${PROJECT_SOURCE_DIR}/samples/projects/FeatureGallery" "${CMAKE_BINARY_DIR}/mesh-texture-paint-gallery-vulkan")
+ add_executable(forge_animation_retarget_gallery_vulkan_probe tests/animation_retarget_gallery_vulkan_probe.cpp)
+ target_include_directories(forge_animation_retarget_gallery_vulkan_probe PRIVATE src "${diligent_SOURCE_DIR}/DiligentCore")
+ target_link_libraries(forge_animation_retarget_gallery_vulkan_probe PRIVATE forge_simulation forge_runtime_package forge_presentation_diligent SDL3::SDL3 Diligent-BuildSettings Diligent-GraphicsEngineVk-static)
+ add_test(NAME animation_retarget_gallery_vulkan COMMAND forge_animation_retarget_gallery_vulkan_probe "${PROJECT_SOURCE_DIR}/samples/projects/FeatureGallery" "${CMAKE_BINARY_DIR}/animation-retarget-gallery-vulkan")
+ set_tests_properties(animation_retarget_gallery_vulkan PROPERTIES TIMEOUT 120)
  set_tests_properties(mesh_texture_paint_gallery_vulkan PROPERTIES TIMEOUT 120)
  add_executable(forge_texture_image_editor_vulkan_probe tests/texture_image_editor_vulkan_probe.cpp
   "${diligent_SOURCE_DIR}/DiligentTools/Imgui/src/ImGuiImplDiligent.cpp"

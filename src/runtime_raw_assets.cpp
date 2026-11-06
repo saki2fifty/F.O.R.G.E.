@@ -5,7 +5,8 @@
 #include <forge/ui_assets.hpp>
 namespace forge::package_detail {
 bool legacy_animation(const AssetRecord& r) {
-    return !r.subasset && (r.type == SkeletonAsset::type || r.type == AnimationClipAsset::type);
+    return !r.subasset && !r.metadata.contains("forge.import") &&
+           (r.type == SkeletonAsset::type || r.type == AnimationClipAsset::type);
 }
 bool ui_source(const AssetRecord& r) {
     return !r.subasset && r.metadata.contains("forge.ui_source") &&

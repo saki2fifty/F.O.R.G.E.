@@ -1,4 +1,5 @@
 #include "asset_reference_impact.hpp"
+#include "animation_retarget.hpp"
 #include "asset_bytes.hpp"
 #include "asset_storage.hpp"
 #include "bounded_json.hpp"
@@ -305,6 +306,26 @@ struct Inspect {
                 reference(doc.at("material"), "material", "Particle material", MaterialAsset::type);
             if (doc.contains("extensions") && !doc.at("extensions").empty())
                 unknown("extensions");
+        } else if (doc.value("format", std::string{}) == "forge.animation-retarget") {
+            AnimationRetargetSource{doc}.validate();
+            reference(doc.at("source_skeleton"), "source_skeleton", "Retarget source skeleton",
+                      SkeletonAsset::type);
+            reference(doc.at("source_clip"), "source_clip", "Retarget source clip",
+                      AnimationClipAsset::type);
+            reference(doc.at("target_skeleton"), "target_skeleton", "Retarget target skeleton",
+                      SkeletonAsset::type);
+            std::size_t index = 0;
+            for (const auto& entry : doc.at("entries")) {
+                const auto scope = "entries." + std::to_string(index++);
+                reference(entry.at("source"), scope + ".source", "Retarget source joint",
+                          ModelNodeAsset::type);
+                reference(entry.at("target"), scope + ".target", "Retarget target joint",
+                          ModelNodeAsset::type);
+                opaque_fields(entry, {"source", "target"}, scope);
+            }
+            opaque_fields(doc, {"format", "version", "asset_id", "source_skeleton", "source_clip",
+                                "target_skeleton", "sampling_rate", "root_translation",
+                                "translation_scale", "alignment", "entries"});
         } else if (doc.value("format", std::string{}) == "forge.animation-blend-space") {
             AnimationBlendSpaceSource{doc}.validate();
             if (!doc.at("skeleton").is_null())

@@ -61,6 +61,7 @@ content may differ; use **Window** to open a panel mentioned in a guide.
 
 - [Transform animation timeline and nested and collection C++ component fields](editor/transform-animation.md)
 - [Coordinate animations, blend camera shots, nest sequences and export PNG/WebP frames](editor/animation-sequences.md)
+- [Transfer animation between imported skeletons](editor/animation-retargeting.md)
 - [Animation](editor/animation.md)
 - [Choose named animation states](editor/animation-states.md)
 - [Preview and blend two animations](editor/animation-blending.md)

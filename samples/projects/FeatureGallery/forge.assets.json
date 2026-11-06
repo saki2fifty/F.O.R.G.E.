@@ -463,6 +463,123 @@
       "type": "mesh"
     },
     {
+      "dependencies": [
+        "167743c7-eabb-4dcf-95c1-27f8403c78a6",
+        "3b154f5f-6910-452d-8919-519b9fa895a7",
+        "3fd41841-5ad9-40ee-8354-3097141941f0",
+        "763f663b-7030-49f3-b304-e86ac8e211ed",
+        "7ab11e7a-9302-438e-939b-13e1116f5738",
+        "9eed034c-bae7-4009-9cc7-432f16e5cd01",
+        "bb941335-691c-4640-bf74-e1378db858d7",
+        "bfc28ae1-2959-45c2-98df-9d83a0393ed5",
+        "d788bad4-18f2-43c4-9d0a-338c2b35b221",
+        "e52ee6db-7c9f-4abc-8e31-0b624265a77e"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "f92f6992a1dbfc4139e91782cae3aabfbc13acb8e35a24e1337ad7ee85f2c60a",
+          "role": "model.member:/nodes/1",
+          "target": "167743c7-eabb-4dcf-95c1-27f8403c78a6",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "f92f6992a1dbfc4139e91782cae3aabfbc13acb8e35a24e1337ad7ee85f2c60a",
+          "role": "model.member:/nodes/2",
+          "target": "3b154f5f-6910-452d-8919-519b9fa895a7",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "f92f6992a1dbfc4139e91782cae3aabfbc13acb8e35a24e1337ad7ee85f2c60a",
+          "role": "model.member:/rig/skeleton",
+          "target": "3fd41841-5ad9-40ee-8354-3097141941f0",
+          "type": "skeleton"
+        },
+        {
+          "kind": "runtime",
+          "revision": "f92f6992a1dbfc4139e91782cae3aabfbc13acb8e35a24e1337ad7ee85f2c60a",
+          "role": "model.member:/animations/0",
+          "target": "763f663b-7030-49f3-b304-e86ac8e211ed",
+          "type": "animation_clip"
+        },
+        {
+          "kind": "runtime",
+          "revision": "f92f6992a1dbfc4139e91782cae3aabfbc13acb8e35a24e1337ad7ee85f2c60a",
+          "role": "model.member:/materials/2",
+          "target": "7ab11e7a-9302-438e-939b-13e1116f5738",
+          "type": "material"
+        },
+        {
+          "kind": "runtime",
+          "revision": "f92f6992a1dbfc4139e91782cae3aabfbc13acb8e35a24e1337ad7ee85f2c60a",
+          "role": "model.member:/meshes/0",
+          "target": "9eed034c-bae7-4009-9cc7-432f16e5cd01",
+          "type": "mesh"
+        },
+        {
+          "kind": "runtime",
+          "revision": "f92f6992a1dbfc4139e91782cae3aabfbc13acb8e35a24e1337ad7ee85f2c60a",
+          "role": "model.member:/nodes/0",
+          "target": "bb941335-691c-4640-bf74-e1378db858d7",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "f92f6992a1dbfc4139e91782cae3aabfbc13acb8e35a24e1337ad7ee85f2c60a",
+          "role": "model.member:/nodes/3",
+          "target": "bfc28ae1-2959-45c2-98df-9d83a0393ed5",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "f92f6992a1dbfc4139e91782cae3aabfbc13acb8e35a24e1337ad7ee85f2c60a",
+          "role": "model.member:/materials/0",
+          "target": "d788bad4-18f2-43c4-9d0a-338c2b35b221",
+          "type": "material"
+        },
+        {
+          "kind": "runtime",
+          "revision": "f92f6992a1dbfc4139e91782cae3aabfbc13acb8e35a24e1337ad7ee85f2c60a",
+          "role": "model.member:/materials/1",
+          "target": "e52ee6db-7c9f-4abc-8e31-0b624265a77e",
+          "type": "material"
+        }
+      ],
+      "id": "08722c36-1c76-4b61-9989-7a171f39ba97",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "7739571c30331cc6a8df388ae267aad4293b3aa6792e0979b2640c5c2d969807",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "0577a968239b5883eccf95fc4a403370cbe790b6a4b56ab44014a9e09a0d103a",
+          "key": "f92f6992a1dbfc4139e91782cae3aabfbc13acb8e35a24e1337ad7ee85f2c60a",
+          "output_format": "forge.model-bundle",
+          "output_version": 5,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "bb32f8f1601a757943fb3b079115f35bd16f130a0a4bea4cc065661d63343867",
+          "source_digest": "2958673ff57f674d30884d50489a1a4f307cd44235470eb3b0ea05fa7538cbd7",
+          "version": 1
+        },
+        "forge.model": {
+          "bytes": 7814,
+          "file": "model.json",
+          "sha256": "641ab04db8d5d6d04f5a3b84fdcbb8e27a42d417cbaa2a57be6d845af0c9326f",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/AnimationRetarget/TargetBeams.gltf",
+      "source_dependencies": [],
+      "type": "model"
+    },
+    {
       "dependencies": [],
       "dependency_edges": [],
       "id": "08787763-d1cd-4279-a1fe-3ff4287201bf",
@@ -1275,6 +1392,45 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "0f075646-5f95-449f-b36d-457891a000c4",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "dd579729da7a49be5ab05d61965c186e648d5ec724106b613fac50e79ba4185e",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "0577a968239b5883eccf95fc4a403370cbe790b6a4b56ab44014a9e09a0d103a",
+          "key": "bb18f2222db40d11a1da2b06edf7f57edc8a8c69f809dcb0052fd88ddf5c62cf",
+          "output_format": "forge.model-bundle",
+          "output_version": 5,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "0a25eddc65b1706e351352bf530c244f777e98de564f1b20ada10c3e44ce26cb",
+          "source_digest": "2b94b61251e54bd29648f14aa9fbfe9c2e5945ee7ca42d6972987cfba1ed9873",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "SourceEnd",
+          "node": 2,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/AnimationRetarget/SourceBeams.gltf",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/0f075646-5f95-449f-b36d-457891a000c4",
+        "owner": "2218802b-89da-4837-8f3c-4f0e19990fd4",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "0f6c5948-5f03-429d-a965-3afb69849a67",
       "metadata": {
         "forge.import": {
@@ -1896,6 +2052,45 @@
       "source": "Assets/TextureBlocks/HdrUnsigned.dds",
       "source_dependencies": [],
       "type": "texture"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "167743c7-eabb-4dcf-95c1-27f8403c78a6",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "7739571c30331cc6a8df388ae267aad4293b3aa6792e0979b2640c5c2d969807",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "0577a968239b5883eccf95fc4a403370cbe790b6a4b56ab44014a9e09a0d103a",
+          "key": "f92f6992a1dbfc4139e91782cae3aabfbc13acb8e35a24e1337ad7ee85f2c60a",
+          "output_format": "forge.model-bundle",
+          "output_version": 5,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "bb32f8f1601a757943fb3b079115f35bd16f130a0a4bea4cc065661d63343867",
+          "source_digest": "2958673ff57f674d30884d50489a1a4f307cd44235470eb3b0ea05fa7538cbd7",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "TargetElbow",
+          "node": 1,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/AnimationRetarget/TargetBeams.gltf",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/167743c7-eabb-4dcf-95c1-27f8403c78a6",
+        "owner": "08722c36-1c76-4b61-9989-7a171f39ba97",
+        "removed": false
+      },
+      "type": "model_node"
     },
     {
       "dependencies": [],
@@ -2578,6 +2773,45 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "20569d3a-2039-4e90-9716-46e182b2564d",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "dd579729da7a49be5ab05d61965c186e648d5ec724106b613fac50e79ba4185e",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "0577a968239b5883eccf95fc4a403370cbe790b6a4b56ab44014a9e09a0d103a",
+          "key": "bb18f2222db40d11a1da2b06edf7f57edc8a8c69f809dcb0052fd88ddf5c62cf",
+          "output_format": "forge.model-bundle",
+          "output_version": 5,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "0a25eddc65b1706e351352bf530c244f777e98de564f1b20ada10c3e44ce26cb",
+          "source_digest": "2b94b61251e54bd29648f14aa9fbfe9c2e5945ee7ca42d6972987cfba1ed9873",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "SourceElbow",
+          "node": 1,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/AnimationRetarget/SourceBeams.gltf",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/20569d3a-2039-4e90-9716-46e182b2564d",
+        "owner": "2218802b-89da-4837-8f3c-4f0e19990fd4",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "20ceda6f-2d6c-4299-a4dd-71a6cdd0516a",
       "metadata": {
         "forge.import": {
@@ -2689,6 +2923,123 @@
       "source": "Assets/TextureBlocks/SignedPair.dds",
       "source_dependencies": [],
       "type": "texture"
+    },
+    {
+      "dependencies": [
+        "0f075646-5f95-449f-b36d-457891a000c4",
+        "20569d3a-2039-4e90-9716-46e182b2564d",
+        "408ce979-5139-4038-9a09-abe9421a4291",
+        "53ad81ae-db81-4af6-9c55-70f045b7470f",
+        "677eaef7-8bf7-4c56-b6bb-0f208f0be238",
+        "6ab8a3af-a24b-4156-b7f7-3df104a35781",
+        "7c10081b-57bb-464f-956a-c373c05fa4fb",
+        "ac8c9e0e-1721-4f65-9eaf-08948a68eba9",
+        "bef4aa91-2c51-4ca7-b3ac-820656093858",
+        "eb8ee837-8a90-4dd3-9b5d-f810abf02430"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "bb18f2222db40d11a1da2b06edf7f57edc8a8c69f809dcb0052fd88ddf5c62cf",
+          "role": "model.member:/nodes/2",
+          "target": "0f075646-5f95-449f-b36d-457891a000c4",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "bb18f2222db40d11a1da2b06edf7f57edc8a8c69f809dcb0052fd88ddf5c62cf",
+          "role": "model.member:/nodes/1",
+          "target": "20569d3a-2039-4e90-9716-46e182b2564d",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "bb18f2222db40d11a1da2b06edf7f57edc8a8c69f809dcb0052fd88ddf5c62cf",
+          "role": "model.member:/materials/2",
+          "target": "408ce979-5139-4038-9a09-abe9421a4291",
+          "type": "material"
+        },
+        {
+          "kind": "runtime",
+          "revision": "bb18f2222db40d11a1da2b06edf7f57edc8a8c69f809dcb0052fd88ddf5c62cf",
+          "role": "model.member:/rig/skeleton",
+          "target": "53ad81ae-db81-4af6-9c55-70f045b7470f",
+          "type": "skeleton"
+        },
+        {
+          "kind": "runtime",
+          "revision": "bb18f2222db40d11a1da2b06edf7f57edc8a8c69f809dcb0052fd88ddf5c62cf",
+          "role": "model.member:/nodes/0",
+          "target": "677eaef7-8bf7-4c56-b6bb-0f208f0be238",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "bb18f2222db40d11a1da2b06edf7f57edc8a8c69f809dcb0052fd88ddf5c62cf",
+          "role": "model.member:/meshes/0",
+          "target": "6ab8a3af-a24b-4156-b7f7-3df104a35781",
+          "type": "mesh"
+        },
+        {
+          "kind": "runtime",
+          "revision": "bb18f2222db40d11a1da2b06edf7f57edc8a8c69f809dcb0052fd88ddf5c62cf",
+          "role": "model.member:/nodes/3",
+          "target": "7c10081b-57bb-464f-956a-c373c05fa4fb",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "bb18f2222db40d11a1da2b06edf7f57edc8a8c69f809dcb0052fd88ddf5c62cf",
+          "role": "model.member:/materials/1",
+          "target": "ac8c9e0e-1721-4f65-9eaf-08948a68eba9",
+          "type": "material"
+        },
+        {
+          "kind": "runtime",
+          "revision": "bb18f2222db40d11a1da2b06edf7f57edc8a8c69f809dcb0052fd88ddf5c62cf",
+          "role": "model.member:/animations/0",
+          "target": "bef4aa91-2c51-4ca7-b3ac-820656093858",
+          "type": "animation_clip"
+        },
+        {
+          "kind": "runtime",
+          "revision": "bb18f2222db40d11a1da2b06edf7f57edc8a8c69f809dcb0052fd88ddf5c62cf",
+          "role": "model.member:/materials/0",
+          "target": "eb8ee837-8a90-4dd3-9b5d-f810abf02430",
+          "type": "material"
+        }
+      ],
+      "id": "2218802b-89da-4837-8f3c-4f0e19990fd4",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "dd579729da7a49be5ab05d61965c186e648d5ec724106b613fac50e79ba4185e",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "0577a968239b5883eccf95fc4a403370cbe790b6a4b56ab44014a9e09a0d103a",
+          "key": "bb18f2222db40d11a1da2b06edf7f57edc8a8c69f809dcb0052fd88ddf5c62cf",
+          "output_format": "forge.model-bundle",
+          "output_version": 5,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "0a25eddc65b1706e351352bf530c244f777e98de564f1b20ada10c3e44ce26cb",
+          "source_digest": "2b94b61251e54bd29648f14aa9fbfe9c2e5945ee7ca42d6972987cfba1ed9873",
+          "version": 1
+        },
+        "forge.model": {
+          "bytes": 7015,
+          "file": "model.json",
+          "sha256": "7c9eeb66462d893272f1ad42d1e574c7b4826cdb3e70515d739c50dfce92f0cf",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/AnimationRetarget/SourceBeams.gltf",
+      "source_dependencies": [],
+      "type": "model"
     },
     {
       "dependencies": [
@@ -4846,6 +5197,45 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "3b154f5f-6910-452d-8919-519b9fa895a7",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "7739571c30331cc6a8df388ae267aad4293b3aa6792e0979b2640c5c2d969807",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "0577a968239b5883eccf95fc4a403370cbe790b6a4b56ab44014a9e09a0d103a",
+          "key": "f92f6992a1dbfc4139e91782cae3aabfbc13acb8e35a24e1337ad7ee85f2c60a",
+          "output_format": "forge.model-bundle",
+          "output_version": 5,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "bb32f8f1601a757943fb3b079115f35bd16f130a0a4bea4cc065661d63343867",
+          "source_digest": "2958673ff57f674d30884d50489a1a4f307cd44235470eb3b0ea05fa7538cbd7",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "TargetEnd",
+          "node": 2,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/AnimationRetarget/TargetBeams.gltf",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/3b154f5f-6910-452d-8919-519b9fa895a7",
+        "owner": "08722c36-1c76-4b61-9989-7a171f39ba97",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "3b1e6a95-e51d-4540-99e0-0230b9241fda",
       "metadata": {
         "forge.import": {
@@ -5182,6 +5572,47 @@
       "type": "prefab"
     },
     {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "3fd41841-5ad9-40ee-8354-3097141941f0",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "7739571c30331cc6a8df388ae267aad4293b3aa6792e0979b2640c5c2d969807",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "0577a968239b5883eccf95fc4a403370cbe790b6a4b56ab44014a9e09a0d103a",
+          "key": "f92f6992a1dbfc4139e91782cae3aabfbc13acb8e35a24e1337ad7ee85f2c60a",
+          "output_format": "forge.model-bundle",
+          "output_version": 5,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "bb32f8f1601a757943fb3b079115f35bd16f130a0a4bea4cc065661d63343867",
+          "source_digest": "2958673ff57f674d30884d50489a1a4f307cd44235470eb3b0ea05fa7538cbd7",
+          "version": 1
+        },
+        "forge.model": {
+          "bytes": 234,
+          "file": "skeleton.ozz",
+          "name": "Model skeleton",
+          "sha256": "3c0358271bb77c008d7fa4cb338f4dc7b724090fa6268f86ad4496e5b39d1926",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/AnimationRetarget/TargetBeams.gltf",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/3fd41841-5ad9-40ee-8354-3097141941f0",
+        "owner": "08722c36-1c76-4b61-9989-7a171f39ba97",
+        "removed": false
+      },
+      "type": "skeleton"
+    },
+    {
       "dependencies": [
         "5357f6c2-28da-4cb7-91ef-560859b4d5da"
       ],
@@ -5217,6 +5648,47 @@
         }
       ],
       "type": "ui_document"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "408ce979-5139-4038-9a09-abe9421a4291",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "dd579729da7a49be5ab05d61965c186e648d5ec724106b613fac50e79ba4185e",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "0577a968239b5883eccf95fc4a403370cbe790b6a4b56ab44014a9e09a0d103a",
+          "key": "bb18f2222db40d11a1da2b06edf7f57edc8a8c69f809dcb0052fd88ddf5c62cf",
+          "output_format": "forge.model-bundle",
+          "output_version": 5,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "0a25eddc65b1706e351352bf530c244f777e98de564f1b20ada10c3e44ce26cb",
+          "source_digest": "2b94b61251e54bd29648f14aa9fbfe9c2e5945ee7ca42d6972987cfba1ed9873",
+          "version": 1
+        },
+        "forge.model": {
+          "bytes": 731,
+          "file": "material-2.fmat",
+          "name": "SourceSegment2",
+          "sha256": "0ea41e966ae0a09bec780e6fe67fd1d5bd69fc5d9bfd87e83fe393a1890e6831",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/AnimationRetarget/SourceBeams.gltf",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/408ce979-5139-4038-9a09-abe9421a4291",
+        "owner": "2218802b-89da-4837-8f3c-4f0e19990fd4",
+        "removed": false
+      },
+      "type": "material"
     },
     {
       "dependencies": [],
@@ -6367,6 +6839,47 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "53ad81ae-db81-4af6-9c55-70f045b7470f",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "dd579729da7a49be5ab05d61965c186e648d5ec724106b613fac50e79ba4185e",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "0577a968239b5883eccf95fc4a403370cbe790b6a4b56ab44014a9e09a0d103a",
+          "key": "bb18f2222db40d11a1da2b06edf7f57edc8a8c69f809dcb0052fd88ddf5c62cf",
+          "output_format": "forge.model-bundle",
+          "output_version": 5,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "0a25eddc65b1706e351352bf530c244f777e98de564f1b20ada10c3e44ce26cb",
+          "source_digest": "2b94b61251e54bd29648f14aa9fbfe9c2e5945ee7ca42d6972987cfba1ed9873",
+          "version": 1
+        },
+        "forge.model": {
+          "bytes": 234,
+          "file": "skeleton.ozz",
+          "name": "Model skeleton",
+          "sha256": "9160ee67918436c81aba26d24aeab78a86bb9b4e00852eea94faaf4578038d7a",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/AnimationRetarget/SourceBeams.gltf",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/53ad81ae-db81-4af6-9c55-70f045b7470f",
+        "owner": "2218802b-89da-4837-8f3c-4f0e19990fd4",
+        "removed": false
+      },
+      "type": "skeleton"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "54038bc0-2e5f-4cf7-8ec6-3f29117cd0d4",
       "metadata": {},
       "schema_version": 3,
@@ -7470,6 +7983,45 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "677eaef7-8bf7-4c56-b6bb-0f208f0be238",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "dd579729da7a49be5ab05d61965c186e648d5ec724106b613fac50e79ba4185e",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "0577a968239b5883eccf95fc4a403370cbe790b6a4b56ab44014a9e09a0d103a",
+          "key": "bb18f2222db40d11a1da2b06edf7f57edc8a8c69f809dcb0052fd88ddf5c62cf",
+          "output_format": "forge.model-bundle",
+          "output_version": 5,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "0a25eddc65b1706e351352bf530c244f777e98de564f1b20ada10c3e44ce26cb",
+          "source_digest": "2b94b61251e54bd29648f14aa9fbfe9c2e5945ee7ca42d6972987cfba1ed9873",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "SourceBase",
+          "node": 0,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/AnimationRetarget/SourceBeams.gltf",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/677eaef7-8bf7-4c56-b6bb-0f208f0be238",
+        "owner": "2218802b-89da-4837-8f3c-4f0e19990fd4",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "67c659d3-72d0-48bb-9e23-9e42e389b42f",
       "metadata": {
         "forge.import": {
@@ -7807,6 +8359,16 @@
       "type": "model_node"
     },
     {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "6a35ed23-5846-42a5-abeb-c45ea26b0701",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/179-animation-retargeting.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
       "dependencies": [
         "7af59847-622f-480f-a403-f383a1a5890b"
       ],
@@ -7910,6 +8472,73 @@
       "source": "Assets/Particles/OrangeFountain.particles.json",
       "source_dependencies": [],
       "type": "particle_effect"
+    },
+    {
+      "dependencies": [
+        "408ce979-5139-4038-9a09-abe9421a4291",
+        "ac8c9e0e-1721-4f65-9eaf-08948a68eba9",
+        "eb8ee837-8a90-4dd3-9b5d-f810abf02430"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "bb18f2222db40d11a1da2b06edf7f57edc8a8c69f809dcb0052fd88ddf5c62cf",
+          "role": "material.3",
+          "target": "408ce979-5139-4038-9a09-abe9421a4291",
+          "type": "material"
+        },
+        {
+          "kind": "runtime",
+          "revision": "bb18f2222db40d11a1da2b06edf7f57edc8a8c69f809dcb0052fd88ddf5c62cf",
+          "role": "material.2",
+          "target": "ac8c9e0e-1721-4f65-9eaf-08948a68eba9",
+          "type": "material"
+        },
+        {
+          "kind": "runtime",
+          "revision": "bb18f2222db40d11a1da2b06edf7f57edc8a8c69f809dcb0052fd88ddf5c62cf",
+          "role": "material.1",
+          "target": "eb8ee837-8a90-4dd3-9b5d-f810abf02430",
+          "type": "material"
+        }
+      ],
+      "id": "6ab8a3af-a24b-4156-b7f7-3df104a35781",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "dd579729da7a49be5ab05d61965c186e648d5ec724106b613fac50e79ba4185e",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "0577a968239b5883eccf95fc4a403370cbe790b6a4b56ab44014a9e09a0d103a",
+          "key": "bb18f2222db40d11a1da2b06edf7f57edc8a8c69f809dcb0052fd88ddf5c62cf",
+          "output_format": "forge.model-bundle",
+          "output_version": 5,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "0a25eddc65b1706e351352bf530c244f777e98de564f1b20ada10c3e44ce26cb",
+          "source_digest": "2b94b61251e54bd29648f14aa9fbfe9c2e5945ee7ca42d6972987cfba1ed9873",
+          "version": 1
+        },
+        "forge.model": {
+          "bytes": 6152,
+          "file": "mesh-0.fmesh",
+          "name": "SourceBeams",
+          "sha256": "640085d83218ebac657c09732867adca74f5e13b66761e0ac11c5df927be6f22",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/AnimationRetarget/SourceBeams.gltf",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/6ab8a3af-a24b-4156-b7f7-3df104a35781",
+        "owner": "2218802b-89da-4837-8f3c-4f0e19990fd4",
+        "removed": false
+      },
+      "type": "mesh"
     },
     {
       "dependencies": [],
@@ -8377,6 +9006,77 @@
     },
     {
       "dependencies": [
+        "3fd41841-5ad9-40ee-8354-3097141941f0",
+        "53ad81ae-db81-4af6-9c55-70f045b7470f",
+        "bef4aa91-2c51-4ca7-b3ac-820656093858"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "f92f6992a1dbfc4139e91782cae3aabfbc13acb8e35a24e1337ad7ee85f2c60a",
+          "role": "skeleton",
+          "target": "3fd41841-5ad9-40ee-8354-3097141941f0",
+          "type": "skeleton"
+        },
+        {
+          "kind": "build",
+          "revision": "bb18f2222db40d11a1da2b06edf7f57edc8a8c69f809dcb0052fd88ddf5c62cf",
+          "role": "source.skeleton",
+          "target": "53ad81ae-db81-4af6-9c55-70f045b7470f",
+          "type": "skeleton"
+        },
+        {
+          "kind": "build",
+          "revision": "bb18f2222db40d11a1da2b06edf7f57edc8a8c69f809dcb0052fd88ddf5c62cf",
+          "role": "source.clip",
+          "target": "bef4aa91-2c51-4ca7-b3ac-820656093858",
+          "type": "animation_clip"
+        }
+      ],
+      "id": "71652069-2d40-4d1d-86e6-69f1839a6cac",
+      "metadata": {
+        "forge.animation_clip": {
+          "files": {
+            "clip.json": {
+              "bytes": 300,
+              "sha256": "6ad59d2dd5f51f1b5a80a3a9e3168cb0722344ff88127f4d5b8e9a401860c758"
+            },
+            "clip.ozz": {
+              "bytes": 5336,
+              "sha256": "41965945ffce791b191df705f5b123a9a9c1a5c09b7b14ecf3bd56cd93ea2cba"
+            }
+          },
+          "model": "08722c36-1c76-4b61-9989-7a171f39ba97",
+          "skeleton": "3fd41841-5ad9-40ee-8354-3097141941f0",
+          "skeleton_revision": "f92f6992a1dbfc4139e91782cae3aabfbc13acb8e35a24e1337ad7ee85f2c60a",
+          "version": 1
+        },
+        "forge.import": {
+          "artifact_digest": "dbf2508687d59ef4d6eb1dde216d899594827e826b9704758f0b573f50c7d416",
+          "backend": "d3d12",
+          "dependency_digest": "8c802921e09b491ed8fb47fa9dcb0d880f66e6da4c5cdd10e26770a67f9e9f2c",
+          "generation": 1,
+          "importer": "forge.animation.retarget",
+          "importer_revision": "forge.animation.retarget.v1",
+          "key": "4abb8dc29022229d9d359a9ba688be1895ecb116d98aa571503e9de1e9e8ca60",
+          "output_format": "forge.skeletal-clip",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "be6711ad6abf668552ef2bee3e41ef4a3044f0bf47699d2017e600545b36d59a",
+          "source_digest": "dad796c6dcb1c63213f30c0c1778185db22154b80a20b93369d84287c95dc947",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/AnimationRetarget/Swing.retarget.json",
+      "source_dependencies": [],
+      "type": "animation_clip"
+    },
+    {
+      "dependencies": [
         "e98de28f-a0a2-4a1f-84d0-4574665befb0"
       ],
       "dependency_edges": [
@@ -8579,6 +9279,57 @@
       "source": "Assets/Navigation/Patrol.behavior.json",
       "source_dependencies": [],
       "type": "navigation_behavior"
+    },
+    {
+      "dependencies": [
+        "3fd41841-5ad9-40ee-8354-3097141941f0"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "f92f6992a1dbfc4139e91782cae3aabfbc13acb8e35a24e1337ad7ee85f2c60a",
+          "role": "skeleton",
+          "target": "3fd41841-5ad9-40ee-8354-3097141941f0",
+          "type": "skeleton"
+        }
+      ],
+      "id": "763f663b-7030-49f3-b304-e86ac8e211ed",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "7739571c30331cc6a8df388ae267aad4293b3aa6792e0979b2640c5c2d969807",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "0577a968239b5883eccf95fc4a403370cbe790b6a4b56ab44014a9e09a0d103a",
+          "key": "f92f6992a1dbfc4139e91782cae3aabfbc13acb8e35a24e1337ad7ee85f2c60a",
+          "output_format": "forge.model-bundle",
+          "output_version": 5,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "bb32f8f1601a757943fb3b079115f35bd16f130a0a4bea4cc065661d63343867",
+          "source_digest": "2958673ff57f674d30884d50489a1a4f307cd44235470eb3b0ea05fa7538cbd7",
+          "version": 1
+        },
+        "forge.model": {
+          "bytes": 319,
+          "file": "clip-0.ozz",
+          "name": "Rest",
+          "sha256": "3c0feb759d25c92aa464ed3df8872681a87068a02873c16b744e4a78a7481cea",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/AnimationRetarget/TargetBeams.gltf",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/763f663b-7030-49f3-b304-e86ac8e211ed",
+        "owner": "08722c36-1c76-4b61-9989-7a171f39ba97",
+        "removed": false
+      },
+      "type": "animation_clip"
     },
     {
       "dependencies": [],
@@ -8818,6 +9569,47 @@
       "type": "material"
     },
     {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "7ab11e7a-9302-438e-939b-13e1116f5738",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "7739571c30331cc6a8df388ae267aad4293b3aa6792e0979b2640c5c2d969807",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "0577a968239b5883eccf95fc4a403370cbe790b6a4b56ab44014a9e09a0d103a",
+          "key": "f92f6992a1dbfc4139e91782cae3aabfbc13acb8e35a24e1337ad7ee85f2c60a",
+          "output_format": "forge.model-bundle",
+          "output_version": 5,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "bb32f8f1601a757943fb3b079115f35bd16f130a0a4bea4cc065661d63343867",
+          "source_digest": "2958673ff57f674d30884d50489a1a4f307cd44235470eb3b0ea05fa7538cbd7",
+          "version": 1
+        },
+        "forge.model": {
+          "bytes": 731,
+          "file": "material-2.fmat",
+          "name": "TargetSegment2",
+          "sha256": "f303584bb9cce999f94d4eb40b3194ef19c01af361e22a038a081e3e6a79126a",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/AnimationRetarget/TargetBeams.gltf",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/7ab11e7a-9302-438e-939b-13e1116f5738",
+        "owner": "08722c36-1c76-4b61-9989-7a171f39ba97",
+        "removed": false
+      },
+      "type": "material"
+    },
+    {
       "dependencies": [
         "258b9537-c0f6-448d-af8c-818f150d67cf"
       ],
@@ -8904,6 +9696,55 @@
       "subasset": {
         "key": "member/7bb9e435-c783-44b2-8080-1037ee06ecfc",
         "owner": "22987994-51d7-4942-80bf-a4adb7adc34b",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [
+        "6ab8a3af-a24b-4156-b7f7-3df104a35781"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "bb18f2222db40d11a1da2b06edf7f57edc8a8c69f809dcb0052fd88ddf5c62cf",
+          "role": "mesh",
+          "target": "6ab8a3af-a24b-4156-b7f7-3df104a35781",
+          "type": "mesh"
+        }
+      ],
+      "id": "7c10081b-57bb-464f-956a-c373c05fa4fb",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "dd579729da7a49be5ab05d61965c186e648d5ec724106b613fac50e79ba4185e",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "0577a968239b5883eccf95fc4a403370cbe790b6a4b56ab44014a9e09a0d103a",
+          "key": "bb18f2222db40d11a1da2b06edf7f57edc8a8c69f809dcb0052fd88ddf5c62cf",
+          "output_format": "forge.model-bundle",
+          "output_version": 5,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "0a25eddc65b1706e351352bf530c244f777e98de564f1b20ada10c3e44ce26cb",
+          "source_digest": "2b94b61251e54bd29648f14aa9fbfe9c2e5945ee7ca42d6972987cfba1ed9873",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "SourceBeams",
+          "node": 3,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/AnimationRetarget/SourceBeams.gltf",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/7c10081b-57bb-464f-956a-c373c05fa4fb",
+        "owner": "2218802b-89da-4837-8f3c-4f0e19990fd4",
         "removed": false
       },
       "type": "model_node"
@@ -11536,6 +12377,73 @@
     },
     {
       "dependencies": [
+        "7ab11e7a-9302-438e-939b-13e1116f5738",
+        "d788bad4-18f2-43c4-9d0a-338c2b35b221",
+        "e52ee6db-7c9f-4abc-8e31-0b624265a77e"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "f92f6992a1dbfc4139e91782cae3aabfbc13acb8e35a24e1337ad7ee85f2c60a",
+          "role": "material.3",
+          "target": "7ab11e7a-9302-438e-939b-13e1116f5738",
+          "type": "material"
+        },
+        {
+          "kind": "runtime",
+          "revision": "f92f6992a1dbfc4139e91782cae3aabfbc13acb8e35a24e1337ad7ee85f2c60a",
+          "role": "material.1",
+          "target": "d788bad4-18f2-43c4-9d0a-338c2b35b221",
+          "type": "material"
+        },
+        {
+          "kind": "runtime",
+          "revision": "f92f6992a1dbfc4139e91782cae3aabfbc13acb8e35a24e1337ad7ee85f2c60a",
+          "role": "material.2",
+          "target": "e52ee6db-7c9f-4abc-8e31-0b624265a77e",
+          "type": "material"
+        }
+      ],
+      "id": "9eed034c-bae7-4009-9cc7-432f16e5cd01",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "7739571c30331cc6a8df388ae267aad4293b3aa6792e0979b2640c5c2d969807",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "0577a968239b5883eccf95fc4a403370cbe790b6a4b56ab44014a9e09a0d103a",
+          "key": "f92f6992a1dbfc4139e91782cae3aabfbc13acb8e35a24e1337ad7ee85f2c60a",
+          "output_format": "forge.model-bundle",
+          "output_version": 5,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "bb32f8f1601a757943fb3b079115f35bd16f130a0a4bea4cc065661d63343867",
+          "source_digest": "2958673ff57f674d30884d50489a1a4f307cd44235470eb3b0ea05fa7538cbd7",
+          "version": 1
+        },
+        "forge.model": {
+          "bytes": 6164,
+          "file": "mesh-0.fmesh",
+          "name": "TargetBeams",
+          "sha256": "f78bb551779c4a18e482b259faa03ded4f06ddf48dc21ddaf03fa90a1625dd72",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/AnimationRetarget/TargetBeams.gltf",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/9eed034c-bae7-4009-9cc7-432f16e5cd01",
+        "owner": "08722c36-1c76-4b61-9989-7a171f39ba97",
+        "removed": false
+      },
+      "type": "mesh"
+    },
+    {
+      "dependencies": [
         "1e8d8ca3-6baa-4c06-9fa6-59296d52db65"
       ],
       "dependency_edges": [
@@ -12407,6 +13315,47 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "ac8c9e0e-1721-4f65-9eaf-08948a68eba9",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "dd579729da7a49be5ab05d61965c186e648d5ec724106b613fac50e79ba4185e",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "0577a968239b5883eccf95fc4a403370cbe790b6a4b56ab44014a9e09a0d103a",
+          "key": "bb18f2222db40d11a1da2b06edf7f57edc8a8c69f809dcb0052fd88ddf5c62cf",
+          "output_format": "forge.model-bundle",
+          "output_version": 5,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "0a25eddc65b1706e351352bf530c244f777e98de564f1b20ada10c3e44ce26cb",
+          "source_digest": "2b94b61251e54bd29648f14aa9fbfe9c2e5945ee7ca42d6972987cfba1ed9873",
+          "version": 1
+        },
+        "forge.model": {
+          "bytes": 730,
+          "file": "material-1.fmat",
+          "name": "SourceSegment1",
+          "sha256": "dfcf8ecf6cb5ad6d69a09ac6f8e853ceab2cf192bc1a60dfcd9b484d5f594c57",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/AnimationRetarget/SourceBeams.gltf",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/ac8c9e0e-1721-4f65-9eaf-08948a68eba9",
+        "owner": "2218802b-89da-4837-8f3c-4f0e19990fd4",
+        "removed": false
+      },
+      "type": "material"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "af64d6ab-bc61-4000-861e-065712610ac8",
       "metadata": {
         "forge.import": {
@@ -13175,6 +14124,45 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "bb941335-691c-4640-bf74-e1378db858d7",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "7739571c30331cc6a8df388ae267aad4293b3aa6792e0979b2640c5c2d969807",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "0577a968239b5883eccf95fc4a403370cbe790b6a4b56ab44014a9e09a0d103a",
+          "key": "f92f6992a1dbfc4139e91782cae3aabfbc13acb8e35a24e1337ad7ee85f2c60a",
+          "output_format": "forge.model-bundle",
+          "output_version": 5,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "bb32f8f1601a757943fb3b079115f35bd16f130a0a4bea4cc065661d63343867",
+          "source_digest": "2958673ff57f674d30884d50489a1a4f307cd44235470eb3b0ea05fa7538cbd7",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "TargetBase",
+          "node": 0,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/AnimationRetarget/TargetBeams.gltf",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/bb941335-691c-4640-bf74-e1378db858d7",
+        "owner": "08722c36-1c76-4b61-9989-7a171f39ba97",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "bbc7b1f1-7266-49d3-94b4-2083eccf17ff",
       "metadata": {
         "forge.import": {
@@ -13464,6 +14452,57 @@
       "type": "ui_stylesheet"
     },
     {
+      "dependencies": [
+        "53ad81ae-db81-4af6-9c55-70f045b7470f"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "bb18f2222db40d11a1da2b06edf7f57edc8a8c69f809dcb0052fd88ddf5c62cf",
+          "role": "skeleton",
+          "target": "53ad81ae-db81-4af6-9c55-70f045b7470f",
+          "type": "skeleton"
+        }
+      ],
+      "id": "bef4aa91-2c51-4ca7-b3ac-820656093858",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "dd579729da7a49be5ab05d61965c186e648d5ec724106b613fac50e79ba4185e",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "0577a968239b5883eccf95fc4a403370cbe790b6a4b56ab44014a9e09a0d103a",
+          "key": "bb18f2222db40d11a1da2b06edf7f57edc8a8c69f809dcb0052fd88ddf5c62cf",
+          "output_format": "forge.model-bundle",
+          "output_version": 5,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "0a25eddc65b1706e351352bf530c244f777e98de564f1b20ada10c3e44ce26cb",
+          "source_digest": "2b94b61251e54bd29648f14aa9fbfe9c2e5945ee7ca42d6972987cfba1ed9873",
+          "version": 1
+        },
+        "forge.model": {
+          "bytes": 381,
+          "file": "clip-0.ozz",
+          "name": "Swing",
+          "sha256": "31d3b1b7395b54eeb721a427c211ec131abfc4bb2ea97dfba8eae2cf0dccd25f",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/AnimationRetarget/SourceBeams.gltf",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/bef4aa91-2c51-4ca7-b3ac-820656093858",
+        "owner": "2218802b-89da-4837-8f3c-4f0e19990fd4",
+        "removed": false
+      },
+      "type": "animation_clip"
+    },
+    {
       "dependencies": [],
       "dependency_edges": [],
       "id": "bf30c67d-4500-4547-a935-88a1a4e50d50",
@@ -13497,6 +14536,55 @@
       "source": "Assets/TriangleSculpt.mesh.json",
       "source_dependencies": [],
       "type": "mesh"
+    },
+    {
+      "dependencies": [
+        "9eed034c-bae7-4009-9cc7-432f16e5cd01"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "f92f6992a1dbfc4139e91782cae3aabfbc13acb8e35a24e1337ad7ee85f2c60a",
+          "role": "mesh",
+          "target": "9eed034c-bae7-4009-9cc7-432f16e5cd01",
+          "type": "mesh"
+        }
+      ],
+      "id": "bfc28ae1-2959-45c2-98df-9d83a0393ed5",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "7739571c30331cc6a8df388ae267aad4293b3aa6792e0979b2640c5c2d969807",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "0577a968239b5883eccf95fc4a403370cbe790b6a4b56ab44014a9e09a0d103a",
+          "key": "f92f6992a1dbfc4139e91782cae3aabfbc13acb8e35a24e1337ad7ee85f2c60a",
+          "output_format": "forge.model-bundle",
+          "output_version": 5,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "bb32f8f1601a757943fb3b079115f35bd16f130a0a4bea4cc065661d63343867",
+          "source_digest": "2958673ff57f674d30884d50489a1a4f307cd44235470eb3b0ea05fa7538cbd7",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "TargetBeams",
+          "node": 3,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/AnimationRetarget/TargetBeams.gltf",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/bfc28ae1-2959-45c2-98df-9d83a0393ed5",
+        "owner": "08722c36-1c76-4b61-9989-7a171f39ba97",
+        "removed": false
+      },
+      "type": "model_node"
     },
     {
       "dependencies": [],
@@ -14744,6 +15832,47 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "d788bad4-18f2-43c4-9d0a-338c2b35b221",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "7739571c30331cc6a8df388ae267aad4293b3aa6792e0979b2640c5c2d969807",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "0577a968239b5883eccf95fc4a403370cbe790b6a4b56ab44014a9e09a0d103a",
+          "key": "f92f6992a1dbfc4139e91782cae3aabfbc13acb8e35a24e1337ad7ee85f2c60a",
+          "output_format": "forge.model-bundle",
+          "output_version": 5,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "bb32f8f1601a757943fb3b079115f35bd16f130a0a4bea4cc065661d63343867",
+          "source_digest": "2958673ff57f674d30884d50489a1a4f307cd44235470eb3b0ea05fa7538cbd7",
+          "version": 1
+        },
+        "forge.model": {
+          "bytes": 747,
+          "file": "material-0.fmat",
+          "name": "TargetSegment0",
+          "sha256": "755c0fc1035fc6f1638e1f78c093dedf7e833501960dc687d284f0dd43f37e43",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/AnimationRetarget/TargetBeams.gltf",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/d788bad4-18f2-43c4-9d0a-338c2b35b221",
+        "owner": "08722c36-1c76-4b61-9989-7a171f39ba97",
+        "removed": false
+      },
+      "type": "material"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "d7e017e1-47e6-4d0d-a3a8-0b7950bd99a7",
       "metadata": {
         "forge.import": {
@@ -15345,6 +16474,47 @@
       "type": "skeleton"
     },
     {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "e52ee6db-7c9f-4abc-8e31-0b624265a77e",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "7739571c30331cc6a8df388ae267aad4293b3aa6792e0979b2640c5c2d969807",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "0577a968239b5883eccf95fc4a403370cbe790b6a4b56ab44014a9e09a0d103a",
+          "key": "f92f6992a1dbfc4139e91782cae3aabfbc13acb8e35a24e1337ad7ee85f2c60a",
+          "output_format": "forge.model-bundle",
+          "output_version": 5,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "bb32f8f1601a757943fb3b079115f35bd16f130a0a4bea4cc065661d63343867",
+          "source_digest": "2958673ff57f674d30884d50489a1a4f307cd44235470eb3b0ea05fa7538cbd7",
+          "version": 1
+        },
+        "forge.model": {
+          "bytes": 730,
+          "file": "material-1.fmat",
+          "name": "TargetSegment1",
+          "sha256": "80cb7980ebddf3c1d03e49063c32c94901dfa4970afbce21b9f139933d760453",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/AnimationRetarget/TargetBeams.gltf",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/e52ee6db-7c9f-4abc-8e31-0b624265a77e",
+        "owner": "08722c36-1c76-4b61-9989-7a171f39ba97",
+        "removed": false
+      },
+      "type": "material"
+    },
+    {
       "dependencies": [
         "ce605af0-a6db-4ddb-ad8a-28600682170e"
       ],
@@ -15649,6 +16819,47 @@
       "source": "Assets/Sequences/LightAndSound.animation.json",
       "source_dependencies": [],
       "type": "transform_animation"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "eb8ee837-8a90-4dd3-9b5d-f810abf02430",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "dd579729da7a49be5ab05d61965c186e648d5ec724106b613fac50e79ba4185e",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "0577a968239b5883eccf95fc4a403370cbe790b6a4b56ab44014a9e09a0d103a",
+          "key": "bb18f2222db40d11a1da2b06edf7f57edc8a8c69f809dcb0052fd88ddf5c62cf",
+          "output_format": "forge.model-bundle",
+          "output_version": 5,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "0a25eddc65b1706e351352bf530c244f777e98de564f1b20ada10c3e44ce26cb",
+          "source_digest": "2b94b61251e54bd29648f14aa9fbfe9c2e5945ee7ca42d6972987cfba1ed9873",
+          "version": 1
+        },
+        "forge.model": {
+          "bytes": 746,
+          "file": "material-0.fmat",
+          "name": "SourceSegment0",
+          "sha256": "29319175a68c6c7deaa50f404eb7ec27ac66f83ecb1bddafe995e2d45ca0f82b",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/AnimationRetarget/SourceBeams.gltf",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/eb8ee837-8a90-4dd3-9b5d-f810abf02430",
+        "owner": "2218802b-89da-4837-8f3c-4f0e19990fd4",
+        "removed": false
+      },
+      "type": "material"
     },
     {
       "dependencies": [

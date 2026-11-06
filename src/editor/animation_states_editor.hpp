@@ -1,4 +1,5 @@
 #pragma once
+#include "../animation_clip_selection.hpp"
 #include "../animation_states_authoring.hpp"
 #include "../texture_authoring.hpp"
 #include "animation_state_graph.hpp"
@@ -108,7 +109,7 @@ class AnimationStatesEditor : public SourceDocumentPanel<AnimationStatesDocument
                 FORGE_UI_PROBE("animation_states:state:" + std::to_string(id));
             }
             if (asset_ref_picker(*catalog_, new_clip_, AnimationClipAsset::type, "New state clip",
-                                 false, owner_)) {
+                                 false, {}, &clips_)) {
             }
             ImGui::BeginDisabled(new_clip_.is_null() || draft.at("states").size() >= 32 ||
                                  draft.at("next_id").get<std::uint64_t>() > UINT32_MAX);
@@ -141,8 +142,8 @@ class AnimationStatesEditor : public SourceDocumentPanel<AnimationStatesDocument
                 if (ImGui::IsItemDeactivatedAfterEdit())
                     mutate_state("Rename state", "name", std::string(name_));
                 auto clip = state.at("clip");
-                if (asset_ref_picker(*catalog_, clip, AnimationClipAsset::type, "Clip", false,
-                                     owner_) &&
+                if (asset_ref_picker(*catalog_, clip, AnimationClipAsset::type, "Clip", false, {},
+                                     &clips_) &&
                     !clip.is_null())
                     mutate_state("Choose clip", "clip", clip);
                 bool loop = state.at("loop");
@@ -232,7 +233,7 @@ class AnimationStatesEditor : public SourceDocumentPanel<AnimationStatesDocument
 
   private:
     AnimationStateGraph graph_;
-    std::optional<AssetId> owner_;
+    std::set<AssetId> clips_;
     std::uint32_t selected_ = 0, marker_selected_ = 0;
     char marker_name_[65]{};
     Json new_clip_ = nullptr;
@@ -242,7 +243,7 @@ class AnimationStatesEditor : public SourceDocumentPanel<AnimationStatesDocument
     bool flush_gesture() override { return graph_.flush(graph_edit()); }
     void view_closed() override {
         graph_.reset();
-        owner_ = AssetId{};
+        clips_.clear();
         new_clip_ = nullptr;
         selected_ = marker_selected_ = 0;
     }
@@ -259,15 +260,13 @@ class AnimationStatesEditor : public SourceDocumentPanel<AnimationStatesDocument
             select(selected_);
     }
     void refresh_owner() {
-        owner_ = AssetId{};
+        clips_.clear();
         if (!document_ || !catalog_)
             return;
         const auto& skeleton = document_->source().document.at("skeleton");
         if (skeleton.is_null())
             return;
-        const auto resolved = catalog_->resolve(skeleton.get<AssetId>(), SkeletonAsset::type);
-        if (resolved.state == AssetState::Available && resolved.record->subasset)
-            owner_ = resolved.record->subasset->owner;
+        clips_ = animation_detail::compatible_animation_clips(*catalog_, {skeleton.get<AssetId>()});
     }
     AnimationStateGraph::Edit graph_edit() {
         return [this](std::uint64_t revision, std::string label,

@@ -1,6 +1,6 @@
 # Changelog
 
-- [2026-11-06](20261106/README.md) — Runtime GPU reflection capture/Gallery176; animated triangle UI surfaces/Gallery177; Scene Mesh texture painting, shared source/UV/history/publication, programmatic triangle inspection/projection and Gallery178. Local source; Windows verification and delivery pending.
+- [2026-11-06](20261106/README.md) — Target-bound skeletal retarget baking/Gallery179; Runtime GPU reflection capture/Gallery176; animated triangle UI surfaces/Gallery177; Scene Mesh texture painting, shared source/UV/history/publication, programmatic triangle inspection/projection and Gallery178. Local source; Windows verification and delivery pending.
 
 - [2026-11-05](20261105/README.md) — Bounded runtime UI gradients, alpha masks and box shadows; morphological anti-aliasing/Gallery168; current-view occlusion culling/Gallery169; shared authoring/MCP, export and illustrated manuals. Local source; Windows verification and delivery pending.
 

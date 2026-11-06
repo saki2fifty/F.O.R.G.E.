@@ -1,4 +1,5 @@
 #pragma once
+#include "../animation_clip_selection.hpp"
 #include "../mesh_pick.hpp"
 #include "../model_render_resource.hpp"
 #include "automation_schema.hpp"
@@ -44,6 +45,53 @@ inline std::vector<LiveAuthoringMethod> asset_read_automation_methods(SceneDocum
                                                                       ContentImports& imports) {
     std::vector<LiveAuthoringMethod> methods;
     auto catalog = [&document, &imports] { return automation_asset_catalog(document, imports); };
+    methods.push_back(automation_method(
+        "asset.skeleton.joints",
+        "Read a bounded page of durable imported Skeleton joint UUIDs, parent UUIDs and local "
+        "rest poses for explicit animation retarget mapping. Published source data only, "
+        "without Scene transforms or animation. Up to 256 joints and a 64 MiB model bundle.",
+        "asset.read",
+        automation_object({{"skeleton", automation_uuid()},
+                           {"revision", automation_text(64, 64)},
+                           {"offset", automation_integer()},
+                           {"limit", automation_integer(1, 128)}},
+                          {"skeleton"}),
+        false, [catalog, &document](const Json& request) {
+            const auto current = catalog();
+            const AssetRef<SkeletonAsset> ref{request.at("skeleton").get<AssetId>()};
+            const auto found = current->records().find(ref.id);
+            if (found == current->records().end() || found->second.type != SkeletonAsset::type ||
+                !found->second.metadata.contains("forge.import"))
+                throw AuthoringError("invalid_argument", "Choose a published imported Skeleton");
+            if (request.contains("revision") &&
+                request.at("revision") != found->second.metadata.at("forge.import").at("key"))
+                throw AuthoringError("stale_asset",
+                                     "Skeleton publication changed; refresh its revision");
+            const auto value =
+                animation_detail::inspect_animation_skeleton(document.project(), *current, ref);
+            const auto offset = request.value("offset", std::size_t{});
+            const auto limit = request.value("limit", std::size_t(128));
+            Json joints = Json::array();
+            for (std::size_t i = offset; i < value.joints.size() && i - offset < limit; ++i) {
+                const auto parent = value.parents[i];
+                const auto& pose = value.rest[i];
+                joints.push_back(
+                    {{"joint", value.joints[i]},
+                     {"name", value.labels[i]},
+                     {"parent", parent < 0 ? Json() : Json(value.joints[std::size_t(parent)])},
+                     {"rest",
+                      {{"translation", pose.translation},
+                       {"rotation", pose.rotation},
+                       {"scale", pose.scale}}}});
+            }
+            return Json{{"skeleton", ref.id},
+                        {"model", value.model},
+                        {"revision", value.revision},
+                        {"generation", value.generation},
+                        {"joint_count", value.joints.size()},
+                        {"offset", offset},
+                        {"joints", std::move(joints)}};
+        }));
     methods.push_back(automation_method(
         "asset.search", "Page current project and immutable engine assets by name, source or type.",
         "asset.read",

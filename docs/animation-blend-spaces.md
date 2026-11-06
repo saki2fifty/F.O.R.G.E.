@@ -1,6 +1,6 @@
 # Animation blend spaces
 
-`AnimationBlendSpaceAsset` places compatible imported clips on one or two numeric
+`AnimationBlendSpaceAsset` places compatible clips on one or two numeric
 axes. Animator's nullable `blend_space` selects the asset; finite `blend_position`
 and, for two axes, `blend_position_y` select the local samples and their influence.
 One axis interpolates its neighboring pair, clamping beyond the ends. Two axes use
@@ -21,7 +21,10 @@ Unknown document/sample/position extension fields remain preserved. Up to64
 samples and256KiB source are admitted. Positions are finite within±1000000 and
 unique; cycle duration is finite within0.0001–3600 seconds. Repeated clips at
 distinct positions are allowed. Cooking requires an imported skeleton, at least
-one sample and complete clips from the same exact model revision/generation.
+one sample and complete clips admitted for the selected skeleton. Imported clips
+retain the same exact model revision/generation requirement;
+[retargeted root clips](animation-retargeting.md) prove their exact target binding
+and retain their independent clip revision.
 Sorting by coordinates makes source row order irrelevant to playback/cooked bytes.
 Names, display ordering and glTF indices never bind samples or clips.
 
@@ -33,7 +36,8 @@ wrapper1 selections remain readable for source1. Wrapper1 cannot contain source2
 The bare source1 `cook()` default retains its previous wrapper1 bytes; selected
 imports check the recipe's exact wrapper version. No metadata identity is reminted.
 Runtime edges are `space.skeleton` and `space.clip:<sample UUID>`;
-all carry the exact model revision. Failed drafts/cooks retain last-good output.
+the skeleton edge carries its exact model revision and each clip edge carries its
+own admitted immutable revision. Failed drafts/cooks retain last-good output.
 Move preserves identity; duplicate changes the asset UUID while preserving the
 document-local sample IDs and clip references. Reference-impact review tracks
 skeleton/clip references and leaves unknown extension fields uninspected.

@@ -1,0 +1,149 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [],
+    "importer": "forge.model.gltf",
+    "importer_revision": "0577a968239b5883eccf95fc4a403370cbe790b6a4b56ab44014a9e09a0d103a",
+    "key_version": 2,
+    "output_format": "forge.model-bundle",
+    "output_version": 5,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {
+      "animation_optimize": true,
+      "animation_sampling_rate": 30,
+      "compression": "none",
+      "max_texture_size": 16384,
+      "normals": "missing",
+      "skin_influences": "reject",
+      "tangents": "missing",
+      "vertex_fetch": true,
+      "weld_exact": true
+    },
+    "settings_version": 1,
+    "source": "2958673ff57f674d30884d50489a1a4f307cd44235470eb3b0ea05fa7538cbd7",
+    "source_dependencies": {},
+    "tool_revisions": {
+      "gltf2ozz": "926bdc6fc10a172db721343174e12820d99f2b3c9ac13446993f67732962d1a0"
+    }
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [
+      {
+        "content_digest": "4376d04dc1b7838b73a3876ea0d79a2abe8c87b6c6750982c0d55c8b852d9c26",
+        "display_name": "TargetElbow",
+        "exporter_key": "",
+        "id": "167743c7-eabb-4dcf-95c1-27f8403c78a6",
+        "key": "member/167743c7-eabb-4dcf-95c1-27f8403c78a6",
+        "removed": false,
+        "semantic_digest": "e155fdff4490130647140e31b51dc085165c3f9d269136ce9b50e2d1bf4a463a",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "56c5da2fdcd0f6cc53fe93edd04b7cd85d21dc0932ff757a726d5914ac366a44",
+        "display_name": "TargetEnd",
+        "exporter_key": "",
+        "id": "3b154f5f-6910-452d-8919-519b9fa895a7",
+        "key": "member/3b154f5f-6910-452d-8919-519b9fa895a7",
+        "removed": false,
+        "semantic_digest": "a64a31b91c4a7b041252e9547644a3ba82c7d836881d4a3686fc810946e95d8d",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "b9ac5a9892ec9fff63f15eb43f53e16843e7aa45edb94843baca0517e19c4ab5",
+        "display_name": "Model skeleton",
+        "exporter_key": "",
+        "id": "3fd41841-5ad9-40ee-8354-3097141941f0",
+        "key": "member/3fd41841-5ad9-40ee-8354-3097141941f0",
+        "removed": false,
+        "semantic_digest": "97edb6223910b54d1757f05b9a3dcaab02d9aa50068ddb179a6df47ee536db0a",
+        "type": "skeleton"
+      },
+      {
+        "content_digest": "df734f210b1dae2fc6a7544ea9b065b7d202492de6aaf28ffa3aa739f2c9ff21",
+        "display_name": "Rest",
+        "exporter_key": "",
+        "id": "763f663b-7030-49f3-b304-e86ac8e211ed",
+        "key": "member/763f663b-7030-49f3-b304-e86ac8e211ed",
+        "removed": false,
+        "semantic_digest": "08c41f352cbea9b98d191d3f0f97a56fb73d344d6acb580dc447cfa8ccd999a4",
+        "type": "animation_clip"
+      },
+      {
+        "content_digest": "47ef273b91199c7e7b30644d6c74327051e7f1bd2199b9c2deca1a41806cf618",
+        "display_name": "TargetSegment2",
+        "exporter_key": "",
+        "id": "7ab11e7a-9302-438e-939b-13e1116f5738",
+        "key": "member/7ab11e7a-9302-438e-939b-13e1116f5738",
+        "removed": false,
+        "semantic_digest": "4eff41a110b308b0e971f8d1f9843c04e6d6db4f22e74b61fbf4a2a843950d3c",
+        "type": "material"
+      },
+      {
+        "content_digest": "b55147fcdee67e3b0bfdeb8021d2aa11e1bdbe0bb759dfea4575734d6145e1c0",
+        "display_name": "TargetBeams",
+        "exporter_key": "",
+        "id": "9eed034c-bae7-4009-9cc7-432f16e5cd01",
+        "key": "member/9eed034c-bae7-4009-9cc7-432f16e5cd01",
+        "removed": false,
+        "semantic_digest": "8a814504345720cf1555fbfbba378a9559c310c792a62cc3465b3341a71b2606",
+        "type": "mesh"
+      },
+      {
+        "content_digest": "0032a973e094b7529af27a9c6fc0a60693a3f1a147464c208611c9438544780d",
+        "display_name": "TargetBase",
+        "exporter_key": "",
+        "id": "bb941335-691c-4640-bf74-e1378db858d7",
+        "key": "member/bb941335-691c-4640-bf74-e1378db858d7",
+        "removed": false,
+        "semantic_digest": "64d72043bafba36877359111f1d8532fabe6a40e7ed64f43ec4d3b9ba00a4af5",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "8d58d3d525bfd5d020ba4129b863aa5d39b54136f9c4305ffc179db7d7858309",
+        "display_name": "TargetBeams",
+        "exporter_key": "",
+        "id": "bfc28ae1-2959-45c2-98df-9d83a0393ed5",
+        "key": "member/bfc28ae1-2959-45c2-98df-9d83a0393ed5",
+        "removed": false,
+        "semantic_digest": "794b29b203627661f866710fcdc6a26152379d04bf897689b1a2eb77c5ee03d6",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "5926804b620d82cf878ad4052223f9d9ecb1af40906c1b20f63190ceb8e1f48a",
+        "display_name": "TargetSegment0",
+        "exporter_key": "",
+        "id": "d788bad4-18f2-43c4-9d0a-338c2b35b221",
+        "key": "member/d788bad4-18f2-43c4-9d0a-338c2b35b221",
+        "removed": false,
+        "semantic_digest": "4eff41a110b308b0e971f8d1f9843c04e6d6db4f22e74b61fbf4a2a843950d3c",
+        "type": "material"
+      },
+      {
+        "content_digest": "cdd7228ae830e1af7fddb7144260e4d68f850fa226fed0fa1e3c0de8f28cfa85",
+        "display_name": "TargetSegment1",
+        "exporter_key": "",
+        "id": "e52ee6db-7c9f-4abc-8e31-0b624265a77e",
+        "key": "member/e52ee6db-7c9f-4abc-8e31-0b624265a77e",
+        "removed": false,
+        "semantic_digest": "4eff41a110b308b0e971f8d1f9843c04e6d6db4f22e74b61fbf4a2a843950d3c",
+        "type": "material"
+      }
+    ],
+    "evidence_schema": "forge.gltf-model.v2",
+    "format": "forge.subasset-identity",
+    "owner": "08722c36-1c76-4b61-9989-7a171f39ba97",
+    "source": "Assets/AnimationRetarget/TargetBeams.gltf",
+    "source_digest": "2958673ff57f674d30884d50489a1a4f307cd44235470eb3b0ea05fa7538cbd7",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.model.gltf",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

@@ -1,6 +1,6 @@
 #pragma once
 #include "../animation_mask_authoring.hpp"
-#include "../animation_mask_binding.hpp"
+#include "../model_skeleton_binding.hpp"
 #include "../texture_authoring.hpp"
 #include "document.hpp"
 #include "property_drawer.hpp"
@@ -333,7 +333,7 @@ class AnimationMaskEditor {
                 throw std::runtime_error("Choose a current skeleton from an imported model");
             const auto selected = asset_detail::load_model_selection(
                 document_->project(), *catalog_, resolved.record->subasset->owner);
-            const auto joints = asset_detail::animation_mask_joints(selected, id);
+            const auto joints = asset_detail::model_skeleton_joints(selected, id);
             owner_ = selected.owner;
             joints_.insert(joints.assets.begin(), joints.assets.end());
         } catch (const std::exception& e) {

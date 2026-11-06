@@ -103,7 +103,7 @@ ArchiveInfo skeleton(Reader& r) {
     }
     return info;
 }
-void channel(Reader& r, const std::vector<float>& times, unsigned tracks, unsigned count,
+bool channel(Reader& r, const std::vector<float>& times, unsigned tracks, unsigned count,
              bool rotation) {
     // All count-derived allocations are bounded before entering this function.
     std::vector<std::uint16_t> ratios(count), previous(count);
@@ -120,6 +120,7 @@ void channel(Reader& r, const std::vector<float>& times, unsigned tracks, unsign
     std::vector<unsigned> owner(count), tails(tracks);
     std::vector<std::array<double, 4>> last_rotation(rotation ? tracks : 0);
     float last_previous_time = 0;
+    bool unit_values = true;
     for (unsigned i = 0; i < count; ++i) {
         if (i < tracks) {
             if (previous[i] != 0 || ratios[i] != 0)
@@ -146,6 +147,7 @@ void channel(Reader& r, const std::vector<float>& times, unsigned tracks, unsign
         if (!rotation) {
             if ((a & 0x7c00) == 0x7c00 || (b & 0x7c00) == 0x7c00 || (c & 0x7c00) == 0x7c00)
                 reject("Non-finite compressed animation value");
+            unit_values &= a == 0x3c00 && b == 0x3c00 && c == 0x3c00;
         } else {
             const auto packed =
                 std::uint64_t(a) | (std::uint64_t(b) << 16) | (std::uint64_t(c) << 32);
@@ -181,6 +183,7 @@ void channel(Reader& r, const std::vector<float>& times, unsigned tracks, unsign
     for (auto tail : tails)
         if (times[ratios[tail]] != 1)
             reject("Animation track does not end at duration");
+    return unit_values;
 }
 ArchiveInfo animation(Reader& r) {
     r.header("ozz-animation", 7);
@@ -208,8 +211,11 @@ ArchiveInfo animation(Reader& r) {
     }
     if (times.front() != 0 || times.back() != 1)
         reject("Animation time table must span zero to one");
-    for (unsigned c = 0; c < 3; ++c)
-        channel(r, times, padded, counts[c], c == 1);
+    for (unsigned c = 0; c < 3; ++c) {
+        const bool unit = channel(r, times, padded, counts[c], c == 1);
+        if (c == 2)
+            info.unit_scales = unit;
+    }
     return info;
 }
 } // namespace

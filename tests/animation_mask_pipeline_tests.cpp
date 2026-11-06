@@ -1,5 +1,4 @@
 #include "animation_mask_authoring.hpp"
-#include "animation_mask_binding.hpp"
 #include "animation_mask_resource.hpp"
 #include "animation_pose_compare.hpp"
 #include "animation_preview.hpp"
@@ -7,6 +6,7 @@
 #include "model_authoring.hpp"
 #include "model_import_test.hpp"
 #include "model_placement.hpp"
+#include "model_skeleton_binding.hpp"
 #include "runtime_package.hpp"
 #include <forge/authoring.hpp>
 #include <forge/runtime.hpp>
@@ -207,7 +207,7 @@ int main(int argc, char** argv) {
         const auto admitted = pool.acquire(request);
         require(admitted && admitted->skeleton_revision == selected.revision,
                 "Mask resource lost skeleton revision");
-        const auto durable = animation_mask_joints(selected, skeleton);
+        const auto durable = model_skeleton_joints(selected, skeleton);
         require(admitted->mask.weights(skeleton, durable.assets, durable.parents).size() == 5,
                 "Mask resource lost native joints");
         phase = "typed scene authoring";

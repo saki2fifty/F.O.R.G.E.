@@ -23,5 +23,6 @@ struct ModelSelection {
 // device, project publication or gameplay-world mutation occurs here.
 ModelSelection load_model_selection(const std::filesystem::path& project,
                                     const AssetCatalog& catalog, AssetId model,
-                                    std::stop_token stop = {});
+                                    std::stop_token stop = {},
+                                    std::uint64_t byte_limit = 512 * 1024 * 1024);
 } // namespace forge::asset_detail

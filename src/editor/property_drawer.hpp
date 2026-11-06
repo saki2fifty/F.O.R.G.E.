@@ -12,6 +12,7 @@
 #include <cmath>
 #include <cstdint>
 #include <forge/engine_assets.hpp>
+#include <forge/model_asset.hpp>
 #include <forge/project.hpp>
 #include <forge/project_paths.hpp>
 #include <map>
@@ -106,7 +107,8 @@ inline bool asset_ref_picker(const AssetCatalog& catalog, Json& value, const std
             else if (resolved.record && !asset_picker_scope_matches(*resolved.record, owner))
                 label += " (different model)";
             else if (allowed && !allowed->contains(value.get<AssetId>()))
-                label += " (not a bone of this skeleton)";
+                label += type == ModelNodeAsset::type ? " (not a bone of this skeleton)"
+                                                      : " (outside allowed selection)";
         }
         bool changed = false;
 #ifdef FORGE_UI_FIXTURE

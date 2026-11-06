@@ -71,7 +71,8 @@ sampling state. If assets changed, recovery is rejected; start a fresh Play sess
 For more control, use [animation states](animation-states.md),
 [blending and blend spaces](animation-blending.md), [reach and aim constraints](animation-rigging.md),
 and [root motion](animation-root-motion.md). Clips must use compatible skeletons;
-automatic retargeting between different skeletons is unavailable.
+use [explicit joint mapping](animation-retargeting.md) to bake motion for a different
+imported skeleton.
 
 See [Play mode](play-mode.md), [Prefabs](prefabs.md), and
 [Saving and recovery](saving-recovery.md).
@@ -87,7 +88,9 @@ previous successful import selected.
 
 The [model import tools](models.md) also register Skeleton and Clip assets.
 You can assign those references to an Animator for the existing bone preview.
-Skeleton and Clip must come from the same successfully imported model revision.
+An imported Skeleton and Clip must come from the same successfully imported model
+revision. A [retargeted clip](animation-retargeting.md) can also be used with the
+exact target skeleton for which it was published.
 
 These cooked assets load in the background during Play. While they load, that
 Animator has no pose and a complete runtime recovery snapshot is unavailable.

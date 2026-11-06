@@ -1,3 +1,4 @@
+#include "animation_clip_selection.hpp"
 #include "asset_bytes.hpp"
 #include "asset_storage.hpp"
 #include "audio_stream_profile.hpp"
@@ -56,6 +57,24 @@ int main(int argc, char** argv) {
             record.metadata["forge.import"]["importer"] = "forge.model.gltf";
             features.replace(record);
             validate_runtime_compatibility(features, Json::object());
+        }
+        {
+            AssetCatalog features(scratch / "skeletal-clip-compatibility");
+            AssetRecord record{AssetId::generate(), AnimationClipAsset::type,
+                               "Assets/Motion.retarget.json", 1};
+            features.add(record);
+            validate_runtime_compatibility(features, Json::object());
+            record.metadata["forge.animation_clip"] = {{"version", 1}};
+            features.replace(record);
+            reject([&] { validate_runtime_compatibility(features, Json::object()); });
+            for (const Json& invalid : {Json(), Json(false), Json(-1), Json(0), Json(1.), Json("1"),
+                                        Json(2), Json(std::uint64_t{1} << 32)})
+                reject([&] {
+                    validate_runtime_compatibility(features, {{"runtime_skeletal_clip", invalid}});
+                });
+            validate_runtime_compatibility(
+                features,
+                {{"runtime_skeletal_clip", animation_detail::baked_clip_profile_version}});
         }
         {
             AssetCatalog features(scratch / "streaming-compatibility");

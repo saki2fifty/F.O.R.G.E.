@@ -1,4 +1,5 @@
 #include "animation_blend_space_authoring.hpp"
+#include "animation_clip_selection.hpp"
 #include "model_selection.hpp"
 #include <algorithm>
 namespace forge {
@@ -38,23 +39,14 @@ Snapshot capture(const AssetImportRequest& request, std::stop_token stop) {
     input.platform = request.target.platform;
     input.backend = request.target.backend;
     input.profile = request.target.profile;
-    auto dependency = [&](AssetId id, const char* type, std::string role) {
-        const auto value = catalog.resolve(id, type);
-        require(value.state == AssetState::Available && value.record->subasset &&
-                    value.record->subasset->owner == selected.owner,
-                "Animation Blend Space dependency is unavailable or belongs to another model");
-        const auto imported = value.record->metadata.at("forge.import");
-        require(imported.at("key") == selected.revision &&
-                    imported.at("generation") == selected.generation,
-                "Animation Blend Space dependencies mix model publication revisions");
-        input.dependencies.push_back(
-            {id, type, AssetDependencyKind::Runtime, std::move(role), selected.revision});
-    };
-    dependency(space.skeleton, SkeletonAsset::type, "space.skeleton");
+    input.dependencies.push_back({space.skeleton, SkeletonAsset::type, AssetDependencyKind::Runtime,
+                                  "space.skeleton", selected.revision});
     for (const auto& sample : space.samples) {
-        require(selected.member(sample.clip.id).identity.type == AnimationClipAsset::type,
-                "Blend Space sample is not an admitted model clip");
-        dependency(sample.clip.id, AnimationClipAsset::type, "space.clip:" + sample.id.str());
+        const auto binding =
+            animation_detail::select_animation_clip(catalog, {space.skeleton}, sample.clip);
+        input.dependencies.push_back({sample.clip.id, AnimationClipAsset::type,
+                                      AssetDependencyKind::Runtime, "space.clip:" + sample.id.str(),
+                                      binding.clip_revision});
     }
     require(!stop.stop_requested(), "Animation Blend Space import cancelled");
     return result;

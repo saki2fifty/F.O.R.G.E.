@@ -113,8 +113,8 @@ Larger skins require validated mesh partitioning or a separately declared profil
 never truncate joints/weights silently. A CPU skinning path is a deliberate fallback,
 not assumed delivered. Native fixtures exercise the admitted buffer/shader profile.
 Palette index/weight bounds and normalization are validated, not trusted. Morph
-targets and animated weights are implemented; retargeting and advanced authoring
-tools remain future work.
+targets and animated weights are implemented. [Retargeted clips](animation-retargeting.md)
+feed the same pose/palette/rendering path; general rig-authoring tools remain separate work.
 
 ## Failure and publication rules
 

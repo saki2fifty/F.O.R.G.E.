@@ -70,8 +70,8 @@ advancing paused game time or editing authored values.
 These observations describe skeletal playback rather than transform-animation
 status or a cumulative loop counter. [Named states](animation-states.md) own
 automatic transitions, and [root motion](animation-root-motion.md) has a separate
-current-tick observation. Retargeting and a complete animation graph remain
-separate work.
+current-tick observation. [Retargeted clips](animation-retargeting.md) use the same
+playback observations after publication. A complete animation graph remains separate work.
 
 [C++ playback controls](animation-playback-controls.md) use these same realized
 clocks for per-player Play, Pause, Restart and Seek before the Animation stage.

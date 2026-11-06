@@ -80,8 +80,10 @@ It is normalized quaternion interpolation, rather than spherical interpolation.
 The rest-pose threshold is the pinned default .1; total supplied weight is one.
 No matrix decomposition or interpolated world-matrix blending is used.
 
-Both clips must use the same exact skeleton identity/revision. Model clips must
-also belong to the same model and publication generation; existing durable joint
+Both clips must use the same exact skeleton identity/revision. Imported model clips
+also belong to the same model and publication generation. A
+[retargeted root clip](animation-retargeting.md) instead proves that exact target
+skeleton binding with an independent clip revision. Existing durable joint
 AssetIds and skin/inverse-bind correspondence remain authoritative. The union of
 both explicit transform-channel sets is prepared once at resource adoption.
 Within that union, a missing channel uses its converter-provided rest value. Paths

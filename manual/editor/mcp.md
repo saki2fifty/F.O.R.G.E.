@@ -79,6 +79,13 @@ collision, terrain, tile, Sprite atlas, paint texture, particle and animation so
 create or open a source, inspect its format, edit validated fields, and use that
 source document's Undo and Redo. You see the same draft in the editor.
 
+For [skeletal retargeting](animation-retargeting.md), the agent can inspect published
+joint identities, parents and rest transforms, create or open a `.retarget.json`
+recipe with the **animation_retarget** editor, map joints explicitly and publish
+the target-bound clip. It assigns that clip using the same Animator, States or
+Blend Space properties as a user. Skeleton inspection is read-only; saving and
+Scene assignment use the normal project-authoring grants and separate histories.
+
 For a Sprite atlas, create or open its `.atlas.json` source with the
 **sprite_atlas** editor. Creation needs the published input Texture UUIDs in
 **textures**. Its source contains stable local frame keys and packing settings;

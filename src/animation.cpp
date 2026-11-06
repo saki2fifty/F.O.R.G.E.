@@ -885,7 +885,7 @@ struct AnimationRuntime::Impl {
         if (!loaded)
             return std::nullopt;
         Pair result{loaded.skeleton->native, loaded.clip->native, request.revision,
-                    request.revision,        std::move(loaded),   request.generation};
+                    request.clip_revision,   std::move(loaded),   request.generation};
         return result;
     }
     std::optional<Pair> load(const Animator& config) {

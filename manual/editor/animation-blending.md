@@ -129,7 +129,7 @@ Select a model holder and change **Animator / Blend position**, or open
 For your own imported model:
 
 1. In **Content / Create / Register**, choose **New animation blend space**.
-2. Choose the imported **Skeleton**, then **Add sample** for each clip. Give each sample a unique position, such as Idle at0, Walk at1 and Run at2. Clips must belong to the same imported model and skeleton.
+2. Choose the imported **Skeleton**, then **Add sample** for each clip. Give each sample a unique position, such as Idle at0, Walk at1 and Run at2. Use clips from that imported model revision or published [retargeted clips](animation-retargeting.md) bound to that exact skeleton.
 3. Set **Cycle (seconds)** and **Save / Publish**. All clips share this cycle even when their original durations differ.
 4. Select the model's Animator and click **Attach to selected Animator**. This changes the scene in one Undo step and replaces any named states or manual blend settings.
 5. Click **Open Animation Preview**. Change its temporary **Blend position**, scrub or play, then use **Apply preview settings to Animator** when ready to save that position.

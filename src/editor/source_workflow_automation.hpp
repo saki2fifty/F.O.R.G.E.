@@ -1,4 +1,5 @@
 #pragma once
+#include "../animation_retarget.hpp"
 #include "../ui_surface_limits.hpp"
 #include "source_document_automation.hpp"
 #include <forge/application_state_source.hpp>
@@ -47,6 +48,47 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
     const Json coordinate{{"type", "number"}, {"minimum", -1000000}, {"maximum", 1000000}};
     const auto paint_point = automation_array(coordinate, 2, 2);
     std::vector<LiveAuthoringMethod> methods;
+    methods.push_back(automation_method(
+        "asset.animation_retarget.catalog",
+        "Describe authored skeleton retarget recipes, exact target-bound clip baking and supported "
+        "limits.",
+        "asset.read", automation_object(), false, [](const Json&) {
+            return Json{
+                {"editor", "animation_retarget"},
+                {"format", "forge.animation-retarget"},
+                {"version", 1},
+                {"suffix", ".retarget.json"},
+                {"asset_type", AnimationClipAsset::type},
+                {"limits",
+                 {{"source_bytes", animation_retarget_byte_limit},
+                  {"joints", animation_retarget_joint_limit},
+                  {"sampled_joints", animation_retarget_sample_limit},
+                  {"frames", 4096},
+                  {"seconds", 60},
+                  {"sampling_rate", {1, 120}},
+                  {"selected_model_bytes", 67108864}}},
+                {"selection", "source_skeleton/source_clip must be one imported model pair; "
+                              "target_skeleton is imported. Use asset.skeleton.joints with exact "
+                              "published revision to inspect durable joint/parent UUIDs and rests. "
+                              "Recursive baked source clips are unsupported."},
+                {"mapping",
+                 "entries contains unique source/target ModelNode UUID pairs. Map "
+                 "each mapped parent chain directly, including roots. Unmapped target "
+                 "joints keep local rest; target proportions stay fixed. No name matching."},
+                {"motion",
+                 "Transfer rest-relative model-space rotations. alignment is a unit "
+                 "XYZW quaternion; the editor shows degrees. Optional root_translation "
+                 "requires one mapped root pair, with translation_scale in[0,100]. "
+                 "Other translations and morphs are not transferred. Unit scales required."},
+                {"workflow",
+                 "Use asset.document template/create/open/patch/undo/redo/save/status "
+                 "through animation_retarget. Save bakes asynchronously and preserves "
+                 "the last usable clip on failure. Assign its asset UUID to a target "
+                 "Animator clip, States entry or Blend Space sample through existing "
+                 "authoring operations. Publish dependent States/Blend Spaces before "
+                 "export. The runtime needs the baked clip and target, without original "
+                 "source animation models. Matching runtime_skeletal_clip profile1 kit required."}};
+        }));
     methods.push_back(automation_method(
         "asset.paint_texture.catalog",
         "Describe editable pixel textures, brush math, source and publication limits.",

@@ -82,6 +82,7 @@ std::string source_kind(const std::filesystem::path& path) {
              {".rendertexture.json", "render_texture"},
              {".appstates.json", "application_states"},
              {".mask.json", "animation_mask"},
+             {".retarget.json", "animation_retarget"},
              {".blendspace.json", "animation_blend_space"},
              {".collision.json", "collision"},
              {".shader.json", "shader_program"},

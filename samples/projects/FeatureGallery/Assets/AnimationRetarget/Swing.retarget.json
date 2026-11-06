@@ -1,0 +1,31 @@
+{
+  "alignment": [
+    0,
+    0,
+    0,
+    1
+  ],
+  "asset_id": "71652069-2d40-4d1d-86e6-69f1839a6cac",
+  "entries": [
+    {
+      "source": "677eaef7-8bf7-4c56-b6bb-0f208f0be238",
+      "target": "bb941335-691c-4640-bf74-e1378db858d7"
+    },
+    {
+      "source": "20569d3a-2039-4e90-9716-46e182b2564d",
+      "target": "167743c7-eabb-4dcf-95c1-27f8403c78a6"
+    },
+    {
+      "source": "0f075646-5f95-449f-b36d-457891a000c4",
+      "target": "3b154f5f-6910-452d-8919-519b9fa895a7"
+    }
+  ],
+  "format": "forge.animation-retarget",
+  "root_translation": false,
+  "sampling_rate": 30,
+  "source_clip": "bef4aa91-2c51-4ca7-b3ac-820656093858",
+  "source_skeleton": "53ad81ae-db81-4af6-9c55-70f045b7470f",
+  "target_skeleton": "3fd41841-5ad9-40ee-8354-3097141941f0",
+  "translation_scale": 1,
+  "version": 1
+}

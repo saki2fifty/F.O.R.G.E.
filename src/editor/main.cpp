@@ -26,6 +26,7 @@
 #include "animation_mask_editor.hpp"
 #include "animation_playback.hpp"
 #include "animation_preview.hpp"
+#include "animation_retarget_editor.hpp"
 #include "animation_states_editor.hpp"
 #include "animation_timeline.hpp"
 #include "animation_tools.hpp"
@@ -1113,6 +1114,7 @@ int main(int argc, char** argv) {
         paint_texture.release_preview = [&] { release_paint_preview = true; };
         forge::ApplicationStatesEditor application_states;
         forge::AnimationMaskEditor animation_mask;
+        forge::AnimationRetargetEditor animation_retarget;
         forge::ParticleEffectEditor particle_editor;
         std::unique_ptr<forge::ParticleEffectPreview> particle_preview;
         bool release_particle_preview = false;
@@ -1395,6 +1397,11 @@ int main(int argc, char** argv) {
                               [](auto& c, const auto& p, const auto&) {
                                   forge::prepare_animation_blend_space_publication(c, p);
                               }});
+            routes.push_back({"forge.animation.retarget", forge::desktop_texture_target(),
+                              forge::animation_retarget_import_registry(),
+                              [](auto& c, const auto& p, const auto&) {
+                                  forge::prepare_animation_retarget_publication(c, p);
+                              }});
             routes.push_back({"forge.animation.mask", forge::desktop_texture_target(),
                               forge::animation_mask_import_registry(),
                               [](auto& c, const auto& p, const auto&) {
@@ -1513,6 +1520,9 @@ int main(int argc, char** argv) {
             } else if (kind == "particle_effect") {
                 if (open)
                     particle_editor.open(files.document, path);
+            } else if (kind == "animation_retarget") {
+                if (open)
+                    animation_retarget.open(files.document, path);
             } else if (kind == "animation_mask") {
                 if (open)
                     animation_mask.open(files.document, path);
@@ -1826,8 +1836,11 @@ int main(int argc, char** argv) {
                        {},
                        [&] { animation_preview.close(); }});
         asset_editors.add(
-            {"animation_clip", "Open Animation Preview", [&](const forge::AssetRecord& asset) {
-                 animation_preview.open(files.document, scene, asset.id);
+            {"animation_clip", "Open animation", [&](const forge::AssetRecord& asset) {
+                 if (forge::is_animation_retarget_source(asset))
+                     animation_retarget.open(files.document, asset.source);
+                 else
+                     animation_preview.open(files.document, scene, asset.id);
              }});
         documents.add(
             {"animation_blend_space",
@@ -1853,6 +1866,24 @@ int main(int argc, char** argv) {
                            [&](const forge::AssetRecord& asset) {
                                animation_blend_space.open(files.document, asset.source);
                            }});
+        documents.add({"animation_retarget",
+                       "Animation Retarget",
+                       "Animation Retarget###Animation Retarget",
+                       true,
+                       [&] { return animation_retarget.is_open(); },
+                       [&] { return animation_retarget.dirty(); },
+                       [&] {
+                           animation_retarget.draw(files.document, scene,
+                                                   asset_document_locked || play.active());
+                       },
+                       [&] { animation_retarget.request_save(); },
+                       [&] { animation_retarget.undo(); },
+                       [&] { animation_retarget.redo(); },
+                       [&] { animation_retarget.request_close(); },
+                       [&] { return animation_retarget.can_undo(); },
+                       [&] { return animation_retarget.can_redo(); },
+                       {},
+                       [&] { return std::exchange(animation_retarget.close_cancelled, false); }});
         documents.add({"animation_mask",
                        "Animation Mask",
                        "Animation Mask###Animation Mask",
@@ -2377,6 +2408,8 @@ int main(int argc, char** argv) {
                                                         application_states, files.document));
         documents.bind_source("animation_blend_space", forge::AssetDocumentAutomation::bind(
                                                            animation_blend_space, files.document));
+        documents.bind_source("animation_retarget", forge::AssetDocumentAutomation::bind(
+                                                        animation_retarget, files.document));
         documents.bind_source("animation_mask",
                               forge::AssetDocumentAutomation::bind(animation_mask, files.document));
         documents.bind_source("animation_timeline", forge::AssetDocumentAutomation::bind(
@@ -5627,6 +5660,20 @@ int main(int argc, char** argv) {
                     play.model_assets_changed();
                     content.refresh(files);
                 }
+                if (mesh_resources) {
+                    animation_retarget.asset_catalog_changed(mesh_resources->catalog());
+                    animation_states.asset_catalog_changed(mesh_resources->catalog());
+                    animation_blend_space.asset_catalog_changed(mesh_resources->catalog());
+                }
+                animation_retarget.poll(files.document, message);
+                if (auto catalog = animation_retarget.take_catalog()) {
+                    animation_preview.stop_preview();
+                    content_imports.catalog_changed(catalog);
+                    if (mesh_resources)
+                        mesh_resources->catalog(catalog);
+                    play.model_assets_changed();
+                    content.refresh(files);
+                }
                 animation_mask.poll(files.document, message);
                 if (auto catalog = animation_mask.take_catalog()) {
                     animation_preview.stop_preview();
@@ -6884,6 +6931,7 @@ int main(int argc, char** argv) {
                         paint_texture.content(files.document, edit_locked);
                         application_states.content(files.document, edit_locked);
                         animation_mask.content(files.document, edit_locked);
+                        animation_retarget.content(files.document, edit_locked);
                         animation_blend_space.content(files.document, edit_locked);
                         animation_timeline.content(files.document, scene, edit_locked);
                         animation_preview.content(files.document, scene, edit_locked);

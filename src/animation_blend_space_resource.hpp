@@ -75,10 +75,15 @@ inline ResourceTicket request_animation_blend_space(ResourcePool<AnimationBlendS
             std::vector<AssetDependency> expected{{value->skeleton, SkeletonAsset::type,
                                                    AssetDependencyKind::Runtime, "space.skeleton",
                                                    skeleton->revision}};
-            for (const auto& sample : value->samples)
+            for (const auto& sample : value->samples) {
+                const auto role = "space.clip:" + sample.id.str();
+                const auto clip = std::find_if(edges.begin(), edges.end(),
+                                               [&](const auto& edge) { return edge.role == role; });
+                if (clip == edges.end() || !valid_content_digest(clip->revision))
+                    throw std::runtime_error("Animation Blend Space clip revision is missing");
                 expected.push_back({sample.clip.id, AnimationClipAsset::type,
-                                    AssetDependencyKind::Runtime, "space.clip:" + sample.id.str(),
-                                    skeleton->revision});
+                                    AssetDependencyKind::Runtime, role, clip->revision});
+            }
             std::sort(expected.begin(), expected.end());
             if (expected != edges)
                 throw std::runtime_error(

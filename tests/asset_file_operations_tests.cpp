@@ -1,3 +1,4 @@
+#include "animation_retarget.hpp"
 #include "asset_file_operations.hpp"
 #include "asset_file_service_tests.hpp"
 #include "asset_reference_impact.hpp"
@@ -346,6 +347,54 @@ int main(int argc, char** argv) {
               "State set move changed identities");
         EngineContext reference_world;
         Scene reference_scene(reference_world.world());
+        auto retarget = AnimationRetargetSource::create(AssetId::generate());
+        const auto target_rig = AssetId::generate(), source_joint = AssetId::generate(),
+                   target_joint = AssetId::generate();
+        retarget.document["source_skeleton"] = rig;
+        retarget.document["source_clip"] = state_clip;
+        retarget.document["target_skeleton"] = target_rig;
+        retarget.document["entries"] =
+            Json::array({{{"source", source_joint}, {"target", target_joint}}});
+        retarget.document["extension"] = {{"retain", 17}};
+        write(project / "Assets/Swing.retarget.json", retarget.document);
+        catalog = AssetCatalog::open_project(project);
+        const AssetRecord retarget_record{
+            retarget.asset(), "animation_clip", "Assets/Swing.retarget.json", 1, {}};
+        catalog.add(retarget_record);
+        catalog.save(AssetCatalog::project_index(project));
+        rejects([&] {
+            prepare_asset_file_operation(
+                project, {AssetFileAction::Duplicate, retarget.asset(), "Moved/wrong.json"},
+                rewrite);
+        });
+        const auto retarget_copy = prepare_asset_file_operation(
+            project, {AssetFileAction::Duplicate, retarget.asset(), "Moved/Copy.retarget.json"},
+            rewrite);
+        transaction.commit(retarget_copy.changes, false);
+        auto retarget_expected = retarget.document;
+        retarget_expected["asset_id"] = retarget_copy.result;
+        check(retarget_copy.result != retarget.asset() &&
+                  read(project / "Moved/Copy.retarget.json") == retarget_expected,
+              "Retarget copy lost mapping/extensions or reused source identity");
+        const auto retarget_move = prepare_asset_file_operation(
+            project, {AssetFileAction::Move, retarget_copy.result, "Assets/Copy.retarget.json"},
+            rewrite);
+        transaction.commit(retarget_move.changes, false);
+        check(read(project / "Assets/Copy.retarget.json") == retarget_expected,
+              "Retarget move changed asset or joint identities");
+        const std::array retarget_documents{
+            AssetReferenceDocument{"Assets/Swing.retarget.json", retarget.document}};
+        const auto retarget_impact =
+            inspect_asset_references(reference_scene.schema(), retarget_documents,
+                                     {rig, state_clip, target_rig, source_joint, target_joint});
+        check(retarget_impact.references.size() == 5 && retarget_impact.uninspected.size() == 1 &&
+                  retarget_impact.uninspected[0].find("extension") != std::string::npos,
+              "Retarget source/target/clip/joint reference impact lost typed or opaque coverage");
+        auto oversized_retarget = retarget.document;
+        oversized_retarget["extension"] = std::string(animation_retarget_byte_limit, 'x');
+        rejects([&] {
+            rewrite(retarget_record, oversized_retarget.dump(), "Moved/TooLarge.retarget.json", {});
+        });
         auto image = RenderTextureSource::create(AssetId::generate());
         image.document["width"] = 800;
         image.document["height"] = 400;

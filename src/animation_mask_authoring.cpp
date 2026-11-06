@@ -1,5 +1,5 @@
 #include "animation_mask_authoring.hpp"
-#include "animation_mask_binding.hpp"
+#include "model_skeleton_binding.hpp"
 #include <algorithm>
 namespace forge {
 namespace {
@@ -27,7 +27,7 @@ Snapshot capture(const AssetImportRequest& request, std::stop_token stop) {
             "Animation Mask needs a skeleton from an imported model");
     const auto selected = asset_detail::load_model_selection(
         request.project, catalog, skeleton.record->subasset->owner, stop);
-    const auto joints = asset_detail::animation_mask_joints(selected, mask.skeleton);
+    const auto joints = asset_detail::model_skeleton_joints(selected, mask.skeleton);
     (void)mask.weights(mask.skeleton, joints.assets, joints.parents);
     auto& input = result.input;
     input.source_digest = asset_detail::content_digest(bytes);

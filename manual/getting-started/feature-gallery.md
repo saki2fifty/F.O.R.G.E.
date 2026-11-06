@@ -865,3 +865,15 @@ The panel uses **UI Surface Input → Geometry → Mesh**. Its original model is
 choose the Scene as startup in Project Settings, and export with the runtime kit
 packaged with this editor. See [animated and custom mesh setup](../editor/runtime-ui.md)
 for UV layout, Material requirements, capture behavior and current limits.
+
+## Transfer motion between skeletons
+
+Open **179-animation-retargeting**, press **Play** and open **Game**. The short blue
+model uses its original Swing animation. The taller gold model plays mapped motion
+while keeping its own rest rotations and bone lengths. Stop Play and open
+**Assets/AnimationRetarget/Swing.retarget.json** in Content to inspect the explicit
+joint pairs, change the sampling rate and publish the clip again. Save the Scene
+and export with the matching runtime kit to run the same motion in a standalone game.
+See [Transfer animation to another skeleton](../editor/animation-retargeting.md).
+
+![Blue source and gold target with different proportions playing mapped motion](../images/animation-retarget-gallery.png)

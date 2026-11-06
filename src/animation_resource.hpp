@@ -46,6 +46,8 @@ struct ModelAnimationRequest {
     AssetId model;
     std::string revision;
     std::uint64_t generation = 0;
+    std::string clip_revision;
+    std::uint64_t clip_generation = 0;
 };
 struct ModelAnimationLease {
     ResourceLease<SkeletonAsset> skeleton;

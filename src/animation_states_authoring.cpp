@@ -1,4 +1,5 @@
 #include "animation_states_authoring.hpp"
+#include "animation_clip_selection.hpp"
 #include "asset_bytes.hpp"
 #include "bounded_json.hpp"
 #include <algorithm>
@@ -45,17 +46,9 @@ Snapshot capture(const AssetImportRequest& request, std::stop_token stop) {
     const auto skeleton = catalog.resolve(compiled.skeleton, SkeletonAsset::type);
     require(skeleton.state == AssetState::Available && skeleton.record->subasset.has_value(),
             "Animation States needs a skeleton from an imported model");
-    const auto& family = *skeleton.record;
     dependency(compiled.skeleton, SkeletonAsset::type, "states.skeleton");
     for (const auto& state : compiled.states) {
-        const auto clip = catalog.resolve(state.clip);
-        require(clip.state == AssetState::Available && clip.record->subasset &&
-                    clip.record->subasset->owner == family.subasset->owner &&
-                    clip.record->metadata.at("forge.import").at("key") ==
-                        family.metadata.at("forge.import").at("key") &&
-                    clip.record->metadata.at("forge.import").at("generation") ==
-                        family.metadata.at("forge.import").at("generation"),
-                "All animation states must come from the same exact imported model revision");
+        (void)animation_detail::select_animation_clip(catalog, {compiled.skeleton}, state.clip);
         dependency(state.clip.id, AnimationClipAsset::type,
                    "states.clip:" + std::to_string(state.id));
     }
