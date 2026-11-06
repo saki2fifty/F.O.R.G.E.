@@ -123,3 +123,89 @@ def check_paint_texture_workflow(read, mutate, edit, status, content, failed, ro
     assert pixels([[4, 3]]) == [[188, 0, 0, 64]]
     assert edit('forge_asset_document_cancel_pixels', owner)['ok']
     assert edit('forge_asset_document_close', owner, discard=True)['ok']
+
+    # Explicit published mesh coordinates use the same texture draft and brush.
+    def settled_pixels():
+        deadline = time.monotonic() + 15
+        while status(owner)['transient_draft'] and time.monotonic() < deadline:
+            time.sleep(.01)
+        result = status(owner)
+        assert not result['transient_draft'], result
+        return result
+
+    def publish(editor):
+        assert edit('forge_asset_document_save', editor)['ok']
+        deadline = time.monotonic() + 20
+        while (status(editor)['publishing'] or status(editor)['save_requested']) and time.monotonic() < deadline:
+            time.sleep(.02)
+        result = status(editor)
+        assert not result['publishing'] and not result['source_dirty'] and not result['diagnostic'], result
+
+    assert mutate('forge_asset_document_create', editor=owner,
+                  path='Assets/MeshPaint.paint-texture.json', canvas=dict(width=32, height=32))['ok']
+    paint_id = status(owner)['asset']
+    publish(owner)
+    assert mutate('forge_asset_document_create', editor='material',
+                  path='Assets/MeshPaint.material.json')['ok']
+    image_slot = read('forge_asset_render_texture_catalog')['material']['binding_template']['slot']
+    assert edit('forge_asset_document_patch', 'material', patch=[
+        dict(op='replace', path='/overrides', value=dict(
+            model='forge.gltf.unlit.v1', double_sided=True,
+            textures=dict(baseColorTexture=dict(asset=paint_id, slot=image_slot))))])['ok']
+    material_id = content('material')['asset_id']
+    publish('material')
+    assert edit('forge_asset_document_close', 'material')['ok']
+    quad = read('forge_asset_search', text='Quad', type='mesh', limit=1)['assets'][0]
+    geometry = read('forge_asset_mesh_triangles', mesh=quad['asset'], limit=1)
+    assert geometry['revision'] == quad['revision'] and geometry['triangle_count'] == 2
+    triangle = geometry['triangles'][0]
+    assert triangle['primitive'] == 0 and len(triangle['positions']) == len(triangle['uv0']) == 3
+    assert len(read('forge_asset_mesh_triangles', mesh=quad['asset'], offset=1, limit=1)['triangles']) == 1
+    assert read('forge_asset_mesh_triangles', mesh=quad['asset'], offset=2, limit=1)['triangles'] == []
+    rejected = client.tool('forge_asset_mesh_triangles', target=discovery()['result']['target'],
+                           mesh=quad['asset'], revision='0' * 64)
+    assert not rejected['ok']
+    material_record = read('forge_asset_read', asset=material_id)
+    mesh_arguments = dict(mesh=quad['asset'], mesh_revision=quad['revision'],
+                          material=material_id,
+                          material_revision=material_record['metadata']['forge.import']['key'],
+                          samples=[dict(primitive=0, barycentric=[1/3, 1/3, 1/3])],
+                          brush=dict(color=[1, 0, 0, 1], radius=2, hardness=1))
+    all_points = [[x, y] for y in range(32) for x in range(32)]
+    empty = pixels(all_points)
+    assert all(p == [0, 0, 0, 0] for p in empty)
+    before = status(owner)
+    assert edit('forge_asset_document_mesh_stroke', owner, **mesh_arguments)['ok']
+    result = settled_pixels()
+    assert not result['diagnostic'] and result['revision'] == before['revision'] + 1, result
+    painted = pixels(all_points)
+    assert sum(p[3] > 0 for p in painted) > 4
+    assert all(p[0] == 255 and p[1] == p[2] == 0 for p in painted if p[3])
+    uv = [sum(p[axis] for p in triangle['uv0']) / 3 for axis in range(2)]
+    assert pixels([[min(31, int(uv[0] * 32)), min(31, int(uv[1] * 32))]]) == [[255, 0, 0, 255]]
+    assert edit('forge_asset_document_undo', owner)['ok'] and pixels(all_points) == empty
+    assert edit('forge_asset_document_redo', owner)['ok'] and pixels(all_points) == painted
+    # Invalid revisions, triangle bounds and barycentrics leave both draft/history intact.
+    before = status(owner)
+    for change in [dict(mesh_revision='0' * 64), dict(material_revision='0' * 64),
+                   dict(samples=[dict(primitive=999, barycentric=[1, 0, 0])]),
+                   dict(samples=[dict(primitive=0, barycentric=[.5, .5, .5])])]:
+        arguments = mesh_arguments | change
+        assert edit('forge_asset_document_mesh_stroke', owner, **arguments)['ok']
+        result = settled_pixels()
+        assert result['diagnostic'] and result['revision'] == before['revision'], result
+        assert pixels(all_points) == painted
+    # Explicit path breaks preserve a hole instead of drawing between islands.
+    assert edit('forge_asset_document_fill', owner, rgba=[0, 0, 0, 0])['ok']
+    assert edit('forge_asset_document_stroke', owner,
+                points=[[3.5, 16.5], [28.5, 16.5]], breaks=[1],
+                brush=dict(color=[0, 1, 0, 1], radius=1, hardness=1))['ok']
+    assert not settled_pixels()['diagnostic']
+    assert pixels([[3, 16], [16, 16], [28, 16]]) == [[0, 255, 0, 255], [0, 0, 0, 0], [0, 255, 0, 255]]
+    revision = status(owner)['revision']
+    for breaks in ([0], [2], [1, 1]):
+        assert not edit('forge_asset_document_stroke', owner,
+                        points=[[3, 16], [28, 16]], breaks=breaks,
+                        brush=dict(color=[1, 0, 0, 1]))['ok']
+        assert status(owner)['revision'] == revision
+    assert edit('forge_asset_document_close', owner, discard=True)['ok']

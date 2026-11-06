@@ -129,6 +129,18 @@ int main(int argc, char** argv) {
         brush.radius = .5;
         brush.hardness = 1;
         brush.color = {.5, .5, .5, 1};
+        const std::array<PaintPoint, 3> islands{{{2.5, 2.5}, {20.5, 2.5, true}, {25.5, 2.5}}};
+        const auto disconnected = color.paint(islands, brush);
+        check(disconnected.pixel(2, 2) == PaintPixel{188, 188, 188, 255} &&
+                  disconnected.pixel(10, 2) == PaintPixel{} &&
+                  disconnected.pixel(22, 2) == PaintPixel{188, 188, 188, 255},
+              "Disconnected UV paths bridged islands or omitted their end points");
+        auto translucent = brush;
+        translucent.opacity = .5;
+        const std::array<PaintPoint, 2> disconnected_retrace{{{2.5, 2.5}, {2.5, 2.5, true}}};
+        check(color.paint(disconnected_retrace, translucent).pixel(2, 2) ==
+                  PaintPixel{188, 188, 188, 128},
+              "Disconnected paths accumulated opacity within one stroke");
         const std::array<PaintPoint, 1> point{{{66.5, 34.5}}};
         const auto painted = color.paint(point, brush);
         check(painted.pixel(66, 34) == PaintPixel{188, 188, 188, 255} &&

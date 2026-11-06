@@ -6487,6 +6487,7 @@ int main(int argc, char** argv) {
                         const bool gizmo =
                             !game_view && orientation.input(view_camera, image_origin, size,
                                                             focused && !game_input.captured() &&
+                                                                !paint_texture.surface_enabled() &&
                                                                 !modal.active() &&
                                                                 !scene_tools.active() && !popup,
                                                             &scene_tools.grid_plane);
@@ -6512,15 +6513,34 @@ int main(int argc, char** argv) {
                                                              ImGuiPopupFlags_AnyPopupLevel);
                         scene_asset_drop.target(
                             scene, files, content, view_camera, image_origin, size,
-                            can_edit && !modal.active() && !scene_tools.active() && !gizmo);
+                            can_edit && !modal.active() && !scene_tools.active() && !gizmo &&
+                                !paint_texture.surface_enabled());
                         const auto mouse = ImGui::GetIO().MousePos;
                         const bool over_image =
                             ImGui::IsWindowHovered() && mouse.x >= image_origin.x &&
                             mouse.y >= image_origin.y && mouse.x < image_origin.x + size.x &&
                             mouse.y < image_origin.y + size.y;
                         if (!game_view)
+                            paint_texture.surface_input(
+                                scene,
+                                editor.selection.entity_count() == 1
+                                    ? forge::EntityId::parse(selected)
+                                    : forge::EntityId{},
+                                view_camera, image_origin, size, focused,
+                                can_edit && !modal.active() && !scene_tools.active() && !gizmo,
+                                over_image, input.activated, input.active,
+                                [&](const forge::MeshTextureSurfaceTarget& target, double x,
+                                    double y) {
+                                    return viewport.pick_texture_surface(
+                                        preview, view_camera, unsigned(std::max(1.f, size.x)),
+                                        unsigned(std::max(1.f, size.y)),
+                                        forge::EntityId::parse(selected), target, x, y);
+                                });
+                        if (!game_view)
                             modal.input(scene, selected, view_camera, image_origin, size,
-                                        over_image && !gizmo, can_edit && !scene_tools.active(),
+                                        over_image && !gizmo,
+                                        can_edit && !scene_tools.active() &&
+                                            !paint_texture.surface_enabled(),
                                         message, editor.selection.entities());
                         if (!was_modal && modal.active())
                             scene_tools.target_tool({});
@@ -6541,7 +6561,9 @@ int main(int argc, char** argv) {
                         if (!game_view)
                             scene_tools.input(
                                 scene, view_camera, selected, image_origin, size, input,
-                                can_edit && !gizmo && !was_modal && !modal.active(), message,
+                                can_edit && !gizmo && !was_modal && !modal.active() &&
+                                    !paint_texture.surface_enabled(),
+                                message,
                                 [&](const forge::Json& snapshot, float x, float y) {
                                     if (auto hit = spatial_helpers.pick(
                                             view_camera, size, {x, y}, selected,
@@ -6650,6 +6672,8 @@ int main(int argc, char** argv) {
                             ImTextureRef{reinterpret_cast<ImTextureID>(texture)}, image_origin,
                             {image_origin.x + size.x, image_origin.y + size.y});
                         if (!game_view)
+                            paint_texture.surface_overlay(image_origin, size, over_image);
+                        if (!game_view)
                             spatial_helpers.draw(view_camera, selected, image_origin, size,
                                                  modal.active() ? ImGui::GetTextLineHeight() + 20
                                                                 : 0,
@@ -6662,7 +6686,8 @@ int main(int argc, char** argv) {
                                                  play.physics_status(), read_published_tile_map);
                         if (!game_view)
                             scene_tools.draw(rendered, view_camera, selected, image_origin, size,
-                                             can_edit && !modal.active(),
+                                             can_edit && !modal.active() &&
+                                                 !paint_texture.surface_enabled(),
                                              editor.selection.entities());
                         const auto animation_debug = forge::prepare_animation_debug(
                             rendered,

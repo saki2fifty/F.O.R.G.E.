@@ -283,48 +283,63 @@ std::string selected_mesh_revision(const AssetCatalog& catalog, AssetRef<MeshAss
     }
     return selected_member(catalog, mesh.id, MeshAsset::type).revision;
 }
+ResourceCandidate<MeshAsset> load_mesh_selection(const std::filesystem::path& project,
+                                                 const AssetCatalog& catalog,
+                                                 AssetRef<MeshAsset> mesh, MeshLimits limits,
+                                                 std::stop_token stop) {
+    require(!stop.stop_requested(), "Mesh load cancelled");
+    auto data = std::make_unique<MeshResourceData>();
+    if (engine_asset(mesh.id))
+        *data = engine_mesh_resource(mesh);
+    else if (const auto found = catalog.records().find(mesh.id);
+             found != catalog.records().end() && found->second.type == MeshAsset::type &&
+             !found->second.subasset) {
+        const auto key = selected_mesh_revision(catalog, mesh);
+        DerivedDataCache cache(project, {32 * 1024 * 1024, 64 * 1024 * 1024, 3});
+        (void)cache.load_selected(key, [&](const CachedArtifact& candidate) {
+            data->mesh = admit_root_mesh(candidate, found->second, limits);
+        });
+        data->materials.push_back({0, "default", {}});
+        validate_mesh_material_bindings(*data);
+    } else {
+        const auto selected = selected_member(catalog, mesh.id, MeshAsset::type);
+        *data = model_mesh_resource(load_selected(project, catalog, selected, stop), mesh, limits);
+    }
+    require(!stop.stop_requested(), "Mesh preparation cancelled");
+    const auto bytes = data->resident_bytes();
+    return {std::move(data), {bytes}};
+}
 ResourceTicket request_model_mesh(ResourcePool<MeshAsset>& pool, std::filesystem::path project,
                                   std::shared_ptr<const AssetCatalog> catalog,
                                   AssetRef<MeshAsset> mesh, MeshLimits limits) {
     if (engine_asset(mesh.id))
         return request_engine_mesh(pool, mesh);
     require(bool(catalog), "Model mesh requires a selected catalog");
+    const auto key = selected_mesh_revision(*catalog, mesh);
     const auto found = catalog->records().find(mesh.id);
-    if (found != catalog->records().end() && found->second.type == MeshAsset::type &&
-        !found->second.subasset) {
-        const auto& record = found->second;
-        const auto key = selected_mesh_revision(*catalog, mesh);
-        const auto& imported = record.metadata.at("forge.import");
-        const auto generation = imported.at("generation").get<std::uint64_t>();
-        return pool.request(
-            mesh, key, generation,
-            [project = std::move(project), catalog = std::move(catalog), mesh, key,
-             limits](std::stop_token stop) {
-                require(!stop.stop_requested(), "Root Mesh load cancelled");
-                const auto& selected = catalog->records().at(mesh.id);
-                DerivedDataCache cache(project, {32 * 1024 * 1024, 64 * 1024 * 1024, 3});
-                auto value = std::make_unique<MeshResourceData>();
-                (void)cache.load_selected(key, [&](const CachedArtifact& candidate) {
-                    value->mesh = admit_root_mesh(candidate, selected, limits);
-                });
-                require(!stop.stop_requested(), "Root Mesh load cancelled");
-                value->materials.push_back({0, "default", {}});
-                validate_mesh_material_bindings(*value);
-                const auto bytes = value->resident_bytes();
-                return ResourceCandidate<MeshAsset>{std::move(value), {bytes}};
-            });
-    }
-    const auto selected = selected_member(*catalog, mesh.id, MeshAsset::type);
-    return pool.request(mesh, selected.revision, selected.generation,
-                        [project = std::move(project), catalog = std::move(catalog), selected, mesh,
+    const auto generation =
+        found != catalog->records().end() && !found->second.subasset
+            ? found->second.metadata.at("forge.import").at("generation").get<std::uint64_t>()
+            : selected_member(*catalog, mesh.id, MeshAsset::type).generation;
+    return pool.request(mesh, key, generation,
+                        [project = std::move(project), catalog = std::move(catalog), mesh,
                          limits](std::stop_token stop) {
-                            const auto family = load_selected(project, *catalog, selected, stop);
-                            auto data = std::make_unique<MeshResourceData>(
-                                model_mesh_resource(family, mesh, limits));
-                            require(!stop.stop_requested(), "Model mesh preparation cancelled");
-                            const auto bytes = data->resident_bytes();
-                            return ResourceCandidate<MeshAsset>{std::move(data), {bytes}};
+                            return load_mesh_selection(project, *catalog, mesh, limits, stop);
                         });
+}
+std::string selected_material_revision(const AssetCatalog& catalog,
+                                       AssetRef<MaterialAsset> material) {
+    if (engine_asset(material.id))
+        return engine_asset_revision(material.id);
+    const auto found = catalog.records().find(material.id);
+    require(found != catalog.records().end() && found->second.type == MaterialAsset::type,
+            "Selected material is missing or has wrong type");
+    if (found->second.subasset)
+        return selected_member(catalog, material.id, MaterialAsset::type).revision;
+    const auto& key = found->second.metadata.at("forge.import").at("key");
+    require(key.is_string() && valid_content_digest(key.get<std::string>()),
+            "Selected Material publication key is invalid");
+    return key.get<std::string>();
 }
 ResourceTicket request_model_pbr_material(ResourcePool<MaterialAsset>& pool,
                                           std::filesystem::path project,

@@ -34,6 +34,7 @@ set(forge_presentation_sources
  src/mesh_draw_bundle.cpp
  src/mesh_render_host.cpp
  src/mesh_render_ui_surface.cpp
+ src/mesh_render_texture_surface.cpp
  src/mesh_render_environment.cpp
  src/mesh_render_decals.cpp
  src/mesh_render_sprite_mips.cpp

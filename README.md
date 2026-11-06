@@ -55,12 +55,15 @@ Gallery153 includes an incoming blend, a return blend and an overview gap.
 ## Texture painting
 
 Author Color or Data pixels with brush, erase, fill, published-image copy and
-stroke Undo/Redo. Save / Publish prepares an ordinary Texture for Materials,
-Sprites and game export.
+stroke Undo/Redo. Paint on a selected Mesh in Scene through its displayed pose
+and UV0, using the same source and publication workflow. Save / Publish prepares
+an ordinary Texture for Materials, Sprites and game export.
 
 [![A painted Texture shared by a rotating cube and Sprite](manual/images/texture-painting-game.png)](manual/editor/texture-painting.md)
 
 See [Paint a texture](manual/editor/texture-painting.md) for controls and limits.
+
+[![Paint Texture controls and the same published stroke on a bent Mesh in Scene](manual/images/mesh-texture-painting.png)](manual/editor/texture-painting.md)
 
 ## Live camera images
 

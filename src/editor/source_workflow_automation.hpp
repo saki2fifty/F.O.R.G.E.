@@ -65,7 +65,22 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                   {"history_bytes", 8388608}}},
                 {"coordinates", "Pixel XY from the top left; centers at x+0.5,y+0.5. Continuous "
                                 "capsules are clipped to the canvas. One stroke uses maximum path "
-                                "coverage; separate strokes layer."},
+                                "coverage; separate strokes layer. Optional increasing breaks "
+                                "are zero-based point indices that start disconnected paths."},
+                {"mesh_stroke",
+                 "asset.document.mesh_stroke maps explicit published Mesh triangle "
+                 "barycentrics through a chosen Material image slot to this canvas. "
+                 "Pass exact mesh_revision/material_revision from asset.read "
+                 "(engine revision or forge.import key), optional lod/slot and "
+                 "use asset.mesh.triangles to page published indices, positions "
+                 "and UV0 at an exact Mesh revision. Supply "
+                 "1..256 samples with part, primitive, barycentric[3] summing to one. "
+                 "Native Scene input uses current visible geometry; explicit "
+                 "samples do not test Scene occlusion. Both share UV0/Material "
+                 "mapping, disconnected paths, asynchronous brush, history and "
+                 "publication. Requires opaque two-sided depth-tested built-in "
+                 "Material, matching open Texture and Color/Data 2D usage, unit "
+                 "UV0 and identity/full-axis flips. Other profiles reject."},
                 {"color", "Brush RGB is linear, alpha is straight opacity. Color pixels store sRGB "
                           "bytes with straight alpha and use linear source-over. Erase reduces "
                           "alpha and preserves hidden RGB."},
@@ -479,8 +494,8 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                        {"document_revision", automation_integer(1)}};
     const Json required = {"editor", "document_session", "document_revision"};
     for (const auto* action :
-         {"patch", "paint", "tile_collision", "tile_animation", "tile_autotile", "stroke", "fill",
-          "copy_pixels", "cancel_pixels", "undo", "redo", "save", "close"}) {
+         {"patch", "paint", "tile_collision", "tile_animation", "tile_autotile", "stroke",
+          "mesh_stroke", "fill", "copy_pixels", "cancel_pixels", "undo", "redo", "save", "close"}) {
         auto properties = fields;
         auto needed = required;
         if (std::string_view(action) == "patch") {
@@ -493,10 +508,34 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
             properties["cells"] = automation_array(write_cell, 4096, 1);
             properties["label"] = automation_text(256, 1);
             needed.push_back("cells");
-        } else if (std::string_view(action) == "stroke") {
+        } else if (std::string_view(action) == "stroke" ||
+                   std::string_view(action) == "mesh_stroke") {
             properties["editor"] = {{"type", "string"}, {"const", "paint_texture"}};
-            properties["points"] =
-                automation_array(paint_point, paint_texture_stroke_point_limit, 1);
+            if (std::string_view(action) == "stroke") {
+                properties["points"] =
+                    automation_array(paint_point, paint_texture_stroke_point_limit, 1);
+                properties["breaks"] =
+                    automation_array(automation_integer(1, paint_texture_stroke_point_limit - 1),
+                                     paint_texture_stroke_point_limit - 1, 0);
+                needed.push_back("points");
+            } else {
+                properties["mesh"] = automation_uuid();
+                properties["material"] = automation_uuid();
+                properties["mesh_revision"] = automation_text(64, 64);
+                properties["material_revision"] = automation_text(64, 64);
+                properties["slot"] = automation_text(63, 1);
+                properties["lod"] = automation_integer(0, UINT32_MAX);
+                properties["samples"] = automation_array(
+                    automation_object({{"part", automation_integer(0, UINT32_MAX)},
+                                       {"primitive", automation_integer(0, UINT32_MAX)},
+                                       {"barycentric", automation_array(channel, 3, 3)},
+                                       {"break_before", {{"type", "boolean"}}}},
+                                      {"primitive", "barycentric"}),
+                    paint_texture_stroke_point_limit, 1);
+                for (const auto* field :
+                     {"mesh", "material", "mesh_revision", "material_revision", "samples"})
+                    needed.push_back(field);
+            }
             properties["brush"] = automation_object(
                 {{"color", automation_array(channel, 4, 4)},
                  {"radius", {{"type", "number"}, {"minimum", .5}, {"maximum", 256}}},
@@ -504,7 +543,6 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                  {"opacity", channel},
                  {"erase", {{"type", "boolean"}}}},
                 {"color"});
-            needed.push_back("points");
             needed.push_back("brush");
         } else if (std::string_view(action) == "copy_pixels") {
             properties["editor"] = {{"type", "string"}, {"const", "paint_texture"}};
@@ -589,6 +627,15 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                 "discards pending work without changing history. Poll status until settled, "
                 "refresh document_revision and inspect diagnostics. Fill uses exact byte RGBA; "
                 "pixels reads exact stored bytes." +
+                (std::string_view(action) == "mesh_stroke"
+                     ? " Map explicit published Mesh triangle samples through the supplied "
+                       "Material's slot (default baseColorTexture), selected lod (default0) and "
+                       "sample part (default0). Exact mesh_revision/material_revision required; "
+                       "the slot must use this paint canvas. Native Scene visibility is not "
+                       "implied by explicit samples. Barycentrics sum to one. Nonadjacent/UV-seam "
+                       "samples and break_before start separate paths in one Undo step. Poll "
+                       "status for preparation errors without changing source on failure."
+                     : "") +
                 (std::string_view(action) == "tile_collision"
                      ? " Tile Sets only: apply full_cell, none, convex, polygon or contours. Loops "
                        "need "

@@ -68,6 +68,9 @@ class Viewport {
     bool frame_selection(const Json&, const std::vector<std::string>&, EditorCamera&, float aspect);
     std::string pick(const Json&, const EditorCamera&, unsigned width, unsigned height, double x,
                      double y, double point_line_radius = 5);
+    std::optional<MeshTextureSurfaceHit>
+    pick_texture_surface(const Json&, const EditorCamera&, unsigned width, unsigned height,
+                         EntityId, const MeshTextureSurfaceTarget&, double x, double y);
     Diligent::ITextureView* render(Diligent::IDeviceContext* context, const Json& scene,
                                    unsigned width, unsigned height, const EditorCamera& camera,
                                    std::uint64_t generation, bool live, GridSettings grid = {});

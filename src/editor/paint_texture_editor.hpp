@@ -2,11 +2,15 @@
 #include "../color_transfer.hpp"
 #include "../paint_texture_copy.hpp"
 #include "../paint_texture_document.hpp"
+#include "../paint_texture_mesh.hpp"
 #include "../paint_texture_task.hpp"
+#include "../pbr_material.hpp"
 #include "../texture_authoring.hpp"
 #include "../texture_importer.hpp"
 #include "editor_state.hpp"
+#include "material_labels.hpp"
 #include "property_drawer.hpp"
+#include "scene_cache.hpp"
 #include "source_document_panel.hpp"
 #include "ui_probe.hpp"
 #include <cmath>
@@ -60,6 +64,123 @@ class PaintTextureEditor : public SourceDocumentPanel<PaintTextureDocumentTraits
                 return load_paint_texture_pixels(root, *catalog, {image}, semantic, worker, stop);
             },
             document_->session(), revision);
+    }
+    void prepare_mesh_stroke(PaintMeshSelection selection, std::vector<PaintMeshPoint> points,
+                             PaintBrush brush, std::uint64_t revision) {
+        if (!document_ || pending() || document_->revision() != revision)
+            throw std::runtime_error("Surface stroke source revision is no longer available");
+        auto catalog =
+            std::make_shared<const AssetCatalog>(AssetCatalog::open_project(document_->project()));
+        const auto root = document_->project();
+        const auto canvas = document_->source().document;
+        task_.mapped_stroke(
+            canvas,
+            [root, catalog = std::move(catalog), selection = std::move(selection),
+             points = std::move(points), canvas](std::stop_token stop) {
+                return project_paint_mesh_stroke(root, *catalog, selection, points, canvas, stop);
+            },
+            brush, document_->session(), revision);
+    }
+    bool surface_enabled() const { return document_ && surface_mode_; }
+    using SurfacePick = std::function<std::optional<MeshTextureSurfaceHit>(
+        const MeshTextureSurfaceTarget&, double, double)>;
+    void surface_input(const Scene& scene, EntityId selected, const EditorCamera& camera,
+                       ImVec2 origin, ImVec2 size, bool focused, bool editable, bool hovered,
+                       bool activated, bool active, const SurfacePick& pick) {
+        if (!surface_enabled())
+            return;
+        if (ui::editor_context && ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows))
+            ui::editor_context->task.focus_document("paint_texture",
+                                                    path_utf8(document_->locator()));
+        surface_frame_ = ImGui::GetFrameCount();
+        const auto view = viewport_frame_key(0, unsigned(std::max(1.f, size.x)),
+                                             unsigned(std::max(1.f, size.y)), camera);
+        auto& io = ImGui::GetIO();
+        if (surface_holding_ &&
+            (!focused || !editable || io.AppFocusLost || scene.asset_id() != surface_scene_ ||
+             scene.revision() != surface_scene_revision_ || selected != surface_entity_ ||
+             document_->revision() != stroke_revision_ || ImGui::IsKeyPressed(ImGuiKey_Escape) ||
+             !surface_view_ || *surface_view_ != view || surface_origin_.x != origin.x ||
+             surface_origin_.y != origin.y || surface_size_.x != size.x ||
+             surface_size_.y != size.y || ImGui::IsMouseDown(ImGuiMouseButton_Right) ||
+             ImGui::IsMouseDown(ImGuiMouseButton_Middle))) {
+            cancel_gesture();
+            error_ = "Surface stroke cancelled because its view, selection or document changed.";
+            return;
+        }
+        if (!editable || !focused || pending() || task_.pending() || !pick)
+            return;
+        if (hovered && activated && active && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+            cancel_gesture();
+            surface_holding_ = true;
+            surface_scene_ = scene.asset_id();
+            surface_scene_revision_ = scene.revision();
+            surface_entity_ = selected;
+            surface_view_ = view;
+            surface_origin_ = origin;
+            surface_size_ = size;
+            stroke_revision_ = document_->revision();
+            error_.clear();
+            if (!selected) {
+                cancel_gesture();
+                error_ = "Select one Mesh in Hierarchy before painting its texture.";
+                return;
+            }
+        }
+        if (!surface_holding_)
+            return;
+        try {
+            if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+                if (!hovered || !active || size.x <= 0 || size.y <= 0) {
+                    surface_gap_ = true;
+                    return;
+                }
+                const auto& canvas = document_->source().document;
+                const MeshTextureSurfaceTarget target{
+                    {canvas.asset()}, canvas.semantic(), surface_slot_};
+                const auto hit = pick(target, io.MousePos.x - origin.x, io.MousePos.y - origin.y);
+                if (!hit) {
+                    surface_gap_ = true;
+                    return;
+                }
+                if (surface_previous_ && !surface_previous_->same_selection(*hit))
+                    throw std::runtime_error(
+                        "Surface stroke selection changed; release and start a new stroke");
+                PaintPoint point{
+                    hit->point.uv[0] * canvas.width(), hit->point.uv[1] * canvas.height(),
+                    surface_gap_ || !surface_previous_ || surface_previous_->part != hit->part ||
+                        !mesh_texture_surface_connected(surface_previous_->point, hit->point)};
+                if (points_.empty() || point.break_before ||
+                    std::hypot(point.x - points_.back().x, point.y - points_.back().y) >= .25) {
+                    if (points_.size() == paint_texture_stroke_point_limit)
+                        throw std::runtime_error(
+                            "Surface stroke exceeds 256 samples; use a shorter stroke");
+                    points_.push_back(point);
+                }
+                surface_previous_ = hit;
+                surface_gap_ = false;
+            } else {
+                surface_holding_ = false;
+                surface_previous_.reset();
+                surface_view_.reset();
+                (void)flush_gesture();
+            }
+        } catch (const std::exception& error) {
+            cancel_gesture();
+            error_ = error.what();
+        }
+    }
+    void surface_overlay(ImVec2 origin, ImVec2 size, bool hovered) const {
+        if (!surface_enabled())
+            return;
+        auto* draw = ImGui::GetWindowDrawList();
+        draw->PushClipRect(origin, {origin.x + size.x, origin.y + size.y}, true);
+        draw->AddText(
+            {origin.x + 8, origin.y + 8}, IM_COL32(255, 210, 110, 255),
+            "TEXTURE PAINT | LMB: stroke | Escape: cancel\nSave / Publish updates the Mesh");
+        if (hovered)
+            draw->AddCircle(ImGui::GetIO().MousePos, 6, IM_COL32(255, 210, 110, 255), 16, 1.5f);
+        draw->PopClipRect();
     }
     void content(SceneDocument& project, bool locked) {
         ImGui::BeginDisabled(locked || dirty());
@@ -140,6 +261,10 @@ class PaintTextureEditor : public SourceDocumentPanel<PaintTextureDocumentTraits
         }
         if (locked)
             cancel_gesture();
+        if (surface_holding_ && surface_frame_ < ImGui::GetFrameCount() - 1) {
+            cancel_gesture();
+            error_ = "Surface stroke cancelled because the Scene view is no longer visible.";
+        }
         if (save_ && !locked && !pending() && flush_gesture()) {
             save_ = false;
             publish();
@@ -156,7 +281,7 @@ class PaintTextureEditor : public SourceDocumentPanel<PaintTextureDocumentTraits
         if (gesture_dirty() && ImGui::IsKeyPressed(ImGuiKey_Escape) &&
             ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows))
             cancel_gesture();
-        if (!task_.pending() && !points_.empty() &&
+        if (!surface_holding_ && !task_.pending() && !points_.empty() &&
             (!expanded || ImGui::GetIO().AppFocusLost ||
              !ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) ||
              ImGui::IsKeyPressed(ImGuiKey_Escape)))
@@ -184,6 +309,37 @@ class PaintTextureEditor : public SourceDocumentPanel<PaintTextureDocumentTraits
             FORGE_UI_PROBE("paint-texture:redo");
             ImGui::EndDisabled();
             ImGui::BeginDisabled(stroke_active());
+            if (ImGui::Checkbox("Paint on selected Mesh", &surface_mode_))
+                cancel_gesture();
+            FORGE_UI_PROBE("paint-texture:surface-mode");
+            if (surface_mode_) {
+                if (ImGui::BeginCombo("Material image",
+                                      material_field_label(surface_slot_).c_str())) {
+                    std::map<std::string, MaterialTextureLayout> slots;
+                    for (const auto* model :
+                         {"forge.gltf.metallic-roughness.v1", "forge.gltf.specular-glossiness.v1",
+                          "forge.gltf.unlit.v1"}) {
+                        MaterialData shape;
+                        shape.model = model;
+                        for (const auto& [key, value] : prepare_pbr_material(shape).layout.textures)
+                            if (value.semantic == canvas_value.semantic())
+                                slots.emplace(key, value);
+                    }
+                    for (const auto& [key, value] : slots) {
+                        (void)value;
+                        if (ImGui::Selectable(material_field_label(key).c_str(),
+                                              surface_slot_ == key))
+                            surface_slot_ = key;
+                        FORGE_UI_PROBE("paint-texture:surface-slot:" + key);
+                    }
+                    ImGui::EndCombo();
+                }
+                FORGE_UI_PROBE("paint-texture:surface-slot");
+                ImGui::TextWrapped(
+                    "Select one Mesh in Hierarchy, then left-drag in Scene. This Material slot "
+                    "must use this paint texture. Publish the Material first. The Scene shows the "
+                    "last published pixels; Save / Publish updates it.");
+            }
             ImGui::Checkbox("Erase", &brush_.erase);
             ui::help("Color erase reduces alpha. Data erase blends each channel toward the canvas "
                      "background.");
@@ -262,8 +418,11 @@ class PaintTextureEditor : public SourceDocumentPanel<PaintTextureDocumentTraits
             }
             ImGui::EndDisabled();
             ImGui::EndDisabled();
-            ImGui::TextWrapped("Left drag paints; release applies one Undo step. Escape cancels. "
-                               "Stroke guide shows the path until pixels are prepared.");
+            ImGui::TextWrapped(
+                surface_mode_ ? "Left-drag the selected Mesh in Scene. Release applies one texture "
+                                "Undo step. Escape cancels. The canvas shows the prepared pixels."
+                              : "Left drag paints; release applies one Undo step. Escape cancels. "
+                                "Stroke guide shows the path until pixels are prepared.");
             if (task_.pending())
                 ImGui::TextUnformatted("Preparing pixels... Undo cancels.");
             else if (pending())
@@ -272,7 +431,7 @@ class PaintTextureEditor : public SourceDocumentPanel<PaintTextureDocumentTraits
                 ImGui::TextUnformatted("Source changes need Save / Publish.");
             if (!error_.empty())
                 ui::field_error(error_);
-            canvas(locked || pending() || task_.pending());
+            canvas(locked || pending() || task_.pending() || surface_mode_);
         }
         ImGui::End();
         draw_close_dialog("Pending paint texture changes", locked || stroke_active());
@@ -287,18 +446,39 @@ class PaintTextureEditor : public SourceDocumentPanel<PaintTextureDocumentTraits
     std::vector<PaintPoint> points_;
     PaintTextureTask task_;
     std::uint64_t stroke_revision_ = 0;
+    std::string surface_slot_ = "baseColorTexture";
+    bool surface_mode_ = false, surface_holding_ = false, surface_gap_ = true;
+    AssetId surface_scene_;
+    EntityId surface_entity_;
+    std::uint64_t surface_scene_revision_ = 0;
+    std::optional<MeshTextureSurfaceHit> surface_previous_;
+    std::optional<ViewportFrameKey> surface_view_;
+    ImVec2 surface_origin_{}, surface_size_{};
+    int surface_frame_ = 0;
     bool fit_ = true;
     float zoom_ = 1;
-    bool gesture_dirty() const override { return !points_.empty() || task_.pending(); }
+    bool gesture_dirty() const override {
+        return surface_holding_ || !points_.empty() || task_.pending();
+    }
     void cancel_gesture() override {
         task_.cancel();
         points_.clear();
+        surface_holding_ = false;
+        surface_gap_ = true;
+        surface_previous_.reset();
+        surface_view_.reset();
     }
     void view_closed() override {
+        surface_mode_ = false;
         if (release_preview)
             release_preview();
     }
-    void source_opened() override { fit_ = true; }
+    void source_opened() override {
+        fit_ = true;
+        surface_slot_ = document_->source().document.semantic() == TextureSemantic::Color
+                            ? "baseColorTexture"
+                            : "metallicRoughnessTexture";
+    }
     bool flush_gesture() override {
         if (task_.pending())
             return false;
@@ -390,7 +570,8 @@ class PaintTextureEditor : public SourceDocumentPanel<PaintTextureDocumentTraits
                 };
                 const ImU32 guide = IM_COL32(255, 190, 60, 160);
                 for (std::size_t i = 1; i < points_.size(); ++i)
-                    draw->AddLine(screen(points_[i - 1]), screen(points_[i]), guide, 2);
+                    if (!points_[i].break_before)
+                        draw->AddLine(screen(points_[i - 1]), screen(points_[i]), guide, 2);
                 draw->AddCircle(screen(points_.back()), float(brush_.radius) * factor, guide, 0,
                                 1.5f);
             } else if (!locked && hovered)

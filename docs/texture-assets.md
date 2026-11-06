@@ -725,10 +725,40 @@ sample meaning. Opaque source/page extensions stay owned by the destination canv
 
 Shared automation/MCP expose the actual source editor with optional creation
 `canvas`, metadata read/patch, exact pixel queries, asynchronous `stroke` and
-`copy_pixels`, byte `fill`, `cancel_pixels`, history and Save/close. Clients poll
+`copy_pixels`, explicit published `mesh_stroke`, byte `fill`, `cancel_pixels`, history and Save/close. Clients poll
 `transient_draft`, inspect diagnostics and refresh document revision after pixel
 preparation. The normal outer permissions/revision/sequence receipt rules remain
 in force; agents use the same computation, source history and publication owners.
+
+Mesh painting borrows the complete retained draw's current selected LOD, part,
+Material and deformation through `MeshSceneRenderer::pick_texture_surface`.
+Existing geometric picking rejects foreground Mesh/Sprite/Tile blockers; one
+work budget covers blocker picking, detailed clipped-triangle selection and UV
+mapping. `mesh_texture_surface_point` owns the bounded Material/UV0 admission and
+image mapping for both native Scene gestures and published triangle samples.
+No geometry copy, input registry, source document, catalog or history owner is
+introduced. Scene tools and camera controls arbitrate the gesture; the paint
+document remains the Save/Undo target while the mode is active.
+
+Transient `PaintPoint::break_before` separates paths without changing serialized
+source1. Indexed adjacent UV triangles connect only through their common image
+edge. Other triangles, mesh parts and pointer gaps start separate paths under the
+same maximum-coverage operation. Scene/document/selection/mesh-data changes cancel
+held input. Source revision/session checks still govern detached result adoption.
+The 2D draft preview shows prepared pixels; retained Scene draws follow the normal
+published Texture selection after Save/Publish. Painting is texel-space coverage,
+not a world-radius brush, UV editing, weight painting or per-instance storage.
+
+The profile admits opaque two-sided depth-tested/writing built-in Materials with
+matching Color/Data2D Texture slots, unit float2UV0 and identity/full-axis image
+flips. Unsupported materials/mappings reject. Shared or overlapping UVs share
+image pixels. Programmatic `asset.mesh.triangles` pages bounded immutable object
+geometry; `asset.document.mesh_stroke` supplies exact Mesh/Material publication
+revisions and barycentric samples. Both use the existing model resource selection
+owner, with32MiB decoded geometry admission. These explicit samples do not claim
+Scene visibility. Runtime consumes the ordinary published Texture and Material;
+there is no paint-source parser, new cook, SDK layout or kit-feature requirement.
+
 See the [painting guide](../manual/editor/texture-painting.md) for controls and
 current limits. Platform acceptance and capture provenance are recorded separately.
 
@@ -750,3 +780,21 @@ byte-identical after Windows-target content is relocated and original source
 files are hidden. This establishes software-backend content/rendering behavior;
 Windows/MSVC/D3D12/full-editor/graphical-EXE and physical GPU/input acceptance
 remain separate.
+
+`manual/images/mesh-texture-painting.png` directly captures the production Paint
+Texture panel and HDR Scene Viewport from `tests/mesh_texture_surface_vulkan_probe.cpp`.
+It drives native ImGui CameraControls and source/gesture/history/publication owners
+against an original retained two-part bent morph mesh. Tests check actual source
+pixels and displayed pixels after publication, foreground blocking, stale mesh,
+focus, camera, hidden-view and locked-input cancellation. The source panel and
+Material image selector also receive100/150/200percent wide/narrow UI checks.
+
+`manual/images/mesh-texture-painting-game.png` is Gallery178 at tick60,640×360,
+through the shared RuntimeWorld/FrameRenderer capture owner. Three moving frames
+and one portrait frame are exact after Windows-target packaging, relocation and
+source hiding. The orange/cyan texture is authored by the shared mesh UV mapper
+and paint source brush, then consumed as an ordinary published image on the existing
+original skinned/morphed panel. RGB PPM-to-PNG conversion is lossless. These are
+Linux Release/GCC12 software Vulkan captures, without pixel editing, rather than
+full Main/Windows or physical-device acceptance. The canvas screenshot is current
+with the Mesh mode visible and off; each image has one canonical manual asset.

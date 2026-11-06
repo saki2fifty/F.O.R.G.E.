@@ -1754,6 +1754,33 @@ Metadata patch preserves the pixel pages and cannot change the canvas or identit
 channels lie in0..1; omitted controls use radius16,hardness0.75,opacity1,erasefalse.
 Color RGB is linear, Data channels raw. Pixel centers are atx+0.5,y+0.5 from the
 top left. Continuous path overlap uses maximum coverage per stroke.
+Optional `breaks=[index,…]` starts disconnected paths at strictly increasing
+zero-based point indices from1to point-count-minus1. All paths share maximum
+coverage and one Undo entry; no capsule crosses a break.
+
+`forge_asset_mesh_triangles` reads up to128published object-space triangles from
+an engine, root or imported-model Mesh. Pass `mesh`, optional `revision`, `lod`,
+`part`, `offset` and `limit`. Results include the selected revision, part/LOD counts,
+triangle count and paged `primitive`, vertex indices, positions and float2 `uv0`
+arrays. Missing/unsupported UV0 returns an empty UV array. A supplied stale revision
+rejects; no Scene/world state changes. Geometry decoding is bounded to32MiB. These
+are undeformed publication coordinates, without Scene visibility or transforms.
+
+`forge_asset_document_mesh_stroke` prepares a texture stroke from explicit Mesh
+triangle samples. It requires the open paint document's session/revision, `mesh`,
+`material`, exact `mesh_revision`/`material_revision`, `samples` and the same
+`brush`. Read revisions through `forge_asset_read` (engine `revision` or
+`metadata.forge.import.key`); page triangles before choosing samples. Optional
+`lod` defaults to0 and `slot` to`baseColorTexture`. Each sample has `primitive`,
+`barycentric:[a,b,c]` summing to1, optional `part` (default0) and `break_before`.
+It maps the selected published Material slot to the open canvas, sharing the
+native Scene tool's Material/UV mapper, disconnected paths, asynchronous brush
+and source/history/publication owners. Native pointer input uses actual visible
+geometry; explicit samples do not imply Scene occlusion. The profile requires
+opaque, two-sided, depth-tested/writing built-in Materials, matching Color/Data2D
+paint-image bindings, nondegenerate unit UV0 and identity/full-axis flips. Invalid
+revisions, mappings or samples report a preparation diagnostic without replacing
+the draft or adding history. The existing read and asset-write grants apply.
 
 `forge_asset_document_copy_pixels` accepts a published Texture UUID in `texture`.
 Its base image must match the canvas's dimensions and Color/Data usage. Normalized
@@ -1761,7 +1788,7 @@ byte and unsigned LDR block samples are supported; signed/HDR, higher precision,
 layered/volume/cube and premultiplied/unknown Color-alpha selections reject.
 Linear Color bytes encode to sRGB for the destination. Originals stay unchanged.
 
-Stroke and copy prepare asynchronously. The initial receipt reports
+Pixel strokes, mesh strokes and copy prepare asynchronously. The initial receipt reports
 `transient_draft=true`; poll `forge_asset_document_status` until settled, inspect
 `diagnostic`, and refresh the document revision. An identical outer request retry
 returns its receipt and cannot apply the operation twice. Cancellation uses

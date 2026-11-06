@@ -14,16 +14,16 @@ struct MeshUvTriangle {
         : indices(mesh_triangle_indices(part, primitive)) {
         const auto* stream = part.find("TEXCOORD_0");
         if (!stream || stream->components != 2)
-            throw std::runtime_error("UI Surface Input mesh requires float2 UV0");
+            throw std::runtime_error("Mesh surface requires float2 UV0");
         const auto* values = std::get_if<std::vector<float>>(&stream->values);
         if (!values || values->size() != std::uint64_t(part.vertices) * 2)
-            throw std::runtime_error("UI Surface Input mesh has invalid UV0 storage");
+            throw std::runtime_error("Mesh surface has invalid UV0 storage");
         for (unsigned k = 0; k < 3; ++k) {
             budget.spend();
             for (unsigned axis = 0; axis < 2; ++axis) {
                 const double value = (*values)[indices[k] * 2ull + axis];
                 if (!std::isfinite(value) || value < 0 || value > 1)
-                    throw std::runtime_error("UI Surface Input mesh UV0 must stay inside [0,1]");
+                    throw std::runtime_error("Mesh surface UV0 must stay inside [0,1]");
                 uv[k][axis] = value;
             }
         }

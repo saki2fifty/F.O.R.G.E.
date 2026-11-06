@@ -16,6 +16,8 @@ inline constexpr std::size_t paint_texture_source_byte_limit = 16 * 1024 * 1024;
 using PaintPixel = std::array<std::uint8_t, 4>;
 struct PaintPoint {
     double x{}, y{}; // Pixel coordinates, origin at the source image's top left.
+    // Disconnected paths share one maximum-coverage stroke and one Undo entry.
+    bool break_before = false;
     bool operator==(const PaintPoint&) const = default;
 };
 struct PaintBrush {

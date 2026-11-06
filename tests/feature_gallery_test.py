@@ -484,6 +484,27 @@ for primitive in original_model['meshes'][0]['primitives']:
     assert len(primitive['targets']) == 1 and 'POSITION' in primitive['targets'][0]
 assert not {row['id'] for row in mesh_ui['entities']} & {row['id'] for row in surface['entities']}
 
+mesh_paint_path = 'Scenes/178-mesh-texture-painting.scene.json'
+mesh_paint = json.loads((project_root / mesh_paint_path).read_text())
+assert mesh_paint['asset_id'] == by_source[mesh_paint_path]['id']
+paint_image_path = 'Assets/Painting/MeshSurface.paint-texture.json'
+paint_image = json.loads((project_root / paint_image_path).read_text())
+assert paint_image['asset_id'] == by_source[paint_image_path]['id']
+assert paint_image['format'] == 'forge.paint-texture' and paint_image['version'] == 1
+assert paint_image['width'] == paint_image['height'] == 128 and paint_image['tiles']
+paint_material_path = 'Assets/Painting/MeshSurface.material.json'
+paint_material = json.loads((project_root / paint_material_path).read_text())
+assert paint_material['asset_id'] == by_source[paint_material_path]['id']
+assert paint_material['overrides']['double_sided']
+assert paint_material['overrides']['textures']['baseColorTexture']['asset'] == paint_image['asset_id']
+paint_meshes = [row['components'] for row in mesh_paint['entities'] if 'forge.mesh_renderer' in row['components']]
+assert len(paint_meshes) == 1 and 'forge.model_source' in paint_meshes[0]
+assert paint_meshes[0]['forge.mesh_renderer']['mesh'] == mesh_surface['forge.mesh_renderer']['mesh']
+assert all(slot['material'] == paint_material['asset_id'] for slot in paint_meshes[0]['forge.mesh_renderer']['materials'])
+assert any('forge.animator' in row['components'] for row in mesh_paint['entities'])
+assert sum('forge.camera' in row['components'] for row in mesh_paint['entities']) == 1
+assert not {row['id'] for row in mesh_paint['entities']} & {row['id'] for row in mesh_ui['entities']}
+
 runtime_reflections = json.loads((project_root / 'Scenes/176-runtime-reflection-capture.scene.json').read_text())
 assert runtime_reflections['asset_id'] == by_source['Scenes/176-runtime-reflection-capture.scene.json']['id']
 runtime_probe, = [row['components']['forge.reflection_probe'] for row in runtime_reflections['entities']

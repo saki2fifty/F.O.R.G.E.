@@ -1,0 +1,239 @@
+{
+  "asset_id": "08787763-d1cd-4279-a1fe-3ff4287201bf",
+  "entities": [
+    {
+      "components": {
+        "forge.animator": {
+          "blend_clip": null,
+          "blend_mask": null,
+          "blend_mode": 0,
+          "blend_position": 0.0,
+          "blend_position_y": 0.0,
+          "blend_root": null,
+          "blend_space": null,
+          "blend_weight": 0.0,
+          "clip": "66d05832-fabf-47d0-9aae-d7a888f37bc6",
+          "enabled": true,
+          "loop": true,
+          "play_on_start": true,
+          "playback_speed": 1.0,
+          "root_joint": null,
+          "root_motion": 0,
+          "skeleton": "e3e63753-959d-4018-8c88-61f2b90c2f43",
+          "state": 0,
+          "states": null,
+          "transition_seconds": 0.25
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 4.0,
+          "y": 3.0,
+          "z": 2.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.model_source": {
+          "model": "1c562f84-1628-4716-a15f-beed324058f7",
+          "node": null
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "04bb2849-e852-4dd4-be77-a89895996fbf",
+      "name": "Painted model - expand and select Surface",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.model_source": {
+          "model": "1c562f84-1628-4716-a15f-beed324058f7",
+          "node": "bc6b664c-e028-46c3-b9f7-c99a17f750f6"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "a4f820e1-f116-44ea-a1b5-04317825d868",
+      "name": "Panel rig",
+      "parent": "04bb2849-e852-4dd4-be77-a89895996fbf",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [],
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "a1e21e26-0caa-46b9-8a0e-c9663fd47174",
+              "slot": "material:36a993a2-d5d3-4da1-804c-6fc6fca82d98"
+            }
+          ],
+          "mesh": "bd6fe618-98f6-4343-9a20-a6abb4fd1efa",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        },
+        "forge.model_source": {
+          "model": "1c562f84-1628-4716-a15f-beed324058f7",
+          "node": "31874959-8c62-4b51-950b-2ab7708d712c"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "6193a91e-7fcb-44c5-be70-1398914abe76",
+      "name": "Bent two-part panel",
+      "parent": "a4f820e1-f116-44ea-a1b5-04317825d868",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.model_source": {
+          "model": "1c562f84-1628-4716-a15f-beed324058f7",
+          "node": "0d5beb2b-c26b-462f-8619-a790d05dbe83"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "36b2606d-98c8-4ad6-ae26-3da2160052b3",
+      "name": "Panel support joint",
+      "parent": "a4f820e1-f116-44ea-a1b5-04317825d868",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 1.7777777777777777,
+          "background_a": 1.0,
+          "background_b": 0.029999999329447746,
+          "background_g": 0.02500000037252903,
+          "background_r": 0.019999999552965164,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 100.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 10.0,
+          "orthographic_width": 0.0,
+          "projection": 0,
+          "render_texture": null,
+          "vertical_fov": 1.0471975511965976,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": -6.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "f47a4291-af3e-4bab-b743-3aabae266e35",
+      "name": "Game camera",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    }
+  ],
+  "version": 3
+}

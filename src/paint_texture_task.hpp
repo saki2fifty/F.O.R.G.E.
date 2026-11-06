@@ -20,6 +20,8 @@ class PaintTextureTask {
     bool pending() const { return future_.valid(); }
     void start(PaintTextureValue, std::vector<PaintPoint>, PaintBrush, std::uint64_t session,
                std::uint64_t revision);
+    void mapped_stroke(PaintTextureValue, std::function<std::vector<PaintPoint>(std::stop_token)>,
+                       PaintBrush, std::uint64_t session, std::uint64_t revision);
     void copy_pixels(PaintTextureValue, std::function<Rgba8Pixels(std::stop_token)>,
                      std::uint64_t session, std::uint64_t revision);
     std::optional<Result> poll();

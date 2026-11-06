@@ -1,0 +1,48 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [],
+    "importer": "forge.texture.paint",
+    "importer_revision": "dfd6d1479b4cec9946710560bd693f811ee34726060e0d51338a39ad5fec0764",
+    "key_version": 1,
+    "output_format": "forge.texture-bundle",
+    "output_version": 1,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {
+      "additional_usages": [],
+      "anisotropy": 1,
+      "compression": "none",
+      "filter": "linear",
+      "flip_green": false,
+      "flip_vertical": false,
+      "max_size": 16384,
+      "mips": true,
+      "premultiply": false,
+      "semantic": "auto",
+      "transfer": "auto",
+      "wrap": "repeat"
+    },
+    "settings_version": 1,
+    "source": "7900c5c23ed07abe1fc39286bc7cada02d40258757c77faf54bf8a52a29845e2",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.texture.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "851e1d6e-7888-4f43-8a95-47bd426b6485",
+    "source": "Assets/Painting/MeshSurface.paint-texture.json",
+    "source_digest": "7900c5c23ed07abe1fc39286bc7cada02d40258757c77faf54bf8a52a29845e2",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.texture.paint",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

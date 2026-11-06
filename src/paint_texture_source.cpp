@@ -305,11 +305,18 @@ PaintTextureValue PaintTextureValue::paint(std::span<const PaintPoint> points,
                  std::abs(p.y) <= 1e6,
              "Paint stroke coordinates must be finite within +/-1000000 pixels");
     std::vector<Rectangle> rectangles;
-    const auto segments = std::max(std::size_t(1), points.size() - 1);
+    std::vector<std::array<std::size_t, 2>> segments;
+    segments.reserve(points.size());
+    for (std::size_t i = 0; i < points.size(); ++i) {
+        if (i + 1 < points.size() && !points[i + 1].break_before)
+            segments.push_back({i, i + 1});
+        else if (i == 0 || points[i].break_before)
+            segments.push_back({i, i}); // An isolated path point is one disc.
+    }
     std::uint64_t work = 0;
-    for (std::size_t i = 0; i < segments; ++i) {
-        const auto b = points[std::min(i + 1, points.size() - 1)];
-        const auto rectangle = footprint(points[i], b, brush.radius, canvas_width, canvas_height);
+    for (const auto& segment : segments) {
+        const auto rectangle = footprint(points[segment[0]], points[segment[1]], brush.radius,
+                                         canvas_width, canvas_height);
         work +=
             std::uint64_t(rectangle.right - rectangle.left) * (rectangle.bottom - rectangle.top);
         need(work <= stroke_work_limit, "Paint stroke is too large; use a shorter stroke");
@@ -319,8 +326,8 @@ PaintTextureValue PaintTextureValue::paint(std::span<const PaintPoint> points,
         return *this;
     std::vector<float> coverage(std::size_t(canvas_width) * canvas_height, 0);
     const double edge = std::max(1., brush.radius * (1 - brush.hardness));
-    for (std::size_t i = 0; i < segments; ++i) {
-        const auto a = points[i], b = points[std::min(i + 1, points.size() - 1)];
+    for (std::size_t i = 0; i < segments.size(); ++i) {
+        const auto a = points[segments[i][0]], b = points[segments[i][1]];
         const double dx = b.x - a.x, dy = b.y - a.y, length_squared = dx * dx + dy * dy;
         const auto& r = rectangles[i];
         for (unsigned y = r.top; y < r.bottom; ++y) {

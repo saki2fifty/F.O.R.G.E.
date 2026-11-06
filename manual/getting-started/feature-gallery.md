@@ -351,6 +351,22 @@ Navigation progress shows concrete failed details and a **World coordinates**
 section for valid route samples.
 Save and select the Scene as startup before export. See [Navigation](../editor/navigation.md).
 
+## Paint textures on a model
+
+Open **178-mesh-texture-painting**. Play displays orange and cyan strokes on an
+original bent panel with skin and morph animation. Stop Play, open
+**Assets/Painting/MeshSurface.paint-texture.json** in Content, expand the model
+root and select **Bent two-part panel** in Hierarchy. In **Paint Texture**, enable
+**Paint on selected Mesh**, choose **Base Color Texture** in **Material image**,
+then left-drag on the panel in Scene. Release prepares one texture Undo step.
+
+![Published orange and cyan texture strokes on an animated bent panel](../images/mesh-texture-painting-game.png)
+
+The canvas shows draft pixels; **Save / Publish** updates the panel. Save the
+Material and Scene, choose this Scene as Startup Scene, and export to run the
+published artwork and animation. See [Paint a texture](../editor/texture-painting.md)
+for brush controls, independent image copies, UV requirements and limits.
+
 ## 2D physics
 
 Scene **79-one-way-platforms** compares landing from above and passage from below.

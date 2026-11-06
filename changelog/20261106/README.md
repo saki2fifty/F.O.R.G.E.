@@ -1,5 +1,23 @@
 # 2026-11-06
 
+## Paint textures on a selected Mesh
+
+Paint Texture can place its brush through the Scene view on a selected Mesh's
+retained current pose and UV0. It shares source pixels, asynchronous preparation,
+Undo/Redo and Save/Publish with the image canvas. Foreground geometry blocks input;
+UV gaps and disconnected triangles create separate paths within one coverage and
+history operation. Focus, camera, hidden-view, source and mesh-selection changes
+cancel held strokes. Source publication refreshes the ordinary displayed Texture.
+
+The bounded profile uses opaque two-sided depth-tested built-in Materials, matching
+Color/Data2D image slots, unit UV0 and identity/full-axis flips. Shared UVs share
+pixels; the brush radius is in source pixels. Paged immutable triangle inspection
+and exact-revision mesh strokes extend automation/MCP through the same mapper,
+source and publication owners. Source formats, SDK layouts and runtime-kit
+requirements stay unchanged. Gallery178 provides original mesh-mapped artwork on
+the existing animated bent panel, with an illustrated guide. Windows/full-editor
+and physical verification remain pending.
+
 ## Runtime reflection capture
 
 Reflection Probes can capture view-local GPU lighting during Play and in Scene

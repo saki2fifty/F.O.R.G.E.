@@ -219,6 +219,25 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* grap
         check(std::chrono::steady_clock::now() < copy_deadline, "Native copy publication stalled");
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
+    const auto before_surface_controls = editor.document()->revision();
+    input.click("paint-texture:surface-mode");
+    check(editor.surface_enabled(), "Native surface paint controls did not enable");
+    input.click("paint-texture:surface-slot");
+    input.select("paint-texture:surface-slot:baseColorTexture");
+    settle();
+    const auto surface_box = test::ui_targets.at("paint-texture:surface-slot");
+    check(surface_box.enabled && surface_box.minimum.x >= surface_box.clip_minimum.x &&
+              surface_box.maximum.x <= surface_box.clip_maximum.x &&
+              surface_box.minimum.y >= surface_box.clip_minimum.y &&
+              surface_box.maximum.y <= surface_box.clip_maximum.y,
+          "Native Material image selection is clipped at the tested layout");
+    test::ViewImageReference surface_capture;
+    surface_capture.queue(presentation.device(), graphics, srv);
+    save_view_png(output / ("paint-texture-surface-controls-" + suffix), desc.Width, desc.Height,
+                  surface_capture.read(graphics));
+    check(editor.document()->revision() == before_surface_controls,
+          "Surface tool selection changed the source or its history");
+    input.click("paint-texture:surface-mode");
     check(scene.document() == scene_before, "Paint canvas changed the authored Scene");
     editor.request_close();
     frame();

@@ -20,6 +20,16 @@ void PaintTextureTask::copy_pixels(PaintTextureValue value,
                std::stop_token stop) { return value.replace_pixels(load(stop), stop); },
            "Copy published image pixels", session, revision);
 }
+void PaintTextureTask::mapped_stroke(
+    PaintTextureValue value, std::function<std::vector<PaintPoint>(std::stop_token)> project,
+    PaintBrush brush, std::uint64_t session, std::uint64_t revision) {
+    validate_paint_brush(brush);
+    if (!project)
+        throw std::runtime_error("Surface stroke needs selected mesh coordinates");
+    launch([value = std::move(value), project = std::move(project),
+            brush](std::stop_token stop) { return value.paint(project(stop), brush, stop); },
+           "Paint mesh texture stroke", session, revision);
+}
 void PaintTextureTask::launch(std::function<PaintTextureValue(std::stop_token)> work,
                               std::string label, std::uint64_t session, std::uint64_t revision) {
     if (pending() || !session || !revision)

@@ -404,3 +404,21 @@ on exhaustion. Quad-only documents retain runtime requirement1; Mesh requires2.
 Source defaults and the same metadata/history/automation owners keep old documents
 readable, while updated public native layouts require the matching exact SDK.
 See [Runtime UI](../runtime-ui.md#interactive-scene-surfaces).
+
+## Texture authoring through retained triangles —2026-11-06
+
+Scene Mesh texture painting reuses retained draw geometry/current deformation and
+existing geometric picking for visible LOD/part/Material selection. The shared
+Material/UV mapper returns transient data coordinates; the existing paint source
+document, asynchronous brush, history and publication remain authoritative.
+Disconnected UV paths share one coverage/history operation. There is no additional
+raycaster, mesh cache, world, document, image catalog or history manager.
+
+Native Scene input and explicit published triangle samples share bounded UV0 and
+image-slot admission. Source/Scene/view/camera/selection changes cancel held input;
+normal document session/revision checks govern asynchronous result adoption.
+Programmatic mesh inspection/projection borrows immutable model-resource selection
+without source parsing or Scene-visibility claims. Runtime consumes ordinary cooked
+Texture/Material assets; this authoring path changes no source format, public SDK
+layout, C ABI table, artifact format or runtime-kit feature. See
+[Texture assets](../texture-assets.md) and [MCP](../mcp.md).

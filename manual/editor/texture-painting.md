@@ -21,6 +21,53 @@ Canvas dimensions and interpretation stay fixed after creation. Existing files
 are protected. Double-click a paint source or its Texture asset in Content to
 reopen it.
 
+## Paint on a Mesh
+
+Use the Scene view to place a texture brush on a visible Mesh. The stroke edits
+the same paint source and uses the same brush, Undo history and publication as
+the image canvas.
+
+![Paint Texture beside the Scene view, with Mesh painting enabled and a white stroke on a bent surface](../images/mesh-texture-painting.png)
+
+The canvas shows the editable pixels. **Save / Publish** updates the image displayed
+on the Mesh in Scene.
+
+1. Stop Play. Open a paint texture and click **Save / Publish** to register its image.
+2. Open a project [Material](materials.md). Choose **Unlit** for a simple color image. In **Surface state**, set **Alpha** to **Opaque** and enable **Two-sided**, **Depth test** and **Depth write**.
+3. Under **Texture slots**, assign the published paint texture to **Base Color Texture**, then save the Material.
+4. Assign this Material to the Mesh. For an imported model, expand its root in Hierarchy and select its mesh child. Save the Scene.
+5. In **Paint Texture**, enable **Paint on selected Mesh**. Choose **Base Color Texture** in **Material image**, and keep one Mesh selected in Hierarchy.
+6. Set the brush, then left-drag over the Mesh in **Scene**. Release to prepare one complete texture edit. **Escape** cancels a held stroke. The canvas shows the resulting draft pixels.
+7. Click **Save / Publish** to update the Mesh's displayed image. Save consuming Materials and the Scene before export; republish a Material if export reports an outdated dependency.
+
+The Scene shows the last published image while you paint. The brush radius is
+measured in source pixels. Strokes follow the displayed geometry and pose, including
+supported skin, morph and static wind deformation. Foreground geometry blocks
+painting the selected Mesh behind it. Leaving the surface, crossing disconnected
+UV islands or moving between parts using the same Material starts a separate path
+within the same Undo step. A stroke uses one Material; entering a part with a
+different Material cancels the held stroke.
+Changing the selected object, Scene view or camera, source revision or retained
+mesh selection cancels a held gesture. Hiding Scene also cancels the gesture.
+
+While Mesh painting is enabled, the Scene's Save and Undo commands target the paint
+source. Disable **Paint on selected Mesh** to resume Scene selection and transform
+tools or to paint directly on the image canvas. Camera orbit, pan and zoom remain
+available between strokes.
+
+For other built-in Material images, choose the matching **Material image**. Color
+canvases use Color image slots; Data canvases use numeric Data slots. The chosen
+slot must already reference the open paint texture. Painting a shared image updates
+every object using those pixels. To make an imported or shared image independent,
+create a canvas, use **Copy published pixels**, and assign the new image to a
+project Material first.
+
+Try `Scenes/178-mesh-texture-painting.scene.json` in the Feature Gallery. Open
+`Assets/Painting/MeshSurface.paint-texture.json`, expand the model root and select
+**Bent two-part panel**. Enable Mesh painting to add your own strokes in Scene.
+Play displays the published orange and cyan artwork on the animated panel. Stop
+Play before editing, then publish and save before export.
+
 ## Paint, erase and fill
 
 Choose the brush color, **Radius (pixels)**, **Hardness** and **Opacity**. Drag with
@@ -106,6 +153,16 @@ Undo retains up to 64 entries within an 8 MiB weighted source-history budget;
 older entries can be evicted. An edit that cannot retain both Undo and Redo is
 rejected. Current and saved source values have their own storage.
 
-This is a 2D image canvas. It does not project brush strokes onto model geometry,
-change UVs, or paint skeletal weights. Imported and model-generated images become
-editable here through an explicit pixel copy.
+Mesh painting supports triangle geometry with nondegenerate float2 **UV0** inside
+the complete image, from 0 to 1 on both axes. The selected Material must be an
+opaque, two-sided, depth-tested built-in Material with depth writing enabled.
+Its chosen image must use matching Color/Data 2D interpretation and either identity
+UV mapping or complete image-axis flips. Repeated/cropped images, UV rotation,
+other UV channels, custom programmable Materials and Normal/HDR canvases are
+unsupported. Large scenes can exceed the bounded geometry-selection work; rejected
+input preserves the draft.
+
+The brush edits image pixels through UVs. Reused or overlapping UVs share their
+pixels, and a wide brush can reach neighboring islands. It does not change UVs,
+paint skeletal weights or create a brush with a fixed world-space radius. Imported
+and model-generated images become editable through an explicit pixel copy.

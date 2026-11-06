@@ -2243,3 +2243,23 @@ source/check/image hashes and the export receipt belong to the triangle-ui-surfa
 capture evidence owner. These captures do not establish Windows/full-editor Main,
 MSVC/D3D12, physical GPU/input/DPI, external-client, graphical executable, broad
 performance or native graphics sanitizer acceptance.
+
+## Texture painting on model geometry
+
+`manual/images/mesh-texture-painting.png` is an unedited1220×850 native capture of
+PaintTextureEditor beside HDR Viewport from `tests/mesh_texture_surface_vulkan_probe.cpp`.
+The real CameraControls/ImGui path drives a brush on an original retained bent
+morph mesh. Source pixels, one-stroke history, published display pixels, foreground
+blocking and gesture cancellation are checked by the same fixture. It is a
+subsystem workspace, without the complete Windows Main host or physical input.
+
+`manual/images/mesh-texture-painting-game.png` captures Gallery178 at tick60 through
+RuntimeWorld/FrameRenderer. The independently authored orange/cyan paths use the
+shared Mesh/Material UV mapper and paint-source brush. Three moving views and a
+portrait view match exactly after source-hidden runtime-content relocation.
+PPM-to-PNG conversion is lossless; no controls or pixels are retouched. The existing
+canvas image is a current direct capture with Mesh mode off. Each image has one
+canonical manual asset; [Texture assets](../../texture-assets.md) records the
+capture/test environment and limits. These are Release/GCC12 software Vulkan
+captures; Windows, physical GPU/input/DPI and graphical executable review remain
+separate.

@@ -39,6 +39,10 @@ ResourceTicket request_model_mesh(ResourcePool<MeshAsset>&, std::filesystem::pat
                                   MeshLimits = {});
 // Exact immutable pool selection key, with the same catalog admission as a request.
 std::string selected_mesh_revision(const AssetCatalog&, AssetRef<MeshAsset>);
+ResourceCandidate<MeshAsset> load_mesh_selection(const std::filesystem::path&, const AssetCatalog&,
+                                                 AssetRef<MeshAsset>, MeshLimits = {},
+                                                 std::stop_token = {});
+std::string selected_material_revision(const AssetCatalog&, AssetRef<MaterialAsset>);
 ResourceTicket request_model_material(ResourcePool<MaterialAsset>&, std::filesystem::path project,
                                       std::shared_ptr<const AssetCatalog>, AssetRef<MaterialAsset>,
                                       MaterialLayout);

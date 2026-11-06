@@ -1,4 +1,6 @@
 #pragma once
+#include "../mesh_pick.hpp"
+#include "../model_render_resource.hpp"
 #include "automation_schema.hpp"
 #include "content_imports.hpp"
 #include "property_drawer.hpp"
@@ -94,6 +96,76 @@ inline std::vector<LiveAuthoringMethod> asset_read_automation_methods(SceneDocum
             result["state"] = asset_state_name(resolution.state);
             result["diagnostic"] = resolution.diagnostic;
             return result;
+        }));
+    methods.push_back(automation_method(
+        "asset.mesh.triangles",
+        "Read a bounded page of published Mesh object-space triangles, indices and UV0 for "
+        "surface painting. Engine, root Mesh and model members share immutable selection. "
+        "These are source-pose coordinates, without Scene transforms, animation or visibility.",
+        "asset.read",
+        automation_object({{"mesh", automation_uuid()},
+                           {"revision", automation_text(64, 64)},
+                           {"lod", automation_integer(0, UINT32_MAX)},
+                           {"part", automation_integer(0, UINT32_MAX)},
+                           {"offset", automation_integer()},
+                           {"limit", automation_integer(1, 128)}},
+                          {"mesh"}),
+        false, [catalog, &document](const Json& request) {
+            const auto current = catalog();
+            const AssetRef<MeshAsset> ref{request.at("mesh").get<AssetId>()};
+            const auto revision = asset_detail::selected_mesh_revision(*current, ref);
+            if (request.contains("revision") && request.at("revision") != revision)
+                throw AuthoringError("stale_asset",
+                                     "Mesh publication changed; refresh its revision");
+            MeshLimits limits;
+            limits.bytes = 32 * 1024 * 1024;
+            const auto selected =
+                asset_detail::load_mesh_selection(document.project(), *current, ref, limits);
+            const auto lod = request.value("lod", 0u), part = request.value("part", 0u);
+            const auto& data = selected.value->mesh;
+            if (lod >= data.lods.size() || part >= data.lods[lod].parts.size())
+                throw AuthoringError("invalid_argument",
+                                     "Mesh LOD or part is outside the published geometry");
+            const auto& geometry = data.lods[lod].parts[part];
+            const auto* positions = geometry.find("POSITION");
+            const auto* uv = geometry.find("TEXCOORD_0");
+            if (geometry.topology != MeshTopology::Triangles || !positions ||
+                positions->components != 3 ||
+                !std::holds_alternative<std::vector<float>>(positions->values))
+                throw AuthoringError("unsupported_geometry",
+                                     "Choose published triangles with float3 positions");
+            const auto& vertices = std::get<std::vector<float>>(positions->values);
+            const auto* coordinates =
+                uv && uv->components == 2 ? std::get_if<std::vector<float>>(&uv->values) : nullptr;
+            const auto count =
+                (geometry.indices.empty() ? geometry.vertices : geometry.indices.size()) / 3;
+            const auto offset = request.value("offset", std::size_t{}),
+                       limit = request.value("limit", std::size_t(128));
+            Json triangles = Json::array();
+            for (std::size_t i = offset; i < count && i - offset < limit; ++i) {
+                const auto indices = mesh_triangle_indices(geometry, i);
+                Json points = Json::array(), uvs = Json::array();
+                for (const auto index : indices) {
+                    points.push_back({vertices.at(index * 3ull), vertices.at(index * 3ull + 1),
+                                      vertices.at(index * 3ull + 2)});
+                    if (coordinates)
+                        uvs.push_back(
+                            {coordinates->at(index * 2ull), coordinates->at(index * 2ull + 1)});
+                }
+                triangles.push_back({{"primitive", i},
+                                     {"indices", indices},
+                                     {"positions", std::move(points)},
+                                     {"uv0", std::move(uvs)}});
+            }
+            return Json{{"mesh", ref.id},
+                        {"revision", revision},
+                        {"lod", lod},
+                        {"part", part},
+                        {"lod_count", data.lods.size()},
+                        {"part_count", data.lods[lod].parts.size()},
+                        {"triangle_count", count},
+                        {"offset", offset},
+                        {"triangles", std::move(triangles)}};
         }));
     return methods;
 }

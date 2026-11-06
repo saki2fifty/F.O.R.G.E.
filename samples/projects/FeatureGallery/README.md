@@ -2308,3 +2308,22 @@ Save the Scene, select it as the startup Scene in Project Settings, and export
 with the runtime kit packaged with this editor. No C++ gameplay module is needed.
 See the [runtime UI guide](../../../manual/editor/runtime-ui.md)
 for setup and supported geometry/Material limits.
+
+## Paint textures on a model
+
+Open **Scenes/178-mesh-texture-painting.scene.json**. Play displays published orange
+and cyan artwork on the original animated bent panel. Stop Play, open
+**Assets/Painting/MeshSurface.paint-texture.json**, expand the model root and select
+**Bent two-part panel** in Hierarchy. In **Paint Texture**, enable **Paint on selected
+Mesh**, select **Base Color Texture** in **Material image**, and left-drag over the
+panel in Scene. Release prepares one source Undo step; Escape cancels a held stroke.
+The canvas shows the draft. **Save / Publish** updates the displayed Mesh.
+
+The panel uses **Assets/Painting/MeshSurface.material.json**, an opaque two-sided
+unlit Material with matching Color2D image and unit UV0. Each brush radius is in
+source pixels; shared UVs share pixels. Disable Mesh painting to use Scene object
+tools or the image canvas. Save the Material and Scene before export. If export
+reports an outdated dependency, republish the Material and retry. Set this Scene
+as Startup Scene to export the same artwork and animation; no C++ module is needed.
+See the [painting guide](../../../manual/editor/texture-painting.md) for other image
+slots, copied images, supported mappings, cancellation and current limits.

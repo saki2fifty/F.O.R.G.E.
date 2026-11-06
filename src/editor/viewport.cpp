@@ -40,6 +40,18 @@ std::string Viewport::pick(const Json& source, const EditorCamera& camera, unsig
     const auto id = meshes_->pick(snapshot, prepared.view, x, y, UINT32_MAX, radius);
     return id ? id.str() : std::string{};
 }
+std::optional<MeshTextureSurfaceHit>
+Viewport::pick_texture_surface(const Json& source, const EditorCamera& camera, unsigned width,
+                               unsigned height, EntityId selected,
+                               const MeshTextureSurfaceTarget& target, double x, double y) {
+    if (!meshes_)
+        return {};
+    const auto snapshot = extract_render_scene(source);
+    const auto prepared = scene_camera(camera, width, height);
+    if (meshes_->update(snapshot, std::span(&prepared, 1)))
+        frame_.reset();
+    return meshes_->pick_texture_surface(snapshot, prepared.view, selected, target, x, y);
+}
 bool Viewport::frame(const Json& source, const std::string& selected, EditorCamera& camera,
                      float aspect) {
     return frame_selection(

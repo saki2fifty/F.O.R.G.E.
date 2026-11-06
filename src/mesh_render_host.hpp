@@ -2,6 +2,7 @@
 #include "mesh_draw_bundle.hpp"
 #include "mesh_occlusion.hpp"
 #include "mesh_pick.hpp"
+#include "mesh_texture_surface.hpp"
 #include "particle_effect_resource.hpp"
 #include "render_bounds.hpp"
 #include "runtime_reflection_gpu.hpp"
@@ -178,6 +179,10 @@ class MeshSceneRenderer {
     std::optional<Double2> project_ui_surface(const RenderScene&, const PreparedCamera&,
                                               const UiSurfaceHit&) const;
     std::vector<Diagnostic> ui_surface_diagnostics(const RenderScene&) const;
+    std::optional<MeshTextureSurfaceHit>
+    pick_texture_surface(const RenderScene&, const CameraView&, EntityId,
+                         const MeshTextureSurfaceTarget&, double x, double y,
+                         std::uint32_t layers = UINT32_MAX) const;
     const EnvironmentLease& environment() const { return environment_.ready; }
     bool has_reflection_probes() const {
         for (const auto& probe : lighting_probes_)

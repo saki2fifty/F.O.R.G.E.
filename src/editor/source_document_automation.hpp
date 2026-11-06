@@ -1,5 +1,6 @@
 #pragma once
 #include "../navigation_behavior_authoring.hpp"
+#include "../paint_texture_mesh.hpp"
 #include "../paint_texture_source.hpp"
 #include "../sprite_atlas_recipe.hpp"
 #include "../tile_map_source.hpp"
@@ -48,6 +49,16 @@ struct AssetDocumentAutomation {
             id, canvas.value("width", 256u), canvas.value("height", 256u),
             interpretation == "color" ? TextureSemantic::Color : TextureSemantic::Data,
             canvas.value("background", PaintPixel{}))};
+    }
+    static PaintBrush paint_brush(const Json& specification) {
+        PaintBrush brush;
+        brush.color = specification.at("color").get<std::array<double, 4>>();
+        brush.radius = specification.value("radius", 16.);
+        brush.hardness = specification.value("hardness", .75);
+        brush.opacity = specification.value("opacity", 1.);
+        brush.erase = specification.value("erase", false);
+        validate_paint_brush(brush);
+        return brush;
     }
     template <class Editor> static bool transient(const Editor& editor) {
         bool active = false;
@@ -378,7 +389,7 @@ struct AssetDocumentAutomation {
                                              "Pixel copy requires a paint texture");
                     else
                         editor.prepare_copy(request.at("texture").get<AssetId>(), doc.revision());
-                } else if (action == "stroke" || action == "fill") {
+                } else if (action == "stroke" || action == "mesh_stroke" || action == "fill") {
                     if constexpr (!paint_texture)
                         throw AuthoringError("wrong_document_type",
                                              "Pixel painting requires a paint texture");
@@ -395,18 +406,44 @@ struct AssetDocumentAutomation {
                             if (doc.revision() != previous)
                                 changed(editor);
                         } else {
-                            PaintBrush brush;
-                            const auto& specification = request.at("brush");
-                            brush.color = specification.at("color").get<std::array<double, 4>>();
-                            brush.radius = specification.value("radius", 16.);
-                            brush.hardness = specification.value("hardness", .75);
-                            brush.opacity = specification.value("opacity", 1.);
-                            brush.erase = specification.value("erase", false);
-                            std::vector<PaintPoint> points;
-                            for (const auto& point : request.at("points"))
-                                points.push_back(
-                                    {point.at(0).get<double>(), point.at(1).get<double>()});
-                            editor.prepare_stroke(std::move(points), brush, doc.revision());
+                            const auto brush = paint_brush(request.at("brush"));
+                            if (action == "mesh_stroke") {
+                                PaintMeshSelection selection;
+                                selection.mesh.id = request.at("mesh").get<AssetId>();
+                                selection.material.id = request.at("material").get<AssetId>();
+                                selection.mesh_revision =
+                                    request.at("mesh_revision").get<std::string>();
+                                selection.material_revision =
+                                    request.at("material_revision").get<std::string>();
+                                selection.slot =
+                                    request.value("slot", std::string("baseColorTexture"));
+                                selection.lod = request.value("lod", 0u);
+                                std::vector<PaintMeshPoint> points;
+                                for (const auto& sample : request.at("samples"))
+                                    points.push_back({sample.value("part", 0u),
+                                                      {sample.at("primitive").get<std::size_t>(),
+                                                       sample.at("barycentric").get<Double3>()},
+                                                      sample.value("break_before", false)});
+                                editor.prepare_mesh_stroke(std::move(selection), std::move(points),
+                                                           brush, doc.revision());
+                            } else {
+                                std::vector<PaintPoint> points;
+                                for (const auto& point : request.at("points"))
+                                    points.push_back(
+                                        {point.at(0).get<double>(), point.at(1).get<double>()});
+                                std::size_t previous_break = 0;
+                                for (const auto& split : request.value("breaks", Json::array())) {
+                                    const auto index = split.get<std::size_t>();
+                                    if (index <= previous_break || index >= points.size())
+                                        throw AuthoringError(
+                                            "invalid_argument",
+                                            "Stroke breaks must be increasing point indices from 1 "
+                                            "to point count minus 1");
+                                    points[index].break_before = true;
+                                    previous_break = index;
+                                }
+                                editor.prepare_stroke(std::move(points), brush, doc.revision());
+                            }
                         }
                     }
                 } else if (action == "tile_collision" || action == "tile_animation" ||

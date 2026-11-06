@@ -332,7 +332,7 @@ if(TARGET forge_editor)
 endif()
 
 # Headless/application adapters do not link native codecs into the editor or CLI.
-add_library(forge_texture_authoring STATIC src/texture_authoring.cpp src/paint_texture_copy.cpp)
+add_library(forge_texture_authoring STATIC src/texture_authoring.cpp src/paint_texture_copy.cpp src/paint_texture_mesh.cpp)
 target_sources(forge_texture_authoring PRIVATE src/sprite_atlas_source.cpp src/sprite_atlas_importer.cpp)
 target_link_libraries(forge_texture_authoring PRIVATE forge_model_render_resources forge_texture_image_process)
 target_link_libraries(forge_texture_authoring PUBLIC forge_authoring forge_texture_pipeline)

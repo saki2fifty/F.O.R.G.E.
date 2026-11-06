@@ -1,0 +1,43 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [
+      {
+        "kind": "runtime",
+        "revision": "6e64a720d9597b7d86d14a13c188079cf66569dc9d45f88ad6a5b31afd0bef73",
+        "role": "material.texture:baseColorTexture",
+        "target": "851e1d6e-7888-4f43-8a95-47bd426b6485",
+        "type": "texture"
+      }
+    ],
+    "importer": "forge.material.builtin",
+    "importer_revision": "3e0c6c1ad89ed98078283f77e3752a408393fff37af3aa0f38b60c095c12f9ab",
+    "key_version": 1,
+    "output_format": "forge.material-bundle",
+    "output_version": 3,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {},
+    "settings_version": 1,
+    "source": "7a7cc569a6ad87caa10096aa56579ce6cbbe9993dd481814f529256078a384a0",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.material.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "a1e21e26-0caa-46b9-8a0e-c9663fd47174",
+    "source": "Assets/Painting/MeshSurface.material.json",
+    "source_digest": "7a7cc569a6ad87caa10096aa56579ce6cbbe9993dd481814f529256078a384a0",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.material.builtin",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

@@ -5,7 +5,7 @@
 
 namespace test_render_texture {
 template <class Document, class Prepare>
-void publish(const std::shared_ptr<forge::ProjectLease>& lease, Document& document,
+void publish(const std::shared_ptr<const forge::ProjectLease>& lease, Document& document,
              std::shared_ptr<const forge::AssetImporterRegistry> registry, Prepare prepare) {
     document.save();
     forge::AssetImportService imports(lease, std::move(registry), {"windows", "d3d12", "desktop"},

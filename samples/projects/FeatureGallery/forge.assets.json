@@ -465,6 +465,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "08787763-d1cd-4279-a1fe-3ff4287201bf",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/178-mesh-texture-painting.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "08c9fa8f-b115-408c-888c-b6ddfde26ad9",
       "metadata": {
         "forge.import": {
@@ -10088,6 +10098,35 @@
       "type": "tile_set"
     },
     {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "851e1d6e-7888-4f43-8a95-47bd426b6485",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "616aeec82ee26b739aa11ab4e1fbc1d73d71b75e0e106aa0bc7ed9611e927501",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 2,
+          "importer": "forge.texture.paint",
+          "importer_revision": "dfd6d1479b4cec9946710560bd693f811ee34726060e0d51338a39ad5fec0764",
+          "key": "6e64a720d9597b7d86d14a13c188079cf66569dc9d45f88ad6a5b31afd0bef73",
+          "output_format": "forge.texture-bundle",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "6e500d6e7e08e5b11f498e154d26275d6288d83ed4b295b9c56c95d747c76521",
+          "settings_version": 1,
+          "sidecar_digest": "7daaf41c15874ca1ad6104e88e9d1f9c7ea8e2b6f89edfc6333a8bcb270031e0",
+          "source_digest": "7900c5c23ed07abe1fc39286bc7cada02d40258757c77faf54bf8a52a29845e2",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Painting/MeshSurface.paint-texture.json",
+      "source_dependencies": [],
+      "type": "texture"
+    },
+    {
       "dependencies": [
         "95491df3-090a-4711-98d0-f11d026c32b7"
       ],
@@ -11596,6 +11635,53 @@
       "source": "Assets/Tiles/ConcaveTiles.tilemap.json",
       "source_dependencies": [],
       "type": "tile_map"
+    },
+    {
+      "dependencies": [
+        "851e1d6e-7888-4f43-8a95-47bd426b6485"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "6e64a720d9597b7d86d14a13c188079cf66569dc9d45f88ad6a5b31afd0bef73",
+          "role": "material.texture:baseColorTexture",
+          "target": "851e1d6e-7888-4f43-8a95-47bd426b6485",
+          "type": "texture"
+        }
+      ],
+      "id": "a1e21e26-0caa-46b9-8a0e-c9663fd47174",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "fc11dc8ba0a60a651c0e37d3312774ae336b06e5357f911560b1c433242fd969",
+          "backend": "d3d12",
+          "dependency_digest": "4cf8c5df662fc67ea7e2f010d47a71e4305c857f4f0e1baa2c06151d81353d83",
+          "generation": 2,
+          "importer": "forge.material.builtin",
+          "importer_revision": "3e0c6c1ad89ed98078283f77e3752a408393fff37af3aa0f38b60c095c12f9ab",
+          "key": "a585fcecb9814c42b4d2b269b8bdcf5cc7fd5ba71d00646dd66a554a69668cd2",
+          "output_format": "forge.material-bundle",
+          "output_version": 3,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "df07957561678d9c82c65192b5c8f56358e7494a6196b0557a4a93ede626e5c4",
+          "source_digest": "7a7cc569a6ad87caa10096aa56579ce6cbbe9993dd481814f529256078a384a0",
+          "version": 1
+        },
+        "forge.material": {
+          "render_textures": {},
+          "shader": null,
+          "textures": {
+            "baseColorTexture": "851e1d6e-7888-4f43-8a95-47bd426b6485"
+          },
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Painting/MeshSurface.material.json",
+      "source_dependencies": [],
+      "type": "material"
     },
     {
       "dependencies": [

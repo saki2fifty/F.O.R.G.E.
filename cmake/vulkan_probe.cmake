@@ -409,6 +409,17 @@ if(FORGE_BUILD_VULKAN_RENDERER_PROBE)
  set_tests_properties(paint_texture_gallery_vulkan PROPERTIES TIMEOUT 120)
  add_test(NAME paint_texture_editor_vulkan COMMAND forge_paint_texture_editor_vulkan_probe $<TARGET_FILE:forge_asset_build_worker> "${CMAKE_BINARY_DIR}/paint-texture-editor-vulkan")
  set_tests_properties(paint_texture_editor_vulkan PROPERTIES TIMEOUT 120)
+ add_executable(forge_mesh_texture_surface_vulkan_probe tests/mesh_texture_surface_vulkan_probe.cpp src/editor/viewport.cpp
+  "${diligent_SOURCE_DIR}/DiligentTools/Imgui/src/ImGuiImplDiligent.cpp"
+  "${diligent_SOURCE_DIR}/DiligentTools/Imgui/src/ImGuiDiligentRenderer.cpp")
+ target_include_directories(forge_mesh_texture_surface_vulkan_probe PRIVATE src "${diligent_SOURCE_DIR}/DiligentCore" "${diligent_SOURCE_DIR}/DiligentTools/Imgui/interface")
+ target_compile_definitions(forge_mesh_texture_surface_vulkan_probe PRIVATE FORGE_UI_FIXTURE UNICODE _UNICODE NOMINMAX)
+ target_link_libraries(forge_mesh_texture_surface_vulkan_probe PRIVATE forge_texture_authoring forge_material_authoring forge_model_placement forge_simulation forge_runtime_package forge_authoring forge_presentation_diligent forge_view_image SDL3::SDL3 imgui Diligent-BuildSettings Diligent-GraphicsEngineVk-static)
+ add_dependencies(forge_mesh_texture_surface_vulkan_probe forge_asset_build_worker)
+ add_test(NAME mesh_texture_surface_vulkan COMMAND forge_mesh_texture_surface_vulkan_probe $<TARGET_FILE:forge_asset_build_worker> "${CMAKE_BINARY_DIR}/mesh-texture-surface-vulkan")
+ set_tests_properties(mesh_texture_surface_vulkan PROPERTIES TIMEOUT 120)
+ add_test(NAME mesh_texture_paint_gallery_vulkan COMMAND forge_mesh_texture_surface_vulkan_probe --gallery "${PROJECT_SOURCE_DIR}/samples/projects/FeatureGallery" "${CMAKE_BINARY_DIR}/mesh-texture-paint-gallery-vulkan")
+ set_tests_properties(mesh_texture_paint_gallery_vulkan PROPERTIES TIMEOUT 120)
  add_executable(forge_texture_image_editor_vulkan_probe tests/texture_image_editor_vulkan_probe.cpp
   "${diligent_SOURCE_DIR}/DiligentTools/Imgui/src/ImGuiImplDiligent.cpp"
   "${diligent_SOURCE_DIR}/DiligentTools/Imgui/src/ImGuiDiligentRenderer.cpp")
