@@ -231,8 +231,14 @@ The capture has the same controls and limits as [Capture a reflection map](light
 Automatic map assignment requires the original Scene revision and uses one Scene
 Undo step, including resetting map rotation to zero. A changed Scene leaves the
 new map available for explicit assignment. Save after assignment. Cancellation
-keeps completed copies/publications. Runtime recapture and in-place rebaking are
-unavailable.
+keeps completed source changes/publications.
+
+To rebake the assigned capture DDS map, the agent sets `update_assigned:true` and
+omits `destination`. It reviews the returned `source_revision_asset` and exact
+review token before committing. This retains the Texture ID, its consumers and
+saved import settings. Source replacement is separate from reimport and Scene
+Undo; failed reimport preserves the old cooked selection. Edited source/settings
+must be reimported before rebaking. Runtime recapture remains unavailable.
 
 ## View images, export and test
 

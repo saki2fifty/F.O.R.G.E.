@@ -323,8 +323,11 @@ Stop Play, select **Captured reflection volume - create a new snapshot** and cli
 **Capture reflection map…**. Set **Face size (pixels)** to **128**, **Layers** to **1** and choose a new folder
 below **Assets**. Click **Capture map**, then keep **Import with defaults after
 copying** enabled and click **Copy sources** in the generated-source review. Wait
-for publication, close the dialog and save the Scene. Each capture creates a new
-map; changing a source panel does not update an old map automatically. Compare
+for publication, close the dialog and save the Scene. This mode creates a new
+map. To retain the assigned Texture ID after changing a source panel, open the
+capture dialog, enable **Update assigned map**, keep **128** pixels and **Layers = 1**,
+then click **Rebake map**. Review **Reimport with saved settings after updating**
+and choose **Update source**. Changing a panel does not update a map automatically. Compare
 **Enabled** on the probe, or change a panel and capture again to see the difference.
 Box projection starts off for this directional-map comparison.
 

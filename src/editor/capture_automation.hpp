@@ -179,14 +179,21 @@ struct CaptureAutomation {
         if (permissions.assets && providers.reflection)
             result.push_back(automation_method(
                 "capture.reflection.start",
-                "Capture a new linear HDR cube at an authored Reflection Probe. Edit-only; "
-                "16–1024 pixels per face. The destination is a NEW folder below Assets with an "
-                "existing parent. Rendering creates no requested source folder or published "
+                "Capture a linear HDR cube at an authored Reflection Probe. Edit-only; "
+                "16–1024 pixels per face. For a new map, destination is a NEW folder below Assets "
+                "with an existing parent. Alternatively update_assigned:true rebakes the probe's "
+                "existing independent capture DDS source; omit destination in this mode. The "
+                "review requires exact source/settings/catalog baselines and retains the Texture "
+                "ID and saved import settings. Source overwrite affects all consumers and is not "
+                "Scene Undo. Failed reimport retains last-good cooked content. "
+                "Rendering creates no requested source folder or published "
                 "assets. Poll capture.status for "
                 "the import_batch, then use asset.import.review/commit/cancel/close. Successful "
                 "import assigns the new map and resets map yaw to zero in one Scene Undo step "
-                "only if the original Scene/document revision remains current; otherwise the "
-                "map remains available for explicit assignment. Save the Scene afterward. "
+                "only if the original Scene/document revision remains current. Otherwise a new "
+                "map remains available for explicit assignment; an updated map keeps existing "
+                "references and reports updated without changing probe values. Save authored "
+                "Scene changes afterward. "
                 "No runtime recapture, recursive reflections or display effects.",
                 "asset.write",
                 automation_object({{"probe", automation_uuid()},
@@ -195,15 +202,25 @@ struct CaptureAutomation {
                                    {"near_plane", {{"type", "number"}, {"exclusiveMinimum", 0}}},
                                    {"far_plane", {{"type", "number"}, {"exclusiveMinimum", 0}}},
                                    {"layers", automation_integer(0, UINT32_MAX)},
-                                   {"assign", {{"type", "boolean"}}}},
-                                  {"probe", "destination"}),
+                                   {"assign", {{"type", "boolean"}}},
+                                   {"update_assigned", {{"type", "boolean"}}}},
+                                  {"probe"}),
                 true, [&owner, &files, providers](const Json& request) {
                     ready(files, providers, true);
                     if (owner.busy())
                         throw AuthoringError("capture_busy", "Wait for the active image task");
                     ui::ReflectionCaptureRequest settings;
-                    settings.destination =
-                        automation_relative_path(request.at("destination").get<std::string>());
+                    settings.update_assigned = request.value("update_assigned", false);
+                    if (settings.update_assigned && request.contains("destination"))
+                        throw AuthoringError("invalid_arguments",
+                                             "Omit destination when updating the assigned map");
+                    if (!settings.update_assigned) {
+                        if (!request.contains("destination"))
+                            throw AuthoringError("invalid_arguments",
+                                                 "Choose a destination for a new map");
+                        settings.destination =
+                            automation_relative_path(request.at("destination").get<std::string>());
+                    }
                     settings.settings.size = request.value("size", 256u);
                     settings.settings.near_plane = request.value("near_plane", .1);
                     settings.settings.far_plane = request.value("far_plane", 100.);

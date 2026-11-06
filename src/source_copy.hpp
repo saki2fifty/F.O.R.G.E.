@@ -3,6 +3,7 @@
 #include <forge/asset_build.hpp>
 #include <forge/project_lease.hpp>
 #include <memory>
+#include <optional>
 #include <set>
 #include <stop_token>
 #include <vector>
@@ -14,6 +15,10 @@ struct SourceCopyFile {
     // An owned generated raw source, without an external file or persistent ID.
     std::shared_ptr<const std::vector<std::byte>> generated{};
 };
+struct GeneratedSourceRevision {
+    AssetId asset;
+    std::string source_digest, sidecar_digest;
+};
 struct SourceCopyPlan {
     std::filesystem::path project, destination;
     std::vector<SourceCopyFile> files;
@@ -23,6 +28,14 @@ struct SourceCopyPlan {
     // disables the guard; SHA256(empty bytes) guards an absent index, never an
     // empty/corrupt index file.
     std::string catalog_digest{};
+    // Explicit single-file revision, never inferred from an existing destination.
+    // Ordinary source-copy plans still create a new directory.
+    std::optional<GeneratedSourceRevision> revision{};
+};
+struct SourceCopyCommit {
+    // The source commit succeeded; a subsequent durability check may report a
+    // diagnostic. Cooking/publication and Scene history remain separate.
+    std::string diagnostic;
 };
 // Read-only preflight for all raw/generated-source callers. The copy transaction
 // repeats this check at prepare and commit; preflight does not reserve a folder.
@@ -51,8 +64,18 @@ SourceCopyPlan prepare_shared_generated_source_copy(
     const std::filesystem::path& project, const std::filesystem::path& new_folder,
     const std::filesystem::path& name, std::shared_ptr<const std::vector<std::byte>> bytes,
     std::string catalog_digest = {}, std::stop_token stop = {});
+// Only an independent registered raw source with current import metadata and
+// sidecar is eligible. Retains asset identity/settings and requires a catalog
+// revision. The producer separately admits its format and generated payload.
+SourceCopyPlan
+prepare_generated_source_revision(const std::filesystem::path& project, AssetId asset,
+                                  std::shared_ptr<const std::vector<std::byte>> bytes,
+                                  std::string catalog_digest, std::stop_token stop = {});
 // Worker-owned IO using the retained project lease. Rechecks every reviewed byte
-// revision; atomically creates a NEW directory without replacing an existing one.
+// revision; atomically creates a NEW directory, or replaces exactly one source
+// only when the plan explicitly contains a generated revision. No sidecar or
+// catalog mutation is part of either source commit.
 // Source copy and subsequent individual asset imports are separate operations.
-void commit_source_copy(const ProjectLease&, const SourceCopyPlan&, std::stop_token = {});
+SourceCopyCommit commit_source_copy(const ProjectLease&, const SourceCopyPlan&,
+                                    std::stop_token = {});
 } // namespace forge

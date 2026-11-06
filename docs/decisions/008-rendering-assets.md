@@ -241,9 +241,28 @@ SourceImport/SourceCopy retain review, raw-byte/catalog guards, NEW-folder copyi
 and ordinary texture-worker publication. A new map receives its identity from that
 publisher. Scene map/yaw assignment uses the existing atomic command/history owner
 at the original project/document/Scene/revision; stale results remain unassigned.
-UI, automation and MCP share this workflow and its grants. This does not authorize
-an overwrite writer, runtime recapture or automatic stable-ID rebaking. See the
+UI, automation and MCP share this workflow and its grants. This new-map route never
+implicitly authorizes an overwrite or runtime recapture. Explicit source updates
+follow the reviewed extension below. See the
 [probe contract](../local-reflection-probes.md#editor-authored-map-snapshots).
+
+### Reviewed captured-map source revisions — accepted extension
+
+An explicit **Update assigned map** request uses the same capture/image, generated
+source review and texture import/publication owners. The target must be the probe's
+independent imported capture DDS Texture. Ordinary SourceCopy remains new-folder-only;
+its optional generated-revision plan names one registered source and exact catalog,
+source and settings-sidecar byte revisions. Shared/model-family sources reject.
+
+Only one source file changes, through the existing atomic file-write primitive.
+Its sidecar and catalog stay unchanged until the separate ordinary reimport; no
+new journal, fake catalog generation, persisted identity or source document is
+introduced. An interruption leaves the old or complete new raw source and the
+previous cooked selection. Source-commit receipts distinguish a completed write
+from a later durability warning. Reimport retains the root Texture ID and saved
+settings; failure preserves last-good cooked content. Explicit source replacement
+is outside Scene Undo. Optional map/yaw assignment retains the original scoped
+Scene history rules. Runtime recapture and automatic overwrite remain unsupported.
 
 ## Weighted transparency — accepted extension
 

@@ -1,12 +1,15 @@
 #pragma once
 #include "../bounded_json.hpp"
+#include "../native_io_path.hpp"
 #include "../reflection_capture_source.hpp"
 #include "reflection_capture_request.hpp"
 #include "reflection_probe_view.hpp"
 #include "source_import.hpp"
 #include "view_image_work.hpp"
 #include <algorithm>
+#include <cctype>
 #include <forge/render_scene.hpp>
+#include <fstream>
 #include <functional>
 #include <future>
 #include <memory>
@@ -48,6 +51,7 @@ class ReflectionCaptureTask final : public ViewImageWork {
         if (!probe)
             throw AuthoringError("invalid_probe", "Choose a resolved authored Reflection Probe");
         request_.settings.position = probe->center;
+        assigned_map_ = probe->probe.texture.id;
         snapshot_ = extract_render_scene(effective);
         input_catalog_ = catalog_();
         if (!input_catalog_ || input_catalog_->project_root() != project_)
@@ -81,6 +85,7 @@ class ReflectionCaptureTask final : public ViewImageWork {
                    {"state", phase_},
                    {"status", status_},
                    {"error", error_},
+                   {"source_commit_diagnostic", source_commit_diagnostic_},
                    {"probe", entity_},
                    {"scene_revision", revision_},
                    {"document_generation", generation_},
@@ -89,6 +94,7 @@ class ReflectionCaptureTask final : public ViewImageWork {
                    {"completed_faces", faces_},
                    {"destination", folder_},
                    {"assigned", assigned_},
+                   {"update_assigned", request_.update_assigned},
                    {"cancel_requested", cancelled_}};
         if (batch_)
             value["import_batch"] = batch_;
@@ -145,9 +151,13 @@ class ReflectionCaptureTask final : public ViewImageWork {
                 }
                 if (source_.busy())
                     throw std::runtime_error("Finish the current import before capturing a map");
-                source_.generated_source(document_, "Reflection.dds", std::move(bytes),
-                                         description(), catalog_digest_,
-                                         std::filesystem::u8path(folder_), reveal_);
+                source_.generated_source(document_,
+                                         request_.update_assigned
+                                             ? revision_source_.filename()
+                                             : std::filesystem::path("Reflection.dds"),
+                                         std::move(bytes), description(), catalog_digest_,
+                                         std::filesystem::u8path(folder_), reveal_,
+                                         request_.update_assigned ? assigned_map_ : AssetId{});
                 batch_ = source_.operation().at("batch").get<std::uint64_t>();
                 phase_ = "import";
                 status_ = "Review the generated reflection source before importing";
@@ -220,19 +230,30 @@ class ReflectionCaptureTask final : public ViewImageWork {
             ImGui::SetNextItemWidth(180);
             ImGui::InputScalar("Layers", ImGuiDataType_U32, &request_.settings.layers);
             FORGE_UI_PROBE("reflection-capture:layers");
-            ImGui::SetNextItemWidth(std::min(420.f, viewport->WorkSize.x - 160));
-            ImGui::InputText("New folder", &folder_);
-            FORGE_UI_PROBE("reflection-capture:folder");
+            ImGui::Checkbox("Update assigned map", &request_.update_assigned);
+            FORGE_UI_PROBE("reflection-capture:update");
+            if (request_.update_assigned)
+                ImGui::TextWrapped("Rebake the assigned capture DDS source. Every consumer keeps "
+                                   "the same Texture asset ID. Saved import settings are retained. "
+                                   "Review the source replacement after capture; Scene Undo does "
+                                   "not restore overwritten source bytes.");
+            else {
+                ImGui::SetNextItemWidth(std::min(420.f, viewport->WorkSize.x - 160));
+                ImGui::InputText("New folder", &folder_);
+                FORGE_UI_PROBE("reflection-capture:folder");
+            }
             ImGui::Checkbox("Assign to this probe after import", &request_.assign);
             FORGE_UI_PROBE("reflection-capture:assign");
-            ImGui::TextWrapped("Choose a new folder below Assets with an existing parent. "
-                               "The import review opens after capture. Assignment resets map "
-                               "rotation to 0 degrees and is one Scene Undo step; save the Scene "
-                               "afterward. Undo does not remove generated files or assets.");
+            ImGui::TextWrapped(
+                "For a new map, choose a new folder below Assets with an existing parent. "
+                "The import review opens after capture. Assignment resets map "
+                "rotation to 0 degrees and is one Scene Undo step; save the Scene "
+                "afterward. Undo does not remove generated files or assets.");
             ImGui::TextWrapped(
                 "Static authored snapshot, source lighting and layer mask. "
                 "Local/screen reflections and display effects are excluded. "
-                "Runtime recapture and overwriting an existing map are unavailable.");
+                "Runtime recapture is unavailable. Updating requires an independent imported "
+                "capture DDS cube with unchanged source and settings.");
             std::string validation;
             try {
                 validate();
@@ -244,8 +265,8 @@ class ReflectionCaptureTask final : public ViewImageWork {
             if (!error_.empty())
                 ImGui::TextWrapped("%s", error_.c_str());
             ImGui::BeginDisabled(!validation.empty());
-            if (button("Capture map",
-                       "Capture a new immutable HDR source, then review its import.")) {
+            if (button(request_.update_assigned ? "Rebake map" : "Capture map",
+                       "Capture an HDR source, then review its copy or explicit source update.")) {
                 try {
                     start();
                 } catch (const std::exception& e) {
@@ -278,12 +299,14 @@ class ReflectionCaptureTask final : public ViewImageWork {
     Catalog catalog_;
     std::function<std::string()> unavailable_;
     std::filesystem::path project_;
-    AssetId scene_id_, asset_;
+    AssetId scene_id_, asset_, assigned_map_;
+    std::filesystem::path revision_source_;
     std::uint64_t generation_, revision_, batch_ = 0;
     bool configure_ = false, popup_ = false, reveal_ = true, cancelled_ = false, finished_ = false,
          assigned_ = false;
     unsigned faces_ = 0;
-    std::string folder_, catalog_digest_, source_digest_, phase_ = "configure", status_, error_;
+    std::string folder_, catalog_digest_, source_digest_, phase_ = "configure", status_, error_,
+                                                          source_commit_diagnostic_;
     RenderScene snapshot_;
     std::shared_ptr<const AssetCatalog> input_catalog_;
     std::unique_ptr<ReflectionCaptureDriver> driver_;
@@ -300,13 +323,44 @@ class ReflectionCaptureTask final : public ViewImageWork {
     }
     void validate() const {
         validate_reflection_capture_settings(request_.settings);
-        (void)validate_source_copy_destination(project_, std::filesystem::u8path(folder_));
+        if (request_.update_assigned)
+            (void)update_source();
+        else
+            (void)validate_source_copy_destination(project_, std::filesystem::u8path(folder_));
+    }
+    std::filesystem::path update_source() const {
+        const auto at = input_catalog_->records().find(assigned_map_);
+        if (!assigned_map_ || at == input_catalog_->records().end() || at->second.subasset ||
+            at->second.type != TextureAsset::type)
+            throw AuthoringError("invalid_map",
+                                 "Assign an independent imported capture Texture first");
+        const auto& record = at->second;
+        const auto imported = record.metadata.find("forge.import");
+        auto extension = path_utf8(record.source.extension());
+        std::transform(extension.begin(), extension.end(), extension.begin(),
+                       [](unsigned char c) { return char(std::tolower(c)); });
+        if (imported == record.metadata.end() || !imported->is_object() ||
+            imported->value("importer", std::string{}) != "forge.texture.container" ||
+            extension != ".dds")
+            throw AuthoringError("invalid_map", "Updating requires an imported capture DDS cube");
+        const auto path = ProjectPaths(project_).resolve(record.source);
+        asset_storage::ordinary(path);
+        std::ifstream file(asset_detail::native_io_path(path), std::ios::binary);
+        std::array<std::byte, 148> header;
+        if (!file.read(reinterpret_cast<char*>(header.data()), header.size()))
+            throw AuthoringError("invalid_map", "Cannot read the assigned capture DDS source");
+        (void)reflection_capture_source_size(header);
+        return record.source;
     }
     void start() {
         require_ready();
         if (!current() || catalog_() != input_catalog_)
             throw AuthoringError("stale_scene", "The capture Scene or catalog changed");
         validate();
+        if (request_.update_assigned) {
+            revision_source_ = update_source();
+            folder_ = path_text(revision_source_.parent_path());
+        }
         driver_ = factory_(snapshot_, request_.settings, EntityId::parse(entity_));
         if (!driver_)
             throw std::runtime_error("Reflection capture host returned no scoped job");
@@ -331,6 +385,8 @@ class ReflectionCaptureTask final : public ViewImageWork {
                 {"layers", request_.settings.layers},
                 {"pixels", "RGBA16F linear HDR cube, +X -X +Y -Y +Z -Z"},
                 {"assign_requested", request_.assign},
+                {"update_assigned", request_.update_assigned},
+                {"updated_asset", request_.update_assigned ? Json(assigned_map_) : Json()},
                 {"map_rotation_degrees", 0}};
     }
     void stop(std::string reason) {
@@ -345,6 +401,7 @@ class ReflectionCaptureTask final : public ViewImageWork {
     }
     void poll_import() {
         const auto state = source_.operation();
+        source_commit_diagnostic_ = state.value("source_commit_diagnostic", std::string{});
         if (state.at("batch") != batch_) {
             status_ = "Reflection import changed; assign any published map explicitly";
             phase_ = "unassigned";
@@ -388,15 +445,23 @@ class ReflectionCaptureTask final : public ViewImageWork {
             if (const auto diagnostic = state.value("diagnostic", std::string{});
                 !diagnostic.empty())
                 error_ = diagnostic;
-            phase_ = asset_       ? assigned_ ? "assigned" : "unassigned"
+            phase_ = asset_       ? assigned_                  ? "assigned"
+                                    : request_.update_assigned ? "updated"
+                                                               : "unassigned"
                      : cancelled_ ? "cancelled"
                      : error_.empty() && state.at("copied") == true ? "source_only"
                                                                     : "failed";
-            status_ = assigned_ ? "Reflection map assigned. Save the Scene to keep this reference."
-                      : asset_  ? "Reflection map imported; assign it explicitly from Content."
-                      : phase_ == "source_only"
-                          ? "Reflection source copied. Import it through Content before assignment."
-                          : "Reflection source import ended without a published map.";
+            status_ =
+                assigned_ ? "Reflection map assigned. Save the Scene to keep this reference."
+                : phase_ == "updated" ? "Reflection map updated. Existing Texture references "
+                                        "are retained; probe values were not changed."
+                : asset_ ? "Reflection map imported; assign it explicitly from Content."
+                : phase_ == "source_only"
+                    ? request_.update_assigned
+                          ? "Reflection source updated without reimport in this batch. Closing "
+                            "the review resumes normal automatic source updates."
+                          : "Reflection source copied. Import it through Content before assignment."
+                    : "Reflection source import ended without a published map.";
             if (!error_.empty())
                 report_error("reflection-capture", error_);
             finished_ = true;

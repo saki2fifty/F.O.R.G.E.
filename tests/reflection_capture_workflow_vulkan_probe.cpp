@@ -333,9 +333,61 @@ int main(int argc, char** argv) {
         check(shadow_changes > 20, "Source shadows did not reach the captured HDR map");
         std::cout << "Source shadows: " << shadow_changes
                   << " changed HDR pixels; hidden sky radiance PASS\n";
-        const auto selected_bytes = encode_texture(texture);
+        auto selected_bytes = encode_texture(texture);
         project.save();
         source.automation_close(review.at("batch"));
+        if (!prepare_gallery) {
+            const auto count = catalog->records().size();
+            const auto old_import = AssetImportSidecar::parse(*asset_storage::read(
+                root / AssetPublisher::sidecar_path(catalog->records().at(map).source)));
+            const auto rebake_scene = scene.document();
+            for (const auto& entity : rebake_scene.at("entities"))
+                if (entity.at("components").contains("forge.light")) {
+                    authoring_command(scene, "property.set",
+                                      {{"entity", entity.at("id")},
+                                       {"component", "forge.light"},
+                                       {"field", "intensity"},
+                                       {"value", 8.}});
+                    break;
+                }
+            request.update_assigned = true;
+            auto rebake = std::make_unique<ui::ReflectionCaptureTask>(
+                scene, project, source, probe, request,
+                [&](RenderScene snapshot, const auto& options, EntityId id) {
+                    return std::make_unique<ui::ReflectionCaptureHost>(
+                        presentation, resources, std::move(snapshot), options, id);
+                },
+                [&] { return catalog; }, [] { return std::string{}; });
+            result = rebake.get();
+            rebake->reveal(false);
+            check(images.begin_work(std::move(rebake), root, scene_id, message),
+                  "Rebake image owner is busy");
+            wait([&] { return source.review_ready(); });
+            const auto revision = source.operation();
+            check(revision.at("source_revision_asset").get<AssetId>() == map,
+                  "Actual native rebake lost its target identity in review");
+            source.automation_commit(revision.at("batch"), revision.at("review"), true);
+            wait([&] { return !images.busy(); });
+            check(result->state().at("assigned") == true &&
+                      result->state().at("asset").get<AssetId>() == map &&
+                      catalog->records().size() == count,
+                  "Actual native rebake minted a replacement identity or lost assignment");
+            const auto replacement = asset_detail::load_texture_selection(root, *catalog, {map});
+            const auto& next = *replacement.value;
+            selected_bytes = encode_texture(next);
+            check(next.width == texture.width && next.height == texture.height &&
+                      next.subresources != texture.subresources,
+                  "Changed authored lighting did not reach the rebaked HDR map");
+            const auto next_import = AssetImportSidecar::parse(*asset_storage::read(
+                root / AssetPublisher::sidecar_path(catalog->records().at(map).source)));
+            check(next_import.settings.overrides == old_import.settings.overrides &&
+                      next_import.settings.importer == old_import.settings.importer,
+                  "Actual native rebake changed saved texture settings");
+            source.automation_close(revision.at("batch"));
+            project.save();
+            std::cout
+                << "Actual native lighting change / stable-ID HDR recapture / reimport PASS\n";
+        }
         const std::array roots{scene_id};
         prepare_runtime_content_catalog(*project.writer_guard(), roots, {});
         if (prepare_gallery) {

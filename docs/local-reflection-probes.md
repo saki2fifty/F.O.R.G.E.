@@ -65,11 +65,29 @@ one cube, one mip, RGBA16Float/HdrColor/Opaque, finite nonnegative RGB and alpha
 It does no IO or identity allocation. SourceImport.generated_source retains the
 encoded bytes through the existing immutable generated SourceCopy plan and review.
 That owner checks source/catalog digests and project ownership and atomically
-creates a NEW Assets subfolder; existing sources are never overwritten. A missing
+creates a NEW Assets subfolder in the default capture mode. A missing
 asset index can be guarded as absent; an appearing or empty index rejects commit.
 The ordinary texture container importer/worker then owns publication and its new
 TextureAsset identity. Copy, publication and Scene assignment are separate results.
 No texture cook/schema version or installed SDK value layout changes.
+
+Explicit `update_assigned:true` instead targets the probe's existing independent
+Texture imported through `forge.texture.container`. Its ordinary source stays
+beneath Assets and must have the
+canonical capture DDS header (one opaque RGBA16F cube, one mip,16–1024-square faces).
+The generated-source review carries the target ID and exact source, sidecar and
+catalog revisions. SourceCopy's explicit revision mode rejects shared families,
+external edits and stale/cancelled inputs; ordinary copy mode never overwrites.
+One atomic source replacement leaves catalog/sidecar bytes untouched. The normal
+reimport then preserves the Texture ID, consumers and existing settings. An
+interruption retains old/new whole source and last-good cooked content; no new
+journal or identity authority is introduced. A committed source plus final-write
+diagnostic is reported as committed. Failed/cancelled later reimport leaves that
+source available for correction/retry and preserves the prior cooked selection.
+Source replacement has no Scene Undo; optional map/yaw assignment still does.
+Source-only is the explicit batch result, not a persistent auto-import preference.
+Closing the review resumes the existing watcher for registered sources; its later
+reimport remains an independent operation through the same publication owner.
 
 After publication, automatic assignment requires the original project, document
 generation, Scene ID and Scene revision, and Edit readiness. Typed map assignment
@@ -90,7 +108,8 @@ supported protocols. `reflection_capture_workflow_vulkan` captures an actual lit
 Scene, imports/assigns/saves the map, loads the ordinary Texture resource, then
 compares source-free relocated reflection-on/off renders exactly. These are local
 software-rendering/authoring checks, separate from full Windows/D3D12 and physical
-acceptance. Runtime recapture and in-place stable-ID rebaking remain unavailable.
+acceptance. Runtime recapture remains unavailable. Stable-ID rebaking uses the
+same native capture and scoped source/reimport workflow.
 
 ## Volume and selection
 

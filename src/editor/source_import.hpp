@@ -36,9 +36,12 @@ class SourceImport {
                        {"open", open_},
                        {"state", states[unsigned(state_)]},
                        {"diagnostic", error_},
+                       {"source_commit_diagnostic", source_commit_diagnostic_},
                        {"cancel_requested", cancelled_},
                        {"copied", copied_},
                        {"published", published_count()}};
+        if (generated_ && generated_->replace)
+            result["source_revision_asset"] = generated_->replace;
         if (state_ == State::Choose && !error_.empty())
             result["state"] = cancelled_ ? "cancelled" : "failed";
         if (prepared_) {
@@ -81,13 +84,13 @@ class SourceImport {
     void generated_source(SceneDocument& project, std::filesystem::path name,
                           std::vector<std::byte> bytes, Json description,
                           std::string catalog_digest, const std::filesystem::path& destination,
-                          bool reveal = true) {
+                          bool reveal = true, AssetId replace = {}) {
         if (bytes.empty())
             throw std::invalid_argument("Generated source has no bytes");
         auto retained = std::make_shared<const std::vector<std::byte>>(std::move(bytes));
         begin(project, reveal);
         generated_ = Generated{std::move(name), std::move(retained), std::move(description),
-                               std::move(catalog_digest)};
+                               std::move(catalog_digest), replace};
         destination_ = path_utf8(destination);
         prepare();
     }
@@ -194,6 +197,7 @@ class SourceImport {
         popup_ = reveal;
         cancelled_ = copied_ = false;
         error_.clear();
+        source_commit_diagnostic_.clear();
         results_.clear();
         prepared_.reset();
         services_.clear();
@@ -266,16 +270,22 @@ class SourceImport {
                 const auto plan = prepared_->plan;
                 stop_ = std::stop_source{};
                 const auto stop = stop_.get_token();
-                copy_ = std::async(std::launch::async,
-                                   [lease, plan, stop] { commit_source_copy(*lease, plan, stop); });
+                copy_ = std::async(std::launch::async, [lease, plan, stop] {
+                    return commit_source_copy(*lease, plan, stop);
+                });
                 state_ = State::Copying;
             }
             if (copy_.valid() &&
                 copy_.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
-                copy_.get();
+                const auto committed = copy_.get();
                 copied_ = true;
                 state_ = cook_ && !cancelled_ ? State::Importing : State::Done;
-                message = "Source files copied. Asset publication is a separate step.";
+                source_commit_diagnostic_ = committed.diagnostic;
+                message = prepared_->plan.revision
+                              ? "Source revision committed. Asset publication is a separate step."
+                              : "Source files copied. Asset publication is a separate step.";
+                if (!source_commit_diagnostic_.empty())
+                    message += " " + source_commit_diagnostic_;
             }
             if (state_ == State::Importing) {
                 if (active_) {
@@ -320,9 +330,11 @@ class SourceImport {
                                 service = std::make_unique<AssetImportService>(
                                     project.writer_guard(), profiles_[route].registry,
                                     profiles_[route].target, 1);
-                            auto draft = service->prepare(prepared_->plan.destination /
-                                                              prepared_->plan.sources[next_],
-                                                          profiles_[route].importer);
+                            auto draft = service->prepare(
+                                prepared_->plan.destination / prepared_->plan.sources[next_],
+                                profiles_[route].importer,
+                                prepared_->plan.revision ? prepared_->plan.revision->asset
+                                                         : AssetId{});
                             active_ = {
                                 {route, service->submit(std::move(draft), profiles_[route].prepare,
                                                         [](const auto&, const auto&) {})}};
@@ -357,9 +369,17 @@ class SourceImport {
                 result.route_indices.push_back(
                     match_source(profiles, generated->name, *generated->bytes));
                 result.description = generated->description;
-                result.plan = prepare_shared_generated_source_copy(project, folder, generated->name,
-                                                                   generated->bytes,
-                                                                   generated->catalog_digest, stop);
+                if (generated->replace) {
+                    result.plan = prepare_generated_source_revision(
+                        project, generated->replace, generated->bytes, generated->catalog_digest,
+                        stop);
+                    if (result.plan.destination != folder ||
+                        result.plan.sources.front() != generated->name)
+                        throw std::runtime_error("Generated source revision target changed");
+                } else
+                    result.plan = prepare_shared_generated_source_copy(
+                        project, folder, generated->name, generated->bytes,
+                        generated->catalog_digest, stop);
             } else if (atlas) {
                 if (std::filesystem::u8path(atlas->filename).extension() != ".png")
                     throw std::invalid_argument("Atlas source name must end in .png");
@@ -396,6 +416,11 @@ class SourceImport {
                              {"files", Json::array()},
                              {"catalog_digest", result.plan.catalog_digest},
                              {"generated", result.description}};
+            if (result.plan.revision)
+                manifest["source_revision"] = {
+                    {"asset", result.plan.revision->asset},
+                    {"source_digest", result.plan.revision->source_digest},
+                    {"sidecar_digest", result.plan.revision->sidecar_digest}};
             for (const auto& file : result.plan.files)
                 manifest["files"].push_back({{"original", path_utf8(file.original)},
                                              {"destination", path_utf8(file.destination)},
@@ -439,7 +464,13 @@ class SourceImport {
             return;
         ImGui::BeginChild("Import review", {0, std::max(80.f, ImGui::GetContentRegionAvail().y -
                                                                   45.f * ui::interface_scale)});
-        if (generated_)
+        if (generated_ && generated_->replace)
+            ImGui::TextWrapped(
+                "Replace this existing generated source after reviewing its revision. "
+                "All consumers keep the same asset ID. Import settings are retained. "
+                "Source replacement is separate from reimport and cannot be undone through "
+                "Scene history. Failed reimport retains the last usable cooked asset.");
+        else if (generated_)
             ImGui::TextWrapped(
                 "Create the generated source in a new project folder, then import it. "
                 "Existing files are never overwritten. Scene Undo does not undo source "
@@ -460,10 +491,15 @@ class SourceImport {
                 "and existing scene/prefab/material identities are not copied. Each selected "
                 "source has an independent subfolder.");
         if (state_ == State::Choose) {
-            ui::property_label_row("New project folder",
-                                   "Choose an unused folder below Assets; its parent must exist.");
-            ImGui::SetNextItemWidth(-1);
-            ImGui::InputText("##folder", &destination_);
+            if (generated_ && generated_->replace)
+                ImGui::TextWrapped("Existing folder: %s", destination_.c_str());
+            else {
+                ui::property_label_row(
+                    "New project folder",
+                    "Choose an unused folder below Assets; its parent must exist.");
+                ImGui::SetNextItemWidth(-1);
+                ImGui::InputText("##folder", &destination_);
+            }
             if (atlas_) {
                 ImGui::InputText("PNG filename", &atlas_->filename);
                 int size = int(atlas_->settings.max_size), padding = int(atlas_->settings.padding);
@@ -513,14 +549,26 @@ class SourceImport {
             for (const auto& path : prepared_->plan.sources)
                 ImGui::TextWrapped("%s", path_text(path).c_str());
             draw_atlas_layout();
-            ImGui::Checkbox("Import with defaults after copying", &cook_);
-            ui::help("Cooking large models or textures can take time. Turn this off to copy first, "
-                     "then open each source's settings from Content before importing.");
+            const bool revision = bool(prepared_->plan.revision);
+            ImGui::Checkbox(revision ? "Reimport with saved settings after updating"
+                                     : "Import with defaults after copying",
+                            &cook_);
+            ui::help(revision ? "Updating changes only the source. Reimport publishes a validated "
+                                "replacement with the same identity and existing settings. "
+                                "Turning this off skips this batch's reimport; closing the review "
+                                "resumes normal automatic updates for registered sources."
+                              : "Cooking large models or textures can take time. Turn this off to "
+                                "copy first, then open each source's settings from Content before "
+                                "importing.");
             ImGui::BeginDisabled(locked);
-            if (ui::button("Copy sources",
-                           "Recheck reviewed bytes and atomically create the new folder. Each "
-                           "subsequent asset import publishes independently."))
+            if (ui::button(revision ? "Update source" : "Copy sources",
+                           revision
+                               ? "Recheck source, settings and catalog, then atomically replace "
+                                 "the reviewed source. Reimport publishes independently."
+                               : "Recheck reviewed bytes and atomically create the new folder. "
+                                 "Each subsequent asset import publishes independently."))
                 copy_sources(cook_);
+            FORGE_UI_PROBE("source-import:commit");
             ImGui::EndDisabled();
             if (ui::button("Back", "Change files or destination; prepare again before copying.")) {
                 prepared_.reset();
@@ -544,10 +592,18 @@ class SourceImport {
                                  "imports remain if another source fails.");
                     }
         } else if (copied_ && prepared_) {
-            ImGui::TextWrapped(
-                "Copied sources remain in %s. Successful imports are available in Content. Failed "
-                "sources can be opened through their import settings and retried.",
-                path_text(prepared_->plan.destination).c_str());
+            if (prepared_->plan.revision)
+                ImGui::TextWrapped(
+                    "Generated source updated in %s. The Texture identity and saved import "
+                    "settings are retained. Review the reimport result; source changes remain "
+                    "if reimport fails or is cancelled. Reimport through Content to retry.",
+                    path_text(prepared_->plan.destination).c_str());
+            else
+                ImGui::TextWrapped(
+                    "Copied sources remain in %s. Successful imports are available in Content. "
+                    "Failed "
+                    "sources can be opened through their import settings and retried.",
+                    path_text(prepared_->plan.destination).c_str());
             ui::help("A batch is a series of independent validated asset publications, not one "
                      "scene or cross-asset Undo transaction.");
             ImGui::Text("Published: %zu of %zu", published_count(), prepared_->plan.sources.size());
@@ -573,6 +629,8 @@ class SourceImport {
         }
         if (!error_.empty())
             ui::field_error(error_);
+        if (!source_commit_diagnostic_.empty())
+            ImGui::TextWrapped("%s", source_commit_diagnostic_.c_str());
         ImGui::EndChild();
         const bool working = state_ == State::Preparing || state_ == State::Copying ||
                              state_ == State::Importing || state_ == State::Drain;
@@ -614,6 +672,7 @@ class SourceImport {
         std::shared_ptr<const std::vector<std::byte>> bytes;
         Json description;
         std::string catalog_digest;
+        AssetId replace{};
     };
     std::optional<Generated> generated_;
     static std::size_t match_source(const std::vector<AssetReimportRoute>& profiles,
@@ -690,7 +749,7 @@ class SourceImport {
     FileDialog dialog_;
     std::filesystem::path project_, dialog_project_;
     std::vector<std::filesystem::path> selected_;
-    std::string destination_, error_;
+    std::string destination_, error_, source_commit_diagnostic_;
     bool open_ = false, popup_ = false, cook_ = true, cancelled_ = false, copied_ = false;
     std::vector<AssetReimportRoute> profiles_;
     std::optional<Prepared> prepared_;
@@ -700,6 +759,6 @@ class SourceImport {
     std::size_t next_ = 0;
     std::stop_source stop_;
     std::future<Prepared> prepare_;
-    std::future<void> copy_;
+    std::future<SourceCopyCommit> copy_;
 };
 } // namespace forge

@@ -70,6 +70,16 @@ inline void run() {
         ++rejected;
     };
     const auto good = fixture(3, 0);
+    const auto captured = encode_reflection_capture_source(fixture(16, 0));
+    check(reflection_capture_source_size(std::span(captured).first(148)) == 16,
+          "Capture update header admission rejected its own DDS layout");
+    reject([&] { reflection_capture_source_size(std::span(captured).first(147)); });
+    reject([&] { reflection_capture_source_size(encode_reflection_capture_source(good)); });
+    for (std::size_t i = 0; i < 148; ++i) {
+        auto header = std::vector<std::byte>(captured.begin(), captured.begin() + 148);
+        header[i] ^= std::byte{1};
+        reject([&] { reflection_capture_source_size(header); });
+    }
     for (unsigned bad = 0; bad < 8; ++bad) {
         auto value = good;
         switch (bad) {

@@ -14,6 +14,17 @@ Windows/full-editor/MSVC/D3D12, physical-device and graphical-EXE acceptance rem
 pending. Export requires the matching FBX-capable runtime kit. See
 [the import profile](model-import.md) and [the model guide](../manual/editor/models.md).
 
+Local source adds explicit reflection-map rebaking through **Update assigned map**.
+The existing capture/source-review/texture-reimport owners retain the Texture ID,
+saved settings and consumers. Exact source/sidecar/catalog checks precede one atomic
+DDS source replacement; source commit, cooked publication and Scene Undo remain
+separate. Source-only skips this batch's reimport; closing review resumes normal
+registered-source updates. Native controls/MCP, last-good failure and committed-write
+diagnostics, source-hidden software-Vulkan rendering and the illustrated Gallery110
+walkthrough have scoped local proof. Runtime recapture and Windows/full-editor/
+physical/graphical-EXE acceptance remain pending. See
+[the contract](local-reflection-probes.md) and [the lighting guide](../manual/editor/lighting.md).
+
 Local source adds optional silent lossless WebP sequence animation alongside the
 existing PNG frame folder/receipt. Native export and automation/MCP share Timeline
 sampling/restoration, bounded worker mux and cancellation. Full-canvas RGBA8,

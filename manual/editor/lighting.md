@@ -212,7 +212,7 @@ replacement keeps the previous usable map; clearing the map removes it.
 
 The map is a static lighting snapshot. Moving scene objects or lights does not
 update it. Local diffuse probes do not cast shadows, provide a sampled irradiance
-grid or calculate multiple bounces. Capture a new map after changing its sources.
+grid or calculate multiple bounces. Capture or rebake a map after changing its sources.
 
 ## Capture a reflection map from your Scene
 
@@ -250,13 +250,46 @@ are excluded from that capture mask.
 
 Toggle the captured reflection volume's **Enabled** control to compare the saved map.
 
+## Rebake an assigned reflection map
+
+Use this when the Scene's lighting or objects have changed and every consumer
+should keep using the same Texture asset. Keep the editable DDS source beneath
+**Assets** inside the project. Updating requires an independent imported capture DDS cube with one
+opaque RGBA16F mip and a face size from 16 to 1024. Textures inside Model families
+and other image/container profiles cannot be updated through this capture action.
+
+1. Stop Play, select the Reflection Probe and check its assigned **Reflection map**. If another application changed the source or import settings, reimport it through Content before rebaking.
+2. Click **Capture reflection map…** and enable **Update assigned map**. Choose the face size, clipping planes and **Layers** for this capture. A new folder is not required.
+3. Keep **Assign to this probe after import** enabled to reset this probe's map rotation to zero after publication. Other objects keep their existing references and rotation values.
+4. Click **Rebake map**. In **Import generated source**, review the existing source and update target. Keep **Reimport with saved settings after updating** enabled, then click **Update source**.
+5. Wait for the reimport result, close the dialog and save the Scene if its map rotation or other authored values changed. The Texture keeps its asset ID and saved import settings; every consumer of that Texture receives the updated map.
+
+![Reflection capture dialog with Update assigned map enabled and a 32-pixel face size](../images/reflection-rebake-settings.png)
+
+Choose the update mode to retain the assigned Texture's identity.
+
+![Existing reflection DDS source review with saved import settings and Update source](../images/reflection-rebake-review.png)
+
+Review the existing source before committing the rebake.
+
+Source replacement and cooked publication are separate. Turning off reimport
+updates only the DDS source in this batch. Closing the review resumes normal
+automatic updates for registered sources, which can schedule a reimport. The old
+cooked map stays selected until a reimport succeeds. A failed or cancelled
+reimport leaves the updated source available to correct or retry through Content.
+Wait for reimport before another rebake when the source has unpublished changes.
+
+Scene Undo changes authored probe values; it does not restore overwritten source
+bytes. Cancellation preserves a source update or publication that already completed.
+If the source, settings or catalog changes after review, prepare the capture again.
+
 A capture is a static authored snapshot. It uses source lighting, shadows, fog and
 the source environment, including that environment when its display sky is hidden.
 It excludes local reflection and diffuse probes, screen-space reflections, ambient occlusion, temporal
 smoothing, motion/focus blur, bloom and display exposure/tone mapping/color grading.
 It stores linear HDR values. It does not update when objects, lights or the probe
-move. Capture a new map into a new folder after changing the Scene. Runtime
-recapture and overwriting an existing map are unavailable.
+move. Capture a new map or explicitly rebake its assigned source after changing
+the Scene. Runtime recapture is unavailable.
 
 For an empty or unexpected map, check the probe position, near/far planes, layer
 mask and authored lighting. Keep the probe outside solid surfaces. Check

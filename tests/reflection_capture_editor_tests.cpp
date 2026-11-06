@@ -4,10 +4,19 @@
 #include "imgui_software_capture.hpp"
 #include "reflection_capture_recording.hpp"
 #include "texture_authoring.hpp"
+#include <atomic>
 #include <forge/engine_assets.hpp>
 #include <iostream>
 #include <thread>
 using namespace forge;
+static std::atomic_bool fail_source_commit_check = false;
+namespace forge {
+void source_copy_before_rename() {}
+void source_copy_after_publish() {
+    if (fail_source_commit_check.exchange(false))
+        throw std::runtime_error("Recorded post-commit durability diagnostic");
+}
+} // namespace forge
 namespace {
 void check(bool value, const std::string& message) {
     if (!value)
@@ -45,8 +54,12 @@ void exercise(const std::filesystem::path& worker, const std::filesystem::path& 
     test::observe_ui = true;
     SourceImport source;
     const auto registry = texture_import_registry(worker);
+    bool reject_publication = false;
     const AssetReimportRoute route{"forge.texture.container", desktop_texture_target(), registry,
-                                   [](auto& candidate, const auto& plan, const auto&) {
+                                   [&](auto& candidate, const auto& plan, const auto&) {
+                                       if (reject_publication)
+                                           throw std::runtime_error(
+                                               "Recorded publication rejection");
                                        prepare_texture_publication(candidate, plan);
                                    }};
     source.routes = [route] { return std::vector{route}; };
@@ -54,6 +67,7 @@ void exercise(const std::filesystem::path& worker, const std::filesystem::path& 
     imports.routes = source.routes;
     auto catalog = std::make_shared<const AssetCatalog>(AssetCatalog::open_project(root));
     source.published = [&](AssetId, auto value) { catalog = std::move(value); };
+    imports.published = source.published;
     std::string message;
     ui::ViewImageTask image;
     unsigned jobs = 0;
@@ -105,7 +119,7 @@ void exercise(const std::filesystem::path& worker, const std::filesystem::path& 
         }
         frame();
     };
-    const auto click = [&](const std::string& target) {
+    const auto click = [&](const std::string& target, float horizontal = .5f) {
         frame();
         check(test::ui_targets.contains(target), "Missing capture control: " + target);
         const auto box = test::ui_targets.at(target);
@@ -115,7 +129,7 @@ void exercise(const std::filesystem::path& worker, const std::filesystem::path& 
                     bottom = std::min(box.maximum.y, box.clip_maximum.y);
         check(box.enabled && right > left && bottom > top,
               "Disabled/clipped capture control: " + target);
-        io.AddMousePosEvent((left + right) * .5f, (top + bottom) * .5f);
+        io.AddMousePosEvent(left + (right - left) * horizontal, (top + bottom) * .5f);
         frame();
         io.AddMouseButtonEvent(0, true);
         frame();
@@ -164,7 +178,112 @@ void exercise(const std::filesystem::path& worker, const std::filesystem::path& 
     check(scene.document() == assigned, "Captured map did not survive save/reopen");
     source.automation_close(review.at("batch"));
     frame();
+    set("rotation_degrees", 25.);
+    const auto before_rebake = scene.document();
+    const auto source_path = root / catalog->records().at(id).source;
+    const auto old_source = asset_detail::read_bytes(source_path, 64 * 1024 * 1024);
+    const auto old_count = catalog->records().size();
+    const auto old_sidecar = AssetImportSidecar::parse(*asset_storage::read(
+        root / AssetPublisher::sidecar_path(catalog->records().at(id).source)));
+    click("reflection-capture:open");
+    click("reflection-capture:update");
+    click("reflection-capture:size", .15f);
+    io.AddKeyEvent(ImGuiKey_LeftCtrl, true);
+    io.AddKeyEvent(ImGuiMod_Ctrl, true);
+    io.AddKeyEvent(ImGuiKey_A, true);
+    frame();
+    io.AddKeyEvent(ImGuiKey_A, false);
+    io.AddKeyEvent(ImGuiKey_LeftCtrl, false);
+    io.AddKeyEvent(ImGuiMod_Ctrl, false);
+    io.AddInputCharactersUTF8("32");
+    frame();
+    io.AddKeyEvent(ImGuiKey_Enter, true);
+    frame();
+    io.AddKeyEvent(ImGuiKey_Enter, false);
+    frame();
+    check(CaptureAutomation::state(image, files).at("reflection").at("size") == 32,
+          "Native text input did not edit the requested capture face size");
+    if (scale == 1)
+        capture.save(scratch / "reflection-rebake-settings.png");
+    click("reflection-capture:start");
+    wait([&] { return source.review_ready(); });
+    review = source.operation();
+    check(review.at("source_revision_asset").get<AssetId>() == id &&
+              asset_detail::read_bytes(source_path, 64 * 1024 * 1024) == old_source,
+          "Native rebake did not preserve source/asset until explicit review commit");
+    if (scale == 1)
+        capture.save(scratch / "reflection-rebake-review.png");
+    click("source-import:commit");
+    wait([&] { return !image.busy(); });
+    status = CaptureAutomation::state(image, files);
+    check(status.at("reflection").at("state") == "assigned" &&
+              status.at("reflection").at("asset").get<AssetId>() == id &&
+              catalog->records().size() == old_count &&
+              asset_detail::read_bytes(source_path, 64 * 1024 * 1024) != old_source &&
+              reflection_capture_source_size(
+                  asset_detail::read_bytes(source_path, 64 * 1024 * 1024)) == 32,
+          "Native rebake lost identity, requested face size or source publication");
+    const auto next_sidecar = AssetImportSidecar::parse(*asset_storage::read(
+        root / AssetPublisher::sidecar_path(catalog->records().at(id).source)));
+    check(next_sidecar.settings.overrides == old_sidecar.settings.overrides &&
+              next_sidecar.settings.importer == old_sidecar.settings.importer &&
+              next_sidecar.settings.version == old_sidecar.settings.version &&
+              scene.entity(probe).get<ReflectionProbe>().texture.id == id && scene.undo() &&
+              scene.document() == before_rebake && scene.redo(),
+          "Native rebake changed settings/reference or coupled source replacement to Scene Undo");
+    source.automation_close(review.at("batch"));
+    frame();
     const auto records = catalog->document().at("assets");
+    const auto selected_source = asset_detail::read_bytes(source_path, 64 * 1024 * 1024);
+    const auto selected_catalog = catalog->document();
+    const auto selected_scene = scene.document();
+    const auto selected_sidecar =
+        asset_storage::read(root / AssetPublisher::sidecar_path(catalog->records().at(id).source));
+    ui::ReflectionCaptureRequest failed_rebake;
+    failed_rebake.settings.size = 64;
+    failed_rebake.update_assigned = true;
+    reject_publication = true;
+    start(probe, failed_rebake, false);
+    wait([&] { return source.review_ready(); });
+    review = source.operation();
+    source.automation_commit(review.at("batch"), review.at("review"), true);
+    wait([&] { return !image.busy(); });
+    status = CaptureAutomation::state(image, files);
+    check(
+        status.at("reflection").at("state") == "failed" &&
+            catalog->document() == selected_catalog && scene.document() == selected_scene &&
+            asset_storage::read(root / AssetPublisher::sidecar_path(
+                                           catalog->records().at(id).source)) == selected_sidecar &&
+            reflection_capture_source_size(
+                asset_detail::read_bytes(source_path, 64 * 1024 * 1024)) == 64,
+        "Rejected rebake publication lost last-good identity/settings or hid its committed source");
+    reject_publication = false;
+    source.automation_close(review.at("batch"));
+    // Restore this test fixture's selected source before independent capture cases.
+    asset_storage::replace(source_path,
+                           std::string_view(reinterpret_cast<const char*>(selected_source.data()),
+                                            selected_source.size()));
+    frame();
+    failed_rebake.settings.size = 48;
+    start(probe, failed_rebake, false);
+    wait([&] { return source.review_ready(); });
+    review = source.operation();
+    fail_source_commit_check = true;
+    source.automation_commit(review.at("batch"), review.at("review"), false);
+    wait([&] { return !image.busy(); });
+    status = CaptureAutomation::state(image, files);
+    check(status.at("reflection").at("state") == "source_only" &&
+              status.at("reflection").at("error") == "" &&
+              !status.at("reflection").at("source_commit_diagnostic").get<std::string>().empty() &&
+              catalog->document() == selected_catalog && scene.document() == selected_scene &&
+              reflection_capture_source_size(
+                  asset_detail::read_bytes(source_path, 64 * 1024 * 1024)) == 48,
+          "Committed-source diagnostic was reported as an uncommitted failure");
+    source.automation_close(review.at("batch"));
+    asset_storage::replace(source_path,
+                           std::string_view(reinterpret_cast<const char*>(selected_source.data()),
+                                            selected_source.size()));
+    frame();
     ui::ReflectionCaptureRequest settings;
     settings.settings.size = 16;
     settings.destination = "Assets/StaleSceneMap";

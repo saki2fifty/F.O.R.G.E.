@@ -6,5 +6,6 @@ struct ReflectionCaptureRequest {
     ReflectionCaptureSettings settings;
     std::filesystem::path destination = "Assets/ReflectionMap";
     bool assign = true;
+    bool update_assigned = false;
 };
 } // namespace forge::ui

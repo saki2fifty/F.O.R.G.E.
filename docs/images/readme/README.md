@@ -1047,31 +1047,46 @@ PNG SHA256, Game: `16dd7e56b82e34044c2023428d1238eb328aaec8fd964469452e9c5021b73
 
 PNG SHA256, Controls: `71966f3656fb4db8e4ad67f5cb2ab7359e0cecbbbd696f06e36329413b736f2e`.
 
-## Reflection capture controls and import review
+## Reflection capture and rebake controls
 
-The complete1080×900 [capture settings](../../../manual/images/reflection-capture-settings.png)
-and [generated source review](../../../manual/images/reflection-capture-review.png)
-come from `forge_reflection_capture_editor_tests <asset-worker> <scratch>` on
-2026-10-29, local development based on9667417. Actual production Inspector,
-ViewImageTask, ReflectionCaptureTask and SourceImport controls are rendered by
-the pinned ImGui/SDL software backend with Lato. Pointer input opens settings,
-starts capture and reaches the real generated-source review. The test exercises
-actual encoding, source copying, worker publication, Scene history and save at
-100/150/200 percent; only its native pixel-delivery boundary is recorded.
-The separate native capture/workflow checks exercise real software-Vulkan HDR
-rendering and source-free relocation. These PNGs demonstrate controls, not a
-full Windows desktop, physical display/input or graphical exported-EXE acceptance.
-No controls were painted, retouched, cropped or rearranged after capture.
+The complete1080×900 [capture settings](../../../manual/images/reflection-capture-settings.png),
+[generated source review](../../../manual/images/reflection-capture-review.png),
+[rebake settings](../../../manual/images/reflection-rebake-settings.png) and
+[existing-source update review](../../../manual/images/reflection-rebake-review.png)
+come directly from `forge_reflection_capture_editor_tests <asset-worker> <scratch>`
+on2026-11-06, local development based on5ef2a5c. Actual production Inspector,
+ViewImageTask, ReflectionCaptureTask and SourceImport controls use the pinned
+ImGui/SDL software backend with Lato. Real pointer/text input opens settings,
+selects the update mode, edits face size and commits the source review.
 
-- `reflection-capture-settings.png` SHA256: `7bcdbc13450f2bdfef7cfc9bec8615cc40a68f9d848b42b4dd79f690414ce0f5`.
-- `reflection-capture-review.png` SHA256: `c32c1bd0c4ccef13383f1295d6b0a1d775e9e2e42bd162763e4aa11ceed2f56b`.
+The native fixture exercises encoding, exact source/settings/catalog guards,
+normal worker/publication, retained Texture identity, source-only versus cooked
+results, Scene history and save at100/150/200 percent. A deliberate publication
+rejection checks that committed source bytes and last-good selection remain
+separate. GPU pixel delivery is recorded in this UI fixture. A separate post-write
+checkpoint injects a durability diagnostic after the source has committed; it
+does not alter successful writes or captured pixels. The separate
+software-Vulkan workflow uses actual changed lighting/capture/reimport and exact
+source-hidden relocated rendering. These PNGs show controls, not full Windows
+editor, physical input/display/GPU or graphical exported-EXE acceptance. Pixels
+and dimensions are unmodified; no controls were painted, cropped or rearranged.
 
-Capture input source hashes (the normal UI gate passed before this documentation):
+- `reflection-capture-settings.png` SHA256: `bb10502161a9e316dfb41ef5a0a4538937dc7953df73ed6af66f30dee0b6888a`.
+- `reflection-capture-review.png` SHA256: `4ee5ff710de7c538c8399c916ad4293bf1a3f59ab8317b55aa23d84d5c5dff84`.
+- `reflection-rebake-settings.png` SHA256: `7508a1558a5491d64294119916d35ff7a3b94c68586c9f7766b48a3988059cf9`.
+- `reflection-rebake-review.png` SHA256: `877bc7f6a28519053a5ca8ef3a60608cee0478192dedb4204f527be85a557d30`.
 
-- `tests/reflection_capture_editor_tests.cpp`: `3e7cfee72efc1742da102c94dce59032105d98abb29e2d0dd126af1537d7ec97`.
-- `src/editor/component_inspector.hpp`: `43929ee879cba949de73bab6035993a2f251b55e7ead45990074cb382a5e1fdc`.
-- `src/editor/reflection_capture_task.hpp`: `ed407190a39c6c4b63692d3b5429470297ffcdc2d35ee1db211104765e31a8e3`.
-- `src/editor/view_image.hpp`: `c460cd7333b5bdf0b8cdd94bcafb3e9158122b826047c8b23976137be32dd13c`.
+Capture input source hashes:
+
+- `tests/reflection_capture_editor_tests.cpp`: `391257ac64dfec42beb4bce3db70601c8859a10a5309e5db7dcef5c3938f0955`.
+- `src/editor/component_inspector.hpp`: `a62e26065a03b11ace03b75501f5f1502bf5a341f364616f2fdf0b2bbe186968`.
+- `src/editor/reflection_capture_task.hpp`: `60972686a84128bf02df4325337c906265e5107840f0e77e5663f93fdc627bd7`.
+- `src/editor/source_import.hpp`: `c19d8e285ff5b4bf2f199f01fca6cf87f4c6eeeaedbbf823643ad42dc2184336`.
+- `src/editor/view_image.hpp`: `abdb0da569caf49ad718f7d3a7f1cc076d218eeaea35242a04da6edc071bf027`.
+- `src/reflection_capture_source.cpp`: `a37e4d97f7a0de869688eb56695fd0dee984acb2cb0a432eb3c66360dcaf56c1`.
+- `src/source_copy.cpp`: `0dec5ebfa768abb54055c56aff765b7565fe7637e55d4e7edb371e60b2b831cf`.
+- `cmake/mcp_tests.cmake`: `e23daf8bcc05c21e48a0a73f0455c743ceb454e35cd1a2404ad859183fd2ed4f`.
+
 
 ## Captured reflection-map Gallery
 

@@ -1,5 +1,6 @@
 #include "../src/asset_bytes.hpp"
 #include "../src/source_copy.hpp"
+#include <forge/asset_publication.hpp>
 #include <forge/assets.hpp>
 #include <forge/scene.hpp>
 #include <fstream>
@@ -8,8 +9,14 @@
 using namespace forge;
 static std::filesystem::path collision;
 static std::filesystem::path change_catalog;
+static std::filesystem::path change_source;
+static bool fail_after_publish = false;
 namespace forge {
 void source_copy_before_rename() {
+    if (!change_source.empty()) {
+        atomic_write(change_source, "external source at commit");
+        change_source.clear();
+    }
     if (!change_catalog.empty()) {
         atomic_write(change_catalog, "changed catalog at commit");
         change_catalog.clear();
@@ -17,6 +24,12 @@ void source_copy_before_rename() {
     if (!collision.empty()) {
         std::filesystem::create_directory(collision);
         collision.clear();
+    }
+}
+void source_copy_after_publish() {
+    if (fail_after_publish) {
+        fail_after_publish = false;
+        throw std::runtime_error("Simulated post-commit durability failure");
     }
 }
 } // namespace forge
@@ -37,6 +50,127 @@ void rejects(F&& f, std::source_location where = std::source_location::current()
 std::string bytes(const std::filesystem::path& path) {
     std::ifstream in(path, std::ios::binary);
     return {std::istreambuf_iterator<char>(in), {}};
+}
+void source_revision_checks(const std::filesystem::path& root) {
+    const auto project = root / "RevisionProject";
+    std::filesystem::create_directories(project / "Assets");
+    ProjectLease lease(project);
+    const auto asset = AssetId::generate();
+    const std::filesystem::path source = "Assets/Reflection.dds";
+    const auto path = project / source;
+    const auto sidecar_path = project / AssetPublisher::sidecar_path(source);
+    const auto index = AssetCatalog::project_index(project);
+    const std::string old_bytes("old\0source", 10), next_bytes("new\0source", 10);
+    const auto digest = [](std::string_view value) {
+        return asset_detail::content_digest(std::as_bytes(std::span(value)));
+    };
+    AssetImportSidecar sidecar;
+    sidecar.settings = {"forge.texture.container", 1};
+    sidecar.settings.overrides["max_size"] = 32;
+    sidecar.identity.owner = asset;
+    sidecar.identity.source = source;
+    sidecar.identity.source_digest = digest(old_bytes);
+    sidecar.identity.evidence_schema = "source-revision-test.v1";
+    const auto sidecar_bytes = sidecar.document().dump();
+    AssetRecord record{};
+    record.id = asset;
+    record.type = "texture";
+    record.source = source;
+    record.metadata["forge.import"] = {{"source_digest", digest(old_bytes)},
+                                       {"sidecar_digest", digest(sidecar_bytes)},
+                                       {"importer", "forge.texture.container"}};
+    AssetCatalog catalog(project);
+    catalog.add(record);
+    const auto catalog_bytes = catalog.document().dump();
+    atomic_write(index, catalog_bytes);
+    atomic_write(sidecar_path, sidecar_bytes);
+    atomic_write(path, old_bytes);
+    const auto payload = std::as_bytes(std::span(next_bytes));
+    const auto input =
+        std::make_shared<const std::vector<std::byte>>(payload.begin(), payload.end());
+    const auto plan =
+        prepare_generated_source_revision(project, asset, input, digest(catalog_bytes));
+    check(plan.revision && plan.revision->asset == asset && plan.files[0].generated == input &&
+              bytes(path) == old_bytes,
+          "Source revision preparation mutated bytes or lost identity/payload ownership");
+    std::stop_source stop;
+    stop.request_stop();
+    rejects([&] { commit_source_copy(lease, plan, stop.get_token()); });
+    check(bytes(path) == old_bytes, "Cancelled source revision overwrote source");
+    atomic_write(index, catalog_bytes + " ");
+    rejects([&] { commit_source_copy(lease, plan); });
+    atomic_write(index, catalog_bytes);
+    atomic_write(sidecar_path, sidecar_bytes + " ");
+    rejects([&] { commit_source_copy(lease, plan); });
+    atomic_write(sidecar_path, sidecar_bytes);
+    atomic_write(path, "external draft");
+    rejects(
+        [&] { prepare_generated_source_revision(project, asset, input, digest(catalog_bytes)); });
+    rejects([&] { commit_source_copy(lease, plan); });
+    check(bytes(path) == "external draft", "Source revision discarded an external draft");
+    atomic_write(path, old_bytes);
+    auto invalid = plan;
+    invalid.files[0].destination = "Other.dds";
+    rejects([&] { commit_source_copy(lease, invalid); });
+    invalid = plan;
+    invalid.catalog_digest.clear();
+    rejects([&] { commit_source_copy(lease, invalid); });
+    invalid = plan;
+    invalid.revision->asset = AssetId::generate();
+    rejects([&] { commit_source_copy(lease, invalid); });
+    invalid = plan;
+    invalid.files[0].generated = std::make_shared<const std::vector<std::byte>>();
+    invalid.files[0].bytes = invalid.bytes = 0;
+    invalid.files[0].digest = digest("");
+    rejects([&] { commit_source_copy(lease, invalid); });
+    check(bytes(path) == old_bytes, "Empty generated revision discarded existing source");
+    change_source = path;
+    rejects([&] { commit_source_copy(lease, plan); });
+    check(bytes(path) == "external source at commit", "Late source conflict was overwritten");
+    atomic_write(path, old_bytes);
+    check(commit_source_copy(lease, plan).diagnostic.empty() && bytes(path) == next_bytes &&
+              bytes(index) == catalog_bytes && bytes(sidecar_path) == sidecar_bytes,
+          "Source revision changed identity/settings/catalog or failed binary replacement");
+    rejects(
+        [&] { prepare_generated_source_revision(project, asset, input, digest(catalog_bytes)); });
+    atomic_write(path, old_bytes);
+    fail_after_publish = true;
+    check(!commit_source_copy(lease, plan).diagnostic.empty() && bytes(path) == next_bytes,
+          "Committed source bytes were reported as discarded after durability failure");
+    atomic_write(path, old_bytes);
+    const auto corrupt_sidecar = [&](AssetImportSidecar candidate) {
+        const auto text = candidate.document().dump();
+        auto changed = record;
+        changed.metadata["forge.import"]["sidecar_digest"] = digest(text);
+        auto corrupt = catalog;
+        corrupt.replace(changed);
+        const auto data = corrupt.document().dump();
+        atomic_write(sidecar_path, text);
+        atomic_write(index, data);
+        rejects([&] { prepare_generated_source_revision(project, asset, input, digest(data)); });
+        check(bytes(path) == old_bytes, "Inconsistent source identity changed the original bytes");
+        atomic_write(index, catalog_bytes);
+        atomic_write(sidecar_path, sidecar_bytes);
+    };
+    auto inconsistent = sidecar;
+    inconsistent.identity.source_digest = digest("another revision");
+    corrupt_sidecar(inconsistent);
+    inconsistent = sidecar;
+    SubassetIdentityEntry hidden{};
+    hidden.id = AssetId::generate();
+    hidden.key = "member/hidden";
+    hidden.type = "texture";
+    inconsistent.identity.entries.push_back(hidden);
+    corrupt_sidecar(inconsistent);
+    record.id = AssetId::generate();
+    record.subasset = AssetSubasset{asset, "member/source-revision", false};
+    catalog.add(record);
+    const auto shared = catalog.document().dump();
+    atomic_write(index, shared);
+    rejects([&] { prepare_generated_source_revision(project, asset, input, digest(shared)); });
+    check(bytes(path) == old_bytes, "Shared source revision mutated the original");
+    std::cout << "Explicit source revision preserves identity/settings, rejects stale/shared/"
+                 "cancelled input and reports committed bytes accurately\n";
 }
 } // namespace
 int main() {
@@ -214,6 +348,7 @@ int main() {
         for (const auto& entry : std::filesystem::directory_iterator(project / "Assets"))
             check(!entry.path().filename().string().starts_with(".forge-import-"),
                   "Failed copy leaked ordinary owned staging");
+        source_revision_checks(root);
         std::cout << "Source-copy bytes, dependencies, atomic folder, cancellation, "
                      "stale/duplicate/identity/path rejection passed\n";
     } catch (const std::exception& e) {

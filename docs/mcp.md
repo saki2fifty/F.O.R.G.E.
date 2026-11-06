@@ -1563,8 +1563,10 @@ owners; no extra tool is required. See [the lighting contract](local-diffuse-irr
 
 `capture.reflection.start` / `forge_capture_reflection_start` requires the project
 asset grant and Edit mode, with the ordinary target/expected revision/sequence
-routing. Required fields are `probe` and `destination` (a NEW folder below Assets
-with an existing parent). Optional fields are `size` (16–1024, default256),
+routing. `probe` is required. New-map capture requires `destination` (a NEW folder
+below Assets with an existing parent). Alternatively `update_assigned:true` targets
+the probe's existing independent imported capture DDS source; omit `destination`
+in that mode. Optional fields are `size` (16–1024, default256),
 `near_plane` (positive, default0.1), `far_plane` (greater than near, default100),
 `layers` (uint32, default all bits) and `assign` (default true). No external output
 folder is needed. This uses the same image-task owner as PNG/sequence capture and
@@ -1574,12 +1576,24 @@ Poll `forge_capture_status`; its `reflection` value reports phase, face count,
 original revision/generation, destination, cancellation and the eventual Texture
 `asset`. When `import_batch` appears, use `forge_asset_import_review`, then
 `forge_asset_import_commit` with that exact `batch` and `review` and `import:true`.
-No files/identities publish during rendering/review. Copy/import and Scene
+No files/identities publish during rendering/review. Source commit, import and Scene
 assignment have distinct outcomes. If the original Scene/document revision is
 still current and `assign` is true, publication assigns the map and resets its yaw
-to zero in one Scene Undo step. Otherwise the published map remains unassigned.
+to zero in one Scene Undo step. Otherwise a new map remains unassigned; a rebake
+reports `updated` and retains existing Texture references without changing probe values.
 Save after assignment. Read per-file import diagnostics and close the settled
 batch through `forge_asset_import_close`.
+
+Update review includes `source_revision_asset`, target/source/settings/catalog
+revisions in its exact review digest, and generated metadata identifying the
+updated Texture. Commit atomically replaces only that source and reimports with
+its saved settings and AssetId. Every existing consumer retains its reference.
+Stale source/settings/catalog and shared-source families reject. `import:false`
+reports source-only completion for this batch. Closing the review resumes normal
+automatic updates for registered sources, which can schedule a reimport. Failed
+later reimport retains last-good cooked content. A separate `source_commit_diagnostic` reports a completed source write
+with a durability warning without changing its successful source-only state. A committed source is not reverted by Scene Undo or cancellation after
+commit. Reimport before another rebake if the source has unpublished changes.
 
 `forge_capture_cancel` requires this task's exact operation UUID and the grant for
 its workflow: project assets for reflection maps, output access for PNG/sequence
@@ -1587,8 +1601,8 @@ images. One grant cannot cancel the other workflow. It drains
 accepted GPU/encoding/import work and prevents automatic assignment; already
 copied sources/published assets remain. Asset import cancel/close tools keep their
 existing batch guards. Cancellation/review controls can service their pending
-owner; a new capture still requires normal admission. Runtime recapture and
-in-place map replacement are not available. See
+owner; a new capture still requires normal admission. Runtime recapture is not
+available. See
 [local reflection probes](local-reflection-probes.md) for capture/rendering limits.
 
 ## Shared projector lists

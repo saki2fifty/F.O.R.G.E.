@@ -571,8 +571,9 @@ class ComponentInspector {
                              : "Owned component");
             if (key == "forge.reflection_probe" && capture_reflection) {
                 if (ui::button("Capture reflection map…",
-                               "Capture a new HDR cube at this probe, then review its import. "
-                               "The existing map remains until the new one is published."))
+                               "Capture a new HDR cube or choose Update assigned map to rebake "
+                               "its existing capture source. Review precedes source changes; "
+                               "the cooked map remains usable until validated publication."))
                     capture_reflection(entity);
                 FORGE_UI_PROBE("reflection-capture:open");
             }

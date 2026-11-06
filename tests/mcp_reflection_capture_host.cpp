@@ -35,6 +35,7 @@ int main(int argc, char** argv) {
         auto catalog = std::make_shared<const forge::AssetCatalog>(
             forge::AssetCatalog::open_project(files.document.project()));
         source.published = [&](forge::AssetId, auto value) { catalog = std::move(value); };
+        imports.published = source.published;
         forge::ContentFiles content_files;
         forge::SceneAssetDrop placement;
         forge::ui::ViewImageTask images;
