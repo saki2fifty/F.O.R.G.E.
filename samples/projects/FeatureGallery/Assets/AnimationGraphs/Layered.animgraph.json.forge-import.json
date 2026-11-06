@@ -1,0 +1,71 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [
+      {
+        "kind": "runtime",
+        "revision": "f92f6992a1dbfc4139e91782cae3aabfbc13acb8e35a24e1337ad7ee85f2c60a",
+        "role": "graph.skeleton",
+        "target": "3fd41841-5ad9-40ee-8354-3097141941f0",
+        "type": "skeleton"
+      },
+      {
+        "kind": "runtime",
+        "revision": "4abb8dc29022229d9d359a9ba688be1895ecb116d98aa571503e9de1e9e8ca60",
+        "role": "graph.clip:c36daf15-cb8a-49ef-b033-4f4c33bc9ef1",
+        "target": "71652069-2d40-4d1d-86e6-69f1839a6cac",
+        "type": "animation_clip"
+      },
+      {
+        "kind": "runtime",
+        "revision": "f92f6992a1dbfc4139e91782cae3aabfbc13acb8e35a24e1337ad7ee85f2c60a",
+        "role": "graph.clip:aba86636-6572-4425-805f-64faf8563de2",
+        "target": "763f663b-7030-49f3-b304-e86ac8e211ed",
+        "type": "animation_clip"
+      },
+      {
+        "kind": "runtime",
+        "revision": "331ad200b1d589ab7de11f990ca12b4c143d10627bc804409c6768fed6c34a60",
+        "role": "graph.mask:09556111-22ea-4466-bcc7-b73d1bd404e5",
+        "target": "bcf9a5cd-c256-4604-94c4-a50330f51cb8",
+        "type": "animation_mask"
+      },
+      {
+        "kind": "runtime",
+        "revision": "331ad200b1d589ab7de11f990ca12b4c143d10627bc804409c6768fed6c34a60",
+        "role": "graph.mask:5b0d7e56-1821-4610-8e12-edc617788dcd",
+        "target": "bcf9a5cd-c256-4604-94c4-a50330f51cb8",
+        "type": "animation_mask"
+      }
+    ],
+    "importer": "forge.animation.graph",
+    "importer_revision": "forge.animation.graph.v1",
+    "key_version": 1,
+    "output_format": "forge.animation-graph",
+    "output_version": 1,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {},
+    "settings_version": 1,
+    "source": "aa5ed3fca67d4a303966bb1d585aabcbb7ffd0befdec5c455916138cfca18063",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.animation-graph.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "e02427a2-bb15-4c7f-86e8-a574ac939ca4",
+    "source": "Assets/AnimationGraphs/Layered.animgraph.json",
+    "source_digest": "aa5ed3fca67d4a303966bb1d585aabcbb7ffd0befdec5c455916138cfca18063",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.animation.graph",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

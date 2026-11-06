@@ -2,7 +2,8 @@
 
 Use **Animation Retarget** to bake an imported animation for another imported
 skeleton. Choose the corresponding joints explicitly. The new clip keeps the
-target's proportions and plays through its ordinary Animator, States or Blend Space.
+target's proportions and plays through its ordinary Animator, States, Blend Space
+or [Animation Graph](animation-graphs.md).
 
 ## Try the example
 
@@ -52,7 +53,7 @@ This assigns the published clip in one Scene Undo step. Alternatively,
 choose the new clip in the Animator's **Clip** picker. Its Skeleton must be the exact
 target skeleton used by the recipe.
 
-If the Animator uses **States** or a **Blend Space**, choose the published clip in
+If the Animator uses **States**, a **Blend Space** or an **Animation Graph**, choose the published clip in
 that document. Use the Animator's bone preview or **Play → Game** to inspect the
 motion. Recipe edits are locked during Play. Save the Scene after assigning the clip;
 publishing the recipe does not save Scene changes.
@@ -60,7 +61,7 @@ publishing the recipe does not save Scene changes.
 ## Saving and exporting
 
 **Save / Publish** saves the mapping and builds the runtime clip. Save the Scene and
-any state/blend-space document that references it before exporting. Export with the
+any state/blend-space/graph document that references it before exporting. Export with the
 runtime kit included with the matching editor. The game receives the target skeleton
 and baked clip; it does not need the editable recipe or source model unless another
 game object also uses that model. After changing either imported skeleton, publish

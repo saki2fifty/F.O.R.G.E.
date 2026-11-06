@@ -1,4 +1,5 @@
 #include "asset_reference_impact.hpp"
+#include "animation_graph_layout.hpp"
 #include "animation_retarget.hpp"
 #include "asset_bytes.hpp"
 #include "asset_storage.hpp"
@@ -11,6 +12,7 @@
 #include "tile_set_source.hpp"
 #include <algorithm>
 #include <forge/animation_blend_space.hpp>
+#include <forge/animation_graph.hpp>
 #include <forge/animation_mask.hpp>
 #include <forge/animation_states.hpp>
 #include <forge/application_state_source.hpp>
@@ -326,6 +328,48 @@ struct Inspect {
             opaque_fields(doc, {"format", "version", "asset_id", "source_skeleton", "source_clip",
                                 "target_skeleton", "sampling_rate", "root_translation",
                                 "translation_scale", "alignment", "entries"});
+        } else if (doc.value("format", std::string{}) == "forge.animation-graph") {
+            AnimationGraphSource{doc}.validate();
+            if (!doc.at("skeleton").is_null())
+                reference(doc.at("skeleton"), "skeleton", "Animation Graph skeleton",
+                          SkeletonAsset::type);
+            std::size_t index = 0;
+            for (const auto& node : doc.at("nodes")) {
+                const auto scope = "nodes." + std::to_string(index++);
+                if (node.at("kind") == "clip") {
+                    if (!node.at("clip").is_null())
+                        reference(node.at("clip"), scope + ".clip", "Animation Graph clip",
+                                  AnimationClipAsset::type);
+                    opaque_fields(node, {"id", "name", "kind", "clip"}, scope);
+                } else {
+                    if (!node.at("mask").is_null())
+                        reference(node.at("mask"), scope + ".mask", "Animation Graph bone mask",
+                                  AnimationMaskAsset::type);
+                    if (node.at("weight").is_object())
+                        opaque_fields(node.at("weight"), {"input", "scale", "bias"},
+                                      scope + ".weight");
+                    // Node IDs and port/output links are local to this graph,
+                    // including when their UUID text equals another asset ID.
+                    opaque_fields(node, {"id", "name", "kind", "first", "second", "mask", "weight"},
+                                  scope);
+                }
+            }
+            index = 0;
+            for (const auto& input : doc.at("inputs"))
+                opaque_fields(input, {"slot", "name", "initial"},
+                              "inputs." + std::to_string(index++));
+            if (asset_detail::has_animation_graph_layout(doc)) {
+                const auto& layout = doc.at("editor_layout");
+                opaque_fields(layout, {"format", "version", "positions"}, "editor_layout");
+                index = 0;
+                for (const auto& position : layout.at("positions"))
+                    opaque_fields(position, {"node", "x", "y"},
+                                  "editor_layout.positions." + std::to_string(index++));
+                opaque_fields(doc, {"format", "version", "asset_id", "skeleton", "cycle_seconds",
+                                    "inputs", "nodes", "output", "editor_layout"});
+            } else
+                opaque_fields(doc, {"format", "version", "asset_id", "skeleton", "cycle_seconds",
+                                    "inputs", "nodes", "output"});
         } else if (doc.value("format", std::string{}) == "forge.animation-blend-space") {
             AnimationBlendSpaceSource{doc}.validate();
             if (!doc.at("skeleton").is_null())

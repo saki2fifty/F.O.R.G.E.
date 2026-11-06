@@ -83,8 +83,16 @@ For [skeletal retargeting](animation-retargeting.md), the agent can inspect publ
 joint identities, parents and rest transforms, create or open a `.retarget.json`
 recipe with the **animation_retarget** editor, map joints explicitly and publish
 the target-bound clip. It assigns that clip using the same Animator, States or
-Blend Space properties as a user. Skeleton inspection is read-only; saving and
+Blend Space or Animation Graph properties as a user. Skeleton inspection is read-only; saving and
 Scene assignment use the normal project-authoring grants and separate histories.
+
+For [Animation Graphs](animation-graphs.md), the agent uses the **animation_graph**
+source editor and its normal template, patch, history and publication tools. Node
+connections use graph-local UUIDs; only skeleton, clip and mask fields select assets.
+Named input slots keep their identities when rows or names change. The agent assigns
+the published graph with ordinary Animator property operations. During Play,
+**play.tune** changes declared input values and override checkboxes in the current
+runtime; the existing post-Stop review can keep selected changes in the Scene.
 
 For a Sprite atlas, create or open its `.atlas.json` source with the
 **sprite_atlas** editor. Creation needs the published input Texture UUIDs in

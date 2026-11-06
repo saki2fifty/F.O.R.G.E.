@@ -23,6 +23,7 @@
 #include "actions.hpp"
 #include "animation_blend_space_editor.hpp"
 #include "animation_debug.hpp"
+#include "animation_graph_editor.hpp"
 #include "animation_mask_editor.hpp"
 #include "animation_playback.hpp"
 #include "animation_preview.hpp"
@@ -1115,6 +1116,7 @@ int main(int argc, char** argv) {
         forge::ApplicationStatesEditor application_states;
         forge::AnimationMaskEditor animation_mask;
         forge::AnimationRetargetEditor animation_retarget;
+        forge::AnimationGraphEditor animation_graph;
         forge::ParticleEffectEditor particle_editor;
         std::unique_ptr<forge::ParticleEffectPreview> particle_preview;
         bool release_particle_preview = false;
@@ -1402,6 +1404,11 @@ int main(int argc, char** argv) {
                               [](auto& c, const auto& p, const auto&) {
                                   forge::prepare_animation_retarget_publication(c, p);
                               }});
+            routes.push_back({"forge.animation.graph", forge::desktop_texture_target(),
+                              forge::animation_graph_import_registry(),
+                              [](auto& c, const auto& p, const auto&) {
+                                  forge::prepare_animation_graph_publication(c, p);
+                              }});
             routes.push_back({"forge.animation.mask", forge::desktop_texture_target(),
                               forge::animation_mask_import_registry(),
                               [](auto& c, const auto& p, const auto&) {
@@ -1523,6 +1530,9 @@ int main(int argc, char** argv) {
             } else if (kind == "animation_retarget") {
                 if (open)
                     animation_retarget.open(files.document, path);
+            } else if (kind == "animation_graph") {
+                if (open)
+                    animation_graph.open(files.document, path);
             } else if (kind == "animation_mask") {
                 if (open)
                     animation_mask.open(files.document, path);
@@ -1866,6 +1876,28 @@ int main(int argc, char** argv) {
                            [&](const forge::AssetRecord& asset) {
                                animation_blend_space.open(files.document, asset.source);
                            }});
+        documents.add({"animation_graph",
+                       "Animation Graph",
+                       "Animation Graph",
+                       true,
+                       [&] { return animation_graph.is_open(); },
+                       [&] { return animation_graph.dirty(); },
+                       [&] {
+                           animation_graph.draw(files.document, scene,
+                                                asset_document_locked || play.active());
+                       },
+                       [&] { animation_graph.request_save(); },
+                       [&] { animation_graph.undo(); },
+                       [&] { animation_graph.redo(); },
+                       [&] { animation_graph.request_close(); },
+                       [&] { return animation_graph.can_undo(); },
+                       [&] { return animation_graph.can_redo(); },
+                       {},
+                       [&] { return std::exchange(animation_graph.close_cancelled, false); }});
+        asset_editors.add(
+            {"animation_graph", "Open animation graph", [&](const forge::AssetRecord& asset) {
+                 animation_graph.open(files.document, asset.source);
+             }});
         documents.add({"animation_retarget",
                        "Animation Retarget",
                        "Animation Retarget###Animation Retarget",
@@ -2410,6 +2442,8 @@ int main(int argc, char** argv) {
                                                            animation_blend_space, files.document));
         documents.bind_source("animation_retarget", forge::AssetDocumentAutomation::bind(
                                                         animation_retarget, files.document));
+        documents.bind_source("animation_graph", forge::AssetDocumentAutomation::bind(
+                                                     animation_graph, files.document));
         documents.bind_source("animation_mask",
                               forge::AssetDocumentAutomation::bind(animation_mask, files.document));
         documents.bind_source("animation_timeline", forge::AssetDocumentAutomation::bind(
@@ -5661,12 +5695,22 @@ int main(int argc, char** argv) {
                     content.refresh(files);
                 }
                 if (mesh_resources) {
+                    animation_graph.asset_catalog_changed(mesh_resources->catalog());
                     animation_retarget.asset_catalog_changed(mesh_resources->catalog());
                     animation_states.asset_catalog_changed(mesh_resources->catalog());
                     animation_blend_space.asset_catalog_changed(mesh_resources->catalog());
                 }
                 animation_retarget.poll(files.document, message);
                 if (auto catalog = animation_retarget.take_catalog()) {
+                    animation_preview.stop_preview();
+                    content_imports.catalog_changed(catalog);
+                    if (mesh_resources)
+                        mesh_resources->catalog(catalog);
+                    play.model_assets_changed();
+                    content.refresh(files);
+                }
+                animation_graph.poll(files.document, message);
+                if (auto catalog = animation_graph.take_catalog()) {
                     animation_preview.stop_preview();
                     content_imports.catalog_changed(catalog);
                     if (mesh_resources)
@@ -6932,6 +6976,7 @@ int main(int argc, char** argv) {
                         application_states.content(files.document, edit_locked);
                         animation_mask.content(files.document, edit_locked);
                         animation_retarget.content(files.document, edit_locked);
+                        animation_graph.content(files.document, edit_locked);
                         animation_blend_space.content(files.document, edit_locked);
                         animation_timeline.content(files.document, scene, edit_locked);
                         animation_preview.content(files.document, scene, edit_locked);

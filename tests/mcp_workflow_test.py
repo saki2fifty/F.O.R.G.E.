@@ -16,8 +16,12 @@ from mcp_camera_shot_play import check_camera_shot_play
 from mcp_mesh_wind_play import check_mesh_wind_play
 from mcp_fog_volume_play import check_fog_volume_play
 from mcp_runtime_workers_play import check_runtime_workers_play
+from mcp_animation_graph_play import check_animation_graph_play
 
 TOOLS, HOST, RUNTIME, KIT, NAV = sys.argv[1:6]
+ANIMATION_GRAPH_MODULE = len(sys.argv) == 9 and sys.argv[7] == '--animation-graph-module-only'
+ANIMATION_GRAPH_SDK = sys.argv[7:] == ['--animation-graph-sdk-only'] or ANIMATION_GRAPH_MODULE
+ANIMATION_GRAPH_ONLY = sys.argv[7:] == ['--animation-graph-only'] or ANIMATION_GRAPH_SDK
 MESH_WIND_SDK = sys.argv[7:] == ['--mesh-wind-sdk-only']
 MESH_WIND_ONLY = sys.argv[7:] == ['--mesh-wind-only'] or MESH_WIND_SDK
 FOG_VOLUMES_SDK = sys.argv[7:] == ['--fog-volumes-sdk-only']
@@ -105,6 +109,8 @@ def selected_project_template(root, sources, folder):
             continue
         selected.add(asset)
         pending.extend(records[asset]['dependencies'])
+        if records[asset].get('subasset'):
+            pending.append(records[asset]['subasset']['owner'])
     catalog['assets'] = [row for row in catalog['assets'] if row['id'] in selected]
     settings = json.loads((gallery/'forge.project.json').read_text(encoding='utf-8'))
     paths = {settings['startup_scene']['source']}
@@ -179,7 +185,24 @@ def editor(mode='full'):
         # State-only checks need the real packaged font, but no Windows export kit.
         host_resources = str(Path(__file__).resolve().parents[1]) if APPLICATION_STATES_ONLY else KIT
         command = [HOST, str(root), RUNTIME, host_resources, NAV, mode]
-        if WORKERS_ONLY:
+        if ANIMATION_GRAPH_ONLY:
+            # Scene references are resolved by the runtime package owner, not
+            # stored as importer edges in the source Scene catalog record.
+            template = selected_project_template(root, (
+                'Scenes/180-animation-graphs.scene.json',
+                'Assets/AnimationGraphs/Layered.animgraph.json',
+                'Assets/AnimationRetarget/TargetBeams.gltf'), 'Animation Graph template')
+            if ANIMATION_GRAPH_MODULE:
+                module = Path(sys.argv[8]).resolve()
+                shutil.copy2(module, template / module.name)
+                settings_path = template / 'forge.project.json'
+                settings = json.loads(settings_path.read_text())
+                fingerprint = json.loads(subprocess.check_output([RUNTIME, '--sdk-info'], text=True))['fingerprint']
+                settings['modules'] = [dict(id='project.animation_probe', implementation='1', sdk='experimental-1',
+                    fingerprint=fingerprint, library=module.name, dependencies=['forge.animation', 'forge.input'])]
+                settings_path.write_text(json.dumps(settings))
+            command.append(str(template))
+        elif WORKERS_ONLY:
             command.append(str(workers_project_template(root)))
         elif CAMERA_TRANSITION_ONLY:
             command.append(str(selected_project_template(root, ('Scenes/68-sequence-camera-shots.scene.json', 'Assets/Sequences/SlidingDoor.animation.json'), 'Camera transition template')))
@@ -195,7 +218,7 @@ def editor(mode='full'):
             command.append(str(audio_profile_project_template(root)))
         elif SPRITE_FRAMES_ONLY or UI_LOCALIZATION_ONLY:
             command.append(str(Path(__file__).resolve().parents[1]/'samples/projects/FeatureGallery'))
-        if AUDIO_PAUSE_ONLY or LIFETIMES_ONLY or CONDITIONS_SDK or MESSAGES_ONLY or MESH_WIND_SDK or FOG_VOLUMES_SDK or WORKERS_SDK:
+        if AUDIO_PAUSE_ONLY or LIFETIMES_ONLY or CONDITIONS_SDK or MESSAGES_ONLY or MESH_WIND_SDK or FOG_VOLUMES_SDK or WORKERS_SDK or ANIMATION_GRAPH_SDK:
             command.append('--sdk')
         process = subprocess.Popen(command,
                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE,
@@ -293,6 +316,11 @@ for legacy in (False, True):
             assert 'Fog Volume' in advertised['forge_play_tune']['description']
             check_fog_volume_play(read, ok, control, mutate, until, discovery, FOG_VOLUMES_SDK)
             print(('legacy' if legacy else 'current') + ': Fog Volume scoped native Play/tuning/review passed')
+            continue
+        if ANIMATION_GRAPH_ONLY:
+            check_animation_graph_play(read, ok, control, mutate, until, discovery, advertised,
+                                       ANIMATION_GRAPH_SDK, ANIMATION_GRAPH_MODULE)
+            print(('legacy' if legacy else 'current') + ': Animation Graph scoped native Play/input tuning/review passed')
             continue
         if MESH_WIND_ONLY:
             check_mesh_wind_play(read, ok, control, mutate, until, discovery, advertised, MESH_WIND_SDK)

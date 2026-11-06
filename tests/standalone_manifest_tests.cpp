@@ -10,6 +10,7 @@
 #include "runtime_workers_package_tests.hpp"
 #include "standalone_manifest.hpp"
 #include "ui_surface_limits.hpp"
+#include <forge/animation_graph.hpp>
 #include <forge/game_settings.hpp>
 #include <forge/input_message.hpp>
 #include <forge/native_sdk_identity.h>
@@ -57,6 +58,20 @@ int main(int argc, char** argv) {
             record.metadata["forge.import"]["importer"] = "forge.model.gltf";
             features.replace(record);
             validate_runtime_compatibility(features, Json::object());
+        }
+        {
+            AssetCatalog features(scratch / "animation-graph-compatibility");
+            features.add({AssetId::generate(), AnimationGraphAsset::type,
+                          "Assets/Motion.animgraph.json", 1});
+            reject([&] { validate_runtime_compatibility(features, Json::object()); });
+            for (const Json& invalid : {Json(), Json(false), Json(-1), Json(0), Json(1.), Json("1"),
+                                        Json(2), Json(std::uint64_t{1} << 32)})
+                reject([&] {
+                    validate_runtime_compatibility(features,
+                                                   {{"runtime_animation_graph", invalid}});
+                });
+            validate_runtime_compatibility(
+                features, {{"runtime_animation_graph", animation_graph_runtime_profile_version}});
         }
         {
             AssetCatalog features(scratch / "skeletal-clip-compatibility");

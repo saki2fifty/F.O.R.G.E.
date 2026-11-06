@@ -15,6 +15,14 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* h, char*, uint32_t) {
         .kind(h->fixed_phase)
         .each([](flecs::entity e, const forge::Animator& previous) {
             auto next = previous;
+            if (next.graph.id) {
+                // This probe's graph fixture declares slot1. Exact SDK layouts
+                // permit ordinary gameplay systems to tune its authored inputs.
+                next.graph_override_1 = true;
+                next.graph_input_1 = .625f;
+                e.set(next);
+                return;
+            }
             next.playback_speed = 2;
             if (next.states.id)
                 next.state = 2; // Named states use stable IDs in the matching SDK.

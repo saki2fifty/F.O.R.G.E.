@@ -1,0 +1,14 @@
+{
+  "asset_id": "bcf9a5cd-c256-4604-94c4-a50330f51cb8",
+  "default_weight": 0,
+  "entries": [
+    {
+      "descendants": true,
+      "joint": "167743c7-eabb-4dcf-95c1-27f8403c78a6",
+      "weight": 1
+    }
+  ],
+  "format": "forge.animation-mask",
+  "skeleton": "3fd41841-5ad9-40ee-8354-3097141941f0",
+  "version": 1
+}

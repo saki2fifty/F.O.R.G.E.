@@ -877,3 +877,14 @@ and export with the matching runtime kit to run the same motion in a standalone 
 See [Transfer animation to another skeleton](../editor/animation-retargeting.md).
 
 ![Blue source and gold target with different proportions playing mapped motion](../images/animation-retarget-gallery.png)
+
+## Compose clips and layers
+
+Open **180-animation-graphs**, press **Play** and open **Game**. Three gold rigs use
+one graph: defaults on the left, full upper motion in the middle and a zero-strength
+layer holding rest on the right. Stop and open
+**Assets/AnimationGraphs/Layered.animgraph.json** in Content. Inspect its shared Rest
+clip, mapped Swing, Blend/Additive nodes, upper-chain mask and two named input slots.
+The selected model root's Animator can override either input. See
+[Compose an animation graph](../editor/animation-graphs.md) for preview, live tuning,
+saving and export.

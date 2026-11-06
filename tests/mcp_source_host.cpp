@@ -1,4 +1,5 @@
 #include "animation_blend_space_editor.hpp"
+#include "animation_graph_editor.hpp"
 #include "animation_mask_editor.hpp"
 #include "animation_retarget_editor.hpp"
 #include "animation_states_editor.hpp"
@@ -91,6 +92,7 @@ int main(int argc, char** argv) {
         forge::AnimationBlendSpaceEditor blend;
         forge::AnimationMaskEditor mask;
         forge::AnimationRetargetEditor retarget;
+        forge::AnimationGraphEditor animation_graph;
         forge::AnimationTimelineEditor timeline;
         forge::ui::DocumentWorkspace documents;
         auto bind = [&](const char* id, auto& owner) {
@@ -119,6 +121,7 @@ int main(int argc, char** argv) {
         bind("animation_blend_space", blend);
         bind("animation_mask", mask);
         bind("animation_retarget", retarget);
+        bind("animation_graph", animation_graph);
         bind("animation_timeline", timeline);
         forge::ui::WorkspaceDocument audio_entry;
         audio_entry.id = audio_entry.title = "audio_import";
@@ -155,6 +158,11 @@ int main(int argc, char** argv) {
                  forge::transform_animation_import_registry(),
                  [](auto& candidate, const auto& plan, const auto&) {
                      forge::prepare_transform_animation_publication(candidate, plan);
+                 }},
+                {"forge.animation.graph", forge::desktop_texture_target(),
+                 forge::animation_graph_import_registry(),
+                 [](auto& candidate, const auto& plan, const auto&) {
+                     forge::prepare_animation_graph_publication(candidate, plan);
                  }},
                 {"forge.mesh.editable", forge::desktop_texture_target(),
                  forge::editable_mesh_import_registry(),
@@ -231,10 +239,14 @@ int main(int argc, char** argv) {
             application_states.poll(files.document, files.status);
             blend.poll(files.document, files.status);
             retarget.asset_catalog_changed(imports.catalog());
+            animation_graph.asset_catalog_changed(imports.catalog());
             states.asset_catalog_changed(imports.catalog());
             blend.asset_catalog_changed(imports.catalog());
             retarget.poll(files.document, files.status);
             if (auto catalog = retarget.take_catalog())
+                imports.catalog_changed(std::move(catalog));
+            animation_graph.poll(files.document, files.status);
+            if (auto catalog = animation_graph.take_catalog())
                 imports.catalog_changed(std::move(catalog));
             mask.poll(files.document, files.status);
             timeline.poll(files.document, scene, false, 0, files.status);
@@ -269,6 +281,7 @@ int main(int argc, char** argv) {
             blend.draw(files.document, scene, false);
             mask.draw(files.document, scene, false);
             retarget.draw(files.document, scene, false);
+            animation_graph.draw(files.document, scene, false);
             timeline.draw(files.document, scene, false);
             ImGui::Render();
             std::this_thread::sleep_for(std::chrono::milliseconds(2));

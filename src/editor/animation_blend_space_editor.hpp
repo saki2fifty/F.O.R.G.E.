@@ -505,6 +505,7 @@ class AnimationBlendSpaceEditor {
                 throw std::runtime_error("Choose an Animator with this imported skeleton");
             const auto compiled = document_->source().compiled();
             Json values{{"blend_weight", 0},
+                        {"graph", nullptr},
                         {"blend_root", nullptr},
                         {"blend_mask", nullptr},
                         {"blend_mode", 0},
@@ -518,8 +519,9 @@ class AnimationBlendSpaceEditor {
                         {"blend_position_y", float(compiled.samples.front().position_y)}};
             auto commands = Json::array();
             for (const char* field :
-                 {"blend_weight", "blend_root", "blend_mask", "blend_mode", "blend_clip", "states",
-                  "state", "clip", "skeleton", "blend_space", "blend_position", "blend_position_y"})
+                 {"graph", "blend_weight", "blend_root", "blend_mask", "blend_mode", "blend_clip",
+                  "states", "state", "clip", "skeleton", "blend_space", "blend_position",
+                  "blend_position_y"})
                 commands.push_back({{"operation", "property.set"},
                                     {"arguments",
                                      {{"entity", id},

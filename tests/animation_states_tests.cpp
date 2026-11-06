@@ -543,9 +543,9 @@ int main(int argc, char** argv) {
         require(states.wait_idle(10s), "Invalid state publication did not finish");
         results = states.poll();
         require(results.size() == 1 && !results.front().published &&
-                    results.front().diagnostic.find("same exact imported model revision") !=
+                    results.front().diagnostic.find("one exact model revision") !=
                         std::string::npos,
-                "A clip from another imported model was admitted");
+                "Foreign-model clip rejection did not report its exact model binding");
         require(AssetCatalog::open_project(root)
                         .records()
                         .at(graph)

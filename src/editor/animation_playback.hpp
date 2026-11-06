@@ -59,6 +59,11 @@ class AnimationPlaybackEditor {
             const auto state = status.value("state_name", std::string());
             if (!state.empty())
                 ImGui::TextWrapped("State: %s", state.c_str());
+            for (const auto& input : status.value("graph_inputs", nlohmann::json::array()))
+                ImGui::TextWrapped(
+                    "%s (slot %u): %.4f%s", input.at("name").get<std::string>().c_str(),
+                    input.at("slot").get<unsigned>(), input.at("value").get<double>(),
+                    input.at("override").get<bool>() ? " / override" : " / default");
             ImGui::TextWrapped("%s | Speed %.3f", status.value("loop", false) ? "Loop" : "One-shot",
                                status.value("speed", 0.));
             if (status.value("transitioning", false))

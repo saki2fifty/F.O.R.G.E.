@@ -1,5 +1,22 @@
 # 2026-11-06
 
+## Compose animation clips and layers
+
+Animation Graphs compose Clip, Blend and Additive nodes with shared paths, exact
+target-bound imported/baked clips, bone masks and four named input slots. Native
+source controls, source history/publication, stopped previews, Inspector/live tuning,
+post-Stop review and automation/MCP use the existing owners. Inputs retain the
+current phase, validate the complete pose and preserve working state on rejection.
+Morphs, rig constraints and per-layer root displacement use normal animation paths.
+
+Gallery180 compares default, full-strength and rest overrides using an existing
+owned rig/motion pair. Source-free CPU playback and four rendered software Vulkan
+frames match relocated export. Graph recovery wraps existing sequence/camera
+profiles, and installed matching C++ SDK clients can access the appended Animator
+fields. Exact fingerprints and rebuilt modules are required; runtime kits advertise
+runtime_animation_graph1. The illustrated manual covers controls, saving/export and
+bounds. Windows/full-editor and physical acceptance remain pending.
+
 ## Bake motion for another skeleton
 
 Animation Retarget maps durable imported joint identities, transfers rest-relative

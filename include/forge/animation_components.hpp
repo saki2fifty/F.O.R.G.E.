@@ -17,6 +17,9 @@ struct AnimationMaskAsset {
 struct AnimationBlendSpaceAsset {
     static constexpr const char* type = "animation_blend_space";
 };
+struct AnimationGraphAsset {
+    static constexpr const char* type = "animation_graph";
+};
 struct TransformAnimationAsset {
     static constexpr const char* type = "transform_animation";
 };
@@ -84,6 +87,12 @@ struct Animator {
     AssetRef<AnimationBlendSpaceAsset> blend_space{};
     float blend_position = 0;
     float blend_position_y = 0;
+    // Graph mode owns clip selection. Each unchecked override uses the named
+    // slot's source default rather than silently replacing it with zero.
+    AssetRef<AnimationGraphAsset> graph{};
+    bool graph_override_1 = false, graph_override_2 = false, graph_override_3 = false,
+         graph_override_4 = false;
+    float graph_input_1 = 0, graph_input_2 = 0, graph_input_3 = 0, graph_input_4 = 0;
     bool operator==(const Animator&) const = default;
 };
 // Opt-in constraints on an imported model holder. Values are in skeleton model

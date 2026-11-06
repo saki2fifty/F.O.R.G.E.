@@ -190,6 +190,8 @@ class ComponentInspector {
         if (!components.contains(key) || !components.at(key).is_object())
             return false;
         return AnimationPlaybackAccess::rig_type(key) ||
+               (RuntimePropertyTune::animation_graph_type(key) &&
+                !components.at(key).value("graph", Json()).is_null()) ||
                RuntimePropertyTune::camera_shot_type(key) ||
                RuntimePropertyTune::state_condition_type(key) ||
                RuntimePropertyTune::ui_values_type(key) ||
@@ -224,6 +226,8 @@ class ComponentInspector {
                                         const Json& components) {
         const auto name = field.at("id").get<std::string>();
         return components.at(key).contains(name) &&
+               (!RuntimePropertyTune::animation_graph_type(key) ||
+                RuntimePropertyTune::animation_graph_property(name)) &&
                (!RuntimePropertyTune::camera_shot_type(key) ||
                 RuntimePropertyTune::camera_shot_property(name)) &&
                (!RuntimePropertyTune::state_condition_type(key) ||
@@ -390,6 +394,14 @@ class ComponentInspector {
                 const auto name = field.at("id").get<std::string>();
                 if (!runtime_field_available(key, field, components))
                     continue;
+                if (RuntimePropertyTune::animation_graph_type(key)) {
+                    const auto playback = entity->value("animation_playback", Json::object());
+                    const auto inputs = playback.value("graph_inputs", Json::array());
+                    const auto slot = RuntimePropertyTune::animation_graph_slot(name);
+                    if (std::none_of(inputs.begin(), inputs.end(),
+                                     [&](const auto& input) { return input.at("slot") == slot; }))
+                        continue;
+                }
                 if (RuntimePropertyTune::sprite_type(key) &&
                     group != sprite_inspector_group(name)) {
                     group = sprite_inspector_group(name);

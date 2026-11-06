@@ -1,6 +1,7 @@
 #include "animation_asset.hpp"
 #include "animation_blend_space_resource.hpp"
 #include "animation_event_range.hpp"
+#include "animation_graph_resource.hpp"
 #include "animation_mask_resource.hpp"
 #include "animation_morph_blend.hpp"
 #include "animation_playback_access.hpp"
@@ -11,6 +12,7 @@
 #include "asset_bytes.hpp"
 #include "builtins.hpp"
 #include "legacy_animation_provenance.hpp"
+#include "runtime_property_tune.hpp"
 #include "transform_animation_runtime.hpp"
 #include <algorithm>
 #include <cmath>
@@ -49,6 +51,10 @@ struct Playback {
     ResourceLease<AnimationStatesAsset> definition;
     ResourceLease<AnimationMaskAsset> mask;
     ResourceLease<AnimationBlendSpaceAsset> space;
+    ResourceLease<AnimationGraphAsset> graph;
+    std::map<AssetId, ResourceLease<AnimationMaskAsset>> graph_masks;
+    std::map<AssetId, std::unique_ptr<Sampler>> graph_samplers;
+    std::vector<std::vector<float>> graph_joint_masks, graph_morph_masks;
     AnimationBlendSelection space_selection;
     std::map<AssetId, Pair> clips;
     std::unique_ptr<Sampler> outgoing_sampler;
@@ -87,8 +93,81 @@ struct Playback {
     };
     std::map<const Clip*, RootSamples> root_samples;
 };
+const Animator& requested_configuration(const Playback& p) {
+    return (p.definition || p.space || p.graph) ? p.requested : p.config;
+}
 double playback_duration(const Playback& p) {
+    if (p.graph)
+        return p.graph->graph.cycle_seconds;
     return p.space ? p.space->space.cycle_seconds : p.assets.clip->info().duration;
+}
+std::array<double, animation_graph_input_limit> graph_inputs(const Animator& config,
+                                                             const AnimationGraph& graph) {
+    auto values = graph.initial_inputs();
+    const std::array overrides{config.graph_override_1, config.graph_override_2,
+                               config.graph_override_3, config.graph_override_4};
+    const std::array supplied{config.graph_input_1, config.graph_input_2, config.graph_input_3,
+                              config.graph_input_4};
+    for (std::size_t i = 0; i < values.size(); ++i) {
+        if (!std::isfinite(supplied[i]) || std::abs(supplied[i]) > 1000000)
+            throw ArchiveError("Animation Graph inputs must be finite within ±1000000");
+        if (overrides[i]) {
+            if (std::none_of(graph.inputs.begin(), graph.inputs.end(),
+                             [&](const auto& input) { return input.slot == i + 1; }))
+                throw ArchiveError(
+                    "Animator overrides an input slot absent from its Animation Graph");
+            values[i] = supplied[i];
+        }
+    }
+    return values;
+}
+void copy_graph_inputs(Animator& target, const Animator& source) {
+    target.graph_override_1 = source.graph_override_1;
+    target.graph_override_2 = source.graph_override_2;
+    target.graph_override_3 = source.graph_override_3;
+    target.graph_override_4 = source.graph_override_4;
+    target.graph_input_1 = source.graph_input_1;
+    target.graph_input_2 = source.graph_input_2;
+    target.graph_input_3 = source.graph_input_3;
+    target.graph_input_4 = source.graph_input_4;
+}
+Json graph_checkpoint(const Playback& p) {
+    auto clips = Json::array(), masks = Json::array();
+    for (const auto& [id, pair] : p.clips)
+        clips.push_back({{"asset", id}, {"revision", pair.clip_revision}});
+    for (const auto& [id, mask] : p.graph_masks)
+        masks.push_back({{"asset", id}, {"revision", mask.identity().revision}});
+    return {{"asset", p.requested.graph.id},
+            {"revision", p.graph.identity().revision},
+            {"cycle_seconds", playback_duration(p)},
+            {"inputs", graph_inputs(p.config, p.graph->graph)},
+            {"overrides",
+             {p.config.graph_override_1, p.config.graph_override_2, p.config.graph_override_3,
+              p.config.graph_override_4}},
+            {"stored_values",
+             {p.config.graph_input_1, p.config.graph_input_2, p.config.graph_input_3,
+              p.config.graph_input_4}},
+            {"clips", std::move(clips)},
+            {"masks", std::move(masks)}};
+}
+Json graph_playback_inputs(const Playback& p) {
+    const auto values = graph_inputs(p.config, p.graph->graph);
+    const std::array overrides{p.config.graph_override_1, p.config.graph_override_2,
+                               p.config.graph_override_3, p.config.graph_override_4};
+    Json rows = Json::array();
+    for (const auto& input : p.graph->graph.inputs)
+        rows.push_back({{"slot", input.slot},
+                        {"name", input.name},
+                        {"default", input.initial},
+                        {"value", values.at(input.slot - 1)},
+                        {"override", overrides.at(input.slot - 1)}});
+    return rows;
+}
+void reset_graph_sampling(Playback& p) {
+    for (auto& [id, sampler] : p.graph_samplers) {
+        (void)id;
+        sampler->reset();
+    }
 }
 // Detached recovery preparation; these slots are adopted only after every
 // candidate clock/pose succeeds. No persistent binding cache is serialized.
@@ -131,6 +210,8 @@ std::optional<std::size_t> root_joint(const Playback& p) {
     return selected;
 }
 std::size_t evaluated_joints(const Playback& p) {
+    if (p.graph)
+        return p.assets.skeleton->info().tracks * p.graph->graph.nodes.size();
     if (p.space && p.space->space.dimensions == 2)
         return p.assets.skeleton->info().tracks * p.space_selection.count;
     const bool two_layers = p.blend_sampler || (p.definition && p.blend < 1);
@@ -176,6 +257,7 @@ struct SampledPose {
     std::optional<LocalPose> incoming, second, outgoing;
     MorphPose morphs;
     std::optional<LocalPose> third;
+    std::vector<std::optional<LocalPose>> graph_roots;
 };
 std::vector<float> subtree_mask(const Pair& assets, AssetId selected) {
     if (!selected)
@@ -212,6 +294,24 @@ std::vector<float> morph_subtree_mask(const Playback& p, std::span<const float> 
 MorphPose sample_morphs(const Playback& p, double time, double blend, double outgoing_time) {
     if (!p.assets.model || p.morph_defaults.empty())
         return {};
+    if (p.graph) {
+        const auto& graph = p.graph->graph;
+        const auto inputs = graph_inputs(p.config, graph);
+        std::vector<MorphPose> nodes(graph.nodes.size());
+        for (std::size_t i = 0; i < graph.nodes.size(); ++i) {
+            const auto& node = graph.nodes[i];
+            if (node.kind == AnimationGraphNodeKind::Clip) {
+                const auto& clip = p.clips.at(node.clip.id);
+                nodes[i] = clip.model.clip->morphs->sample(time * clip.clip->info().duration /
+                                                           playback_duration(p));
+            } else
+                nodes[i] = blend_morph_samples(p.morph_defaults, nodes.at(node.first),
+                                               nodes.at(node.second), node.weight.evaluate(inputs),
+                                               node.kind == AnimationGraphNodeKind::Additive,
+                                               p.graph_morph_masks.at(i));
+        }
+        return std::move(nodes.at(graph.output));
+    }
     const auto incoming = p.assets.model.clip->morphs->sample(
         time * p.assets.clip->info().duration / playback_duration(p));
     if (p.definition) {
@@ -249,6 +349,36 @@ MorphPose sample_morphs(const Playback& p, double time, double blend, double out
     return blend_morph_samples(p.morph_defaults, incoming, second, p.blend_sampler ? blend : 0,
                                p.config.blend_mode == 1, p.morph_mask);
 }
+std::vector<Matrix> sample_graph_pose(Playback& p, Sampler& workspace, float ratio,
+                                      bool temporary) {
+    const auto& graph = p.graph->graph;
+    const auto inputs = graph_inputs(p.config, graph);
+    std::map<AssetId, std::unique_ptr<Sampler>> temporary_samplers;
+    std::vector<AnimationPoseNode> nodes(graph.nodes.size());
+    for (std::size_t i = 0; i < graph.nodes.size(); ++i) {
+        const auto& source = graph.nodes[i];
+        auto& node = nodes[i];
+        if (source.kind == AnimationGraphNodeKind::Clip) {
+            if (source.clip == p.config.clip)
+                node.sampler = &workspace;
+            else if (temporary) {
+                if (!temporary_samplers.contains(source.clip.id))
+                    temporary_samplers.emplace(
+                        source.clip.id, std::make_unique<Sampler>(p.assets.skeleton,
+                                                                  p.clips.at(source.clip.id).clip));
+                node.sampler = temporary_samplers.at(source.clip.id).get();
+            } else
+                node.sampler = p.graph_samplers.at(source.clip.id).get();
+        } else {
+            node.first = source.first;
+            node.second = source.second;
+            node.weight = float(source.weight.evaluate(inputs));
+            node.additive = source.kind == AnimationGraphNodeKind::Additive;
+            node.joint_mask = p.graph_joint_masks.at(i);
+        }
+    }
+    return workspace.sample_graph(nodes, ratio);
+}
 SampledPose sample_pose(Playback& p, double time, double blend, bool temporary = false,
                         double outgoing_time = -1, const RigConstraints* constraints = nullptr,
                         bool apply_constraints = true,
@@ -278,7 +408,9 @@ SampledPose sample_pose(Playback& p, double time, double blend, bool temporary =
     const auto ratio = float(std::clamp(time / playback_duration(p), 0., 1.));
     std::vector<Matrix> model;
     std::optional<LocalPose> outgoing_root;
-    if (p.space && p.space->space.dimensions == 2) {
+    if (p.graph)
+        model = sample_graph_pose(p, *sampler, ratio, temporary);
+    else if (p.space && p.space->space.dimensions == 2) {
         const std::array<Sampler*, 3> samplers{sampler, blend_sampler, third_sampler};
         std::array<WeightedAnimationSample, 3> layers;
         for (std::size_t i = 0; i < p.space_selection.count; ++i)
@@ -307,6 +439,13 @@ SampledPose sample_pose(Playback& p, double time, double blend, bool temporary =
         model = blend_sampler ? sampler->sample_blended(ratio, *blend_sampler, float(blend),
                                                         p.blend_mask, p.config.blend_mode == 1)
                               : sampler->sample(ratio);
+    std::vector<std::optional<LocalPose>> graph_roots;
+    if (p.graph && joint) {
+        graph_roots.resize(p.graph->graph.nodes.size());
+        for (std::size_t i = 0; i < graph_roots.size(); ++i)
+            if (p.graph->graph.nodes[i].kind == AnimationGraphNodeKind::Clip)
+                graph_roots[i] = sampler->graph_joint_pose(i, *joint);
+    }
     const auto& rig = constraints ? *constraints : p.rig;
     const auto& rig_base = base ? *base : p.rig_base;
     if (apply_constraints && (rig.reach || rig.aim || !rig_base.empty()))
@@ -317,7 +456,8 @@ SampledPose sample_pose(Playback& p, double time, double blend, bool temporary =
             blend_sampler ? blend_sampler->sampled_root() : std::nullopt,
             outgoing_root,
             sample_morphs(p, time, blend, outgoing_time),
-            third_sampler ? third_sampler->sampled_root() : std::nullopt};
+            third_sampler ? third_sampler->sampled_root() : std::nullopt,
+            std::move(graph_roots)};
 }
 RootRigid layer_motion(Playback& p, const Pair& assets, std::size_t joint, double begin,
                        double advance, bool loop, double time,
@@ -351,6 +491,36 @@ RootRigid layer_motion(Playback& p, const Pair& assets, std::size_t joint, doubl
     return delta;
 }
 RootRigid root_motion_delta(Playback& p, const SampledPose& pose, std::size_t joint) {
+    if (p.graph) {
+        const auto inputs = graph_inputs(p.config, p.graph->graph);
+        const auto& graph = p.graph->graph;
+        std::vector<RootRigid> deltas(graph.nodes.size());
+        std::map<AssetId, RootRigid> leaves;
+        for (std::size_t i = 0; i < graph.nodes.size(); ++i) {
+            const auto& node = graph.nodes[i];
+            if (node.kind == AnimationGraphNodeKind::Clip) {
+                if (!leaves.contains(node.clip.id)) {
+                    const auto& pair = p.clips.at(node.clip.id);
+                    const auto scale = pair.clip->info().duration / playback_duration(p);
+                    leaves.emplace(node.clip.id,
+                                   layer_motion(p, pair, joint, p.tick_begin * scale,
+                                                p.tick_advance * scale, p.config.loop,
+                                                p.time * scale, pose.graph_roots.at(i)));
+                }
+                deltas[i] = leaves.at(node.clip.id);
+            } else {
+                const auto& mask = p.graph_joint_masks.at(i);
+                const auto weight =
+                    node.weight.evaluate(inputs) * (mask.empty() ? 1. : mask.at(joint));
+                deltas[i] = node.kind == AnimationGraphNodeKind::Additive
+                                ? root_compose(deltas.at(node.first),
+                                               root_blend({}, deltas.at(node.second), weight))
+                                : root_blend(deltas.at(node.first), deltas.at(node.second), weight);
+            }
+        }
+        const auto rest = root_rigid(p.assets.skeleton->joint_rest_pose(joint));
+        return root_compose(root_compose(rest, deltas.at(graph.output)), root_inverse(rest));
+    }
     const double incoming_ratio = p.assets.clip->info().duration / playback_duration(p);
     auto incoming = layer_motion(p, p.assets, joint, p.tick_begin * incoming_ratio,
                                  p.tick_advance * incoming_ratio, p.config.loop,
@@ -486,6 +656,8 @@ struct AnimationRuntime::Impl {
     std::map<AssetId, ResourceTicket> mask_requests;
     ResourcePool<AnimationBlendSpaceAsset> space_pool{{1, 64, 64, 4 * 1024 * 1024}};
     std::map<AssetId, ResourceTicket> space_requests;
+    ResourcePool<AnimationGraphAsset> graph_pool{{1, 64, 64, 4 * 1024 * 1024}};
+    std::map<AssetId, ResourceTicket> graph_requests;
     std::map<flecs::entity_t, Playback> states;
     std::map<flecs::entity_t, AnimationRootMotion> root_motions;
     std::set<flecs::entity_t> pending;
@@ -1058,6 +1230,7 @@ struct AnimationRuntime::Impl {
         state_requests.clear();
         mask_requests.clear();
         space_requests.clear();
+        graph_requests.clear();
         reload_pending.swap(changed);
         reload_errors.clear();
         failed_configurations.clear();
@@ -1106,6 +1279,8 @@ struct AnimationRuntime::Impl {
             return;
         try {
             detail::validate_reflected_value(e, requested);
+            if (requested.graph.id)
+                throw ArchiveError("Named animation states cannot also use an Animation Graph");
             if (requested.blend_space.id || requested.blend_clip.id ||
                 requested.blend_weight != 0 || requested.blend_root.id || requested.blend_mask.id ||
                 requested.blend_mode != 0)
@@ -1312,6 +1487,247 @@ struct AnimationRuntime::Impl {
             reload_pending.erase(e.id());
         }
     }
+    void update_graph_inputs(Playback& p, const Animator& requested, bool commit) {
+        (void)graph_inputs(requested, p.graph->graph);
+        const auto previous_request = p.requested, previous_config = p.config;
+        const auto previous_discontinuous = p.discontinuous;
+        p.requested = requested;
+        copy_graph_inputs(p.config, requested);
+        p.discontinuous = true;
+        try {
+            const auto entity = context.resolve(p.reference).entity;
+            apply_model_poses(commit, {{entity, p.time}}, entity, {}, {}, nullptr, nullptr, true);
+        } catch (...) {
+            p.requested = previous_request;
+            p.config = previous_config;
+            p.discontinuous = previous_discontinuous;
+            throw;
+        }
+    }
+    template <class Retain>
+    void graph_player(flecs::entity e, const Animator& requested, float fixed_dt, Retain retain,
+                      std::set<AssetId>& used_masks) {
+        auto old = states.find(e.id());
+        const bool reload = reload_pending.contains(e.id());
+        if (!reload && old != states.end() && old->second.graph &&
+            old->second.requested == requested) {
+            errors.erase(e.id());
+            failed_configurations.erase(e.id());
+            return;
+        }
+        if (!reload && failed_configurations.contains(e.id()) &&
+            failed_configurations.at(e.id()) == requested)
+            return;
+        try {
+            detail::validate_reflected_value(e, requested);
+            if (requested.clip.id || requested.states.id || requested.blend_space.id ||
+                requested.blend_clip.id || requested.blend_mask.id || requested.blend_root.id ||
+                requested.blend_mode != 0 || requested.blend_weight != 0 || requested.state != 0 ||
+                requested.blend_position != 0 || requested.blend_position_y != 0)
+                throw ArchiveError("Animation Graph cannot also select a clip, States, Blend Space "
+                                   "or manual blending");
+            const bool cached = !reload && old != states.end() && old->second.graph &&
+                                old->second.requested.graph == requested.graph;
+            if (cached) {
+                auto unchanged = requested;
+                copy_graph_inputs(unchanged, old->second.requested);
+                if (unchanged == old->second.requested) {
+                    auto& p = old->second;
+                    update_graph_inputs(p, requested, fixed_dt == 0);
+                    errors.erase(e.id());
+                    failed_configurations.erase(e.id());
+                    return;
+                }
+            }
+            if (!model_catalog) {
+                if (!catalog_error.empty())
+                    throw ArchiveError(catalog_error);
+                if (old == states.end())
+                    pending.insert(e.id());
+                return;
+            }
+            auto definition = cached ? old->second.graph : ResourceLease<AnimationGraphAsset>{};
+            if (!definition) {
+                const auto found = model_catalog->records().find(requested.graph.id);
+                if (found == model_catalog->records().end())
+                    throw ArchiveError("Animation Graph selection is missing");
+                auto ticket = graph_requests.find(requested.graph.id);
+                if (ticket == graph_requests.end())
+                    ticket =
+                        graph_requests
+                            .emplace(requested.graph.id,
+                                     request_animation_graph(graph_pool, project, found->second))
+                            .first;
+                const auto status = ticket->second.inspect();
+                if (resource_detail::terminal(status.state) && status.state != ResourceState::Ready)
+                    throw ArchiveError(status.diagnostic);
+                definition = graph_pool.acquire(ticket->second);
+            }
+            if (!definition) {
+                if (old == states.end())
+                    pending.insert(e.id());
+                return;
+            }
+            const auto& graph = definition->graph;
+            if (requested.skeleton.id && requested.skeleton.id != graph.skeleton)
+                throw ArchiveError("Animation Graph does not match the Animator skeleton");
+            (void)graph_inputs(requested, graph);
+            Playback next;
+            next.requested = next.config = requested;
+            next.reference = *context.reference(e.id());
+            next.config.skeleton.id = graph.skeleton;
+            next.config.clip = graph.nodes.front().clip;
+            next.graph = std::move(definition);
+            if (cached) {
+                next.clips = old->second.clips;
+                next.graph_masks = old->second.graph_masks;
+            }
+            for (const auto& node : graph.nodes) {
+                if (node.kind != AnimationGraphNodeKind::Clip || next.clips.contains(node.clip.id))
+                    continue;
+                auto c = next.config;
+                c.clip = node.clip;
+                retain(c);
+                auto pair = load(c);
+                if (!pair) {
+                    if (old == states.end())
+                        pending.insert(e.id());
+                    return;
+                }
+                if (!pair->model || pair->skeleton_revision != next.graph->skeleton_revision ||
+                    pair->clip_revision != next.graph->clips.at(node.clip.id) ||
+                    pair->skeleton->info().tracks > animation_graph_joint_limit)
+                    throw ArchiveError("Animation Graph clip binding differs from its selected "
+                                       "skeleton or clip revision");
+                if (!next.clips.empty() &&
+                    (next.clips.begin()->second.skeleton != pair->skeleton ||
+                     next.clips.begin()->second.model_generation != pair->model_generation))
+                    throw ArchiveError(
+                        "Animation Graph clips must share one exact model/skeleton revision");
+                next.clips.emplace(node.clip.id, std::move(*pair));
+            }
+            next.assets = next.clips.at(next.config.clip.id);
+            for (const auto& [clip, pair] : next.clips) {
+                auto c = next.config;
+                c.clip.id = clip;
+                retain(c);
+                next.transform_channels =
+                    channel_union(next.transform_channels, pair.model.clip->transform_channels);
+                next.morph_defaults =
+                    merge_morph_defaults(next.morph_defaults, pair.model.clip->morph_defaults);
+                if (clip != next.config.clip.id)
+                    next.graph_samplers.emplace(
+                        clip, std::make_unique<Sampler>(next.assets.skeleton, pair.clip));
+            }
+            next.graph_joint_masks.resize(graph.nodes.size());
+            next.graph_morph_masks.resize(graph.nodes.size());
+            for (std::size_t i = 0; i < graph.nodes.size(); ++i) {
+                const auto id = graph.nodes[i].mask.id;
+                if (!id)
+                    continue;
+                used_masks.insert(id);
+                if (!next.graph_masks.contains(id)) {
+                    const auto found = model_catalog->records().find(id);
+                    if (found == model_catalog->records().end() ||
+                        animation_mask_selection(found->second).at("key") !=
+                            next.graph->masks.at(id))
+                        throw ArchiveError(
+                            "Animation Graph mask is missing or has a different selected revision");
+                    auto ticket = mask_requests.find(id);
+                    if (ticket == mask_requests.end())
+                        ticket = mask_requests
+                                     .emplace(id, request_animation_mask(mask_pool, project,
+                                                                         found->second))
+                                     .first;
+                    const auto status = ticket->second.inspect();
+                    if (resource_detail::terminal(status.state) &&
+                        status.state != ResourceState::Ready)
+                        throw ArchiveError(status.diagnostic);
+                    auto mask = mask_pool.acquire(ticket->second);
+                    if (!mask) {
+                        if (old == states.end())
+                            pending.insert(e.id());
+                        return;
+                    }
+                    if (mask->skeleton_revision != next.assets.skeleton_revision)
+                        throw ArchiveError(
+                            "Animation Graph mask has a different skeleton revision");
+                    next.graph_masks.emplace(id, std::move(mask));
+                }
+                next.graph_joint_masks[i] = next.graph_masks.at(id)->mask.weights(
+                    graph.skeleton, next.assets.model.skeleton->joint_assets,
+                    next.assets.skeleton->info().parents);
+                next.graph_morph_masks[i] = morph_subtree_mask(next, next.graph_joint_masks[i]);
+            }
+            if (old != states.end() && reload && old->second.graph &&
+                old->second.requested == requested &&
+                old->second.graph.identity() == next.graph.identity() &&
+                old->second.clips.size() == next.clips.size() &&
+                std::all_of(next.clips.begin(), next.clips.end(), [&](const auto& entry) {
+                    const auto found = old->second.clips.find(entry.first);
+                    return found != old->second.clips.end() &&
+                           found->second.skeleton == entry.second.skeleton &&
+                           found->second.clip == entry.second.clip &&
+                           found->second.model_generation == entry.second.model_generation;
+                })) {
+                reload_pending.erase(e.id());
+                errors.erase(e.id());
+                failed_configurations.erase(e.id());
+                return;
+            }
+            if (reload && old != states.end() && fixed_dt == 0)
+                return;
+            next.sampler = std::make_unique<Sampler>(next.assets.skeleton, next.assets.clip);
+            next.playing = requested.play_on_start;
+            if (old != states.end()) {
+                next.rig_channels = former_rig_channels(old->second, next);
+                if (old->second.assets.skeleton_revision == next.assets.skeleton_revision &&
+                    old->second.assets.model_generation == next.assets.model_generation) {
+                    next.time =
+                        old->second.time / playback_duration(old->second) * playback_duration(next);
+                    next.previous = next.time;
+                    next.playing = old->second.playing;
+                }
+            }
+            auto joints = evaluated_joints(next);
+            for (const auto& [id, p] : states)
+                if (id != e.id())
+                    joints += evaluated_joints(p);
+            if (joints > 8192 || (old == states.end() && states.size() >= 256))
+                throw ArchiveError("Animation Graph exceeds the player/evaluated-joint budget");
+            (void)sample_pose(next, next.time, 0);
+            if (old == states.end())
+                states.emplace(e.id(), std::move(next));
+            else {
+                const auto time = next.time;
+                std::swap(old->second, next);
+                try {
+                    apply_model_poses(fixed_dt == 0, {{e.id(), time}}, e.id(), {}, {}, nullptr,
+                                      nullptr, true);
+                } catch (...) {
+                    std::swap(old->second, next);
+                    throw;
+                }
+            }
+            errors.erase(e.id());
+            failed_configurations.erase(e.id());
+            reload_pending.erase(e.id());
+            reload_errors.erase(e.id());
+        } catch (const std::exception& ex) {
+            if (errors[e.id()] != ex.what()) {
+                Diagnostic d{Severity::Error, "animation.graph", ex.what(), {}};
+                d.context.entity = context.reference(e.id())->entity;
+                d.context.module = "forge.animation";
+                d.context.asset = requested.graph.id;
+                context.services().emit(std::move(d));
+                errors[e.id()] = ex.what();
+            }
+            failed_configurations[e.id()] = requested;
+            if (reload)
+                reload_errors[e.id()] = ex.what();
+            reload_pending.erase(e.id());
+        }
+    }
     template <class Retain>
     void space_player(flecs::entity e, const Animator& requested, float fixed_dt, Retain retain) {
         auto old = states.find(e.id());
@@ -1327,6 +1743,8 @@ struct AnimationRuntime::Impl {
             return;
         try {
             detail::validate_reflected_value(e, requested);
+            if (requested.graph.id)
+                throw ArchiveError("Animation Blend Space cannot also use an Animation Graph");
             if (requested.states.id || requested.blend_clip.id || requested.blend_mask.id ||
                 requested.blend_root.id || requested.blend_mode != 0 || requested.blend_weight != 0)
                 throw ArchiveError(
@@ -1545,8 +1963,8 @@ struct AnimationRuntime::Impl {
         bool needs_catalog = transforms.has_players();
         if (!model_catalog && !initial_catalog_requested)
             context.world().each([&](const Animator& c) {
-                needs_catalog |=
-                    bool(c.states.id) || bool(c.blend_mask.id) || bool(c.blend_space.id);
+                needs_catalog |= bool(c.states.id) || bool(c.blend_mask.id) ||
+                                 bool(c.blend_space.id) || bool(c.graph.id);
             });
         if (!model_catalog && needs_catalog && !initial_catalog_requested) {
             initial_catalog_requested = true;
@@ -1556,17 +1974,21 @@ struct AnimationRuntime::Impl {
         state_pool.pump();
         mask_pool.pump();
         space_pool.pump();
+        graph_pool.pump();
         if (model_resources)
             model_resources->pump();
         pending.clear();
         std::set<flecs::entity_t> alive;
         std::set<std::pair<AssetId, AssetId>> used;
-        std::set<AssetId> used_skeletons, used_clips, used_states, used_masks, used_spaces;
+        std::set<AssetId> used_skeletons, used_clips, used_states, used_masks, used_spaces,
+            used_graphs;
         auto retain = [&](const Animator& config) {
             if (config.blend_mask.id)
                 used_masks.insert(config.blend_mask.id);
             if (config.blend_space.id)
                 used_spaces.insert(config.blend_space.id);
+            if (config.graph.id)
+                used_graphs.insert(config.graph.id);
             used.insert({config.skeleton.id, config.clip.id});
             used_skeletons.insert(config.skeleton.id);
             used_clips.insert(config.clip.id);
@@ -1592,11 +2014,27 @@ struct AnimationRuntime::Impl {
             alive.insert(e.id());
             if (auto old = states.find(e.id()); old != states.end()) {
                 retain(old->second.config);
+                for (const auto& [mask, lease] : old->second.graph_masks) {
+                    (void)lease;
+                    used_masks.insert(mask);
+                }
                 for (const auto& [clip, pair] : old->second.clips) {
                     auto c = old->second.config;
                     c.clip.id = clip;
                     retain(c);
                 }
+            }
+            if (config.graph.id) {
+                used_graphs.insert(config.graph.id);
+                graph_player(e, config, fixed_dt, retain, used_masks);
+                if (auto current = states.find(e.id()); current != states.end())
+                    for (const auto& [clip, pair] : current->second.clips) {
+                        (void)pair;
+                        auto c = current->second.config;
+                        c.clip.id = clip;
+                        retain(c);
+                    }
+                return;
             }
             if (config.blend_space.id) {
                 used_spaces.insert(config.blend_space.id);
@@ -1738,7 +2176,7 @@ struct AnimationRuntime::Impl {
                 } else if (old != states.end() && old->second.config.skeleton == config.skeleton &&
                            old->second.config.clip == config.clip &&
                            old->second.config.blend_clip == config.blend_clip &&
-                           !old->second.definition && !old->second.space) {
+                           !old->second.definition && !old->second.space && !old->second.graph) {
                     if (old->second.config.enabled != config.enabled ||
                         old->second.config.root_motion != config.root_motion ||
                         old->second.config.root_joint != config.root_joint ||
@@ -1852,6 +2290,14 @@ struct AnimationRuntime::Impl {
             }
             space_pool.unload(AssetRef<AnimationBlendSpaceAsset>{it->first});
             it = space_requests.erase(it);
+        }
+        for (auto it = graph_requests.begin(); it != graph_requests.end();) {
+            if (used_graphs.contains(it->first)) {
+                ++it;
+                continue;
+            }
+            graph_pool.unload(AssetRef<AnimationGraphAsset>{it->first});
+            it = graph_requests.erase(it);
         }
         std::erase_if(states, [&](const auto& entry) { return !alive.contains(entry.first); });
         std::erase_if(errors, [&](const auto& entry) { return !alive.contains(entry.first); });
@@ -2103,6 +2549,7 @@ bool AnimationRuntime::control(EntityRef reference, AnimationControl command,
     p.sampler->reset();
     if (p.blend_sampler)
         p.blend_sampler->reset();
+    reset_graph_sampling(p);
     p.playing = p.entry_pending = p.discontinuous = true;
     p.model_pose_applied = false;
     return true;
@@ -2139,6 +2586,7 @@ bool AnimationRuntime::seek(EntityRef reference, double seconds, std::uint64_t c
     if (p.blend_sampler)
         p.blend_sampler->reset();
     p.root_samples.clear();
+    reset_graph_sampling(p);
     impl_->root_motions.erase(entity);
     return true;
 }
@@ -2160,10 +2608,74 @@ Json AnimationPlaybackAccess::status(AnimationRuntime& runtime, EntityRef ref) {
                        {"transition_weight", value->transition_weight},
                        {"blend_weight", value->blend_weight}});
         if (runtime.impl_ && runtime.impl_->context.on_owner_thread()) {
+            const auto id = runtime.impl_->context.resolve(ref).entity;
+            const auto player = runtime.impl_->states.find(id);
+            if (player != runtime.impl_->states.end() && player->second.graph) {
+                result["graph"] = player->second.requested.graph.id;
+                result["graph_inputs"] = graph_playback_inputs(player->second);
+            }
             auto clips = runtime.impl_->transforms.sequence_clip_status(ref);
             if (!clips.is_null())
                 result["sequence_clips"] = std::move(clips);
         }
+    }
+    return result;
+}
+Json AnimationPlaybackAccess::tune_graph_input(AnimationRuntime& runtime, EntityRef ref,
+                                               const std::string& property, const Json& value) {
+    return tune_graph_inputs(runtime, ref, {{property, value}}).at(property);
+}
+Json AnimationPlaybackAccess::tune_graph_inputs(AnimationRuntime& runtime, EntityRef ref,
+                                                const Json& fields) {
+    if (!runtime.impl_ || runtime.impl_->context.role() != WorldRole::Runtime ||
+        !runtime.impl_->context.on_owner_thread() || runtime.impl_->context.world().is_readonly())
+        throw ArchiveError("Live graph tuning requires the writable runtime animation owner");
+    if (!fields.is_object() || fields.empty() || fields.size() > 8)
+        throw ArchiveError("Graph tuning needs one to eight input/override fields");
+    for (const auto& [property, value] : fields.items()) {
+        const bool flag = property.starts_with("graph_override_");
+        if (!RuntimePropertyTune::animation_graph_property(property) ||
+            (flag && !value.is_boolean()) || (!flag && !value.is_number()))
+            throw ArchiveError(
+                "Graph tuning accepts only numeric graph inputs or Boolean overrides");
+    }
+    const auto resolved = runtime.impl_->context.resolve(ref);
+    if (resolved.state != WorldContext::ResolveState::Available)
+        throw ArchiveError("Live graph target is unavailable");
+    auto root = runtime.impl_->context.world().entity(resolved.entity);
+    const auto found = runtime.impl_->states.find(root.id());
+    if (root.has(flecs::Prefab) || !root.has<Animator>() || !root.has<ModelSource>() ||
+        root.get<ModelSource>().node.id || found == runtime.impl_->states.end() ||
+        !found->second.graph || !found->second.config.enabled ||
+        runtime.impl_->pending.contains(root.id()) ||
+        root.get<Animator>() != found->second.requested)
+        throw ArchiveError("Graph tuning needs an admitted model Animator graph");
+    for (const auto& [property, value] : fields.items()) {
+        (void)value;
+        const auto slot = RuntimePropertyTune::animation_graph_slot(property);
+        if (std::none_of(found->second.graph->graph.inputs.begin(),
+                         found->second.graph->graph.inputs.end(),
+                         [&](const auto& input) { return input.slot == slot; }))
+            throw ArchiveError("Graph tuning targets an undeclared input slot");
+    }
+    const auto& codecs = detail::builtins();
+    const auto codec = std::find_if(codecs.begin(), codecs.end(), [](const auto& entry) {
+        return entry.name == std::string_view("forge.animator");
+    });
+    auto candidate = codec->read(root, true);
+    candidate.update(fields);
+    detail::validate_components({{"forge.animator", candidate}});
+    const auto typed = std::get<Animator>(codec->decode(candidate));
+    detail::validate_reflected_value(root, typed);
+    if (typed != root.get<Animator>()) {
+        runtime.impl_->update_graph_inputs(found->second, typed, true);
+        root.set(typed);
+    }
+    Json result = Json::object();
+    const auto actual = codec->read(root, true);
+    for (const auto& [property, value] : fields.items()) {
+        (void)value;
+        result[property] = actual.at(property);
     }
     return result;
 }
@@ -2299,6 +2811,7 @@ void AnimationRuntime::reset_presentation() {
         p.sampler->reset();
         if (p.blend_sampler)
             p.blend_sampler->reset();
+        reset_graph_sampling(p);
     }
 }
 Json AnimationRuntime::presentation_properties(flecs::entity_t id, double alpha) const {
@@ -2375,6 +2888,11 @@ Json AnimationRuntime::presentation(flecs::entity_t id, double alpha) {
         result["state_name"] = p.definition->state(p.config.state).name;
         result["states"] = p.requested.states.id;
     }
+    if (p.graph) {
+        result["clip"] = nullptr;
+        result["graph"] = p.requested.graph.id;
+        result["graph_inputs"] = graph_playback_inputs(p);
+    }
     if (p.space) {
         const auto pair = p.space_selection;
         result["blend_space"] = p.requested.blend_space.id;
@@ -2433,8 +2951,7 @@ bool AnimationRuntime::checkpoint_ready() const {
     ApplicationStateActivation conditions(impl_->context);
     for (const auto& [id, p] : impl_->states) {
         auto e = impl_->context.world().entity(id);
-        if (!e.has<Animator>() ||
-            runtime_animator(e, conditions) != ((p.definition || p.space) ? p.requested : p.config))
+        if (!e.has<Animator>() || runtime_animator(e, conditions) != requested_configuration(p))
             return false;
     }
     return true;
@@ -2458,8 +2975,8 @@ Json AnimationRuntime::checkpoint() const {
                 throw ArchiveError(
                     "Cannot checkpoint an Animator with invalid asset configuration");
             auto actor = impl_->context.world().entity(id);
-            if (!actor.has<Animator>() || runtime_animator(actor, *conditions) !=
-                                              ((p.definition || p.space) ? p.requested : p.config))
+            if (!actor.has<Animator>() ||
+                runtime_animator(actor, *conditions) != requested_configuration(p))
                 return nullptr;
             entries.push_back(
                 {{"entity", p.reference},
@@ -2479,6 +2996,8 @@ Json AnimationRuntime::checkpoint() const {
                    {"elapsed", p.blend_elapsed},
                    {"target", p.config.blend_weight},
                    {"seconds", p.config.transition_seconds}}}});
+            if (p.graph)
+                entries.back()["graph"] = graph_checkpoint(p);
             if (p.space) {
                 const auto pair = p.space_selection;
                 entries.back()["blend_space"] = {
@@ -2556,17 +3075,46 @@ Json AnimationRuntime::checkpoint() const {
         result["camera_shots"] = impl_->transforms.camera_shots_checkpoint(true);
         result["audio_cues"] = impl_->transforms.audio_cues_checkpoint();
     }
+    if (std::any_of(entries.begin(), entries.end(),
+                    [](const auto& entry) { return entry.contains("graph"); })) {
+        result["animation_profile"] = result.at("version").get<unsigned>();
+        result["version"] = 9;
+    }
     return result;
 }
-void AnimationRuntime::restore(const Json& data) {
+void AnimationRuntime::restore(const Json& checkpoint) {
     if (!impl_)
         throw ArchiveError("Animation runtime is unavailable");
+    const bool graph_profile = checkpoint.at("version") == 9;
+    std::optional<Json> normalized;
+    if (graph_profile) {
+        if (!checkpoint.at("version").is_number_integer() ||
+            !checkpoint.contains("animation_profile") ||
+            !checkpoint.at("animation_profile").is_number_unsigned() ||
+            checkpoint.at("animation_profile").get<unsigned>() < 1 ||
+            checkpoint.at("animation_profile").get<unsigned>() > 8 ||
+            !checkpoint.at("entries").is_array() ||
+            std::none_of(checkpoint.at("entries").begin(), checkpoint.at("entries").end(),
+                         [](const auto& entry) { return entry.contains("graph"); }))
+            throw ArchiveError("Animation Graph recovery profile is invalid");
+        normalized = checkpoint;
+        normalized->at("version") = checkpoint.at("animation_profile");
+        normalized->erase("animation_profile");
+    }
+    const auto& data = normalized ? *normalized : checkpoint;
     impl_->synchronize();
     if (!impl_->pending.empty()) {
         // Candidate recovery world is not published or ticking. Share one bounded
         // deadline across all model dependencies, not a timeout per entity.
         const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
         while (!impl_->pending.empty() && std::chrono::steady_clock::now() < deadline) {
+            for (const auto& [asset, request] : impl_->graph_requests) {
+                (void)asset;
+                const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(
+                    deadline - std::chrono::steady_clock::now());
+                if (!impl_->graph_pool.wait(request, remaining))
+                    throw ArchiveError("Animation Graph recovery resources failed or timed out");
+            }
             for (const auto& [asset, request] : impl_->space_requests) {
                 (void)asset;
                 const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -2675,6 +3223,13 @@ void AnimationRuntime::restore(const Json& data) {
             }
         }
         auto& p = *selected;
+        if (p.graph) {
+            if (!graph_profile || !entry.contains("graph") ||
+                entry.at("graph") != graph_checkpoint(p))
+                throw ArchiveError(
+                    "Animation Graph recovery selection, inputs or revisions differ");
+        } else if (entry.contains("graph"))
+            throw ArchiveError("Unexpected Animation Graph recovery data");
         if (p.space) {
             const auto& space = entry.at("blend_space");
             const auto pair = p.space_selection;
@@ -2904,6 +3459,7 @@ void AnimationRuntime::restore(const Json& data) {
         p.sampler->reset();
         if (p.blend_sampler)
             p.blend_sampler->reset();
+        reset_graph_sampling(p);
         // The recovery envelope does not contain renderer-local history. Until
         // the next successful fixed application, keep any prior good draw.
         p.model_pose_applied = false;

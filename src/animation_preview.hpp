@@ -14,6 +14,7 @@ class SkeletalAnimationPreview {
     void select_state(std::uint32_t);
     void select_blend_position(float);
     void select_blend_position(float x, float y);
+    void select_graph_inputs(const Json& fields);
     void seek(double time);
     void tick(float seconds);
     Json snapshot();

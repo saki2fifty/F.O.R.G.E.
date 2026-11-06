@@ -45,6 +45,15 @@ Json RuntimeWorld::tune_property(EntityRef target, const std::string& type,
         throw std::runtime_error("Live property tuning requires the writable runtime owner");
     if (target.scene != scene.asset_id())
         throw std::runtime_error("Live property targets a different scene asset");
+    if (RuntimePropertyTune::animation_graph_type(type)) {
+        if (!engine.services().available(Capability::Animation))
+            throw std::runtime_error("Live graph tuning requires enabled animation");
+        auto result = AnimationPlaybackAccess::tune_graph_input(
+            *std::static_pointer_cast<AnimationRuntime>(engine.services().animation()), target,
+            property, value);
+        simulation.sync_animation_pose();
+        return result;
+    }
     if (RuntimePropertyTune::camera_shot_type(type)) {
         if (!RuntimePropertyTune::camera_shot_property(property) ||
             !engine.services().available(Capability::Animation))

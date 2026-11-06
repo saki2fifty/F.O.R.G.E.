@@ -192,7 +192,16 @@ template <class T> Json encode(const T& p) {
                 {"blend_mask", p.blend_mask.id ? Json(p.blend_mask.id) : Json()},
                 {"blend_space", p.blend_space.id ? Json(p.blend_space.id) : Json()},
                 {"blend_position", p.blend_position},
-                {"blend_position_y", p.blend_position_y}};
+                {"blend_position_y", p.blend_position_y},
+                {"graph", p.graph.id ? Json(p.graph.id) : Json()},
+                {"graph_override_1", p.graph_override_1},
+                {"graph_override_2", p.graph_override_2},
+                {"graph_override_3", p.graph_override_3},
+                {"graph_override_4", p.graph_override_4},
+                {"graph_input_1", p.graph_input_1},
+                {"graph_input_2", p.graph_input_2},
+                {"graph_input_3", p.graph_input_3},
+                {"graph_input_4", p.graph_input_4}};
     else if constexpr (std::is_same_v<T, AudioSource>)
         return {{"clip", p.clip.id ? Json(p.clip.id) : Json()},
                 {"play_on_start", p.play_on_start},
@@ -601,6 +610,16 @@ template <class T> Value decode(const Json& p) {
             v.blend_space.id = p.at("blend_space").get<AssetId>();
         v.blend_position = p.value("blend_position", 0.f);
         v.blend_position_y = p.value("blend_position_y", 0.f);
+        if (p.contains("graph") && !p.at("graph").is_null())
+            v.graph.id = p.at("graph").get<AssetId>();
+        v.graph_override_1 = p.value("graph_override_1", false);
+        v.graph_override_2 = p.value("graph_override_2", false);
+        v.graph_override_3 = p.value("graph_override_3", false);
+        v.graph_override_4 = p.value("graph_override_4", false);
+        v.graph_input_1 = p.value("graph_input_1", 0.f);
+        v.graph_input_2 = p.value("graph_input_2", 0.f);
+        v.graph_input_3 = p.value("graph_input_3", 0.f);
+        v.graph_input_4 = p.value("graph_input_4", 0.f);
         if (!v.blend_clip.id && v.blend_weight != 0)
             throw std::runtime_error("Animator blend target needs a second clip");
         if (v.blend_root.id && !v.blend_clip.id)
@@ -1456,6 +1475,7 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
         register_asset_ref<AnimationStatesAsset>(w, "forge.animation_states_ref");
         register_asset_ref<AnimationMaskAsset>(w, "forge.animation_mask_ref");
         register_asset_ref<AnimationBlendSpaceAsset>(w, "forge.animation_blend_space_ref");
+        register_asset_ref<AnimationGraphAsset>(w, "forge.animation_graph_ref");
         register_asset_ref<ModelNodeAsset>(w, "forge.model_node_ref");
         c.template member<AssetRef<SkeletonAsset>>("skeleton")
             .template member<AssetRef<AnimationClipAsset>>("clip")
@@ -1475,7 +1495,16 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<AssetRef<AnimationMaskAsset>>("blend_mask")
             .template member<AssetRef<AnimationBlendSpaceAsset>>("blend_space")
             .template member<float>("blend_position")
-            .template member<float>("blend_position_y");
+            .template member<float>("blend_position_y")
+            .template member<AssetRef<AnimationGraphAsset>>("graph")
+            .template member<bool>("graph_override_1")
+            .template member<bool>("graph_override_2")
+            .template member<bool>("graph_override_3")
+            .template member<bool>("graph_override_4")
+            .template member<float>("graph_input_1")
+            .template member<float>("graph_input_2")
+            .template member<float>("graph_input_3")
+            .template member<float>("graph_input_4");
     } else if constexpr (std::is_same_v<T, AudioSource>) {
         w.component<AssetRef<AudioClipAsset>>("forge.audio_clip_ref")
             .opaque(flecs::String)
@@ -3154,6 +3183,22 @@ Json registration_options(const Builtin& type, const std::string& field) {
             value["nullable"] = true;
             value["description"] =
                 "One or two numeric axes blend neighboring clips at a shared cycle phase";
+        } else if (field == "graph") {
+            value["display_name"] = "Animation graph";
+            value["asset_type"] = AnimationGraphAsset::type;
+            value["nullable"] = true;
+            value["description"] =
+                "Clip, blend and additive graph with a shared cycle and named input slots";
+        } else if (field.starts_with("graph_override_")) {
+            value["display_name"] = "Override graph input " + std::string(field.substr(15));
+            value["description"] =
+                "Use this Animator's input value. Otherwise use the graph's named slot default";
+        } else if (field.starts_with("graph_input_")) {
+            value["display_name"] = "Graph input " + std::string(field.substr(12));
+            value["minimum"] = -1000000;
+            value["maximum"] = 1000000;
+            value["description"] =
+                "Value for the corresponding named graph slot when its override is enabled";
         } else if (field == "blend_position" || field == "blend_position_y") {
             value["display_name"] =
                 field == "blend_position" ? "Blend position X" : "Blend position Y";
@@ -3869,6 +3914,7 @@ Json register_builtins(flecs::world& world, unsigned family) {
         add_reference.template operator()<AnimationStatesAsset>();
         add_reference.template operator()<AnimationMaskAsset>();
         add_reference.template operator()<AnimationBlendSpaceAsset>();
+        add_reference.template operator()<AnimationGraphAsset>();
         add_reference.template operator()<TransformAnimationAsset>();
         add_reference.template operator()<NavMeshAsset>();
         add_reference.template operator()<NavigationBehaviorAsset>();
@@ -4077,10 +4123,28 @@ Json admitted_builtin_source(const Builtin& type, const Json& source) {
             current["material_parameters"] = Json::array();
     }
     if (std::string_view(type.name) == "forge.animator")
-        for (const auto* field :
-             {"blend_clip", "blend_weight", "transition_seconds", "states", "state", "root_motion",
-              "root_joint", "blend_root", "blend_mode", "blend_mask", "blend_space",
-              "blend_position", "blend_position_y"})
+        for (const auto* field : {"blend_clip",
+                                  "blend_weight",
+                                  "transition_seconds",
+                                  "states",
+                                  "state",
+                                  "root_motion",
+                                  "root_joint",
+                                  "blend_root",
+                                  "blend_mode",
+                                  "blend_mask",
+                                  "blend_space",
+                                  "blend_position",
+                                  "blend_position_y",
+                                  "graph",
+                                  "graph_override_1",
+                                  "graph_override_2",
+                                  "graph_override_3",
+                                  "graph_override_4",
+                                  "graph_input_1",
+                                  "graph_input_2",
+                                  "graph_input_3",
+                                  "graph_input_4"})
             if (!current.contains(field))
                 current[field] = type.defaults.at(field);
     if (std::string_view(type.name) == "forge.audio_source")

@@ -30,6 +30,13 @@ Logical AssetIds remain independent of source paths, cooked files and backend pr
 
 ## Cooked data and shipping
 
+[Animation Graphs](animation-graphs.md) use `.animgraph.json` and an ordinary
+`animation_graph` root asset. `forge.animation.graph` publishes the complete bounded
+Clip/Blend/Additive DAG as `graph.json`. Exact runtime edges select the target
+skeleton, imported/baked clips and masks; graph-local node/layout UUIDs are not
+catalog references. Source-only layout and extensions stay outside the cooked
+projection. Export requires `runtime_animation_graph` profile1 in the matching kit.
+
 [Skeletal retargeting](animation-retargeting.md) adds a `.retarget.json` Source
 recipe and `forge.animation.retarget` trusted CPU importer. Explicit source/target
 joint pairs produce a root AnimationClip with `forge.skeletal-clip` version1

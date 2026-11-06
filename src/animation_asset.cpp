@@ -3,6 +3,7 @@
 #include <bit>
 #include <cmath>
 #include <cstring>
+#include <forge/animation_graph.hpp>
 #include <forge/transform.hpp>
 #include <ozz/animation/runtime/animation.h>
 #include <ozz/animation/runtime/blending_job.h>
@@ -151,13 +152,28 @@ struct Sampler::Impl {
     std::shared_ptr<const Clip> clip;
     ozz::animation::SamplingJob::Context context;
     std::vector<ozz::math::SoaTransform> local, blended, transition_source, additive_source;
+    std::vector<std::vector<ozz::math::SoaTransform>> graph_poses;
     std::vector<ozz::math::Float4x4> model;
     std::vector<ozz::math::SimdFloat4> primary_weights, secondary_weights;
-    bool sampled = false;
+    bool sampled = false, graph_sampled = false;
     std::optional<std::size_t> root_joint;
     std::optional<LocalPose> raw_root;
     LocalPose rest_root;
     std::uint64_t sampling_jobs = 0;
+    void validate_blend(float weight, std::span<const float> joint_mask) const {
+        if (!std::isfinite(weight) || weight < 0 || weight > 1)
+            throw ArchiveError("Skeletal blend weight must be finite in [0,1]");
+        if (!joint_mask.empty()) {
+            if (joint_mask.size() != model.size())
+                throw ArchiveError("Skeletal blend mask must match the admitted joint count");
+            for (const auto value : joint_mask)
+                if (!std::isfinite(value) || value < 0 || value > 1)
+                    throw ArchiveError("Skeletal blend mask values must be finite in [0,1]");
+        }
+    }
+    void blend_local(std::span<const ozz::math::SoaTransform> first,
+                     std::span<const ozz::math::SoaTransform> second, float weight,
+                     std::span<const float> joint_mask, bool additive);
     Impl(std::shared_ptr<const Skeleton> s, std::shared_ptr<const Clip> c)
         : skeleton(std::move(s)), clip(std::move(c)), context(int(skeleton->info().tracks)),
           local((skeleton->info().tracks + 3) / 4), model(skeleton->info().tracks) {}
@@ -171,6 +187,7 @@ Sampler::~Sampler() = default;
 void Sampler::reset() {
     impl_->context.Invalidate();
     impl_->sampled = false;
+    impl_->graph_sampled = false;
     impl_->raw_root.reset();
 }
 void Sampler::root_motion_joint(std::optional<std::size_t> joint) {
@@ -188,6 +205,7 @@ std::optional<LocalPose> Sampler::sampled_root() const { return impl_->raw_root;
 std::uint64_t Sampler::sampling_jobs() const { return impl_->sampling_jobs; }
 void Sampler::sample_local(float ratio) {
     impl_->sampled = false;
+    impl_->graph_sampled = false;
     if (!std::isfinite(ratio) || ratio < 0 || ratio > 1)
         throw ArchiveError("Invalid sample ratio");
     ozz::animation::SamplingJob sample;
@@ -206,56 +224,50 @@ std::vector<Matrix> Sampler::sample(float ratio) {
     sample_local(ratio);
     return evaluate_model();
 }
-std::vector<Matrix> Sampler::sample_blended(float ratio, Sampler& second, float weight,
-                                            std::span<const float> joint_mask, bool additive) {
-    if (this == &second || impl_->skeleton != second.impl_->skeleton || !std::isfinite(weight) ||
-        weight < 0 || weight > 1)
-        throw ArchiveError("Invalid skeletal blend weight or skeleton compatibility");
+void Sampler::Impl::blend_local(std::span<const ozz::math::SoaTransform> first,
+                                std::span<const ozz::math::SoaTransform> second, float weight,
+                                std::span<const float> joint_mask, bool additive) {
+    validate_blend(weight, joint_mask);
+    if (first.size() != local.size() || second.size() != local.size())
+        throw ArchiveError("Skeletal local blend pose sizes differ");
     if (!joint_mask.empty()) {
-        if (joint_mask.size() != impl_->model.size())
-            throw ArchiveError("Skeletal blend mask must match the admitted joint count");
-        for (const auto value : joint_mask)
-            if (!std::isfinite(value) || value < 0 || value > 1)
-                throw ArchiveError("Skeletal blend mask values must be finite in [0,1]");
-        impl_->primary_weights.resize(impl_->local.size());
-        impl_->secondary_weights.resize(impl_->local.size());
-        for (std::size_t i = 0; i < impl_->local.size(); ++i) {
+        primary_weights.resize(local.size());
+        secondary_weights.resize(local.size());
+        for (std::size_t i = 0; i < local.size(); ++i) {
             float primary[4], secondary[4];
             for (unsigned lane = 0; lane < 4; ++lane) {
                 const auto joint = i * 4 + lane;
                 secondary[lane] = joint < joint_mask.size() ? weight * joint_mask[joint] : 0;
                 primary[lane] = 1 - secondary[lane];
             }
-            impl_->primary_weights[i] = ozz::math::simd_float4::LoadPtrU(primary);
-            impl_->secondary_weights[i] = ozz::math::simd_float4::LoadPtrU(secondary);
+            primary_weights[i] = ozz::math::simd_float4::LoadPtrU(primary);
+            secondary_weights[i] = ozz::math::simd_float4::LoadPtrU(secondary);
         }
     }
-    sample_local(ratio);
-    second.sample_local(ratio);
-    impl_->blended.resize(impl_->local.size());
+    blended.resize(local.size());
     ozz::animation::BlendingJob::Layer layers[] = {
-        {1 - weight, ozz::make_span(impl_->local), {}},
-        {weight, ozz::make_span(second.impl_->local), {}}};
+        {1 - weight, ozz::span<const ozz::math::SoaTransform>(first.data(), first.size()), {}},
+        {weight, ozz::span<const ozz::math::SoaTransform>(second.data(), second.size()), {}}};
     if (!joint_mask.empty()) {
         layers[0].weight = layers[1].weight = 1;
-        layers[0].joint_weights = ozz::make_span(impl_->primary_weights);
-        layers[1].joint_weights = ozz::make_span(impl_->secondary_weights);
+        layers[0].joint_weights = ozz::make_span(primary_weights);
+        layers[1].joint_weights = ozz::make_span(secondary_weights);
     }
     ozz::animation::BlendingJob blend;
     blend.layers = ozz::make_span(layers);
     ozz::animation::BlendingJob::Layer additive_layer;
     if (additive) {
-        auto& source = impl_->additive_source;
-        source.resize(impl_->local.size());
+        auto& source = additive_source;
+        source.resize(local.size());
         for (std::size_t i = 0; i < source.size(); ++i) {
             float values[10][4];
             for (unsigned lane = 0; lane < 4; ++lane) {
                 const auto joint = i * 4 + lane;
                 LocalPose delta;
-                if (joint < impl_->model.size() && weight != 0 &&
+                if (joint < model.size() && weight != 0 &&
                     (joint_mask.empty() || joint_mask[joint] != 0))
-                    delta = additive_delta(pose_lane(second.impl_->local[i], lane),
-                                           impl_->skeleton->joint_rest_pose(joint));
+                    delta = additive_delta(pose_lane(second[i], lane),
+                                           skeleton->joint_rest_pose(joint));
                 for (unsigned j = 0; j < 3; ++j) {
                     values[j][lane] = delta.translation[j];
                     values[7 + j][lane] = delta.scale[j];
@@ -274,20 +286,29 @@ std::vector<Matrix> Sampler::sample_blended(float ratio, Sampler& second, float 
                                ozz::math::simd_float4::LoadPtrU(values[8]),
                                ozz::math::simd_float4::LoadPtrU(values[9])};
         }
-        layers[0] = {1, ozz::make_span(impl_->local), {}};
+        layers[0] = {1, ozz::span<const ozz::math::SoaTransform>(first.data(), first.size()), {}};
         blend.layers = {layers, 1};
         additive_layer = {weight, ozz::make_span(source), {}};
         if (!joint_mask.empty()) {
             additive_layer.weight = 1;
-            additive_layer.joint_weights = ozz::make_span(impl_->secondary_weights);
+            additive_layer.joint_weights = ozz::make_span(secondary_weights);
         }
         blend.additive_layers = {&additive_layer, 1};
     }
-    blend.rest_pose = impl_->skeleton->impl_->value.joint_rest_poses();
-    blend.output = ozz::make_span(impl_->blended);
+    blend.rest_pose = skeleton->impl_->value.joint_rest_poses();
+    blend.output = ozz::make_span(blended);
     if (!blend.Run())
         throw ArchiveError("Ozz skeletal blending failed");
-    impl_->local.swap(impl_->blended);
+    local.swap(blended);
+}
+std::vector<Matrix> Sampler::sample_blended(float ratio, Sampler& second, float weight,
+                                            std::span<const float> joint_mask, bool additive) {
+    if (this == &second || impl_->skeleton != second.impl_->skeleton)
+        throw ArchiveError("Invalid skeletal blend skeleton compatibility");
+    impl_->validate_blend(weight, joint_mask);
+    sample_local(ratio);
+    second.sample_local(ratio);
+    impl_->blend_local(impl_->local, second.impl_->local, weight, joint_mask, additive);
     return evaluate_model();
 }
 std::vector<Matrix> Sampler::sample_weighted(std::span<const WeightedAnimationSample> samples) {
@@ -323,6 +344,63 @@ std::vector<Matrix> Sampler::sample_weighted(std::span<const WeightedAnimationSa
         throw ArchiveError("Ozz weighted skeletal blending failed");
     impl_->local.swap(impl_->blended);
     return evaluate_model();
+}
+std::vector<Matrix> Sampler::sample_graph(std::span<const AnimationPoseNode> nodes, float ratio) {
+    if (nodes.empty() || nodes.size() > animation_graph_node_limit || impl_->model.empty() ||
+        impl_->model.size() > animation_graph_joint_limit || !std::isfinite(ratio) || ratio < 0 ||
+        ratio > 1)
+        throw ArchiveError("Animation graph sampling exceeds its nodes/joints/phase profile");
+    std::size_t leaves = 0;
+    for (std::size_t i = 0; i < nodes.size(); ++i) {
+        const auto& node = nodes[i];
+        if (node.sampler) {
+            if (++leaves > animation_graph_clip_limit ||
+                node.sampler->impl_->skeleton != impl_->skeleton || node.first != UINT32_MAX ||
+                node.second != UINT32_MAX || node.additive || !node.joint_mask.empty())
+                throw ArchiveError(
+                    "Animation graph leaf has incompatible skeleton or composite fields");
+        } else {
+            if (node.first >= i || node.second >= i)
+                throw ArchiveError("Animation graph inputs must precede their users");
+            impl_->validate_blend(node.weight, node.joint_mask);
+        }
+    }
+    impl_->sampled = false;
+    impl_->graph_sampled = false;
+    auto& poses = impl_->graph_poses;
+    poses.resize(nodes.size());
+    for (std::size_t i = 0; i < nodes.size(); ++i) {
+        const auto& node = nodes[i];
+        if (node.sampler) {
+            std::size_t earlier = 0;
+            while (earlier < i && nodes[earlier].sampler != node.sampler)
+                ++earlier;
+            if (earlier < i)
+                poses[i] = poses[earlier];
+            else {
+                node.sampler->sample_local(ratio);
+                poses[i] = node.sampler->impl_->local;
+            }
+        } else {
+            impl_->blend_local(poses[node.first], poses[node.second], node.weight, node.joint_mask,
+                               node.additive);
+            poses[i] = impl_->local;
+        }
+    }
+    impl_->local = poses.back();
+    if (impl_->root_joint)
+        impl_->raw_root =
+            pose_lane(impl_->local[*impl_->root_joint / 4], unsigned(*impl_->root_joint % 4));
+    auto result = evaluate_model();
+    impl_->graph_sampled = true;
+    return result;
+}
+LocalPose Sampler::graph_joint_pose(std::size_t node, std::size_t joint) const {
+    if (!impl_->sampled || !impl_->graph_sampled || node >= impl_->graph_poses.size() ||
+        joint >= impl_->model.size())
+        throw ArchiveError(
+            "Graph local pose requires a successful graph sample and admitted node/joint indices");
+    return pose_lane(impl_->graph_poses[node][joint / 4], unsigned(joint % 4));
 }
 std::vector<Matrix> Sampler::sample_transition(float ratio, Sampler& outgoing, float outgoing_ratio,
                                                float weight) {

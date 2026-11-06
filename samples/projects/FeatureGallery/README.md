@@ -2347,3 +2347,19 @@ editable recipe or source converter. The blue example still uses its own source
 model; a game using only the gold target omits that unused model. No C++ module is
 required. See the [retargeting guide](../../../manual/editor/animation-retargeting.md)
 for root displacement, alignment, compatible States/Blend Spaces and current limits.
+
+## Compose clips, blends and additive layers
+
+Open **Scenes/180-animation-graphs.scene.json**, press Play and open Game. Three
+instances share the target rig, imported Rest, mapped Swing and one four-node
+Animation Graph. The left uses source defaults, the middle overrides both inputs
+for full upper motion, and the right sets Layer strength to zero to hold rest.
+The upper-chain mask leaves the base joint at its own rest pose.
+
+Stop and open **Assets/AnimationGraphs/Layered.animgraph.json** in Content. Drag or
+connect cards, inspect the shared rest path, and change **Motion amount** or **Layer
+strength** defaults. Save / Publish before using the graph on a matching Animator.
+Animator override checkboxes select per-object values; stopped preview and Live
+gameplay can tune declared slots. Keep values after Stop stages an ordinary Scene
+review. Save the Scene, choose its Startup Scene and export with the matching kit.
+No C++ module is required. See the [graph guide](../../../manual/editor/animation-graphs.md).

@@ -14278,6 +14278,59 @@
       "type": "scene"
     },
     {
+      "dependencies": [
+        "167743c7-eabb-4dcf-95c1-27f8403c78a6",
+        "3fd41841-5ad9-40ee-8354-3097141941f0"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "f92f6992a1dbfc4139e91782cae3aabfbc13acb8e35a24e1337ad7ee85f2c60a",
+          "role": "mask.joint:167743c7-eabb-4dcf-95c1-27f8403c78a6",
+          "target": "167743c7-eabb-4dcf-95c1-27f8403c78a6",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "f92f6992a1dbfc4139e91782cae3aabfbc13acb8e35a24e1337ad7ee85f2c60a",
+          "role": "mask.skeleton",
+          "target": "3fd41841-5ad9-40ee-8354-3097141941f0",
+          "type": "skeleton"
+        }
+      ],
+      "id": "bcf9a5cd-c256-4604-94c4-a50330f51cb8",
+      "metadata": {
+        "forge.animation_mask": {
+          "bytes": 314,
+          "file": "mask.json",
+          "sha256": "523670c8381f23c824b14b71e36f5d48344983f6cdc043451863dba2933f4838",
+          "version": 1
+        },
+        "forge.import": {
+          "artifact_digest": "8ef4968b7fa61cb31134043f1f1ad0f8d56f5105a4e8d324a19cfe80fe99f7f1",
+          "backend": "d3d12",
+          "dependency_digest": "adf3b33d85cd98695d7238f658b1c5237e24d8bcb3c3cbf756acf55083cf6b66",
+          "generation": 1,
+          "importer": "forge.animation.mask",
+          "importer_revision": "forge.animation.mask.v1",
+          "key": "331ad200b1d589ab7de11f990ca12b4c143d10627bc804409c6768fed6c34a60",
+          "output_format": "forge.animation-mask",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "556441a6e7b519fe6631ad31acf413938853c392468ee31614e6c2d7de6b05a3",
+          "source_digest": "d668c85d3533944efa64bd365bc5e82c16d57ee51d8e11fc6eee49388a401c94",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/AnimationGraphs/Upper.mask.json",
+      "source_dependencies": [],
+      "type": "animation_mask"
+    },
+    {
       "dependencies": [],
       "dependency_edges": [],
       "id": "bd0ef129-9444-49a7-9bcd-f1362399e5d3",
@@ -16151,6 +16204,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "dc094a11-f4fa-4422-a421-ee216eccf6bd",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/180-animation-graphs.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "dc54b269-c5b2-45d2-b2a4-db9f7fc34ee7",
       "metadata": {},
       "schema_version": 2,
@@ -16347,6 +16410,82 @@
         "removed": false
       },
       "type": "model_node"
+    },
+    {
+      "dependencies": [
+        "3fd41841-5ad9-40ee-8354-3097141941f0",
+        "71652069-2d40-4d1d-86e6-69f1839a6cac",
+        "763f663b-7030-49f3-b304-e86ac8e211ed",
+        "bcf9a5cd-c256-4604-94c4-a50330f51cb8"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "f92f6992a1dbfc4139e91782cae3aabfbc13acb8e35a24e1337ad7ee85f2c60a",
+          "role": "graph.skeleton",
+          "target": "3fd41841-5ad9-40ee-8354-3097141941f0",
+          "type": "skeleton"
+        },
+        {
+          "kind": "runtime",
+          "revision": "4abb8dc29022229d9d359a9ba688be1895ecb116d98aa571503e9de1e9e8ca60",
+          "role": "graph.clip:c36daf15-cb8a-49ef-b033-4f4c33bc9ef1",
+          "target": "71652069-2d40-4d1d-86e6-69f1839a6cac",
+          "type": "animation_clip"
+        },
+        {
+          "kind": "runtime",
+          "revision": "f92f6992a1dbfc4139e91782cae3aabfbc13acb8e35a24e1337ad7ee85f2c60a",
+          "role": "graph.clip:aba86636-6572-4425-805f-64faf8563de2",
+          "target": "763f663b-7030-49f3-b304-e86ac8e211ed",
+          "type": "animation_clip"
+        },
+        {
+          "kind": "runtime",
+          "revision": "331ad200b1d589ab7de11f990ca12b4c143d10627bc804409c6768fed6c34a60",
+          "role": "graph.mask:09556111-22ea-4466-bcc7-b73d1bd404e5",
+          "target": "bcf9a5cd-c256-4604-94c4-a50330f51cb8",
+          "type": "animation_mask"
+        },
+        {
+          "kind": "runtime",
+          "revision": "331ad200b1d589ab7de11f990ca12b4c143d10627bc804409c6768fed6c34a60",
+          "role": "graph.mask:5b0d7e56-1821-4610-8e12-edc617788dcd",
+          "target": "bcf9a5cd-c256-4604-94c4-a50330f51cb8",
+          "type": "animation_mask"
+        }
+      ],
+      "id": "e02427a2-bb15-4c7f-86e8-a574ac939ca4",
+      "metadata": {
+        "forge.animation_graph": {
+          "bytes": 1185,
+          "file": "graph.json",
+          "sha256": "62c80dfee092cac99e87fcf309aebce1b87d677d32216a43f879925a2bd0aab6",
+          "version": 1
+        },
+        "forge.import": {
+          "artifact_digest": "fd30b6a49faf0819c5e77265a6ab7589b53ccb7bbe0df9f7dbb193d5dda2b1e3",
+          "backend": "d3d12",
+          "dependency_digest": "bb4559aaf3ec1fe8e4382312c5c21df9d16fa4797b80f9749d6fea73372f1b81",
+          "generation": 1,
+          "importer": "forge.animation.graph",
+          "importer_revision": "forge.animation.graph.v1",
+          "key": "3db410da0734e5f1942890b16916d330782b46eaddce46d171e0e0f2909a896e",
+          "output_format": "forge.animation-graph",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "4540a583fde83f53c24b58f215456d61527f6e52de49bcff461de0d0ae3255f5",
+          "source_digest": "aa5ed3fca67d4a303966bb1d585aabcbb7ffd0befdec5c455916138cfca18063",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/AnimationGraphs/Layered.animgraph.json",
+      "source_dependencies": [],
+      "type": "animation_graph"
     },
     {
       "dependencies": [],

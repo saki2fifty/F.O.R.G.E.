@@ -1,0 +1,706 @@
+{
+  "asset_id": "dc094a11-f4fa-4422-a421-ee216eccf6bd",
+  "entities": [
+    {
+      "components": {
+        "forge.animator": {
+          "blend_clip": null,
+          "blend_mask": null,
+          "blend_mode": 0,
+          "blend_position": 0.0,
+          "blend_position_y": 0.0,
+          "blend_root": null,
+          "blend_space": null,
+          "blend_weight": 0.0,
+          "clip": null,
+          "enabled": true,
+          "graph": "e02427a2-bb15-4c7f-86e8-a574ac939ca4",
+          "graph_input_1": 1.0,
+          "graph_input_2": 0.0,
+          "graph_input_3": 0.0,
+          "graph_input_4": 0.0,
+          "graph_override_1": false,
+          "graph_override_2": false,
+          "graph_override_3": false,
+          "graph_override_4": false,
+          "loop": true,
+          "play_on_start": true,
+          "playback_speed": 1.0,
+          "root_joint": null,
+          "root_motion": 0,
+          "skeleton": "3fd41841-5ad9-40ee-8354-3097141941f0",
+          "state": 0,
+          "states": null,
+          "transition_seconds": 0.25
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -2.5,
+          "y": -2.2,
+          "z": 0.0
+        },
+        "forge.model_source": {
+          "model": "08722c36-1c76-4b61-9989-7a171f39ba97",
+          "node": null
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "5ab345c8-b41c-40d9-88fa-f4885da1a35a",
+      "name": "Left - source defaults, gentle upper motion",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9914448857307434,
+          "x": 0.0,
+          "y": 0.0,
+          "z": -0.13052618503570557
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.model_source": {
+          "model": "08722c36-1c76-4b61-9989-7a171f39ba97",
+          "node": "bb941335-691c-4640-bf74-e1378db858d7"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "7265bf30-18b0-4b87-8766-3b84eff86a35",
+      "name": "TargetBase",
+      "parent": "5ab345c8-b41c-40d9-88fa-f4885da1a35a",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "9eed034c-bae7-4009-9cc7-432f16e5cd01",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        },
+        "forge.model_source": {
+          "model": "08722c36-1c76-4b61-9989-7a171f39ba97",
+          "node": "bfc28ae1-2959-45c2-98df-9d83a0393ed5"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "e673ff39-6acb-42b0-b844-45f68a051e32",
+      "name": "TargetBeams",
+      "parent": "5ab345c8-b41c-40d9-88fa-f4885da1a35a",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9659258127212524,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.258819043636322
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 2.2,
+          "z": 0.0
+        },
+        "forge.model_source": {
+          "model": "08722c36-1c76-4b61-9989-7a171f39ba97",
+          "node": "167743c7-eabb-4dcf-95c1-27f8403c78a6"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "bcab0b7a-6188-49e9-8312-8693b3851e65",
+      "name": "TargetElbow",
+      "parent": "7265bf30-18b0-4b87-8766-3b84eff86a35",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9848077297210693,
+          "x": 0.0,
+          "y": 0.0,
+          "z": -0.1736481785774231
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 1.4,
+          "z": 0.0
+        },
+        "forge.model_source": {
+          "model": "08722c36-1c76-4b61-9989-7a171f39ba97",
+          "node": "3b154f5f-6910-452d-8919-519b9fa895a7"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "8e07dc69-e414-4029-8013-ae8182cd2005",
+      "name": "TargetEnd",
+      "parent": "bcab0b7a-6188-49e9-8312-8693b3851e65",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.animator": {
+          "blend_clip": null,
+          "blend_mask": null,
+          "blend_mode": 0,
+          "blend_position": 0.0,
+          "blend_position_y": 0.0,
+          "blend_root": null,
+          "blend_space": null,
+          "blend_weight": 0.0,
+          "clip": null,
+          "enabled": true,
+          "graph": "e02427a2-bb15-4c7f-86e8-a574ac939ca4",
+          "graph_input_1": 1.0,
+          "graph_input_2": 1.0,
+          "graph_input_3": 0.0,
+          "graph_input_4": 0.0,
+          "graph_override_1": true,
+          "graph_override_2": true,
+          "graph_override_3": false,
+          "graph_override_4": false,
+          "loop": true,
+          "play_on_start": true,
+          "playback_speed": 1.0,
+          "root_joint": null,
+          "root_motion": 0,
+          "skeleton": "3fd41841-5ad9-40ee-8354-3097141941f0",
+          "state": 0,
+          "states": null,
+          "transition_seconds": 0.25
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": -2.2,
+          "z": 0.0
+        },
+        "forge.model_source": {
+          "model": "08722c36-1c76-4b61-9989-7a171f39ba97",
+          "node": null
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "df6aae29-3a15-4c09-bce7-b58fbde8af4e",
+      "name": "Middle - overrides, full upper motion",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9914448857307434,
+          "x": 0.0,
+          "y": 0.0,
+          "z": -0.13052618503570557
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.model_source": {
+          "model": "08722c36-1c76-4b61-9989-7a171f39ba97",
+          "node": "bb941335-691c-4640-bf74-e1378db858d7"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "6413cb18-8dfe-49e0-8dc9-028e3178fe97",
+      "name": "TargetBase",
+      "parent": "df6aae29-3a15-4c09-bce7-b58fbde8af4e",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "9eed034c-bae7-4009-9cc7-432f16e5cd01",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        },
+        "forge.model_source": {
+          "model": "08722c36-1c76-4b61-9989-7a171f39ba97",
+          "node": "bfc28ae1-2959-45c2-98df-9d83a0393ed5"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "80187a09-876a-4b4b-bdb1-60d828118f8b",
+      "name": "TargetBeams",
+      "parent": "df6aae29-3a15-4c09-bce7-b58fbde8af4e",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9659258127212524,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.258819043636322
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 2.2,
+          "z": 0.0
+        },
+        "forge.model_source": {
+          "model": "08722c36-1c76-4b61-9989-7a171f39ba97",
+          "node": "167743c7-eabb-4dcf-95c1-27f8403c78a6"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "75b09d40-36d3-4bbd-b2d5-3e191d5b44ac",
+      "name": "TargetElbow",
+      "parent": "6413cb18-8dfe-49e0-8dc9-028e3178fe97",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9848077297210693,
+          "x": 0.0,
+          "y": 0.0,
+          "z": -0.1736481785774231
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 1.4,
+          "z": 0.0
+        },
+        "forge.model_source": {
+          "model": "08722c36-1c76-4b61-9989-7a171f39ba97",
+          "node": "3b154f5f-6910-452d-8919-519b9fa895a7"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "8ea5cff6-bd76-4068-b258-a6df50fe4bfc",
+      "name": "TargetEnd",
+      "parent": "75b09d40-36d3-4bbd-b2d5-3e191d5b44ac",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.animator": {
+          "blend_clip": null,
+          "blend_mask": null,
+          "blend_mode": 0,
+          "blend_position": 0.0,
+          "blend_position_y": 0.0,
+          "blend_root": null,
+          "blend_space": null,
+          "blend_weight": 0.0,
+          "clip": null,
+          "enabled": true,
+          "graph": "e02427a2-bb15-4c7f-86e8-a574ac939ca4",
+          "graph_input_1": 1.0,
+          "graph_input_2": 0.0,
+          "graph_input_3": 0.0,
+          "graph_input_4": 0.0,
+          "graph_override_1": true,
+          "graph_override_2": true,
+          "graph_override_3": false,
+          "graph_override_4": false,
+          "loop": true,
+          "play_on_start": true,
+          "playback_speed": 1.0,
+          "root_joint": null,
+          "root_motion": 0,
+          "skeleton": "3fd41841-5ad9-40ee-8354-3097141941f0",
+          "state": 0,
+          "states": null,
+          "transition_seconds": 0.25
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 2.5,
+          "y": -2.2,
+          "z": 0.0
+        },
+        "forge.model_source": {
+          "model": "08722c36-1c76-4b61-9989-7a171f39ba97",
+          "node": null
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "47b68110-04a9-4c99-84aa-433a080c9053",
+      "name": "Right - override layer zero, imported rest",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9914448857307434,
+          "x": 0.0,
+          "y": 0.0,
+          "z": -0.13052618503570557
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.model_source": {
+          "model": "08722c36-1c76-4b61-9989-7a171f39ba97",
+          "node": "bb941335-691c-4640-bf74-e1378db858d7"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "ab70d627-cecc-41f0-b802-699c02da5573",
+      "name": "TargetBase",
+      "parent": "47b68110-04a9-4c99-84aa-433a080c9053",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [],
+          "material_variant": null,
+          "materials": [],
+          "mesh": "9eed034c-bae7-4009-9cc7-432f16e5cd01",
+          "receive_shadows": true,
+          "visible": true,
+          "wind": {
+            "amplitude": 0.2,
+            "direction_x": 1.0,
+            "direction_z": 0.0,
+            "enabled": false,
+            "frequency": 0.5,
+            "height": 1.6,
+            "phase": 0.0,
+            "wavelength": 8.0
+          }
+        },
+        "forge.model_source": {
+          "model": "08722c36-1c76-4b61-9989-7a171f39ba97",
+          "node": "bfc28ae1-2959-45c2-98df-9d83a0393ed5"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "9ecf768f-021c-402c-a56e-984c0662659f",
+      "name": "TargetBeams",
+      "parent": "47b68110-04a9-4c99-84aa-433a080c9053",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9659258127212524,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.258819043636322
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 2.2,
+          "z": 0.0
+        },
+        "forge.model_source": {
+          "model": "08722c36-1c76-4b61-9989-7a171f39ba97",
+          "node": "167743c7-eabb-4dcf-95c1-27f8403c78a6"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "ae9e8fa9-42e7-471d-9b2d-230a59e23613",
+      "name": "TargetElbow",
+      "parent": "ab70d627-cecc-41f0-b802-699c02da5573",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 0.9848077297210693,
+          "x": 0.0,
+          "y": 0.0,
+          "z": -0.1736481785774231
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 1.4,
+          "z": 0.0
+        },
+        "forge.model_source": {
+          "model": "08722c36-1c76-4b61-9989-7a171f39ba97",
+          "node": "3b154f5f-6910-452d-8919-519b9fa895a7"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "54d51f8b-fe32-4ecd-9ad4-9d33a3c02098",
+      "name": "TargetEnd",
+      "parent": "ae9e8fa9-42e7-471d-9b2d-230a59e23613",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 0.0,
+          "background_a": 1.0,
+          "background_b": 0.029999999329447746,
+          "background_g": 0.02500000037252903,
+          "background_r": 0.019999999552965164,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 100.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 10.0,
+          "orthographic_width": 0.0,
+          "projection": 0,
+          "render_texture": null,
+          "vertical_fov": 1.0471975511965976,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0,
+          "y": 0.1,
+          "z": -11.5
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "0e8dba46-9a00-4bab-8a0d-b585f677df4d",
+      "name": "Game camera",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    }
+  ],
+  "version": 3
+}

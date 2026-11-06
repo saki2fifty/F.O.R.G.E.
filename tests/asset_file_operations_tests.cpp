@@ -6,6 +6,7 @@
 #include "material_authoring.hpp"
 #include "material_selection.hpp"
 #include <forge/animation_blend_space.hpp>
+#include <forge/animation_graph.hpp>
 #include <forge/animation_mask.hpp>
 #include <forge/animation_states.hpp>
 #include <forge/asset_publication.hpp>
@@ -542,6 +543,75 @@ int main(int argc, char** argv) {
         check(!inspect_asset_references(reference_scene.schema(), opaque_spaces, {rig})
                    .uninspected.empty(),
               "Blend Space extensions falsely claimed complete reference coverage");
+        {
+            auto graph = AnimationGraphSource::create(AssetId::generate());
+            const auto output = AssetId::generate();
+            graph.document["skeleton"] = rig;
+            graph.document["nodes"] = {
+                {{"id", graph.asset()}, {"name", "Base"}, {"kind", "clip"}, {"clip", state_clip}},
+                {{"id", state_clip}, {"name", "Overlay"}, {"kind", "clip"}, {"clip", state_clip}},
+                {{"id", output},
+                 {"name", "Layer"},
+                 {"kind", "blend"},
+                 {"first", graph.asset()},
+                 {"second", state_clip},
+                 {"mask", mask.asset()},
+                 {"weight", .5}}};
+            graph.document["output"] = output;
+            graph.document["extension"] = {{"reference_like", graph.asset()}};
+            write(project / "Assets/Motion.animgraph.json", graph.document);
+            catalog = AssetCatalog::open_project(project);
+            catalog.add(
+                {graph.asset(), AnimationGraphAsset::type, "Assets/Motion.animgraph.json", 1, {}});
+            catalog.save(AssetCatalog::project_index(project));
+            rejects([&] {
+                prepare_asset_file_operation(
+                    project, {AssetFileAction::Duplicate, graph.asset(), "Moved/wrong.json"},
+                    rewrite);
+            });
+            const auto graph_copy = prepare_asset_file_operation(
+                project, {AssetFileAction::Duplicate, graph.asset(), "Moved/Copy.animgraph.json"},
+                rewrite);
+            transaction.commit(graph_copy.changes, false);
+            const AnimationGraphSource copied_graph{read(project / "Moved/Copy.animgraph.json")};
+            (void)copied_graph.compiled();
+            check(copied_graph.asset() == graph_copy.result &&
+                      copied_graph.asset() != graph.asset() &&
+                      copied_graph.document.at("nodes") == graph.document.at("nodes") &&
+                      copied_graph.document.at("extension") == graph.document.at("extension") &&
+                      copied_graph.document.at("skeleton") == Json(rig),
+                  "Graph duplication rewrote scoped nodes, external references or opaque payload");
+            const auto graph_move = prepare_asset_file_operation(
+                project, {AssetFileAction::Move, graph_copy.result, "Assets/Copy.animgraph.json"},
+                rewrite);
+            transaction.commit(graph_move.changes, false);
+            check(read(project / "Assets/Copy.animgraph.json") == copied_graph.document,
+                  "Graph move changed source identity, local links or metadata");
+            auto clean_graph = graph.document;
+            clean_graph.erase("extension");
+            const std::array graph_documents{
+                AssetReferenceDocument{"Assets/Motion.animgraph.json", clean_graph}};
+            const auto graph_impact = inspect_asset_references(
+                reference_scene.schema(), graph_documents, {rig, state_clip, mask.asset()});
+            check(
+                graph_impact.references.size() == 4 && graph_impact.uninspected.empty() &&
+                    inspect_asset_references(reference_scene.schema(), graph_documents,
+                                             {graph.asset()})
+                        .references.empty(),
+                "Graph reference review lost typed coverage or treated scoped UUID links as asset "
+                "references");
+            const std::array opaque_graphs{
+                AssetReferenceDocument{"Assets/Motion.animgraph.json", graph.document}};
+            check(inspect_asset_references(reference_scene.schema(), opaque_graphs, {rig})
+                          .uninspected.size() == 1,
+                  "Opaque graph metadata falsely claimed complete reference coverage");
+            auto oversized_graph = graph.document;
+            oversized_graph["extension"] = std::string(animation_graph_byte_limit, 'x');
+            rejects([&] {
+                rewrite(catalog.records().at(graph.asset()), oversized_graph.dump(),
+                        "Moved/Large.animgraph.json", {});
+            });
+        }
         test_asset_file_service(project / "service");
         std::cout << "Asset file scene/family/move/delete/duplicate/publication tests passed\n";
         return 0;

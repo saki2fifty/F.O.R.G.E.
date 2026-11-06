@@ -313,6 +313,7 @@ this does not grant file commits, placement or imports.
 | `forge_asset_search`, `forge_asset_read` | Borrow ContentImports' published AssetCatalog snapshot plus immutable engine assets; search pages contain at most 128 records |
 | `forge_asset_skeleton_joints` | Read selected imported joint UUIDs, parent UUIDs, names and rest TRS in pages of1–128, with optional exact selected-revision checking; bounded to256 joints and64MiB model bundles |
 | `forge_asset_animation_retarget_catalog` | Describe the implemented target-bound baking profile and shared `animation_retarget` Source workflow; no publication or Scene mutation |
+| `forge_asset_animation_graph_catalog` | Describe the bounded Clip/Blend/Additive DAG, named slots, scoped node UUIDs, source layout, exact skeleton binding and shared `animation_graph` Source workflow |
 | `forge_asset_jobs` | Read actual reimport jobs and the current project-scoped source batch, placement and file-operation results |
 | `forge_asset_reimport` | Queue registered owners through dependency-aware AssetReimportService; blocked drafts and last-good publication rules remain intact |
 | `forge_asset_atlas_prepare` | Pack ordered published root sRGB Texture assets into a detached PNG/source review; no copy or publication yet. Reuses the import review/commit/cancel/close tools |

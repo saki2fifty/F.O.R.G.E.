@@ -1,0 +1,86 @@
+{
+  "asset_id": "e02427a2-bb15-4c7f-86e8-a574ac939ca4",
+  "cycle_seconds": 2,
+  "editor_layout": {
+    "format": "forge.animation-graph-layout",
+    "positions": [
+      {
+        "node": "aba86636-6572-4425-805f-64faf8563de2",
+        "x": 0.0,
+        "y": 0.0
+      },
+      {
+        "node": "c36daf15-cb8a-49ef-b033-4f4c33bc9ef1",
+        "x": 0.0,
+        "y": 180.0
+      },
+      {
+        "node": "5b0d7e56-1821-4610-8e12-edc617788dcd",
+        "x": 340.0,
+        "y": 0.0
+      },
+      {
+        "node": "09556111-22ea-4466-bcc7-b73d1bd404e5",
+        "x": 680.0,
+        "y": 80.0
+      }
+    ],
+    "version": 1
+  },
+  "format": "forge.animation-graph",
+  "inputs": [
+    {
+      "initial": 0.8,
+      "name": "Motion amount",
+      "slot": 1
+    },
+    {
+      "initial": 0.5,
+      "name": "Layer strength",
+      "slot": 2
+    }
+  ],
+  "nodes": [
+    {
+      "clip": "763f663b-7030-49f3-b304-e86ac8e211ed",
+      "id": "aba86636-6572-4425-805f-64faf8563de2",
+      "kind": "clip",
+      "name": "Imported rest"
+    },
+    {
+      "clip": "71652069-2d40-4d1d-86e6-69f1839a6cac",
+      "id": "c36daf15-cb8a-49ef-b033-4f4c33bc9ef1",
+      "kind": "clip",
+      "name": "Mapped Swing"
+    },
+    {
+      "first": "aba86636-6572-4425-805f-64faf8563de2",
+      "id": "5b0d7e56-1821-4610-8e12-edc617788dcd",
+      "kind": "blend",
+      "mask": "bcf9a5cd-c256-4604-94c4-a50330f51cb8",
+      "name": "Motion blend",
+      "second": "c36daf15-cb8a-49ef-b033-4f4c33bc9ef1",
+      "weight": {
+        "bias": 0,
+        "input": 1,
+        "scale": 1
+      }
+    },
+    {
+      "first": "aba86636-6572-4425-805f-64faf8563de2",
+      "id": "09556111-22ea-4466-bcc7-b73d1bd404e5",
+      "kind": "additive",
+      "mask": "bcf9a5cd-c256-4604-94c4-a50330f51cb8",
+      "name": "Upper layer",
+      "second": "5b0d7e56-1821-4610-8e12-edc617788dcd",
+      "weight": {
+        "bias": 0,
+        "input": 2,
+        "scale": 1
+      }
+    }
+  ],
+  "output": "09556111-22ea-4466-bcc7-b73d1bd404e5",
+  "skeleton": "3fd41841-5ad9-40ee-8354-3097141941f0",
+  "version": 1
+}

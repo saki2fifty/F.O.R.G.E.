@@ -10,6 +10,7 @@
 #include "tile_map_source.hpp"
 #include "tile_set_source.hpp"
 #include <forge/animation_blend_space.hpp>
+#include <forge/animation_graph.hpp>
 #include <forge/animation_mask.hpp>
 #include <forge/animation_states.hpp>
 #include <forge/application_state_source.hpp>
@@ -276,7 +277,8 @@ static std::string rewrite_authored_with_schema(const AssetRecord& record, std::
         record.type != NavigationBehaviorAsset::type && record.type != UiLocalizationAsset::type &&
         record.type != ApplicationStatesAsset::type && record.type != RenderTextureAsset::type &&
         record.type != "animation_mask" && record.type != "animation_blend_space" &&
-        record.type != ParticleEffectAsset::type && !terrain && !retarget)
+        record.type != AnimationGraphAsset::type && record.type != ParticleEffectAsset::type &&
+        !terrain && !retarget)
         throw std::runtime_error("No authored-document copy adapter for this source format");
     if (terrain && !path_utf8(destination).ends_with(".terrain.json"))
         throw std::runtime_error("Terrain files must retain the .terrain.json suffix");
@@ -305,6 +307,9 @@ static std::string rewrite_authored_with_schema(const AssetRecord& record, std::
         !path_utf8(destination).ends_with(".blendspace.json"))
         throw std::runtime_error(
             "Animation Blend Space files must retain the .blendspace.json suffix");
+    if (record.type == AnimationGraphAsset::type &&
+        !path_utf8(destination).ends_with(".animgraph.json"))
+        throw std::runtime_error("Animation Graph files must retain the .animgraph.json suffix");
     if (record.type == "transform_animation" &&
         !path_utf8(destination).ends_with(".animation.json"))
         throw std::runtime_error(
@@ -353,7 +358,10 @@ static std::string rewrite_authored_with_schema(const AssetRecord& record, std::
             AnimationMaskSource{value}.validate();
         else if (record.type == "animation_blend_space")
             AnimationBlendSpaceSource{value}.validate();
-        else if (record.type == "transform_animation")
+        else if (record.type == AnimationGraphAsset::type) {
+            const auto text = value.dump();
+            (void)AnimationGraphSource::parse(std::as_bytes(std::span(text)));
+        } else if (record.type == "transform_animation")
             TransformAnimationSource{value}.validate();
         else if (record.type == ParticleEffectAsset::type)
             ParticleEffectSource{value}.validate();

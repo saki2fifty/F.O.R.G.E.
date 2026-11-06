@@ -76,9 +76,12 @@ class AnimationPreviewEditor {
                     preview_.select_state(state_);
                 if (space_asset_)
                     preview_.select_blend_position(position_, position_y_);
+                apply_graph_inputs();
                 if (playing_ && dt > 0)
                     preview_.tick(std::min(dt, .25f));
                 auto pose = preview_.pose();
+                if (graph_asset_)
+                    graph_inputs_ = pose.value("graph_inputs", Json::array());
                 time_ = pose.at("time");
                 duration_ = pose.at("duration");
                 evaluated_weight_ = pose.at("blend_weight");
@@ -107,8 +110,8 @@ class AnimationPreviewEditor {
         if (ui::editor_context && ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows))
             ui::editor_context->task.focus_document("animation_preview", "Animation Preview");
         if (expanded) {
-            ImGui::TextWrapped(
-                "Preview an Animator here. Set its primary and second clips in Inspector.");
+            ImGui::TextWrapped("Preview an Animator here. Choose its clips, States, Blend Space or "
+                               "Animation Graph in Inspector.");
             ImGui::BeginDisabled(locked);
             if (ImGui::BeginCombo("Preview object", name_.c_str())) {
                 const auto source = scene.document();
@@ -167,6 +170,42 @@ class AnimationPreviewEditor {
                     "Named states own clip, loop, speed and fade. Changes here are temporary.");
             }
             bool changed = false;
+            if (graph_asset_) {
+                ImGui::TextWrapped("Animation Graph inputs. Preview values are temporary; use "
+                                   "Apply preview settings to Animator to keep them.");
+                if (graph_inputs_.empty())
+                    ImGui::TextWrapped(
+                        "Start preview to inspect the published graph's named inputs.");
+                Json graph_fields = Json::object();
+                for (const auto& input : graph_inputs_) {
+                    const auto slot = input.at("slot").get<unsigned>();
+                    const auto index = slot - 1;
+                    ImGui::PushID(int(slot));
+                    ImGui::TextWrapped("%s / slot %u / default %.4f",
+                                       input.at("name").get<std::string>().c_str(), slot,
+                                       input.at("default").get<double>());
+                    bool edited =
+                        ImGui::Checkbox("Override source default", &graph_overrides_[index]);
+                    FORGE_UI_PROBE("animation_preview:graph_override:" + std::to_string(slot));
+                    ImGui::SetNextItemWidth(-FLT_MIN);
+                    edited |= ImGui::InputFloat("##graph-value", &graph_values_[index], 0, 0,
+                                                "%.4f", ImGuiInputTextFlags_EnterReturnsTrue);
+                    FORGE_UI_PROBE("animation_preview:graph_input:" + std::to_string(slot));
+                    if (edited) {
+                        graph_fields["graph_override_" + std::to_string(slot)] =
+                            graph_overrides_[index];
+                        graph_fields["graph_input_" + std::to_string(slot)] = graph_values_[index];
+                    }
+                    ImGui::PopID();
+                }
+                if (!graph_fields.empty() && preview_active()) {
+                    try {
+                        preview_.select_graph_inputs(graph_fields);
+                    } catch (const std::exception& e) {
+                        fail(e);
+                    }
+                }
+            }
             if (space_asset_) {
                 ImGui::TextUnformatted("Blend Space: neighboring clips share one cycle phase. "
                                        "Changes here are temporary.");
@@ -228,6 +267,16 @@ class AnimationPreviewEditor {
                                     {"playback_speed", speed_}};
                     if (space_asset_ && space_dimensions_ == 2)
                         settings["blend_position_y"] = position_y_;
+                    if (graph_asset_) {
+                        settings = {{"loop", loop_}, {"playback_speed", speed_}};
+                        for (const auto& input : graph_inputs_) {
+                            const auto slot = input.at("slot").get<unsigned>();
+                            settings["graph_override_" + std::to_string(slot)] =
+                                graph_overrides_[slot - 1];
+                            settings["graph_input_" + std::to_string(slot)] =
+                                graph_values_[slot - 1];
+                        }
+                    }
                     for (const auto& [field, value] : settings.items())
                         commands.push_back({{"operation", "property.set"},
                                             {"arguments",
@@ -262,6 +311,12 @@ class AnimationPreviewEditor {
         target_ = scene.reference(id);
         const auto config = actor.get<Animator>();
         states_asset_ = config.states.id;
+        graph_asset_ = config.graph.id;
+        graph_inputs_ = Json::array();
+        graph_overrides_ = {config.graph_override_1, config.graph_override_2,
+                            config.graph_override_3, config.graph_override_4};
+        graph_values_ = {config.graph_input_1, config.graph_input_2, config.graph_input_3,
+                         config.graph_input_4};
         space_asset_ = config.blend_space.id;
         position_ = config.blend_position;
         position_y_ = config.blend_position_y;
@@ -353,6 +408,10 @@ class AnimationPreviewEditor {
     AnimationStates named_states_;
     AssetId states_asset_;
     AssetId space_asset_;
+    AssetId graph_asset_;
+    Json graph_inputs_ = Json::array();
+    std::array<bool, 4> graph_overrides_{};
+    std::array<float, 4> graph_values_{};
     float position_ = 0, minimum_position_ = 0, maximum_position_ = 1;
     float position_y_ = 0, minimum_position_y_ = 0, maximum_position_y_ = 1;
     unsigned space_dimensions_ = 1;
@@ -371,11 +430,24 @@ class AnimationPreviewEditor {
     float weight_ = 0, seconds_ = .25f, speed_ = 1, evaluated_weight_ = 0;
     double time_ = 0, duration_ = 0, zero_ = 0;
     std::string name_ = "Choose an Animator", error_;
+    void apply_graph_inputs() {
+        if (!graph_asset_ || graph_inputs_.empty())
+            return;
+        Json fields = Json::object();
+        for (const auto& input : graph_inputs_) {
+            const auto slot = input.at("slot").get<unsigned>();
+            fields["graph_override_" + std::to_string(slot)] = graph_overrides_[slot - 1];
+            fields["graph_input_" + std::to_string(slot)] = graph_values_[slot - 1];
+        }
+        preview_.select_graph_inputs(fields);
+    }
     void ensure(SceneDocument& project, Scene& scene) {
         if (!preview_active())
             preview_.start(project.project(), scene.document(), target_);
-        if (preview_.prepare())
+        if (preview_.prepare()) {
             preview_.configure(weight_, seconds_, loop_, speed_);
+            apply_graph_inputs();
+        }
     }
     void fail(const std::exception& e) {
         error_ = e.what();

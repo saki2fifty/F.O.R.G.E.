@@ -1,4 +1,5 @@
 #include "animation_preview.hpp"
+#include "animation_playback_access.hpp"
 #include <cmath>
 namespace forge {
 SkeletalAnimationPreview::PreviewWorld::PreviewWorld(const std::filesystem::path& project,
@@ -118,6 +119,11 @@ void SkeletalAnimationPreview::select_blend_position(float position, float y) {
 void SkeletalAnimationPreview::tick(float seconds) {
     if (prepare())
         world_->animation->tick(seconds);
+}
+void SkeletalAnimationPreview::select_graph_inputs(const Json& fields) {
+    if (prepare())
+        (void)AnimationPlaybackAccess::tune_graph_inputs(*world_->animation, world_->target,
+                                                         fields);
 }
 Json SkeletalAnimationPreview::pose() {
     if (!prepare())

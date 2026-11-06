@@ -340,9 +340,9 @@ class AnimationRetargetEditor : public SourceDocumentPanel<AnimationRetargetDocu
             if (!actor || !actor.has<Animator>())
                 throw std::runtime_error("Select a model root with an Animator first");
             const auto& config = actor.get<Animator>();
-            if (config.states.id || config.blend_space.id)
+            if (config.states.id || config.blend_space.id || config.graph.id)
                 throw std::runtime_error(
-                    "Choose this clip in the active States or Blend Space editor");
+                    "Choose this clip in the active States, Blend Space or Animation Graph editor");
             (void)animation_detail::select_animation_clip(*catalog_, config.skeleton,
                                                           {document_->source().asset()});
             authoring_command(scene, "property.set",

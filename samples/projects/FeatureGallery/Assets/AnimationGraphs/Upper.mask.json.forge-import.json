@@ -1,0 +1,50 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [
+      {
+        "kind": "runtime",
+        "revision": "f92f6992a1dbfc4139e91782cae3aabfbc13acb8e35a24e1337ad7ee85f2c60a",
+        "role": "mask.joint:167743c7-eabb-4dcf-95c1-27f8403c78a6",
+        "target": "167743c7-eabb-4dcf-95c1-27f8403c78a6",
+        "type": "model_node"
+      },
+      {
+        "kind": "runtime",
+        "revision": "f92f6992a1dbfc4139e91782cae3aabfbc13acb8e35a24e1337ad7ee85f2c60a",
+        "role": "mask.skeleton",
+        "target": "3fd41841-5ad9-40ee-8354-3097141941f0",
+        "type": "skeleton"
+      }
+    ],
+    "importer": "forge.animation.mask",
+    "importer_revision": "forge.animation.mask.v1",
+    "key_version": 1,
+    "output_format": "forge.animation-mask",
+    "output_version": 1,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {},
+    "settings_version": 1,
+    "source": "d668c85d3533944efa64bd365bc5e82c16d57ee51d8e11fc6eee49388a401c94",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.animation-mask.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "bcf9a5cd-c256-4604-94c4-a50330f51cb8",
+    "source": "Assets/AnimationGraphs/Upper.mask.json",
+    "source_digest": "d668c85d3533944efa64bd365bc5e82c16d57ee51d8e11fc6eee49388a401c94",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.animation.mask",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

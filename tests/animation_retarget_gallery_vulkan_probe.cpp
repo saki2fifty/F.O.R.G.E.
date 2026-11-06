@@ -7,23 +7,30 @@ int main(int argc, char** argv) {
     using namespace Diligent;
     using test_gallery_capture::check;
     try {
-        check(argc == 3, "Need retarget Gallery and image scratch");
+        check(argc == 3 || argc == 5,
+              "Need animated Gallery and image scratch, optionally scene and source paths");
+        const auto scene_path = argc == 5 ? argv[3] : "Scenes/179-animation-retargeting.scene.json";
+        const auto source_path =
+            argc == 5 ? argv[4] : "Assets/AnimationRetarget/Swing.retarget.json";
+        // The graph comparison reuses three gold materials; the original
+        // retarget scene also includes the blue rig's separate palette.
+        const auto minimum_colors = argc == 5 ? 4u : 5u;
         const auto scratch = std::filesystem::absolute(argv[2]) / AssetId::generate().str();
         const auto source = scratch / "SourceProject";
         std::filesystem::create_directories(scratch);
         std::filesystem::copy(argv[1], source, std::filesystem::copy_options::recursive);
         Json scene;
-        std::ifstream(source / "Scenes/179-animation-retargeting.scene.json") >> scene;
+        std::ifstream(source / scene_path) >> scene;
         const auto id = scene.at("asset_id").get<AssetId>();
         RefCntAutoPtr<IRenderDevice> device;
         RefCntAutoPtr<IDeviceContext> context;
         EngineVkCreateInfo info;
         info.Features.GeometryShaders = DEVICE_FEATURE_STATE_ENABLED;
         GetEngineFactoryVk()->CreateDeviceAndContextsVk(info, &device, &context);
-        check(device && context, "Retarget Gallery Vulkan device unavailable");
+        check(device && context, "Animated Gallery Vulkan device unavailable");
         DiligentPresentation presentation(device);
         const auto authored = test_gallery_capture::render(presentation, context, source, id,
-                                                           scratch / "authored", 5);
+                                                           scratch / "authored", minimum_colors);
         for (std::size_t sample = 0; sample < authored.size(); ++sample) {
             const auto width = sample == 3 ? 360u : 640u;
             const auto height = sample == 3 ? 640u : 360u;
@@ -32,19 +39,19 @@ int main(int argc, char** argv) {
                 for (unsigned x = 0; x < width; ++x)
                     if (x < 2 || y < 2 || x + 2 >= width || y + 2 >= height)
                         check(authored[sample][std::size_t(y) * width + x] == background,
-                              "Retarget Gallery animation touches the display border");
+                              "Gallery animation touches the display border");
         }
         const std::array roots{id};
         package_runtime_content(source, scratch / "Export", roots, {"windows", "d3d12"});
         std::filesystem::rename(scratch / "Export", scratch / "Relocated");
         std::filesystem::rename(source, scratch / "SourcesOffline");
-        check(!std::filesystem::exists(scratch /
-                                       "Relocated/Assets/AnimationRetarget/Swing.retarget.json"),
-              "Retarget runtime export retained editable recipe");
-        const auto exported = test_gallery_capture::render(
-            presentation, context, scratch / "Relocated", id, scratch / "relocated-images", 5);
+        check(!std::filesystem::exists(scratch / "Relocated" / source_path),
+              "Animated runtime export retained editable source");
+        const auto exported =
+            test_gallery_capture::render(presentation, context, scratch / "Relocated", id,
+                                         scratch / "relocated-images", minimum_colors);
         check(authored == exported && authored.size() == 4,
-              "Retarget animation changed after source-hidden relocation");
+              "Animation changed after source-hidden relocation");
         const Json receipt{{"scene", id},
                            {"exact_display_pairs", authored.size()},
                            {"scope",

@@ -72,6 +72,15 @@ struct WeightedAnimationSample {
     Sampler* sampler = nullptr;
     float ratio = 0, weight = 0;
 };
+// Prepared, transient dependency order. A nonnull sampler is a clip leaf; a
+// composite has two earlier indices and applies the existing local blend policy.
+struct AnimationPoseNode {
+    Sampler* sampler = nullptr;
+    std::uint32_t first = UINT32_MAX, second = UINT32_MAX;
+    float weight = 0;
+    bool additive = false;
+    std::span<const float> joint_mask;
+};
 class Sampler {
   public:
     explicit Sampler(std::shared_ptr<const Skeleton>, std::shared_ptr<const Clip>);
@@ -86,6 +95,13 @@ class Sampler {
     // At most three normalized absolute layers, sharing the admitted skeleton.
     // All layers sample before the one blended local-to-model evaluation.
     std::vector<Matrix> sample_weighted(std::span<const WeightedAnimationSample>);
+    // At most32 nodes/8 leaf occurrences/256 joints. Sample each distinct leaf
+    // once at the shared normalized phase, then one final local-to-model pass.
+    // No graph source, asset selection, clock or borrowed pose is retained here.
+    std::vector<Matrix> sample_graph(std::span<const AnimationPoseNode>, float ratio);
+    // Copied raw local value from the last successful graph sample, before its
+    // final root neutralization/constraints. Never a borrowed native pose pointer.
+    LocalPose graph_joint_pose(std::size_t node, std::size_t joint) const;
     // State transitions use independent clip phases. Interrupted transitions can
     // blend from an already evaluated local pose without another sampling layer.
     std::vector<Matrix> sample_transition(float ratio, Sampler& outgoing, float outgoing_ratio,

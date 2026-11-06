@@ -2,6 +2,7 @@
 #include "../animation_retarget.hpp"
 #include "../ui_surface_limits.hpp"
 #include "source_document_automation.hpp"
+#include <forge/animation_graph.hpp>
 #include <forge/application_state_source.hpp>
 #include <forge/material_graph.hpp>
 #include <forge/navigation_behavior.hpp>
@@ -49,6 +50,55 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
     const auto paint_point = automation_array(coordinate, 2, 2);
     std::vector<LiveAuthoringMethod> methods;
     methods.push_back(automation_method(
+        "asset.animation_graph.catalog",
+        "Describe animation pose graphs, stable node/input identity, playback and publication "
+        "limits.",
+        "asset.read", automation_object(), false, [](const Json&) {
+            return Json{
+                {"editor", "animation_graph"},
+                {"format", "forge.animation-graph"},
+                {"version", 1},
+                {"suffix", ".animgraph.json"},
+                {"asset_type", AnimationGraphAsset::type},
+                {"limits",
+                 {{"source_bytes", animation_graph_byte_limit},
+                  {"nodes", animation_graph_node_limit},
+                  {"clip_nodes", animation_graph_clip_limit},
+                  {"inputs", animation_graph_input_limit},
+                  {"joints", animation_graph_joint_limit},
+                  {"cycle_seconds", {.0001, 3600.}}}},
+                {"identity",
+                 "Node id/first/second/output are graph-local UUIDs, never asset references. "
+                 "Input slots 1..4 stay stable when rows reorder; names are labels. "
+                 "Only skeleton, clip and mask fields refer to catalog assets."},
+                {"nodes",
+                 "clip selects an imported or baked target-bound clip for the exact skeleton. "
+                 "blend mixes first/second; additive adds second relative to skeleton rest. "
+                 "Optional mask weights the second input. weight is 0..1 or "
+                 "{input:slot,scale:number,bias:number}, clamped to 0..1. "
+                 "Shared paths evaluate once on one normalized cycle."},
+                {"drafts",
+                 "Null bindings and disconnected nodes may be saved as drafts. Present links "
+                 "must resolve; cycles always reject. Publication requires skeleton, all clips, "
+                 "both composite inputs and one output reached by every node."},
+                {"layout",
+                 "Optional editor_layout uses format forge.animation-graph-layout, version1, "
+                 "positions:[{node:localUUID,x:number,y:number}]. Positions are source-only, "
+                 "finite within ±1000000. Unknown extensions are preserved."},
+                {"playback",
+                 "Set Animator graph through property.set_many, clear clip/states/blend_space "
+                 "and manual blend fields in the same transaction. skeleton must match exactly. "
+                 "graph_override_1..4 false uses source defaults; true selects graph_input_1..4. "
+                 "Root motion composes per-clip interval deltas; masks, morphs and rig constraints "
+                 "use existing animation owners. Graph recovery uses private profile9."},
+                {"workflow",
+                 "Use asset.document template/create/open/read/patch/undo/redo/save/status "
+                 "through animation_graph. Save publishes asynchronously; failure preserves "
+                 "the last usable artifact. Poll status before assigning or exporting. "
+                 "Export needs graph and target model dependency closure, plus a matching "
+                 "runtime_animation_graph profile1 kit."}};
+        }));
+    methods.push_back(automation_method(
         "asset.animation_retarget.catalog",
         "Describe authored skeleton retarget recipes, exact target-bound clip baking and supported "
         "limits.",
@@ -84,8 +134,9 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                  "Use asset.document template/create/open/patch/undo/redo/save/status "
                  "through animation_retarget. Save bakes asynchronously and preserves "
                  "the last usable clip on failure. Assign its asset UUID to a target "
-                 "Animator clip, States entry or Blend Space sample through existing "
-                 "authoring operations. Publish dependent States/Blend Spaces before "
+                 "Animator clip, States entry, Blend Space sample or Graph clip node through "
+                 "existing "
+                 "authoring operations. Publish dependent States/Blend Spaces/Graphs before "
                  "export. The runtime needs the baked clip and target, without original "
                  "source animation models. Matching runtime_skeletal_clip profile1 kit required."}};
         }));

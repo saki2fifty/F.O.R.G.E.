@@ -11,6 +11,7 @@
 #include "ui_gradient_profile.hpp"
 #include "ui_surface_limits.hpp"
 #include <algorithm>
+#include <forge/animation_graph.hpp>
 #include <forge/audio_components.hpp>
 #include <forge/fog_volume.hpp>
 #include <forge/game_content.hpp>
@@ -100,6 +101,13 @@ void validate_runtime_compatibility(const AssetCatalog& catalog, const Json& eng
                         "FBX Models require a matching runtime kit; select the kit packaged "
                         "with this editor");
             }
+        }
+        if (record.type == AnimationGraphAsset::type) {
+            const auto support = engine.find("runtime_animation_graph");
+            require(support != engine.end() && support->is_number_integer() &&
+                        *support == animation_graph_runtime_profile_version,
+                    "Animation Graphs require a matching runtime kit; select the kit packaged with "
+                    "this editor");
         }
         if (record.type == AnimationClipAsset::type &&
             record.metadata.contains("forge.animation_clip")) {

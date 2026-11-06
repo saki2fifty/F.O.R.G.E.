@@ -1,5 +1,16 @@
 # ADR 013 — Persistence domains
 
+## Authored graph animation recovery
+
+Graph-bearing private animation checkpoints use version 9. `animation_profile`
+retains the underlying 1–8 profile, including profile 8's own `sequence_profile`.
+Graph revision, exact clip/mask keys, inputs/default overrides and clocks validate
+before adoption through the current animation transaction. Older versions remain
+valid without graph entries; older readers reject 9. Sampling/interval caches are
+derived runtime values, never authored identity. No Scene/Prefab format or ABI1
+function-table version change is implied; changed native component layouts still
+require the matching SDK fingerprint. See [ADR 035](035-animation-graphs.md).
+
 ## Sprite component development — 2026-10-19
 
 The in-progress Sprite family adds optional `forge.sprite_renderer` through the

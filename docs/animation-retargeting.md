@@ -26,7 +26,7 @@ The existing import queue owns background capture/cook/cancellation; the asset
 publisher owns immutable selection and last-good preservation. Recipe edits do not
 edit the Scene. **Use on selected Animator** makes one ordinary Scene property
 command after a successful publication and checks the target binding. Animators
-using States or a Blend Space select the clip through that existing owner instead.
+using States, a Blend Space or an Animation Graph select the clip through that existing owner instead.
 
 ## Transfer equations and bounds
 
@@ -80,7 +80,7 @@ records exact build inputs. Selected source/target changes reject stale work bef
 publication and preserve the previously selected clip.
 
 `select_animation_clip` is the shared binding admission for direct Animator,
-States, Blend Spaces, resource requests and packaging. Imported pairs retain their
+States, Blend Spaces, Animation Graphs, resource requests and packaging. Imported pairs retain their
 same-family/revision/generation checks. Baked root clips instead prove their exact
 target skeleton binding and track independent clip and skeleton cache keys and
 generations. No public SDK field, table, component layout or existing imported

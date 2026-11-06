@@ -1,6 +1,7 @@
 #include "runtime_package.hpp"
 #include "animation_blend_space_resource.hpp"
 #include "animation_clip_selection.hpp"
+#include "animation_graph_resource.hpp"
 #include "animation_mask_resource.hpp"
 #include "application_state_resource.hpp"
 #include "asset_bytes.hpp"
@@ -205,6 +206,7 @@ AssetRecord runtime_record(AssetRecord record) {
                              "forge.animation_states",
                              "forge.animation_mask",
                              "forge.animation_blend_space",
+                             "forge.animation_graph",
                              "forge.particle_effect",
                              "forge.tile_set",
                              "forge.tile_map",
@@ -251,6 +253,8 @@ void admit_bundle(const AssetRecord& root, const CachedArtifact& artifact) {
         (void)validate_model_bundle(artifact.files);
     else if (root.type == AnimationClipAsset::type && format == animation_detail::baked_clip_format)
         (void)animation_detail::admit_baked_animation_clip(artifact, root);
+    else if (root.type == AnimationGraphAsset::type && format == "forge.animation-graph")
+        (void)admit_animation_graph(artifact, root);
     else if (root.type == AnimationBlendSpaceAsset::type &&
              format == "forge.animation-blend-space") {
         require(
@@ -476,6 +480,46 @@ void validate_selections(const std::filesystem::path& root, const AssetCatalog& 
                 request_collision(pool, root, std::make_shared<const AssetCatalog>(catalog), {id});
             require(pool.wait(ticket, std::chrono::seconds(60)) && bool(pool.acquire(ticket)),
                     "Collision package native admission failed: " + ticket.inspect().diagnostic);
+        } else if (record.type == AnimationGraphAsset::type) {
+            ResourcePool<AnimationGraphAsset> pool;
+            const auto ticket = request_animation_graph(pool, root, record);
+            require(pool.wait(ticket, std::chrono::seconds(30)), ticket.inspect().diagnostic);
+            const auto graph = pool.acquire(ticket);
+            require(bool(graph), "Animation Graph package native admission failed");
+            const auto skeleton = catalog.records().find(graph->graph.skeleton);
+            require(skeleton != catalog.records().end() &&
+                        skeleton->second.type == SkeletonAsset::type &&
+                        skeleton->second.subasset.has_value(),
+                    "Animation Graph package skeleton is missing or has the wrong ownership");
+            const auto selected =
+                load_model_selection(root, catalog, skeleton->second.subasset->owner, stop);
+            require(selected.revision == graph->skeleton_revision,
+                    "Animation Graph package mixes skeleton revisions");
+            const auto joints = model_skeleton_joints(selected, graph->graph.skeleton);
+            require(!joints.assets.empty() && joints.assets.size() <= animation_graph_joint_limit,
+                    "Animation Graph package exceeds the joint profile");
+            for (const auto& [id, revision] : graph->clips) {
+                const auto binding =
+                    animation_detail::select_animation_clip(catalog, {graph->graph.skeleton}, {id});
+                require(binding.skeleton_revision == graph->skeleton_revision &&
+                            binding.clip_revision == revision,
+                        "Animation Graph package clip selection differs");
+            }
+            auto cache = DerivedDataCache::open_existing(
+                root,
+                {animation_mask_cooked_byte_limit, animation_mask_cooked_byte_limit + 65536, 1});
+            for (const auto& [id, revision] : graph->masks) {
+                const auto mask = catalog.records().find(id);
+                require(mask != catalog.records().end() &&
+                            animation_mask_selection(mask->second).at("key") == revision,
+                        "Animation Graph package mask selection differs");
+                (void)cache.load_selected(revision, [&](const auto& artifact) {
+                    const auto value = admit_animation_mask(artifact, mask->second);
+                    require(value.skeleton_revision == graph->skeleton_revision,
+                            "Animation Graph package mask has a different skeleton revision");
+                    (void)value.mask.weights(graph->graph.skeleton, joints.assets, joints.parents);
+                });
+            }
         } else if (record.type == AnimationBlendSpaceAsset::type) {
             ResourcePool<AnimationBlendSpaceAsset> pool;
             const auto ticket = request_animation_blend_space(pool, root, record);

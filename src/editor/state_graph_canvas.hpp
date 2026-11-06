@@ -9,6 +9,7 @@ namespace forge {
 struct StateGraphConnection {
     std::uint32_t id, from, to;
     std::string label;
+    unsigned input = 0;
 };
 struct StateGraphCanvasOptions {
     std::string window = "Animation state canvas", probe = "animation_graph";
@@ -54,7 +55,11 @@ class StateGraphCanvas {
               std::uint32_t selected_edge = 0, const std::function<void()>& toolbar = {},
               std::uint32_t active = 0, std::string_view rows = "states",
               std::string_view noun = "states", std::string_view root_label = "Entry",
-              float logical_height = 250) {
+              float logical_height = 250,
+              const std::function<unsigned(std::uint32_t)>& input_count = {},
+              const std::function<void(Json&, std::uint32_t, std::uint32_t, unsigned)>&
+                  connect_input = {},
+              const std::function<std::string(std::uint32_t)>& subtitle = {}) {
         if ((dragging_ && revision_ != revision) || (linking_ && link_revision_ != revision) ||
             locked || ImGui::GetIO().AppFocusLost ||
             ((dragging_ || linking_) &&
@@ -86,8 +91,10 @@ class StateGraphCanvas {
             ImGui::SameLine();
             toolbar();
         }
-        ImGui::TextDisabled("Select a card to edit it. Connect Out to In. Drag cards; Escape "
-                            "cancels. Wheel zooms; middle mouse pans.");
+        ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+        ImGui::TextWrapped("Select a card to edit it. Connect Out to In. Drag cards; Escape "
+                           "cancels. Wheel zooms; middle mouse pans.");
+        ImGui::PopStyleColor();
         ImGui::BeginChild(options_.window.c_str(), {0, logical_height * ui::interface_scale},
                           ImGuiChildFlags_Borders,
                           ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
@@ -112,7 +119,7 @@ class StateGraphCanvas {
                 minx = std::min(minx, p[0] - 70);
                 miny = std::min(miny, p[1] - 45);
                 maxx = std::max(maxx, p[0] + 310);
-                maxy = std::max(maxy, p[1] + 85);
+                maxy = std::max(maxy, p[1] + (input_count && input_count(id) == 2 ? 114 : 85));
             }
             zoom_ = std::clamp(float(std::min((size.x - 32) / (scale * (maxx - minx)),
                                               (size.y - 32) / (scale * (maxy - miny)))),
@@ -145,11 +152,15 @@ class StateGraphCanvas {
             return clicked;
         };
         std::map<std::pair<std::uint32_t, std::uint32_t>, unsigned> repeated;
+        const auto port_y = [&](std::uint32_t id, unsigned slot) {
+            return input_count && input_count(id) == 2 ? (slot == 0 ? 72.f : 96.f) : 65.f;
+        };
         for (const auto& edge : connections) {
             if (!positions.contains(edge.from) || !positions.contains(edge.to))
                 continue;
             const auto a = screen(edge.from), b = screen(edge.to);
-            const ImVec2 start{a.x + 240 * factor, a.y + 65 * factor}, end{b.x, b.y + 65 * factor};
+            const ImVec2 start{a.x + 240 * factor, a.y + 65 * factor},
+                end{b.x, b.y + port_y(edge.to, edge.input) * factor};
             const auto ordinal = repeated[{edge.from, edge.to}]++;
             const float bend = (end.x < start.x ? -100 * factor : 0) - float(ordinal) * 24 * factor;
             const ImVec2 c1{start.x + 70 * factor, start.y + bend},
@@ -181,7 +192,8 @@ class StateGraphCanvas {
             const auto id = row.at("id").get<std::uint32_t>();
             const auto p = screen(id);
             ImGui::PushID(int(id));
-            const ImVec2 extent{240 * factor, 85 * factor};
+            const ImVec2 extent{240 * factor,
+                                (input_count && input_count(id) == 2 ? 114 : 85) * factor};
             draw->AddRectFilled(p, {p.x + extent.x, p.y + extent.y},
                                 id == active     ? IM_COL32(32, 78, 55, 255)
                                 : id == selected ? IM_COL32(43, 76, 95, 255)
@@ -198,7 +210,7 @@ class StateGraphCanvas {
                           {p.x + 12 * factor, p.y + 10 * factor}, IM_COL32(225, 235, 240, 255),
                           title.c_str(), nullptr, 216 * factor, &title_clip);
             const auto status = (source.at("entry") == id ? std::string(root_label) + " | " : "") +
-                                "ID " + std::to_string(id);
+                                (subtitle ? subtitle(id) : "ID " + std::to_string(id));
             draw->AddText(nullptr, ImGui::GetFontSize() * zoom_,
                           {p.x + 12 * factor, p.y + 38 * factor}, IM_COL32(140, 190, 210, 255),
                           status.c_str());
@@ -215,7 +227,7 @@ class StateGraphCanvas {
                 dragging_ = true;
                 moved_ = false;
             }
-            ImGui::BeginDisabled(locked || !connect);
+            ImGui::BeginDisabled(locked || (!connect && !connect_input));
             if (probe_button("out", {p.x + extent.x - 18 * factor, p.y + 55 * factor},
                              {18 * factor, 25 * factor},
                              options_.probe + ":out:" + std::to_string(id))) {
@@ -225,21 +237,35 @@ class StateGraphCanvas {
             draw->AddCircleFilled({p.x + extent.x - 7 * factor, p.y + 65 * factor}, 4 * factor,
                                   IM_COL32(90, 210, 230, 255));
             ImGui::BeginDisabled(!linking_ || (!options_.allow_self && linking_ == id));
-            if (probe_button("in", {p.x, p.y + 55 * factor}, {18 * factor, 25 * factor},
-                             options_.probe + ":in:" + std::to_string(id))) {
-                const auto from = linking_;
-                linking_ = 0;
-                if (edit(revision, options_.connect,
-                         [=](Json& draft) { connect(draft, from, id); }))
-                    select(from);
+            const auto count = input_count ? input_count(id) : 1;
+            for (unsigned port = 0; port < count; ++port) {
+                ImGui::PushID(int(port));
+                const auto center = port_y(id, port);
+                const auto y = count == 1 ? 55.f : center - 9;
+                const auto height = count == 1 ? 25.f : 18.f;
+                const auto suffix = input_count ? ":" + std::to_string(port + 1) : "";
+                if (probe_button("in", {p.x, p.y + y * factor}, {18 * factor, height * factor},
+                                 options_.probe + ":in:" + std::to_string(id) + suffix)) {
+                    const auto from = linking_;
+                    linking_ = 0;
+                    if (edit(revision, options_.connect, [=](Json& draft) {
+                            if (connect_input)
+                                connect_input(draft, from, id, port);
+                            else
+                                connect(draft, from, id);
+                        }))
+                        select(from);
+                }
+                draw->AddCircleFilled({p.x + 7 * factor, p.y + center * factor}, 4 * factor,
+                                      IM_COL32(90, 210, 230, 255));
+                const auto label = count == 1 ? "In" : "In " + std::to_string(port + 1);
+                draw->AddText(nullptr, ImGui::GetFontSize() * zoom_,
+                              {p.x + 17 * factor, p.y + (center - 9) * factor},
+                              IM_COL32(140, 190, 210, 255), label.c_str());
+                ImGui::PopID();
             }
             ImGui::EndDisabled();
             ImGui::EndDisabled();
-            draw->AddCircleFilled({p.x + 7 * factor, p.y + 65 * factor}, 4 * factor,
-                                  IM_COL32(90, 210, 230, 255));
-            draw->AddText(nullptr, ImGui::GetFontSize() * zoom_,
-                          {p.x + 17 * factor, p.y + 56 * factor}, IM_COL32(140, 190, 210, 255),
-                          "In");
             draw->AddText(nullptr, ImGui::GetFontSize() * zoom_,
                           {p.x + 193 * factor, p.y + 56 * factor}, IM_COL32(140, 190, 210, 255),
                           "Out");

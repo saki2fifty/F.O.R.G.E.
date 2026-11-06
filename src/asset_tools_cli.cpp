@@ -10,6 +10,7 @@
 #include <forge/scene.hpp>
 #ifdef FORGE_ASSET_TOOLS
 #include "animation_blend_space_authoring.hpp"
+#include "animation_graph_authoring.hpp"
 #include "animation_mask_authoring.hpp"
 #include "animation_retarget_authoring.hpp"
 #include "animation_states_authoring.hpp"
@@ -225,6 +226,7 @@ int asset_tools_cli(int argc, char** argv) {
             const bool animation_retarget = path_utf8(source).ends_with(".retarget.json");
             const bool animation_mask = path_utf8(source).ends_with(".mask.json");
             const bool animation_blend_space = path_utf8(source).ends_with(".blendspace.json");
+            const bool animation_graph = path_utf8(source).ends_with(".animgraph.json");
             const bool transform_animation = path_utf8(source).ends_with(".animation.json");
             const bool editable_mesh = path_utf8(source).ends_with(".mesh.json");
             const bool terrain = path_utf8(source).ends_with(".terrain.json");
@@ -239,6 +241,7 @@ int asset_tools_cli(int argc, char** argv) {
             auto registry = tile_set || tile_map    ? tile_asset_import_registry(worker)
                             : terrain               ? terrain_import_registry()
                             : particle_effect       ? particle_effect_import_registry()
+                            : animation_graph       ? animation_graph_import_registry()
                             : animation_blend_space ? animation_blend_space_import_registry()
                             : animation_retarget    ? animation_retarget_import_registry()
                             : animation_mask        ? animation_mask_import_registry()
@@ -302,6 +305,11 @@ int asset_tools_cli(int argc, char** argv) {
                 identity = AnimationRetargetSource::parse(
                                asset_detail::read_bytes(ProjectPaths(project).resolve(source),
                                                         animation_retarget_byte_limit))
+                               .asset();
+            else if (animation_graph)
+                identity = AnimationGraphSource::parse(
+                               asset_detail::read_bytes(ProjectPaths(project).resolve(source),
+                                                        animation_graph_byte_limit))
                                .asset();
             else if (animation_blend_space)
                 identity = AnimationBlendSpaceSource::parse(
@@ -385,8 +393,8 @@ int asset_tools_cli(int argc, char** argv) {
                 std::move(draft),
                 [decisions, collision, material, editable_mesh, particle_effect, terrain,
                  transform_animation, animation_states, animation_mask, animation_blend_space,
-                 animation_retarget, tile_set, tile_map, navigation_behavior, ui_localization,
-                 render_texture,
+                 animation_graph, animation_retarget, tile_set, tile_map, navigation_behavior,
+                 ui_localization, render_texture,
                  application_states](auto& candidate, const auto& plan, const auto& catalog) {
                     if (tile_set || tile_map) {
                         if (!decisions.empty())
@@ -401,6 +409,11 @@ int asset_tools_cli(int argc, char** argv) {
                             throw std::runtime_error(
                                 "Particle Effect has no subasset correspondence decisions");
                         prepare_particle_effect_publication(candidate, plan);
+                    } else if (animation_graph) {
+                        if (!decisions.empty())
+                            throw std::runtime_error(
+                                "Animation Graph has no subasset correspondence decisions");
+                        prepare_animation_graph_publication(candidate, plan);
                     } else if (animation_blend_space) {
                         if (!decisions.empty())
                             throw std::runtime_error(

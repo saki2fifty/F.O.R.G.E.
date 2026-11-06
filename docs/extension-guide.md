@@ -561,6 +561,18 @@ shared-SDK resource callbacks before and after source-free relocation.
 
 ## Animation timing observations
 
+An exact matching native client can include `forge/animation_components.hpp` and
+query the existing `forge.animator` component as `forge::Animator`. For graph mode,
+`graph` selects the authored graph. `graph_override_1` through `graph_override_4`
+choose the corresponding `graph_input_1` through `graph_input_4` values; false keeps
+the source default. Slots are stable1–4 and names are source labels. Touch only slots
+declared by that graph, using finite input values within±1,000,000. Set inputs in a
+fixed gameplay system with dependency `forge.animation`; the existing animation
+owner validates the candidate pose and retains its phase. The installed
+`animation_probe.cpp` sample exercises slot1 on its declared graph fixture. Rebuild
+modules when the SDK fingerprint changes; an old Animator layout is incompatible.
+Graph resources and native sampling pointers are not exposed through these fields.
+
 Declare `FORGE_SDK_ANIMATION` in allowed capabilities. Requiring it additionally
 needs dependency `forge.animation`. Register marker consumers on
 `host->post_physics_phase` and add `host->fixed_tag`. `Client::animation_event`
