@@ -1,5 +1,21 @@
 # 2026-11-06
 
+## Record fresh game movies with sound
+
+**Run → Record game…** records a fresh offline run through the existing Play,
+fixed simulation, audio and Game presentation owners. Native controls and
+automation/MCP share bounded FPS/count/dimensions/quality, output/execution grants,
+source and launch guards, owned PNG previews, cancellation and retained receipts.
+The new folder holds a Motion JPEG/PCM AVI, exact PNGs, stereo PCM16, dated frame
+metadata and private UserData. Retirement restores the prior user-data selection.
+The profile excludes interactive recording and scene changes.
+
+Gallery182 combines scene motion, a falling cube, timed tones and a HUD pulse.
+The illustrated offline guide covers recording, outputs, limits and recovery from
+failure. Existing silent Timeline AVI/WebP workflows retain their behavior.
+Software-graphics, independent movie/audio decoding and local programmatic checks
+are distinct from pending Windows/full editor, physical hardware and player review.
+
 ## Export silent sequence movies
 
 Timeline preview export can add a Motion JPEG AVI alongside retained PNG frames and

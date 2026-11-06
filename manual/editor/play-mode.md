@@ -146,3 +146,12 @@ Several enabled cameras render in their **Order**, with their own viewport recta
 Global Play/Pause/Step/Stop are also in **Run**, the command palette and the **More** (three-dot) button at narrow widths. Game labels Starting, Playing, Paused, Stopped or Crashed/Recovery available; the permanent status bar also identifies runtime state.
 
 Use **Capture gameplay input** in Game. Escape, focus loss, hiding Game, or clicking outside its image releases input. Editor buttons receive that outside click. Runtime HUD and Reload UI belong to Game. Authoring stays locked during Play.
+
+## Record a fresh game run
+
+Stop Play, then choose **Run → Record game…** to render an offline movie with
+game behavior, physics, HUD animation and sound. This starts a fresh run with
+private UserData and stops that run on completion or cancellation. Use the
+recording window's **Cancel** control; interactive input and Pause are unavailable
+in this profile. See [Record a game movie](game-recording.md) for setup, output and
+current limits.

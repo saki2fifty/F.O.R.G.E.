@@ -2363,6 +2363,17 @@ Animator override checkboxes select per-object values; stopped preview and Live
 gameplay can tune declared slots. Keep values after Stop stages an ordinary Scene
 review. Save the Scene, choose its Startup Scene and export with the matching kit.
 
+## Record a game with sound
+
+`Scenes/182-game-recording.scene.json` combines a falling red cube, moving gold
+panel, three timed tones and a HUD pulse. Stop ordinary Play and choose
+**Run → Record game…**. Use a new output folder; 180 frames at 30 FPS cover the
+six-second sequence. Recording starts fresh with private UserData and produces
+`game.avi`, captured PNGs, PCM audio and a dated `recording.json` receipt.
+The HUD advances with recorded time. Use the recording window's **Cancel** to
+retire a run and retain completed files. Interactive input and scene changes are
+unavailable in this offline profile. See the manual's **Record a game movie** guide.
+
 ## Export a silent sequence movie
 
 `Scenes/181-sequence-movies.scene.json` contains a moving gold panel, three colored

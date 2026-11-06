@@ -352,6 +352,21 @@ Scene values and sample times remain unchanged; see the [movie export controls a
 limits](animation-sequences.md). This captures the sequence preview; it does not run
 gameplay or record sound.
 
+For a fresh game movie with sound, use **forge_capture_game_read** and then
+**forge_capture_game_start**. Grant both execution and an output folder. Pass the
+observed **scene**, **source_revision** and **document_generation**, plus a new
+relative **path**, **frames_per_second**, **frame_count**, **width** and **height**.
+**jpeg_quality** is optional. The tool starts its own fresh Play run and private
+UserData; it cannot capture an existing live game or interactive input.
+
+Poll **forge_capture_status** and read **game_recording**. Use its active
+**operation** with **forge_capture_cancel**. The completed folder includes
+**game.avi**, PNG frames, PCM audio and **recording.json**. To inspect a completed
+PNG, pass the stable **artifact_operation** and **frame** to
+**forge_capture_preview**, then pass the returned new **operation** to
+**forge_capture_image**. Keep the artifact token for further frame previews.
+See [recording prerequisites and limits](game-recording.md).
+
 Export uses saved project content and the matching selected runtime/module kits.
 Save all authoring drafts first and set Game defaults and Startup Scene in Project
 Settings. The agent can inspect actual export progress, cancel pending preparation,

@@ -889,6 +889,14 @@ The selected model root's Animator can override either input. See
 [Compose an animation graph](../editor/animation-graphs.md) for preview, live tuning,
 saving and export.
 
+## Record a game with sound
+
+For a fresh game run with physics, HUD animation and sound, open
+**182-game-recording** and use [Record a game movie](../editor/game-recording.md).
+The falling red cube uses physics; the gold panel and three tones use the scene
+sequence. The HUD pulse follows recorded time. Choose 180 frames at 30 FPS to
+record the full six-second sequence through **Run → Record game…**.
+
 ## Export a sequence movie
 
 Open **181-sequence-movies**, select **Movie preview - open Timeline, then Export

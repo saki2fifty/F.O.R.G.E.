@@ -90,7 +90,9 @@ the movie is not presented as a still-image preview or imported runtime Texture.
 The sequence preview renders its existing camera image. It does not execute gameplay
 C++, physics, advancing particle simulation, runtime UI or sound. Movie output does
 not add synchronized gameplay/audio recording, runtime movie playback, HDR video,
-16-bit video or automatic animated-Texture import. There is no Scene, asset, SDK,
+16-bit video or automatic animated-Texture import. Use the separate
+[fresh offline game recorder](game-recording.md) for game execution and sound.
+There is no Scene, asset, SDK,
 runtime ABI or runtime-kit format change. Windows/full-editor, physical display
 and external-player acceptance remain distinct from local fixture execution.
 

@@ -10776,6 +10776,28 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "83147c2a-beec-4148-b43d-96935ea4cdef",
+      "metadata": {
+        "forge.ui_source": {
+          "bytes": 711,
+          "digest": "285b40cd7319786a8aece5a8c9f7c456aa1bae7f6e8578c6508cd12113727dce",
+          "format": "rml"
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/GameRecording/hud.rml",
+      "source_dependencies": [
+        {
+          "revision": "285b40cd7319786a8aece5a8c9f7c456aa1bae7f6e8578c6508cd12113727dce",
+          "role": "ui.source",
+          "source": "Assets/GameRecording/hud.rml"
+        }
+      ],
+      "type": "ui_document"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "8433ffa4-e1a1-44f9-b48c-1e0e1ea0d6af",
       "metadata": {
         "forge.import": {
@@ -16662,6 +16684,16 @@
         "removed": false
       },
       "type": "material"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "e56f8876-d627-43fc-9a01-470b54c76483",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/182-game-recording.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
     },
     {
       "dependencies": [

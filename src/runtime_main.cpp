@@ -162,6 +162,7 @@ int main(int argc, char** argv) {
         std::filesystem::path user_data_base;
         bool explicit_hz = false, sdk_profile = false, ui_enabled = false;
         bool sdk_play = false;
+        bool recording = false;
         std::string audio_mode;
         for (int i = 1; i < argc; ++i) {
             const std::string option = argv[i];
@@ -189,12 +190,18 @@ int main(int argc, char** argv) {
                 if (value != "on" && value != "off")
                     throw std::runtime_error("--sdk-play mode must be on or off");
                 sdk_play = value == "on";
+            } else if (option == "--recording") {
+                if (value != "on" && value != "off")
+                    throw std::runtime_error("--recording mode must be on or off");
+                recording = value == "on";
             } else if (option == "--user-data") {
                 user_data_base = std::filesystem::u8path(value);
             } else
                 throw std::runtime_error("Unknown runtime option: " + option);
         }
         startup_phase("arguments-parsed");
+        if (recording && (!sdk_play || audio_mode != "offline"))
+            throw std::runtime_error("--recording on requires SDK Play and offline audio");
         if (!project_root.empty() && sdk_profile) {
             sdk_project.emplace(project_root);
             startup_phase("project-settings-ready");
@@ -240,6 +247,7 @@ int main(int argc, char** argv) {
             host_config.defaults = std::move(defaults);
             host_config.audio = audio_config;
             host_config.ui = ui_enabled;
+            host_config.recording = recording;
             host_config.input = sdk_project ? sdk_project->input() : forge::InputMap{};
             startup_phase("sdk-host-begin");
             forge::SdkPlayRuntime host(std::move(host_config));

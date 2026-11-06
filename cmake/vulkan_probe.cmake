@@ -452,6 +452,30 @@ if(FORGE_BUILD_VULKAN_RENDERER_PROBE)
  set_tests_properties(webp_sequence_editor_vulkan PROPERTIES TIMEOUT 180)
  add_test(NAME avi_sequence_editor_vulkan COMMAND forge_webp_sequence_editor_vulkan_probe $<TARGET_FILE:forge_asset_build_worker> "${CMAKE_BINARY_DIR}/avi-sequence-editor-vulkan" --avi-sequence)
  set_tests_properties(avi_sequence_editor_vulkan PROPERTIES TIMEOUT 180)
+ if(FORGE_BUILD_UI_PRESENTER AND TARGET forge_game_recording_editor)
+  # Compile the same production task with widget observation for native input
+  # fixtures. Its normal library remains uninstrumented in shipped consumers.
+  add_executable(forge_game_recording_vulkan_probe tests/game_recording_vulkan_probe.cpp
+   src/editor/game_recording_task.cpp src/editor/play_presentation.cpp
+   src/ui_diligent.cpp src/ui_filter_layers.cpp
+   "${rmlui_SOURCE_DIR}/Backends/RmlUi_Platform_SDL.cpp"
+   "${diligent_SOURCE_DIR}/DiligentTools/Imgui/src/ImGuiImplDiligent.cpp"
+   "${diligent_SOURCE_DIR}/DiligentTools/Imgui/src/ImGuiDiligentRenderer.cpp")
+  target_include_directories(forge_game_recording_vulkan_probe PRIVATE src src/editor
+   "${rmlui_SOURCE_DIR}/Backends" "${diligent_SOURCE_DIR}/DiligentTools/Imgui/interface")
+  target_compile_definitions(forge_game_recording_vulkan_probe PRIVATE FORGE_UI_FIXTURE
+   RMLUI_SDL_VERSION_MAJOR=3)
+  target_link_libraries(forge_game_recording_vulkan_probe PRIVATE forge_game_recording_editor
+   forge_presentation_diligent forge_ui_presenter forge_runtime_package RmlUi::Core
+   Diligent-BuildSettings Diligent-GraphicsEngineVk-static)
+  if(FORGE_ENABLE_NATIVE_SDK)
+   add_dependencies(forge_game_recording_vulkan_probe forge_runtime forge_asset_build_worker)
+   add_test(NAME game_recording_vulkan COMMAND forge_game_recording_vulkan_probe
+    "${PROJECT_SOURCE_DIR}/samples/projects/FeatureGallery" $<TARGET_FILE:forge_runtime>
+    $<TARGET_FILE:forge_asset_build_worker> "${CMAKE_BINARY_DIR}/game-recording-vulkan")
+   set_tests_properties(game_recording_vulkan PROPERTIES TIMEOUT 180)
+  endif()
+ endif()
  add_executable(forge_view_image_vulkan_probe tests/view_image_vulkan_probe.cpp)
  add_executable(forge_reflection_capture_vulkan_probe tests/reflection_capture_vulkan_probe.cpp)
  add_executable(forge_runtime_reflection_vulkan_probe tests/runtime_reflection_vulkan_probe.cpp src/editor/viewport.cpp)

@@ -1,7 +1,6 @@
 """Native image IO/recording frame source and real MCP image blocks; no GPU claim."""
 from contextlib import contextmanager
 import base64
-import gzip
 import hashlib
 import json
 from pathlib import Path
@@ -10,16 +9,20 @@ import subprocess
 import sys
 import tempfile
 import time
-from mcp_test_client import CAPTURE, Client, failed, test_symlink, finish_host
+from mcp_test_client import Client, failed, test_symlink, finish_host, write_capture
 
 TOOLS, HOST = sys.argv[1:3]
+GAME_ONLY = len(sys.argv) == 7 and sys.argv[6] == '--game-only'
+assert len(sys.argv) <= 6 or GAME_ONLY, 'Unknown capture test selection'
 
 
 @contextmanager
 def editor(mode='output'):
     with tempfile.TemporaryDirectory(prefix='forge-mcp-image-') as temporary:
         root=Path(temporary)
-        process=subprocess.Popen([HOST,str(root),mode,str(Path(__file__).resolve().parents[1]/'samples/projects/FeatureGallery'),sys.argv[4]],stdout=subprocess.PIPE,stderr=subprocess.PIPE,
+        command=[HOST,str(root),mode,str(Path(__file__).resolve().parents[1]/'samples/projects/FeatureGallery'),sys.argv[4]]
+        if len(sys.argv)>5: command.append(sys.argv[5])
+        process=subprocess.Popen(command,stdout=subprocess.PIPE,stderr=subprocess.PIPE,
                                  text=True,encoding='utf-8')
         try:
             line=process.stdout.readline()
@@ -50,7 +53,7 @@ def png_has_chunk(data, wanted):
 
 
 for legacy in (False,True):
-    with editor() as (root,config),Client(config,legacy) as client:
+    with editor('game-output' if GAME_ONLY else 'output') as (root,config),Client(config,legacy) as client:
         catalog={tool['name']:tool for tool in client.request('tools/list')['result']['tools']}
         assert catalog['forge_capture_image']['annotations']['readOnlyHint']
         assert {'forge_capture_sequence_start','forge_output_folder_create'} <= set(catalog)
@@ -81,6 +84,72 @@ for legacy in (False,True):
             assert len(png)==plain['result']['image']['bytes']
             return plain['result'],png
 
+        if len(sys.argv)>5:
+            assert catalog['forge_capture_game_start']['annotations']['openWorldHint']
+            source=read('forge_capture_game_read')
+            assert source['ready'] and source['execution_granted'] and source['mode']=='offline_game',source
+            assert (source['minimum_fps'],source['maximum_fps'],source['maximum_frames'])==(1,240,4096)
+            game_authored=read('forge_scene_read')
+            def game_arguments(path,**overrides):
+                observed=read('forge_capture_game_read')
+                value=dict(path=path,scene=observed['scene'],source_revision=observed['source_revision'],
+                           document_generation=observed['document_generation'],frames_per_second=30000/1001,
+                           frame_count=3,width=7,height=5,jpeg_quality=90)
+                value.update(overrides)
+                return value
+            for key in ('source_revision','document_generation'):
+                values=game_arguments('StaleGame')
+                values[key]+=1
+                failed(mutate('forge_capture_game_start',**values),'stale_source')
+            for invalid in (dict(width=True),dict(width=0),dict(height=4097),dict(frame_count=4097),
+                            dict(jpeg_quality=101),dict(frames_per_second=.5),dict(unknown=True)):
+                failed(mutate('forge_capture_game_start',**game_arguments('InvalidGame',**invalid)),
+                       'invalid_arguments')
+            assert not mutate('forge_capture_game_start',**game_arguments('../EscapeGame'))['ok']
+            assert not (root/'Output/StaleGame').exists() and not (root/'Output/InvalidGame').exists()
+            assert read('forge_scene_read')==game_authored
+            request=arguments(**game_arguments('GameMovie'))
+            accepted=client.tool('forge_capture_game_start',**request)
+            assert accepted['ok'],accepted
+            assert client.tool('forge_capture_game_start',**request)==accepted
+            complete=settled()
+            game=complete['game_recording']
+            assert game['state']=='complete' and game['completed_frames']==3 and not game['error'],complete
+            folder=root/'Output/GameMovie'
+            receipt=json.loads((folder/'recording.json').read_text())
+            assert receipt['state']=='complete' and receipt['audio_frames']==4805,receipt
+            assert [frame['simulation_tick'] for frame in receipt['frames']]==[0,2,4],receipt
+            assert (folder/'game.avi').read_bytes()[:4]==b'RIFF'
+            assert (folder/'audio.s16le').stat().st_size==4805*4
+            assert read('forge_scene_read')==game_authored and read('forge_capture_game_read')['ready']
+            failed(mutate('forge_capture_game_start',**game_arguments('GameMovie')),'output_exists')
+            artifact=complete['artifact_operation']
+            for frame in (0,2):
+                preview=ok('forge_capture_preview',artifact_operation=artifact,frame=frame)
+                operation=preview['operation']
+                assert settled()['preview_ready']
+                metadata,png=image(operation)
+                assert (metadata['source_width'],metadata['source_height'])==(7,5),metadata
+                assert png==(folder/f'frame-{frame:06}.png').read_bytes()
+            (root/'fail_game').touch()
+            assert mutate('forge_capture_game_start',**game_arguments('FailedGame'))['ok']
+            failure=settled()['game_recording']
+            (root/'fail_game').unlink()
+            assert failure['state']=='failed' and failure['completed_frames']==3 and failure['error'],failure
+            assert not (root/'Output/FailedGame/game.avi').exists()
+            assert (root/'Output/FailedGame/audio.s16le').stat().st_size==4805*4
+            (root/'hold_game').touch()
+            cancel=ok('forge_capture_game_start',**game_arguments('CancelledGame'))
+            failed(mutate('forge_capture_cancel',operation='11111111-1111-4111-8111-111111111111'),'wrong_job')
+            ok('forge_capture_cancel',operation=cancel['operation'])
+            (root/'hold_game').unlink()
+            cancelled=settled()['game_recording']
+            assert cancelled['state']=='cancelled' and not (root/'Output/CancelledGame/game.avi').exists(),cancelled
+            assert read('forge_scene_read')==game_authored
+
+        if GAME_ONLY:
+            print(('legacy' if legacy else 'current')+': focused game recording lifecycle, scope, replay, retained frames and preview PASS',flush=True)
+            continue
         assert 'forge_capture_texture' in catalog
         assets=json.loads((root/'Game/forge.assets.json').read_text())['assets']
         badge=next(row for row in assets if row['source']=='Assets/Sprites/Badge.png')
@@ -573,5 +642,7 @@ for legacy in (False,True):
         assert 'forge_capture_status' in names and 'forge_capture_image' not in names
         assert 'forge_capture_start' not in names and 'forge_capture_sequence_start' not in names
         assert 'forge_capture_texture' not in names
+        if len(sys.argv)>5:
+            assert 'forge_capture_game_read' in names and 'forge_capture_game_start' not in names
 
-with gzip.open(sys.argv[3],'wt',encoding='utf-8') as output: json.dump(CAPTURE,output,separators=(',',':'))
+write_capture(sys.argv[3])

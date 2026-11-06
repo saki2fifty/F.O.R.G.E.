@@ -114,6 +114,100 @@ void boundaries() {
     rejects([&] { (void)bounded.finish(); });
     rejects([&] { bounded.append(packet); });
 }
+void audio_boundaries() {
+    const auto rate = avi_movie_frame_rate(30000. / 1001);
+    check(avi_movie_audio_frames(rate, 0) == 0 && avi_movie_audio_frames(rate, 1) == 1602 &&
+              avi_movie_audio_frames(rate, 2) == 3203 && avi_movie_audio_frames(rate, 3) == 4805,
+          "Audio intervals rounded independently instead of retaining cumulative time");
+    rejects([&] { (void)avi_movie_audio_frames(rate, 4097); });
+    rejects([&] { AviMovie invalid(7, 5, rate, 1, MovieAudio(2)); });
+    rejects([&] { AviMovie too_long(7, 5, {1, 1000}, 4096, MovieAudio::PcmStereo48k); });
+    rejects([&] { AviMovie too_small(7, 5, rate, 1, MovieAudio::PcmStereo48k, 300); });
+    const std::array<std::byte, 5> jpeg{std::byte{255}, std::byte{216}, std::byte{0},
+                                        std::byte{255}, std::byte{217}};
+    std::vector<std::int16_t> pcm(3204);
+    AviMovie sound(7, 5, rate, 1, MovieAudio::PcmStereo48k);
+    rejects([&] { sound.append(jpeg); });
+    rejects([&] { sound.append(jpeg, std::span(pcm).first(3203)); });
+    rejects([&] { sound.append({}, pcm); });
+    sound.append(jpeg, pcm);
+    rejects([&] { sound.append(jpeg, pcm); });
+    (void)sound.finish();
+    rejects([&] { (void)sound.finish(); });
+    AviMovie silent(7, 5, rate, 1);
+    rejects([&] { silent.append(jpeg, pcm); });
+    silent.append(jpeg);
+    (void)silent.finish();
+}
+void actual_audio(const std::filesystem::path& root,
+                  const std::vector<std::vector<std::byte>>& packets, unsigned width,
+                  unsigned height, MovieFrameRate rate) {
+    const auto count = unsigned(packets.size());
+    AviMovie movie(width, height, rate, count, MovieAudio::PcmStereo48k);
+    std::vector<std::byte> expected;
+    for (unsigned frame = 0; frame < count; ++frame) {
+        const auto start = avi_movie_audio_frames(rate, frame);
+        const auto end = avi_movie_audio_frames(rate, frame + 1);
+        std::vector<std::int16_t> samples;
+        for (auto i = start; i < end; ++i) {
+            // Independent channel signatures expose swaps, dropped blocks and gaps.
+            samples.push_back(
+                std::int16_t(12000 * std::sin(double(i) * 2 * 3.141592653589793 * 440 / 48000)));
+            samples.push_back(std::int16_t(i % 19 < 7 ? -20000 : 17000));
+        }
+        for (const auto value : samples) {
+            expected.push_back(std::byte(std::uint16_t(value) & 255));
+            expected.push_back(std::byte(std::uint16_t(value) >> 8));
+        }
+        movie.append(packets[frame], samples);
+    }
+    const auto bytes = movie.finish();
+    const auto data = std::span(bytes).subspan(12), header = list(data, "hdrl");
+    const auto main = chunk(header, "avih");
+    check(integer(main, 24) == 2 && (integer(main, 12) & 0x100),
+          "Sound movie did not declare interleaved streams");
+    std::vector<std::span<const std::byte>> streams;
+    for (std::size_t at = 0; at < header.size();) {
+        const auto length = integer(header, at + 4);
+        check(header.size() - at >= 8 && length <= header.size() - at - 8,
+              "Audio header exceeds its list");
+        if (tag(header, at, "LIST") && length >= 4 && tag(header, at + 8, "strl"))
+            streams.push_back(header.subspan(at + 12, length - 4));
+        at += 8 + length + (length & 1);
+    }
+    check(streams.size() == 2 && tag(chunk(streams[0], "strh"), 0, "vids") &&
+              tag(chunk(streams[1], "strh"), 0, "auds"),
+          "Audio stream numbering differs from the video/audio chunks");
+    const auto sound = chunk(streams[1], "strh"), format = chunk(streams[1], "strf");
+    check(sound.size() == 56 && integer(sound, 20) == 4 && integer(sound, 24) == 192000 &&
+              integer(sound, 32) * 4 == expected.size() && integer(sound, 44) == 4 &&
+              format.size() == 16 && integer(format, 0) == 0x00020001 &&
+              integer(format, 4) == 48000 && integer(format, 8) == 192000 &&
+              integer(format, 12) == 0x00100004,
+          "Movie PCM format, block size, sample rate or duration differs");
+    const auto frames = list(data, "movi"), index = chunk(data, "idx1");
+    check(index.size() == count * 32, "Audio/video packet index is incomplete");
+    std::vector<std::byte> actual;
+    for (unsigned frame = 0; frame < count; ++frame)
+        for (unsigned stream = 0; stream < 2; ++stream) {
+            const auto at = frame * 32 + stream * 16;
+            const auto offset = integer(index, at + 8), size = integer(index, at + 12);
+            check(offset >= 4 && tag(index, at, stream ? "01wb" : "00dc") &&
+                      tag(frames, offset - 4, stream ? "01wb" : "00dc") &&
+                      integer(frames, offset) == size,
+                  "Audio/video packet index targets the wrong stream");
+            const auto packet = frames.subspan(offset + 4, size);
+            if (stream)
+                actual.insert(actual.end(), packet.begin(), packet.end());
+            else
+                check(std::equal(packet.begin(), packet.end(), packets[frame].begin(),
+                                 packets[frame].end()),
+                      "Sound movie changed the original JPEG packet");
+        }
+    check(actual == expected, "Movie PCM lost samples, channels or interleave ordering");
+    save(root / "sound.avi", bytes);
+    save(root / "sound-expected.s16le", expected);
+}
 void actual(const std::filesystem::path& root) {
     constexpr unsigned width = 7, height = 5, count = 3;
     const auto rate = avi_movie_frame_rate(30000. / 1001);
@@ -166,6 +260,7 @@ void actual(const std::filesystem::path& root) {
               "Movie changed JPEG bytes or frame order");
     }
     save(root / "movie.avi", bytes);
+    actual_audio(root, packets, width, height, rate);
     std::ofstream(root / "receipt.json") << nlohmann::json{
         {"width", width},
         {"height", height},
@@ -181,6 +276,7 @@ int main(int argc, char** argv) {
         std::filesystem::create_directories(root);
         timing();
         boundaries();
+        audio_boundaries();
         actual(root);
         std::cout << "Movie timing, bounds, indexed native JPEG output PASS: " << root << '\n';
     } catch (const std::exception& error) {

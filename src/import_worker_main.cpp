@@ -36,7 +36,8 @@ int main(int argc, char** argv) {
             recipe == forge::tile_set_importer_id || recipe == forge::tile_map_importer_id;
         const bool image_decode = recipe == forge::asset_detail::texture_image_decode_recipe;
         const bool webp_sequence = recipe == forge::asset_detail::webp_sequence_recipe;
-        const bool avi_sequence = recipe == forge::asset_detail::avi_sequence_recipe;
+        const bool avi_sequence = recipe == forge::asset_detail::avi_sequence_recipe ||
+                                  recipe == forge::asset_detail::avi_game_recipe;
         if (!model && !audio && !tile && !atlas && !atlas_recipe && !image_decode &&
             !webp_sequence && !avi_sequence && recipe != "forge.texture.image" &&
             recipe != "forge.texture.container" &&
@@ -45,7 +46,9 @@ int main(int argc, char** argv) {
         const auto limits =
             webp_sequence  ? forge::asset_detail::webp_sequence_worker_limits()
             : avi_sequence ? forge::asset_detail::sequence_encoding_worker_limits(
-                                 forge::asset_detail::SequenceEncoding::AviMjpeg)
+                                 recipe == forge::asset_detail::avi_game_recipe
+                                     ? forge::asset_detail::SequenceEncoding::AviGame
+                                     : forge::asset_detail::SequenceEncoding::AviMjpeg)
             : image_decode
                 ? forge::asset_detail::texture_image_worker_limits(
                       profile == forge::asset_detail::texture_signed_image_decode_profile ||

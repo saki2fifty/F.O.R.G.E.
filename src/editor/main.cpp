@@ -4,6 +4,7 @@
 #include "../ui_surface_input.hpp"
 #include "batch_authoring.hpp"
 #include "batch_inspector.hpp"
+#include "game_recording_task.hpp"
 #ifdef FORGE_UI_FIXTURE
 #include "authored_capture_fixture.hpp"
 #include "editor_capture_layout.hpp"
@@ -2456,8 +2457,12 @@ int main(int argc, char** argv) {
                                                       texture_imports, files.document));
         documents.bind_importer(
             "shader_import", forge::ImportDocumentAutomation::bind(shader_imports, files.document));
-        const auto start_project_play = [&](bool interactive) {
+        const auto start_project_play = [&](bool interactive, bool recording = false,
+                                            const std::filesystem::path& recording_user_data = {}) {
             files.document.check_ownership();
+            if (!recording && view_image.busy() && view_image.work_kind() == "game_recording")
+                throw forge::AuthoringError("capture_busy",
+                                            "Finish or cancel the game recording before Play");
             if (!content_imports.ready_for_play() || play.active() || sdk_build->busy() ||
                 files.busy() || files.changed || content_files.busy() || game_export.busy() ||
                 runtime_dependencies.busy() || authored_components.busy() || modal.active() ||
@@ -2476,7 +2481,7 @@ int main(int argc, char** argv) {
                 throw forge::AuthoringError("build_required",
                                             "Save and build changed Project Code before Play");
             }
-            const bool sdk = files.document.settings().requires_native_sdk();
+            const bool sdk = recording || files.document.settings().requires_native_sdk();
             // The opt-in SDK Play profile is gated by an
             // exact-SDK configuration AND an authored
             // "game" section. Both must be true; legacy
@@ -2516,8 +2521,11 @@ int main(int argc, char** argv) {
             // and SDK Play; physical output has separate acceptance.
             play.set_headless_audio(true);
 #endif
+            if (recording)
+                play.set_user_data_override(recording_user_data);
             audio_preview.stop();
-            play.start(forge::path_utf8(executable), scene.snapshot());
+            play.start(forge::path_utf8(executable), scene.snapshot(), false, forge::Json(),
+                       recording);
             workspace.game = true;
             focus_game = true;
         };
@@ -2530,6 +2538,9 @@ int main(int argc, char** argv) {
             }
             if (!play.control_ready())
                 throw forge::AuthoringError("play_busy", "Wait for the pending runtime control");
+            if (play.recording_launch())
+                throw forge::AuthoringError("capture_busy",
+                                            "Use the recording task to cancel this offline run");
             if (play.sdk_play() && !game_input.submit_external_release_observation(play, true))
                 throw forge::AuthoringError("input_release_failed",
                                             "Physical input release failed");
@@ -2541,6 +2552,41 @@ int main(int argc, char** argv) {
                 play.step();
             else
                 throw std::runtime_error("Unknown runtime control");
+        };
+        const auto make_game_recording = [&](const forge::ui::GameRecordingRequest& request,
+                                             bool configure) {
+            forge::ui::GameRecordingHost host;
+            host.window = window.get();
+            host.start = [start_project_play](const std::filesystem::path& user_data) {
+                start_project_play(false, true, user_data);
+            };
+            host.stop = [control_project_play] { control_project_play("stop"); };
+            host.unavailable = [&]() -> std::string {
+                return cpp_sources.dirty() || sdk_build->busy() || files.busy() || files.changed ||
+                               content_files.busy() || source_import.busy() ||
+                               !content_imports.ready_for_play() || runtime_dependencies.busy() ||
+                               authored_components.busy()
+                           ? "Settle changed Project Code, source assets and project work before "
+                             "recording"
+                           : "";
+            };
+            host.poll_images = [&](forge::ui::ViewImageTask& images,
+                                   Diligent::IDeviceContext* graphics,
+                                   const std::filesystem::path& project, forge::AssetId scene_id,
+                                   std::string& status) {
+                images.poll(presentation, graphics, project, scene_id, status);
+            };
+            host.capture_image = [](forge::ui::ViewImageTask& images,
+                                    forge::DiligentPresentation& graphics,
+                                    Diligent::IDeviceContext* context,
+                                    Diligent::ITextureView* texture, std::string& status) {
+                images.capture(forge::ui::ViewImageTask::View::Game, graphics, context, texture,
+                               status);
+            };
+            host.abandon_readback = [&] { presentation.cancel_readback(); };
+            return std::make_unique<forge::ui::GameRecordingTask>(
+                scene, files.document, play, std::filesystem::path(base) / "forge_asset_build.exe",
+                request, std::move(host), configure);
         };
         automation.workflow_methods = [&](const forge::ui::AutomationPermissions& permissions) {
             auto methods = forge::asset_automation_methods(
@@ -2697,6 +2743,9 @@ int main(int argc, char** argv) {
             methods.insert(methods.end(), std::make_move_iterator(exports.begin()),
                            std::make_move_iterator(exports.end()));
             forge::CaptureAutomationProviders capturing;
+            capturing.record_game = [&](const forge::ui::GameRecordingRequest& request) {
+                return make_game_recording(request, false);
+            };
             capturing.texture = [&](forge::AssetRef<forge::TextureAsset> texture,
                                     std::optional<forge::TextureSemantic> semantic,
                                     forge::TextureImageSlice slice) {
@@ -5451,12 +5500,21 @@ int main(int argc, char** argv) {
                             perform(cpp_sources.request_build);
                         ImGui::EndDisabled();
                         actions.item("game.export");
+                        if (ImGui::MenuItem("Record game…", nullptr, false,
+                                            !view_image.busy() && !play.active()))
+                            perform([&] {
+                                if (!view_image.begin_work(make_game_recording({}, true),
+                                                           files.document.project(),
+                                                           scene.asset_id(), message))
+                                    throw std::runtime_error("Wait for the current capture task");
+                            });
                         ImGui::Separator();
                         for (auto id : {"play", "pause", "step", "stop", "recover"})
                             actions.item(id);
                         actions.item("runtime.review_tuning");
                         forge::simulation_speed_controls(
-                            play.timing().value("time_scale", 1.), play.control_ready(),
+                            play.timing().value("time_scale", 1.),
+                            play.control_ready() && !play.recording_launch(),
                             play.time_scale_pending(),
                             [&](double scale) { return play.set_time_scale(scale); }, true);
                         ImGui::EndMenu();
@@ -6555,9 +6613,8 @@ int main(int argc, char** argv) {
                                       "camera range.";
                         auto image_origin = ImGui::GetCursorScreenPos();
                         const auto fixed_extent =
-                            sequence_camera_preview
-                                ? view_image.sequence_extent()
-                                : std::optional<forge::ui::SequenceFrameExtent>{};
+                            game_view ? view_image.sequence_extent()
+                                      : std::optional<forge::ui::SequenceFrameExtent>{};
                         if (fixed_extent) {
                             const auto fit =
                                 forge::ui::fit_sequence_frame(*fixed_extent, size.x, size.y);
@@ -6689,8 +6746,8 @@ int main(int argc, char** argv) {
                         if (game_view)
                             play.bind_tile_maps(copied_game_scene);
                         const auto temporal_sample =
-                            sequence_camera_preview ? view_image.temporal_sample()
-                                                    : std::optional<forge::TemporalFrameSample>{};
+                            game_view ? view_image.temporal_sample()
+                                      : std::optional<forge::TemporalFrameSample>{};
                         const auto play_generation =
                             std::tuple{play.active(), play.launch_id(), play.session(),
                                        play.world_generation()};
@@ -6750,8 +6807,7 @@ int main(int argc, char** argv) {
                                           : forge::ui::ViewImageTask::View::Scene,
                                 presentation, context, texture, message,
                                 !game_view ||
-                                    (sequence_camera_preview && !game_viewport->pending() &&
-                                     game_viewport->temporal_ready() &&
+                                    (!game_viewport->pending() && game_viewport->temporal_ready() &&
                                      std::none_of(game_viewport->diagnostics().begin(),
                                                   game_viewport->diagnostics().end(),
                                                   [](const auto& d) {

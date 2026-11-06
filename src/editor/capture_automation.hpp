@@ -4,6 +4,7 @@
 #include "automation_permissions.hpp"
 #include "automation_schema.hpp"
 #include "files.hpp"
+#include "game_recording_request.hpp"
 #include "reflection_capture_request.hpp"
 #include "view_image.hpp"
 namespace forge {
@@ -11,6 +12,7 @@ struct CaptureAutomationProviders {
     std::function<void(ui::ViewImageTask::View)> show;
     std::function<void(const std::string&)> open_sequence;
     std::function<ui::SequenceFrameSource&()> sequence;
+    std::function<std::unique_ptr<ui::ViewImageWork>(const ui::GameRecordingRequest&)> record_game;
     std::function<std::string(bool)> unavailable;
     std::function<void(const std::string&, const ui::ReflectionCaptureRequest&)> reflection;
     std::function<ui::ViewImageTask::PixelInput(AssetRef<TextureAsset>,
@@ -42,8 +44,9 @@ struct CaptureAutomation {
             value["texture"] = owner.input_->source;
         }
         if (owner.work_) {
-            value["view"] = "reflection";
-            value["reflection"] = owner.work_->state();
+            const auto kind = std::string(owner.work_->kind());
+            value["view"] = kind;
+            value[kind] = owner.work_->state();
         }
         if (!owner.destination_.empty() &&
             view_image_format(owner.destination_) == ViewImageFormat::Jpeg)
@@ -172,6 +175,32 @@ struct CaptureAutomation {
                                       files.document.check_ownership();
                                       return sequence_state(providers, scene, files);
                                   }));
+        if (providers.record_game)
+            result.push_back(automation_method(
+                "capture.game.read",
+                "Read the current Scene/document baseline for fresh offline game recording. "
+                "Recording runs Project Code and needs execution plus output grants; it is not "
+                "interactive capture.",
+                "capture.read", automation_object(), false,
+                [&owner, &scene, &files, providers, execution = permissions.execute](const Json&) {
+                    files.document.check_ownership();
+                    const auto reason =
+                        providers.unavailable ? providers.unavailable(true) : std::string{};
+                    return Json{
+                        {"scene", scene.asset_id()},
+                        {"source_revision", scene.revision()},
+                        {"document_generation", files.document.generation()},
+                        {"ready", !owner.busy() && reason.empty()},
+                        {"reason", reason},
+                        {"execution_granted", execution},
+                        {"mode", "offline_game"},
+                        {"maximum_frames", FORGE_SEQUENCE_FRAME_MAX_COUNT},
+                        {"minimum_fps", 1},
+                        {"maximum_fps", 240},
+                        {"maximum_audio_bytes", asset_detail::avi_game_audio_byte_limit},
+                        {"maximum_snapshot_bytes", asset_detail::sequence_snapshot_byte_limit},
+                        {"maximum_movie_bytes", asset_detail::avi_movie_byte_limit}};
+                }));
         if (permissions.assets && providers.reflection)
             result.push_back(automation_method(
                 "capture.reflection.start",
@@ -242,7 +271,9 @@ struct CaptureAutomation {
                         request.at("operation") != owner.operation_ || !owner.busy())
                         throw AuthoringError("wrong_job",
                                              "Choose the current project's exact image task");
-                    if (owner.work_ ? !asset_write : !output_write)
+                    const bool asset_capture =
+                        owner.work_ && owner.work_->kind() != "game_recording";
+                    if (asset_capture ? !asset_write : !output_write)
                         throw AuthoringError(
                             "capability_denied",
                             "This capture needs its project-asset or output grant");
@@ -438,7 +469,8 @@ struct CaptureAutomation {
                 std::optional<unsigned> frame;
                 if (request.contains("frame"))
                     frame = request.at("frame").get<unsigned>();
-                const auto path = frame && owner.completed_frames_
+                const auto path = owner.work_ ? owner.work_->preview_path(frame)
+                                  : frame && owner.completed_frames_
                                       ? owner.completed_frames_->folder /
                                             owner.completed_frames_->plan.filename(*frame)
                                       : owner.completed_image_;
@@ -451,6 +483,71 @@ struct CaptureAutomation {
             },
             true));
         append_sequence(result, owner, scene, files, providers, root, message);
+        if (permissions.execute && providers.record_game) {
+            auto method = automation_method(
+                "capture.game.start",
+                "Record a fresh offline game run through the existing Play/image owners. "
+                "Project Code runs with this account's OS access. Requires execution and output "
+                "grants, "
+                "current Scene/document baselines, matching SDK and saved/built code. "
+                "Use a NEW folder inside the output grant. Each run uses fresh UserData and writes "
+                "exact PNG frames, stereo 48 kHz PCM16, recording.json and lossy Motion JPEG "
+                "game.avi. "
+                "FPS 1..240, 1..4096 frames; PCM 128 MiB, combined snapshots 256 MiB and movie 256 "
+                "MiB. "
+                "Frames need opaque sRGB Game output with an active camera. Input, Pause and scene "
+                "transitions "
+                "are unavailable. Poll capture.status and use capture.cancel; completed files "
+                "remain. "
+                "Inspect an owned completed PNG with capture.preview, then capture.image.",
+                "capture.write",
+                automation_object(
+                    {{"path", automation_text(2047, 1)},
+                     {"scene", automation_uuid()},
+                     {"source_revision", automation_integer()},
+                     {"document_generation", automation_integer()},
+                     {"frames_per_second", {{"type", "number"}, {"minimum", 1}, {"maximum", 240}}},
+                     {"frame_count", automation_integer(1, FORGE_SEQUENCE_FRAME_MAX_COUNT)},
+                     {"width", automation_integer(1, 4096)},
+                     {"height", automation_integer(1, 4096)},
+                     {"jpeg_quality", automation_integer(1, 100)}},
+                    {"path", "scene", "source_revision", "document_generation", "frames_per_second",
+                     "frame_count", "width", "height"}),
+                true, [&owner, &scene, &files, providers, root, &message](const Json& request) {
+                    ready(files, providers, true);
+                    if (owner.busy())
+                        throw AuthoringError("capture_busy", "Finish or cancel the active capture");
+                    if (request.at("scene") != Json(scene.asset_id()) ||
+                        request.at("source_revision") != scene.revision() ||
+                        request.at("document_generation") != files.document.generation())
+                        throw AuthoringError(
+                            "stale_source",
+                            "Read the current game recording source before starting");
+                    ui::GameRecordingRequest settings;
+                    settings.destination = destination(root, request);
+                    settings.fps = request.at("frames_per_second").get<double>();
+                    settings.frames = request.at("frame_count").get<int>();
+                    settings.output.width = request.at("width").get<int>();
+                    settings.output.height = request.at("height").get<int>();
+                    settings.output.jpeg_quality =
+                        request.value("jpeg_quality", FORGE_JPEG_DEFAULT_QUALITY);
+                    try {
+                        (void)settings.rate();
+                    } catch (const std::exception& e) {
+                        throw AuthoringError("invalid_arguments", e.what());
+                    }
+                    if (std::filesystem::exists(settings.destination))
+                        throw AuthoringError("output_exists", "Choose a new game recording folder");
+                    if (!owner.begin_work(providers.record_game(settings), files.document.project(),
+                                          scene.asset_id(), message))
+                        throw AuthoringError("capture_busy",
+                                             "Recording was not accepted by the image owner");
+                    providers.show(ui::ViewImageTask::View::Game);
+                    return state(owner, files);
+                });
+            method.executes_native = true;
+            result.push_back(std::move(method));
+        }
         return result;
     }
     static void append_sequence(std::vector<LiveAuthoringMethod>& result, ui::ViewImageTask& owner,

@@ -82,6 +82,8 @@ class SdkPlayRuntime {
         Json defaults;
         std::optional<AudioConfig> audio;
         bool ui = false;
+        // Explicit fresh offline capture; ordinary Play remains wall-clock driven.
+        bool recording = false;
         RuntimeExecutionConfig execution;
     };
     struct EffectOffer;

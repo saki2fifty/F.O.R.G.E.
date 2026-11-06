@@ -163,6 +163,56 @@ int main(int argc, char** argv) {
     install_empty_project(malformed_root);
     int result = 0;
     try {
+        {
+            forge::PlaySession play;
+            play.configure(60, forge::InputMap{}, {0, -9.81, 0}, cancel_root, true, true);
+            play.set_user_data_override(user_data);
+            play.start(argv[1], make_scene(), false, forge::Json(), true);
+            auto wait = [&](auto done) {
+                const auto deadline = SDL_GetTicks() + 10000;
+                while (play.active() && !done() && SDL_GetTicks() < deadline) {
+                    play.pump();
+                    SDL_Delay(1);
+                }
+                require(play.active() && done(),
+                        "Recording transport failed: " + play.status() + " " + play.log());
+            };
+            wait([&] { return !play.sdk_candidate_envelope().is_null(); });
+            require(play.submit_editor_observation(false, "KeyboardMouse") &&
+                        play.submit_sdk_candidate_ack(true, play.session(),
+                                                      play.sdk_candidate_ticket()),
+                    "Recording candidate admission failed");
+            wait([&] { return play.control_ready(); });
+            require(play.recording_launch() && play.paused() && play.timing().at("tick") == 0 &&
+                        play.begin_recording(30000. / 1001, 3),
+                    "Recording launch resumed early or could not begin");
+            wait([&] {
+                return !play.recording_pending() && play.recording_status().value("started", false);
+            });
+            require(!play.advance_recording(1) && !play.set_time_scale(2),
+                    "Recording transport accepted a skipped frame or external rate control");
+            std::size_t total = 0;
+            for (unsigned frame = 0; frame < 3; ++frame) {
+                require(play.advance_recording(frame), "Recording interval could not queue");
+                wait([&] {
+                    return !play.recording_pending() &&
+                           play.recording_status().value("completed_frames", 0u) == frame + 1;
+                });
+                const auto reply = play.take_recording_frame();
+                require(reply && reply->frame == frame && reply->start_audio_frame == total / 4 &&
+                            reply->pcm.size() == (frame == 1 ? 1601u : 1602u) * 4,
+                        "Recording pipe changed its PCM or interval receipt");
+                total += reply->pcm.size();
+                require(!play.take_recording_frame(), "Recording receipt was consumed twice");
+            }
+            require(total == 4805 * 4 && play.timing().at("tick") == 6 &&
+                        play.recording_status().at("complete") == true &&
+                        !play.advance_recording(3),
+                    "Recording pipe lost its final fixed tick or completion guard");
+            play.stop();
+            require(!play.active() && !play.recording_launch() && play.recording_status().is_null(),
+                    "Stop retained the recording process or transport state");
+        }
         // Phase 1: candidate gate, strict monotonic epoch with
         // overflow, restart reset, foreign/wrong-ticket/wrong-session
         // rejection, activation pin, exact ack.

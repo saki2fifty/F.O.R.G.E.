@@ -1162,6 +1162,25 @@ scale, duration_seconds and jpeg_quality. No loop directive or movie image block
 invented. Existing source revision/generation, output grants, cancellation, retained
 PNGs and preview restoration apply. See [the exact profile](sequence-movie-export.md).
 
+Fresh game recording uses `capture_game_read/start`. Read the current `scene`,
+`source_revision` and `document_generation`, then supply all three to Start with
+a NEW output-root-relative `path`, `frames_per_second`, `frame_count`, `width`
+and `height`; `jpeg_quality` defaults to90. The method requires both execution
+and output grants and advertises `openWorldHint:true` because Project Code runs.
+It starts its own fresh exact-SDK Play process and private UserData, captures the
+Game image, then mixes and advances through existing runtime owners. FPS1–240,
+1–4096frames, PCM128MiB and combined snapshots/movie256MiB apply. Input, Pause,
+scene changes and restoration of an existing live C++ world are unavailable.
+
+Poll `capture_status.game_recording` until retirement. Success retains PNGs,
+`audio.s16le`, `recording.json` and `game.avi` with MJPEG/48kHz stereo PCM16.
+Cancellation needs the active `operation` and output grant. For a completed PNG,
+use the stable `artifact_operation` plus `frame` with `capture_preview`, then
+read the new preview `operation` with `capture_image`. Repeated frame previews
+retain the same artifact token. Source edits abort without rolling back those
+edits, and recording creates no Scene Undo entry. Read-only sessions can discover
+the source and limits but cannot start recording. See [game recording](game-recording.md).
+
 The fixed profile is lossless sRGB RGBA8 full-canvas/no-blend/no-disposal,
 infinite-loop, cumulative-rounded integer milliseconds. Scene sample times remain
 end-exclusive.2..4096frames/FPS>0..240, duration1..16777215ms each and total

@@ -1,9 +1,11 @@
 #include "automation.hpp"
 #include "capture_automation.hpp"
+#include "game_recording_task.hpp"
 #include "mcp_test_marker.hpp"
 #include "published_texture_fixture.hpp"
 #include "texture_image_input.hpp"
 #include <chrono>
+#include <forge/game_settings.hpp>
 #include <iostream>
 #include <thread>
 
@@ -84,10 +86,11 @@ struct RecordingFrames final : forge::ui::SequenceFrameSource {
 };
 int main(int argc, char** argv) {
     try {
-        if (argc < 3 || argc > 5)
+        if (argc < 3 || argc > 6)
             return 2;
         const auto root = std::filesystem::u8path(argv[1]);
         const bool output = std::string(argv[2]) != "read";
+        const bool asset_write = output && std::string(argv[2]) != "game-output";
         forge::SceneDocument::create_project(root / "Game", "Native image IO fixture");
         std::filesystem::create_directory(root / "Output");
         if (argc >= 4)
@@ -97,11 +100,19 @@ int main(int argc, char** argv) {
         std::vector<std::string> recent;
         forge::EditorFiles files(scene, nullptr, recent);
         files.start(root / "Game");
+        if (argc == 6) {
+            auto settings = files.document.settings().document();
+            settings["game"] = forge::default_game_settings("org.forge.mcp-recording-" +
+                                                                forge::AssetId::generate().str(),
+                                                            "MCP recording fixture");
+            files.document.save_settings(settings);
+        }
         const std::unique_ptr<ImGuiContext, decltype(&ImGui::DestroyContext)> context(
             ImGui::CreateContext(), ImGui::DestroyContext);
         ImGui::GetIO().IniFilename = nullptr;
         RecordingFrames frames(scene, files.document.project());
-        forge::ui::ViewImageTask images(argc == 5 ? std::filesystem::u8path(argv[4])
+        forge::PlaySession play;
+        forge::ui::ViewImageTask images(argc >= 5 ? std::filesystem::u8path(argv[4])
                                                   : std::filesystem::path{});
         std::string message;
         forge::CaptureAutomationProviders providers;
@@ -114,7 +125,7 @@ int main(int argc, char** argv) {
                 std::make_shared<const forge::AssetCatalog>(
                     forge::AssetCatalog::open_project(files.document.project())),
                 texture, semantic, slice, {},
-                argc == 5 ? std::filesystem::u8path(argv[4]) : std::filesystem::path{});
+                argc >= 5 ? std::filesystem::u8path(argv[4]) : std::filesystem::path{});
         };
         providers.open_sequence = [&](const std::string& entity) {
             if (!scene.entity(entity).is_valid())
@@ -122,7 +133,45 @@ int main(int argc, char** argv) {
             frames.controller = {scene.asset_id(), forge::EntityId::parse(entity)};
         };
         providers.sequence = [&]() -> forge::ui::SequenceFrameSource& { return frames; };
-        providers.unavailable = [](bool) { return std::string{}; };
+        providers.unavailable = [&](bool sequence) {
+            return sequence && play.active() ? std::string("Stop the current Play session")
+                                             : std::string{};
+        };
+        if (argc == 6)
+            providers.record_game = [&](const forge::ui::GameRecordingRequest& request) {
+                forge::ui::GameRecordingHost host;
+                host.start = [&](const std::filesystem::path& user_data) {
+                    play.configure(60, forge::InputMap{}, {0, -9.81, 0}, files.document.project(),
+                                   true, true);
+                    play.set_user_data_override(user_data);
+                    play.start(argv[5], scene.snapshot(), false, forge::Json(), true);
+                };
+                host.stop = [&, folder = request.destination] {
+                    if (forge::test::marker_present(root / "fail_game"))
+                        forge::asset_storage::replace(folder / "frame-000002.png",
+                                                      "invalid game PNG");
+                    play.stop();
+                };
+                host.pixels = [&](unsigned) {
+                    const auto tick = play.timing().at("tick").get<unsigned>();
+                    forge::Rgba8Pixels value{7, 5, std::vector<std::uint8_t>(140), true};
+                    for (unsigned i = 0; i < 35; ++i) {
+                        value.rgba[i * 4] = std::uint8_t(30 + tick * 35);
+                        value.rgba[i * 4 + 1] = std::uint8_t(i * 4);
+                        value.rgba[i * 4 + 2] = std::uint8_t(220 - tick * 30);
+                        value.rgba[i * 4 + 3] = 255;
+                    }
+                    forge::ui::ViewImageTask::PixelInput input;
+                    input.source = {{"fixture", "detached runtime tick colors"}};
+                    input.load = [value = std::move(value)](forge::ViewImageFormat) {
+                        return value;
+                    };
+                    return input;
+                };
+                return std::make_unique<forge::ui::GameRecordingTask>(
+                    scene, files.document, play, std::filesystem::u8path(argv[4]), request,
+                    std::move(host));
+            };
         forge::ui::AutomationWorkspace workspace;
         workspace.workflow_methods = [&](const auto& permissions) {
             return forge::CaptureAutomation::methods(images, scene, files, providers, message,
@@ -130,14 +179,34 @@ int main(int argc, char** argv) {
         };
         forge::ui::AutomationPermissions permissions;
         permissions.export_game = output;
+        permissions.execute = output && argc == 6;
         if (output)
             permissions.export_root = root / "Output";
-        workspace.start(scene, files, output, output, permissions);
+        workspace.start(scene, files, output, asset_write, permissions);
         std::cout << workspace.connection().connection().dump() << std::endl;
         const auto end = std::chrono::steady_clock::now() + std::chrono::seconds(120);
+        std::string accepted_launch;
+        std::uint64_t accepted_ticket = 0;
         while (workspace.active() && std::chrono::steady_clock::now() < end &&
                !forge::test::marker_present(root / "stop")) {
             files.changed = false;
+            play.pump();
+            if (play.launch_id() != accepted_launch) {
+                accepted_launch = play.launch_id();
+                accepted_ticket = 0;
+            }
+            if (play.sdk_candidate_ticket() && play.sdk_candidate_ticket() != accepted_ticket &&
+                !play.sdk_candidate_envelope().is_null()) {
+                if (!play.submit_editor_observation(false, "KeyboardMouse") ||
+                    !play.submit_sdk_candidate_ack(true, play.session(),
+                                                   play.sdk_candidate_ticket()))
+                    throw std::runtime_error("MCP recording candidate admission failed");
+                accepted_ticket = play.sdk_candidate_ticket();
+            }
+            if (!forge::test::marker_present(root / "hold_game"))
+                images.poll_work(nullptr, message);
+            if (!images.busy() && !play.active() && !play.user_data_override().empty())
+                throw std::runtime_error("Recording leaked its private user-data selection");
             images.poll_files(message);
             if (!forge::test::marker_present(root / "hold_pixels"))
                 forge::test::ViewImageTaskAccess::deliver_test_pixels(images, message,

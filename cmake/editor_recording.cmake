@@ -1,0 +1,27 @@
+include_guard(GLOBAL)
+include(cmake/imgui.cmake)
+set(_forge_recording_headers "${diligent_SOURCE_DIR}")
+if(NOT _forge_recording_headers AND FETCHCONTENT_SOURCE_DIR_DILIGENT)
+ set(_forge_recording_headers "${FETCHCONTENT_SOURCE_DIR_DILIGENT}")
+endif()
+add_library(forge_game_recording_editor STATIC src/editor/game_recording_task.cpp)
+target_include_directories(forge_game_recording_editor PUBLIC src src/editor)
+target_include_directories(forge_game_recording_editor SYSTEM PUBLIC
+ "${_forge_recording_headers}/DiligentCore" "${_forge_recording_headers}/DiligentFX/PBR/interface")
+target_compile_definitions(forge_game_recording_editor PUBLIC UNICODE _UNICODE NOMINMAX
+ $<$<PLATFORM_ID:Linux>:PLATFORM_LINUX=1> $<$<PLATFORM_ID:Windows>:PLATFORM_WIN32=1>)
+target_compile_options(forge_game_recording_editor PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/utf-8> $<$<CXX_COMPILER_ID:MSVC>:/bigobj>)
+target_link_libraries(forge_game_recording_editor PUBLIC forge_authoring forge_view_image forge_game_platform imgui SDL3::SDL3
+ PRIVATE forge_sequence_encoding forge_play_transport_worker forge_tile_map_play_receiver)
+if(TARGET forge_editor)
+ target_link_libraries(forge_editor PRIVATE forge_game_recording_editor)
+endif()
+if(BUILD_TESTING AND FORGE_ENABLE_NATIVE_SDK)
+ add_executable(forge_game_recording_editor_tests tests/game_recording_editor_tests.cpp)
+ target_link_libraries(forge_game_recording_editor_tests PRIVATE forge_game_recording_editor)
+ target_compile_options(forge_game_recording_editor_tests PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/utf-8> $<$<CXX_COMPILER_ID:MSVC>:/bigobj>)
+ add_dependencies(forge_game_recording_editor_tests forge_runtime forge_asset_build_worker)
+ add_test(NAME game_recording_editor COMMAND forge_game_recording_editor_tests $<TARGET_FILE:forge_runtime>
+  $<TARGET_FILE:forge_asset_build_worker> "${CMAKE_BINARY_DIR}/game-recording-editor-tests")
+ set_tests_properties(game_recording_editor PROPERTIES TIMEOUT 90 ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+endif()

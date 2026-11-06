@@ -24,11 +24,16 @@ const SequenceEncodingProfile& sequence_encoding_profile(SequenceEncoding format
     static const SequenceEncodingProfile movie{
         "AVI movie", avi_sequence_recipe, avi_sequence_profile, "animation.avi", "video/vnd.avi",
         "AVI ",      avi_movie_byte_limit};
+    static const SequenceEncodingProfile game{
+        "Game movie",    avi_game_recipe, avi_game_profile,    "game.avi",
+        "video/vnd.avi", "AVI ",          avi_movie_byte_limit};
     switch (format) {
     case SequenceEncoding::Webp:
         return webp;
     case SequenceEncoding::AviMjpeg:
         return movie;
+    case SequenceEncoding::AviGame:
+        return game;
     }
     throw std::runtime_error("Unsupported sequence encoding format");
 }
@@ -74,6 +79,12 @@ std::size_t write_encoded_sequence(const std::filesystem::path& worker,
     require(width && height && width <= FORGE_VIEW_IMAGE_MAX_EXTENT &&
                 height <= FORGE_VIEW_IMAGE_MAX_EXTENT,
             name + " axes must be between 1 and 4096");
+    std::uint64_t audio_frames = 0;
+    if (format == SequenceEncoding::AviGame) {
+        const auto rate = avi_movie_frame_rate(fps);
+        validate_avi_game_timing(rate, unsigned(frames.size()));
+        audio_frames = avi_movie_audio_frames(rate, unsigned(frames.size()));
+    }
     asset_storage::ordinary(folder);
     const auto destination = folder / selected.filename;
     asset_storage::ordinary(destination);
@@ -92,6 +103,15 @@ std::size_t write_encoded_sequence(const std::filesystem::path& worker,
                                                      sequence_snapshot_byte_limit - total));
         total += bytes.size();
         request.inputs.push_back({"frame-" + std::to_string(i) + ".png", std::move(bytes)});
+    }
+    if (format == SequenceEncoding::AviGame) {
+        const auto source = folder / "audio.s16le";
+        asset_storage::ordinary(source);
+        auto pcm = read_bytes(
+            source, std::min(avi_game_audio_byte_limit, sequence_snapshot_byte_limit - total));
+        require(pcm.size() == audio_frames * 4,
+                "Game movie PCM does not match its exact video duration");
+        request.inputs.push_back({"audio.s16le", std::move(pcm)});
     }
     std::vector<ArtifactFile> output;
     try {
@@ -124,5 +144,16 @@ AviSequenceInfo write_avi_sequence(const std::filesystem::path& worker,
     return {write_encoded_sequence(worker, project, folder, frames, width, height, fps,
                                    SequenceEncoding::AviMjpeg, quality, stop),
             rate};
+}
+AviSequenceInfo write_avi_game(const std::filesystem::path& worker,
+                               const std::filesystem::path& project,
+                               const std::filesystem::path& folder,
+                               std::span<const std::string> frames, unsigned width, unsigned height,
+                               double fps, int quality, std::stop_token stop) {
+    const auto rate = avi_movie_frame_rate(fps);
+    const auto samples = avi_movie_audio_frames(rate, unsigned(frames.size()));
+    return {write_encoded_sequence(worker, project, folder, frames, width, height, fps,
+                                   SequenceEncoding::AviGame, quality, stop),
+            rate, samples};
 }
 } // namespace forge::asset_detail

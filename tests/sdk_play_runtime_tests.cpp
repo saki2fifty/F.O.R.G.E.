@@ -16,8 +16,10 @@
 // receive/handle/send loop is exercised end-to-end without any test
 // hooks inside the shipped runtime.
 
+#include "base64.hpp"
 #include "sdk_play_runtime.hpp"
 #include <atomic>
+#include <cmath>
 #include <cstring>
 #include <filesystem>
 #include <forge/assets.hpp>
@@ -70,6 +72,7 @@ struct Fixture {
     std::vector<EngineModule> modules;
     std::filesystem::path content_root;
     bool audio_enabled = false;
+    bool recording_enabled = false;
 
     explicit Fixture() {
         project_root = temp_root();
@@ -104,6 +107,7 @@ SdkPlayRuntime::Config make_config(Fixture& f) {
     config.modules = std::move(f.modules);
     config.defaults = std::move(f.defaults);
     config.ui = false;
+    config.recording = f.recording_enabled;
     if (f.audio_enabled)
         config.audio = AudioConfig{f.content_root, AudioOutput::Offline, true};
     return config;
@@ -611,12 +615,6 @@ void live_audio_mix_controls() {
     }
 }
 
-std::uint64_t issue_cursor(Fixture& f) {
-    check(f.capture.service != nullptr, "Game service not captured by test module");
-    const auto token =
-        f.capture.service->request("game.test", Json{{"operation", "cursor"}, {"capture", true}});
-    return token;
-}
 } // namespace
 
 void constructor_rejects_relative_user_data() {
@@ -2223,10 +2221,9 @@ void step_rejects_without_acknowledged_release() {
     check(!step_rejected.value("ok", false), "step while captured was accepted");
     check(step_rejected.value("error", std::string{}).find("release") != std::string::npos,
           "step rejection did not mention release");
-    // Tick must remain unchanged because the host's pump is the only
-    // thing that advances ticks via advance(). handle() does not tick.
-    // (We test the rejection; the actual tick advance for step happens
-    // via game->step() inside handle().)
+    check(host->status().value("clock", Json::object()).value("tick", std::uint64_t{}) ==
+              before_tick,
+          "Rejected captured Step advanced the simulation");
 }
 
 void pump_latches_quit_after_host_quit_requested() {
@@ -2501,8 +2498,11 @@ void property_tune_rejects_wrong_world_or_unadmitted_type() {
           "Rejected live tuning changed active scene");
 }
 
+#include "game_recording_sdk_tests.hpp"
+
 int run() {
     try {
+        game_recording_sdk_tests();
         {
             Fixture f;
             std::string session;

@@ -1178,6 +1178,7 @@ struct AudioRuntime::Impl {
                     shot->start_pending = false;
                 }
     }
+    bool wait_sources(std::chrono::milliseconds timeout, bool loading_only);
 };
 AudioRuntime::AudioRuntime(WorldContext& w, AudioConfig c)
     : impl_(std::make_unique<Impl>(w, std::move(c))) {}
@@ -1403,25 +1404,33 @@ Json AudioRuntime::status() const {
         {"tick", impl_->tick}};
 }
 bool AudioRuntime::wait_for_sources(std::chrono::milliseconds timeout) {
-    impl_->check();
+    return impl_->wait_sources(timeout, false);
+}
+bool AudioRuntime::wait_for_loading(std::chrono::milliseconds timeout) {
+    if (impl_->config.output != AudioOutput::Offline)
+        throw std::runtime_error("Blocking audio loading requires explicit offline output");
+    return impl_->wait_sources(timeout, true);
+}
+bool AudioRuntime::Impl::wait_sources(std::chrono::milliseconds timeout, bool loading_only) {
+    check();
     if (timeout.count() < 0)
         throw std::runtime_error("Audio preparation timeout must be nonnegative");
     const auto deadline = std::chrono::steady_clock::now() + timeout;
     for (;;) {
-        synchronize(impl_->tick);
-        if (!impl_->failures.empty())
+        sync(tick, 0, {}, loading_only);
+        if (!failures.empty())
             return false;
-        if (impl_->pending_sources.empty())
+        if (pending_sources.empty())
             return true;
         if (std::chrono::steady_clock::now() >= deadline)
             return false;
-        for (const auto& [id, ticket] : impl_->requests) {
+        for (const auto& [id, ticket] : requests) {
             (void)id;
             const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(
                 deadline - std::chrono::steady_clock::now());
             if (remaining.count() <= 0)
                 return false;
-            (void)impl_->clips.wait(ticket, remaining);
+            (void)clips.wait(ticket, remaining);
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }

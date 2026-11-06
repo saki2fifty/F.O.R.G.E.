@@ -13,9 +13,11 @@ std::vector<ArtifactFile> execute_avi_sequence_recipe(ImportProcessRequest reque
     auto cancelled = [&] { require(!stop.stop_requested(), "AVI movie cancelled"); };
     cancelled();
     const auto& payload = request.payload;
-    require(payload.is_object() && payload.size() == 8 &&
-                payload.at("recipe") == avi_sequence_recipe &&
-                payload.at("profile") == avi_sequence_profile,
+    const bool sound = payload.is_object() && payload.value("recipe", "") == avi_game_recipe;
+    const auto& selected =
+        sequence_encoding_profile(sound ? SequenceEncoding::AviGame : SequenceEncoding::AviMjpeg);
+    require(payload.is_object() && payload.size() == 8 && payload.at("recipe") == selected.recipe &&
+                payload.at("profile") == selected.profile,
             "Invalid AVI movie worker profile");
     auto integer = [&](const char* field, std::uint64_t maximum) {
         const auto& value = payload.at(field);
@@ -34,10 +36,21 @@ std::vector<ArtifactFile> execute_avi_sequence_recipe(ImportProcessRequest reque
                 encoded_quality <= FORGE_JPEG_QUALITY_MAX,
             "Movie JPEG quality must be an integer from 1 to 100");
     const auto quality = encoded_quality.get<int>();
-    require(request.inputs.size() == frames, "Movie frame count does not match its snapshots");
-    validate_sequence_snapshots(request.inputs, "AVI movie");
-    AviMovie movie(width, height, rate, frames);
-    for (auto& input : request.inputs) {
+    require(request.inputs.size() == frames + unsigned(sound),
+            "Movie frame count does not match its snapshots");
+    ArtifactFile audio;
+    if (sound) {
+        validate_avi_game_timing(rate, frames);
+        const auto samples = avi_movie_audio_frames(rate, frames);
+        audio = std::move(request.inputs.back());
+        request.inputs.pop_back();
+        require(audio.name == "audio.s16le" && audio.bytes.size() == samples * 4,
+                "Game movie PCM does not match its exact video duration");
+    }
+    validate_sequence_snapshots(request.inputs, "AVI movie", audio.bytes.size());
+    AviMovie movie(width, height, rate, frames,
+                   sound ? MovieAudio::PcmStereo48k : MovieAudio::None);
+    for (unsigned frame_index = 0; auto& input : request.inputs) {
         cancelled();
         auto png = std::move(input.bytes);
         auto pixels = decode_sequence_frame(png, width, height, "AVI movie");
@@ -49,13 +62,27 @@ std::vector<ArtifactFile> execute_avi_sequence_recipe(ImportProcessRequest reque
                                         quality, FORGE_VIEW_IMAGE_ENCODED_LIMIT, &frame),
                 frame.error);
         cancelled();
-        movie.append({reinterpret_cast<const std::byte*>(frame.bytes), frame.size});
+        const std::span<const std::byte> jpeg{reinterpret_cast<const std::byte*>(frame.bytes),
+                                              frame.size};
+        if (sound) {
+            const auto begin = avi_movie_audio_frames(rate, frame_index);
+            const auto end = avi_movie_audio_frames(rate, frame_index + 1);
+            std::vector<std::int16_t> stereo;
+            stereo.reserve(std::size_t(end - begin) * 2);
+            for (auto at = begin * 4; at < end * 4; at += 2)
+                stereo.push_back(
+                    std::int16_t(std::to_integer<unsigned>(audio.bytes[at]) |
+                                 (std::to_integer<unsigned>(audio.bytes[at + 1]) << 8)));
+            movie.append(jpeg, stereo);
+        } else
+            movie.append(jpeg);
+        ++frame_index;
     }
     cancelled();
     auto output = movie.finish();
     cancelled();
     std::vector<ArtifactFile> result;
-    result.push_back({"animation.avi", std::move(output)});
+    result.push_back({std::string(selected.filename), std::move(output)});
     return result;
 }
 } // namespace forge::asset_detail

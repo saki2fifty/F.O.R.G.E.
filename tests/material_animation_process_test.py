@@ -66,9 +66,17 @@ try:
         assert time.monotonic() < deadline, dict(diagnostics=initial['diagnostics'], timing=initial['timing'])
         time.sleep(.002)
         initial = first.request('snapshot', animation_watch=reference)
-    # Initial transform players are discontinuous until their first complete
-    # fixed boundary. Readiness and recoverability intentionally differ.
-    assert initial['recovery'] is None
+    # Paused resource adoption can complete the initial pose at tick zero.
+    # Other pending bindings may still withhold a whole-world checkpoint.
+    assert initial['timing']['tick'] == 0
+    if initial['recovery'] is not None:
+        fresh = Worker(runtime, root)
+        restored.append(fresh)
+        checkpoint = initial['recovery']
+        resumed = fresh.request('replace', scene=checkpoint['scene'], recovery=checkpoint,
+                                recovery_session=checkpoint['session'], recovery_tick=checkpoint['tick'])
+        assert resumed['timing']['tick'] == 0
+        assert row(resumed)['components'] == row(initial)['components']
     for tick in range(1, 33):
         state = first.request('step')
         check_state(state, tick)
@@ -91,4 +99,4 @@ finally:
     for fresh in restored:
         fresh.close()
 print('Actual C++ material animation pause/seek/speed/restart, native observation, extensions, '
-      'five cold recoveries and authored isolation PASS')
+      'cold recovery boundaries and authored isolation PASS')

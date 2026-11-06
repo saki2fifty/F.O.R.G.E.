@@ -90,6 +90,7 @@ content may differ; use **Window** to open a panel mentioned in a guide.
 ## Play and export
 
 - [Play mode](editor/play-mode.md)
+- [Record a fresh game movie with sound](editor/game-recording.md)
 - [Export a game or package content](editor/runtime-content.md)
 - [Run a standalone game](getting-started/standalone-runtime.md)
 - [Reference game](reference-game.md)

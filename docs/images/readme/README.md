@@ -2280,3 +2280,13 @@ canonical manual asset; [Texture assets](../../texture-assets.md) records the
 capture/test environment and limits. These are Release/GCC12 software Vulkan
 captures; Windows, physical GPU/input/DPI and graphical executable review remain
 separate.
+
+## Fresh game recording
+
+`manual/images/game-recording-options.png` is the production recording dialog;
+`manual/images/game-recording-frame.png` is the recorded Gallery182 Game display.
+Both are unretouched canonical PNGs. [Game recording](../../game-recording.md)
+records hashes, capture sources, independent movie/audio validation and software
+Vulkan limitations. The fixture exercises production scoped recording,
+PlayPresentation, runtime UI and six control layouts; complete Windows Main,
+physical GPU/input/DPI, external client and player review remain separate.

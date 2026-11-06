@@ -115,9 +115,32 @@ int main(int argc, char** argv) {
              {std::pair<std::string_view, std::string_view>{"f", "Zg=="},
               {"fo", "Zm8="},
               {"foo", "Zm9v"},
-              {"foobar", "Zm9vYmFy"}})
+              {"foobar", "Zm9vYmFy"}}) {
             check(forge::automation_image_base64(std::as_bytes(std::span(plain))) == encoded,
                   "MCP image encoder failed a known base64 vector");
+            const auto decoded = forge::decode_base64(encoded, plain.size());
+            check(std::equal(decoded.begin(), decoded.end(),
+                             std::as_bytes(std::span(plain)).begin(),
+                             std::as_bytes(std::span(plain)).end()),
+                  "Bounded binary decoder failed a known base64 vector");
+        }
+        check(forge::decode_base64("", 0).empty(), "Empty base64 binary payload changed");
+        for (const auto& [encoded, limit] : {std::pair<std::string_view, std::size_t>{"Zg==", 0},
+                                             {"Zm8=", 1},
+                                             {"Zm9v", 2},
+                                             {"====", 16},
+                                             {"AA=A", 16},
+                                             {"Zh==", 16},
+                                             {"Zm9=", 16},
+                                             {"!A==", 16}}) {
+            bool refused = false;
+            try {
+                (void)forge::decode_base64(encoded, limit);
+            } catch (const std::exception&) {
+                refused = true;
+            }
+            check(refused, "Invalid or oversized binary base64 payload was accepted");
+        }
         const auto reject_wire = [](const std::string& value) {
             bool refused = false;
             try {

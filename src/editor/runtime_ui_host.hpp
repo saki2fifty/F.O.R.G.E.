@@ -2,10 +2,13 @@
 #include "../asset_bytes.hpp"
 #include "RmlUi_Platform_SDL.h"
 #include "runtime_ui_input.hpp"
+#include <algorithm>
+#include <cmath>
 #include <forge/loading_state.hpp>
 #include <forge/ui_diligent.hpp>
 #include <forge/ui_presenter.hpp>
 #include <set>
+#include <stdexcept>
 namespace forge {
 // Editor adapter only. The presenter and Diligent backend have no dependency on this file.
 class RuntimeUiHost {
@@ -30,6 +33,28 @@ class RuntimeUiHost {
     RuntimeUiInput input_;
     std::string error_;
     bool creation_failed_ = false, suspended_ = true, frame_ready_ = false;
+    double presenter_time_ = 0, recording_origin_ = 0;
+    std::string recording_launch_, preparing_recording_launch_;
+    double frame_time(const PlaySession* play = nullptr) {
+        const auto wall = double(SDL_GetTicksNS()) / 1e9;
+        const auto launch = play ? (play->recording_launch() ? play->launch_id() : std::string{})
+                                 : preparing_recording_launch_;
+        if (!launch.empty()) {
+            if (recording_launch_ != launch) {
+                recording_launch_ = launch;
+                recording_origin_ = presenter_time_;
+            }
+            const auto seconds = play ? play->recording_status().value("seconds", 0.) : 0.;
+            if (!std::isfinite(seconds) || seconds < 0 ||
+                recording_origin_ + seconds < presenter_time_)
+                throw std::runtime_error("Offline UI presentation progress must be monotonic");
+            presenter_time_ = recording_origin_ + seconds;
+        } else {
+            recording_launch_.clear();
+            presenter_time_ = std::max(wall, presenter_time_);
+        }
+        return presenter_time_;
+    }
     std::optional<UiAssetSnapshot> observed_assets_;
     void capture_assets() {
         if (const auto* snapshot = presenter_ ? presenter_->asset_snapshot() : nullptr)
@@ -63,6 +88,8 @@ class RuntimeUiHost {
         presenter_ = std::make_unique<UiPresenter>(renderer_->render_interface(), project_,
                                                    asset_detail::read_bytes(font_, 4 * 1024 * 1024),
                                                    std::move(platform), &ime_);
+        presenter_time_ = recording_origin_ = 0;
+        recording_launch_.clear();
         if (surface_callbacks_.pick)
             presenter_->surface_input(surface_callbacks_);
     }
@@ -154,6 +181,7 @@ class RuntimeUiHost {
     // (renderer/platform callbacks) are reconstructed by the next
     // ensure_presenter(), never here.
     void set_project(const std::filesystem::path& project, PlaySession& play) {
+        preparing_recording_launch_ = play.recording_launch() ? play.launch_id() : std::string{};
         if (project_ == project)
             return;
         // Real boundary: release old owner, staged bookkeeping,
@@ -262,10 +290,10 @@ class RuntimeUiHost {
         if (!presenter_ || !play.ready())
             return;
         try {
-            presenter_->update(
-                double(SDL_GetTicksNS()) / 1e9, int(w), int(h),
-                std::clamp(SDL_GetWindowDisplayScale(window_) * float(w) / std::max(1.f, size.x),
-                           .5f, 4.f));
+            presenter_->update(frame_time(&play), int(w), int(h),
+                               std::clamp((window_ ? SDL_GetWindowDisplayScale(window_) : 1.f) *
+                                              float(w) / std::max(1.f, size.x),
+                                          .5f, 4.f));
             frame_ready_ = true;
         } catch (const std::exception& e) {
             error_ = e.what();
@@ -422,7 +450,7 @@ class RuntimeUiHost {
         // here would let prepare_staged still report success, leave
         // the staged UI unbound to the live viewport, and stall the
         // runtime activation gate on a broken primed layout.
-        presenter_->update(double(SDL_GetTicksNS()) / 1e9, w, h, density);
+        presenter_->update(frame_time(), w, h, density);
     }
     inline bool prepared_staged(std::uint64_t ticket) const {
         return presenter_ && presenter_->prepared(ticket);

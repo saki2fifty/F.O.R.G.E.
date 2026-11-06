@@ -34,10 +34,10 @@ Rgba8Pixels picture(unsigned frame) {
     }
     return value;
 }
-ImportProcessRequest request(const std::filesystem::path& folder) {
+ImportProcessRequest request(const std::filesystem::path& folder, bool sound = false) {
     const auto rate = avi_movie_frame_rate(30000. / 1001);
-    ImportProcessRequest value{{{"recipe", avi_sequence_recipe},
-                                {"profile", avi_sequence_profile},
+    ImportProcessRequest value{{{"recipe", sound ? avi_game_recipe : avi_sequence_recipe},
+                                {"profile", sound ? avi_game_profile : avi_sequence_profile},
                                 {"width", 7u},
                                 {"height", 5u},
                                 {"rate", rate.rate},
@@ -49,7 +49,52 @@ ImportProcessRequest request(const std::filesystem::path& folder) {
         value.inputs.push_back(
             {"frame-" + std::to_string(i) + ".png",
              read_bytes(folder / (std::to_string(i) + ".png"), FORGE_VIEW_IMAGE_ENCODED_LIMIT)});
+    if (sound)
+        value.inputs.push_back(
+            {"audio.s16le", read_bytes(folder / "audio.s16le", avi_game_audio_byte_limit)});
     return value;
+}
+void game_direct(const std::filesystem::path& folder) {
+    std::vector<std::byte> pcm;
+    for (unsigned frame = 0; frame < 4805; ++frame)
+        for (const auto sample :
+             {std::uint16_t(frame % 2 ? 0x8000 : 0x7fff), std::uint16_t(frame * 3)}) {
+            pcm.push_back(std::byte(sample & 255));
+            pcm.push_back(std::byte(sample >> 8));
+        }
+    asset_storage::replace(folder / "audio.s16le",
+                           std::string_view(reinterpret_cast<const char*>(pcm.data()), pcm.size()));
+    auto files = execute_avi_sequence_recipe(request(folder, true));
+    check(files.size() == 1 && files[0].name == "game.avi",
+          "Game worker returned the wrong profile");
+    asset_storage::replace(folder / "direct-game.avi",
+                           std::string_view(reinterpret_cast<const char*>(files[0].bytes.data()),
+                                            files[0].bytes.size()));
+    auto bad = request(folder, true);
+    bad.inputs.back().bytes.pop_back();
+    rejects([&] { (void)execute_avi_sequence_recipe(std::move(bad)); }, "exact video duration");
+    bad = request(folder, true);
+    bad.inputs.back().name = "../audio.s16le";
+    rejects([&] { (void)execute_avi_sequence_recipe(std::move(bad)); }, "exact video duration");
+    bad = request(folder, true);
+    bad.inputs.pop_back();
+    rejects([&] { (void)execute_avi_sequence_recipe(std::move(bad)); }, "frame count");
+    bad = request(folder, true);
+    bad.payload["profile"] = avi_sequence_profile;
+    rejects([&] { (void)execute_avi_sequence_recipe(std::move(bad)); }, "profile");
+    bad = request(folder, true);
+    bad.payload["frames"] = 4096u;
+    bad.payload["rate"] = 1u;
+    bad.payload["scale"] = 1u;
+    bad.inputs.resize(4097);
+    rejects([&] { (void)execute_avi_sequence_recipe(std::move(bad)); }, "at most128MiB");
+    bad = request(folder, true);
+    bad.inputs[1].bytes = read_bytes(folder / "transparent.png", FORGE_VIEW_IMAGE_ENCODED_LIMIT);
+    rejects([&] { (void)execute_avi_sequence_recipe(std::move(bad)); }, "opaque alpha");
+    std::stop_source stopped;
+    stopped.request_stop();
+    rejects([&] { (void)execute_avi_sequence_recipe(request(folder, true), stopped.get_token()); },
+            "cancelled");
 }
 void direct(const std::filesystem::path& folder) {
     const auto complete = execute_avi_sequence_recipe(request(folder));
@@ -107,6 +152,14 @@ void process(const std::filesystem::path& worker, const std::filesystem::path& r
              const std::filesystem::path& folder) {
     const std::vector<std::string> names{"0.png", "1.png", "2.png"};
     const auto info = write_avi_sequence(worker, root, folder, names, 7, 5, 30000. / 1001);
+    const auto game = write_avi_game(worker, root, folder, names, 7, 5, 30000. / 1001);
+    const auto game_bytes = read_bytes(folder / "game.avi", avi_movie_byte_limit);
+    check(game.bytes == game_bytes.size() && game.frame_rate == MovieFrameRate{30000, 1001} &&
+              game.audio_frames == 4805 &&
+              game_bytes == read_bytes(folder / "direct-game.avi", avi_movie_byte_limit),
+          "Supervised game movie changed PCM, packets, timebase or receipt");
+    rejects([&] { (void)write_avi_game(worker, root, folder, names, 7, 5, 30000. / 1001); },
+            "already exists");
     const auto complete = read_bytes(folder / "animation.avi", avi_movie_byte_limit);
     check(info.bytes == complete.size() && info.frame_rate == MovieFrameRate{30000, 1001},
           "Supervised movie output lost its timebase or byte count");
@@ -119,6 +172,12 @@ void process(const std::filesystem::path& worker, const std::filesystem::path& r
     for (unsigned i = 0; i < 3; ++i)
         std::filesystem::copy_file(folder / names[i], bad / names[i]);
     asset_storage::replace(bad / names[1], "invalid PNG");
+    std::filesystem::copy_file(folder / "audio.s16le", bad / "audio.s16le");
+    rejects([&] { (void)write_avi_game(worker, root, bad, names, 7, 5, 30000. / 1001); });
+    check(!std::filesystem::exists(bad / "game.avi") &&
+              read_bytes(bad / "audio.s16le", avi_game_audio_byte_limit) ==
+                  read_bytes(folder / "audio.s16le", avi_game_audio_byte_limit),
+          "Failed game worker published a movie or changed completed PCM");
     rejects([&] { (void)write_avi_sequence(worker, root, bad, names, 7, 5, 30); });
     check(!std::filesystem::exists(bad / "animation.avi"),
           "Failed worker published a partial movie");
@@ -147,6 +206,7 @@ int main(int argc, char** argv) {
         for (unsigned i = 0; i < 3; ++i)
             save_image_pixels(folder / (std::to_string(i) + ".png"), picture(i));
         direct(folder);
+        game_direct(folder);
         if (argc == 3)
             process(std::filesystem::absolute(argv[2]), root, folder);
         std::cout << "Movie snapshot/codec/failure/cancellation admission PASS: " << root << '\n';

@@ -5,9 +5,11 @@
 #include <utility>
 
 namespace forge::asset_detail {
-inline void validate_sequence_snapshots(std::span<const ArtifactFile> inputs,
-                                        std::string_view name) {
-    std::size_t total = 0;
+inline void validate_sequence_snapshots(std::span<const ArtifactFile> inputs, std::string_view name,
+                                        std::size_t initial_bytes = 0) {
+    if (initial_bytes > sequence_snapshot_byte_limit)
+        throw std::runtime_error(std::string(name) + " snapshot exceeds its byte budget");
+    std::size_t total = initial_bytes;
     for (std::size_t i = 0; i < inputs.size(); ++i) {
         const auto& input = inputs[i];
         if (input.name != "frame-" + std::to_string(i) + ".png" ||

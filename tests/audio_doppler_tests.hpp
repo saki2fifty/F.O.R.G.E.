@@ -45,6 +45,8 @@ void doppler_tests(const std::filesystem::path& root, AssetId clip) {
         actor.set<LocalTranslation>({0, 0, 10 + velocities[0] * dt});
         listener.set<LocalTranslation>({0, 0, velocities[1] * dt});
         f.tick();
+        check(f.audio->wait_for_loading(std::chrono::milliseconds(0)),
+              "Offline loading rejected an already ready voice");
         const auto expected = 440 * (sound_speed + velocities[1]) / (sound_speed + velocities[0]);
         check(std::abs(audio_frequency(f) - expected) < .5,
               "Motion PCM differs from independent source/listener Doppler equation");

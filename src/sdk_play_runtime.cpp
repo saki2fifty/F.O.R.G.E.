@@ -4,6 +4,8 @@
 #include "audio_mix.hpp"
 #include "audio_source_access.hpp"
 #include "cpu_profile_control.hpp"
+#include "game_recording.hpp"
+#include "game_recording_protocol.hpp"
 #include "json_document.hpp"
 #include "play_scene_admission.hpp"
 #include "runtime_io.hpp"
@@ -106,6 +108,9 @@ struct SdkPlayRuntime::State {
     std::unique_ptr<GameStorage> storage;
     std::unique_ptr<PlaySceneAdmission> admission;
     std::unique_ptr<GameSession> game;
+    std::optional<GameRecording> recording;
+    bool recording_advancing = false;
+    std::string recording_error;
     mutable TileMapPlaySource active_tiles, prepared_tiles;
     mutable Json prepared_tile_manifest = nullptr;
     std::unique_ptr<GameHostControls> host;
@@ -177,6 +182,11 @@ struct SdkPlayRuntime::State {
             throw std::runtime_error("sdk-play: Project game defaults must include application_id");
         config.runtime.validate();
         config.execution.validate();
+        if (config.recording && (!config.audio || config.audio->output != AudioOutput::Offline ||
+                                 config.runtime.max_elapsed < GameRecording::minimum_elapsed ||
+                                 config.runtime.max_ticks < 4))
+            throw std::runtime_error("Offline game recording requires offline audio and a "
+                                     "compatible fixed-clock budget");
         if (config.input.source().dump().size() > 1024 * 1024)
             throw std::runtime_error("sdk-play: Input map exceeds 1 MiB");
         modules = std::move(config.modules);
@@ -743,6 +753,11 @@ struct SdkPlayRuntime::State {
         response["module"] = "";
         response["recovery"] = nullptr;
         response["timing"] = status_value.value("clock", Json::object());
+        if (config.recording) {
+            response["recording"] = recording ? recording->status()
+                                              : Json{{"mode", "offline_game"}, {"started", false}};
+            response["recording"]["error"] = recording_error;
+        }
         response["activation"] = {{"state", empty ? "none" : "ready"},
                                   {"generation", active_generation},
                                   {"ticket", active_generation}};
@@ -894,6 +909,13 @@ std::uint64_t SdkPlayRuntime::editor_epoch() const {
 void SdkPlayRuntime::pump(RuntimeClock::Time now, const std::function<void()>& between_ticks) {
     auto& s = *state_;
     s.check_owner();
+    if (s.config.recording && !s.recording_advancing) {
+        now = s.recording ? s.recording->time() : RuntimeClock::Time{};
+        // Preparation may poll at time zero; an admitted run is serviced only
+        // by sequential recording intervals, never by editor/transport cadence.
+        if (s.active_generation)
+            return;
+    }
     // Once gameplay Quit is latched, do NOT advance simulation or host
     // callbacks. Refresh cached metadata only so the next correlated
     // response can still answer with the last honest snapshot. The
@@ -1012,6 +1034,8 @@ void SdkPlayRuntime::pump(RuntimeClock::Time now, const std::function<void()>& b
         s.profile_world_generation = s.active_generation;
     }
     try {
+        if (s.config.recording && !s.recording_advancing)
+            return;
         if (state == "running")
             s.game->advance(now, between_ticks);
         s.game->control_frame();
@@ -1033,6 +1057,8 @@ void SdkPlayRuntime::pump(RuntimeClock::Time now, const std::function<void()>& b
     s.prune_dead_effects();
 }
 Json SdkPlayRuntime::handle(const Json& request, RuntimeClock::Time now) {
+    if (state_->config.recording)
+        now = state_->recording ? state_->recording->time() : RuntimeClock::Time{};
     auto response = handle_inner(request, now);
     if (response.value("ok", false) && request.contains("physics_debug") &&
         response.contains("physics")) {
@@ -1145,6 +1171,16 @@ Json SdkPlayRuntime::handle_inner(const Json& request, RuntimeClock::Time now) {
     }
     if (request.contains("seconds"))
         return s.build_error(id, "Caller delta is unsupported; Step advances one fixed tick");
+    if (s.config.recording) {
+        if (command != "snapshot" && command != "ping" && command != "candidate" &&
+            command != "schema" && command != "replace" && command != "quit" &&
+            command != "record_begin" && command != "record_frame")
+            return s.build_error(id, "This fresh offline run accepts recording controls only");
+        if (request.contains("input_events"))
+            return s.build_error(id, "Interactive input is unavailable during offline recording");
+        if (command == "replace" && s.recording)
+            return s.build_error(id, "Restart offline recording to replace its authored scene");
+    }
     // Side-effect fields ride ONLY on snapshot. Rejecting them on other
     // commands prevents stray acknowledgement payloads from mutating
     // platform/editor state during unknown-command handling.
@@ -1212,6 +1248,79 @@ Json SdkPlayRuntime::handle_inner(const Json& request, RuntimeClock::Time now) {
             s.quit_latched = true;
             s.quit = true;
             return s.snapshot_response(id);
+        }
+        if (command == "record_begin" || command == "record_frame") {
+            if (!s.config.recording || !s.active_generation || !request.contains("generation") ||
+                !is_unsigned_int(request.at("generation")) ||
+                request.at("generation").get<std::uint64_t>() != s.active_generation)
+                return s.build_error(
+                    id, "Recording requires its fresh launch and current world generation");
+            if (!s.recording_error.empty() || s.tick_failed)
+                return s.build_error(id, "Restart the failed offline recording");
+            if (command == "record_begin") {
+                const auto status = s.game->status();
+                if (s.recording || status.value("state", "") != "paused" ||
+                    status.at("clock").at("tick") != 0 || s.initial_ticket ||
+                    !request.contains("fps") || !request.at("fps").is_number() ||
+                    !request.contains("frames") || !is_unsigned_int(request.at("frames")) ||
+                    request.at("frames").get<std::uint64_t>() > FORGE_SEQUENCE_FRAME_MAX_COUNT)
+                    return s.build_error(id, "Begin recording requires a fresh paused tick-zero "
+                                             "run, FPS and frame count");
+                GameRecording prepared(request.at("fps").get<double>(),
+                                       request.at("frames").get<unsigned>());
+                s.game->resume(now);
+                s.recording = std::move(prepared);
+                return s.snapshot_response(id);
+            }
+            if (!s.recording || s.recording->completed() == s.recording->planned() ||
+                !request.contains("frame") || !is_unsigned_int(request.at("frame")) ||
+                request.at("frame").get<std::uint64_t>() != s.recording->completed())
+                return s.build_error(id, "Recording frame must match the next sequential interval");
+            const auto generation = s.active_generation;
+            const auto frame = s.recording->completed();
+            const auto start = asset_detail::avi_movie_audio_frames(s.recording->rate(), frame);
+            const auto end = asset_detail::avi_movie_audio_frames(s.recording->rate(), frame + 1);
+            const auto encoded_bytes = ((end - start) * 4 + 2) / 3 * 4;
+            if (s.snapshot_response(id).dump().size() + encoded_bytes + 1024 > RuntimeIo::limit)
+                return s.build_error(
+                    id, "Recording PCM and current snapshot exceed the transport budget");
+            struct Advancing {
+                bool& value;
+                explicit Advancing(bool& target) : value(target) { value = true; }
+                ~Advancing() { value = false; }
+            } advancing(s.recording_advancing);
+            try {
+                auto healthy = [&] {
+                    if (s.active_generation != generation || s.tick_failed || s.quit_latched ||
+                        s.game->status().value("state", "") != "running" || s.initial_ticket ||
+                        s.game->status().at("prepared_ticket") != 0)
+                        throw std::runtime_error(
+                            "Recording run changed world, paused, quit or failed");
+                };
+                healthy();
+                const auto pcm = s.recording->read_frame(
+                    [&](std::span<float> output) {
+                        healthy();
+                        auto audio = std::static_pointer_cast<AudioRuntime>(
+                            s.game->active().engine.services().audio());
+                        if (audio->status().at("pending_sources") != 0 &&
+                            !audio->wait_for_loading(std::chrono::milliseconds(100)))
+                            throw std::runtime_error(
+                                "Recording audio sources did not become ready");
+                        audio->read_offline(output);
+                    },
+                    [&](RuntimeClock::Time target) {
+                        pump(target);
+                        healthy();
+                    });
+                auto response = s.snapshot_response(id);
+                response["recording_frame"] =
+                    recorded_audio_document(frame, s.recording->rate(), pcm);
+                return response;
+            } catch (const std::exception& error) {
+                s.recording_error = error.what();
+                return s.build_error(id, std::string("Offline recording failed: ") + error.what());
+            }
         }
         if (command == "ping" || command == "snapshot") {
             // Snapshot consumes ack/epoch side-effects inline.

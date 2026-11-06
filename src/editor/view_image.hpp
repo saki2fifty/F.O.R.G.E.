@@ -113,6 +113,7 @@ class ViewImageTask {
                (work_ && work_->busy());
     }
     bool reflection_active() const { return work_ && work_->busy(); }
+    std::string_view work_kind() const { return work_ ? work_->kind() : std::string_view{}; }
     void poll_work(Diligent::IDeviceContext* context, std::string& message) {
         if (work_ && work_->busy()) {
             work_->poll(context);
@@ -132,6 +133,8 @@ class ViewImageTask {
     }
     bool sequence_active() const { return bool(frames_); }
     std::optional<TemporalFrameSample> temporal_sample() const {
+        if (work_ && work_->busy())
+            return work_->temporal_sample();
         if (!frames_ || operation_.empty() || frames_->finishing || frames_->cancelled ||
             !frames_->error.empty() || !frames_->token ||
             !frames_->timeline->frame_export_current(frames_->token))
@@ -147,6 +150,8 @@ class ViewImageTask {
         }
     }
     std::optional<SequenceFrameExtent> sequence_extent() const {
+        if (work_ && work_->busy())
+            return work_->extent();
         if (!frames_ || frames_->finishing || frames_->cancelled || !frames_->error.empty() ||
             !frames_->token || !frames_->timeline->frame_export_current(frames_->token))
             return {};
@@ -287,6 +292,8 @@ class ViewImageTask {
         }
     }
     const std::string& status() const { return status_; }
+    const std::string& error() const { return error_; }
+    const std::filesystem::path& completed_image() const { return completed_image_; }
     bool begin_preview(const std::string& artifact, std::optional<unsigned> frame,
                        std::string& message) {
         if (busy())
@@ -294,7 +301,9 @@ class ViewImageTask {
         if (artifact != artifact_operation_)
             throw std::runtime_error("Choose this task's completed artifact operation");
         std::filesystem::path file;
-        if (frame) {
+        if (work_)
+            file = work_->preview_path(frame);
+        else if (frame) {
             if (!completed_frames_ || *frame >= completed_frames_->completed)
                 throw std::runtime_error("Choose an existing completed sequence frame");
             file = completed_frames_->folder / completed_frames_->plan.filename(*frame);
@@ -403,6 +412,14 @@ class ViewImageTask {
     }
     // IO-only completion is separate from GPU readback retirement so native
     // tooling can read owned image artifacts without a graphics device.
+    // Settle an already committing detached file job during scoped shutdown.
+    // This does not wait on or poll a GPU ticket and starts no new capture.
+    void finish_pending_file(std::string& message) {
+        if (job_.valid()) {
+            job_.wait();
+            (void)poll_files(message);
+        }
+    }
     bool poll_files(std::string& message) {
         try {
             if (pending_ && !confirm_ && !jpeg_configuring_ && input_ && !job_.valid()) {
@@ -571,6 +588,8 @@ class ViewImageTask {
     void capture(View view, DiligentPresentation& presentation, Diligent::IDeviceContext* context,
                  Diligent::ITextureView* texture, std::string& message,
                  bool resources_ready = true) {
+        if (view == View::Game && work_ && work_->busy())
+            work_->game_frame(presentation, context, texture, resources_ready);
         if (frames_ && frames_->configuring && view == View::Game) {
             if (resources_ready && frames_->output.valid() &&
                 frames_->timeline->frame_export_current(frames_->token)) {
@@ -952,7 +971,8 @@ class ViewImageTask {
         return project == project_ && (view_ == View::Texture || scene == scene_);
     }
     void start_operation(bool keep_artifact = false) {
-        work_.reset();
+        if (!keep_artifact)
+            work_.reset();
         operation_ = AssetId::generate().str();
         preview_.reset();
         preview_file_.clear();

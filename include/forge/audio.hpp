@@ -37,11 +37,14 @@ class AudioRuntime : public AudioService {
     Json status() const;
     // Explicit preparation/tooling wait; synchronization never waits for IO.
     bool wait_for_sources(std::chrono::milliseconds timeout);
+    // Explicit offline tooling wait; retains the last fixed motion sample.
+    // Ordinary hosts use nonblocking poll_loading instead.
+    bool wait_for_loading(std::chrono::milliseconds timeout);
     // Host service boundary, including paused Play; does not advance game time.
     void poll_loading();
     // Adopt live source values on the owner boundary without a fixed tick or new velocity sample.
     void refresh_sources();
-    // Explicit no-device test facility; never called by the simulation clock.
+    // Explicit no-device tooling read; never called by the simulation clock.
     void read_offline(std::span<float> stereo);
 
   private:

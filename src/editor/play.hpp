@@ -1,6 +1,7 @@
 #pragma once
 #include "../animation_playback_access.hpp"
 #include "../audio_mix.hpp"
+#include "../game_recording_protocol.hpp"
 #include "../json_document.hpp"
 #include "../runtime_property_tune.hpp"
 #include "../tile_map_play_receiver.hpp"
@@ -20,6 +21,7 @@
 #include <forge/input.hpp>
 #include <forge/project_paths.hpp>
 #include <forge/scene.hpp>
+#include <limits>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -91,8 +93,8 @@ class PlaySession {
     }
     bool set_time_scale(double value) {
         const auto generation = sdk_game_ ? sdk_activation_generation_ : runtime_world_generation_;
-        if (!std::isfinite(value) || value < 0 || value > 4 || !control_ready() ||
-            time_scale_pending() || !generation)
+        if (offline_recording_ || !std::isfinite(value) || value < 0 || value > 4 ||
+            !control_ready() || time_scale_pending() || !generation)
             return false;
         time_scale_command_ = {
             {"command", "time_scale"}, {"generation", generation}, {"scale", value}};
@@ -319,7 +321,7 @@ class PlaySession {
     std::uint64_t input_reset_serial() const { return input_reset_serial_; }
     bool input_queue_room(std::size_t count) const { return count <= 4096 - input_events_.size(); }
     void input_event(InputEvent event) {
-        if (!ready())
+        if (!ready() || offline_recording_)
             return;
         if (input_events_.size() >= 4096) {
             input_events_.clear();
@@ -359,6 +361,39 @@ class PlaySession {
         headless_audio_ = value;
     }
     bool headless_audio() const { return headless_audio_; }
+    bool recording_launch() const { return offline_recording_; }
+    const Json& recording_status() const { return recording_status_; }
+    bool recording_pending() const {
+        return !recording_command_.is_null() ||
+               (waiting_ && (sent_command_ == "record_begin" || sent_command_ == "record_frame"));
+    }
+    bool begin_recording(double fps, unsigned frames) {
+        if (!offline_recording_ || !control_ready() || recording_pending() ||
+            recording_status_.value("started", false) || !std::isfinite(fps) || fps < 1 ||
+            fps > 240 || !frames || frames > 4096)
+            return false;
+        recording_command_ = {{"command", "record_begin"},
+                              {"generation", world_generation()},
+                              {"fps", fps},
+                              {"frames", frames}};
+        return true;
+    }
+    bool advance_recording(unsigned frame) {
+        if (!offline_recording_ || !control_ready() || recording_pending() || recording_frame_ ||
+            !recording_status_.value("started", false) ||
+            recording_status_.value("failed", false) ||
+            frame !=
+                recording_status_.value("completed_frames", std::numeric_limits<unsigned>::max()) ||
+            frame >= recording_status_.value("planned_frames", 0u))
+            return false;
+        recording_command_ = {
+            {"command", "record_frame"}, {"generation", world_generation()}, {"frame", frame}};
+        recording_requested_frame_ = frame;
+        return true;
+    }
+    std::optional<RecordedAudioFrame> take_recording_frame() {
+        return std::exchange(recording_frame_, std::nullopt);
+    }
     const std::string& user_data_override() const { return user_data_override_; }
     const std::string& session() const { return session_; }
     // Identifies even a starting process before its wire hello returns a session.
@@ -368,15 +403,15 @@ class PlaySession {
     }
     bool can_recover() const { return !active() && recoverable_; }
     void pause() {
-        if (control_ready())
+        if (control_ready() && !offline_recording_)
             control_ = "pause";
     }
     void resume() {
-        if (control_ready())
+        if (control_ready() && !offline_recording_)
             control_ = "resume";
     }
     void step() {
-        if (control_ready() && paused())
+        if (control_ready() && paused() && !offline_recording_)
             control_ = "step";
     }
     void recover() {
@@ -820,6 +855,10 @@ class PlaySession {
     }
     void stop() {
         close_process();
+        offline_recording_ = false;
+        recording_status_ = recording_command_ = nullptr;
+        recording_frame_.reset();
+        recording_requested_frame_ = 0;
         recoverable_ = false;
         status_ = "Stopped. Authored scene preserved.";
         // SDK Play transport state is reset by close_process(); stop()
@@ -837,7 +876,9 @@ class PlaySession {
         sdk_pending_cancel_loading_ticket_ = 0;
     }
     void start(const std::string& executable, const Json& scene, bool probe = false,
-               const Json& recovery = Json()) {
+               const Json& recovery = Json(), bool recording = false) {
+        if (recording && (!sdk_game_ || probe || !recovery.is_null()))
+            throw std::runtime_error("Offline game recording requires fresh SDK Play");
         if (exact_sdk_ && !recovery.is_null())
             throw std::runtime_error("Exact SDK Play starts from authored state; "
                                      "partial custom-state recovery is unavailable");
@@ -845,7 +886,8 @@ class PlaySession {
         stop();
         executable_ = executable;
         probe_ = probe;
-        desired_paused_ = probe;
+        offline_recording_ = recording;
+        desired_paused_ = probe || recording;
         notice_.clear();
         launch(initial, recovery);
     }
@@ -1118,6 +1160,19 @@ class PlaySession {
                     runtime_schema_ = response.value("schema", Json());
                     runtime_world_generation_ = response.value("world_generation", std::uint64_t{});
                     timing_ = response.at("timing");
+                    if (offline_recording_) {
+                        const auto& recording = response.at("recording");
+                        if (!recording.is_object() || recording.value("mode", "") != "offline_game")
+                            throw std::runtime_error(
+                                "Runtime returned an incompatible recording profile");
+                        recording_status_ = recording;
+                        if (sent_command_ == "record_frame")
+                            recording_frame_ = read_recorded_audio(response.at("recording_frame"),
+                                                                   recording_requested_frame_,
+                                                                   recording_rate(recording));
+                        else if (response.contains("recording_frame"))
+                            throw std::runtime_error("Unexpected recording frame receipt");
+                    }
                     const auto profile_generation =
                         sdk_game_ ? response.value("activation", Json::object())
                                         .value("generation", std::uint64_t{})
@@ -1366,6 +1421,10 @@ class PlaySession {
                         const auto command = control_;
                         control_.clear();
                         send({{"command", command}});
+                    } else if (!recording_command_.is_null()) {
+                        auto command = std::move(recording_command_);
+                        recording_command_ = nullptr;
+                        send(std::move(command));
                     } else if (!time_scale_command_.is_null()) {
                         auto command = std::move(time_scale_command_);
                         time_scale_command_ = nullptr;
@@ -1591,7 +1650,12 @@ class PlaySession {
                 args.push_back(audio_project_.c_str());
             }
             args.push_back("--audio");
-            args.push_back((probe_ || headless_audio_) ? "offline" : "device");
+            args.push_back((probe_ || headless_audio_ || offline_recording_) ? "offline"
+                                                                             : "device");
+            if (offline_recording_) {
+                args.push_back("--recording");
+                args.push_back("on");
+            }
             if (!probe_) {
                 args.push_back("--ui");
                 args.push_back("on");
@@ -1798,6 +1862,10 @@ class PlaySession {
     TileMapPlayReceiver* tile_reply_ = nullptr;
     Json property_tune_command_, property_tune_ack_, runtime_schema_;
     Json time_scale_command_;
+    Json recording_status_, recording_command_;
+    std::optional<RecordedAudioFrame> recording_frame_;
+    unsigned recording_requested_frame_ = 0;
+    bool offline_recording_ = false;
     std::uint64_t runtime_world_generation_ = 0;
     Json audio_status_ = Json::object(), live_command_;
     std::string audio_mix_error_;

@@ -665,9 +665,17 @@ if(BUILD_TESTING AND (FORGE_BUILD_EDITOR OR FORGE_BUILD_MCP_EDITOR_TESTS))
   target_compile_options(forge_mcp_image_host PRIVATE $<$<CXX_COMPILER_ID:GNU,Clang>:-O0>)
   target_link_libraries(forge_mcp_image_host PRIVATE forge_sequence_encoding forge_mcp forge_authoring forge_model_render_resources forge_view_image SDL3::SDL3 imgui)
   target_link_libraries(forge_mcp_image_host PRIVATE forge_texture_image_process)
+  target_link_libraries(forge_mcp_image_host PRIVATE forge_game_recording_editor)
   add_dependencies(forge_mcp_image_host forge_asset_build_worker)
-  add_test(NAME mcp_image_stdio COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/mcp_image_test.py $<TARGET_FILE:forge_tools> $<TARGET_FILE:forge_mcp_image_host> "${CMAKE_CURRENT_BINARY_DIR}/mcp-image-protocol-capture.json.gz" $<TARGET_FILE:forge_asset_build_worker>)
-  set_tests_properties(mcp_image_stdio PROPERTIES TIMEOUT 120)
+  set(_forge_mcp_image_runtime)
+  if(FORGE_ENABLE_NATIVE_SDK)
+   set(_forge_mcp_image_runtime $<TARGET_FILE:forge_runtime>)
+   add_dependencies(forge_mcp_image_host forge_runtime)
+  endif()
+  add_test(NAME mcp_image_stdio COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/mcp_image_test.py $<TARGET_FILE:forge_tools> $<TARGET_FILE:forge_mcp_image_host> "${CMAKE_CURRENT_BINARY_DIR}/mcp-image-protocol-capture.json.gz" $<TARGET_FILE:forge_asset_build_worker> ${_forge_mcp_image_runtime})
+  # Both protocol envelopes include fresh-runtime recording, owned previews,
+  # cancellation and encoder failure in addition to the image/sequence cases.
+  set_tests_properties(mcp_image_stdio PROPERTIES TIMEOUT 180)
  endif()
  # These fixtures instantiate the real editor owners and JSON adapters together.
  # MSVC's ordinary COFF section limit is insufficient for the combined source host.
