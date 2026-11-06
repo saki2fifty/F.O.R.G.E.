@@ -248,6 +248,21 @@ Out main(float3 vertex : ATTRIB0, float3 normal : ATTRIB1) {
         throw std::runtime_error("Grid shader camera binding missing");
     variable->Set(grid_constants_);
 }
+void Viewport::invalidate_temporal_history() {
+    frame_.reset();
+    temporal_camera_.reset();
+    temporal_settle_ = 0;
+    if (temporal_)
+        temporal_->invalidate();
+    if (meshes_) {
+        meshes_->commit_temporal_frame(false);
+        meshes_->runtime_reflections({});
+    }
+    if (render_textures_)
+        render_textures_->invalidate_temporal_history();
+    if (runtime_reflections_)
+        runtime_reflections_->invalidate();
+}
 ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsigned width,
                                unsigned height, const EditorCamera& camera,
                                std::uint64_t generation, bool live, GridSettings grid) {
@@ -256,26 +271,48 @@ ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsig
     const auto prepared = scene_camera(camera, width, height);
     if (meshes_) {
         if (!mesh_scene_ || live || mesh_generation_ != generation) {
+            const bool had_time = mesh_scene_ && mesh_scene_->simulation_seconds.has_value();
             mesh_scene_ = extract_render_scene(scene);
+            if (runtime_reflections_ && (!mesh_scene_->simulation_seconds || !had_time)) {
+                meshes_->runtime_reflections({});
+                runtime_reflections_->invalidate();
+            }
             mesh_generation_ = generation;
             if (render_textures_)
                 render_textures_->invalidate_temporal_history();
+        }
+        const RuntimeReflectionImages* reflection_images = nullptr;
+        if (runtime_reflections_ ||
+            std::any_of(mesh_scene_->reflection_probes.begin(),
+                        mesh_scene_->reflection_probes.end(),
+                        [](const auto& probe) { return probe.probe.runtime_capture; })) {
+            if (!runtime_reflections_)
+                runtime_reflections_ =
+                    std::make_unique<RuntimeReflectionCaptures>(presentation_, host_);
+            meshes_->update(*mesh_scene_, std::span(&prepared, 1));
+            reflection_images =
+                &runtime_reflections_->render(context, *mesh_scene_, *meshes_, 0, nullptr);
+            if (meshes_->runtime_reflections(*reflection_images))
+                frame_.reset();
+            live |= runtime_reflections_->pending();
         }
         if (render_textures_ ||
             std::any_of(mesh_scene_->cameras.begin(), mesh_scene_->cameras.end(),
                         [](const auto& c) { return bool(c.camera.render_texture.id); })) {
             if (!render_textures_)
                 render_textures_ = std::make_unique<CameraRenderTextures>(presentation_, host_);
-            meshes_->render_textures(
-                render_textures_->render(context, *mesh_scene_, *meshes_, UINT32_MAX, 0, nullptr));
+            meshes_->render_textures(render_textures_->render(context, *mesh_scene_, *meshes_,
+                                                              UINT32_MAX, 0, nullptr, nullptr,
+                                                              reflection_images));
             live = true;
         }
         if (meshes_->update(*mesh_scene_, std::span(&prepared, 1)))
             frame_.reset();
         if (!render_textures_ && !meshes_->render_texture_reads(*mesh_scene_, UINT32_MAX).empty()) {
             render_textures_ = std::make_unique<CameraRenderTextures>(presentation_, host_);
-            meshes_->render_textures(
-                render_textures_->render(context, *mesh_scene_, *meshes_, UINT32_MAX, 0, nullptr));
+            meshes_->render_textures(render_textures_->render(context, *mesh_scene_, *meshes_,
+                                                              UINT32_MAX, 0, nullptr, nullptr,
+                                                              reflection_images));
             meshes_->update(*mesh_scene_, std::span(&prepared, 1));
             live = true;
         }
@@ -604,6 +641,8 @@ ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsig
     temporal_complete = true;
     if (render_textures_)
         render_textures_->submit();
+    if (runtime_reflections_)
+        runtime_reflections_->submit();
     ++redraws;
     frame_ = key;
     return display_ ? display_->output() : color_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE);

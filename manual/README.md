@@ -48,7 +48,7 @@ content may differ; use **Window** to open a panel mentioned in a guide.
 - [Use an imported diffuse lightmap](editor/imported-lightmaps.md)
 - [Shader import](editor/shaders.md)
 - [Occlusion culling: current-view hidden geometry and moving occluders](editor/occlusion-culling.md)
-- [Scene lighting, light images, rectangular and spherical emitters, contact-hardening shadows, reflection-map capture and rebaking, local reflection probes, roughness-filtered screen-space reflections, ambient occlusion with material normals, motion blur, depth of field, temporal, fast approximate and morphological anti-aliasing, distance fog, local fog volumes, exposure and color](editor/lighting.md)
+- [Scene lighting, light images, rectangular and spherical emitters, contact-hardening shadows, reflection-map capture and rebaking, runtime probe capture, local reflection probes, roughness-filtered screen-space reflections, ambient occlusion with material normals, motion blur, depth of field, temporal, fast approximate and morphological anti-aliasing, distance fog, local fog volumes, exposure and color](editor/lighting.md)
 - [Mesh particle effects](editor/particles.md)
 
 ## 2D scenes

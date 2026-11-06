@@ -460,6 +460,18 @@ assert any(row['document'] == by_source['Assets/UI/SceneSurface/Guide.rml']['id'
 assert not {row['id'] for row in surface['entities']} & {row['id'] for row in shadow_motion['entities']}
 
 
+runtime_reflections = json.loads((project_root / 'Scenes/176-runtime-reflection-capture.scene.json').read_text())
+assert runtime_reflections['asset_id'] == by_source['Scenes/176-runtime-reflection-capture.scene.json']['id']
+runtime_probe, = [row['components']['forge.reflection_probe'] for row in runtime_reflections['entities']
+                 if 'forge.reflection_probe' in row['components']]
+assert runtime_probe['runtime_capture'] and runtime_probe['capture_size'] == 64
+assert runtime_probe['capture_layers'] == 1 and runtime_probe['capture_interval'] == .25
+runtime_sources = [row['components'] for row in runtime_reflections['entities'] if 'forge.transform_animator' in row['components']]
+assert len(runtime_sources) == 2 and all(row['forge.mesh_renderer']['layers'] == 1 for row in runtime_sources)
+assert all(row['forge.transform_animator']['clip'] == by_source['Assets/RenderTextures/Spin.animation.json']['id'] for row in runtime_sources)
+saved_capture = json.loads((project_root / 'Scenes/110-reflection-map-capture.scene.json').read_text())
+assert not {row['id'] for row in runtime_reflections['entities']} & {row['id'] for row in saved_capture['entities']}
+
 fbx = json.loads((project_root / 'Scenes/175-fbx-model-import.scene.json').read_text())
 assert fbx['asset_id'] == by_source['Scenes/175-fbx-model-import.scene.json']['id']
 fbx_models = {row['source']: row for row in assets if row['type'] == 'model'
@@ -731,6 +743,12 @@ try:
             probe = row['components'].get('forge.reflection_probe')
             if probe is not None:
                 probe.setdefault('diffuse_intensity', 0.)
+                probe.setdefault('runtime_capture', False)
+                probe.setdefault('capture_size', 128)
+                probe.setdefault('capture_interval', .25)
+                probe.setdefault('capture_near', .1)
+                probe.setdefault('capture_far', 100.)
+                probe.setdefault('capture_layers', 4294967295)
             decal = row['components'].get('forge.decal')
             if decal is not None:
                 decal.setdefault('color_influence', 1.)

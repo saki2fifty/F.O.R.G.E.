@@ -2191,3 +2191,31 @@ Camera flips/layers, capture, blockers, producer loss and large-world projection
 This software Vulkan capture does not establish full editor Main/Windows/MSVC/
 D3D12, physical GPU/input/DPI, graphical EXE, external-client or hardware
 performance acceptance. Those platform checks remain queued.
+
+## Runtime reflection capture
+
+The canonical images are `manual/images/runtime-reflection-controls.png` and
+`manual/images/runtime-reflection-capture.png`. The first is the actual production
+Inspector rendered by the native ImGui/SDL software capture fixture with all
+seventeen reflected fields. The second is a 480×270 native FrameRenderer image from
+Gallery176 after actual RuntimeWorld transform animation advanced. The game Camera
+hides the moving source panels; their changing shapes remain in local reflections.
+Only lossless PPM-to-PNG conversion was applied; controls and pixels were not retouched.
+
+`tests/runtime_reflection_gallery_tests.cpp` compares six wide/tall initial,
+moving and static-fallback readbacks after runtime packaging/relocation with the
+original source root hidden. It also checks paused simulation against changing
+presentation time and verifies authored Scene bytes remain unchanged.
+`tests/runtime_reflection_vulkan_probe.cpp` covers native HDR faces, convolution,
+intervals, staged refreshes, two-probe capacity, inactive probes, failed refreshes,
+camera-output borrowing/feedback, physical payload admission and same-time view
+resets. `tests/reflection_probe_editor_tests.cpp --capture-runtime` produces the
+control image. Native field/history/Save controls run at 100/150/200 percent scales;
+installed matching-SDK checks cover the appended values, both hosts and recovery.
+
+Local capture source hashes, image hashes/dimensions, exact source-free receipt and
+check attribution are retained in the runtime-reflection-capture evidence owner.
+Later changes to validation message prefixes and editor session reset routing do
+not change the Gallery's pixel path. Software Vulkan and isolated native control
+captures are separate from Windows/full-editor, physical GPU/input/DPI, graphical
+executable and performance acceptance. No GPU sanitizer execution is claimed.

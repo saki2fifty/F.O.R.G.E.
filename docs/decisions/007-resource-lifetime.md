@@ -72,3 +72,15 @@ retirement across resize and retained candidates. A same-frame produced set, not
 lease existence, authorizes sampling. This deliberately extends the loaded-resource
 boundary without adding persistent pixel identities or another resource manager.
 See [the output contract](../render-textures.md).
+
+## Mutable runtime probe realizations
+
+A ReflectionProbe component owns capture intent; it is not a TextureAsset revision.
+Derived view/device-local cubemaps reuse GpuResidency's existing strong leases,
+physical payload reservations, thread/context scope and real completion fences.
+A private entity/generation/slot key identifies a native configuration inside that
+scope, never a catalog UUID, source location or CPU asset selection. Two payload
+slots stage complete nonrecursive captures; only completed six-face convolution
+becomes the ready lighting selection. Runtime maps do not overwrite immutable
+TextureAsset pixels, generate source files or require another resource registry.
+See [the bounded probe contract](../local-reflection-probes.md#runtime-gpu-capture).

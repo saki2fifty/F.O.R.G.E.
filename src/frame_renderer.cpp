@@ -3,6 +3,7 @@
 #include "auto_exposure_plan.hpp"
 #include "camera_render_textures.hpp"
 #include "render_projection.hpp"
+#include "runtime_reflection_captures.hpp"
 namespace forge {
 using namespace Diligent;
 namespace {
@@ -104,7 +105,8 @@ FrameRenderer::FrameRenderer(DiligentPresentation& presentation, std::string pro
 }
 FrameRenderer::~FrameRenderer() = default;
 bool FrameRenderer::pending() const {
-    return (meshes_ && meshes_->pending()) || (render_textures_ && render_textures_->pending());
+    return (meshes_ && meshes_->pending()) || (render_textures_ && render_textures_->pending()) ||
+           (runtime_reflections_ && runtime_reflections_->pending());
 }
 void FrameRenderer::invalidate_temporal_history() {
     if (thread_ != std::this_thread::get_id())
@@ -116,6 +118,10 @@ void FrameRenderer::invalidate_temporal_history() {
         meshes_->commit_temporal_frame(false);
     if (render_textures_)
         render_textures_->invalidate_temporal_history();
+    if (meshes_)
+        meshes_->runtime_reflections({});
+    if (runtime_reflections_)
+        runtime_reflections_->invalidate();
     temporal_time_.reset();
     temporal_sample_.reset();
 }
@@ -125,6 +131,7 @@ void FrameRenderer::resources(std::shared_ptr<MeshResourceHost> host) {
     camera_effects_.clear();
     meshes_.reset();
     render_textures_.reset();
+    runtime_reflections_.reset();
     host_ = std::move(host);
     meshes_ = host_ ? std::make_unique<MeshSceneRenderer>(host_, TEX_FORMAT_RGBA16_FLOAT) : nullptr;
     exposure_time_.reset();
@@ -213,7 +220,8 @@ ITextureView* FrameRenderer::render(IDeviceContext* context, const RenderScene& 
                                     const SceneAutoExposure* automatic, double seconds,
                                     const TemporalFrameSample* sample, Output output,
                                     const RenderTextureInputs* render_textures,
-                                    const RenderTextureOverlay* overlay) {
+                                    const RenderTextureOverlay* overlay,
+                                    const RuntimeReflectionImages* reflection_images) {
     if (thread_ != std::this_thread::get_id() || !context)
         throw std::runtime_error("Frame rendering requires its presentation thread and context");
     if (output != Output::Display && output != Output::LinearHdr &&
@@ -244,6 +252,24 @@ ITextureView* FrameRenderer::render(IDeviceContext* context, const RenderScene& 
     diagnostics_.clear();
     omitted_ = 0;
     if (meshes_) {
+        if (reflection_images)
+            meshes_->runtime_reflections(*reflection_images);
+        else if (!render_textures &&
+                 (runtime_reflections_ ||
+                  std::any_of(scene.reflection_probes.begin(), scene.reflection_probes.end(),
+                              [](const auto& probe) { return probe.probe.runtime_capture; }))) {
+            if (!runtime_reflections_)
+                runtime_reflections_ =
+                    std::make_unique<RuntimeReflectionCaptures>(presentation_, host_);
+            // Source readiness and image dependencies use the same admitted material owner.
+            meshes_->update(scene, cameras, sample ? std::optional(sample->seconds) : std::nullopt);
+            reflection_images =
+                &runtime_reflections_->render(context, scene, *meshes_, seconds, sample);
+            meshes_->runtime_reflections(*reflection_images);
+            for (const auto& error : runtime_reflections_->diagnostics())
+                report(error);
+        } else
+            meshes_->runtime_reflections({});
         std::uint32_t consumer_layers = 0;
         for (const auto& camera : cameras)
             consumer_layers |= camera.settings.layers;
@@ -254,15 +280,17 @@ ITextureView* FrameRenderer::render(IDeviceContext* context, const RenderScene& 
                                [](const auto& c) { return bool(c.camera.render_texture.id); })) {
             if (!render_textures_)
                 render_textures_ = std::make_unique<CameraRenderTextures>(presentation_, host_);
-            meshes_->render_textures(render_textures_->render(
-                context, scene, *meshes_, consumer_layers, seconds, sample, overlay));
+            meshes_->render_textures(render_textures_->render(context, scene, *meshes_,
+                                                              consumer_layers, seconds, sample,
+                                                              overlay, reflection_images));
         }
         meshes_->update(scene, cameras, sample ? std::optional(sample->seconds) : std::nullopt);
         if (!render_textures && !render_textures_ &&
             !meshes_->render_texture_reads(scene, UINT32_MAX).empty()) {
             render_textures_ = std::make_unique<CameraRenderTextures>(presentation_, host_);
-            meshes_->render_textures(render_textures_->render(
-                context, scene, *meshes_, consumer_layers, seconds, sample, overlay));
+            meshes_->render_textures(render_textures_->render(context, scene, *meshes_,
+                                                              consumer_layers, seconds, sample,
+                                                              overlay, reflection_images));
             meshes_->update(scene, cameras, sample ? std::optional(sample->seconds) : std::nullopt);
         }
         if (!render_textures && render_textures_)
@@ -563,6 +591,8 @@ ITextureView* FrameRenderer::render(IDeviceContext* context, const RenderScene& 
         meshes_->commit_temporal_frame(any_temporal && (aa_enabled || blur_enabled));
     if (!render_textures && render_textures_)
         render_textures_->submit();
+    if (!render_textures && runtime_reflections_)
+        runtime_reflections_->submit();
     temporal_scene_ = scene.scene;
     temporal_settings_ = scene.settings;
     temporal_epoch_ = epoch;

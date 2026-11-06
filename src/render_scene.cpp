@@ -205,7 +205,7 @@ RenderScene extract_render_scene(const Json& source) {
         });
         admit("forge.reflection_probe", "render.probe.invalid", [&] {
             const auto probe = component<ReflectionProbe>(values, "forge.reflection_probe");
-            if (probe.enabled && probe.texture.id &&
+            if (probe.enabled && (probe.texture.id || probe.runtime_capture) &&
                 (probe.intensity != 0 || probe.diffuse_intensity != 0) && state.valid &&
                 state.visible)
                 result.reflection_probes.push_back({id, probe, world_transform(row)});

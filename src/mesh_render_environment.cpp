@@ -72,6 +72,21 @@ bool MeshSceneRenderer::update_environment(const RenderScene& scene) {
     }
     return changed;
 }
+bool MeshSceneRenderer::runtime_reflections(const RuntimeReflectionImages& images) {
+    host_->check_thread();
+    const bool same =
+        images.size() == runtime_reflection_images_.size() &&
+        std::equal(images.begin(), images.end(), runtime_reflection_images_.begin(),
+                   [](const auto& a, const auto& b) {
+                       return a.first == b.first && a.second.source() == b.second.source();
+                   });
+    if (!same) {
+        clear_probe_bindings();
+        lighting_probes_.clear();
+        runtime_reflection_images_ = images;
+    }
+    return !same;
+}
 void MeshSceneRenderer::clear_probe_bindings() {
     for (const auto& [key, weak] : bundles_) {
         (void)key;
@@ -101,7 +116,7 @@ bool MeshSceneRenderer::update_reflection_probes(const RenderScene& scene) {
     };
     std::vector<const RenderReflectionProbe*> active;
     for (const auto& probe : scene.reflection_probes)
-        if (probe.probe.enabled && probe.probe.texture.id &&
+        if (probe.probe.enabled && (probe.probe.texture.id || probe.probe.runtime_capture) &&
             (probe.probe.intensity != 0 || probe.probe.diffuse_intensity != 0))
             active.push_back(&probe);
     if (active.size() > environment_probe_limit) {
@@ -143,7 +158,8 @@ bool MeshSceneRenderer::update_reflection_probes(const RenderScene& scene) {
                 diagnostic(probe->entity,
                            entry.environment.error +
                                (entry.environment.ready ? " (previous probe map retained)" : ""));
-            if (entry.environment.ready)
+            if (entry.environment.ready || (probe->probe.runtime_capture &&
+                                            runtime_reflection_images_.contains(probe->entity)))
                 ready.emplace_back(probe->entity, &entry);
         } catch (const std::exception& error) {
             if (probe_entries_.contains(probe->entity))
@@ -166,13 +182,18 @@ bool MeshSceneRenderer::update_reflection_probes(const RenderScene& scene) {
     lighting_probes_.clear();
     for (const auto& [id, entry] : ready) {
         const auto& value = entry->value;
-        lighting_probes_.push_back({entry->volume,
-                                    entry->environment.ready.get().specular->GetDefaultView(
-                                        Diligent::TEXTURE_VIEW_SHADER_RESOURCE),
-                                    value.intensity, value.blend_distance, value.box_projection, id,
-                                    entry->environment.ready.get().diffuse->GetDefaultView(
-                                        Diligent::TEXTURE_VIEW_SHADER_RESOURCE),
-                                    value.diffuse_intensity});
+        const auto runtime = runtime_reflection_images_.find(id);
+        const bool captured = value.runtime_capture && runtime != runtime_reflection_images_.end();
+        const auto& maps = captured ? runtime->second.get() : entry->environment.ready.get();
+        auto volume = entry->volume;
+        if (captured)
+            volume.map_rotation = {
+                1, 0}; // Captures are world aligned; authored yaw belongs to fallback.
+        lighting_probes_.push_back(
+            {volume, maps.specular->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE),
+             value.intensity, value.blend_distance, value.box_projection, id,
+             maps.diffuse->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE),
+             value.diffuse_intensity});
     }
     return changed;
 }

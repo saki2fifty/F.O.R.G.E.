@@ -10,6 +10,7 @@
 #include "hdr_bloom.hpp"
 #include "mesh_render_host.hpp"
 #include "presentation_diligent.hpp"
+#include "runtime_reflection_captures.hpp"
 #include "scene_cache.hpp"
 #include "temporal_view.hpp"
 #include <forge/primitive_catalog.hpp>
@@ -36,6 +37,7 @@ class Viewport {
         sky_.select({});
         meshes_.reset();
         render_textures_.reset();
+        runtime_reflections_.reset();
         host_ = std::move(host);
         meshes_ = host_ ? std::make_unique<MeshSceneRenderer>(host_, color_format_) : nullptr;
         mesh_scene_.reset();
@@ -44,15 +46,21 @@ class Viewport {
         focus_.reset();
         temporal_camera_.reset();
     }
+    void invalidate_temporal_history();
     const MeshSceneRenderer* meshes() const { return meshes_.get(); }
     bool pending() const {
-        return (meshes_ && meshes_->pending()) || (render_textures_ && render_textures_->pending());
+        return (meshes_ && meshes_->pending()) ||
+               (render_textures_ && render_textures_->pending()) ||
+               (runtime_reflections_ && runtime_reflections_->pending());
     }
     std::vector<Diagnostic> diagnostics() const {
         auto result = meshes_ ? meshes_->diagnostics() : std::vector<Diagnostic>{};
         if (render_textures_)
             result.insert(result.end(), render_textures_->diagnostics().begin(),
                           render_textures_->diagnostics().end());
+        if (runtime_reflections_)
+            result.insert(result.end(), runtime_reflections_->diagnostics().begin(),
+                          runtime_reflections_->diagnostics().end());
         return result;
     }
     const RenderScene* render_scene() const { return mesh_scene_ ? &*mesh_scene_ : nullptr; }
@@ -73,6 +81,7 @@ class Viewport {
     bool preview_lighting_ = false;
     EnvironmentSky sky_;
     std::shared_ptr<MeshResourceHost> host_;
+    std::unique_ptr<RuntimeReflectionCaptures> runtime_reflections_;
     std::unique_ptr<CameraRenderTextures> render_textures_;
     std::unique_ptr<MeshSceneRenderer> meshes_;
     std::optional<RenderScene> mesh_scene_;

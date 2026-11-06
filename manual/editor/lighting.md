@@ -151,8 +151,9 @@ Scene using the steps below.
 **Half extent** is measured before entity scale; **Edge fade** is measured after
 that transform, in world metres. Higher **Priority** takes precedence in overlap;
 its edge fade reveals lower-priority maps and then the Scene environment. Equal
-priorities use stable entity order. **Enabled** off, an unassigned map or both
-intensity controls at zero makes the probe inactive. Outside every box, the Scene environment remains.
+priorities use stable entity order. **Enabled** off or both intensity controls at
+zero makes the probe inactive. With **Runtime capture** off, clearing **Reflection
+map** also makes it inactive. Outside every box, the Scene environment remains.
 By default, the map affects base reflections; diffuse light, the sky, clearcoat
 and sheen keep the Scene environment. **Diffuse intensity** optionally supplies
 local diffuse light as described below. It can supply reflections when global environment intensity
@@ -169,7 +170,7 @@ During Play, the existing scalar controls appear under **Live gameplay**. These
 changes affect the running world. Stop restores saved authored values unless you
 keep selected fields through the tuning review. Assign maps while stopped.
 
-Use at most **eight active assigned probes**. Above that limit the view keeps
+Use at most **eight active probes**, including assigned maps and runtime captures. Above that limit the view keeps
 global lighting and Problems reports the capacity warning. A failed replacement
 keeps the previous usable map; clearing the field removes it. Singular transforms
 and volumes that cannot be represented for a camera are skipped with a diagnostic.
@@ -205,14 +206,54 @@ The center receivers show their overlap.
 ![Warm and cool local diffuse volumes lighting receivers and a floor](../images/local-diffuse-irradiance.png)
 
 The same map and volume supply both lighting controls. Use at most **eight active
-assigned probes in total**, including reflection-only and diffuse-only probes.
+probes in total**, including saved maps, runtime captures, reflection-only and diffuse-only probes.
 Lit Meshes and Mesh particles receive diffuse light; Unlit materials remain unlit.
 Older custom Surface Shaders need a current cook for this input. A failed map
 replacement keeps the previous usable map; clearing the map removes it.
 
-The map is a static lighting snapshot. Moving scene objects or lights does not
+With **Runtime capture** off, the map is a static lighting snapshot. Moving scene objects or lights does not
 update it. Local diffuse probes do not cast shadows, provide a sampled irradiance
-grid or calculate multiple bounces. Capture or rebake a map after changing its sources.
+grid or calculate multiple bounces. Capture or rebake a saved map after changing its sources, or enable **Runtime capture** as described below.
+
+## Refresh lighting during Play
+
+Enable **Runtime capture** on a Reflection Probe when moving objects or changing
+lights should appear in its reflections and local diffuse lighting. This creates
+GPU lighting maps for the current view. It does not create or overwrite Texture
+assets. An assigned **Reflection map** provides a fallback while the first capture
+loads or when capture is unavailable.
+
+1. Select a Reflection Probe and enable **Runtime capture** in Inspector. Place it outside solid geometry at the desired capture center.
+2. Choose **Capture face size**: **16**, **32**, **64**, **128** or **256** pixels. Higher values render more pixels on each of six faces. Start at **128**.
+3. Set **Capture interval** in simulation seconds. The default **0.25** refreshes four times per second while simulation advances. **0** captures every rendered frame. A positive interval retains the completed map while simulation is paused.
+4. Set **Capture near** above zero and **Capture far** greater than near, up to **1000000** metres. Set **Capture layers** to the source geometry's Camera layer mask. Exclude surfaces that read camera outputs; they would create capture feedback. Excluding receivers also helps prevent a probe from capturing the inside of its own object.
+5. Set the influence box, **Edge fade**, **Intensity** and optionally **Diffuse intensity**. **Map rotation** applies to the saved fallback; runtime captures are aligned to world axes.
+6. Save the Scene, then test in Play. The scalar capture controls are adjustable in **Live gameplay**. Stop restores authored values unless you keep selected fields through the tuning review.
+
+Open **176-runtime-reflection-capture** in the Feature Gallery to compare rotating
+amber and blue sources against the supplied saved fallback.
+
+![Metal spheres reflecting the runtime Gallery's rotating amber and blue sources](../images/runtime-reflection-capture.png)
+
+The game Camera hides the source panels; their changing shapes remain visible in the reflections.
+
+![Reflection Probe Inspector with Runtime capture enabled, 64-pixel faces, 0.25-second interval and source layer 1](../images/runtime-reflection-controls.png)
+
+Set the capture source layers separately from the receiving Camera's layers.
+
+Use at most **two active runtime probes per view** and **eight active probes in
+total**. Each update renders six faces together before publishing the complete
+lighting map. The capture includes source lighting, shadows, fog and environment;
+it excludes other probes, screen-space reflections and display/history effects.
+Camera-output producers and the main view consume the same completed maps.
+
+Moving the capture center, changing its size, clip distances or source layers,
+changing published resources or restarting the view discards the old capture and
+requests a fresh one. A later refresh failure retains the previous complete map.
+Check **Problems** for capacity, resource or capture-layer errors. With no usable
+capture or saved map, the Scene environment remains. Saved and exported Scenes
+store the capture controls; each run recreates the GPU maps and requires a matching
+runtime kit.
 
 ## Capture a reflection map from your Scene
 
@@ -289,7 +330,7 @@ It excludes local reflection and diffuse probes, screen-space reflections, ambie
 smoothing, motion/focus blur, bloom and display exposure/tone mapping/color grading.
 It stores linear HDR values. It does not update when objects, lights or the probe
 move. Capture a new map or explicitly rebake its assigned source after changing
-the Scene. Runtime recapture is unavailable.
+the Scene. To refresh GPU lighting during Play without saving a Texture, use **Runtime capture**.
 
 For an empty or unexpected map, check the probe position, near/far planes, layer
 mask and authored lighting. Keep the probe outside solid surfaces. Check

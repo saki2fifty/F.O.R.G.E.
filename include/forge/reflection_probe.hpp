@@ -16,6 +16,12 @@ struct ReflectionProbe {
     // Optional local base diffuse illumination from the same convolved map.
     // Zero preserves the Scene environment's diffuse lighting.
     double diffuse_intensity = 0;
+    // Derived view-local lighting; the assigned map remains a saved fallback.
+    bool runtime_capture = false;
+    std::uint32_t capture_size = 128;
+    double capture_interval = .25;
+    double capture_near = .1, capture_far = 100;
+    std::uint32_t capture_layers = UINT32_MAX;
     bool operator==(const ReflectionProbe&) const = default;
 };
 } // namespace forge

@@ -1298,7 +1298,9 @@ for legacy in (False, True):
             for field, value in [('enabled', False), ('intensity', 2.5), ('half_extent_x', .0001),
                                  ('half_extent_y', 3.), ('half_extent_z', 4.), ('blend_distance', .5),
                                  ('rotation_degrees', 90.), ('priority', -2147483648),
-                                 ('box_projection', False), ('diffuse_intensity', .75)]:
+                                 ('box_projection', False), ('diffuse_intensity', .75),
+                                 ('runtime_capture', True), ('capture_size', 64), ('capture_interval', .5),
+                                 ('capture_near', .2), ('capture_far', 50.), ('capture_layers', 3)]:
                 control('forge_play_tune', entity=actor, component='forge.reflection_probe',
                         property=field, value=value)
                 ack = until(lambda: read('forge_play_status'), lambda row:
@@ -1308,7 +1310,9 @@ for legacy in (False, True):
             tuned = runtime_probe()
             for field, value in [('half_extent_x', .000099), ('priority', 2147483648),
                                  ('enabled', 1), ('intensity', -1), ('diffuse_intensity', -1),
-                                 ('diffuse_intensity', 1000000.1), ('diffuse_intensity', True)]:
+                                 ('diffuse_intensity', 1000000.1), ('diffuse_intensity', True),
+                                 ('runtime_capture', 1), ('capture_size', 17), ('capture_interval', -1),
+                                 ('capture_near', 0), ('capture_far', .1), ('capture_layers', -1)]:
                 control('forge_play_tune', entity=actor, component='forge.reflection_probe',
                         property=field, value=value)
                 ack = until(lambda: read('forge_play_status'), lambda row:

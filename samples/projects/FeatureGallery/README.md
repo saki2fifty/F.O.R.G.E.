@@ -2269,3 +2269,20 @@ Reimport after editing a source, then save the Scene before exporting. Select
 this startup Scene in Project Settings and use the runtime kit packaged with this
 editor. See [FBX importing](../../../manual/editor/models.md#import-an-fbx-model)
 for file/skin/animation limits and image-folder preparation.
+
+## Runtime reflection capture
+
+Open **Scenes/176-runtime-reflection-capture.scene.json** and press Play. Amber and
+blue source panels rotate on layer 1 while the game Camera shows layer 2 receivers.
+The probe captures six 64-pixel faces every 0.25 simulation seconds. Compare the moving
+reflections on the metal spheres and floor. No C++ module or source import is needed.
+
+Select **Runtime reflection volume - toggle Runtime capture**. **Runtime capture**
+off uses the supplied saved fallback; on refreshes GPU lighting. Change **Capture
+interval** to **0** for every rendered frame, or increase it to see discrete updates.
+**Capture layers = 1** excludes the receivers; **Capture face size** accepts 16, 32, 64, 128 or 256. **Intensity** controls base reflections; **Diffuse intensity** controls
+local diffuse light. **Map rotation** affects only the saved fallback. Stop restores
+runtime edits unless kept through the tuning review; save authored changes before
+exporting this Scene as Startup Scene. A matching runtime kit recreates the maps
+without the editable DDS source. See **Refresh lighting during Play** in the Scene
+lighting manual for source-layer, capacity and reset limits.

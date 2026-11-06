@@ -9,6 +9,7 @@
 #include <optional>
 namespace forge {
 class CameraRenderTextures;
+class RuntimeReflectionCaptures;
 // Shared visual frame composition. No ImGui, editor camera, ECS ownership or
 // authoring service; both editor views and a future standalone host can call it.
 class FrameRenderer {
@@ -36,7 +37,8 @@ class FrameRenderer {
                                    const TemporalFrameSample* sample = nullptr,
                                    Output output = Output::Display,
                                    const RenderTextureInputs* render_textures = nullptr,
-                                   const RenderTextureOverlay* overlay = nullptr);
+                                   const RenderTextureOverlay* overlay = nullptr,
+                                   const RuntimeReflectionImages* reflection_images = nullptr);
     bool temporal_ready() const;
     bool pending() const;
     const std::vector<Diagnostic>& diagnostics() const { return diagnostics_; }
@@ -68,6 +70,7 @@ class FrameRenderer {
     HdrBloom bloom_;
     EnvironmentSky sky_;
     std::shared_ptr<MeshResourceHost> host_;
+    std::unique_ptr<RuntimeReflectionCaptures> runtime_reflections_;
     std::unique_ptr<CameraRenderTextures> render_textures_;
     std::unique_ptr<MeshSceneRenderer> meshes_;
     Diligent::RefCntAutoPtr<Diligent::ITexture> color_, depth_;

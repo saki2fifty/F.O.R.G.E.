@@ -3,6 +3,7 @@
 #include "asset_reference_impact.hpp"
 #include "bounded_json.hpp"
 #include "runtime_dependencies.hpp"
+#include "runtime_reflection_profile.hpp"
 #include "ui_asset_catalog.hpp"
 #include "ui_surface_limits.hpp"
 #include <forge/asset_discovery.hpp>
@@ -23,6 +24,15 @@ Json document_runtime_features(const Json& document) {
             const auto values = row.find(channel);
             if (values == row.end())
                 continue;
+            if (const auto probe = values->find("forge.reflection_probe");
+                probe != values->end() && !probe->is_null())
+                if (const auto capture = probe->find("runtime_capture"); capture != probe->end()) {
+                    if (!capture->is_boolean())
+                        throw std::runtime_error(
+                            "game.export.document: Invalid Runtime capture flag");
+                    if (capture->get<bool>())
+                        result["reflection_capture"] = runtime_reflection_profile_version;
+                }
             if (const auto fog = values->find("forge.fog_volume");
                 fog != values->end() && !fog->is_null())
                 result["fog_volumes"] = fog_volume_profile_version;

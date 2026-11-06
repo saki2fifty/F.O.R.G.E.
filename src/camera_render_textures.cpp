@@ -30,11 +30,10 @@ void CameraRenderTextures::submit() {
     gpu_.submit();
     gpu_.collect();
 }
-const RenderTextureInputs&
-CameraRenderTextures::render(IDeviceContext* context, const RenderScene& scene,
-                             MeshSceneRenderer& materials, std::uint32_t consumer_layers,
-                             double seconds, const TemporalFrameSample* sample,
-                             const RenderTextureOverlay* overlay) {
+const RenderTextureInputs& CameraRenderTextures::render(
+    IDeviceContext* context, const RenderScene& scene, MeshSceneRenderer& materials,
+    std::uint32_t consumer_layers, double seconds, const TemporalFrameSample* sample,
+    const RenderTextureOverlay* overlay, const RuntimeReflectionImages* reflection_images) {
     host_->check_thread();
     if (context != host_->context_.RawPtr())
         throw std::runtime_error("Camera outputs require the resource host's presentation context");
@@ -134,7 +133,7 @@ CameraRenderTextures::render(IDeviceContext* context, const RenderScene& scene,
             auto* rendered = target.renderer->render(
                 context, scene, pass.composition.cameras, pass.definition.width,
                 pass.definition.height, 0, nullptr, seconds, sample,
-                FrameRenderer::Output::LinearHdrOpaque, &inputs_);
+                FrameRenderer::Output::LinearHdrOpaque, &inputs_, nullptr, reflection_images);
             pending_ |= target.renderer->pending();
             if (target.renderer->pending() || !target.renderer->diagnostics().empty()) {
                 for (const auto& error : target.renderer->diagnostics())

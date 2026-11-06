@@ -1,6 +1,7 @@
 #pragma once
 #include "render_texture_gpu.hpp"
 #include "render_texture_plan.hpp"
+#include "runtime_reflection_gpu.hpp"
 #include "temporal_frame_sample.hpp"
 
 namespace forge {
@@ -17,7 +18,8 @@ class CameraRenderTextures {
     const RenderTextureInputs& render(Diligent::IDeviceContext*, const RenderScene&,
                                       MeshSceneRenderer&, std::uint32_t consumer_layers,
                                       double seconds, const TemporalFrameSample*,
-                                      const RenderTextureOverlay* overlay = nullptr);
+                                      const RenderTextureOverlay* overlay = nullptr,
+                                      const RuntimeReflectionImages* reflection_images = nullptr);
     void invalidate_temporal_history();
     void submit();
     bool pending() const { return pending_; }

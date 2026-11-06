@@ -125,8 +125,21 @@ void validate_reflection_probe(const ReflectionProbe& value) {
         value.blend_distance > 1000000 || !std::isfinite(value.rotation_degrees))
         throw std::invalid_argument(
             "Reflection probe requires finite specular/diffuse intensity and blend from 0 to "
-            "1000000, "
-            "half extents from 0.0001 to 1000000 metres and finite map rotation");
+            "1000000, half extents from 0.0001 to 1000000 metres and finite map rotation");
+    if (value.capture_size < 16 || value.capture_size > 256 ||
+        (value.capture_size & (value.capture_size - 1)) != 0)
+        throw std::invalid_argument("forge.reflection_probe.capture_size: Capture face size must "
+                                    "be 16, 32, 64, 128 or 256 pixels");
+    if (!std::isfinite(value.capture_interval) || value.capture_interval < 0 ||
+        value.capture_interval > 3600)
+        throw std::invalid_argument("forge.reflection_probe.capture_interval: Capture interval "
+                                    "must be finite from 0 to 3600 seconds");
+    if (!std::isfinite(value.capture_near) || !std::isfinite(value.capture_far) ||
+        value.capture_near <= 0 || value.capture_far <= value.capture_near ||
+        value.capture_far > 1000000)
+        throw std::invalid_argument("forge.reflection_probe.capture_near/capture_far: Capture clip "
+                                    "distances require finite "
+                                    "0 < capture_near < capture_far <= 1000000 metres");
 }
 Json render_value(const ReflectionProbe& value) {
     return {{"texture", value.texture.id ? Json(value.texture.id) : Json()},
@@ -139,7 +152,13 @@ Json render_value(const ReflectionProbe& value) {
             {"rotation_degrees", value.rotation_degrees},
             {"priority", value.priority},
             {"box_projection", value.box_projection},
-            {"diffuse_intensity", value.diffuse_intensity}};
+            {"diffuse_intensity", value.diffuse_intensity},
+            {"runtime_capture", value.runtime_capture},
+            {"capture_size", value.capture_size},
+            {"capture_interval", value.capture_interval},
+            {"capture_near", value.capture_near},
+            {"capture_far", value.capture_far},
+            {"capture_layers", value.capture_layers}};
 }
 ReflectionProbe reflection_probe_value(const Json& source) {
     ReflectionProbe value;
@@ -155,6 +174,12 @@ ReflectionProbe reflection_probe_value(const Json& source) {
     value.priority = source.at("priority").get<std::int32_t>();
     value.box_projection = source.at("box_projection").get<bool>();
     value.diffuse_intensity = source.value("diffuse_intensity", 0.);
+    value.runtime_capture = source.value("runtime_capture", false);
+    value.capture_size = source.value("capture_size", 128u);
+    value.capture_interval = source.value("capture_interval", .25);
+    value.capture_near = source.value("capture_near", .1);
+    value.capture_far = source.value("capture_far", 100.);
+    value.capture_layers = source.value("capture_layers", UINT32_MAX);
     validate_reflection_probe(value);
     return value;
 }

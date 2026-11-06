@@ -5,6 +5,7 @@
 #include "fbx_profile.hpp"
 #include "native_io_path.hpp"
 #include "runtime_execution_values.hpp"
+#include "runtime_reflection_profile.hpp"
 #include "ui_filter_profile.hpp"
 #include "ui_gradient_profile.hpp"
 #include "ui_surface_limits.hpp"
@@ -132,6 +133,18 @@ void validate_runtime_compatibility(const AssetCatalog& catalog, const Json& eng
             if (features != document->end()) {
                 require(features->is_object(), "Invalid authored document runtime features");
                 for (const auto& [name, version] : features->items()) {
+                    if (name == "reflection_capture") {
+                        require(version.is_number_integer() &&
+                                    version == runtime_reflection_profile_version,
+                                "Unsupported authored document runtime reflection profile");
+                        const auto support = engine.find("runtime_reflection_capture");
+                        require(
+                            support != engine.end() && support->is_number_integer() &&
+                                *support == runtime_reflection_profile_version,
+                            "Runtime reflection capture requires a matching runtime kit; select "
+                            "the runtime kit packaged with this editor");
+                        continue;
+                    }
                     if (name == "ui_surface_input") {
                         require(version.is_number_integer() &&
                                     version == ui_surface_detail::profile_version,

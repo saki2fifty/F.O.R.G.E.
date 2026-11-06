@@ -79,7 +79,7 @@ void presentation_time() {
           "Borrowed geometry sample changed source intent or was lost in rendering extraction");
     rejects([&] { simulation.presentation(1, -1); });
     rejects([&] { simulation.presentation(1, std::numeric_limits<double>::quiet_NaN()); });
-    for (const Json bad : {Json(true), Json(-1), Json("time")}) {
+    for (const Json& bad : {Json(true), Json(-1), Json("time")}) {
         auto malformed = sampled;
         malformed["simulation_seconds"] = bad;
         rejects([&] { extract_render_scene(malformed); });
@@ -88,6 +88,17 @@ void presentation_time() {
     scene.entity("wind").set<MeshRenderer>(renderer);
     check(simulation.presentation(1, 42) == simulation.presentation(1),
           "Default wind changed the legacy snapshot envelope or byte budget");
+    ReflectionProbe probe;
+    scene.entity("wind").set<ReflectionProbe>(probe);
+    check(simulation.presentation(1, 42) == simulation.presentation(1),
+          "Default probe changed legacy presentation time");
+    probe.runtime_capture = true;
+    scene.entity("wind").set<ReflectionProbe>(probe);
+    const auto captured_source = scene.document();
+    check(simulation.presentation(1, 0).at("simulation_seconds") == 0 &&
+              simulation.presentation(.5, .375).at("simulation_seconds") == .375 &&
+              scene.document() == captured_source,
+          "Runtime probe snapshot lost borrowed/paused simulation time or changed source intent");
 }
 void signed_scale_interpolation() {
     PresentationPoses poses;
@@ -265,7 +276,7 @@ void poses(bool owned) {
     check(history.evaluate(.5).empty(), "Empty capture retained old samples");
 }
 void simulation_rates() {
-    for (const auto [rate, expected] : std::array<std::pair<double, unsigned>, 6>{
+    for (const auto& [rate, expected] : std::array<std::pair<double, unsigned>, 6>{
              {{0, 0}, {.25, 0}, {.5, 1}, {1, 2}, {2, 4}, {4, 8}}}) {
         RuntimeClock clock({100, .25, 8});
         check(clock.time_scale() == 1 && clock.status().at("time_scale") == 1,
@@ -502,7 +513,7 @@ void live() {
     extra.destruct();
 }
 } // namespace
-int main(int argc, char** argv) {
+int main() {
     try {
         clocks();
         presentation_time();

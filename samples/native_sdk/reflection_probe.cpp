@@ -38,6 +38,12 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char* error, uint32_t 
                 probe.half_extent_x = 2 + .25 * control.ticks;
                 probe.priority = std::int32_t(control.ticks);
                 probe.box_projection = control.ticks != 2;
+                probe.runtime_capture = true;
+                probe.capture_size = 32u << (control.ticks - 1);
+                probe.capture_interval = .25 * control.ticks;
+                probe.capture_near = .05 * control.ticks;
+                probe.capture_far = 50 + control.ticks;
+                probe.capture_layers = 3;
             })
             .add(host->fixed_tag);
         return 1;

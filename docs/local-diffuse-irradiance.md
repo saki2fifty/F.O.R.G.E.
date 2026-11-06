@@ -1,10 +1,10 @@
 # Local diffuse irradiance
 
 `ReflectionProbe.diffuse_intensity` optionally supplies local base diffuse lighting
-from the same imported map used for reflections. The default is zero; existing
+from the same selected map used for reflections, including optional runtime captures. The default is zero; existing
 probe documents keep their previous diffuse lighting. `intensity` continues to
 control base specular reflections. Both are independent finite multipliers in
-0–1000000. Disabled, unassigned and both-zero probes are inactive.
+0–1000000. Disabled and both-zero probes are inactive. Unassigned probes are active when runtime capture is enabled.
 
 ## Source and volume ownership
 
@@ -53,8 +53,10 @@ an older lit receiver cook keeps global diffuse lighting and reports a recook hi
 
 Explicit map snapshots exclude local diffuse probes along with local specular and
 screen-space reflections. They do not recursively bake their own previous maps.
-Runtime recapture, stable-ID rebaking, spatially sampled irradiance grids, per-Mesh
-probe masks, local coat/sheen map replacement and multi-bounce GI remain unavailable.
+Saved-map rebaking and optional runtime GPU capture use the existing probe map
+selection; see [local reflection probes](local-reflection-probes.md). Spatially
+sampled irradiance grids, per-Mesh probe masks, local coat/sheen map replacement
+and multi-bounce GI remain unavailable.
 
 ## Private Shader contract
 

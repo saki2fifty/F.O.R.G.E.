@@ -44,17 +44,26 @@ def verify(state, tick):
     assert probe['diffuse_intensity'] == .125 * tick
     assert probe['half_extent_x'] == 2 + .25 * tick and probe['priority'] == tick
     assert probe['box_projection'] is (tick != 2)
+    assert probe['runtime_capture'] is True
+    assert probe['capture_size'] == 32 << (tick - 1)
+    assert probe['capture_interval'] == .25 * tick
+    assert probe['capture_near'] == .05 * tick and probe['capture_far'] == 50 + tick
+    assert probe['capture_layers'] == 3
     assert probe['extension'] == dict(retain=17)
 
 def live(client, state):
     generation = state['world_generation'] if 'world_generation' in state else state['activation']['generation']
     target = dict(generation=generation, scene_asset=state['effective_scene']['asset_id'],
                   entity=actor, type='forge.reflection_probe')
-    for name, value in [('half_extent_x', .0001), ('priority', -2147483648), ('enabled', False), ('diffuse_intensity', .25)]:
+    for name, value in [('half_extent_x', .0001), ('priority', -2147483648), ('enabled', False), ('diffuse_intensity', .25),
+                        ('runtime_capture', False), ('capture_size', 256), ('capture_interval', 0),
+                        ('capture_near', .1), ('capture_far', 100.), ('capture_layers', 1)]:
         updated = client.request('property_tune', **target, property=name, value=value)
         assert updated['ok'] and updated['property_tune']['value'] == value, updated
     before = client.request('snapshot')
-    for name, value in [('half_extent_x', .000099999999), ('priority', 2147483648), ('enabled', 1), ('diffuse_intensity', -1), ('diffuse_intensity', 1000000.1), ('diffuse_intensity', True), ('diffuse_intensity', '1')]:
+    for name, value in [('half_extent_x', .000099999999), ('priority', 2147483648), ('enabled', 1), ('diffuse_intensity', -1), ('diffuse_intensity', 1000000.1), ('diffuse_intensity', True), ('diffuse_intensity', '1'),
+                        ('runtime_capture', 1), ('capture_size', 17), ('capture_interval', -1),
+                        ('capture_near', 0), ('capture_far', .05), ('capture_layers', -1)]:
         try:
             client.request('property_tune', **target, property=name, value=value)
         except RuntimeError as error:

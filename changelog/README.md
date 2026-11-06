@@ -1,5 +1,7 @@
 # Changelog
 
+- [2026-11-06](20261106/README.md) — Runtime GPU reflection capture, shared Scene/Game/camera-output lighting, simulation-time refresh, Inspector/live/MCP controls and editable Gallery176. Local source; Windows verification and delivery pending.
+
 - [2026-11-05](20261105/README.md) — Bounded runtime UI gradients, alpha masks and box shadows; morphological anti-aliasing/Gallery168; current-view occlusion culling/Gallery169; shared authoring/MCP, export and illustrated manuals. Local source; Windows verification and delivery pending.
 
 - [2026-11-04](20261104/README.md) — Declared ECS access/overlap diagnostics, native worker trace tracks, opt-in fixed ECS workers/Gallery161, local fog volumes/Gallery160, Input Message triggers/Gallery159, imported lightmaps/Gallery158, signed block images, wind/Gallery157, foliage clearance/Gallery156 and shared illustrated native/MCP workflows. Local source; Windows verification and delivery pending.

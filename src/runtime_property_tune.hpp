@@ -72,7 +72,10 @@ struct RuntimePropertyTune {
                property == "diffuse_intensity" || property == "half_extent_x" ||
                property == "half_extent_y" || property == "half_extent_z" ||
                property == "blend_distance" || property == "rotation_degrees" ||
-               property == "priority" || property == "box_projection";
+               property == "priority" || property == "box_projection" ||
+               property == "runtime_capture" || property == "capture_size" ||
+               property == "capture_interval" || property == "capture_near" ||
+               property == "capture_far" || property == "capture_layers";
     }
     static bool sprite_type(std::string_view type) { return type == "forge.sprite_renderer"; }
     static bool sprite_property(std::string_view property) {

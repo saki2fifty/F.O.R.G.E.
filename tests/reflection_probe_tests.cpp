@@ -82,7 +82,7 @@ void exercise(const std::filesystem::path& directory) {
     const auto schema = scene.schema();
     for (const auto& type : schema.at("components"))
         if (type.at("id") == "forge.reflection_probe") {
-            found = type.at("optional") && type.at("fields").size() == 11;
+            found = type.at("optional") && type.at("fields").size() == 17;
             for (const auto& field : type.at("fields")) {
                 if (field.at("id") == "texture")
                     texture = field.at("type") == "asset_ref" &&
@@ -191,11 +191,73 @@ void exercise(const std::filesystem::path& directory) {
     }
     check(rejected, "Disabled native probe admitted nonfinite values");
 }
+void runtime_values() {
+    WorldContext world;
+    Scene scene(world);
+    const auto id =
+        authoring_command(scene, "entity.create", {{"name", "Dynamic probe"}, {"kind", 4}})
+            .at("selected");
+    authoring_command(scene, "component.add",
+                      {{"entity", id}, {"component", "forge.reflection_probe"}});
+    const auto set = [&](const char* field, Json value) {
+        authoring_command(scene, "property.set",
+                          {{"entity", id},
+                           {"component", "forge.reflection_probe"},
+                           {"field", field},
+                           {"value", std::move(value)}});
+    };
+    set("runtime_capture", true);
+    set("capture_size", 64);
+    set("capture_interval", .5);
+    set("capture_far", 50.);
+    set("capture_near", .2);
+    set("capture_layers", 3);
+    const auto saved = scene.document();
+    const auto value = scene.entity(id.get<std::string>()).get<ReflectionProbe>();
+    check(value.runtime_capture && value.capture_size == 64 && value.capture_interval == .5 &&
+              value.capture_far == 50 && value.capture_near == .2 && value.capture_layers == 3,
+          "Runtime capture fields bypassed typed reflection");
+    check(extract_render_scene(scene.preview_document(scene.document())).reflection_probes.size() ==
+              1,
+          "Unassigned runtime probe was omitted from extraction");
+    check(scene.undo() && scene.redo() && scene.document() == saved,
+          "Runtime capture field history lost values");
+    for (const auto& [field, invalid] :
+         std::vector<std::pair<const char*, Json>>{{"runtime_capture", 1},
+                                                   {"capture_size", 15},
+                                                   {"capture_size", 17},
+                                                   {"capture_size", 512},
+                                                   {"capture_size", 64.5},
+                                                   {"capture_interval", -1},
+                                                   {"capture_interval", 3601},
+                                                   {"capture_near", 0},
+                                                   {"capture_near", 50},
+                                                   {"capture_far", .1},
+                                                   {"capture_far", 1000001},
+                                                   {"capture_layers", -1},
+                                                   {"capture_layers", true}}) {
+        bool rejected = false;
+        try {
+            set(field, invalid);
+        } catch (const std::exception&) {
+            rejected = true;
+        }
+        check(rejected && scene.document() == saved,
+              "Invalid capture field changed authored values");
+    }
+    auto legacy = detail::render_value(ReflectionProbe{});
+    for (const auto* field : {"runtime_capture", "capture_size", "capture_interval", "capture_near",
+                              "capture_far", "capture_layers"})
+        legacy.erase(field);
+    check(detail::reflection_probe_value(legacy) == ReflectionProbe{},
+          "Old probe defaults changed");
+}
 } // namespace
 int main(int argc, char** argv) {
     try {
         check(argc == 2, "Expected probe scratch directory");
         volumes();
+        runtime_values();
         exercise(std::filesystem::absolute(argv[1]));
         std::cout << "Probe native schema, fields, history, bounds, extraction and Save PASS\n";
         return 0;

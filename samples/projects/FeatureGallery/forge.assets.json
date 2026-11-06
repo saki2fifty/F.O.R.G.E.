@@ -10857,6 +10857,16 @@
       "type": "navmesh"
     },
     {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "96a2410d-4e81-48ef-8695-d617922cd8a2",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/176-runtime-reflection-capture.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
       "dependencies": [
         "0c426876-43f2-466c-b9c9-1d1b2c5c0b7e"
       ],

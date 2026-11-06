@@ -238,7 +238,24 @@ omits `destination`. It reviews the returned `source_revision_asset` and exact
 review token before committing. This retains the Texture ID, its consumers and
 saved import settings. Source replacement is separate from reimport and Scene
 Undo; failed reimport preserves the old cooked selection. Edited source/settings
-must be reimported before rebaking. Runtime recapture remains unavailable.
+must be reimported before rebaking. GPU runtime capture uses the reflected component controls described below.
+
+## Refresh probe lighting during Play
+
+With Scene authoring access, create a Reflection Probe using `forge_entity_create`
+and the discovered `render.reflection_probe` recipe. Use `forge_property_set` to
+enable `runtime_capture`, then set `capture_size`, `capture_interval`,
+`capture_near`, `capture_far` and `capture_layers`. These are the same Inspector
+fields; discover their defaults and supported bounds before changing them. Save
+the Scene before export. An assigned Texture remains the saved fallback.
+
+During Play, `forge_play_tune` can change these scalar values for the running
+entity. They are temporary unless kept through the tuning review. Use at most
+two runtime probes and eight probes in total. Capture layers must exclude surfaces
+that read camera outputs. Positive intervals use simulation time and hold while
+paused; zero refreshes every rendered frame. No source-import review or output
+folder grant is needed to refresh GPU lighting. A matching runtime kit recreates
+maps in the exported game. See [Refresh lighting during Play](lighting.md).
 
 ## View images, export and test
 

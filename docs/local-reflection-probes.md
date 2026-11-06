@@ -9,7 +9,8 @@ TextureAsset `texture`, `enabled=true`, `intensity=1`, local half extents 5 m,
 `box_projection=true`, `diffuse_intensity=0`. Finite specular/diffuse intensity and
 fade bounds are 0–1000000; half extents are
 0.0001–1000000. Yaw accepts finite doubles. Disabled values still validate.
-Absent, disabled, empty-map and both-intensities-zero components are inactive.
+Absent, disabled and both-intensities-zero components are inactive. An empty-map
+component is active when runtime_capture is enabled.
 Optional [local diffuse irradiance](local-diffuse-irradiance.md) reuses the same map
 and volume; the default retains the original specular-only behavior.
 
@@ -20,7 +21,7 @@ Inspector, automation and MCP share this catalog and the ordinary `property.set`
 operation. Discovery carries typed texture and field bounds. Permissions, expected
 revision, exact replay and project scope are unchanged.
 
-Live gameplay admits the ten scalar controls through the existing runtime
+Live gameplay admits the scalar controls, including capture settings, through the existing runtime
 property-tuning owner. It cannot assign a texture or create a component. Generation,
 Scene and entity checks precede complete-value validation; rejection leaves values
 unchanged. Stopping restores authored values unless the existing tuning review is
@@ -108,8 +109,59 @@ supported protocols. `reflection_capture_workflow_vulkan` captures an actual lit
 Scene, imports/assigns/saves the map, loads the ordinary Texture resource, then
 compares source-free relocated reflection-on/off renders exactly. These are local
 software-rendering/authoring checks, separate from full Windows/D3D12 and physical
-acceptance. Runtime recapture remains unavailable. Stable-ID rebaking uses the
+acceptance. Stable-ID rebaking uses the
 same native capture and scoped source/reimport workflow.
+
+## Runtime GPU capture
+
+Default-off `runtime_capture` appends value-only settings: `capture_size=128`
+(power of two,16–256), `capture_interval=.25` (0–3600 seconds), `capture_near=.1`,
+`capture_far=100` (0<near<far<=1000000) and `capture_layers=UINT32_MAX`.
+All values validate even when disabled. Missing fields preserve old defaults/source
+bytes. Native Meta, codecs, Scene/Prefab/history, live tuning and discovered
+property.set/MCP use the same ownership and whole-value validation. Installed
+ReflectionProbe layout changes require an exact matching SDK rebuild; ABI1 tables,
+Scene envelope, asset IDs and cooked Texture bytes do not change.
+
+FrameRenderer owns one view-local RuntimeReflectionCaptures pass using the existing
+MeshResourceHost material selections and shared canonical capture cameras/filter.
+At most two runtime probes/eight total are admitted deterministically. Six faces
+of one extracted Scene/time render in a single update, GPU-copy into an unpublished
+RGBA16F cube, then use the existing pinned PBR convolution for diffuse16 and
+specular/sheen at face resolution (64 samples each). No runtime CPU image readback,
+source IO, asset registration or on-disk rebake occurs. Capture layer masks must
+exclude any admitted Material camera-output reads; unsupported feedback reports a
+diagnostic before sampling. Producers run before camera outputs; those outputs
+borrow the parent's completed maps instead of recursively capturing again.
+
+The existing GpuResidency/lease/budget/fence owner accepts a private view-local
+entity/generation/slot key for these derived targets. It creates no persistent
+AssetId or CPU resource pool. Two complete native payload slots per probe stage
+new pixels before replacing the ready map. The64 MiB/eight-payload physical budget
+includes failed/in-flight/retiring allocations; FrameRenderer intermediates,
+MeshResourceHost assets and view targets have their existing separate bounds.
+Persistent local irradiance bindings clear before lease replacement; MeshSceneRenderer
+retains selected leases, and borrowed specular inputs do not outlive that owner.
+
+Refresh uses the extracted simulation time (explicit capture sample if supplied,
+otherwise existing presentation time when no simulation sample exists), never a
+new clock. Zero interval refreshes each render. Positive intervals retain a paused
+sample. Scene/catalog/sample-operation changes, explicit discontinuity, backwards
+time, center or capture configuration changes invalidate the previous image.
+Editor views invalidate on the existing Play launch/session/world-generation changes,
+including a restart at the same simulation timestamp. Entity rotation/scale affect the
+influence box but captures remain world aligned;
+ready captures ignore authored map yaw, which stays intact for static fallback.
+Disabled/removed probes release targets. Initial async resource readiness is
+bounded to60 wall seconds. Later failed refreshes retain the complete prior map;
+first failure falls back to the authored map or global lighting. Errors retry on
+simulation time at max(interval,.25), avoiding a per-frame failed allocation loop.
+
+Runtime document feature `reflection_capture:1` requires kit engine
+`runtime_reflection_capture:1`; default/off documents retain old kit compatibility.
+Existing runtime document closure owns Scene/Prefab/override requirements. GPU
+maps are recreated after source-hidden relocation and are never packaged as assets.
+Windows/Main/MSVC/D3D12 and physical GPU acceptance remain separate pending gates.
 
 ## Volume and selection
 
@@ -123,13 +175,12 @@ skips only that camera. Map yaw is independent rotation about world Y.
 Ready probes sort by descending priority, then stable EntityId. Each consumes its
 fade weight from remaining coverage; uncovered weight keeps global base specular.
 Optional box projection intersects the world reflection ray with the influence box
-and samples from the entity's capture center toward the exit. A map is a fixed source snapshot; the component does not automatically
-capture changes in the Scene. The specular pass does not rotate the sky or replace
+and samples from the entity's capture center toward the exit. With runtime_capture off, the map remains a fixed source snapshot. The specular pass does not rotate the sky or replace
 diffuse, clearcoat or sheen lighting; anisotropic specular receivers retain
 environment lighting. The optional
 diffuse control is integrated separately in ordinary Mesh shading.
 
-At most eight active assigned probes are admitted per Scene profile. More preserve
+At most eight active probes (assigned maps or runtime captures) are admitted per Scene profile. More preserve
 global lighting for all probes and issue an actionable capacity warning. This is
 not a nondeterministically chosen subset. Per-entity candidates/last-good leases
 reuse MeshResourceHost's texture pools and EnvironmentResidency. Changed catalog
@@ -162,7 +213,7 @@ residency and transient overhead are additional. Target/pipeline changes stage
 before adoption. Spatial-only use adds no motion field, jitter, pose/color history,
 clock or warmup.
 
-No runtime recapture, in-place rebaking, sampled irradiance grids, per-Mesh probe masks, arbitrary
+No sampled irradiance grids, per-Mesh probe masks, arbitrary
 layered reflection, separate coat/sheen probe response or multi-bounce GI is claimed.
 Windows/MSVC/cooked D3D12 and physical GPU/input/DPI acceptance remain pending.
 See the [lighting guide](../manual/editor/lighting.md) for the editable workflow.

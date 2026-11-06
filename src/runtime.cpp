@@ -666,6 +666,11 @@ Json RuntimeSimulation::presentation_impl(double alpha, std::optional<double> se
         }
         if (seconds && !sampled) {
             const auto& components = item.at("components");
+            if (const auto probe = components.find("forge.reflection_probe");
+                probe != components.end() && probe->value("runtime_capture", false)) {
+                result["simulation_seconds"] = *seconds;
+                sampled = true;
+            }
             if (components.contains("forge.mesh_renderer")) {
                 const auto& renderer = components.at("forge.mesh_renderer");
                 if (renderer.contains("wind") && renderer.at("wind").value("enabled", false)) {

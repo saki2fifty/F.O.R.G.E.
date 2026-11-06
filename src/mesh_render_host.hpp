@@ -3,6 +3,7 @@
 #include "mesh_occlusion.hpp"
 #include "particle_effect_resource.hpp"
 #include "render_bounds.hpp"
+#include "runtime_reflection_gpu.hpp"
 #include "shadow_renderer.hpp"
 #include "sprite_frame_mips.hpp"
 #include "surface_reflections.hpp"
@@ -50,6 +51,7 @@ class MeshResourceHost {
   private:
     friend class MeshSceneRenderer;
     friend class CameraRenderTextures;
+    friend class RuntimeReflectionCaptures;
     void check_thread() const;
     const std::thread::id thread_ = std::this_thread::get_id();
     DiligentPresentation& presentation_;
@@ -112,6 +114,7 @@ class MeshSceneRenderer {
     bool update(const RenderScene&, std::span<const PreparedCamera> tile_views = {},
                 std::optional<double> simulation_seconds = {});
     void render_textures(const RenderTextureInputs&);
+    bool runtime_reflections(const RuntimeReflectionImages&);
     std::set<AssetId> render_texture_reads(const RenderScene&, std::uint32_t layers,
                                            bool require_complete = false) const;
     // Capture the last completed rendered frame, after all its camera views.
@@ -288,6 +291,7 @@ class MeshSceneRenderer {
     };
     std::map<EntityId, ProbeEntry> probe_entries_;
     std::vector<EnvironmentProbe> lighting_probes_;
+    RuntimeReflectionImages runtime_reflection_images_;
     struct ProjectedTextureResource {
         ResourceLease<TextureAsset> source;
         GpuLease<TextureAsset> gpu;

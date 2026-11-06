@@ -37,19 +37,21 @@ template <> struct Traits<TextureAsset> {
         return upload_texture(device, value);
     }
 };
-template <class T, class Adapter> struct Revision {
-    ResourceIdentity source;
+template <class T, class Adapter, class Key> struct Revision {
+    Key source;
     std::shared_ptr<Scope> scope;
     std::unique_ptr<typename Adapter::Data> value;
     std::uint64_t bytes = 0, last_fence = 0, last_use = 0;
     bool pending_submission = true, retiring = false;
 };
 } // namespace gpu_detail
-template <class T, class Adapter = gpu_detail::Traits<T>> class GpuResidency;
+template <class T, class Adapter = gpu_detail::Traits<T>, class Key = ResourceIdentity>
+class GpuResidency;
 // Private physical realization of an existing CPU revision, not an AssetId
 // resolver or new persistent handle. Native binding bundles must retain this
 // lease until their SRBs/buffers are destroyed; close bundles before this owner.
-template <class T, class Adapter = gpu_detail::Traits<T>> class GpuLease {
+template <class T, class Adapter = gpu_detail::Traits<T>, class Key = ResourceIdentity>
+class GpuLease {
   public:
     GpuLease() = default;
     explicit operator bool() const { return revision_ && revision_->scope->alive.load(); }
@@ -62,16 +64,16 @@ template <class T, class Adapter = gpu_detail::Traits<T>> class GpuLease {
         revision_->pending_submission = true;
         return *revision_->value;
     }
-    const ResourceIdentity& source() const {
+    const Key& source() const {
         (void)get();
         return revision_->source;
     }
 
   private:
-    friend class GpuResidency<T, Adapter>;
-    explicit GpuLease(std::shared_ptr<gpu_detail::Revision<T, Adapter>> revision)
+    friend class GpuResidency<T, Adapter, Key>;
+    explicit GpuLease(std::shared_ptr<gpu_detail::Revision<T, Adapter, Key>> revision)
         : revision_(std::move(revision)) {}
-    std::shared_ptr<gpu_detail::Revision<T, Adapter>> revision_;
+    std::shared_ptr<gpu_detail::Revision<T, Adapter, Key>> revision_;
 };
 struct GpuResidencyStats {
     std::size_t resident = 0, retiring = 0;
@@ -80,7 +82,7 @@ struct GpuResidencyStats {
     // Driver allocation padding, descriptor heaps and shared pages are not VRAM estimates.
     std::uint64_t payload_bytes = 0, high_water_bytes = 0, submitted_fence = 0, completed_fence = 0;
 };
-template <class T, class Adapter> class GpuResidency {
+template <class T, class Adapter, class Key> class GpuResidency {
   public:
     GpuResidency(Diligent::IRenderDevice* device, Diligent::IDeviceContext* context,
                  std::uint64_t bytes, std::size_t resources = 4096, Adapter adapter = {})
@@ -111,16 +113,21 @@ template <class T, class Adapter> class GpuResidency {
     }
     GpuResidency(const GpuResidency&) = delete;
     GpuResidency& operator=(const GpuResidency&) = delete;
-    GpuLease<T, Adapter> acquire(const ResourceLease<T>& source) {
+    GpuLease<T, Adapter, Key> acquire(const ResourceLease<T>& source) {
         scope_->check();
         const auto& data = source.get(); // Validate CPU scope/thread before identity lookup.
-        const auto& id = source.identity();
+        return acquire(source.identity(), data);
+    }
+    // Mutable, derived GPU targets may use a private view-local key/configuration.
+    // This creates no AssetId, CPU resource selection or persistent registry.
+    GpuLease<T, Adapter, Key> acquire(const Key& id, const typename ResourceTraits<T>::Data& data) {
+        scope_->check();
         if (auto found = entries_.find(id); found != entries_.end()) {
             auto& value = *found->second;
             value.pending_submission = true;
             value.retiring = false;
             value.last_use = ++use_;
-            return GpuLease<T, Adapter>(found->second);
+            return GpuLease<T, Adapter, Key>(found->second);
         }
         collect();
         const auto bytes = adapter_.bytes(data);
@@ -146,7 +153,7 @@ template <class T, class Adapter> class GpuResidency {
         }
         if (entries_.size() + failed_.size() >= resource_limit_)
             throw std::runtime_error("GPU resource count budget exceeded");
-        auto candidate = std::make_shared<gpu_detail::Revision<T, Adapter>>();
+        auto candidate = std::make_shared<gpu_detail::Revision<T, Adapter, Key>>();
         candidate->source = id;
         candidate->scope = scope_;
         candidate->bytes = bytes;
@@ -162,9 +169,9 @@ template <class T, class Adapter> class GpuResidency {
         if (!inserted)
             throw std::runtime_error("GPU candidate publication identity collision");
         failed_.pop_back();
-        return GpuLease<T, Adapter>(std::move(candidate));
+        return GpuLease<T, Adapter, Key>(std::move(candidate));
     }
-    void unload(const ResourceIdentity& source) {
+    void unload(const Key& source) {
         scope_->check();
         if (auto found = entries_.find(source); found != entries_.end())
             found->second->retiring = true;
@@ -266,6 +273,6 @@ template <class T, class Adapter> class GpuResidency {
     };
     std::vector<FailedReservation> failed_;
     std::shared_ptr<gpu_detail::Scope> scope_;
-    std::map<ResourceIdentity, std::shared_ptr<gpu_detail::Revision<T, Adapter>>> entries_;
+    std::map<Key, std::shared_ptr<gpu_detail::Revision<T, Adapter, Key>>> entries_;
 };
 } // namespace forge

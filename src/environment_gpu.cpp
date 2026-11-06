@@ -38,9 +38,11 @@ std::uint64_t EnvironmentRealization::bytes(const TextureData& source) const {
         throw std::runtime_error("Environment requires a color cube or equirectangular 2D texture");
     // Includes the source upload and all output mips. The inherited owner reserves
     // this before allocation and retains failed reservations until fence completion.
+    return source.byte_size() + environment_output_bytes(diffuse_size, specular_size);
+}
+std::uint64_t environment_output_bytes(unsigned diffuse_size, unsigned specular_size) {
     using PBR = Diligent::PBR_Renderer;
-    return source.byte_size() +
-           cube_bytes(PBR::GetIrradianceCubeDesc("", PBR::IrradianceCubeFmt, diffuse_size)) +
+    return cube_bytes(PBR::GetIrradianceCubeDesc("", PBR::IrradianceCubeFmt, diffuse_size)) +
            2 * cube_bytes(
                    PBR::GetPrefilteredEnvMapDesc("", PBR::PrefilteredEnvMapFmt, specular_size));
 }
@@ -50,9 +52,16 @@ GpuEnvironment EnvironmentRealization::upload(Diligent::IRenderDevice* device,
     (void)bytes(source);
     if (device != presentation->device())
         throw std::runtime_error("Environment convolution device differs from presentation owner");
-    auto& pbr = presentation->pbr(context);
     GpuEnvironment candidate;
     candidate.source = upload_texture(device, source);
+    allocate_environment_outputs(*presentation, context, candidate, diffuse_size, specular_size);
+    convolve_environment(*presentation, context, candidate, diffuse_samples, specular_samples);
+    return candidate;
+}
+void allocate_environment_outputs(DiligentPresentation& presentation,
+                                  Diligent::IDeviceContext* context, GpuEnvironment& candidate,
+                                  unsigned diffuse_size, unsigned specular_size) {
+    auto& pbr = presentation.pbr(context);
     candidate.diffuse = pbr.CreateIrradianceCube(context, "FORGE environment irradiance",
                                                  pbr.IrradianceCubeFmt, diffuse_size);
     candidate.specular = pbr.CreatePrefilteredEnvMap(context, "FORGE environment GGX",
@@ -61,6 +70,11 @@ GpuEnvironment EnvironmentRealization::upload(Diligent::IRenderDevice* device,
                                                   pbr.PrefilteredEnvMapFmt, specular_size);
     if (!candidate.source || !candidate.diffuse || !candidate.specular || !candidate.sheen)
         throw std::runtime_error("Environment convolution allocation failed");
+}
+void convolve_environment(DiligentPresentation& presentation, Diligent::IDeviceContext* context,
+                          const GpuEnvironment& candidate, unsigned diffuse_samples,
+                          unsigned specular_samples) {
+    auto& pbr = presentation.pbr(context);
     Diligent::PBR_Renderer::PrecomputeCubemapsAttribs args;
     args.pEnvironmentMapSRV =
         candidate.source->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE);
@@ -72,6 +86,5 @@ GpuEnvironment EnvironmentRealization::upload(Diligent::IRenderDevice* device,
     // Cooked rows begin at image top: positive Y for equirectangular input.
     args.SphereMapRow0IsNegativeY = false;
     pbr.PrecomputeCubemaps(context, args);
-    return candidate;
 }
 } // namespace forge

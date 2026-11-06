@@ -90,9 +90,13 @@ for legacy in (False, True):
         probe_schema = next(c for c in state['result']['schema']['components']
                             if c['id'] == 'forge.reflection_probe')
         probe_fields = {field['id']: field for field in probe_schema['fields']}
-        assert probe_schema['optional'] and len(probe_fields) == 11
+        assert probe_schema['optional'] and len(probe_fields) == 17
         assert probe_fields['diffuse_intensity']['default'] == 0
         assert probe_fields['diffuse_intensity']['minimum'] == 0 and probe_fields['diffuse_intensity']['maximum'] == 1000000
+        assert probe_fields['runtime_capture']['default'] is False
+        assert probe_fields['capture_size']['default'] == 128
+        assert probe_fields['capture_interval']['default'] == .25
+        assert probe_fields['capture_layers']['default'] == 4294967295
         assert probe_fields['texture']['asset_type'] == 'texture'
         assert probe_fields['half_extent_x']['minimum'] == .0001
         assert probe_fields['half_extent_x']['maximum'] == 1000000
@@ -503,7 +507,8 @@ for legacy in (False, True):
         probe = created_probe['result']['results'][0]['selected']
         probe_values = dict(texture='d4c60053-60c8-4456-8771-a7cf8182a902', intensity=2.5,
                             half_extent_x=.0001, priority=-7, rotation_degrees=90, diffuse_intensity=.75,
-                            box_projection=False)
+                            box_projection=False, runtime_capture=True, capture_size=64,
+                            capture_interval=.5, capture_near=.2, capture_far=50., capture_layers=3)
         for field, value in probe_values.items():
             request = arguments(arguments=dict(entity=probe, component='forge.reflection_probe',
                                                field=field, value=value))
@@ -512,7 +517,10 @@ for legacy in (False, True):
             assert client.tool('forge_property_set', **request)['result'] == changed_probe['result']
         for field, value in (('half_extent_x', .000099999999), ('priority', 2147483648),
                              ('enabled', 1), ('intensity', -1), ('diffuse_intensity', -1),
-                             ('diffuse_intensity', 1000000.1), ('diffuse_intensity', True), ('diffuse_intensity', '1')):
+                             ('diffuse_intensity', 1000000.1), ('diffuse_intensity', True), ('diffuse_intensity', '1'),
+                             ('runtime_capture', 1), ('capture_size', 17), ('capture_size', 512),
+                             ('capture_interval', -1), ('capture_near', 0), ('capture_far', .1),
+                             ('capture_layers', -1)):
             before_probe = discover()
             invalid = mutate('forge_property_set', arguments=dict(entity=probe,
                 component='forge.reflection_probe', field=field, value=value))

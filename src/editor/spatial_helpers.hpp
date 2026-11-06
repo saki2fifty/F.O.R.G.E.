@@ -143,7 +143,8 @@ spatial_markers(const Json& source, unsigned width, unsigned height, double exte
                     if (!probe)
                         continue;
                     const auto& settings = probe->probe;
-                    marker.enabled = settings.enabled && settings.texture.id &&
+                    marker.enabled = settings.enabled &&
+                                     (settings.texture.id || settings.runtime_capture) &&
                                      (settings.intensity != 0 || settings.diffuse_intensity != 0);
                     const auto box = [&](const auto& corners) {
                         for (unsigned index = 0; index < 8; ++index)
@@ -155,7 +156,10 @@ spatial_markers(const Json& source, unsigned width, unsigned height, double exte
                     if (probe->fade_outline)
                         box(*probe->fade_outline);
                     marker.note =
-                        settings.texture.id
+                        settings.runtime_capture
+                            ? "Runtime capture | " + std::to_string(settings.capture_size) +
+                                  " px faces | " + helper_number(settings.capture_interval) + " s"
+                        : settings.texture.id
                             ? "Priority " + std::to_string(settings.priority) + " | Reflections " +
                                   helper_number(settings.intensity) + " | Diffuse " +
                                   helper_number(settings.diffuse_intensity) + " | Edge fade " +

@@ -262,7 +262,7 @@ previous cooked selection. Source-commit receipts distinguish a completed write
 from a later durability warning. Reimport retains the root Texture ID and saved
 settings; failure preserves last-good cooked content. Explicit source replacement
 is outside Scene Undo. Optional map/yaw assignment retains the original scoped
-Scene history rules. Runtime recapture and automatic overwrite remain unsupported.
+Scene history rules. Runtime capture uses the separate derived-GPU extension below; automatic source overwrite remains unsupported.
 
 ## Weighted transparency — accepted extension
 
@@ -365,3 +365,22 @@ publication. Only one spatial method may be enabled; authoring switches both
 flags in one validated history operation. Scene/Game, HDR/temporal history,
 UI ordering, installed SDK boundaries and resource ownership above are unchanged.
 No lookup asset, second renderer, material program or parallel registry is added.
+
+## Runtime probe capture — accepted extension
+
+Default-off ReflectionProbe values select bounded view-local GPU capture through
+FrameRenderer. The existing MeshResourceHost owns source selections and the same
+MeshSceneRenderer probe selection supplies both base specular and diffuse lighting.
+Canonical cameras and source filtering are shared with reviewed editor snapshots;
+runtime does not invoke source publication, readback, registration or rebaking.
+
+GpuResidency accepts a private derived configuration/key as well as its original
+CPU revision acquisition. Runtime entity/generation/slot keys remain scoped to the
+view/device, create no logical asset IDs and reuse exactly the existing physical
+payload reservations, strong leases, real submission fences and retirement. A
+complete six-face staged cube is convolved before admission. Static maps remain
+fallbacks; no immutable TextureAsset data is modified. Capture source layers reject
+camera-output readers; completed maps then supply camera-output and main consumers.
+No new world, registry, resource manager, persistent frame graph or clock is added.
+The [probe contract](../local-reflection-probes.md#runtime-gpu-capture) owns bounds,
+reset/failure behavior, exact-SDK rebuild and conditional runtime-kit requirement.

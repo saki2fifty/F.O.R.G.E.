@@ -1,13 +1,9 @@
 #include "reflection_capture.hpp"
+#include "reflection_capture_view.hpp"
 #include <algorithm>
 #include <cstring>
-#include <numbers>
 namespace forge {
 namespace {
-constexpr std::array<Double3, 6> directions{
-    {{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}}};
-constexpr std::array<Double3, 6> ups{
-    {{0, 1, 0}, {0, 1, 0}, {0, 0, -1}, {0, 0, 1}, {0, 1, 0}, {0, 1, 0}}};
 constexpr auto readiness_limit = std::chrono::seconds(60);
 } // namespace
 ReflectionCapture::ReflectionCapture(DiligentPresentation& presentation,
@@ -29,43 +25,8 @@ ReflectionCapture::ReflectionCapture(DiligentPresentation& presentation,
     limits.bytes = 64 * 1024 * 1024;
     validate_texture_metadata(cube_, limits);
     cube_.subresources.resize(6);
-    for (unsigned i = 0; i < cameras_.size(); ++i) {
-        auto& view = cameras_[i];
-        view.entity = camera;
-        auto& c = view.settings;
-        c.vertical_fov = std::numbers::pi / 2;
-        c.aspect = 1;
-        c.near_plane = settings.near_plane;
-        c.far_plane = settings.far_plane;
-        c.layers = settings.layers;
-        c.background_r = c.background_g = c.background_b = 0;
-        c.background_a = 1;
-        const auto& f = directions[i];
-        const auto& u = ups[i];
-        const Double3 r{u[1] * f[2] - u[2] * f[1], u[2] * f[0] - u[0] * f[2],
-                        u[0] * f[1] - u[1] * f[0]};
-        AffineTransform world;
-        for (unsigned row = 0; row < 3; ++row) {
-            world.m[row * 4] = r[row];
-            world.m[row * 4 + 1] = u[row];
-            world.m[row * 4 + 2] = f[row];
-            world.m[row * 4 + 3] = settings.position[row];
-        }
-        view.view = camera_view(c, world, settings.size, settings.size);
-    }
-    // A lighting-map snapshot uses the source environment even when its authored
-    // display sky is hidden. It contains no local/visible-depth recursive feedback.
-    scene_.cameras.clear();
-    scene_.reflection_probes.clear();
-    scene_.settings.environment.sky = true;
-    scene_.settings.screen_space_reflections.enabled = false;
-    scene_.settings.ambient_occlusion.enabled = false;
-    scene_.settings.temporal_anti_aliasing.enabled = false;
-    scene_.settings.motion_blur.enabled = false;
-    scene_.settings.depth_of_field.enabled = false;
-    scene_.settings.bloom.enabled = false;
-    scene_.settings.auto_exposure.enabled = false;
-    scene_.settings.color_adjustments.enabled = false;
+    cameras_ = reflection_capture_cameras(settings, camera);
+    scene_ = reflection_capture_scene(std::move(scene_));
     renderer_ = std::make_unique<FrameRenderer>(presentation_, "Reflection capture");
     renderer_->resources(resources_);
     deadline_ = std::chrono::steady_clock::now() + readiness_limit;

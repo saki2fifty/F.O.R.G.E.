@@ -23,4 +23,9 @@ struct EnvironmentLighting {
     double rotation = 0; // Radians around world Y.
 };
 bool complete_environment_cube(Diligent::ITextureView*);
+std::uint64_t environment_output_bytes(unsigned diffuse_size, unsigned specular_size);
+void allocate_environment_outputs(DiligentPresentation&, Diligent::IDeviceContext*, GpuEnvironment&,
+                                  unsigned diffuse_size, unsigned specular_size);
+void convolve_environment(DiligentPresentation&, Diligent::IDeviceContext*, const GpuEnvironment&,
+                          unsigned diffuse_samples = 0, unsigned specular_samples = 0);
 } // namespace forge

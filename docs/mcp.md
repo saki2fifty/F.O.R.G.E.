@@ -753,7 +753,7 @@ Mesh Renderer `wind` is one tunable complete struct through `forge_play_tune`,
 using the current launch/session/generation and `play.execute` grant. It changes
 rendered geometry without moving authored transforms or physics. The status clock
 includes derived `timing.presentation_seconds`; `forge_play_snapshot` copies
-`simulation_seconds` when the actual world contains enabled wind. Pause/Step,
+`simulation_seconds` when the actual world contains enabled wind or a runtime-capturing probe. Pause/Step,
 runtime validation, pending acknowledgement and Keep Values retain their shared
 owners. `mcp_mesh_wind_play_stdio` and `mcp_mesh_wind_sdk_stdio` exercise both
 protocol framings, authoring/history/scatter, scoped native tuning/Step/review and
@@ -1553,13 +1553,24 @@ Discovery includes recipe `render.reflection_probe` and optional component
 Scene grant, expected revision, replay, Undo and document-save rules are the same
 as the Inspector. Texture is an imported color/HDR cube or panorama; dimensions,
 finite ranges and signed 32-bit priority validate through the native component.
-Invalid candidates leave the revision unchanged. Live Play tuning admits its ten
-scalar controls, including `diffuse_intensity`, through `play.tune` /
+Invalid candidates leave the revision unchanged. Live Play tuning admits the
+scalar controls, including `diffuse_intensity` and capture settings, through `play.tune` /
 `forge_play_tune`; texture assignment remains Edit-only.
 Use discovered tools/fields for the current connection and permissions.
 `diffuse_intensity` defaults to zero and controls local base diffuse light independently
 of specular `intensity`. Both use the existing typed source/history and live tuning
 owners; no extra tool is required. See [the lighting contract](local-diffuse-irradiance.md).
+
+Optional `runtime_capture:true` enables view-local GPU capture without importing
+or writing source files. The same `forge_property_set` / `forge_play_tune` fields
+are `capture_size` (16/32/64/128/256), `capture_interval` (0..3600seconds),
+`capture_near`, `capture_far` (0<near<far<=1000000), and `capture_layers` (uint32).
+At most two runtime probes/eight total are supported. Zero interval refreshes each
+render; positive intervals use simulation time. Exclude camera-output readers from
+the capture layers. Existing saved textures provide fallback; runtime captures
+ignore saved-map yaw and recreate on each run. Discovery exposes current defaults,
+bounds and descriptions. There is no separate capture-management tool or persisted
+runtime image. See [the runtime contract](local-reflection-probes.md#runtime-gpu-capture).
 
 `capture.reflection.start` / `forge_capture_reflection_start` requires the project
 asset grant and Edit mode, with the ordinary target/expected revision/sequence

@@ -5,6 +5,7 @@ set(forge_presentation_sources
  src/render_backend.cpp
  src/shader_runtime_backend.cpp
  src/environment_gpu.cpp
+ src/runtime_reflection_captures.cpp
  src/environment_sky.cpp
  src/frame_renderer.cpp
  src/camera_render_textures.cpp

@@ -917,7 +917,13 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<double>("rotation_degrees")
             .template member<std::int32_t>("priority")
             .template member<bool>("box_projection")
-            .template member<double>("diffuse_intensity");
+            .template member<double>("diffuse_intensity")
+            .template member<bool>("runtime_capture")
+            .template member<std::uint32_t>("capture_size")
+            .template member<double>("capture_interval")
+            .template member<double>("capture_near")
+            .template member<double>("capture_far")
+            .template member<std::uint32_t>("capture_layers");
         for (const auto& [field, offset] :
              {std::pair{"texture", offsetof(ReflectionProbe, texture)},
               std::pair{"enabled", offsetof(ReflectionProbe, enabled)},
@@ -929,7 +935,13 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
               std::pair{"rotation_degrees", offsetof(ReflectionProbe, rotation_degrees)},
               std::pair{"priority", offsetof(ReflectionProbe, priority)},
               std::pair{"box_projection", offsetof(ReflectionProbe, box_projection)},
-              std::pair{"diffuse_intensity", offsetof(ReflectionProbe, diffuse_intensity)}}) {
+              std::pair{"diffuse_intensity", offsetof(ReflectionProbe, diffuse_intensity)},
+              std::pair{"runtime_capture", offsetof(ReflectionProbe, runtime_capture)},
+              std::pair{"capture_size", offsetof(ReflectionProbe, capture_size)},
+              std::pair{"capture_interval", offsetof(ReflectionProbe, capture_interval)},
+              std::pair{"capture_near", offsetof(ReflectionProbe, capture_near)},
+              std::pair{"capture_far", offsetof(ReflectionProbe, capture_far)},
+              std::pair{"capture_layers", offsetof(ReflectionProbe, capture_layers)}}) {
             const auto* member = ecs_struct_get_member(w.c_ptr(), c.id(), field);
             if (!member || std::size_t(member->offset) != offset)
                 throw std::runtime_error(
@@ -2159,7 +2171,13 @@ Json registration_options(const Builtin& type, const std::string& field) {
             {"rotation_degrees", "Map rotation"},
             {"priority", "Priority"},
             {"box_projection", "Box projection"},
-            {"diffuse_intensity", "Diffuse intensity"}};
+            {"diffuse_intensity", "Diffuse intensity"},
+            {"runtime_capture", "Runtime capture"},
+            {"capture_size", "Capture face size"},
+            {"capture_interval", "Capture interval"},
+            {"capture_near", "Capture near"},
+            {"capture_far", "Capture far"},
+            {"capture_layers", "Capture layers"}};
         value["display_name"] = labels.at(field);
         if (field == "texture") {
             value["description"] =
@@ -2200,6 +2218,30 @@ Json registration_options(const Builtin& type, const std::string& field) {
         } else if (field == "box_projection") {
             value["description"] = "Correct sample directions to the influence box using this "
                                    "entity as the map capture center.";
+        } else if (field == "runtime_capture") {
+            value["description"] =
+                "Capture view-local lighting at this entity; at most two runtime "
+                "probes per view. The saved map is the fallback. No source files change.";
+        } else if (field == "capture_size") {
+            value["description"] = "Square face size: 16, 32, 64, 128 or 256 pixels.";
+            value["minimum"] = 16;
+            value["maximum"] = 256;
+        } else if (field == "capture_interval") {
+            value["description"] =
+                "Simulation seconds between complete captures; zero refreshes every "
+                "rendered frame. Paused simulation retains the completed map.";
+            value["minimum"] = 0;
+            value["maximum"] = 3600;
+            value["unit"] = "seconds";
+        } else if (field == "capture_near" || field == "capture_far") {
+            value["description"] = "Capture clip distance in metres; 0 < near < far <= 1000000.";
+            value["minimum"] = 0;
+            value["maximum"] = 1000000;
+            value["unit"] = "meters";
+        } else if (field == "capture_layers") {
+            value["description"] =
+                "Source camera layer mask. Exclude surfaces reading camera outputs "
+                "to prevent capture feedback. Local probes and display effects are excluded.";
         }
     }
     if (name == "forge.camera") {
@@ -3987,9 +4029,12 @@ Json admitted_builtin_source(const Builtin& type, const Json& source) {
         for (const auto* field : {"color_influence", "normal_influence", "roughness_influence"})
             if (!current.contains(field))
                 current[field] = type.defaults.at(field);
-    if (std::string_view(type.name) == "forge.reflection_probe" &&
-        !current.contains("diffuse_intensity"))
-        current["diffuse_intensity"] = type.defaults.at("diffuse_intensity");
+    if (std::string_view(type.name) == "forge.reflection_probe")
+        for (const auto* field :
+             {"diffuse_intensity", "runtime_capture", "capture_size", "capture_interval",
+              "capture_near", "capture_far", "capture_layers"})
+            if (!current.contains(field))
+                current[field] = type.defaults.at(field);
     if (std::string_view(type.name) == "forge.transform_animator" ||
         std::string_view(type.name) == "forge.animation_sequence")
         for (const auto* field : {"sequence", "sequence_start_seconds"})

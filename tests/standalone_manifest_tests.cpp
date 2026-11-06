@@ -5,6 +5,7 @@
 #include "game_export.hpp"
 #include "render_values.hpp"
 #include "runtime_document_package.hpp"
+#include "runtime_reflection_profile.hpp"
 #include "runtime_workers_package_tests.hpp"
 #include "standalone_manifest.hpp"
 #include "ui_surface_limits.hpp"
@@ -75,6 +76,46 @@ int main(int argc, char** argv) {
                 features,
                 {{"runtime_audio_streaming", asset_detail::audio_streaming_profile_version}});
             record.metadata["forge.audio"].erase("playback_storage");
+            features.replace(record);
+            validate_runtime_compatibility(features, Json::object());
+        }
+        {
+            const Json required{{"reflection_capture", runtime_reflection_profile_version}};
+            Json row{{"components", {{"forge.reflection_probe", {{"runtime_capture", true}}}}}};
+            for (const auto* collection : {"entities", "members", "overrides"}) {
+                Json document{{collection, Json::array({row})}};
+                if (std::string_view(collection) == "overrides")
+                    document["base"] = AssetId::generate();
+                check(package_detail::document_runtime_features(document) == required,
+                      "Runtime reflection requirement omitted a Scene/Prefab channel");
+                document[collection][0] = {{"property_overrides", row.at("components")}};
+                check(package_detail::document_runtime_features(document) == required,
+                      "Runtime reflection requirement omitted a property override");
+                document[collection][0]["property_overrides"]["forge.reflection_probe"]
+                        ["runtime_capture"] = false;
+                check(package_detail::document_runtime_features(document).empty(),
+                      "Default capture required a new runtime kit");
+            }
+            for (const Json& invalid : {Json(), Json(1), Json("true")}) {
+                row["components"]["forge.reflection_probe"]["runtime_capture"] = invalid;
+                reject([&] {
+                    (void)package_detail::document_runtime_features(
+                        Json{{"entities", Json::array({row})}});
+                });
+            }
+            AssetCatalog features(scratch / "reflection-compatibility");
+            AssetRecord record{AssetId::generate(), "scene", "runtime.scene.json", 5};
+            record.metadata["forge.runtime_document"] = {{"runtime_features", required}};
+            features.add(record);
+            reject([&] { validate_runtime_compatibility(features, Json::object()); });
+            validate_runtime_compatibility(
+                features, {{"runtime_reflection_capture", runtime_reflection_profile_version}});
+            for (const Json& invalid : {Json(), Json(false), Json(0), Json(1.), Json("1"), Json(2)})
+                reject([&] {
+                    validate_runtime_compatibility(features,
+                                                   {{"runtime_reflection_capture", invalid}});
+                });
+            record.metadata["forge.runtime_document"]["runtime_features"] = Json::object();
             features.replace(record);
             validate_runtime_compatibility(features, Json::object());
         }

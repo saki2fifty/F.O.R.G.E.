@@ -814,3 +814,21 @@ example, select it as the startup Scene in Project Settings and use the matching
 runtime kit packaged with this editor. Meshes, textures and animation travel with
 the exported game. See [FBX importing](../editor/models.md)
 for supported source versions, materials, skinning and clip limits.
+
+## Runtime reflection capture
+
+Open **176-runtime-reflection-capture** and press **Play**. Two hidden source panels
+rotate while the metal spheres and floor reflect their changing shapes. Select
+**Runtime reflection volume - toggle Runtime capture** and compare **Runtime
+capture** on against the supplied saved fallback.
+
+**Capture interval** defaults to **0.25** simulation seconds; **0** refreshes each
+rendered frame. **Capture face size** starts at **64** and accepts **16**, **32**, **64**, **128** or **256**.
+**Capture layers = 1** excludes the layer 2 receivers. **Intensity** controls base
+reflections and **Diffuse intensity** controls local diffuse light. Runtime maps
+are world aligned; **Map rotation** affects the saved fallback.
+
+Save authored values, set this Scene as Startup Scene and export using a matching
+runtime kit. No C++ module or source import is required. Each run recreates its GPU
+maps. See [Refresh lighting during Play](../editor/lighting.md) for limits and
+troubleshooting.

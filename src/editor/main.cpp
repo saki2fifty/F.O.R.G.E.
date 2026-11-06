@@ -752,6 +752,8 @@ int main(int argc, char** argv) {
         auto game_viewport_owner = std::make_unique<forge::FrameRenderer>(presentation);
         forge::FrameRenderer* game_viewport = game_viewport_owner.get();
         std::optional<std::pair<bool, std::uint64_t>> game_preview_generation;
+        std::optional<std::tuple<bool, std::string, std::string, std::uint64_t>>
+            play_view_generation;
         std::shared_ptr<forge::MeshResourceHost> mesh_resources;
         // Runtime UI host is constructed BEFORE the staged presentation
         // adapter so destruction order is correct: the adapter borrows
@@ -6576,6 +6578,14 @@ int main(int argc, char** argv) {
                         const auto temporal_sample =
                             sequence_camera_preview ? view_image.temporal_sample()
                                                     : std::optional<forge::TemporalFrameSample>{};
+                        const auto play_generation =
+                            std::tuple{play.active(), play.launch_id(), play.session(),
+                                       play.world_generation()};
+                        if (play_view_generation != play_generation) {
+                            game_viewport->invalidate_temporal_history();
+                            viewport.invalidate_temporal_history();
+                            play_view_generation = play_generation;
+                        }
                         if (game_view) {
                             const auto generation = std::pair{
                                 sequence_camera_preview,

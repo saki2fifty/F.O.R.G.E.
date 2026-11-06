@@ -282,6 +282,11 @@ Advanced authoring systems and a broad public plugin SDK remain planned. See [im
 
 The [Feature Gallery](manual/getting-started/feature-gallery.md) is an editable sample project with focused scenes for transforms, lighting, projected material color, physics, cameras, animation and world sprites. Open a scene in the editor, change its authored components, then select it as the startup scene and export a standalone game. The [reference game](manual/reference-game.md) remains the combined gameplay example.
 
+[Runtime reflection capture](manual/editor/lighting.md) updates local specular and
+diffuse lighting from moving scene sources in Scene, Game and camera outputs.
+Gallery176 demonstrates simulation-time refresh and a saved fallback; Inspector,
+live tuning and automation/MCP share the capture controls.
+
 Scene lighting includes independently authored [fast approximate anti-aliasing](docs/fast-approximate-antialiasing.md)
 for Scene/Game display color. Gallery 143 demonstrates the saved workflow and normal
 standalone export; temporal AA and post-filter Game UI remain independent.
