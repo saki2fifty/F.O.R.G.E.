@@ -1,3 +1,4 @@
+#include "bulk_authoring_limits_tests.hpp"
 #include "entity_recipe_tests.hpp"
 #include "mesh_component_tests.hpp"
 #include "node_policy_tests.hpp"
@@ -49,6 +50,7 @@ int main(int argc, char** argv) {
         test_primitive_compatibility();
         test_ordered_hierarchy();
         test_property_batch();
+        test_bulk_authoring_limits();
         forge::EngineContext scene_engine;
         forge::Scene scene(scene_engine.world());
         scene.reset({{"version", 1}, {"entities", Json::array()}});

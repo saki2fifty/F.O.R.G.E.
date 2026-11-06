@@ -90,8 +90,8 @@ void validate_value(const Json& value, const Json& schema, const std::string& pa
             throw CommandError("invalid_arguments", path + ": value outside supported range");
     }
 }
-Json& entity(Json& doc, const std::string& id) {
-    for (auto& e : doc["entities"])
+template <class Document> auto& entity(Document& doc, const std::string& id) {
+    for (auto& e : doc.at("entities"))
         if (e.at("id") == resolve_legacy_id(doc, id))
             return e;
     throw CommandError("not_found", "Entity not found: " + id);
@@ -112,7 +112,7 @@ std::string free_id(const Json& doc) {
 }
 Json property_schema(const detail::SceneDraft& scene, const std::string& component,
                      const std::string& field) {
-    const auto reflected = scene.schema();
+    const auto& reflected = scene.schema();
     for (const auto& c : reflected.at("components")) {
         if (c.at("id") != component)
             continue;
@@ -152,7 +152,7 @@ void set_fields(detail::SceneDraft& scene, const std::string& id, const std::str
                                  (!canonical.starts_with("forge.local_")) &&
                                  !e["components"].contains(canonical);
     Json admission;
-    const auto authoring_schema = scene.schema();
+    const auto& authoring_schema = scene.schema();
     for (const auto& type : authoring_schema.at("components"))
         if (type.at("id") == canonical && type.value("custom", false))
             admission = type.at("admission");
@@ -192,7 +192,7 @@ void set_fields(detail::SceneDraft& scene, const std::string& id, const std::str
             if (view.at("components").contains(canonical))
                 c[canonical] = view.at("components").at(canonical);
             else {
-                const auto schema = scene.schema();
+                const auto& schema = scene.schema();
                 for (const auto& item : schema.at("components"))
                     if (item.at("id") == canonical)
                         for (const auto& f : item.at("fields"))
@@ -228,10 +228,8 @@ void set_fields(detail::SceneDraft& scene, const std::string& id, const std::str
 
 Json execute(detail::SceneDraft& scene, const std::string& op, const Json& a) {
     const auto id = resolve_legacy_id(scene.document(), a.value("entity", std::string{}));
-    if (!id.empty()) {
-        auto doc = scene.document();
-        (void)entity(doc, id);
-    }
+    if (!id.empty())
+        (void)entity(scene.document(), id);
     Json result = {{"operation", op}, {"selected", id}};
     if (op == "mesh.scatter")
         return detail::scatter_mesh(scene, id, a);
@@ -315,7 +313,7 @@ Json execute(detail::SceneDraft& scene, const std::string& op, const Json& a) {
         }
         if (recipe && !recipe->component.empty()) {
             bool found = false;
-            const auto recipe_schema = scene.schema();
+            const auto& recipe_schema = scene.schema();
             for (const auto& type : recipe_schema.at("components"))
                 if (type.at("id") == recipe->component) {
                     for (const auto& f : type.at("fields"))
@@ -499,7 +497,7 @@ Json execute(detail::SceneDraft& scene, const std::string& op, const Json& a) {
         auto& row = entity(doc, id);
         const std::string key = a.at("component");
         bool known = false;
-        const auto optional_schema = scene.schema();
+        const auto& optional_schema = scene.schema();
         for (const auto& c : optional_schema.at("components"))
             if (c.at("id") == key && c.value("optional", false)) {
                 known = true;
@@ -517,7 +515,7 @@ Json execute(detail::SceneDraft& scene, const std::string& op, const Json& a) {
         scene.edit(doc);
     } else if (op == "component.override") {
         const std::string key = a.at("component");
-        const auto schema = scene.schema();
+        const auto& schema = scene.schema();
         bool known = false;
         for (const auto& type : schema.at("components"))
             known |= type.at("id") == key && type.value("optional", false);
@@ -548,7 +546,7 @@ Json execute(detail::SceneDraft& scene, const std::string& op, const Json& a) {
             component = "forge.local_rotation";
         else if (component == "forge.scale")
             component = "forge.local_scale";
-        const auto schema = scene.schema();
+        const auto& schema = scene.schema();
         bool known = false;
         for (const auto& c : schema.at("components"))
             known |= c.at("id") == component;

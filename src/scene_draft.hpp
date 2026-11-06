@@ -6,8 +6,9 @@ namespace forge::detail {
 class SceneDraft {
   public:
     explicit SceneDraft(const Scene& source);
-    Json document() const { return document_; }
-    Json schema() const { return schema_; }
+    // Borrowed until edit/destruction. Use an owning auto copy before mutation.
+    const Json& document() const { return document_; }
+    const Json& schema() const { return schema_; }
     Json effective_document() const;
     std::size_t entity_count() const { return document_.at("entities").size(); }
     void edit(const Json& document);

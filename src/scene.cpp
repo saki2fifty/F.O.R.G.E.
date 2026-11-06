@@ -1406,12 +1406,15 @@ void detail::SceneDraft::edit(const Json& document) {
     auto normalized = document;
     for (const auto& item : normalized["entities"])
         detail::validate_custom_values(schema_, item.at("components"));
+    // Borrow descriptors only for this edit; unrelated registered types do not
+    // need a normalization visit on every entity. Validation above is unchanged.
+    const auto types = detail::index_json_rows(schema_.at("components"));
     for (auto& item : normalized["entities"])
-        for (const auto& type : schema_.at("components")) {
-            const auto name = type.at("id").get<std::string>();
-            if (!item["components"].contains(name))
+        for (auto& [name, data] : item["components"].items()) {
+            const auto found = types.find(name);
+            if (found == types.end())
                 continue;
-            auto& data = item["components"][name];
+            const auto& type = *found->second;
             if (type.value("custom", false) &&
                 (!data.is_object() || data.value("$forge", Json()) != type.at("admission")))
                 continue;

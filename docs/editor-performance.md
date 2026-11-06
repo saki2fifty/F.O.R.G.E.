@@ -3,6 +3,64 @@
 Measurements are source- and workload-specific, not a claim
 about physical-GPU FPS or every scene. See [CI](ci.md) for reproducible tooling.
 
+## Bulk authoring preparation — 2026-11-06
+
+Private draft inspection now borrows its owned document/schema, eliminating
+copies used only for legacy-ID resolution, entity existence and per-command
+serialized budgeting. Normalization reuses the existing borrowed schema row index
+and visits components present on each entity. Complete scene/custom validation,
+float storage normalization and every intermediate budget check remain in place.
+Publication still uses one persistent Scene commit and one Undo/revision change.
+
+The opt-in `forge_authoring_batch_benchmark` target is excluded from the default
+build. Invoke it with `create|rename|move`, existing entity count, command count,
+warmup count and sample count; for example, `rename 1024 32 1 3`. It reports
+separate preview, apply, Undo and Redo wall times. Independent checks verify
+selected authored values, stable scene identity/surviving handles, exact history
+and failure rollback outside timing. It has no CTest timing threshold.
+
+Sequential before/after runs used the same GCC12 Release (`-O3 -DNDEBUG`)
+configuration and dependencies on a shared Linux/QEMU Virtual CPU 2.5+ host,
+affinity24 processors. CPU quota files were not exposed. Each case used one
+fresh process, one warmup and three measured cycles. No concurrent build, test
+or other timing driver ran. Generated UUIDs vary between processes; entity counts,
+component shapes, serialized source sizes and command workloads match. The
+benchmark's unsigned range guard was hardened outside the timed calls.
+
+All times below are median milliseconds. Apply includes preparation and native
+publication; preview is a separate call. Do not add independent medians.
+
+| Operation / existing entities | Preview before | Preview after | Apply before | Apply after | Apply wall time reduction |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| rename / 256 | 660.75 | 537.45 | 706.73 | 582.89 | 17.5% |
+| move / 256 | 759.75 | 596.46 | 771.51 | 654.45 | 15.2% |
+| create / 256 | 620.91 | 588.81 | 650.27 | 642.21 | 1.2% |
+| rename / 1024 | 3247.86 | 2258.96 | 3103.22 | 2087.88 | 32.7% |
+| move / 1024 | 4825.51 | 3265.09 | 4057.32 | 3204.64 | 21.0% |
+| create / 1024 | 2781.27 | 2224.48 | 2597.49 | 2204.03 | 15.1% |
+| rename / 4096 | 17467.47 | 10686.38 | 15555.29 | 10641.62 | 31.6% |
+| move / 4096 | 18787.58 | 14142.63 | 16870.99 | 13742.32 | 18.5% |
+| create / 4096 | 16238.88 | 11290.47 | 15284.32 | 11056.78 | 27.7% |
+
+The small create difference is within ordinary timing variation. Full-document
+validation, serialization, normalization and commit/history costs remain;
+large batches are still expensive. These are source/workload-specific CPU
+observations, not physical-hardware, editor responsiveness, gameFPS or universal
+throughput claims. Raw samples, ranges, original/candidate executables and
+source/library/compiler/environment hashes are retained under
+`AgentFiles/build/phase279-bulk-authoring`; Undo/Redo controls are retained there
+without claiming a history optimization.
+
+Fourteen focused native/API/CLI/live/MCP checks pass, including both MCP framings,
+exact8MiB admission, over-limit intermediate rollback and maximum command/entity
+bounds. Six selected FORGE units compile warning-strict with ASan/UBSan; six
+actual CPU runs across four instrumented consumers pass unsuppressed leak checks.
+Other engine/dependency units remain normal. Private placement consumers compile;
+public request schemas, SDK/C callback tables, persistence and dependency pins
+are unchanged. UI/manual workflows and captures are unchanged. Windows/full
+editor and physical acceptance remain queued; no numbered delivery accompanies
+this local change.
+
 ## Reusing detached physics preflight — 2026-10-27
 
 Physics synchronization now captures one current detached transform snapshot for

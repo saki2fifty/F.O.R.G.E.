@@ -1,5 +1,18 @@
 # 2026-11-06
 
+## Reduce bulk authoring preparation costs
+
+Read-only transaction checks borrow the private draft's owned document and schema.
+Normalization uses the existing schema lookup for components present on each
+entity. Complete scene and custom-component validation, intermediate byte/entity
+limits, atomic rollback, one-step history and persistent native handles retain
+their contracts across native commands, CLI, live authoring and MCP.
+
+An opt-in checked CPU benchmark covers create, rename and position batches at
+increasing scene sizes. See [performance evidence](../../docs/editor-performance.md)
+for measurements and limits. Preparation still includes full-document work;
+local CPU evidence does not establish Windows editor or physical game performance.
+
 ## Record fresh game movies with sound
 
 **Run → Record game…** records a fresh offline run through the existing Play,
