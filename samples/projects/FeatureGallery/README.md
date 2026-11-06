@@ -1,5 +1,21 @@
 # Feature Gallery
 
+## Property crossfades
+
+Open `Scenes/183-sequence-property-crossfades.scene.json` and press **Play → Game**.
+The light blends from blue at intensity 2 to warm orange at intensity 4 between
+one and two seconds. The unlit arrow switches from Sprite frame 0 to frame 3 at
+one and a half seconds. The four-second sequence repeats; no C++ module is needed.
+
+Select **Four second property loop**, open its sequence Timeline and choose
+**Refresh clips**. Select the Light or Sprite track to inspect both clips and their
+overlap. Preview and scrub to compare continuous values with the held frame
+switch. The four editable clips are in **Assets/Sequences/Property…**. Both clips
+on a track select the same properties and have no transform channels. Use each
+clip's **Save & Publish**, then **Save scene** for arrangement changes. Set this
+scene as Startup Scene and export with a matching runtime kit. See the
+[sequence guide](../../../manual/editor/animation-sequences.md).
+
 ## Fixed ECS worker example
 
 Open `161-fixed-ecs-workers` for sixteen colored cubes, camera and light. It is

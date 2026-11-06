@@ -569,9 +569,10 @@ class AnimationSequenceEditor {
                 FORGE_UI_PROBE("sequence:next_clip");
                 if (value.sequence_next_clip.id)
                     ImGui::TextWrapped(
-                        "The overlap crossfades blue to purple. Both clips must animate "
-                        "the same transform channels, with ordered starts and ends. "
-                        "Property curves cannot crossfade. Refresh to validate and preview.");
+                        "Clips need matching transform channels and built-in property tracks, "
+                        "with ordered starts and ends. Values blend; Sprite frames switch halfway "
+                        "through the overlap. Material and component-field tracks are unsupported. "
+                        "Refresh to validate and preview.");
                 if (ui::button("Remove from sequence",
                                "Keep the primary clip and standalone settings; "
                                "clear the sequence binding and next clip.")) {

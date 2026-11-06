@@ -1573,19 +1573,22 @@ and byte proofs remain in the canonical local capability validation owner.
 [Sequence crossfade controls](../../../manual/images/sequence-clip-blending.png)
 is the unretouched 720×1100 production Animation Timeline, rendered by the existing
 SDL/ImGui software fixture at 100% with the project font. Actual pointer input
-selects the original Gallery145 cube track. The primary and next strips, highlighted
-overlap, typed clip pickers and pending start fields are visible. Capture does not
-change authored project content. Frame export is unavailable in this isolated
-Timeline fixture because it has no graphical Game host; the actual copied frame
-sampling workflow is tested separately.
-PNG SHA256: `03accdbc02e72a1cae2bf1352837e09943757bec0512887bf5e771a7f0ce7fe8`.
+selects Gallery183's Light track. Both property-only clips, highlighted overlap,
+typed clip pickers, pending start fields and supported-track hint are visible.
+The same run explicitly samples the light and Sprite at four sequence times,
+checking continuous values, the discrete midpoint and unchanged authored Scene
+content/history. Frame export is unavailable in this isolated Timeline fixture
+because it has no graphical Game host; production Scene/Game rendering and
+source-hidden relocated export are validated separately.
+PNG SHA256: `fe762a913b93ed6f643ea8b9f0cdb4ea48b4dba76052919472ed106c1b436767`.
 
-Capture uses `forge_animation_sequence_editor_tests --capture-pair <Gallery>
-<private-scratch> <png>` with local sequence source based on 5027e2b and an
-unassigned build identity. Exact executable, source, Scene and image receipts
-remain with the local capability validation owner. No pixels or controls are
-retouched. This is not full Main, Windows/MSVC/D3D12, physical input/DPI/GPU/audio,
-performance or graphical EXE acceptance.
+Capture uses `forge_animation_sequence_editor_tests --capture-properties <Gallery>
+<private-scratch> <png>` from the local property crossfade extension based on
+77bf1de, with an unassigned build identity. Exact executable, relevant source,
+Scene and image hashes remain with the local capability validation owner. The
+canonical PNG is copied byte for byte from that run. This is not full Main,
+Windows/MSVC/D3D12, physical input/DPI/GPU/audio, performance or graphical EXE
+acceptance.
 
 
 ## Nested sequence Timeline

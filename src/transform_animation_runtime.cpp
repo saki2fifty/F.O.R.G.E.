@@ -207,14 +207,16 @@ void TransformAnimationPlayback::synchronize() {
                     pending_ = true;
                     return;
                 }
-                const auto transform_only = [](const TransformAnimationClip& value) {
-                    return value.channels != 0 && !value.properties &&
+                const auto supported_pair = [](const TransformAnimationClip& value) {
+                    return (value.channels || value.properties) &&
                            value.material_bindings.empty() && value.component_bindings.empty();
                 };
-                if (!transform_only(clip.get()) || !transform_only(next_clip.get()) ||
-                    clip->channels != next_clip->channels)
+                if (!supported_pair(clip.get()) || !supported_pair(next_clip.get()) ||
+                    clip->channels != next_clip->channels ||
+                    clip->properties != next_clip->properties)
                     throw std::runtime_error(
-                        "Sequence crossfade requires transform-only clips with matching channels");
+                        "Sequence crossfade requires matching transform channels and built-in "
+                        "property tracks, without material or reflected component tracks");
                 span = detail::SequenceClipSpan::make(config.sequence_start_seconds,
                                                       config.sequence_next_start_seconds,
                                                       clip->duration, next_clip->duration);
@@ -229,10 +231,13 @@ void TransformAnimationPlayback::synchronize() {
                 const auto values =
                     AnimationPropertyState::from(entity, AnimationPropertyState::sprite_mask);
                 const auto frames = detail::sprite_frame_key_limit(*values.sprite);
-                if (changed || !state.clip ||
+                if (changed || next_revision_changed || !state.clip ||
                     state.clip.identity().revision != clip.identity().revision ||
-                    state.sprite_frames != frames)
+                    state.sprite_frames != frames) {
                     values.validate_clip(clip.get());
+                    if (next_clip)
+                        values.validate_clip(next_clip.get());
+                }
                 state.sprite_frames = frames;
             } else
                 state.sprite_frames.reset();
@@ -298,6 +303,27 @@ LocalTransform TransformAnimationPlayback::sample_pose(const State& state, doubl
     const auto next = state.next_clip->sample(time - state.span->next_offset_us);
     return weight == 1 ? next : interpolate_animation_poses(first, next, weight);
 }
+AnimationPropertyValues TransformAnimationPlayback::sample_properties(const State& state,
+                                                                      double time) const {
+    auto first = state.clip->sample_properties(time);
+    if (!state.span || !state.next_clip)
+        return first;
+    const auto weight = state.span->next_weight(time);
+    if (weight == 0)
+        return first;
+    const auto next = state.next_clip->sample_properties(time - state.span->next_offset_us);
+    if (weight == 1)
+        return next;
+    for (const auto& binding : animation_property_bindings()) {
+        if (!(state.clip->properties & animation_property_bit(binding.property)))
+            continue;
+        const auto index = unsigned(binding.property);
+        first[index] = animation_property_discrete(binding.property)
+                           ? (weight < .5 ? first[index] : next[index])
+                           : std::lerp(first[index], next[index], weight);
+    }
+    return first;
+}
 bool TransformAnimationPlayback::has_next_sequence_clips() const {
     return std::any_of(states_.begin(), states_.end(),
                        [](const auto& value) { return bool(value.second.next_clip); });
@@ -336,7 +362,7 @@ void TransformAnimationPlayback::apply(const std::map<flecs::entity_t, double>& 
         }
         if (state.clip->properties) {
             auto values = AnimationPropertyState::from(entity, state.clip->properties);
-            values.sample(state.clip->properties, state.clip->sample_properties(time));
+            values.sample(state.clip->properties, sample_properties(state, time));
             properties.emplace(id, std::move(values));
         }
         if (!state.clip->channels)
@@ -594,7 +620,7 @@ Json TransformAnimationPlayback::presentation_properties(flecs::entity_t id, dou
     } else if (state.config.loop)
         time = std::fmod(time, double(state.clip->duration));
     auto values = AnimationPropertyState::from(context_.world().entity(id), state.clip->properties);
-    values.sample(state.clip->properties, state.clip->sample_properties(time));
+    values.sample(state.clip->properties, sample_properties(state, time));
     auto result = values.patch(state.clip->properties);
     if (!state.clip->component_bindings.empty()) {
         const auto patch = animation_component_patch(prepare_animation_components(

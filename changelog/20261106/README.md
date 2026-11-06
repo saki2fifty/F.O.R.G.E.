@@ -137,3 +137,24 @@ content are checked together. The manual includes authentic Inspector and game
 captures. Local native, SDK/MCP, selected CPU sanitizers and software-Vulkan checks
 are separate from pending Windows/MSVC/D3D12, physical input/GPU and exported-EXE
 acceptance. No numbered Windows delivery accompanies this local change.
+
+## Sequence property crossfades
+
+Two-clip sequence tracks support matching built-in properties, with or without
+transform channels. Camera, light, audio and particle numeric values blend over
+the existing overlap; Sprite frames select the next sample at the midpoint.
+Fixed playback, presentation, stopped preview and export use the existing shared
+animation owners. Both Sprite curves require valid target frame ranges, including
+when the incoming clip revision changes. Incompatible masks and material or
+reflected component tracks reject explicitly; skeletal clips remain separate.
+There is no new source/cook format, component field or public SDK layout.
+
+Gallery183 includes editable Light and Sprite pairs, a camera and visible scene.
+The Timeline hint and illustrated manual explain matching tracks, publication,
+Scene saving and export. Native runtime, actual Timeline, both MCP source/Play
+formats, source-hidden relocated content and software Vulkan Scene/Game frames
+have local evidence. Four selected warning-strict units link three CPU consumers;
+all three pass unsuppressed ASan/UBSan/leak checks. The full offline manual and
+package-content checks pass with the authentic updated Timeline image. Windows/full
+editor and physical hardware review remain queued; no numbered Windows delivery
+accompanies this local change.

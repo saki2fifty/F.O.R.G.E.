@@ -134,6 +134,7 @@ class TransformAnimationPlayback {
     double sequence_time(const State&, double) const;
     double clip_span_duration(const State&) const;
     LocalTransform sample_pose(const State&, double) const;
+    AnimationPropertyValues sample_properties(const State&, double) const;
     std::map<flecs::entity_t, double> times_at(flecs::entity_t controller, double time) const;
 };
 } // namespace forge

@@ -208,10 +208,20 @@ void exercise_shots(const std::filesystem::path& root, const Json& source) {
 }
 #include "nested_sequence_gallery_tests.hpp"
 #include "sequence_clip_gallery_tests.hpp"
+#include "sequence_property_gallery_tests.hpp"
 } // namespace
 int main(int argc, char** argv) {
     try {
-        check(argc == 3, "Need Gallery and sequence scratch root");
+        const bool properties = argc == 4 && std::string_view(argv[1]) == "--properties";
+        check(argc == 3 || properties, "Need Gallery and sequence scratch root");
+        if (properties) {
+            property_sequence_export(argv[2], argv[3]);
+            return 0;
+        }
+        if (std::string_view(argv[1]) == "--author-properties") {
+            author_property_sequence(argv[2]);
+            return 0;
+        }
         if (std::string_view(argv[1]) == "--author-pair") {
             author_sequence_pair(argv[2]);
             return 0;

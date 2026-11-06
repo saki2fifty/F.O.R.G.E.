@@ -636,6 +636,10 @@ void exercise(const std::filesystem::path& gallery, const std::filesystem::path&
 } // namespace
 int main(int argc, char** argv) {
     try {
+        if (argc == 5 && std::string_view(argv[1]) == "--capture-properties") {
+            capture_sequence_pair(argv[2], argv[3], argv[4], false, false, true);
+            return 0;
+        }
         if (argc == 5 && std::string_view(argv[1]) == "--capture-pair") {
             capture_sequence_pair(argv[2], argv[3], argv[4]);
             return 0;

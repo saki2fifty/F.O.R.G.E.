@@ -187,6 +187,33 @@ Recovery must record both selected revisions and reject incompatible state befor
 publication; older no-next configurations retain their supported recovery readers.
 Editor/automation/MCP and runtime/export use the same fields and provider owners.
 
+## Built-in property pair extension
+
+2026-11-06. Extend the existing two-clip owner with matching built-in property
+tracks. Both clips retain equal transform-channel masks and equal property masks;
+at least one channel or property is required. This admits property-only pairs as
+well as combined tracks. Material and reflected component binding arrays remain
+outside this profile; skeletal clips retain their separate owner.
+
+Each clip samples its own curves at its clamped local time. The existing span's
+linear next weight combines Camera FOV/height, Light intensity/RGB, Audio gain/
+pitch and Particle size/RGB through `std::lerp`. Discrete Sprite frame values hold
+the first sample below half weight and select the next at or above half. Gap cuts
+select the next sample at its start. No fractional frame index is constructed.
+Both complete frame curves must pass the existing target-dependent admission when
+either selected revision/configuration or the target frame capacity changes.
+
+One private property sampler serves fixed complete candidates and presentation;
+copied sequence preview uses that same provider. Complete native component and
+transform validation precedes writes. Existing clock, discontinuity, resource
+retirement, last-good failure and nested-controller rules remain authoritative.
+
+No component field, source/cook format or callback-table change is needed. Existing
+pair recovery already records both exact resource revisions and configurations;
+the properties are derived from those resources and the restored clock. Older
+transform-only/single-clip meanings are unchanged. Earlier runtimes reject newly
+permitted property pairs at admission rather than restore an incompatible meaning.
+
 ## Nested Scene controller placements — accepted bounded design
 
 2026-11-03. This additive profile uses the existing sequence ownership boundaries.
@@ -215,7 +242,7 @@ isolates the selected controller from its parent only after the existing provide
 validates its original active binding, so preview cannot hide an active cycle.
 Automation/MCP must expose the same native fields/operations and ownership.
 Multiple placements of one controller, independent child rate/loop overrides,
-property/skeletal crossfades and movie encoding are outside this controller-runtime
+reflected/material/skeletal crossfades and movie encoding are outside this controller-runtime
 profile. [Silent movie export](../sequence-movie-export.md) belongs to the existing
 preview capture owner and does not change controller clocks or simulation authority.
 

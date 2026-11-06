@@ -1,5 +1,13 @@
 # Explore the Feature Gallery
 
+**183-sequence-property-crossfades** blends a light's intensity and color from
+blue to orange between one and two seconds. The arrow switches Sprite frames at
+one and a half seconds. Open the scene and press **Play → Game**, or select
+**Four second property loop** and open its Timeline to refresh and preview both
+tracks. Edit the clips in **Assets/Sequences**, use **Save & Publish** and save
+the Scene before exporting with a matching runtime kit. No C++ module is needed.
+See [Property crossfades](../editor/animation-sequences.md).
+
 **161-fixed-ecs-workers** provides sixteen colored cubes, camera and light for
 the supplied ParallelMotion C++ example. It stays static until you build the
 example and attach Parallel Motion to cubes. Compare saved **Fixed ECS workers**

@@ -16,8 +16,10 @@ from mcp_paint_texture_workflow import check_paint_texture_workflow
 from mcp_animation_retarget_workflow import check_animation_retarget_workflow
 from mcp_animation_graph_workflow import check_animation_graph_workflow
 from mcp_lightmap_graph_workflow import check_lightmap_graph_workflow
+from mcp_sequence_property_sources import check_sequence_property_sources
 
 TOOLS, HOST, WORKER = map(str, map(Path, sys.argv[1:4]))
+SEQUENCE_PROPERTY_SOURCES_ONLY = '--sequence-property-sources-only' in sys.argv[5:]
 TERRAIN_FOLIAGE_ONLY = "--terrain-foliage-only" in sys.argv[5:]
 PREFAB_ONLY = "--prefab-only" in sys.argv[5:]
 # Instrumented native admission can exceed the unchanged production bridge
@@ -185,6 +187,9 @@ for legacy in (False, True):
 
         kinds = read('forge_asset_document_types')['editors']
         assert len(kinds) == 20 and all(not item['status']['open'] for item in kinds), kinds
+        if SEQUENCE_PROPERTY_SOURCES_ONLY:
+            check_sequence_property_sources(read, mutate, edit, status, content, root)
+            continue
         if ANIMATION_GRAPH_ONLY:
             check_animation_graph_workflow(read, mutate, edit, status, content, failed,
                                            root, client, discovery)

@@ -2,8 +2,9 @@
 
 An **Animation Sequence** makes several objects use one playback time. Each object
 keeps its reusable animation clip and a start time inside the sequence. A second
-transform clip can crossfade on the same object. Sequences can also contain other
-sequences, sharing their root controller's playback time.
+clip can crossfade transforms and matching property tracks on the same object.
+Sequences can also contain other sequences, sharing their root controller's
+playback time.
 
 ![Timeline with camera shot intervals and camera selection](../images/camera-sequencing.png)
 
@@ -39,13 +40,9 @@ Open **FeatureGallery / Scenes / 145-sequence-clip-blending.scene.json** and pre
 loop. The first clip starts at zero, the next at one second; the one-second
 overlap blends from the first motion into the next.
 
-![Timeline showing primary and next clip strips, the overlap, and both start fields](../images/sequence-clip-blending.png)
-
-The blue and purple clips overlap from one to two seconds on the selected track.
-
 To make a two-clip track:
 
-1. Create and publish two Transform Animation clips. Both must animate the same position, rotation and/or scale channels, without light, camera, sound, material or component-field curves.
+1. Create and publish two Transform Animation clips. Select the same transform channels and built-in property tracks in both. For property-only clips, leave transform channels off in both. Material and component-field tracks are unsupported.
 2. Add the object to an Animation Sequence and choose its **Clip**. Select the object track, then choose **Next clip** using the asset picker.
 3. Enter **Primary clip start** and **Next clip start**, then choose **Apply track timing**. Both edited values use one Scene Undo step. **Reset pending timing** reloads the current Scene values. Apply or reset before switching tracks or clips.
 4. Choose **Refresh clips**. The upper blue strip shows the primary clip, the lower purple strip shows the next, and the highlighted intersection shows the crossfade. Use **Preview sequence**, scrubbing or frame export to inspect the result.
@@ -63,7 +60,40 @@ Choose **None / Clear** in **Next clip** to return to a single clip. **Remove fr
 sequence** clears the controller binding and next clip while keeping the primary
 clip and its standalone settings. Undo restores the arrangement. A missing or
 incompatible clip is reported during **Refresh clips** or Play preparation; correct
-its selection, channel set or timing and refresh again.
+its selection, track set or timing and refresh again. After publishing a corrected
+clip, allow its replacement to finish loading; the previous diagnostic can remain
+until the corrected clip is admitted.
+
+### Crossfade property tracks
+
+Open **FeatureGallery / Scenes / 183-sequence-property-crossfades.scene.json** to
+try a blue-to-orange light fade and an arrow's Sprite frame switch. The light's
+intensity and color blend from one to two seconds; the arrow switches at one and
+a half seconds. Select **Four second property loop** and open its Timeline to
+preview the tracks. No C++ module is required.
+
+![Timeline with matching Light property clips, their overlap, and both start fields](../images/sequence-clip-blending.png)
+
+The selected Light track's blue and purple clips overlap from one to two seconds.
+
+For a light fade, create two clips that both animate **Light intensity**. Add a
+Light component to the target, assign the clips to its sequence track, and overlap
+their spans using **Next clip start**. Choose **Refresh clips**, then scrub or
+play the preview. The light's sampled intensity blends throughout the overlap.
+Choose **Save & Publish** for each edited clip and **Save scene** for the
+arrangement before exporting the game.
+
+Matching tracks can animate camera field of view/orthographic height, light
+intensity/red/green/blue, audio volume/pitch, particle size/red/green/blue, and
+Sprite frame. The target needs each corresponding component. Numeric values
+blend linearly, and each clip keeps its own key interpolation. Unselected fields
+keep their current values. Both clips must select exactly the same tracks.
+
+**Sprite frame (step)** uses the first clip's sampled frame before the overlap
+midpoint and the next clip's sampled frame from the midpoint. All frame keys in
+both clips must fit the target Sprite's frame configuration, even when the
+current playhead is elsewhere. A gap holds the first clip's final values until
+the next clip starts, then switches to its first values.
 
 ## Place a sequence inside another
 
@@ -281,9 +311,9 @@ playback intent govern all its tracks; the individual clips' standalone settings
 stay stored for when they are removed from the sequence.
 
 **Remove from sequence** keeps the primary clip and clears its controller and next
-clip. Each object supports one primary clip and one optional next transform clip.
+clip. Each object supports one primary clip and one optional compatible next clip.
 Camera shots support cuts and compatible view/lens transitions. This sequence mode
-does not crossfade rendered images or property curves or edit bones. Use the
+does not crossfade rendered images, material/component-field curves or edit bones. Use the
 preview export options above to save a silent movie. Each controller has at most one
 parent placement; place a copy of a complete linked group to reuse it independently.
 

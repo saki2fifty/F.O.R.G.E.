@@ -2,7 +2,7 @@
 void capture_sequence_pair(const std::filesystem::path& gallery,
                            const std::filesystem::path& scratch,
                            const std::filesystem::path& output, bool nested = false,
-                           bool camera_transition = false) {
+                           bool camera_transition = false, bool property_pair = false) {
     const auto root = scratch / AssetId::generate().str();
     std::filesystem::create_directories(root.parent_path());
     std::filesystem::copy(gallery, root, std::filesystem::copy_options::recursive);
@@ -16,9 +16,10 @@ void capture_sequence_pair(const std::filesystem::path& gallery,
         Scene scene(engine.world());
         SceneDocument project(scene);
         project.open_project(root);
-        project.open_scene(camera_transition ? "Scenes/153-camera-transitions.scene.json"
-                           : nested          ? "Scenes/146-nested-sequences.scene.json"
-                                             : "Scenes/145-sequence-clip-blending.scene.json");
+        project.open_scene(property_pair ? "Scenes/183-sequence-property-crossfades.scene.json"
+                           : camera_transition ? "Scenes/153-camera-transitions.scene.json"
+                           : nested            ? "Scenes/146-nested-sequences.scene.json"
+                                               : "Scenes/145-sequence-clip-blending.scene.json");
         EntityRef controller;
         std::string actor;
         const auto source = scene.snapshot();
@@ -36,7 +37,8 @@ void capture_sequence_pair(const std::filesystem::path& gallery,
                 row.at("components").at("forge.camera_shot").at("start_seconds") == 2)
                 actor = row.at("id").get<std::string>();
             if (!nested && !camera_transition &&
-                row.at("components").contains("forge.transform_animator"))
+                row.at("components").contains("forge.transform_animator") &&
+                (!property_pair || row.at("components").contains("forge.light")))
                 actor = row.at("id").get<std::string>();
         }
         check(bool(controller.entity) && !actor.empty(), "Missing pair capture track");
@@ -63,6 +65,36 @@ void capture_sequence_pair(const std::filesystem::path& gallery,
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
         test::ImGuiInputDriver input(frame);
+        if (property_pair) {
+            const auto authored = scene.document();
+            const auto revision = scene.revision();
+            const auto token = editor.begin_frame_export();
+            for (double seconds : {0., 1.25, 1.5, 2.}) {
+                editor.sample_frame_export(token, seconds);
+                const auto preview = editor.preview(authored);
+                bool light = false, sprite = false;
+                const double weight = std::clamp(seconds - 1, 0., 1.);
+                for (const auto& row : preview.at("entities")) {
+                    const auto& components = row.at("components");
+                    if (row.at("id") == actor) {
+                        const auto& value = components.at("forge.light");
+                        near(value.at("intensity"), 2 + 2 * weight);
+                        near(value.at("color_r"), .1 + .9 * weight);
+                        light = true;
+                    }
+                    if (components.contains("forge.sprite_renderer")) {
+                        near(components.at("forge.sprite_renderer").at("frame"),
+                             seconds < 1.5 ? 0 : 3);
+                        sprite = true;
+                    }
+                }
+                check(light && sprite && scene.document() == authored &&
+                          scene.revision() == revision,
+                      "Property pair preview changed authored Scene/history or lost values");
+            }
+            editor.end_frame_export(token);
+            frame();
+        }
         input.click(((camera_transition ? "sequence:shot:"
                       : nested          ? "sequence:nested:"
                                         : "sequence:track:") +

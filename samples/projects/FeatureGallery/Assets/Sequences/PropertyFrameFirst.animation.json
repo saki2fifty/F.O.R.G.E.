@@ -1,0 +1,37 @@
+{
+  "asset_id": "1792c96b-0ec9-4e14-9662-c8f25d0e5191",
+  "channels": [],
+  "duration_us": 2000000,
+  "format": "forge.transform-animation",
+  "keys": [
+    {
+      "id": "fde9a35e-c005-412a-8842-56cfca0a87c0",
+      "interpolation": "linear",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "time_us": 0,
+      "translation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "values": {
+        "forge.sprite_renderer.frame": 0.0
+      }
+    }
+  ],
+  "properties": [
+    "forge.sprite_renderer.frame"
+  ],
+  "timebase": 1000000,
+  "version": 3
+}

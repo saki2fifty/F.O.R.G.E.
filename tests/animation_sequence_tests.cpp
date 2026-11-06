@@ -14,6 +14,7 @@
 #include <forge/scene_identity.hpp>
 #include <iostream>
 #include <limits>
+#include <string_view>
 #include <thread>
 using namespace forge;
 namespace {
@@ -585,15 +586,23 @@ void camera_shots(const std::filesystem::path& root) {
 #include "nested_sequence_audio_tests.hpp"
 #include "nested_sequence_tests.hpp"
 #include "sequence_clip_blend_tests.hpp"
+#include "sequence_property_blend_tests.hpp"
 } // namespace
 int main(int argc, char** argv) {
     try {
-        check(argc == 2, "Need sequence scratch root");
+        const bool properties_only =
+            argc == 3 && std::string_view(argv[2]) == "--property-pairs-only";
+        check(argc == 2 || properties_only,
+              "Need sequence scratch root and optional property mode");
         const auto root = std::filesystem::absolute(argv[1]) / AssetId::generate().str();
         std::filesystem::create_directories(root / "Assets");
         auto lease = std::make_shared<ProjectLease>(root);
         AssetImportService imports(lease, transform_animation_import_registry(),
                                    {"windows", "d3d12", "desktop"});
+        if (properties_only) {
+            sequence_property_blend_tests(root, lease, imports);
+            return 0;
+        }
         camera_shot_identity(root);
         camera_shots(root);
         audio_cue_tests(root);
@@ -603,6 +612,7 @@ int main(int argc, char** argv) {
         nested_audio_cue_tests(root);
         nested_sequence_tests(root, motion, pulse);
         sequence_clip_blend_tests(root, lease, imports, motion, pulse, held);
+        sequence_property_blend_tests(root, lease, imports);
         persistence(root, motion);
         EngineContext author;
         Scene scene(author.world());

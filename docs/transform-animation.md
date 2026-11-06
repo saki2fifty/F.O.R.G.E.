@@ -35,14 +35,24 @@ resolved enabled sequence. Both starts must lie inside the controller; the next
 start and end must not precede the primary start and end. Endpoints may extend
 past the controller and be truncated by it.
 
-Both clips must animate identical, nonempty local-transform channel sets, without
-property, component-field or material curves. Admit both Resources leases before
-adopting the pair. Through the natural overlap, linearly interpolate position and
+Both clips must animate identical local-transform channel sets and identical
+built-in property masks, with at least one channel/property. Property-only pairs
+are supported. Component-field and material binding arrays remain unsupported.
+Admit both Resources leases before adopting the pair. Through the natural overlap, linearly interpolate position and
 scale and use the clip sampler's shortest-arc quaternion interpolation for rotation.
 In a gap, hold the primary endpoint until the next start, then cut. Hold the first
 and last poses outside the union. No independent next clock or second pose writer
 is introduced. Held crossings in either clip, gap cuts and controller wraps/seeks
 use the current presentation-discontinuity owner.
+
+Camera FOV/height, Light intensity/RGB, Audio gain/pitch and Particle size/RGB
+combine their independently sampled values linearly at the same next weight.
+Sprite frames select the first sample below half weight and the next at or above
+half, preserving integer/local-key identity. Both complete Sprite curves pass
+the existing target-frame admission when either selected revision/configuration
+or the target frame capacity changes. A single private property sampler feeds
+fixed complete candidates and presentation, including copied sequence preview.
+Unselected component fields and opaque data retain their existing ownership.
 
 Public playback uses its existing `blend_clip` and `blend_weight` observations
 for the selected next clip and its derived contribution; no callback layout change
@@ -61,7 +71,7 @@ sequence entry-pending state. After admitting the complete resource pair, mismat
 are rejected before restoring poses/clocks. A fresh worker can therefore restore
 without a prior preparation pass. Without a next slot, the current older-profile readers and
 writers retain their behavior. Scene/Prefab and clip source/cook formats do not
-change. More than two clips on one actor and property crossfades are outside this
+change. More than two clips on one actor and reflected/material/skeletal crossfades are outside this
 profile. [Silent movie export](sequence-movie-export.md) uses the existing preview
 capture owner; it does not add simulation or encoding to the animation runtime.
 
@@ -589,9 +599,9 @@ channel omitted from the clip preserves the object's current local value.
 
 ## Evaluation and preview
 
-### Sprite frame binding (development)
+### Sprite frame binding
 
-The in-development Sprite family adds `forge.sprite_renderer.frame` to the
+The Sprite family adds `forge.sprite_renderer.frame` to the
 existing typed property bindings. Its index is appended; previous binding indices
 retain their meanings. Source3/4/5 and cooked5 retain their existing representation;
 new publication uses recipev12/cooked9, while previously selected cooks remain readable.
@@ -610,8 +620,8 @@ keys keep their own timing. Preview, source history/publication, fixed playback,
 sequences and recovery retain their existing owners and clocks. Timeline shows a
 whole-frame field and excludes the binding from curve-tangent choices.
 
-The implementation and its focused tests are in progress; this is not a claim
-that Sprite animation has shipped in the downloadable editor.
+This describes the current source implementation. Local validation and downloadable
+editor delivery have separate acceptance records.
 
 ### Typed camera, light, audio and particle properties
 
