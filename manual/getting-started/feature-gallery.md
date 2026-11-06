@@ -832,3 +832,20 @@ Save authored values, set this Scene as Startup Scene and export using a matchin
 runtime kit. No C++ module or source import is required. Each run recreates its GPU
 maps. See [Refresh lighting during Play](../editor/lighting.md) for limits and
 troubleshooting.
+
+
+## UI on animated meshes
+
+Open **177-animated-mesh-ui**, press **Play**, open **Game**, and capture gameplay
+input. The left panel is a two-part bent mesh with a moving support joint and a
+**Bend** morph. Click **Pause**, **Step**, **Resume** or its text field. Step advances
+the animation once while keeping the controls usable. The right monitor relays
+the same output image.
+
+![Controls and typed text on an animated mesh beside a display-only relay](../images/ui-animated-mesh-gallery.png)
+
+The panel uses **UI Surface Input → Geometry → Mesh**. Its original model is
+**Assets/UI/MeshSurface/Panel.gltf**. Save the Scene and published resources,
+choose the Scene as startup in Project Settings, and export with the runtime kit
+packaged with this editor. See [animated and custom mesh setup](../editor/runtime-ui.md)
+for UV layout, Material requirements, capture behavior and current limits.

@@ -380,8 +380,13 @@ feedback even when a screen is outside the frustum. After resizing an output,
 republish dependent Materials before export. See [the complete contract](render-textures.md).
 
 For interactive output panels, discover `forge.ui_surface_input` in the shared
-component schema. Add it to an Engine / Quad Mesh entity and set `render_texture`
-to the same image, plus `enabled`. Use `forge_component_add`, `forge_property_set`
+component schema. Add it to the Mesh entity, set `render_texture` to the same
+image and configure `enabled`. Geometry0 selects the undeformed Engine / Quad;
+Geometry1 selects retained mesh triangles, including supported skin/morph poses
+and static-mesh wind. `geometry` is the shared reflected choice field, with
+`Quad`0/`Mesh`1 and a missing-field default0. Discovery describes UV/material
+limits, unique reverse projection and capture invalidation; the current runtime
+kit supports both profiles. Use `forge_component_add`, `forge_property_set`
 and the ordinary Scene save/history operations. Its Material must meet the
 [UI surface input profile](runtime-ui.md#interactive-scene-surfaces). UI Document
 source/model authoring and semantic Play commands retain their existing tools.

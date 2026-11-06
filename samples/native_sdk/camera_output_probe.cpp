@@ -11,10 +11,14 @@ int32_t FORGE_SDK_CALL schema(const ForgeSdkWorldV1* host, char*, uint32_t) {
     const auto* info = ecs_get_type_info(world, type);
     const auto ui = world.component<forge::UiDocument>("forge.ui_document");
     const auto* ui_info = ecs_get_type_info(world, ui);
+    const auto surface = world.component<forge::UiSurfaceInput>("forge.ui_surface_input");
+    const auto* surface_info = ecs_get_type_info(world, surface);
     return info && info->size == sizeof(forge::Camera) &&
            info->alignment == alignof(forge::Camera) && ui_info &&
            ui_info->size == sizeof(forge::UiDocument) &&
-           ui_info->alignment == alignof(forge::UiDocument);
+           ui_info->alignment == alignof(forge::UiDocument) && surface_info &&
+           surface_info->size == sizeof(forge::UiSurfaceInput) &&
+           surface_info->alignment == alignof(forge::UiSurfaceInput);
 }
 int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char*, uint32_t) {
     flecs::world world(host->world);
@@ -35,6 +39,12 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char*, uint32_t) {
                 document.render_texture = {};
                 ++document.layer;
             }
+        })
+        .add(host->fixed_tag);
+    world.system<forge::UiSurfaceInput>("project.UseMeshSurfaceInput")
+        .kind(host->fixed_phase)
+        .each([](forge::UiSurfaceInput& surface) {
+            surface.geometry = std::uint32_t(forge::UiSurfaceGeometry::Mesh);
         })
         .add(host->fixed_tag);
     host->diagnostic(host->context, 1, "Public Camera output layout admitted");

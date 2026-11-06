@@ -1,5 +1,6 @@
 #include "Graphics/GraphicsEngineVulkan/interface/EngineFactoryVk.h"
 #include "asset_bytes.hpp"
+#include "fixtures/ui_mesh_surface_gallery.hpp"
 #include "fixtures/ui_surface_gallery.hpp"
 #include "gallery_game_capture.hpp"
 #include "ui_surface_input.hpp"
@@ -19,8 +20,12 @@ void near(double actual, double expected, const char* message) {
 } // namespace
 int main(int argc, char** argv) {
     try {
-        check(argc == 4, "Need Gallery, default font and surface scratch root");
-        if (std::string_view(argv[1]) == "--author") {
+        check(argc == 4 || argc == 6,
+              "Need Gallery, font and scratch, or mesh author worker/converter");
+        if (std::string_view(argv[1]) == "--author" ||
+            std::string_view(argv[1]) == "--author-mesh") {
+            check(argc == (std::string_view(argv[1]) == "--author-mesh" ? 6 : 4),
+                  "Mesh Gallery authoring needs the model worker and converter");
             EngineVkCreateInfo create;
             RefCntAutoPtr<IRenderDevice> device;
             RefCntAutoPtr<IDeviceContext> context;
@@ -33,7 +38,11 @@ int main(int argc, char** argv) {
                 UiPresenter ui(renderer.render_interface(), root, font);
                 return ui.inspect_static({id});
             };
-            std::cout << test::author_ui_surface_gallery(root, inspect).str() << '\n';
+            const auto id =
+                std::string_view(argv[1]) == "--author-mesh"
+                    ? test::author_ui_mesh_surface_gallery(root, inspect, argv[4], argv[5])
+                    : test::author_ui_surface_gallery(root, inspect);
+            std::cout << id.str() << '\n';
             context->WaitForIdle();
             return 0;
         }
@@ -74,7 +83,7 @@ background-color:#00ff00;pointer-events:auto;tab-index:auto;border:0px;}
         GetEngineFactoryVk()->CreateDeviceAndContextsVk(create, &device, &context);
         check(device && context, "Surface Vulkan device unavailable");
         DiligentPresentation presentation(device);
-        auto resources = std::make_shared<MeshResourceHost>(presentation, context, root);
+        auto resources = std::make_shared<MeshResourceHost>(presentation, context, root, true);
         resources->catalog(std::make_shared<const AssetCatalog>(AssetCatalog::open_project(root)));
         FrameRenderer frame(presentation);
         frame.resources(resources);
@@ -255,6 +264,150 @@ background-color:#00ff00;pointer-events:auto;tab-index:auto;border:0px;}
         const auto large = frame.project_ui_surface(*hit);
         check(bool(large), "Large-world reverse projection missing");
         near((*large)[0], 84, "Large-world reverse projection lost local precision");
+        // Original bent two-part surface: UV0 remains authored, while the retained
+        // morph pose changes visible X and Z. This is not an Engine Quad identity.
+        scene = baseline;
+        const AssetRef<MeshAsset> bent_id{AssetId::generate()};
+        MeshPart left;
+        left.vertices = 6;
+        left.indices = {0, 3, 1, 1, 3, 4};
+        left.streams = {
+            {"POSITION", 3,
+             std::vector<float>{-.5f, -.5f, 0, 0, -.5f, .15f, .5f, -.5f, 0, -.5f, .5f, 0, 0, .5f,
+                                .15f, .5f, .5f, 0}},
+            {"TEXCOORD_0", 2, std::vector<float>{0, 0, .5f, 0, 1, 0, 0, 1, .5f, 1, 1, 1}}};
+        left.morph_targets = {{{"POSITION", 3,
+                                std::vector<float>{.2f, 0, .1f, .2f, 0, .1f, .2f, 0, .1f, .2f, 0,
+                                                   .1f, .2f, 0, .1f, .2f, 0, .1f}}}};
+        left.bounds = mesh_bounds(left);
+        auto right = left;
+        right.indices = {1, 4, 2, 2, 4, 5};
+        MeshData bent;
+        bent.morph_names = {"Shift"};
+        bent.morph_defaults = {.5f};
+        bent.lods = {{1, {left, right}}, {.05f, {left, right}}};
+        resources->preview_mesh(bent_id, bent);
+        auto& screen = scene.meshes.at(scene.ui_surfaces.front().mesh_index);
+        screen.renderer.mesh = bent_id;
+        screen.renderer.materials.front().slot = "default";
+        scene.ui_surfaces.front().input.geometry = std::uint32_t(UiSurfaceGeometry::Mesh);
+        const auto bent_pixels = draw(scene);
+        for (const auto& error : frame.diagnostics())
+            check(error.severity != Severity::Error && error.severity != Severity::Fatal,
+                  error.text.c_str());
+        const auto bent_control = bent_pixels.at(150 * 640 + 108);
+        check(bent_control[1] > bent_control[0] + 60 && bent_control[1] > bent_control[2] + 60,
+              "Bent morphed surface did not display its native control");
+        auto mesh_hit = frame.pick_ui_surface(108, 150);
+        check(mesh_hit && mesh_hit->mesh && mesh_hit->mesh->mesh == bent_id.id &&
+                  mesh_hit->mesh->lod == 0 && mesh_hit->mesh->part == 0,
+              "Retained non-quad surface did not identify its actual LOD and part");
+        near(mesh_hit->uv[0], .25, "Morphed mesh U differs from visible native control");
+        near(mesh_hit->uv[1], .25, "Morphed mesh V differs from visible native control");
+        const auto mesh_projected = frame.project_ui_surface(*mesh_hit);
+        check(bool(mesh_projected), "Bent mesh reverse projection unavailable");
+        near((*mesh_projected)[0], 108, "Bent mesh inverse did not use the morphed pose");
+        near((*mesh_projected)[1], 150, "Bent mesh inverse lost authored UV0");
+        auto other_part = *mesh_hit;
+        other_part.uv = {.75, .25};
+        const auto other_projection = frame.project_ui_surface(other_part);
+        check(bool(other_projection), "IME-style projection did not cross a mesh part boundary");
+        near((*other_projection)[0], 228,
+             "Second mesh part projected to the wrong native image location");
+        const auto other_hit = frame.pick_ui_surface(228, 150);
+        check(other_hit && other_hit->mesh && other_hit->mesh->part == 1,
+              "Second mesh part was not interactive");
+        check(ui.mouse_move(108, 150, 0) && ui.mouse_button(0, true, 0) &&
+                  ui.mouse_button(0, false, 0),
+              "Visible bent surface did not consume its native click");
+        const auto bent_command = ui.pending_command();
+        check(bent_command && bent_command->at("command") == "Step",
+              "Bent surface click bypassed the existing native command owner");
+        ui.acknowledge(gate.dispatch(*bent_command, [](const Json&) {}));
+        const auto mesh_drag = frame.pick_ui_surface(320, 150, mesh_hit);
+        check(mesh_drag && mesh_drag->mesh && mesh_drag->uv[0] > 1 &&
+                  !frame.pick_ui_surface(320, 150),
+              "Mesh drag did not continue beyond the retained boundary triangle");
+        const auto drag_projected = frame.project_ui_surface(*mesh_drag);
+        check(bool(drag_projected), "Outside-image mesh capture lost its reverse plane");
+        near((*drag_projected)[0], 320, "Mesh capture extrapolation disagrees with native pointer");
+        const auto bent_screen = screen;
+        const auto bent_scene = scene;
+        for (auto& camera : scene.cameras)
+            if (!camera.camera.render_texture.id)
+                camera.camera.orthographic_height = 100;
+        draw(scene);
+        check(!frame.project_ui_surface(*mesh_hit) && !frame.pick_ui_surface(108, 150, mesh_hit),
+              "A LOD replacement retained a stale triangle capture");
+        scene = bent_scene;
+        draw(scene);
+        check(bool(frame.project_ui_surface(*mesh_hit)), "Original LOD did not restore the UV map");
+        auto revised = bent;
+        std::get<std::vector<float>>(revised.lods[0].parts[0].streams[0].values)[2] = .2f;
+        revised.lods[0].parts[0].bounds = mesh_bounds(revised.lods[0].parts[0]);
+        resources->preview_mesh(bent_id, revised);
+        draw(scene);
+        check(!frame.project_ui_surface(*mesh_hit) && !frame.pick_ui_surface(108, 150, mesh_hit),
+              "A mesh revision replacement retained a stale triangle capture");
+        auto overlap = bent;
+        auto overlapping_part = left;
+        auto& positions = std::get<std::vector<float>>(overlapping_part.streams[0].values);
+        for (std::size_t i = 2; i < positions.size(); i += 3)
+            positions[i] -= .2f;
+        overlapping_part.bounds = mesh_bounds(overlapping_part);
+        overlap.lods[0].parts.push_back(overlapping_part);
+        resources->preview_mesh(bent_id, overlap);
+        draw(scene);
+        check(!frame.pick_ui_surface(108, 150),
+              "Overlapping UV islands supplied an ambiguous world-space input target");
+
+        auto invalid_uv = bent;
+        std::get<std::vector<float>>(invalid_uv.lods[0].parts[0].streams[1].values)[0] = 1.25f;
+        resources->preview_mesh(bent_id, invalid_uv);
+        draw(scene);
+        check(!frame.pick_ui_surface(108, 150) &&
+                  std::any_of(frame.diagnostics().begin(), frame.diagnostics().end(),
+                              [](const auto& d) {
+                                  return d.category == "render.ui_surface.profile" &&
+                                         d.text.find("UV0") != std::string::npos;
+                              }),
+              "Out-of-image UV0 did not diagnose and disable mesh input");
+        auto degenerate_uv = bent;
+        std::get<std::vector<float>>(degenerate_uv.lods[0].parts[0].streams[1].values)
+            .assign(12, 0);
+        resources->preview_mesh(bent_id, degenerate_uv);
+        draw(scene);
+        check(!frame.pick_ui_surface(108, 150) &&
+                  std::any_of(frame.diagnostics().begin(), frame.diagnostics().end(),
+                              [](const auto& d) {
+                                  return d.category == "render.ui_surface.profile" &&
+                                         d.text.find("degenerate UV0") != std::string::npos;
+                              }),
+              "Degenerate UV0 did not diagnose and disable mesh input");
+        // A degenerate-position mesh spends CPU query work without a costly
+        // raster workload. Exhausting a later surface rejects the earlier Quad
+        // candidate too: the complete Scene query never returns partial evidence.
+        MeshPart expensive;
+        expensive.vertices = 3;
+        expensive.streams = {{"POSITION", 3, std::vector<float>(9, 0)},
+                             {"TEXCOORD_0", 2, std::vector<float>{0, 0, 1, 0, 0, 1}}};
+        expensive.indices.reserve(540000);
+        for (unsigned i = 0; i < 180000; ++i)
+            expensive.indices.insert(expensive.indices.end(), {0, 1, 2});
+        expensive.bounds = mesh_bounds(expensive);
+        MeshData bounded;
+        bounded.lods = {{1, {std::move(expensive)}}};
+        resources->preview_mesh(bent_id, bounded);
+        scene = baseline;
+        auto costly = bent_screen;
+        costly.entity = EntityId::generate();
+        scene.meshes.push_back(costly);
+        scene.ui_surfaces.push_back(
+            {costly.entity, {{output}, true, 1}, std::uint32_t(scene.meshes.size() - 1)});
+        draw(scene);
+        check(!frame.pick_ui_surface(84, 150),
+              "Mesh query budget exhaustion delivered an earlier partial surface hit");
+
         ui.surface_input({});
         context->WaitForIdle();
         std::cout << "Surface native pixels, UV/camera identity, commands, capture, geometric "

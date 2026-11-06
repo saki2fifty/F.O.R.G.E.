@@ -73,7 +73,34 @@ int main() {
                                   return d.category == "render.ui_surface.invalid";
                               }),
               "Unsupported surface geometry was silently interactive");
-        check(scene.undo(), "Undo failed");
+        set("forge.ui_surface_input", "geometry", 1);
+        check(frame().ui_surfaces.size() == 1 && frame().ui_surfaces.front().input.geometry == 1 &&
+                  scene.entity(actor).get<UiSurfaceInput>().geometry == 1,
+              "Mesh mode lost shared authoring or native storage");
+        for (const Json& invalid : {Json(-1), Json(2), Json(1.5), Json(true), Json("1"), Json()}) {
+            const auto before = scene.document();
+            bool rejected = false;
+            try {
+                set("forge.ui_surface_input", "geometry", invalid);
+            } catch (const std::exception&) {
+                rejected = true;
+            }
+            check(rejected && scene.document() == before,
+                  "Invalid geometry changed the authoritative Scene");
+        }
+        check(scene.undo() && frame().ui_surfaces.empty() && scene.redo() &&
+                  frame().ui_surfaces.size() == 1,
+              "Mesh geometry mode did not share Undo and Redo");
+        auto old_source = scene.document();
+        for (auto& row : old_source["entities"])
+            row["components"]["forge.ui_surface_input"].erase("geometry");
+        EngineContext old_engine;
+        Scene old(old_engine.world());
+        old.restore_snapshot(old_source);
+        check(old.entity(actor).get<UiSurfaceInput>().geometry == 0,
+              "Older authored surface did not retain Quad mode");
+        check(scene.undo(), "Undo mesh mode failed");
+        check(scene.undo(), "Undo Cube assignment failed");
         auto source = scene.effective_document();
         const auto row = source.at("entities").front();
         source["entities"] = Json::array();

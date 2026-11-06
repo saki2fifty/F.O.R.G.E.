@@ -164,27 +164,50 @@ keeps missing outputs null; exact C++ modules require the updated header fingerp
 ## Interactive scene surfaces
 
 `UiSurfaceInput` is optional authored data on a Mesh entity: typed nullable
-`AssetRef<RenderTextureAsset> render_texture` and `bool enabled=true`. Reflected
+`AssetRef<RenderTextureAsset> render_texture`, `bool enabled=true` and
+`uint32 geometry=0` (`Quad`0, `Mesh`1). Missing geometry defaults to Quad through
+native member-default metadata. Reflected
 Scene/Prefab authoring, references, history, schema and MCP use the builtin
 component owner. Detached RenderScene stores bounded surface-to-mesh indices
 within that same snapshot; it introduces no persistent identity or separate
 registry. At most64 admitted surfaces are supported. An absent output, disabled
 component or invisible/disabled node/Mesh supplies no surface.
 
-The first profile is the immutable Engine / Quad, one complete ordinary unlit
-Material part, opaque/two-sided/depth-tested/depth-writing, with exactly one
-Color2D UV0 `baseColorTexture` matching the component's Render Texture. Identity
-or complete per-axis flips (scale -1, offset1) are admitted; rotation, crop,
-programmable geometry, skin/morph/wind deformation are unsupported. The shader's
-existing texture-transform rows map local XY to image UV and back. Renderer
-validation reports `render.ui_surface.profile` against the component. Existing
-last-good resource/pose selection remains authoritative; interaction requires
-that exact selected image to have current completed producers.
+Geometry **Quad** uses the immutable Engine / Quad, one complete ordinary unlit
+Material part, and an undeformed pose. Geometry **Mesh** uses admitted indexed or
+nonindexed triangles from the retained mesh, its selected rendered LOD and current
+pose. Morph and skin placement reuse the selection evaluator; supported static-mesh
+wind uses that same evaluator too. Mesh input reads no source models and keeps no
+second geometry or pose cache. Every part/LOD needs float2 UV0 inside[0,1],
+nondegenerate UV triangles and a complete supported Material selection.
+
+Both modes require opaque/two-sided/depth-tested/depth-writing ordinary unlit
+Materials with exactly one Color2D UV0 `baseColorTexture` matching the component's
+Render Texture. Identity or complete per-axis flips (scale -1, offset1) are
+admitted; rotation, crop and custom programmable surfaces are unsupported. Mesh
+input interpolates original vertex UVs using perspective-correct barycentrics,
+including triangles clipped before division by W. The existing texture-transform
+rows then map authored UV0 to image UV. Renderer validation reports
+`render.ui_surface.profile` against the component. Existing last-good resource/pose
+selection remains authoritative; interaction requires that exact selected image
+to have current completed producers.
+
+Mesh reverse projection searches the selected LOD's UV triangles across parts.
+Shared-edge matches at the same posed world point are equivalent; overlapping UV
+islands at different world points reject input. In-image UV holes have no target.
+A transient capture anchor holds only mesh asset/revision/variant and LOD/part/
+primitive data, with no native resource handle or persistent identity. Changed
+mesh revision, LOD or geometry mode cancels the anchor. Animation evaluates the
+same triangle against the current retained pose. Outside-image dragging continues
+on its last triangle plane through the existing plane projection helper.
+Validation, UV lookup, detailed picking and geometric blockers share the existing
+1,048,576-unit query budget; exhausting it rejects the complete query, including
+any earlier candidate. Diagnostics use the same bounded geometry profile.
 
 FrameRenderer borrows its last Game snapshot, retained Mesh draw/pose and Game
 Camera views for input queries. Shared camera-relative plane math supports
 perspective/orthographic projections, reflections, shear, rank-two XY planes and
-finite/infinite far. New uncaptured hits choose the nearest eligible Quad and use
+finite/infinite far. New uncaptured hits choose the nearest eligible surface and use
 the existing bounded geometry query for Mesh/Sprite/Tile blockers, ignoring editor
 selectability while honoring visibility and Camera layers. This is geometric
 occlusion, not a rasterized alpha/culling/particle hit mask. Separate camera
@@ -203,10 +226,13 @@ the main presentation releases native input, and native output resizing updates
 pointer coordinates without rebuilding the document. Stationary pointers refresh
 against displayed scene motion during the existing presenter update.
 
-Runtime document metadata records `ui_surface_input:1` for present Scene/Prefab
-component or property-override intent. Export and runtime compatibility require
-integer `engine.runtime_ui_surface_input:1` from the kit, generated from the same
-private profile header. Ordinary image-only documents add no requirement. The
+Runtime document metadata records `ui_surface_input:1` for present Quad
+Scene/Prefab component or property-override intent and2 for Mesh intent. Mixed
+documents retain the maximum requirement regardless of row order. Current kits
+advertise integer `engine.runtime_ui_surface_input:2`, generated from the same
+private profile header, and accept requirements1 or2. A kit advertising1 still
+accepts Quad-only documents and rejects Mesh documents; unknown profile versions
+are rejected. Ordinary image-only documents add no requirement. The
 public typed component changes the exact SDK fingerprint; stable plugin ABI and
 Scene envelope versions are unchanged.
 

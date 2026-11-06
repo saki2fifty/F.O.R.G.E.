@@ -92,6 +92,13 @@ editing and a separate main-window guide.
 Actual GamePresentation capture on software Vulkan. Output surfaces are display-only;
 source-hidden relocated exports match the original pixels.
 
+[Interactive scene UI](manual/editor/runtime-ui.md#interact-with-ui-on-a-scene-surface)
+adds native focus, text and pointer capture to a matching output Material. Use
+Geometry **Quad** for the built-in plane, or **Mesh** for retained triangle UV0
+with supported skin/morph poses. The Feature Gallery includes separate scenes for
+both workflows; source authoring, automation/MCP and exports use the same owners.
+
+
 ## Projected material color
 
 [Decal Projectors](manual/editor/decals.md) project color, normal detail and roughness onto lit Mesh

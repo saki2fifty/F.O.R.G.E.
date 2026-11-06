@@ -87,7 +87,7 @@ to output pixels, independently of editor/window scale. Higher **Layer** values
 place documents above lower ones on the same output. One UI Document chooses one
 output; use another entity to display another copy.
 
-Output images become interactive when their display Quad has **UI Surface Input**. Without that component they remain display-only.
+Output images become interactive when their display mesh has **UI Surface Input**. Without that component they remain display-only.
 The output must have an enabled Camera producer; assigning UI alone creates no
 image. Runtime UI draws during Play and standalone gameplay; it is not drawn in
 the stopped Scene view or stopped animation frame exports.
@@ -104,7 +104,7 @@ unless an existing save/review workflow explicitly retains them.
 1. Set up a Camera output and UI Document as described above. Keep the producer Camera's layers separate from the display surface to avoid feedback.
 2. Display that output using **Engine / Quad**. Assign an ordinary unlit Material with **Opaque**, **Double sided**, **Depth test** and **Depth write** enabled. Its only texture must be the output in **baseColorTexture**, using **Color**, **2D** and **UV0**.
 3. Use identity UVs, or a complete axis flip: scale `-1` with offset `1` on the flipped axis. For an upright panel, set Y scale to `-1` and Y offset to `1`. Cropping, rotation, repeating image regions, programmable Materials and deformed geometry are outside this interaction profile.
-4. Select the Quad, click **+ Add Component**, choose **UI Surface Input** under **Runtime UI**, and assign the same output in **Render Texture**. Leave **Enabled** checked. Save the Scene and published resources.
+4. Select the Quad, click **+ Add Component**, choose **UI Surface Input** under **Runtime UI**, and assign the same output in **Render Texture**. Leave **Geometry** at **Quad** and **Enabled** checked. Save the Scene and published resources.
 5. Press **Play**, open **Game**, and capture gameplay input. Click the displayed controls. A focused text field accepts keyboard text; navigation acts on the focused output. Main-window UI takes precedence over surfaces under an uncaptured pointer.
 
 ![A scene Quad with Pause, Resume, Step and a text field, beside a display-only relay](../images/ui-surface-gallery.png)
@@ -122,8 +122,8 @@ Geometric Mesh, Sprite and Tile Map blockers prevent a new surface hit. This is 
 geometric query: transparent holes, one-sided culling and transient particles do
 not provide pixel-accurate hit masks. Editor selectability does not disable Game
 UI input. Separate split-screen Game viewports are supported; overlapping Camera
-viewports reject ambiguous surface input. The profile supports up to64 enabled
-surfaces per Scene. General mesh UV picking and free-space3D UI layout are unavailable.
+viewports reject ambiguous surface input. The profile supports up to 64 enabled
+surfaces per Scene. Free-space3D UI layout is unavailable.
 
 If a control does not respond, check **UI Surface Input → Render Texture** against
 the Material and UI Document output, producer Camera layers, the supported
@@ -132,6 +132,44 @@ Material settings and **Problems**. UI Source documents use native RCSS
 buttons. Runtime UI is interactive during Play and in exported games. Save the Scene and sources, select the intended startup Scene in Project
 Settings, and export with the runtime kit packaged with this editor; old kits without surface
 input support are rejected.
+
+### Use an animated or custom mesh
+
+Open **Scenes/177-animated-mesh-ui.scene.json** in the Feature Gallery, press
+**Play**, and capture Game input. The left panel is an original two-part bent
+mesh with a support joint and **Bend** morph. Click **Pause**, **Step**, **Resume**
+or the text field. Step advances its animation once while the UI stays usable.
+The right monitor displays the same output image.
+
+![Native controls and edited text on the left animated mesh, beside the display-only relay](../images/ui-animated-mesh-gallery.png)
+
+The left mesh accepts controls and text; the right monitor relays the camera image.
+
+To use your own mesh, follow the output and Material setup above, then set
+**UI Surface Input → Geometry** to **Mesh**. Use triangle parts with **UV0** laid
+out inside the complete image, from 0 to 1 on both axes. Every part and LOD must
+have usable UV triangles and the supported output Material. Multiple parts may
+share that output. Skin and morph animation, and supported wind on static meshes,
+use the displayed pose.
+
+![UI Surface Input Inspector with Geometry set to Mesh and its Render Texture still unassigned](../images/ui-mesh-surface-controls.png)
+
+Choose **Mesh** in **Geometry**, then assign the published output in **Render Texture**.
+The unassigned field shown here does not provide input yet.
+
+Keep UV islands from overlapping at different positions on the mesh. Such a
+point has no unique input target, and controls there do not accept input. UV
+holes and triangles with collapsed UVs cannot provide controls. Repeated/cropped
+images, other UV channels and custom programmable Materials are unsupported.
+See **Problems** for profile errors. Large meshes share a bounded work allowance
+with surface lookup and blockers; simplify the interactive geometry if queries
+exceed it.
+
+Dragging can continue beyond the image on the last triangle's plane. Replacing
+its mesh, changing the selected LOD or switching **Geometry** cancels that gesture.
+Text caret positioning follows the current UV mapping across parts. Runtime text
+and focus remain transient. Save the Scene and published model/UI resources before
+exporting, and use the runtime kit packaged with this editor for mesh input.
 
 ## Animate your HUD
 

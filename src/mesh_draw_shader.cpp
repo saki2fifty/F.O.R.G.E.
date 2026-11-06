@@ -45,9 +45,8 @@ void ForgeWindFrame(inout ForgeSurfaceFrame frame,float height,float4 wind) {
     frame.Bitangent=handed*ForgeUnit(cross(normal,tangent));
 }
 )";
-} // namespace
-std::string mesh_shader_varyings(const MeshVertexFetch& fetch, bool sprite_profile,
-                                 std::string_view name, bool front_face) {
+std::string shader_varyings(const MeshVertexFetch& fetch, bool sprite_profile,
+                            std::string_view name, bool front_face, bool geometry_stage) {
     const auto uv_count = std::max<std::size_t>(1, fetch.uv_sets.size());
     std::string varyings =
         "struct " + std::string(name) + " {float4 Position:SV_Position;float3 World:TEXCOORD0;";
@@ -59,19 +58,34 @@ std::string mesh_shader_varyings(const MeshVertexFetch& fetch, bool sprite_profi
     else
         varyings += "float3 Normal:TEXCOORD1;float3 Tangent:TEXCOORD2;float3 Bitangent:TEXCOORD3;"
                     "float4 Color:COLOR0;nointerpolation float4 LegacyTint:COLOR1;";
-    varyings += "float2 UV[" + std::to_string(uv_count) + "]:TEXCOORD4;";
+    if (geometry_stage)
+        for (unsigned u = 0; u < uv_count; ++u)
+            varyings += "float2 UV" + std::to_string(u) + ":TEXCOORD" + std::to_string(4 + u) + ";";
+    else
+        varyings += "float2 UV[" + std::to_string(uv_count) + "]:TEXCOORD4;";
     if (sprite_profile)
         varyings += "nointerpolation float4 SpriteClamp:TEXCOORD5;"
                     "nointerpolation float4 SpriteCrop:TEXCOORD6;";
-    if (fetch.skin)
-        varyings += "float3 Source:TEXCOORD" + std::to_string(4 + uv_count) +
-                    ";float3 SkinRows[3]:TEXCOORD" + std::to_string(5 + uv_count) + ";";
+    if (fetch.skin) {
+        varyings += "float3 Source:TEXCOORD" + std::to_string(4 + uv_count) + ";";
+        if (geometry_stage)
+            for (unsigned row = 0; row < 3; ++row)
+                varyings += "float3 SkinRow" + std::to_string(row) + ":TEXCOORD" +
+                            std::to_string(5 + uv_count + row) + ";";
+        else
+            varyings += "float3 SkinRows[3]:TEXCOORD" + std::to_string(5 + uv_count) + ";";
+    }
     if (fetch.temporal)
         varyings += "float4 PreviousClip:TEXCOORD" + std::to_string(8 + uv_count) + ";";
     if (front_face)
         varyings += "bool FrontFace:SV_IsFrontFace;";
     varyings += "};\n";
     return varyings;
+}
+} // namespace
+std::string mesh_shader_varyings(const MeshVertexFetch& fetch, bool sprite_profile,
+                                 std::string_view name, bool front_face) {
+    return shader_varyings(fetch, sprite_profile, name, front_face, false);
 }
 MeshGeometryShader mesh_geometry_shader(const MeshVertexFetch& fetch, bool allow_instances,
                                         bool sprite_profile) {
@@ -200,7 +214,11 @@ previous=mul(float3x3(previousRows[0].xyz,previousRows[1].xyz,previousRows[2].xy
     vs += "return o;}\n";
     std::string geometry;
     if (fetch.skin && fetch.triangles)
-        geometry = std::string("#include \"ForgeSurface.fxh\"\n") + skin + varyings + R"(
+        // Flatten stage-interface members: nested arrays in geometry IO lose
+        // per-vertex UV interpolation on the supported Vulkan path. Semantic
+        // registers stay identical to the vertex/pixel array interface.
+        geometry = std::string("#include \"ForgeSurface.fxh\"\n") + skin +
+                   shader_varyings(fetch, sprite_profile, "ForgeVarying", false, true) + R"(
 float ForgeMagnitude(float3 a) {return max(abs(a.x),max(abs(a.y),abs(a.z)));}
 [maxvertexcount(3)]
 void main(triangle ForgeVarying input[3],inout TriangleStream<ForgeVarying> output) {
@@ -214,7 +232,7 @@ void main(triangle ForgeVarying input[3],inout TriangleStream<ForgeVarying> outp
     if(!any(n!=0) || !any(area!=0))return;
     float3 extension=0;
     [unroll]for(uint i=0;i<3;i++)
-        extension+=mul(float3x3(input[i].SkinRows[0],input[i].SkinRows[1],input[i].SkinRows[2]),n)/3;
+        extension+=mul(float3x3(input[i].SkinRow0,input[i].SkinRow1,input[i].SkinRow2),n)/3;
     // Piecewise affine triangle map extended in its source-normal direction.
     // For uniform A this is det(A)*|n|², including shear and reflection.
     float orientation=dot(area,extension);

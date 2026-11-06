@@ -1,6 +1,7 @@
 #pragma once
 #include <array>
 #include <forge/asset_ref.hpp>
+#include <optional>
 #include <string>
 namespace forge {
 struct UiLocalizationAsset {
@@ -22,10 +23,19 @@ struct UiDocument {
     AssetRef<RenderTextureAsset> render_texture{};
     bool operator==(const UiDocument&) const = default;
 };
+enum class UiSurfaceGeometry : std::uint32_t { Quad = 0, Mesh = 1 };
 struct UiSurfaceInput {
     AssetRef<RenderTextureAsset> render_texture;
     bool enabled = true;
+    std::uint32_t geometry = std::uint32_t(UiSurfaceGeometry::Quad);
     bool operator==(const UiSurfaceInput&) const = default;
+};
+// Stable data selection only. No native handle, entity ownership or persistence.
+struct UiSurfaceMeshHit {
+    AssetId mesh;
+    std::string revision, variant;
+    std::uint32_t lod = 0, part = 0;
+    std::uint64_t primitive = 0;
 };
 // Transient host/presenter input value; never registered or persisted as component data.
 struct UiSurfaceHit {
@@ -33,5 +43,6 @@ struct UiSurfaceHit {
     AssetRef<RenderTextureAsset> output;
     std::array<double, 2> uv{};
     EntityId view; // Optional host view identity, retained through a pointer gesture.
+    std::optional<UiSurfaceMeshHit> mesh{};
 };
 } // namespace forge

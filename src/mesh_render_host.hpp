@@ -1,6 +1,7 @@
 #pragma once
 #include "mesh_draw_bundle.hpp"
 #include "mesh_occlusion.hpp"
+#include "mesh_pick.hpp"
 #include "particle_effect_resource.hpp"
 #include "render_bounds.hpp"
 #include "runtime_reflection_gpu.hpp"
@@ -169,7 +170,8 @@ class MeshSceneRenderer {
     std::optional<std::pair<EntityId, double>>
     pick_depth(const RenderScene&, const CameraView&, double x, double y,
                std::uint32_t layers = UINT32_MAX, double point_line_radius = 5,
-               MeshPickMode = MeshPickMode::EditorSelection) const;
+               MeshPickMode = MeshPickMode::EditorSelection,
+               MeshPickBudget* shared_budget = nullptr) const;
     std::optional<UiSurfaceHit> pick_ui_surface(const RenderScene&, const PreparedCamera&, double x,
                                                 double y,
                                                 std::optional<UiSurfaceHit> retained = {}) const;
@@ -243,8 +245,8 @@ class MeshSceneRenderer {
         const Entry* entry;
         UiSurfaceImageMapping mapping;
     };
-    std::optional<UiSurfaceSelection> ui_surface_selection(const RenderScene&, EntityId,
-                                                           std::uint32_t layers) const;
+    std::optional<UiSurfaceSelection>
+    ui_surface_selection(const RenderScene&, EntityId, std::uint32_t layers, MeshPickBudget&) const;
     std::shared_ptr<MeshDrawBundle> prepare_bundle(const asset_detail::PreparedModelDraw&, bool,
                                                    std::shared_ptr<const MeshPoseGeometry>,
                                                    MeshDrawProfile = MeshDrawProfile::Mesh,

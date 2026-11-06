@@ -147,7 +147,7 @@ int main(int argc, char** argv) {
         test_fog_package::exercise(scratch, check, reject);
         test_worker_package::exercise(scratch, check, reject);
         {
-            const Json required{{"ui_surface_input", ui_surface_detail::profile_version}};
+            const Json required{{"ui_surface_input", ui_surface_detail::quad_profile_version}};
             for (const char* channel : {"components", "property_overrides"})
                 for (const char* rows : {"entities", "members", "overrides"}) {
                     Json entry{
@@ -158,10 +158,27 @@ int main(int argc, char** argv) {
                         document["base"] = AssetId::generate();
                     check(package_detail::document_runtime_features(document) == required,
                           "Scene/Prefab surface input omitted its kit requirement");
+                    document[rows][0][channel]["forge.ui_surface_input"]["geometry"] = 1;
+                    const Json triangles{{"ui_surface_input", ui_surface_detail::profile_version}};
+                    check(package_detail::document_runtime_features(document) == triangles,
+                          "Mesh surface input omitted its newer kit requirement");
+                    for (const Json& invalid : {Json(-1), Json(2), Json(1.), Json(true), Json()}) {
+                        document[rows][0][channel]["forge.ui_surface_input"]["geometry"] = invalid;
+                        reject([&] { (void)package_detail::document_runtime_features(document); });
+                    }
                     document[rows][0][channel]["forge.ui_surface_input"] = nullptr;
                     check(package_detail::document_runtime_features(document).empty(),
                           "Removed surface input required a kit extension");
                 }
+            for (const auto& modes : {Json::array({0, 1}), Json::array({1, 0})}) {
+                Json rows = Json::array();
+                for (const auto& mode : modes)
+                    rows.push_back(
+                        {{"components", {{"forge.ui_surface_input", {{"geometry", mode}}}}}});
+                check(package_detail::document_runtime_features({{"entities", rows}}) ==
+                          Json{{"ui_surface_input", 2}},
+                      "Mixed surface modes lowered their runtime requirement by row order");
+            }
             AssetCatalog features(scratch / "surface-compatibility");
             AssetRecord record{AssetId::generate(), "scene", "surface.scene.json", 5};
             features.add(record);
@@ -171,13 +188,20 @@ int main(int argc, char** argv) {
             validate_runtime_compatibility(
                 features, {{"runtime_ui_surface_input", ui_surface_detail::profile_version}});
             reject([&] { validate_runtime_compatibility(features, Json::object()); });
-            for (const Json& version : {Json(), Json(false), Json(0), Json(1.), Json("1"), Json(2)})
+            for (const Json& version : {Json(), Json(false), Json(0), Json(1.), Json("1"), Json(3)})
                 reject([&] {
                     validate_runtime_compatibility(features,
                                                    {{"runtime_ui_surface_input", version}});
                 });
+            validate_runtime_compatibility(features, {{"runtime_ui_surface_input", 1}});
+            record.metadata["forge.runtime_document"]["runtime_features"]["ui_surface_input"] = 2;
+            features.replace(record);
+            reject([&] {
+                validate_runtime_compatibility(features, {{"runtime_ui_surface_input", 1}});
+            });
+            validate_runtime_compatibility(features, {{"runtime_ui_surface_input", 2}});
             for (const Json& version :
-                 {Json(), Json(false), Json(0), Json(1.), Json("1"), Json(2)}) {
+                 {Json(), Json(false), Json(0), Json(1.), Json("1"), Json(3)}) {
                 record.metadata["forge.runtime_document"]["runtime_features"]["ui_surface_input"] =
                     version;
                 features.replace(record);

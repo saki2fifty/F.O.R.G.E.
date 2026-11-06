@@ -24,8 +24,8 @@ Rml::Element* control(const char* tag, unsigned index) {
 }
 std::vector<Pixels> render(DiligentPresentation& presentation, IDeviceContext* context,
                            const std::filesystem::path& project, AssetId scene,
-                           const std::vector<std::byte>& font,
-                           const std::filesystem::path& images) {
+                           const std::vector<std::byte>& font, const std::filesystem::path& images,
+                           bool mesh_surface = false) {
     std::filesystem::create_directories(images);
     GamePresentation visual(presentation, context, project, font);
     visual.dimensions(640, 360, 1);
@@ -48,7 +48,9 @@ std::vector<Pixels> render(DiligentPresentation& presentation, IDeviceContext* c
         submit();
         if (state.ready)
             break;
-        check(std::chrono::steady_clock::now() < deadline, "Surface Gallery preparation stalled");
+        if (std::chrono::steady_clock::now() >= deadline)
+            throw std::runtime_error("Surface Gallery preparation stalled at " + state.stage +
+                                     ": " + game.status().dump());
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
     game.activate(ticket, RuntimeClock::Clock::now(), false);
@@ -70,8 +72,23 @@ std::vector<Pixels> render(DiligentPresentation& presentation, IDeviceContext* c
     };
     std::vector<Pixels> result;
     result.push_back(capture("surface-ready"));
-    check(extract_render_scene(game.presentation()).ui_surfaces.size() == 1,
-          "Runtime presentation omitted the authored interactive surface");
+    unsigned readable_pixels = 0;
+    for (unsigned y = 120; y < 240; ++y)
+        for (unsigned x = 24; x < 264; ++x) {
+            const auto& pixel = result.front()[y * 640 + x];
+            readable_pixels += pixel[0] > 100 && pixel[1] > 120 && pixel[2] > 120;
+        }
+    check(readable_pixels > 100, "Visible surface lost its native text and control content");
+    const auto initial_scene = extract_render_scene(game.presentation());
+    check(initial_scene.ui_surfaces.size() == 1 &&
+              initial_scene.ui_surfaces.front().input.geometry == (mesh_surface ? 1u : 0u),
+          "Runtime presentation omitted the authored surface geometry mode");
+    if (mesh_surface)
+        check(initial_scene.model_animations.size() == 1 &&
+                  initial_scene.model_animations[0].ready &&
+                  !initial_scene.model_animations[0].morphs.empty() &&
+                  initial_scene.model_nodes.size() >= 3,
+              "Animated mesh surface lost its admitted model pose or morph state");
     // The Gallery's ordinary orthographic arrangement has an independently
     // known image rectangle: (24,120)..(264,240), sampling512x256 output pixels.
     const auto click = [&](Rml::Element* element) {
@@ -107,6 +124,17 @@ std::vector<Pixels> render(DiligentPresentation& presentation, IDeviceContext* c
     check(game.status().at("clock").at("tick") == initial_tick + 1,
           "Surface Step did not reach fixed gameplay exactly once");
     result.push_back(capture("surface-stepped"));
+    if (mesh_surface) {
+        const auto stepped = extract_render_scene(game.presentation());
+        check(stepped.model_animations.at(0).morphs != initial_scene.model_animations.at(0).morphs,
+              "Native Step did not advance the mesh surface morph pose");
+        bool joint_moved = false;
+        for (const auto& node : stepped.model_nodes)
+            for (const auto& before : initial_scene.model_nodes)
+                if (node.entity == before.entity && node.world != before.world)
+                    joint_moved = true;
+        check(joint_moved, "Native Step did not advance the mesh surface support joint");
+    }
     click(control("input", 0));
     check(visual.ui().wants_text() && visual.ui().text(" FORGE"),
           "Scene surface text field did not retain native text focus");
@@ -122,7 +150,13 @@ std::vector<Pixels> render(DiligentPresentation& presentation, IDeviceContext* c
 } // namespace
 int main(int argc, char** argv) {
     try {
-        check(argc == 4, "Need Gallery, default font and Gallery scratch root");
+        check(argc >= 4 && argc <= 6, "Need Gallery, font, scratch and optional mesh Scene path");
+        const std::filesystem::path scene_path =
+            argc >= 5 ? argv[4] : "Scenes/174-interactive-ui-surfaces.scene.json";
+        const bool mesh_surface = argc >= 5;
+        const bool missing_geometry = argc == 6;
+        check(!missing_geometry || std::string_view(argv[5]) == "--without-geometry-shaders",
+              "Unknown geometry feature fixture option");
         const auto scratch = std::filesystem::absolute(argv[3]) / AssetId::generate().str();
         const auto root = scratch / "Source";
         std::filesystem::create_directories(root);
@@ -130,18 +164,36 @@ int main(int argc, char** argv) {
         const auto catalog = AssetCatalog::open_project(root);
         AssetId scene;
         for (const auto& [id, row] : catalog.records())
-            if (row.source == "Scenes/174-interactive-ui-surfaces.scene.json")
+            if (row.source == scene_path)
                 scene = id;
         check(bool(scene), "Interactive surface Gallery is not registered");
         const auto font = asset_detail::read_bytes(argv[2], 4 * 1024 * 1024);
         EngineVkCreateInfo create;
+        create.Features.GeometryShaders =
+            missing_geometry ? DEVICE_FEATURE_STATE_DISABLED : DEVICE_FEATURE_STATE_ENABLED;
         RefCntAutoPtr<IRenderDevice> device;
         RefCntAutoPtr<IDeviceContext> context;
         GetEngineFactoryVk()->CreateDeviceAndContextsVk(create, &device, &context);
         check(device && context, "Surface Gallery Vulkan device unavailable");
         DiligentPresentation presentation(device);
+        if (missing_geometry) {
+            bool rejected = false;
+            try {
+                (void)render(presentation, context, root, scene, font, scratch / "unsupported",
+                             true);
+            } catch (const std::exception& error) {
+                rejected = std::string_view(error.what()).find("geometry shaders") !=
+                           std::string_view::npos;
+            }
+            check(rejected, "Unsupported signed skinning did not reject preparation with its "
+                            "terminal diagnostic");
+            context->WaitForIdle();
+            std::cout << "Missing geometry-shader feature rejects native preparation without a "
+                         "pending loop\n";
+            return 0;
+        }
         const auto original =
-            render(presentation, context, root, scene, font, scratch / "authored");
+            render(presentation, context, root, scene, font, scratch / "authored", mesh_surface);
         const auto package = scratch / "Content";
         const std::array roots{scene};
         EngineContext definitions;
@@ -156,7 +208,7 @@ int main(int argc, char** argv) {
         const auto packaged = open_runtime_content(package, {"windows", "d3d12"});
         const auto& record = packaged.records().at(scene);
         check(record.metadata.at("forge.runtime_document").at("runtime_features") ==
-                  Json{{"ui_surface_input", 1}},
+                  Json{{"ui_surface_input", mesh_surface ? 2 : 1}},
               "Packaged surface Scene lost its runtime kit requirement");
         check(std::any_of(record.dependency_edges.begin(), record.dependency_edges.end(),
                           [](const auto& edge) {
@@ -168,7 +220,7 @@ int main(int argc, char** argv) {
         std::filesystem::rename(package, moved);
         std::filesystem::rename(root, scratch / "SourcesOffline");
         const auto exported =
-            render(presentation, context, moved, scene, font, scratch / "relocated");
+            render(presentation, context, moved, scene, font, scratch / "relocated", mesh_surface);
         check(original == exported, "Source-hidden relocated surface pixels or input differed");
         context->WaitForIdle();
         std::ofstream(scratch / "receipt.json")
@@ -176,6 +228,8 @@ int main(int argc, char** argv) {
                     {"exact_image_pairs", original.size()},
                     {"native_step", true},
                     {"native_text", true},
+                    {"geometry_profile", mesh_surface ? 1 : 0},
+                    {"native_model_morph_and_joint", mesh_surface},
                     {"scope", "Production GamePresentation and source-hidden relocated content on "
                               "software Vulkan; no Windows or physical-device acceptance"}}
                    .dump(2)

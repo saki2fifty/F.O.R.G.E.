@@ -1143,6 +1143,12 @@ The Scene viewport selects from the same retained CPU mesh revision and complete
 instance pose as the draw bundle. It chooses the rendered LOD, evaluates POSITION
 morph deltas before joint-world × inverse-bind skinning, and clips actual
 triangles/lines/points in homogeneous D3D clip space before perspective division.
+The optional detailed result retains the original triangle index and
+perspective-correct unclipped vertex coordinates. A borrowed vertex evaluator
+shares morph/skin/wind placement with mesh UI reverse projection and capture;
+there is no second pose cache or ray caster. Geometry-stage shader interfaces use
+separate UV and skin-row fields with the same semantic registers as vertex/pixel
+arrays, preserving per-vertex image interpolation through signed skinning.
 No world inverse is required. Reflection and rank-two surfaces remain selectable;
 collapsed triangle surfaces do not create a false solid hit. Selection is
 geometric and two-sided: material alpha, visibility and raster culling do not

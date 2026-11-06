@@ -86,7 +86,7 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
         "Describe saved camera output images, typed material bindings, pass ordering and limits. "
         "Create/read/patch/publish through the render_texture source editor; assign the published "
         "output using the reflected Camera property and a Material version3 image binding. "
-        "The surface_input profile describes optional interactive scene Quads.",
+        "The surface_input profile describes optional interactive scene mesh surfaces.",
         "asset.read", automation_object(), false, [](const Json&) {
             MaterialData shape;
             shape.model = "forge.gltf.unlit.v1";
@@ -105,7 +105,14 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                  {{"profile", ui_surface_detail::profile_version},
                   {"component", "forge.ui_surface_input"},
                   {"property", "render_texture"},
-                  {"mesh", "Engine / Quad"},
+                  {"mesh",
+                   "Geometry 0: Engine / Quad. Geometry 1: retained triangle mesh, "
+                   "current LOD/pose, float2 UV0 inside [0,1]; complete matching Materials"},
+                  {"geometry_property", "geometry"},
+                  {"geometry_profiles", {{"quad", 0}, {"mesh", 1}}},
+                  {"projection", "Unique UV-to-world point; overlapping islands at different "
+                                 "world points and UV holes reject input. Capture cancels on mesh "
+                                 "revision or LOD changes."},
                   {"maximum_surfaces", ui_surface_detail::max_surfaces},
                   {"material", "Ordinary opaque, two-sided, depth-tested/depth-writing "
                                "unlit Material; one matching Color2D UV0 baseColorTexture"},

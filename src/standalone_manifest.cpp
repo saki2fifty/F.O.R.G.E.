@@ -147,11 +147,13 @@ void validate_runtime_compatibility(const AssetCatalog& catalog, const Json& eng
                     }
                     if (name == "ui_surface_input") {
                         require(version.is_number_integer() &&
-                                    version == ui_surface_detail::profile_version,
+                                    version >= ui_surface_detail::quad_profile_version &&
+                                    version <= ui_surface_detail::profile_version,
                                 "Unsupported authored document runtime feature/profile");
                         const auto support = engine.find("runtime_ui_surface_input");
                         require(support != engine.end() && support->is_number_integer() &&
-                                    *support == ui_surface_detail::profile_version,
+                                    *support >= version &&
+                                    *support <= ui_surface_detail::profile_version,
                                 "UI Surface Input requires a matching runtime kit; select the "
                                 "runtime kit packaged with this editor");
                         continue;

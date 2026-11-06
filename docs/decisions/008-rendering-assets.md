@@ -384,3 +384,23 @@ camera-output readers; completed maps then supply camera-output and main consume
 No new world, registry, resource manager, persistent frame graph or clock is added.
 The [probe contract](../local-reflection-probes.md#runtime-gpu-capture) owns bounds,
 reset/failure behavior, exact-SDK rebuild and conditional runtime-kit requirement.
+
+
+## Retained triangle surface input —2026-11-06
+
+UI Surface Input adds an explicit Mesh geometry profile while retaining Quad as
+its source default. MeshSceneRenderer borrows its admitted draw/LOD/part/Material
+and current pose; its existing picker supplies original triangle coordinates
+through homogeneous clipping. A short-lived borrowed vertex evaluator owns the
+shared morph/skin/wind calculation used by picking and UV reverse projection.
+There is no replacement mesh cache, ray caster, input queue, world or authored
+identity. UiPresenter retains native capture/focus/IME and current-output routing.
+
+Transient anchors use data identity and triangle selection, not native handles.
+LOD/revision changes cancel capture; current deformation remains usable. Reverse
+UV queries reject distinct posed points at the same image coordinate. Geometry
+validation and picking share bounded query work and never accept partial results
+on exhaustion. Quad-only documents retain runtime requirement1; Mesh requires2.
+Source defaults and the same metadata/history/automation owners keep old documents
+readable, while updated public native layouts require the matching exact SDK.
+See [Runtime UI](../runtime-ui.md#interactive-scene-surfaces).

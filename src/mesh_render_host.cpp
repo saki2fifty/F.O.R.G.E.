@@ -209,10 +209,11 @@ EntityId MeshSceneRenderer::pick(const RenderScene& scene, const CameraView& cam
 }
 std::optional<std::pair<EntityId, double>>
 MeshSceneRenderer::pick_depth(const RenderScene& scene, const CameraView& camera, double x,
-                              double y, std::uint32_t layers, double radius,
-                              MeshPickMode mode) const {
+                              double y, std::uint32_t layers, double radius, MeshPickMode mode,
+                              MeshPickBudget* shared_budget) const {
     host_->check_thread();
-    MeshPickBudget budget;
+    MeshPickBudget own_budget;
+    auto& budget = shared_budget ? *shared_budget : own_budget;
     EntityId selected;
     double nearest = 2;
     std::int64_t selected_order = 0;
@@ -676,8 +677,14 @@ std::set<AssetId> MeshSceneRenderer::render_texture_reads(const RenderScene& sce
         if (!source && entry.ready)
             source = &entry.ready->prepared();
         if (!source) {
-            if (require_complete)
+            if (require_complete) {
+                // A completed failed admission cannot produce a future image
+                // dependency. Preserve genuine asynchronous candidates above.
+                const auto& error = entry.error.empty() ? entry.parameter_error : entry.error;
+                if (!entry.candidate && !error.empty())
+                    throw std::runtime_error("Camera image material dependencies: " + error);
                 throw RenderTexturePending("Camera image material dependencies are unavailable");
+            }
             continue;
         }
         for (const auto& [id, material] : source->materials) {

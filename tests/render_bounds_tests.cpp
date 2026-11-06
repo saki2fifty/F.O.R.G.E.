@@ -1,6 +1,7 @@
 #include "animation_debug_pose_tests.hpp"
 #include "decal_cluster_tests.hpp"
 #include "mesh_morph.hpp"
+#include "mesh_pick_coordinate_tests.hpp"
 #include "mesh_pick_tests.hpp"
 #include "model_instance_pose_tests.hpp"
 #include "render_bounds.hpp"
@@ -33,6 +34,7 @@ int main() {
         using namespace forge;
         check_model_instance_poses();
         check_mesh_picking();
+        check_mesh_pick_coordinates();
         check_animation_debug_poses();
         // Terrain strokes recover the exact picked point from the renderer's
         // camera and D3D depth, including flips, fitted viewports and -Z imports.

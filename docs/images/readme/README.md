@@ -2219,3 +2219,27 @@ Later changes to validation message prefixes and editor session reset routing do
 not change the Gallery's pixel path. Software Vulkan and isolated native control
 captures are separate from Windows/full-editor, physical GPU/input/DPI, graphical
 executable and performance acceptance. No GPU sanitizer execution is claimed.
+
+
+## Animated triangle mesh UI input
+
+The canonical `manual/images/ui-mesh-surface-controls.png` is a 1080×320 native
+ImGui/SDL Inspector capture from `tests/ui_surface_editor_tests.cpp --capture`.
+Geometry Mesh is selected through the actual property dropdown; its output is
+intentionally unassigned. The test checks both choices and ordinary Undo/Redo at
+100 and150 percent UI scale. The native window is sized for capture; no pixels or
+controls are retouched.
+
+`manual/images/ui-animated-mesh-gallery.png` is a 640×360 native GamePresentation
+and RuntimeWorld software Vulkan readback from Gallery177 after Step and native
+text input. The original glTF contains two parts, one support joint and a Bend
+morph. The Gallery test checks the actual morph and joint pose change and compares
+three exact readbacks after runtime packaging and relocation with source content
+hidden. PPM-to-PNG conversion is lossless and applies no image editing.
+
+The same graphical gate preserves the original Quad example and checks missing
+geometry-shader support rejects preparation with its terminal diagnostic. Local
+source/check/image hashes and the export receipt belong to the triangle-ui-surfaces
+capture evidence owner. These captures do not establish Windows/full-editor Main,
+MSVC/D3D12, physical GPU/input/DPI, external-client, graphical executable, broad
+performance or native graphics sanitizer acceptance.

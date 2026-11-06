@@ -261,11 +261,13 @@ RenderScene extract_render_scene(const Json& source) {
             if (!input.enabled || !input.render_texture.id || !state.valid || !state.visible)
                 return;
             require(values.contains("forge.mesh_renderer"),
-                    "UI Surface Input requires a Mesh Renderer with Engine / Quad");
+                    "UI Surface Input requires a Mesh Renderer");
             const auto mesh = component<MeshRenderer>(values, "forge.mesh_renderer");
             if (!mesh.enabled || !mesh.visible)
                 return;
-            require(mesh.mesh == engine_primitive(8), "UI Surface Input requires Engine / Quad");
+            if (input.geometry == std::uint32_t(UiSurfaceGeometry::Quad))
+                require(mesh.mesh == engine_primitive(8),
+                        "UI Surface Input Quad geometry requires Engine / Quad");
             require(result.meshes.size() > mesh_start && result.meshes.back().entity == id,
                     "UI Surface Input Mesh Renderer is invalid");
             require(result.ui_surfaces.size() < ui_surface_detail::max_surfaces,

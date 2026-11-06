@@ -1,5 +1,6 @@
 #pragma once
 #include "material_shader.hpp"
+#include "mesh_uv_surface.hpp"
 #include "model_draw_candidate.hpp"
 #include "model_instance_pose.hpp"
 #include "ui_surface_limits.hpp"
@@ -11,14 +12,17 @@ namespace forge {
 // Axis flips keep a complete one-to-one image mapping for pointer and IME routing.
 struct UiSurfaceImageMapping {
     std::array<std::array<float, 4>, 2> rows;
-    Double2 image(Double2 local) const {
-        const Double2 uv{local[0] + .5, local[1] + .5};
+    Double2 image_uv(Double2 uv) const {
         return {rows[0][0] * uv[0] + rows[0][1] * uv[1] + rows[0][2],
                 rows[1][0] * uv[0] + rows[1][1] * uv[1] + rows[1][2]};
     }
+    Double2 mesh_uv(Double2 image) const {
+        return {(image[0] - rows[0][2]) / rows[0][0], (image[1] - rows[1][2]) / rows[1][1]};
+    }
+    Double2 image(Double2 local) const { return image_uv({local[0] + .5, local[1] + .5}); }
     Double2 local(Double2 image) const {
-        return {(image[0] - rows[0][2]) / rows[0][0] - .5,
-                (image[1] - rows[1][2]) / rows[1][1] - .5};
+        const auto uv = mesh_uv(image);
+        return {uv[0] - .5, uv[1] - .5};
     }
 };
 inline UiSurfaceImageMapping ui_surface_material_mapping(const MaterialResourceData& data,
@@ -64,6 +68,45 @@ inline UiSurfaceImageMapping ui_surface_image_mapping(const asset_detail::Prepar
     if (material == draw.materials.end())
         throw std::runtime_error("UI Surface Input Material is unavailable");
     return ui_surface_material_mapping(material->second.get(), output);
+}
+inline UiSurfaceImageMapping ui_surface_mesh_material(const asset_detail::PreparedModelDraw& draw,
+                                                      unsigned lod, unsigned part,
+                                                      AssetRef<RenderTextureAsset> output) {
+    const auto& selected = draw.selection.parts.at(lod).at(part);
+    const auto material = draw.materials.find(selected.id);
+    if (material == draw.materials.end())
+        throw std::runtime_error("UI Surface Input mesh Material is unavailable");
+    return ui_surface_material_mapping(material->second.get(), output);
+}
+inline void validate_ui_surface_mesh(const asset_detail::PreparedModelDraw& draw,
+                                     AssetRef<RenderTextureAsset> output, MeshPickBudget& budget) {
+    const auto& mesh = draw.mesh->mesh;
+    if (draw.has_fallbacks() || mesh.lods.empty() ||
+        draw.selection.parts.size() != mesh.lods.size())
+        throw std::runtime_error("UI Surface Input requires a complete mesh Material selection");
+    for (unsigned lod = 0; lod < mesh.lods.size(); ++lod) {
+        const auto& parts = mesh.lods[lod].parts;
+        if (parts.empty() || draw.selection.parts[lod].size() != parts.size())
+            throw std::runtime_error("UI Surface Input mesh has an incomplete LOD selection");
+        for (unsigned p = 0; p < parts.size(); ++p) {
+            const auto& part = parts[p];
+            const auto* uv = part.find("TEXCOORD_0");
+            if (part.topology != MeshTopology::Triangles || !uv || uv->components != 2 ||
+                !std::holds_alternative<std::vector<float>>(uv->values) ||
+                uv->scalar_count() != std::uint64_t(part.vertices) * 2)
+                throw std::runtime_error(
+                    "UI Surface Input mesh requires triangles with float2 UV0");
+            (void)ui_surface_mesh_material(draw, lod, p, output);
+            const auto corners = part.indices.empty() ? part.vertices : part.indices.size();
+            if (corners % 3 != 0)
+                throw std::runtime_error("UI Surface Input mesh has incomplete triangles");
+            for (std::size_t primitive = 0; primitive < corners / 3; ++primitive) {
+                const MeshUvTriangle triangle(part, primitive, budget);
+                if (!triangle.coordinates(triangle.uv[0]))
+                    throw std::runtime_error("UI Surface Input mesh has a degenerate UV0 triangle");
+            }
+        }
+    }
 }
 
 } // namespace forge

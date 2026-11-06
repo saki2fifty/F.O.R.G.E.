@@ -460,6 +460,30 @@ assert any(row['document'] == by_source['Assets/UI/SceneSurface/Guide.rml']['id'
 assert not {row['id'] for row in surface['entities']} & {row['id'] for row in shadow_motion['entities']}
 
 
+mesh_ui_path = 'Scenes/177-animated-mesh-ui.scene.json'
+mesh_ui = json.loads((project_root / mesh_ui_path).read_text())
+assert mesh_ui['asset_id'] == by_source[mesh_ui_path]['id']
+mesh_surfaces = [row for row in mesh_ui['entities'] if 'forge.ui_surface_input' in row['components']]
+assert len(mesh_surfaces) == 1
+mesh_surface = mesh_surfaces[0]['components']
+assert mesh_surface['forge.ui_surface_input']['geometry'] == 1
+assert mesh_surface['forge.ui_surface_input']['enabled']
+assert mesh_surface['forge.ui_surface_input']['render_texture'] == output
+model_path = 'Assets/UI/MeshSurface/Panel.gltf'
+model_family = [row for row in assets if row['source'] == model_path]
+model_roots = [row for row in model_family if row['type'] == 'model' and not row.get('subasset')]
+assert len(model_roots) == 1
+assert {row['type'] for row in model_family} == {'model', 'model_node', 'mesh', 'material', 'skeleton', 'animation_clip'}
+assert mesh_surface['forge.mesh_renderer']['mesh'] in {row['id'] for row in model_family if row['type'] == 'mesh'}
+assert mesh_surface['forge.mesh_renderer']['layers'] == 4
+original_model = json.loads((project_root / model_path).read_text())
+assert len(original_model['meshes'][0]['primitives']) == 2
+assert len(original_model['skins']) == 1 and len(original_model['animations']) == 1
+for primitive in original_model['meshes'][0]['primitives']:
+    assert {'POSITION', 'TEXCOORD_0', 'JOINTS_0', 'WEIGHTS_0'} <= primitive['attributes'].keys()
+    assert len(primitive['targets']) == 1 and 'POSITION' in primitive['targets'][0]
+assert not {row['id'] for row in mesh_ui['entities']} & {row['id'] for row in surface['entities']}
+
 runtime_reflections = json.loads((project_root / 'Scenes/176-runtime-reflection-capture.scene.json').read_text())
 assert runtime_reflections['asset_id'] == by_source['Scenes/176-runtime-reflection-capture.scene.json']['id']
 runtime_probe, = [row['components']['forge.reflection_probe'] for row in runtime_reflections['entities']
@@ -668,6 +692,8 @@ def same_authored_value(actual, expected, location='$'):
         if location.endswith('.components.forge.ui_document'):
             # Optional output routing admits old main-window sources as null.
             expected = dict(render_texture=None) | expected
+        if location.endswith('.components.forge.ui_surface_input'):
+            expected = dict(geometry=0) | expected
         assert isinstance(actual, dict) and actual.keys() == expected.keys(), location
         for key in expected:
             same_authored_value(actual[key], expected[key], location + '.' + key)

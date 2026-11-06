@@ -37,8 +37,16 @@ Json document_runtime_features(const Json& document) {
                 fog != values->end() && !fog->is_null())
                 result["fog_volumes"] = fog_volume_profile_version;
             if (const auto surface = values->find("forge.ui_surface_input");
-                surface != values->end() && !surface->is_null())
-                result["ui_surface_input"] = ui_surface_detail::profile_version;
+                surface != values->end() && !surface->is_null()) {
+                const auto geometry = surface->value("geometry", Json(0));
+                if (!geometry.is_number_integer() || geometry < 0 || geometry > 1)
+                    throw std::runtime_error(
+                        "game.export.document: Invalid UI Surface Input geometry");
+                const unsigned profile = geometry == 0 ? ui_surface_detail::quad_profile_version
+                                                       : ui_surface_detail::profile_version;
+                result["ui_surface_input"] =
+                    std::max(result.value("ui_surface_input", 0u), profile);
+            }
             if (const auto message = values->find("forge.input_message"); message != values->end())
                 if (const auto trigger = message->find("trigger"); trigger != message->end()) {
                     if (!trigger->is_number_integer() || *trigger < 0 || *trigger > 2)

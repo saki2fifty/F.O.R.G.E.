@@ -976,6 +976,45 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "0d5beb2b-c26b-462f-8619-a790d05dbe83",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "b9032f3f39f182e6aebbfdd1c9ecc7b03d0525d7ffc09a690cba399b3be057de",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "a4b78a4ca2e20c379c2578b60302f163d2abaa93890d74350c71e04aeb2da800",
+          "key": "01c4688838e2291490205c5084fefbe0101100a4c4f8411b3a00407507bb1308",
+          "output_format": "forge.model-bundle",
+          "output_version": 5,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "856266d464394070ab4dae46f732ffc474b8630554b7e6972bdeed0ec2d2f4a3",
+          "source_digest": "06332b2db26b013dc4b05e4f1213b39ba9ffa2a9df060c6a15e37a63e3c00a01",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "Panel support joint",
+          "node": 1,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/UI/MeshSurface/Panel.gltf",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/0d5beb2b-c26b-462f-8619-a790d05dbe83",
+        "owner": "1c562f84-1628-4716-a15f-beed324058f7",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "0db5bc78-56d6-48d1-9f21-c8d551e5ae39",
       "metadata": {
         "forge.import": {
@@ -2268,6 +2307,99 @@
       "source": "Assets/AudioCodecs/Stereo.flac",
       "source_dependencies": [],
       "type": "audio_clip"
+    },
+    {
+      "dependencies": [
+        "0d5beb2b-c26b-462f-8619-a790d05dbe83",
+        "31874959-8c62-4b51-950b-2ab7708d712c",
+        "36a993a2-d5d3-4da1-804c-6fc6fca82d98",
+        "66d05832-fabf-47d0-9aae-d7a888f37bc6",
+        "bc6b664c-e028-46c3-b9f7-c99a17f750f6",
+        "bd6fe618-98f6-4343-9a20-a6abb4fd1efa",
+        "e3e63753-959d-4018-8c88-61f2b90c2f43"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "01c4688838e2291490205c5084fefbe0101100a4c4f8411b3a00407507bb1308",
+          "role": "model.member:/nodes/1",
+          "target": "0d5beb2b-c26b-462f-8619-a790d05dbe83",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "01c4688838e2291490205c5084fefbe0101100a4c4f8411b3a00407507bb1308",
+          "role": "model.member:/nodes/0",
+          "target": "31874959-8c62-4b51-950b-2ab7708d712c",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "01c4688838e2291490205c5084fefbe0101100a4c4f8411b3a00407507bb1308",
+          "role": "model.member:/materials/0",
+          "target": "36a993a2-d5d3-4da1-804c-6fc6fca82d98",
+          "type": "material"
+        },
+        {
+          "kind": "runtime",
+          "revision": "01c4688838e2291490205c5084fefbe0101100a4c4f8411b3a00407507bb1308",
+          "role": "model.member:/animations/0",
+          "target": "66d05832-fabf-47d0-9aae-d7a888f37bc6",
+          "type": "animation_clip"
+        },
+        {
+          "kind": "runtime",
+          "revision": "01c4688838e2291490205c5084fefbe0101100a4c4f8411b3a00407507bb1308",
+          "role": "model.member:/nodes/2",
+          "target": "bc6b664c-e028-46c3-b9f7-c99a17f750f6",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "01c4688838e2291490205c5084fefbe0101100a4c4f8411b3a00407507bb1308",
+          "role": "model.member:/meshes/0",
+          "target": "bd6fe618-98f6-4343-9a20-a6abb4fd1efa",
+          "type": "mesh"
+        },
+        {
+          "kind": "runtime",
+          "revision": "01c4688838e2291490205c5084fefbe0101100a4c4f8411b3a00407507bb1308",
+          "role": "model.member:/rig/skeleton",
+          "target": "e3e63753-959d-4018-8c88-61f2b90c2f43",
+          "type": "skeleton"
+        }
+      ],
+      "id": "1c562f84-1628-4716-a15f-beed324058f7",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "b9032f3f39f182e6aebbfdd1c9ecc7b03d0525d7ffc09a690cba399b3be057de",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "a4b78a4ca2e20c379c2578b60302f163d2abaa93890d74350c71e04aeb2da800",
+          "key": "01c4688838e2291490205c5084fefbe0101100a4c4f8411b3a00407507bb1308",
+          "output_format": "forge.model-bundle",
+          "output_version": 5,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "856266d464394070ab4dae46f732ffc474b8630554b7e6972bdeed0ec2d2f4a3",
+          "source_digest": "06332b2db26b013dc4b05e4f1213b39ba9ffa2a9df060c6a15e37a63e3c00a01",
+          "version": 1
+        },
+        "forge.model": {
+          "bytes": 5491,
+          "file": "model.json",
+          "sha256": "780ca1ed77aaaf7fcf7a55069b56fff215a1c5ab6b9813b51c534cd7c19e8b8b",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/UI/MeshSurface/Panel.gltf",
+      "source_dependencies": [],
+      "type": "model"
     },
     {
       "dependencies": [
@@ -3935,6 +4067,55 @@
     },
     {
       "dependencies": [
+        "bd6fe618-98f6-4343-9a20-a6abb4fd1efa"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "01c4688838e2291490205c5084fefbe0101100a4c4f8411b3a00407507bb1308",
+          "role": "mesh",
+          "target": "bd6fe618-98f6-4343-9a20-a6abb4fd1efa",
+          "type": "mesh"
+        }
+      ],
+      "id": "31874959-8c62-4b51-950b-2ab7708d712c",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "b9032f3f39f182e6aebbfdd1c9ecc7b03d0525d7ffc09a690cba399b3be057de",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "a4b78a4ca2e20c379c2578b60302f163d2abaa93890d74350c71e04aeb2da800",
+          "key": "01c4688838e2291490205c5084fefbe0101100a4c4f8411b3a00407507bb1308",
+          "output_format": "forge.model-bundle",
+          "output_version": 5,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "856266d464394070ab4dae46f732ffc474b8630554b7e6972bdeed0ec2d2f4a3",
+          "source_digest": "06332b2db26b013dc4b05e4f1213b39ba9ffa2a9df060c6a15e37a63e3c00a01",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "Bent two-part panel",
+          "node": 0,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/UI/MeshSurface/Panel.gltf",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/31874959-8c62-4b51-950b-2ab7708d712c",
+        "owner": "1c562f84-1628-4716-a15f-beed324058f7",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [
         "72f03f89-704d-437f-a6cc-97322796a249"
       ],
       "dependency_edges": [
@@ -4392,6 +4573,47 @@
       "source": "Assets/UI/SimulationSpeed.rml",
       "source_dependencies": [],
       "type": "ui_document"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "36a993a2-d5d3-4da1-804c-6fc6fca82d98",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "b9032f3f39f182e6aebbfdd1c9ecc7b03d0525d7ffc09a690cba399b3be057de",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "a4b78a4ca2e20c379c2578b60302f163d2abaa93890d74350c71e04aeb2da800",
+          "key": "01c4688838e2291490205c5084fefbe0101100a4c4f8411b3a00407507bb1308",
+          "output_format": "forge.model-bundle",
+          "output_version": 5,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "856266d464394070ab4dae46f732ffc474b8630554b7e6972bdeed0ec2d2f4a3",
+          "source_digest": "06332b2db26b013dc4b05e4f1213b39ba9ffa2a9df060c6a15e37a63e3c00a01",
+          "version": 1
+        },
+        "forge.model": {
+          "bytes": 713,
+          "file": "material-0.fmat",
+          "name": "Panel surface",
+          "sha256": "21ed255fda7aeb3f603608fe85fb1c35c9450d7a99dec248cebcbf1c2ac5a84d",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/UI/MeshSurface/Panel.gltf",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/36a993a2-d5d3-4da1-804c-6fc6fca82d98",
+        "owner": "1c562f84-1628-4716-a15f-beed324058f7",
+        "removed": false
+      },
+      "type": "material"
     },
     {
       "dependencies": [],
@@ -5719,6 +5941,28 @@
         "removed": false
       },
       "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "4cff1f0e-d71f-4438-8019-4dcb54ce62f2",
+      "metadata": {
+        "forge.ui_source": {
+          "bytes": 655,
+          "digest": "d4d59001f668bc4ab7265322092ce720fbd2245789461cf30097314e3a2e5989",
+          "format": "rml"
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/UI/MeshSurface/Guide.rml",
+      "source_dependencies": [
+        {
+          "revision": "d4d59001f668bc4ab7265322092ce720fbd2245789461cf30097314e3a2e5989",
+          "role": "ui.source",
+          "source": "Assets/UI/MeshSurface/Guide.rml"
+        }
+      ],
+      "type": "ui_document"
     },
     {
       "dependencies": [
@@ -7122,6 +7366,57 @@
         "removed": false
       },
       "type": "material"
+    },
+    {
+      "dependencies": [
+        "e3e63753-959d-4018-8c88-61f2b90c2f43"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "01c4688838e2291490205c5084fefbe0101100a4c4f8411b3a00407507bb1308",
+          "role": "skeleton",
+          "target": "e3e63753-959d-4018-8c88-61f2b90c2f43",
+          "type": "skeleton"
+        }
+      ],
+      "id": "66d05832-fabf-47d0-9aae-d7a888f37bc6",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "b9032f3f39f182e6aebbfdd1c9ecc7b03d0525d7ffc09a690cba399b3be057de",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "a4b78a4ca2e20c379c2578b60302f163d2abaa93890d74350c71e04aeb2da800",
+          "key": "01c4688838e2291490205c5084fefbe0101100a4c4f8411b3a00407507bb1308",
+          "output_format": "forge.model-bundle",
+          "output_version": 5,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "856266d464394070ab4dae46f732ffc474b8630554b7e6972bdeed0ec2d2f4a3",
+          "source_digest": "06332b2db26b013dc4b05e4f1213b39ba9ffa2a9df060c6a15e37a63e3c00a01",
+          "version": 1
+        },
+        "forge.model": {
+          "bytes": 332,
+          "file": "clip-0.ozz",
+          "name": "Panel depth motion",
+          "sha256": "172d8404506b1616d7ce180f98b3130f309bb734292e60981df9d384990a1054",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/UI/MeshSurface/Panel.gltf",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/66d05832-fabf-47d0-9aae-d7a888f37bc6",
+        "owner": "1c562f84-1628-4716-a15f-beed324058f7",
+        "removed": false
+      },
+      "type": "animation_clip"
     },
     {
       "dependencies": [],
@@ -10867,6 +11162,16 @@
       "type": "scene"
     },
     {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "974a4ba9-cd8a-4fa7-9577-8a1cd521ff43",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/177-animated-mesh-ui.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
       "dependencies": [
         "0c426876-43f2-466c-b9c9-1d1b2c5c0b7e"
       ],
@@ -12852,6 +13157,45 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "bc6b664c-e028-46c3-b9f7-c99a17f750f6",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "b9032f3f39f182e6aebbfdd1c9ecc7b03d0525d7ffc09a690cba399b3be057de",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "a4b78a4ca2e20c379c2578b60302f163d2abaa93890d74350c71e04aeb2da800",
+          "key": "01c4688838e2291490205c5084fefbe0101100a4c4f8411b3a00407507bb1308",
+          "output_format": "forge.model-bundle",
+          "output_version": 5,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "856266d464394070ab4dae46f732ffc474b8630554b7e6972bdeed0ec2d2f4a3",
+          "source_digest": "06332b2db26b013dc4b05e4f1213b39ba9ffa2a9df060c6a15e37a63e3c00a01",
+          "version": 1
+        },
+        "forge.model": {
+          "name": "Panel rig",
+          "node": 2,
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/UI/MeshSurface/Panel.gltf",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/bc6b664c-e028-46c3-b9f7-c99a17f750f6",
+        "owner": "1c562f84-1628-4716-a15f-beed324058f7",
+        "removed": false
+      },
+      "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "bcd4ad7e-6eb0-435b-ae4f-aab5cdcd7074",
       "metadata": {},
       "schema_version": 3,
@@ -12897,6 +13241,57 @@
         "removed": false
       },
       "type": "model_node"
+    },
+    {
+      "dependencies": [
+        "36a993a2-d5d3-4da1-804c-6fc6fca82d98"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "01c4688838e2291490205c5084fefbe0101100a4c4f8411b3a00407507bb1308",
+          "role": "material.1",
+          "target": "36a993a2-d5d3-4da1-804c-6fc6fca82d98",
+          "type": "material"
+        }
+      ],
+      "id": "bd6fe618-98f6-4343-9a20-a6abb4fd1efa",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "b9032f3f39f182e6aebbfdd1c9ecc7b03d0525d7ffc09a690cba399b3be057de",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "a4b78a4ca2e20c379c2578b60302f163d2abaa93890d74350c71e04aeb2da800",
+          "key": "01c4688838e2291490205c5084fefbe0101100a4c4f8411b3a00407507bb1308",
+          "output_format": "forge.model-bundle",
+          "output_version": 5,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "856266d464394070ab4dae46f732ffc474b8630554b7e6972bdeed0ec2d2f4a3",
+          "source_digest": "06332b2db26b013dc4b05e4f1213b39ba9ffa2a9df060c6a15e37a63e3c00a01",
+          "version": 1
+        },
+        "forge.model": {
+          "bytes": 2614,
+          "file": "mesh-0.fmesh",
+          "name": "Bent panel",
+          "sha256": "f36d0c8bf5bd90381faf92c6e9a894df27db9e020f9436006818f80b29a97097",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/UI/MeshSurface/Panel.gltf",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/bd6fe618-98f6-4343-9a20-a6abb4fd1efa",
+        "owner": "1c562f84-1628-4716-a15f-beed324058f7",
+        "removed": false
+      },
+      "type": "mesh"
     },
     {
       "dependencies": [],
@@ -14821,6 +15216,47 @@
         "removed": false
       },
       "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "e3e63753-959d-4018-8c88-61f2b90c2f43",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "b9032f3f39f182e6aebbfdd1c9ecc7b03d0525d7ffc09a690cba399b3be057de",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.model.gltf",
+          "importer_revision": "a4b78a4ca2e20c379c2578b60302f163d2abaa93890d74350c71e04aeb2da800",
+          "key": "01c4688838e2291490205c5084fefbe0101100a4c4f8411b3a00407507bb1308",
+          "output_format": "forge.model-bundle",
+          "output_version": 5,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "2ace44709cff7f8caad5bead04c65b89773d4cbe337f75a60c57d8040e72a661",
+          "settings_version": 1,
+          "sidecar_digest": "856266d464394070ab4dae46f732ffc474b8630554b7e6972bdeed0ec2d2f4a3",
+          "source_digest": "06332b2db26b013dc4b05e4f1213b39ba9ffa2a9df060c6a15e37a63e3c00a01",
+          "version": 1
+        },
+        "forge.model": {
+          "bytes": 234,
+          "file": "skeleton.ozz",
+          "name": "Model skeleton",
+          "sha256": "e31769993bfaa95a3c7e675e476a860cf9e38662e9dd02370911c5821ec4d6f0",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/UI/MeshSurface/Panel.gltf",
+      "source_dependencies": [],
+      "subasset": {
+        "key": "member/e3e63753-959d-4018-8c88-61f2b90c2f43",
+        "owner": "1c562f84-1628-4716-a15f-beed324058f7",
+        "removed": false
+      },
+      "type": "skeleton"
     },
     {
       "dependencies": [

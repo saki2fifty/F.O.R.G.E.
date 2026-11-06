@@ -1,0 +1,306 @@
+{
+  "asset": {
+    "version": "2.0",
+    "generator": "FORGE original animated mesh input sample"
+  },
+  "scene": 0,
+  "scenes": [
+    {
+      "name": "Animated UI panel",
+      "nodes": [
+        2
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "name": "Bent two-part panel",
+      "mesh": 0,
+      "skin": 0
+    },
+    {
+      "name": "Panel support joint"
+    },
+    {
+      "name": "Panel rig",
+      "children": [
+        0,
+        1
+      ]
+    }
+  ],
+  "skins": [
+    {
+      "name": "Panel support",
+      "joints": [
+        1
+      ],
+      "skeleton": 1,
+      "inverseBindMatrices": 8
+    }
+  ],
+  "meshes": [
+    {
+      "name": "Bent panel",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1,
+            "TEXCOORD_0": 2,
+            "JOINTS_0": 3,
+            "WEIGHTS_0": 4
+          },
+          "material": 0,
+          "targets": [
+            {
+              "POSITION": 5
+            }
+          ],
+          "indices": 6
+        },
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1,
+            "TEXCOORD_0": 2,
+            "JOINTS_0": 3,
+            "WEIGHTS_0": 4
+          },
+          "material": 0,
+          "targets": [
+            {
+              "POSITION": 5
+            }
+          ],
+          "indices": 7
+        }
+      ],
+      "weights": [
+        0
+      ],
+      "extras": {
+        "targetNames": [
+          "Bend"
+        ]
+      }
+    }
+  ],
+  "materials": [
+    {
+      "name": "Panel surface",
+      "doubleSided": true,
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "metallicFactor": 0,
+        "roughnessFactor": 1
+      }
+    }
+  ],
+  "animations": [
+    {
+      "name": "Panel depth motion",
+      "samplers": [
+        {
+          "input": 9,
+          "output": 10,
+          "interpolation": "LINEAR"
+        },
+        {
+          "input": 9,
+          "output": 11,
+          "interpolation": "LINEAR"
+        }
+      ],
+      "channels": [
+        {
+          "sampler": 0,
+          "target": {
+            "node": 0,
+            "path": "weights"
+          }
+        },
+        {
+          "sampler": 1,
+          "target": {
+            "node": 1,
+            "path": "translation"
+          }
+        }
+      ]
+    }
+  ],
+  "buffers": [
+    {
+      "byteLength": 556,
+      "uri": "data:application/octet-stream;base64,AAAAvwAAAL8AAAAAAAAAAAAAAL+amRk+AAAAPwAAAL8AAAAAAAAAvwAAAD8AAAAAAAAAAAAAAD+amRk+AAAAPwAAAD8AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAAA/AAAAAAAAgD8AAAAAAAAAAAAAgD8AAAA/AACAPwAAgD8AAIA/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAPwAAAAAAAAAAAAAAAAAAgD8AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAAAAAACAPwAAAAAAAAAAAAAAAAAAgD8AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACamZk+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACamZk+AAAAAAAAAAAAAAAAAAADAAEAAQADAAQAAQAEAAIAAgAEAAUAAACAPwAAAAAAAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAAAAAAAAAAAAgD8AAAAAAAAAAAAAAAAAAAAAAACAPwAAAAAAAIA/AAAAQAAAAAAAAAA/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAzcxMPgAAAAAAAAAAAAAAAA=="
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteOffset": 0,
+      "byteLength": 72
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 72,
+      "byteLength": 72
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 144,
+      "byteLength": 48
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 192,
+      "byteLength": 48
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 240,
+      "byteLength": 96
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 336,
+      "byteLength": 72
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 408,
+      "byteLength": 12
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 420,
+      "byteLength": 12
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 432,
+      "byteLength": 64
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 496,
+      "byteLength": 12
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 508,
+      "byteLength": 12
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 520,
+      "byteLength": 36
+    }
+  ],
+  "accessors": [
+    {
+      "bufferView": 0,
+      "componentType": 5126,
+      "count": 6,
+      "type": "VEC3",
+      "min": [
+        -0.5,
+        -0.5,
+        0
+      ],
+      "max": [
+        0.5,
+        0.5,
+        0.15
+      ]
+    },
+    {
+      "bufferView": 1,
+      "componentType": 5126,
+      "count": 6,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "componentType": 5126,
+      "count": 6,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 3,
+      "componentType": 5123,
+      "count": 6,
+      "type": "VEC4"
+    },
+    {
+      "bufferView": 4,
+      "componentType": 5126,
+      "count": 6,
+      "type": "VEC4"
+    },
+    {
+      "bufferView": 5,
+      "componentType": 5126,
+      "count": 6,
+      "type": "VEC3",
+      "min": [
+        0,
+        0,
+        0
+      ],
+      "max": [
+        0,
+        0,
+        0.3
+      ]
+    },
+    {
+      "bufferView": 6,
+      "componentType": 5123,
+      "count": 6,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 7,
+      "componentType": 5123,
+      "count": 6,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 8,
+      "componentType": 5126,
+      "count": 1,
+      "type": "MAT4"
+    },
+    {
+      "bufferView": 9,
+      "componentType": 5126,
+      "count": 3,
+      "type": "SCALAR",
+      "min": [
+        0
+      ],
+      "max": [
+        2
+      ]
+    },
+    {
+      "bufferView": 10,
+      "componentType": 5126,
+      "count": 3,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 11,
+      "componentType": 5126,
+      "count": 3,
+      "type": "VEC3"
+    }
+  ]
+}

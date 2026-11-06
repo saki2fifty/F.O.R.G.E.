@@ -79,7 +79,8 @@ template <class T> Json encode(const T& p) {
                 {"render_texture", p.render_texture.id ? Json(p.render_texture.id) : Json()}};
     else if constexpr (std::is_same_v<T, UiSurfaceInput>)
         return {{"render_texture", p.render_texture.id ? Json(p.render_texture.id) : Json()},
-                {"enabled", p.enabled}};
+                {"enabled", p.enabled},
+                {"geometry", p.geometry}};
     else if constexpr (std::is_same_v<T, UiLocalization>)
         return {{"catalog", p.catalog.id ? Json(p.catalog.id) : Json()}, {"locale", p.locale}};
     else if constexpr (std::is_same_v<T, UiValues>)
@@ -407,6 +408,10 @@ template <class T> Value decode(const Json& p) {
         if (!p.at("render_texture").is_null())
             value.render_texture.id = p.at("render_texture").get<AssetId>();
         value.enabled = p.at("enabled").get<bool>();
+        const auto geometry = p.value("geometry", Json(0));
+        if (!geometry.is_number_integer() || geometry < 0 || geometry > 1)
+            throw std::runtime_error("UI Surface Input geometry must be 0 Quad or 1 Mesh");
+        value.geometry = geometry.get<std::uint32_t>();
         return value;
     } else if constexpr (std::is_same_v<T, UiLocalization>) {
         UiLocalization value;
@@ -1277,7 +1282,8 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
     } else if constexpr (std::is_same_v<T, UiSurfaceInput>) {
         register_asset_ref<RenderTextureAsset>(w, "forge.render_texture_ref");
         c.template member<AssetRef<RenderTextureAsset>>("render_texture")
-            .template member<bool>("enabled");
+            .template member<bool>("enabled")
+            .template member<std::uint32_t>("geometry");
     } else if constexpr (std::is_same_v<T, UiLocalization>) {
         register_asset_ref<UiLocalizationAsset>(w, "forge.ui_localization_ref");
         w.component<std::string>("forge.authored_string").opaque(reflected_string);
@@ -1989,12 +1995,12 @@ const std::array<Builtin, builtin_count>& builtins() {
             "forge.fog_volume", "Homogeneous linear-color fog inside a transformed box or sphere",
             "unitless", {}, {},
             [](flecs::world& w) { return register_type<FogVolume>(w, "forge.fog_volume"); }),
-        descriptor<UiSurfaceInput>(
-            "forge.ui_surface_input",
-            "Pointer and keyboard input for UI displayed on an Engine / Quad", "unitless", {}, {},
-            [](flecs::world& w) {
-                return register_type<UiSurfaceInput>(w, "forge.ui_surface_input");
-            })};
+        descriptor<UiSurfaceInput>("forge.ui_surface_input",
+                                   "Pointer and keyboard input for UI displayed on a mesh surface",
+                                   "unitless", {}, {}, [](flecs::world& w) {
+                                       return register_type<UiSurfaceInput>(
+                                           w, "forge.ui_surface_input");
+                                   })};
     return types;
 }
 Json registration_options(const Builtin& type, const std::string& field) {
@@ -3208,7 +3214,13 @@ Json registration_options(const Builtin& type, const std::string& field) {
             value["display_name"] = "Render Texture";
             value["asset_type"] = RenderTextureAsset::type;
             value["nullable"] = true;
-            value["description"] = "Camera image used by this Quad's unlit base color Material";
+            value["description"] = "Camera image used by the surface's unlit base color Material";
+        } else if (field == "geometry") {
+            value["display_name"] = "Geometry";
+            value["minimum"] = 0;
+            value["maximum"] = 1;
+            value["description"] =
+                "0 Engine Quad; 1 retained mesh triangles with UV0, including deformation";
         } else {
             value["description"] = "Allow pointer, keyboard and text input on this UI surface";
         }
@@ -3562,6 +3574,9 @@ ecs_entity_t builtin_enum(flecs::world& world, const std::string& component,
     } else if (component == "forge.camera" && field == "projection") {
         type = "forge.CameraProjection";
         names = {"Perspective", "Orthographic"};
+    } else if (component == "forge.ui_surface_input" && field == "geometry") {
+        type = "forge.UiSurfaceGeometry";
+        names = {"Quad", "Mesh"};
     } else if (component == "forge.fog_volume" && field == "shape") {
         type = "forge.FogVolumeShape";
         names = {"Box", "Sphere"};
@@ -3770,6 +3785,11 @@ Json register_builtins(flecs::world& world, unsigned family) {
         if (name == "forge.camera" || name == "forge.ui_document") {
             world.component<ReflectedMemberDefault>(reflected_member_default_type);
             c.lookup("render_texture").set<ReflectedMemberDefault>({nullptr});
+        }
+        if (name == "forge.ui_surface_input") {
+            world.component<ReflectedMemberDefault>(reflected_member_default_type);
+            c.lookup("geometry")
+                .set<ReflectedMemberDefault>({std::uint32_t(UiSurfaceGeometry::Quad)});
         }
         if (name == "forge.input_message") {
             world.component<ReflectedMemberDefault>(reflected_member_default_type);

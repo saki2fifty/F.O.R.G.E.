@@ -17,3 +17,29 @@ require a matching capture-capable kit only when authored capture is enabled.
 Gallery176 provides original rotating sources and a saved fallback. The illustrated
 lighting guide covers controls, source masks, refresh timing, saving/export and
 limits. Windows/full-editor and physical verification remain pending.
+
+## Interactive UI on animated meshes
+
+UI Surface Input has an explicit Mesh geometry mode alongside the default Engine
+Quad mode. It routes native controls through retained triangles, current LOD/part,
+UV0, supported Material image transforms and the rendered morph/skin or static-wind
+pose. Shared picking supplies original perspective-correct triangle coordinates
+through clipping; reverse projection rejects ambiguous UV islands and in-image
+holes. Capture follows the current pose, permits outside-image continuation and
+cancels changed mesh revisions or LODs. Validation, UV queries and occluders share
+bounded work and reject incomplete results.
+
+Inspector choices, native values, ordinary Scene history, automation/MCP discovery,
+SDK and conditional export requirements share their existing owners. Old sources
+default to Quad and retain their runtime requirement; Mesh needs the current kit.
+The exact typed SDK includes the appended geometry field, with ABI1 tables unchanged.
+Geometry-stage UV/skin-row fields preserve smooth image interpolation through
+signed skinning. Terminal failed image-material admission reports its error instead
+of remaining pending.
+
+Gallery177 contains an original two-part bent model with a support joint and Bend
+morph. Native input, visible controls, pose changes and relocated source-hidden
+content are checked together. The manual includes authentic Inspector and game
+captures. Local native, SDK/MCP, selected CPU sanitizers and software-Vulkan checks
+are separate from pending Windows/MSVC/D3D12, physical input/GPU and exported-EXE
+acceptance. No numbered Windows delivery accompanies this local change.

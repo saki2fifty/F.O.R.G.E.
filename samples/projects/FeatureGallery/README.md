@@ -2286,3 +2286,25 @@ runtime edits unless kept through the tuning review; save authored changes befor
 exporting this Scene as Startup Scene. A matching runtime kit recreates the maps
 without the editable DDS source. See **Refresh lighting during Play** in the Scene
 lighting manual for source-layer, capacity and reset limits.
+
+
+## UI on an animated mesh
+
+Open **Scenes/177-animated-mesh-ui.scene.json**, press **Play**, open **Game** and
+capture gameplay input. The left panel is a two-part bent mesh with a support
+joint and a **Bend** morph. Click **Pause**, **Step**, **Resume** or its text field.
+Step advances its animation once while the controls stay usable. The right
+monitor is a display-only relay of the same camera output.
+
+The panel's **UI Surface Input → Geometry** is **Mesh**. Its original model is
+**Assets/UI/MeshSurface/Panel.gltf**; the UI document and output setup are shared
+with the interactive surface example. Each triangle has usable UV0 inside the
+image, and each part uses the matching ordinary unlit output Material. Pointer
+input and text caret positioning follow the displayed pose and Material UV flip.
+Overlapping UV islands at distinct world points and UV holes have no input target.
+Changing the mesh revision or rendered LOD cancels an active gesture.
+
+Save the Scene, select it as the startup Scene in Project Settings, and export
+with the runtime kit packaged with this editor. No C++ gameplay module is needed.
+See the [runtime UI guide](../../../manual/editor/runtime-ui.md)
+for setup and supported geometry/Material limits.
