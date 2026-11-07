@@ -6,6 +6,7 @@ struct SoundCueGalleryProfile {
     bool timed;
     bool repeating = false;
     bool completion = false;
+    bool finite = false;
 };
 constexpr SoundCueGalleryProfile event_sound_cue_gallery{
     "Scenes/192-event-sound-cues.scene.json", "7067a5b8-251b-4b35-93b3-0fdf7871178b", false};
@@ -19,6 +20,14 @@ constexpr SoundCueGalleryProfile repeating_sound_cue_gallery{
 constexpr SoundCueGalleryProfile completion_sound_cue_gallery{
     "Scenes/195-completion-sound-cues.scene.json", "fc1ab5b9-221b-4922-930b-489357d1b483", true,
     true, true};
+
+constexpr SoundCueGalleryProfile finite_sound_cue_gallery{
+    "Scenes/197-finite-sound-cue-runs.scene.json",
+    "e357b0c2-c8ad-43cf-b2da-7704c3189013",
+    true,
+    true,
+    true,
+    true};
 
 void author_sound_cue_gallery(const std::filesystem::path& root,
                               const SoundCueGalleryProfile& profile = event_sound_cue_gallery) {
@@ -74,12 +83,15 @@ void author_sound_cue_gallery(const std::filesystem::path& root,
         definition.repeat_mode = profile.completion ? 1 : 0;
         definition.repeat_on_start = true;
         definition.repeat_pause_with_game = false;
+        definition.repeat_event_limit = profile.finite ? 4 : 0;
     }
-    const auto cue = create(profile.completion ? "Completion layered events - select for Live sound"
-                            : profile.repeating ? "Repeating layered events - select for Live sound"
-                            : profile.timed     ? "Timed layered event - select for Trigger cue"
-                                                : "Layered event - select for Trigger cue",
-                            "audio.sound_cue", sound_cue_json(definition));
+    const auto cue =
+        create(profile.finite       ? "Four layered events - select for Live sound"
+               : profile.completion ? "Completion layered events - select for Live sound"
+               : profile.repeating  ? "Repeating layered events - select for Live sound"
+               : profile.timed      ? "Timed layered event - select for Trigger cue"
+                                    : "Layered event - select for Trigger cue",
+               "audio.sound_cue", sound_cue_json(definition));
     if (!profile.repeating) {
         const auto controller = create("Two-second sound events", "animation.sequence",
                                        {{"duration", 2}, {"loop", true}});
@@ -175,6 +187,18 @@ void verify_sound_cue_gallery(const std::filesystem::path& gallery,
         require(rejected, "Completion events admitted an older periodic-only kit");
         kit["runtime_sound_cue_completion"] = sound_cue_completion_profile_version;
     }
+    require(features.contains("sound_cue_finite") == profile.finite,
+            "Actual prepared Scene has incorrect finite cue requirements");
+    if (profile.finite) {
+        bool rejected = false;
+        try {
+            validate_runtime_compatibility(selected, kit);
+        } catch (const std::exception&) {
+            rejected = true;
+        }
+        require(rejected, "Finite run admitted an older unlimited-only kit");
+        kit["runtime_sound_cue_finite"] = sound_cue_finite_profile_version;
+    }
     validate_runtime_compatibility(selected, kit);
     auto cooked = read(moved / packaged.records().at(id).source);
     for (const auto& entry : std::filesystem::recursive_directory_iterator(moved))
@@ -215,6 +239,7 @@ void verify_sound_cue_gallery(const std::filesystem::path& gallery,
                                                                   : 0) &&
                 graph.repeat_mode == (profile.completion ? 1u : 0u) &&
                 graph.repeat_on_start == profile.repeating &&
+                graph.repeat_event_limit == (profile.finite ? 4u : 0u) &&
                 graph.repeat_pause_with_game != profile.repeating,
             "Gallery repeating configuration changed");
     Game authored(source, manual, routing), oracle(source, oracle_document, routing);
@@ -247,7 +272,8 @@ void verify_sound_cue_gallery(const std::filesystem::path& gallery,
         }
         frame += 256;
     };
-    for (unsigned event = 0; event < 12; ++event) {
+    const unsigned events = profile.finite ? 4 : 12;
+    for (unsigned event = 0; event < events; ++event) {
         // Closed-form oracle for this fixed example, without production graph traversal/state.
         unsigned selected_index = 3;
         if (event % 2) {
@@ -292,7 +318,17 @@ void verify_sound_cue_gallery(const std::filesystem::path& gallery,
                     exported.audio->status().at("clips") == 1,
                 "Cue Gallery introduced another primary voice or duplicated the shared clip");
     }
-    if (profile.repeating) {
+    if (profile.finite) {
+        for (auto* game : {&authored, &exported}) {
+            game->audio->poll_loading();
+            const auto status = AudioSourceAccess::status(*game->audio, game->scene.reference(cue));
+            require(status.at("repeat_finished") && !status.at("repeat_running") &&
+                        status.at("repeat_issued_events") == events &&
+                        status.at("repeat_run_voices") == 0,
+                    "Source-hidden finite Gallery did not finish its exact four-event run");
+        }
+    }
+    if (profile.repeating && !profile.finite) {
         for (auto* game : {&authored, &exported})
             AudioSourceAccess::control(*game->audio, game->scene.reference(cue),
                                        AudioSourceOperation::Stop);
@@ -305,13 +341,15 @@ void verify_sound_cue_gallery(const std::filesystem::path& gallery,
     require(energy > 1e-5 && authored.scene.snapshot() == authored_before &&
                 exported.scene.snapshot() == exported_before,
             "Cue Gallery was silent or triggering changed saved component data");
-    std::cout << "Original Sound Cue Gallery:12 closed-form event pairs, exact independent PCM and "
+    std::cout << "Original Sound Cue Gallery:" << events
+              << " closed-form event pairs, exact independent PCM and "
                  "source-hidden moved cooked content passed\n";
     const auto proved = std::filesystem::absolute(scratch) /
-                        (profile.completion  ? "proved-completion-sound-cue.scene.json"
-                         : profile.repeating ? "proved-repeating-sound-cue.scene.json"
-                         : profile.timed     ? "proved-timed-sound-cue.scene.json"
-                                             : "proved-sound-cue.scene.json");
+                        (profile.finite       ? "proved-finite-sound-cue.scene.json"
+                         : profile.completion ? "proved-completion-sound-cue.scene.json"
+                         : profile.repeating  ? "proved-repeating-sound-cue.scene.json"
+                         : profile.timed      ? "proved-timed-sound-cue.scene.json"
+                                              : "proved-sound-cue.scene.json");
     std::filesystem::copy_file(root / "source-hidden" / profile.scene, proved,
                                std::filesystem::copy_options::overwrite_existing);
     std::cout << "Proved source Scene retained at " << proved << '\n';

@@ -425,7 +425,7 @@ struct AudioRuntime::Impl {
         bool play_when_ready = false, one_shot = false, stream_loop = false;
         bool stream_starvation_reported = false, stream_error_reported = false;
         std::uint64_t stream_initial_frame = 0;
-        std::uint64_t cue_event_ticket = 0;
+        std::uint64_t cue_event_ticket = 0, cue_run_ticket = 0;
         bool follows_game_pause = true;
         ma_node* route_parent = nullptr;
         float source_volume = 1;
@@ -484,12 +484,16 @@ struct AudioRuntime::Impl {
         AssetId clip;
         AudioSourceOperation operation;
         double delay_seconds = 0;
-        std::uint64_t cue_entity = 0, cue_event_ticket = 0;
+        std::uint64_t cue_entity = 0, cue_event_ticket = 0, cue_run_ticket = 0;
     };
     std::vector<Command> commands;
     struct CuePlayback {
         struct Repetition {
             bool running = false, paused = false, first = true, startup_seen = false;
+            bool finishing = false, finished = false;
+            std::uint32_t issued_events = 0;
+            std::uint64_t run_ticket = 0;
+            std::size_t run_pending_requests = 0, run_admitted_voices = 0;
             detail::AudioStartDelay wait;
             std::uint64_t skipped = 0;
             std::uint64_t awaited_ticket = 0, completed_events = 0;
@@ -504,7 +508,7 @@ struct AudioRuntime::Impl {
         Repetition repetition;
     };
     std::map<std::uint64_t, CuePlayback> cue_states;
-    std::uint64_t cue_event_ticket = 0;
+    std::uint64_t cue_provenance_ticket = 0;
     std::map<std::uint64_t, std::string> cue_repeat_errors;
     std::uint64_t configuration_checks = 0;
     std::string listener_error;
@@ -719,7 +723,7 @@ struct AudioRuntime::Impl {
         }
         return program;
     }
-    std::uint64_t queue_cue(EntityRef ref, bool unpaused_only) {
+    std::uint64_t queue_cue(EntityRef ref, bool unpaused_only, std::uint64_t run_ticket = 0) {
         const auto program = cue_program(ref, unpaused_only);
         const auto id = world.resolve(ref).entity;
         const auto found = cue_states.find(id);
@@ -727,9 +731,9 @@ struct AudioRuntime::Impl {
             throw std::runtime_error("Sound Cue active selection-state limit is 256");
         const bool same = found != cue_states.end() && found->second.ref == ref &&
                           found->second.definition == program.definition();
-        if (cue_event_ticket == std::numeric_limits<std::uint64_t>::max())
+        if (cue_provenance_ticket == std::numeric_limits<std::uint64_t>::max())
             throw std::runtime_error("Sound Cue event provenance is exhausted");
-        const auto ticket = cue_event_ticket + 1;
+        const auto ticket = cue_provenance_ticket + 1;
         auto selected = program.select(same ? found->second.state : SoundCueState{});
         CuePlayback next{ref,
                          program.definition(),
@@ -744,9 +748,10 @@ struct AudioRuntime::Impl {
                 commands.back().delay_seconds = next.last_delay_seconds[i];
                 commands.back().cue_entity = id;
                 commands.back().cue_event_ticket = ticket;
+                commands.back().cue_run_ticket = run_ticket;
             }
             cue_states.insert_or_assign(id, std::move(next));
-            cue_event_ticket = ticket;
+            cue_provenance_ticket = ticket;
         } catch (...) {
             commands.resize(before);
             throw;
@@ -815,12 +820,19 @@ struct AudioRuntime::Impl {
         if (std::size_t(active) >= sound_cue_repeat_instance_limit &&
             (found == cue_states.end() || !found->second.repetition.running))
             throw std::runtime_error("Sound Cue active repetition limit is 32");
+        const bool finite = program.definition().repeat_event_limit != 0;
+        if (finite && cue_provenance_ticket == std::numeric_limits<std::uint64_t>::max())
+            throw std::runtime_error("Sound Cue run provenance is exhausted");
+        const auto run_ticket = finite ? cue_provenance_ticket + 1 : 0;
         auto& state = cue_state(ref, program.definition());
         state.state = {};
         state.last_sources.clear();
         state.last_delay_seconds.clear();
         state.repetition = {};
         state.repetition.running = state.repetition.startup_seen = true;
+        state.repetition.run_ticket = run_ticket;
+        if (finite)
+            cue_provenance_ticket = run_ticket;
         state.repetition.wait =
             detail::AudioStartDelay::from_frames(cue_repeat_frames(program.definition()));
     }
@@ -831,14 +843,17 @@ struct AudioRuntime::Impl {
             diagnostic("audio.cue_repeat", error, ref);
         }
     }
-    std::size_t cue_event_voices(std::uint64_t ticket, bool reject_failed_stream = false) const {
+    enum class CueVoiceScope { Event, Run };
+    std::size_t cue_voices(std::uint64_t ticket, CueVoiceScope scope,
+                           bool reject_failed_stream = false) const {
         if (!ticket)
             return 0;
         std::size_t count = 0;
         for (const auto& [id, source] : voices) {
             (void)id;
             for (const auto& shot : source->one_shots)
-                if (shot->cue_event_ticket == ticket) {
+                if ((scope == CueVoiceScope::Run ? shot->cue_run_ticket : shot->cue_event_ticket) ==
+                    ticket) {
                     if (reject_failed_stream && shot->stream &&
                         shot->stream->read_error() != MA_SUCCESS)
                         throw std::runtime_error(
@@ -853,19 +868,28 @@ struct AudioRuntime::Impl {
         if (found == cue_states.end())
             return;
         auto& repeat = found->second.repetition;
-        if (!repeat.running || !repeat.awaited_ticket ||
-            repeat.awaited_ticket != command.cue_event_ticket)
+        const bool event = repeat.running && repeat.awaited_ticket &&
+                           repeat.awaited_ticket == command.cue_event_ticket;
+        const bool run =
+            repeat.running && repeat.run_ticket && repeat.run_ticket == command.cue_run_ticket;
+        if (!event && !run)
             return;
-        if (repeat.pending_requests)
+        if (event && repeat.pending_requests)
             --repeat.pending_requests;
-        if (admitted)
-            ++repeat.admitted_voices;
-        else {
-            repeat.running = repeat.paused = false;
-            repeat.error = "Completion cue could not admit every requested Source voice";
+        if (run && repeat.run_pending_requests)
+            --repeat.run_pending_requests;
+        if (admitted) {
+            if (event)
+                ++repeat.admitted_voices;
+            if (run)
+                ++repeat.run_admitted_voices;
+        } else {
+            repeat.running = repeat.paused = repeat.finishing = false;
+            repeat.error = "Sound Cue could not admit every requested Source voice";
             cue_repeat_failure(command.cue_entity, found->second.ref, repeat.error);
         }
     }
+
     void discover_cue_repetitions() {
         ApplicationStateActivation conditions(world);
         world.world().each<const SoundCue>([&](flecs::entity entity, const SoundCue& cue) {
@@ -898,8 +922,8 @@ struct AudioRuntime::Impl {
                     (void)repeat.wait.suspend(now);
                 continue;
             }
-            if (!repeat.first && !repeat.awaited_ticket && !repeat.wait.unarmed() &&
-                repeat.wait.remaining(now) != 0)
+            if (!repeat.finishing && !repeat.first && !repeat.awaited_ticket &&
+                !repeat.wait.unarmed() && repeat.wait.remaining(now) != 0)
                 continue;
             try {
                 const auto program = cue_program(state.ref);
@@ -908,7 +932,8 @@ struct AudioRuntime::Impl {
                         "Cue repetition definition changed; restart its events");
                 validate_cue_repeat_domain(program);
                 if (repeat.awaited_ticket &&
-                    (repeat.pending_requests || cue_event_voices(repeat.awaited_ticket, true)))
+                    (repeat.pending_requests ||
+                     cue_voices(repeat.awaited_ticket, CueVoiceScope::Event, true)))
                     continue;
                 if (!cue_repeat_sources_ready(program)) {
                     if (!repeat.first)
@@ -922,12 +947,25 @@ struct AudioRuntime::Impl {
                         throw std::runtime_error("Completion cue event count is exhausted");
                     ++repeat.completed_events;
                     repeat.awaited_ticket = 0;
-                    repeat.wait =
-                        detail::AudioStartDelay::from_frames(cue_repeat_frames(state.definition));
-                    if (repeat.wait.unarmed()) {
-                        (void)repeat.wait.arm(now);
-                        continue;
+                    if (!repeat.finishing) {
+                        repeat.wait = detail::AudioStartDelay::from_frames(
+                            cue_repeat_frames(state.definition));
+                        if (repeat.wait.unarmed()) {
+                            (void)repeat.wait.arm(now);
+                            continue;
+                        }
                     }
+                }
+                if (repeat.finishing) {
+                    if (repeat.run_pending_requests ||
+                        cue_voices(repeat.run_ticket, CueVoiceScope::Run, true))
+                        continue;
+                    if (!repeat.run_admitted_voices)
+                        throw std::runtime_error("Finite cue run admitted no Source voices");
+                    repeat.running = repeat.paused = repeat.finishing = false;
+                    repeat.finished = true;
+                    repeat.wait = {};
+                    continue;
                 }
                 if (!repeat.first && repeat.wait.unarmed()) {
                     (void)repeat.wait.arm(now);
@@ -946,7 +984,7 @@ struct AudioRuntime::Impl {
                     (void)next.arm(due + missed * period);
                 }
                 const auto ref = state.ref;
-                const auto ticket = queue_cue(ref, false);
+                const auto ticket = queue_cue(ref, false, repeat.run_ticket);
                 queued = true;
                 // queue_cue preserves this lifecycle while publishing event selection.
                 auto& accepted = cue_states.at(id).repetition;
@@ -956,6 +994,14 @@ struct AudioRuntime::Impl {
                 accepted.awaited_ticket = completion ? ticket : 0;
                 accepted.pending_requests = completion ? cue_states.at(id).last_sources.size() : 0;
                 accepted.admitted_voices = 0;
+                if (state.definition.repeat_event_limit) {
+                    ++accepted.issued_events;
+                    accepted.run_pending_requests += cue_states.at(id).last_sources.size();
+                    accepted.finishing =
+                        accepted.issued_events >= state.definition.repeat_event_limit;
+                    if (accepted.finishing)
+                        accepted.wait = {};
+                }
                 accepted.error.clear();
                 cue_repeat_errors.erase(id);
                 if (missed)
@@ -963,7 +1009,7 @@ struct AudioRuntime::Impl {
                                "Skipped repeating events after an owner-service delay", ref);
             } catch (const std::exception& error) {
                 auto& failed = cue_states.at(id).repetition;
-                failed.running = failed.paused = false;
+                failed.running = failed.paused = failed.finishing = false;
                 failed.error = error.what();
                 cue_repeat_failure(id, state.ref, error.what());
             }
@@ -980,7 +1026,7 @@ struct AudioRuntime::Impl {
         for (const auto& [id, state] : cue_states) {
             (void)id;
             const auto& repeat = state.repetition;
-            if (!repeat.running || repeat.paused || repeat.first || is_paused ||
+            if (!repeat.running || repeat.paused || repeat.first || repeat.finishing || is_paused ||
                 (is_game_paused && state.definition.repeat_pause_with_game))
                 continue;
             const auto frames = repeat.wait.remaining(now);
@@ -1009,10 +1055,11 @@ struct AudioRuntime::Impl {
                 auto& repeat = cue_state(ref, program.definition()).repetition;
                 repeat.startup_seen = true;
                 if (operation == AudioSourceOperation::Stop) {
-                    repeat.running = repeat.paused = false;
+                    repeat.running = repeat.paused = repeat.finishing = repeat.finished = false;
                     repeat.wait = {};
                     repeat.awaited_ticket = 0;
                     repeat.pending_requests = repeat.admitted_voices = 0;
+                    repeat.run_pending_requests = 0;
                 } else if (repeat.running) {
                     repeat.paused = operation == AudioSourceOperation::Pause;
                     if (repeat.paused && !repeat.first)
@@ -1353,7 +1400,7 @@ struct AudioRuntime::Impl {
         }
     }
     bool add_shot(SourceVoice& source, std::uint64_t id, double delay_seconds,
-                  std::uint64_t event_ticket) {
+                  std::uint64_t event_ticket, std::uint64_t run_ticket) {
         if (source.one_shots.size() >= max_source_shots ||
             outstanding_voice_count() >= max_voices) {
             diagnostic("audio.one_shot_limit",
@@ -1366,6 +1413,7 @@ struct AudioRuntime::Impl {
         shot->authored = source.authored;
         shot->one_shot = true;
         shot->cue_event_ticket = event_ticket;
+        shot->cue_run_ticket = run_ticket;
         shot->start_delay =
             detail::AudioStartDelay(delay_seconds, ma_engine_get_sample_rate(&engine));
         shot->clip = source.clip;
@@ -1673,8 +1721,8 @@ struct AudioRuntime::Impl {
             }
             if (c.operation == AudioSourceOperation::OneShot) {
                 try {
-                    cue_admission(c,
-                                  add_shot(voice, r.entity, c.delay_seconds, c.cue_event_ticket));
+                    cue_admission(c, add_shot(voice, r.entity, c.delay_seconds, c.cue_event_ticket,
+                                              c.cue_run_ticket));
                 } catch (const std::exception& error) {
                     diagnostic("audio.one_shot", error.what(), c.ref, c.clip);
                     cue_admission(c, false);
@@ -1867,15 +1915,26 @@ Json AudioSourceAccess::status(AudioRuntime& runtime, EntityRef ref) {
                  current ? Json(found_cue->second.last_delay_seconds) : Json::array()},
                 {"repeat_available", program.definition().repeat_enabled()},
                 {"repeat_mode", program.definition().repeat_mode},
+                {"repeat_event_limit", program.definition().repeat_event_limit},
+                {"repeat_issued_events", current ? found_cue->second.repetition.issued_events : 0},
+                {"repeat_finishing", current && found_cue->second.repetition.finishing},
+                {"repeat_finished", current && found_cue->second.repetition.finished},
+                {"repeat_run_pending_requests",
+                 current ? found_cue->second.repetition.run_pending_requests : 0},
+                {"repeat_run_voices",
+                 current ? runtime.impl_->cue_voices(found_cue->second.repetition.run_ticket,
+                                                     AudioRuntime::Impl::CueVoiceScope::Run)
+                         : 0},
                 {"repeat_waiting_completion", current && found_cue->second.repetition.running &&
                                                   found_cue->second.repetition.awaited_ticket != 0},
                 {"repeat_completed_events",
                  current ? found_cue->second.repetition.completed_events : 0},
                 {"repeat_pending_requests",
                  current ? found_cue->second.repetition.pending_requests : 0},
-                {"repeat_event_voices", current ? runtime.impl_->cue_event_voices(
-                                                      found_cue->second.repetition.awaited_ticket)
-                                                : 0},
+                {"repeat_event_voices",
+                 current ? runtime.impl_->cue_voices(found_cue->second.repetition.awaited_ticket,
+                                                     AudioRuntime::Impl::CueVoiceScope::Event)
+                         : 0},
                 {"repeat_running", current && found_cue->second.repetition.running},
                 {"repeat_paused", current && found_cue->second.repetition.paused},
                 {"repeat_suspended",

@@ -173,6 +173,16 @@ void validate_runtime_compatibility(const AssetCatalog& catalog, const Json& eng
             if (features != document->end()) {
                 require(features->is_object(), "Invalid authored document runtime features");
                 for (const auto& [name, version] : features->items()) {
+                    if (name == "sound_cue_finite") {
+                        require(version.is_number_integer() &&
+                                    version == sound_cue_finite_profile_version,
+                                "Unsupported authored finite cue profile");
+                        const auto support = engine.find("runtime_sound_cue_finite");
+                        require(support != engine.end() && support->is_number_integer() &&
+                                    *support == sound_cue_finite_profile_version,
+                                "Finite cues require the runtime kit packaged with this editor");
+                        continue;
+                    }
                     if (name == "sound_cue_completion") {
                         require(version.is_number_integer() &&
                                     version == sound_cue_completion_profile_version,

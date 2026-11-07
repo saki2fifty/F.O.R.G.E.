@@ -25,6 +25,8 @@ std::uint32_t choice_bits(std::uint32_t seed, std::size_t node, std::uint64_t vi
 }
 } // namespace
 SoundCueProgram SoundCueProgram::compile(const SoundCue& cue) {
+    if (cue.repeat_event_limit > sound_cue_event_limit_max)
+        throw std::runtime_error("Sound Cue event limit must be 0..65535; zero is unlimited");
     if (cue.repeat_mode > 1 || !std::isfinite(cue.repeat_interval_seconds) ||
         cue.repeat_interval_seconds < 0 ||
         (cue.repeat_mode == 0 && cue.repeat_interval_seconds != 0 &&
@@ -139,6 +141,8 @@ SoundCue sound_cue_from_json(const nlohmann::json& value) {
     cue.repeat_on_start = value.value("repeat_on_start", false);
     cue.repeat_pause_with_game = value.value("repeat_pause_with_game", true);
     cue.repeat_mode = value.contains("repeat_mode") ? integer(value.at("repeat_mode")) : 0;
+    cue.repeat_event_limit =
+        value.contains("repeat_event_limit") ? integer(value.at("repeat_event_limit")) : 0;
     const auto& nodes = value.at("nodes");
     if (!nodes.is_array() || nodes.size() > sound_cue_node_limit)
         throw std::runtime_error("Sound Cue nodes require an array of at most 32 entries");
@@ -178,6 +182,7 @@ nlohmann::json sound_cue_json(const SoundCue& cue) {
             {"repeat_on_start", cue.repeat_on_start},
             {"repeat_pause_with_game", cue.repeat_pause_with_game},
             {"repeat_mode", cue.repeat_mode},
+            {"repeat_event_limit", cue.repeat_event_limit},
             {"nodes", std::move(nodes)}};
 }
 } // namespace forge

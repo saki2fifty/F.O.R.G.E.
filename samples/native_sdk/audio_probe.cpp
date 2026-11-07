@@ -39,6 +39,8 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* h, char* error, uint32_t siz
             if (cue.repeat_enabled()) {
                 if (initialize) {
                     cue.repeat_interval_seconds = cue.repeat_mode == 1 ? 0 : .25;
+                    if (cue.repeat_event_limit)
+                        cue.repeat_event_limit = 3;
                     if (!h->audio_source(h->context, "11111111-1111-4111-8111-111111111111",
                                          "44444444-4444-4444-8444-444444444444",
                                          FORGE_SDK_AUDIO_RESTART))

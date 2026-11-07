@@ -1,5 +1,12 @@
 # Explore the Feature Gallery
 
+**197-finite-sound-cue-runs** plays four layered/ordered/weighted events, waiting
+for each event's sounds before starting the next. Open it and press **Play →
+Game**. Select **Four layered events - select for Live sound** to watch progress
+and **Finite run finished**, then use **Replay run**. In Edit, change **Events per
+run (0 unlimited)** or the timing mode; Apply and save before export with a
+matching runtime kit. See [Play a finite run](../editor/audio.md).
+
 **196-shared-audio-bus-effects** mixes three original pitched tones through shared
 echo and filtered reverb buses, with an additional dry send. Open it and press
 **Play → Game**. One independent tone continues during gameplay Pause; the other

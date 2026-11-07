@@ -1544,7 +1544,8 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<double>("repeat_interval_seconds")
             .template member<bool>("repeat_on_start")
             .template member<bool>("repeat_pause_with_game")
-            .template member<std::uint32_t>("repeat_mode");
+            .template member<std::uint32_t>("repeat_mode")
+            .template member<std::uint32_t>("repeat_event_limit");
         ecs_struct_desc_t shape{};
         shape.entity = node.id();
         shape.create_member_entities = true;
@@ -3268,7 +3269,13 @@ Json registration_options(const Builtin& type, const std::string& field) {
             value["unit"] = "seconds";
         } else if (field == "repeat_mode")
             value["description"] = "Periodic events or wait for this event's Source-owned voices";
-        else if (field == "repeat_on_start")
+        else if (field == "repeat_event_limit") {
+            value["description"] =
+                "Scheduled events per run, including the first. Zero is unlimited; finite runs "
+                "finish after their own Source voices retire. Manual one-shots do not count";
+            value["minimum"] = 0;
+            value["maximum"] = sound_cue_event_limit_max;
+        } else if (field == "repeat_on_start")
             value["description"] = "Begin repeating events when this cue first becomes active";
         else if (field == "repeat_pause_with_game")
             value["description"] = "Hold the repeating event interval during game pause";
@@ -4063,6 +4070,7 @@ Json register_builtins(flecs::world& world, unsigned family) {
             c.lookup("repeat_on_start").set<ReflectedMemberDefault>({false});
             c.lookup("repeat_pause_with_game").set<ReflectedMemberDefault>({true});
             c.lookup("repeat_mode").set<ReflectedMemberDefault>({0});
+            c.lookup("repeat_event_limit").set<ReflectedMemberDefault>({0});
         }
         if (name == "forge.navigation_link")
             for (const auto& [member, value] : type.defaults.items())

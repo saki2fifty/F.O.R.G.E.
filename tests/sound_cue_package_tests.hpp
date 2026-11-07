@@ -33,6 +33,33 @@ void sound_cue_package_tests(const std::filesystem::path& scratch, Check check, 
                     validate_runtime_compatibility(catalog, {{"runtime_sound_cues", invalid}});
                 });
             auto& graph = document[rows][0][channel]["forge.sound_cue"];
+            graph["repeat_event_limit"] = 2;
+            const auto finite = package_detail::document_runtime_features(document);
+            check(finite == Json({{"sound_cues", sound_cue_profile_version},
+                                  {"sound_cue_repeat", sound_cue_repeat_profile_version},
+                                  {"sound_cue_finite", sound_cue_finite_profile_version}}),
+                  "Retained finite limit escaped capability discovery");
+            AssetCatalog finite_catalog(scratch / (std::string("finite-cue-") + rows + channel));
+            record.metadata["forge.runtime_document"]["runtime_features"] = finite;
+            finite_catalog.add(record);
+            Json finite_kit{{"runtime_sound_cues", sound_cue_profile_version},
+                            {"runtime_sound_cue_repeat", sound_cue_repeat_profile_version}};
+            reject([&] { validate_runtime_compatibility(finite_catalog, finite_kit); });
+            finite_kit["runtime_sound_cue_finite"] = sound_cue_finite_profile_version;
+            validate_runtime_compatibility(finite_catalog, finite_kit);
+            for (const Json& invalid : {Json(false), Json(0), Json(1.), Json("1"), Json(2)}) {
+                finite_kit["runtime_sound_cue_finite"] = invalid;
+                reject([&] { validate_runtime_compatibility(finite_catalog, finite_kit); });
+            }
+            for (const Json& invalid : {Json(false), Json(-1), Json(1.), Json("2"), Json(65536),
+                                        Json(std::uint64_t{1} << 40)}) {
+                graph["repeat_event_limit"] = invalid;
+                reject([&] { (void)package_detail::document_runtime_features(document); });
+            }
+            graph["repeat_event_limit"] = 0;
+            check(package_detail::document_runtime_features(document) == features,
+                  "Unlimited cue unnecessarily required finite playback support");
+            graph.erase("repeat_event_limit");
             graph["repeat_mode"] = 1;
             const auto completed = package_detail::document_runtime_features(document);
             check(completed ==

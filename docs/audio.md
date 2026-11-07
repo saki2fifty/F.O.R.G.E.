@@ -939,7 +939,7 @@ separate from these no-device checks.
 
 SoundCue root values `repeat_interval_seconds` (default 0), `repeat_on_start`
 (default false) and `repeat_pause_with_game` (default true) configure optional periodic
-events. Zero disables repetition; otherwise the finite interval must be 0.25..3600
+events. In Interval mode, zero disables repetition; otherwise the interval must be 0.25..3600
 output seconds, rounded to native output frames. Every event still evaluates the
 bounded acyclic graph. This is periodic event production, not cyclic node graphs
 or clip-completion playlists. See [ADR039](decisions/039-repeating-sound-cue-events.md).
@@ -1009,8 +1009,9 @@ A held producer begins that gap after it resumes. Source pause holds voice
 completion; Source Stop can finish the current event and permit another, while
 cue Stop cancels future events. Current Source/domain validation remains required
 while waiting, including a Source changing its gameplay-pause policy. Definitions
-and recovery retain their existing fresh-state behavior. The producer repeats;
-this is not an arbitrary cyclic graph or a finite playlist document format.
+and recovery retain their existing fresh-state behavior. Without an event limit,
+the producer repeats. Arbitrary cyclic graphs and a standalone playlist document
+format remain separate.
 
 Status additionally reports mode, waiting-for-completion, completed events,
 pending requests and current event voice counts. These counts are transient and
@@ -1019,3 +1020,35 @@ promise of sample-perfect continuity across host stalls. Mode1 adds runtime feat
 `sound_cue_completion:1` and kit `runtime_sound_cue_completion:1`, including retained
 partial values. Missing mode0 retains earlier requirements. Matching C++ component
 headers/fingerprint are required; C ABI1 callback tables/op values are unchanged.
+
+## Finite cue runs
+
+`SoundCue.repeat_event_limit` defaults to 0 (unlimited). Values 1..65535 limit the
+scheduled events in one run, including the first, in either timing mode. A limit
+alone does not enable Interval repetition when its interval is 0. Skipped late
+intervals and manual OneShot requests do not consume this count; manual requests
+still advance the graph's shared choice state.
+
+After the final request, production enters finishing and waits for all Source-owned
+voices and source effect tails requested by this run. Earlier overlapping Interval
+events count too. Manual sounds, other cues, older runs after Restart and shared
+bus tails do not hold up completion. No final completion-mode gap is added.
+Source cancellation retires its voices through the same owner; rejected admission
+or a failed stream stops production with an error rather than successful completion.
+
+Pause/Resume hold production and completion observation; Source and output pause
+policies still apply. Cue Stop cancels future requests and clears natural-finish
+state while retaining Source voices. Restart resets choices/counts and starts a
+new run. Run provenance is runtime-local, shares the existing event allocator and
+is not persisted. Recovery starts fresh from authored intent.
+
+Status adds `repeat_event_limit`, `repeat_issued_events`, `repeat_finishing`,
+`repeat_finished`, `repeat_run_pending_requests` and `repeat_run_voices`.
+The existing producer slot remains occupied until its run finishes or stops.
+Inspector, Live sound, Scene/Prefab/history, automation and MCP share these owners.
+Nonzero limits, including retained partial Prefab values, require
+`sound_cue_finite:1` and kit `runtime_sound_cue_finite:1` in addition to applicable
+cue/timing/repetition/completion profiles. Missing or zero limits retain earlier
+requirements. Rebuild C++ with matching component headers/fingerprint; C ABI1
+tables and operations are unchanged. See [ADR042](decisions/042-finite-sound-cue-runs.md).
+Finite component runs do not introduce a standalone playlist document format.

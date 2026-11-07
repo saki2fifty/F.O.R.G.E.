@@ -26,6 +26,7 @@ void sound_cue_prefab_tests(const std::filesystem::path& root) {
     graph.repeat_interval_seconds = .75;
     graph.repeat_mode = 1;
     graph.repeat_on_start = true;
+    graph.repeat_event_limit = 7;
     auto authored_graph = sound_cue_json(graph);
     const Json opaque_reference = scene.reference(a);
     authored_graph["nodes"][1]["future"] = {{"source", opaque_reference}};
@@ -44,7 +45,7 @@ void sound_cue_prefab_tests(const std::filesystem::path& root) {
                   actual.seed == graph.seed && actual.nodes[1].delay_seconds == .125 &&
                   actual.nodes[2].delay_seconds == .375 && actual.repeat_interval_seconds == .75 &&
                   actual.repeat_on_start && actual.repeat_pause_with_game &&
-                  actual.repeat_mode == 1,
+                  actual.repeat_mode == 1 && actual.repeat_event_limit == 7,
               "Nested Sound Cue references crossed copied/Prefab instance ownership");
         const auto effective = target.effective_document();
         const auto& event_row =
@@ -76,11 +77,23 @@ void sound_cue_prefab_tests(const std::filesystem::path& root) {
     check(scene.undo() && scene.entity(event).get<SoundCue>().seed == graph.seed && scene.redo() &&
               scene.entity(event).get<SoundCue>().seed == 31,
           "Cue instance override lost explicit Scene history");
+    authoring_command(scene, "property.set",
+                      {{"entity", event},
+                       {"component", "forge.sound_cue"},
+                       {"field", "repeat_event_limit"},
+                       {"value", 3}});
+    check(scene.entity(event).get<SoundCue>().repeat_event_limit == 3 &&
+              scene.entity(named(scene, "Event", second)).get<SoundCue>().repeat_event_limit == 7,
+          "Finite run override escaped its Prefab instance");
+    check(scene.undo() && scene.entity(event).get<SoundCue>().repeat_event_limit == 7 &&
+              scene.redo() && scene.entity(event).get<SoundCue>().repeat_event_limit == 3,
+          "Finite run Prefab override lost explicit Scene history");
     EngineContext reopened_engine;
     Scene reopened(reopened_engine.world());
     reopened.set_prefab_sources(scene.prefab_sources());
     reopened.restore_snapshot(scene.snapshot());
     verify(reopened, second);
-    check(reopened.entity(event).get<SoundCue>().seed == 31,
+    check(reopened.entity(event).get<SoundCue>().seed == 31 &&
+              reopened.entity(event).get<SoundCue>().repeat_event_limit == 3,
           "Saved native Cue graph lost its independent override");
 }

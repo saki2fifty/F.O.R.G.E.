@@ -186,7 +186,7 @@ int main(int argc, char** argv) {
                                files.document.settings().input(),
                                files.document.settings().physics().gravity,
                                files.document.project(), sdk_play, sdk_play);
-                play.set_headless_audio(true);
+                play.set_headless_audio(true, mode == "clocked_audio");
                 play.start(forge::path_utf8(runtime), scene.snapshot());
             };
             controls.control_unavailable = [&] {
@@ -253,7 +253,8 @@ int main(int argc, char** argv) {
         forge::ui::AutomationPermissions permissions;
         permissions.assets = mode != "read";
         permissions.execute = mode == "full" || mode == "execute" || mode == "gamepads" ||
-                              mode == "ui_localization" || mode == "application_states";
+                              mode == "ui_localization" || mode == "application_states" ||
+                              mode == "clocked_audio";
         permissions.export_game = mode == "full" || mode == "output" || mode == "gamepads" ||
                                   mode == "ui_localization" || mode == "application_states";
         if (permissions.export_game)

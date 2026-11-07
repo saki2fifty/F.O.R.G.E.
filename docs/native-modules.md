@@ -308,6 +308,15 @@ The existing unpaused example can play filtered UI sources during game Pause.
 Native DSP nodes remain private; no new Audio command, callback layout or ABI
 number is needed. Header fingerprint changes require a matching module rebuild.
 
+The public `SoundCue` layout includes default-zero `repeat_event_limit`.
+Set 1..65535 for a finite scheduled run in either timing mode; zero preserves
+unlimited repetition. The installed `audio_gameplay` example changes a configured
+finite limit and restarts the cue through the existing Audio callback. Native
+Commands/Source voices retain runtime-local run provenance; project code owns no
+additional mixer, timer or voice registry. Matching installed headers/fingerprint
+and a module rebuild are required. C ABI1 tables and operation values stay the
+same. See [finite cue runs](audio.md#finite-cue-runs).
+
 ## Light image values
 
 The installed `Light` layout includes an optional Texture reference, Directional

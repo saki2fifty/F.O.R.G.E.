@@ -91,6 +91,11 @@ class SoundCueEditor {
             ImGui::TextUnformatted(
                 mode == 1 ? "Wait for this event's Source voices and tails, then 0–3600 seconds."
                           : "Use 0.25–3600 seconds to enable repetition.");
+            number("Events per run (0 unlimited)", "sound-cue:repeat-limit",
+                   draft_["repeat_event_limit"]);
+            ui::help("Use 1–65535 scheduled events, including the first. A finite run finishes "
+                     "after all its Source voices and source effects retire, including overlapping "
+                     "interval events. Manual triggers and shared bus tails are separate.");
             bool startup = draft_.at("repeat_on_start");
             if (ImGui::Checkbox("Repeat on start", &startup))
                 draft_["repeat_on_start"] = startup;
@@ -226,7 +231,8 @@ class SoundCueEditor {
                 Json values;
                 for (const char* key :
                      {"enabled", "seed", "root", "nodes", "repeat_interval_seconds",
-                      "repeat_on_start", "repeat_pause_with_game", "repeat_mode"})
+                      "repeat_on_start", "repeat_pause_with_game", "repeat_mode",
+                      "repeat_event_limit"})
                     values[key] = draft_.at(key);
                 apply_authoring(scene,
                                 Json::array({{{"operation", "property.set_many"},

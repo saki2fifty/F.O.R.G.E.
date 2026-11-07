@@ -58,6 +58,16 @@ class AudioSourceEditor {
             if (status.value("repeat_available", false)) {
                 const bool running = status.value("repeat_running", false);
                 const bool paused = status.value("repeat_paused", false);
+                const bool finishing = status.value("repeat_finishing", false);
+                const bool finished = status.value("repeat_finished", false);
+                if (const auto limit = status.value("repeat_event_limit", 0u)) {
+                    ImGui::Text("Events this run: %u / %u",
+                                status.value("repeat_issued_events", 0u), limit);
+                    if (finishing)
+                        ImGui::Text("Finishing Sources: %zu voices, %zu queued requests",
+                                    status.value("repeat_run_voices", std::size_t{}),
+                                    status.value("repeat_run_pending_requests", std::size_t{}));
+                }
                 if (status.value("repeat_mode", 0u) == 1) {
                     ImGui::Text("Completed events: %llu",
                                 static_cast<unsigned long long>(
@@ -68,17 +78,21 @@ class AudioSourceEditor {
                                     status.value("repeat_pending_requests", std::size_t{}));
                 }
                 ImGui::TextUnformatted(
-                    !running                                        ? "Repetition stopped"
+                    finished                                        ? "Finite run finished"
+                    : !running                                      ? "Repetition stopped"
                     : paused                                        ? "Repetition paused"
                     : status.value("repeat_suspended", false)       ? "Repetition held by pause"
                     : status.value("repeat_waiting_sources", false) ? "Waiting for Sources"
+                    : finishing                                     ? "Finishing this run's Sources"
                                                                     : "Repeating events");
-                if (!status.value("repeat_waiting_completion", false))
+                if (running && !finishing && !status.value("repeat_waiting_completion", false))
                     ImGui::Text("Next event: %.3f s | Skipped events: %llu",
                                 status.value("repeat_next_seconds", 0.),
                                 static_cast<unsigned long long>(
                                     status.value("repeat_skipped_events", std::uint64_t{})));
-                if (ui::button(running ? "Restart repeating" : "Start repeating",
+                if (ui::button(running    ? "Restart repeating"
+                               : finished ? "Replay run"
+                                          : "Start repeating",
                                "Start future events with fresh choices. Already requested Source "
                                "voices keep playing."))
                     request(AudioSourceOperation::Restart);

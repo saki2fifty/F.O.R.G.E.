@@ -584,7 +584,8 @@ to the current event. It shows the remaining gap after those voices finish.
 Unrelated sounds sharing the Sources do not delay that event. **Trigger cue**
 requests an additional event and advances the shared choices independently.
 **Restart repeating** starts fresh choices while older Source voices keep their
-existing playback. This mode repeats until the producer is stopped.
+existing playback. With **Events per run (0 unlimited)** set to zero, this mode
+repeats until the producer is stopped.
 
 ![Live sound showing four requests, three completed events and two current event voices](../images/audio-sound-cue-completion-live.png)
 
@@ -603,6 +604,44 @@ with game** and **Pause with game** on every participating Source. Saved setting
 and exports retain the mode and gap. Recovery starts a fresh event rather than
 restoring active voices or completion progress. Export needs a matching runtime
 kit supporting completion-aware cues; rebuild project C++ with its matching SDK.
+
+### Play a finite run
+
+In **Repeating events**, set **Events per run (0 unlimited)** to a whole number
+from 1 to 65535. Choose either timing mode, configure its interval or gap, then
+**Apply sound cue** and save the Scene. For automatic playback, enable **Repeat
+on start**. In Interval mode, the interval must still be at least 0.25 seconds;
+setting a count alone does not turn repetition on. Zero events per run means
+unlimited repetition.
+
+![Sound Cue Inspector showing After event finishes, zero gap and a four-event run limit](../images/audio-sound-cue-finite.png)
+
+The finite-run Gallery example requests four events automatically.
+
+The count includes the first scheduled event. An Ordered choice with three Source
+children and a count of three plays each child once when no manual triggers
+advance its choices. Use **After event finishes** to let one event finish before
+starting the next. Interval events may overlap.
+
+Live sound shows scheduled events issued and the run's limit. After the last
+request, **Finishing this run's Sources** means its sounds and source effects
+are still playing, including earlier overlapping events. **Finite run finished**
+means they have all retired; use **Replay run** to begin fresh choices and counts.
+Shared bus effects may continue to sound afterward. **Trigger cue** requests an
+extra event without consuming the run count, and still advances shared choices.
+
+![Live sound showing four issued events, Finite run finished and the Replay run button](../images/audio-sound-cue-finite-live.png)
+
+**Pause repeating** holds production and completion observation. **Stop repeating**
+cancels future requests; it leaves requested sounds with their Sources and does
+not mean the run finished naturally. Restart begins a fresh run while older sounds
+keep playing. Source pause holds its sounds; Source Stop cancels them and can
+allow a finishing run to complete.
+
+Saved Scenes, Prefabs and exports retain the count. Play and recovery begin fresh,
+without restoring active voices or progress. Export needs a runtime kit supporting
+finite cue runs, and C++ projects need the matching SDK. If the run reports an
+admission or Source error, repair the Source and restart the run.
 
 ## Registered clips
 

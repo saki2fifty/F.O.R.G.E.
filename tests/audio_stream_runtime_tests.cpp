@@ -219,7 +219,8 @@ void repeating_cue(const std::filesystem::path& root, AssetId stream, AssetId re
     require(actual.audio->status().at("stream_underruns") == 0,
             "Offline repeated events starved stream pages");
 }
-void completion_cue(const std::filesystem::path& root, AssetId stream, AssetId resident) {
+void completion_cue(const std::filesystem::path& root, AssetId stream, AssetId resident,
+                    unsigned limit = 0) {
     auto a = document(stream, 2, false), b = document(resident, 2, false);
     for (auto* value : {&a, &b}) {
         auto& source = (*value)["entities"][0]["components"]["forge.audio_source"];
@@ -234,6 +235,7 @@ void completion_cue(const std::filesystem::path& root, AssetId stream, AssetId r
     expected.prepared();
     SoundCue graph{true, 1, 0, {{0, actual.ref(), {}, .064}}};
     graph.repeat_mode = 1;
+    graph.repeat_event_limit = limit;
     graph.repeat_pause_with_game = false;
     actual.scene.entity("cue").set(graph);
     AudioSourceAccess::control(*actual.audio, actual.scene.reference("cue"),
@@ -245,7 +247,7 @@ void completion_cue(const std::filesystem::path& root, AssetId stream, AssetId r
     for (unsigned q = 0; q < 1100; ++q) {
         // An ordinary resident source observes its own existing retirement.
         // No production cue selection, event tickets or completion helpers form this oracle.
-        if (!waiting &&
+        if (!waiting && (!limit || events < limit) &&
             AudioSourceAccess::status(*expected.audio, expected.ref()).at("one_shots") == 0) {
             due = frame + 3072;
             waiting = true;
@@ -260,8 +262,10 @@ void completion_cue(const std::filesystem::path& root, AssetId stream, AssetId r
         frame += 256;
     }
     const auto status = AudioSourceAccess::status(*actual.audio, actual.scene.reference("cue"));
-    require(events >= 3 && status.at("accepted_triggers") == events &&
-                status.at("repeat_completed_events") >= 2,
+    require((limit ? events == limit && status.at("repeat_finished").get<bool>() &&
+                         status.at("repeat_completed_events") == limit
+                   : events >= 3 && status.at("repeat_completed_events") >= 2) &&
+                status.at("accepted_triggers") == events,
             "Stream completion did not advance independently of game ticks");
     require(actual.audio->status().at("stream_underruns") == 0,
             "Completion events starved stream pages");
@@ -537,6 +541,7 @@ int main(int argc, char** argv) {
             timed_cue(root, streamed.id, resident.id);
             repeating_cue(root, streamed.id, resident.id);
             completion_cue(root, streamed.id, resident.id);
+            completion_cue(root, streamed.id, resident.id, 2);
             custom_routing(root, streamed.id, resident.id);
             shared_bus_effects(root, streamed.id, resident.id);
             playback(root, streamed.id, resident.id);

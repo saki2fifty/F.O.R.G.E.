@@ -50,7 +50,8 @@ TOUCH_ONLY = sys.argv[7:] == ['--touch-only']
 ANALOG_ONLY = sys.argv[7:] == ['--analog-only']
 AUDIO_STREAMING_ONLY = sys.argv[7:] == ['--audio-streaming-only']
 AUDIO_ROUTING_ONLY = sys.argv[7:] == ['--audio-routing-only']
-SOUND_CUES_ONLY = sys.argv[7:] == ['--sound-cues-only']
+FINITE_SOUND_CUES_ONLY = sys.argv[7:] == ['--finite-sound-cues-only']
+SOUND_CUES_ONLY = FINITE_SOUND_CUES_ONLY or sys.argv[7:] == ['--sound-cues-only']
 AUDIO_PAUSE_ONLY = SOUND_CUES_ONLY or AUDIO_ROUTING_ONLY or AUDIO_STREAMING_ONLY or sys.argv[7:] == ['--audio-pause-only']
 GAMEPADS_ONLY = sys.argv[7:] == ['--gamepads-only']
 MESSAGES_ONLY = len(sys.argv) == 9 and sys.argv[7] == '--input-messages-only'
@@ -289,7 +290,7 @@ def until(fn, predicate, timeout=30):
 
 
 for legacy in (False, True):
-    with editor('application_states' if APPLICATION_STATES_ONLY else 'ui_localization' if UI_LOCALIZATION_ONLY else 'gamepads' if GAMEPADS_ONLY else 'full') as (root, config), Client(config, legacy) as client:
+    with editor('application_states' if APPLICATION_STATES_ONLY else 'ui_localization' if UI_LOCALIZATION_ONLY else 'gamepads' if GAMEPADS_ONLY else 'clocked_audio' if FINITE_SOUND_CUES_ONLY else 'full') as (root, config), Client(config, legacy) as client:
         def discovery():
             value = client.tool('forge_discover')
             assert value['ok'], value
@@ -350,11 +351,16 @@ for legacy in (False, True):
         advertised = {t['name']: t for t in client.request('tools/list')['result']['tools']}
         names = set(advertised)
         assert advertised['forge_play_start']['annotations']['openWorldHint']
-        assert advertised['forge_export_start']['annotations']['openWorldHint']
+        if not FINITE_SOUND_CUES_ONLY:
+            assert advertised['forge_export_start']['annotations']['openWorldHint']
+        else:
+            assert 'forge_export_start' not in advertised
         assert not advertised['forge_source_text_write']['annotations']['openWorldHint']
-        assert {'forge_play_start', 'forge_play_ui_command', 'forge_export_start',
+        assert {'forge_play_start', 'forge_play_ui_command',
                 'forge_script_preview', 'forge_navigation_build', 'forge_navigation_overlay',
                 'forge_dependencies_save'} <= names
+        if not FINITE_SOUND_CUES_ONLY:
+            assert 'forge_export_start' in names
         if SKELETAL_SEQUENCE_ONLY:
             check_skeletal_sequence_play(read, ok, control, mutate, until, discovery)
             print(('legacy' if legacy else 'current') + ': skeletal/property authoring, typed Play observations, native samples, controls, Undo and source isolation passed')
@@ -1189,7 +1195,8 @@ for legacy in (False, True):
             print(('legacy' if legacy else 'current') + ': native ECS plan through actual MCP/Play; stale generation, Stop/Clear and authored isolation verified')
             continue
         if SOUND_CUES_ONLY:
-            check_sound_cues_play(read,ok,control,mutate,until,root,discovery()['result']['schema'],advertised)
+            check_sound_cues_play(read,ok,control,mutate,until,root,discovery()['result']['schema'],advertised,
+                                 finite_only=FINITE_SOUND_CUES_ONLY)
             with editor('read') as (_, restricted), Client(restricted,legacy) as reader:
                 visible = {tool['name'] for tool in reader.request('tools/list')['result']['tools']}
                 assert 'forge_play_audio' in visible and 'forge_play_audio_control' not in visible

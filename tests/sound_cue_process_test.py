@@ -138,8 +138,10 @@ def verify(runtime, gallery, module=None):
         from sound_cue_repeat_process import check_repeating_hosts
         check_repeating_hosts(runtime, root, scene, ref, cue_id, module)
         check_repeating_hosts(runtime, root, scene, ref, cue_id, module, mode=1)
+        check_repeating_hosts(runtime, root, scene, ref, cue_id, module, limit=2)
+        check_repeating_hosts(runtime, root, scene, ref, cue_id, module, mode=1, limit=2)
         assert all(hashlib.sha256(path.read_bytes()).hexdigest()==digest for path,digest in original.items())
-    print('Both cue hosts, Timeline and repeating output-time events, controls, fresh recovery and nine clean exits passed')
+    print('Both cue hosts, Timeline, repeating/finite output-time events, controls, fresh recovery and fifteen clean exits passed')
 
 
 if __name__ == '__main__':

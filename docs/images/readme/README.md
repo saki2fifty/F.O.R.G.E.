@@ -2508,60 +2508,31 @@ performance acceptance. The compact viewport uses separate sequential ImGui/SDL
 backend ownership. One canonical asset serves each image throughout the manual.
 
 
-## Repeating sound-cue controls
+## Sound Cue repetition and finite run controls
 
-This record attributes the initial periodic controls. The graph now includes a
-Timing choice; its current canonical bytes are recorded below. Original bytes
-remain in the cited local evidence and source archive.
+[Interval settings](../../../manual/images/audio-sound-cue-repeat.png),
+[completion settings](../../../manual/images/audio-sound-cue-completion.png) and
+[finite settings](../../../manual/images/audio-sound-cue-finite.png) are original
+700×1450 production SoundCueEditor controls. They show Gallery194/195/197 values
+with the event count visible. The pinned SDL/ImGui software fixture drives actual
+pointer input, expands the relevant Source/Weighted nodes and checks settings and
+Apply/Reset for clipping. All three views were personally reviewed.
 
-[Repeat settings](../../../manual/images/audio-sound-cue-repeat.png) and
-[Live production](../../../manual/images/audio-sound-cue-repeat-live.png) are
-original 700×1280 and 700×380 production SoundCueEditor/Live sound controls.
-The pinned SDL/ImGui software fixture uses actual Gallery194 values and four
-native offline periodic events. Pointer input expands the relevant nodes;
-required repeat settings and lifecycle buttons are checked for clipping.
+[Finite Live sound](../../../manual/images/audio-sound-cue-finite-live.png) is an
+original700×500 render after four actual offline events and their Source voices
+finish. It shows four issued/completed events, natural completion and Replay run;
+Pause/Stop are visible and disabled because production has ended. This view was
+personally reviewed. The unchanged700×380 periodic and700×420 completion Live
+images are byte-identical to their earlier attributable captures.
 
-The source is b9c1106 plus the repeating-event implementation. The rebuilt final
-capture uses the shipped Scene; it is byte-identical to both personally reviewed
-scratch captures. Graph SHA256:
-`a87a654a7564a67282aee17340dbb75c61d2ae4113416058da7affc2389e45f5`.
-Live SHA256:
-`a71f02ef3cb689f3c37c998e4e497a804afaaefc3324fb32e3ee61063c62b732`.
-Direct source, Scene, executable and archive hashes are recorded in local
-AgentFiles/build/phase292-repeating-sound-cues/capture-provenance.json and its
-source archive. No cropping, retouching, resizing or generated UI was used.
-These isolated controls establish neither full-editor nor Windows, physical
-audio, GPU/DPI, external-client or performance acceptance. Offline manual/package
-checks verify the canonical image bytes through the existing writer.
-
-
-## Completion-aware sound-cue controls
-
-[Completion settings](../../../manual/images/audio-sound-cue-completion.png) and
-[Live completion](../../../manual/images/audio-sound-cue-completion-live.png) are
-original 700×1280 and 700×420 production controls rendered through the existing
-pinned SDL/ImGui software fixture. The actual shipped Gallery195 produces four
-native offline events; the Live panel reports three completed events and two
-current voices. Draft and shipped captures are byte-identical and personally
-viewed. Required fields and lifecycle buttons are checked for clipping.
-
-Completion graph SHA256:
-`97ec997dd2a8aed075962439d57e1b0f2a34081720e250b688b36baacdc8ee08`.
-Completion live SHA256:
-`dcce966722f10cd99a24b353d0ce816874cfc1bded2f90f7607ef061fee6efbb`.
-The periodic graph now shows its **Timing** choice; its refreshed 700×1280 SHA256
-is `3d5a94cae8944c970be0ffc27207a34b436536e0dc26117f96aca3430ef22b15`.
-The unchanged periodic Live image retains SHA256
-`a71f02ef3cb689f3c37c998e4e497a804afaaefc3324fb32e3ee61063c62b732`.
-
-The source is73e9c42 plus completion-mode implementation. Direct source/Scene,
-executable and archive hashes are in local
-AgentFiles/build/phase293-completion-sound-cues/capture-provenance.json and its
-source archive. Images have no cropping, resizing, retouching or generation.
-These isolated controls do not establish full Main, Windows, physical audio,
-GPU/DPI, external-client or performance acceptance. The existing manual/package
-writer validates canonical assets; no alternative publishing path is introduced.
-
+Current source is local3c4a56c plus the finite-run implementation. Direct source,
+Scene, executable, original PNG and archive hashes belong to local
+AgentFiles/build/phase295-finite-sound-cue-runs/capture-provenance.json and its source
+archive. Older original capture evidence remains in the preceding local batches.
+No crop, resize, retouch or generated UI is used. These are isolated production
+controls, not full Main, Windows, physical audio/GPU/DPI, external-client or
+performance acceptance. The existing offline manual/package writer checks the
+canonical assets.
 
 ## Shared audio bus effect controls
 

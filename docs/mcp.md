@@ -855,6 +855,15 @@ uses a0..3600second gap and observes only its current event's Source-owned voice
 including tails; unrelated manual/other-cue voices do not block it. Observation
 adds waiting/completed/pending/current-event voice counts. Source Stop can finish
 an event while the producer continues; cue Stop prevents future events.
+Discovery also exposes `repeat_event_limit`: unsigned0..65535, default0(unlimited).
+Existing property commands author finite runs in either timing mode. Observation
+reports issued scheduled events, finishing/finished state and this run's pending
+requests/voices. Natural completion waits for all current-run Source voices/tails,
+including overlapping interval events. Manual requests and shared bus tails remain
+separate. Manual `one_shot` does not consume the finite count; `play`
+resets it, and `stop` is cancellation rather than natural completion. Recovery
+retains authored intent and starts fresh. No additional mutation grant or separate
+authoring operation is introduced.
 The same Scene/history, scoped Play/watch identity and permission checks apply;
 these controls do not change authored values. Native output-time repetition works
 outside fixed game ticks; stalled host service skips missed periods rather than

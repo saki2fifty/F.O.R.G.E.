@@ -12,6 +12,13 @@ project_root = Path(sys.argv[2])
 project = json.loads((project_root / 'forge.project.json').read_text(encoding="utf-8"))
 assets = json.loads((project_root / 'forge.assets.json').read_text(encoding="utf-8"))['assets']
 by_source = {row['source']: row for row in assets}
+finite_path = 'Scenes/197-finite-sound-cue-runs.scene.json'
+assert by_source[finite_path]['type'] == 'scene'
+finite_scene = json.loads((project_root/finite_path).read_text(encoding='utf-8'))
+finite_graphs = [row['components']['forge.sound_cue'] for row in finite_scene['entities'] if 'forge.sound_cue' in row['components']]
+assert len(finite_graphs)==1 and finite_graphs[0]['repeat_event_limit']==4 and finite_graphs[0]['repeat_mode']==1
+assert finite_graphs[0]['repeat_interval_seconds']==0 and finite_graphs[0]['repeat_on_start'] and not finite_graphs[0]['repeat_pause_with_game']
+assert all(not row['components']['forge.audio_source']['pause_with_game'] for row in finite_scene['entities'] if 'forge.audio_source' in row['components'])
 shared_path = 'Scenes/196-shared-audio-bus-effects.scene.json'
 assert by_source[shared_path]['type'] == 'scene'
 shared_scene = json.loads((project_root/shared_path).read_text(encoding='utf-8'))
@@ -788,7 +795,7 @@ def same_authored_value(actual, expected, location='$'):
     if isinstance(expected, dict):
         if location.endswith('.components.forge.sound_cue'):
             expected = dict(repeat_interval_seconds=0., repeat_on_start=False,
-                            repeat_pause_with_game=True, repeat_mode=0) | expected
+                            repeat_pause_with_game=True, repeat_mode=0, repeat_event_limit=0) | expected
         if re.search(r'\.components\.forge\.sound_cue\.nodes\[\d+\]$', location):
             # Earlier nodes omit the additive offset; explicit/opaque values stay exact.
             expected = dict(delay_seconds=0.) | expected

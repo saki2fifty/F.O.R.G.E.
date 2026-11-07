@@ -30,6 +30,15 @@ Json document_runtime_features(const Json& document) {
             if (const auto cue = values->find("forge.sound_cue");
                 cue != values->end() && !cue->is_null()) {
                 result["sound_cues"] = sound_cue_profile_version;
+                if (const auto limit = cue->find("repeat_event_limit"); limit != cue->end()) {
+                    if (!limit->is_number_integer() || *limit < 0 ||
+                        *limit > sound_cue_event_limit_max)
+                        throw std::runtime_error("game.export.document: Invalid cue event limit");
+                    if (*limit != 0) {
+                        result["sound_cue_repeat"] = sound_cue_repeat_profile_version;
+                        result["sound_cue_finite"] = sound_cue_finite_profile_version;
+                    }
+                }
                 if (const auto mode = cue->find("repeat_mode"); mode != cue->end()) {
                     if (!mode->is_number_integer() || (*mode != 0 && *mode != 1))
                         throw std::runtime_error("game.export.document: Invalid cue repeat mode");

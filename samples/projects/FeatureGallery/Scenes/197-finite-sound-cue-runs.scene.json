@@ -1,0 +1,429 @@
+{
+  "asset_id": "e357b0c2-c8ad-43cf-b2da-7704c3189013",
+  "entities": [
+    {
+      "components": {
+        "forge.audio_listener": {
+          "enabled": true
+        },
+        "forge.camera": {
+          "aspect": 0.0,
+          "background_a": 1.0,
+          "background_b": 0.029999999329447746,
+          "background_g": 0.02500000037252903,
+          "background_r": 0.019999999552965164,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 1000.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 10.0,
+          "orthographic_width": 0.0,
+          "projection": 0,
+          "render_texture": null,
+          "vertical_fov": 1.0471975511965976,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 0.9914448857307434,
+          "x": 0.13052618503570557,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 5.0,
+          "z": -14.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "8474e2fd-8e09-4bf8-b6b3-321cb10e28af",
+      "name": "Game camera",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.light": {
+          "basis": 0,
+          "cast_shadows": true,
+          "color_b": 1.0,
+          "color_g": 1.0,
+          "color_r": 1.0,
+          "emitter_height": 1.0,
+          "emitter_radius": 0.5,
+          "emitter_width": 1.0,
+          "enabled": true,
+          "image_height": 1.0,
+          "image_tiled": false,
+          "image_width": 1.0,
+          "inner_cone": 0.0,
+          "intensity": 3.0,
+          "kind": 0,
+          "layers": 4294967295,
+          "outer_cone": 0.7853981633974483,
+          "range": 0.0,
+          "shadow_angular_radius": 0.0,
+          "shadow_bias": 0.0010000000474974513,
+          "shadow_normal_bias": 0.019999999552965164,
+          "shadow_source_radius": 0.0,
+          "texture": null
+        },
+        "forge.local_rotation": {
+          "w": 0.9238795042037964,
+          "x": 0.3826834261417389,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 6.0,
+          "z": -5.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "41b727f6-230e-442a-a500-a97de8c69516",
+      "name": "Sun",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.local_scale": {
+          "x": 14.0,
+          "y": 0.30000001192092896,
+          "z": 14.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": -0.15,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.36000001430511475,
+          "g": 0.3100000023841858,
+          "r": 0.2800000011920929
+        }
+      },
+      "id": "8125c290-049e-4985-8cdf-9753a4eb6608",
+      "name": "Floor",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.audio_source": {
+          "attenuation": 0,
+          "bus": 1,
+          "clip": "327101c1-e496-4293-b830-4c25b978607a",
+          "cone_enabled": false,
+          "custom_bus": "",
+          "doppler": 0.0,
+          "echo_enabled": false,
+          "echo_feedback": 0.3499999940395355,
+          "echo_seconds": 0.25,
+          "gain": 0.25,
+          "high_pass_enabled": false,
+          "high_pass_hz": 20.0,
+          "inner_angle": 60.0,
+          "loop": false,
+          "low_pass_enabled": false,
+          "low_pass_hz": 20000.0,
+          "maximum_distance": 18.0,
+          "minimum_distance": 2.0,
+          "outer_angle": 120.0,
+          "outer_gain": 0.25,
+          "pause_with_game": false,
+          "pitch": 0.75,
+          "play_on_start": false,
+          "reverb_damping": 0.5,
+          "reverb_decay": 1.5,
+          "reverb_enabled": false,
+          "reverb_wet": 0.25,
+          "rolloff": 0.0,
+          "spatialized": false
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -4.0,
+          "y": 1.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 1.0,
+          "g": 0.550000011920929,
+          "r": 0.15000000596046448
+        }
+      },
+      "id": "d17c1143-3088-4601-8510-d07b45f8d3da",
+      "name": "Base tone - every event",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.audio_source": {
+          "attenuation": 1,
+          "bus": 2,
+          "clip": "327101c1-e496-4293-b830-4c25b978607a",
+          "cone_enabled": false,
+          "custom_bus": "",
+          "doppler": 0.0,
+          "echo_enabled": false,
+          "echo_feedback": 0.3499999940395355,
+          "echo_seconds": 0.25,
+          "gain": 0.25,
+          "high_pass_enabled": false,
+          "high_pass_hz": 20.0,
+          "inner_angle": 60.0,
+          "loop": false,
+          "low_pass_enabled": false,
+          "low_pass_hz": 20000.0,
+          "maximum_distance": 18.0,
+          "minimum_distance": 2.0,
+          "outer_angle": 120.0,
+          "outer_gain": 0.25,
+          "pause_with_game": false,
+          "pitch": 1.0,
+          "play_on_start": false,
+          "reverb_damping": 0.5,
+          "reverb_decay": 1.5,
+          "reverb_enabled": false,
+          "reverb_wet": 0.25,
+          "rolloff": 0.0,
+          "spatialized": false
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 1.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.11999999731779099,
+          "g": 0.7200000286102295,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "18be3c85-ccef-4fe1-a819-eb3187bc4057",
+      "name": "Middle tone - ordered and weighted",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.audio_source": {
+          "attenuation": 2,
+          "bus": 3,
+          "clip": "327101c1-e496-4293-b830-4c25b978607a",
+          "cone_enabled": false,
+          "custom_bus": "",
+          "doppler": 0.0,
+          "echo_enabled": false,
+          "echo_feedback": 0.3499999940395355,
+          "echo_seconds": 0.25,
+          "gain": 0.25,
+          "high_pass_enabled": false,
+          "high_pass_hz": 20.0,
+          "inner_angle": 60.0,
+          "loop": false,
+          "low_pass_enabled": false,
+          "low_pass_hz": 20000.0,
+          "maximum_distance": 18.0,
+          "minimum_distance": 2.0,
+          "outer_angle": 120.0,
+          "outer_gain": 0.25,
+          "pause_with_game": false,
+          "pitch": 1.5,
+          "play_on_start": false,
+          "reverb_damping": 0.5,
+          "reverb_decay": 1.5,
+          "reverb_enabled": false,
+          "reverb_wet": 0.25,
+          "rolloff": 0.0,
+          "spatialized": false
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 4.0,
+          "y": 1.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.2800000011920929,
+          "g": 0.2199999988079071,
+          "r": 0.949999988079071
+        }
+      },
+      "id": "2ffb2973-a33a-40a3-b935-071ecb47d23e",
+      "name": "High tone - weighted choice",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 1.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sound_cue": {
+          "enabled": true,
+          "nodes": [
+            {
+              "children": [
+                {
+                  "target": 1,
+                  "weight": 1
+                },
+                {
+                  "target": 2,
+                  "weight": 1
+                }
+              ],
+              "delay_seconds": 0.0,
+              "kind": 1,
+              "source": null
+            },
+            {
+              "children": [],
+              "delay_seconds": 0.0,
+              "kind": 0,
+              "source": {
+                "entity": "d17c1143-3088-4601-8510-d07b45f8d3da",
+                "scene": "e357b0c2-c8ad-43cf-b2da-7704c3189013"
+              }
+            },
+            {
+              "children": [
+                {
+                  "target": 3,
+                  "weight": 1
+                },
+                {
+                  "target": 4,
+                  "weight": 1
+                }
+              ],
+              "delay_seconds": 0.0,
+              "kind": 3,
+              "source": null
+            },
+            {
+              "children": [],
+              "delay_seconds": 0.128,
+              "kind": 0,
+              "source": {
+                "entity": "18be3c85-ccef-4fe1-a819-eb3187bc4057",
+                "scene": "e357b0c2-c8ad-43cf-b2da-7704c3189013"
+              }
+            },
+            {
+              "children": [
+                {
+                  "target": 5,
+                  "weight": 3
+                },
+                {
+                  "target": 6,
+                  "weight": 1
+                }
+              ],
+              "delay_seconds": 0.0,
+              "kind": 2,
+              "source": null
+            },
+            {
+              "children": [],
+              "delay_seconds": 0.256,
+              "kind": 0,
+              "source": {
+                "entity": "2ffb2973-a33a-40a3-b935-071ecb47d23e",
+                "scene": "e357b0c2-c8ad-43cf-b2da-7704c3189013"
+              }
+            },
+            {
+              "children": [],
+              "delay_seconds": 0.384,
+              "kind": 0,
+              "source": {
+                "entity": "18be3c85-ccef-4fe1-a819-eb3187bc4057",
+                "scene": "e357b0c2-c8ad-43cf-b2da-7704c3189013"
+              }
+            }
+          ],
+          "repeat_event_limit": 4,
+          "repeat_interval_seconds": 0.0,
+          "repeat_mode": 1,
+          "repeat_on_start": true,
+          "repeat_pause_with_game": false,
+          "root": 0,
+          "seed": 17
+        }
+      },
+      "id": "cac2b4c2-7b44-435f-a16f-2b347c429183",
+      "name": "Four layered events - select for Live sound",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    }
+  ],
+  "version": 3
+}

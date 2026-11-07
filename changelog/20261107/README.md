@@ -1,5 +1,18 @@
 # 2026-11-07
 
+## Finite Sound Cue runs
+
+SoundCue adds an optional scheduled event limit in both timing modes. Finite runs
+stop issuing requests at their limit and finish after all of that run's Source
+voices and source effect tails retire, including earlier overlapping events.
+Manual/other-cue/older-run voices and shared bus effects retain their own lifetime.
+Pause, cancellation, replay and natural completion remain distinct.
+
+Inspector, live progress, Scene/Prefab/history, automation/MCP and matching runtime
+kit admission use existing component and playback owners. The public component
+header requires rebuilding C++ against the matching SDK fingerprint; C ABI1
+callbacks and operations are unchanged. Windows/physical review is separate.
+
 ## Shared linear audio bus effects
 
 Project buses add default-bypassed high/low-pass, echo and reverb settings. Native

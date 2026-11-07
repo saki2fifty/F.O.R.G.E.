@@ -192,6 +192,11 @@ int main(int argc, char** argv) {
         else if (argc == 4 && std::string_view(argv[1]) == "--bus-effects")
             verify_bus_effects_gallery(std::filesystem::absolute(argv[2]),
                                        std::filesystem::absolute(argv[3]));
+        else if (argc == 4 && std::string_view(argv[1]) == "--finite-sound-cues")
+            verify_sound_cue_gallery(argv[2], argv[3], finite_sound_cue_gallery);
+        else if (argc == 4 && std::string_view(argv[1]) == "--publish-finite-sound-cues")
+            publish_sound_cue_gallery(std::filesystem::absolute(argv[2]),
+                                      std::filesystem::absolute(argv[3]), finite_sound_cue_gallery);
         else if (argc == 4 && std::string_view(argv[1]) == "--publish-completion-sound-cues")
             publish_sound_cue_gallery(std::filesystem::absolute(argv[2]),
                                       std::filesystem::absolute(argv[3]),

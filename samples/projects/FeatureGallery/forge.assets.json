@@ -16979,6 +16979,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "e357b0c2-c8ad-43cf-b2da-7704c3189013",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/197-finite-sound-cue-runs.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "e363aa80-78a1-43c6-975a-6cbdc39dfc2b",
       "metadata": {},
       "schema_version": 3,

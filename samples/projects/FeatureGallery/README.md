@@ -1,5 +1,16 @@
 # Feature Gallery
 
+## Finite sound cue runs
+
+Open `Scenes/197-finite-sound-cue-runs.scene.json` and press **Play → Game**.
+Four events combine a shared base tone with alternating ordered/weighted choices.
+Each event waits for its own sounds to finish; the run ends after all four.
+Select **Four layered events - select for Live sound** to watch progress and
+use **Replay run**. Independent sound continues during gameplay Pause.
+In Edit, expand **Repeating events** to change timing, gap or **Events per run
+(0 unlimited)**. Apply and save before exporting with a matching runtime kit.
+The example uses existing original tones and requires no project C++ module.
+
 ## Shared audio bus effects
 
 Open `Scenes/196-shared-audio-bus-effects.scene.json` and press **Play → Game**.
